@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/glassflow/clickhouse-etl-internal/internal/api"
 )
 
 type Server struct {
@@ -17,11 +17,13 @@ type Server struct {
 }
 
 func NewHTTPServer(addr string, readTimeout, writeTimeout, idleTimeout time.Duration, log *slog.Logger) *Server {
+	handler := api.NewRouter(log)
+
 	//nolint: exhaustruct // optional server config
 	return &Server{
 		Server: &http.Server{
 			Addr:              addr,
-			Handler:           nil,
+			Handler:           handler,
 			ReadTimeout:       readTimeout,
 			ReadHeaderTimeout: readTimeout,
 			WriteTimeout:      writeTimeout,
@@ -32,11 +34,6 @@ func NewHTTPServer(addr string, readTimeout, writeTimeout, idleTimeout time.Dura
 }
 
 func (s *Server) Start() error {
-	r := mux.NewRouter()
-	r.HandleFunc("/healthz", healthz)
-
-	s.Handler = r
-
 	s.log.Info("HTTP server listening", slog.String("Addr", s.Addr))
 
 	err := s.ListenAndServe()
