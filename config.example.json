@@ -1,0 +1,57 @@
+{
+    "stream_consumer": {
+        "url": "nats://localhost:4222",
+        "stream": "<stream_name>",
+        "consumer": "clickhouse_etl",
+        "ack_wait_seconds": "60s"
+    },
+    "clickhouse_sink": {
+        "host": "127.0.0.1",
+        "port": "9000",
+        "database": "default",
+        "username": "default",
+        "password": "",
+        "tls_enabled": false,
+        "table": "<table_name>"
+    },
+    "batch": {
+        "max_batch_size": 10000
+    },
+    "schema": {
+        "fields": {
+            "event_id": "string",
+            "name": "string",
+            "email": "string",
+            "timestamp": "datetime",
+            "action": "string"
+        },
+        "primary_key_field": "id",
+        "clickhouse_mapping": [
+            {
+                "column_name": "event_id",
+                "field_name": "event_id",
+                "column_type": "UUID"
+            },
+            {
+                "column_name": "name",
+                "field_name": "name",
+                "column_type": "String"
+            },
+            {
+                "column_name": "email",
+                "field_name": "email",
+                "column_type": "String"
+            },
+            {
+                "column_name": "timestamp",
+                "field_name": "timestamp",
+                "column_type": "DateTime"
+            },
+            {
+                "column_name": "action",
+                "field_name": "action",
+                "column_type": "String"
+            }
+        ]
+    }
+}
