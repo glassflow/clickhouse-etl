@@ -154,6 +154,7 @@ func ClickHouseSinkImporter(ctx context.Context, chConfig SinkConnectorConfig, b
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s.%s (%s)", chConfig.Database, chConfig.TableName, strings.Join(schemaMapper.GetOrderedColumns(), ", "))
+	log.Debug("ClickHouse batch insert query", slog.Any("query", query))
 	batch, err := NewBatch(ctx, chConn, query, batchConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create batch: %w", err)
@@ -192,7 +193,7 @@ func ClickHouseSinkImporter(ctx context.Context, chConfig SinkConnectorConfig, b
 				if batch.Size() >= batch.sizeThreshold {
 					err := batch.Send()
 					if err != nil {
-						return fmt.Errorf("failed to flush batch: %w", err)
+						return fmt.Errorf("failed to send the batch: %w", err)
 					}
 					log.Debug("Batch sent")
 

@@ -251,6 +251,7 @@ func parseDateTime(value string) (time.Time, error) {
 		"2006-01-02T15:04:05",
 		"2006-01-02 15:04:05",
 		"2006-01-02 15:04:05.999",
+		"2006-01-02T15:04:05.999999",
 		time.RFC1123,
 		time.RFC1123Z,
 		time.RFC822,
