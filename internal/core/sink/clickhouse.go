@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/internal/core/stream"
@@ -152,7 +153,8 @@ func ClickHouseSinkImporter(ctx context.Context, chConfig SinkConnectorConfig, b
 		}
 	}
 
-	batch, err := NewBatch(ctx, chConn, "INSERT INTO "+chConfig.TableName, batchConfig)
+	query := fmt.Sprintf("INSERT INTO %s.%s (%s)", chConfig.Database, chConfig.TableName, strings.Join(schemaMapper.GetOrderedColumns(), ", "))
+	batch, err := NewBatch(ctx, chConn, query, batchConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create batch: %w", err)
 	}
@@ -160,7 +162,7 @@ func ClickHouseSinkImporter(ctx context.Context, chConfig SinkConnectorConfig, b
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Received stop event")
+			log.Debug("Received stop event")
 			return nil
 		default:
 			err = func() error {
