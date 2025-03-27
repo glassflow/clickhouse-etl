@@ -28,7 +28,7 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 
 	var filter string
 	if len(cfg.NatsSubject) > 0 {
-		filter = cfg.NatsStream + "." + cfg.NatsSubject
+		filter = cfg.NatsSubject
 	}
 
 	//nolint:exhaustruct // optional config
@@ -51,5 +51,5 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 }
 
 func (c *Consumer) Next() (jetstream.Msg, error) {
-	return c.Consumer.Next(jetstream.FetchMaxWait(1000 * time.Millisecond))
+	return c.Consumer.Next(jetstream.FetchMaxWait(1000 * time.Millisecond)) //nolint:wrapcheck // no need to wrap
 }

@@ -50,9 +50,15 @@ func (cl *ConfigLoader[C]) Load() (zero C, _ error) {
 
 func main() {
 	configPath := flag.String("config", "", "Path to config file")
+	debug := flag.Bool("d", false, "Enable debug logging")
 	flag.Parse()
 
-	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logHandlerOpts := slog.HandlerOptions{} //nolint:exhaustruct // optional config
+	if *debug {
+		logHandlerOpts.Level = slog.LevelDebug
+	}
+
+	log := slog.New(slog.NewTextHandler(os.Stdout, &logHandlerOpts))
 
 	ctx, cancel := context.WithCancel(context.Background())
 
