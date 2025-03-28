@@ -25,14 +25,14 @@ setup-docker-test:
 teardown-docker-test:
 	docker compose -p nats_kafka_test -f resources/test_servers.yml down
 
-.PHONY: test
-test:
-	bash -e -c "trap 'trap - SIGINT ERR EXIT; $(MAKE) teardown-docker-test' SIGINT ERR EXIT; \
-		$(MAKE) setup-docker-test && $(MAKE) run-test"
-
 .PHONY: run-test
 run-test:
-	go test -v -count=1 -timeout 5m -race ./...
+	bash -e -c "trap 'trap - SIGINT ERR EXIT; $(MAKE) teardown-docker-test' SIGINT ERR EXIT; \
+		$(MAKE) setup-docker-test && $(MAKE) test"
+
+.PHONY: test
+test:
+	go test -count=1 -timeout 5m -race ./...
 
 .PHONY: run-short-test
 run-short-test:
