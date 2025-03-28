@@ -1,81 +1,15 @@
-## Clickhouse ETL (internal)
+## Clickhouse-etl-internal
 
-## ClickHouse exporter tool (for testing purposes)
+This repository houses the components required for running a complete pipeline
+from Kafka to Clickhouse.
 
-How to run:
->go run cmd/ch-etl/main.go -config <path_to_config>
+To test in development mode execute:
+`make run`
 
-Structure of config file exists in **config.example.json**.
-Config have 4 sections:
- 
- - **stream_consumer** - configuration of NATS consumer
-- **clickhouse_sink** - configuration of ClickHouse node
-- **batch** - batch config
-- **schema** - which have 3 sections too:
-	
-	- *fields* - map with fields and types of original event
-	- *primary_key_field* - name of *primary key* field
-	- *clickhouse_mapping* - mapping of ClickHouse column name, event field name and ClickHouse column type
+Ensure any credentials required are set in `.env` file. E.g. AWS client and secret IDs for connecting with MSK Kafka.
 
-Please, encode password of your CH database in base64 format, like this:
-> echo -n password | base64
+An example [docker-compose.yaml](./docker-compose.yaml) has been added to show how this would eventually work for end-users / clients.
 
-Example:
-```
-{
-"stream_consumer": {
-    "url": "nats://localhost:4222",
-	"stream": "<stream_name>",
-	"consumer": "clickhouse_etl",
-	"ack_wait_seconds": "60s"
-},
-"clickhouse_sink": {
-	"host": "127.0.0.1",
-	"port": "9000",
-	"database": "default",
-	"username": "default",
-	"password": "<password_in_base64>",
-	"tls_enabled": false,
-	"table": "<table_name>"
-},
-"batch": {
-	"max_batch_size": 10000
-},
-"schema": {
-	"fields": {
-	"event_id": "string",
-	"name": "string",
-	"email": "string",
-	"timestamp": "datetime",
-	"action": "string"
-},
-"primary_key_field": "id",
-"clickhouse_mapping": [
-	{
-		"column_name": "event_id",
-		"field_name": "event_id",
-		"column_type": "UUID"
-	},
-	{
-		"column_name": "name",
-		"field_name": "name",
-		"column_type": "String"
-	},
-	{
-		"column_name": "email",
-		"field_name": "email",
-		"column_type": "String"
-	},
-	{
-		"column_name": "timestamp",
-		"field_name": "timestamp",
-		"column_type": "DateTime"
-	},
-	{
-		"column_name": "action",
-		"field_name": "action",
-		"column_type": "String"
-	}
-]}
-}
-```
+All functionality related to the API resides under ./glassflow-api and development related only to the API can be continued there.
+
+All functionality related to the Kafka to Nats bridge reside under ./nats-kafka-bridge and all relaeed development can be continued there.

@@ -1,0 +1,16 @@
+services:
+  nats:
+    image: nats:alpine
+    ports:
+      - 4222:4222
+    command: --js
+    restart: unless-stopped
+
+  app:
+    image: ghcr.io/glassflow/clickhouse-etl-internal:v0.0.1
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+    environment:
+      GLASSFLOW_NATS_SERVER: nats:4222
+    env_file: .env

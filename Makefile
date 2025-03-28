@@ -1,12 +1,19 @@
-.PHONY: run-test
-run-test:
-	go test -v -count=1 -race $(shell go list ./... | grep -v /tests)
+ifneq (,$(wildcard ./.env))
+include .env
+$(eval export $(shell sed -ne 's/ *#.*$$//; /./ s/=.*$$// p' .env))
+endif
 
-.PHONY: run-short-test
-run-short-test:
-	# Running with -short to avoid flaky tests.
-	go test -v -short -count=1 -timeout 5m -race $(shell go list ./... | grep -v /tests)
+.PHONY: run
+run: nats-kafka-bridge
+	PATH="$(PWD)/nats-kafka-bridge/bin:$$PATH" $(MAKE) -C glassflow-api run
 
-.PHONY: run-e2e-test
-run-e2e-test:
-	TESTCONTAINERS_RYUK_DISABLED=true go test -v ./tests
+.PHONY: nats-kafka-bridge
+nats-kafka-bridge:
+	$(MAKE) -C nats-kafka-bridge build
+
+.PHONY: clickhouse-etl
+clickhouse-etl:
+	$(MAKE) -C glassflow-api build
+
+.PHONY: build
+build: nats-kafka-bridge clickhouse-etl
