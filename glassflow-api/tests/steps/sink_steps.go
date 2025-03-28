@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -24,9 +23,10 @@ type SinkTestSuite struct {
 	chContainer   *testutils.ClickHouseContainer
 
 	StreamConfig *stream.ConsumerConfig
-	SinkSonfig   *sink.SinkConnectorConfig
+	SinkSonfig   *sink.ConnectorConfig
 	SchemaConfig *schema.SchemaConfig
 	BatchConfig  *sink.BatchConfig
+	CHSink       *sink.ClickHouseSink
 }
 
 func NewSinkTestSuite() *SinkTestSuite {
@@ -54,13 +54,38 @@ func (s *SinkTestSuite) aRunningCHInstance() error {
 	return nil
 }
 
-func (s *SinkTestSuite) aStreamConsumerConfig() error {
-	s.StreamConfig = &stream.ConsumerConfig{ //nolint:exhaustruct // optional config
-		NatsURL:      s.natsContainer.GetURI(),
-		NatsStream:   "test_stream",
-		NatsConsumer: "test_consumer",
-		NatsSubject:  "test_subject",
+func (s *SinkTestSuite) aStreamConsumerConfig(streamName, subjectName, consumerName string) error {
+	s.StreamConfig = &stream.ConsumerConfig{
+		NatsURL:        s.natsContainer.GetURI(),
+		NatsStream:     streamName,
+		NatsConsumer:   consumerName,
+		NatsSubject:    subjectName,
+		AckWaitSeconds: 5,
 	}
+	return nil
+}
+
+func (s *SinkTestSuite) aRunningNATSJetStream(streamName, subjectName string) error {
+	natsWrap, err := stream.NewNATSWrapper(s.StreamConfig.NatsURL)
+	if err != nil {
+		return fmt.Errorf("create nats wrapper: %w", err)
+	}
+	defer natsWrap.Close()
+
+	js := natsWrap.JetStream()
+
+	// Create stream if not exists
+	_, err = js.Stream(context.Background(), s.StreamConfig.NatsStream)
+	if err != nil {
+		_, err = js.CreateOrUpdateStream(context.Background(), jetstream.StreamConfig{ //nolint:exhaustruct // optional config
+			Name:     streamName,
+			Subjects: []string{subjectName},
+		})
+		if err != nil {
+			return fmt.Errorf("create stream: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -69,7 +94,7 @@ func (s *SinkTestSuite) aClickHouseSinkConfig(dbName, tableName string) error {
 	if err != nil {
 		return fmt.Errorf("get clickhouse port: %w", err)
 	}
-	s.SinkSonfig = &sink.SinkConnectorConfig{ //nolint:exhaustruct // optional config
+	s.SinkSonfig = &sink.ConnectorConfig{ //nolint:exhaustruct // optional config
 		Port:      chPort,
 		Username:  "default",
 		Password:  base64.StdEncoding.EncodeToString([]byte("default")),
@@ -134,18 +159,6 @@ func (s *SinkTestSuite) iPublishEventsToTheStream(count int, dataTable *godog.Ta
 
 	js := natsWrap.JetStream()
 
-	// Create stream if not exists
-	_, err = js.Stream(context.Background(), s.StreamConfig.NatsStream)
-	if err != nil {
-		_, err = js.CreateOrUpdateStream(context.Background(), jetstream.StreamConfig{ //nolint:exhaustruct // optional config
-			Name:     s.StreamConfig.NatsStream,
-			Subjects: []string{s.StreamConfig.NatsSubject},
-		})
-		if err != nil {
-			return fmt.Errorf("create stream: %w", err)
-		}
-	}
-
 	if len(dataTable.Rows) < count {
 		return fmt.Errorf("not enough rows in the table")
 	}
@@ -176,9 +189,6 @@ func (s *SinkTestSuite) iPublishEventsToTheStream(count int, dataTable *godog.Ta
 }
 
 func (s *SinkTestSuite) iRunClickHouseSink(timeoutSeconds int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
-	defer cancel()
-
 	natsWrapper, err := stream.NewNATSWrapper(s.StreamConfig.NatsURL)
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
@@ -186,8 +196,7 @@ func (s *SinkTestSuite) iRunClickHouseSink(timeoutSeconds int) error {
 
 	defer natsWrapper.Close()
 
-	s.StreamConfig.NatsSubject = ""
-	streamConsumer, err := stream.NewConsumer(ctx, natsWrapper.JetStream(), *s.StreamConfig)
+	streamConsumer, err := stream.NewConsumer(context.Background(), natsWrapper.JetStream(), *s.StreamConfig)
 	if err != nil {
 		return fmt.Errorf("create stream consumer: %w", err)
 	}
@@ -199,20 +208,43 @@ func (s *SinkTestSuite) iRunClickHouseSink(timeoutSeconds int) error {
 
 	logger := testutils.NewTestLogger()
 
+	sink, err := sink.NewClickHouseSink(*s.SinkSonfig, *s.BatchConfig, streamConsumer, schemaMapper, logger)
+	if err != nil {
+		return fmt.Errorf("create ClickHouse sink: %w", err)
+	}
+	s.CHSink = sink
+
+	errCh := make(chan error, 1)
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
 	go func() {
-		err = sink.ClickHouseSinkImporter(ctx, *s.SinkSonfig, *s.BatchConfig, streamConsumer, schemaMapper, logger)
-		if err != nil {
-			logger.Error("import data to clickhouse:", slog.Any("error", err))
-		}
+		defer wg.Done()
+		s.CHSink.Start(context.Background(), errCh)
 	}()
 
-	<-ctx.Done()
+	// Wait for the sink to finish or timeout
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(time.Duration(timeoutSeconds) * time.Second)
+		s.CHSink.Stop()
+	}()
 
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return nil
+	wg.Wait()
+
+	select {
+	case err, ok := <-errCh:
+		if ok {
+			return fmt.Errorf("error from sink: %w", err)
+		}
+	default:
+		// No error from sink
 	}
+	close(errCh)
 
-	return ctx.Err()
+	return nil
 }
 
 func (s *SinkTestSuite) theClickHouseTableShouldContainRows(tableName string, count int) error {
@@ -345,6 +377,11 @@ func (s *SinkTestSuite) CleanupResources() error {
 		}
 	}
 
+	// Close ClickHouse sink
+	if s.CHSink != nil {
+		s.CHSink.Stop()
+	}
+
 	// Stop ClickHouse container
 	if s.chContainer != nil {
 		err := s.chContainer.Stop(context.Background())
@@ -381,7 +418,8 @@ func (s *SinkTestSuite) CleanupResources() error {
 func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a running NATS instance$`, s.aRunningNATSInstance)
 	sc.Step(`^a running ClickHouse instance$`, s.aRunningCHInstance)
-	sc.Step(`^a stream consumer config$`, s.aStreamConsumerConfig)
+	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, s.aRunningNATSJetStream)
+	sc.Step(`^a stream consumer config with stream "([^"]*)" and subject "([^"]*)" and consumer "([^"]*)"$`, s.aStreamConsumerConfig)
 	sc.Step(`^a ClickHouse sink config with db "([^"]*)" and table "([^"]*)"$`, s.aClickHouseSinkConfig)
 	sc.Step(`^the ClickHouse table "([^"]*)" already exists with schema$`, s.theClickHouseTableAlreadyExistsWithSchema)
 	sc.Step(`^a batch config with max size (\d+)$`, s.aBatchConfigWithMaxSize)

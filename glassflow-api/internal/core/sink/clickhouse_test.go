@@ -36,12 +36,12 @@ func (m *MockBatch) Column(int) driver.BatchColumn {
 }
 
 func (m *MockBatch) Flush() error {
-	args := m.Called()
-	return args.Error(0)
+	return nil
 }
 
 func (m *MockBatch) Send() error {
-	return nil
+	args := m.Called()
+	return args.Error(0)
 }
 
 func (m *MockBatch) IsSent() bool {
@@ -127,13 +127,12 @@ func TestNewBatch(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockConn := new(MockConn)
 		mockBatch := new(MockBatch)
-		ctx := context.Background()
 		query := "INSERT INTO test VALUES"
 		cfg := BatchConfig{MaxBatchSize: 100}
 
-		mockConn.On("PrepareBatch", ctx, query).Return(mockBatch, nil)
+		mockConn.On("PrepareBatch", t.Context(), query).Return(mockBatch, nil)
 
-		batch, err := NewBatch(ctx, mockConn, query, cfg)
+		batch, err := NewBatch(t.Context(), mockConn, query, cfg)
 
 		require.NoError(t, err)
 		assert.Equal(t, cfg.MaxBatchSize, batch.sizeThreshold)
@@ -143,7 +142,7 @@ func TestNewBatch(t *testing.T) {
 
 	t.Run("PrepareBatchError", func(t *testing.T) {
 		mockConn := new(MockConn)
-		ctx := context.Background()
+		ctx := t.Context()
 		query := "INSERT INTO test VALUES"
 		cfg := BatchConfig{MaxBatchSize: 100}
 
@@ -224,7 +223,7 @@ func TestBatchAppend(t *testing.T) {
 	})
 }
 
-func TestBatchFlush(t *testing.T) {
+func TestBatchSend(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockConn := new(MockConn)
 		mockBatch := new(MockBatch)
@@ -238,9 +237,9 @@ func TestBatchFlush(t *testing.T) {
 		}
 
 		mockConn.On("PrepareBatch", mock.Anything, mock.Anything).Return(mockBatch, nil)
-		mockBatch.On("Flush").Return(nil)
+		mockBatch.On("Send").Return(nil)
 
-		err := batch.Flush()
+		err := batch.Send(t.Context())
 
 		require.NoError(t, err)
 		assert.Empty(t, batch.cache)
@@ -248,7 +247,7 @@ func TestBatchFlush(t *testing.T) {
 		mockConn.AssertExpectations(t)
 	})
 
-	t.Run("FlushError", func(t *testing.T) {
+	t.Run("SendError", func(t *testing.T) {
 		mockConn := new(MockConn)
 		mockBatch := new(MockBatch)
 		batch := &Batch{
@@ -260,12 +259,12 @@ func TestBatchFlush(t *testing.T) {
 			},
 		}
 
-		expectedErr := errors.New("flush error")
-		mockBatch.On("Flush").Return(expectedErr)
+		expectedErr := errors.New("send error")
+		mockBatch.On("Send").Return(expectedErr)
 
-		err := batch.Flush()
+		err := batch.Send(t.Context())
 
-		assert.ErrorContains(t, err, "failed to flush the batch")
+		assert.ErrorContains(t, err, "failed to send the batch")
 		assert.ErrorIs(t, err, expectedErr)
 		assert.Len(t, batch.cache, 2) // Cache should not be cleared on error
 		mockBatch.AssertExpectations(t)

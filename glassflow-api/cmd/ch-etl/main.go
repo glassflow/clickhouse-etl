@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
@@ -16,10 +17,10 @@ import (
 )
 
 type Config struct {
-	StreamConsumerConfig stream.ConsumerConfig    `json:"stream_consumer"`
-	ClickhouseSinkConfig sink.SinkConnectorConfig `json:"clickhouse_sink"`
-	BatchConfig          sink.BatchConfig         `json:"batch"`
-	SchemaConfig         schema.SchemaConfig      `json:"schema"`
+	StreamConsumerConfig stream.ConsumerConfig `json:"stream_consumer"`
+	ClickhouseSinkConfig sink.ConnectorConfig  `json:"clickhouse_sink"`
+	BatchConfig          sink.BatchConfig      `json:"batch"`
+	SchemaConfig         schema.SchemaConfig   `json:"schema"`
 }
 
 type ConfigLoader[C any] struct {
@@ -60,16 +61,7 @@ func main() {
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &logHandlerOpts))
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-signalChan
-		log.Info("Received interrupt signal, shutting down gracefully...")
-		cancel()
-	}()
+	ctx := context.Background()
 
 	loader, err := NewConfigLoader[Config](*configPath)
 	if err != nil {
@@ -102,25 +94,62 @@ func main() {
 		return
 	}
 
-	err = sink.ClickHouseSinkImporter(ctx, cfg.ClickhouseSinkConfig, cfg.BatchConfig, eventsConsumer, schemaMapper, log)
+	// Create ClickHouse sink
+	clickhouseSink, err := sink.NewClickHouseSink(cfg.ClickhouseSinkConfig, cfg.BatchConfig, eventsConsumer, schemaMapper, log)
 	if err != nil {
-		log.Error("failed to import data to ClickHouse: ", slog.Any("error", err))
+		log.Error("failed to create ClickHouse sink: ", slog.Any("error", err))
 		return
 	}
 
+	wg := sync.WaitGroup{}
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	wg.Add(1)
+	go func() {
+		// Wait for interrupt signal
+		defer wg.Done()
+		<-signalChan
+		log.Info("Received interrupt signal, shutting down gracefully...")
+		clickhouseSink.Stop()
+	}()
+
+	errCh := make(chan error, 1)
+	wg.Add(1)
+	go func() {
+		// Run the ClickHouse sink
+		defer wg.Done()
+		clickhouseSink.Start(ctx, errCh)
+	}()
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
 	// Close all connections
-	err = func() error {
+	errs := func() []error {
+		errors := make([]error, 0)
+
+		select {
+		case err, ok := <-errCh:
+			if ok {
+				errors = append(errors, fmt.Errorf("error from sink: %w", err))
+			}
+		default:
+		}
+
 		if err := nc.Close(); err != nil {
-			return fmt.Errorf("failed to close NATS wrapper: %w", err)
+			errors = append(errors, fmt.Errorf("failed to close NATS wrapper: %w", err))
 		}
 
 		log.Info("All connections closed")
 
-		return nil
+		return errors
 	}()
-	if err != nil {
-		log.Error("failed wrap up: ", slog.Any("error", err))
-		return
+	if len(errs) != 0 {
+		for _, err := range errs {
+			log.Error("error: ", slog.Any("error", err))
+		}
 	}
 
 	log.Info("ClickHouse ETL finished")
