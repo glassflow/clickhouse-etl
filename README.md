@@ -10,6 +10,6 @@ Ensure any credentials required are set in `.env` file. E.g. AWS client and secr
 
 An example [docker-compose.yaml](./docker-compose.yaml) has been added to show how this would eventually work for end-users / clients.
 
-All functionality related to the API resides under ./glassflow-api and development related only to the API can be continued there.
+All functionality related to the API resides under [glassflow-api](./glassflow-api) and development related only to the API can be continued there.
 
-All functionality related to the Kafka to Nats bridge reside under ./nats-kafka-bridge and all relaeed development can be continued there.
+All functionality related to the Kafka to Nats bridge reside under [nats-kafka-bridge](./nats-kafka-bridge) and all related development can be continued there.
