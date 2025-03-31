@@ -8,105 +8,26 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-type BridgeManager struct {
-	bridges    map[string]*Bridge
-	natsServer string
-	log        *slog.Logger
-
-	m sync.Mutex
+type ErrStartBridge struct {
+	msg string
 }
 
-func NewBridgeManager(natsServer string, log *slog.Logger) *BridgeManager {
-	//nolint: exhaustruct // mutex is initialized by zero value
-	return &BridgeManager{
-		natsServer: natsServer,
-		log:        log,
-		bridges:    make(map[string]*Bridge),
-	}
+func (e ErrStartBridge) Error() string {
+	return fmt.Sprintf("failed to start bridge: %s", e.msg)
 }
 
-func (bmgr *BridgeManager) SetupBridges(
-	kafkaCfg *models.KafkaConfig,
-	topics []*models.TopicConfig,
-) error {
-	bridges := make([]*Bridge, len(topics))
+type BridgeImpl struct {
+	id string
 
-	for i, t := range topics {
-		bridge := NewBridge(bmgr.natsServer, t, kafkaCfg, bmgr.log)
-
-		err := bridge.Start()
-		if err != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			// extra non nil check due to peralloc
-			for _, b := range bridges {
-				if b != nil {
-					b.Stop(ctx)
-				}
-			}
-
-			return fmt.Errorf("start bridge for %s: %w", t.Name, err)
-		}
-
-		bridges[i] = bridge
-	}
-
-	for _, b := range bridges {
-		bmgr.set(b.ID, b)
-	}
-
-	return nil
-}
-
-func (bmgr *BridgeManager) Get(id string) *Bridge {
-	bmgr.m.Lock()
-	defer bmgr.m.Unlock()
-
-	return bmgr.bridges[id]
-}
-
-func (bmgr *BridgeManager) set(id string, b *Bridge) {
-	bmgr.m.Lock()
-	defer bmgr.m.Unlock()
-
-	bmgr.bridges[id] = b
-}
-
-func (bmgr *BridgeManager) Shutdown(timeout time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	bmgr.m.Lock()
-	defer bmgr.m.Unlock()
-
-	wg := sync.WaitGroup{}
-
-	for _, b := range bmgr.bridges {
-		wg.Add(1)
-		go func() {
-			b.Stop(ctx)
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
-}
-
-type Bridge struct {
-	ID string
-
-	Kafka models.KafkaConfig
-	Topic models.TopicConfig
+	Kafka *models.KafkaConfig
+	Topic *models.TopicConfig
 
 	Nats models.NatsConfig
 
@@ -115,46 +36,59 @@ type Bridge struct {
 	cmd *exec.Cmd
 }
 
-func NewBridge(
-	natsServer string,
-	topicCfg *models.TopicConfig,
-	kafkaCfg *models.KafkaConfig,
-	log *slog.Logger,
-) *Bridge {
-	id := fmt.Sprintf("%s-%s", topicCfg.Name, uuid.New())
+type BridgeFactoryImpl struct {
+	natsServer string
+	kafkaCfg   *models.KafkaConfig
+	log        *slog.Logger
+}
+
+func NewBridgeFactory(natsServer string, log *slog.Logger) *BridgeFactoryImpl {
+	return &BridgeFactoryImpl{
+		natsServer: natsServer,
+		log:        log,
+	}
+}
+
+func (f *BridgeFactoryImpl) CreateBridge(k *models.KafkaConfig, t *models.TopicConfig) Bridge {
+	id := fmt.Sprintf("%s-%s", t.Name, uuid.New())
 	cgID := fmt.Sprintf("%s-%s", "cg", id)
 
 	stream := fmt.Sprintf("%s-%s", "stream", id)
 	subject := fmt.Sprintf("%s-%s", "input", id)
 
+	cmd := exec.Command("nats-kafka-bridge")
+
 	//nolint: exhaustruct // cmd will be added later
-	return &Bridge{
-		ID: id,
+	return &BridgeImpl{
+		id: id,
 
-		Kafka: *kafkaCfg,
+		Kafka: k,
 
-		Topic: models.TopicConfig{
-			Name:                       topicCfg.Name,
-			DedupWindow:                topicCfg.DedupWindow,
-			DedupKey:                   topicCfg.DedupKey,
-			DedupKeyType:               topicCfg.DedupKeyType,
+		Topic: &models.TopicConfig{
+			Name:                       t.Name,
+			DedupWindow:                t.DedupWindow,
+			DedupKey:                   t.DedupKey,
+			DedupKeyType:               t.DedupKeyType,
 			ConsumerGroupID:            cgID,
-			ConsumerGroupInitialOffset: topicCfg.ConsumerGroupInitialOffset,
+			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 		},
 
 		Nats: models.NatsConfig{
-			Server:  natsServer,
+			Server:  f.natsServer,
 			Subject: subject,
 			Stream:  stream,
 		},
 
-		log: log,
+		log: f.log,
+		cmd: cmd,
 	}
 }
 
-func (b *Bridge) Start() error {
-	b.cmd = exec.Command("nats-kafka-bridge")
+func (b *BridgeImpl) ID() string {
+	return b.id
+}
 
+func (b *BridgeImpl) Start() error {
 	b.setupEnv()
 
 	stderr, err := b.cmd.StderrPipe()
@@ -164,7 +98,7 @@ func (b *Bridge) Start() error {
 
 	err = b.cmd.Start()
 	if err != nil {
-		return fmt.Errorf("run command: %w", err)
+		return ErrStartBridge{msg: err.Error()}
 	}
 
 	go func() {
@@ -214,7 +148,7 @@ func (b *Bridge) Start() error {
 	return nil
 }
 
-func (b *Bridge) Stop(ctx context.Context) {
+func (b *BridgeImpl) Stop(ctx context.Context) {
 	err := b.cmd.Process.Signal(syscall.SIGTERM)
 	if err != nil {
 		b.log.Warn("")
@@ -233,10 +167,10 @@ func (b *Bridge) Stop(ctx context.Context) {
 	}
 }
 
-func (b *Bridge) setupEnv() {
+func (b *BridgeImpl) setupEnv() {
 	env := make(map[string]string)
 
-	env["BRIDGE_CONNECTOR_ID"] = b.ID
+	env["BRIDGE_CONNECTOR_ID"] = b.id
 
 	env["BRIDGE_NATS_SERVER"] = b.Nats.Server
 	env["BRIDGE_NATS_STREAM"] = b.Nats.Stream

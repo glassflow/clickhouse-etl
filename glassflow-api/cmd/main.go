@@ -80,7 +80,7 @@ func main() {
 }
 
 func mainErr(cfg *config, log *slog.Logger) error {
-	bridgeMgr := service.NewBridgeManager(cfg.NATSServer, log)
+	bridgeMgr := service.NewBridgeManager(service.NewBridgeFactory(cfg.NATSServer, log))
 
 	handler := api.NewRouter(log, bridgeMgr)
 
