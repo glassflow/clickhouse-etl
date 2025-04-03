@@ -114,24 +114,13 @@ type IAM struct {
 
 // MakeTLSConfig creates a tls.Config from a TLSConf, setting up the key pairs and certs
 func (tlsConf *TLSConf) MakeTLSConfig() (*tls.Config, error) {
-	if tlsConf.Cert == "" || tlsConf.Key == "" {
+	if tlsConf.Cert == "" && tlsConf.Key == "" && tlsConf.Root == "" {
 		//nolint: nilnil // don't need sentinel error
 		return nil, nil
 	}
 
-	cert, err := tls.LoadX509KeyPair(tlsConf.Cert, tlsConf.Key)
-	if err != nil {
-		return nil, fmt.Errorf("error loading X509 certificate/key pair: %w", err)
-	}
-
-	cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return nil, fmt.Errorf("error parsing certificate: %w", err)
-	}
-
 	//nolint: exhaustruct // optional config
 	config := tls.Config{
-		Certificates:             []tls.Certificate{cert},
 		MinVersion:               tls.VersionTLS12,
 		ClientAuth:               tls.NoClientCert,
 		PreferServerCipherSuites: true,
@@ -146,6 +135,20 @@ func (tlsConf *TLSConf) MakeTLSConfig() (*tls.Config, error) {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 		config.RootCAs = caCertPool
+	}
+
+	if tlsConf.Cert != "" || tlsConf.Key != "" {
+		cert, err := tls.LoadX509KeyPair(tlsConf.Cert, tlsConf.Key)
+		if err != nil {
+			return nil, fmt.Errorf("error loading X509 certificate/key pair: %w", err)
+		}
+
+		cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return nil, fmt.Errorf("error parsing certificate: %w", err)
+		}
+
+		config.Certificates = []tls.Certificate{cert}
 	}
 
 	return &config, nil
