@@ -17,7 +17,8 @@ type ConsumerConfig struct {
 }
 
 type Consumer struct {
-	Consumer jetstream.Consumer
+	Consumer   jetstream.Consumer
+	consumeCtx jetstream.ConsumeContext
 }
 
 func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*Consumer, error) {
@@ -46,10 +47,28 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 	}
 
 	return &Consumer{
-		Consumer: consumer,
+		Consumer:   consumer,
+		consumeCtx: nil,
 	}, nil
 }
 
 func (c *Consumer) Next() (jetstream.Msg, error) {
 	return c.Consumer.Next(jetstream.FetchMaxWait(1000 * time.Millisecond)) //nolint:wrapcheck // no need to wrap
+}
+
+func (c *Consumer) Subscribe(msgHandlerFunc func(jetstream.Msg)) error {
+	ctx, err := c.Consumer.Consume(msgHandlerFunc)
+	if err != nil {
+		return fmt.Errorf("subscribe: %w", err)
+	}
+
+	c.consumeCtx = ctx
+
+	return nil
+}
+
+func (c *Consumer) Unsubscribe() {
+	if c.consumeCtx != nil {
+		c.consumeCtx.Stop()
+	}
 }

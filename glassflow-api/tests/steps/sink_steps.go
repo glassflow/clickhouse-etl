@@ -24,7 +24,7 @@ type SinkTestSuite struct {
 
 	StreamConfig *stream.ConsumerConfig
 	SinkSonfig   *sink.ConnectorConfig
-	SchemaConfig *schema.SchemaConfig
+	SchemaConfig *schema.Config
 	BatchConfig  *sink.BatchConfig
 	CHSink       *sink.ClickHouseSink
 }
@@ -201,7 +201,7 @@ func (s *SinkTestSuite) iRunClickHouseSink(timeoutSeconds int) error {
 		return fmt.Errorf("create stream consumer: %w", err)
 	}
 
-	schemaMapper, err := schema.NewSchemaMapper(*s.SchemaConfig)
+	schemaMapper, err := schema.NewMapper(s.SchemaConfig.Streams, s.SchemaConfig.SinkMapping)
 	if err != nil {
 		return fmt.Errorf("create schema mapper: %w", err)
 	}

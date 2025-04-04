@@ -108,14 +108,14 @@ type ClickHouseSink struct {
 	conn         driver.Conn
 	batch        *Batch
 	streamCon    *stream.Consumer
-	schemaMapper schema.SchemaMapper
+	schemaMapper schema.Mapper
 	isClosed     bool
 	mu           sync.Mutex
 	done         chan struct{}
 	log          *slog.Logger
 }
 
-func NewClickHouseSink(chConfig ConnectorConfig, batchConfig BatchConfig, streamCon *stream.Consumer, schemaMapper *schema.SchemaMapper, log *slog.Logger) (*ClickHouseSink, error) {
+func NewClickHouseSink(chConfig ConnectorConfig, batchConfig BatchConfig, streamCon *stream.Consumer, schemaMapper *schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
 	pswd, err := base64.StdEncoding.DecodeString(chConfig.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode password: %w", err)
@@ -155,7 +155,7 @@ func NewClickHouseSink(chConfig ConnectorConfig, batchConfig BatchConfig, stream
 
 	batch, err := NewBatch(context.Background(), chConn, query, batchConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create batch: %w", err)
+		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
 
 	return &ClickHouseSink{

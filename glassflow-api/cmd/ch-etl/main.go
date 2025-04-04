@@ -20,7 +20,7 @@ type Config struct {
 	StreamConsumerConfig stream.ConsumerConfig `json:"stream_consumer"`
 	ClickhouseSinkConfig sink.ConnectorConfig  `json:"clickhouse_sink"`
 	BatchConfig          sink.BatchConfig      `json:"batch"`
-	SchemaConfig         schema.SchemaConfig   `json:"schema"`
+	SchemaConfig         schema.Config         `json:"schema"`
 }
 
 type ConfigLoader[C any] struct {
@@ -88,7 +88,7 @@ func main() {
 		return
 	}
 
-	schemaMapper, err := schema.NewSchemaMapper(cfg.SchemaConfig)
+	schemaMapper, err := schema.NewMapper(cfg.SchemaConfig.Streams, cfg.SchemaConfig.SinkMapping)
 	if err != nil {
 		log.Error("failed to create schema mapper: ", slog.Any("error", err))
 		return

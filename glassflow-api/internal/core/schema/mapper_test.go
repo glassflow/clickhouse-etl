@@ -1,909 +1,864 @@
 package schema
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-func TestSchemaMapper_PrepareClickHouseValues(t *testing.T) {
-	// Setup test schema config
-	config := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":        TypeInt,
-			"name":      TypeString,
-			"active":    TypeBool,
-			"score":     TypeFloat,
-			"timestamp": TypeString,
-		},
-		PrimaryKey: "id",
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "Int64"},
-			{ColumnName: "user_name", FieldName: "name", ColumnType: "String"},
-			{ColumnName: "is_active", FieldName: "active", ColumnType: "Bool"},
-			{ColumnName: "user_score", FieldName: "score", ColumnType: "Float64"},
-			{ColumnName: "created_at", FieldName: "timestamp", ColumnType: "DateTime"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(config)
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper: %v", err)
-	}
-
-	// Test case 1: Valid JSON data
-	testJSON := `{
-        "id": 123,
-        "name": "test user",
-        "active": true,
-        "score": 85.5,
-        "timestamp": "2023-01-15T14:30:45Z"
-    }`
-
-	values, err := mapper.PrepareClickHouseValues([]byte(testJSON))
-	if err != nil {
-		t.Fatalf("PrepareClickHouseValues failed: %v", err)
-	}
-
-	// Expected order based on the columns defined in the config
-	expectedValues := []any{
-		int64(123),             // user_id
-		"test user",            // user_name
-		true,                   // is_active
-		85.5,                   // user_score
-		"2023-01-15T14:30:45Z", // created_at
-	}
-
-	if len(values) != len(expectedValues) {
-		t.Fatalf("Expected %d values, got %d", len(expectedValues), len(values))
-	}
-
-	for i, v := range values {
-		if !reflect.DeepEqual(v, expectedValues[i]) {
-			t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
-				i, expectedValues[i], expectedValues[i], v, v)
-		}
-	}
-
-	// Test case 2: Missing fields in JSON
-	incompleteJSON := `{
-        "id": 456,
-        "name": "incomplete user"
-    }`
-
-	values, err = mapper.PrepareClickHouseValues([]byte(incompleteJSON))
-	if err != nil {
-		t.Fatalf("PrepareClickHouseValues with incomplete data failed: %v", err)
-	}
-
-	// Check we have the right number of items (with some nil values)
-	if len(values) != len(mapper.GetOrderedColumns()) {
-		t.Errorf("Expected %d values (with nils), got %d",
-			len(mapper.GetOrderedColumns()), len(values))
-	}
-
-	// Check specific values are correct
-	if values[0] != int64(456) {
-		t.Errorf("Expected user_id 456, got %v", values[0])
-	}
-	if values[1] != "incomplete user" {
-		t.Errorf("Expected user_name 'incomplete user', got %v", values[1])
-	}
-
-	// Test case 3: Invalid JSON
-	_, err = mapper.PrepareClickHouseValues([]byte(`{invalid json}`))
-	if err == nil {
-		t.Error("Expected error for invalid JSON, got nil")
-	}
-}
-
-func TestSchemaMapper_GetMappedValues(t *testing.T) {
-	// Setup test schema config (same as above)
-	config := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":        TypeInt,
-			"name":      TypeString,
-			"active":    TypeBool,
-			"score":     TypeFloat,
-			"timestamp": TypeString,
-		},
-		PrimaryKey: "id",
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "Int64"},
-			{ColumnName: "user_name", FieldName: "name", ColumnType: "String"},
-			{ColumnName: "is_active", FieldName: "active", ColumnType: "Bool"},
-			{ColumnName: "user_score", FieldName: "score", ColumnType: "Float64"},
-			{ColumnName: "created_at", FieldName: "timestamp", ColumnType: "DateTime"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(config)
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper: %v", err)
-	}
-
-	// Test case 1: Complete data map
-	testData := map[string]any{
-		"user_id":    int64(123),
-		"user_name":  "test user",
-		"is_active":  true,
-		"user_score": 85.5,
-		"created_at": time.Date(2023, 1, 15, 14, 30, 45, 0, time.UTC),
-	}
-
-	values := mapper.GetMappedValues(testData)
-
-	// Expected values in the expected order
-	expectedValues := []any{
-		int64(123),  // user_id
-		"test user", // user_name
-		true,        // is_active
-		85.5,        // user_score
-		time.Date(2023, 1, 15, 14, 30, 45, 0, time.UTC), // created_at
-	}
-
-	if len(values) != len(expectedValues) {
-		t.Fatalf("Expected %d values, got %d", len(expectedValues), len(values))
-	}
-
-	for i, v := range values {
-		if !reflect.DeepEqual(v, expectedValues[i]) {
-			t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
-				i, expectedValues[i], expectedValues[i], v, v)
-		}
-	}
-
-	// Test case 2: Incomplete data map
-	incompleteData := map[string]any{
-		"user_id":   int64(456),
-		"user_name": "incomplete user",
-	}
-
-	values = mapper.GetMappedValues(incompleteData)
-
-	// Check we have the right number of items (with some nil values)
-	if len(values) != len(mapper.GetOrderedColumns()) {
-		t.Errorf("Expected %d values (with nils), got %d",
-			len(mapper.GetOrderedColumns()), len(values))
-	}
-
-	// Check specific values are correct
-	if values[0] != int64(456) {
-		t.Errorf("Expected user_id 456, got %v", values[0])
-	}
-	if values[1] != "incomplete user" {
-		t.Errorf("Expected user_name 'incomplete user', got %v", values[1])
-	}
-	// Other values should be nil
-	for i := 2; i < len(values); i++ {
-		if values[i] != nil {
-			t.Errorf("Expected nil value at position %d, got %v", i, values[i])
-		}
-	}
-
-	// Test case 3: Testing relationship between PrepareForClickHouse and GetMappedValues
-	testJSON := `{
-        "id": 789,
-        "name": "combined test",
-        "active": true,
-        "score": 92.5,
-        "timestamp": "2023-05-10T09:15:30Z"
-    }`
-
-	var rawData map[string]any
-	if err := json.Unmarshal([]byte(testJSON), &rawData); err != nil {
-		t.Fatalf("Failed to unmarshal test JSON: %v", err)
-	}
-
-	// Process with PrepareForClickHouse
-	mappedData, err := mapper.PrepareForClickHouse([]byte(testJSON))
-	if err != nil {
-		t.Fatalf("PrepareForClickHouse failed: %v", err)
-	}
-
-	// Get values using both methods
-	valuesFromPrepare, err := mapper.PrepareClickHouseValues([]byte(testJSON))
-	if err != nil {
-		t.Fatalf("PrepareClickHouseValues failed: %v", err)
-	}
-
-	valuesFromMapped := mapper.GetMappedValues(mappedData)
-
-	// Both should produce identical results
-	if !reflect.DeepEqual(valuesFromPrepare, valuesFromMapped) {
-		t.Errorf("PrepareClickHouseValues and GetMappedValues produced different results")
-		t.Errorf("PrepareClickHouseValues: %v", valuesFromPrepare)
-		t.Errorf("GetMappedValues: %v", valuesFromMapped)
-	}
-}
-
-func TestSchemaMapper_EmptyPrimaryKey(t *testing.T) {
-	// Setup test schema config with empty primary key
-	config := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":     TypeInt,
-			"name":   TypeString,
-			"active": TypeBool,
-		},
-		PrimaryKey: "", // Empty primary key
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "Int64"},
-			{ColumnName: "user_name", FieldName: "name", ColumnType: "String"},
-			{ColumnName: "is_active", FieldName: "active", ColumnType: "Bool"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(config)
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper with empty primary key: %v", err)
-	}
-
-	// Test 1: GetPrimaryKey should return an error with empty primary key
-	testJSON := `{"id": 123, "name": "test user", "active": true}`
-	_, err = mapper.GetPrimaryKey([]byte(testJSON))
-	if err == nil {
-		t.Error("GetPrimaryKey should return an error when primary key is not defined")
-	}
-	if err != nil && err.Error() != "no primary key defined in schema" {
-		t.Errorf("Expected 'no primary key defined in schema' error, got: %v", err)
-	}
-
-	// Test 2: PrepareClickHouseValues should still work without primary key
-	values, err := mapper.PrepareClickHouseValues([]byte(testJSON))
-	if err != nil {
-		t.Fatalf("PrepareClickHouseValues failed with empty primary key: %v", err)
-	}
-
-	expectedValues := []any{
-		int64(123),  // user_id
-		"test user", // user_name
-		true,        // is_active
-	}
-
-	if len(values) != len(expectedValues) {
-		t.Fatalf("Expected %d values, got %d", len(expectedValues), len(values))
-	}
-
-	for i, v := range values {
-		if !reflect.DeepEqual(v, expectedValues[i]) {
-			t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
-				i, expectedValues[i], expectedValues[i], v, v)
-		}
-	}
-
-	// Test 3: GetMappedValues should work without primary key
-	mappedData := map[string]any{
-		"user_id":   int64(123),
-		"user_name": "test user",
-		"is_active": true,
-	}
-
-	values = mapper.GetMappedValues(mappedData)
-
-	if len(values) != len(expectedValues) {
-		t.Fatalf("Expected %d values, got %d", len(expectedValues), len(values))
-	}
-
-	for i, v := range values {
-		if !reflect.DeepEqual(v, expectedValues[i]) {
-			t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
-				i, expectedValues[i], expectedValues[i], v, v)
-		}
-	}
-}
-
-func TestSchemaMapper_GetSimpleCase(t *testing.T) {
-	// Setup test schema config (same as above)
-	config := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":         "string",
-			"event_type": "string",
-			"timestamp":  "string",
-			"data":       "string",
-		},
-		PrimaryKey: "",
-		Columns: []ClickHouseColumn{
-			{ColumnName: "id", FieldName: "id", ColumnType: "String"},
-			{ColumnName: "event_type", FieldName: "event_type", ColumnType: "String"},
-			{ColumnName: "timestamp", FieldName: "timestamp", ColumnType: "DateTime"},
-			{ColumnName: "data", FieldName: "data", ColumnType: "String"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(config)
-
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper with empty primary key: %v", err)
-	}
-
-	testJSON := `{"id": "1", "event_type": "r", "timestamp": "2025-03-21 16:24:45", "data": "some"}`
-	values, err := mapper.PrepareClickHouseValues([]byte(testJSON))
-	if err != nil {
-		t.Fatalf("PrepareClickHouseValues failed with empty primary key: %v", err)
-	}
-
-	expectedValues := []any{
-		"1",                   // id
-		"r",                   // event_type
-		"2025-03-21 16:24:45", // timestamp
-		"some",                // data
-	}
-
-	if len(values) != len(expectedValues) {
-		t.Fatalf("Expected %d values, got %d", len(expectedValues), len(values))
-	}
-
-	for i, v := range values {
-		if !reflect.DeepEqual(v, expectedValues[i]) {
-			t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
-				i, expectedValues[i], expectedValues[i], v, v)
-		}
-	}
-
-	mappedData := map[string]any{
-		"id":         "1",
-		"event_type": "r",
-		"timestamp":  "2025-03-21 16:24:45",
-		"data":       "some",
-	}
-
-	values = mapper.GetMappedValues(mappedData)
-
-	if len(values) != len(expectedValues) {
-		t.Fatalf("Expected %d values, got %d", len(expectedValues), len(values))
-	}
-
-	for i, v := range values {
-		if !reflect.DeepEqual(v, expectedValues[i]) {
-			t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
-				i, expectedValues[i], expectedValues[i], v, v)
-		}
-	}
-}
-
-func TestSchemaMapper_AllDataTypes(t *testing.T) {
-	// Setup test schema with all supported data types
-	config := SchemaConfig{
-		Fields: map[string]DataType{
-			"str_field":   TypeString,
-			"int_field":   TypeInt,
-			"float_field": TypeFloat,
-			"bool_field":  TypeBool,
-			"bytes_field": TypeBytes,
-			"uuid_field":  TypeUUID,
-			"array_field": TypeArray,
-		},
-		PrimaryKey: "",
-		Columns: []ClickHouseColumn{
-			{ColumnName: "str_column", FieldName: "str_field", ColumnType: "String"},
-			{ColumnName: "int_column", FieldName: "int_field", ColumnType: "Int64"},
-			{ColumnName: "float_column", FieldName: "float_field", ColumnType: "Float64"},
-			{ColumnName: "bool_column", FieldName: "bool_field", ColumnType: "Bool"},
-			{ColumnName: "bytes_column", FieldName: "bytes_field", ColumnType: "String"},
-			{ColumnName: "uuid_column", FieldName: "uuid_field", ColumnType: "UUID"},
-			{ColumnName: "array_column", FieldName: "array_field", ColumnType: "Array(String)"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(config)
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper: %v", err)
-	}
-
-	// Base64 encoded "hello world"
-	base64Str := "aGVsbG8gd29ybGQ="
-	decodedBytes, _ := base64.StdEncoding.DecodeString(base64Str)
-
-	// Valid UUID
-	testUUID := "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-	parsedUUID, _ := uuid.Parse(testUUID)
-
-	// Test normal JSON with all types
-	testJSON := `{
-		"str_field": "test string",
-		"int_field": 42,
-		"float_field": 3.14159,
-		"bool_field": true,
-		"bytes_field": "aGVsbG8gd29ybGQ=",
-		"uuid_field": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-		"array_field": ["one", "two", "three"]
-	}`
-
-	values, err := mapper.PrepareClickHouseValues([]byte(testJSON))
-	if err != nil {
-		t.Fatalf("PrepareClickHouseValues failed: %v", err)
-	}
-
-	expectedValues := []any{
-		"test string",                // str_column
-		int64(42),                    // int_column
-		3.14159,                      // float_column
-		true,                         // bool_column
-		decodedBytes,                 // bytes_column
-		parsedUUID,                   // uuid_column
-		[]any{"one", "two", "three"}, // array_column
-	}
-
-	if len(values) != len(expectedValues) {
-		t.Fatalf("Expected %d values, got %d", len(expectedValues), len(values))
-	}
-
-	for i, v := range values {
-		if i == 4 { // Special handling for bytes comparison
-			bytesVal, ok := v.([]byte)
-			if !ok {
-				t.Errorf("Values[4]: expected []byte, got %T", v)
-			} else if string(bytesVal) != string(decodedBytes) {
-				t.Errorf("Values[4]: expected %s, got %s", decodedBytes, bytesVal)
-			}
-			continue
-		}
-
-		if !reflect.DeepEqual(v, expectedValues[i]) {
-			t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
-				i, expectedValues[i], expectedValues[i], v, v)
-		}
-	}
-
-	// Test type conversions
-	conversionJSON := `{
-		"str_field": 123,
-		"int_field": "42",
-		"float_field": "3.14159",
-		"bool_field": "true",
-		"bytes_field": "aGVsbG8gd29ybGQ=",
-		"uuid_field": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-		"array_field": "[\"json\", \"string\", \"array\"]"
-	}`
-
-	values, err = mapper.PrepareClickHouseValues([]byte(conversionJSON))
-	if err != nil {
-		t.Fatalf("PrepareClickHouseValues failed with conversions: %v", err)
-	}
-
-	// Verify type conversions
-	if values[0] != "123" {
-		t.Errorf("Expected numeric-to-string conversion to \"123\", got %v", values[0])
-	}
-
-	if values[1] != int64(42) {
-		t.Errorf("Expected string-to-int conversion to 42, got %v", values[1])
-	}
-
-	if values[2] != 3.14159 {
-		t.Errorf("Expected string-to-float conversion to 3.14159, got %v", values[2])
-	}
-
-	if values[3] != true {
-		t.Errorf("Expected string-to-bool conversion to true, got %v", values[3])
-	}
-
-	// Test array parsed from JSON string
-	arrayVal, ok := values[6].([]any)
-	if !ok {
-		t.Errorf("Expected array type, got %T", values[6])
-	} else if len(arrayVal) != 3 || arrayVal[0] != "json" {
-		t.Errorf("Expected [\"json\", \"string\", \"array\"], got %v", arrayVal)
-	}
-
-	// Test invalid values
-	invalidJSON := `{
-		"str_field": "valid",
-		"int_field": "not_a_number",
-		"uuid_field": "invalid-uuid-format"
-	}`
-
-	_, err = mapper.PrepareClickHouseValues([]byte(invalidJSON))
-	if err == nil {
-		t.Error("Expected error for invalid values, got nil")
-	}
-}
-
-func TestSchemaMapper_InvalidConfigurations(t *testing.T) {
-	// Test 1: Invalid primary key
-	invalidPKConfig := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":   TypeInt,
-			"name": TypeString,
-		},
-		PrimaryKey: "non_existent_field", // Field doesn't exist
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "Int64"},
-			{ColumnName: "user_name", FieldName: "name", ColumnType: "String"},
-		},
-	}
-
-	_, err := NewSchemaMapper(invalidPKConfig)
-	if err == nil {
-		t.Error("Expected error for non-existent primary key field, got nil")
-	}
-
-	// Test 2: Column references non-existent field
-	invalidColConfig := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":   TypeInt,
-			"name": TypeString,
-		},
-		PrimaryKey: "id",
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "Int64"},
-			{ColumnName: "user_name", FieldName: "name", ColumnType: "String"},
-			{ColumnName: "created_at", FieldName: "timestamp", ColumnType: "DateTime"}, // Field doesn't exist
-		},
-	}
-
-	_, err = NewSchemaMapper(invalidColConfig)
-	if err == nil {
-		t.Error("Expected error for column referencing non-existent field, got nil")
-	}
-
-	// Test 3: Empty schema
-	emptyConfig := SchemaConfig{
-		Fields:     map[string]DataType{},
-		PrimaryKey: "",
-		Columns:    []ClickHouseColumn{},
-	}
-
-	// This should succeed as an empty schema is technically valid
-	_, err = NewSchemaMapper(emptyConfig)
-	if err != nil {
-		t.Errorf("Expected empty schema to be valid, got error: %v", err)
-	}
-}
-
-func TestSchemaMapper_GetPrimaryKey(t *testing.T) {
-	// Setup test schema config with primary key
-	config := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":      TypeUUID,
-			"name":    TypeString,
-			"counter": TypeInt,
-		},
-		PrimaryKey: "id", // Using UUID as primary key
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "UUID"},
-			{ColumnName: "user_name", FieldName: "name", ColumnType: "String"},
-			{ColumnName: "user_counter", FieldName: "counter", ColumnType: "Int64"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(config)
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper: %v", err)
-	}
-
-	// Test 1: Valid UUID primary key
-	validUUID := "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-	testJSON := `{"id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8", "name": "test user", "counter": 42}`
-
-	pk, err := mapper.GetPrimaryKey([]byte(testJSON))
-	if err != nil {
-		t.Fatalf("GetPrimaryKey failed: %v", err)
-	}
-
-	// Check UUID was parsed correctly
-	parsedUUID, ok := pk.(uuid.UUID)
-	if !ok {
-		t.Errorf("Expected primary key to be UUID, got %T", pk)
-	} else {
-		expectedUUID, _ := uuid.Parse(validUUID)
-		if parsedUUID != expectedUUID {
-			t.Errorf("Expected UUID %v, got %v", expectedUUID, parsedUUID)
-		}
-	}
-
-	// Test 2: Missing primary key in JSON
-	missingPkJSON := `{"name": "test user", "counter": 42}`
-	_, err = mapper.GetPrimaryKey([]byte(missingPkJSON))
-	if err == nil {
-		t.Error("Expected error for missing primary key, got nil")
-	}
-
-	// Test 3: Invalid UUID format
-	invalidUUIDJSON := `{"id": "not-a-uuid", "name": "test user", "counter": 42}`
-	_, err = mapper.GetPrimaryKey([]byte(invalidUUIDJSON))
-	if err == nil {
-		t.Error("Expected error for invalid UUID format, got nil")
-	}
-
-	// Test 4: Invalid JSON
-	_, err = mapper.GetPrimaryKey([]byte(`{invalid json}`))
-	if err == nil {
-		t.Error("Expected error for invalid JSON, got nil")
-	}
-}
-
-func TestDateTimeConverter(t *testing.T) {
-	// Initialize a schema mapper with the datetime converter
-	schemaConfig := SchemaConfig{
-		Fields: map[string]DataType{
-			"timestamp": TypeDateTime,
-		},
-		Columns: []ClickHouseColumn{
-			{ColumnName: "event_time", FieldName: "timestamp", ColumnType: "DateTime64(3)"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(schemaConfig)
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper: %v", err)
-	}
-
-	// Get the datetime converter function
-	converter := mapper.typeConverters[TypeDateTime]
-
+func TestConvertStreams(t *testing.T) {
+	// Define test cases
 	testCases := []struct {
-		name     string
-		input    any
-		expected time.Time
-		hasError bool
+		name           string
+		input          map[string]StreamSchemaConfig
+		expectedOutput map[string]Stream
 	}{
 		{
-			name:     "RFC3339",
-			input:    "2023-05-15T14:30:45Z",
-			expected: time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			hasError: false,
+			name: "Basic stream conversion",
+			input: map[string]StreamSchemaConfig{
+				"users": {
+					Fields: []StreamDataField{
+						{FieldName: "id", FieldType: "int"},
+						{FieldName: "name", FieldType: "string"},
+						{FieldName: "active", FieldType: "bool"},
+					},
+					JoinKeyField: "id",
+				},
+			},
+			expectedOutput: map[string]Stream{
+				"users": {
+					Fields: map[string]DataType{
+						"id":     TypeInt,
+						"name":   TypeString,
+						"active": TypeBool,
+					},
+					JoinKey: "id",
+				},
+			},
 		},
 		{
-			name:     "ISO format with T",
-			input:    "2023-05-15T14:30:45",
-			expected: time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			hasError: false,
+			name: "Multiple streams with different types",
+			input: map[string]StreamSchemaConfig{
+				"users": {
+					Fields: []StreamDataField{
+						{FieldName: "id", FieldType: "int"},
+						{FieldName: "name", FieldType: "string"},
+					},
+					JoinKeyField: "id",
+				},
+				"events": {
+					Fields: []StreamDataField{
+						{FieldName: "event_id", FieldType: "string"},
+						{FieldName: "user_id", FieldType: "int"},
+						{FieldName: "timestamp", FieldType: "datetime"},
+						{FieldName: "data", FieldType: "bytes"},
+					},
+					JoinKeyField: "user_id",
+				},
+			},
+			expectedOutput: map[string]Stream{
+				"users": {
+					Fields: map[string]DataType{
+						"id":   TypeInt,
+						"name": TypeString,
+					},
+					JoinKey: "id",
+				},
+				"events": {
+					Fields: map[string]DataType{
+						"event_id":  TypeString,
+						"user_id":   TypeInt,
+						"timestamp": TypeDateTime,
+						"data":      TypeBytes,
+					},
+					JoinKey: "user_id",
+				},
+			},
 		},
 		{
-			name:     "Simple date time format",
-			input:    "2023-05-15 14:30:45",
-			expected: time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			hasError: false,
+			name:           "Empty input",
+			input:          map[string]StreamSchemaConfig{},
+			expectedOutput: map[string]Stream{},
+		},
+	}
+
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convirtStreams(tc.input)
+
+			// Compare the results
+			if len(result) != len(tc.expectedOutput) {
+				t.Fatalf("Expected %d streams, got %d", len(tc.expectedOutput), len(result))
+			}
+
+			for streamName, expectedStream := range tc.expectedOutput {
+				actualStream, exists := result[streamName]
+				if !exists {
+					t.Errorf("Stream %s is missing in the result", streamName)
+					continue
+				}
+
+				// Compare JoinKey
+				if actualStream.JoinKey != expectedStream.JoinKey {
+					t.Errorf("Stream %s: expected JoinKey %s, got %s",
+						streamName, expectedStream.JoinKey, actualStream.JoinKey)
+				}
+
+				// Compare Fields
+				if len(actualStream.Fields) != len(expectedStream.Fields) {
+					t.Errorf("Stream %s: expected %d fields, got %d",
+						streamName, len(expectedStream.Fields), len(actualStream.Fields))
+					continue
+				}
+
+				for fieldName, expectedType := range expectedStream.Fields {
+					actualType, exists := actualStream.Fields[fieldName]
+					if !exists {
+						t.Errorf("Stream %s: field %s is missing", streamName, fieldName)
+						continue
+					}
+					if actualType != expectedType {
+						t.Errorf("Stream %s, field %s: expected type %s, got %s",
+							streamName, fieldName, expectedType, actualType)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestNewMapper(t *testing.T) {
+	// Test cases for NewMapper function
+	testCases := []struct {
+		name           string
+		streamsConfig  map[string]StreamSchemaConfig
+		columnsConfig  []SinkMappingConfig
+		expectError    bool
+		errorSubstring string
+	}{
+		{
+			name: "Valid configuration",
+			streamsConfig: map[string]StreamSchemaConfig{
+				"users": {
+					Fields: []StreamDataField{
+						{FieldName: "id", FieldType: "int"},
+						{FieldName: "name", FieldType: "string"},
+					},
+					JoinKeyField: "id",
+				},
+			},
+			columnsConfig: []SinkMappingConfig{
+				{ColumnName: "user_id", StreamName: "users", FieldName: "id", ColumnType: "Int64"},
+				{ColumnName: "user_name", StreamName: "users", FieldName: "name", ColumnType: "String"},
+			},
+			expectError: false,
 		},
 		{
-			name:     "Date only",
-			input:    "2023-05-15",
-			expected: time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
-			hasError: false,
+			name: "Invalid join key",
+			streamsConfig: map[string]StreamSchemaConfig{
+				"users": {
+					Fields: []StreamDataField{
+						{FieldName: "id", FieldType: "int"},
+					},
+					JoinKeyField: "nonexistent",
+				},
+			},
+			columnsConfig: []SinkMappingConfig{
+				{ColumnName: "user_id", StreamName: "users", FieldName: "id", ColumnType: "Int64"},
+			},
+			expectError:    true,
+			errorSubstring: "join key 'nonexistent' not found in stream 'users'",
 		},
 		{
-			name:     "US date format",
-			input:    "05/15/2023",
-			expected: time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
-			hasError: false,
+			name: "Non-existent stream in mapping",
+			streamsConfig: map[string]StreamSchemaConfig{
+				"users": {
+					Fields: []StreamDataField{
+						{FieldName: "id", FieldType: "int"},
+					},
+					JoinKeyField: "id",
+				},
+			},
+			columnsConfig: []SinkMappingConfig{
+				{ColumnName: "event_id", StreamName: "events", FieldName: "id", ColumnType: "String"},
+			},
+			expectError:    true,
+			errorSubstring: "stream 'events' not found in configuration",
 		},
 		{
-			name:     "European date format",
-			input:    "15.05.2023",
-			expected: time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC),
-			hasError: false,
-		},
-		{
-			name:     "Unix timestamp as integer",
-			input:    int64(1684161045), // 2023-05-15 14:30:45 UTC
-			expected: time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			hasError: false,
-		},
-		{
-			name:     "Unix timestamp as float",
-			input:    float64(1684161045.5), // 2023-05-15 14:30:45.5 UTC
-			expected: time.Date(2023, 5, 15, 14, 30, 45, 500000000, time.UTC),
-			hasError: false,
-		},
-		{
-			name:     "Unix timestamp as string",
-			input:    "1684161045",
-			expected: time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			hasError: false,
-		},
-		{
-			name:     "Time object",
-			input:    time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			expected: time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			hasError: false,
-		},
-		{
-			name:     "Invalid format",
-			input:    "not a date",
-			expected: time.Time{},
-			hasError: true,
+			name: "Non-existent field in mapping",
+			streamsConfig: map[string]StreamSchemaConfig{
+				"users": {
+					Fields: []StreamDataField{
+						{FieldName: "id", FieldType: "int"},
+					},
+					JoinKeyField: "id",
+				},
+			},
+			columnsConfig: []SinkMappingConfig{
+				{ColumnName: "user_name", StreamName: "users", FieldName: "name", ColumnType: "String"},
+			},
+			expectError:    true,
+			errorSubstring: "field 'name' not found in stream 'users'",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := converter(tc.input)
+			mapper, err := NewMapper(tc.streamsConfig, tc.columnsConfig)
 
-			if tc.hasError {
+			// Check error expectations
+			if tc.expectError {
 				if err == nil {
-					t.Errorf("Expected error for input %v but got none", tc.input)
+					t.Fatalf("Expected error containing '%s', but got no error", tc.errorSubstring)
+				}
+				if tc.errorSubstring != "" && !contains(err.Error(), tc.errorSubstring) {
+					t.Fatalf("Expected error containing '%s', but got '%v'", tc.errorSubstring, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, but got: %v", err)
+				}
+				if mapper == nil {
+					t.Fatal("Mapper is nil despite no error")
+				}
+
+				// Verify mapper was correctly initialized
+				if len(mapper.Streams) != len(tc.streamsConfig) {
+					t.Errorf("Expected %d streams, got %d", len(tc.streamsConfig), len(mapper.Streams))
+				}
+				if len(mapper.Columns) != len(tc.columnsConfig) {
+					t.Errorf("Expected %d columns, got %d", len(tc.columnsConfig), len(mapper.Columns))
+				}
+				if len(mapper.orderedColumns) != len(tc.columnsConfig) {
+					t.Errorf("Expected %d ordered columns, got %d", len(tc.columnsConfig), len(mapper.orderedColumns))
+				}
+				if mapper.typeConverters == nil {
+					t.Error("Type converters map was not initialized")
+				}
+			}
+		})
+	}
+}
+
+func TestGetJoinKey(t *testing.T) {
+	// Setup
+	streamsConfig := map[string]StreamSchemaConfig{
+		"users": {
+			Fields: []StreamDataField{
+				{FieldName: "id", FieldType: "int"},
+				{FieldName: "name", FieldType: "string"},
+			},
+			JoinKeyField: "id",
+		},
+		"events": {
+			Fields: []StreamDataField{
+				{FieldName: "event_id", FieldType: "string"},
+				{FieldName: "user_id", FieldType: "int"},
+			},
+			JoinKeyField: "user_id",
+		},
+		"no_join": {
+			Fields: []StreamDataField{
+				{FieldName: "data", FieldType: "string"},
+			},
+			JoinKeyField: "",
+		},
+	}
+
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "user_id", StreamName: "users", FieldName: "id", ColumnType: "Int64"},
+		{ColumnName: "event_id", StreamName: "events", FieldName: "event_id", ColumnType: "String"},
+		{ColumnName: "user_id_from_event", StreamName: "events", FieldName: "user_id", ColumnType: "Int64"},
+		{ColumnName: "data", StreamName: "no_join", FieldName: "data", ColumnType: "String"},
+	}
+
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	if err != nil {
+		t.Fatalf("Failed to create mapper: %v", err)
+	}
+
+	// Test cases
+	testCases := []struct {
+		name           string
+		streamName     string
+		jsonData       string
+		expectedKey    any
+		expectError    bool
+		errorSubstring string
+	}{
+		{
+			name:        "Get integer join key",
+			streamName:  "users",
+			jsonData:    `{"id": 123, "name": "Alice"}`,
+			expectedKey: int64(123),
+		},
+		{
+			name:           "Missing join key",
+			streamName:     "users",
+			jsonData:       `{"name": "Bob"}`,
+			expectError:    true,
+			errorSubstring: "key id not found",
+		},
+		{
+			name:        "Join key from different stream",
+			streamName:  "events",
+			jsonData:    `{"event_id": "evt-123", "user_id": 456}`,
+			expectedKey: int64(456),
+		},
+		{
+			name:           "Invalid JSON",
+			streamName:     "users",
+			jsonData:       `{invalid json`,
+			expectError:    true,
+			errorSubstring: "failed to read JSON key",
+		},
+		{
+			name:           "Non-existent stream",
+			streamName:     "products",
+			jsonData:       `{"id": 789}`,
+			expectError:    true,
+			errorSubstring: "no join key defined in schema",
+		},
+		{
+			name:           "Stream with no join key",
+			streamName:     "no_join",
+			jsonData:       `{"data": "test"}`,
+			expectError:    true,
+			errorSubstring: "no join key defined in schema",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			key, err := mapper.GetJoinKey(tc.streamName, []byte(tc.jsonData))
+
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("Expected error containing '%s', but got no error", tc.errorSubstring)
+				}
+				if tc.errorSubstring != "" && !contains(err.Error(), tc.errorSubstring) {
+					t.Fatalf("Expected error containing '%s', but got '%v'", tc.errorSubstring, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, but got: %v", err)
+				}
+				if !reflect.DeepEqual(key, tc.expectedKey) {
+					t.Errorf("Expected key %v (%T), got %v (%T)", tc.expectedKey, tc.expectedKey, key, key)
+				}
+			}
+		})
+	}
+}
+
+func TestPrepareClickHouseValues(t *testing.T) {
+	// Setup
+	streamsConfig := map[string]StreamSchemaConfig{
+		"users": {
+			Fields: []StreamDataField{
+				{FieldName: "id", FieldType: "int"},
+				{FieldName: "name", FieldType: "string"},
+				{FieldName: "active", FieldType: "bool"},
+				{FieldName: "created_at", FieldType: "datetime"},
+			},
+			JoinKeyField: "id",
+		},
+		"orders": {
+			Fields: []StreamDataField{
+				{FieldName: "order_id", FieldType: "string"},
+				{FieldName: "user_id", FieldType: "int"},
+				{FieldName: "amount", FieldType: "float"},
+			},
+			JoinKeyField: "user_id",
+		},
+	}
+
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "id", StreamName: "users", FieldName: "id", ColumnType: "Int64"},
+		{ColumnName: "name", StreamName: "users", FieldName: "name", ColumnType: "String"},
+		{ColumnName: "is_active", StreamName: "users", FieldName: "active", ColumnType: "Bool"},
+		{ColumnName: "registration_date", StreamName: "users", FieldName: "created_at", ColumnType: "DateTime"},
+		{ColumnName: "order_id", StreamName: "orders", FieldName: "order_id", ColumnType: "String"},
+		{ColumnName: "order_amount", StreamName: "orders", FieldName: "amount", ColumnType: "Float64"},
+	}
+
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	if err != nil {
+		t.Fatalf("Failed to create mapper: %v", err)
+	}
+
+	// Get reference date for comparison
+	refDate, _ := time.Parse(time.RFC3339, "2023-10-15T12:30:45Z")
+
+	// Test cases
+	testCases := []struct {
+		name           string
+		jsonData       string
+		expectedValues []any
+		expectError    bool
+		errorSubstring string
+	}{
+		{
+			name: "Single stream data",
+			jsonData: `{
+				"users.id": 123,
+				"users.name": "Alice",
+				"users.active": true,
+				"users.created_at": "2023-10-15T12:30:45Z"
+			}`,
+			expectedValues: []any{
+				int64(123),
+				"Alice",
+				true,
+				refDate,
+				nil, // order_id is nil
+				nil, // order_amount is nil
+			},
+		},
+		{
+			name: "Multiple streams data",
+			jsonData: `{
+				"users.id": 123,
+				"users.name": "Alice",
+				"users.active": true,
+				"users.created_at": "2023-10-15T12:30:45Z",
+				"orders.order_id": "ORDER-123",
+				"orders.user_id": 123,
+				"orders.amount": 99.95
+			}`,
+			expectedValues: []any{
+				int64(123),
+				"Alice",
+				true,
+				refDate,
+				"ORDER-123",
+				float64(99.95),
+			},
+		},
+		{
+			name: "Missing fields",
+			jsonData: `{
+				"users.id": 123,
+				"orders.order_id": "ORDER-123"
+			}`,
+			expectedValues: []any{
+				int64(123),
+				nil, // name is nil
+				nil, // is_active is nil
+				nil, // registration_date is nil
+				"ORDER-123",
+				nil, // order_amount is nil
+			},
+		},
+		{
+			name:           "Invalid JSON",
+			jsonData:       `{invalid json`,
+			expectError:    true,
+			errorSubstring: "failed to parse JSON data",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			values, err := mapper.PrepareClickHouseValues([]byte(tc.jsonData))
+
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("Expected error containing '%s', but got no error", tc.errorSubstring)
+				}
+				if tc.errorSubstring != "" && !contains(err.Error(), tc.errorSubstring) {
+					t.Fatalf("Expected error containing '%s', but got '%v'", tc.errorSubstring, err)
 				}
 				return
 			}
 
 			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
+				t.Fatalf("Expected no error, but got: %v", err)
 			}
 
-			// Convert result to time.Time
-			timeResult, ok := result.(time.Time)
-			if !ok {
-				t.Fatalf("Expected time.Time result but got %T", result)
+			if len(values) != len(tc.expectedValues) {
+				t.Fatalf("Expected %d values, got %d", len(tc.expectedValues), len(values))
 			}
 
-			// Compare times, ignoring time zone
-			if !timeResult.Equal(tc.expected) {
-				t.Errorf("Expected %v but got %v", tc.expected, timeResult)
+			for i, expected := range tc.expectedValues {
+				// For nil values, just check if both are nil
+				if expected == nil {
+					if values[i] != nil {
+						t.Errorf("Values[%d]: expected nil, got %v (%T)", i, values[i], values[i])
+					}
+					continue
+				}
+
+				// For time.Time values, compare with IsZero()
+				if _, ok := expected.(time.Time); ok {
+					actualTime, ok := values[i].(time.Time)
+					if !ok {
+						t.Errorf("Values[%d]: expected time.Time, got %T", i, values[i])
+						continue
+					}
+					expectedTime := expected.(time.Time)
+					if !expectedTime.Equal(actualTime) {
+						t.Errorf("Values[%d]: expected time %v, got %v", i, expectedTime, actualTime)
+					}
+					continue
+				}
+
+				// For other values, use DeepEqual
+				if !reflect.DeepEqual(values[i], expected) {
+					t.Errorf("Values[%d]: expected %v (%T), got %v (%T)",
+						i, expected, expected, values[i], values[i])
+				}
 			}
 		})
 	}
 }
 
-func TestPrepareForClickHouseWithDateTime(t *testing.T) {
-	// Test end-to-end processing with datetime field
-	schemaConfig := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":        TypeInt,
-			"name":      TypeString,
-			"timestamp": TypeDateTime,
-		},
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "UInt32"},
-			{ColumnName: "user_name", FieldName: "name", ColumnType: "String"},
-			{ColumnName: "event_time", FieldName: "timestamp", ColumnType: "DateTime64(3)"},
+func TestGetFieldsMap(t *testing.T) {
+	// Setup
+	streamsConfig := map[string]StreamSchemaConfig{
+		"users": {
+			Fields: []StreamDataField{
+				{FieldName: "id", FieldType: "int"},
+				{FieldName: "name", FieldType: "string"},
+				{FieldName: "age", FieldType: "int"},
+			},
+			JoinKeyField: "id",
 		},
 	}
 
-	mapper, err := NewSchemaMapper(schemaConfig)
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "id", StreamName: "users", FieldName: "id", ColumnType: "Int64"},
+		{ColumnName: "name", StreamName: "users", FieldName: "name", ColumnType: "String"},
+	}
+
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
 	if err != nil {
-		t.Fatalf("Failed to create schema mapper: %v", err)
+		t.Fatalf("Failed to create mapper: %v", err)
 	}
 
-	// JSON with different datetime formats
+	// Test cases
 	testCases := []struct {
-		name     string
-		json     string
-		expected map[string]any
+		name           string
+		streamName     string
+		jsonData       string
+		expectedFields map[string]any
+		expectError    bool
+		errorSubstring string
 	}{
 		{
-			name: "ISO format",
-			json: `{"id": 1, "name": "Alice", "timestamp": "2023-05-15T14:30:45Z"}`,
-			expected: map[string]any{
-				"user_id":    int64(1),
-				"user_name":  "Alice",
-				"event_time": time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
+			name:       "Valid fields",
+			streamName: "users",
+			jsonData:   `{"id": 123, "name": "Alice", "age": 30, "extra": "should be ignored"}`,
+			expectedFields: map[string]any{
+				"id":   float64(123), // JSON parses numbers as float64
+				"name": "Alice",
+				"age":  float64(30),
 			},
 		},
 		{
-			name: "Simple format",
-			json: `{"id": 2, "name": "Bob", "timestamp": "2023-05-15 14:30:45"}`,
-			expected: map[string]any{
-				"user_id":    int64(2),
-				"user_name":  "Bob",
-				"event_time": time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			},
+			name:           "Invalid JSON",
+			streamName:     "users",
+			jsonData:       `{invalid json`,
+			expectError:    true,
+			errorSubstring: "failed to parse JSON data",
 		},
 		{
-			name: "Unix timestamp",
-			json: `{"id": 3, "name": "Charlie", "timestamp": 1684161045}`,
-			expected: map[string]any{
-				"user_id":    int64(3),
-				"user_name":  "Charlie",
-				"event_time": time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC),
-			},
+			name:           "Non-existent stream",
+			streamName:     "products",
+			jsonData:       `{"id": 123}`,
+			expectedFields: map[string]any{},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := mapper.PrepareForClickHouse([]byte(tc.json))
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
+			fields, err := mapper.GetFieldsMap(tc.streamName, []byte(tc.jsonData))
+
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("Expected error containing '%s', but got no error", tc.errorSubstring)
+				}
+				if tc.errorSubstring != "" && !contains(err.Error(), tc.errorSubstring) {
+					t.Fatalf("Expected error containing '%s', but got '%v'", tc.errorSubstring, err)
+				}
+				return
 			}
 
-			// Check all expected values
-			for k, expectedVal := range tc.expected {
-				actualVal, exists := result[k]
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
+
+			if len(fields) != len(tc.expectedFields) {
+				t.Fatalf("Expected %d fields, got %d", len(tc.expectedFields), len(fields))
+			}
+
+			for key, expectedValue := range tc.expectedFields {
+				actualValue, exists := fields[key]
 				if !exists {
-					t.Errorf("Missing key %s in result", k)
+					t.Errorf("Expected field '%s' not found in result", key)
 					continue
 				}
+				if !reflect.DeepEqual(actualValue, expectedValue) {
+					t.Errorf("Field '%s': expected %v (%T), got %v (%T)",
+						key, expectedValue, expectedValue, actualValue, actualValue)
+				}
+			}
 
-				switch expected := expectedVal.(type) {
-				case time.Time:
-					// For time values, use Equal for comparison
-					actualTime, ok := actualVal.(time.Time)
-					if !ok {
-						t.Errorf("Expected time.Time for %s but got %T", k, actualVal)
-						continue
-					}
-					if !actualTime.Equal(expected) {
-						t.Errorf("For key %s, expected %v but got %v", k, expected, actualTime)
-					}
-				default:
-					// For other values, use regular equality check
-					if actualVal != expectedVal {
-						t.Errorf("For key %s, expected %v but got %v", k, expectedVal, actualVal)
-					}
+			// Check that extra fields were excluded
+			if tc.streamName == "users" {
+				if _, exists := fields["extra"]; exists {
+					t.Error("Field 'extra' should have been excluded")
 				}
 			}
 		})
 	}
 }
 
-func TestParseDateTime(t *testing.T) {
-	testCases := []struct {
-		input    string
-		expected time.Time
-		hasError bool
-	}{
-		{"2023-05-15T14:30:45Z", time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC), false},
-		{"2023-05-15T14:30:45.123Z", time.Date(2023, 5, 15, 14, 30, 45, 123000000, time.UTC), false},
-		{"2023-05-15T14:30:45", time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC), false},
-		{"2023-05-15 14:30:45", time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC), false},
-		{"2023-05-15 14:30:45.123", time.Date(2023, 5, 15, 14, 30, 45, 123000000, time.UTC), false},
-		{"2023-05-15", time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC), false},
-		{"05/15/2023", time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC), false},
-		{"15.05.2023", time.Date(2023, 5, 15, 0, 0, 0, 0, time.UTC), false},
-		{"1684161045", time.Date(2023, 5, 15, 14, 30, 45, 0, time.UTC), false},
-		{"not-a-date", time.Time{}, true},
+func TestTypeConverters(t *testing.T) {
+	// Setup a basic mapper to access typeConverters
+	streamsConfig := map[string]StreamSchemaConfig{
+		"test": {
+			Fields: []StreamDataField{
+				{FieldName: "string_field", FieldType: "string"},
+				{FieldName: "int_field", FieldType: "int"},
+				{FieldName: "float_field", FieldType: "float"},
+				{FieldName: "bool_field", FieldType: "bool"},
+				{FieldName: "bytes_field", FieldType: "bytes"},
+				{FieldName: "uuid_field", FieldType: "uuid"},
+				{FieldName: "array_field", FieldType: "array"},
+				{FieldName: "datetime_field", FieldType: "datetime"},
+			},
+			JoinKeyField: "int_field",
+		},
 	}
 
-	for _, tc := range testCases {
-		result, err := parseDateTime(tc.input)
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "col1", StreamName: "test", FieldName: "string_field", ColumnType: "String"},
+	}
 
-		if tc.hasError {
-			if err == nil {
-				t.Errorf("Expected error for input %q but got none", tc.input)
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	if err != nil {
+		t.Fatalf("Failed to create mapper: %v", err)
+	}
+
+	// Get reference values for comparison
+	testUUID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	refDate, _ := time.Parse(time.RFC3339, "2023-10-15T12:30:45Z")
+
+	// Test cases for each converter
+	t.Run("String converter", func(t *testing.T) {
+		converter := mapper.typeConverters[TypeString]
+
+		// Test different input types
+		testCases := []struct {
+			input    any
+			expected string
+		}{
+			{input: "hello", expected: "hello"},
+			{input: 123, expected: "123"},
+			{input: true, expected: "true"},
+			{input: []byte("hello"), expected: "hello"},
+		}
+
+		for _, tc := range testCases {
+			result, err := converter(tc.input)
+			if err != nil {
+				t.Errorf("Unexpected error converting %v to string: %v", tc.input, err)
+				continue
 			}
-			continue
+			if result != tc.expected {
+				t.Errorf("Expected %q, got %q for input %v", tc.expected, result, tc.input)
+			}
+		}
+	})
+
+	t.Run("Int converter", func(t *testing.T) {
+		converter := mapper.typeConverters[TypeInt]
+
+		// Test different input types
+		testCases := []struct {
+			input       any
+			expected    int64
+			expectError bool
+		}{
+			{input: 123, expected: 123},
+			{input: int64(123), expected: 123},
+			{input: 123.45, expected: 123},
+			{input: "123", expected: 123},
+			{input: []byte("123"), expected: 123},
+			{input: "invalid", expectError: true},
+			{input: true, expectError: true},
 		}
 
-		if err != nil {
-			t.Errorf("Unexpected error for input %q: %v", tc.input, err)
-			continue
+		for _, tc := range testCases {
+			result, err := converter(tc.input)
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error converting %v to int but got none", tc.input)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("Unexpected error converting %v to int: %v", tc.input, err)
+				continue
+			}
+			if result != tc.expected {
+				t.Errorf("Expected %d, got %v for input %v", tc.expected, result, tc.input)
+			}
+		}
+	})
+
+	t.Run("Float converter", func(t *testing.T) {
+		converter := mapper.typeConverters[TypeFloat]
+
+		// Test different input types
+		testCases := []struct {
+			input       any
+			expected    float64
+			expectError bool
+		}{
+			{input: 123.45, expected: 123.45},
+			{input: 123, expected: 123.0},
+			{input: int64(123), expected: 123.0},
+			{input: "123.45", expected: 123.45},
+			{input: []byte("123.45"), expected: 123.45},
+			{input: "invalid", expectError: true},
+			{input: true, expectError: true},
 		}
 
-		if !result.Equal(tc.expected) {
-			t.Errorf("For input %q, expected %v but got %v", tc.input, tc.expected, result)
+		for _, tc := range testCases {
+			result, err := converter(tc.input)
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error converting %v to float but got none", tc.input)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("Unexpected error converting %v to float: %v", tc.input, err)
+				continue
+			}
+			if result != tc.expected {
+				t.Errorf("Expected %f, got %v for input %v", tc.expected, result, tc.input)
+			}
 		}
-	}
+	})
+
+	t.Run("Bool converter", func(t *testing.T) {
+		converter := mapper.typeConverters[TypeBool]
+
+		// Test different input types
+		testCases := []struct {
+			input       any
+			expected    bool
+			expectError bool
+		}{
+			{input: true, expected: true},
+			{input: false, expected: false},
+			{input: 1, expected: true},
+			{input: 0, expected: false},
+			{input: 5.1, expected: true},
+			{input: "true", expected: true},
+			{input: "false", expected: false},
+			{input: []byte("true"), expected: true},
+			{input: []byte("false"), expected: false},
+			{input: "invalid", expectError: true},
+		}
+
+		for _, tc := range testCases {
+			result, err := converter(tc.input)
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error converting %v to bool but got none", tc.input)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("Unexpected error converting %v to bool: %v", tc.input, err)
+				continue
+			}
+			if result != tc.expected {
+				t.Errorf("Expected %v, got %v for input %v", tc.expected, result, tc.input)
+			}
+		}
+	})
+
+	t.Run("UUID converter", func(t *testing.T) {
+		converter := mapper.typeConverters[TypeUUID]
+
+		// Test different input types
+		testCases := []struct {
+			input       any
+			expected    uuid.UUID
+			expectError bool
+		}{
+			{input: "550e8400-e29b-41d4-a716-446655440000", expected: testUUID},
+			{input: testUUID.String(), expected: testUUID},
+			{input: "invalid-uuid", expectError: true},
+		}
+
+		for _, tc := range testCases {
+			result, err := converter(tc.input)
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error converting %v to UUID but got none", tc.input)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("Unexpected error converting %v to UUID: %v", tc.input, err)
+				continue
+			}
+			if result.(uuid.UUID) != tc.expected {
+				t.Errorf("Expected %v, got %v for input %v", tc.expected, result, tc.input)
+			}
+		}
+	})
+
+	t.Run("DateTime converter", func(t *testing.T) {
+		converter := mapper.typeConverters[TypeDateTime]
+
+		// Test different input types
+		testCases := []struct {
+			input       any
+			expected    time.Time
+			expectError bool
+		}{
+			{input: refDate, expected: refDate},
+			{input: "2023-10-15T12:30:45Z", expected: refDate},
+			{input: "2023-10-15 12:30:45", expected: refDate.In(time.UTC)},
+			{input: int64(refDate.Unix()), expected: time.Unix(refDate.Unix(), 0)},
+			{input: float64(refDate.Unix()), expected: time.Unix(refDate.Unix(), 0)},
+			{input: "invalid-date", expectError: true},
+		}
+
+		for _, tc := range testCases {
+			result, err := converter(tc.input)
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error converting %v to DateTime but got none", tc.input)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("Unexpected error converting %v to DateTime: %v", tc.input, err)
+				continue
+			}
+
+			resultTime := result.(time.Time)
+			if !resultTime.Equal(tc.expected) {
+				t.Errorf("Expected %v, got %v for input %v", tc.expected, resultTime, tc.input)
+			}
+		}
+	})
 }
 
-func TestMissingDateTimeField(t *testing.T) {
-	schemaConfig := SchemaConfig{
-		Fields: map[string]DataType{
-			"id":        TypeInt,
-			"timestamp": TypeDateTime,
-		},
-		Columns: []ClickHouseColumn{
-			{ColumnName: "user_id", FieldName: "id", ColumnType: "UInt32"},
-			{ColumnName: "event_time", FieldName: "timestamp", ColumnType: "DateTime64(3)"},
-		},
-	}
-
-	mapper, err := NewSchemaMapper(schemaConfig)
-	if err != nil {
-		t.Fatalf("Failed to create schema mapper: %v", err)
-	}
-
-	// JSON without timestamp field
-	json := `{"id": 1}`
-
-	result, err := mapper.PrepareForClickHouse([]byte(json))
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	// Check that user_id is present
-	if userId, exists := result["user_id"]; !exists {
-		t.Errorf("Missing user_id in result")
-	} else if userId != int64(1) {
-		t.Errorf("Expected user_id=1 but got %v", userId)
-	}
-
-	// Check that event_time is not present (as it was missing in input)
-	if _, exists := result["event_time"]; exists {
-		t.Errorf("event_time should not be in result as it was missing in input")
-	}
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }

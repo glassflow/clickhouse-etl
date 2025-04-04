@@ -19,38 +19,61 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
-                "fields": {
-                    "event_id": "string",
-                    "name": "string",
-                    "email": "string",
-                    "timestamp": "datetime",
-                    "action": "string"
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "event_id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "email",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "timestamp",
+                                "field_type": "datetime"
+                            },
+                            {
+                                "field_name": "action",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
                 },
-                "primary_key_field": "event_id",
-                "clickhouse_mapping": [
+                "sink_mapping": [
                     {
                         "column_name": "event_id",
                         "field_name": "event_id",
+                        "stream_name": "default",
                         "column_type": "UUID"
                     },
                     {
                         "column_name": "name",
                         "field_name": "name",
+                        "stream_name": "default",
                         "column_type": "String"
                     },
                     {
                         "column_name": "email",
                         "field_name": "email",
+                        "stream_name": "default",
                         "column_type": "String"
                     },
                     {
                         "column_name": "timestamp",
                         "field_name": "timestamp",
+                        "stream_name": "default",
                         "column_type": "DateTime"
                     },
                     {
                         "column_name": "action",
                         "field_name": "action",
+                        "stream_name": "default",
                         "column_type": "String"
                     }
                 ]
@@ -75,38 +98,61 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
-                "fields": {
-                    "event_id": "string",
-                    "name": "string",
-                    "email": "string",
-                    "timestamp": "datetime",
-                    "action": "string"
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "event_id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "email",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "timestamp",
+                                "field_type": "datetime"
+                            },
+                            {
+                                "field_name": "action",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
                 },
-                "primary_key_field": "event_id",
-                "clickhouse_mapping": [
+                "sink_mapping": [
                     {
                         "column_name": "event_id",
                         "field_name": "event_id",
+                        "stream_name": "default",
                         "column_type": "UUID"
                     },
                     {
                         "column_name": "name",
                         "field_name": "name",
+                        "stream_name": "default",
                         "column_type": "String"
                     },
                     {
                         "column_name": "email",
                         "field_name": "email",
+                        "stream_name": "default",
                         "column_type": "String"
                     },
                     {
                         "column_name": "timestamp",
                         "field_name": "timestamp",
+                        "stream_name": "default",
                         "column_type": "DateTime"
                     },
                     {
                         "column_name": "action",
                         "field_name": "action",
+                        "stream_name": "default",
                         "column_type": "String"
                     }
                 ]
