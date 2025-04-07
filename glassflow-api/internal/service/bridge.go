@@ -15,12 +15,12 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-type ErrStartBridge struct {
+type StartBridgeError struct {
 	msg string
 }
 
-func (e ErrStartBridge) Error() string {
-	return fmt.Sprintf("failed to start bridge: %s", e.msg)
+func (e StartBridgeError) Error() string {
+	return "failed to start bridge: " + e.msg
 }
 
 type BridgeImpl struct {
@@ -38,7 +38,6 @@ type BridgeImpl struct {
 
 type BridgeFactoryImpl struct {
 	natsServer string
-	kafkaCfg   *models.KafkaConfig
 	log        *slog.Logger
 }
 
@@ -49,34 +48,29 @@ func NewBridgeFactory(natsServer string, log *slog.Logger) *BridgeFactoryImpl {
 	}
 }
 
-func (f *BridgeFactoryImpl) CreateBridge(k *models.KafkaConfig, t *models.TopicConfig) Bridge {
-	id := fmt.Sprintf("%s-%s", t.Name, uuid.New())
-	cgID := fmt.Sprintf("%s-%s", "cg", id)
-
-	stream := fmt.Sprintf("%s-%s", "stream", id)
-	subject := fmt.Sprintf("%s-%s", "input", id)
+func (f *BridgeFactoryImpl) CreateBridge(k *models.KafkaConfig, b *models.BridgeSpec) Bridge {
+	id := fmt.Sprintf("%s-%s", b.Topic, uuid.New())
 
 	cmd := exec.Command("nats-kafka-bridge")
 
-	//nolint: exhaustruct // cmd will be added later
 	return &BridgeImpl{
 		id: id,
 
 		Kafka: k,
 
 		Topic: &models.TopicConfig{
-			Name:                       t.Name,
-			DedupWindow:                t.DedupWindow,
-			DedupKey:                   t.DedupKey,
-			DedupKeyType:               t.DedupKeyType,
-			ConsumerGroupID:            cgID,
-			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
+			Name:                       b.Topic,
+			DedupWindow:                b.DedupWindow,
+			DedupKey:                   b.DedupKey,
+			DedupKeyType:               b.DedupKeyType,
+			ConsumerGroupID:            b.ConsumerGroupID,
+			ConsumerGroupInitialOffset: b.ConsumerGroupInitialOffset,
 		},
 
 		Nats: models.NatsConfig{
 			Server:  f.natsServer,
-			Subject: subject,
-			Stream:  stream,
+			Subject: b.Subject,
+			Stream:  b.Stream,
 		},
 
 		log: f.log,
@@ -98,7 +92,7 @@ func (b *BridgeImpl) Start() error {
 
 	err = b.cmd.Start()
 	if err != nil {
-		return ErrStartBridge{msg: err.Error()}
+		return StartBridgeError{msg: err.Error()}
 	}
 
 	go func() {

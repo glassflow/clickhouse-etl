@@ -16,7 +16,7 @@ type Bridge interface {
 }
 
 type BridgeFactory interface {
-	CreateBridge(*models.KafkaConfig, *models.TopicConfig) Bridge
+	CreateBridge(*models.KafkaConfig, *models.BridgeSpec) Bridge
 }
 
 type BridgeManager struct {
@@ -36,12 +36,12 @@ func NewBridgeManager(factory BridgeFactory) *BridgeManager {
 
 func (bmgr *BridgeManager) SetupBridges(
 	kafkaCfg *models.KafkaConfig,
-	topics []*models.TopicConfig,
+	specs []models.BridgeSpec,
 ) error {
-	bridges := make([]Bridge, len(topics))
+	bridges := make([]Bridge, len(specs))
 
-	for i, t := range topics {
-		bridge := bmgr.factory.CreateBridge(kafkaCfg, t)
+	for i, s := range specs {
+		bridge := bmgr.factory.CreateBridge(kafkaCfg, &s)
 
 		err := bridge.Start()
 		if err != nil {
@@ -55,7 +55,7 @@ func (bmgr *BridgeManager) SetupBridges(
 				}
 			}
 
-			return fmt.Errorf("start bridge for %s: %w", t.Name, err)
+			return fmt.Errorf("start bridge for %s: %w", s.Topic, err)
 		}
 
 		bridges[i] = bridge

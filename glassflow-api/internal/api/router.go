@@ -12,20 +12,20 @@ import (
 type handler struct {
 	log *slog.Logger
 
-	bridgeManager *service.BridgeManager
+	pipelineManager *service.PipelineManager
 }
 
-func NewRouter(log *slog.Logger, bmgr *service.BridgeManager) http.Handler {
+func NewRouter(log *slog.Logger, pmgr *service.PipelineManager) http.Handler {
 	h := handler{
 		log: log,
 
-		bridgeManager: bmgr,
+		pipelineManager: pmgr,
 	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/healthz", h.healthz).Methods("GET")
-	r.HandleFunc("/bridge", h.startBridge).Methods("POST")
 	r.HandleFunc("/pipeline", h.createPipeline).Methods("POST")
+	r.HandleFunc("/pipeline/shutdown", h.shutdownPipeline).Methods("POST")
 
 	r.Use(Recovery(log), RequestLogging(log))
 

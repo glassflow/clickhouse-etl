@@ -81,8 +81,9 @@ func main() {
 
 func mainErr(cfg *config, log *slog.Logger) error {
 	bridgeMgr := service.NewBridgeManager(service.NewBridgeFactory(cfg.NATSServer, log))
+	pipelineMgr := service.NewPipelineManager(bridgeMgr, log)
 
-	handler := api.NewRouter(log, bridgeMgr)
+	handler := api.NewRouter(log, pipelineMgr)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,

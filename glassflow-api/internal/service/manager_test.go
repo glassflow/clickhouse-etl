@@ -34,7 +34,7 @@ func newMockFactory() *MockBridgeFactory {
 	return &MockBridgeFactory{}
 }
 
-func (t *MockBridgeFactory) CreateBridge(_ *models.KafkaConfig, _ *models.TopicConfig) Bridge {
+func (t *MockBridgeFactory) CreateBridge(_ *models.KafkaConfig, _ *models.BridgeSpec) Bridge {
 	return &MockBridge{}
 }
 
@@ -42,9 +42,9 @@ func TestAllBridgesStartedAndStopped(t *testing.T) {
 	bMgr := NewBridgeManager(newMockFactory())
 
 	numberOfTopics := 5
-	topics := make([]*models.TopicConfig, numberOfTopics)
+	bridges := make([]models.BridgeSpec, numberOfTopics)
 
-	err := bMgr.SetupBridges(&models.KafkaConfig{}, topics)
+	err := bMgr.SetupBridges(&models.KafkaConfig{}, bridges)
 	require.NoError(t, err)
 
 	require.Len(t, bMgr.bridges, numberOfTopics)

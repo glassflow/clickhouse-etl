@@ -6,6 +6,19 @@ import (
 	"time"
 )
 
+type BridgeSpec struct {
+	Topic        string
+	DedupWindow  time.Duration
+	DedupKey     string
+	DedupKeyType string
+
+	ConsumerGroupID            string
+	ConsumerGroupInitialOffset string
+
+	Stream  string
+	Subject string
+}
+
 type KafkaConfig struct {
 	Brokers []string
 
@@ -20,18 +33,24 @@ type KafkaConfig struct {
 
 type TopicConfig struct {
 	Name                       string
-	DedupWindow                Duration
+	DedupWindow                time.Duration
 	DedupKey                   string
 	DedupKeyType               string
 	ConsumerGroupID            string
 	ConsumerGroupInitialOffset string
 }
 
-type Duration struct {
+type NatsConfig struct {
+	Server  string
+	Subject string
+	Stream  string
+}
+
+type JSONDuration struct {
 	t time.Duration
 }
 
-func (d *Duration) UnmarshalJSON(b []byte) error {
+func (d *JSONDuration) UnmarshalJSON(b []byte) error {
 	var rawValue any
 
 	err := json.Unmarshal(b, &rawValue)
@@ -53,6 +72,10 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (d *Duration) String() string {
+func (d *JSONDuration) String() string {
 	return d.t.String()
+}
+
+func (d *JSONDuration) Duration() time.Duration {
+	return d.t
 }
