@@ -51,7 +51,8 @@ func (c *Client) createOrUpdateStream(ctx context.Context, name, subject string,
 		Storage:    jetstream.FileStorage,
 		Duplicates: dedupWindow,
 
-		Retention: jetstream.LimitsPolicy,
+		// to keep resource utilization to a minimum
+		Retention: jetstream.WorkQueuePolicy,
 		MaxAge:    c.StreamMaxAge,
 	})
 	if err != nil {
