@@ -34,7 +34,7 @@ type Config struct {
 	NATSServer             string        `required:"true" split_words:"true"`
 	NATSSubject            string        `required:"true" split_words:"true"`
 	NATSStream             string        `required:"true" split_words:"true"`
-	NATSStreamMaxAge       time.Duration `default:"168h" split_words:"true"` // 24h * 7 days
+	NATSStreamMaxAge       time.Duration `default:"24h" split_words:"true"`
 	NATSStreamDedupWindow  time.Duration `required:"true" split_words:"true"`
 	NATSStreamDedupKey     string        `required:"true" split_words:"true"`
 	NATSStreamDedupKeyType string        `default:"string" split_words:"true"`

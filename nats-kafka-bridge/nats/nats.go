@@ -51,9 +51,9 @@ func (c *Client) createOrUpdateStream(ctx context.Context, name, subject string,
 		Storage:    jetstream.FileStorage,
 		Duplicates: dedupWindow,
 
-		// to keep resource utilization to a minimum
-		Retention: jetstream.WorkQueuePolicy,
+		Retention: jetstream.LimitsPolicy,
 		MaxAge:    c.StreamMaxAge,
+		Discard:   jetstream.DiscardOld,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot create nats stream: %w", err)
