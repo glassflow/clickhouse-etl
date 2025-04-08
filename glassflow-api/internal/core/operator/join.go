@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -17,11 +18,13 @@ type JoinOperator struct {
 	leftStreamConsumer  *stream.Consumer
 	rightStreamConsumer *stream.Consumer
 	resultsPublisher    *stream.Publisher
-	schema              *schema.Mapper
 	leftKVStore         *kv.NATSKeyValueStore
 	rightKVStore        *kv.NATSKeyValueStore
 	leftStreamName      string
 	rightStreamName     string
+	schema              *schema.Mapper
+	mu                  sync.Mutex
+	isClosed            bool
 	log                 *slog.Logger
 }
 
@@ -42,60 +45,17 @@ func NewJoinOperator(
 		leftStreamName:      leftStreamName,
 		rightStreamName:     rightStreamName,
 		schema:              schema,
+		mu:                  sync.Mutex{},
+		isClosed:            false,
 		log:                 log,
 	}
 }
 
-func (j *JoinOperator) handleRightStreamEvents(ctx context.Context, msg jetstream.Msg) error {
-	data := msg.Data()
-
-	key, err := j.schema.GetJoinKey(j.rightStreamName, data)
-	if err != nil {
-		return fmt.Errorf("failed to get join key from right stream message %w", err)
-	}
-
-	err = j.rightKVStore.Put(ctx, key, data)
-	if err != nil {
-		return fmt.Errorf("failed to put right stream message in KV store %w", err)
-	}
-
-	// ack the message
-	err = msg.Ack()
-	if err != nil {
-		return fmt.Errorf("failed to ack right stream message %w", err)
-	}
-
-	leftData, err := j.leftKVStore.Get(ctx, key)
-	if err != nil {
-		if !errors.Is(err, jetstream.ErrKeyNotFound) {
-			j.log.Error("failed to get left stream message from KV store", slog.Any("error", err))
-		}
-	}
-
-	err = j.leftKVStore.Delete(ctx, key)
-	if err != nil {
-		return fmt.Errorf("failed to delete left stream message from KV store %w", err)
-	}
-
-	joinedData, err := j.schema.JoinData(j.leftStreamName, leftData, j.rightStreamName, data)
-	if err != nil {
-		return fmt.Errorf("failed to join data %w", err)
-	}
-
-	err = j.resultsPublisher.Publish(ctx, joinedData)
-	if err != nil {
-		return fmt.Errorf("failed to publish joined data %w", err)
-	}
-
-	return nil
-}
-
 func (j *JoinOperator) handleLeftStreamEvents(ctx context.Context, msg jetstream.Msg) error {
 	data := msg.Data()
-
 	key, err := j.schema.GetJoinKey(j.leftStreamName, data)
 	if err != nil {
-		return fmt.Errorf("failed to get join key from left stream message %w", err)
+		return fmt.Errorf("failed to get join key from left stream message: %w", err)
 	}
 
 	rightData, err := j.rightKVStore.Get(ctx, key)
@@ -107,11 +67,7 @@ func (j *JoinOperator) handleLeftStreamEvents(ctx context.Context, msg jetstream
 		// key not yet found in the right stream, store the left data
 		err = j.leftKVStore.Put(ctx, key, data)
 		if err != nil {
-			return fmt.Errorf("failed to put left stream message in KV store %w", err)
-		}
-		err = msg.Ack()
-		if err != nil {
-			return fmt.Errorf("failed to ack left stream message %w", err)
+			return fmt.Errorf("failed to put left stream message in KV store: %w", err)
 		}
 
 		return nil
@@ -119,7 +75,7 @@ func (j *JoinOperator) handleLeftStreamEvents(ctx context.Context, msg jetstream
 
 	joinedData, err := j.schema.JoinData(j.leftStreamName, data, j.rightStreamName, rightData)
 	if err != nil {
-		return fmt.Errorf("failed to join data %w", err)
+		return fmt.Errorf("failed to join data: %w", err)
 	}
 
 	err = j.resultsPublisher.Publish(ctx, joinedData)
@@ -127,16 +83,50 @@ func (j *JoinOperator) handleLeftStreamEvents(ctx context.Context, msg jetstream
 		j.log.Error("failed to publish joined data", slog.Any("error", err))
 	}
 
-	// ack the message
-	err = msg.Ack()
+	return nil
+}
+
+func (j *JoinOperator) handleRightStreamEvents(ctx context.Context, msg jetstream.Msg) error {
+	data := msg.Data()
+
+	key, err := j.schema.GetJoinKey(j.rightStreamName, data)
 	if err != nil {
-		return fmt.Errorf("failed to ack left stream message %w", err)
+		return fmt.Errorf("failed to get join key from right stream message: %w", err)
+	}
+
+	err = j.rightKVStore.Put(ctx, key, data)
+	if err != nil {
+		return fmt.Errorf("failed to put right stream message in KV store: %w", err)
+	}
+
+	leftData, err := j.leftKVStore.Get(ctx, key)
+	if err != nil {
+		if !errors.Is(err, jetstream.ErrKeyNotFound) {
+			j.log.Error("failed to get left stream message from KV store", slog.Any("error", err))
+		}
+
+		return nil
+	}
+
+	err = j.leftKVStore.Delete(ctx, key)
+	if err != nil {
+		return fmt.Errorf("failed to delete left stream message from KV store: %w", err)
+	}
+
+	joinedData, err := j.schema.JoinData(j.leftStreamName, leftData, j.rightStreamName, data)
+	if err != nil {
+		return fmt.Errorf("failed to join data: %w", err)
+	}
+
+	err = j.resultsPublisher.Publish(ctx, joinedData)
+	if err != nil {
+		return fmt.Errorf("failed to publish joined data: %w", err)
 	}
 
 	return nil
 }
 
-func (j *JoinOperator) Start(ctx context.Context) error {
+func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 	j.log.Info("Join operator started")
 
 	err := j.leftStreamConsumer.Subscribe(func(msg jetstream.Msg) {
@@ -153,7 +143,8 @@ func (j *JoinOperator) Start(ctx context.Context) error {
 		}
 	})
 	if err != nil {
-		return fmt.Errorf("failed to start left stream consumer: %w", err)
+		errChan <- fmt.Errorf("failed to start left stream consumer: %w", err)
+		return
 	}
 
 	err = j.rightStreamConsumer.Subscribe(func(msg jetstream.Msg) {
@@ -164,18 +155,27 @@ func (j *JoinOperator) Start(ctx context.Context) error {
 			j.Stop()
 			return
 		}
+		err = msg.Ack()
+		if err != nil {
+			j.log.Error("failed to ack right stream message", slog.Any("error", err))
+		}
 	})
 	if err != nil {
-		return fmt.Errorf("failed to start right stream consumer: %w", err)
+		errChan <- fmt.Errorf("failed to start right stream consumer: %w", err)
 	}
-
-	j.log.Info("Join operator stopped")
-	return nil
 }
 
 func (j *JoinOperator) Stop() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.isClosed {
+		j.log.Debug("Join operator is already stopped.")
+		return
+	}
+
 	j.log.Info("Stopping Join operator ...")
 	j.leftStreamConsumer.Unsubscribe()
 	j.rightStreamConsumer.Unsubscribe()
-	j.log.Info("Join operator stopped")
+	j.isClosed = true
+	j.log.Debug("Join operator stopped")
 }

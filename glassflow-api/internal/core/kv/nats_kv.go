@@ -2,33 +2,15 @@ package kv
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type CustomTTL struct {
-	TTL time.Duration
-}
-
-func (c *CustomTTL) UnmarshalJSON(data []byte) error {
-	var ttlStr string
-	if err := json.Unmarshal(data, &ttlStr); err != nil {
-		return fmt.Errorf("failed to unmarshal TTL: %w", err)
-	}
-	ttl, err := time.ParseDuration(ttlStr)
-	if err != nil {
-		return fmt.Errorf("failed to parse TTL: %w", err)
-	}
-	c.TTL = ttl
-	return nil
-}
-
 type KeyValueStoreConfig struct {
-	StoreName string    `json:"name"`
-	TTL       CustomTTL `json:"ttl"`
+	StoreName string
+	TTL       time.Duration
 }
 
 type NATSKeyValueStore struct {
@@ -38,7 +20,7 @@ type NATSKeyValueStore struct {
 func NewNATSKeyValueStore(ctx context.Context, js jetstream.JetStream, cfg KeyValueStoreConfig) (*NATSKeyValueStore, error) {
 	kv, err := js.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{ //nolint:exhaustruct // optional config
 		Bucket: cfg.StoreName,
-		TTL:    cfg.TTL.TTL,
+		TTL:    cfg.TTL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get KeyValue store: %w", err)

@@ -112,6 +112,10 @@ func (m *Mapper) validate() error {
 	}
 
 	for streamName, stream := range m.Streams {
+		if len(stream.Fields) == 0 {
+			return fmt.Errorf("no fields defined in stream '%s'", streamName)
+		}
+
 		if stream.JoinKey != "" {
 			if _, ok := stream.Fields[stream.JoinKey]; !ok {
 				return fmt.Errorf("join key '%s' not found in stream '%s'", stream.JoinKey, streamName)

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"os"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -10,22 +11,38 @@ import (
 
 func TestFeatures(t *testing.T) {
 	sinkSuite := steps.NewSinkTestSuite()
+	joinSuite := steps.NewJoinOperatorTestSuite()
+
+	testTags := os.Getenv("TEST_TAGS")
+
+	paths := []string{"features"}
+
+	opts := godog.Options{
+		Format:   "pretty",
+		Paths:    paths,
+		TestingT: t,
+		Tags:     testTags,
+	}
+
+	// Parse command line flags
+	godog.BindCommandLineFlags("godog.", &opts)
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(s *godog.ScenarioContext) {
 			sinkSuite.RegisterSteps(s)
+			joinSuite.RegisterSteps(s)
 		},
 		TestSuiteInitializer: func(ts *godog.TestSuiteContext) {
 			ts.AfterSuite(func() {
 				if err := sinkSuite.CleanupResources(); err != nil {
-					t.Logf("Error cleaning up resources: %v", err)
+					t.Logf("Error cleaning up sink resources: %v", err)
+				}
+				if err := joinSuite.CleanupResources(); err != nil {
+					t.Logf("Error cleaning up join resources: %v", err)
 				}
 			})
 		},
-		Options: &godog.Options{
-			Format:   "pretty",
-			Paths:    []string{"features"},
-			TestingT: t,
-		},
+		Options: &opts,
 	}
 
 	if suite.Run() != 0 {

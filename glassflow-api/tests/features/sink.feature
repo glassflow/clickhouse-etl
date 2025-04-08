@@ -1,3 +1,4 @@
+@sink
 Feature: Clickhouse ETL sink
 
     Background: Run setup before each scenario
@@ -167,4 +168,71 @@ Feature: Clickhouse ETL sink
             | event_id                               | name            | email                | timestamp                  | action   |
             | "72dea57a-ee36-4909-8b36-5be24b19804c" | "Jessica Jones" | "msmith@example.com" | 2025-02-28T02:39:51.886367 | "logout" |
         And I run ClickHouse sink for the 3 seconds
+        Then the ClickHouse table "default.events_test" should contain 2 rows
+
+    Scenario: Exports events after JOIN operator
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name | data_type |
+            | id          | String    |
+            | name        | String    |
+            | email       | String    |
+        And a batch config with max size 2
+        And a schema config with mapping
+            """json
+            {
+                "streams": {
+                    "left_stream": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ],
+                        "join_key_field": "id"
+                    },
+                    "right_stream": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "email",
+                                "field_type": "string"
+                            }
+                        ],
+                        "join_key_field": "id"
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "left_stream",
+                        "column_type": "String"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "left_stream",
+                        "column_type": "String"
+                    },
+                    {
+                        "column_name": "email",
+                        "field_name": "email",
+                        "stream_name": "right_stream",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        When I publish 2 events to the stream with data
+            | left_stream.id | left_stream.name | right_stream.email |
+            | 1              | Alice            | alice@mailbox.com  |
+            | 2              | Bob              | bob@gmail.com      |
+        And I run ClickHouse sink for the 2 seconds
         Then the ClickHouse table "default.events_test" should contain 2 rows

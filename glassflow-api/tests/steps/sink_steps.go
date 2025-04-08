@@ -274,108 +274,9 @@ func (s *SinkTestSuite) theClickHouseTableShouldContainRows(tableName string, co
 	return nil
 }
 
-func (s *SinkTestSuite) theDataInClickhouseShouldMatchTheSchema(tableName string, schema *godog.Table) error {
-	conn, err := s.chContainer.GetConnection()
-	if err != nil {
-		return fmt.Errorf("get clickhouse connection: %w", err)
-	}
-	defer conn.Close()
-
-	if len(schema.Rows) < 2 {
-		return fmt.Errorf("invalid schema table")
-	}
-
-	headers := schema.Rows[0].Cells
-	columns := make([]string, 0, len(headers))
-	for _, cell := range headers {
-		columns = append(columns, cell.Value)
-	}
-
-	query := fmt.Sprintf("SELECT %s FROM %s", strings.Join(columns, ", "), tableName)
-	rows, err := conn.Query(context.Background(), query)
-	if err != nil {
-		return fmt.Errorf("query table: %w", err)
-	}
-	defer rows.Close()
-
-	rowIdx := 1 // Skip header
-	for rows.Next() {
-		if rowIdx >= len(schema.Rows) {
-			return fmt.Errorf("more rows in database than expected")
-		}
-
-		// Create a slice to scan the row values into
-		values := make([]any, len(columns))
-		valuePointers := make([]any, len(columns))
-		for i := range values {
-			valuePointers[i] = &values[i]
-		}
-
-		err := rows.Scan(valuePointers...)
-		if err != nil {
-			return fmt.Errorf("scan row: %w", err)
-		}
-
-		// Compare with expected values
-		expectedRow := schema.Rows[rowIdx]
-		for i, expected := range expectedRow.Cells {
-			// Convert the scanned value to string for comparison
-			var actual string
-			switch v := values[i].(type) {
-			case string:
-				actual = v
-			case []byte:
-				actual = string(v)
-			default:
-				actual = fmt.Sprintf("%v", v)
-			}
-
-			if actual != expected.Value {
-				return fmt.Errorf("row %d, column %s: expected '%s', got '%s'",
-					rowIdx, columns[i], expected.Value, actual)
-			}
-		}
-
-		rowIdx++
-	}
-
-	if rowIdx < len(schema.Rows) {
-		return fmt.Errorf("more rows in database than expected")
-	}
-
-	return nil
-}
-
-func (s *SinkTestSuite) iDropTheClickHouseTable(tableName string) error {
-	if s.chContainer == nil {
-		return nil // Nothing to drop
-	}
-
-	conn, err := s.chContainer.GetConnection()
-	if err != nil {
-		return fmt.Errorf("get clickhouse connection: %w", err)
-	}
-	defer conn.Close()
-
-	err = conn.Exec(context.Background(), "DROP TABLE IF EXISTS %s"+tableName)
-	if err != nil {
-		return fmt.Errorf("drop table: %w", err)
-	}
-
-	return nil
-}
-
 // CleanupResources handles all resource cleanup
 func (s *SinkTestSuite) CleanupResources() error {
 	var errs []error
-
-	// Drop all tables that might have been created
-	if s.SinkSonfig != nil {
-		err := s.iDropTheClickHouseTable(s.SinkSonfig.TableName)
-		if err == nil {
-			return fmt.Errorf("clean clickhouse: %w", err)
-		}
-	}
 
 	// Close ClickHouse sink
 	if s.CHSink != nil {
@@ -427,5 +328,11 @@ func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I publish (\d+) events to the stream with data$`, s.iPublishEventsToTheStream)
 	sc.Step(`^I run ClickHouse sink for the (\d+) seconds$`, s.iRunClickHouseSink)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, s.theClickHouseTableShouldContainRows)
-	sc.Step(`^the data in Clickhouse should match the schema "([^"]*)"$`, s.theDataInClickhouseShouldMatchTheSchema)
+	sc.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
+		cleanupErr := s.CleanupResources()
+		if cleanupErr != nil {
+			return ctx, cleanupErr
+		}
+		return ctx, nil
+	})
 }

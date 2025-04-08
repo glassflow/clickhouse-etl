@@ -57,6 +57,8 @@ func StartNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	// Build connection URI
 	uri := net.JoinHostPort("127.0.0.1", mappedPort.Port())
 
+	time.Sleep(3 * time.Second) // Delay before NATS will start
+
 	return &NATSContainer{
 		container: container,
 		uri:       uri,
