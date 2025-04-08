@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -74,6 +75,28 @@ func SetupNATS(ctx context.Context, url string, stream, subject string, maxAge, 
 	c, err := NewClient(url, maxAge)
 	if err != nil {
 		return fmt.Errorf("nats client: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	//nolint: contextcheck // wrong linting error, already inherited
+	streamIterator := c.JS.ListStreams(nats.Context(ctx))
+	if err := streamIterator.Err(); err != nil {
+		return fmt.Errorf("list streams error: %w", err)
+	}
+
+	for s := range streamIterator.Info() {
+		name := s.Config.Name
+
+		if !strings.HasPrefix(name, "glassflow-stream") {
+			continue
+		}
+
+		err := c.JS.DeleteStream(ctx, name)
+		if err != nil {
+			return fmt.Errorf("delete stream: %w", err)
+		}
 	}
 
 	err = c.createOrUpdateStream(ctx, stream, subject, dedupWindow)

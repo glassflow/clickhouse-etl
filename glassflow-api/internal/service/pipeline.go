@@ -58,7 +58,7 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 	streamSchemas := make(map[string]models.StreamSchema, len(spec.Source.Topics))
 
 	for i, t := range spec.Source.Topics {
-		stream := fmt.Sprintf("stream-%s-%s", t.Topic, uuid.New())
+		stream := fmt.Sprintf("glassflow-stream-%s-%s", t.Topic, uuid.New())
 		subject := stream + ".input"
 
 		//nolint: exhaustruct // add dedup only after enabled check
