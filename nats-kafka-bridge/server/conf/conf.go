@@ -103,8 +103,8 @@ func (s SASLMechanism) String() string {
 }
 
 const (
-	MechanismSHA256 SASLMechanism = "sha256"
-	MechanismSHA512 SASLMechanism = "sha512"
+	MechanismSHA256 SASLMechanism = "SCRAM-SHA-256"
+	MechanismSHA512 SASLMechanism = "SCRAM-SHA-512"
 )
 
 type IAM struct {
@@ -254,8 +254,8 @@ type ConnectorConfig struct {
 type CGInitialOffset string
 
 const (
-	Newest CGInitialOffset = "newest"
-	Oldest CGInitialOffset = "oldest"
+	Latest   CGInitialOffset = "latest"
+	Earliest CGInitialOffset = "earliest"
 )
 
 var _ encoding.TextUnmarshaler = (*CGInitialOffset)(nil)
@@ -263,10 +263,10 @@ var _ encoding.TextUnmarshaler = (*CGInitialOffset)(nil)
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (o *CGInitialOffset) UnmarshalText(text []byte) error {
 	switch string(bytes.ToLower(text)) {
-	case "newest", "":
-		*o = Newest
-	case "oldest":
-		*o = Oldest
+	case "latest", "":
+		*o = Latest
+	case "earliest":
+		*o = Earliest
 	default:
 		return fmt.Errorf("unsupported initial offset for consumer group: %q", text)
 	}

@@ -161,9 +161,9 @@ func NewConsumer(cc conf.ConnectorConfig, dialTimeout time.Duration) (Consumer, 
 
 	if cons.groupMode {
 		switch cc.InitialOffset {
-		case conf.Newest:
+		case conf.Latest:
 			sc.Consumer.Offsets.Initial = sarama.OffsetNewest
-		case conf.Oldest:
+		case conf.Earliest:
 			sc.Consumer.Offsets.Initial = sarama.OffsetOldest
 		default:
 			return nil, fmt.Errorf("unsupported initial offset for consumer group: %s", cc.InitialOffset)

@@ -56,7 +56,7 @@ type Config struct {
 
 	KafkaConsumerPartition          int32                `split_words:"true"`                  // optional partition for the reader
 	KafkaConsumerGroupID            string               `split_words:"true"`                  // optional group id for reader, exclusive with partition
-	KafkaConsumerGroupInitialOffset conf.CGInitialOffset `default:"newest" split_words:"true"` // allowed values: newest, oldest. Default is newest.
+	KafkaConsumerGroupInitialOffset conf.CGInitialOffset `default:"newest" split_words:"true"` // allowed values: earliest, latest. Default is latest.
 
 	KafkaSchemaRegistryURL string `split_words:"true"` // schema registry url for message schema validation
 	KafkaSchemaSubjectName string `split_words:"true"` // name of the subject in the schema registry for the value
