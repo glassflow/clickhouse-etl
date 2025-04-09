@@ -41,16 +41,23 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		return ErrUnsupportedNumberOfTopics
 	}
 
+	conParams := spec.Source.ConnectionParams
+
 	//nolint: exhaustruct // optional security config
 	kCfg := models.KafkaConfig{
-		Brokers:       spec.Source.Brokers,
-		SASLUser:      spec.Source.Security.SASLUsername,
-		SASLPassword:  spec.Source.Security.SASLPassword,
-		SASLMechanism: spec.Source.Security.SASLMechanism,
-		IAMEnable:     spec.Source.Security.IAMEnable,
-		IAMRegion:     spec.Source.Security.IAMRegion,
+		Brokers:       conParams.Brokers,
+		SASLUser:      conParams.SASLUsername,
+		SASLPassword:  conParams.SASLPassword,
+		SASLMechanism: conParams.SASLMechanism,
+
+		IAMEnable: conParams.IAMEnable,
+		IAMRegion: conParams.IAMRegion,
+
+		TLSCert: conParams.TLSCert,
+		TLSKey:  conParams.TLSKey,
+		TLSRoot: conParams.TLSRoot,
 	}
-	if spec.Source.Security.SASLProtocol == "SASL_SSL" {
+	if conParams.SASLProtocol == "SASL_SSL" {
 		kCfg.SASLTLSEnable = true
 	}
 

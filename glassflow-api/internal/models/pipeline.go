@@ -6,22 +6,26 @@ type PipelineRequest struct {
 	Join       JoinConfig       `json:"join"`
 	Sink       ClickhouseConfig `json:"sink"`
 
-	SinkMaxBatchSize int64  `json:"sink_max_batch_size"`
-	JoinKey          string `json:"join_key"`
+	JoinKey string `json:"join_key"`
 }
 
 type KafkaSpec struct {
-	Provider string   `json:"provider"`
-	Brokers  []string `json:"brokers"`
-	Security struct {
-		SASLProtocol  string `json:"protocol"`
-		SASLMechanism string `json:"mechanism"`
-		SASLUsername  string `json:"username"`
-		SASLPassword  string `json:"password"`
-		IAMEnable     bool   `json:"iam_enable"`
-		IAMRegion     string `json:"iam_region"`
-	} `json:"security"`
-	Topics []TopicSpec `json:"topics"`
+	Provider         string           `json:"provider"`
+	ConnectionParams ConnectionParams `json:"connection_params"`
+	Topics           []TopicSpec      `json:"topics"`
+}
+
+type ConnectionParams struct {
+	Brokers       []string `json:"brokers"`
+	SASLProtocol  string   `json:"protocol"`
+	SASLMechanism string   `json:"mechanism"`
+	SASLUsername  string   `json:"username"`
+	SASLPassword  string   `json:"password"`
+	TLSKey        string   `json:"key"`
+	TLSCert       string   `json:"cert"`
+	TLSRoot       string   `json:"root_ca"`
+	IAMEnable     bool     `json:"iam_enable"`
+	IAMRegion     string   `json:"iam_region"`
 }
 
 type TopicSpec struct {
@@ -45,7 +49,7 @@ type DedupSpec struct {
 	Enabled bool `json:"enabled"`
 
 	ID     string       `json:"id_field"`
-	Type   string       `json:"data_type"`
+	Type   string       `json:"type"`
 	Window JSONDuration `json:"time_window"`
 }
 
@@ -72,14 +76,14 @@ type KafkaToClickhouseMap struct {
 type JoinConfig struct {
 	Enabled bool `json:"enabled"`
 
-	Type     string             `json:"type"`
-	ID       string             `json:"id"`
-	DataType string             `json:"data_type"`
-	Sources  []JoinSourceConfig `json:"sources"`
+	Type    string             `json:"type"`
+	ID      string             `json:"id"`
+	Sources []JoinSourceConfig `json:"sources"`
 }
 
 type JoinSourceConfig struct {
-	SourceID string       `json:"source_id"`
-	JoinKey  string       `json:"join_key"`
-	Window   JSONDuration `json:"time_window"`
+	SourceID    string       `json:"source_id"`
+	JoinKey     string       `json:"join_key"`
+	Window      JSONDuration `json:"time_window"`
+	Orientation string       `json:"orientation"`
 }

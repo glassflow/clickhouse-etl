@@ -29,6 +29,10 @@ type KafkaConfig struct {
 	SASLPassword  string
 	SASLMechanism string
 	SASLTLSEnable bool
+
+	TLSKey  string
+	TLSRoot string
+	TLSCert string
 }
 
 type TopicConfig struct {

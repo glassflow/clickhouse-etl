@@ -177,8 +177,18 @@ func (b *BridgeImpl) setupEnv() {
 	env["BRIDGE_KAFKA_TOPIC"] = b.Topic.Name
 	env["BRIDGE_KAFKA_CONSUMER_GROUP_ID"] = b.Topic.ConsumerGroupID
 	env["BRIDGE_KAFKA_CONSUMER_GROUP_INITIAL_OFFSET"] = b.Topic.ConsumerGroupInitialOffset
+
 	env["BRIDGE_KAFKA_IAM_ENABLE"] = strconv.FormatBool(b.Kafka.IAMEnable)
 	env["BRIDGE_KAFKA_IAM_REGION"] = b.Kafka.IAMRegion
+
+	env["BRIDGE_KAFKA_SASL_USER"] = b.Kafka.SASLUser
+	env["BRIDGE_KAFKA_SASL_PASSWORD"] = b.Kafka.SASLPassword
+	env["BRIDGE_KAFKA_SASL_MECHANISM"] = b.Kafka.SASLMechanism
+	env["BRIDGE_KAFKA_SASL_TLS_ENABLE"] = strconv.FormatBool(b.Kafka.SASLTLSEnable)
+
+	env["BRIDGE_KAFKA_TLS_CERT"] = b.Kafka.TLSCert
+	env["BRIDGE_KAFKA_TLS_KEY"] = b.Kafka.TLSKey
+	env["BRIDGE_KAFKA_TLS_ROOT"] = b.Kafka.TLSRoot
 
 	for k, v := range env {
 		b.cmd.Env = append(b.cmd.Environ(), fmt.Sprintf("%s=%s", k, v))
