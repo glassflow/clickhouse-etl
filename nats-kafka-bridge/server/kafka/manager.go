@@ -67,7 +67,7 @@ func NewManager(cc conf.ConnectorConfig, bc conf.NATSKafkaBridgeConfig) (Manager
 		sc.Net.TLS.Config = &tls.Config{
 			InsecureSkipVerify: cc.SASL.InsecureSkipVerify,
 		}
-	} else if tlsC, err := cc.TLS.MakeTLSConfig(); tlsC != nil && err == nil {
+	} else if tlsC, err := cc.TLS.MakeTLSConfigFromStrings(); tlsC != nil && err == nil {
 		sc.Net.TLS.Enable = true
 		sc.Net.TLS.Config = tlsC
 	}

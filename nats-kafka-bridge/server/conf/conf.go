@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"time"
@@ -149,6 +150,59 @@ func (tlsConf *TLSConf) MakeTLSConfig() (*tls.Config, error) {
 		}
 
 		config.Certificates = []tls.Certificate{cert}
+	}
+
+	return &config, nil
+}
+
+// MakeTLSConfig creates a tls.Config from a TLSConf, setting up the key pairs
+// and certs from env vars
+func (tlsConf *TLSConf) MakeTLSConfigFromStrings() (*tls.Config, error) {
+	if tlsConf.Cert == "" && tlsConf.Key == "" && tlsConf.Root == "" {
+		//nolint: nilnil // don't need sentinel error
+		return nil, nil
+	}
+
+	//nolint: exhaustruct // optional config
+	config := tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		ClientAuth:               tls.NoClientCert,
+		PreferServerCipherSuites: true,
+	}
+
+	if tlsConf.Root != "" {
+		// Load CA cert
+		caCert, err := base64.StdEncoding.DecodeString(tlsConf.Root)
+		if err != nil {
+			return nil, fmt.Errorf("base64 decode tls root: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		config.RootCAs = caCertPool
+	}
+
+	if tlsConf.Cert != "" || tlsConf.Key != "" {
+		cert, err := base64.StdEncoding.DecodeString(tlsConf.Cert)
+		if err != nil {
+			return nil, fmt.Errorf("base64 decode tls cert: %w", err)
+		}
+
+		key, err := base64.StdEncoding.DecodeString(tlsConf.Key)
+		if err != nil {
+			return nil, fmt.Errorf("base64 decode tls cert: %w", err)
+		}
+
+		tlsCert, err := tls.X509KeyPair(cert, key)
+		if err != nil {
+			return nil, fmt.Errorf("error loading X509 certificate/key pair: %w", err)
+		}
+
+		tlsCert.Leaf, err = x509.ParseCertificate(tlsCert.Certificate[0])
+		if err != nil {
+			return nil, fmt.Errorf("error parsing certificate: %w", err)
+		}
+
+		config.Certificates = []tls.Certificate{tlsCert}
 	}
 
 	return &config, nil

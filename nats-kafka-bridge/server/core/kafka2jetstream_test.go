@@ -155,7 +155,7 @@ func TestSimpleSendOnKafkaReceiveOnJetStreamWithGroup(t *testing.T) {
 			DedupKey:      "id",
 			DedupKeyType:  "string",
 			GroupID:       group,
-			InitialOffset: "newest",
+			InitialOffset: "latest",
 		},
 	}
 
@@ -228,7 +228,7 @@ func TestSimpleSendOnKafkaReceiveOnJetStreamWithGroupIntegerDedupIDAndHeaders(t 
 			DedupKey:      "id",
 			DedupKeyType:  "int",
 			GroupID:       group,
-			InitialOffset: "newest",
+			InitialOffset: "latest",
 		},
 	}
 
@@ -293,7 +293,7 @@ func TestSimpleSASLSendOnKafkaReceiveOnJetStreamWithGroup(t *testing.T) {
 			GroupID:       group,
 			DedupKey:      "id",
 			DedupKeyType:  "string",
-			InitialOffset: "newest",
+			InitialOffset: "latest",
 			SASL: conf.SASL{
 				User:     saslUser,
 				Password: saslPassword,

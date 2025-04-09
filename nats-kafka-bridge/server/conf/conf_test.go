@@ -17,6 +17,8 @@
 package conf
 
 import (
+	"encoding/base64"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -36,5 +38,28 @@ func TestMakeTLSConfig(t *testing.T) {
 		Root: "../../resources/certs/ca-cert.pem",
 	}
 	_, err := tlsC.MakeTLSConfig()
+	require.NoError(t, err)
+}
+
+func TestMakeTLSConfigFromEnv(t *testing.T) {
+	clientCert, err := os.ReadFile("../../resources/certs/client-cert.pem")
+	require.NoError(t, err)
+
+	clientKey, err := os.ReadFile("../../resources/certs/client-key.pem")
+	require.NoError(t, err)
+
+	rootCert, err := os.ReadFile("../../resources/certs/ca-cert.pem")
+	require.NoError(t, err)
+
+	encodedClientCert := base64.StdEncoding.EncodeToString(clientCert)
+	encodedClientKey := base64.StdEncoding.EncodeToString(clientKey)
+	encodedRootCert := base64.StdEncoding.EncodeToString(rootCert)
+
+	tlsC := &TLSConf{
+		Cert: encodedClientCert,
+		Key:  encodedClientKey,
+		Root: encodedRootCert,
+	}
+	_, err = tlsC.MakeTLSConfigFromStrings()
 	require.NoError(t, err)
 }
