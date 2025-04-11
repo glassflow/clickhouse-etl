@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/pprof"
 	"sync"
 	"syscall"
@@ -65,6 +66,7 @@ func main() {
 	configPath := flag.String("config", "", "Path to config file")
 	debug := flag.Bool("d", false, "Enable debug logging")
 	cpuProfile := flag.String("cpuprofile", "", "write CPU profile to file")
+	memProfile := flag.String("memprofile", "", "write memory profile to `file`")
 	flag.Parse()
 
 	if *cpuProfile != "" {
@@ -79,6 +81,18 @@ func main() {
 			os.Exit(1)
 		}
 		defer pprof.StopCPUProfile()
+	}
+
+	if *memProfile != "" {
+		f, err := os.Create(*memProfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not create memory profile: %s\n", err)
+		}
+		defer f.Close()
+		runtime.GC()
+		if err := pprof.Lookup("allocs").WriteTo(f, 0); err != nil {
+			fmt.Fprintf(os.Stderr, "could not write memory profile: %s\n", err)
+		}
 	}
 
 	logHandlerOpts := slog.HandlerOptions{} //nolint:exhaustruct // optional config

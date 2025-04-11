@@ -2,7 +2,6 @@ package operator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -14,16 +13,17 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 )
 
+type JoinExecutor interface {
+	HandleLeftStreamEvents(context.Context, jetstream.Msg) error
+	HandleRightStreamEvents(context.Context, jetstream.Msg) error
+}
+
 type JoinOperator struct {
 	leftStreamConsumer  *stream.Consumer
 	rightStreamConsumer *stream.Consumer
-	resultsPublisher    *stream.Publisher
-	leftKVStore         *kv.NATSKeyValueStore
-	rightKVStore        *kv.NATSKeyValueStore
-	leftStreamName      string
-	rightStreamName     string
-	schema              *schema.Mapper
+	exector             JoinExecutor
 	mu                  sync.Mutex
+	handleMu            sync.Mutex
 	isClosed            bool
 	log                 *slog.Logger
 }
@@ -36,105 +36,33 @@ func NewJoinOperator(
 	leftStreamName, rightStreamName string,
 	log *slog.Logger,
 ) *JoinOperator {
+	executor := NewTemporalJoinExecutor(
+		resultsPublisher,
+		schema,
+		leftKVStore, rightKVStore,
+		leftStreamName, rightStreamName,
+		log,
+	)
 	return &JoinOperator{
 		leftStreamConsumer:  leftStreamConsumer,
 		rightStreamConsumer: rightStreamConsumer,
-		resultsPublisher:    resultsPublisher,
-		leftKVStore:         leftKVStore,
-		rightKVStore:        rightKVStore,
-		leftStreamName:      leftStreamName,
-		rightStreamName:     rightStreamName,
-		schema:              schema,
+		exector:             executor,
 		mu:                  sync.Mutex{},
+		handleMu:            sync.Mutex{},
 		isClosed:            false,
 		log:                 log,
 	}
-}
-
-func (j *JoinOperator) handleLeftStreamEvents(ctx context.Context, msg jetstream.Msg) error {
-	data := msg.Data()
-	key, err := j.schema.GetJoinKey(j.leftStreamName, data)
-	if err != nil {
-		return fmt.Errorf("failed to get join key from left stream message: %w", err)
-	}
-
-	rightData, err := j.rightKVStore.Get(ctx, key)
-	if err != nil {
-		if !errors.Is(err, jetstream.ErrKeyNotFound) {
-			j.log.Error("failed to get right stream message from KV store", slog.Any("error", err))
-		}
-
-		// key not yet found in the right stream, store the left data
-		err = j.leftKVStore.Put(ctx, key, data)
-		if err != nil {
-			return fmt.Errorf("failed to put left stream message in KV store: %w", err)
-		}
-
-		return nil
-	}
-
-	joinedData, err := j.schema.JoinData(j.leftStreamName, data, j.rightStreamName, rightData)
-	if err != nil {
-		return fmt.Errorf("failed to join data: %w", err)
-	}
-
-	err = j.resultsPublisher.Publish(ctx, joinedData)
-	if err != nil {
-		j.log.Error("failed to publish joined data", slog.Any("error", err))
-	}
-
-	return nil
-}
-
-func (j *JoinOperator) handleRightStreamEvents(ctx context.Context, msg jetstream.Msg) error {
-	data := msg.Data()
-
-	key, err := j.schema.GetJoinKey(j.rightStreamName, data)
-	if err != nil {
-		return fmt.Errorf("failed to get join key from right stream message: %w", err)
-	}
-
-	err = j.rightKVStore.Put(ctx, key, data)
-	if err != nil {
-		return fmt.Errorf("failed to put right stream message in KV store: %w", err)
-	}
-
-	leftData, err := j.leftKVStore.Get(ctx, key)
-	if err != nil {
-		if !errors.Is(err, jetstream.ErrKeyNotFound) {
-			j.log.Error("failed to get left stream message from KV store", slog.Any("error", err))
-		}
-
-		return nil
-	}
-
-	err = j.leftKVStore.Delete(ctx, key)
-	if err != nil {
-		return fmt.Errorf("failed to delete left stream message from KV store: %w", err)
-	}
-
-	joinedData, err := j.schema.JoinData(j.leftStreamName, leftData, j.rightStreamName, data)
-	if err != nil {
-		return fmt.Errorf("failed to join data: %w", err)
-	}
-
-	err = j.resultsPublisher.Publish(ctx, joinedData)
-	if err != nil {
-		return fmt.Errorf("failed to publish joined data: %w", err)
-	}
-
-	return nil
 }
 
 func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 	j.log.Info("Join operator started")
 
 	err := j.leftStreamConsumer.Subscribe(func(msg jetstream.Msg) {
-		err := j.handleLeftStreamEvents(ctx, msg)
+		j.handleMu.Lock()
+		defer j.handleMu.Unlock()
+		err := j.exector.HandleLeftStreamEvents(ctx, msg)
 		if err != nil {
 			j.log.Error("failed to handle left stream event", slog.Any("error", err))
-			// Stop the consumer if an error occurs
-			j.Stop()
 			return
 		}
 		err = msg.Ack()
@@ -148,11 +76,11 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 	}
 
 	err = j.rightStreamConsumer.Subscribe(func(msg jetstream.Msg) {
-		err := j.handleRightStreamEvents(ctx, msg)
+		j.handleMu.Lock()
+		defer j.handleMu.Unlock()
+		err := j.exector.HandleRightStreamEvents(ctx, msg)
 		if err != nil {
 			j.log.Error("failed to handle right stream event", slog.Any("error", err))
-			// Stop the consumer if an error occurs
-			j.Stop()
 			return
 		}
 		err = msg.Ack()

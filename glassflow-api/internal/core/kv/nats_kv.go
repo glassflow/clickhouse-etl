@@ -39,6 +39,14 @@ func (k *NATSKeyValueStore) Put(ctx context.Context, key any, value []byte) erro
 	return nil
 }
 
+func (k *NATSKeyValueStore) PutString(ctx context.Context, key any, value string) error {
+	_, err := k.KVstore.PutString(ctx, fmt.Sprintf("%v", key), value)
+	if err != nil {
+		return fmt.Errorf("failed to put string in KeyValue store: %w", err)
+	}
+	return nil
+}
+
 func (k *NATSKeyValueStore) Get(ctx context.Context, key any) ([]byte, error) {
 	item, err := k.KVstore.Get(ctx, fmt.Sprintf("%v", key))
 	if err != nil {

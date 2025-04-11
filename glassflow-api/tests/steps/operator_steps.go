@@ -2,8 +2,10 @@ package steps
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -308,7 +310,7 @@ func (j *JoinOperatorTestSuite) iPublishEventsToTheRightStream(count int, dataTa
 }
 
 func (j *JoinOperatorTestSuite) iCheckResults(count int) error {
-	var resultsCount int
+	var resultsCount, toFetch int
 	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
@@ -328,7 +330,8 @@ func (j *JoinOperatorTestSuite) iCheckResults(count int) error {
 	}
 
 	// consumer all messages
-	msgs, err := consumer.Fetch(2*count, jetstream.FetchMaxWait(1000*time.Millisecond))
+	toFetch = max(count*2, 1)
+	msgs, err := consumer.Fetch(toFetch, jetstream.FetchMaxWait(1000*time.Millisecond))
 	if err != nil {
 		return fmt.Errorf("fetch messages: %w", err)
 	}
@@ -353,12 +356,115 @@ func (j *JoinOperatorTestSuite) iCheckResults(count int) error {
 	return nil
 }
 
+func (j *JoinOperatorTestSuite) iCheckResultsWithContent(dataTable *godog.Table) error {
+	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
+	if err != nil {
+		return fmt.Errorf("create nats wrapper: %w", err)
+	}
+	defer natsWrap.Close()
+
+	js := natsWrap.JetStream()
+
+	consumer, err := js.CreateOrUpdateConsumer(context.Background(), j.resultsConsumerConfig.NatsStream, jetstream.ConsumerConfig{
+		Name:          j.resultsConsumerConfig.NatsConsumer,
+		Durable:       j.resultsConsumerConfig.NatsConsumer,
+		AckWait:       time.Duration(j.resultsConsumerConfig.AckWaitSeconds) * time.Second,
+		FilterSubject: j.resultsConsumerConfig.NatsSubject,
+	})
+	if err != nil {
+		return fmt.Errorf("subscribe to results stream: %w", err)
+	}
+
+	// Expected number of events is (rows - 1) because first row is headers
+	expectedCount := len(dataTable.Rows) - 1
+	if expectedCount < 1 {
+		return fmt.Errorf("no expected events in data table")
+	}
+
+	// Get headers from first row
+	headers := make([]string, len(dataTable.Rows[0].Cells))
+	for i, cell := range dataTable.Rows[0].Cells {
+		headers[i] = cell.Value
+	}
+
+	expectedEventsMap := make(map[[sha256.Size]byte]string)
+
+	for i := 1; i < len(dataTable.Rows); i++ {
+		row := dataTable.Rows[i]
+		event := make(map[string]any)
+
+		rowStr := make([]string, 0, len(row.Cells))
+
+		for j, cell := range row.Cells {
+			if j < len(headers) {
+				event[headers[j]] = cell.Value
+				rowStr = append(rowStr, cell.Value)
+			}
+		}
+
+		eventBytes, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshal event %s: %w", event, err)
+		}
+
+		// Calculate SHA-256 hash of the event
+		hash := sha256.Sum256(eventBytes)
+		expectedEventsMap[hash] = strings.Join(rowStr, " | ")
+	}
+
+	// Fetch messages with a timeout
+	msgs, err := consumer.Fetch(2*expectedCount, jetstream.FetchMaxWait(1000*time.Millisecond))
+	if err != nil {
+		return fmt.Errorf("fetch messages: %w", err)
+	}
+
+	receivedCount := 0
+
+	for msg := range msgs.Messages() {
+		if msg == nil {
+			break
+		}
+
+		var event map[string]any
+		if err := json.Unmarshal(msg.Data(), &event); err != nil {
+			return fmt.Errorf("unmarshal message data: %w", err)
+		}
+
+		// Calculate SHA-256 hash of the event
+		hash := sha256.Sum256(msg.Data())
+
+		if _, exists := expectedEventsMap[hash]; !exists {
+			return fmt.Errorf("unexpected event: %v", event)
+		}
+
+		delete(expectedEventsMap, hash)
+
+		receivedCount++
+
+		if err := msg.Ack(); err != nil {
+			return fmt.Errorf("ack message: %w", err)
+		}
+	}
+
+	if receivedCount < expectedCount {
+		events := "\n"
+		for k := range expectedEventsMap {
+			events += expectedEventsMap[k] + "\n"
+		}
+		return fmt.Errorf("expected %d events, but received only %d, missed events: %s", expectedCount, receivedCount, events)
+	}
+
+	return nil
+}
+
 func (j *JoinOperatorTestSuite) CleanupResources() error {
 	if j.natsContainer != nil {
 		err := j.natsContainer.Stop(context.Background())
 		if err != nil {
 			return fmt.Errorf("stop nats container: %w", err)
 		}
+
+		j.natsContainer = nil
 	}
 
 	return nil
@@ -379,4 +485,12 @@ func (j *JoinOperatorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I publish (\d+) events to the left stream$`, j.iPublishEventsToTheLeftStream)
 	sc.Step(`^I publish (\d+) events to the right stream$`, j.iPublishEventsToTheRightStream)
 	sc.Step(`^I check results count is (\d+)$`, j.iCheckResults)
+	sc.Step(`^I check results with content$`, j.iCheckResultsWithContent)
+	sc.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
+		cleanupErr := j.CleanupResources()
+		if cleanupErr != nil {
+			return ctx, cleanupErr
+		}
+		return ctx, nil
+	})
 }
