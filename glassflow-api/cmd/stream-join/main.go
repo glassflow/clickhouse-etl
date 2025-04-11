@@ -102,15 +102,16 @@ func main() {
 		return
 	}
 
-	nc, err := client.NewNATSWrapper(cfg.NstsURL)
+	// hardcoded the changes for now
+	nc, err := client.NewNATSWrapper(cfg.NstsURL, 24*time.Hour)
 	if err != nil {
 		log.Error("failed to create NATS wrapper: ", slog.Any("error", err))
 		return
 	}
 
 	// Create left and right stream consumers
+	//nolint: exhaustruct // optional config
 	leftConsumer, err := stream.NewConsumer(ctx, nc.JetStream(), stream.ConsumerConfig{
-		NatsURL:      cfg.NstsURL,
 		NatsStream:   cfg.Left.StreamName,
 		NatsConsumer: "leftStreamConsumer",
 		NatsSubject:  cfg.Left.SubjectName,
@@ -120,8 +121,8 @@ func main() {
 		return
 	}
 
+	//nolint: exhaustruct // optional config
 	rightConsumer, err := stream.NewConsumer(ctx, nc.JetStream(), stream.ConsumerConfig{
-		NatsURL:      cfg.NstsURL,
 		NatsStream:   cfg.Right.StreamName,
 		NatsConsumer: "rightStreamConsumer",
 		NatsSubject:  cfg.Right.SubjectName,

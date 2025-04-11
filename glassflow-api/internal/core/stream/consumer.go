@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 )
 
 type ConsumerConfig struct {
-	NatsURL        string `json:"url"`
 	NatsStream     string `json:"stream"`
 	NatsConsumer   string `json:"consumer"`
 	NatsSubject    string `json:"subject"`
@@ -21,8 +21,28 @@ type Consumer struct {
 	consumeCtx jetstream.ConsumeContext
 }
 
+const (
+	ConsumerRetries      = 4
+	ConsumerRetryBackoff = 10 * time.Millisecond
+)
+
 func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*Consumer, error) {
-	stream, err := js.Stream(ctx, cfg.NatsStream)
+	var (
+		stream jetstream.Stream
+		err    error
+	)
+
+	for range ConsumerRetries {
+		stream, err = js.Stream(ctx, cfg.NatsStream)
+		if err != nil {
+			if errors.Is(err, jetstream.ErrStreamNotFound) {
+				time.Sleep(ConsumerRetryBackoff)
+				continue
+			}
+			return nil, fmt.Errorf("get stream: %w", err)
+		}
+		break
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get stream: %w", err)
 	}

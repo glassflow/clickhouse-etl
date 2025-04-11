@@ -43,7 +43,6 @@ func (j *JoinOperatorTestSuite) aRunningNATSInstance() error {
 
 func (j *JoinOperatorTestSuite) aLeftStreamConsumerConfig(streamName, subjectName, consumerName string) error {
 	j.leftStreamConfig = &stream.ConsumerConfig{
-		NatsURL:        j.natsContainer.GetURI(),
 		NatsStream:     streamName,
 		NatsConsumer:   consumerName,
 		NatsSubject:    subjectName,
@@ -54,7 +53,6 @@ func (j *JoinOperatorTestSuite) aLeftStreamConsumerConfig(streamName, subjectNam
 
 func (j *JoinOperatorTestSuite) aRightStreamConsumerConfig(streamName, subjectName, consumerName string) error {
 	j.rightStreamConfig = &stream.ConsumerConfig{
-		NatsURL:        j.natsContainer.GetURI(),
 		NatsStream:     streamName,
 		NatsConsumer:   consumerName,
 		NatsSubject:    subjectName,
@@ -65,7 +63,6 @@ func (j *JoinOperatorTestSuite) aRightStreamConsumerConfig(streamName, subjectNa
 
 func (j *JoinOperatorTestSuite) aResultsConsumerConfig(streamName, subjectName, consumerName string) error {
 	j.resultsConsumerConfig = &stream.ConsumerConfig{
-		NatsURL:        j.natsContainer.GetURI(),
 		NatsStream:     streamName,
 		NatsConsumer:   consumerName,
 		NatsSubject:    subjectName,
@@ -147,7 +144,7 @@ func (j *JoinOperatorTestSuite) iRunJoinOperator(leftTTL, rightTTL, runDuration 
 		return fmt.Errorf("parse run duration: %w", err)
 	}
 
-	natsWrapper, err := client.NewNATSWrapper(j.natsContainer.GetURI())
+	natsWrapper, err := client.NewNATSWrapper(j.natsContainer.GetURI(), 24*time.Hour)
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -235,7 +232,7 @@ func (j *JoinOperatorTestSuite) iRunJoinOperator(leftTTL, rightTTL, runDuration 
 }
 
 func (j *JoinOperatorTestSuite) iPublishEventsToTheLeftStream(count int, dataTable *godog.Table) error {
-	natsWrap, err := stream.NewNATSWrapper(j.leftStreamConfig.NatsURL)
+	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -273,7 +270,7 @@ func (j *JoinOperatorTestSuite) iPublishEventsToTheLeftStream(count int, dataTab
 }
 
 func (j *JoinOperatorTestSuite) iPublishEventsToTheRightStream(count int, dataTable *godog.Table) error {
-	natsWrap, err := stream.NewNATSWrapper(j.leftStreamConfig.NatsURL)
+	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -312,7 +309,7 @@ func (j *JoinOperatorTestSuite) iPublishEventsToTheRightStream(count int, dataTa
 
 func (j *JoinOperatorTestSuite) iCheckResults(count int) error {
 	var resultsCount int
-	natsWrap, err := stream.NewNATSWrapper(j.resultsConsumerConfig.NatsURL)
+	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}

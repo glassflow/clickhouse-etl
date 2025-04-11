@@ -10,7 +10,6 @@ func parseRequest[T any](w http.ResponseWriter, r *http.Request) (*T, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 
 	dec := json.NewDecoder(r.Body)
-	// dec.DisallowUnknownFields()
 
 	var v T
 	err := dec.Decode(&v)

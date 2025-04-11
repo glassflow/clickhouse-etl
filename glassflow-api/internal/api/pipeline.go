@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
@@ -23,15 +24,27 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 
 	err = h.pipelineManager.SetupPipeline(req)
 	if err != nil {
-		h.log.Error("failed to setup pipeline", slog.Any("error", err))
-		serverError(w)
+		var activePipelineErr service.ActivePipelineError
+		var joinTopicErr models.UnsupportedNumberOfTopicsForJoinError
+		switch {
+		case errors.As(err, &activePipelineErr):
+			jsonError(w, http.StatusForbidden, err.Error(), nil)
+		case errors.Is(err, models.ErrUnsupportedNumberOfTopics), errors.Is(err, models.ErrAmbiguousTopicsProvided), errors.As(err, &joinTopicErr), errors.Is(err, models.ErrInvalidJoinTopicConfiguration):
+			jsonError(w, http.StatusUnprocessableEntity, "invalid request", map[string]string{"topics": err.Error()})
+		default:
+			h.log.Error("failed to setup pipeline", slog.Any("error", err))
+			serverError(w)
+		}
 	}
 }
 
 func (h *handler) shutdownPipeline(w http.ResponseWriter, _ *http.Request) {
 	err := h.pipelineManager.ShutdownPipeline()
-	if err != nil {
-		h.log.Error("failed to shutdown pipeline", slog.Any("error", err))
-		serverError(w)
+	if err != nil && errors.Is(err, service.ErrPipelineNotFound) {
+		jsonError(w, http.StatusNotFound, "no active pipeline to shutdown", nil)
+		return
 	}
+
+	h.log.Info("pipeline shutdown")
+	w.WriteHeader(http.StatusNoContent)
 }

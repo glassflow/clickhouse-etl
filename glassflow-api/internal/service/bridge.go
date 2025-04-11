@@ -23,7 +23,7 @@ func (e StartBridgeError) Error() string {
 	return "failed to start bridge: " + e.msg
 }
 
-type BridgeImpl struct {
+type bridgeImpl struct {
 	id string
 
 	Kafka *models.KafkaConfig
@@ -36,24 +36,24 @@ type BridgeImpl struct {
 	cmd *exec.Cmd
 }
 
-type BridgeFactoryImpl struct {
+type FactoryImpl struct {
 	natsServer string
 	log        *slog.Logger
 }
 
-func NewBridgeFactory(natsServer string, log *slog.Logger) *BridgeFactoryImpl {
-	return &BridgeFactoryImpl{
+func NewFactory(natsServer string, log *slog.Logger) *FactoryImpl {
+	return &FactoryImpl{
 		natsServer: natsServer,
 		log:        log,
 	}
 }
 
-func (f *BridgeFactoryImpl) CreateBridge(k *models.KafkaConfig, b *models.BridgeSpec) Bridge {
+func (f *FactoryImpl) CreateBridge(k *models.KafkaConfig, b *models.BridgeSpec) Bridge {
 	id := fmt.Sprintf("%s-%s", b.Topic, uuid.New())
 
 	cmd := exec.Command("nats-kafka-bridge")
 
-	return &BridgeImpl{
+	return &bridgeImpl{
 		id: id,
 
 		Kafka: k,
@@ -78,11 +78,11 @@ func (f *BridgeFactoryImpl) CreateBridge(k *models.KafkaConfig, b *models.Bridge
 	}
 }
 
-func (b *BridgeImpl) ID() string {
+func (b *bridgeImpl) ID() string {
 	return b.id
 }
 
-func (b *BridgeImpl) Start() error {
+func (b *bridgeImpl) Start() error {
 	b.setupEnv()
 
 	stderr, err := b.cmd.StderrPipe()
@@ -142,7 +142,7 @@ func (b *BridgeImpl) Start() error {
 	return nil
 }
 
-func (b *BridgeImpl) Stop(ctx context.Context) {
+func (b *bridgeImpl) Stop(ctx context.Context) {
 	err := b.cmd.Process.Signal(syscall.SIGTERM)
 	if err != nil {
 		b.log.Warn("")
@@ -161,7 +161,7 @@ func (b *BridgeImpl) Stop(ctx context.Context) {
 	}
 }
 
-func (b *BridgeImpl) setupEnv() {
+func (b *bridgeImpl) setupEnv() {
 	env := make(map[string]string)
 
 	env["BRIDGE_CONNECTOR_ID"] = b.id

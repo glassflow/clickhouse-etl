@@ -39,12 +39,12 @@ func (t *MockBridgeFactory) CreateBridge(_ *models.KafkaConfig, _ *models.Bridge
 }
 
 func TestAllBridgesStartedAndStopped(t *testing.T) {
-	bMgr := NewBridgeManager(newMockFactory())
+	bMgr := NewBridgeRunner(newMockFactory())
 
 	numberOfTopics := 5
-	bridges := make([]models.BridgeSpec, numberOfTopics)
+	streams := make([]models.StreamConfig, numberOfTopics)
 
-	err := bMgr.SetupBridges(&models.KafkaConfig{}, bridges)
+	err := bMgr.SetupBridges(&models.KafkaConfig{}, streams)
 	require.NoError(t, err)
 
 	require.Len(t, bMgr.bridges, numberOfTopics)

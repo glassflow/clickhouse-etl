@@ -56,7 +56,6 @@ func (s *SinkTestSuite) aRunningCHInstance() error {
 
 func (s *SinkTestSuite) aStreamConsumerConfig(streamName, subjectName, consumerName string) error {
 	s.StreamConfig = &stream.ConsumerConfig{
-		NatsURL:        s.natsContainer.GetURI(),
 		NatsStream:     streamName,
 		NatsConsumer:   consumerName,
 		NatsSubject:    subjectName,
@@ -66,7 +65,7 @@ func (s *SinkTestSuite) aStreamConsumerConfig(streamName, subjectName, consumerN
 }
 
 func (s *SinkTestSuite) aRunningNATSJetStream(streamName, subjectName string) error {
-	natsWrap, err := stream.NewNATSWrapper(s.StreamConfig.NatsURL)
+	natsWrap, err := stream.NewNATSWrapper(s.natsContainer.GetURI())
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -151,7 +150,7 @@ func (s *SinkTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
 }
 
 func (s *SinkTestSuite) iPublishEventsToTheStream(count int, dataTable *godog.Table) error {
-	natsWrap, err := stream.NewNATSWrapper(s.StreamConfig.NatsURL)
+	natsWrap, err := stream.NewNATSWrapper(s.natsContainer.GetURI())
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -189,7 +188,7 @@ func (s *SinkTestSuite) iPublishEventsToTheStream(count int, dataTable *godog.Ta
 }
 
 func (s *SinkTestSuite) iRunClickHouseSink(timeoutSeconds int) error {
-	natsWrapper, err := stream.NewNATSWrapper(s.StreamConfig.NatsURL)
+	natsWrapper, err := stream.NewNATSWrapper(s.natsContainer.GetURI())
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -208,7 +207,7 @@ func (s *SinkTestSuite) iRunClickHouseSink(timeoutSeconds int) error {
 
 	logger := testutils.NewTestLogger()
 
-	sink, err := sink.NewClickHouseSink(*s.SinkSonfig, *s.BatchConfig, streamConsumer, schemaMapper, logger)
+	sink, err := sink.NewClickHouseSink(context.Background(), *s.SinkSonfig, *s.BatchConfig, streamConsumer, schemaMapper, logger)
 	if err != nil {
 		return fmt.Errorf("create ClickHouse sink: %w", err)
 	}
@@ -328,7 +327,7 @@ func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I publish (\d+) events to the stream with data$`, s.iPublishEventsToTheStream)
 	sc.Step(`^I run ClickHouse sink for the (\d+) seconds$`, s.iRunClickHouseSink)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, s.theClickHouseTableShouldContainRows)
-	sc.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
+	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := s.CleanupResources()
 		if cleanupErr != nil {
 			return ctx, cleanupErr

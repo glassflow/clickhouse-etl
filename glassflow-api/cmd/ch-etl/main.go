@@ -17,6 +17,7 @@ import (
 )
 
 type Config struct {
+	NatsURL              string                `json:"nats_url"`
 	StreamConsumerConfig stream.ConsumerConfig `json:"stream_consumer"`
 	ClickhouseSinkConfig sink.ConnectorConfig  `json:"clickhouse_sink"`
 	BatchConfig          sink.BatchConfig      `json:"batch"`
@@ -76,7 +77,7 @@ func main() {
 	}
 
 	streamCfg := cfg.StreamConsumerConfig
-	nc, err := stream.NewNATSWrapper(streamCfg.NatsURL)
+	nc, err := stream.NewNATSWrapper(cfg.NatsURL)
 	if err != nil {
 		log.Error("failed to create NATS wrapper: ", slog.Any("error", err))
 		return
@@ -95,7 +96,7 @@ func main() {
 	}
 
 	// Create ClickHouse sink
-	clickhouseSink, err := sink.NewClickHouseSink(cfg.ClickhouseSinkConfig, cfg.BatchConfig, eventsConsumer, schemaMapper, log)
+	clickhouseSink, err := sink.NewClickHouseSink(ctx, cfg.ClickhouseSinkConfig, cfg.BatchConfig, eventsConsumer, schemaMapper, log)
 	if err != nil {
 		log.Error("failed to create ClickHouse sink: ", slog.Any("error", err))
 		return

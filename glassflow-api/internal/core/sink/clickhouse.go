@@ -115,7 +115,7 @@ type ClickHouseSink struct {
 	log          *slog.Logger
 }
 
-func NewClickHouseSink(chConfig ConnectorConfig, batchConfig BatchConfig, streamCon *stream.Consumer, schemaMapper *schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
+func NewClickHouseSink(ctx context.Context, chConfig ConnectorConfig, batchConfig BatchConfig, streamCon *stream.Consumer, schemaMapper *schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
 	pswd, err := base64.StdEncoding.DecodeString(chConfig.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode password: %w", err)
@@ -143,7 +143,7 @@ func NewClickHouseSink(chConfig ConnectorConfig, batchConfig BatchConfig, stream
 		return nil, fmt.Errorf("failed to open clickhouse connection: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	err = chConn.Ping(ctx)
@@ -153,6 +153,7 @@ func NewClickHouseSink(chConfig ConnectorConfig, batchConfig BatchConfig, stream
 
 	query := fmt.Sprintf("INSERT INTO %s.%s (%s)", chConfig.Database, chConfig.TableName, strings.Join(schemaMapper.GetOrderedColumns(), ", "))
 
+	//nolint: contextcheck // requires uninherited ctx for long lasting batches
 	batch, err := NewBatch(context.Background(), chConn, query, batchConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)

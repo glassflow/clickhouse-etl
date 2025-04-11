@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,6 +16,7 @@ import (
 	"github.com/lmittmann/tint"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -37,7 +39,8 @@ type config struct {
 	ServerIdleTimeout     time.Duration `default:"5m" split_words:"true"`
 	ServerShutdownTimeout time.Duration `default:"30s" split_words:"true"`
 
-	NATSServer string `default:"localhost:4222" split_words:"true"`
+	NATSServer       string        `default:"localhost:4222" split_words:"true"`
+	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
 }
 
 func main() {
@@ -48,8 +51,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := mainErr(&cfg); err != nil {
+		slog.Error("Service stopped with error", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	slog.Info("Service terminated gracefully")
+}
+
+func mainErr(cfg *config) error {
 	var logOut io.Writer
 	var logFile io.WriteCloser
+	var err error
 
 	switch cfg.LogFilePath {
 	case "":
@@ -68,20 +81,12 @@ func main() {
 
 	log := configureLogger(cfg, logOut)
 
-	if err := mainErr(&cfg, log); err != nil {
-		log.Error("Service stopped with error", slog.Any("error", err))
-		logFile.Close()
-
-		//nolint: gocritic // deferred call explicitly handled above
-		os.Exit(1)
+	nc, err := client.NewNATSWrapper(cfg.NATSServer, cfg.NATSMaxStreamAge)
+	if err != nil {
+		return fmt.Errorf("nats client: %w", err)
 	}
 
-	log.Info("Service terminated gracefully")
-}
-
-func mainErr(cfg *config, log *slog.Logger) error {
-	bridgeMgr := service.NewBridgeManager(service.NewBridgeFactory(cfg.NATSServer, log))
-	pipelineMgr := service.NewPipelineManager(bridgeMgr, log)
+	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log)
 
 	handler := api.NewRouter(log, pipelineMgr)
 
@@ -122,7 +127,11 @@ func mainErr(cfg *config, log *slog.Logger) error {
 		}()
 
 		go func() {
-			bridgeMgr.Shutdown(cfg.ServerShutdownTimeout)
+			err := pipelineMgr.ShutdownPipeline()
+			if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
+				log.Error("pipeline shutdown error", slog.Any("error", err))
+			}
+
 			wg.Done()
 		}()
 
@@ -132,7 +141,7 @@ func mainErr(cfg *config, log *slog.Logger) error {
 	}
 }
 
-func configureLogger(cfg config, logOut io.Writer) *slog.Logger {
+func configureLogger(cfg *config, logOut io.Writer) *slog.Logger {
 	//nolint: exhaustruct // optional config
 	logOpts := &slog.HandlerOptions{
 		Level:     cfg.LogLevel,

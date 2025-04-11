@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +11,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-const NatsReconnectsForever = -1
+const (
+	NatsReconnectsForever = -1
+	GlassflowStreamPrefix = "gf-stream"
+)
 
 type Client struct {
 	con *nats.Conn
@@ -89,12 +93,15 @@ func SetupNATS(ctx context.Context, url string, stream, subject string, maxAge, 
 	for s := range streamIterator.Info() {
 		name := s.Config.Name
 
-		if !strings.HasPrefix(name, "glassflow-stream") {
+		if !strings.HasPrefix(name, GlassflowStreamPrefix) {
 			continue
 		}
 
 		err := c.JS.DeleteStream(ctx, name)
 		if err != nil {
+			if errors.Is(err, jetstream.ErrStreamNotFound) {
+				continue
+			}
 			return fmt.Errorf("delete stream: %w", err)
 		}
 	}

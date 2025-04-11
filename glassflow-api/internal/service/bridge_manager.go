@@ -19,25 +19,27 @@ type BridgeFactory interface {
 	CreateBridge(*models.KafkaConfig, *models.BridgeSpec) Bridge
 }
 
-type BridgeManager struct {
+type BridgeRunner struct {
 	factory BridgeFactory
 	bridges map[string]Bridge
 
 	m sync.Mutex
 }
 
-func NewBridgeManager(factory BridgeFactory) *BridgeManager {
+func NewBridgeRunner(factory BridgeFactory) *BridgeRunner {
 	//nolint: exhaustruct // mutex is initialized by zero value
-	return &BridgeManager{
+	return &BridgeRunner{
 		factory: factory,
 		bridges: make(map[string]Bridge),
 	}
 }
 
-func (bmgr *BridgeManager) SetupBridges(
+func (bmgr *BridgeRunner) SetupBridges(
 	kafkaCfg *models.KafkaConfig,
-	specs []models.BridgeSpec,
+	streams []models.StreamConfig,
 ) error {
+	specs := bmgr.createBridgeSpec(streams)
+
 	bridges := make([]Bridge, len(specs))
 
 	for i, s := range specs {
@@ -68,21 +70,47 @@ func (bmgr *BridgeManager) SetupBridges(
 	return nil
 }
 
-func (bmgr *BridgeManager) Get(id string) Bridge {
+func (bmgr *BridgeRunner) createBridgeSpec(streams []models.StreamConfig) []models.BridgeSpec {
+	bridges := make([]models.BridgeSpec, len(streams))
+	// streamSchemas := make(map[string]models.StreamSchema, len(spec.Source.Topics))
+
+	for i, s := range streams {
+		//nolint: exhaustruct // add dedup only after enabled check
+		bs := models.BridgeSpec{
+			Topic:                      s.Source.Name,
+			Stream:                     s.Name,
+			Subject:                    s.Subject,
+			ConsumerGroupID:            fmt.Sprintf("%s-%s", "cg", s.Name),
+			ConsumerGroupInitialOffset: s.Source.ConsumerGroupInitialOffset,
+		}
+
+		if s.Deduplication.Enabled {
+			bs.DedupKey = s.Deduplication.ID
+			bs.DedupKeyType = s.Deduplication.Type
+			bs.DedupWindow = s.Deduplication.Window
+		}
+
+		bridges[i] = bs
+	}
+
+	return bridges
+}
+
+func (bmgr *BridgeRunner) Get(id string) Bridge {
 	bmgr.m.Lock()
 	defer bmgr.m.Unlock()
 
 	return bmgr.bridges[id]
 }
 
-func (bmgr *BridgeManager) set(id string, b Bridge) {
+func (bmgr *BridgeRunner) set(id string, b Bridge) {
 	bmgr.m.Lock()
 	defer bmgr.m.Unlock()
 
 	bmgr.bridges[id] = b
 }
 
-func (bmgr *BridgeManager) Shutdown(timeout time.Duration) {
+func (bmgr *BridgeRunner) Shutdown(timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 

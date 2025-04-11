@@ -1,139 +1,164 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
-	"github.com/google/uuid"
-
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-type PipelineManager struct {
-	BridgeRunner *BridgeManager
-	Log          *slog.Logger
+var (
+	ErrUnsupportedNumberOfTopics = errors.New("unsupported number of topics")
+	ErrPipelineNotFound          = errors.New("no active pipeline found")
+)
+
+type ActivePipelineError struct {
+	pipelineID string
 }
 
-func NewPipelineManager(bridgeRunner *BridgeManager, log *slog.Logger) *PipelineManager {
+func (e ActivePipelineError) Error() string {
+	return fmt.Sprintf("pipeline with id %q already active; shutdown to start another", e.pipelineID)
+}
+
+type PipelineManager struct {
+	natsServer string
+	nc         *client.NATSClient
+	log        *slog.Logger
+
+	bridgeRunner *BridgeRunner
+	joinRunner   *JoinRunner
+	sinkRunner   *SinkRunner
+
+	id string
+	m  sync.Mutex
+}
+
+func NewPipelineManager(
+	natsServer string,
+	nc *client.NATSClient,
+	log *slog.Logger,
+) *PipelineManager {
+	//nolint: exhaustruct // runners will be created on setup
 	return &PipelineManager{
-		BridgeRunner: bridgeRunner,
-		Log:          log,
+		natsServer: natsServer,
+		nc:         nc,
+		log:        log,
 	}
 }
 
-var ErrUnsupportedNumberOfTopics = errors.New("unsupported number of topics")
-
 const (
-	MaxStreamsSupportedWithJoin    = 2
-	MinStreamsSupportedWithoutJoin = 1
-	ShutdownTimeout                = 30 * time.Second
+	GFJoinStream    = "gf-stream-joined"
+	GFJoinSubject   = "merged"
+	ShutdownTimeout = 30 * time.Second
 )
 
 func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
-	// create the streams if they are correct number
-	if spec.Join.Enabled && len(spec.Source.Topics) != MaxStreamsSupportedWithJoin {
-		//nolint: wrapcheck // custom internal errors
-		return ErrUnsupportedNumberOfTopics
-	} else if len(spec.Source.Topics) != MinStreamsSupportedWithoutJoin {
-		//nolint: wrapcheck // custom internal errors
-		return ErrUnsupportedNumberOfTopics
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	if p.id != "" {
+		return ActivePipelineError{pipelineID: p.id}
 	}
 
-	conParams := spec.Source.ConnectionParams
-
-	//nolint: exhaustruct // optional security config
-	kCfg := models.KafkaConfig{
-		Brokers:       conParams.Brokers,
-		SASLUser:      conParams.SASLUsername,
-		SASLPassword:  conParams.SASLPassword,
-		SASLMechanism: conParams.SASLMechanism,
-
-		IAMEnable: conParams.IAMEnable,
-		IAMRegion: conParams.IAMRegion,
-
-		TLSCert: conParams.TLSCert,
-		TLSKey:  conParams.TLSKey,
-		TLSRoot: conParams.TLSRoot,
-	}
-	if conParams.SASLProtocol == "SASL_SSL" {
-		kCfg.SASLTLSEnable = true
+	pipeline, err := models.NewPipeline(spec)
+	if err != nil {
+		return fmt.Errorf("parse pipeline config: %w", err)
 	}
 
-	bridges := make([]models.BridgeSpec, len(spec.Source.Topics))
-	streamSchemas := make(map[string]models.StreamSchema, len(spec.Source.Topics))
+	p.id = pipeline.ID
 
-	for i, t := range spec.Source.Topics {
-		stream := fmt.Sprintf("glassflow-stream-%s-%s", t.Topic, uuid.New())
-		subject := stream + ".input"
+	p.bridgeRunner = NewBridgeRunner(NewFactory(p.natsServer, p.log))
+	p.joinRunner = NewJoinRunner(p.log, p.nc)
+	p.sinkRunner = NewSinkRunner(p.log, p.nc)
 
-		//nolint: exhaustruct // add dedup only after enabled check
-		bs := models.BridgeSpec{
-			Topic:                      t.Topic,
-			Stream:                     stream,
-			Subject:                    subject,
-			ConsumerGroupID:            fmt.Sprintf("%s-%s", "cg", stream),
-			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
+	ctx := context.Background()
+
+	var (
+		sinkConsumerStream  string
+		sinkConsumerSubject string
+	)
+
+	streamsCfg := make(map[string]schema.StreamSchemaConfig)
+	for _, s := range pipeline.Streams {
+		sinkConsumerStream = s.Name
+		sinkConsumerSubject = s.Subject
+		var fields []schema.StreamDataField
+
+		for _, f := range s.Schema {
+			field := schema.StreamDataField{
+				FieldName: f.Name,
+				FieldType: f.DataType,
+			}
+
+			fields = append(fields, field)
 		}
 
-		if t.Deduplication.Enabled {
-			bs.DedupKey = t.Deduplication.ID
-			bs.DedupKeyType = t.Deduplication.Type
-			bs.DedupWindow = t.Deduplication.Window.Duration()
+		streamsCfg[s.Name] = schema.StreamSchemaConfig{
+			Fields:       fields,
+			JoinKeyField: s.Join.ID,
 		}
-
-		bridges[i] = bs
-
-		var streamSchema models.StreamSchema
-		for _, i := range t.Schema.Fields {
-			streamSchema.Fields = append(streamSchema.Fields, struct {
-				FieldName string
-				FieldType string
-			}{
-				FieldName: i.Name,
-				FieldType: i.DataType,
-			})
-		}
-
-		if spec.Join.Enabled {
-			streamSchema.JoinKey = spec.Join.ID
-		}
-
-		streamSchemas[stream] = streamSchema
 	}
 
-	err := p.BridgeRunner.SetupBridges(&kCfg, bridges)
+	sinkCfg := make([]schema.SinkMappingConfig, len(pipeline.ClickhouseConfig.Mapping))
+
+	for i, m := range pipeline.ClickhouseConfig.Mapping {
+		mapping := schema.SinkMappingConfig{
+			ColumnName: m.ColumnName,
+			StreamName: m.StreamName,
+			FieldName:  m.FieldName,
+			ColumnType: m.ColumnType,
+		}
+
+		sinkCfg[i] = mapping
+	}
+
+	schemaMapper, err := schema.NewMapper(streamsCfg, sinkCfg)
+	if err != nil {
+		return fmt.Errorf("new schema mapper: %w", err)
+	}
+
+	err = p.bridgeRunner.SetupBridges(&pipeline.KafkaConfig, pipeline.Streams)
 	if err != nil {
 		return fmt.Errorf("setup bridges: %w", err)
 	}
 
-	// updated according to new schema mapper config: https://glassflow.slack.com/archives/C06KBDQ0AR4/p1744017047603439
-	mapper := models.SchemaMapper{
-		Streams:     streamSchemas,
-		SinkMapping: []models.SchemaMapperMapping{},
+	if spec.Join.Enabled {
+		sinkConsumerStream = fmt.Sprintf("%s-%s", GFJoinStream, spec.PipelineID)
+		sinkConsumerSubject = GFJoinSubject
+
+		err = p.joinRunner.SetupJoiner(ctx, pipeline.Streams, sinkConsumerStream, sinkConsumerSubject, schemaMapper)
+		if err != nil {
+			return fmt.Errorf("setup join operator: %w", err)
+		}
 	}
 
-	for _, m := range spec.Sink.Mapping {
-		mapper.SinkMapping = append(mapper.SinkMapping, models.SchemaMapperMapping{
-			ColumnName: m.ColumnName,
-			ColumnType: m.ColumnType,
-			StreamName: m.SourceName,
-			FieldName:  m.FieldName,
-		})
+	err = p.sinkRunner.Start(ctx, sinkConsumerStream, sinkConsumerSubject, pipeline.ClickhouseConfig, schemaMapper)
+	if err != nil {
+		return fmt.Errorf("start sink: %w", err)
 	}
-	//nolint: forbidigo // just for dubug purposes
-	fmt.Printf("%#v\n", mapper)
-
-	// from here should sink + join take on
 
 	return nil
 }
 
 func (p *PipelineManager) ShutdownPipeline() error {
-	p.BridgeRunner.Shutdown(ShutdownTimeout)
+	p.m.Lock()
+	defer p.m.Unlock()
 
-	// here we must shutdown the sink and join operations
+	if p.id == "" {
+		return ErrPipelineNotFound
+	}
+
+	p.bridgeRunner.Shutdown(ShutdownTimeout)
+	p.joinRunner.Shutdown()
+	p.sinkRunner.Shutdown()
+
+	p.id = ""
 
 	return nil
 }
