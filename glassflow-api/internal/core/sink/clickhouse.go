@@ -31,7 +31,8 @@ type ConnectorConfig struct {
 }
 
 type BatchConfig struct {
-	MaxBatchSize int `json:"max_batch_size" default:"10000"`
+	MaxBatchSize int           `json:"max_batch_size" default:"10000"`
+	MaxDelayTime time.Duration `json:"max_delay_time" default:"60s"`
 }
 
 type Batch struct {
@@ -40,15 +41,21 @@ type Batch struct {
 	currentBatch  driver.Batch
 	sizeThreshold int
 	cache         map[uint64]struct{}
+	maxDelayTime  time.Duration
 }
 
 func NewBatch(ctx context.Context, conn driver.Conn, query string, cfg BatchConfig) (*Batch, error) {
+	maxDelayTime := time.Duration(60) * time.Second
+	if cfg.MaxDelayTime > 0 {
+		maxDelayTime = cfg.MaxDelayTime
+	}
 	b := &Batch{
 		conn:          conn,
 		query:         query,
 		currentBatch:  nil,
 		sizeThreshold: cfg.MaxBatchSize,
 		cache:         make(map[uint64]struct{}),
+		maxDelayTime:  maxDelayTime,
 	}
 
 	err := b.Reload(ctx)
@@ -112,6 +119,8 @@ type ClickHouseSink struct {
 	isClosed     bool
 	mu           sync.Mutex
 	done         chan struct{}
+	timer        *time.Timer
+	lastMsg      jetstream.Msg
 	log          *slog.Logger
 }
 
@@ -167,8 +176,34 @@ func NewClickHouseSink(ctx context.Context, chConfig ConnectorConfig, batchConfi
 		isClosed:     false,
 		mu:           sync.Mutex{},
 		done:         make(chan struct{}),
+		timer:        time.NewTimer(batchConfig.MaxDelayTime),
+		lastMsg:      nil,
 		log:          log,
 	}, nil
+}
+
+func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
+	err := ch.batch.Send(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to send the batch: %w", err)
+	}
+	ch.log.Debug("Batch sent")
+
+	err = ch.lastMsg.Ack()
+	if err != nil {
+		return fmt.Errorf("failed to ack message: %w", err)
+	}
+
+	mdata, err := ch.lastMsg.Metadata()
+	if err != nil {
+		ch.log.Error("failed to get message metadata", slog.Any("error", err))
+	} else {
+		ch.log.Debug("Message acked", slog.Any("stream", mdata.Sequence.Stream))
+	}
+
+	ch.lastMsg = nil
+
+	return nil
 }
 
 func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) error {
@@ -181,40 +216,50 @@ func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) erro
 	if err != nil {
 		return fmt.Errorf("failed to map data for ClickHouse: %w", err)
 	}
+
 	err = ch.batch.Append(mdata.Sequence.Stream, values...)
 	if err != nil {
 		return fmt.Errorf("failed to append values to the batch: %w", err)
 	}
 
-	if ch.batch.Size() >= ch.batch.sizeThreshold {
-		err := ch.batch.Send(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to send the batch: %w", err)
-		}
-		ch.log.Debug("Batch sent")
+	ch.lastMsg = msg
 
-		err = msg.Ack()
+	if ch.batch.Size() >= ch.batch.sizeThreshold {
+		err := ch.sendBatchAndAck(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to perform callback: %w", err)
+			return fmt.Errorf("failed to send the batch and ack: %w", err)
 		}
-		ch.log.Debug("Message acked", slog.Any("stream", mdata.Sequence.Stream))
 	}
 
 	return nil
 }
 
-func (ch *ClickHouseSink) Start(ctx context.Context, errChan chan<- error) {
+func (ch *ClickHouseSink) Start(ctx context.Context, errChan chan<- error) { //nolint: gocognit //requires for long lasting batches logic
 	ch.log.Info("ClickHouse sink started")
 	defer ch.conn.Close()
 	defer ch.log.Info("ClickHouse sink stopped")
 
 	ch.log.Debug("ClickHouse batch insert query", slog.Any("query", ch.batch.query))
 
+	if !ch.timer.Stop() {
+		<-ch.timer.C
+	}
+
 	for {
 		select {
 		case <-ch.done:
 			ch.log.Debug("Stopping ClickHouse sink ...")
 			return
+		case <-ch.timer.C:
+			if ch.batch.Size() > 0 && ch.lastMsg != nil {
+				err := ch.sendBatchAndAck(ctx)
+				if err != nil {
+					errChan <- fmt.Errorf("error on exporting data: %w", err)
+					ch.log.Error("error on exporting data", slog.Any("error", err))
+					return
+				}
+			}
+			ch.timer.Reset(ch.batch.maxDelayTime)
 		default:
 			err := func(ctx context.Context) error {
 				msg, err := ch.streamCon.Next()
@@ -224,6 +269,15 @@ func (ch *ClickHouseSink) Start(ctx context.Context, errChan chan<- error) {
 				case err != nil:
 					return fmt.Errorf("failed to get next message: %w", err)
 				}
+
+				if !ch.timer.Stop() {
+					select {
+					case <-ch.timer.C:
+					default:
+					}
+				}
+
+				ch.timer.Reset(ch.batch.maxDelayTime)
 
 				err = ch.handleMsg(ctx, msg)
 				if err != nil {
@@ -247,6 +301,10 @@ func (ch *ClickHouseSink) Stop() {
 	if ch.isClosed {
 		ch.log.Debug("ClickHouse sink is already stopped.")
 		return
+	}
+
+	if ch.timer != nil {
+		ch.timer.Stop()
 	}
 
 	close(ch.done)

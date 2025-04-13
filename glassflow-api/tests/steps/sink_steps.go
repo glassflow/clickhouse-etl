@@ -140,6 +140,14 @@ func (s *SinkTestSuite) aBatchConfigWithMaxSize(maxSize int) error {
 	return nil
 }
 
+func (s *SinkTestSuite) aBatchConfigWithMaxSizeAndDelay(maxSize int, delaySeconds int) error {
+	s.BatchConfig = &sink.BatchConfig{
+		MaxBatchSize: maxSize,
+		MaxDelayTime: time.Duration(delaySeconds) * time.Second,
+	}
+	return nil
+}
+
 func (s *SinkTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
 	err := json.Unmarshal([]byte(cfg.Content), &s.SchemaConfig)
 	if err != nil {
@@ -327,6 +335,7 @@ func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I publish (\d+) events to the stream with data$`, s.iPublishEventsToTheStream)
 	sc.Step(`^I run ClickHouse sink for the (\d+) seconds$`, s.iRunClickHouseSink)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, s.theClickHouseTableShouldContainRows)
+	sc.Step(`^a batch config with max size (\d+) and delay (\d+) seconds$`, s.aBatchConfigWithMaxSizeAndDelay)
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := s.CleanupResources()
 		if cleanupErr != nil {
