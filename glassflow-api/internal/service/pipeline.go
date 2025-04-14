@@ -151,6 +151,7 @@ func (p *PipelineManager) ShutdownPipeline() error {
 	defer p.m.Unlock()
 
 	if p.id == "" {
+		//nolint: wrapcheck // custom internal errors
 		return ErrPipelineNotFound
 	}
 

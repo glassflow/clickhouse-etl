@@ -1,8 +1,10 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,7 +42,7 @@ type PipelineRequest struct {
 				Enabled bool `json:"enabled"`
 
 				ID     string       `json:"id_field"`
-				Type   string       `json:"type"`
+				Type   string       `json:"id_field_type"`
 				Window JSONDuration `json:"time_window"`
 			} `json:"deduplication"`
 		} `json:"topics"`
@@ -50,13 +52,14 @@ type PipelineRequest struct {
 		Enabled bool   `json:"enabled"`
 
 		Sources []struct {
-			SourceID    string       `json:"source_id"`
-			JoinKey     string       `json:"join_key"`
-			Window      JSONDuration `json:"time_window"`
-			Orientation string       `json:"orientation"`
+			SourceID    string          `json:"source_id"`
+			JoinKey     string          `json:"join_key"`
+			Window      JSONDuration    `json:"time_window"`
+			Orientation joinOrientation `json:"orientation"`
 		} `json:"sources"`
 	} `json:"join"`
 	Sink struct {
+		// Add validation for null/empty values
 		Host     string `json:"host"`
 		Port     string `json:"port"`
 		Database string `json:"database"`
@@ -72,14 +75,20 @@ type PipelineRequest struct {
 			ColumnType string `json:"column_type"`
 		} `json:"table_mapping"`
 
-		MaxBatchSize int `json:"max_batch_size"`
+		// Add validation for range
+		MaxBatchSize int          `json:"max_batch_size"`
+		MaxDelayTime JSONDuration `json:"max_delay_time" default:"60s"`
 	} `json:"sink"`
 }
 
 var (
 	ErrUnsupportedNumberOfTopics     = errors.New("number of topics must be 1 for kafka to clickhouse sink")
 	ErrAmbiguousTopicsProvided       = errors.New("invalid topics configuration; ambiguous sources for join operator")
+	ErrSameJoinOrientations          = errors.New("join sources must be exactly two, one with left and other with right order")
 	ErrInvalidJoinTopicConfiguration = errors.New("number of topics and join sources must be exactly 2")
+	ErrJoinOrientationCannotBeEmpty  = errors.New("join order cannot be empty")
+	ErrInvalidJoinOrientation        = errors.New("join order is invalid; allowed values: `left` or `right`")
+	ErrEmptyKafkaBrokers             = errors.New("kafka brokers must not be empty")
 )
 
 type UnsupportedNumberOfTopicsForJoinError struct {
@@ -149,6 +158,7 @@ type ClickhouseConfig struct {
 	Mapping  []KafkaToClickhouseMap
 
 	MaxBatchSize int
+	MaxDelayTime time.Duration
 }
 
 type KafkaToClickhouseMap struct {
@@ -160,38 +170,26 @@ type KafkaToClickhouseMap struct {
 }
 
 func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
-	if req.Join.Enabled {
-		if len(req.Source.Topics) != MaxStreamsSupportedWithJoin {
-			return nil, UnsupportedNumberOfTopicsForJoinError{
-				allowedTopics:  MaxStreamsSupportedWithJoin,
-				providedTopics: len(req.Source.Topics),
-			}
-		}
+	var (
+		joinSources joinSources
+		err         error
+	)
 
-		if len(req.Source.Topics) != len(req.Join.Sources) {
-			//nolint: wrapcheck // custom internal errors
-			return nil, ErrInvalidJoinTopicConfiguration
+	if req.Join.Enabled {
+		joinSources, err = parseJoinSources(req)
+		if err != nil {
+			return nil, err
 		}
-	} else if len(req.Source.Topics) != MinStreamsSupportedWithoutJoin {
+	}
+
+	if !req.Join.Enabled && len(req.Source.Topics) > MinStreamsSupportedWithoutJoin {
 		//nolint: wrapcheck // custom internal errors
 		return nil, ErrUnsupportedNumberOfTopics
 	}
 
-	joinSources := make(map[string]JoinConfig)
-	if req.Join.Enabled {
-		for _, s := range req.Join.Sources {
-			joinSources[s.SourceID] = JoinConfig{
-				Enabled:     req.Join.Enabled,
-				ID:          s.JoinKey,
-				Window:      s.Window.Duration(),
-				Orientation: s.Orientation,
-			}
-		}
-	}
-
-	if len(joinSources) < MaxStreamsSupportedWithJoin {
+	if len(req.Source.ConnectionParams.Brokers) == 0 {
 		//nolint: wrapcheck // custom internal errors
-		return nil, ErrAmbiguousTopicsProvided
+		return nil, ErrEmptyKafkaBrokers
 	}
 
 	conParams := req.Source.ConnectionParams
@@ -216,6 +214,7 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 
 	streams := make([]StreamConfig, len(req.Source.Topics))
 	streamSourceToNameMap := make(map[string]string)
+
 	for i, t := range req.Source.Topics {
 		name := fmt.Sprintf("gf-stream-%s-%s", t.Topic, uuid.New())
 
@@ -271,6 +270,7 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		Secure:   req.Sink.Secure,
 
 		MaxBatchSize: req.Sink.MaxBatchSize,
+		MaxDelayTime: req.Sink.MaxDelayTime.Duration(),
 	}
 
 	mappings := make([]KafkaToClickhouseMap, len(req.Sink.Mapping))
@@ -293,4 +293,82 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		Streams:          streams,
 		ClickhouseConfig: chCfg,
 	}, nil
+}
+
+type joinSources map[string]JoinConfig
+
+type joinOrientation string
+
+func (o *joinOrientation) UnmarshalJSON(b []byte) error {
+	var rawValue string
+
+	err := json.Unmarshal(b, &rawValue)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal join orientation: %w", err)
+	}
+
+	if rawValue == "" {
+		//nolint: wrapcheck // custom internal errors
+		return ErrJoinOrientationCannotBeEmpty
+	}
+
+	switch strings.ToLower(rawValue) {
+	case "left":
+		*o = LeftJoin
+	case "right":
+		*o = RightJoin
+	default:
+		//nolint: wrapcheck // custom internal errors
+		return ErrInvalidJoinOrientation
+	}
+
+	return nil
+}
+
+func (o joinOrientation) String() string {
+	return string(o)
+}
+
+const (
+	LeftJoin  joinOrientation = "left"
+	RightJoin joinOrientation = "right"
+)
+
+func parseJoinSources(req *PipelineRequest) (zero joinSources, _ error) {
+	if len(req.Source.Topics) != MaxStreamsSupportedWithJoin {
+		return zero, UnsupportedNumberOfTopicsForJoinError{
+			allowedTopics:  MaxStreamsSupportedWithJoin,
+			providedTopics: len(req.Source.Topics),
+		}
+	}
+
+	if len(req.Source.Topics) != len(req.Join.Sources) {
+		//nolint: wrapcheck // custom internal errors
+		return zero, ErrInvalidJoinTopicConfiguration
+	}
+
+	js := make(joinSources)
+
+	for _, s := range req.Join.Sources {
+		js[s.SourceID] = JoinConfig{
+			Enabled:     req.Join.Enabled,
+			ID:          s.JoinKey,
+			Window:      s.Window.Duration(),
+			Orientation: s.Orientation.String(),
+		}
+	}
+
+	// both orientations cannot be the same
+	if req.Join.Sources[0].Orientation == req.Join.Sources[1].Orientation {
+		//nolint: wrapcheck // custom internal errors
+		return zero, ErrSameJoinOrientations
+	}
+
+	// incase same source name is provided twice
+	if len(js) < MaxStreamsSupportedWithJoin {
+		//nolint: wrapcheck // custom internal errors
+		return zero, ErrAmbiguousTopicsProvided
+	}
+
+	return js, nil
 }

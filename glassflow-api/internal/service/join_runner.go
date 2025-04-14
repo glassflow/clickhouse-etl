@@ -32,6 +32,10 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 }
 
 func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamConfig, publisherStream, publisherSubject string, schemaMapper *schema.Mapper) error {
+	if len(streams) == 0 {
+		return fmt.Errorf("setup joiner: length of streams must not be 0")
+	}
+
 	err := j.nc.CreateOrUpdateStream(ctx, publisherStream, publisherSubject)
 	if err != nil {
 		return fmt.Errorf("create join result stream: %w", err)

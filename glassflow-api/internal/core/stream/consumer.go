@@ -23,7 +23,7 @@ type Consumer struct {
 
 const (
 	ConsumerRetries      = 4
-	ConsumerRetryBackoff = 10 * time.Millisecond
+	ConsumerRetryBackoff = 20 * time.Millisecond
 )
 
 func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*Consumer, error) {
@@ -39,12 +39,12 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 				time.Sleep(ConsumerRetryBackoff)
 				continue
 			}
-			return nil, fmt.Errorf("get stream: %w", err)
+			return nil, fmt.Errorf("get stream %s: %w", cfg.NatsStream, err)
 		}
 		break
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get stream: %w", err)
+		return nil, fmt.Errorf("get stream %s: %w", cfg.NatsStream, err)
 	}
 
 	var filter string

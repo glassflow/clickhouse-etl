@@ -41,17 +41,21 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 
-	clickhouseSink, err := sink.NewClickHouseSink(ctx, sink.ConnectorConfig{
-		Host:      cfg.Host,
-		Port:      cfg.Port,
-		Username:  cfg.Username,
-		Secure:    cfg.Secure,
-		Password:  cfg.Password,
-		Database:  cfg.Database,
-		TableName: cfg.Table,
-	}, sink.BatchConfig{
-		MaxBatchSize: cfg.MaxBatchSize,
-	},
+	clickhouseSink, err := sink.NewClickHouseSink(
+		ctx,
+		sink.ConnectorConfig{
+			Host:      cfg.Host,
+			Port:      cfg.Port,
+			Username:  cfg.Username,
+			Secure:    cfg.Secure,
+			Password:  cfg.Password,
+			Database:  cfg.Database,
+			TableName: cfg.Table,
+		},
+		sink.BatchConfig{
+			MaxBatchSize: cfg.MaxBatchSize,
+			MaxDelayTime: cfg.MaxDelayTime,
+		},
 		consumer,
 		schemaMapper,
 		s.log,
