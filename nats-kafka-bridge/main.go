@@ -35,6 +35,7 @@ type Config struct {
 	NATSSubject            string        `required:"true" split_words:"true"`
 	NATSStream             string        `required:"true" split_words:"true"`
 	NATSStreamMaxAge       time.Duration `default:"24h" split_words:"true"`
+	NATSStreamDedupEnabled bool          `split_words:"true"`
 	NATSStreamDedupWindow  time.Duration `required:"true" split_words:"true"`
 	NATSStreamDedupKey     string        `required:"true" split_words:"true"`
 	NATSStreamDedupKeyType string        `default:"string" split_words:"true"`
@@ -114,6 +115,7 @@ func main() {
 
 		Subject:         cfg.NATSSubject,
 		Stream:          cfg.NATSStream,
+		DedupEnabled:    cfg.NATSStreamDedupEnabled,
 		DedupKey:        cfg.NATSStreamDedupKey,
 		DedupKeyType:    cfg.NATSStreamDedupKeyType,
 		StartAtSequence: -1,

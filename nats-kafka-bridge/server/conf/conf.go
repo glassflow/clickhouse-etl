@@ -274,6 +274,7 @@ type ConnectorConfig struct {
 	DurableName     string // Optional, used for stan and jetstream connections
 	StartAtSequence int64  // Start position for stan and jetstream connection, -1 means StartWithLastReceived, 0 means DeliverAllAvailable (default)
 	StartAtTime     int64  // Start time, as Unix, time takes precedence over sequence
+	DedupEnabled    bool
 	DedupWindow     time.Duration
 	DedupKey        string
 	DedupKeyType    string

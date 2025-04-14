@@ -8,6 +8,7 @@ import (
 
 type BridgeSpec struct {
 	Topic        string
+	DedupEnabled bool
 	DedupWindow  time.Duration
 	DedupKey     string
 	DedupKeyType string
@@ -38,6 +39,7 @@ type KafkaConfig struct {
 type TopicConfig struct {
 	Name                       string
 	DedupWindow                time.Duration
+	DedupEnabled               bool
 	DedupKey                   string
 	DedupKeyType               string
 	ConsumerGroupID            string

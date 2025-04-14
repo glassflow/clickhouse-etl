@@ -60,6 +60,7 @@ func (f *FactoryImpl) CreateBridge(k *models.KafkaConfig, b *models.BridgeSpec) 
 
 		Topic: &models.TopicConfig{
 			Name:                       b.Topic,
+			DedupEnabled:               b.DedupEnabled,
 			DedupWindow:                b.DedupWindow,
 			DedupKey:                   b.DedupKey,
 			DedupKeyType:               b.DedupKeyType,
@@ -169,6 +170,7 @@ func (b *bridgeImpl) setupEnv() {
 	env["BRIDGE_NATS_SERVER"] = b.Nats.Server
 	env["BRIDGE_NATS_STREAM"] = b.Nats.Stream
 	env["BRIDGE_NATS_SUBJECT"] = b.Nats.Subject
+	env["BRIDGE_NATS_STREAM_DEDUP_ENABLED"] = strconv.FormatBool(b.Topic.DedupEnabled)
 	env["BRIDGE_NATS_STREAM_DEDUP_WINDOW"] = b.Topic.DedupWindow.String()
 	env["BRIDGE_NATS_STREAM_DEDUP_KEY"] = b.Topic.DedupKey
 	env["BRIDGE_NATS_STREAM_DEDUP_KEY_TYPE"] = b.Topic.DedupKeyType

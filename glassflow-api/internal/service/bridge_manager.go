@@ -84,11 +84,10 @@ func (bmgr *BridgeRunner) createBridgeSpec(streams []models.StreamConfig) []mode
 			ConsumerGroupInitialOffset: s.Source.ConsumerGroupInitialOffset,
 		}
 
-		if s.Deduplication.Enabled {
-			bs.DedupKey = s.Deduplication.ID
-			bs.DedupKeyType = s.Deduplication.Type
-			bs.DedupWindow = s.Deduplication.Window
-		}
+		bs.DedupEnabled = s.Deduplication.Enabled
+		bs.DedupKey = s.Deduplication.ID
+		bs.DedupKeyType = s.Deduplication.Type
+		bs.DedupWindow = s.Deduplication.Window
 
 		bridges[i] = bs
 	}

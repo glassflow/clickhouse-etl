@@ -125,13 +125,15 @@ func (conn *BridgeConnector) jetStreamMessageHandler(msg kafka.Message) error {
 	nMsg := nats.NewMsg(conn.dest(msg))
 	nMsg.Header = conn.convertFromKafkaToNatsHeaders(msg.Headers)
 
-	err := setupDedupHeader(nMsg.Header, msg.Value, conn.config.DedupKey, conn.config.DedupKeyType)
-	if err != nil {
-		return fmt.Errorf("setup dedup headers: %w", err)
+	if conn.config.DedupEnabled {
+		err := setupDedupHeader(nMsg.Header, msg.Value, conn.config.DedupKey, conn.config.DedupKeyType)
+		if err != nil {
+			return fmt.Errorf("setup dedup headers: %w", err)
+		}
 	}
 
 	nMsg.Data = msg.Value
-	_, err = conn.bridge.JetStream().PublishMsg(nMsg)
+	_, err := conn.bridge.JetStream().PublishMsg(nMsg)
 	if err != nil {
 		return fmt.Errorf("publish to jetstream: %w", err)
 	}

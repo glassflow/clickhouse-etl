@@ -225,6 +225,7 @@ func TestSimpleSendOnKafkaReceiveOnJetStreamWithGroupIntegerDedupIDAndHeaders(t 
 			Type:          "KafkaToJetStream",
 			Subject:       subject,
 			Topic:         topic,
+			DedupEnabled:  true,
 			DedupKey:      "id",
 			DedupKeyType:  "int",
 			GroupID:       group,
