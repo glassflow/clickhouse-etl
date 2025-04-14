@@ -13,4 +13,3 @@ services:
     restart: unless-stopped
     environment:
       GLASSFLOW_NATS_SERVER: nats:4222
-    env_file: .env
