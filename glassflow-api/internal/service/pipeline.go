@@ -13,10 +13,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-var (
-	ErrUnsupportedNumberOfTopics = errors.New("unsupported number of topics")
-	ErrPipelineNotFound          = errors.New("no active pipeline found")
-)
+var ErrPipelineNotFound = errors.New("no active pipeline found")
 
 type ActivePipelineError struct {
 	pipelineID string
@@ -64,6 +61,10 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 
 	if p.id != "" {
 		return ActivePipelineError{pipelineID: p.id}
+	}
+
+	if err := p.nc.CleanupOldResources(); err != nil {
+		p.log.Error("error on cleaning up nats resources", slog.Any("error", err))
 	}
 
 	pipeline, err := models.NewPipeline(spec)

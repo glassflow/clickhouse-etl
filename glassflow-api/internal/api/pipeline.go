@@ -25,16 +25,13 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 	err = h.pipelineManager.SetupPipeline(req)
 	if err != nil {
 		var activePipelineErr service.ActivePipelineError
-		var joinTopicErr models.UnsupportedNumberOfTopicsForJoinError
+		var pErr models.PipelineConfigError
 		switch {
 		case errors.As(err, &activePipelineErr):
 			jsonError(w, http.StatusForbidden, err.Error(), nil)
-		case errors.Is(err, models.ErrUnsupportedNumberOfTopics), errors.As(err, &joinTopicErr):
-			jsonError(w, http.StatusUnprocessableEntity, "invalid request", map[string]string{"topics": err.Error()})
-		case errors.Is(err, models.ErrAmbiguousTopicsProvided), errors.Is(err, models.ErrInvalidJoinTopicConfiguration), errors.Is(err, models.ErrSameJoinOrientations):
-			jsonError(w, http.StatusUnprocessableEntity, "invalid request", map[string]string{"join": err.Error()})
-		case errors.Is(err, models.ErrEmptyKafkaBrokers):
-			jsonError(w, http.StatusForbidden, err.Error(), map[string]string{"sources": err.Error()})
+		case errors.As(err, &pErr):
+			jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
+
 		default:
 			h.log.Error("failed to setup pipeline", slog.Any("error", err))
 			serverError(w)

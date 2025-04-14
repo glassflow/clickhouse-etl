@@ -86,10 +86,6 @@ func mainErr(cfg *config) error {
 		return fmt.Errorf("nats client: %w", err)
 	}
 
-	if err := nc.CleanupOldResources(); err != nil {
-		log.Error("error on cleaning up nats resources", slog.Any("error", err))
-	}
-
 	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log)
 
 	handler := api.NewRouter(log, pipelineMgr)

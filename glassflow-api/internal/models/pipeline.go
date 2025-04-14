@@ -36,7 +36,7 @@ type PipelineRequest struct {
 					DataType string `json:"type"`
 				} `json:"fields"`
 			} `json:"schema"`
-			ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset"`
+			ConsumerGroupInitialOffset consumerGroupOffset `json:"consumer_group_initial_offset" default:"earliest"`
 
 			Deduplication struct {
 				Enabled bool `json:"enabled"`
@@ -82,22 +82,17 @@ type PipelineRequest struct {
 }
 
 var (
-	ErrUnsupportedNumberOfTopics     = errors.New("number of topics must be 1 for kafka to clickhouse sink")
-	ErrAmbiguousTopicsProvided       = errors.New("invalid topics configuration; ambiguous sources for join operator")
-	ErrSameJoinOrientations          = errors.New("join sources must be exactly two, one with left and other with right order")
-	ErrInvalidJoinTopicConfiguration = errors.New("number of topics and join sources must be exactly 2")
-	ErrJoinOrientationCannotBeEmpty  = errors.New("join order cannot be empty")
-	ErrInvalidJoinOrientation        = errors.New("join order is invalid; allowed values: `left` or `right`")
-	ErrEmptyKafkaBrokers             = errors.New("kafka brokers must not be empty")
+	ErrJoinOrientationCannotBeEmpty      = errors.New("join order cannot be empty")
+	ErrInvalidJoinOrientation            = errors.New("join order is invalid; allowed values: `left` or `right`")
+	ErrInvalidConsumerGroupInitialOffset = errors.New("offset value is invalid; allowed values: `earliest` or `latest`")
 )
 
-type UnsupportedNumberOfTopicsForJoinError struct {
-	allowedTopics  int
-	providedTopics int
+type PipelineConfigError struct {
+	msg string
 }
 
-func (e UnsupportedNumberOfTopicsForJoinError) Error() string {
-	return fmt.Sprintf("unsupported number of topics for joins - supported: %d, provided: %d", e.allowedTopics, e.providedTopics)
+func (e PipelineConfigError) Error() string {
+	return "invalid pipeline config: " + e.msg
 }
 
 const (
@@ -170,6 +165,18 @@ type KafkaToClickhouseMap struct {
 }
 
 func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
+	if err := validateBrokers(req.Source.ConnectionParams.Brokers); err != nil {
+		return nil, err
+	}
+
+	if err := validateConnectionParams(req.Source.ConnectionParams.SASLMechanism, req.Source.ConnectionParams.SASLProtocol, req.Source.ConnectionParams.SASLUsername, req.Source.ConnectionParams.SASLPassword); err != nil {
+		return nil, err
+	}
+
+	if !req.Join.Enabled && len(req.Source.Topics) != MinStreamsSupportedWithoutJoin {
+		return nil, PipelineConfigError{msg: "Kafka to clickhouse sink supports only one topic"}
+	}
+
 	var (
 		joinSources joinSources
 		err         error
@@ -180,16 +187,6 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if !req.Join.Enabled && len(req.Source.Topics) > MinStreamsSupportedWithoutJoin {
-		//nolint: wrapcheck // custom internal errors
-		return nil, ErrUnsupportedNumberOfTopics
-	}
-
-	if len(req.Source.ConnectionParams.Brokers) == 0 {
-		//nolint: wrapcheck // custom internal errors
-		return nil, ErrEmptyKafkaBrokers
 	}
 
 	conParams := req.Source.ConnectionParams
@@ -215,7 +212,27 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 	streams := make([]StreamConfig, len(req.Source.Topics))
 	streamSourceToNameMap := make(map[string]string)
 
+	if len(req.Source.Topics) == 0 {
+		return nil, PipelineConfigError{msg: "atleast one topic must be provided"}
+	}
 	for i, t := range req.Source.Topics {
+		if t.Topic == "" {
+			return nil, PipelineConfigError{msg: "topic value cannot be empty"}
+		}
+
+		if len(t.Schema.Fields) == 0 {
+			return nil, PipelineConfigError{msg: "topic schema must have at least one value"}
+		}
+
+		if t.Deduplication.Enabled {
+			switch t.Deduplication.Type {
+			case "string":
+			case "int":
+			default:
+				return nil, PipelineConfigError{msg: fmt.Sprintf("unsupported type for deduplication id field: %s; supported values %q, %q", t.Deduplication.Type, "string", "int")}
+			}
+		}
+
 		name := fmt.Sprintf("gf-stream-%s-%s", t.Topic, uuid.New())
 
 		streamSourceToNameMap[t.Topic] = name
@@ -226,7 +243,7 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 			Subject: fmt.Sprintf("%s.%s", name, "input"),
 			Source: KafkaTopic{
 				Name:                       t.Topic,
-				ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
+				ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset.String(),
 			},
 			Deduplication: DedupConfig{
 				Enabled: t.Deduplication.Enabled,
@@ -239,7 +256,7 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		if req.Join.Enabled {
 			joinCfg, ok := joinSources[t.Topic]
 			if !ok {
-				return nil, fmt.Errorf("join config missing source: %s", t.Topic)
+				return nil, PipelineConfigError{msg: "join config missing source: " + t.Topic}
 			}
 
 			stream.Join = joinCfg
@@ -334,17 +351,41 @@ const (
 	RightJoin joinOrientation = "right"
 )
 
+type consumerGroupOffset string
+
+func (c *consumerGroupOffset) UnmarshalJSON(v []byte) error {
+	var rawValue string
+
+	err := json.Unmarshal(v, &rawValue)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal consumer group initial offset: %w", err)
+	}
+
+	switch strings.ToLower(rawValue) {
+	case "earliest":
+		*c = "earliest"
+	case "latest":
+		*c = "latest"
+	default:
+		//nolint: wrapcheck // custom internal errors
+		return ErrInvalidConsumerGroupInitialOffset
+	}
+
+	return nil
+
+}
+
+func (c consumerGroupOffset) String() string {
+	return string(c)
+}
+
 func parseJoinSources(req *PipelineRequest) (zero joinSources, _ error) {
 	if len(req.Source.Topics) != MaxStreamsSupportedWithJoin {
-		return zero, UnsupportedNumberOfTopicsForJoinError{
-			allowedTopics:  MaxStreamsSupportedWithJoin,
-			providedTopics: len(req.Source.Topics),
-		}
+		return zero, PipelineConfigError{msg: "invalid join config: kafka to clickhouse sink supports exactly 2 topics"}
 	}
 
 	if len(req.Source.Topics) != len(req.Join.Sources) {
-		//nolint: wrapcheck // custom internal errors
-		return zero, ErrInvalidJoinTopicConfiguration
+		return zero, PipelineConfigError{msg: "number of kafka topics and join sources must be exactly 2"}
 	}
 
 	js := make(joinSources)
@@ -360,15 +401,63 @@ func parseJoinSources(req *PipelineRequest) (zero joinSources, _ error) {
 
 	// both orientations cannot be the same
 	if req.Join.Sources[0].Orientation == req.Join.Sources[1].Orientation {
-		//nolint: wrapcheck // custom internal errors
-		return zero, ErrSameJoinOrientations
+		return zero, PipelineConfigError{
+			msg: fmt.Sprintf("the join sources cannot have same orientations - one must be %q and other must be %q", LeftJoin, RightJoin),
+		}
 	}
 
 	// incase same source name is provided twice
 	if len(js) < MaxStreamsSupportedWithJoin {
-		//nolint: wrapcheck // custom internal errors
-		return zero, ErrAmbiguousTopicsProvided
+		return zero, PipelineConfigError{
+			msg: "the join sources must match the topics provided as kafka source",
+		}
 	}
 
 	return js, nil
+}
+
+func validateBrokers(bl []string) error {
+	if len(bl) == 0 {
+		return PipelineConfigError{msg: "kafka source must have at least one broker"}
+	}
+
+	for _, b := range bl {
+		if len(b) == 0 {
+			return PipelineConfigError{msg: "kafka broker values cannot be empty"}
+		}
+	}
+
+	return nil
+}
+
+func validateConnectionParams(mechanism, protocol, username, password string) error {
+	if strings.Trim(mechanism, " ") == "" {
+		return PipelineConfigError{msg: "SASL mechanism cannot be empty"}
+	}
+	if strings.Trim(protocol, " ") == "" {
+		return PipelineConfigError{msg: "SASL protocol cannot be empty"}
+	}
+	if strings.Trim(username, " ") == "" {
+		return PipelineConfigError{msg: "SASL username cannot be empty"}
+	}
+	if password == "" {
+		return PipelineConfigError{msg: "SASL password cannot be empty"}
+	}
+
+	switch mechanism {
+	case "SCRAM-SHA-256":
+	case "SCRAM-SHA-512":
+	case "PLAIN":
+	default:
+		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", mechanism)}
+	}
+
+	switch protocol {
+	case "SASL_SSL":
+	case "SASL_PLAINTEXT":
+	default:
+		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL protocol: %s; allowed: SASL_PLAINTEXT, SASL_SSL", protocol)}
+	}
+
+	return nil
 }
