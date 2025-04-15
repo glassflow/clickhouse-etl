@@ -4,7 +4,6 @@ Feature: Clickhouse ETL sink
     Background: Run setup before each scenario
         Given a running NATS instance
         And a running ClickHouse instance
-        And a stream consumer config with stream "test_stream" and subject "test_subject" and consumer "test_consumer"
         And a running NATS stream "test_stream" with subject "test_subject"
         And a ClickHouse sink config with db "default" and table "events_test"
 
@@ -16,6 +15,15 @@ Feature: Clickhouse ETL sink
             | email       | String    |
             | timestamp   | DateTime  |
             | action      | String    |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "1m"
+            }
+            """
         And a batch config with max size 2
         And a schema config with mapping
             """json
@@ -95,7 +103,16 @@ Feature: Clickhouse ETL sink
             | email       | String    |
             | timestamp   | DateTime  |
             | action      | String    |
-        And a batch config with max size 2
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "3s"
+            }
+            """
+        And a batch config with max size 2 and delay "3s"
         And a schema config with mapping
             """json
             {
@@ -176,6 +193,15 @@ Feature: Clickhouse ETL sink
             | id          | String    |
             | name        | String    |
             | email       | String    |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "1m"
+            }
+            """
         And a batch config with max size 2
         And a schema config with mapping
             """json
@@ -242,7 +268,16 @@ Feature: Clickhouse ETL sink
             | column_name | data_type |
             | id          | String    |
             | name        | String    |
-        And a batch config with max size 100 and delay 3 seconds
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "6s"
+            }
+            """
+        And a batch config with max size 100 and delay "3s"
         And a schema config with mapping
             """json
             {
@@ -283,5 +318,124 @@ Feature: Clickhouse ETL sink
             | 3  | Charlie |
             | 4  | David   |
         And I run ClickHouse sink for the 5 seconds
+        Then the ClickHouse table "default.events_test" should contain 4 rows
+
+    Scenario: Successfully import events from NATS to Clickhouse by max delay time #2
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name | data_type |
+            | id          | String    |
+            | name        | String    |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "5s"
+            }
+            """
+        And a batch config with max size 5 and delay "6s"
+        And a schema config with mapping
+            """json
+            {
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        When I publish 9 events to the stream with data
+            | id | name    |
+            | 1  | Alice   |
+            | 2  | Bob     |
+            | 3  | Charlie |
+            | 4  | David   |
+            | 5  | Eve     |
+            | 6  | Frank   |
+            | 7  | Grace   |
+            | 8  | Heidi   |
+            | 9  | Ivan    |
+        And I run ClickHouse sink for the 10 seconds
+        Then the ClickHouse table "default.events_test" should contain 9 rows
+
+    Scenario: Successfully import events from NATS to Clickhouse by max delay time #2
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name | data_type |
+            | id          | String    |
+            | name        | String    |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "3s"
+            }
+            """
+        And a batch config with max size 5 and delay "5s"
+        And a schema config with mapping
+            """json
+            {
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        When I publish 4 events to the stream with data
+            | id | name    |
+            | 1  | Alice   |
+            | 2  | Bob     |
+            | 3  | Charlie |
+            | 4  | David   |
+        And I run ClickHouse sink for the 6 seconds
         Then the ClickHouse table "default.events_test" should contain 4 rows
 

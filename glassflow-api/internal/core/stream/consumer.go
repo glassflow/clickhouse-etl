@@ -10,10 +10,10 @@ import (
 )
 
 type ConsumerConfig struct {
-	NatsStream     string `json:"stream"`
-	NatsConsumer   string `json:"consumer"`
-	NatsSubject    string `json:"subject"`
-	AckWaitSeconds int64  `json:"ack_wait" default:"60"`
+	NatsStream   string
+	NatsConsumer string
+	NatsSubject  string
+	AckWait      time.Duration
 }
 
 type Consumer struct {
@@ -52,11 +52,16 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 		filter = cfg.NatsSubject
 	}
 
+	ackWait := time.Duration(60) * time.Second
+	if cfg.AckWait > 0 {
+		ackWait = cfg.AckWait
+	}
+
 	//nolint:exhaustruct // optional config
 	consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Name:          cfg.NatsConsumer,
 		Durable:       cfg.NatsConsumer,
-		AckWait:       time.Duration(cfg.AckWaitSeconds) * time.Second,
+		AckWait:       ackWait,
 		AckPolicy:     jetstream.AckAllPolicy,
 		MaxAckPending: -1,
 
@@ -73,7 +78,7 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 }
 
 func (c *Consumer) Next() (jetstream.Msg, error) {
-	return c.Consumer.Next(jetstream.FetchMaxWait(1000 * time.Millisecond)) //nolint:wrapcheck // no need to wrap
+	return c.Consumer.Next(jetstream.FetchMaxWait(time.Duration(1) * time.Second)) //nolint:wrapcheck // no need to wrap
 }
 
 func (c *Consumer) Subscribe(msgHandlerFunc func(jetstream.Msg)) error {

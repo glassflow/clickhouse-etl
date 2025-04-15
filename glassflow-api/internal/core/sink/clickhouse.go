@@ -20,6 +20,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 )
 
+var ErrAlreadyExists = errors.New("already exists")
+
 type ConnectorConfig struct {
 	Host      string `json:"host" default:"127.0.0.1"`
 	Port      string `json:"port" default:"9000"`
@@ -83,7 +85,7 @@ func (b *Batch) Size() int {
 
 func (b *Batch) Append(id uint64, data ...any) error {
 	if _, ok := b.cache[id]; ok {
-		return nil
+		return ErrAlreadyExists //nolint:wrapcheck //custom error usage
 	}
 
 	b.cache[id] = struct{}{}
@@ -270,6 +272,14 @@ func (ch *ClickHouseSink) Start(ctx context.Context, errChan chan<- error) { //n
 					return fmt.Errorf("failed to get next message: %w", err)
 				}
 
+				err = ch.handleMsg(ctx, msg)
+				if err != nil {
+					if errors.Is(err, ErrAlreadyExists) {
+						return nil
+					}
+					return fmt.Errorf("failed to handle message: %w", err)
+				}
+
 				if !ch.timer.Stop() {
 					select {
 					case <-ch.timer.C:
@@ -278,11 +288,6 @@ func (ch *ClickHouseSink) Start(ctx context.Context, errChan chan<- error) { //n
 				}
 
 				ch.timer.Reset(ch.batch.maxDelayTime)
-
-				err = ch.handleMsg(ctx, msg)
-				if err != nil {
-					return fmt.Errorf("failed to handle message: %w", err)
-				}
 
 				return nil
 			}(ctx)

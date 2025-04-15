@@ -54,12 +54,29 @@ func (s *SinkTestSuite) aRunningCHInstance() error {
 	return nil
 }
 
-func (s *SinkTestSuite) aStreamConsumerConfig(streamName, subjectName, consumerName string) error {
+func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
+	type config struct {
+		StreamName   string `json:"stream"`
+		SubjectName  string `json:"subject"`
+		ConsumerName string `json:"consumer"`
+		AckWait      string `json:"ack_wait"`
+	}
+	var cfg config
+	err := json.Unmarshal([]byte(data.Content), &cfg)
+	if err != nil {
+		return fmt.Errorf("unmarshal stream consumer config: %w", err)
+	}
+
+	ackWaitDuration, err := time.ParseDuration(cfg.AckWait)
+	if err != nil {
+		return fmt.Errorf("parse ack time: %w", err)
+	}
+
 	s.StreamConfig = &stream.ConsumerConfig{
-		NatsStream:     streamName,
-		NatsConsumer:   consumerName,
-		NatsSubject:    subjectName,
-		AckWaitSeconds: 5,
+		NatsStream:   cfg.StreamName,
+		NatsConsumer: cfg.ConsumerName,
+		NatsSubject:  cfg.SubjectName,
+		AckWait:      ackWaitDuration,
 	}
 	return nil
 }
@@ -74,7 +91,7 @@ func (s *SinkTestSuite) aRunningNATSJetStream(streamName, subjectName string) er
 	js := natsWrap.JetStream()
 
 	// Create stream if not exists
-	_, err = js.Stream(context.Background(), s.StreamConfig.NatsStream)
+	_, err = js.Stream(context.Background(), streamName)
 	if err != nil {
 		_, err = js.CreateOrUpdateStream(context.Background(), jetstream.StreamConfig{ //nolint:exhaustruct // optional config
 			Name:     streamName,
@@ -140,10 +157,14 @@ func (s *SinkTestSuite) aBatchConfigWithMaxSize(maxSize int) error {
 	return nil
 }
 
-func (s *SinkTestSuite) aBatchConfigWithMaxSizeAndDelay(maxSize int, delaySeconds int) error {
+func (s *SinkTestSuite) aBatchConfigWithMaxSizeAndDelay(maxSize int, duration string) error {
+	maxDelayTime, err := time.ParseDuration(duration)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
 	s.BatchConfig = &sink.BatchConfig{
 		MaxBatchSize: maxSize,
-		MaxDelayTime: time.Duration(delaySeconds) * time.Second,
+		MaxDelayTime: maxDelayTime,
 	}
 	return nil
 }
@@ -327,7 +348,7 @@ func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a running NATS instance$`, s.aRunningNATSInstance)
 	sc.Step(`^a running ClickHouse instance$`, s.aRunningCHInstance)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, s.aRunningNATSJetStream)
-	sc.Step(`^a stream consumer config with stream "([^"]*)" and subject "([^"]*)" and consumer "([^"]*)"$`, s.aStreamConsumerConfig)
+	sc.Step(`^a stream consumer with config$`, s.aStreamConsumerConfig)
 	sc.Step(`^a ClickHouse sink config with db "([^"]*)" and table "([^"]*)"$`, s.aClickHouseSinkConfig)
 	sc.Step(`^the ClickHouse table "([^"]*)" already exists with schema$`, s.theClickHouseTableAlreadyExistsWithSchema)
 	sc.Step(`^a batch config with max size (\d+)$`, s.aBatchConfigWithMaxSize)
@@ -335,7 +356,7 @@ func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I publish (\d+) events to the stream with data$`, s.iPublishEventsToTheStream)
 	sc.Step(`^I run ClickHouse sink for the (\d+) seconds$`, s.iRunClickHouseSink)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, s.theClickHouseTableShouldContainRows)
-	sc.Step(`^a batch config with max size (\d+) and delay (\d+) seconds$`, s.aBatchConfigWithMaxSizeAndDelay)
+	sc.Step(`^a batch config with max size (\d+) and delay "([^"]*)"$`, s.aBatchConfigWithMaxSizeAndDelay)
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := s.CleanupResources()
 		if cleanupErr != nil {

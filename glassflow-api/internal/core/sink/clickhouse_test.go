@@ -200,8 +200,9 @@ func TestBatchAppend(t *testing.T) {
 
 		err := batch.Append(1, data...)
 
-		require.NoError(t, err)
-		mockBatch.AssertNotCalled(t, "Append")
+		assert.ErrorContains(t, err, "already exists")
+		assert.ErrorIs(t, err, ErrAlreadyExists)
+		mockBatch.AssertExpectations(t)
 	})
 
 	t.Run("AppendError", func(t *testing.T) {

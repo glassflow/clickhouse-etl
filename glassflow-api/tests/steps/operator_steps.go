@@ -45,30 +45,30 @@ func (j *JoinOperatorTestSuite) aRunningNATSInstance() error {
 
 func (j *JoinOperatorTestSuite) aLeftStreamConsumerConfig(streamName, subjectName, consumerName string) error {
 	j.leftStreamConfig = &stream.ConsumerConfig{
-		NatsStream:     streamName,
-		NatsConsumer:   consumerName,
-		NatsSubject:    subjectName,
-		AckWaitSeconds: 5,
+		NatsStream:   streamName,
+		NatsConsumer: consumerName,
+		NatsSubject:  subjectName,
+		AckWait:      time.Duration(5) * time.Second,
 	}
 	return nil
 }
 
 func (j *JoinOperatorTestSuite) aRightStreamConsumerConfig(streamName, subjectName, consumerName string) error {
 	j.rightStreamConfig = &stream.ConsumerConfig{
-		NatsStream:     streamName,
-		NatsConsumer:   consumerName,
-		NatsSubject:    subjectName,
-		AckWaitSeconds: 5,
+		NatsStream:   streamName,
+		NatsConsumer: consumerName,
+		NatsSubject:  subjectName,
+		AckWait:      time.Duration(5) * time.Second,
 	}
 	return nil
 }
 
 func (j *JoinOperatorTestSuite) aResultsConsumerConfig(streamName, subjectName, consumerName string) error {
 	j.resultsConsumerConfig = &stream.ConsumerConfig{
-		NatsStream:     streamName,
-		NatsConsumer:   consumerName,
-		NatsSubject:    subjectName,
-		AckWaitSeconds: 5,
+		NatsStream:   streamName,
+		NatsConsumer: consumerName,
+		NatsSubject:  subjectName,
+		AckWait:      time.Duration(5) * time.Second,
 	}
 	return nil
 }
@@ -319,10 +319,10 @@ func (j *JoinOperatorTestSuite) iCheckResults(count int) error {
 
 	js := natsWrap.JetStream()
 
-	consumer, err := js.CreateOrUpdateConsumer(context.Background(), j.resultsConsumerConfig.NatsStream, jetstream.ConsumerConfig{
+	consumer, err := js.CreateOrUpdateConsumer(context.Background(), j.resultsConsumerConfig.NatsStream, jetstream.ConsumerConfig{ //nolint:exhaustruct // optional config
 		Name:          j.resultsConsumerConfig.NatsConsumer,
 		Durable:       j.resultsConsumerConfig.NatsConsumer,
-		AckWait:       time.Duration(j.resultsConsumerConfig.AckWaitSeconds) * time.Second,
+		AckWait:       j.resultsConsumerConfig.AckWait,
 		FilterSubject: j.resultsConsumerConfig.NatsSubject,
 	})
 	if err != nil {
@@ -365,10 +365,10 @@ func (j *JoinOperatorTestSuite) iCheckResultsWithContent(dataTable *godog.Table)
 
 	js := natsWrap.JetStream()
 
-	consumer, err := js.CreateOrUpdateConsumer(context.Background(), j.resultsConsumerConfig.NatsStream, jetstream.ConsumerConfig{
+	consumer, err := js.CreateOrUpdateConsumer(context.Background(), j.resultsConsumerConfig.NatsStream, jetstream.ConsumerConfig{ //nolint:exhaustruct // optional config
 		Name:          j.resultsConsumerConfig.NatsConsumer,
 		Durable:       j.resultsConsumerConfig.NatsConsumer,
-		AckWait:       time.Duration(j.resultsConsumerConfig.AckWaitSeconds) * time.Second,
+		AckWait:       j.resultsConsumerConfig.AckWait,
 		FilterSubject: j.resultsConsumerConfig.NatsSubject,
 	})
 	if err != nil {
