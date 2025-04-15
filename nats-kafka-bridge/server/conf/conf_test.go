@@ -17,7 +17,6 @@
 package conf
 
 import (
-	"encoding/base64"
 	"os"
 	"testing"
 
@@ -31,16 +30,6 @@ func TestDefaultConfig(t *testing.T) {
 	require.Equal(t, 5000, config.NATS.ConnectTimeout)
 }
 
-func TestMakeTLSConfig(t *testing.T) {
-	tlsC := &TLSConf{
-		Cert: "../../resources/certs/client-cert.pem",
-		Key:  "../../resources/certs/client-key.pem",
-		Root: "../../resources/certs/ca-cert.pem",
-	}
-	_, err := tlsC.MakeTLSConfig()
-	require.NoError(t, err)
-}
-
 func TestMakeTLSConfigFromEnv(t *testing.T) {
 	clientCert, err := os.ReadFile("../../resources/certs/client-cert.pem")
 	require.NoError(t, err)
@@ -51,14 +40,10 @@ func TestMakeTLSConfigFromEnv(t *testing.T) {
 	rootCert, err := os.ReadFile("../../resources/certs/ca-cert.pem")
 	require.NoError(t, err)
 
-	encodedClientCert := base64.StdEncoding.EncodeToString(clientCert)
-	encodedClientKey := base64.StdEncoding.EncodeToString(clientKey)
-	encodedRootCert := base64.StdEncoding.EncodeToString(rootCert)
-
 	tlsC := &TLSConf{
-		Cert: encodedClientCert,
-		Key:  encodedClientKey,
-		Root: encodedRootCert,
+		Cert: string(clientCert),
+		Key:  string(clientKey),
+		Root: string(rootCert),
 	}
 	_, err = tlsC.MakeTLSConfigFromStrings()
 	require.NoError(t, err)

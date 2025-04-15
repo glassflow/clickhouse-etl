@@ -74,7 +74,7 @@ func NewManager(cc conf.ConnectorConfig, bc conf.NATSKafkaBridgeConfig) (Manager
 
 	ca, err := sarama.NewClusterAdmin(cc.Brokers, sc)
 	if err != nil {
-		return nil, fmt.Errorf("new kafka cluster admim: %w", err)
+		return nil, fmt.Errorf("new kafka cluster admin: %w", err)
 	}
 
 	return &saramaManager{ca: ca}, nil

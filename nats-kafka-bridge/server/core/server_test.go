@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -40,6 +41,7 @@ const (
 	clientCert   = "../../resources/certs/client-cert.pem"
 	clientKey    = "../../resources/certs/client-key.pem"
 	caFile       = "../../resources/certs/ca-cert.pem"
+	caFileNats   = "../../resources/certs/ca-cert-nats.pem"
 	saslUser     = "admin"
 	saslPassword = "admin-secret"
 )
@@ -301,7 +303,7 @@ func (tbs *TestEnv) StartBridge(connections []conf.ConnectorConfig) error {
 		}
 
 		config.NATS.TLS = conf.TLSConf{
-			Root: caFile,
+			Root: caFileNats,
 		}
 	}
 
@@ -309,10 +311,25 @@ func (tbs *TestEnv) StartBridge(connections []conf.ConnectorConfig) error {
 		c.Brokers = []string{tbs.KafkaHostPort}
 
 		if tbs.useTLS {
+			clientCertVal, err := os.ReadFile(clientCert)
+			if err != nil {
+				return err
+			}
+
+			clientKeyVal, err := os.ReadFile(clientKey)
+			if err != nil {
+				return err
+			}
+
+			rootCertVal, err := os.ReadFile(caFile)
+			if err != nil {
+				return err
+			}
+
 			c.TLS = conf.TLSConf{
-				Cert: clientCert,
-				Key:  clientKey,
-				Root: caFile,
+				Cert: string(clientCertVal),
+				Key:  string(clientKeyVal),
+				Root: string(rootCertVal),
 			}
 		}
 
@@ -382,7 +399,7 @@ func (tbs *TestEnv) StartNATSWithJS(port int) error {
 	var nc *nats.Conn
 
 	if tbs.useTLS {
-		nc, err = nats.Connect(tbs.natsURL, nats.RootCAs(caFile))
+		nc, err = nats.Connect(tbs.natsURL, nats.RootCAs(caFileNats))
 	} else {
 		nc, err = nats.Connect(tbs.natsURL)
 	}
@@ -464,11 +481,27 @@ func (tbs *TestEnv) SendMessageToKafka(topic string, data []byte, waitMillis int
 			Password: tbs.password,
 		}
 	}
+
 	if tbs.useTLS {
+		clientCertVal, err := os.ReadFile(clientCert)
+		if err != nil {
+			return err
+		}
+
+		clientKeyVal, err := os.ReadFile(clientKey)
+		if err != nil {
+			return err
+		}
+
+		rootCertVal, err := os.ReadFile(caFile)
+		if err != nil {
+			return err
+		}
+
 		cc.TLS = conf.TLSConf{
-			Cert: clientCert,
-			Key:  clientKey,
-			Root: caFile,
+			Cert: string(clientCertVal),
+			Key:  string(clientKeyVal),
+			Root: string(rootCertVal),
 		}
 	}
 
@@ -592,10 +625,25 @@ func (tbs *TestEnv) CreateTopic(topic string, waitMillis int32) error {
 		cc.SASL.Password = tbs.password
 	}
 	if tbs.useTLS {
+		clientCertVal, err := os.ReadFile(clientCert)
+		if err != nil {
+			return err
+		}
+
+		clientKeyVal, err := os.ReadFile(clientKey)
+		if err != nil {
+			return err
+		}
+
+		rootCertVal, err := os.ReadFile(caFile)
+		if err != nil {
+			return err
+		}
+
 		cc.TLS = conf.TLSConf{
-			Cert: clientCert,
-			Key:  clientKey,
-			Root: caFile,
+			Cert: string(clientCertVal),
+			Key:  string(clientKeyVal),
+			Root: string(rootCertVal),
 		}
 	}
 	bc := conf.NATSKafkaBridgeConfig{ConnectTimeout: int(waitMillis)}
@@ -619,11 +667,27 @@ func (tbs *TestEnv) CheckKafka(waitMillis int32) error {
 		cc.SASL.User = tbs.user
 		cc.SASL.Password = tbs.password
 	}
+
 	if tbs.useTLS {
+		clientCertVal, err := os.ReadFile(clientCert)
+		if err != nil {
+			return err
+		}
+
+		clientKeyVal, err := os.ReadFile(clientKey)
+		if err != nil {
+			return err
+		}
+
+		rootCertVal, err := os.ReadFile(caFile)
+		if err != nil {
+			return err
+		}
+
 		cc.TLS = conf.TLSConf{
-			Cert: clientCert,
-			Key:  clientKey,
-			Root: caFile,
+			Cert: string(clientCertVal),
+			Key:  string(clientKeyVal),
+			Root: string(rootCertVal),
 		}
 	}
 	bc := conf.NATSKafkaBridgeConfig{ConnectTimeout: int(waitMillis)}
