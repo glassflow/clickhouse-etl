@@ -8,6 +8,9 @@ services:
 
   app:
     image: ghcr.io/glassflow/clickhouse-etl-internal:main
+    pull_policy: always
+    depends_on:
+      - nats
     ports:
       - 8080:8080
     restart: unless-stopped
