@@ -2,7 +2,7 @@ name: Test Bridge
 on:
   push:
     paths:
-      - ./nats-kafka-bridge
+      - 'nats-kafka-bridge/**'
 
 jobs:
   test-bridge:
