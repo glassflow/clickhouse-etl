@@ -41,8 +41,13 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) shutdownPipeline(w http.ResponseWriter, _ *http.Request) {
 	err := h.pipelineManager.ShutdownPipeline()
-	if err != nil && errors.Is(err, service.ErrPipelineNotFound) {
-		jsonError(w, http.StatusNotFound, "no active pipeline to shutdown", nil)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotFound):
+			jsonError(w, http.StatusNotFound, "no active pipeline to shutdown", nil)
+		default:
+			serverError(w)
+		}
 		return
 	}
 
