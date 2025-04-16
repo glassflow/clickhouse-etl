@@ -1,8 +1,6 @@
 package models
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -36,7 +34,7 @@ type PipelineRequest struct {
 					DataType string `json:"type"`
 				} `json:"fields"`
 			} `json:"schema"`
-			ConsumerGroupInitialOffset consumerGroupOffset `json:"consumer_group_initial_offset" default:"earliest"`
+			ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
 
 			Deduplication struct {
 				Enabled bool `json:"enabled"`
@@ -52,10 +50,10 @@ type PipelineRequest struct {
 		Enabled bool   `json:"enabled"`
 
 		Sources []struct {
-			SourceID    string          `json:"source_id"`
-			JoinKey     string          `json:"join_key"`
-			Window      JSONDuration    `json:"time_window"`
-			Orientation joinOrientation `json:"orientation"`
+			SourceID    string       `json:"source_id"`
+			JoinKey     string       `json:"join_key"`
+			Window      JSONDuration `json:"time_window"`
+			Orientation string       `json:"orientation"`
 		} `json:"sources"`
 	} `json:"join"`
 	Sink struct {
@@ -80,12 +78,6 @@ type PipelineRequest struct {
 		MaxDelayTime JSONDuration `json:"max_delay_time" default:"60s"`
 	} `json:"sink"`
 }
-
-var (
-	ErrJoinOrientationCannotBeEmpty      = errors.New("join order cannot be empty")
-	ErrInvalidJoinOrientation            = errors.New("join order is invalid; allowed values: `left` or `right`")
-	ErrInvalidConsumerGroupInitialOffset = errors.New("offset value is invalid; allowed values: `earliest` or `latest`")
-)
 
 type PipelineConfigError struct {
 	msg string
@@ -236,6 +228,10 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		name := fmt.Sprintf("gf-stream-%s-%s", t.Topic, uuid.New())
 
 		streamSourceToNameMap[t.Topic] = name
+		initialOffset, err := newConsumerGroupInitialOffset(t.ConsumerGroupInitialOffset)
+		if err != nil {
+			return nil, err
+		}
 
 		//nolint: exhaustruct // schemaconfig is added later
 		stream := StreamConfig{
@@ -243,7 +239,7 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 			Subject: fmt.Sprintf("%s.%s", name, "input"),
 			Source: KafkaTopic{
 				Name:                       t.Topic,
-				ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset.String(),
+				ConsumerGroupInitialOffset: initialOffset.String(),
 			},
 			Deduplication: DedupConfig{
 				Enabled: t.Deduplication.Enabled,
@@ -314,71 +310,6 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 
 type joinSources map[string]JoinConfig
 
-type joinOrientation string
-
-func (o *joinOrientation) UnmarshalJSON(b []byte) error {
-	var rawValue string
-
-	err := json.Unmarshal(b, &rawValue)
-	if err != nil {
-		return fmt.Errorf("unable to unmarshal join orientation: %w", err)
-	}
-
-	if rawValue == "" {
-		//nolint: wrapcheck // custom internal errors
-		return ErrJoinOrientationCannotBeEmpty
-	}
-
-	switch strings.ToLower(rawValue) {
-	case "left":
-		*o = LeftJoin
-	case "right":
-		*o = RightJoin
-	default:
-		//nolint: wrapcheck // custom internal errors
-		return ErrInvalidJoinOrientation
-	}
-
-	return nil
-}
-
-func (o joinOrientation) String() string {
-	return string(o)
-}
-
-const (
-	LeftJoin  joinOrientation = "left"
-	RightJoin joinOrientation = "right"
-)
-
-type consumerGroupOffset string
-
-func (c *consumerGroupOffset) UnmarshalJSON(v []byte) error {
-	var rawValue string
-
-	err := json.Unmarshal(v, &rawValue)
-	if err != nil {
-		return fmt.Errorf("unable to unmarshal consumer group initial offset: %w", err)
-	}
-
-	switch strings.ToLower(rawValue) {
-	case "earliest":
-		*c = "earliest"
-	case "latest":
-		*c = "latest"
-	default:
-		//nolint: wrapcheck // custom internal errors
-		return ErrInvalidConsumerGroupInitialOffset
-	}
-
-	return nil
-
-}
-
-func (c consumerGroupOffset) String() string {
-	return string(c)
-}
-
 func parseJoinSources(req *PipelineRequest) (zero joinSources, _ error) {
 	if len(req.Source.Topics) != MaxStreamsSupportedWithJoin {
 		return zero, PipelineConfigError{msg: "invalid join config: kafka to clickhouse sink supports exactly 2 topics"}
@@ -391,18 +322,23 @@ func parseJoinSources(req *PipelineRequest) (zero joinSources, _ error) {
 	js := make(joinSources)
 
 	for _, s := range req.Join.Sources {
+		orientation, err := newJoinOrientation(s.Orientation)
+		if err != nil {
+			return nil, err
+		}
+
 		js[s.SourceID] = JoinConfig{
 			Enabled:     req.Join.Enabled,
 			ID:          s.JoinKey,
 			Window:      s.Window.Duration(),
-			Orientation: s.Orientation.String(),
+			Orientation: orientation.String(),
 		}
 	}
 
 	// both orientations cannot be the same
 	if req.Join.Sources[0].Orientation == req.Join.Sources[1].Orientation {
 		return zero, PipelineConfigError{
-			msg: fmt.Sprintf("the join sources cannot have same orientations - one must be %q and other must be %q", LeftJoin, RightJoin),
+			msg: fmt.Sprintf("join sources cannot have same orientations - one must be %q and other must be %q", OrientationLeft, OrientationRight),
 		}
 	}
 
@@ -460,4 +396,44 @@ func validateConnectionParams(mechanism, protocol, username, password string) er
 	}
 
 	return nil
+}
+
+type ConsumerGroupInitialOffset string
+
+const InitialOffsetEarliest ConsumerGroupInitialOffset = "earliest"
+const InitialOffsetLatest ConsumerGroupInitialOffset = "latest"
+
+func (c ConsumerGroupInitialOffset) String() string {
+	return string(c)
+}
+
+func newConsumerGroupInitialOffset(o string) (zero ConsumerGroupInitialOffset, _ error) {
+	switch strings.ToLower(o) {
+	case "earliest":
+		return InitialOffsetEarliest, nil
+	case "latest":
+		return InitialOffsetLatest, nil
+	default:
+		return zero, PipelineConfigError{msg: "invalid consumer_group_initial_offset; allowed values: `earliest` or `latest`"}
+	}
+}
+
+type JoinOrientation string
+
+const OrientationLeft JoinOrientation = "left"
+const OrientationRight JoinOrientation = "right"
+
+func (c JoinOrientation) String() string {
+	return string(c)
+}
+
+func newJoinOrientation(o string) (zero JoinOrientation, _ error) {
+	switch strings.ToLower(o) {
+	case "left":
+		return OrientationLeft, nil
+	case "right":
+		return OrientationRight, nil
+	default:
+		return zero, PipelineConfigError{msg: "invalid orientation for join; allowed values: `left` or `right`"}
+	}
 }
