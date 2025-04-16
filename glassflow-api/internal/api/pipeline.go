@@ -54,3 +54,18 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, _ *http.Request) {
 	h.log.Info("pipeline shutdown")
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *handler) getPipeline(w http.ResponseWriter, _ *http.Request) {
+	id, err := h.pipelineManager.GetPipeline()
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotFound):
+			jsonError(w, http.StatusNotFound, "no active pipeline", nil)
+		default:
+			serverError(w)
+		}
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"id": id})
+}

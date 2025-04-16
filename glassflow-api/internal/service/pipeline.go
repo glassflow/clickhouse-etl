@@ -164,3 +164,15 @@ func (p *PipelineManager) ShutdownPipeline() error {
 
 	return nil
 }
+
+func (p *PipelineManager) GetPipeline() (zero string, _ error) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	if p.id == "" {
+		//nolint: wrapcheck // custom internal errors
+		return zero, ErrPipelineNotFound
+	}
+
+	return p.id, nil
+}
