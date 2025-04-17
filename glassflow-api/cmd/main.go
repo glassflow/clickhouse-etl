@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path"
 	"sync"
 	"syscall"
 	"time"
@@ -62,7 +63,11 @@ func mainErr(cfg *config) error {
 		logOut = os.Stdout
 	default:
 		fileflags := os.O_WRONLY | os.O_APPEND | os.O_CREATE
-		logFile, err = os.OpenFile(cfg.LogFilePath, fileflags, os.FileMode(0o600))
+		logFile, err = os.OpenFile(
+			path.Join(cfg.LogFilePath, "app"+".log"),
+			fileflags,
+			os.FileMode(0o600),
+		)
 		if err != nil {
 			slog.Error("unable to setup logfile", slog.Any("error", err))
 			os.Exit(1)

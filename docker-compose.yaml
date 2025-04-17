@@ -9,10 +9,17 @@ services:
   app:
     image: ghcr.io/glassflow/clickhouse-etl-internal:main
     pull_policy: always
+    container_name: glassflow-clickhouse-etl
     depends_on:
       - nats
     ports:
       - 8080:8080
     restart: unless-stopped
     environment:
+      GLASSFLOW_LOG_FILE_PATH: /tmp/logs/glassflow
       GLASSFLOW_NATS_SERVER: nats:4222
+    volumes:
+      - logs:/tmp/logs/glassflow
+
+volumes:
+  logs:
