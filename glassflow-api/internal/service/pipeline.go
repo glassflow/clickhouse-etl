@@ -74,9 +74,11 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 
 	p.id = pipeline.ID
 
-	p.bridgeRunner = NewBridgeRunner(NewFactory(p.natsServer, p.log))
-	p.joinRunner = NewJoinRunner(p.log, p.nc)
-	p.sinkRunner = NewSinkRunner(p.log, p.nc)
+	p.log = p.log.With("pipeline_id", p.id)
+
+	p.bridgeRunner = NewBridgeRunner(NewFactory(p.natsServer, p.log.With("component", "kafka_bridge")))
+	p.joinRunner = NewJoinRunner(p.log.With("component", "join"), p.nc)
+	p.sinkRunner = NewSinkRunner(p.log.With("component", "clickhouse_sink"), p.nc)
 
 	ctx := context.Background()
 

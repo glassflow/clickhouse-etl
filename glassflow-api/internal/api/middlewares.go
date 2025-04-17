@@ -44,6 +44,7 @@ func RequestLogging(log *slog.Logger) func(http.Handler) http.Handler {
 
 			defer func() {
 				logger := log.With(
+					slog.String("component", "glassflow_api"),
 					slog.Duration("latency", time.Since(start)),
 					slog.String("remote_ip", r.RemoteAddr),
 					slog.String("host", r.Host),
