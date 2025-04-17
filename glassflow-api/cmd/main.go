@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -19,12 +18,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-)
-
-//nolint:gochecknoglobals,revive // build variables
-var (
-	commit string = "unspecified"
-	app    string = "unspecified"
 )
 
 type config struct {
@@ -160,11 +153,5 @@ func configureLogger(cfg *config, logOut io.Writer) *slog.Logger {
 		})
 	}
 
-	log := slog.New(logHandler)
-
-	return log.With(
-		slog.String("app", app),
-		slog.String("commit_hash", commit),
-		slog.String("goversion", runtime.Version()),
-	)
+	return slog.New(logHandler)
 }

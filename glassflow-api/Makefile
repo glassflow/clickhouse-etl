@@ -1,4 +1,3 @@
-APP?=glassflow-api
 CI_GOLANGCI_LINT_VERSION?=v1.64.5
 COMMIT_HASH?=$(shell git rev-parse --short HEAD)
 
@@ -18,7 +17,6 @@ run:
 .PHONY: build
 build:
 	CGO_ENABLED=0 go build -mod=readonly -o bin/clickhouse-etl \
-	-ldflags "-X main.commit=${COMMIT_HASH} -X main.app=${APP}" \
 	cmd/main.go
 
 .PHONY: run-test
