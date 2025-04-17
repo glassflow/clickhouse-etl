@@ -66,7 +66,7 @@ func mainErr(cfg *config) error {
 		logFile, err = os.OpenFile(
 			path.Join(cfg.LogFilePath, "app"+".log"),
 			fileflags,
-			os.FileMode(0o600),
+			os.FileMode(0o644),
 		)
 		if err != nil {
 			slog.Error("unable to setup logfile", slog.Any("error", err))
