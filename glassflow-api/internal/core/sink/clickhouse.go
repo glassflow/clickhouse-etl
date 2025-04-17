@@ -189,7 +189,7 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to send the batch: %w", err)
 	}
-	ch.log.Debug("Batch sent")
+	ch.log.Debug("Batch sent to clickhouse")
 
 	err = ch.lastMsg.Ack()
 	if err != nil {
@@ -200,7 +200,7 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	if err != nil {
 		ch.log.Error("failed to get message metadata", slog.Any("error", err))
 	} else {
-		ch.log.Debug("Message acked", slog.Any("stream", mdata.Sequence.Stream))
+		ch.log.Debug("Message acked by JetStream", slog.Any("stream", mdata.Sequence.Stream))
 	}
 
 	ch.lastMsg = nil
