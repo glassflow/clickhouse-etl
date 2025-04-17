@@ -64,7 +64,7 @@ func mainErr(cfg *config) error {
 	default:
 		fileflags := os.O_WRONLY | os.O_APPEND | os.O_CREATE
 		logFile, err = os.OpenFile(
-			path.Join(cfg.LogFilePath, "app"+".log"),
+			path.Join(cfg.LogFilePath, time.Now().Format(time.RFC3339)+".log"),
 			fileflags,
 			os.FileMode(0o644),
 		)
