@@ -9,7 +9,6 @@ services:
   app:
     image: ghcr.io/glassflow/clickhouse-etl-internal:main
     pull_policy: always
-    container_name: glassflow-clickhouse-etl
     depends_on:
       - nats
     ports:
@@ -22,4 +21,5 @@ services:
       - logs:/tmp/logs/glassflow
 
 volumes:
+  # NOTE: ensure volume name changes are reflected in /scripts/logs.sh
   logs:
