@@ -57,7 +57,7 @@ func (conn *Kafka2JetStreamConnector) Start() error {
 		return fmt.Errorf("failed to create consumer: %w", err)
 	}
 	if s, ok := conn.reader.(interface{ NetInfo() string }); ok {
-		conn.bridge.Logger().Noticef(s.NetInfo())
+		conn.bridge.Logger().Debugf(s.NetInfo())
 	}
 
 	cb := conn.setUpListener(conn.reader, conn.jetStreamMessageHandler)

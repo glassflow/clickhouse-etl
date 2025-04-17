@@ -106,7 +106,7 @@ func (server *NATSKafkaBridge) Start() error {
 	server.reconnect = map[string]Connector{}
 
 	server.logger.Noticef("starting NATS-Kafka Bridge")
-	server.logger.Noticef("server time is %s", server.startTime.Format(time.UnixDate))
+	server.logger.Debugf("server time is %s", server.startTime.Format(time.UnixDate))
 
 	if err := server.connectToNATS(); err != nil {
 		return err

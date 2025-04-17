@@ -52,7 +52,7 @@ func (server *NATSKafkaBridge) connectToNATS() error {
 		return nil // already stopped
 	}
 
-	server.logger.Noticef("connecting to NATS core")
+	server.logger.Debugf("connecting to NATS core")
 
 	config := server.config.NATS
 	options := []nats.Option{
@@ -98,7 +98,7 @@ func (server *NATSKafkaBridge) connectToJetStream() error {
 		return nil // already connected
 	}
 
-	server.logger.Noticef("connecting to JetStream")
+	server.logger.Debugf("connecting to JetStream")
 
 	var opts []nats.JSOpt
 	c := server.config.JetStream

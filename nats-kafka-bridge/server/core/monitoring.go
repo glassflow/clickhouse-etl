@@ -43,7 +43,7 @@ func (server *NATSKafkaBridge) startMonitoring() error {
 	}
 
 	if config.HTTPPort == 0 && config.HTTPSPort == 0 {
-		server.logger.Noticef("monitoring is disabled")
+		server.logger.Debugf("monitoring is disabled")
 		return nil
 	}
 
@@ -167,7 +167,7 @@ func (server *NATSKafkaBridge) StopMonitoring() error {
 		server.listener.Close() // ignore the error
 		server.listener = nil
 	}
-	server.logger.Noticef("http monitoring stopped")
+	server.logger.Debugf("http monitoring stopped")
 
 	return nil
 }

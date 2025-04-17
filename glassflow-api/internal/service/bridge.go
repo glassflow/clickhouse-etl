@@ -113,8 +113,6 @@ func (b *bridgeImpl) Start() error {
 			switch {
 			case strings.Contains(log, "[INF]"):
 				level = slog.LevelInfo
-			case strings.Contains(log, "[DBG]"), strings.Contains(log, "[TRC]"):
-				level = slog.LevelDebug
 			case strings.Contains(log, "[WRN]"):
 				level = slog.LevelWarn
 			case strings.Contains(log, "[ERR]"), strings.Contains(log, "[FTL]"):
