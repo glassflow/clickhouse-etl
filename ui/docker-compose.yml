@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fe-clickhouse
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - NEXT_PUBLIC_IS_DOCKER=true
+    restart: unless-stopped
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'

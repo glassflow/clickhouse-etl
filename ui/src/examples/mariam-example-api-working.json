@@ -1,0 +1,112 @@
+{
+  "pipeline_id": "kafka-to-clickhouse-pipeline",
+  "source": {
+    "type": "kafka",
+    "provider": "aiven",
+    "connection_params": {
+      "brokers": ["kafka-2556c73-glassflow-2908.h.aivencloud.com:12766"],
+      "protocol": "SASL_SSL",
+      "mechanism": "SCRAM-SHA-256",
+      "username": "<1pwd>",
+      "password": "<1pwd>",
+      "root_ca": "<base64 encoded via 1pwd>"
+    },
+    "topics": [
+      {
+        "consumer_group_initial_offset": "earliest",
+        "name": "mariams",
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "event_id",
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "action",
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "type": "datetime"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": true,
+          "id_field": "event_id",
+          "type": "string",
+          "time_window": "12h"
+        }
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "provider": "aiven",
+    "host": "clickhouse-347ce90c-glassflow-2908.h.aivencloud.com",
+    "port": "12753",
+    "database": "default",
+    "username": "<1pwd>",
+    "password": "<1pwd>",
+    "secure": true,
+    "max_batch_size": 1,
+    "table": "mariams",
+    "table_mapping": [
+      {
+        "source_name": "mariams",
+        "field_name": "event_id",
+        "column_name": "event_id",
+        "column_type": "UUID"
+      },
+      {
+        "source_name": "mariams",
+        "field_name": "name",
+        "column_name": "name",
+        "column_type": "String"
+      },
+      {
+        "source_name": "mariams",
+        "field_name": "email",
+        "column_name": "email",
+        "column_type": "String"
+      },
+      {
+        "source_name": "mariams",
+        "field_name": "action",
+        "column_name": "action",
+        "column_type": "String"
+      },
+      {
+        "source_name": "mariams",
+        "field_name": "timestamp",
+        "column_name": "timestamp",
+        "column_type": "DateTime"
+      }
+    ]
+  },
+  "join": {
+    "enabled": false,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "user_events",
+        "join_key": "user_id",
+        "time_window": "1h"
+      },
+      {
+        "source_id": "user_profiles",
+        "join_key": "user_id",
+        "time_window": "1h"
+      }
+    ]
+  }
+}

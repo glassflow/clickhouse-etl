@@ -1,0 +1,152 @@
+{
+  "pipeline_id": "kafka-to-clickhouse-pipeline",
+  "source": {
+    "type": "kafka",
+    "provider": "aiven",
+    "connection_params": {
+      "brokers": ["kafka-12345-aiven.cloud:9092"],
+      "protocol": "SASL_SSL",
+      "mechanism": "SCRAM-SHA-256",
+      "username": "avnadmin",
+      "password": "base64_encoded_password",
+      "certificate": "base64_encoded_certificate",
+      "key": "base64_encoded_key", // tls.key
+      "cert": "base64_encoded_cert", // tls.crt
+      "root_ca": "base64_encoded_root_ca" // ca.crt
+    },
+    "topics": [
+      {
+        "consumer_group_initial_offset": "newest",
+        "name": "user_events",
+        "id": "user_events",
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "event_id",
+              "type": "UUID"
+            },
+            {
+              "name": "user_id",
+              "type": "String"
+            },
+            {
+              "name": "event_type",
+              "type": "String"
+            },
+            {
+              "name": "metadata",
+              "type": "Map(String, String)"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": true,
+          "id_field": "event_id",
+          "time_window": "1h",
+          "type": "int|string"
+        }
+      },
+      {
+        "consumer_group_initial_offset": "newest",
+        "name": "user_profiles",
+        "id": "user_profiles",
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "profile_id",
+              "type": "UUID"
+            },
+            {
+              "name": "user_id",
+              "type": "String"
+            },
+            {
+              "name": "name",
+              "type": "String"
+            },
+            {
+              "name": "email",
+              "type": "String"
+            },
+            {
+              "name": "created_at",
+              "type": "DateTime"
+            },
+            {
+              "name": "updated_at",
+              "type": "DateTime"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": true,
+          "id_field": "profile_id",
+          "type": "int|string",
+          "time_window": "1h"
+        }
+      }
+    ]
+  },
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "user_events",
+        "join_key": "user_id",
+        "time_window": "1h",
+        "orientation": "left|right"
+      },
+      {
+        "source_id": "user_profiles",
+        "join_key": "user_id",
+        "time_window": "1h",
+        "orientation": "left|right"
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "provider": "aiven",
+    "host": "clickhouse-12345-aiven.cloud",
+    "port": 8443,
+    "database": "analytics",
+    "username": "default",
+    "password": "base64_encoded_password",
+    "table": "user_events_with_profiles",
+    "table_mapping": [
+      {
+        "source_id": "user_events",
+        "field_name": "event_id",
+        "column_name": "event_id",
+        "column_type": "UUID"
+      },
+      {
+        "source_id": "user_events",
+        "field_name": "user_id",
+        "column_name": "user_id",
+        "column_type": "String"
+      },
+      {
+        "source_id": "user_events",
+        "field_name": "event_type",
+        "column_name": "event_type",
+        "column_type": "String"
+      },
+      {
+        "source_id": "user_profiles",
+        "field_name": "name",
+        "column_name": "user_name",
+        "column_type": "String"
+      },
+      {
+        "source_id": "user_profiles",
+        "field_name": "email",
+        "column_name": "user_email",
+        "column_type": "String"
+      }
+    ]
+  }
+}

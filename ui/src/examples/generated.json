@@ -1,0 +1,163 @@
+{
+  "pipeline_id": "kafka-to-clickhouse-pipeline",
+  "source": {
+    "type": "kafka",
+    "provider": "custom",
+    "connection_params": {
+      "brokers": ["localhost:9092", " localhost:9093", " localhost:9094"],
+      "protocol": "SASL_PLAINTEXT",
+      "mechanism": "PLAIN",
+      "username": "admin",
+      "password": "base64_encoded_password"
+    },
+    "topics": [
+      {
+        "consumer_group_initial_offset": "newest",
+        "name": "banking-transactions",
+        "id": "banking-transactions",
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "event",
+              "type": "Map(String, String)"
+            },
+            {
+              "name": "position",
+              "type": "String"
+            },
+            {
+              "name": "kafkaOffset",
+              "type": "Int64"
+            },
+            {
+              "name": "isFromCache",
+              "type": "Boolean"
+            },
+            {
+              "name": "topicIndex",
+              "type": "Int64"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": false
+        }
+      },
+      {
+        "consumer_group_initial_offset": "newest",
+        "name": "credit-card-transactions",
+        "id": "credit-card-transactions",
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "event",
+              "type": "Map(String, String)"
+            },
+            {
+              "name": "position",
+              "type": "String"
+            },
+            {
+              "name": "kafkaOffset",
+              "type": "Int64"
+            },
+            {
+              "name": "isFromCache",
+              "type": "Boolean"
+            },
+            {
+              "name": "topicIndex",
+              "type": "Int64"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": false
+        }
+      }
+    ]
+  },
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "banking-transactions",
+        "join_key": "id",
+        "time_window": "1h",
+        "orientation": "left"
+      },
+      {
+        "source_id": "credit-card-transactions",
+        "join_key": "id",
+        "time_window": "1h",
+        "orientation": "left"
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "provider": "custom",
+    "host": " https://poyk5ew5p9.eu-central-1.aws.clickhouse.cloud",
+    "port": "8443",
+    "database": "default",
+    "username": "default",
+    "password": "base64_encoded_password",
+    "secure": false,
+    "max_batch_size": 1000,
+    "max_delay_time": "1m",
+    "table": "DE47100400000156459000_EUR_10_03_2025_1143",
+    "table_mapping": [
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Booking date",
+        "column_name": "Booking date",
+        "column_type": "String"
+      },
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Value date",
+        "column_name": "Value date",
+        "column_type": "String"
+      },
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Transaction type",
+        "column_name": "Transaction type",
+        "column_type": "String"
+      },
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Booking text",
+        "column_name": "Booking text",
+        "column_type": "String"
+      },
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Amount",
+        "column_name": "Amount",
+        "column_type": "Float32"
+      },
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Currency",
+        "column_name": "Currency",
+        "column_type": "String"
+      },
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Account IBAN",
+        "column_name": "IBAN",
+        "column_type": "String"
+      },
+      {
+        "source_id": "banking-transactions",
+        "field_name": "Category",
+        "column_name": "Category",
+        "column_type": "String"
+      }
+    ]
+  }
+}
