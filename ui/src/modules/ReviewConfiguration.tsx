@@ -324,9 +324,10 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
                 database: clickhouseDestination?.database,
                 username: clickhouseConnection.directConnection?.username,
                 password: encodeBase64(clickhouseConnection.directConnection?.password),
-                secure: clickhouseConnection.directConnection?.useSSL || false,
-                maxBatchSize: clickhouseDestination?.maxBatchSize || 1000,
-                maxDelayTime: `${clickhouseDestination?.maxDelayTime}${clickhouseDestination?.maxDelayTimeUnit}`,
+                secure: true,
+                // secure: clickhouseConnection.directConnection?.useSSL || false,
+                max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
+                max_delay_time: `${clickhouseDestination?.maxDelayTime}${clickhouseDestination?.maxDelayTimeUnit}`,
               }
             : {}),
           table: clickhouseDestination?.table,
@@ -354,6 +355,7 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             mechanism: scramType,
             username: scramConfig?.username,
             password: encodeBase64(scramConfig?.password),
+            root_ca: encodeBase64(kafkaStore.saslScram256?.certificate || kafkaStore.saslScram512?.certificate || ''),
           }
         } else if (authMethod?.includes('oauth')) {
           config.source.connection_params = {
