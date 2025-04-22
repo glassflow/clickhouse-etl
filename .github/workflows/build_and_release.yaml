@@ -6,7 +6,7 @@ on:
     tags:
       - v*.*.*
     branches:
-      - main
+      - release-workflow
 
 jobs:
   build-binary:
@@ -30,7 +30,7 @@ jobs:
         with:
           go-version-file: './${{ matrix.module }}/go.mod'
           cache-dependency-path: './${{ matrix.module }}/go.mod'
-      - name: Build bridge binary
+      - name: Build binary
         working-directory: ${{ matrix.module }}
         run: make build
         env:
@@ -42,3 +42,87 @@ jobs:
           retention-days: 1
           name: ${{ matrix.module }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
           path: ${{ matrix.module }}/bin
+
+  build-docker-image:
+    name: Build image
+    runs-on: ubuntu-latest
+    needs: build-binary
+    outputs:
+      amd64_digest: ${{ steps.gen-output.outputs.amd64_digest }}
+      arm64_digest: ${{ steps.gen-output.outputs.arm64_digest }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        platform:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: glassflow
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nats-kafka-bridge-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: nats-kafka-bridge/bin
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: glassflow-api-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: glassflow-api/bin
+      - name: Make artifacts executable
+        run: chmod +x glassflow-api/bin/* nats-kafka-bridge/bin/*
+      - name: Build & push Docker image
+        uses: docker/build-push-action@v6
+        id: build-arch-image
+        with:
+          platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
+          context: .
+          file: glassflow-api/Dockerfile
+          push: true
+          provenance: false
+          outputs: push-by-digest=true,type=image
+          tags: |
+            glassflow/${{ github.repository }}-be-internal
+      - name: Generate output
+        id: gen-output
+        run: echo "${ARCH}_digest=$DIGEST" >> "$GITHUB_OUTPUT"
+        env:
+          ARCH: ${{ matrix.platform.arch }}
+          DIGEST: ${{ steps.build-arch-image.outputs.digest }}
+
+  push-docker-manifest:
+    name: Build image
+    runs-on: ubuntu-latest
+    needs: build-docker-image
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: glassflow
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Push multiarch manifest
+        run: |
+          docker manifest create "$GITHUB_REPOSITORY-be-internal:$TAG" \
+            --amend "$GITHUB_REPOSITORY-be-internal@$AMD64_DIGEST" \
+            --amend "$GITHUB_REPOSITORY-be-internal@$ARM64_DIGEST"
+          docker manifest push "$GITHUB_REPOSITORY-be-internal:$TAG"
+        env:
+          AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
+          ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
+          TAG: ${{ (github.ref_type == 'tag' || github.ref_name == 'main') && github.ref_name || github.sha }}
