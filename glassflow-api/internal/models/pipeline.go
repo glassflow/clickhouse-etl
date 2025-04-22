@@ -400,8 +400,10 @@ func validateConnectionParams(mechanism, protocol, username, password string) er
 
 type ConsumerGroupInitialOffset string
 
-const InitialOffsetEarliest ConsumerGroupInitialOffset = "earliest"
-const InitialOffsetLatest ConsumerGroupInitialOffset = "latest"
+const (
+	InitialOffsetEarliest ConsumerGroupInitialOffset = "earliest"
+	InitialOffsetLatest   ConsumerGroupInitialOffset = "latest"
+)
 
 func (c ConsumerGroupInitialOffset) String() string {
 	return string(c)
@@ -420,8 +422,10 @@ func newConsumerGroupInitialOffset(o string) (zero ConsumerGroupInitialOffset, _
 
 type JoinOrientation string
 
-const OrientationLeft JoinOrientation = "left"
-const OrientationRight JoinOrientation = "right"
+const (
+	OrientationLeft  JoinOrientation = "left"
+	OrientationRight JoinOrientation = "right"
+)
 
 func (c JoinOrientation) String() string {
 	return string(c)
