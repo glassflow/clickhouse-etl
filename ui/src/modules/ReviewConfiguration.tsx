@@ -343,7 +343,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             ...config.source.connection_params,
             mechanism: 'PLAIN',
             username: kafkaStore.saslPlain?.username,
-            password: encodeBase64(kafkaStore.saslPlain?.password),
+            // password: encodeBase64(kafkaStore.saslPlain?.password),
+            password: kafkaStore.saslPlain?.password,
           }
         } else if (authMethod?.includes('scram')) {
           const scramType = authMethod.includes('256') ? 'SCRAM-SHA-256' : 'SCRAM-SHA-512'
@@ -353,7 +354,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             ...config.source.connection_params,
             mechanism: scramType,
             username: scramConfig?.username,
-            password: encodeBase64(scramConfig?.password),
+            // password: encodeBase64(scramConfig?.password),
+            password: scramConfig?.password,
             root_ca: encodeBase64(kafkaStore.saslScram256?.certificate || kafkaStore.saslScram512?.certificate || ''),
           }
         } else if (authMethod?.includes('oauth')) {
