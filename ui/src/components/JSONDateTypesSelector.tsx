@@ -1,0 +1,47 @@
+'use client'
+
+import { useState } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
+import { JSON_DATA_TYPES } from '@/src/config/constants'
+import { cn } from '@/src/utils'
+
+export function JSONDateTypesSelector({
+  value,
+  onChange,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  className?: string
+}) {
+  const [isFocused, setIsFocused] = useState(false)
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
+        className={cn(
+          'w-full',
+          'input-regular',
+          'input-border-regular',
+          'transition-all duration-200 ease-in-out',
+          'text-content',
+          className,
+        )}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => {
+          if (!document.querySelector('[data-state="open"]')) {
+            setIsFocused(false)
+          }
+        }}
+      >
+        <SelectValue placeholder="Select type" className="text-content" />
+      </SelectTrigger>
+      <SelectContent className="select-content-custom animate-fadeIn text-content">
+        {JSON_DATA_TYPES.map((type) => (
+          <SelectItem key={type} value={type} className="select-item-custom text-content">
+            {type}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}

@@ -1,0 +1,41 @@
+[data-theme='light'] {
+  /* Color-specific variables for light mode */
+  --color-on-background-primary: #000000;
+  --color-on-background-critical: #ffffff;
+  --color-on-background-warning: #000000;
+  --color-on-background-positive: #ffffff;
+  --color-on-brand: #000000;
+  --color-rgb-white: 255, 255, 255;
+  --color-rgb-black: 0, 0, 0;
+
+  /* shadcn/ui variables */
+  --background: #ffffff;
+  --foreground: #2c2e34;
+
+  --card: #ffffff;
+  --card-foreground: #2c2e34;
+
+  --popover: #ffffff;
+  --popover-foreground: #2c2e34;
+
+  --primary: #ffa24b;
+  --primary-foreground: #000000;
+
+  --secondary: #e3e4e8;
+  --secondary-foreground: #000000;
+
+  --muted: #f3f3f5;
+  --muted-foreground: #676a75;
+
+  --accent: #fff3ea;
+  --accent-foreground: #ffa24b;
+
+  --destructive: #e22c2c;
+  --destructive-foreground: #ffffff;
+
+  --border: #0000001f;
+  --input: #0000001f;
+  --ring: #ffa24b;
+
+  --radius: var(--radius-medium);
+}

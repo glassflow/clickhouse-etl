@@ -1,0 +1,106 @@
+{
+  "pipeline_id": "kafka-to-clickhouse-pipeline",
+  "source": {
+    "type": "kafka",
+    "provider": "aiven",
+    "connection_params": {
+      "brokers": ["kafka-2556c73-glassflow-2908.h.aivencloud.com:12766"],
+      "protocol": "SASL_SSL",
+      "mechanism": "SCRAM-SHA-256",
+      "username": "avnadmin",
+      "password": "<1password>",
+      "root_ca": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSEF4TURjeU5qQTFXaGNOTXpVd016TXdNRGN5Ck5qQTFXakJBTVQ0d1BBWURWUVFERERWbU1UWTJOMlV3T1MwMU5EYzJMVFJqWW1RdE9UVm1NaTAzWkRNd1lUVXgKTXpkaVltUWdSMFZPSURFZ1VISnZhbVZqZENCRFFUQ0NBYUl3RFFZSktvWklodmNOQVFFQkJRQURnZ0dQQURDQwpBWW9DZ2dHQkFNQnBjTDVGdW05REJhcDFNcXM3TUFtclNUcUxWN2RaZEJMU1V5a2p0bGVTSExucllJb1dVUlR4CjFFSlZubzZkN2ZMd2dvSVdvVGVDaTVidFZiNzU4U1lqbWVNN0F2KytXODVGWStqVEQxd3FTeWw0ZTN3eHVGY0UKTzBXNkY4aVQ2Nk9ibDNpeWVTYzEyaldUV29tejRZSWNteThIdlQ4K2gwZHJFcHptanI1ejIwYXFveCtBNFZtSwoxTDh4c05HTlRaV21vODh0eWJaSk95czNkVElPK0NyMzN2eXZMTmlYeFJtUE8yTHZlcDYvNEZKSVkzSmw2ckRCCmt1T3JmVU14TlcrUThLaWkzVGRpU3UyVS8yMXEzQ0wva1Y5UlJNWVRIWE1IcDlGVmFJQUpDdTRyRUFWVHQ3a1YKNmpHdVM3THZFTHlFVTVCTVFMNGJYL2ZDUW9Uay9YL1lpNmZZQjVZdldtZTVHOXFuYzF5WGFVODZDdnJGOWRMcgpKY0gwSFhEWDh0Wk0zSlFxd2dkT3NkT3l3b0hXV3B3VmhTL0hjWTQ3QStlR0dDZVhHWFI1SUFka0lKQ2MyVFB0Cm1PY20zb1BGSVhuQ3BZSVFVcmJXOE1UalRHTkhLVXpzeWRaV0dlNmFIQ3FRTGwyLzJzdWs0ZEpEUXdUN2l6Y0oKSW5xOWhUUGU0d0lEQVFBQm96OHdQVEFkQmdOVkhRNEVGZ1FVWnJFQkYrS2ZqV2dCZjRQUUVGRFFXakFVNnBjdwpEd1lEVlIwVEJBZ3dCZ0VCL3dJQkFEQUxCZ05WSFE4RUJBTUNBUVl3RFFZSktvWklodmNOQVFFTUJRQURnZ0dCCkFKRVg5SkJFMklwSXhzeDBSTk9wVnVjckE3REVWVFhTMTVQeXFxTG96QWRWaWRDSThHbHZvOU5VblBQT2pwM0wKY0hIQVBBOXd0WW1tR0FyMDBMK2k4ODZ6SEhLbStXRlZTaDdGSVB5WW5Kd21HMnh4TDhTcjlJLzhHakRYR3VpWgpuemlFQWlUWk1Td05PdmFQRHRCWWE0WUlZcEYyRndpRkZwOVpaODZLZENIR295aFNOVE5IUVArQVkxNWc0OEhzCkJZWENXdlNlcEIxZ0c5SlVlSnF3Q05JcUtCTGxSc0g1VWFOSHlEdVZoTWVOa3lJR0piUytJc3J1VDg1Ykd1TlUKMGZtb09GbUJjVmhSK1NObWZ1ckM1R3NiTW5SellMT21WVWE4ZFRzVVlNVDJkaEVOaWw4Q3lQVHVhb0xXTjhzdQprY0IwdmdjNDFjZ3J1Nmc0dzBvY1BYYkZhazNrbEkrNnNGTE1ndkVGQXpNRmVZVWxWOU1CbTJYV1JMc3BRZEQwCmlORzJEWTFiaFVmOGtKdmRpbE1jcnQ4OVdETlZvSndPUjRBMUhnRkp2d3h3TnhRejRaeGRNZlJlaUNOMFdPc0MKTGpMeSt5RmZrMFMxVmZhd24rd2o3UGc3T0pJUXdQYXV5SXZ6WS8wcitieXhmY1BLeERLc1BIYlZycWtyVGlTbApBQT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+    },
+    "topics": [
+      {
+        "consumer_group_initial_offset": "earliest",
+        "name": "9dc1af",
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "event_id",
+              "type": "UUID"
+            },
+            {
+              "name": "user_id",
+              "type": "String"
+            },
+            {
+              "name": "event_type",
+              "type": "String"
+            },
+            {
+              "name": "metadata",
+              "type": "Map(String, String)"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": true,
+          "id_field": "event_id",
+          "type": "string",
+          "time_window": "12h"
+        }
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "provider": "aiven",
+    "host": "clickhouse-12345-aiven.cloud",
+    "port": 8443,
+    "database": "analytics",
+    "username": "default",
+    "password": "base64_encoded_password",
+    "table": "user_events_with_profiles",
+    "table_mapping": [
+      {
+        "source_name": "topic1",
+        "field_name": "event_id",
+        "column_name": "event_id",
+        "column_type": "UUID"
+      },
+      {
+        "source_name": "topic1",
+        "field_name": "user_id",
+        "column_name": "user_id",
+        "column_type": "String"
+      },
+      {
+        "source_name": "topic1",
+        "field_name": "event_type",
+        "column_name": "event_type",
+        "column_type": "String"
+      },
+      {
+        "source_name": "topic2",
+        "field_name": "name",
+        "column_name": "user_name",
+        "column_type": "String"
+      },
+      {
+        "source_name": "topic2",
+        "field_name": "email",
+        "column_name": "user_email",
+        "column_type": "String"
+      }
+    ]
+  },
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "user_events",
+        "join_key": "user_id",
+        "time_window": "1h"
+      },
+      {
+        "source_id": "user_profiles",
+        "join_key": "user_id",
+        "time_window": "1h"
+      }
+    ]
+  }
+}

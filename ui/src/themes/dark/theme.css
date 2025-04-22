@@ -1,0 +1,109 @@
+[data-theme='dark'] {
+  /* Color system */
+  --color-background-primary: #ffa24b;
+  --color-background-primary-faded: #332010;
+  --color-border-primary: #efb07c;
+  --color-border-primary-faded: #4b311b;
+  --color-foreground-primary: #ffa24b;
+
+  --color-background-critical: #d72828;
+  --color-background-critical-faded: #391b18;
+  --color-border-critical: #e68075;
+  --color-border-critical-faded: #532a26;
+  --color-foreground-critical: #e68075;
+
+  --color-background-warning: #d7ae06;
+  --color-background-warning-faded: #2b2410;
+  --color-border-warning: #eed58a;
+  --color-border-warning-faded: #40371b;
+  --color-foreground-warning: #eed58a;
+
+  --color-background-positive: #118850;
+  --color-background-positive-faded: #152a1d;
+  --color-border-positive: #57b17c;
+  --color-border-positive-faded: #223f2d;
+  --color-foreground-positive: #57b17c;
+
+  --color-background-neutral: #393a42;
+  --color-background-neutral-faded: #212227;
+  --color-border-neutral: #ffffff24;
+  --color-border-neutral-faded: #ffffff17;
+  --color-foreground-neutral: #f3f3f5;
+  --color-foreground-neutral-faded: #c7c9d1;
+
+  --color-background-disabled: #242527;
+  --color-background-disabled-faded: #1b1b1d;
+  --color-border-disabled: #262729;
+  --color-foreground-disabled: #494a4e;
+
+  --color-border-info: #6c6c6c;
+  --color-border-info-faded: #4c4c4c;
+  --color-foreground-info: #ffa24b;
+  --color-foreground-info-faded: #ffa24b;
+
+  --color-background-elevation-base: #161617;
+  --color-background-elevation-raised: #18191a;
+  --color-background-elevation-overlay: #1d1d1f;
+  --color-background-page: #0e0e0f;
+  --color-background-page-faded: #131414;
+
+  /* RGB color values for opacity adjustments */
+  --color-rgb-background-primary: 255, 162, 75;
+  --color-rgb-background-primary-faded: 51, 32, 16;
+  --color-rgb-background-critical: 215, 40, 40;
+  --color-rgb-background-critical-faded: 57, 27, 24;
+  --color-rgb-background-warning: 215, 174, 6;
+  --color-rgb-background-warning-faded: 43, 36, 16;
+  --color-rgb-background-positive: 17, 136, 80;
+  --color-rgb-background-positive-faded: 21, 42, 29;
+  --color-on-background-neutral: #ffffff;
+  --color-rgb-background-neutral: 57, 58, 66;
+  --color-rgb-background-neutral-faded: 33, 34, 39;
+  --color-rgb-background-disabled: 36, 37, 39;
+  --color-rgb-background-disabled-faded: 27, 27, 29;
+  --color-rgb-background-elevation-base: 22, 22, 23;
+  --color-rgb-background-elevation-raised: 24, 25, 26;
+  --color-rgb-background-elevation-overlay: 29, 29, 31;
+  --color-rgb-background-page: 14, 14, 15;
+  --color-rgb-background-page-faded: 19, 20, 20;
+
+  /* On-color text */
+  --color-on-background-primary: #000000;
+  --color-on-background-critical: #ffffff;
+  --color-on-background-warning: #000000;
+  --color-on-background-positive: #ffffff;
+  --color-on-brand: #000000;
+  --color-rgb-white: 255, 255, 255;
+  --color-rgb-black: 0, 0, 0;
+
+  /* shadcn/ui variables */
+  --background: var(--color-background-page);
+  --foreground: var(--color-foreground-neutral);
+
+  --card: var(--color-background-elevation-raised);
+  --card-foreground: var(--color-foreground-neutral);
+
+  --popover: var(--color-background-elevation-overlay);
+  --popover-foreground: var(--color-foreground-neutral);
+
+  --primary: var(--color-background-primary);
+  --primary-foreground: var(--color-on-background-primary);
+
+  --secondary: var(--color-background-neutral);
+  --secondary-foreground: var(--color-on-background-neutral);
+
+  --muted: var(--color-background-neutral-faded);
+  --muted-foreground: var(--color-foreground-neutral-faded);
+
+  --accent: var(--color-background-primary-faded);
+  --accent-foreground: var(--color-foreground-primary);
+
+  --destructive: var(--color-background-critical);
+  --destructive-foreground: var(--color-on-background-critical);
+
+  --border: var(--color-border-neutral);
+  --input: var(--color-border-neutral);
+  --ring: var(--color-background-primary);
+
+  --radius: var(--radius-medium);
+}
