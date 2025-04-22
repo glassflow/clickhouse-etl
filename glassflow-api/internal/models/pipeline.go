@@ -169,6 +169,10 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		return nil, PipelineConfigError{msg: "Kafka to clickhouse sink supports only one topic"}
 	}
 
+	if req.Sink.MaxBatchSize == 0 {
+		return nil, PipelineConfigError{msg: "Max batch size for clickhouse sink must be greater than 0"}
+	}
+
 	var (
 		joinSources joinSources
 		err         error
