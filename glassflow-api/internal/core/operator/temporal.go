@@ -7,11 +7,12 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
-	"github.com/google/uuid"
-	"github.com/nats-io/nats.go/jetstream"
 )
 
 type TemporalJoinExecutor struct {

@@ -3,7 +3,7 @@ Feature: Join Operator
     Background: Run setup before each scenario
         Given a running NATS instance for operator test
 
-    Scenario: Basic join  of 2 streams
+    Scenario: Basic join of 2 streams
         And a left stream consumer config "left_stream" and subject "left_subject" and consumer "left_consumer"
         And a running left stream
         And a right stream consumer config "right_stream" and subject "right_subject" and consumer "right_consumer"
@@ -72,7 +72,8 @@ Feature: Join Operator
             | id | email           |
             | 2  | bob@mailbox.com |
             | 1  | alice@gmail.com |
-        And I run join operator with left TTL "2s" right TTL "2s" for "3s"
+        And I run join operator with left TTL "2s" right TTL "2s"
+        And I stop join operator after "3s"
         Then I check results with content
             | left_stream.id | left_stream.name | right_stream.email | right_stream.id |
             | 2              | Bob              | bob@mailbox.com    | 2               |
@@ -147,7 +148,8 @@ Feature: Join Operator
             | id | email             |
             | 2  | bob@mailbox.com   |
             | 1  | service@gmail.com |
-        And I run join operator with left TTL "2s" right TTL "2s" for "3s"
+        And I run join operator with left TTL "2s" right TTL "2s"
+        And I stop join operator after "3s"
         Then I check results with content
             | left_stream.id | left_stream.name | right_stream.email | right_stream.id |
             | 2              | Bob              | bob@mailbox.com    | 2               |
@@ -223,5 +225,6 @@ Feature: Join Operator
             | id | name             |
             | 4  | box4@mailbox.com |
             | 5  | box4@mailbox.com |
-        And I run join operator with left TTL "2s" right TTL "2s" for "3s"
+        And I run join operator with left TTL "2s" right TTL "2s"
+        And I stop join operator after "3s"
         Then I check results count is 0

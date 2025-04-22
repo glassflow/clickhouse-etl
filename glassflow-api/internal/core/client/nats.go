@@ -11,8 +11,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-const GlassflowStreamPrefix = "gf-stream"
-const NATSCleanupTimeout = 5 * time.Second
+const (
+	GlassflowStreamPrefix = "gf-stream"
+	NATSCleanupTimeout    = 5 * time.Second
+)
 
 type NATSClient struct {
 	nc *nats.Conn
