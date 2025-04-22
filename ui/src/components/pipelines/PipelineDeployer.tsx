@@ -95,7 +95,7 @@ export function PipelineDeployer() {
     }
 
     // Proceed with pipeline deletion
-    if (result === ModalResult.SUBMIT || result === ModalResult.CANCEL) {
+    if (result === ModalResult.SUBMIT) {
       try {
         await shutdownPipeline()
         setStatus('deleted')
@@ -128,7 +128,7 @@ export function PipelineDeployer() {
     }
 
     // Reset pipeline state and navigate to home regardless of save choice
-    if (result === ModalResult.SUBMIT || result === ModalResult.CANCEL) {
+    if (result === ModalResult.SUBMIT) {
       resetPipelineState('', true)
       router.push('/home')
     }

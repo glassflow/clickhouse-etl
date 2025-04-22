@@ -132,6 +132,8 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     setShowOffsetField(true)
     setLocalState((prev) => ({
       ...prev,
+      isLoading: false,
+      fetchedEvent: null,
       canContinue: false, // Reset canContinue until user provides manual schema
     }))
   }
@@ -312,6 +314,9 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     setLocalState((prev) => ({
       ...prev,
       topicName,
+      isLoading: true,
+      fetchedEvent: null,
+      canContinue: false,
       offset,
     }))
   }
@@ -360,7 +365,8 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
                     topicName={localState.topicName}
                     initialOffset={localState.offset}
                     topicIndex={index}
-                    initialEvent={storedEvent}
+                    // initialEvent={storedEvent}
+                    initialEvent={localState.fetchedEvent}
                     onEventLoading={() => {
                       setLocalState((prev) => ({ ...prev, isLoading: true }))
                     }}

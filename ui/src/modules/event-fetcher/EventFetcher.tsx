@@ -35,6 +35,7 @@ function EventFetcher({
 
   // Local state for current event
   const [currentEvent, setCurrentEvent] = useState<any>(initialEvent || null)
+  const [currentTopic, setCurrentTopic] = useState<string>(topicName)
   const [kafkaOffset, setKafkaOffset] = useState<number | null>(null)
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
 
@@ -59,9 +60,10 @@ function EventFetcher({
 
   // Initial fetch when component mounts or topic changes or initialOffset changes
   useEffect(() => {
-    if (topicName && !currentEvent) {
+    if ((topicName && !currentEvent) || (topicName && currentTopic !== topicName)) {
       // Reset state when initialOffset changes
       setCurrentEvent(null)
+      setCurrentTopic('')
       setIsEmptyTopic(false)
 
       // Determine which fetch method to use based on initialOffset
@@ -88,6 +90,7 @@ function EventFetcher({
     if (eventError) {
       if (eventError.includes('No events found') || eventError.includes('End of topic reached')) {
         setIsEmptyTopic(true)
+        setCurrentEvent(null)
         onEmptyTopic()
         return
       }
@@ -112,6 +115,7 @@ function EventFetcher({
 
         // Update local state
         setCurrentEvent(kafkaEvent)
+        setCurrentTopic(topicName)
         setIsEmptyTopic(false)
 
         // Notify parent component
@@ -136,6 +140,7 @@ function EventFetcher({
 
       // Update local state
       setCurrentEvent(kafkaEvent)
+      setCurrentTopic(topicName)
       setIsEmptyTopic(false)
     }
   }, [event, isLoadingEvent, topicName])
