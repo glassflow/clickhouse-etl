@@ -36,6 +36,13 @@ export const ClickhouseConnectionFormConfig = {
         required: 'Native port is required',
         type: 'text',
       },
+      useSSL: {
+        name: 'directConnection.useSSL',
+        label: 'Use SSL',
+        type: 'boolean',
+        defaultValue: true,
+        placeholder: 'Use SSL',
+      },
     },
   },
   proxyConnectionForm: {

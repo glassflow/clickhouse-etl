@@ -324,8 +324,7 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
                 database: clickhouseDestination?.database,
                 username: clickhouseConnection.directConnection?.username,
                 password: encodeBase64(clickhouseConnection.directConnection?.password),
-                secure: true,
-                // secure: clickhouseConnection.directConnection?.useSSL || false,
+                secure: clickhouseConnection.directConnection?.useSSL || false,
                 max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
                 max_delay_time: `${clickhouseDestination?.maxDelayTime}${clickhouseDestination?.maxDelayTimeUnit}`,
               }

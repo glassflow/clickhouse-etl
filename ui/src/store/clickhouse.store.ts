@@ -16,6 +16,7 @@ export interface ClickhouseStore {
     maxBatchSize: number
     maxDelayTime: number
     maxDelayTimeUnit: string
+    useSSL: boolean
   }
 
   // actions
@@ -30,6 +31,7 @@ export interface ClickhouseStore {
     maxBatchSize: number
     maxDelayTime: number
     maxDelayTimeUnit: string
+    useSSL: boolean
   }) => void
   getIsClickhouseConnectionDirty: () => boolean
   getClickhouseMappingDirty: () => boolean
@@ -50,6 +52,7 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
         username: '',
         password: '',
         nativePort: '',
+        useSSL: true,
       },
       connectionStatus: 'idle',
       connectionError: null,
@@ -66,6 +69,7 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
       maxBatchSize: 1000,
       maxDelayTime: 1,
       maxDelayTimeUnit: 'm',
+      useSSL: true,
     },
 
     // actions
@@ -94,6 +98,7 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
       maxBatchSize: number
       maxDelayTime: number
       maxDelayTimeUnit: string
+      useSSL: boolean
     }) =>
       set((state) => ({
         clickhouseStore: {

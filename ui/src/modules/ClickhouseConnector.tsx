@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
@@ -38,7 +38,18 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
     register,
     handleSubmit,
     formState: { errors },
+    watch,
+    setValue,
   } = formMethod
+
+  // const useSSL = watch('directConnection.useSSL')
+  // useEffect(() => {
+  //   setValue('directConnection.nativePort', useSSL ? '9440' : '8443')
+  // }, [useSSL])
+
+  useEffect(() => {
+    setValue('directConnection.useSSL', true)
+  }, [])
 
   const { isLoading, connectionStatus, connectionError, testConnection } = useClickhouseConnection()
 
@@ -60,6 +71,7 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         username: formValues.directConnection.username,
         password: formValues.directConnection.password,
         nativePort: formValues.directConnection.nativePort,
+        useSSL: formValues.directConnection.useSSL,
       },
       connectionStatus: 'success',
       connectionError: null,
@@ -113,6 +125,17 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
             <div className="space-y-2">
               {renderFormField({
                 field: directConnectionForm.fields.nativePort,
+                register,
+                errors,
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              {renderFormField({
+                // @ts-expect-error - FIXME: fix this later
+                field: directConnectionForm.fields.useSSL,
                 register,
                 errors,
               })}
