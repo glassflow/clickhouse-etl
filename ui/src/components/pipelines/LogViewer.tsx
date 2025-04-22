@@ -12,7 +12,7 @@ export function LogViewer() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch('http://localhost:8080/logs')
+        const response = await fetch('http://localhost:8080/api/v1/logs')
         if (!response.ok) {
           throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`)
         }
