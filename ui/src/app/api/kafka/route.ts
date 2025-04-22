@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     } else {
       return NextResponse.json({
         success: false,
-        error: 'Failed to connect to Kafka cluster',
+        error: 'Failed to connect to Kafka cluster - Check your configuration or the Kafka cluster status',
       })
     }
   } catch (error) {
