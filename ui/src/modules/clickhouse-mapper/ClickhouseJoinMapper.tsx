@@ -453,6 +453,7 @@ export function ClickhouseJoinMapper({
       maxBatchSize: maxBatchSize || 1000,
       maxDelayTime: maxDelayTime || 1000,
       maxDelayTimeUnit: maxDelayTimeUnit || 'm',
+      // useSSL: clickhouseConnection.directConnection.useSSL || true,
     })
 
     setSuccess('Destination configuration saved successfully!')

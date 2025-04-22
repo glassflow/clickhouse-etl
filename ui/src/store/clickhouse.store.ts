@@ -16,7 +16,7 @@ export interface ClickhouseStore {
     maxBatchSize: number
     maxDelayTime: number
     maxDelayTimeUnit: string
-    useSSL: boolean
+    // useSSL: boolean
   }
 
   // actions
@@ -31,7 +31,6 @@ export interface ClickhouseStore {
     maxBatchSize: number
     maxDelayTime: number
     maxDelayTimeUnit: string
-    useSSL: boolean
   }) => void
   getIsClickhouseConnectionDirty: () => boolean
   getClickhouseMappingDirty: () => boolean
@@ -98,7 +97,7 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
       maxBatchSize: number
       maxDelayTime: number
       maxDelayTimeUnit: string
-      useSSL: boolean
+      // useSSL: boolean
     }) =>
       set((state) => ({
         clickhouseStore: {
