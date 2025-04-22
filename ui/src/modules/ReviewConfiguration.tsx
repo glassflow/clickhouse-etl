@@ -251,8 +251,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             topic.deduplication && topic.deduplication.enabled
               ? {
                   enabled: true,
-                  id_field: topic.deduplication.method === 'key' ? topic.deduplication.keyField : undefined,
-                  id_field_type: 'string', // Default to string type
+                  id_field: topic.deduplication.key,
+                  id_field_type: topic.deduplication.keyType,
                   time_window: topic.deduplication.window
                     ? `${topic.deduplication.window}${topic.deduplication.windowUnit?.charAt(0) || 'h'}`
                     : '1h',
