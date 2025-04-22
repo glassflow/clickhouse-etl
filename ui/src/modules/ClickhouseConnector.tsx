@@ -29,6 +29,7 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         port: directConnection?.port || '8443',
         username: directConnection?.username || '',
         password: directConnection?.password || '',
+        nativePort: directConnection?.nativePort || '9440',
       },
     },
   })

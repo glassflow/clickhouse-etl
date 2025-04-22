@@ -71,12 +71,12 @@ export const KafkaConnectionForm = ({
     authMethod: authMethod || KafkaFormDefaultValues.authMethod,
     securityProtocol: securityProtocol || KafkaFormDefaultValues.securityProtocol,
     bootstrapServers: bootstrapServers || KafkaFormDefaultValues.bootstrapServers,
-    // saslPlain: saslPlain || KafkaFormDefaultValues.saslPlain,
+    saslPlain: saslPlain || KafkaFormDefaultValues.saslPlain,
     // saslJaas: saslJaas || KafkaFormDefaultValues.saslJaas,
     // saslGssapi: saslGssapi || KafkaFormDefaultValues.saslGssapi,
     // saslOauthbearer: saslOauthbearer || KafkaFormDefaultValues.saslOauthbearer,
-    // saslScram256: saslScram256 || KafkaFormDefaultValues.saslScram256,
-    // saslScram512: saslScram512 || KafkaFormDefaultValues.saslScram512,
+    saslScram256: saslScram256 || KafkaFormDefaultValues.saslScram256,
+    saslScram512: saslScram512 || KafkaFormDefaultValues.saslScram512,
     // delegationTokens: delegationTokens || KafkaFormDefaultValues.delegationToken,
   }
 
