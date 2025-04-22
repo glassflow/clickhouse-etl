@@ -1,6 +1,14 @@
 // import { generateAuthToken } from 'aws-msk-iam-sasl-signer-js'
 import { createMechanism } from '@jm18457/kafkajs-msk-iam-authentication-mechanism'
 
+interface ClickhouseConnectionConfig {
+  host: string
+  port: string
+  username: string
+  password: string
+  useSSL: boolean
+  nativePort?: string
+}
 // export async function oauthBearerTokenProvider(region: string, accessKey: string, secretAccessKey: string) {
 //   const authTokenResponse = await generateAuthToken({
 //     region,
@@ -22,6 +30,14 @@ export function createAwsIamMechanism(region: string, accessKey: string, secretA
   })
 
   return mechanism
+}
+
+export const generateHost = (connectionConfig: ClickhouseConnectionConfig) => {
+  if (connectionConfig.useSSL) {
+    return `https://${connectionConfig.host}:${connectionConfig.port}`
+  } else {
+    return `http://${connectionConfig.host}:${connectionConfig.port}`
+  }
 }
 
 // export function createAwsIamMechanism(region: string, accessKey: string, secretAccessKey: string) {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { generateHost } from '@/src/utils/common.server'
 
 interface ClickhouseConnectionConfig {
   host: string
@@ -29,7 +30,7 @@ export function useClickhouseConnection() {
     try {
       // Make sure we're only sending serializable data
       const configToSend = {
-        host: connectionConfig.host,
+        host: generateHost(connectionConfig),
         port: connectionConfig.port,
         username: connectionConfig.username,
         password: connectionConfig.password,
@@ -80,6 +81,8 @@ export function useClickhouseConnection() {
       return { success: false, error: 'Please fill in all fields' }
     }
 
+    connectionConfig.host = generateHost(connectionConfig)
+
     const response = await fetch('/api/clickhouse/databases', {
       method: 'POST',
       headers: {
@@ -106,7 +109,7 @@ export function useClickhouseConnection() {
     try {
       // Make sure we're only sending serializable data
       const configToSend = {
-        host: connectionConfig.host,
+        host: generateHost(connectionConfig),
         port: connectionConfig.port,
         username: connectionConfig.username,
         password: connectionConfig.password,
@@ -164,7 +167,7 @@ export function useClickhouseConnection() {
     try {
       // Make sure we're only sending serializable data
       const configToSend = {
-        host: connectionConfig.host,
+        host: generateHost(connectionConfig),
         port: connectionConfig.port,
         username: connectionConfig.username,
         password: connectionConfig.password,
