@@ -134,7 +134,7 @@ def create_topics_if_not_exists(source_config: models.SourceConfig):
             log(
                 message=f"Error creating topic [italic u]{topic_name}[/italic u]",
                 status=str(e),
-                is_success=False,
+                is_failure=True,
                 component="Kafka",
             )
     admin_client.close()
@@ -158,7 +158,7 @@ def check_if_pipeline_exists(config: models.PipelineConfig) -> tuple[bool, str |
         log(
             message="Looks like [bold orange3]GlassFlow[/bold orange3] is not running locally!",
             status="",
-            is_success=False,
+            is_failure=True,
             component="GlassFlow",
         )
         print("\nRun the following command to start it:\n  > `docker compose up -d`\n")
@@ -169,7 +169,7 @@ def check_if_pipeline_exists(config: models.PipelineConfig) -> tuple[bool, str |
         log(
             message="Error checking if pipeline exists",
             status=str(e),
-            is_success=False,
+            is_failure=True,
             component="GlassFlow",
         )
         raise e
@@ -215,7 +215,8 @@ def create_pipeline_if_not_exists(
         if pipeline_id:
             if not skip_confirmation:
                 resp = query_yes_no(
-                    question=f"[yellow]⚠[/yellow][[bold orange3]GlassFlow[/bold orange3]] Pipeline [italic u]{pipeline_id}[/italic u] is running. "
+                    question="[yellow]⚠[/yellow]\t[bold orange_red1][GlassFlow][/bold orange_red1] "
+                    f"Pipeline [italic u]{pipeline_id}[/italic u] is running. "
                     f"Do you want to delete it and create a new pipeline with ID [italic u]{config.pipeline_id}[/italic u]?",
                     default_yes=True,
                 )
@@ -236,7 +237,7 @@ def create_pipeline_if_not_exists(
                 log(
                     message="Exited! Delete current pipeline or update config to send events to existing pipeline",
                     status="",
-                    is_success=False,
+                    is_failure=True,
                     component="GlassFlow",
                 )
                 exit(0)
@@ -258,14 +259,14 @@ def create_pipeline_if_not_exists(
             log(
                 message=f"Pipeline [italic u]{config.pipeline_id}[/italic u]",
                 status="Already exists",
-                is_success=False,
+                is_failure=True,
                 component="GlassFlow",
             )
         except Exception as e:
             log(
                 message=f"Error creating pipeline [italic u]{config.pipeline_id}[/italic u]",
                 status=str(e),
-                is_success=False,
+                is_failure=True,
                 component="GlassFlow",
             )
             raise e
@@ -332,15 +333,24 @@ def query_yes_no(question, default_yes: bool | None = None):
 def log(
     message: str,
     status: str = "Success",
-    is_success: bool = True,
-    component: str = "GlassFlow",
+    is_success: bool = False,
+    is_failure: bool = False,
+    is_warning: bool = False,
+    component: str = "GlassFlow"
 ):
-    if is_success:
+    if is_success and not is_failure and not is_warning:
         status_icon = "[green]✔[/green]"
         status_message = f"[green]{status}[/green]"
-    else:
+    elif is_failure and not is_success and not is_warning:
         status_icon = "[red]✗[/red]"
         status_message = f"[red]{status}[/red]"
+    elif is_warning and not is_success and not is_failure:
+        status_icon = "[yellow]⚠[/yellow]"
+        status_message = f"[yellow]{status}[/yellow]"
+    elif not any([is_success, is_failure, is_warning]):
+        raise ValueError("At least one of is_success, is_failure, or is_warning must be True")
+    else:
+        raise ValueError("Only one of is_success, is_failure, or is_warning can be True")
 
     if component == "GlassFlow":
         component_str = "[bold orange_red1][GlassFlow][/bold orange_red1]"
