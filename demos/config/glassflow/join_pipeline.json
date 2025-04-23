@@ -1,0 +1,161 @@
+{
+    "pipeline_id": "join-pipeline",
+    "source": {
+      "type": "kafka",
+      "provider": "confluent",
+      "connection_params": {
+        "brokers": [
+          "kafka:9094"
+        ],
+        "protocol": "SASL_PLAINTEXT",
+        "mechanism": "PLAIN",
+        "username": "admin",
+        "password": "admin-secret"
+      },
+      "topics": [
+        {
+          "consumer_group_initial_offset": "latest",
+          "name": "user_events",
+          "schema": {
+            "type": "json",
+            "fields": [
+              {
+                "name": "event_id",
+                "type": "string"
+              },
+              {
+                "name": "user_id",
+                "type": "string"
+              },
+              {
+                "name": "name",
+                "type": "string"
+              },
+              {
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "name": "created_at",
+                "type": "string"
+              }
+            ]
+          },
+          "deduplication": {
+            "enabled": false
+          }
+        },
+        {
+          "consumer_group_initial_offset": "latest",
+          "name": "orders",
+          "schema": {
+            "type": "json",
+            "fields": [
+              {
+                "name": "order_id",
+                "type": "string"
+              },
+              {
+                "name": "user_id",
+                "type": "string"
+              },
+              {
+                "name": "amount",
+                "type": "float32"
+              },
+              {
+                "name": "created_at",
+                "type": "string"
+              }
+            ]
+          },
+          "deduplication": {
+            "enabled": false
+          }
+        }
+      ]
+    },
+    "join": {
+      "enabled": true,
+      "type": "temporal",
+      "sources": [
+        {
+          "source_id": "user_events",
+          "join_key": "user_id",
+          "join_key_type": "string",
+          "time_window": "1h",
+          "orientation": "left"
+        },
+        {
+          "source_id": "orders",
+          "join_key": "user_id",
+          "join_key_type": "string",
+          "time_window": "1h",
+          "orientation": "right"
+        }
+      ]
+    },
+    "sink": {
+      "type": "clickhouse",
+      "provider": "localhost",
+      "host": "clickhouse",
+      "port": "9000",
+      "database": "default",
+      "username": "default",
+      "password": "c2VjcmV0",
+      "secure": false,
+      "max_batch_size": 1000,
+      "max_delay_time": "30s",
+      "table": "user_events_with_orders",
+      "table_mapping": [
+        {
+          "source_id": "user_events",
+          "field_name": "event_id",
+          "column_name": "event_id",
+          "column_type": "uuid"
+        },
+        {
+          "source_id": "user_events",
+          "field_name": "user_id",
+          "column_name": "user_id",
+          "column_type": "uuid"
+        },
+        {
+          "source_id": "user_events",
+          "field_name": "created_at",
+          "column_name": "created_at",
+          "column_type": "datetime"
+        },
+        {
+          "source_id": "user_events",
+          "field_name": "name",
+          "column_name": "user_name",
+          "column_type": "string"
+        },
+        {
+          "source_id": "user_events",
+          "field_name": "email",
+          "column_name": "user_email",
+          "column_type": "string"
+        },
+        {
+          "source_id": "orders",
+          "field_name": "order_id",
+          "column_name": "order_id",
+          "column_type": "uuid"
+        },
+        {
+          "source_id": "orders",
+          "field_name": "amount",
+          "column_name": "order_amount",
+          "column_type": "string"
+        },
+        {
+          "source_id": "orders",
+          "field_name": "created_at",
+          "column_name": "order_created_at",
+          "column_type": "datetime"
+        }
+      ]
+    }
+  }
