@@ -77,7 +77,7 @@ func (j *JoinOperatorTestSuite) aResultsConsumerConfig(streamName, subjectName, 
 }
 
 func (j *JoinOperatorTestSuite) runningStream(streamName, subjectName string) error {
-	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
+	natsWrap, err := client.NewNATSWrapper(j.natsContainer.GetURI(), time.Hour)
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -270,7 +270,7 @@ func (j *JoinOperatorTestSuite) iStopJoinOperatorGracefullyAfterDelay(delay stri
 }
 
 func (j *JoinOperatorTestSuite) iPublishEventsToTheLeftStream(count int, dataTable *godog.Table) error {
-	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
+	natsWrap, err := client.NewNATSWrapper(j.natsContainer.GetURI(), time.Hour)
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -308,7 +308,7 @@ func (j *JoinOperatorTestSuite) iPublishEventsToTheLeftStream(count int, dataTab
 }
 
 func (j *JoinOperatorTestSuite) iPublishEventsToTheRightStream(count int, dataTable *godog.Table) error {
-	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
+	natsWrap, err := client.NewNATSWrapper(j.natsContainer.GetURI(), time.Hour)
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -347,7 +347,7 @@ func (j *JoinOperatorTestSuite) iPublishEventsToTheRightStream(count int, dataTa
 
 func (j *JoinOperatorTestSuite) iCheckResults(count int) error {
 	var resultsCount, toFetch int
-	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
+	natsWrap, err := client.NewNATSWrapper(j.natsContainer.GetURI(), time.Hour)
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
@@ -393,7 +393,7 @@ func (j *JoinOperatorTestSuite) iCheckResults(count int) error {
 }
 
 func (j *JoinOperatorTestSuite) iCheckResultsWithContent(dataTable *godog.Table) error {
-	natsWrap, err := stream.NewNATSWrapper(j.natsContainer.GetURI())
+	natsWrap, err := client.NewNATSWrapper(j.natsContainer.GetURI(), time.Hour)
 	if err != nil {
 		return fmt.Errorf("create nats wrapper: %w", err)
 	}
