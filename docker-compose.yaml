@@ -6,13 +6,15 @@ services:
     command: --js
     restart: unless-stopped
 
+  ui:
+    image: glassflow/clickhouse-etl-fe:v0.0.1-beta
+    pull_policy: always
+
   app:
-    image: ghcr.io/glassflow/clickhouse-etl-internal:main
+    image: glassflow/clickhouse-etl-be:v0.0.1-beta
     pull_policy: always
     depends_on:
       - nats
-    ports:
-      - 8080:8080
     restart: unless-stopped
     environment:
       GLASSFLOW_LOG_FILE_PATH: /tmp/logs/glassflow
@@ -20,6 +22,19 @@ services:
     volumes:
       - logs:/tmp/logs/glassflow
 
+  nginx:
+    image: nginx:alpine
+    ports:
+      - 8080:8080
+    depends_on:
+      - ui
+      - app
+    volumes:
+      - logs:/logs:ro
+      - ./nginx.conf:/etc/nginx/templates/default.conf.template:ro
+    restart: unless-stopped
+    environment:
+      NGINX_ENTRYPOINT_LOCAL_RESOLVERS: true
+
 volumes:
-  # NOTE: ensure volume name changes are reflected in /scripts/logs.sh
   logs:
