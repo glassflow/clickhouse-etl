@@ -146,7 +146,7 @@ def main(
         utils.log(
             message = f"Expected {expected_records} records, but got {added_records} records",
             status="Failure", 
-            is_success=False, 
+            is_failure=True, 
             component="Clickhouse"
         )
     else:
