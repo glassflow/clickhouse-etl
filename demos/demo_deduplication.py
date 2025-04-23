@@ -42,11 +42,8 @@ def generate_events_with_duplicates(
             }
         }
     else:
-        duplication_config = {
-            "duplication": {
-                "enabled": False,
-            }
-        }
+        duplication_config = {"duplication": None}
+    
     glassgen_config["generator"]["event_options"] = duplication_config
     schema = json.load(open(generator_schema))
     glassgen_config["schema"] = schema
@@ -55,9 +52,14 @@ def generate_events_with_duplicates(
         brokers = ["localhost:9093"]
     else:
         brokers = source_config.connection_params.brokers
-
+    
+    if source_config.provider:
+        sink_type = f"kafka.{source_config.provider}"
+    else:
+        sink_type = "kafka.confluent"
+    
     glassgen_config['sink'] = {
-        "type": "kafka",
+        "type": sink_type,
         "params": {
             "bootstrap_servers": ",".join(brokers),
             "topic": source_config.topics[0].name,
