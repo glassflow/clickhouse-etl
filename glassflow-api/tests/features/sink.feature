@@ -5,7 +5,7 @@ Feature: Clickhouse ETL sink
         Given a running NATS instance
         And a running ClickHouse instance
         And a running NATS stream "test_stream" with subject "test_subject"
-        And a ClickHouse sink config with db "default" and table "events_test"
+        And a ClickHouse client with db "default" and table "events_test"
 
     Scenario: Successfully import events from NATS to Clickhouse
         Given the ClickHouse table "default.events_test" already exists with schema
@@ -92,7 +92,8 @@ Feature: Clickhouse ETL sink
             | event_id                               | name            | email                | timestamp                  | action   |
             | "0a21ad20-8a70-4be2-8d29-533eb963d554" | "Jessica Jones" | "msmith@example.com" | 2025-02-21T07:45:48.823069 | "login"  |
             | "72dea57a-ee36-4909-8b36-5be24b19804c" | "Jessica Jones" | "msmith@example.com" | 2025-02-28T02:39:51.886367 | "logout" |
-        And I run ClickHouse sink for the 5 seconds
+        And I run ClickHouse sink
+        And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Events from NATS to Clickhouse synced after batch fulfillment
@@ -179,12 +180,14 @@ Feature: Clickhouse ETL sink
         When I publish 1 events to the stream with data
             | event_id                               | name            | email                | timestamp                  | action  |
             | "0a21ad20-8a70-4be2-8d29-533eb963d554" | "Jessica Jones" | "msmith@example.com" | 2025-02-21T07:45:48.823069 | "login" |
-        And I run ClickHouse sink for the 3 seconds
-        Then the ClickHouse table "default.events_test" should contain 0 rows
+        And I run ClickHouse sink
+        And I stop ClickHouse sink after 1 seconds
+        Then the ClickHouse table "default.events_test" should contain 1 rows
+        And I run ClickHouse sink
         When I publish 1 events to the stream with data
             | event_id                               | name            | email                | timestamp                  | action   |
             | "72dea57a-ee36-4909-8b36-5be24b19804c" | "Jessica Jones" | "msmith@example.com" | 2025-02-28T02:39:51.886367 | "logout" |
-        And I run ClickHouse sink for the 3 seconds
+        And I stop ClickHouse sink after 1 seconds
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Exports events after JOIN operator
@@ -256,11 +259,12 @@ Feature: Clickhouse ETL sink
                 ]
             }
             """
+        And I run ClickHouse sink
         When I publish 2 events to the stream with data
             | left_stream.id | left_stream.name | right_stream.email |
             | 1              | Alice            | alice@mailbox.com  |
             | 2              | Bob              | bob@gmail.com      |
-        And I run ClickHouse sink for the 2 seconds
+        And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time
@@ -317,8 +321,61 @@ Feature: Clickhouse ETL sink
             | 2  | Bob     |
             | 3  | Charlie |
             | 4  | David   |
-        And I run ClickHouse sink for the 5 seconds
+        And I run ClickHouse sink
+        And I stop ClickHouse sink after 5 seconds
         Then the ClickHouse table "default.events_test" should contain 4 rows
+
+    Scenario: Start and graceful sink stop for already existing events in stream
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name | data_type |
+            | id          | String    |
+            | name        | String    |
+        And a batch config with max size 100 and delay "3s"
+        And a schema config with mapping
+            """json
+            {
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        When I publish 7 events to the stream with data
+            | id | name    |
+            | 1  | Alice   |
+            | 2  | Bob     |
+            | 3  | Charlie |
+            | 4  | David   |
+            | 5  | Eve     |
+            | 6  | Frank   |
+            | 7  | Grace   |
+        And I run ClickHouse sink
+        And I gracefully stop ClickHouse sink
+        Then the ClickHouse table "default.events_test" should contain 7 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time #2
         Given the ClickHouse table "default.events_test" already exists with schema
@@ -379,10 +436,11 @@ Feature: Clickhouse ETL sink
             | 7  | Grace   |
             | 8  | Heidi   |
             | 9  | Ivan    |
-        And I run ClickHouse sink for the 10 seconds
+        And I run ClickHouse sink
+        And I stop ClickHouse sink after 10 seconds
         Then the ClickHouse table "default.events_test" should contain 9 rows
 
-    Scenario: Successfully import events from NATS to Clickhouse by max delay time #2
+    Scenario: Successfully import events from NATS to Clickhouse by max delay time #3
         Given the ClickHouse table "default.events_test" already exists with schema
             | column_name | data_type |
             | id          | String    |
@@ -436,6 +494,7 @@ Feature: Clickhouse ETL sink
             | 2  | Bob     |
             | 3  | Charlie |
             | 4  | David   |
-        And I run ClickHouse sink for the 6 seconds
+        And I run ClickHouse sink
+        And I stop ClickHouse sink after 6 seconds
         Then the ClickHouse table "default.events_test" should contain 4 rows
 

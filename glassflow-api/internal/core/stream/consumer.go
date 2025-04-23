@@ -95,5 +95,6 @@ func (c *Consumer) Subscribe(msgHandlerFunc func(jetstream.Msg)) error {
 func (c *Consumer) Unsubscribe() {
 	if c.consumeCtx != nil {
 		c.consumeCtx.Stop()
+		c.consumeCtx = nil
 	}
 }
