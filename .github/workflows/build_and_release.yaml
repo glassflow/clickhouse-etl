@@ -1,8 +1,10 @@
 name: Release
 
 on:
-  workflow_dispatch:
   push:
+    paths-ignore:
+      - 'demos/**'
+      - 'demo/**'
     tags:
       - v*
 
@@ -126,7 +128,7 @@ jobs:
           TAG: ${{ github.ref_name }}
 
   build-and-push-frontend:
-    name: Build UI Image
+    name: Build And Push UI Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
