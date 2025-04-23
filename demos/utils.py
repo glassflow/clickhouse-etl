@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import base64
 import re
-
 import clickhouse_connect
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
@@ -12,7 +11,7 @@ from rich import print, box
 from rich.table import Table
 from rich.console import Console
 import time
-from kafka import KafkaConsumer
+
 console = Console()
 def create_clickhouse_client(sink_config: models.SinkConfig):
     """Create a ClickHouse client"""
