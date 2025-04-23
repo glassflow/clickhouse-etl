@@ -302,11 +302,11 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
               join: {
                 enabled: true,
                 type: 'temporal',
-                sources: topicsConfig.map((topic) => ({
+                sources: topicsConfig.map((topic, index) => ({
                   source_id: topic.name,
-                  join_key: topic.deduplication?.id_field || 'id', // Use deduplication key or default
+                  join_key: topic.deduplication?.id_field || '',
                   time_window: '1h',
-                  orientation: 'left', // Default to left orientation
+                  orientation: index === 0 ? 'left' : 'right',
                 })),
               },
             }
@@ -555,8 +555,11 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
           <div className="text-sm text-muted-foreground">Host:</div>
           <div>{directConnection?.host || 'Not configured'}</div>
 
-          <div className="text-sm text-muted-foreground">Port:</div>
+          <div className="text-sm text-muted-foreground">HTTP(S) Port:</div>
           <div>{directConnection?.port || 'Not configured'}</div>
+
+          <div className="text-sm text-muted-foreground">Native Port:</div>
+          <div>{directConnection?.nativePort || 'Not configured'}</div>
 
           <div className="text-sm text-muted-foreground">Username:</div>
           <div>{directConnection?.username || 'Not configured'}</div>

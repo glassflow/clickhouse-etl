@@ -29,12 +29,12 @@ export function getKafkaConfig(requestBody: any) {
   switch (authMethod) {
     case 'SASL/PLAIN':
       const { username, password, consumerGroup } = requestBody
-      if (!username || !password || !consumerGroup) {
+      if (!username || !password) {
         return { success: false, error: 'Missing required SASL/PLAIN parameters' }
       }
       kafkaConfig.username = username
       kafkaConfig.password = password
-      kafkaConfig.groupId = consumerGroup
+      // kafkaConfig.groupId = consumerGroup
       break
 
     case 'SASL/JAAS':
@@ -67,12 +67,12 @@ export function getKafkaConfig(requestBody: any) {
     case 'SASL/SCRAM-256':
     case 'SASL/SCRAM-512':
       const { username: scramUsername, password: scramPassword, consumerGroup: scramGroup } = requestBody
-      if (!scramUsername || !scramPassword || !scramGroup) {
+      if (!scramUsername || !scramPassword) {
         return { success: false, error: 'Missing required SCRAM parameters' }
       }
       kafkaConfig.username = scramUsername
       kafkaConfig.password = scramPassword
-      kafkaConfig.groupId = scramGroup
+      // kafkaConfig.groupId = scramGroup
       break
 
     case 'AWS_MSK_IAM':

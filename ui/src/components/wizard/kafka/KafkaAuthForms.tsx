@@ -69,13 +69,13 @@ export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
           })}
         </div>
       </div>
-      <div className="space-y-2 w-[50%] pr-2">
+      {/* <div className="space-y-2 w-[50%] pr-2">
         {renderFormField({
           field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.consumerGroup as any,
           register,
           errors,
         })}
-      </div>
+      </div> */}
       {/* {useRenderFormFields({
         formConfig: KafkaFormConfig,
         formGroupName: 'SASL/PLAIN',

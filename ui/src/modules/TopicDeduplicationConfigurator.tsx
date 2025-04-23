@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { StepKeys } from '@/src/config/constants'
+import { StepKeys, TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { useFetchTopics, useFetchEvent } from '../hooks/kafka-mng-hooks'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -67,7 +67,7 @@ export function TopicDeduplicationConfigurator({
   })
   const [windowConfig, setWindowConfig] = useState({
     window: existingTopic?.deduplication?.window || 1,
-    unit: existingTopic?.deduplication?.unit || 'seconds',
+    unit: existingTopic?.deduplication?.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value,
   })
   const [deduplicationConfigured, setDeduplicationConfigured] = useState(
     !!(existingTopic?.deduplication?.key && existingTopic?.deduplication?.window),
