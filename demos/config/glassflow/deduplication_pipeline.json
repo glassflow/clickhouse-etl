@@ -45,7 +45,7 @@
             "enabled": true,
             "id_field": "event_id",
             "id_field_type": "string",
-            "time_window": "30s"
+            "time_window": "1h"
           }
         }
       ]
@@ -62,7 +62,7 @@
       "username": "default",
       "password": "c2VjcmV0",
       "secure": false,
-      "max_batch_size": 100,
+      "max_batch_size": 1000,
       "max_delay_time": "30s",
       "table": "user_events_deduplicated",
       "table_mapping": [

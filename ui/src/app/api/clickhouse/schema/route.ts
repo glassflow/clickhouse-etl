@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@clickhouse/client'
-
+import { generateHost } from '@/src/utils/common.server'
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const requestBody = await request.json()
@@ -8,6 +8,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const {
       host,
       port,
+      nativePort,
       username,
       password,
       database,
@@ -46,7 +47,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     } else {
       // Direct connection - use URL format
       // Properly extract hostname from URL
-      const urlObj = new URL(host)
+      const urlObj = new URL(generateHost({ host, port, username, password, useSSL, nativePort }))
       const cleanHost = urlObj.hostname
       // URL encode the username and password to handle special characters
       const encodedUsername = encodeURIComponent(username)

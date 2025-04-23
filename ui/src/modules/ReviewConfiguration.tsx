@@ -201,6 +201,17 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const [yamlContent, setYamlContent] = useState('')
   const [apiConfigContent, setApiConfigContent] = useState('')
 
+  const getMappingType = (eventField: string, mapping: any) => {
+    const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
+
+    if (mappingEntry) {
+      return mappingEntry.jsonType
+    }
+
+    // NOTE: default to string if no mapping entry is found - check this
+    return 'string'
+  }
+
   // Generate API config without updating the store
   const generateApiConfig = () => {
     try {
@@ -209,6 +220,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
         const newPipelineId = uuidv4()
         setPipelineId(newPipelineId)
       }
+
+      const mapping = clickhouseDestination?.mapping || []
 
       // Map topics to the expected format
       const topicsConfig = selectedTopics.map((topic: any) => {
@@ -224,25 +237,10 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
               topic.selectedEvent.event &&
               typeof topic.selectedEvent.event === 'object'
                 ? Object.keys(topic.selectedEvent.event.event || topic.selectedEvent.event).map((key) => {
-                    // Try to infer type from the event data
-                    const value = topic.selectedEvent.event[key]
-                    let type = 'String' // Default type
-
-                    if (typeof value === 'number') {
-                      type = Number.isInteger(value) ? 'Int64' : 'Float64'
-                    } else if (typeof value === 'boolean') {
-                      type = 'Boolean'
-                    } else if (value instanceof Date) {
-                      type = 'DateTime'
-                    } else if (Array.isArray(value)) {
-                      type = 'Array(String)'
-                    } else if (typeof value === 'object' && value !== null) {
-                      type = 'Map(String, String)'
-                    }
-
+                    const mappingType = getMappingType(key, mapping)
                     return {
                       name: key,
-                      type: type,
+                      type: mappingType,
                     }
                   })
                 : [],
@@ -251,8 +249,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             topic.deduplication && topic.deduplication.enabled
               ? {
                   enabled: true,
-                  id_field: topic.deduplication.method === 'key' ? topic.deduplication.keyField : undefined,
-                  id_field_type: 'string', // Default to string type
+                  id_field: topic.deduplication.key,
+                  id_field_type: topic.deduplication.keyType,
                   time_window: topic.deduplication.window
                     ? `${topic.deduplication.window}${topic.deduplication.windowUnit?.charAt(0) || 'h'}`
                     : '1h',
@@ -343,7 +341,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             ...config.source.connection_params,
             mechanism: 'PLAIN',
             username: kafkaStore.saslPlain?.username,
-            password: encodeBase64(kafkaStore.saslPlain?.password),
+            // password: encodeBase64(kafkaStore.saslPlain?.password),
+            password: kafkaStore.saslPlain?.password,
           }
         } else if (authMethod?.includes('scram')) {
           const scramType = authMethod.includes('256') ? 'SCRAM-SHA-256' : 'SCRAM-SHA-512'
@@ -353,7 +352,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             ...config.source.connection_params,
             mechanism: scramType,
             username: scramConfig?.username,
-            password: encodeBase64(scramConfig?.password),
+            // password: encodeBase64(scramConfig?.password),
+            password: scramConfig?.password,
             root_ca: encodeBase64(kafkaStore.saslScram256?.certificate || kafkaStore.saslScram512?.certificate || ''),
           }
         } else if (authMethod?.includes('oauth')) {

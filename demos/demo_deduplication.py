@@ -4,7 +4,6 @@ import json
 import glassgen
 from glassflow_clickhouse_etl import SourceConfig
 from rich.console import Console
-
 import utils
 
 
@@ -14,7 +13,7 @@ console = Console()
 def generate_events_with_duplicates(
     source_config: SourceConfig,
     generator_schema: str,
-    duplication_rate: float = 0.01,
+    duplication_rate: float = 0.1,
     num_records: int = 10000,
     rps: int = 1000,
 ):
@@ -22,7 +21,7 @@ def generate_events_with_duplicates(
 
     Args:
         source_config (SourceConfig): Source configuration
-        duplication_rate (float, optional): Duplication rate. Defaults to 0.01.
+        duplication_rate (float, optional): Duplication rate. Defaults to 0.1.
         num_records (int, optional): Number of records to generate. Defaults to 10000.
         rps (int, optional): Records per second. Defaults to 1000.
         generator_schema (str, optional): Path to generator schema.
@@ -123,17 +122,40 @@ def main(
     ):
         time.sleep(time_window_seconds + 2)
 
+    
+    
     n_records_after = utils.read_clickhouse_table_size(
         pipeline_config.sink, clickhouse_client
     )
-    clickhouse_client.close()
 
+    row = utils.get_clickhouse_table_row(pipeline_config.sink, clickhouse_client)
+    
+    utils.print_clickhouse_record(row)
+
+    clickhouse_client.close()
+    
+    added_records = n_records_after - n_records_before
     utils.log(
-        message=f"Number of new rows to table [italic u]{pipeline_config.sink.table}[/italic u]: [bold]{n_records_after - n_records_before}[/bold]",
-        status="",
-        is_success=True,
-        component="Clickhouse",
-    )
+        message=f"Number of new rows to table [italic u]{pipeline_config.sink.table}[/italic u]: [bold]{added_records}[/bold]", 
+        status="", 
+        is_success=True, 
+        component="Clickhouse"
+    )    
+    expected_records = gen_stats["total_generated"]
+    if added_records != expected_records:
+        utils.log(
+            message = f"Expected {expected_records} records, but got {added_records} records",
+            status="Failure", 
+            is_success=False, 
+            component="Clickhouse"
+        )
+    else:
+        utils.log(
+            message = f"Expected {expected_records} records, and got {added_records} records",
+            status="Success", 
+            is_success=True, 
+            component="Clickhouse"
+        )        
 
 
 if __name__ == "__main__":
