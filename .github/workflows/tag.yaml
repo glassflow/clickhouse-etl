@@ -1,0 +1,13 @@
+name: Push Tag
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  build-and-release:
+    uses: ./.github/workflows/build.yaml
+    with:
+      push: true
+    secrets: inherit

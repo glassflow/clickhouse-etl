@@ -1,9 +1,11 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - v*
+  workflow_call:
+    inputs:
+      push:
+        type: boolean
+        description: push to dockerhub
 
 jobs:
   build-api-binary:
@@ -87,7 +89,7 @@ jobs:
           platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
           context: .
           file: glassflow-api/Dockerfile
-          push: true
+          push: ${{ inputs.push }}
           provenance: false
           outputs: push-by-digest=true,type=image
           tags: |
@@ -102,6 +104,7 @@ jobs:
   push-docker-manifest:
     name: Push API Image
     runs-on: ubuntu-latest
+    if: ${{ inputs.push }}
     needs: build-docker-image
     steps:
       - name: Login to Docker Hub
@@ -168,7 +171,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           context: ui
-          push: true
+          push: ${{ inputs.push }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
