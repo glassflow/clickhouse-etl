@@ -14,12 +14,10 @@ console = Console()
 
 
 class JoinEventSchema(glassgen.ConfigSchema):
-    def __init__(self, schema_dict: dict, join_key: str, list_of_keys: list, **kwargs):        
+    def __init__(self, schema_dict: dict, join_key: str, list_of_keys: list, **kwargs):
         fields = self._schema_dict_to_fields(schema_dict)
         fields[join_key] = glassgen.SchemaField(
-            name=join_key,
-            generator="choice",
-            params=list_of_keys
+            name=join_key, generator="choice", params=list_of_keys
         )
         super().__init__(fields=fields, **kwargs)
         self.validate()
@@ -37,7 +35,7 @@ def generate_events(
     rps: int,
 ):
     """Generate events with duplicates
-     
+
     Args:
         source_connection_params (KafkaConnectionParams): Source connection parameters
         topic_config (TopicConfig): Topic configuration
@@ -53,7 +51,7 @@ def generate_events(
             "rps": rps,
         }
     }
-    
+
     if topic_config.deduplication.enabled:
         duplication_config = {
             "duplication": {
@@ -64,9 +62,7 @@ def generate_events(
             }
         }
     else:
-        duplication_config = {
-                "duplication": None
-        }
+        duplication_config = {"duplication": None}
     glassgen_config["generator"]["event_options"] = duplication_config
 
     if source_connection_params.brokers[0] == "kafka:9094":
@@ -76,8 +72,8 @@ def generate_events(
 
     schema = JoinEventSchema(
         schema_dict=json.load(open(generator_schema)),
-        join_key=join_key, 
-        list_of_keys=list_of_keys
+        join_key=join_key,
+        list_of_keys=list_of_keys,
     )
 
     if provider:
@@ -85,7 +81,7 @@ def generate_events(
     else:
         sink_type = "kafka.confluent"
 
-    glassgen_config['sink'] = {
+    glassgen_config["sink"] = {
         "type": sink_type,
         "params": {
             "bootstrap_servers": ",".join(brokers),
@@ -94,7 +90,7 @@ def generate_events(
             "sasl_mechanism": source_connection_params.mechanism,
             "username": source_connection_params.username,
             "password": source_connection_params.password,
-        }
+        },
     }
     return glassgen.generate(config=glassgen_config, schema=schema)
 
@@ -134,7 +130,7 @@ def main(
                 break
         else:
             raise ValueError(f"Source topic {source.source_id} not found")
-        
+
         join_sources[source.orientation] = {
             "source_topic": source_topic,
             "join_key": source.join_key,
@@ -151,19 +147,23 @@ def main(
         pipeline_config.sink, clickhouse_client
     )
 
-    # Generate list of join keys 
-    join_keys = [str(uuid.uuid4()) for _ in range(max(left_num_records, right_num_records))]
-    
-    with console.status(f"[bold green]Generating and publishing left and right events to topics\n "
-                        f"\tleft:[italic u]{join_sources['left']['name']}[/italic u]\n "
-                        f"\tright: [italic u]{join_sources['right']['name']}[/italic u]...[/bold green]",
-                        spinner="dots"):
+    # Generate list of join keys
+    join_keys = [
+        str(uuid.uuid4()) for _ in range(max(left_num_records, right_num_records))
+    ]
+
+    with console.status(
+        f"[bold green]Generating and publishing left and right events to topics\n "
+        f"\tleft:[italic u]{join_sources['left']['name']}[/italic u]\n "
+        f"\tright: [italic u]{join_sources['right']['name']}[/italic u]...[/bold green]",
+        spinner="dots",
+    ):
         left_stats = generate_events(
             source_connection_params=pipeline_config.source.connection_params,
-            topic_config=join_sources['left']['source_topic'],
+            topic_config=join_sources["left"]["source_topic"],
             generator_schema=left_schema,
             duplication_rate=0,
-            join_key=join_sources['left']['join_key'],
+            join_key=join_sources["left"]["join_key"],
             list_of_keys=join_keys,
             num_records=left_num_records,
             rps=rps,
@@ -171,69 +171,115 @@ def main(
         )
         right_stats = generate_events(
             source_connection_params=pipeline_config.source.connection_params,
-            topic_config=join_sources['right']['source_topic'],
+            topic_config=join_sources["right"]["source_topic"],
             generator_schema=right_schema,
             duplication_rate=0,
-            join_key=join_sources['right']['join_key'],
+            join_key=join_sources["right"]["join_key"],
             list_of_keys=join_keys,
             num_records=right_num_records,
             rps=rps,
             provider=pipeline_config.source.provider,
         )
-        
+
     utils.log(
         message=f"Generated and published user events to topic [italic u]{join_sources['left']['name']}[/italic u]",
         status="Success",
         is_success=True,
-        component="Kafka"
+        component="Kafka",
     )
 
     utils.log(
         message=f"Generated and published order events to topic [italic u]{join_sources['right']['name']}[/italic u]",
         status="Success",
         is_success=True,
-        component="Kafka"
+        component="Kafka",
     )
 
-    utils.print_gen_stats(left_stats, title=f"Generation stats for left topic [bold]{join_sources['left']['name']}[/bold]")
-    utils.print_gen_stats(right_stats, title=f"Generation stats for right topic [bold]{join_sources['right']['name']}[/bold]")
+    utils.print_gen_stats(
+        left_stats,
+        title=f"Generation stats for left topic [bold]{join_sources['left']['name']}[/bold]",
+    )
+    utils.print_gen_stats(
+        right_stats,
+        title=f"Generation stats for right topic [bold]{join_sources['right']['name']}[/bold]",
+    )
 
-    time_window_seconds = utils.time_window_to_seconds(pipeline_config.sink.max_delay_time)
-    with console.status(f"[bold green]Waiting {time_window_seconds} seconds "
-                        "([italic u]max_delay_time[/italic u]) for sink to "
-                        "flush buffer before querying Clickhouse...[/bold green]", spinner="dots"):
+    time_window_seconds = utils.time_window_to_seconds(
+        pipeline_config.sink.max_delay_time
+    )
+    with console.status(
+        f"[bold green]Waiting {time_window_seconds} seconds "
+        "([italic u]max_delay_time[/italic u]) for sink to "
+        "flush buffer before querying Clickhouse...[/bold green]",
+        spinner="dots",
+    ):
         time.sleep(time_window_seconds + 2)
 
-    n_records_after = utils.read_clickhouse_table_size(pipeline_config.sink, clickhouse_client)
+    n_records_after = utils.read_clickhouse_table_size(
+        pipeline_config.sink, clickhouse_client
+    )
     clickhouse_client.close()
 
     utils.log(
         message=f"Number of new rows to table [italic u]{pipeline_config.sink.table}[/italic u]: [bold]{n_records_after - n_records_before}[/bold]",
         status="",
         is_success=True,
-        component="Clickhouse"
+        component="Clickhouse",
     )
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run join pipeline with configurable parameters')
-    parser.add_argument('--left-num-records', type=int, default=10000,
-                      help='Number of records to generate for left events (default: 10000)')
-    parser.add_argument('--right-num-records', type=int, default=10000,
-                      help='Number of records to generate for right events (default: 10000)')
-    parser.add_argument('--rate-match', type=float, default=1.0,
-                      help='Rate of matching left and right events (default: 1.0)')
-    parser.add_argument('--rps', type=int, default=1000,
-                      help='Records per second (default: 1000)')
-    parser.add_argument('--config', type=str, default='config/glassflow/join_pipeline.json',
-                      help='Path to pipeline configuration file (default: config/glassflow/join_pipeline.json)')
-    parser.add_argument('--left-schema', type=str, default='config/glassgen/user_event.json',
-                      help='Path to left events generator schema file (default: config/glassgen/user_event.json)')
-    parser.add_argument('--right-schema', type=str, default='config/glassgen/order_event.json',
-                      help='Path to right events generator schema file (default: config/glassgen/order_event.json)')
-    parser.add_argument('--yes', '-y', action='store_true',
-                      help='Skip confirmation prompt')
-    parser.add_argument('--cleanup', '-c', action='store_true',
-                      help='Cleanup Clickhouse table before running the pipeline')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Run join pipeline with configurable parameters"
+    )
+    parser.add_argument(
+        "--left-num-records",
+        type=int,
+        default=10000,
+        help="Number of records to generate for left events (default: 10000)",
+    )
+    parser.add_argument(
+        "--right-num-records",
+        type=int,
+        default=10000,
+        help="Number of records to generate for right events (default: 10000)",
+    )
+    parser.add_argument(
+        "--rate-match",
+        type=float,
+        default=1.0,
+        help="Rate of matching left and right events (default: 1.0)",
+    )
+    parser.add_argument(
+        "--rps", type=int, default=1000, help="Records per second (default: 1000)"
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config/glassflow/join_pipeline.json",
+        help="Path to pipeline configuration file (default: config/glassflow/join_pipeline.json)",
+    )
+    parser.add_argument(
+        "--left-schema",
+        type=str,
+        default="config/glassgen/user_event.json",
+        help="Path to left events generator schema file (default: config/glassgen/user_event.json)",
+    )
+    parser.add_argument(
+        "--right-schema",
+        type=str,
+        default="config/glassgen/order_event.json",
+        help="Path to right events generator schema file (default: config/glassgen/order_event.json)",
+    )
+    parser.add_argument(
+        "--yes", "-y", action="store_true", help="Skip confirmation prompt"
+    )
+    parser.add_argument(
+        "--cleanup",
+        "-c",
+        action="store_true",
+        help="Cleanup Clickhouse table before running the pipeline",
+    )
     args = parser.parse_args()
 
     main(
@@ -245,5 +291,5 @@ if __name__ == '__main__':
         right_schema=args.right_schema,
         rate_match=args.rate_match,
         skip_confirmation=args.yes,
-        cleanup=args.cleanup
+        cleanup=args.cleanup,
     )

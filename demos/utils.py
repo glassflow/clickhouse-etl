@@ -12,8 +12,7 @@ from glassflow_clickhouse_etl import errors, models, Pipeline
 from rich import print, box
 from rich.table import Table
 from rich.console import Console
-import time
-from kafka import KafkaConsumer
+
 console = Console()
 
 
@@ -73,6 +72,7 @@ def read_clickhouse_table_size(sink_config: models.SinkConfig, client) -> int:
 def truncate_table(sink_config: models.SinkConfig, client):
     """Truncate a table in ClickHouse"""
     client.command(f"TRUNCATE TABLE {sink_config.table}")
+
 
 def get_clickhouse_table_row(sink_config: models.SinkConfig, client):
     full_table_name = f"{sink_config.database}.{sink_config.table}"
@@ -247,7 +247,10 @@ def create_pipeline_if_not_exists(
 
         try:
             pipeline.create()
-            with console.status("[bold green]Waiting for pipeline to start...[/bold green]", spinner="dots"):
+            with console.status(
+                "[bold green]Waiting for pipeline to start...[/bold green]",
+                spinner="dots",
+            ):
                 time.sleep(10)
             log(
                 message=f"Pipeline [italic u]{config.pipeline_id}[/italic u]",
@@ -336,7 +339,7 @@ def log(
     is_success: bool = False,
     is_failure: bool = False,
     is_warning: bool = False,
-    component: str = "GlassFlow"
+    component: str = "GlassFlow",
 ):
     if is_success and not is_failure and not is_warning:
         status_icon = "[green]✔[/green]"
@@ -348,9 +351,13 @@ def log(
         status_icon = "[yellow]⚠[/yellow]"
         status_message = f"[yellow]{status}[/yellow]"
     elif not any([is_success, is_failure, is_warning]):
-        raise ValueError("At least one of is_success, is_failure, or is_warning must be True")
+        raise ValueError(
+            "At least one of is_success, is_failure, or is_warning must be True"
+        )
     else:
-        raise ValueError("Only one of is_success, is_failure, or is_warning can be True")
+        raise ValueError(
+            "Only one of is_success, is_failure, or is_warning can be True"
+        )
 
     if component == "GlassFlow":
         component_str = "[bold orange_red1][GlassFlow][/bold orange_red1]"
@@ -405,21 +412,22 @@ def print_gen_stats(stats: dict, title: str = "Generation Stats"):
     if "time_taken_ms" in stats:
         table.add_column("Time taken", justify="right")
         row.append(f"{stats['time_taken_ms']} ms")
-    
+
     table.add_row(*row)
     print("")
     print(table)
     print("")
 
+
 def print_clickhouse_record(record: dict, title: str = "ClickHouse Record"):
     """Print a ClickHouse record in a table format"""
     table = Table(
-        show_header=True, 
-        style="sky_blue3", 
-        show_edge=True, 
-        expand=False, 
-        padding=(0, 1), 
-        title=title
+        show_header=True,
+        style="sky_blue3",
+        show_edge=True,
+        expand=False,
+        padding=(0, 1),
+        title=title,
     )
     for key, _ in record.items():
         table.add_column(key, justify="left")
