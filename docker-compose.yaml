@@ -23,7 +23,7 @@ services:
       - logs:/tmp/logs/glassflow
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     ports:
       - 8080:8080
     depends_on:
@@ -31,7 +31,7 @@ services:
       - app
     volumes:
       - logs:/logs:ro
-      - ./nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx:/etc/nginx/templates
     restart: unless-stopped
     environment:
       NGINX_ENTRYPOINT_LOCAL_RESOLVERS: true
