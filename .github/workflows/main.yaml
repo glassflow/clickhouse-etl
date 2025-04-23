@@ -1,0 +1,17 @@
+name: Merge to Main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yaml
+  build:
+    needs:
+      - test
+    uses: ./.github/workflows/build.yaml
+    with:
+      push: false
+    secrets: inherit
