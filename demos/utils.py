@@ -389,18 +389,24 @@ def print_gen_stats(stats: dict, title: str = "Generation Stats"):
         padding=(0, 1),
         title=title,
     )
-    table.add_column("Total Events", justify="right")
-    table.add_column("Total Duplicates", justify="right")
-    table.add_column("Total Unique Events", justify="right")
-    table.add_column("Duplication Rate", justify="right")
-    table.add_column("Time taken", justify="right")
-    table.add_row(
-        str(stats["num_records"]),
-        str(stats["total_duplicates"]),
-        str(stats["total_generated"]),
-        f"{stats['duplication_ratio']:.1%}",
-        f"{stats['time_taken_ms']} ms",
-    )
+    row = []
+    if "num_records" in stats:
+        table.add_column("Total Events", justify="right")
+        row.append(str(stats["num_records"]))
+    if "total_duplicates" in stats:
+        table.add_column("Total Duplicates", justify="right")
+        row.append(str(stats["total_duplicates"]))
+    if "total_generated" in stats:
+        table.add_column("Total Unique Events", justify="right")
+        row.append(str(stats["total_generated"]))
+    if "duplication_ratio" in stats:
+        table.add_column("Duplication Rate", justify="right")
+        row.append(f"{stats['duplication_ratio']:.1%}")
+    if "time_taken_ms" in stats:
+        table.add_column("Time taken", justify="right")
+        row.append(f"{stats['time_taken_ms']} ms")
+    
+    table.add_row(*row)
     print("")
     print(table)
     print("")
