@@ -13,5 +13,6 @@ jobs:
       - test
     uses: ./.github/workflows/build.yaml
     with:
+      # TODO: don't change until we fix hardcoded `stable` tags
       push: false
     secrets: inherit

@@ -114,14 +114,16 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
       - name: Push multiarch manifest
         run: |
-          docker manifest create "$GITHUB_REPOSITORY-be:$TAG" \
-            --amend "$GITHUB_REPOSITORY-be@$AMD64_DIGEST" \
-            --amend "$GITHUB_REPOSITORY-be@$ARM64_DIGEST"
-          docker manifest push "$GITHUB_REPOSITORY-be:$TAG"
+          for TAG in "$GITHUB_REF_NAME" stable
+          do
+            docker manifest create "$GITHUB_REPOSITORY-be:$TAG" \
+              --amend "$GITHUB_REPOSITORY-be@$AMD64_DIGEST" \
+              --amend "$GITHUB_REPOSITORY-be@$ARM64_DIGEST"
+            docker manifest push "$GITHUB_REPOSITORY-be:$TAG"
+          done
         env:
           AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
           ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
-          TAG: ${{ github.ref_name }}
 
   build-and-push-frontend:
     name: Build And Push UI Image
@@ -176,3 +178,4 @@ jobs:
           cache-to: type=gha,mode=max
           tags: |
             ${{ github.repository }}-fe:${{ github.ref_name }}
+            ${{ github.repository }}-fe:stable
