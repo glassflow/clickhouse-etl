@@ -4,7 +4,6 @@ import json
 import glassgen
 from glassflow_clickhouse_etl import SourceConfig
 from rich.console import Console
-
 import utils
 
 
@@ -14,7 +13,7 @@ console = Console()
 def generate_events_with_duplicates(
         source_config: SourceConfig,
         generator_schema: str,
-        duplication_rate: float = 0.01,
+        duplication_rate: float = 0.1,
         num_records: int = 10000,
         rps: int = 1000,
 ):
@@ -22,7 +21,7 @@ def generate_events_with_duplicates(
 
     Args:
         source_config (SourceConfig): Source configuration
-        duplication_rate (float, optional): Duplication rate. Defaults to 0.01.
+        duplication_rate (float, optional): Duplication rate. Defaults to 0.1.
         num_records (int, optional): Number of records to generate. Defaults to 10000.
         rps (int, optional): Records per second. Defaults to 1000.
         generator_schema (str, optional): Path to generator schema.
@@ -82,7 +81,9 @@ def main(
     clickhouse_client = utils.create_clickhouse_client(pipeline_config.sink)
     
     utils.create_pipeline_if_not_exists(pipeline_config, clickhouse_client, skip_confirmation, cleanup)
+    # let the pipeline start
     
+
     n_records_before = utils.read_clickhouse_table_size(pipeline_config.sink, clickhouse_client)
     
     with console.status(f"[bold green]Generating and publishing events to topic [italic u]{pipeline_config.source.topics[0].name}[/italic u]...[/bold green]", spinner="dots"):
@@ -101,22 +102,45 @@ def main(
         component="Kafka"
     )
     utils.print_gen_stats(gen_stats, title=f"Generation stats for topic [bold]{pipeline_config.source.topics[0].name}[/bold]")
-    
+
     time_window_seconds = utils.time_window_to_seconds(pipeline_config.sink.max_delay_time)
     with console.status(f"[bold green]Waiting {time_window_seconds} seconds "
                         f"([italic u]max_delay_time[/italic u]) for sink to "
                         "flush buffer before querying Clickhouse...[/bold green]", spinner="dots"):
         time.sleep(time_window_seconds + 2)
     
+    
+    
     n_records_after = utils.read_clickhouse_table_size(pipeline_config.sink, clickhouse_client)
-    clickhouse_client.close()
 
+    row = utils.get_clickhouse_table_row(pipeline_config.sink, clickhouse_client)
+    
+    utils.print_clickhouse_record(row)
+
+    clickhouse_client.close()
+    
+    added_records = n_records_after - n_records_before
     utils.log(
-        message=f"Number of new rows to table [italic u]{pipeline_config.sink.table}[/italic u]: [bold]{n_records_after - n_records_before}[/bold]", 
+        message=f"Number of new rows to table [italic u]{pipeline_config.sink.table}[/italic u]: [bold]{added_records}[/bold]", 
         status="", 
         is_success=True, 
         component="Clickhouse"
-    )
+    )    
+    expected_records = gen_stats["total_generated"]
+    if added_records != expected_records:
+        utils.log(
+            message = f"Expected {expected_records} records, but got {added_records} records",
+            status="Failure", 
+            is_success=False, 
+            component="Clickhouse"
+        )
+    else:
+        utils.log(
+            message = f"Expected {expected_records} records, and got {added_records} records",
+            status="Success", 
+            is_success=True, 
+            component="Clickhouse"
+        )        
 
 
 if __name__ == '__main__':
