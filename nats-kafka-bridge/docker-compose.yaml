@@ -3,7 +3,7 @@ services:
     image: nats:alpine
     ports:
       - 4222:4222
-      - 8222:822
+      - 8222:8222
     command: --js
     healthcheck:
       test: wget http://localhost:8222/healthz -q -S -O -
