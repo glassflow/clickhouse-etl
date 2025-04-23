@@ -37,6 +37,7 @@ services:
       KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server.conf"
     volumes:
       - ${PWD}/config/kafka/broker/kafka_server_jaas.conf:/etc/kafka/jaas/kafka_server.conf
+      - ${PWD}/config/kafka/client/client.properties:/etc/kafka/client.properties
     depends_on:
       - zookeeper
 
