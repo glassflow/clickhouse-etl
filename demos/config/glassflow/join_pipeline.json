@@ -1,5 +1,5 @@
 {
-    "pipeline_id": "join-pipeline",
+    "pipeline_id": "join-demo-pipeline",
     "source": {
       "type": "kafka",
       "provider": "confluent",
@@ -61,7 +61,7 @@
               },
               {
                 "name": "amount",
-                "type": "float32"
+                "type": "string"
               },
               {
                 "name": "created_at",

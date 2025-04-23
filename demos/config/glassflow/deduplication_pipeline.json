@@ -1,5 +1,5 @@
 {
-    "pipeline_id": "deduplication-pipeline",
+    "pipeline_id": "deduplication-demo-pipeline",
     "source": {
       "type": "kafka",
       "provider": "confluent",
