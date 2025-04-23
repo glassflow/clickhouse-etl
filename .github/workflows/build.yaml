@@ -1,0 +1,181 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        type: boolean
+        description: push to dockerhub
+
+jobs:
+  build-api-binary:
+    name: Build API binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        module: [glassflow-api, nats-kafka-bridge]
+        platform:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './${{ matrix.module }}/go.mod'
+          cache-dependency-path: './${{ matrix.module }}/go.mod'
+      - name: Build binary
+        working-directory: ${{ matrix.module }}
+        run: make build
+        env:
+          GOOS: ${{ matrix.platform.os }}
+          GOARCH: ${{ matrix.platform.arch }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 1
+          name: ${{ matrix.module }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: ${{ matrix.module }}/bin
+
+  build-docker-image:
+    name: Build API Image
+    runs-on: ubuntu-latest
+    needs: build-api-binary
+    outputs:
+      amd64_digest: ${{ steps.gen-output.outputs.amd64_digest }}
+      arm64_digest: ${{ steps.gen-output.outputs.arm64_digest }}
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        platform:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: glassflow
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nats-kafka-bridge-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: nats-kafka-bridge/bin
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: glassflow-api-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: glassflow-api/bin
+      - name: Make artifacts executable
+        run: chmod +x glassflow-api/bin/* nats-kafka-bridge/bin/*
+      - name: Build & push Docker image
+        uses: docker/build-push-action@v6
+        id: build-arch-image
+        with:
+          platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
+          context: .
+          file: glassflow-api/Dockerfile
+          push: ${{ inputs.push }}
+          provenance: false
+          outputs: push-by-digest=true,type=image
+          tags: |
+            ${{ github.repository }}-be
+      - name: Generate output
+        id: gen-output
+        run: echo "${ARCH}_digest=$DIGEST" >> "$GITHUB_OUTPUT"
+        env:
+          ARCH: ${{ matrix.platform.arch }}
+          DIGEST: ${{ steps.build-arch-image.outputs.digest }}
+
+  push-docker-manifest:
+    name: Push API Image
+    runs-on: ubuntu-latest
+    if: ${{ inputs.push }}
+    needs: build-docker-image
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: glassflow
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Push multiarch manifest
+        run: |
+          for TAG in "$GITHUB_REF_NAME" stable
+          do
+            docker manifest create "$GITHUB_REPOSITORY-be:$TAG" \
+              --amend "$GITHUB_REPOSITORY-be@$AMD64_DIGEST" \
+              --amend "$GITHUB_REPOSITORY-be@$ARM64_DIGEST"
+            docker manifest push "$GITHUB_REPOSITORY-be:$TAG"
+          done
+        env:
+          AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
+          ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
+
+  build-and-push-frontend:
+    name: Build And Push UI Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: ui
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: ui
+        run: pnpm build
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: glassflow
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build & push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          context: ui
+          push: ${{ inputs.push }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ github.repository }}-fe:${{ github.ref_name }}
+            ${{ github.repository }}-fe:stable

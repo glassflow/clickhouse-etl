@@ -26,6 +26,9 @@ type JoinOperatorTestSuite struct {
 	rightStreamConfig     *stream.ConsumerConfig
 	resultsConsumerConfig *stream.ConsumerConfig
 	schemaConfig          *schema.Config
+	joinOperator          *operator.JoinOperator
+	wg                    sync.WaitGroup
+	errCh                 chan error
 }
 
 func NewJoinOperatorTestSuite() *JoinOperatorTestSuite {
@@ -118,7 +121,7 @@ func (j *JoinOperatorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) e
 	return nil
 }
 
-func (j *JoinOperatorTestSuite) iRunJoinOperator(leftTTL, rightTTL, runDuration string) error {
+func (j *JoinOperatorTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error {
 	if j.natsContainer == nil {
 		return fmt.Errorf("nats container is not running")
 	}
@@ -139,11 +142,6 @@ func (j *JoinOperatorTestSuite) iRunJoinOperator(leftTTL, rightTTL, runDuration 
 	rTTL, err := time.ParseDuration(rightTTL)
 	if err != nil {
 		return fmt.Errorf("parse right TTL: %w", err)
-	}
-
-	rDuration, err := time.ParseDuration(runDuration)
-	if err != nil {
-		return fmt.Errorf("parse run duration: %w", err)
 	}
 
 	natsWrapper, err := client.NewNATSWrapper(j.natsContainer.GetURI(), 24*time.Hour)
@@ -202,33 +200,71 @@ func (j *JoinOperatorTestSuite) iRunJoinOperator(leftTTL, rightTTL, runDuration 
 		logger,
 	)
 
-	wg := sync.WaitGroup{}
-	errCh := make(chan error, 1)
+	j.joinOperator = operator
 
-	wg.Add(1)
+	j.errCh = make(chan error, 1)
+
+	j.wg.Add(1)
 	go func() {
-		defer wg.Done()
-		operator.Start(ctx, errCh)
+		defer j.wg.Done()
+		operator.Start(ctx, j.errCh)
 	}()
 
-	wg.Add(1)
+	return nil
+}
+
+func (j *JoinOperatorTestSuite) iStopJoinOperatorNoWait(delay string) error {
+	dur, err := time.ParseDuration(delay)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	j.wg.Add(1)
 	go func() {
-		defer wg.Done()
-		time.Sleep(rDuration)
-		operator.Stop()
+		defer j.wg.Done()
+		time.Sleep(dur)
+		j.joinOperator.Stop(operator.WithNoWait(true))
 	}()
 
-	wg.Wait()
+	j.wg.Wait()
 
 	select {
-	case err, ok := <-errCh:
+	case err, ok := <-j.errCh:
 		if ok {
 			return fmt.Errorf("error from join operator: %w", err)
 		}
 	default:
 		// No error from operator
 	}
-	close(errCh)
+	close(j.errCh)
+
+	return nil
+}
+
+func (j *JoinOperatorTestSuite) iStopJoinOperatorGracefullyAfterDelay(delay string) error {
+	dur, err := time.ParseDuration(delay)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	j.wg.Add(1)
+	go func() {
+		defer j.wg.Done()
+		time.Sleep(dur)
+		j.joinOperator.Stop()
+	}()
+
+	j.wg.Wait()
+
+	select {
+	case err, ok := <-j.errCh:
+		if ok {
+			return fmt.Errorf("error from join operator: %w", err)
+		}
+	default:
+		// No error from operator
+	}
+	close(j.errCh)
 
 	return nil
 }
@@ -481,12 +517,14 @@ func (j *JoinOperatorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a running results stream$`, j.aRunningResultsStream)
 
 	sc.Step(`^an operator schema config with mapping$`, j.aSchemaConfigWithMapping)
-	sc.Step(`^I run join operator with left TTL "([^"]*)" right TTL "([^"]*)" for "([^"]*)"$`, j.iRunJoinOperator)
+	sc.Step(`^I run join operator with left TTL "([^"]*)" right TTL "([^"]*)"$`, j.iRunJoinOperator)
+	sc.Step(`^I stop join operator gracefully after "([^"]*)"$`, j.iStopJoinOperatorGracefullyAfterDelay)
+	sc.Step(`^I stop join operator after "([^"]*)"$`, j.iStopJoinOperatorNoWait)
 	sc.Step(`^I publish (\d+) events to the left stream$`, j.iPublishEventsToTheLeftStream)
 	sc.Step(`^I publish (\d+) events to the right stream$`, j.iPublishEventsToTheRightStream)
 	sc.Step(`^I check results count is (\d+)$`, j.iCheckResults)
 	sc.Step(`^I check results with content$`, j.iCheckResultsWithContent)
-	sc.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
+	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := j.CleanupResources()
 		if cleanupErr != nil {
 			return ctx, cleanupErr

@@ -12,7 +12,7 @@ const KafkaBaseFormSchema = z.object({
 const SaslPlainFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
-  consumerGroup: z.string().min(1, 'Consumer group is required'),
+  consumerGroup: z.string().optional(),
 })
 
 const SaslJaasFormSchema = z.object({
@@ -36,14 +36,14 @@ const SaslOauthbearerFormSchema = z.object({
 const SaslScram256FormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
-  consumerGroup: z.string().min(1, 'Consumer group is required'),
+  consumerGroup: z.string().optional(),
   certificate: z.string().optional(),
 })
 
 const SaslScram512FormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
-  consumerGroup: z.string().min(1, 'Consumer group is required'),
+  consumerGroup: z.string().optional(),
   certificate: z.string().optional(),
 })
 

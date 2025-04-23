@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { OperationKeys } from '@/src/config/constants'
+import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { useFetchTopics, useFetchEvent } from '../hooks/kafka-mng-hooks'
 import { EventPreview } from '../components/wizard/EventPreview'
@@ -264,7 +264,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       deduplication: topicFromStore?.deduplication || {
         enabled: false,
         window: 0,
-        unit: 'seconds',
+        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
         key: '',
         keyType: '',
       },

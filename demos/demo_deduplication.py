@@ -26,46 +26,49 @@ def generate_events_with_duplicates(
         rps (int, optional): Records per second. Defaults to 1000.
         generator_schema (str, optional): Path to generator schema.
     """
+    glassgen_config = {
+        "generator": {
+            "num_records": num_records,
+            "rps": rps,
+        }
+    }
     if source_config.topics[0].deduplication.enabled:
-        duplication_config = glassgen.config.DuplicationConfig(
-            enabled=True,
-            ratio=duplication_rate,
-            key_field=source_config.topics[0].deduplication.id_field,
-            time_window=source_config.topics[0].deduplication.time_window,
-        )
+        duplication_config = {
+            "duplication": {
+                "enabled": True,
+                "ratio": duplication_rate,
+                "key_field": source_config.topics[0].deduplication.id_field,
+                "time_window": source_config.topics[0].deduplication.time_window,
+            }
+        }
     else:
-        duplication_config = glassgen.config.DuplicationConfig(enabled=False)
+        duplication_config = {
+            "duplication": {
+                "enabled": False,
+            }
+        }
+    glassgen_config["generator"]["event_options"] = duplication_config
+    schema = json.load(open(generator_schema))
+    glassgen_config["schema"] = schema
 
     if source_config.connection_params.brokers[0] == "kafka:9094":
         brokers = ["localhost:9093"]
     else:
         brokers = source_config.connection_params.brokers
 
-    schema = json.load(open(generator_schema))
+    glassgen_config['sink'] = {
+        "type": "kafka",
+        "params": {
+            "bootstrap_servers": ",".join(brokers),
+            "topic": source_config.topics[0].name,
+            "security_protocol": source_config.connection_params.protocol,
+            "sasl_mechanism": source_config.connection_params.mechanism,
+            "username": source_config.connection_params.username,
+            "password": source_config.connection_params.password,
+        }
+    }
+    return glassgen.generate(config=glassgen_config)
 
-    return glassgen.generate(
-        config=glassgen.config.GlassGenConfig(
-            sink=glassgen.config.SinkConfig(
-                type=f"kafka.{source_config.provider}",
-                params={
-                    "bootstrap_servers": ",".join(brokers),
-                    "topic": source_config.topics[0].name,
-                    "security_protocol": source_config.connection_params.protocol,
-                    "sasl_mechanism": source_config.connection_params.mechanism,
-                    "username": source_config.connection_params.username,
-                    "password": source_config.connection_params.password,
-                },
-            ),
-            generator=glassgen.config.GeneratorConfig(
-                num_records=num_records,
-                rps=rps,
-                event_options=glassgen.config.EventOptions(
-                    duplication=duplication_config
-                ),
-            ),
-            schema=schema,
-        )
-    )
 
 
 def main(

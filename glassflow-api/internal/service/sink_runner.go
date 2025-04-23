@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
@@ -16,7 +17,7 @@ type SinkRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	operator *sink.ClickHouseSink
+	operator *operator.SinkOperator
 	c        chan error
 }
 
@@ -41,9 +42,9 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 
-	clickhouseSink, err := sink.NewClickHouseSink(
+	chClient, err := client.NewClickHouseClient(
 		ctx,
-		sink.ConnectorConfig{
+		client.ClickHouseClientConfig{
 			Host:      cfg.Host,
 			Port:      cfg.Port,
 			Username:  cfg.Username,
@@ -52,7 +53,11 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 			Database:  cfg.Database,
 			TableName: cfg.Table,
 		},
-		sink.BatchConfig{
+	)
+
+	sinkOperator, err := operator.NewSinkOperator(
+		chClient,
+		sink.ClickHouseSinkConfig{
 			MaxBatchSize: cfg.MaxBatchSize,
 			MaxDelayTime: cfg.MaxDelayTime,
 		},
@@ -65,10 +70,10 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 		return fmt.Errorf("create sink: %w", err)
 	}
 
-	s.operator = clickhouseSink
+	s.operator = sinkOperator
 
 	go func() {
-		clickhouseSink.Start(ctx, s.c)
+		sinkOperator.Start(ctx, s.c)
 		for err := range s.c {
 			s.log.Error("Error in sink operator", slog.Any("error", err))
 		}

@@ -12,8 +12,8 @@ from glassflow_clickhouse_etl import errors, models, Pipeline
 from rich import print, box
 from rich.table import Table
 from rich.console import Console
-
-
+import time
+from kafka import KafkaConsumer
 console = Console()
 
 

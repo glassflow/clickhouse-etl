@@ -1,0 +1,37 @@
+name: Test Backend
+on:
+  workflow_call:
+
+jobs:
+  test-api:
+    name: test api
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './glassflow-api/go.mod'
+          cache-dependency-path: './glassflow-api/go.mod'
+      - name: Run test
+        working-directory: './glassflow-api'
+        run: make run-test
+      - name: Run E2E test
+        working-directory: './glassflow-api'
+        run: make run-e2e-test
+
+  test-bridge:
+    name: test kafka->nats bridge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './nats-kafka-bridge/go.mod'
+          cache-dependency-path: './nats-kafka-bridge/go.mod'
+      - name: Run test
+        working-directory: './nats-kafka-bridge'
+        run: make run-test
