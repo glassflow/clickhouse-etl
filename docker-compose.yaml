@@ -7,11 +7,11 @@ services:
     restart: unless-stopped
 
   ui:
-    image: glassflow/clickhouse-etl-fe:v0.0.1-beta
+    image: glassflow/clickhouse-etl-fe:stable
     pull_policy: always
 
   app:
-    image: glassflow/clickhouse-etl-be:v0.0.1-beta
+    image: glassflow/clickhouse-etl-be:stable
     pull_policy: always
     depends_on:
       - nats
