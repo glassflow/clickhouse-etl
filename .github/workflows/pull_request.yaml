@@ -1,0 +1,8 @@
+name: Pull Request Creation
+on:
+  pull_request
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yaml
+
