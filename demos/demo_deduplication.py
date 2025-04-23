@@ -130,7 +130,8 @@ def main(
 
     row = utils.get_clickhouse_table_row(pipeline_config.sink, clickhouse_client)
     
-    utils.print_clickhouse_record(row)
+    if row:
+        utils.print_clickhouse_record(row)
 
     clickhouse_client.close()
     
