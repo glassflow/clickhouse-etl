@@ -24,7 +24,7 @@ export function DeduplicationConfigurator({
   })
   const [windowConfig, setWindowConfig] = useState({
     window: '',
-    unit: 'seconds',
+    unit: '',
   })
   const [canContinue, setCanContinue] = useState(false)
 

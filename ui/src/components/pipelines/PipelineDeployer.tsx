@@ -166,7 +166,8 @@ export function PipelineDeployer() {
     }
   }
 
-  const canShowButtons = status === 'active' || status === 'deploy_failed' || status === 'delete_failed'
+  // const canShowButtons = status === 'active' || status === 'deploy_failed' || status === 'delete_failed'
+  const canShowButtons = status === 'active' || status === 'deploy_failed'
 
   return (
     <div className="flex flex-col items-center justify-center gap-4">
@@ -185,9 +186,9 @@ export function PipelineDeployer() {
       {status === 'active' && (
         <div className="mt-4">
           <h3 className="text-lg font-medium mb-2">Pipeline Details</h3>
-          <pre className="bg-[var(--color-background-neutral-faded)] p-4 rounded-md overflow-auto">
+          {/* <pre className="bg-[var(--color-background-neutral-faded)] p-4 rounded-md overflow-auto">
             {JSON.stringify(apiConfig, null, 2)}
-          </pre>
+          </pre> */}
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { JSONDateTypesSelector } from '@/src/components/JSONDateTypesSelector'
 import { useStore } from '@/src/store'
 import { getEventKeys } from '@/src/utils/common.client'
 import { TimeWindowConfigurator } from './wizard/deduplication/TimeWindowConfigurator'
+import { TIME_WINDOW_UNIT_OPTIONS } from '../config/constants'
 
 interface SelectDeduplicateKeysProps {
   index: number
@@ -17,7 +18,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
   const [selectedKey, setSelectedKey] = useState('')
   const [selectedKeyType, setSelectedKeyType] = useState('string')
   const [localWindow, setLocalWindow] = useState(1)
-  const [localWindowUnit, setLocalWindowUnit] = useState('seconds')
+  const [localWindowUnit, setLocalWindowUnit] = useState(TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
   const [availableKeys, setAvailableKeys] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +58,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
       setSelectedKey(topic.deduplication.key || '')
       setSelectedKeyType(topic.deduplication.keyType || 'string')
       setLocalWindow(topic.deduplication.window || 1)
-      setLocalWindowUnit(topic.deduplication.unit || 'seconds')
+      setLocalWindowUnit(topic.deduplication.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
     }
 
     // Process event data

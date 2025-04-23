@@ -555,8 +555,11 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
           <div className="text-sm text-muted-foreground">Host:</div>
           <div>{directConnection?.host || 'Not configured'}</div>
 
-          <div className="text-sm text-muted-foreground">Port:</div>
+          <div className="text-sm text-muted-foreground">HTTP(S) Port:</div>
           <div>{directConnection?.port || 'Not configured'}</div>
+
+          <div className="text-sm text-muted-foreground">Native Port:</div>
+          <div>{directConnection?.nativePort || 'Not configured'}</div>
 
           <div className="text-sm text-muted-foreground">Username:</div>
           <div>{directConnection?.username || 'Not configured'}</div>

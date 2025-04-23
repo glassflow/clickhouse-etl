@@ -60,13 +60,13 @@ export const KafkaFormConfig = {
         required: 'Password is required',
         type: 'password',
       },
-      consumerGroup: {
-        name: 'saslPlain.consumerGroup',
-        label: 'Consumer Group',
-        placeholder: 'Enter consumer group',
-        required: 'Consumer Group is required',
-        type: 'text',
-      },
+      // consumerGroup: {
+      //   name: 'saslPlain.consumerGroup',
+      //   label: 'Consumer Group',
+      //   placeholder: 'Enter consumer group',
+      //   required: 'Consumer Group is required',
+      //   type: 'text',
+      // },
     },
   },
   [AUTH_OPTIONS['SASL/JAAS'].name]: {
@@ -152,13 +152,13 @@ export const KafkaFormConfig = {
         required: 'Password is required',
         type: 'password',
       },
-      consumerGroup: {
-        name: 'saslScram256.consumerGroup',
-        label: 'Consumer Group',
-        placeholder: 'Enter consumer group',
-        required: 'Consumer Group is required',
-        type: 'text',
-      },
+      // consumerGroup: {
+      //   name: 'saslScram256.consumerGroup',
+      //   label: 'Consumer Group',
+      //   placeholder: 'Enter consumer group',
+      //   required: 'Consumer Group is required',
+      //   type: 'text',
+      // },
       certificate: {
         name: 'saslScram256.certificate',
         label: 'Certificate',
@@ -390,7 +390,7 @@ export const KafkaFormDefaultValues = {
   saslPlain: {
     username: 'admin',
     password: 'admin-secret',
-    consumerGroup: 'admin-group',
+    // consumerGroup: 'admin-group',
   },
   saslJaas: {
     jaasConfig: '',
