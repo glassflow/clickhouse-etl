@@ -82,7 +82,7 @@
           "source_id": "user_events_with_duplicates",
           "field_name": "created_at",
           "column_name": "created_at",
-          "column_type": "datetime64"
+          "column_type": "datetime"
         },
         {
           "source_id": "user_events_with_duplicates",

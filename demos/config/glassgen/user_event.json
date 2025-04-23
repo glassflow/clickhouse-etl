@@ -3,5 +3,5 @@
     "user_id": "$uuid4",
     "name": "$name",
     "email": "$email",
-    "created_at": "$datetime"
+    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
 }
