@@ -407,8 +407,15 @@ def print_gen_stats(stats: dict, title: str = "Generation Stats"):
 
 def print_clickhouse_record(record: dict, title: str = "ClickHouse Record"):
     """Print a ClickHouse record in a table format"""
-    table = Table(show_header=True, style="sky_blue3", show_edge=True, expand=False, padding=(0, 1), title=title)
-    for key, value in record.items():
+    table = Table(
+        show_header=True, 
+        style="sky_blue3", 
+        show_edge=True, 
+        expand=False, 
+        padding=(0, 1), 
+        title=title
+    )
+    for key, _ in record.items():
         table.add_column(key, justify="left")
-    table.add_row(*record.values())
+    table.add_row(*map(str, record.values()))
     print(table)
