@@ -302,11 +302,11 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
               join: {
                 enabled: true,
                 type: 'temporal',
-                sources: topicsConfig.map((topic) => ({
+                sources: topicsConfig.map((topic, index) => ({
                   source_id: topic.name,
-                  join_key: topic.deduplication?.id_field || 'id', // Use deduplication key or default
+                  join_key: topic.deduplication?.id_field || '',
                   time_window: '1h',
-                  orientation: 'left', // Default to left orientation
+                  orientation: index === 0 ? 'left' : 'right',
                 })),
               },
             }
