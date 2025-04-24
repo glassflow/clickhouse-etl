@@ -278,6 +278,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
       data.streams.map((stream, index) => ({
         ...stream,
         orientation: index === 0 ? 'left' : 'right',
+        topicName: index === 0 ? topic1?.name || '' : topic2?.name || '',
       })),
     )
 

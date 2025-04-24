@@ -9,6 +9,10 @@ export type { EventGroup, Contexts }
 // Flag to indicate whether analytics should be enabled
 let analyticsEnabled = false
 
+// Add a timestamp tracker to prevent excessive event tracking
+const eventCache = new Map<string, number>()
+const EVENT_THROTTLE_MS = 1000 // Minimum time between identical events
+
 // Try to use the environment variable, but fall back to hardcoded token if needed
 // This ensures tracking works in all environments including Docker production deployments
 const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || '209670ec9b352915013a5dfdb169dd25'
@@ -93,6 +97,15 @@ export const loadAnalyticsPreference = (): boolean => {
   return false
 }
 
+// Generate a cache key for event throttling
+const getEventCacheKey = (eventName: string, context: unknown, properties?: Record<string, unknown>) => {
+  try {
+    return `${eventName}:${String(context)}:${JSON.stringify(properties || {})}`
+  } catch (e) {
+    return `${eventName}:${String(context)}`
+  }
+}
+
 // Track an event
 export const track = ({
   event,
@@ -104,28 +117,79 @@ export const track = ({
   properties?: Record<string, unknown>
 }) => {
   try {
-    // Only track if analytics is enabled and the event is in the catalog
-    if (analyticsEnabled && event.name in eventCatalog) {
-      const eventProps = {
-        event: event.name,
-        context: context,
-        ...properties,
-      }
+    // Guard: exit early if window is not defined (SSR)
+    if (typeof window === 'undefined') return
 
+    // Only track if analytics is enabled and the event is in the catalog
+    if (!analyticsEnabled) {
+      if (isDev) {
+        console.log('Analytics disabled, not tracking:', {
+          event: event.name,
+          context,
+          ...properties,
+        })
+      }
+      return
+    }
+
+    if (!(event.name in eventCatalog)) {
+      if (isDev) {
+        console.log('Event not in catalog, not tracking:', event.name)
+      }
+      return
+    }
+
+    // Generate a cache key to prevent duplicate events
+    const cacheKey = getEventCacheKey(event.name, context, properties)
+    const now = Date.now()
+
+    // Check if we've recently tracked this exact event
+    if (eventCache.has(cacheKey)) {
+      const lastTracked = eventCache.get(cacheKey) || 0
+      if (now - lastTracked < EVENT_THROTTLE_MS) {
+        if (isDev) {
+          console.log('Event throttled (too frequent):', {
+            event: event.name,
+            context,
+            timeSinceLast: now - lastTracked,
+          })
+        }
+        return
+      }
+    }
+
+    // Update the cache with current timestamp
+    eventCache.set(cacheKey, now)
+
+    // Clean up old cache entries periodically (every 50 events)
+    if (eventCache.size > 50) {
+      const keysToDelete: string[] = []
+      eventCache.forEach((timestamp, key) => {
+        if (now - timestamp > EVENT_THROTTLE_MS * 10) {
+          keysToDelete.push(key)
+        }
+      })
+      keysToDelete.forEach((key) => eventCache.delete(key))
+    }
+
+    // Create event properties and track
+    const eventProps = {
+      event: event.name,
+      context: context,
+      ...properties,
+    }
+
+    try {
       mixpanel.track(event.name, eventProps)
 
       if (isDev) {
         console.log('Analytics event tracked:', eventProps)
       }
-    } else if (isDev) {
-      console.log('Analytics event not tracked:', {
-        event: event.name,
-        context: context,
-        ...properties,
-      })
+    } catch (trackError) {
+      console.error('Error during mixpanel.track():', trackError)
     }
   } catch (error) {
-    console.error('Error tracking event:', error)
+    console.error('Error in track function:', error)
   }
 }
 

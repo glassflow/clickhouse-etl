@@ -44,6 +44,7 @@ export const MAX_DELAY_TIME_UNITS = Object.entries(TIME_UNITS).filter(
 export const JSON_DATA_TYPES = [
   'string',
   'bool',
+  'uint',
   'uint8',
   'uint16',
   'uint32',
@@ -53,8 +54,10 @@ export const JSON_DATA_TYPES = [
   'int16',
   'int32',
   'int64',
+  'float',
   'float32',
   'float64',
+  'bytes',
 ]
 
 // ClickHouse data types

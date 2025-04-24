@@ -188,25 +188,22 @@ func (s *SinkTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
 	return nil
 }
 
-func (s *SinkTestSuite) iPublishEventsToTheStream(count int, dataTable *godog.Table) error {
+func (s *SinkTestSuite) iPublishEventsToTheStream(count int, data *godog.DocString) error {
 	js := s.natsClient.JetStream()
 
-	if len(dataTable.Rows) < count {
-		return fmt.Errorf("not enough rows in the table")
+	var events []map[string]any
+	if err := json.Unmarshal([]byte(data.Content), &events); err != nil {
+		return fmt.Errorf("unmarshal JSON events: %w", err)
 	}
 
-	headers := dataTable.Rows[0].Cells
+	// Verify we have the expected number of events
+	if len(events) != count {
+		return fmt.Errorf("wrong number of events in JSON data: expected %d, got %d", count, len(events))
+	}
 
-	for i := 1; i <= count; i++ {
-		row := dataTable.Rows[i]
-		event := make(map[string]any)
-		for j, cell := range row.Cells {
-			if j < len(headers) {
-				event[headers[j].Value] = cell.Value
-			}
-		}
-
-		eventBytes, err := json.Marshal(event)
+	// Publish each event to the stream
+	for i := range count {
+		eventBytes, err := json.Marshal(events[i])
 		if err != nil {
 			return fmt.Errorf("marshal event: %w", err)
 		}

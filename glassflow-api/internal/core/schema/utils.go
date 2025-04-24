@@ -13,7 +13,7 @@ func ParseString(data any) (zero string, _ error) {
 	case string:
 		return value, nil
 	default:
-		return zero, fmt.Errorf("failed to parse string: %v", data)
+		return zero, fmt.Errorf("failed to parse string: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -22,7 +22,7 @@ func ParseBool(data any) (zero bool, _ error) {
 	case bool:
 		return value, nil
 	default:
-		return zero, fmt.Errorf("failed to parse bool: %v", data)
+		return zero, fmt.Errorf("failed to parse bool: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -41,7 +41,7 @@ func ParseInt8(data any) (zero int8, _ error) {
 		}
 		return int8(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse int8: %v", data)
+		return zero, fmt.Errorf("failed to parse int8: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -60,7 +60,7 @@ func ParseInt16(data any) (zero int16, _ error) {
 		}
 		return int16(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse int16: %v", data)
+		return zero, fmt.Errorf("failed to parse int16: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -79,7 +79,7 @@ func ParseInt32(data any) (zero int32, _ error) {
 		}
 		return int32(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse int32: %v", data)
+		return zero, fmt.Errorf("failed to parse int32: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -123,7 +123,7 @@ func ParseUint8(data any) (zero uint8, _ error) {
 		}
 		return uint8(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse uint8: %v", data)
+		return zero, fmt.Errorf("failed to parse uint8: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -151,7 +151,7 @@ func ParseUint16(data any) (zero uint16, _ error) {
 		}
 		return uint16(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse uint16: %v", data)
+		return zero, fmt.Errorf("failed to parse uint16: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -179,7 +179,7 @@ func ParseUint32(data any) (zero uint32, _ error) {
 		}
 		return uint32(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse uint32: %v", data)
+		return zero, fmt.Errorf("failed to parse uint32: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -201,16 +201,21 @@ func ParseUint64(data any) (zero uint64, _ error) {
 		}
 		return uint64(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse uint64: %v", data)
+		return zero, fmt.Errorf("failed to parse uint64: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
 func ParseFloat32(data any) (zero float32, _ error) {
 	switch value := data.(type) {
+	case float64:
+		if value < float64(math.SmallestNonzeroFloat32) || value > float64(math.MaxFloat32) {
+			return zero, fmt.Errorf("float32 out of range: %f", value)
+		}
+		return float32(value), nil
 	case float32:
 		return value, nil
 	default:
-		return zero, fmt.Errorf("failed to parse float32: %v", data)
+		return zero, fmt.Errorf("failed to parse float32: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -228,7 +233,7 @@ func ParseFloat64(data any) (zero float64, _ error) {
 	case float64:
 		return value, nil
 	default:
-		return zero, fmt.Errorf("failed to parse float64: %v", data)
+		return zero, fmt.Errorf("failed to parse float64: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 
@@ -237,7 +242,7 @@ func ParseBytes(data any) (zero string, _ error) {
 	case []byte:
 		return string(value), nil
 	default:
-		return zero, fmt.Errorf("failed to parse bytes: %v", data)
+		return zero, fmt.Errorf("failed to parse bytes: %v, type is: %v", data, reflect.TypeOf(data))
 	}
 }
 

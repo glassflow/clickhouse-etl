@@ -293,11 +293,11 @@ export const KafkaConnectionForm = ({
           </Alert>
         )}
 
-        {testStatus === 'error' && (
+        {/* {testStatus === 'error' && (
           <Alert className="bg-red-50 border-red-500 text-red-700">
             <AlertDescription>Failed to connect to Kafka cluster. Please check your credentials.</AlertDescription>
           </Alert>
-        )}
+        )} */}
 
         <div className="flex gap-4">
           <Button
