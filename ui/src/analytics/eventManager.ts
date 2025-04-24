@@ -2,30 +2,12 @@ import { useStore } from '@/src/store'
 import eventCatalog from './eventCatalog'
 import { type Contexts, type EventGroup, dictionary } from './eventDictionary'
 import type { Event } from './eventDictionary'
+import mixpanel from 'mixpanel-browser'
 
 export type { EventGroup, Contexts }
 
 // Flag to indicate whether analytics should be enabled
 let analyticsEnabled = false
-
-// This will be replaced with actual mixpanel when the package is installed
-const mixpanelMock = {
-  init: (token: string, options: any) => {
-    console.log('Mixpanel init called with token:', token, 'and options:', options)
-  },
-  set_config: (config: any) => {
-    console.log('Mixpanel config set:', config)
-  },
-  track: (eventName: string, properties: any) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Mixpanel track:', eventName, properties)
-    }
-  },
-}
-
-// This would be the actual implementation once mixpanel is installed
-// import mixpanel from 'mixpanel-browser'
-const mixpanel = mixpanelMock
 
 // Using environment variables for token, or a placeholder if not available
 const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || 'your-mixpanel-token'
@@ -38,6 +20,7 @@ export const initAnalytics = () => {
     mixpanel.init(MIXPANEL_TOKEN, {
       persistence: 'localStorage',
       debug: isDev,
+      // @ts-expect-error FIXME: explore why autocapture is not typed on Mixpanel
       autocapture: false,
       track_pageview: 'url-with-path',
     })
@@ -89,17 +72,23 @@ export const track = ({
   try {
     // Only track if analytics is enabled and the event is in the catalog
     if (analyticsEnabled && event.name in eventCatalog) {
-      const eventProperties = {
+      const eventProps = {
         event: event.name,
         context: context,
         ...properties,
       }
 
-      mixpanel.track(event.name, eventProperties)
+      mixpanel.track(event.name, eventProps)
 
       if (isDev) {
-        console.log('Analytics event tracked:', eventProperties)
+        console.log('Analytics event tracked:', eventProps)
       }
+    } else if (isDev) {
+      console.log('Analytics event not tracked:', {
+        event: event.name,
+        context: context,
+        ...properties,
+      })
     }
   } catch (error) {
     console.error('Error tracking event:', error)
