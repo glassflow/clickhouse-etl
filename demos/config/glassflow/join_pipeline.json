@@ -121,10 +121,10 @@
           "column_type": "uuid"
         },
         {
-          "source_id": "user_events",
-          "field_name": "created_at",
-          "column_name": "created_at",
-          "column_type": "datetime"
+          "source_id": "orders",
+          "field_name": "order_id",
+          "column_name": "order_id",
+          "column_type": "uuid"
         },
         {
           "source_id": "user_events",
@@ -140,12 +140,6 @@
         },
         {
           "source_id": "orders",
-          "field_name": "order_id",
-          "column_name": "order_id",
-          "column_type": "uuid"
-        },
-        {
-          "source_id": "orders",
           "field_name": "amount",
           "column_name": "order_amount",
           "column_type": "string"
@@ -154,6 +148,12 @@
           "source_id": "orders",
           "field_name": "created_at",
           "column_name": "order_created_at",
+          "column_type": "datetime"
+        },
+        {
+          "source_id": "user_events",
+          "field_name": "created_at",
+          "column_name": "user_event_created_at",
           "column_type": "datetime"
         }
       ]

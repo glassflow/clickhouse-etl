@@ -1,6 +1,6 @@
 {
     "order_id": "$uuid4",
     "user_id": "$uuid4",
-    "amount": "$float",
+    "amount": "$price(1,250)",
     "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
 }
