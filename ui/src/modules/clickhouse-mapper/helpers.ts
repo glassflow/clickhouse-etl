@@ -66,7 +66,7 @@ export const extractEventFields = (data: any, prefix = ''): string[] => {
   let fields: string[] = []
   Object.keys(data).forEach((key) => {
     // Skip _metadata and key fields
-    if (key.startsWith('_metadata') || key === 'key') {
+    if (key.startsWith('_metadata')) {
       return
     }
 

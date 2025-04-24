@@ -97,6 +97,8 @@ export async function POST(request: Request) {
         // If we requested the latest event, indicate that there are no more events
         const hasMoreEvents = position === 'latest' ? false : true
 
+        console.log('Raw kafka event data - route: ', event)
+
         return NextResponse.json({
           success: true,
           event,

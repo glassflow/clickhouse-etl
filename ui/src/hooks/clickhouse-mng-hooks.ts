@@ -57,6 +57,7 @@ export function useClickhouseConnection() {
         setConnectionStatus('success')
         setConnectionError(null)
         if (data.databases && data.databases.length > 0) {
+          console.log('data.databases', data.databases)
           setAvailableDatabases(data.databases)
         }
         return { success: true, databases: data.databases || [] }
