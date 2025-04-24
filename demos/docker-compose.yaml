@@ -14,7 +14,7 @@ services:
       ZOOKEEPER_AUTH_PROVIDER_1: org.apache.zookeeper.server.auth.SASLAuthenticationProvider
       ZOOKEEPER_REQUIRECLIENTAUTHSCHEME: sasl
     volumes:
-      - ${PWD}/config/kafka/zookeeper/jaas.conf:/etc/zookeeper/jaas/zookeeper_jaas.conf
+      - ./config/kafka/zookeeper/jaas.conf:/etc/zookeeper/jaas/zookeeper_jaas.conf
 
   kafka:
     image: confluentinc/cp-kafka:7.9.0
@@ -36,8 +36,8 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server.conf"
     volumes:
-      - ${PWD}/config/kafka/broker/kafka_server_jaas.conf:/etc/kafka/jaas/kafka_server.conf
-      - ${PWD}/config/kafka/client/client.properties:/etc/kafka/client.properties
+      - ./config/kafka/broker/kafka_server_jaas.conf:/etc/kafka/jaas/kafka_server.conf
+      - ./config/kafka/client/client.properties:/etc/kafka/client.properties
     depends_on:
       - zookeeper
 
@@ -50,5 +50,5 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
-      - ${PWD}/config/clickhouse/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
-      - ${PWD}/config/clickhouse/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
+      - ./config/clickhouse/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./config/clickhouse/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
