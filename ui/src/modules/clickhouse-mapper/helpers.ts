@@ -195,8 +195,8 @@ export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
  * @returns boolean indicating if the types are compatible
  */
 export function isTypeCompatible(sourceType: string | undefined, clickhouseType: string): boolean {
-  // If no source type provided, we can't validate
-  if (!sourceType) return true
+  // If no source type provided, we consider it incompatible
+  if (!sourceType) return false
 
   // Handle Nullable types in ClickHouse
   if (clickhouseType.startsWith('Nullable(')) {
@@ -226,10 +226,20 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
 export function validateColumnMappings(mappings: any[]) {
   const validMappings: any[] = []
   const invalidMappings: any[] = []
+  const missingTypeMappings: any[] = []
 
   mappings.forEach((mapping) => {
     // Skip columns that aren't mapped
     if (!mapping.eventField) return
+
+    // Check for missing jsonType
+    if (!mapping.jsonType) {
+      missingTypeMappings.push({
+        ...mapping,
+        reason: `Missing type: Field ${mapping.eventField} is mapped to column ${mapping.name} but has no inferred type`,
+      })
+      return
+    }
 
     const isValid = isTypeCompatible(mapping.jsonType, mapping.type)
     if (isValid) {
@@ -245,5 +255,6 @@ export function validateColumnMappings(mappings: any[]) {
   return {
     validMappings,
     invalidMappings,
+    missingTypeMappings,
   }
 }

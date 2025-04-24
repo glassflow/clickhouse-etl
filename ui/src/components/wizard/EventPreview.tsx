@@ -132,7 +132,9 @@ export const EventPreview = ({
   const [emptyEvent, setEmptyEvent] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [manualEvent, setManualEvent] = useState(event)
-  const [editorTheme, setEditorTheme] = useState('tomorrow_night')
+  const [editorTheme, setEditorTheme] = useState('merbivore')
+
+  const showThemeSelector = false
 
   const handleEmptyEvent = () => {
     setEmptyEvent(!emptyEvent)
@@ -227,25 +229,27 @@ export const EventPreview = ({
 
           {showInternalNavigationButtons && <NavigationButtons />}
 
-          <div className="flex items-center justify-end mb-2">
-            <div className="flex items-center">
-              <Label htmlFor="theme-select" className="mr-2 text-sm">
-                Editor Theme:
-              </Label>
-              <Select value={editorTheme} onValueChange={setEditorTheme}>
-                <SelectTrigger className="w-[180px]" id="theme-select">
-                  <SelectValue placeholder="Select theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  {EDITOR_THEMES.map((theme) => (
-                    <SelectItem key={theme.value} value={theme.value}>
-                      {theme.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {showThemeSelector && (
+            <div className="flex items-center justify-end mb-2">
+              <div className="flex items-center">
+                <Label htmlFor="theme-select" className="mr-2 text-sm">
+                  Editor Theme:
+                </Label>
+                <Select value={editorTheme} onValueChange={setEditorTheme}>
+                  <SelectTrigger className="w-[180px]" id="theme-select">
+                    <SelectValue placeholder="Select theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EDITOR_THEMES.map((theme) => (
+                      <SelectItem key={theme.value} value={theme.value}>
+                        {theme.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex-grow relative w-full h-full code-editor-container">
             {isLoadingEvent ? (
