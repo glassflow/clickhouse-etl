@@ -47,7 +47,7 @@ def create_table_if_not_exists(sink_config: models.SinkConfig, client, join_key:
         return
     order_by_column = sink_config.table_mapping[0].column_name if not join_key else join_key
     columns_def = [
-        f"{m.column_name} {m.column_type} {'NULL' if m.column_name != order_by_column else 'NOT NULL'}" for m in sink_config.table_mapping
+        f"{m.column_name} {m.column_type}" for m in sink_config.table_mapping
     ]
     client.command(
         f"""

@@ -61,6 +61,10 @@
               },
               {
                 "name": "amount",
+                "type": "int32"
+              },
+              {
+                "name": "price",
                 "type": "string"
               },
               {
@@ -115,7 +119,7 @@
           "column_type": "uuid"
         },
         {
-          "source_id": "user_events",
+          "source_id": "orders",
           "field_name": "user_id",
           "column_name": "user_id",
           "column_type": "uuid"
@@ -135,13 +139,19 @@
         {
           "source_id": "orders",
           "field_name": "amount",
-          "column_name": "order_amount",
+          "column_name": "amount",
+          "column_type": "int32"
+        },
+        {
+          "source_id": "orders",
+          "field_name": "price",
+          "column_name": "price",
           "column_type": "string"
         },
         {
           "source_id": "orders",
           "field_name": "created_at",
-          "column_name": "order_created_at",
+          "column_name": "created_at",
           "column_type": "datetime"
         }
       ]
