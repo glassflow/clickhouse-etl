@@ -229,7 +229,10 @@ def main(
     row = utils.get_clickhouse_table_row(pipeline_config.sink, clickhouse_client)
 
     if row:
-        utils.print_clickhouse_record(row)
+        utils.print_clickhouse_record(
+            row,
+            title=f"Record from table [italic u]{pipeline_config.sink.table}[/italic u]",
+        )
 
     clickhouse_client.close()
 

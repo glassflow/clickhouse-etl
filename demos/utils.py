@@ -402,7 +402,7 @@ def print_gen_stats(stats: list[dict], topics: list[str]):
         show_edge=True,
         expand=False,
         padding=(0, 1),
-        title="Generation Stats",
+        title="Events Generation Stats",
     )
 
     for idx, (topic, stat) in enumerate(zip(topics, stats)):
@@ -433,7 +433,7 @@ def print_clickhouse_record(record: dict, title: str = "ClickHouse Record"):
     """Print a ClickHouse record in a table format"""
     table = Table(
         show_header=True,
-        style="sky_blue3",
+        style="yellow",
         show_edge=True,
         expand=False,
         padding=(0, 1),
