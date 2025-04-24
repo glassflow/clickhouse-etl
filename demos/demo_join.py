@@ -13,9 +13,9 @@ import utils
 console = Console()
 
 
-class JoinEventSchema(glassgen.ConfigSchema):    
-    def __init__(self, schema_dict: dict, join_key: str, list_of_keys: list, **kwargs):                
-        fields = self._schema_dict_to_fields(schema_dict)        
+class JoinEventSchema(glassgen.ConfigSchema):
+    def __init__(self, schema_dict: dict, join_key: str, list_of_keys: list, **kwargs):
+        fields = self._schema_dict_to_fields(schema_dict)
         super().__init__(fields=fields, **kwargs)
         self.validate()
         self._join_key = join_key
@@ -24,17 +24,17 @@ class JoinEventSchema(glassgen.ConfigSchema):
     @property
     def join_key_select(self) -> itertools.cycle:
         return self._join_key_select
-    
+
     @property
     def join_key(self) -> str:
         return self._join_key
 
     def _generate_record(self) -> Dict[str, Any]:
         """Generate a single record based on the schema"""
-        record = super()._generate_record()             
-        record[self._join_key] = next(self.join_key_select)        
+        record = super()._generate_record()
+        record[self._join_key] = next(self.join_key_select)
         return record
-        
+
 
 def generate_events(
     source_connection_params: KafkaConnectionParams,
@@ -108,6 +108,7 @@ def generate_events(
     glassgen_resp = glassgen.generate(config=glassgen_config, schema=schema)
     return glassgen_resp
 
+
 def main(
     config_path: str,
     left_num_records: int,
@@ -158,9 +159,7 @@ def main(
     )
 
     # Generate list of join keys
-    join_keys = [
-        str(uuid.uuid4()) for _ in range(right_num_records)
-    ]
+    join_keys = [str(uuid.uuid4()) for _ in range(right_num_records)]
 
     with console.status(
         "[bold green]Generating and publishing "
@@ -180,7 +179,7 @@ def main(
             rps=rps,
             provider=pipeline_config.source.provider,
         )
-           
+
         left_stats = generate_events(
             source_connection_params=pipeline_config.source.connection_params,
             topic_config=join_sources["left"]["source_topic"],
@@ -230,15 +229,15 @@ def main(
     n_records_after = utils.read_clickhouse_table_size(
         pipeline_config.sink, clickhouse_client
     )
-    
+
     row = utils.get_clickhouse_table_row(pipeline_config.sink, clickhouse_client)
 
     if row:
         utils.print_clickhouse_record(row)
-    
+
     clickhouse_client.close()
 
-    added_records = n_records_after - n_records_before  
+    added_records = n_records_after - n_records_before
     expected_records = left_num_records
     if added_records != expected_records:
         utils.log(
@@ -254,6 +253,7 @@ def main(
             is_success=True,
             component="Clickhouse",
         )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

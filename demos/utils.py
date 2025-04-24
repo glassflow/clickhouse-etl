@@ -35,7 +35,9 @@ def create_clickhouse_client(sink_config: models.SinkConfig):
     )
 
 
-def create_table_if_not_exists(sink_config: models.SinkConfig, client, join_key: str = None):
+def create_table_if_not_exists(
+    sink_config: models.SinkConfig, client, join_key: str = None
+):
     """Create a table in ClickHouse if it doesn't exist"""
     if client.command(f"EXISTS TABLE {sink_config.table}"):
         log(
@@ -45,7 +47,9 @@ def create_table_if_not_exists(sink_config: models.SinkConfig, client, join_key:
             component="Clickhouse",
         )
         return
-    order_by_column = sink_config.table_mapping[0].column_name if not join_key else join_key
+    order_by_column = (
+        sink_config.table_mapping[0].column_name if not join_key else join_key
+    )
     columns_def = [
         f"{m.column_name} {m.column_type}" for m in sink_config.table_mapping
     ]
