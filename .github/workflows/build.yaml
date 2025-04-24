@@ -107,6 +107,18 @@ jobs:
     if: ${{ inputs.push }}
     needs: build-docker-image
     steps:
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          tags: |
+            type=sha,prefix=,format=long
+            type=semver,pattern={{raw}}
+            type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+      - name: Print tags
+        run: printf '%s\n' "$TAGS"
+        env:
+          TAG: ${{ steps.meta.outputs.tags }}
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -114,8 +126,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
       - name: Push multiarch manifest
         run: |
-          for TAG in "$GITHUB_REF_NAME" stable
-          do
+          echo "$TAGS" | while IFS= read -r TAG; do
             docker manifest create "$GITHUB_REPOSITORY-be:$TAG" \
               --amend "$GITHUB_REPOSITORY-be@$AMD64_DIGEST" \
               --amend "$GITHUB_REPOSITORY-be@$ARM64_DIGEST"
@@ -124,6 +135,7 @@ jobs:
         env:
           AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
           ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
 
   build-and-push-frontend:
     name: Build And Push UI Image
@@ -134,40 +146,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
           version: 10
           run_install: false
-
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
           cache-dependency-path: ui/pnpm-lock.yaml
-
       - name: Install dependencies
         working-directory: ui
         run: pnpm install --frozen-lockfile
-
       - name: Build
         working-directory: ui
         run: pnpm build
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            glassflow/clickhouse-etl-fe
+          tags: |
+            type=sha,prefix=,format=long
+            type=semver,pattern={{raw}}
+            type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/') }}
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: glassflow
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
       - name: Build & push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -176,6 +190,4 @@ jobs:
           push: ${{ inputs.push }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          tags: |
-            ${{ github.repository }}-fe:${{ github.ref_name }}
-            ${{ github.repository }}-fe:stable
+          tags: ${{ steps.meta.outputs.tags }}
