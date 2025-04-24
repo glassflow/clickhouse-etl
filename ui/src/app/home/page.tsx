@@ -8,11 +8,12 @@ import DeduplicateJoin from '../../images/deduplicate-join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
 // import { ThemeDebug } from '../../components/ThemeDebug'
 import { useStore } from '@/src/store'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { OperationKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
 import { Button } from '@/src/components/ui/button'
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ function HomePageClient() {
     joinStore,
     clickhouseStore,
   } = useStore()
+  const { trackFunnelStep, trackFeatureUsage, trackPageView } = useAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams.get('showWarning') === 'true'
   const fromPath = searchParams.get('from')
@@ -55,7 +57,25 @@ function HomePageClient() {
   const { getIsJoinDirty } = joinStore
   const { getIsClickhouseConnectionDirty, getClickhouseMappingDirty } = clickhouseStore
 
+  // Track page view when component loads
+  useEffect(() => {
+    trackPageView('home', {
+      referrer: fromPath || document.referrer,
+      timestamp: new Date().toISOString(),
+    })
+  }, [trackPageView, fromPath])
+
   const handleOperationClick = (operation: OperationKeys) => {
+    // Track the operation selection as a funnel step
+    trackFunnelStep('operationSelected', {
+      operationType: operation,
+    })
+
+    // Also track as feature usage
+    trackFeatureUsage(operation.toLowerCase().replace('_', '-'), {
+      source: 'home-page',
+    })
+
     completeOperationChange(operation)
     // const isDirty =
     //   getIsKafkaConnectionDirty() ||
