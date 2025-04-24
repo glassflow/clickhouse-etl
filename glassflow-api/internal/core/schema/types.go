@@ -27,6 +27,8 @@ const (
 	KafkaTypeFloat   KafkaDataType = "float"
 	KafkaTypeFloat32 KafkaDataType = "float32"
 	KafkaTypeFloat64 KafkaDataType = "float64"
+
+	KafkaTypeBytes KafkaDataType = "bytes"
 )
 
 const (
@@ -60,6 +62,8 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 	switch dataType {
 	case KafkaTypeString:
 		return ParseString(data)
+	case KafkaTypeBytes:
+		return ParseBytes(data)
 	case KafkaTypeBool:
 		return ParseBool(data)
 	case KafkaTypeInt:
@@ -150,11 +154,16 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 			return ExtractEventValue(KafkaTypeFloat64, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeFloat64, KafkaTypeFloat, fieldType)
-	case CHTypeEnum8, CHTypeEnum16, CHTypeUUID, CHTypeString, CHTypeFString:
+	case CHTypeEnum8, CHTypeEnum16, CHTypeUUID, CHTypeFString:
 		if fieldType != KafkaTypeString {
 			return zero, fmt.Errorf("mismatched types: expected %s, got %s", KafkaTypeString, fieldType)
 		}
 		return ExtractEventValue(KafkaTypeString, data)
+	case CHTypeString:
+		if fieldType == KafkaTypeString || fieldType == KafkaTypeBytes {
+			return ExtractEventValue(KafkaTypeString, data)
+		}
+		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeString, KafkaTypeBytes, fieldType)
 	case CHTypeDateTime, CHTypeDateTime64:
 		if fieldType == KafkaTypeInt64 {
 			return ParseDateTimeFromInt64(data)

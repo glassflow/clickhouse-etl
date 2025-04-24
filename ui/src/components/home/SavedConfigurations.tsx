@@ -5,6 +5,7 @@ import { Plus, Clock, Trash2 } from 'lucide-react'
 import { getConfigurations, deleteConfiguration, restoreConfiguration } from '@/src/utils/storage'
 import { SavedConfiguration } from '@/src/utils/storage'
 import { useStore } from '@/src/store'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { cn } from '@/src/utils'
 
 export function SavedConfigurations() {
@@ -12,6 +13,7 @@ export function SavedConfigurations() {
   const [configurations, setConfigurations] = useState<SavedConfiguration[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { setApiConfig } = useStore()
+  const { trackConfigAction } = useAnalytics()
 
   useEffect(() => {
     // Load configurations from local storage
@@ -38,6 +40,13 @@ export function SavedConfigurations() {
       // Restore the complete state
       restoreConfiguration(config.id)
 
+      // Track configuration load
+      trackConfigAction('load', {
+        configId: config.id,
+        configName: config.name,
+        timestamp: new Date().toISOString(),
+      })
+
       // Ensure we have a valid operation before navigating
       const { operationsSelected } = useStore.getState()
       if (!operationsSelected?.operation) {
@@ -49,16 +58,41 @@ export function SavedConfigurations() {
       router.push('/pipelines/create')
     } catch (error) {
       console.error('Error loading configuration:', error)
+      // Track error
+      trackConfigAction('load', {
+        configId: config.id,
+        configName: config.name,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      })
     }
   }
 
   const handleDeleteConfiguration = (id: string, event: React.MouseEvent) => {
     event.stopPropagation() // Prevent triggering the card click
     try {
+      const configToDelete = configurations.find((config) => config.id === id)
       deleteConfiguration(id)
       setConfigurations(configurations.filter((config) => config.id !== id))
+
+      // Track configuration deletion
+      if (configToDelete) {
+        trackConfigAction('delete', {
+          configId: id,
+          configName: configToDelete.name,
+          timestamp: new Date().toISOString(),
+        })
+      }
     } catch (error) {
       console.error('Error deleting configuration:', error)
+      // Track error
+      trackConfigAction('delete', {
+        configId: id,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      })
     }
   }
 

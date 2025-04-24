@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
@@ -25,6 +26,7 @@ export function ClickhouseJoinMapper({
   secondaryIndex: number
 }) {
   const { clickhouseStore, topicsStore } = useStore()
+  const { trackFunnelStep } = useAnalytics()
   const {
     clickhouseConnection,
     clickhouseDestination,
@@ -38,6 +40,10 @@ export function ClickhouseJoinMapper({
   // Get topics data
   const primaryTopic = topicsStore.getTopic(primaryIndex)
   const secondaryTopic = topicsStore.getTopic(secondaryIndex)
+
+  // Add tracking refs to avoid re-renders and prevent infinite loops
+  const viewTrackedRef = useRef(false)
+  const completionTrackedRef = useRef(false)
 
   // Initialize state
   const [selectedDatabase, setSelectedDatabase] = useState<string>(clickhouseDestination?.database || '')
@@ -84,6 +90,17 @@ export function ClickhouseJoinMapper({
   const [secondaryEventFields, setSecondaryEventFields] = useState<string[]>([])
 
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
+
+  // Basic page view tracking, only track once on component mount
+  useEffect(() => {
+    if (!viewTrackedRef.current) {
+      trackFunnelStep('clickhouseJoinMapperView', {
+        primaryTopicName: primaryTopic?.name,
+        secondaryTopicName: secondaryTopic?.name,
+      })
+      viewTrackedRef.current = true
+    }
+  }, [trackFunnelStep, primaryTopic?.name, secondaryTopic?.name])
 
   // Get connection config
   const getConnectionConfig = () => ({
@@ -443,6 +460,17 @@ export function ClickhouseJoinMapper({
   }
 
   const completeConfigSave = () => {
+    // Track completion once when the form is successfully saved
+    if (!completionTrackedRef.current) {
+      trackFunnelStep('clickhouseJoinMapperCompleted', {
+        primaryTopicName: primaryTopic?.name,
+        secondaryTopicName: secondaryTopic?.name,
+        database: selectedDatabase,
+        table: selectedTable,
+      })
+      completionTrackedRef.current = true
+    }
+
     // Save the configuration
     setClickhouseDestination({
       database: selectedDatabase,

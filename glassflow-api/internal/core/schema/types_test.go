@@ -428,7 +428,59 @@ func TestParsers(t *testing.T) {
 		}
 	})
 
-	// Add more parsing function tests as needed
+	t.Run("ParseFloat64", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			input   any
+			want    float64
+			wantErr bool
+		}{
+			{"float input", 3.14, 3.14, false},
+			{"int input", 42, 42.0, true},
+			{"string input", "3.14", 0, true},
+			{"invalid string", "invalid", 0, true},
+			{"nil input", nil, 0, true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := ParseFloat64(tt.input)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("ParseFloat64() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				if !tt.wantErr && got != tt.want {
+					t.Errorf("ParseFloat64() = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("ParseBytesType", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			input   any
+			want    any
+			wantErr bool
+		}{
+			{"string input", "test", "test", true},
+			{"[]byte input", []byte("test"), "test", false},
+			{"int input", 42, nil, true},
+			{"nil input", nil, nil, true},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := ParseBytes(tt.input)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("ParseBytesType() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("ParseBytesType() = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	})
 }
 
 func TestDateTimeParsing(t *testing.T) {
