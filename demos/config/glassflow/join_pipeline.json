@@ -65,7 +65,7 @@
               },
               {
                 "name": "price",
-                "type": "string"
+                "type": "float32"
               },
               {
                 "name": "created_at",
@@ -146,7 +146,7 @@
           "source_id": "orders",
           "field_name": "price",
           "column_name": "price",
-          "column_type": "string"
+          "column_type": "float32"
         },
         {
           "source_id": "orders",
