@@ -389,12 +389,12 @@ def log(
     print(table)
 
 
-def print_gen_stats(stats: dict, title: str = "Generation Stats"):
+def print_gen_stats(stats: list[dict], topics: list[str]):
     """Print generation statistics in a table format
 
     Args:
-        stats (dict): Generation statistics dictionary
-        title (str, optional): Title for the table. Defaults to "Generation Stats".
+        stats (list[dict]): List of generation statistics dictionaries
+        topics (list[str]): List of topics the generation stats are from
     """
     table = Table(
         show_header=True,
@@ -402,26 +402,28 @@ def print_gen_stats(stats: dict, title: str = "Generation Stats"):
         show_edge=True,
         expand=False,
         padding=(0, 1),
-        title=title,
+        title="Generation Stats",
     )
-    row = []
-    if "num_records" in stats:
-        table.add_column("Total Events", justify="right")
-        row.append(str(stats["num_records"]))
-    if "total_duplicates" in stats:
-        table.add_column("Total Duplicates", justify="right")
-        row.append(str(stats["total_duplicates"]))
-    if "total_generated" in stats:
-        table.add_column("Total Unique Events", justify="right")
-        row.append(str(stats["total_generated"]))
-    if "duplication_ratio" in stats:
-        table.add_column("Duplication Rate", justify="right")
-        row.append(f"{stats['duplication_ratio']:.1%}")
-    if "time_taken_ms" in stats:
-        table.add_column("Time taken", justify="right")
-        row.append(f"{stats['time_taken_ms']} ms")
 
-    table.add_row(*row)
+    for idx, (topic, stat) in enumerate(zip(topics, stats)):
+        if idx == 0:
+            table.add_column("topic", justify="right")
+
+        row = []
+        row.append(topic)
+        for key, value in stat.items():
+            if idx == 0:
+                table.add_column(key, justify="right")
+
+            if key == "duplication_ratio":
+                value_str = f"{value:.1%}"
+            elif key == "time_taken_ms":
+                value_str = f"{value} ms"
+            else:
+                value_str = str(value)
+            row.append(value_str)
+        table.add_row(*row)
+
     print("")
     print(table)
     print("")

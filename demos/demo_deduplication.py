@@ -111,8 +111,8 @@ def main(
         component="Kafka",
     )
     utils.print_gen_stats(
-        gen_stats,
-        title=f"Generation stats for topic [bold]{pipeline_config.source.topics[0].name}[/bold]",
+        stats=[gen_stats],
+        topics=[pipeline_config.source.topics[0].name],
     )
 
     time_window_seconds = utils.time_window_to_seconds(

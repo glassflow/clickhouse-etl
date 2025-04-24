@@ -207,12 +207,8 @@ def main(
     )
 
     utils.print_gen_stats(
-        left_stats,
-        title=f"Generation stats for left topic [bold]{join_sources['left']['name']}[/bold]",
-    )
-    utils.print_gen_stats(
-        right_stats,
-        title=f"Generation stats for right topic [bold]{join_sources['right']['name']}[/bold]",
+        [left_stats, right_stats],
+        [join_sources["left"]["name"], join_sources["right"]["name"]],
     )
 
     time_window_seconds = utils.time_window_to_seconds(
