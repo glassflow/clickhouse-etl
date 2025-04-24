@@ -89,9 +89,24 @@ Feature: Clickhouse ETL sink
             }
             """
         When I publish 2 events to the stream with data
-            | event_id                               | name            | email                | timestamp                  | action   |
-            | "0a21ad20-8a70-4be2-8d29-533eb963d554" | "Jessica Jones" | "msmith@example.com" | 2025-02-21T07:45:48.823069 | "login"  |
-            | "72dea57a-ee36-4909-8b36-5be24b19804c" | "Jessica Jones" | "msmith@example.com" | 2025-02-28T02:39:51.886367 | "logout" |
+            """json
+            [
+                {
+                    "event_id": "0a21ad20-8a70-4be2-8d29-533eb963d554",
+                    "name": "Jessica Jones",
+                    "email": "msmith@example.com",
+                    "timestamp": "2025-02-21T07:45:48.823069",
+                    "action": "login"
+                },
+                {
+                    "event_id": "72dea57a-ee36-4909-8b36-5be24b19804c",
+                    "name": "Jessica Jones",
+                    "email": "msmith@example.com",
+                    "timestamp": "2025-02-28T02:39:51.886367",
+                    "action": "logout"
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
@@ -178,15 +193,33 @@ Feature: Clickhouse ETL sink
             }
             """
         When I publish 1 events to the stream with data
-            | event_id                               | name            | email                | timestamp                  | action  |
-            | "0a21ad20-8a70-4be2-8d29-533eb963d554" | "Jessica Jones" | "msmith@example.com" | 2025-02-21T07:45:48.823069 | "login" |
+            """json
+            [
+                {
+                    "event_id": "0a21ad20-8a70-4be2-8d29-533eb963d554",
+                    "name": "Jessica Jones",
+                    "email": "msmith@example.com",
+                    "timestamp": "2025-02-21T07:45:48.823069",
+                    "action": "login"
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I stop ClickHouse sink after 1 seconds
         Then the ClickHouse table "default.events_test" should contain 1 rows
         And I run ClickHouse sink
         When I publish 1 events to the stream with data
-            | event_id                               | name            | email                | timestamp                  | action   |
-            | "72dea57a-ee36-4909-8b36-5be24b19804c" | "Jessica Jones" | "msmith@example.com" | 2025-02-28T02:39:51.886367 | "logout" |
+            """json
+            [
+                {
+                    "event_id": "72dea57a-ee36-4909-8b36-5be24b19804c",
+                    "name": "Jessica Jones",
+                    "email": "msmith@example.com",
+                    "timestamp": "2025-02-28T02:39:51.886367",
+                    "action": "logout"
+                }
+            ]
+            """
         And I stop ClickHouse sink after 1 seconds
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
@@ -261,9 +294,20 @@ Feature: Clickhouse ETL sink
             """
         And I run ClickHouse sink
         When I publish 2 events to the stream with data
-            | left_stream.id | left_stream.name | right_stream.email |
-            | 1              | Alice            | alice@mailbox.com  |
-            | 2              | Bob              | bob@gmail.com      |
+            """json
+            [
+                {
+                    "left_stream.id": "1",
+                    "left_stream.name": "Alice",
+                    "right_stream.email": "alice@mailbox.com"
+                },
+                {
+                    "left_stream.id": "2",
+                    "left_stream.name": "Bob",
+                    "right_stream.email": "bob@gmail.com"
+                }
+            ]
+            """
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
@@ -316,11 +360,26 @@ Feature: Clickhouse ETL sink
             }
             """
         When I publish 4 events to the stream with data
-            | id | name    |
-            | 1  | Alice   |
-            | 2  | Bob     |
-            | 3  | Charlie |
-            | 4  | David   |
+            """json
+            [
+                {
+                    "id": "1",
+                    "name": "Alice"
+                },
+                {
+                    "id": "2",
+                    "name": "Bob"
+                },
+                {
+                    "id": "3",
+                    "name": "Charlie"
+                },
+                {
+                    "id": "4",
+                    "name": "David"
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I stop ClickHouse sink after 5 seconds
         Then the ClickHouse table "default.events_test" should contain 4 rows
@@ -365,14 +424,38 @@ Feature: Clickhouse ETL sink
             }
             """
         When I publish 7 events to the stream with data
-            | id | name    |
-            | 1  | Alice   |
-            | 2  | Bob     |
-            | 3  | Charlie |
-            | 4  | David   |
-            | 5  | Eve     |
-            | 6  | Frank   |
-            | 7  | Grace   |
+            """json
+            [
+                {
+                    "id": "1",
+                    "name": "Alice"
+                },
+                {
+                    "id": "2",
+                    "name": "Bob"
+                },
+                {
+                    "id": "3",
+                    "name": "Charlie"
+                },
+                {
+                    "id": "4",
+                    "name": "David"
+                },
+                {
+                    "id": "5",
+                    "name": "Eve"
+                },
+                {
+                    "id": "6",
+                    "name": "Frank"
+                },
+                {
+                    "id": "7",
+                    "name": "Grace"
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 7 rows
@@ -426,16 +509,46 @@ Feature: Clickhouse ETL sink
             }
             """
         When I publish 9 events to the stream with data
-            | id | name    |
-            | 1  | Alice   |
-            | 2  | Bob     |
-            | 3  | Charlie |
-            | 4  | David   |
-            | 5  | Eve     |
-            | 6  | Frank   |
-            | 7  | Grace   |
-            | 8  | Heidi   |
-            | 9  | Ivan    |
+            """json
+            [
+                {
+                    "id": "1",
+                    "name": "Alice"
+                },
+                {
+                    "id": "2",
+                    "name": "Bob"
+                },
+                {
+                    "id": "3",
+                    "name": "Charlie"
+                },
+                {
+                    "id": "4",
+                    "name": "David"
+                },
+                {
+                    "id": "5",
+                    "name": "Eve"
+                },
+                {
+                    "id": "6",
+                    "name": "Frank"
+                },
+                {
+                    "id": "7",
+                    "name": "Grace"
+                },
+                {
+                    "id": "8",
+                    "name": "Heidi"
+                },
+                {
+                    "id": "9",
+                    "name": "Ivan"
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I stop ClickHouse sink after 10 seconds
         Then the ClickHouse table "default.events_test" should contain 9 rows
@@ -489,11 +602,26 @@ Feature: Clickhouse ETL sink
             }
             """
         When I publish 4 events to the stream with data
-            | id | name    |
-            | 1  | Alice   |
-            | 2  | Bob     |
-            | 3  | Charlie |
-            | 4  | David   |
+            """json
+            [
+                {
+                    "id": "1",
+                    "name": "Alice"
+                },
+                {
+                    "id": "2",
+                    "name": "Bob"
+                },
+                {
+                    "id": "3",
+                    "name": "Charlie"
+                },
+                {
+                    "id": "4",
+                    "name": "David"
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I stop ClickHouse sink after 6 seconds
         Then the ClickHouse table "default.events_test" should contain 4 rows
@@ -547,18 +675,27 @@ Feature: Clickhouse ETL sink
             }
             """
         When I publish 2 events to the stream with data
-            | id                                   | name  |
-            | 0a21ad20-8a70-4be2-8d29-533eb963d554 | Alice |
-            | 72dea57a-ee36-4909-8b36-5be24b19804c | Bob   |
+            """json
+            [
+                {
+                    "id": "0a21ad20-8a70-4be2-8d29-533eb963d554",
+                    "name": "Alice"
+                },
+                {
+                    "id": "72dea57a-ee36-4909-8b36-5be24b19804c",
+                    "name": "Bob"
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I stop ClickHouse sink after 1 seconds
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
-    Scenario: Import events with int
+    Scenario: Import events with float32
         Given the ClickHouse table "default.events_test" already exists with schema
             | column_name | data_type |
             | id          | Int32     |
-            | name        | String    |
+            | amount      | Float32   |
         And a stream consumer with config
             """json
             {
@@ -577,11 +714,11 @@ Feature: Clickhouse ETL sink
                         "fields": [
                             {
                                 "field_name": "id",
-                                "field_type": "int"
+                                "field_type": "int32"
                             },
                             {
-                                "field_name": "name",
-                                "field_type": "string"
+                                "field_name": "amount",
+                                "field_type": "float32"
                             }
                         ]
                     }
@@ -594,20 +731,27 @@ Feature: Clickhouse ETL sink
                         "column_type": "Int32"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
+                        "column_name": "amount",
+                        "field_name": "amount",
                         "stream_name": "default",
-                        "column_type": "String"
+                        "column_type": "Float32"
                     }
                 ]
             }
             """
         When I publish 2 events to the stream with data
-            | id         | name    |
-            | 150        | Alice   |
-            | 2067868    | Bob     |
-            | 2147483648 | Charlie |
-            | 2147483647 | David   |
+            """json
+            [
+                {
+                    "id": 150,
+                    "amount": 3284.85
+                },
+                {
+                    "id": 2067868,
+                    "amount": 2.5
+                }
+            ]
+            """
         And I run ClickHouse sink
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows

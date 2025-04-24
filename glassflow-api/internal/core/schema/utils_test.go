@@ -115,7 +115,8 @@ func TestParseFloat32(t *testing.T) {
 		{
 			name:        "Float64 value",
 			input:       float64(3.14),
-			expectError: true,
+			expected:    3.14,
+			expectError: false,
 		},
 		{
 			name:        "Integer value",
@@ -459,6 +460,170 @@ func TestParseInt8(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ParseInt8(tt.input)
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got none for input %v", tt.input)
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError && result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestParseInt16(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       any
+		expected    int16
+		expectError bool
+	}{
+		{
+			name:        "Valid int16",
+			input:       42,
+			expected:    42,
+			expectError: false,
+		},
+		{
+			name:        "Zero value",
+			input:       0,
+			expected:    0,
+			expectError: false,
+		},
+		{
+			name:        "Min int16",
+			input:       int16(math.MinInt16),
+			expected:    math.MinInt16,
+			expectError: false,
+		},
+		{
+			name:        "Max int16",
+			input:       math.MaxInt16,
+			expected:    math.MaxInt16,
+			expectError: false,
+		},
+		{
+			name:        "Valid int within range",
+			input:       42,
+			expected:    42,
+			expectError: false,
+		},
+		{
+			name:        "Negative int within range",
+			input:       -42,
+			expected:    -42,
+			expectError: false,
+		},
+		{
+			name:        "Int too large",
+			input:       math.MaxInt16 + 1,
+			expectError: true,
+		},
+		{
+			name:        "Int too small",
+			input:       math.MinInt16 - 1,
+			expectError: true,
+		},
+		{
+			name:        "String value",
+			input:       "42",
+			expectError: true,
+		},
+		{
+			name:        "Float value",
+			input:       3.14,
+			expected:    3,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseInt16(tt.input)
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got none for input %v", tt.input)
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError && result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestParseInt32(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       any
+		expected    int32
+		expectError bool
+	}{
+		{
+			name:        "Valid int32",
+			input:       42,
+			expected:    42,
+			expectError: false,
+		},
+		{
+			name:        "Real case int32",
+			input:       2067868,
+			expected:    2067868,
+			expectError: false,
+		},
+		{
+			name:        "Zero value",
+			input:       0,
+			expected:    0,
+			expectError: false,
+		},
+		{
+			name:        "Min int32",
+			input:       math.MinInt32,
+			expected:    math.MinInt32,
+			expectError: false,
+		},
+		{
+			name:        "Max int32",
+			input:       math.MaxInt32,
+			expected:    math.MaxInt32,
+			expectError: false,
+		},
+		{
+			name:        "Valid int within range",
+			input:       42,
+			expected:    42,
+			expectError: false,
+		},
+		{
+			name:        "Negative int within range",
+			input:       -42,
+			expected:    -42,
+			expectError: false,
+		},
+		{
+			name:        "Int too large",
+			input:       2147483648,
+			expectError: true,
+		},
+		{
+			name:        "Int too small",
+			input:       math.MinInt32 - 1,
+			expectError: true,
+		},
+		{
+			name:        "Float too large",
+			input:       float64(2147483648),
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseInt32(tt.input)
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none for input %v", tt.input)
 			}
