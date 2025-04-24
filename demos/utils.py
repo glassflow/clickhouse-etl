@@ -35,7 +35,7 @@ def create_clickhouse_client(sink_config: models.SinkConfig):
     )
 
 
-def create_table_if_not_exists(sink_config: models.SinkConfig, client):
+def create_table_if_not_exists(sink_config: models.SinkConfig, client, join_key: str = None):
     """Create a table in ClickHouse if it doesn't exist"""
     if client.command(f"EXISTS TABLE {sink_config.table}"):
         log(
@@ -45,15 +45,15 @@ def create_table_if_not_exists(sink_config: models.SinkConfig, client):
             component="Clickhouse",
         )
         return
-
+    order_by_column = sink_config.table_mapping[0].column_name if not join_key else join_key
     columns_def = [
-        f"{m.column_name} {m.column_type}" for m in sink_config.table_mapping
+        f"{m.column_name} {m.column_type} {'NULL' if m.column_name != order_by_column else 'NOT NULL'}" for m in sink_config.table_mapping
     ]
     client.command(
         f"""
         CREATE TABLE IF NOT EXISTS {sink_config.table} ({",".join(columns_def)})
         ENGINE = MergeTree
-        ORDER BY event_id;
+        ORDER BY {order_by_column};
         """
     )
     log(
@@ -242,7 +242,11 @@ def create_pipeline_if_not_exists(
                 )
                 exit(0)
 
-        create_table_if_not_exists(config.sink, clickhouse_client)
+        if config.join.enabled:
+            join_key = config.join.sources[0].join_key
+        else:
+            join_key = None
+        create_table_if_not_exists(config.sink, clickhouse_client, join_key)
         create_topics_if_not_exists(config.source)
 
         try:
