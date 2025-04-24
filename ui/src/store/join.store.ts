@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand'
 
 interface JoinStream {
   streamId: string
+  topicName: string
   joinKey: string
   dataType: string
   joinTimeWindowValue: number
@@ -36,6 +37,7 @@ export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
         joinStore: {
           ...state.joinStore,
           streams: streams.map((stream) => ({
+            topicName: stream.topicName,
             streamId: stream.streamId,
             joinKey: stream.joinKey,
             dataType: stream.dataType,

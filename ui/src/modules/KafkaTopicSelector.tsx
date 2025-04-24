@@ -26,6 +26,15 @@ import { TopicSelectorForm } from '@/src/components/TopicSelectorForm'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 
+// Add a utility function for debouncing
+const debounce = (fn: (...args: any[]) => void, ms = 300) => {
+  let timeoutId: ReturnType<typeof setTimeout>
+  return function (...args: any[]) {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), ms)
+  }
+}
+
 export type TopicSelectorProps = {
   steps: any
   onNext: (stepName: string) => void
@@ -57,6 +66,16 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
   const [manualEvent, setManualEvent] = useState('')
   const [hasTrackedTopicSelection, setHasTrackedTopicSelection] = useState(false)
+
+  // Track last tracked topic to prevent duplicate tracking
+  const lastTrackedTopic = useRef<string | null>(null)
+  // Create debounced versions of tracking functions to prevent excessive calls
+  const debouncedTrackFunnelStep = useCallback(
+    debounce((step: string, props?: Record<string, unknown>) => {
+      trackFunnelStep(step, props)
+    }, 500),
+    [trackFunnelStep],
+  )
 
   // Get existing topic data if available
   const topicFromStore = getTopic(index)
@@ -90,7 +109,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
   // Use stored event when returning to a completed step
   useEffect(() => {
-    if (isReturningToForm && storedEvent) {
+    if (isReturningToForm && storedEvent && !lastTrackedTopic.current) {
       setLocalState((prev) => ({
         ...prev,
         fetchedEvent: storedEvent,
@@ -101,14 +120,17 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       setShowOffsetField(true)
       setShowEventPreview(true)
 
-      // Track topic retrieval for returning users
-      trackFunnelStep('topicSelected', {
-        topicName: topicFromStore?.name,
-        topicIndex: index,
-        isReturningVisit: true,
-      })
+      // Track topic retrieval for returning users (only if analytics is enabled)
+      if (topicFromStore?.name && topicFromStore.name !== lastTrackedTopic.current) {
+        lastTrackedTopic.current = topicFromStore.name
+        debouncedTrackFunnelStep('topicSelected', {
+          topicName: topicFromStore?.name,
+          topicIndex: index,
+          isReturningVisit: true,
+        })
+      }
     }
-  }, [isReturningToForm, storedEvent, trackFunnelStep, index, topicFromStore?.name])
+  }, [isReturningToForm, storedEvent, debouncedTrackFunnelStep, index, topicFromStore?.name])
 
   // Fetch topics and events
   const {
@@ -147,13 +169,16 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       canContinue: false, // Reset canContinue until user provides manual schema
     }))
 
-    // Track empty topic event
-    trackFunnelStep('topicSelected', {
-      topicName: localState.topicName,
-      topicIndex: index,
-      isEmpty: true,
-    })
-  }, [localState.topicName, index, trackFunnelStep])
+    // Track empty topic event (only if it's not already tracked)
+    if (localState.topicName && localState.topicName !== lastTrackedTopic.current) {
+      lastTrackedTopic.current = localState.topicName
+      debouncedTrackFunnelStep('topicSelected', {
+        topicName: localState.topicName,
+        topicIndex: index,
+        isEmpty: true,
+      })
+    }
+  }, [localState.topicName, index, debouncedTrackFunnelStep])
 
   // Handle manual event input
   const handleManualEventChange = useCallback(
@@ -167,8 +192,8 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
           canContinue: true,
         }))
 
-        // Track manual event creation
-        trackFunnelStep('eventReceived', {
+        // Track manual event creation (debounced to prevent excessive calls)
+        debouncedTrackFunnelStep('eventReceived', {
           topicName: localState.topicName,
           topicIndex: index,
           eventSize: event.length,
@@ -180,15 +205,17 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
           canContinue: false,
         }))
 
-        // Track error in manual event
-        trackError('validation', {
-          component: 'ManualEventInput',
-          topicName: localState.topicName,
-          error: e instanceof Error ? e.message : 'Invalid JSON',
-        })
+        // Track error in manual event (using debounce)
+        setTimeout(() => {
+          trackError('validation', {
+            component: 'ManualEventInput',
+            topicName: localState.topicName,
+            error: e instanceof Error ? e.message : 'Invalid JSON',
+          })
+        }, 500)
       }
     },
-    [localState.topicName, index, trackFunnelStep, trackError],
+    [localState.topicName, index, debouncedTrackFunnelStep, trackError],
   )
 
   // ================================ EFFECTS ================================
@@ -210,7 +237,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     if (topicsFromKafka.length > 0) {
       setAvailableTopics(topicsFromKafka)
     }
-  }, [topicsFromKafka])
+  }, [topicsFromKafka, setAvailableTopics])
 
   // Update local state when topic name changes
   useEffect(() => {
@@ -225,9 +252,10 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       }))
       setShowEventPreview(true)
 
-      // Track topic selection if this is the first time
-      if (!hasTrackedTopicSelection && topicName !== topicFromStore?.name) {
-        trackFunnelStep('topicSelected', {
+      // Track topic selection if this is the first time (with proper guards)
+      if (!hasTrackedTopicSelection && topicName !== topicFromStore?.name && topicName !== lastTrackedTopic.current) {
+        lastTrackedTopic.current = topicName
+        debouncedTrackFunnelStep('topicSelected', {
           topicName: topicName,
           topicIndex: index,
           totalAvailableTopics: availableTopics.length,
@@ -238,7 +266,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   }, [
     topicName,
     hasTrackedTopicSelection,
-    trackFunnelStep,
+    debouncedTrackFunnelStep,
     index,
     availableTopics.length,
     topicFromStore?.name,
