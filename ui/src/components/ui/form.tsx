@@ -202,7 +202,7 @@ const FormControlInput = <T extends FieldValues>({
             'transition-all duration-200 ease-in-out',
             'text-content',
             error && 'input-border-error',
-            isFocused && 'card-gradient-active scale-[1.01]',
+            isFocused && 'input-active scale-[1.01]',
           )}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
@@ -257,7 +257,7 @@ function FormControlTextarea({
             'transition-all duration-200 ease-in-out',
             'text-content',
             error && 'input-border-error',
-            isFocused && 'card-gradient-active scale-[1.01]',
+            isFocused && 'input-active scale-[1.01]',
           )}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
@@ -338,7 +338,7 @@ function FormControlSelect({
                     'transition-all duration-200 ease-in-out',
                     'text-content',
                     error && 'input-border-error',
-                    isFocused && 'card-gradient-active scale-[1.01]',
+                    isFocused && 'input-active scale-[1.01]',
                   )}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => {

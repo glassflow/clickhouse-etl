@@ -41,10 +41,13 @@
   --color-foreground-info: #ffa24b;
   --color-foreground-info-faded: #ffa24b;
 
+  --color-border-regular: #373737;
+  --color-background-regular: #161616;
+
   --color-background-elevation-base: #161617;
   --color-background-elevation-raised: #18191a;
   --color-background-elevation-overlay: #1d1d1f;
-  --color-background-page: #0e0e0f;
+  --color-background-page: #0e0e10;
   --color-background-page-faded: #131414;
 
   /* RGB color values for opacity adjustments */
