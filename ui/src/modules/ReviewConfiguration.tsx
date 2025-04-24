@@ -188,7 +188,7 @@ const encodeBase64 = (password: string) => {
 }
 
 export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigurationProps) {
-  const { kafkaStore, clickhouseStore, topicsStore, setApiConfig, pipelineId, setPipelineId } = useStore()
+  const { kafkaStore, clickhouseStore, topicsStore, joinStore, setApiConfig, pipelineId, setPipelineId } = useStore()
   const { clickhouseConnection, clickhouseDestination } = clickhouseStore
   const { bootstrapServers, securityProtocol } = kafkaStore
   const router = useRouter()
@@ -225,25 +225,32 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
 
       // Map topics to the expected format
       const topicsConfig = selectedTopics.map((topic: any) => {
+        // Extract event data, ensuring _metadata is removed
+        let eventData = {}
+        if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
+          // Get the actual event data (either directly or from .event property)
+          const rawEvent = topic.selectedEvent.event.event || topic.selectedEvent.event
+
+          // Clone the event and remove _metadata
+          eventData = { ...rawEvent }
+          if (typeof eventData === 'object' && eventData !== null && '_metadata' in eventData) {
+            delete (eventData as any)._metadata
+          }
+        }
+
         return {
           consumer_group_initial_offset: topic.initialOffset,
           name: topic.name,
           id: topic.name, // Using topic name as id for now
           schema: {
             type: 'json',
-            fields:
-              topic.events &&
-              topic.selectedEvent &&
-              topic.selectedEvent.event &&
-              typeof topic.selectedEvent.event === 'object'
-                ? Object.keys(topic.selectedEvent.event.event || topic.selectedEvent.event).map((key) => {
-                    const mappingType = getMappingType(key, mapping)
-                    return {
-                      name: key,
-                      type: mappingType,
-                    }
-                  })
-                : [],
+            fields: Object.keys(eventData).map((key) => {
+              const mappingType = getMappingType(key, mapping)
+              return {
+                name: key,
+                type: mappingType,
+              }
+            }),
           },
           deduplication:
             topic.deduplication && topic.deduplication.enabled
@@ -265,18 +272,40 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
       const tableMappings = clickhouseDestination?.mapping
         ? clickhouseDestination.mapping
             .filter((mapping) => mapping.eventField) // Only include mapped fields
+            .filter((mapping) => !mapping.eventField.startsWith('_metadata')) // Exclude _metadata fields
             .map((mapping) => {
-              // Find which topic this field belongs to
-              const sourceTopic = selectedTopics.find(
-                (topic: any) =>
-                  topic.events &&
-                  topic.selectedEvent &&
-                  topic.selectedEvent.event &&
-                  mapping.eventField in topic.selectedEvent.event,
-              )
+              // Get source topic from mapping if available
+              let sourceId = mapping.sourceTopic || selectedTopics[0]?.name
+
+              // If no sourceTopic is specified in the mapping, we need to find it
+              if (!mapping.sourceTopic) {
+                // Try to find which topic contains this field
+                for (const topic of selectedTopics) {
+                  if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
+                    const eventData = topic.selectedEvent.event.event || topic.selectedEvent.event
+
+                    // Check if the field exists in this topic's event data
+                    if (mapping.eventField in eventData) {
+                      sourceId = topic.name
+                      break
+                    }
+                  }
+                }
+              }
+
+              // Now check if the field is in a stream in joinStore
+              if (joinStore.streams && joinStore.streams.length > 0) {
+                // Try to find the stream that has this field as its join key
+                for (const stream of joinStore.streams) {
+                  if (stream.joinKey === mapping.eventField) {
+                    sourceId = stream.topicName || stream.streamId
+                    break
+                  }
+                }
+              }
 
               return {
-                source_id: sourceTopic?.name || selectedTopics[0]?.name,
+                source_id: sourceId,
                 field_name: mapping.eventField,
                 column_name: mapping.name,
                 column_type: mapping.type.replace(/Nullable\((.*)\)/, '$1'), // Remove Nullable wrapper
@@ -300,14 +329,27 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
         ...(topicsConfig.length > 1
           ? {
               join: {
-                enabled: true,
-                type: 'temporal',
-                sources: topicsConfig.map((topic, index) => ({
-                  source_id: topic.name,
-                  join_key: topic.deduplication?.id_field || '',
-                  time_window: '1h',
-                  orientation: index === 0 ? 'left' : 'right',
-                })),
+                enabled: joinStore.enabled,
+                type: joinStore.type || 'temporal',
+                sources:
+                  joinStore.streams.length > 0
+                    ? joinStore.streams.map((stream) => ({
+                        // source_id: stream.streamId,
+                        source_id: stream.topicName,
+                        join_key: stream.joinKey,
+                        time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
+                        orientation: stream.orientation,
+                      }))
+                    : topicsConfig.map((topic, index) => ({
+                        source_id: topic.name,
+                        join_key:
+                          (topic.deduplication as any)?.key ||
+                          (topic.deduplication as any)?.keyField ||
+                          topic.deduplication?.id_field ||
+                          '',
+                        time_window: '1h',
+                        orientation: index === 0 ? 'left' : 'right',
+                      })),
               },
             }
           : {}),
