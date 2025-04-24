@@ -46,7 +46,6 @@ def generate_events(
     list_of_keys: list,
     num_records: int,
     rps: int,
-    orientation: str,
 ):
     """Generate events with duplicates
 
@@ -183,7 +182,6 @@ def main(
             num_records=right_num_records,
             rps=rps,
             provider=pipeline_config.source.provider,
-            orientation="right",
         )
            
         left_stats = generate_events(
@@ -196,7 +194,6 @@ def main(
             num_records=left_num_records,
             rps=rps,
             provider=pipeline_config.source.provider,
-            orientation="left",
         )
 
     utils.log(
