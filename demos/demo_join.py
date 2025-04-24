@@ -2,26 +2,39 @@ import argparse
 import time
 import json
 import uuid
-
+from typing import Dict, Any
 import glassgen
 from glassflow_clickhouse_etl.models import TopicConfig, KafkaConnectionParams
 from rich.console import Console
-
+import itertools
 import utils
 
 
 console = Console()
 
 
-class JoinEventSchema(glassgen.ConfigSchema):
-    def __init__(self, schema_dict: dict, join_key: str, list_of_keys: list, **kwargs):
-        fields = self._schema_dict_to_fields(schema_dict)
-        fields[join_key] = glassgen.SchemaField(
-            name=join_key, generator="choice", params=list_of_keys
-        )
+class JoinEventSchema(glassgen.ConfigSchema):    
+    def __init__(self, schema_dict: dict, join_key: str, list_of_keys: list, **kwargs):                
+        fields = self._schema_dict_to_fields(schema_dict)        
         super().__init__(fields=fields, **kwargs)
         self.validate()
+        self._join_key = join_key
+        self._join_key_select = itertools.cycle(list_of_keys)
 
+    @property
+    def join_key_select(self) -> itertools.cycle:
+        return self._join_key_select
+    
+    @property
+    def join_key(self) -> str:
+        return self._join_key
+
+    def _generate_record(self) -> Dict[str, Any]:
+        """Generate a single record based on the schema"""
+        record = super()._generate_record()             
+        record[self._join_key] = next(self.join_key_select)        
+        return record
+        
 
 def generate_events(
     source_connection_params: KafkaConnectionParams,
@@ -33,6 +46,7 @@ def generate_events(
     list_of_keys: list,
     num_records: int,
     rps: int,
+    orientation: str,
 ):
     """Generate events with duplicates
 
@@ -92,8 +106,8 @@ def generate_events(
             "password": source_connection_params.password,
         },
     }
-    return glassgen.generate(config=glassgen_config, schema=schema)
-
+    glassgen_resp = glassgen.generate(config=glassgen_config, schema=schema)
+    return glassgen_resp
 
 def main(
     config_path: str,
@@ -159,17 +173,6 @@ def main(
         "events to topics...[/bold green]",
         spinner="dots",
     ):
-        left_stats = generate_events(
-            source_connection_params=pipeline_config.source.connection_params,
-            topic_config=join_sources["left"]["source_topic"],
-            generator_schema=left_schema,
-            duplication_rate=0,
-            join_key=join_sources["left"]["join_key"],
-            list_of_keys=join_keys,
-            num_records=left_num_records,
-            rps=rps,
-            provider=pipeline_config.source.provider,
-        )
         right_stats = generate_events(
             source_connection_params=pipeline_config.source.connection_params,
             topic_config=join_sources["right"]["source_topic"],
@@ -180,6 +183,20 @@ def main(
             num_records=right_num_records,
             rps=rps,
             provider=pipeline_config.source.provider,
+            orientation="right",
+        )
+           
+        left_stats = generate_events(
+            source_connection_params=pipeline_config.source.connection_params,
+            topic_config=join_sources["left"]["source_topic"],
+            generator_schema=left_schema,
+            duplication_rate=0,
+            join_key=join_sources["left"]["join_key"],
+            list_of_keys=join_keys,
+            num_records=left_num_records,
+            rps=rps,
+            provider=pipeline_config.source.provider,
+            orientation="left",
         )
 
     utils.log(
