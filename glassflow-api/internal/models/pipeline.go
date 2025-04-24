@@ -326,6 +326,10 @@ func parseJoinSources(req *PipelineRequest) (zero joinSources, _ error) {
 	js := make(joinSources)
 
 	for _, s := range req.Join.Sources {
+		if len(strings.TrimSpace(s.JoinKey)) == 0 {
+			return nil, PipelineConfigError{msg: "join key cannot be empty"}
+		}
+
 		orientation, err := newJoinOrientation(s.Orientation)
 		if err != nil {
 			return nil, err
@@ -362,7 +366,7 @@ func validateBrokers(bl []string) error {
 	}
 
 	for _, b := range bl {
-		if len(b) == 0 {
+		if len(strings.TrimSpace(b)) == 0 {
 			return PipelineConfigError{msg: "kafka broker values cannot be empty"}
 		}
 	}
