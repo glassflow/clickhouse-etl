@@ -2,28 +2,8 @@ package schema
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math"
-	"reflect"
-	"strconv"
-	"time"
-
-	"github.com/google/uuid"
-)
-
-type DataType string
-
-const (
-	TypeString   DataType = "string"
-	TypeInt      DataType = "int"
-	TypeFloat    DataType = "float"
-	TypeBool     DataType = "bool"
-	TypeBytes    DataType = "bytes"
-	TypeUUID     DataType = "uuid"
-	TypeArray    DataType = "array"
-	TypeDateTime DataType = "datetime"
 )
 
 type StreamDataField struct {
@@ -44,7 +24,7 @@ type SinkMappingConfig struct {
 }
 
 type Stream struct {
-	Fields  map[string]DataType
+	Fields  map[string]KafkaDataType
 	JoinKey string
 }
 
@@ -53,24 +33,39 @@ type Config struct {
 	SinkMapping []SinkMappingConfig           `json:"sink_mapping"`
 }
 
+type SinkMapping struct {
+	ColumnName string
+	StreamName string
+	FieldName  string
+	ColumnType ClickHouseDataType
+}
+
+func NewSinkMapping(columnName, streamName, fieldName, columnType string) *SinkMapping {
+	return &SinkMapping{
+		ColumnName: columnName,
+		StreamName: streamName,
+		FieldName:  fieldName,
+		ColumnType: ClickHouseDataType(columnType),
+	}
+}
+
 type Mapper struct {
 	Streams map[string]Stream
-	Columns []SinkMappingConfig
+	Columns []*SinkMapping
 
-	fieldColumnMap map[string]SinkMappingConfig
-	typeConverters map[DataType]func(any) (any, error)
+	fieldColumnMap map[string]*SinkMapping
 	orderedColumns []string
 	columnOrderMap map[string]int
 }
 
-func convirtStreams(streams map[string]StreamSchemaConfig) map[string]Stream {
+func convertStreams(streams map[string]StreamSchemaConfig) map[string]Stream {
 	mappedStreams := make(map[string]Stream)
 
 	for streamName, streamConfig := range streams {
-		fields := make(map[string]DataType)
+		fields := make(map[string]KafkaDataType)
 
 		for _, field := range streamConfig.Fields {
-			fields[field.FieldName] = DataType(field.FieldType)
+			fields[field.FieldName] = KafkaDataType(field.FieldType)
 		}
 
 		mappedStreams[streamName] = Stream{
@@ -83,14 +78,19 @@ func convirtStreams(streams map[string]StreamSchemaConfig) map[string]Stream {
 }
 
 func NewMapper(streamsConfig map[string]StreamSchemaConfig, sinkMappingConfig []SinkMappingConfig) (*Mapper, error) {
+	columnMappings := make([]*SinkMapping, 0, len(sinkMappingConfig))
+	for _, mapping := range sinkMappingConfig {
+		columnMappings = append(columnMappings, NewSinkMapping(mapping.ColumnName, mapping.StreamName, mapping.FieldName, mapping.ColumnType))
+	}
+
 	m := &Mapper{ //nolint:exhaustruct //missed fields will be added
 		Streams:        make(map[string]Stream),
-		Columns:        sinkMappingConfig,
-		fieldColumnMap: make(map[string]SinkMappingConfig),
+		Columns:        columnMappings,
+		fieldColumnMap: make(map[string]*SinkMapping),
 		columnOrderMap: make(map[string]int),
 	}
 
-	m.Streams = convirtStreams(streamsConfig)
+	m.Streams = convertStreams(streamsConfig)
 
 	if err := m.validate(); err != nil {
 		return nil, err
@@ -101,7 +101,6 @@ func NewMapper(streamsConfig map[string]StreamSchemaConfig, sinkMappingConfig []
 	}
 
 	m.buildColumnOrder()
-	m.initTypeConverters()
 
 	return m, nil
 }
@@ -150,172 +149,6 @@ func (m *Mapper) buildColumnOrder() {
 	}
 }
 
-func (m *Mapper) initTypeConverters() {
-	m.typeConverters = make(map[DataType]func(any) (any, error))
-
-	m.typeConverters[TypeString] = func(v any) (any, error) { //nolint:unparam //common func structure
-		switch val := v.(type) {
-		case []byte:
-			return string(val), nil
-		default:
-			return fmt.Sprintf("%v", val), nil
-		}
-	}
-
-	m.typeConverters[TypeInt] = func(v any) (any, error) {
-		switch val := v.(type) {
-		case float64:
-			return int64(val), nil
-		case int, int64, int32:
-			return reflect.ValueOf(val).Int(), nil
-		case string:
-			return strconv.ParseInt(val, 10, 64)
-		case []byte:
-			return strconv.ParseInt(string(val), 10, 64)
-		default:
-			return nil, fmt.Errorf("cannot convert %v to int", val)
-		}
-	}
-
-	m.typeConverters[TypeFloat] = func(v any) (any, error) {
-		switch val := v.(type) {
-		case float64:
-			return val, nil
-		case int, int64, int32:
-			return float64(reflect.ValueOf(val).Int()), nil
-		case string:
-			return strconv.ParseFloat(val, 64)
-		case []byte:
-			return strconv.ParseFloat(string(val), 64)
-		default:
-			return nil, fmt.Errorf("cannot convert %v to float", val)
-		}
-	}
-
-	m.typeConverters[TypeBool] = func(v any) (any, error) {
-		switch val := v.(type) {
-		case bool:
-			return val, nil
-		case string:
-			return strconv.ParseBool(val)
-		case []byte:
-			return strconv.ParseBool(string(val))
-		case int, int64:
-			n := reflect.ValueOf(val).Int()
-			return n != 0, nil
-		case float64:
-			n := reflect.ValueOf(val).Float()
-			return n != 0, nil
-		default:
-			return nil, fmt.Errorf("cannot convert %v to bool", val)
-		}
-	}
-
-	m.typeConverters[TypeBytes] = func(v any) (any, error) {
-		switch val := v.(type) {
-		case string:
-			return base64.StdEncoding.DecodeString(val)
-		case []byte:
-			return val, nil
-		default:
-			return nil, fmt.Errorf("cannot convert %v to bytes", val)
-		}
-	}
-
-	m.typeConverters[TypeUUID] = func(v any) (any, error) {
-		switch val := v.(type) {
-		case string:
-			u, err := uuid.Parse(val)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse UUID: %w", err)
-			}
-			return u, nil
-		case []byte:
-			u, err := uuid.FromBytes(val)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert binary UUID: %w", err)
-			}
-			return u, nil
-		default:
-			str := fmt.Sprintf("%v", val)
-			return m.typeConverters[TypeUUID](str)
-		}
-	}
-
-	m.typeConverters[TypeArray] = func(v any) (any, error) {
-		switch val := v.(type) {
-		case []any:
-			return val, nil
-		case string:
-			var arr []any
-			if err := json.Unmarshal([]byte(val), &arr); err != nil {
-				return nil, fmt.Errorf("cannot convert string to array: %w", err)
-			}
-			return arr, nil
-		case []byte:
-			var arr []any
-			if err := json.Unmarshal(val, &arr); err != nil {
-				return nil, fmt.Errorf("cannot convert bytes to array: %w", err)
-			}
-			return arr, nil
-		default:
-			return nil, fmt.Errorf("cannot convert %v to array", val)
-		}
-	}
-
-	m.typeConverters[TypeDateTime] = func(v any) (any, error) {
-		switch val := v.(type) {
-		case time.Time:
-			return val, nil
-		case string:
-			return parseDateTime(val)
-		case int64:
-			return time.Unix(val, 0), nil
-		case float64:
-			sec, dec := math.Modf(val)
-			return time.Unix(int64(sec), int64(dec*1e9)), nil
-		case []byte:
-			return parseDateTime(string(val))
-		default:
-			str := fmt.Sprintf("%v", val)
-			return parseDateTime(str)
-		}
-	}
-}
-
-func parseDateTime(value string) (time.Time, error) {
-	formats := []string{
-		time.RFC3339,
-		time.RFC3339Nano,
-		"2006-01-02T15:04:05",
-		"2006-01-02 15:04:05",
-		"2006-01-02 15:04:05.999",
-		"2006-01-02T15:04:05.999999",
-		time.RFC1123,
-		time.RFC1123Z,
-		time.RFC822,
-		time.RFC822Z,
-		time.RFC850,
-		time.ANSIC,
-		"2006-01-02",
-		"01/02/2006",
-		"02/01/2006",
-		"02.01.2006",
-		"01.02.2006",
-		"2006/01/02",
-		"Jan 2, 2006",
-		"2 Jan 2006",
-	}
-
-	for _, layout := range formats {
-		if t, err := time.Parse(layout, value); err == nil {
-			return t, nil
-		}
-	}
-
-	return time.Time{}, fmt.Errorf("unable to parse datetime from '%s'", value)
-}
-
 func (m *Mapper) getKey(streamSchemaName, keyName string, data []byte) (any, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 
@@ -337,12 +170,7 @@ func (m *Mapper) getKey(streamSchemaName, keyName string, data []byte) (any, err
 
 			fieldType := m.Streams[streamSchemaName].Fields[keyName]
 
-			converter, exists := m.typeConverters[fieldType]
-			if !exists {
-				return nil, fmt.Errorf("unsupported type %s for field %s", fieldType, keyName)
-			}
-
-			convertedValue, err := converter(rawValue)
+			convertedValue, err := ExtractEventValue(fieldType, rawValue)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert key value: %w", err)
 			}
@@ -387,12 +215,7 @@ func (m *Mapper) prepareForClickHouse(data []byte) (map[string]any, error) {
 
 		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
 
-		converter, exists := m.typeConverters[fieldType]
-		if !exists {
-			return nil, fmt.Errorf("unsupported type %s for field %s", fieldType, column.FieldName)
-		}
-
-		convertedValue, err := converter(value)
+		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
 		}

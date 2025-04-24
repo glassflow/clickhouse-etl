@@ -45,7 +45,7 @@ Feature: Clickhouse ETL sink
                             },
                             {
                                 "field_name": "timestamp",
-                                "field_type": "datetime"
+                                "field_type": "string"
                             },
                             {
                                 "field_name": "action",
@@ -134,7 +134,7 @@ Feature: Clickhouse ETL sink
                             },
                             {
                                 "field_name": "timestamp",
-                                "field_type": "datetime"
+                                "field_type": "string"
                             },
                             {
                                 "field_name": "action",
@@ -498,3 +498,116 @@ Feature: Clickhouse ETL sink
         And I stop ClickHouse sink after 6 seconds
         Then the ClickHouse table "default.events_test" should contain 4 rows
 
+    Scenario: Import events with UUID
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name | data_type |
+            | id          | UUID      |
+            | name        | String    |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "3s"
+            }
+            """
+        And a batch config with max size 2
+        And a schema config with mapping
+            """json
+            {
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "default",
+                        "column_type": "UUID"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        When I publish 2 events to the stream with data
+            | id                                   | name  |
+            | 0a21ad20-8a70-4be2-8d29-533eb963d554 | Alice |
+            | 72dea57a-ee36-4909-8b36-5be24b19804c | Bob   |
+        And I run ClickHouse sink
+        And I stop ClickHouse sink after 1 seconds
+        Then the ClickHouse table "default.events_test" should contain 2 rows
+
+    Scenario: Import events with int
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name | data_type |
+            | id          | Int32     |
+            | name        | String    |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "3s"
+            }
+            """
+        And a batch config with max size 2
+        And a schema config with mapping
+            """json
+            {
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "int"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "default",
+                        "column_type": "Int32"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "default",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        When I publish 2 events to the stream with data
+            | id         | name    |
+            | 150        | Alice   |
+            | 2067868    | Bob     |
+            | 2147483648 | Charlie |
+            | 2147483647 | David   |
+        And I run ClickHouse sink
+        And I gracefully stop ClickHouse sink
+        Then the ClickHouse table "default.events_test" should contain 2 rows
