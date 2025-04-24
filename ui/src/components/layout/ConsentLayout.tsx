@@ -9,7 +9,11 @@ import {
   loadAnalyticsPreference,
   track,
   dictionary,
+  setUserIdentity,
 } from '@/src/analytics/eventManager'
+// Use the existing UUID package that's already installed as a dependency
+// Dynamically import only on the client side to avoid SSR issues
+import { v4 as uuidv4 } from 'uuid'
 
 interface ConsentLayoutProps {
   children: React.ReactNode
@@ -17,14 +21,38 @@ interface ConsentLayoutProps {
 
 const CONSENT_STORAGE_KEY = 'glassflow-analytics-consent'
 const CONSENT_ANSWERED_KEY = 'glassflow-consent-answered'
+const USER_ID_STORAGE_KEY = 'glassflow-user-id'
 
 export function ConsentLayout({ children }: ConsentLayoutProps) {
   const { consentAnswered, setAnalyticsConsent, setConsentAnswered } = useStore()
   const [showConsent, setShowConsent] = useState(false)
 
-  // Initialize analytics on component mount
+  // Initialize analytics on component mount and ensure user ID exists
   useEffect(() => {
     initAnalytics()
+
+    // Get or create user ID for analytics tracking
+    let userId = localStorage.getItem(USER_ID_STORAGE_KEY)
+
+    if (!userId) {
+      try {
+        // Generate a new UUID using the uuid package
+        userId = uuidv4()
+        localStorage.setItem(USER_ID_STORAGE_KEY, userId)
+      } catch (error) {
+        // Fallback to timestamp-based ID if UUID generation fails
+        console.error('Failed to generate UUID, using fallback:', error)
+        const timestamp = Date.now()
+        const randomPart = Math.floor(Math.random() * 1000000)
+          .toString()
+          .padStart(6, '0')
+        userId = `${timestamp}-${randomPart}`
+        localStorage.setItem(USER_ID_STORAGE_KEY, userId)
+      }
+    }
+
+    // Set user identity for analytics tracking
+    setUserIdentity(userId)
   }, [])
 
   // Load consent from localStorage when component mounts

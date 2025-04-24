@@ -9,14 +9,23 @@ export type { EventGroup, Contexts }
 // Flag to indicate whether analytics should be enabled
 let analyticsEnabled = false
 
-// Using environment variables for token, or a placeholder if not available
-const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || 'your-mixpanel-token'
-const isDev = process.env.NODE_ENV === 'development'
+// Try to use the environment variable, but fall back to hardcoded token if needed
+// This ensures tracking works in all environments including Docker production deployments
+const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || '209670ec9b352915013a5dfdb169dd25'
+
+// Determine if we're in development mode
+// In Docker, process.env.NODE_ENV will typically be 'production'
+const isDev = process.env.NODE_ENV !== 'production'
 
 // Initialize mixpanel - this should be called when your app starts
 export const initAnalytics = () => {
   try {
-    // Initialize mixpanel with token from environment variables
+    // Log initialization info in both dev and production for troubleshooting
+    const tokenPreview = MIXPANEL_TOKEN.substring(0, 4) + '...' + MIXPANEL_TOKEN.substring(MIXPANEL_TOKEN.length - 4)
+    console.log(`Initializing Mixpanel with token: ${tokenPreview} (${isDev ? 'Development' : 'Production'} mode)`)
+    console.log('Environment:', process.env.NODE_ENV || 'not set')
+
+    // Initialize mixpanel with the token
     mixpanel.init(MIXPANEL_TOKEN, {
       persistence: 'localStorage',
       debug: isDev,
@@ -25,16 +34,41 @@ export const initAnalytics = () => {
       track_pageview: 'url-with-path',
     })
 
-    // Disable debug log after initialization in production
+    // In production, disable debug logs after initialization
     if (!isDev) {
       mixpanel.set_config({
         debug: false,
       })
     }
 
-    console.log('Analytics initialized')
+    console.log('Analytics initialized successfully')
   } catch (error) {
     console.error('Failed to initialize analytics:', error)
+  }
+}
+
+// Identify a user with a unique ID for tracking
+export const setUserIdentity = (userId: string) => {
+  try {
+    if (typeof window === 'undefined') return // Skip on server-side rendering
+
+    mixpanel.identify(userId)
+
+    // Register some additional user properties
+    mixpanel.people.set({
+      $distinct_id: userId,
+      'First Seen': new Date().toISOString(),
+      'User Type': 'Anonymous',
+      'App Version': process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
+      Platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
+      'User Agent': typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+    })
+
+    if (isDev) {
+      console.log('User identified for analytics:', userId)
+    }
+  } catch (error) {
+    console.error('Failed to set user identity:', error)
   }
 }
 
