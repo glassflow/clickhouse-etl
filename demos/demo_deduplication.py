@@ -138,12 +138,6 @@ def main(
     clickhouse_client.close()
 
     added_records = n_records_after - n_records_before
-    utils.log(
-        message=f"Number of new rows to table [italic u]{pipeline_config.sink.table}[/italic u]: [bold]{added_records}[/bold]",
-        status="",
-        is_success=True,
-        component="Clickhouse",
-    )
     expected_records = gen_stats["total_generated"]
     if added_records != expected_records:
         utils.log(

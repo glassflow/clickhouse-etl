@@ -113,7 +113,6 @@ def main(
     left_num_records: int,
     right_num_records: int,
     rps: int,
-    rate_match: float,
     left_schema: str,
     right_schema: str,
     skip_confirmation: bool,
@@ -126,13 +125,11 @@ def main(
         left_num_records (int): Number of records to generate for left events
         right_num_records (int): Number of records to generate for right events
         rps (int): Records per second
-        rate_match (float): Rate of matching left and right events
         left_schema (str): Path to left events generator schema file
         right_schema (str): Path to right events generator schema file
         skip_confirmation (bool): Skip confirmation prompt
         cleanup (bool): Cleanup Clickhouse table before running the pipeline
     """
-    # TODO: Use rate_match so only the correct number of records from the right match with the left (return that number)
     pipeline_config = utils.load_conf(config_path)
 
     join_sources = {}
@@ -233,15 +230,30 @@ def main(
     n_records_after = utils.read_clickhouse_table_size(
         pipeline_config.sink, clickhouse_client
     )
+    
+    row = utils.get_clickhouse_table_row(pipeline_config.sink, clickhouse_client)
+
+    if row:
+        utils.print_clickhouse_record(row)
+    
     clickhouse_client.close()
 
-    utils.log(
-        message=f"Number of new rows to table [italic u]{pipeline_config.sink.table}[/italic u]: [bold]{n_records_after - n_records_before}[/bold]",
-        status="",
-        is_success=True,
-        component="Clickhouse",
-    )
-
+    added_records = n_records_after - n_records_before  
+    expected_records = left_num_records
+    if added_records != expected_records:
+        utils.log(
+            message=f"Expected {expected_records} records, but got {added_records} records",
+            status="Failure",
+            is_failure=True,
+            component="Clickhouse",
+        )
+    else:
+        utils.log(
+            message=f"Expected {expected_records} records, and got {added_records} records",
+            status="Success",
+            is_success=True,
+            component="Clickhouse",
+        )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -258,12 +270,6 @@ if __name__ == "__main__":
         type=int,
         default=10000,
         help="Number of records to generate for right events (default: 10000)",
-    )
-    parser.add_argument(
-        "--rate-match",
-        type=float,
-        default=1.0,
-        help="Rate of matching left and right events (default: 1.0)",
     )
     parser.add_argument(
         "--rps", type=int, default=1000, help="Records per second (default: 1000)"
@@ -304,7 +310,6 @@ if __name__ == "__main__":
         config_path=args.config,
         left_schema=args.left_schema,
         right_schema=args.right_schema,
-        rate_match=args.rate_match,
         skip_confirmation=args.yes,
         cleanup=args.cleanup,
     )
