@@ -84,14 +84,14 @@
           "join_key": "user_id",
           "join_key_type": "string",
           "time_window": "1h",
-          "orientation": "left"
+          "orientation": "right"
         },
         {
           "source_id": "orders",
           "join_key": "user_id",
           "join_key_type": "string",
           "time_window": "1h",
-          "orientation": "right"
+          "orientation": "left"
         }
       ]
     },
@@ -106,24 +106,18 @@
       "secure": false,
       "max_batch_size": 1000,
       "max_delay_time": "30s",
-      "table": "user_events_with_orders",
+      "table": "orders_with_user_data",
       "table_mapping": [
         {
-          "source_id": "user_events",
-          "field_name": "event_id",
-          "column_name": "event_id",
+          "source_id": "orders",
+          "field_name": "order_id",
+          "column_name": "order_id",
           "column_type": "uuid"
         },
         {
           "source_id": "user_events",
           "field_name": "user_id",
           "column_name": "user_id",
-          "column_type": "uuid"
-        },
-        {
-          "source_id": "orders",
-          "field_name": "order_id",
-          "column_name": "order_id",
           "column_type": "uuid"
         },
         {
@@ -148,12 +142,6 @@
           "source_id": "orders",
           "field_name": "created_at",
           "column_name": "order_created_at",
-          "column_type": "datetime"
-        },
-        {
-          "source_id": "user_events",
-          "field_name": "created_at",
-          "column_name": "user_event_created_at",
           "column_type": "datetime"
         }
       ]
