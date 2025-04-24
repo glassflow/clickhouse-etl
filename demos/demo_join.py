@@ -149,13 +149,14 @@ def main(
 
     # Generate list of join keys
     join_keys = [
-        str(uuid.uuid4()) for _ in range(max(left_num_records, right_num_records))
+        str(uuid.uuid4()) for _ in range(right_num_records)
     ]
 
     with console.status(
-        f"[bold green]Generating and publishing left and right events to topics\n "
-        f"\tleft:[italic u]{join_sources['left']['name']}[/italic u]\n "
-        f"\tright: [italic u]{join_sources['right']['name']}[/italic u]...[/bold green]",
+        "[bold green]Generating and publishing "
+        f"left ([italic u]{join_sources['left']['name']}[/italic u]) and "
+        f"right ([italic u]{join_sources['right']['name']}[/italic u]) "
+        "events to topics...[/bold green]",
         spinner="dots",
     ):
         left_stats = generate_events(
