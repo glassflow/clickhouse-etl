@@ -9,10 +9,18 @@ import { cn } from '@/src/utils'
 import { InfoModal, ModalResult } from '@/src/components/Modal'
 import { FieldColumnMapper } from './FieldColumnMapper'
 import { useFetchTableSchema } from './hooks'
-import { extractEventFields, inferJsonType, findBestMatchingField, getNestedValue } from './helpers'
+import {
+  extractEventFields,
+  inferJsonType,
+  findBestMatchingField,
+  getNestedValue,
+  validateColumnMappings,
+  isTypeCompatible,
+} from './helpers'
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 import { DatabaseTableSelectContainer } from './DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './BatchDelaySelector'
+import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const { clickhouseStore, kafkaStore, operationsSelected } = useStore()
@@ -69,10 +77,12 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     unmappedNullableColumns: string[]
     unmappedNonNullableColumns: string[]
     extraEventFields: string[]
+    incompatibleTypeMappings: any[]
   }>({
     unmappedNullableColumns: [],
     unmappedNonNullableColumns: [],
     extraEventFields: [],
+    incompatibleTypeMappings: [],
   })
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
@@ -439,12 +449,18 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Map event field to column
   const mapEventFieldToColumn = (index: number, eventField: string) => {
     const updatedColumns = [...mappedColumns]
+    const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+    const inferredType = eventField ? inferJsonType(fieldValue) : updatedColumns[index].jsonType
+
     updatedColumns[index] = {
       ...updatedColumns[index],
       eventField: eventField,
-      // If the field exists in the event data, try to infer the type
-      jsonType: eventField ? typeof getNestedValue(eventData, eventField) : updatedColumns[index].jsonType,
+      jsonType: inferredType,
     }
+
+    // Check compatibility immediately for better user feedback
+    const isCompatible = isTypeCompatible(inferredType, updatedColumns[index].type)
+
     setMappedColumns(updatedColumns)
 
     // Track when a field is manually mapped
@@ -452,6 +468,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       trackFunnelStep('fieldMapped', {
         columnName: updatedColumns[index].name,
         eventField,
+        inferredType,
+        isCompatible,
         topicName,
         topicIndex: index,
       })
@@ -478,6 +496,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       unmappedNullableColumns: [] as string[],
       unmappedNonNullableColumns: [] as string[],
       extraEventFields: [] as string[],
+      incompatibleTypeMappings: [] as any[],
     }
 
     // Count mapped fields
@@ -503,13 +522,18 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     const extraFields = eventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
     issues.extraEventFields = extraFields
 
+    // Validate type compatibility
+    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    issues.incompatibleTypeMappings = invalidMappings
+
     setValidationIssues(issues)
 
     // Track validation issues
     if (
       issues.unmappedNonNullableColumns.length > 0 ||
       issues.unmappedNullableColumns.length > 0 ||
-      issues.extraEventFields.length > 0
+      issues.extraEventFields.length > 0 ||
+      issues.incompatibleTypeMappings.length > 0
     ) {
       trackFunnelStep('mappingValidation', {
         topicName,
@@ -517,16 +541,32 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         unmappedRequiredColumns: issues.unmappedNonNullableColumns.length,
         unmappedNullableColumns: issues.unmappedNullableColumns.length,
         extraFields: issues.extraEventFields.length,
-        hasErrors: issues.unmappedNonNullableColumns.length > 0,
+        incompatibleMappings: issues.incompatibleTypeMappings.length,
+        hasErrors: issues.unmappedNonNullableColumns.length > 0 || issues.incompatibleTypeMappings.length > 0,
       })
     }
 
     // Check in order of priority:
-    // 1. Non-nullable column violations (error)
-    // 2. Unmapped nullable columns (warning)
-    // 3. Extra event fields (warning)
+    // 1. Type compatibility violations (error)
+    // 2. Non-nullable column violations (error)
+    // 3. Unmapped nullable columns (warning)
+    // 4. Extra event fields (warning)
 
-    if (issues.unmappedNonNullableColumns.length > 0) {
+    if (issues.incompatibleTypeMappings.length > 0) {
+      const incompatibleFields = issues.incompatibleTypeMappings
+        .map((mapping) => `${mapping.name} (${mapping.jsonType} → ${mapping.type})`)
+        .join(', ')
+
+      return {
+        type: 'error',
+        canProceed: false,
+        title: 'Error: Type Incompatibility',
+        message: `Some event fields are mapped to incompatible ClickHouse column types. Please review and fix these mappings:
+        ${incompatibleFields}`,
+        okButtonText: 'OK',
+        cancelButtonText: 'Cancel',
+      }
+    } else if (issues.unmappedNonNullableColumns.length > 0) {
       return {
         type: 'error',
         canProceed: false,
@@ -587,6 +627,17 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
   // Complete the save after modal confirmation
   const completeConfigSave = useCallback(() => {
+    // Before saving, do a final validation of type compatibility
+    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    if (invalidMappings.length > 0) {
+      const incompatibleFields = invalidMappings
+        .map((mapping) => `${mapping.name} (${mapping.jsonType} → ${mapping.type})`)
+        .join(', ')
+
+      setError(`Type compatibility issues remain: ${incompatibleFields}. Please fix these before continuing.`)
+      return
+    }
+
     // Calculate mapping stats
     const totalColumns = tableSchema.columns.length
     const mappedColumns2 = mappedColumns.filter((col) => col.eventField).length
@@ -658,7 +709,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   }, [])
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 mb-4">
       <div className="space-y-6">
         <DatabaseTableSelectContainer
           availableDatabases={availableDatabases}
@@ -690,7 +741,9 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
               updateColumnMapping={updateColumnMapping}
               mapEventFieldToColumn={mapEventFieldToColumn}
             />
-            <div className="flex gap-2">
+            {/* TypeCompatibilityInfo is temporarily hidden */}
+            {/* <TypeCompatibilityInfo /> */}
+            <div className="flex gap-2 mt-4">
               <Button
                 variant="outline"
                 className={cn({
@@ -708,12 +761,12 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         )}
 
         {/* Success/Error Messages */}
-        {success && (
+        {/* {success && (
           <div className="p-3 bg-background-neutral-faded text-green-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
             <CheckCircleIcon className="h-5 w-5 mr-2" />
             <span>{success}</span>
           </div>
-        )}
+        )} */}
 
         {error && (
           <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
