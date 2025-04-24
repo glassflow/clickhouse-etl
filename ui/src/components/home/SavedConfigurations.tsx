@@ -108,10 +108,14 @@ export function SavedConfigurations() {
     )
   }
 
+  if (configurations.length === 0) {
+    return null
+  }
+
   return (
-    <div className="w-full max-w-[512px] mx-auto px-4">
+    <div className="w-full max-w-[512px] mx-auto px-0">
       <div className="flex justify-center items-center mb-8">
-        <h1 className="text-2xl font-bold">Load Saved Configurations</h1>
+        <h1 className="text-2xl font-normal text-muted-foreground">Load Saved Configurations</h1>
       </div>
 
       {configurations.length === 0 ? (
@@ -124,20 +128,11 @@ export function SavedConfigurations() {
           {configurations.map((config) => (
             <div
               key={config.id}
-              className={cn(
-                'card-gradient',
-                'btn-home-lg',
-                'cursor-pointer',
-                'relative',
-                'group',
-                'rounded-[12px]',
-                'border border-[#3D4869]',
-                'bg-gradient-to-b from-[#1E1E1F] to-[#151517]',
-              )}
+              className={cn('content-card', 'btn-home-lg', 'cursor-pointer', 'relative', 'group')}
               onClick={() => handleLoadConfiguration(config)}
             >
               <div className="flex items-center px-6 w-full h-full">
-                <div className="flex flex-col">
+                <div className="flex flex-col text-muted-foreground">
                   <span className="text-lg font-medium">{config.name}</span>
                   <div className="flex items-center text-sm text-muted-foreground mt-1">
                     <Clock className="h-4 w-4 mr-2" />

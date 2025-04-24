@@ -244,6 +244,35 @@
     pointer-events: none;
   }
 
+  /* Configuration card style */
+  .feedback-card {
+    border-radius: 12px;
+    border: 1px solid #A5B9E4;
+    background: linear-gradient(180deg, rgba(91, 102, 126, 0.15) 0%, rgba(165, 185, 228, 0.15) 100%);
+    box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.20), 0px 8px 16px 0px rgba(0, 0, 0, 0.30);
+    backdrop-filter: blur(10px);
+  }
+
+  .feedback-card:hover {
+    border-color: #c4d1f0;
+    background: linear-gradient(180deg, rgba(91, 102, 126, 0.25) 0%, rgba(165, 185, 228, 0.25) 100%);
+    box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.25), 0px 12px 24px 0px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Content card style */
+  .content-card {
+    border-radius: 12px;
+    border: 1px solid #3D4869;
+    background: linear-gradient(180deg, #1E1E1F 0%, #151517 100%);
+    box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.04), 0px 8px 16px 0px rgba(0, 0, 0, 0.08);
+  }
+
+  .content-card:hover {
+    background: linear-gradient(180deg, #1A1A1B 0%, #121214 100%);
+    box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.08), 0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+    border-color: #4A5A80;
+  }
+
   /* Button text style */
   .btn-text {
     color: var(--color-black);
