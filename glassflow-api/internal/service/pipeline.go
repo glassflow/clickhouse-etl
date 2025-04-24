@@ -59,6 +59,16 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 	p.m.Lock()
 	defer p.m.Unlock()
 
+	var err error
+
+	defer func() {
+		if err != nil {
+			p.log.Info("pipeline setup failed; cleaning up pipeline")
+			//nolint: errcheck // ignore error on failed pipeline shutdown
+			go p.ShutdownPipeline()
+		}
+	}()
+
 	if p.id != "" {
 		return ActivePipelineError{pipelineID: p.id}
 	}
@@ -71,14 +81,6 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 	if err != nil {
 		return fmt.Errorf("parse pipeline config: %w", err)
 	}
-
-	p.id = pipeline.ID
-
-	p.log = p.log.With("pipeline_id", p.id)
-
-	p.bridgeRunner = NewBridgeRunner(NewFactory(p.natsServer, p.log.With("component", "kafka_bridge")))
-	p.joinRunner = NewJoinRunner(p.log.With("component", "join"), p.nc)
-	p.sinkRunner = NewSinkRunner(p.log.With("component", "clickhouse_sink"), p.nc)
 
 	ctx := context.Background()
 
@@ -121,10 +123,20 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		sinkCfg[i] = mapping
 	}
 
+	// TODO: transfer all schema mapper validations in models.NewPipeline
+	// so validation errors are handled the same way with correct HTTPStatus
 	schemaMapper, err := schema.NewMapper(streamsCfg, sinkCfg)
 	if err != nil {
 		return fmt.Errorf("new schema mapper: %w", err)
 	}
+
+	p.id = pipeline.ID
+
+	p.log = p.log.With("pipeline_id", p.id)
+
+	p.bridgeRunner = NewBridgeRunner(NewFactory(p.natsServer, p.log.With("component", "kafka_bridge")))
+	p.joinRunner = NewJoinRunner(p.log.With("component", "join"), p.nc)
+	p.sinkRunner = NewSinkRunner(p.log.With("component", "clickhouse_sink"), p.nc)
 
 	err = p.bridgeRunner.SetupBridges(&pipeline.KafkaConfig, pipeline.Streams)
 	if err != nil {
