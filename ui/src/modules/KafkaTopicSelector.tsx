@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { useFetchTopics, useFetchEvent } from '../hooks/kafka-mng-hooks'
@@ -34,6 +35,7 @@ export type TopicSelectorProps = {
 
 export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSelectorProps) {
   const { operationsSelected, topicsStore, kafkaStore } = useStore()
+  const { trackFunnelStep, trackError } = useAnalytics()
   const {
     availableTopics,
     setAvailableTopics,
@@ -54,6 +56,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   const [showOffsetField, setShowOffsetField] = useState(false)
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
   const [manualEvent, setManualEvent] = useState('')
+  const [hasTrackedTopicSelection, setHasTrackedTopicSelection] = useState(false)
 
   // Get existing topic data if available
   const topicFromStore = getTopic(index)
@@ -97,8 +100,15 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       }))
       setShowOffsetField(true)
       setShowEventPreview(true)
+
+      // Track topic retrieval for returning users
+      trackFunnelStep('topicSelected', {
+        topicName: topicFromStore?.name,
+        topicIndex: index,
+        isReturningVisit: true,
+      })
     }
-  }, [isReturningToForm, storedEvent])
+  }, [isReturningToForm, storedEvent, trackFunnelStep, index, topicFromStore?.name])
 
   // Fetch topics and events
   const {
@@ -126,7 +136,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   })
 
   // Handle empty topic state
-  const handleEmptyTopic = () => {
+  const handleEmptyTopic = useCallback(() => {
     setIsEmptyTopic(true)
     setShowEventPreview(true)
     setShowOffsetField(true)
@@ -136,25 +146,50 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       fetchedEvent: null,
       canContinue: false, // Reset canContinue until user provides manual schema
     }))
-  }
+
+    // Track empty topic event
+    trackFunnelStep('topicSelected', {
+      topicName: localState.topicName,
+      topicIndex: index,
+      isEmpty: true,
+    })
+  }, [localState.topicName, index, trackFunnelStep])
 
   // Handle manual event input
-  const handleManualEventChange = (event: string) => {
-    try {
-      // Validate JSON
-      const parsedEvent = JSON.parse(event)
-      setLocalState((prev) => ({
-        ...prev,
-        fetchedEvent: { event: parsedEvent },
-        canContinue: true,
-      }))
-    } catch (e) {
-      setLocalState((prev) => ({
-        ...prev,
-        canContinue: false,
-      }))
-    }
-  }
+  const handleManualEventChange = useCallback(
+    (event: string) => {
+      try {
+        // Validate JSON
+        const parsedEvent = JSON.parse(event)
+        setLocalState((prev) => ({
+          ...prev,
+          fetchedEvent: { event: parsedEvent },
+          canContinue: true,
+        }))
+
+        // Track manual event creation
+        trackFunnelStep('eventReceived', {
+          topicName: localState.topicName,
+          topicIndex: index,
+          eventSize: event.length,
+          isManual: true,
+        })
+      } catch (e) {
+        setLocalState((prev) => ({
+          ...prev,
+          canContinue: false,
+        }))
+
+        // Track error in manual event
+        trackError('validation', {
+          component: 'ManualEventInput',
+          topicName: localState.topicName,
+          error: e instanceof Error ? e.message : 'Invalid JSON',
+        })
+      }
+    },
+    [localState.topicName, index, trackFunnelStep, trackError],
+  )
 
   // ================================ EFFECTS ================================
 
@@ -165,12 +200,10 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     }
 
     // Mark that we're no longer on initial render after the first effect run
-    return () => {
-      if (isInitialRender) {
-        setIsInitialRender(false)
-      }
+    if (isInitialRender) {
+      setIsInitialRender(false)
     }
-  }, [])
+  }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender])
 
   // Update available topics when topics are fetched
   useEffect(() => {
@@ -181,23 +214,44 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
   // Update local state when topic name changes
   useEffect(() => {
-    if (topicName) {
-      // Combine both updates into handleTopicSelect to avoid redundancy
-      if (topicName === '') return
+    if (topicName && !isInitialRender) {
+      // Skip if we're just setting the initial value or there's no actual change
+      if (topicName === '' || topicName === localState.topicName) return
 
-      // No need to call setValue since this is triggered by the form value change
       setLocalState((prev) => ({
         ...prev,
         topicName: topicName,
         userInteracted: true,
       }))
       setShowEventPreview(true)
+
+      // Track topic selection if this is the first time
+      if (!hasTrackedTopicSelection && topicName !== topicFromStore?.name) {
+        trackFunnelStep('topicSelected', {
+          topicName: topicName,
+          topicIndex: index,
+          totalAvailableTopics: availableTopics.length,
+        })
+        setHasTrackedTopicSelection(true)
+      }
     }
-  }, [topicName])
+  }, [
+    topicName,
+    hasTrackedTopicSelection,
+    trackFunnelStep,
+    index,
+    availableTopics.length,
+    topicFromStore?.name,
+    localState.topicName,
+    isInitialRender,
+  ])
 
   // Update local state when offset changes
   useEffect(() => {
     if (initialOffset && !isInitialRender) {
+      // Skip if there's no actual change to avoid loops
+      if (initialOffset === localState.offset) return
+
       // Skip event fetching if we know the topic is empty
       if (isEmptyTopic) {
         setLocalState((prev) => ({
@@ -216,18 +270,22 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
         // Keep existing event if we have it
       }))
     }
-  }, [initialOffset])
+  }, [initialOffset, isEmptyTopic, isInitialRender, localState.offset])
 
   // Update local state when event is loaded - user can continue to next step
   useEffect(() => {
-    if (localState.fetchedEvent && localState.topicName && localState.offset) {
+    // Avoid unnecessary updates if nothing has changed
+    const shouldUpdateState =
+      localState.fetchedEvent && localState.topicName && localState.offset && !localState.canContinue
+
+    if (shouldUpdateState) {
       setLocalState((prev) => ({
         ...prev,
         canContinue: true,
       }))
       setShowOffsetField(true)
     }
-  }, [localState.fetchedEvent, localState.topicName, localState.offset])
+  }, [localState.fetchedEvent, localState.topicName, localState.offset, localState.canContinue])
 
   // ================================ HANDLERS ================================
 
@@ -251,6 +309,14 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       },
     }
 
+    // Track the deduplication key step completion
+    trackFunnelStep('eventReceived', {
+      topicName: data.topicName,
+      topicIndex: index,
+      eventSize: JSON.stringify(localState.fetchedEvent).length,
+      offset: data.initialOffset,
+    })
+
     // Update topic in the store
     updateTopic({
       index: index,
@@ -270,6 +336,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       },
     })
     setTopicCount(topicCountFromStore + 1)
+
     // Move to next step
     if (index === 0) {
       onNext(StepKeys.TOPIC_SELECTION_1)
@@ -283,33 +350,61 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
   // Simplify the event handlers
   const fetchEventHandlers = {
-    onEventLoading: () => {
+    onEventLoading: useCallback(() => {
       setLocalState((prev) => ({ ...prev, isLoading: true }))
-    },
+    }, []),
 
-    onEventLoaded: (event: any) => {
-      setLocalState((prev) => ({
-        ...prev,
-        fetchedEvent: event,
-        isLoading: false,
-        userInteracted: true,
-        canContinue: !!event && !!prev.topicName && !!prev.offset,
-      }))
-      setShowOffsetField(true)
-    },
+    onEventLoaded: useCallback(
+      (event: any) => {
+        setLocalState((prev) => ({
+          ...prev,
+          fetchedEvent: event,
+          isLoading: false,
+          userInteracted: true,
+          canContinue: !!event && !!prev.topicName && !!prev.offset,
+        }))
+        setShowOffsetField(true)
 
-    onEventError: (error: any) => {
-      console.error('Event fetch error:', error)
-      setLocalState((prev) => ({
-        ...prev,
-        isLoading: false,
-        event: null,
-        canContinue: false,
-      }))
-    },
+        // Track successful event retrieval
+        if (event) {
+          trackFunnelStep('eventReceived', {
+            topicName: localState.topicName,
+            topicIndex: index,
+            eventSize: JSON.stringify(event).length,
+            isManual: false,
+          })
+        }
+      },
+      [index, localState.topicName, trackFunnelStep],
+    ),
+
+    onEventError: useCallback(
+      (error: any) => {
+        console.error('Event fetch error:', error)
+        setLocalState((prev) => ({
+          ...prev,
+          isLoading: false,
+          fetchedEvent: null,
+          canContinue: false,
+        }))
+
+        // Track error in event fetching
+        trackError('connection', {
+          component: 'EventFetcher',
+          topicName: localState.topicName,
+          error: error instanceof Error ? error.message : 'Failed to fetch event',
+        })
+      },
+      [localState.topicName, trackError],
+    ),
   }
 
   const handleTopicChange = ({ topicName, offset }: { topicName: string; offset: string }) => {
+    // Skip the update if nothing has actually changed to prevent loops
+    if (topicName === localState.topicName && offset === localState.offset) {
+      return
+    }
+
     // @ts-expect-error - FIXME: fix this later
     setLocalState((prev) => ({
       ...prev,
@@ -365,30 +460,10 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
                     topicName={localState.topicName}
                     initialOffset={localState.offset}
                     topicIndex={index}
-                    // initialEvent={storedEvent}
                     initialEvent={localState.fetchedEvent}
-                    onEventLoading={() => {
-                      setLocalState((prev) => ({ ...prev, isLoading: true }))
-                    }}
-                    onEventLoaded={(event) => {
-                      setLocalState((prev) => ({
-                        ...prev,
-                        fetchedEvent: event,
-                        isLoading: false,
-                        userInteracted: true,
-                        canContinue: true,
-                      }))
-                      setShowEventPreview(true)
-                    }}
-                    onEventError={(error) => {
-                      console.error('Event fetch error:', error)
-                      setLocalState((prev) => ({
-                        ...prev,
-                        isLoading: false,
-                        fetchedEvent: null,
-                        canContinue: false,
-                      }))
-                    }}
+                    onEventLoading={fetchEventHandlers.onEventLoading}
+                    onEventLoaded={fetchEventHandlers.onEventLoaded}
+                    onEventError={fetchEventHandlers.onEventError}
                     onEmptyTopic={handleEmptyTopic}
                     onEventChange={handleManualEventChange}
                   />
