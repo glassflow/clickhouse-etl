@@ -103,7 +103,7 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 	j.log.Info("Join operator was started successfully!")
 }
 
-func (j *JoinOperator) Stop(opts ...StopOtion) {
+func (j *JoinOperator) Stop(opts ...StopOption) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 

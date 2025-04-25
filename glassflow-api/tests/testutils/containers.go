@@ -22,13 +22,20 @@ const (
 	ClickHousePort           = "9000/tcp"
 )
 
+type Container interface {
+	Start(context.Context)
+	Stop(context.Context)
+	GetURI() string
+	GetPort() (string, error)
+	GetConnection() (any, error)
+}
+
 // NATSContainer wraps a NATS testcontainer
 type NATSContainer struct {
 	container testcontainers.Container
 	uri       string
 }
 
-// StartNATSContainer starts a NATS container with JetStream enabled
 func StartNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // optional config
 		Image:        NATSContainerImage,

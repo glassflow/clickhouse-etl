@@ -2,6 +2,7 @@ package tests
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -9,36 +10,50 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
 
-func TestFeatures(t *testing.T) {
-	sinkSuite := steps.NewSinkTestSuite()
-	joinSuite := steps.NewJoinOperatorTestSuite()
+type TestConfig struct {
+	FeaturePaths []string
+	Tags         string
+	Format       string
+}
 
-	testTags := os.Getenv("TEST_TAGS")
+func runSingleSuite(
+	t *testing.T,
+	name string,
+	testSuite interface {
+		RegisterSteps(*godog.ScenarioContext)
+		SetupResources() error
+		CleanupResources() error
+	},
+	config TestConfig,
+) {
+	t.Helper()
 
-	paths := []string{"features"}
-
-	opts := godog.Options{
-		Format:   "pretty",
-		Paths:    paths,
-		TestingT: t,
-		Tags:     testTags,
+	// Allow overriding tags with environment variables
+	envTags := os.Getenv("TEST_TAGS")
+	if envTags != "" {
+		config.Tags = envTags
 	}
 
-	// Parse command line flags
-	godog.BindCommandLineFlags("godog.", &opts)
+	opts := godog.Options{
+		Format:   config.Format,
+		Paths:    config.FeaturePaths,
+		TestingT: t,
+		Tags:     config.Tags,
+	}
 
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(s *godog.ScenarioContext) {
-			sinkSuite.RegisterSteps(s)
-			joinSuite.RegisterSteps(s)
+			testSuite.RegisterSteps(s)
 		},
 		TestSuiteInitializer: func(ts *godog.TestSuiteContext) {
-			ts.AfterSuite(func() {
-				if err := sinkSuite.CleanupResources(); err != nil {
-					t.Logf("Error cleaning up sink resources: %v", err)
+			ts.BeforeSuite(func() {
+				if err := testSuite.SetupResources(); err != nil {
+					t.Fatalf("Error setting up %s resources: %v", name, err)
 				}
-				if err := joinSuite.CleanupResources(); err != nil {
-					t.Logf("Error cleaning up join resources: %v", err)
+			})
+			ts.AfterSuite(func() {
+				if err := testSuite.CleanupResources(); err != nil {
+					t.Logf("Error cleaning up %s resources: %v", name, err)
 				}
 			})
 		},
@@ -46,6 +61,39 @@ func TestFeatures(t *testing.T) {
 	}
 
 	if suite.Run() != 0 {
-		t.Fatal("non-zero status returned, failed to run feature tests")
+		t.Fatalf("non-zero status returned, failed to run %s tests", name)
 	}
+}
+
+// TestSinkFeatures tests only sink-related features
+func testSinkFeatures(t *testing.T) {
+	sinkSuite := steps.NewSinkTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "sink")},
+		Tags:         "@sink",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "sink", sinkSuite, config)
+}
+
+// TestJoinOperatorFeatures tests only join-operator-related features
+func testJoinFeatures(t *testing.T) {
+	joinSuite := steps.NewJoinTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "join")},
+		Tags:         "@join",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "join", joinSuite, config)
+}
+
+// TestFeatures runs all feature tests but in separate contexts
+func TestFeatures(t *testing.T) {
+	// Run tests in subtests to isolate them
+	t.Run("SinkFeatures", testSinkFeatures)
+	t.Run("JoinOperatorFeatures", testJoinFeatures)
 }
