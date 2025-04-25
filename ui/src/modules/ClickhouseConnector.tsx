@@ -97,7 +97,10 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
           databaseCount: result.databases?.length || 0,
         })
 
+        // First update the databases from the new connection
         setAvailableDatabases(result.databases)
+
+        // Then save the connection details
         saveConnection(values)
       } else {
         // Track connection error
@@ -113,6 +116,14 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
 
   const saveConnection = useCallback(
     (formValues: ClickhouseConnectionFormType) => {
+      // Check if connection details have changed from previous values
+      const prevConnection = clickhouseConnection.directConnection
+      const hasConnectionChanged =
+        prevConnection.host !== formValues.directConnection.host ||
+        prevConnection.port !== formValues.directConnection.port ||
+        prevConnection.username !== formValues.directConnection.username ||
+        prevConnection.password !== formValues.directConnection.password
+
       const connector: ClickhouseConnectionFormType = {
         connectionType: 'direct',
         directConnection: {
@@ -135,10 +146,13 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         })
       }
 
+      // Update the connection in the store
       setClickhouseConnection(connector)
+
+      // Proceed to next step
       onNext(StepKeys.CLICKHOUSE_CONNECTION)
     },
-    [setClickhouseConnection, onNext, trackFeatureUsage],
+    [setClickhouseConnection, onNext, trackFeatureUsage, clickhouseConnection.directConnection],
   )
 
   return (

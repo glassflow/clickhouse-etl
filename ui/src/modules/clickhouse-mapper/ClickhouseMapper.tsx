@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { useAnalytics } from '@/src/hooks/useAnalytics'
@@ -98,6 +98,36 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     cancelButtonText: 'No',
     type: 'info' as 'info' | 'warning' | 'error',
   })
+
+  // Add a ref to track the last connection we loaded data for
+  const lastConnectionRef = useRef<string>('')
+
+  // Reset UI state when the connection changes
+  // This ensures the UI reflects the current connection data
+  useEffect(() => {
+    // Create a connection identifier string to detect changes
+    const currentConnectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}:${clickhouseConnection.directConnection.username}`
+
+    // Check if connection has changed since we last loaded data
+    if (lastConnectionRef.current && lastConnectionRef.current !== currentConnectionId) {
+      // Connection changed, reset local state
+      setSelectedDatabase('')
+      setSelectedTable('')
+      setAvailableTables([])
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
+
+      // Track connection change
+      trackFunnelStep('connectionChanged', {
+        component: 'ClickhouseMapper',
+        topicName,
+        topicIndex: index,
+      })
+    }
+
+    // Update the connection reference
+    lastConnectionRef.current = currentConnectionId
+  }, [clickhouseConnection, trackFunnelStep, topicName, index])
 
   // Track initial view
   useEffect(() => {

@@ -103,6 +103,35 @@ export function ClickhouseJoinMapper({
 
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
 
+  // Track previous connection to detect changes
+  const connectionRef = useRef<string>('')
+
+  // Add effect to reset state when connection changes
+  useEffect(() => {
+    // Create a connection identifier string
+    const currentConnectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}:${clickhouseConnection.directConnection.username}`
+
+    // If we have a previous connection and it's different, reset state
+    if (connectionRef.current && connectionRef.current !== currentConnectionId) {
+      // Reset local state
+      setSelectedDatabase('')
+      setSelectedTable('')
+      setAvailableTables([])
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
+
+      // Track the connection change event
+      trackFunnelStep('connectionChanged', {
+        component: 'ClickhouseJoinMapper',
+        primaryTopicName: primaryTopic?.name,
+        secondaryTopicName: secondaryTopic?.name,
+      })
+    }
+
+    // Update reference with current connection
+    connectionRef.current = currentConnectionId
+  }, [clickhouseConnection, trackFunnelStep, primaryTopic?.name, secondaryTopic?.name])
+
   // Basic page view tracking, only track once on component mount
   useEffect(() => {
     if (!viewTrackedRef.current) {
