@@ -34,8 +34,9 @@ export function DeduplicationConfigurator({
   const topic = getTopic(index)
   const topicEvent = getEvent(index, 0)
 
-  // Extract keys from the event
-  const eventData = topicEvent?.event || '{}'
+  // Extract keys from the event - fix to go one level deeper in the event structure
+  // The event data is nested inside topicEvent.event.event
+  const eventData = topicEvent?.event?.event || topicEvent?.event || '{}'
 
   // Update validation state whenever configs change
   useEffect(() => {
