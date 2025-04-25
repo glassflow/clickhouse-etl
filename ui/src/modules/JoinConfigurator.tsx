@@ -202,6 +202,13 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   // Check if we're returning to a previously filled form
   const isReturningToForm = topic1 && topic1.name && topic2 && topic2.name
 
+  // Set initial render state
+  useEffect(() => {
+    if (isInitialRender && isReturningToForm) {
+      setIsInitialRender(false)
+    }
+  }, [isInitialRender, isReturningToForm])
+
   // Initialize form with React Hook Form
   const formMethods = useForm<JoinConfigType>({
     resolver: zodResolver(JoinConfigSchema),
@@ -251,9 +258,41 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
     }
   }, [topic1?.name, topic2?.name, setValue, streams, formInitialized])
 
-  // Update validation logic to only check on submit and edit
+  // Add effect to handle validation when returning to a completed step
+  const [formIsValid, setFormIsValid] = useState(false)
+
+  useEffect(() => {
+    // When returning to a previously completed step, validate the form
+    if (isReturningToForm && streams?.length === 2 && !userInteracted) {
+      const hasCompleteData = streams.every(
+        (stream) =>
+          stream?.streamId &&
+          stream?.joinKey &&
+          stream?.dataType &&
+          stream?.joinTimeWindowValue &&
+          stream?.joinTimeWindowUnit,
+      )
+
+      if (hasCompleteData) {
+        // Set form values from existing data
+        streams.forEach((stream, index) => {
+          if (stream.joinKey) setValue(`streams.${index}.joinKey`, stream.joinKey)
+          if (stream.dataType) setValue(`streams.${index}.dataType`, stream.dataType)
+          if (stream.joinTimeWindowValue) setValue(`streams.${index}.joinTimeWindowValue`, stream.joinTimeWindowValue)
+          if (stream.joinTimeWindowUnit) setValue(`streams.${index}.joinTimeWindowUnit`, stream.joinTimeWindowUnit)
+        })
+
+        // Trigger validation and update form validity state
+        trigger().then((isValid) => {
+          setFormIsValid(isValid)
+        })
+      }
+    }
+  }, [isReturningToForm, streams, userInteracted, setValue, trigger])
+
+  // Update validation logic to support both new form entry and returning to a completed step
   const canContinue =
-    isDirty &&
+    (isDirty || (isReturningToForm && formIsValid)) &&
     streams?.every(
       (stream) =>
         stream?.streamId &&
@@ -290,7 +329,9 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   const handleFormChange = () => {
     setUserInteracted(true)
     // Trigger validation only when user interacts with the form
-    trigger()
+    trigger().then((isValid) => {
+      setFormIsValid(isValid)
+    })
   }
 
   // Add direct event states
@@ -372,6 +413,25 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
       value: option.value,
     })),
   }
+
+  // Run validation on component mount if returning to a completed step
+  useEffect(() => {
+    // Only need to run this validation once when the component mounts
+    if (isReturningToForm && streams?.length === 2) {
+      const hasCompleteData = streams.every(
+        (stream) =>
+          stream?.streamId &&
+          stream?.joinKey &&
+          stream?.dataType &&
+          stream?.joinTimeWindowValue &&
+          stream?.joinTimeWindowUnit,
+      )
+
+      if (hasCompleteData) {
+        setFormIsValid(true)
+      }
+    }
+  }, []) // Empty dependency array means this runs once on mount
 
   return (
     <FormProvider {...formMethods}>
