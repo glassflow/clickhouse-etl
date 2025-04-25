@@ -1,8 +1,8 @@
-# GlassFlow ClickHouse ETL
-
 <div align="center">
-  <img src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/glassflow-banner.png" alt="GlassFlow ClickHouse ETL Banner" width="800"/>
+  <img src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/glassfow-banner.jpg" alt="GlassFlow ClickHouse ETL Banner" width="800"/>
 </div>
+
+# GlassFlow ClickHouse ETL
 
 GlassFlow ClickHouse ETL is an open-source streaming ETL tool designed to simplify data pipeline creation and management for ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for Kafka sources and ClickHouse sinks.
 
@@ -32,7 +32,7 @@ GlassFlow ClickHouse ETL is an open-source streaming ETL tool designed to simpli
 - **Self-Hosted**: Open-source solution that can be self-hosted in your infrastructure
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/clickhouse-etl-introduction.png" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
+  <img src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/clickhouse-etl-introduction.jpg" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
 </div>
 
 ## Quick Start
