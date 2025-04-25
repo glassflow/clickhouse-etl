@@ -191,6 +191,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   // Track if this is the initial render or a return visit
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [userInteracted, setUserInteracted] = useState(false)
+  const [showValidation, setShowValidation] = useState(false)
   const formInitialized = useRef(false)
 
   // Get existing topic data if available
@@ -230,8 +231,8 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
         },
       ],
     },
-    mode: 'onChange',
-    reValidateMode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
   })
 
   const {
@@ -282,10 +283,8 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
           if (stream.joinTimeWindowUnit) setValue(`streams.${index}.joinTimeWindowUnit`, stream.joinTimeWindowUnit)
         })
 
-        // Trigger validation and update form validity state
-        trigger().then((isValid) => {
-          setFormIsValid(isValid)
-        })
+        // For returning users with valid data, we still want to set formIsValid without showing errors
+        setFormIsValid(true)
       }
     }
   }, [isReturningToForm, streams, userInteracted, setValue, trigger])
@@ -304,7 +303,10 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
 
   // Handle form submission with validation
   const onSubmit = async (data: JoinConfigType) => {
-    // Trigger validation only on submit
+    // Set showValidation to true to display any validation errors
+    setShowValidation(true)
+
+    // Trigger validation on submit
     const isValid = await trigger()
     if (!isValid) {
       return
@@ -328,10 +330,12 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   // Handle any form field change
   const handleFormChange = () => {
     setUserInteracted(true)
-    // Trigger validation only when user interacts with the form
-    trigger().then((isValid) => {
-      setFormIsValid(isValid)
-    })
+    // Only update formIsValid if we're already showing validation
+    if (showValidation) {
+      trigger().then((isValid) => {
+        setFormIsValid(isValid)
+      })
+    }
   }
 
   // Add direct event states
@@ -428,10 +432,20 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
       )
 
       if (hasCompleteData) {
+        // For returning users with complete data, set formIsValid without showing validation errors
         setFormIsValid(true)
+
+        // We want to avoid triggering validation for returning users initially
+        // but make sure the form has values
+        streams.forEach((stream, index) => {
+          if (stream.joinKey) setValue(`streams.${index}.joinKey`, stream.joinKey)
+          if (stream.dataType) setValue(`streams.${index}.dataType`, stream.dataType)
+          if (stream.joinTimeWindowValue) setValue(`streams.${index}.joinTimeWindowValue`, stream.joinTimeWindowValue)
+          if (stream.joinTimeWindowUnit) setValue(`streams.${index}.joinTimeWindowUnit`, stream.joinTimeWindowUnit)
+        })
       }
     }
-  }, []) // Empty dependency array means this runs once on mount
+  }, [isReturningToForm, streams, setValue])
 
   return (
     <FormProvider {...formMethods}>
@@ -502,7 +516,18 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
 
           {/* Continue Button */}
           <div className="flex justify-between mt-6">
-            <Button variant="gradient" className="btn-text btn-primary" type="submit" disabled={!canContinue}>
+            <Button
+              variant="gradient"
+              className="btn-text btn-primary"
+              type="submit"
+              disabled={!canContinue}
+              onClick={() => {
+                if (!showValidation) {
+                  setShowValidation(true)
+                  trigger()
+                }
+              }}
+            >
               Continue
             </Button>
           </div>
