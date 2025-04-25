@@ -15,14 +15,26 @@ This demo showcases the deduplication capabilities of GlassFlow ClickHouse ETL u
 
 ## Setup
 
-1. Install Python dependencies:
+1. Create and activate a virtual environment:
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+# .\venv\Scripts\activate
+```
+
+2. Install Python dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Start the local infrastructure:
+3. Start the local infrastructure:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 This will start:
 - Zookeeper (port 2181)
@@ -72,10 +84,10 @@ python demo_deduplication.py --config custom_config.json --cleanup
 1. **Infrastructure Setup**:
    - Creates necessary Kafka topics
    - Sets up ClickHouse table
-   - Configures the GlassFlow pipeline
+   - Configures the GlassFlow pipeline using [`glassflow-clickhouse-etl`](https://pypi.org/project/glassflow-clickhouse-etl/) Python SDK
 
 2. **Event Generation**:
-   - Uses [glassgen](https://pypi.org/project/glassgen/) Python library to generate synthetic events
+   - Uses [`glassgen`](https://pypi.org/project/glassgen/) Python library to generate synthetic events
    - Generates events with configurable duplication rate
    - Sends events to Kafka at specified rate (RPS)
    - Includes unique IDs and timestamps
@@ -95,7 +107,7 @@ python demo_deduplication.py --config custom_config.json --cleanup
 
 The demo uses two main configuration files:
 
-1. **Pipeline Configuration** (`config/glassflow/deduplication_pipeline.json`):
+1. **Pipeline Configuration** [`config/glassflow/deduplication_pipeline.json`](config/glassflow/deduplication_pipeline.json):
    This file defines the GlassFlow ETL pipeline that processes and deduplicates events. It contains:
 
    - **Source Configuration**:
@@ -130,7 +142,7 @@ The demo uses two main configuration files:
    }
    ```
 
-2. **Generator Schema** (`config/glassgen/user_event.json`):
+2. **Generator Schema** [`config/glassgen/user_event.json`](config/glassgen/user_event.json):
    This file defines the structure of synthetic events using glassgen's generator syntax. The format is a JSON object where:
    - Keys are the field names in the generated events
    - Values are the generator types (prefixed with `$`)
@@ -153,36 +165,36 @@ The demo uses two main configuration files:
 1. **Infrastructure Issues**:
    - If services fail to start, check Docker logs:
      ```bash
-     docker-compose logs
+     docker compose logs
      ```
 
 2. **Pipeline Creation Issues**:
    - Ensure GlassFlow is running:
      ```bash
-     docker-compose up -d
+     docker compose up
      ```
    - Check pipeline status in the web interface (http://localhost:8080)
 
 3. **Data Generation Issues**:
    - Verify Kafka topics are created:
      ```bash
-     docker-compose exec kafka kafka-topics --list --bootstrap-server localhost:9093
+     docker compose exec kafka kafka-topics --list --bootstrap-server localhost:9093 --command-config /etc/kafka/client.properties
      ```
    - Check ClickHouse table:
      ```bash
-     docker-compose exec clickhouse clickhouse-client --query "SELECT count() FROM <table_name>"
+     docker compose exec clickhouse clickhouse-client--user default --password secret --query "SELECT count() FROM <table_name>"
      ```
 
 ## Cleanup
 
 To stop and remove all containers:
 ```bash
-docker-compose down
+docker compose down
 ```
 
 To remove all data (including volumes):
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Additional Resources

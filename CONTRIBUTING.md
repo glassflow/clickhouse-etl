@@ -86,16 +86,6 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    - Update documentation as needed
 
 3. **Test Your Changes**
-   ```bash
-   # Run unit tests
-   make test
-   
-   # Run integration tests
-   make integration-test
-   
-   # Run all tests
-   make test-all
-   ```
 
 4. **Commit Your Changes**
    - Write clear, descriptive commit messages
