@@ -1,16 +1,18 @@
+from __future__ import annotations
+
 import json
 import base64
 import re
-
 import clickhouse_connect
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
 from glassflow_clickhouse_etl import errors, models, Pipeline
 from rich import print, box
 from rich.table import Table
+from rich.console import Console
+import time
 
-
-
+console = Console()
 def create_clickhouse_client(sink_config: models.SinkConfig):
     """Create a ClickHouse client"""
     # GlassFlow uses Clickhouse native port while the python client uses http
@@ -59,6 +61,17 @@ def truncate_table(sink_config: models.SinkConfig, client):
     client.command(
         f"TRUNCATE TABLE {sink_config.table}"
     )
+
+def get_clickhouse_table_row(sink_config: models.SinkConfig, client):
+    full_table_name = f"{sink_config.database}.{sink_config.table}"
+    query = f"SELECT * FROM {full_table_name} DESC LIMIT 1"
+    result = client.query(query)
+    if result.result_rows:
+        # Get column names directly from result.column_names
+        columns = result.column_names
+        # Convert row to dictionary
+        return dict(zip(columns, result.result_rows[0]))
+    return None
 
 
 def load_conf(path: str) -> models.PipelineConfig:
@@ -173,6 +186,8 @@ def create_pipeline_if_not_exists(config: models.PipelineConfig, clickhouse_clie
         
         try:
             pipeline.create()
+            with console.status("[bold green]Waiting for pipeline to start...[/bold green]", spinner="dots"):
+                time.sleep(10)
             log(message=f"Pipeline [italic u]{config.pipeline_id}[/italic u]", status="Created", is_success=True, component="GlassFlow")
         except errors.PipelineAlreadyExistsError:
             log(message=f"Pipeline [italic u]{config.pipeline_id}[/italic u]", status="Already exists", is_success=False, component="GlassFlow")
@@ -280,3 +295,11 @@ def print_gen_stats(stats: dict, title: str = "Generation Stats"):
     print("")
     print(table)
     print("")
+
+def print_clickhouse_record(record: dict, title: str = "ClickHouse Record"):
+    """Print a ClickHouse record in a table format"""
+    table = Table(show_header=True, style="sky_blue3", show_edge=True, expand=False, padding=(0, 1), title=title)
+    for key, value in record.items():
+        table.add_column(key, justify="left")
+    table.add_row(*record.values())
+    print(table)

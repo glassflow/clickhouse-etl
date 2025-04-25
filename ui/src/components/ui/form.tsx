@@ -413,8 +413,8 @@ function FormControlSwitch({
                 setIsChecked(checked)
               }}
               className={cn(
-                'data-[state=checked]:bg-primary',
-                'data-[state=unchecked]:bg-muted',
+                'data-[state=checked]:bg-[var(--primary)]',
+                'data-[state=unchecked]:bg-[var(--background)]',
                 'transition-colors duration-200 ease-in-out',
               )}
             />

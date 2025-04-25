@@ -1,0 +1,24 @@
+server {
+    listen       8080;
+    server_name  default_server;
+
+    location /logs {
+        autoindex on;
+        alias   /logs;
+
+    }
+
+    location /api/v1 {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=1s;
+        set $backend "http://app:8080";
+
+        proxy_pass $backend;
+    }
+
+    location / {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=1s;
+        set $frontend "http://ui:3000";
+
+        proxy_pass $frontend;
+    }
+}

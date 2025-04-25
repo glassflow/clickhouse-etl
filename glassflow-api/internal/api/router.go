@@ -23,10 +23,11 @@ func NewRouter(log *slog.Logger, pmgr *service.PipelineManager) http.Handler {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/healthz", h.healthz).Methods("GET")
-	r.HandleFunc("/pipeline", h.createPipeline).Methods("POST")
-	r.HandleFunc("/pipeline", h.getPipeline).Methods("GET")
-	r.HandleFunc("/pipeline/shutdown", h.shutdownPipeline).Methods("DELETE")
+
+	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
+	r.HandleFunc("/api/v1/pipeline", h.createPipeline).Methods("POST")
+	r.HandleFunc("/api/v1/pipeline", h.getPipeline).Methods("GET")
+	r.HandleFunc("/api/v1/pipeline/shutdown", h.shutdownPipeline).Methods("DELETE")
 
 	r.Use(Recovery(log), RequestLogging(log))
 

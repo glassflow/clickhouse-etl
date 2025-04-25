@@ -25,6 +25,7 @@ type JoinOperator struct {
 	mu                  sync.Mutex
 	handleMu            sync.Mutex
 	isClosed            bool
+	wg                  sync.WaitGroup
 	log                 *slog.Logger
 }
 
@@ -50,12 +51,16 @@ func NewJoinOperator(
 		mu:                  sync.Mutex{},
 		handleMu:            sync.Mutex{},
 		isClosed:            false,
+		wg:                  sync.WaitGroup{},
 		log:                 log,
 	}
 }
 
 func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 	j.log.Info("Join operator started")
+
+	j.wg.Add(1)
+	defer j.wg.Done()
 
 	err := j.leftStreamConsumer.Subscribe(func(msg jetstream.Msg) {
 		j.handleMu.Lock()
@@ -93,17 +98,34 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 	}
 }
 
-func (j *JoinOperator) Stop() {
+func (j *JoinOperator) Stop(opts ...StopOtion) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+
 	if j.isClosed {
 		j.log.Debug("Join operator is already stopped.")
 		return
 	}
 
+	options := &StopOptions{
+		NoWait: false,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	j.log.Info("Stopping Join operator ...")
+	if options.NoWait {
+		j.leftStreamConsumer.Unsubscribe()
+		j.rightStreamConsumer.Unsubscribe()
+	}
+
+	j.wg.Wait()
+
 	j.leftStreamConsumer.Unsubscribe()
 	j.rightStreamConsumer.Unsubscribe()
+
 	j.isClosed = true
 	j.log.Debug("Join operator stopped")
 }

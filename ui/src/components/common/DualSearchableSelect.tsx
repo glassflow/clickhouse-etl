@@ -231,10 +231,10 @@ export function DualSearchableSelect({
           <div className="min-w-[500px] shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex">
             {/* Primary Options */}
             <div className="flex-1 p-4">
-              <div>Topic 1: </div>
-              <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
+              <div>Left Topic</div>
+              {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
                 {primaryLabel}
-              </div>
+              </div> */}
               <div className="max-h-[300px] overflow-auto p-1" ref={primaryListRef}>
                 {filteredPrimaryOptions.length === 0 ? (
                   <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
@@ -268,10 +268,10 @@ export function DualSearchableSelect({
 
             {/* Secondary Options */}
             <div className="flex-1 p-4">
-              <div>Topic 2: </div>
-              <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
+              <div>Right Topic</div>
+              {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
                 {secondaryLabel}:
-              </div>
+              </div> */}
               <div className="max-h-[300px] overflow-auto p-1" ref={secondaryListRef}>
                 {filteredSecondaryOptions.length === 0 ? (
                   <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>

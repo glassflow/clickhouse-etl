@@ -3,13 +3,13 @@ import { z } from 'zod'
 // Direct connection schema
 const DirectConnectionSchema = z.object({
   host: z.string().min(1, 'Host is required'),
-  port: z.string().min(1, 'Port is required'),
+  port: z.string().min(1, 'HTTP(S) Port is required'),
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
   database: z.string().optional(),
   useSSL: z.boolean().optional(),
   secure: z.boolean().optional(),
-  nativePort: z.string().optional(),
+  nativePort: z.string().min(1, 'Native Port is required'),
 })
 
 // Connection form schema

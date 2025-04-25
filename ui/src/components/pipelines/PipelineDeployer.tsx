@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/src/utils'
 import { Button } from '@/src/components/ui/button'
@@ -24,6 +25,7 @@ type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'de
 
 export function PipelineDeployer() {
   const { apiConfig, resetPipelineState, pipelineId } = useStore()
+  const { trackPipelineAction } = useAnalytics()
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
   const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)
@@ -67,16 +69,28 @@ export function PipelineDeployer() {
         console.log('response of deployPipeline: ', response)
         setStatus('active')
         setError(null)
+
+        // Track successful pipeline deployment
+        trackPipelineAction('deploy', {
+          pipelineId: response.pipeline_id,
+          status: 'success',
+        })
       } catch (err: any) {
         setStatus('deploy_failed')
         setError(err.message)
+
+        // Track failed pipeline deployment
+        trackPipelineAction('deploy', {
+          status: 'failed',
+          error: err.message,
+        })
       }
     }
 
     if (apiConfig) {
       checkPipelineStatus()
     }
-  }, [apiConfig])
+  }, [apiConfig, pipelineId, trackPipelineAction])
 
   const handleDeleteClick = () => {
     setIsDeleteModalVisible(true)
@@ -100,10 +114,25 @@ export function PipelineDeployer() {
         await shutdownPipeline()
         setStatus('deleted')
         setError(null)
+        resetPipelineState('', true)
+
+        // Track successful pipeline deletion
+        trackPipelineAction('delete', {
+          pipelineId,
+          configSaved: !!configName,
+          status: 'success',
+        })
       } catch (err) {
         const error = err as PipelineError
         setStatus('delete_failed')
         setError(error.message)
+
+        // Track failed pipeline deletion
+        trackPipelineAction('delete', {
+          pipelineId,
+          status: 'failed',
+          error: error.message,
+        })
       }
     }
   }
@@ -112,7 +141,7 @@ export function PipelineDeployer() {
     setIsModifyModalVisible(true)
   }
 
-  const handleModifyModalComplete = (result: string, configName: string, operation: string) => {
+  const handleModifyModalComplete = async (result: string, configName: string, operation: string) => {
     setIsModifyModalVisible(false)
 
     // Save configuration if the user chose to do so and provided a name
@@ -129,8 +158,32 @@ export function PipelineDeployer() {
 
     // Reset pipeline state and navigate to home regardless of save choice
     if (result === ModalResult.SUBMIT) {
-      resetPipelineState('', true)
-      router.push('/home')
+      try {
+        await shutdownPipeline()
+        setStatus('deleted')
+        setError(null)
+        resetPipelineState('', true)
+
+        // Track successful pipeline modification
+        trackPipelineAction('modify', {
+          pipelineId,
+          configSaved: !!configName,
+          status: 'success',
+        })
+
+        router.push('/home')
+      } catch (err) {
+        const error = err as PipelineError
+        setStatus('delete_failed')
+        setError(error.message)
+
+        // Track failed pipeline modification
+        trackPipelineAction('modify', {
+          pipelineId,
+          status: 'failed',
+          error: error.message,
+        })
+      }
     }
   }
 
@@ -166,7 +219,8 @@ export function PipelineDeployer() {
     }
   }
 
-  const canShowButtons = status === 'active' || status === 'deploy_failed' || status === 'delete_failed'
+  // const canShowButtons = status === 'active' || status === 'deploy_failed' || status === 'delete_failed'
+  const canShowButtons = status === 'active' || status === 'deploy_failed'
 
   return (
     <div className="flex flex-col items-center justify-center gap-4">
@@ -185,9 +239,9 @@ export function PipelineDeployer() {
       {status === 'active' && (
         <div className="mt-4">
           <h3 className="text-lg font-medium mb-2">Pipeline Details</h3>
-          <pre className="bg-[var(--color-background-neutral-faded)] p-4 rounded-md overflow-auto">
+          {/* <pre className="bg-[var(--color-background-neutral-faded)] p-4 rounded-md overflow-auto">
             {JSON.stringify(apiConfig, null, 2)}
-          </pre>
+          </pre> */}
         </div>
       )}
 

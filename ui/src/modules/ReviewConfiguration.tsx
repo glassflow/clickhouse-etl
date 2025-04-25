@@ -188,7 +188,7 @@ const encodeBase64 = (password: string) => {
 }
 
 export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigurationProps) {
-  const { kafkaStore, clickhouseStore, topicsStore, setApiConfig, pipelineId, setPipelineId } = useStore()
+  const { kafkaStore, clickhouseStore, topicsStore, joinStore, setApiConfig, pipelineId, setPipelineId } = useStore()
   const { clickhouseConnection, clickhouseDestination } = clickhouseStore
   const { bootstrapServers, securityProtocol } = kafkaStore
   const router = useRouter()
@@ -201,6 +201,17 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const [yamlContent, setYamlContent] = useState('')
   const [apiConfigContent, setApiConfigContent] = useState('')
 
+  const getMappingType = (eventField: string, mapping: any) => {
+    const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
+
+    if (mappingEntry) {
+      return mappingEntry.jsonType
+    }
+
+    // NOTE: default to string if no mapping entry is found - check this
+    return 'string'
+  }
+
   // Generate API config without updating the store
   const generateApiConfig = () => {
     try {
@@ -210,49 +221,43 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
         setPipelineId(newPipelineId)
       }
 
+      const mapping = clickhouseDestination?.mapping || []
+
       // Map topics to the expected format
       const topicsConfig = selectedTopics.map((topic: any) => {
+        // Extract event data, ensuring _metadata is removed
+        let eventData = {}
+        if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
+          // Get the actual event data (either directly or from .event property)
+          const rawEvent = topic.selectedEvent.event.event || topic.selectedEvent.event
+
+          // Clone the event and remove _metadata
+          eventData = { ...rawEvent }
+          if (typeof eventData === 'object' && eventData !== null && '_metadata' in eventData) {
+            delete (eventData as any)._metadata
+          }
+        }
+
         return {
           consumer_group_initial_offset: topic.initialOffset,
           name: topic.name,
           id: topic.name, // Using topic name as id for now
           schema: {
             type: 'json',
-            fields:
-              topic.events &&
-              topic.selectedEvent &&
-              topic.selectedEvent.event &&
-              typeof topic.selectedEvent.event === 'object'
-                ? Object.keys(topic.selectedEvent.event.event || topic.selectedEvent.event).map((key) => {
-                    // Try to infer type from the event data
-                    const value = topic.selectedEvent.event[key]
-                    let type = 'String' // Default type
-
-                    if (typeof value === 'number') {
-                      type = Number.isInteger(value) ? 'Int64' : 'Float64'
-                    } else if (typeof value === 'boolean') {
-                      type = 'Boolean'
-                    } else if (value instanceof Date) {
-                      type = 'DateTime'
-                    } else if (Array.isArray(value)) {
-                      type = 'Array(String)'
-                    } else if (typeof value === 'object' && value !== null) {
-                      type = 'Map(String, String)'
-                    }
-
-                    return {
-                      name: key,
-                      type: type,
-                    }
-                  })
-                : [],
+            fields: Object.keys(eventData).map((key) => {
+              const mappingType = getMappingType(key, mapping)
+              return {
+                name: key,
+                type: mappingType,
+              }
+            }),
           },
           deduplication:
             topic.deduplication && topic.deduplication.enabled
               ? {
                   enabled: true,
-                  id_field: topic.deduplication.method === 'key' ? topic.deduplication.keyField : undefined,
-                  id_field_type: 'string', // Default to string type
+                  id_field: topic.deduplication.key,
+                  id_field_type: topic.deduplication.keyType,
                   time_window: topic.deduplication.window
                     ? `${topic.deduplication.window}${topic.deduplication.windowUnit?.charAt(0) || 'h'}`
                     : '1h',
@@ -267,18 +272,40 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
       const tableMappings = clickhouseDestination?.mapping
         ? clickhouseDestination.mapping
             .filter((mapping) => mapping.eventField) // Only include mapped fields
+            .filter((mapping) => !mapping.eventField.startsWith('_metadata')) // Exclude _metadata fields
             .map((mapping) => {
-              // Find which topic this field belongs to
-              const sourceTopic = selectedTopics.find(
-                (topic: any) =>
-                  topic.events &&
-                  topic.selectedEvent &&
-                  topic.selectedEvent.event &&
-                  mapping.eventField in topic.selectedEvent.event,
-              )
+              // Get source topic from mapping if available
+              let sourceId = mapping.sourceTopic || selectedTopics[0]?.name
+
+              // If no sourceTopic is specified in the mapping, we need to find it
+              if (!mapping.sourceTopic) {
+                // Try to find which topic contains this field
+                for (const topic of selectedTopics) {
+                  if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
+                    const eventData = topic.selectedEvent.event.event || topic.selectedEvent.event
+
+                    // Check if the field exists in this topic's event data
+                    if (mapping.eventField in eventData) {
+                      sourceId = topic.name
+                      break
+                    }
+                  }
+                }
+              }
+
+              // Now check if the field is in a stream in joinStore
+              if (joinStore.streams && joinStore.streams.length > 0) {
+                // Try to find the stream that has this field as its join key
+                for (const stream of joinStore.streams) {
+                  if (stream.joinKey === mapping.eventField) {
+                    sourceId = stream.topicName || stream.streamId
+                    break
+                  }
+                }
+              }
 
               return {
-                source_id: sourceTopic?.name || selectedTopics[0]?.name,
+                source_id: sourceId,
                 field_name: mapping.eventField,
                 column_name: mapping.name,
                 column_type: mapping.type.replace(/Nullable\((.*)\)/, '$1'), // Remove Nullable wrapper
@@ -302,14 +329,27 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
         ...(topicsConfig.length > 1
           ? {
               join: {
-                enabled: true,
-                type: 'temporal',
-                sources: topicsConfig.map((topic) => ({
-                  source_id: topic.name,
-                  join_key: topic.deduplication?.id_field || 'id', // Use deduplication key or default
-                  time_window: '1h',
-                  orientation: 'left', // Default to left orientation
-                })),
+                enabled: joinStore.enabled,
+                type: joinStore.type || 'temporal',
+                sources:
+                  joinStore.streams.length > 0
+                    ? joinStore.streams.map((stream) => ({
+                        // source_id: stream.streamId,
+                        source_id: stream.topicName,
+                        join_key: stream.joinKey,
+                        time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
+                        orientation: stream.orientation,
+                      }))
+                    : topicsConfig.map((topic, index) => ({
+                        source_id: topic.name,
+                        join_key:
+                          (topic.deduplication as any)?.key ||
+                          (topic.deduplication as any)?.keyField ||
+                          topic.deduplication?.id_field ||
+                          '',
+                        time_window: '1h',
+                        orientation: index === 0 ? 'left' : 'right',
+                      })),
               },
             }
           : {}),
@@ -343,7 +383,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             ...config.source.connection_params,
             mechanism: 'PLAIN',
             username: kafkaStore.saslPlain?.username,
-            password: encodeBase64(kafkaStore.saslPlain?.password),
+            // password: encodeBase64(kafkaStore.saslPlain?.password),
+            password: kafkaStore.saslPlain?.password,
           }
         } else if (authMethod?.includes('scram')) {
           const scramType = authMethod.includes('256') ? 'SCRAM-SHA-256' : 'SCRAM-SHA-512'
@@ -353,7 +394,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
             ...config.source.connection_params,
             mechanism: scramType,
             username: scramConfig?.username,
-            password: encodeBase64(scramConfig?.password),
+            // password: encodeBase64(scramConfig?.password),
+            password: scramConfig?.password,
             root_ca: encodeBase64(kafkaStore.saslScram256?.certificate || kafkaStore.saslScram512?.certificate || ''),
           }
         } else if (authMethod?.includes('oauth')) {
@@ -555,8 +597,11 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
           <div className="text-sm text-muted-foreground">Host:</div>
           <div>{directConnection?.host || 'Not configured'}</div>
 
-          <div className="text-sm text-muted-foreground">Port:</div>
+          <div className="text-sm text-muted-foreground">HTTP(S) Port:</div>
           <div>{directConnection?.port || 'Not configured'}</div>
+
+          <div className="text-sm text-muted-foreground">Native Port:</div>
+          <div>{directConnection?.nativePort || 'Not configured'}</div>
 
           <div className="text-sm text-muted-foreground">Username:</div>
           <div>{directConnection?.username || 'Not configured'}</div>

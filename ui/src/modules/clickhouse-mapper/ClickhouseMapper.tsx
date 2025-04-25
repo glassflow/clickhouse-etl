@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
@@ -8,13 +9,22 @@ import { cn } from '@/src/utils'
 import { InfoModal, ModalResult } from '@/src/components/Modal'
 import { FieldColumnMapper } from './FieldColumnMapper'
 import { useFetchTableSchema } from './hooks'
-import { extractEventFields, inferJsonType, findBestMatchingField, getNestedValue } from './helpers'
+import {
+  extractEventFields,
+  inferJsonType,
+  findBestMatchingField,
+  getNestedValue,
+  validateColumnMappings,
+  isTypeCompatible,
+} from './helpers'
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 import { DatabaseTableSelectContainer } from './DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './BatchDelaySelector'
+import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const { clickhouseStore, kafkaStore, operationsSelected } = useStore()
+  const { trackFunnelStep, trackError, trackFeatureUsage } = useAnalytics()
   const {
     clickhouseConnection,
     clickhouseDestination,
@@ -32,6 +42,13 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   const selectedEvent = selectedTopic?.selectedEvent
   const topicEvents = selectedTopic?.events
   const topicName = selectedTopic?.name
+
+  // Analytics tracking states
+  const [hasTrackedView, setHasTrackedView] = useState(false)
+  const [hasTrackedDatabaseSelection, setHasTrackedDatabaseSelection] = useState(false)
+  const [hasTrackedTableSelection, setHasTrackedTableSelection] = useState(false)
+  const [hasTrackedFieldMapping, setHasTrackedFieldMapping] = useState(false)
+  const [prevMappedFieldsCount, setPrevMappedFieldsCount] = useState(0)
 
   // Initialize state from store values
   const [selectedDatabase, setSelectedDatabase] = useState<string>(clickhouseDestination?.database || '')
@@ -60,10 +77,12 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     unmappedNullableColumns: string[]
     unmappedNonNullableColumns: string[]
     extraEventFields: string[]
+    incompatibleTypeMappings: any[]
   }>({
     unmappedNullableColumns: [],
     unmappedNonNullableColumns: [],
     extraEventFields: [],
+    incompatibleTypeMappings: [],
   })
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
@@ -77,6 +96,19 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     cancelButtonText: 'No',
     type: 'info' as 'info' | 'warning' | 'error',
   })
+
+  // Track initial view
+  useEffect(() => {
+    if (!hasTrackedView) {
+      trackFunnelStep('clickhouseMapperView', {
+        topicName,
+        topicIndex: index,
+        isReturningVisit: !!clickhouseDestination?.database,
+        existingMappingCount: clickhouseDestination?.mapping?.length || 0,
+      })
+      setHasTrackedView(true)
+    }
+  }, [hasTrackedView, trackFunnelStep, topicName, index, clickhouseDestination])
 
   // Get connection config based on connection type
   const getConnectionConfig = () => ({
@@ -95,6 +127,45 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     setMappedColumns,
     setSuccess,
   })
+
+  // Enhanced database selection handler with tracking
+  const handleDatabaseSelection = useCallback(
+    (database: string) => {
+      setSelectedDatabase(database)
+
+      // Track database selection if it's the first time
+      if (!hasTrackedDatabaseSelection || clickhouseDestination?.database !== database) {
+        trackFunnelStep('databaseSelected', {
+          database,
+          topicName,
+          topicIndex: index,
+          isChange: !!clickhouseDestination?.database && clickhouseDestination.database !== database,
+        })
+        setHasTrackedDatabaseSelection(true)
+      }
+    },
+    [hasTrackedDatabaseSelection, clickhouseDestination, trackFunnelStep, topicName, index],
+  )
+
+  // Enhanced table selection handler with tracking
+  const handleTableSelection = useCallback(
+    (table: string) => {
+      setSelectedTable(table)
+
+      // Track table selection if it's the first time or a change
+      if (!hasTrackedTableSelection || clickhouseDestination?.table !== table) {
+        trackFunnelStep('tableSelected', {
+          database: selectedDatabase,
+          table,
+          topicName,
+          topicIndex: index,
+          isChange: !!clickhouseDestination?.table && clickhouseDestination.table !== table,
+        })
+        setHasTrackedTableSelection(true)
+      }
+    },
+    [hasTrackedTableSelection, clickhouseDestination, selectedDatabase, trackFunnelStep, topicName, index],
+  )
 
   // Sync component with store when clickhouseDestination changes
   useEffect(() => {
@@ -186,12 +257,46 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
             }
           })
           setMappedColumns(updatedColumns)
+
+          // Track auto-mapping success (only track once when it happens)
+          const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
+          if (autoMappedCount > 0) {
+            trackFeatureUsage('autoMapping', {
+              topicName,
+              mappedCount: autoMappedCount,
+              totalColumns: updatedColumns.length,
+              mappingPercentage: Math.round((autoMappedCount / updatedColumns.length) * 100),
+            })
+          }
         }
       } else {
         console.log('No event data found')
       }
     }
   }, [selectedEvent, topicEvents])
+
+  // Track field mapping changes
+  useEffect(() => {
+    const mappedFieldsCount = mappedColumns.filter((col) => col.eventField).length
+
+    // Only track if there's a real change in field mapping count
+    if (mappedFieldsCount > 0 && mappedFieldsCount !== prevMappedFieldsCount) {
+      setPrevMappedFieldsCount(mappedFieldsCount)
+
+      // Don't track the first time when we're just initializing from store
+      if (prevMappedFieldsCount > 0 || !clickhouseDestination?.mapping?.length) {
+        trackFunnelStep('fieldsMapped', {
+          topicName,
+          topicIndex: index,
+          mappedFields: mappedFieldsCount,
+          totalColumns: mappedColumns.length,
+          mappingPercentage: Math.round((mappedFieldsCount / mappedColumns.length) * 100),
+        })
+
+        setHasTrackedFieldMapping(true)
+      }
+    }
+  }, [mappedColumns, prevMappedFieldsCount, trackFunnelStep, topicName, index, clickhouseDestination])
 
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
@@ -216,11 +321,29 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         if (data.success) {
           setAvailableDatabases(data.databases || [])
           setError(null)
+
+          // Track successful database fetch
+          trackFunnelStep('databasesFetched', {
+            databaseCount: data.databases?.length || 0,
+          })
         } else {
           setError(data.error || 'Failed to fetch databases')
+
+          // Track error
+          trackError('connection', {
+            component: 'ClickhouseMapper',
+            error: data.error || 'Failed to fetch databases',
+          })
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred')
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
+        setError(errorMessage)
+
+        // Track error
+        trackError('connection', {
+          component: 'ClickhouseMapper',
+          error: errorMessage,
+        })
       } finally {
         setIsLoading(false)
       }
@@ -256,18 +379,58 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         if (data.success) {
           setAvailableTables(data.tables || [])
           setError(null)
+
+          // Track tables loaded
+          trackFunnelStep('tablesFetched', {
+            database: selectedDatabase,
+            tableCount: data.tables?.length || 0,
+          })
         } else {
           setError(data.error || `Failed to fetch tables for database '${selectedDatabase}'`)
+
+          // Track error
+          trackError('connection', {
+            component: 'ClickhouseMapper',
+            error: data.error || `Failed to fetch tables for database '${selectedDatabase}'`,
+            database: selectedDatabase,
+          })
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred')
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
+        setError(errorMessage)
+
+        // Track error
+        trackError('connection', {
+          component: 'ClickhouseMapper',
+          error: errorMessage,
+          database: selectedDatabase,
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchTables()
+
+    // Track database selection (but only once when it changes)
+    trackFunnelStep('databaseSelected', {
+      database: selectedDatabase,
+      topicName,
+      topicIndex: index,
+    })
   }, [selectedDatabase])
+
+  // Track table selection when it changes
+  useEffect(() => {
+    if (selectedTable) {
+      trackFunnelStep('tableSelected', {
+        database: selectedDatabase,
+        table: selectedTable,
+        topicName,
+        topicIndex: index,
+      })
+    }
+  }, [selectedTable])
 
   // Update column mapping
   const updateColumnMapping = (index: number, field: keyof TableColumn, value: any) => {
@@ -286,13 +449,31 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Map event field to column
   const mapEventFieldToColumn = (index: number, eventField: string) => {
     const updatedColumns = [...mappedColumns]
+    const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+    const inferredType = eventField ? inferJsonType(fieldValue) : updatedColumns[index].jsonType
+
     updatedColumns[index] = {
       ...updatedColumns[index],
       eventField: eventField,
-      // If the field exists in the event data, try to infer the type
-      jsonType: eventField ? typeof getNestedValue(eventData, eventField) : updatedColumns[index].jsonType,
+      jsonType: inferredType,
     }
+
+    // Check compatibility immediately for better user feedback
+    const isCompatible = isTypeCompatible(inferredType, updatedColumns[index].type)
+
     setMappedColumns(updatedColumns)
+
+    // Track when a field is manually mapped
+    if (eventField) {
+      trackFunnelStep('fieldMapped', {
+        columnName: updatedColumns[index].name,
+        eventField,
+        inferredType,
+        isCompatible,
+        topicName,
+        topicIndex: index,
+      })
+    }
   }
 
   // Add validation type enum
@@ -309,12 +490,13 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   }
 
   // Add validation logic
-  const validateMapping = (): ValidationResult | null => {
+  const validateMapping = useCallback((): ValidationResult | null => {
     // Reset validation state
     const issues = {
       unmappedNullableColumns: [] as string[],
       unmappedNonNullableColumns: [] as string[],
       extraEventFields: [] as string[],
+      incompatibleTypeMappings: [] as any[],
     }
 
     // Count mapped fields
@@ -340,14 +522,51 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     const extraFields = eventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
     issues.extraEventFields = extraFields
 
+    // Validate type compatibility
+    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    issues.incompatibleTypeMappings = invalidMappings
+
     setValidationIssues(issues)
 
-    // Check in order of priority:
-    // 1. Non-nullable column violations (error)
-    // 2. Unmapped nullable columns (warning)
-    // 3. Extra event fields (warning)
+    // Track validation issues
+    if (
+      issues.unmappedNonNullableColumns.length > 0 ||
+      issues.unmappedNullableColumns.length > 0 ||
+      issues.extraEventFields.length > 0 ||
+      issues.incompatibleTypeMappings.length > 0
+    ) {
+      trackFunnelStep('mappingValidation', {
+        topicName,
+        topicIndex: index,
+        unmappedRequiredColumns: issues.unmappedNonNullableColumns.length,
+        unmappedNullableColumns: issues.unmappedNullableColumns.length,
+        extraFields: issues.extraEventFields.length,
+        incompatibleMappings: issues.incompatibleTypeMappings.length,
+        hasErrors: issues.unmappedNonNullableColumns.length > 0 || issues.incompatibleTypeMappings.length > 0,
+      })
+    }
 
-    if (issues.unmappedNonNullableColumns.length > 0) {
+    // Check in order of priority:
+    // 1. Type compatibility violations (error)
+    // 2. Non-nullable column violations (error)
+    // 3. Unmapped nullable columns (warning)
+    // 4. Extra event fields (warning)
+
+    if (issues.incompatibleTypeMappings.length > 0) {
+      const incompatibleFields = issues.incompatibleTypeMappings
+        .map((mapping) => `${mapping.name} (${mapping.jsonType} → ${mapping.type})`)
+        .join(', ')
+
+      return {
+        type: 'error',
+        canProceed: false,
+        title: 'Error: Type Incompatibility',
+        message: `Some event fields are mapped to incompatible ClickHouse column types. Please review and fix these mappings:
+        ${incompatibleFields}`,
+        okButtonText: 'OK',
+        cancelButtonText: 'Cancel',
+      }
+    } else if (issues.unmappedNonNullableColumns.length > 0) {
       return {
         type: 'error',
         canProceed: false,
@@ -380,10 +599,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
 
     return null // No validation issues
-  }
+  }, [mappedColumns, tableSchema.columns, eventFields, trackFunnelStep, topicName, index])
 
   // Add save configuration logic
-  const saveDestinationConfig = () => {
+  const saveDestinationConfig = useCallback(() => {
     // Set the pending action to 'save' so we know what to do after validation
     setPendingAction('save')
 
@@ -404,10 +623,47 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       // No validation issues, proceed directly
       completeConfigSave()
     }
-  }
+  }, [validateMapping])
 
   // Complete the save after modal confirmation
-  const completeConfigSave = () => {
+  const completeConfigSave = useCallback(() => {
+    // Before saving, do a final validation of type compatibility
+    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    if (invalidMappings.length > 0) {
+      const incompatibleFields = invalidMappings
+        .map((mapping) => `${mapping.name} (${mapping.jsonType} → ${mapping.type})`)
+        .join(', ')
+
+      setError(`Type compatibility issues remain: ${incompatibleFields}. Please fix these before continuing.`)
+      return
+    }
+
+    // Calculate mapping stats
+    const totalColumns = tableSchema.columns.length
+    const mappedColumns2 = mappedColumns.filter((col) => col.eventField).length
+    const mappingPercentage = Math.round((mappedColumns2 / totalColumns) * 100)
+
+    // Track successful completion
+    trackFunnelStep('clickhouseMapperCompleted', {
+      topicName,
+      topicIndex: index,
+      database: selectedDatabase,
+      table: selectedTable,
+      mappedColumns: mappedColumns2,
+      totalColumns,
+      mappingPercentage,
+      batchSize: maxBatchSize,
+      delayTime: maxDelayTime,
+      delayUnit: maxDelayTimeUnit,
+    })
+
+    // Track batch configuration as feature usage
+    trackFeatureUsage('batchConfiguration', {
+      batchSize: maxBatchSize,
+      delayTime: maxDelayTime,
+      delayUnit: maxDelayTimeUnit,
+    })
+
     setClickhouseDestination({
       ...clickhouseDestination,
       database: selectedDatabase,
@@ -425,7 +681,22 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     if (onNext) {
       onNext(StepKeys.CLICKHOUSE_MAPPER)
     }
-  }
+  }, [
+    clickhouseDestination,
+    selectedDatabase,
+    selectedTable,
+    mappedColumns,
+    tableSchema.columns,
+    maxBatchSize,
+    maxDelayTime,
+    maxDelayTimeUnit,
+    onNext,
+    trackFunnelStep,
+    trackFeatureUsage,
+    topicName,
+    index,
+    setClickhouseDestination,
+  ])
 
   // Add this useEffect to clean up modal state
   useEffect(() => {
@@ -438,18 +709,18 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   }, [])
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 mb-4">
       <div className="space-y-6">
         <DatabaseTableSelectContainer
           availableDatabases={availableDatabases}
           selectedDatabase={selectedDatabase}
-          setSelectedDatabase={setSelectedDatabase}
+          setSelectedDatabase={handleDatabaseSelection}
           testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
           isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
-          setSelectedTable={setSelectedTable}
+          setSelectedTable={handleTableSelection}
           testTableAccess={testTableAccess as TableAccessTestFn}
         />
 
@@ -470,7 +741,9 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
               updateColumnMapping={updateColumnMapping}
               mapEventFieldToColumn={mapEventFieldToColumn}
             />
-            <div className="flex gap-2">
+            {/* TypeCompatibilityInfo is temporarily hidden */}
+            {/* <TypeCompatibilityInfo /> */}
+            <div className="flex gap-2 mt-4">
               <Button
                 variant="outline"
                 className={cn({
@@ -488,12 +761,12 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         )}
 
         {/* Success/Error Messages */}
-        {success && (
+        {/* {success && (
           <div className="p-3 bg-background-neutral-faded text-green-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
             <CheckCircleIcon className="h-5 w-5 mr-2" />
             <span>{success}</span>
           </div>
-        )}
+        )} */}
 
         {error && (
           <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
@@ -515,10 +788,31 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
             if (modalProps.type === 'error') {
               // For errors, we don't proceed even if user confirms
               setError('Please fix the validation errors before proceeding.')
+
+              // Track validation error acknowledgment
+              trackFunnelStep('validationErrorAcknowledged', {
+                topicName,
+                topicIndex: index,
+                errorType: modalProps.title,
+              })
             } else {
               // For warnings, we proceed if user confirms
               completeConfigSave()
+
+              // Track warning acceptance
+              trackFunnelStep('validationWarningAccepted', {
+                topicName,
+                topicIndex: index,
+                warningType: modalProps.title,
+              })
             }
+          } else if (result === ModalResult.NO && modalProps.type !== 'error') {
+            // Track warning rejection
+            trackFunnelStep('validationWarningRejected', {
+              topicName,
+              topicIndex: index,
+              warningType: modalProps.title,
+            })
           }
           setPendingAction('none')
         }}

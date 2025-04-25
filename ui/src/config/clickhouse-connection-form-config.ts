@@ -4,15 +4,15 @@ export const ClickhouseConnectionFormConfig = {
       host: {
         name: 'directConnection.host',
         label: 'Host',
-        placeholder: 'Enter host',
+        placeholder: 'Enter host, e.g. clickhouse.mycompany.com without http:// or https://',
         required: 'Host is required',
         type: 'text',
       },
       port: {
         name: 'directConnection.port',
-        label: 'Port',
-        placeholder: 'Enter port',
-        required: 'Port is required',
+        label: 'HTTP(S) Port',
+        placeholder: 'Enter HTTP(S) port, e.g. 8443',
+        required: 'HTTP(S) Port is required',
         type: 'text',
       },
       username: {
@@ -32,7 +32,7 @@ export const ClickhouseConnectionFormConfig = {
       nativePort: {
         name: 'directConnection.nativePort',
         label: 'Native Port',
-        placeholder: 'Enter native port',
+        placeholder: 'Enter native port, e.g. 9440',
         required: 'Native port is required',
         type: 'text',
       },

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
@@ -10,10 +11,18 @@ import { cn } from '@/src/utils'
 import { InfoModal, ModalResult } from '@/src/components/Modal'
 import { FieldColumnMapper } from './FieldColumnMapper'
 import { useFetchTableSchema } from './hooks'
-import { extractEventFields, inferJsonType, findBestMatchingField, getNestedValue } from './helpers'
+import {
+  extractEventFields,
+  inferJsonType,
+  findBestMatchingField,
+  getNestedValue,
+  validateColumnMappings,
+  isTypeCompatible,
+} from './helpers'
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 import { DatabaseTableSelectContainer } from './DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './BatchDelaySelector'
+// import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
 
 export function ClickhouseJoinMapper({
   onNext,
@@ -25,6 +34,7 @@ export function ClickhouseJoinMapper({
   secondaryIndex: number
 }) {
   const { clickhouseStore, topicsStore } = useStore()
+  const { trackFunnelStep } = useAnalytics()
   const {
     clickhouseConnection,
     clickhouseDestination,
@@ -38,6 +48,10 @@ export function ClickhouseJoinMapper({
   // Get topics data
   const primaryTopic = topicsStore.getTopic(primaryIndex)
   const secondaryTopic = topicsStore.getTopic(secondaryIndex)
+
+  // Add tracking refs to avoid re-renders and prevent infinite loops
+  const viewTrackedRef = useRef(false)
+  const completionTrackedRef = useRef(false)
 
   // Initialize state
   const [selectedDatabase, setSelectedDatabase] = useState<string>(clickhouseDestination?.database || '')
@@ -58,15 +72,17 @@ export function ClickhouseJoinMapper({
   const [primaryEventData, setPrimaryEventData] = useState<any>(primaryTopic?.selectedEvent?.event?.event || null)
   const [secondaryEventData, setSecondaryEventData] = useState<any>(secondaryTopic?.selectedEvent?.event?.event || null)
 
-  // Add validation state
+  // Update validation state to include type incompatibilities
   const [validationIssues, setValidationIssues] = useState<{
     unmappedNullableColumns: string[]
     unmappedNonNullableColumns: string[]
     extraEventFields: string[]
+    incompatibleTypeMappings: any[]
   }>({
     unmappedNullableColumns: [],
     unmappedNonNullableColumns: [],
     extraEventFields: [],
+    incompatibleTypeMappings: [],
   })
 
   // Replace individual modal states with a single modal state object
@@ -84,6 +100,17 @@ export function ClickhouseJoinMapper({
   const [secondaryEventFields, setSecondaryEventFields] = useState<string[]>([])
 
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
+
+  // Basic page view tracking, only track once on component mount
+  useEffect(() => {
+    if (!viewTrackedRef.current) {
+      trackFunnelStep('clickhouseJoinMapperView', {
+        primaryTopicName: primaryTopic?.name,
+        secondaryTopicName: secondaryTopic?.name,
+      })
+      viewTrackedRef.current = true
+    }
+  }, [trackFunnelStep, primaryTopic?.name, secondaryTopic?.name])
 
   // Get connection config
   const getConnectionConfig = () => ({
@@ -307,7 +334,7 @@ export function ClickhouseJoinMapper({
     setMappedColumns(updatedColumns)
   }
 
-  // Update mapEventFieldToColumn to handle nested structure
+  // Update mapEventFieldToColumn to validate and infer types correctly
   const mapEventFieldToColumn = (index: number, eventField: string, source?: 'primary' | 'secondary') => {
     const updatedColumns = [...mappedColumns]
     const eventData =
@@ -316,6 +343,9 @@ export function ClickhouseJoinMapper({
     // Get the value from the event data to infer the type
     const value = eventData ? getNestedValue(eventData, eventField) : undefined
     const inferredType = inferJsonType(value)
+
+    // Check type compatibility immediately
+    const isCompatible = isTypeCompatible(inferredType, updatedColumns[index].type)
 
     // Determine which topic this field belongs to
     const topicName = source === 'secondary' ? secondaryTopic?.name : primaryTopic?.name
@@ -343,13 +373,14 @@ export function ClickhouseJoinMapper({
     cancelButtonText: string
   }
 
-  // Add validation logic
+  // Update validation logic
   const validateMapping = (): ValidationResult | null => {
     // Reset validation state
     const issues = {
       unmappedNullableColumns: [] as string[],
       unmappedNonNullableColumns: [] as string[],
       extraEventFields: [] as string[],
+      incompatibleTypeMappings: [] as any[],
     }
 
     // Count mapped fields
@@ -376,14 +407,33 @@ export function ClickhouseJoinMapper({
     const extraFields = allEventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
     issues.extraEventFields = extraFields
 
+    // Validate type compatibility
+    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    issues.incompatibleTypeMappings = invalidMappings
+
     setValidationIssues(issues)
 
     // Check in order of priority:
-    // 1. Non-nullable column violations (error)
-    // 2. Unmapped nullable columns (warning)
-    // 3. Extra event fields (warning)
+    // 1. Type compatibility violations (error)
+    // 2. Non-nullable column violations (error)
+    // 3. Unmapped nullable columns (warning)
+    // 4. Extra event fields (warning)
 
-    if (issues.unmappedNonNullableColumns.length > 0) {
+    if (issues.incompatibleTypeMappings.length > 0) {
+      const incompatibleFields = issues.incompatibleTypeMappings
+        .map((mapping) => `${mapping.name} (${mapping.jsonType} → ${mapping.type})`)
+        .join(', ')
+
+      return {
+        type: 'error',
+        canProceed: false,
+        title: 'Error: Type Incompatibility',
+        message: `Some event fields are mapped to incompatible ClickHouse column types. Please review and fix these mappings:
+        ${incompatibleFields}`,
+        okButtonText: 'OK',
+        cancelButtonText: 'Cancel',
+      }
+    } else if (issues.unmappedNonNullableColumns.length > 0) {
       return {
         type: 'error',
         canProceed: false,
@@ -443,6 +493,28 @@ export function ClickhouseJoinMapper({
   }
 
   const completeConfigSave = () => {
+    // Before saving, do a final validation of type compatibility
+    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    if (invalidMappings.length > 0) {
+      const incompatibleFields = invalidMappings
+        .map((mapping) => `${mapping.name} (${mapping.jsonType} → ${mapping.type})`)
+        .join(', ')
+
+      setError(`Type compatibility issues remain: ${incompatibleFields}. Please fix these before continuing.`)
+      return
+    }
+
+    // Track completion once when the form is successfully saved
+    if (!completionTrackedRef.current) {
+      trackFunnelStep('clickhouseJoinMapperCompleted', {
+        primaryTopicName: primaryTopic?.name,
+        secondaryTopicName: secondaryTopic?.name,
+        database: selectedDatabase,
+        table: selectedTable,
+      })
+      completionTrackedRef.current = true
+    }
+
     // Save the configuration
     setClickhouseDestination({
       database: selectedDatabase,
@@ -502,7 +574,7 @@ export function ClickhouseJoinMapper({
                 secondaryTopicName={secondaryTopic?.name}
                 isJoinMapping={true}
               />
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-4">
                 <Button
                   variant="outline"
                   className={cn({
@@ -521,12 +593,12 @@ export function ClickhouseJoinMapper({
         )}
 
         {/* Success/Error Messages */}
-        {success && (
+        {/* {success && (
           <div className="p-3 bg-background-neutral-faded text-green-700 rounded-md flex items-center">
             <CheckCircleIcon className="h-5 w-5 mr-2" />
             <span>{success}</span>
           </div>
-        )}
+        )} */}
 
         {error && (
           <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center">
@@ -557,6 +629,9 @@ export function ClickhouseJoinMapper({
         }}
         pendingOperation={pendingAction}
       />
+
+      {/* TypeCompatibilityInfo is temporarily hidden */}
+      {/* <TypeCompatibilityInfo /> */}
     </div>
   )
 }
