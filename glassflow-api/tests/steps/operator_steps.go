@@ -213,17 +213,16 @@ func (j *JoinOperatorTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error
 	return nil
 }
 
-func (j *JoinOperatorTestSuite) iStopJoinOperatorNoWait(delay string) error {
-	dur, err := time.ParseDuration(delay)
-	if err != nil {
-		return fmt.Errorf("parse duration: %w", err)
-	}
-
+func (j *JoinOperatorTestSuite) stopJoinOperator(gracefully bool, delay time.Duration) error {
 	j.wg.Add(1)
 	go func() {
 		defer j.wg.Done()
-		time.Sleep(dur)
-		j.joinOperator.Stop(operator.WithNoWait(true))
+		time.Sleep(delay)
+		if gracefully {
+			j.joinOperator.Stop()
+		} else {
+			j.joinOperator.Stop(operator.WithNoWait(true))
+		}
 	}()
 
 	j.wg.Wait()
@@ -241,32 +240,21 @@ func (j *JoinOperatorTestSuite) iStopJoinOperatorNoWait(delay string) error {
 	return nil
 }
 
+func (j *JoinOperatorTestSuite) iStopJoinOperatorNoWait(delay string) error {
+	dur, err := time.ParseDuration(delay)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+	return j.stopJoinOperator(false, dur)
+}
+
 func (j *JoinOperatorTestSuite) iStopJoinOperatorGracefullyAfterDelay(delay string) error {
 	dur, err := time.ParseDuration(delay)
 	if err != nil {
 		return fmt.Errorf("parse duration: %w", err)
 	}
 
-	j.wg.Add(1)
-	go func() {
-		defer j.wg.Done()
-		time.Sleep(dur)
-		j.joinOperator.Stop()
-	}()
-
-	j.wg.Wait()
-
-	select {
-	case err, ok := <-j.errCh:
-		if ok {
-			return fmt.Errorf("error from join operator: %w", err)
-		}
-	default:
-		// No error from operator
-	}
-	close(j.errCh)
-
-	return nil
+	return j.stopJoinOperator(true, dur)
 }
 
 func (j *JoinOperatorTestSuite) iPublishEventsToTheLeftStream(count int, dataTable *godog.Table) error {
@@ -518,8 +506,10 @@ func (j *JoinOperatorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^an operator schema config with mapping$`, j.aSchemaConfigWithMapping)
 	sc.Step(`^I run join operator with left TTL "([^"]*)" right TTL "([^"]*)"$`, j.iRunJoinOperator)
+
 	sc.Step(`^I stop join operator gracefully after "([^"]*)"$`, j.iStopJoinOperatorGracefullyAfterDelay)
 	sc.Step(`^I stop join operator after "([^"]*)"$`, j.iStopJoinOperatorNoWait)
+
 	sc.Step(`^I publish (\d+) events to the left stream$`, j.iPublishEventsToTheLeftStream)
 	sc.Step(`^I publish (\d+) events to the right stream$`, j.iPublishEventsToTheRightStream)
 	sc.Step(`^I check results count is (\d+)$`, j.iCheckResults)
