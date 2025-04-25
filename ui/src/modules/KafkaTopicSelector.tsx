@@ -43,7 +43,7 @@ export type TopicSelectorProps = {
 }
 
 export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSelectorProps) {
-  const { operationsSelected, topicsStore, kafkaStore } = useStore()
+  const { operationsSelected, topicsStore, kafkaStore, joinStore } = useStore()
   const { trackFunnelStep, trackError } = useAnalytics()
   const {
     availableTopics,
@@ -55,7 +55,11 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     updateTopic,
     getTopic,
     getEvent,
+    invalidateTopicDependentState,
   } = topicsStore
+
+  // Get access to the steps store functions
+  const { completedSteps, setCompletedSteps, removeCompletedStepsAfter } = useStore()
 
   // Track if this is the initial render or a return visit
   const [isInitialRender, setIsInitialRender] = useState(true)
@@ -245,6 +249,11 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       // Skip if we're just setting the initial value or there's no actual change
       if (topicName === '' || topicName === localState.topicName) return
 
+      // Clear join store whenever topic name changes
+      joinStore.setEnabled(false)
+      joinStore.setType('')
+      joinStore.setStreams([])
+
       setLocalState((prev) => ({
         ...prev,
         topicName: topicName,
@@ -272,6 +281,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     topicFromStore?.name,
     localState.topicName,
     isInitialRender,
+    joinStore,
   ])
 
   // Update local state when offset changes
@@ -384,6 +394,12 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
     onEventLoaded: useCallback(
       (event: any) => {
+        // Clear join store whenever a new event is loaded
+        joinStore.setEnabled(false)
+        joinStore.setType('')
+        joinStore.setStreams([])
+
+        // Update local state
         setLocalState((prev) => ({
           ...prev,
           fetchedEvent: event,
@@ -392,6 +408,32 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
           canContinue: !!event && !!prev.topicName && !!prev.offset,
         }))
         setShowOffsetField(true)
+
+        // IMPORTANT: Also update the topic in the store immediately when an event is loaded
+        // This fixes the issue where the event isn't updated in the store until form submission
+        if (event && localState.topicName) {
+          const newEvent = { event, topicIndex: index, position: localState.offset }
+
+          updateTopic({
+            index: index,
+            name: localState.topicName,
+            initialOffset: localState.offset,
+            events: [newEvent],
+            selectedEvent: newEvent,
+            deduplication: topicFromStore?.deduplication || {
+              enabled: false,
+              window: 0,
+              unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+              key: '',
+              keyType: '',
+            },
+          })
+
+          console.log('Updated topic in store with new event:', {
+            topicName: localState.topicName,
+            eventSize: JSON.stringify(event).length,
+          })
+        }
 
         // Track successful event retrieval
         if (event) {
@@ -403,7 +445,15 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
           })
         }
       },
-      [index, localState.topicName, trackFunnelStep],
+      [
+        index,
+        localState.topicName,
+        localState.offset,
+        trackFunnelStep,
+        joinStore,
+        updateTopic,
+        topicFromStore?.deduplication,
+      ],
     ),
 
     onEventError: useCallback(
@@ -431,6 +481,41 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     // Skip the update if nothing has actually changed to prevent loops
     if (topicName === localState.topicName && offset === localState.offset) {
       return
+    }
+
+    // If the topic name changed (not just the offset), invalidate dependent state
+    if (topicName !== localState.topicName) {
+      invalidateTopicDependentState(index)
+
+      // Clear join store configuration when topics change
+      joinStore.setEnabled(false)
+      joinStore.setType('')
+      joinStore.setStreams([])
+
+      // Get the current step key based on index and operation type
+      const currentStepKey = StepKeys.KAFKA_CONNECTION // We want to remove everything after Kafka connection when topic changes
+      removeCompletedStepsAfter(currentStepKey)
+
+      // Clear previous events when topic changes, not just when form is submitted
+      // This ensures the store state is clean for the new topic
+      updateTopic({
+        index: index,
+        name: topicName,
+        initialOffset: offset as 'latest' | 'earliest',
+        events: [], // Reset events array when topic changes
+        selectedEvent: {
+          topicIndex: index,
+          position: offset,
+          event: undefined,
+        }, // Empty selected event but with required structure
+        deduplication: topicFromStore?.deduplication || {
+          enabled: false,
+          window: 0,
+          unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+          key: '',
+          keyType: '',
+        },
+      })
     }
 
     // @ts-expect-error - FIXME: fix this later

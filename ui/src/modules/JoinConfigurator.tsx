@@ -341,17 +341,24 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   // Add direct event states
   const [currentEvent1, setCurrentEvent1] = useState<any>(null)
   const [currentEvent2, setCurrentEvent2] = useState<any>(null)
-  const eventReceivedRef1 = useRef(false)
-  const eventReceivedRef2 = useRef(false)
+
+  // Remove event received refs as they prevent refetching
+  // const eventReceivedRef1 = useRef(false)
+  // const eventReceivedRef2 = useRef(false)
+
+  // Clear events when topics change
+  useEffect(() => {
+    if (!topic1?.name) {
+      setCurrentEvent1(null)
+    }
+    if (!topic2?.name) {
+      setCurrentEvent2(null)
+    }
+  }, [topic1?.name, topic2?.name])
 
   // Simplified event fetching logic
   useEffect(() => {
-    const fetchEventData = (
-      topicName: string,
-      initialOffset: string,
-      setEvent: (data: any) => void,
-      ref: React.MutableRefObject<boolean>,
-    ) => {
+    const fetchEventData = async (topicName: string, initialOffset: string, setEvent: (data: any) => void) => {
       console.log(`Fetching event for topic: ${topicName}`)
 
       try {
@@ -364,25 +371,27 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
         if (eventData && eventData.event) {
           console.log(`Fetched event for ${topicName}:`, eventData.event)
           setEvent(eventData.event)
-          ref.current = true
         } else {
           console.warn(`No event data found for ${topicName}`)
+          setEvent(null)
         }
       } catch (error) {
         console.error(`Error fetching event for ${topicName}:`, error)
+        setEvent(null)
       }
     }
 
-    if (topic1?.name && !event1 && !currentEvent1 && !eventReceivedRef1.current) {
-      fetchEventData(topic1.name, topic1.initialOffset || 'latest', setCurrentEvent1, eventReceivedRef1)
+    // Fetch events whenever topics change
+    if (topic1?.name) {
+      fetchEventData(topic1.name, topic1.initialOffset || 'latest', setCurrentEvent1)
     }
 
-    if (topic2?.name && !event2 && !currentEvent2 && !eventReceivedRef2.current) {
-      fetchEventData(topic2.name, topic2.initialOffset || 'latest', setCurrentEvent2, eventReceivedRef2)
+    if (topic2?.name) {
+      fetchEventData(topic2.name, topic2.initialOffset || 'latest', setCurrentEvent2)
     }
-  }, [topic1?.name, topic2?.name, event1, event2, currentEvent1, currentEvent2])
+  }, [topic1?.name, topic1?.initialOffset, topic2?.name, topic2?.initialOffset, getEvent, topicsStore])
 
-  // Update dynamicOptions
+  // Update dynamicOptions to create a new object when events change
   const dynamicOptions = {
     'streams.0.joinKey':
       getEventKeys(
@@ -473,8 +482,9 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
                 </div>
                 <div className="bg-background-neutral rounded-md p-4 h-full min-h-[300px]">
                   <EventPreview
+                    key={`event1-${topic1?.name}-${JSON.stringify(currentEvent1)}`}
                     showInternalNavigationButtons={false}
-                    event={parseForCodeEditor(event1?.event || {})}
+                    event={parseForCodeEditor(event1?.event || currentEvent1 || {})}
                     topic={topic1?.name || ''}
                     isLoadingEvent={false}
                     eventError={''}
@@ -496,8 +506,9 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
                 </div>
                 <div className="bg-background-neutral rounded-md p-4 h-full min-h-[300px]">
                   <EventPreview
+                    key={`event2-${topic2?.name}-${JSON.stringify(currentEvent2)}`}
                     showInternalNavigationButtons={false}
-                    event={parseForCodeEditor(event2?.event || {})}
+                    event={parseForCodeEditor(event2?.event || currentEvent2 || {})}
                     topic={topic2?.name || ''}
                     isLoadingEvent={false}
                     eventError={''}

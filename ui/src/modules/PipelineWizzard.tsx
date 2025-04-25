@@ -121,6 +121,22 @@ function PipelineWizzard() {
     }
   }, [operationsSelected, router])
 
+  // Determine the current journey based on operation
+  const currentJourney = React.useMemo(() => {
+    switch (operationsSelected?.operation) {
+      case OperationKeys.DEDUPLICATION:
+        return deduplicationJourney
+      case OperationKeys.JOINING:
+        return joinJourney
+      case OperationKeys.INGEST_ONLY:
+        return ingestOnlyJourney
+      case OperationKeys.DEDUPLICATION_JOINING:
+        return deduplicateJoinJourney
+      default:
+        return []
+    }
+  }, [operationsSelected?.operation])
+
   const stepComponents = getWizardJourneySteps(operationsSelected?.operation)
   const { completedSteps, setCompletedSteps, activeStep, setActiveStep, addCompletedStep } = useStore()
   const completedStepsArray = Array.from(completedSteps)
@@ -138,32 +154,36 @@ function PipelineWizzard() {
     }
   }, [activeStep, setActiveStep, firstStep])
 
-  const handleNext = (stepName: string) => {
-    addCompletedStep(stepName)
+  const handleNext = (stepName: StepKeys) => {
+    // Find the index of the current step in the journey
+    const stepIndex = currentJourney.indexOf(stepName)
 
-    // If we're editing a step, return to the previous active step
-    if (editingStep) {
-      const nextStep =
-        previousActiveStep || getNextStep(stepName, stepComponents as Record<StepKeys, React.ComponentType<any>>)
+    if (stepIndex !== -1) {
+      const previousSteps = currentJourney.slice(0, stepIndex)
+      const allPreviousStepsCompleted = previousSteps.every((step) => completedSteps.includes(step))
+
+      if (allPreviousStepsCompleted) {
+        addCompletedStep(stepName)
+      }
+
+      // Handle special case for review configuration
       if (stepName === StepKeys.REVIEW_CONFIGURATION) {
         setActiveStep(StepKeys.DEPLOY_PIPELINE)
-        // navigate to the deploy pipeline page
         router.push('/pipelines/')
-      } else {
+        return
+      }
+
+      // Set the next step as active
+      const nextStep = currentJourney[stepIndex + 1]
+      if (nextStep) {
         setActiveStep(nextStep)
       }
+    }
+
+    // Clear editing state if we were editing
+    if (editingStep) {
       setEditingStep(null)
       setPreviousActiveStep(null)
-    } else {
-      // Normal flow - go to next step
-      const nextStep = getNextStep(stepName, stepComponents as Record<StepKeys, React.ComponentType<any>>)
-      if (stepName === StepKeys.REVIEW_CONFIGURATION) {
-        setActiveStep(StepKeys.DEPLOY_PIPELINE)
-        // navigate to the deploy pipeline page
-        router.push('/pipelines/')
-      } else {
-        setActiveStep(nextStep)
-      }
     }
   }
 

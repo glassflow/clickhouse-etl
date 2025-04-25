@@ -1,13 +1,12 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { EventPreview } from '@/src/components/wizard/EventPreview'
 import { parseForCodeEditor } from '@/src/utils'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
-import { TrashIcon } from '@heroicons/react/24/outline'
 import SelectDeduplicateKeys from '@/src/components/SelectDeduplicateKeys'
 
 export function DeduplicationConfigurator({
@@ -17,82 +16,60 @@ export function DeduplicationConfigurator({
   onNext: (stepName: string) => void
   index: number
 }) {
-  // Local state to manage form before submitting to parent
-  const [keyConfig, setKeyConfig] = useState({
-    key: '',
-    keyType: 'string',
-  })
-  const [windowConfig, setWindowConfig] = useState({
-    window: '',
-    unit: '',
-  })
-  const [canContinue, setCanContinue] = useState(false)
+  // Access the full topics array directly instead of using getter methods
+  const { topics, updateTopic } = useStore((state) => state.topicsStore)
 
-  const { topicsStore } = useStore()
-  const { getTopic, getEvent, updateTopic } = topicsStore
+  // Get current topic directly from the array
+  const topic = topics[index]
 
-  const topic = getTopic(index)
-  const topicEvent = getEvent(index, 0)
+  // Get the event directly from the topic's events array
+  const topicEvent = topic?.events?.[0] || null
 
-  // Extract keys from the event - fix to go one level deeper in the event structure
-  // The event data is nested inside topicEvent.event.event
+  // Extract event data
   const eventData = topicEvent?.event?.event || topicEvent?.event || '{}'
 
-  // Update validation state whenever configs change
-  useEffect(() => {
-    setCanContinue(!!keyConfig.key && !!windowConfig.window && !!windowConfig.unit)
-  }, [keyConfig, windowConfig])
+  // Directly read the deduplication config from the topic
+  const deduplicationConfig = topic?.deduplication || {
+    enabled: false,
+    window: '',
+    unit: '',
+    key: '',
+    keyType: 'string',
+  }
 
-  // Initialize from existing deduplication config if available
-  useEffect(() => {
-    if (topic?.deduplication) {
-      const { window, unit, key, keyType } = topic.deduplication
-      if (window && unit) {
-        setWindowConfig({
-          window: window.toString(),
-          unit,
-        })
-      }
-      if (key) {
-        setKeyConfig({
-          key,
-          keyType: keyType || 'string',
-        })
-      }
-    }
-  }, [topic])
+  // Determine if we can continue based directly on the store data
+  const canContinue = !!(deduplicationConfig.key && deduplicationConfig.window && deduplicationConfig.unit)
 
-  // Update parent form data when configurations change
-  const handleSave = useCallback(() => {
-    if (!topic?.name) return
-
-    // Create config for topic
-    const topicConfig = {
-      enabled: true,
-      index,
-      window: parseInt(windowConfig.window),
-      unit: windowConfig.unit as 'seconds' | 'minutes' | 'hours' | 'days',
-      key: keyConfig.key,
-      keyType: keyConfig.keyType,
-    }
-
-    // Update topic in store
-    updateTopic({
-      ...topic,
-      index,
-      deduplication: topicConfig,
-    })
-
-    onNext(StepKeys.DEDUPLICATION_CONFIGURATOR)
-  }, [keyConfig, windowConfig, topic, index, updateTopic, onNext])
-
+  // Update the topic in the store directly without local state
   const handleDeduplicationConfigChange = useCallback(
     ({ key, keyType }: { key: string; keyType: string }, { window, unit }: { window: number; unit: string }) => {
-      setKeyConfig({ key, keyType })
-      setWindowConfig({ window: window.toString(), unit })
+      if (!topic) return
+
+      // Create an updated deduplication config
+      const updatedConfig = {
+        enabled: true,
+        index,
+        window,
+        unit: unit as 'seconds' | 'minutes' | 'hours' | 'days',
+        key,
+        keyType,
+      }
+
+      // Update the topic directly in the store
+      updateTopic({
+        ...topic,
+        index,
+        deduplication: updatedConfig,
+      })
     },
-    [],
+    [topic, index, updateTopic],
   )
+
+  // Handle continue button click
+  const handleSave = useCallback(() => {
+    if (!topic?.name) return
+    onNext(StepKeys.DEDUPLICATION_CONFIGURATOR)
+  }, [topic, onNext])
 
   if (!topic || !topicEvent) {
     return <div>No topic or event data available for index {index}</div>
@@ -103,7 +80,9 @@ export function DeduplicationConfigurator({
       {/* Topic Configuration */}
       <div className="flex gap-4">
         <div className="flex flex-col gap-12 w-[40%]">
+          {/* Force remounting of this component when the topic name changes */}
           <SelectDeduplicateKeys
+            key={`dedup-keys-${topic.name}-${Date.now()}`}
             index={index}
             onChange={handleDeduplicationConfigChange}
             disabled={!topic?.name}
@@ -126,15 +105,6 @@ export function DeduplicationConfigurator({
           />
         </div>
       </div>
-
-      {/* Debug Info */}
-      {/* <div className="text-xs text-gray-500">
-        <div>Key: {keyConfig.key || 'Not set'}</div>
-        <div>Key Type: {keyConfig.keyType || 'Not set'}</div>
-        <div>Window: {windowConfig.window || 'Not set'}</div>
-        <div>Unit: {windowConfig.unit || 'Not set'}</div>
-        <div>Can Continue: {canContinue ? 'Yes' : 'No'}</div>
-      </div> */}
 
       {/* Save Button */}
       <div className="flex justify-start gap-4 mt-4">
