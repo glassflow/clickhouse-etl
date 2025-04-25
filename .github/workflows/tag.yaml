@@ -1,6 +1,7 @@
 name: Push Tag
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - v*
