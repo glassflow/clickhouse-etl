@@ -19,14 +19,14 @@ type JoinExecutor interface {
 }
 
 type JoinOperator struct {
-	leftStreamConsumer  *stream.Consumer
-	rightStreamConsumer *stream.Consumer
-	exector             JoinExecutor
-	mu                  sync.Mutex
-	handleMu            sync.Mutex
-	isClosed            bool
-	wg                  sync.WaitGroup
-	log                 *slog.Logger
+	leftStreamSubsriber   *stream.Subscriber
+	rightStreamSubscriber *stream.Subscriber
+	exector               JoinExecutor
+	mu                    sync.Mutex
+	handleMu              sync.Mutex
+	isClosed              bool
+	wg                    sync.WaitGroup
+	log                   *slog.Logger
 }
 
 func NewJoinOperator(
@@ -45,26 +45,27 @@ func NewJoinOperator(
 		log,
 	)
 	return &JoinOperator{
-		leftStreamConsumer:  leftStreamConsumer,
-		rightStreamConsumer: rightStreamConsumer,
-		exector:             executor,
-		mu:                  sync.Mutex{},
-		handleMu:            sync.Mutex{},
-		isClosed:            false,
-		wg:                  sync.WaitGroup{},
-		log:                 log,
+		leftStreamSubsriber:   stream.NewSubscriber(leftStreamConsumer, log),
+		rightStreamSubscriber: stream.NewSubscriber(rightStreamConsumer, log),
+		exector:               executor,
+		mu:                    sync.Mutex{},
+		handleMu:              sync.Mutex{},
+		isClosed:              false,
+		wg:                    sync.WaitGroup{},
+		log:                   log,
 	}
 }
 
 func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
-	j.log.Info("Join operator started")
-
 	j.wg.Add(1)
 	defer j.wg.Done()
 
-	err := j.leftStreamConsumer.Subscribe(func(msg jetstream.Msg) {
+	j.log.Info("Join operator is starting...")
+
+	err := j.leftStreamSubsriber.Subscribe(func(msg jetstream.Msg) {
 		j.handleMu.Lock()
 		defer j.handleMu.Unlock()
+
 		err := j.exector.HandleLeftStreamEvents(ctx, msg)
 		if err != nil {
 			j.log.Error("failed to handle left stream event", slog.Any("error", err))
@@ -80,9 +81,10 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 		return
 	}
 
-	err = j.rightStreamConsumer.Subscribe(func(msg jetstream.Msg) {
+	err = j.rightStreamSubscriber.Subscribe(func(msg jetstream.Msg) {
 		j.handleMu.Lock()
 		defer j.handleMu.Unlock()
+
 		err := j.exector.HandleRightStreamEvents(ctx, msg)
 		if err != nil {
 			j.log.Error("failed to handle right stream event", slog.Any("error", err))
@@ -95,7 +97,10 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 	})
 	if err != nil {
 		errChan <- fmt.Errorf("failed to start right stream consumer: %w", err)
+		return
 	}
+
+	j.log.Info("Join operator was started successfully!")
 }
 
 func (j *JoinOperator) Stop(opts ...StopOtion) {
@@ -117,14 +122,15 @@ func (j *JoinOperator) Stop(opts ...StopOtion) {
 
 	j.log.Info("Stopping Join operator ...")
 	if options.NoWait {
-		j.leftStreamConsumer.Unsubscribe()
-		j.rightStreamConsumer.Unsubscribe()
+		j.leftStreamSubsriber.Stop()
+		j.rightStreamSubscriber.Stop()
+	} else {
+		j.leftStreamSubsriber.DrainAndStop()
+		j.rightStreamSubscriber.DrainAndStop()
 	}
 
-	j.wg.Wait()
-
-	j.leftStreamConsumer.Unsubscribe()
-	j.rightStreamConsumer.Unsubscribe()
+	<-j.leftStreamSubsriber.Closed()
+	<-j.rightStreamSubscriber.Closed()
 
 	j.isClosed = true
 	j.log.Debug("Join operator stopped")
