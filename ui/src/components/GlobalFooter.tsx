@@ -33,15 +33,11 @@ export default function GlobalFooter() {
               Ask Us
             </Button>
           </Link>
-          <Button
-            className="btn-tertiary"
-            type="button"
-            variant="outline"
-            size="custom"
-            onClick={() => setShowButtons(false)}
-          >
-            View documentation
-          </Button>
+          <Link href="https://github.com/glassflow/clickhouse-etl" target="_blank" rel="noopener noreferrer" passHref>
+            <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+              View documentation
+            </Button>
+          </Link>
         </div>
       )}
     </div>
