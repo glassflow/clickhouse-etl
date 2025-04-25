@@ -9,7 +9,7 @@ export function ConsentDialog({ showConsent, onConsentClick }: ConsentDialogProp
   if (!showConsent) return null
 
   return (
-    <div className="flex flex-col items-center gap-8 w-full max-w-[488px] border border-[var(--border)] rounded-xl px-6 py-3 mt-16 animate-fadeIn">
+    <div className="flex flex-col items-center gap-8 w-full max-w-[488px] border border-[var(--border)] rounded-xl px-6 py-3 bg-background shadow-md animate-fadeIn">
       <div className="flex items-center justify-between w-full">
         <h2 className="title-2 flex items-center">
           <span className="text-normal-accent">Help Us Improve</span>

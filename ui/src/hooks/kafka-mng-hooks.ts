@@ -445,6 +445,8 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
         setEvent(data.event)
         setIsLoadingEvent(false)
 
+        console.log('Raw kafka event data - hooks: ', data)
+
         // Extract the actual Kafka offset from the response
         const newOffset = data.offset ? parseInt(data.offset, 10) : null
 

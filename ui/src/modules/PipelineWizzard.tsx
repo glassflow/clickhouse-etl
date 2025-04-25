@@ -78,7 +78,12 @@ const getNextStep = (currentStepName: string, stepComponents: Record<StepKeys, R
   return Object.keys(stepComponents)[index + 1]
 }
 
-const getWizardJourneySteps = (operation: string) => {
+const getWizardJourneySteps = (operation: string | undefined): Record<string, React.ComponentType<any>> => {
+  if (!operation) {
+    // Return empty object if operation is undefined
+    return {}
+  }
+
   const getJourney = (journey: StepKeys[]) => {
     return journey.reduce(
       (acc, step) => {
@@ -89,6 +94,7 @@ const getWizardJourneySteps = (operation: string) => {
       {} as Record<StepKeys, React.ComponentType<any>>,
     )
   }
+
   switch (operation) {
     case OperationKeys.DEDUPLICATION:
       return getJourney(deduplicationJourney)
@@ -98,6 +104,8 @@ const getWizardJourneySteps = (operation: string) => {
       return getJourney(ingestOnlyJourney)
     case OperationKeys.DEDUPLICATION_JOINING:
       return getJourney(deduplicateJoinJourney)
+    default:
+      return {}
   }
 }
 
@@ -113,7 +121,23 @@ function PipelineWizzard() {
     }
   }, [operationsSelected, router])
 
-  const stepComponents = getWizardJourneySteps(operationsSelected.operation)
+  // Determine the current journey based on operation
+  const currentJourney = React.useMemo(() => {
+    switch (operationsSelected?.operation) {
+      case OperationKeys.DEDUPLICATION:
+        return deduplicationJourney
+      case OperationKeys.JOINING:
+        return joinJourney
+      case OperationKeys.INGEST_ONLY:
+        return ingestOnlyJourney
+      case OperationKeys.DEDUPLICATION_JOINING:
+        return deduplicateJoinJourney
+      default:
+        return []
+    }
+  }, [operationsSelected?.operation])
+
+  const stepComponents = getWizardJourneySteps(operationsSelected?.operation)
   const { completedSteps, setCompletedSteps, activeStep, setActiveStep, addCompletedStep } = useStore()
   const completedStepsArray = Array.from(completedSteps)
   const [editingStep, setEditingStep] = useState<string | null>(null)
@@ -130,32 +154,36 @@ function PipelineWizzard() {
     }
   }, [activeStep, setActiveStep, firstStep])
 
-  const handleNext = (stepName: string) => {
-    addCompletedStep(stepName)
+  const handleNext = (stepName: StepKeys) => {
+    // Find the index of the current step in the journey
+    const stepIndex = currentJourney.indexOf(stepName)
 
-    // If we're editing a step, return to the previous active step
-    if (editingStep) {
-      const nextStep =
-        previousActiveStep || getNextStep(stepName, stepComponents as Record<StepKeys, React.ComponentType<any>>)
+    if (stepIndex !== -1) {
+      const previousSteps = currentJourney.slice(0, stepIndex)
+      const allPreviousStepsCompleted = previousSteps.every((step) => completedSteps.includes(step))
+
+      if (allPreviousStepsCompleted) {
+        addCompletedStep(stepName)
+      }
+
+      // Handle special case for review configuration
       if (stepName === StepKeys.REVIEW_CONFIGURATION) {
         setActiveStep(StepKeys.DEPLOY_PIPELINE)
-        // navigate to the deploy pipeline page
         router.push('/pipelines/')
-      } else {
+        return
+      }
+
+      // Set the next step as active
+      const nextStep = currentJourney[stepIndex + 1]
+      if (nextStep) {
         setActiveStep(nextStep)
       }
+    }
+
+    // Clear editing state if we were editing
+    if (editingStep) {
       setEditingStep(null)
       setPreviousActiveStep(null)
-    } else {
-      // Normal flow - go to next step
-      const nextStep = getNextStep(stepName, stepComponents as Record<StepKeys, React.ComponentType<any>>)
-      if (stepName === StepKeys.REVIEW_CONFIGURATION) {
-        setActiveStep(StepKeys.DEPLOY_PIPELINE)
-        // navigate to the deploy pipeline page
-        router.push('/pipelines/')
-      } else {
-        setActiveStep(nextStep)
-      }
     }
   }
 
@@ -184,25 +212,81 @@ function PipelineWizzard() {
       return null
     }
 
-    const StepComponent = stepComponents[stepKey as StepKeys]
+    const StepComponent = stepComponents[stepKey]
     return <StepComponent steps={stepsMetadata} onNext={(step: StepKeys) => handleNext(step)} validate={validateStep} />
   }
 
   const getCompletedStepTitle = (stepName: StepKeys) => {
+    // Check if stepName is a valid key
+    if (!stepName) {
+      return 'Step'
+    }
+
     const step = stepsMetadata[stepName]
+    const topicsStore = useStore.getState().topicsStore || { topics: [] }
+
+    // First check specific step types regardless of operation
+    if (stepName === StepKeys.TOPIC_SELECTION_1 || stepName === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+      // For join journeys, always call the first topic "Left Topic"
+      if (
+        operationsSelected?.operation === OperationKeys.JOINING ||
+        operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
+      ) {
+        const topic = topicsStore.topics?.[0]
+        return `Select Left Topic: ${topic?.name || ''}`
+      }
+      // For non-join journeys, call it just "Topic"
+      else {
+        const topic = topicsStore.topics?.[0]
+        return `Select Topic: ${topic?.name || ''}`
+      }
+    }
+
+    // Second topic is always a right topic (only exists in join journeys)
+    if (stepName === StepKeys.TOPIC_SELECTION_2 || stepName === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+      const topic = topicsStore.topics?.[1]
+      return `Select Right Topic: ${topic?.name || ''}`
+    }
+
+    // Default to the step's title from metadata
+    if (step) {
+      return step.title || 'Step'
+    }
+    return 'Step'
+  }
+
+  const getStepTitle = (stepName: StepKeys) => {
+    // Check if stepName is a valid key
+    if (!stepName) {
+      return 'Step'
+    }
+
+    const step = stepsMetadata[stepName]
+    const topicsStore = useStore.getState().topicsStore || { topics: [] }
 
     if (stepName === StepKeys.TOPIC_SELECTION_1 || stepName === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      const topic = useStore.getState().topicsStore.topics[0]
-      return `Select Left Topic: ${topic?.name}`
+      // For join journeys, always call the first topic "Left Topic"
+      if (
+        operationsSelected?.operation === OperationKeys.JOINING ||
+        operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
+      ) {
+        const topic = topicsStore.topics?.[0]
+        return `Select Left Topic: ${topic?.name || ''}`
+      }
+      // For non-join journeys, call it just "Topic"
+      else {
+        const topic = topicsStore.topics?.[0]
+        return `Select Topic: ${topic?.name || ''}`
+      }
     }
+
     if (stepName === StepKeys.TOPIC_SELECTION_2 || stepName === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-      const topic = useStore.getState().topicsStore.topics[1]
-      return `Select Right Topic: ${topic?.name}`
+      const topic = topicsStore.topics?.[1]
+      return `Select Right Topic: ${topic?.name || ''}`
     }
-    if (step) {
-      return step.title
-    }
-    return ''
+
+    // Add a null check to prevent accessing title on undefined step
+    return step?.title || 'Step'
   }
 
   return (
@@ -220,13 +304,15 @@ function PipelineWizzard() {
                       <CardTitle>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
-                            <span className="step-title">{stepsMetadata[stepName as StepKeys]?.title}</span>
+                            <span className="step-title">{getStepTitle(stepName as StepKeys)}</span>
                           </div>
                           <ChevronDownIcon className="w-5 h-5" />
                         </div>
                       </CardTitle>
                       <CardDescription>
-                        <span className="step-description">{stepsMetadata[stepName as StepKeys]?.description}</span>
+                        <span className="step-description">
+                          {stepsMetadata[stepName as StepKeys]?.description || ''}
+                        </span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent>{renderStepComponent(stepName)}</CardContent>
@@ -254,18 +340,18 @@ function PipelineWizzard() {
         )}
 
         {/* Current active step (if not in completed steps) */}
-        {!completedStepsArray.includes(currentActiveStep) && (
+        {!completedStepsArray.includes(currentActiveStep) && currentActiveStep && (
           <Card className="card-gradient p-4">
             <CardHeader>
               <CardTitle>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <span className="step-title">{stepsMetadata[currentActiveStep as StepKeys]?.title}</span>
+                    <span className="step-title">{getStepTitle(currentActiveStep as StepKeys)}</span>
                   </div>
                   <ChevronDownIcon className="w-5 h-5" />
                 </div>
               </CardTitle>
-              <CardDescription>{stepsMetadata[currentActiveStep as StepKeys]?.description}</CardDescription>
+              <CardDescription>{stepsMetadata[currentActiveStep as StepKeys]?.description || ''}</CardDescription>
             </CardHeader>
             <CardContent>{renderStepComponent(currentActiveStep)}</CardContent>
           </Card>

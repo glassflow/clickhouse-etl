@@ -32,6 +32,7 @@ export interface ClickhouseStore {
     maxDelayTime: number
     maxDelayTimeUnit: string
   }) => void
+  resetDestinationState: () => void
   getIsClickhouseConnectionDirty: () => boolean
   getClickhouseMappingDirty: () => boolean
 }
@@ -81,10 +82,58 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
       })),
 
     setClickhouseConnection: (connector: ClickhouseConnectionFormType) =>
+      set((state) => {
+        // Check if connection details have changed
+        const prevConnection = state.clickhouseStore.clickhouseConnection
+        const isDifferentConnection =
+          prevConnection.directConnection.host !== connector.directConnection.host ||
+          prevConnection.directConnection.port !== connector.directConnection.port ||
+          prevConnection.directConnection.username !== connector.directConnection.username ||
+          prevConnection.directConnection.password !== connector.directConnection.password
+
+        // If connection changed, reset related data
+        if (isDifferentConnection) {
+          return {
+            clickhouseStore: {
+              ...state.clickhouseStore,
+              clickhouseConnection: connector,
+              // Reset dependent data when connection changes
+              availableDatabases: [],
+              clickhouseDestination: {
+                ...state.clickhouseStore.clickhouseDestination,
+                database: '',
+                table: '',
+                mapping: [],
+                destinationColumns: [],
+              },
+            },
+          }
+        }
+
+        // If just status change, only update connection
+        return {
+          clickhouseStore: {
+            ...state.clickhouseStore,
+            clickhouseConnection: connector,
+          },
+        }
+      }),
+
+    resetDestinationState: () =>
       set((state) => ({
         clickhouseStore: {
           ...state.clickhouseStore,
-          clickhouseConnection: connector,
+          availableDatabases: [],
+          clickhouseDestination: {
+            scheme: '',
+            database: '',
+            table: '',
+            destinationColumns: [],
+            mapping: [],
+            maxBatchSize: 1000,
+            maxDelayTime: 1,
+            maxDelayTimeUnit: 'm',
+          },
         },
       })),
 

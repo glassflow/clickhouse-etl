@@ -287,11 +287,11 @@ export const KafkaConnectionForm = ({
           errors={shouldShowValidationErrors ? errors : {}}
         />
 
-        {testStatus === 'success' && (
+        {/* {testStatus === 'success' && (
           <Alert className="bg-green-50 border-green-500 text-green-700">
             <AlertDescription>Successfully connected to Kafka cluster!</AlertDescription>
           </Alert>
-        )}
+        )} */}
 
         {/* {testStatus === 'error' && (
           <Alert className="bg-red-50 border-red-500 text-red-700">

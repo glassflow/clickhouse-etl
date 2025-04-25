@@ -54,6 +54,9 @@ export interface TopicsSlice {
     clearEventCache: (topicName?: string) => void
     getIsTopicDirty: () => boolean
 
+    // New method to invalidate dependent state
+    invalidateTopicDependentState: (index: number) => void
+
     resetStore: () => void
   }
 }
@@ -181,6 +184,53 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
         }
       })
     },
+
+    // New method to invalidate dependent state when topic changes
+    invalidateTopicDependentState: (index: number) => {
+      const topic = get().topicsStore.topics[index]
+      if (!topic) return
+
+      // First, clear cache for this topic
+      if (topic.name) {
+        get().topicsStore.clearEventCache(topic.name)
+      }
+
+      // Clear join store as well - access from the root store object
+      // We need to cast to any to access the joinStore from another slice
+      const store = get() as any
+      if (store.joinStore) {
+        store.joinStore.setEnabled(false)
+        store.joinStore.setType('')
+        store.joinStore.setStreams([])
+      }
+
+      // Then update the topic to remove dependent state
+      set((state) => {
+        // Keep only these properties, remove all others
+        const cleanedTopic = {
+          name: topic.name,
+          index: topic.index,
+          initialOffset: topic.initialOffset,
+          events: [],
+          selectedEvent: {
+            topicIndex: index,
+            position: topic.initialOffset,
+            event: null,
+          },
+        }
+
+        return {
+          topicsStore: {
+            ...state.topicsStore,
+            topics: {
+              ...state.topicsStore.topics,
+              [index]: cleanedTopic as KafkaTopicType,
+            },
+          },
+        }
+      })
+    },
+
     getIsTopicDirty: () => {
       const { topics } = get().topicsStore
       return Object.keys(topics).length > 0

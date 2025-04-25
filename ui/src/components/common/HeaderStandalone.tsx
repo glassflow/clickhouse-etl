@@ -40,7 +40,7 @@ export function HeaderStandalone() {
   }
 
   return (
-    <header className="h-16 w-full min-w-[var(--main-container-width)] max-w-[var(--main-container-width)] mx-auto">
+    <header className="h-16 w-full min-w-[var(--main-container-width)] max-w-[var(--main-container-width)] mx-auto pt-8">
       <div className="container h-full">
         <div className="flex items-center justify-center h-full w-full">
           <Button variant="ghost" onClick={handleLogoClick}>

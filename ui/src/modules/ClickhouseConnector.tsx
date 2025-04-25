@@ -87,14 +87,20 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
 
       // @ts-expect-error - FIXME: fix this later
       const result = await testConnection(values.directConnection)
-      if (result.success) {
+      console.log('result - clickhouse:', result)
+      if (result.success && result.databases.length > 0) {
+        console.log('result - clickhouse - success:', result)
+        console.log('result - clickhouse - databases:', result.databases)
         // Track successful connection
         trackFunnelStep('clickhouseConnectionSucceeded', {
           host: values.directConnection.host,
           databaseCount: result.databases?.length || 0,
         })
 
+        // First update the databases from the new connection
         setAvailableDatabases(result.databases)
+
+        // Then save the connection details
         saveConnection(values)
       } else {
         // Track connection error
@@ -110,6 +116,14 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
 
   const saveConnection = useCallback(
     (formValues: ClickhouseConnectionFormType) => {
+      // Check if connection details have changed from previous values
+      const prevConnection = clickhouseConnection.directConnection
+      const hasConnectionChanged =
+        prevConnection.host !== formValues.directConnection.host ||
+        prevConnection.port !== formValues.directConnection.port ||
+        prevConnection.username !== formValues.directConnection.username ||
+        prevConnection.password !== formValues.directConnection.password
+
       const connector: ClickhouseConnectionFormType = {
         connectionType: 'direct',
         directConnection: {
@@ -132,10 +146,13 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         })
       }
 
+      // Update the connection in the store
       setClickhouseConnection(connector)
+
+      // Proceed to next step
       onNext(StepKeys.CLICKHOUSE_CONNECTION)
     },
-    [setClickhouseConnection, onNext, trackFeatureUsage],
+    [setClickhouseConnection, onNext, trackFeatureUsage, clickhouseConnection.directConnection],
   )
 
   return (
@@ -199,6 +216,20 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
             </div>
           </div>
 
+          <div className="flex justify-start gap-4 mt-6">
+            <Button
+              variant={connectionStatus === 'success' ? 'gradient' : 'outline'}
+              type="submit"
+              disabled={isLoading}
+              className={cn('btn-primary', {
+                'btn-text-disabled': !connectionStatus,
+                'btn-text': connectionStatus,
+              })}
+            >
+              {isLoading ? 'Testing...' : 'Continue'}
+            </Button>
+          </div>
+
           {connectionStatus === 'success' && (
             <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center">
               <CheckCircleIcon className="h-5 w-5 mr-2" />
@@ -215,20 +246,6 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
               </div>
             </div>
           )}
-
-          <div className="flex justify-start gap-4 mt-6">
-            <Button
-              variant={connectionStatus === 'success' ? 'gradient' : 'outline'}
-              type="submit"
-              disabled={isLoading}
-              className={cn('btn-primary', {
-                'btn-text-disabled': !connectionStatus,
-                'btn-text': connectionStatus,
-              })}
-            >
-              {isLoading ? 'Testing...' : 'Continue'}
-            </Button>
-          </div>
         </form>
       </FormProvider>
     </div>
