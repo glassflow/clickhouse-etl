@@ -4,7 +4,9 @@
 
 # GlassFlow ClickHouse ETL
 
-GlassFlow ClickHouse ETL is an open-source streaming ETL tool designed to simplify data pipeline creation and management for ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for Kafka sources and ClickHouse sinks.
+GlassFlow ClickHouse ETL is a real-time stream processor designed to simplify data pipeline creation and management between Kafka and ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for deduplication and temporal joins.
+
+Built specifically for data engineers, GlassFlow handles late-arriving events, ensures exactly-once correctness, and scales with high-throughput data. It delivers accurate, low-latency results from streaming data without compromising simplicity or performance. The tool's intuitive web interface makes it easy to configure and monitor pipelines, while its robust architecture ensures reliable data processing.
 
 ## Key Features
 
