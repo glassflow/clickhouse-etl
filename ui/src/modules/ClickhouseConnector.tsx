@@ -87,7 +87,10 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
 
       // @ts-expect-error - FIXME: fix this later
       const result = await testConnection(values.directConnection)
-      if (result.success) {
+      console.log('result - clickhouse:', result)
+      if (result.success && result.databases.length > 0) {
+        console.log('result - clickhouse - success:', result)
+        console.log('result - clickhouse - databases:', result.databases)
         // Track successful connection
         trackFunnelStep('clickhouseConnectionSucceeded', {
           host: values.directConnection.host,
@@ -199,6 +202,20 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
             </div>
           </div>
 
+          <div className="flex justify-start gap-4 mt-6">
+            <Button
+              variant={connectionStatus === 'success' ? 'gradient' : 'outline'}
+              type="submit"
+              disabled={isLoading}
+              className={cn('btn-primary', {
+                'btn-text-disabled': !connectionStatus,
+                'btn-text': connectionStatus,
+              })}
+            >
+              {isLoading ? 'Testing...' : 'Continue'}
+            </Button>
+          </div>
+
           {connectionStatus === 'success' && (
             <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center">
               <CheckCircleIcon className="h-5 w-5 mr-2" />
@@ -215,20 +232,6 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
               </div>
             </div>
           )}
-
-          <div className="flex justify-start gap-4 mt-6">
-            <Button
-              variant={connectionStatus === 'success' ? 'gradient' : 'outline'}
-              type="submit"
-              disabled={isLoading}
-              className={cn('btn-primary', {
-                'btn-text-disabled': !connectionStatus,
-                'btn-text': connectionStatus,
-              })}
-            >
-              {isLoading ? 'Testing...' : 'Continue'}
-            </Button>
-          </div>
         </form>
       </FormProvider>
     </div>

@@ -33,10 +33,13 @@ export function createAwsIamMechanism(region: string, accessKey: string, secretA
 }
 
 export const generateHost = (connectionConfig: ClickhouseConnectionConfig) => {
+  // Remove any existing protocol (http:// or https://) from the host
+  const cleanHost = connectionConfig.host.replace(/^https?:\/\//, '')
+
   if (connectionConfig.useSSL) {
-    return `https://${connectionConfig.host}:${connectionConfig.port}`
+    return `https://${cleanHost}:${connectionConfig.port}`
   } else {
-    return `http://${connectionConfig.host}:${connectionConfig.port}`
+    return `http://${cleanHost}:${connectionConfig.port}`
   }
 }
 
