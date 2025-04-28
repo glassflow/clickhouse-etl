@@ -282,14 +282,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--left-schema",
         type=str,
-        default="config/glassgen/user_event.json",
-        help="Path to left events generator schema file (default: config/glassgen/user_event.json)",
+        default="config/glassgen/order_event.json",
+        help="Path to left events generator schema file (default: config/glassgen/order_event.json)",
     )
     parser.add_argument(
         "--right-schema",
         type=str,
-        default="config/glassgen/order_event.json",
-        help="Path to right events generator schema file (default: config/glassgen/order_event.json)",
+        default="config/glassgen/user_event.json",
+        help="Path to right events generator schema file (default: config/glassgen/user_event.json)",
     )
     parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompt"
