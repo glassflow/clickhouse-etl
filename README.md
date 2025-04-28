@@ -2,9 +2,9 @@
   <img src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/glassfow-banner.jpg" alt="GlassFlow ClickHouse ETL Banner" width="800"/>
 </div>
 
-# GlassFlow ClickHouse ETL
+# GlassFlow for ClickHouse Streaming ETL
 
-GlassFlow ClickHouse ETL is a real-time stream processor designed to simplify data pipeline creation and management between Kafka and ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for deduplication and temporal joins.
+GlassFlow for ClickHouse Streaming ETL is a real-time stream processor designed to simplify data pipeline creation and management between Kafka and ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for deduplication and temporal joins.
 
 Built specifically for data engineers, GlassFlow handles late-arriving events, ensures exactly-once correctness, and scales with high-throughput data. It delivers accurate, low-latency results from streaming data without compromising simplicity or performance. The tool's intuitive web interface makes it easy to configure and monitor pipelines, while its robust architecture ensures reliable data processing.
 
@@ -12,21 +12,33 @@ Built specifically for data engineers, GlassFlow handles late-arriving events, e
 
 - **Streaming Deduplication**: 
   - Real-time deduplication of Kafka streams before ingestion into ClickHouse
+  - Configurable time windows up to 7 days for deduplication
   - Simple configuration of deduplication keys and time windows
   - One-click setup for deduplicated data pipelines
   - Prevents duplicate data from reaching ClickHouse
 
 - **Temporal Stream Joins**:
   - Join two Kafka streams in real-time
+  - Configurable time windows up to 7 days for stream joins
   - Configure join keys and time windows through the UI
   - Simplified join setup process
   - Produce joined streams ready for ClickHouse ingestion
 
+- **Built-in Kafka Connector**:
+  - Powered by [NATS-Kafka Bridge](https://github.com/nats-io/nats-kafka)
+  - Automatic data extraction from Kafka topics
+  - Seamless integration with Kafka clusters
+  - No manual data pulling required
+  - Supports multiple Kafka topics and partitions
+  - Native support for JSON data types
+
 - **Optimized ClickHouse Sink**:
+  - Native ClickHouse connection for maximum performance
   - Configurable batch sizes for efficient data ingestion
   - Adjustable wait times for optimal throughput
   - Built-in retry mechanisms
   - Automatic schema detection and management
+  - Full support for JSON data types in ClickHouse
 
 - **User-Friendly Interface**: Web-based UI for pipeline configuration and management
 - **Local Development**: Includes demo setup with local Kafka and ClickHouse instances
