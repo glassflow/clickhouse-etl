@@ -53,20 +53,15 @@ def generate_events_with_duplicates(
     else:
         brokers = source_config.connection_params.brokers
 
-    if source_config.provider:
-        sink_type = f"kafka.{source_config.provider}"
-    else:
-        sink_type = "kafka.confluent"
-
     glassgen_config["sink"] = {
-        "type": sink_type,
+        "type": "kafka",
         "params": {
-            "bootstrap_servers": ",".join(brokers),
+            "bootstrap.servers": ",".join(brokers),
             "topic": source_config.topics[0].name,
-            "security_protocol": source_config.connection_params.protocol,
-            "sasl_mechanism": source_config.connection_params.mechanism,
-            "username": source_config.connection_params.username,
-            "password": source_config.connection_params.password,
+            "security.protocol": source_config.connection_params.protocol,
+            "sasl.mechanism": source_config.connection_params.mechanism,
+            "sasl.username": source_config.connection_params.username,
+            "sasl.password": source_config.connection_params.password,
         },
     }
     return glassgen.generate(config=glassgen_config)

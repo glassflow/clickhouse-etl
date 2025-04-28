@@ -39,7 +39,6 @@ class JoinEventSchema(glassgen.ConfigSchema):
 def generate_events(
     source_connection_params: KafkaConnectionParams,
     topic_config: TopicConfig,
-    provider: str,
     generator_schema: str,
     duplication_rate: float,
     join_key: str,
@@ -89,20 +88,15 @@ def generate_events(
         list_of_keys=list_of_keys,
     )
 
-    if provider:
-        sink_type = f"kafka.{provider}"
-    else:
-        sink_type = "kafka.confluent"
-
     glassgen_config["sink"] = {
-        "type": sink_type,
+        "type": "kafka",
         "params": {
-            "bootstrap_servers": ",".join(brokers),
+            "bootstrap.servers": ",".join(brokers),
             "topic": topic_config.name,
-            "security_protocol": source_connection_params.protocol,
-            "sasl_mechanism": source_connection_params.mechanism,
-            "username": source_connection_params.username,
-            "password": source_connection_params.password,
+            "security.protocol": source_connection_params.protocol,
+            "sasl.mechanism": source_connection_params.mechanism,
+            "sasl.username": source_connection_params.username,
+            "sasl.password": source_connection_params.password,
         },
     }
     glassgen_resp = glassgen.generate(config=glassgen_config, schema=schema)
@@ -177,7 +171,6 @@ def main(
             list_of_keys=join_keys,
             num_records=right_num_records,
             rps=rps,
-            provider=pipeline_config.source.provider,
         )
 
         left_stats = generate_events(
@@ -189,7 +182,6 @@ def main(
             list_of_keys=join_keys,
             num_records=left_num_records,
             rps=rps,
-            provider=pipeline_config.source.provider,
         )
 
     utils.log(
