@@ -219,8 +219,7 @@ def create_pipeline_if_not_exists(
         if pipeline_id:
             if not skip_confirmation:
                 resp = query_yes_no(
-                    question="[yellow]⚠[/yellow]\t[bold orange_red1][GlassFlow][/bold orange_red1] "
-                    f"Pipeline [italic u]{pipeline_id}[/italic u] is running. "
+                    question=f"Pipeline [italic u]{pipeline_id}[/italic u] is running. "
                     f"Do you want to delete it and create a new pipeline with ID [italic u]{config.pipeline_id}[/italic u]?",
                     default_yes=True,
                 )
@@ -331,7 +330,13 @@ def query_yes_no(question, default_yes: bool | None = None):
 
     while True:
         try:
-            print(question + prompt, end="")
+            log(
+                message=question + prompt,
+                status="",
+                is_warning=True,
+                end="",
+                component="GlassFlow",
+            )
             resp = input().strip().lower()
             if default_yes is not None and resp == "":
                 return default_yes
@@ -348,6 +353,7 @@ def log(
     is_failure: bool = False,
     is_warning: bool = False,
     component: str = "GlassFlow",
+    **print_kwargs,
 ):
     if is_success and not is_failure and not is_warning:
         status_icon = "[green]✔[/green]"
@@ -386,7 +392,7 @@ def log(
     table.add_column("Message", justify="left", width=70)
     table.add_column("Status", justify="left", width=20)
     table.add_row(status_icon, component_str, message, status_message)
-    print(table)
+    print(table, **print_kwargs)
 
 
 def print_gen_stats(stats: list[dict], topics: list[str]):
