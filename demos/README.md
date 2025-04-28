@@ -1,10 +1,10 @@
 # GlassFlow ClickHouse ETL Demo
 
-This demo showcases the deduplication capabilities of GlassFlow ClickHouse ETL using a local development environment. The demo includes:
+This demo showcases the capabilities of GlassFlow ClickHouse ETL using a local development environment. The demo includes:
 
 - Local Kafka and ClickHouse instances
-- Event generation with configurable duplication rates
-- Deduplication pipeline setup
+- Event generation with configurable parameters
+- Pipeline setup for deduplication and joins
 - Real-time data processing demonstration
 
 ## Prerequisites
@@ -44,15 +44,17 @@ This will start:
 
 The GlassFlow web interface will be available at http://localhost:8080 where you can monitor and manage your pipelines.
 
-## Running the Demo
+## Running the Demos
 
-The demo can be run with default parameters or customized using command-line arguments:
+### Deduplication Demo
+
+The deduplication demo can be run with default parameters or customized using command-line arguments:
 
 ```bash
 python demo_deduplication.py [options]
 ```
 
-### Command Line Options
+#### Command Line Options
 
 - `--num-records`: Number of records to generate (default: 10000)
 - `--duplication-rate`: Rate of duplication (default: 0.1)
@@ -62,7 +64,7 @@ python demo_deduplication.py [options]
 - `--yes` or `-y`: Skip confirmation prompts
 - `--cleanup` or `-c`: Cleanup ClickHouse table before running the pipeline
 
-### Example Usage
+#### Example Usage
 
 1. Run with default parameters:
 ```bash
@@ -79,7 +81,45 @@ python demo_deduplication.py --num-records 5000 --duplication-rate 0.05
 python demo_deduplication.py --config custom_config.json --cleanup
 ```
 
-## What the Demo Does
+### Join Demo
+
+The join demo demonstrates how to join data from two different Kafka topics using GlassFlow's temporal join capabilities. It can be run with default parameters or customized using command-line arguments:
+
+```bash
+python demo_join.py [options]
+```
+
+#### Command Line Options
+
+- `--left-num-records`: Number of records to generate for left events (default: 10000)
+- `--right-num-records`: Number of records to generate for right events (default: 10000)
+- `--rps`: Records per second (default: 1000)
+- `--config`: Path to pipeline configuration file (default: config/glassflow/join_pipeline.json)
+- `--left-schema`: Path to left events generator schema file (default: config/glassgen/order_event.json)
+- `--right-schema`: Path to right events generator schema file (default: config/glassgen/user_event.json)
+- `--yes` or `-y`: Skip confirmation prompts
+- `--cleanup` or `-c`: Cleanup ClickHouse table before running the pipeline
+
+#### Example Usage
+
+1. Run with default parameters:
+```bash
+python demo_join.py
+```
+
+2. Generate 5000 left events and 3000 right events:
+```bash
+python demo_join.py --left-num-records 5000 --right-num-records 3000
+```
+
+3. Run with custom configuration and cleanup:
+```bash
+python demo_join.py --config custom_config.json --cleanup
+```
+
+## What the Demos Do
+
+### Deduplication Demo
 
 1. **Infrastructure Setup**:
    - Creates necessary Kafka topics
@@ -103,13 +143,43 @@ python demo_deduplication.py --config custom_config.json --cleanup
    - Displays number of duplicates
    - Reports final number of records in ClickHouse
 
+### Join Demo
+
+1. **Infrastructure Setup**:
+   - Creates necessary Kafka topics for both left and right events
+   - Sets up ClickHouse table for joined results
+   - Configures the GlassFlow pipeline using [`glassflow-clickhouse-etl`](https://pypi.org/project/glassflow-clickhouse-etl/) Python SDK
+
+2. **Event Generation**:
+   - Uses [`glassgen`](https://pypi.org/project/glassgen/) Python library to generate synthetic events (left and right) with matching join keys
+   - Uses different schemas for each event type:
+     - Left events (orders): order_id, user_id, amount, price, created_at
+     - Right events (users): event_id, user_id, name, email, created_at
+   - Sends events to their respective Kafka topics at specified rate (RPS)
+
+3. **Join Process**:
+   - GlassFlow performs temporal joins between the two event streams
+   - Matches events based on the join key (user_id)
+   - Joins events within the configured time window
+   - Writes joined results to ClickHouse
+
+4. **Results**:
+   - Shows number of generated events for both streams
+   - Displays sample joined records
+   - Reports final number of records in ClickHouse
+
 ## Configuration Files
 
-The demo uses two main configuration files:
+The demos use several configuration files:
 
-1. **Pipeline Configuration** [`config/glassflow/deduplication_pipeline.json`](config/glassflow/deduplication_pipeline.json):
-   This file defines the GlassFlow ETL pipeline that processes and deduplicates events. It contains:
+1. **Pipeline Configurations**:
+   - **Deduplication Pipeline** [`config/glassflow/deduplication_pipeline.json`](config/glassflow/deduplication_pipeline.json):
+     This file defines the GlassFlow ETL pipeline that processes and deduplicates events.
 
+   - **Join Pipeline** [`config/glassflow/join_pipeline.json`](config/glassflow/join_pipeline.json):
+     This file defines the GlassFlow ETL pipeline that performs temporal joins between two event streams.
+
+   Both pipeline configurations contain:
    - **Source Configuration**:
      - Kafka connection details (brokers, security settings)
      - Topic configuration
@@ -121,34 +191,25 @@ The demo uses two main configuration files:
      - Table mapping
      - Batch processing settings
 
-   To customize the pipeline, you can modify this file:
+   To customize the pipelines, you can modify these files:
    - Change Kafka broker addresses if using external Kafka
    - Update ClickHouse connection details for external ClickHouse
-   - Modify deduplication time window
-   - Adjust batch processing parameters
+   - Modify time windows and processing parameters
 
-   Example customization:
-   ```json
-   {
-     "source": {
-       "connection_params": {
-         "brokers": ["external-kafka:9092"]
-       }
-     },
-     "sink": {
-       "host": "external-clickhouse",
-       "port": "9000"
-     }
-   }
-   ```
+2. **Generator Schemas**:
+   - **User Events** [`config/glassgen/user_event.json`](config/glassgen/user_event.json):
+     This file defines the structure of user events using glassgen's generator syntax.
 
-2. **Generator Schema** [`config/glassgen/user_event.json`](config/glassgen/user_event.json):
-   This file defines the structure of synthetic events using glassgen's generator syntax. The format is a JSON object where:
+   - **Order Events** [`config/glassgen/order_event.json`](config/glassgen/order_event.json):
+     This file defines the structure of order events using glassgen's generator syntax.
+
+   The format is a JSON object where:
    - Keys are the field names in the generated events
    - Values are the generator types (prefixed with `$`)
 
-   Example schema:
+   Example schemas:
    ```json
+   // User events
    {
      "event_id": "$uuid4",
      "user_id": "$uuid4",
@@ -156,9 +217,17 @@ The demo uses two main configuration files:
      "email": "$email",
      "created_at": "$datetime"
    }
-   ```
-    Complete list of supported generators can be found at [glassgen's documentation](https://github.com/glassflow/glassgen?tab=readme-ov-file#supported-schema-generators)
 
+   // Order events
+   {
+     "order_id": "$uuid4",
+     "user_id": "$uuid4",
+     "amount": "$intrange(1,15)",
+     "price": "$price(1,250)",
+     "created_at": "$datetime"
+   }
+   ```
+   Complete list of supported generators can be found at [glassgen's documentation](https://github.com/glassflow/glassgen?tab=readme-ov-file#supported-schema-generators)
 
 ## Troubleshooting
 
@@ -182,7 +251,7 @@ The demo uses two main configuration files:
      ```
    - Check ClickHouse table:
      ```bash
-     docker compose exec clickhouse clickhouse-client--user default --password secret --query "SELECT count() FROM <table_name>"
+     docker compose exec clickhouse clickhouse-client --user default --password secret --query "SELECT count() FROM <table_name>"
      ```
 
 ## Cleanup
