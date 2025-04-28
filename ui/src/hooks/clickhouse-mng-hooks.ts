@@ -30,7 +30,7 @@ export function useClickhouseConnection() {
     try {
       // Make sure we're only sending serializable data
       const configToSend = {
-        host: generateHost(connectionConfig),
+        host: connectionConfig.host,
         port: connectionConfig.port,
         username: connectionConfig.username,
         password: connectionConfig.password,
@@ -54,16 +54,18 @@ export function useClickhouseConnection() {
       const data = await response.json()
 
       if (data.success) {
+        console.log('Successfull conneciton - data: ', data)
         setConnectionStatus('success')
         setConnectionError(null)
         if (data.databases && data.databases.length > 0) {
+          console.log('data.databases', data.databases)
           setAvailableDatabases(data.databases)
         }
         return { success: true, databases: data.databases || [] }
       } else {
         setConnectionStatus('error')
-        setConnectionError(data.error || 'Failed to connect to ClickHouse')
-        return { success: false, error: data.error || 'Failed to connect to ClickHouse' }
+        setConnectionError(data.error || 'Test connection failed - Failed to connect to ClickHouse')
+        return { success: false, error: data.error || 'Test connection failed - Failed to connect to ClickHouse' }
       }
     } catch (error) {
       setConnectionStatus('error')
@@ -81,14 +83,16 @@ export function useClickhouseConnection() {
       return { success: false, error: 'Please fill in all fields' }
     }
 
-    connectionConfig.host = generateHost(connectionConfig)
-
+    // Don't modify the host here - send the original host value
     const response = await fetch('/api/clickhouse/databases', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(connectionConfig),
+      body: JSON.stringify({
+        ...connectionConfig,
+        // Don't transform the host
+      }),
     })
 
     const data = await response.json()
@@ -109,7 +113,7 @@ export function useClickhouseConnection() {
     try {
       // Make sure we're only sending serializable data
       const configToSend = {
-        host: generateHost(connectionConfig),
+        host: connectionConfig.host, // Don't use generateHost here - send raw host
         port: connectionConfig.port,
         username: connectionConfig.username,
         password: connectionConfig.password,
@@ -167,7 +171,7 @@ export function useClickhouseConnection() {
     try {
       // Make sure we're only sending serializable data
       const configToSend = {
-        host: generateHost(connectionConfig),
+        host: connectionConfig.host, // Don't use generateHost here - send raw host
         port: connectionConfig.port,
         username: connectionConfig.username,
         password: connectionConfig.password,

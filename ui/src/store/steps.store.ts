@@ -6,6 +6,7 @@ export interface StepsSlice {
   completedSteps: string[]
   setCompletedSteps: (steps: string[]) => void
   addCompletedStep: (step: string) => void
+  removeCompletedStepsAfter: (step: string) => void
   editingStep: string
   setEditingStep: (step: string) => void
 }
@@ -32,6 +33,23 @@ export const createStepsSlice: StateCreator<StepsSlice> = (set) => ({
       return state
     })
   },
+
+  removeCompletedStepsAfter: (step: string) => {
+    set((state) => {
+      const stepIndex = state.completedSteps.indexOf(step)
+      console.log('stepIndex', stepIndex)
+      console.log('completedSteps', state.completedSteps)
+      if (stepIndex !== -1) {
+        // Keep all steps up to and including the given step
+        return {
+          ...state,
+          completedSteps: state.completedSteps.slice(0, stepIndex + 1),
+        }
+      }
+      return state
+    })
+  },
+
   editingStep: '',
   setEditingStep: (step: string) => set({ editingStep: step }),
 })

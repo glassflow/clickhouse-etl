@@ -40,7 +40,11 @@ export function TopicDeduplicationConfigurator({
     updateTopic,
     getTopic,
     getEvent,
+    invalidateTopicDependentState,
   } = topicsStore
+
+  // Get access to the steps store functions
+  const { removeCompletedStepsAfter } = useStore()
 
   // Get existing topic data if available
   const existingTopic = getTopic(index)
@@ -141,6 +145,15 @@ export function TopicDeduplicationConfigurator({
   const handleTopicSelect = async (topic: string) => {
     if (topic === '') {
       return
+    }
+
+    // If the topic name changed, invalidate dependent state
+    if (topic !== localState.topicName) {
+      invalidateTopicDependentState(index)
+
+      // Get the current step key based on index and remove all completed steps after it
+      const currentStepKey = StepKeys.KAFKA_CONNECTION // We want to remove everything after Kafka connection when topic changes
+      removeCompletedStepsAfter(currentStepKey)
     }
 
     // Reset event state when topic changes

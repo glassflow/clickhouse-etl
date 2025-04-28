@@ -116,9 +116,11 @@ function HomePageClient() {
   return (
     <div className="flex flex-col items-center gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 sm:px-6 lg:px-8">
       <h1 className="title-1 text-gradient">Welcome!</h1>
-      <p className="w-full text-center subtitle">Create a new pipeline with ready-to-use data operations</p>
+      <p className="w-full text-center subtitle muted-foreground">
+        Create a new pipeline with ready-to-use data operations
+      </p>
       {/* <ThemeDebug /> */}
-      <div className="grid grid-cols-2 gap-4 mt-6 w-full max-w-[512px]">
+      <div className="grid grid-cols-2 gap-4 mt-12 w-full max-w-[512px]">
         <div
           className={cn(
             'card-gradient',
@@ -131,7 +133,7 @@ function HomePageClient() {
             onClick={() => handleOperationClick(OperationKeys.DEDUPLICATION)}
           >
             <Image src={Deduplicate} alt="Deduplicate" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium">Deduplicate</span>
+            <span className="ml-4 text-lg font-medium text-muted-foreground">Deduplicate</span>
           </button>
         </div>
         <div
@@ -146,7 +148,7 @@ function HomePageClient() {
             onClick={() => handleOperationClick(OperationKeys.JOINING)}
           >
             <Image src={Join} alt="Join" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium">Join</span>
+            <span className="ml-4 text-lg font-medium text-muted-foreground">Join</span>
           </button>
         </div>
 
@@ -162,7 +164,7 @@ function HomePageClient() {
             onClick={() => handleOperationClick(OperationKeys.DEDUPLICATION_JOINING)}
           >
             <Image src={DeduplicateJoin} alt="Deduplicate Join" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium">Deduplicate & Join</span>
+            <span className="ml-4 text-lg font-medium text-muted-foreground">Deduplicate & Join</span>
           </button>
         </div>
 
@@ -178,7 +180,7 @@ function HomePageClient() {
             onClick={() => handleOperationClick(OperationKeys.INGEST_ONLY)}
           >
             <Image src={IngestOnly} alt="Ingest Only" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium">Ingest Only</span>
+            <span className="ml-4 text-lg font-medium text-muted-foreground">Ingest Only</span>
           </button>
         </div>
       </div>

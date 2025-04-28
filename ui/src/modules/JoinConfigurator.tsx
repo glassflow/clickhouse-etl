@@ -191,6 +191,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   // Track if this is the initial render or a return visit
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [userInteracted, setUserInteracted] = useState(false)
+  const [showValidation, setShowValidation] = useState(false)
   const formInitialized = useRef(false)
 
   // Get existing topic data if available
@@ -201,6 +202,13 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
 
   // Check if we're returning to a previously filled form
   const isReturningToForm = topic1 && topic1.name && topic2 && topic2.name
+
+  // Set initial render state
+  useEffect(() => {
+    if (isInitialRender && isReturningToForm) {
+      setIsInitialRender(false)
+    }
+  }, [isInitialRender, isReturningToForm])
 
   // Initialize form with React Hook Form
   const formMethods = useForm<JoinConfigType>({
@@ -223,8 +231,8 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
         },
       ],
     },
-    mode: 'onChange',
-    reValidateMode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
   })
 
   const {
@@ -251,9 +259,39 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
     }
   }, [topic1?.name, topic2?.name, setValue, streams, formInitialized])
 
-  // Update validation logic to only check on submit and edit
+  // Add effect to handle validation when returning to a completed step
+  const [formIsValid, setFormIsValid] = useState(false)
+
+  useEffect(() => {
+    // When returning to a previously completed step, validate the form
+    if (isReturningToForm && streams?.length === 2 && !userInteracted) {
+      const hasCompleteData = streams.every(
+        (stream) =>
+          stream?.streamId &&
+          stream?.joinKey &&
+          stream?.dataType &&
+          stream?.joinTimeWindowValue &&
+          stream?.joinTimeWindowUnit,
+      )
+
+      if (hasCompleteData) {
+        // Set form values from existing data
+        streams.forEach((stream, index) => {
+          if (stream.joinKey) setValue(`streams.${index}.joinKey`, stream.joinKey)
+          if (stream.dataType) setValue(`streams.${index}.dataType`, stream.dataType)
+          if (stream.joinTimeWindowValue) setValue(`streams.${index}.joinTimeWindowValue`, stream.joinTimeWindowValue)
+          if (stream.joinTimeWindowUnit) setValue(`streams.${index}.joinTimeWindowUnit`, stream.joinTimeWindowUnit)
+        })
+
+        // For returning users with valid data, we still want to set formIsValid without showing errors
+        setFormIsValid(true)
+      }
+    }
+  }, [isReturningToForm, streams, userInteracted, setValue, trigger])
+
+  // Update validation logic to support both new form entry and returning to a completed step
   const canContinue =
-    isDirty &&
+    (isDirty || (isReturningToForm && formIsValid)) &&
     streams?.every(
       (stream) =>
         stream?.streamId &&
@@ -265,7 +303,10 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
 
   // Handle form submission with validation
   const onSubmit = async (data: JoinConfigType) => {
-    // Trigger validation only on submit
+    // Set showValidation to true to display any validation errors
+    setShowValidation(true)
+
+    // Trigger validation on submit
     const isValid = await trigger()
     if (!isValid) {
       return
@@ -289,24 +330,35 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   // Handle any form field change
   const handleFormChange = () => {
     setUserInteracted(true)
-    // Trigger validation only when user interacts with the form
-    trigger()
+    // Only update formIsValid if we're already showing validation
+    if (showValidation) {
+      trigger().then((isValid) => {
+        setFormIsValid(isValid)
+      })
+    }
   }
 
   // Add direct event states
   const [currentEvent1, setCurrentEvent1] = useState<any>(null)
   const [currentEvent2, setCurrentEvent2] = useState<any>(null)
-  const eventReceivedRef1 = useRef(false)
-  const eventReceivedRef2 = useRef(false)
+
+  // Remove event received refs as they prevent refetching
+  // const eventReceivedRef1 = useRef(false)
+  // const eventReceivedRef2 = useRef(false)
+
+  // Clear events when topics change
+  useEffect(() => {
+    if (!topic1?.name) {
+      setCurrentEvent1(null)
+    }
+    if (!topic2?.name) {
+      setCurrentEvent2(null)
+    }
+  }, [topic1?.name, topic2?.name])
 
   // Simplified event fetching logic
   useEffect(() => {
-    const fetchEventData = (
-      topicName: string,
-      initialOffset: string,
-      setEvent: (data: any) => void,
-      ref: React.MutableRefObject<boolean>,
-    ) => {
+    const fetchEventData = async (topicName: string, initialOffset: string, setEvent: (data: any) => void) => {
       console.log(`Fetching event for topic: ${topicName}`)
 
       try {
@@ -319,25 +371,27 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
         if (eventData && eventData.event) {
           console.log(`Fetched event for ${topicName}:`, eventData.event)
           setEvent(eventData.event)
-          ref.current = true
         } else {
           console.warn(`No event data found for ${topicName}`)
+          setEvent(null)
         }
       } catch (error) {
         console.error(`Error fetching event for ${topicName}:`, error)
+        setEvent(null)
       }
     }
 
-    if (topic1?.name && !event1 && !currentEvent1 && !eventReceivedRef1.current) {
-      fetchEventData(topic1.name, topic1.initialOffset || 'latest', setCurrentEvent1, eventReceivedRef1)
+    // Fetch events whenever topics change
+    if (topic1?.name) {
+      fetchEventData(topic1.name, topic1.initialOffset || 'latest', setCurrentEvent1)
     }
 
-    if (topic2?.name && !event2 && !currentEvent2 && !eventReceivedRef2.current) {
-      fetchEventData(topic2.name, topic2.initialOffset || 'latest', setCurrentEvent2, eventReceivedRef2)
+    if (topic2?.name) {
+      fetchEventData(topic2.name, topic2.initialOffset || 'latest', setCurrentEvent2)
     }
-  }, [topic1?.name, topic2?.name, event1, event2, currentEvent1, currentEvent2])
+  }, [topic1?.name, topic1?.initialOffset, topic2?.name, topic2?.initialOffset, getEvent, topicsStore])
 
-  // Update dynamicOptions
+  // Update dynamicOptions to create a new object when events change
   const dynamicOptions = {
     'streams.0.joinKey':
       getEventKeys(
@@ -373,6 +427,35 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
     })),
   }
 
+  // Run validation on component mount if returning to a completed step
+  useEffect(() => {
+    // Only need to run this validation once when the component mounts
+    if (isReturningToForm && streams?.length === 2) {
+      const hasCompleteData = streams.every(
+        (stream) =>
+          stream?.streamId &&
+          stream?.joinKey &&
+          stream?.dataType &&
+          stream?.joinTimeWindowValue &&
+          stream?.joinTimeWindowUnit,
+      )
+
+      if (hasCompleteData) {
+        // For returning users with complete data, set formIsValid without showing validation errors
+        setFormIsValid(true)
+
+        // We want to avoid triggering validation for returning users initially
+        // but make sure the form has values
+        streams.forEach((stream, index) => {
+          if (stream.joinKey) setValue(`streams.${index}.joinKey`, stream.joinKey)
+          if (stream.dataType) setValue(`streams.${index}.dataType`, stream.dataType)
+          if (stream.joinTimeWindowValue) setValue(`streams.${index}.joinTimeWindowValue`, stream.joinTimeWindowValue)
+          if (stream.joinTimeWindowUnit) setValue(`streams.${index}.joinTimeWindowUnit`, stream.joinTimeWindowUnit)
+        })
+      }
+    }
+  }, [isReturningToForm, streams, setValue])
+
   return (
     <FormProvider {...formMethods}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full" onChange={handleFormChange}>
@@ -399,8 +482,9 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
                 </div>
                 <div className="bg-background-neutral rounded-md p-4 h-full min-h-[300px]">
                   <EventPreview
+                    key={`event1-${topic1?.name}-${JSON.stringify(currentEvent1)}`}
                     showInternalNavigationButtons={false}
-                    event={parseForCodeEditor(event1?.event || {})}
+                    event={parseForCodeEditor(event1?.event || currentEvent1 || {})}
                     topic={topic1?.name || ''}
                     isLoadingEvent={false}
                     eventError={''}
@@ -422,8 +506,9 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
                 </div>
                 <div className="bg-background-neutral rounded-md p-4 h-full min-h-[300px]">
                   <EventPreview
+                    key={`event2-${topic2?.name}-${JSON.stringify(currentEvent2)}`}
                     showInternalNavigationButtons={false}
-                    event={parseForCodeEditor(event2?.event || {})}
+                    event={parseForCodeEditor(event2?.event || currentEvent2 || {})}
                     topic={topic2?.name || ''}
                     isLoadingEvent={false}
                     eventError={''}
@@ -442,7 +527,18 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
 
           {/* Continue Button */}
           <div className="flex justify-between mt-6">
-            <Button variant="gradient" className="btn-text btn-primary" type="submit" disabled={!canContinue}>
+            <Button
+              variant="gradient"
+              className="btn-text btn-primary"
+              type="submit"
+              disabled={!canContinue}
+              onClick={() => {
+                if (!showValidation) {
+                  setShowValidation(true)
+                  trigger()
+                }
+              }}
+            >
               Continue
             </Button>
           </div>

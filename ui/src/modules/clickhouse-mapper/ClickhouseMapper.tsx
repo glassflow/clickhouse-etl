@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { useAnalytics } from '@/src/hooks/useAnalytics'
@@ -78,11 +78,13 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     unmappedNonNullableColumns: string[]
     extraEventFields: string[]
     incompatibleTypeMappings: any[]
+    missingTypeMappings: any[]
   }>({
     unmappedNullableColumns: [],
     unmappedNonNullableColumns: [],
     extraEventFields: [],
     incompatibleTypeMappings: [],
+    missingTypeMappings: [],
   })
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
@@ -96,6 +98,36 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     cancelButtonText: 'No',
     type: 'info' as 'info' | 'warning' | 'error',
   })
+
+  // Add a ref to track the last connection we loaded data for
+  const lastConnectionRef = useRef<string>('')
+
+  // Reset UI state when the connection changes
+  // This ensures the UI reflects the current connection data
+  useEffect(() => {
+    // Create a connection identifier string to detect changes
+    const currentConnectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}:${clickhouseConnection.directConnection.username}`
+
+    // Check if connection has changed since we last loaded data
+    if (lastConnectionRef.current && lastConnectionRef.current !== currentConnectionId) {
+      // Connection changed, reset local state
+      setSelectedDatabase('')
+      setSelectedTable('')
+      setAvailableTables([])
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
+
+      // Track connection change
+      trackFunnelStep('connectionChanged', {
+        component: 'ClickhouseMapper',
+        topicName,
+        topicIndex: index,
+      })
+    }
+
+    // Update the connection reference
+    lastConnectionRef.current = currentConnectionId
+  }, [clickhouseConnection, trackFunnelStep, topicName, index])
 
   // Track initial view
   useEffect(() => {
@@ -439,6 +471,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       ...updatedColumns[index],
       [field]: value,
     }
+
+    console.log('updatedColumns', updatedColumns)
     setMappedColumns(updatedColumns)
     setClickhouseDestination({
       ...clickhouseDestination,
@@ -450,7 +484,13 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   const mapEventFieldToColumn = (index: number, eventField: string) => {
     const updatedColumns = [...mappedColumns]
     const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
-    const inferredType = eventField ? inferJsonType(fieldValue) : updatedColumns[index].jsonType
+    let inferredType = eventField ? inferJsonType(fieldValue) : updatedColumns[index].jsonType
+
+    // Ensure we have a type - default to string if we couldn't infer a type from the data
+    if (!inferredType && eventField) {
+      inferredType = 'string'
+      console.log(`Warning: Couldn't infer type for ${eventField}, defaulting to string`)
+    }
 
     updatedColumns[index] = {
       ...updatedColumns[index],
@@ -497,6 +537,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       unmappedNonNullableColumns: [] as string[],
       extraEventFields: [] as string[],
       incompatibleTypeMappings: [] as any[],
+      missingTypeMappings: [] as any[],
     }
 
     // Count mapped fields
@@ -523,8 +564,11 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     issues.extraEventFields = extraFields
 
     // Validate type compatibility
-    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
     issues.incompatibleTypeMappings = invalidMappings
+    issues.missingTypeMappings = missingTypeMappings
+
+    console.log('mappedColumns', mappedColumns)
 
     setValidationIssues(issues)
 
@@ -533,7 +577,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       issues.unmappedNonNullableColumns.length > 0 ||
       issues.unmappedNullableColumns.length > 0 ||
       issues.extraEventFields.length > 0 ||
-      issues.incompatibleTypeMappings.length > 0
+      issues.incompatibleTypeMappings.length > 0 ||
+      issues.missingTypeMappings.length > 0
     ) {
       trackFunnelStep('mappingValidation', {
         topicName,
@@ -542,15 +587,20 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         unmappedNullableColumns: issues.unmappedNullableColumns.length,
         extraFields: issues.extraEventFields.length,
         incompatibleMappings: issues.incompatibleTypeMappings.length,
-        hasErrors: issues.unmappedNonNullableColumns.length > 0 || issues.incompatibleTypeMappings.length > 0,
+        missingTypeMappings: issues.missingTypeMappings.length,
+        hasErrors:
+          issues.unmappedNonNullableColumns.length > 0 ||
+          issues.incompatibleTypeMappings.length > 0 ||
+          issues.missingTypeMappings.length > 0,
       })
     }
 
     // Check in order of priority:
     // 1. Type compatibility violations (error)
-    // 2. Non-nullable column violations (error)
-    // 3. Unmapped nullable columns (warning)
-    // 4. Extra event fields (warning)
+    // 2. Missing type mappings (error)
+    // 3. Non-nullable column violations (error)
+    // 4. Unmapped nullable columns (warning)
+    // 5. Extra event fields (warning)
 
     if (issues.incompatibleTypeMappings.length > 0) {
       const incompatibleFields = issues.incompatibleTypeMappings
@@ -563,6 +613,20 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         title: 'Error: Type Incompatibility',
         message: `Some event fields are mapped to incompatible ClickHouse column types. Please review and fix these mappings:
         ${incompatibleFields}`,
+        okButtonText: 'OK',
+        cancelButtonText: 'Cancel',
+      }
+    } else if (issues.missingTypeMappings.length > 0) {
+      const missingTypeFields = issues.missingTypeMappings
+        .map((mapping) => `${mapping.name} (mapped to ${mapping.eventField})`)
+        .join(', ')
+
+      return {
+        type: 'error',
+        canProceed: false,
+        title: 'Error: Missing Type Information',
+        message: `Some mapped fields have no type information. This might happen when the field path exists but the value is undefined or null. Please review these mappings:
+        ${missingTypeFields}`,
         okButtonText: 'OK',
         cancelButtonText: 'Cancel',
       }
@@ -628,13 +692,23 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Complete the save after modal confirmation
   const completeConfigSave = useCallback(() => {
     // Before saving, do a final validation of type compatibility
-    const { invalidMappings } = validateColumnMappings(mappedColumns)
+    const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
+
     if (invalidMappings.length > 0) {
       const incompatibleFields = invalidMappings
         .map((mapping) => `${mapping.name} (${mapping.jsonType} → ${mapping.type})`)
         .join(', ')
 
       setError(`Type compatibility issues remain: ${incompatibleFields}. Please fix these before continuing.`)
+      return
+    }
+
+    if (missingTypeMappings.length > 0) {
+      const missingFields = missingTypeMappings
+        .map((mapping) => `${mapping.name} (mapped to ${mapping.eventField})`)
+        .join(', ')
+
+      setError(`Some mapped fields are missing type information: ${missingFields}. Please review these mappings.`)
       return
     }
 

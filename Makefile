@@ -15,5 +15,9 @@ nats-kafka-bridge:
 clickhouse-etl:
 	$(MAKE) -C glassflow-api build
 
+.PHONY: ui
+ui:
+	$(MAKE) -C ui build
+
 .PHONY: build
-build: nats-kafka-bridge clickhouse-etl
+build: nats-kafka-bridge clickhouse-etl ui

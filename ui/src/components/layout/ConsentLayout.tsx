@@ -108,7 +108,7 @@ export function ConsentLayout({ children }: ConsentLayoutProps) {
     <>
       {children}
       {showConsent && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed bottom-8 right-8 z-50 max-w-[488px] animate-slideUpFade">
           <ConsentDialog showConsent={showConsent} onConsentClick={handleConsentClick} />
         </div>
       )}

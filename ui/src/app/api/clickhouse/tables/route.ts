@@ -51,6 +51,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       // URL encode the username and password to handle special characters
       const encodedUsername = encodeURIComponent(username)
       const encodedPassword = encodeURIComponent(password)
+      // Only use cleanHost without adding the protocol again
       const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
 
       console.log('ClickHouse connection URL:', url.replace(encodedPassword, '****')) // Log URL with masked password

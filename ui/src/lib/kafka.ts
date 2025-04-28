@@ -504,16 +504,14 @@ export class KafkaClient {
               timestamp: message.timestamp,
             }
 
-            // Parse the key if it exists
+            // Remove the key if it exists - it's related to partitions and not to the event
             if (message.key) {
               try {
-                parsedMessage.key = message.key.toString()
+                delete parsedMessage.key
               } catch (keyError) {
                 console.warn('KafkaClient: Error parsing message key:', keyError)
-                parsedMessage.key = null
+                parsedMessage.key = undefined
               }
-            } else {
-              parsedMessage.key = null
             }
 
             // Resolve the promise immediately with the parsed message

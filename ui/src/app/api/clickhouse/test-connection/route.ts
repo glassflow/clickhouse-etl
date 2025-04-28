@@ -38,47 +38,76 @@ export async function POST(request: Request): Promise<NextResponse> {
       })
     } else {
       // Direct connection - use URL format
-      // Properly extract hostname from URL
-      const urlObj = new URL(generateHost({ host, port, username, password, useSSL, nativePort }))
-      const cleanHost = urlObj.hostname
-      // URL encode the username and password to handle special characters
-      const encodedUsername = encodeURIComponent(username)
-      const encodedPassword = encodeURIComponent(password)
-      const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
-
-      console.log('ClickHouse connection URL:', url.replace(encodedPassword, '****')) // Log URL with masked password
-      console.log('ClickHouse connection config:', {
-        useSSL,
-        secure,
-        cleanHost,
+      // Add more detailed logging
+      console.log('Input data for URL generation:', {
+        host,
         port,
-        hasUsername: !!username,
-        hasPassword: !!password,
+        username: username ? 'provided' : 'not provided',
+        password: password ? 'provided' : 'not provided',
+        useSSL,
+        nativePort,
       })
 
-      const tls = host.includes('https')
-        ? ({
-            rejectUnauthorized: false,
-            servername: cleanHost,
-          } as any)
-        : undefined
+      // Generate host URL first
+      const hostUrl = generateHost({ host, port, username, password, useSSL, nativePort })
+      console.log('Generated host URL:', hostUrl)
 
-      client = createClient({
-        url,
-        tls,
-        request_timeout: 30000, // 30 seconds timeout
-        keep_alive: {
-          enabled: true,
-          idle_socket_ttl: 25000, // 25 seconds
-        },
-      })
+      try {
+        // Properly extract hostname from URL
+        const urlObj = new URL(hostUrl)
+        const cleanHost = urlObj.hostname
+        console.log('Extracted clean hostname:', cleanHost)
+
+        // URL encode the username and password to handle special characters
+        const encodedUsername = encodeURIComponent(username)
+        const encodedPassword = encodeURIComponent(password)
+        // Only use cleanHost without adding the protocol again
+        const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
+
+        console.log(
+          'Final ClickHouse connection URL structure:',
+          url.replace(encodedPassword, '****').replace(encodedUsername, '****username****'),
+        ) // Log URL structure with masked credentials
+
+        console.log('ClickHouse connection config:', {
+          useSSL,
+          secure,
+          cleanHost,
+          port,
+          hasUsername: !!username,
+          hasPassword: !!password,
+        })
+
+        const tls = host.includes('https')
+          ? ({
+              rejectUnauthorized: false,
+              servername: cleanHost,
+            } as any)
+          : undefined
+
+        client = createClient({
+          url,
+          tls,
+          request_timeout: 30000, // 30 seconds timeout
+          keep_alive: {
+            enabled: true,
+            idle_socket_ttl: 25000, // 25 seconds
+          },
+        })
+      } catch (error) {
+        console.error('Error constructing URL:', error)
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid URL construction: ' + (error instanceof Error ? error.message : String(error)),
+        })
+      }
     }
 
     // Test the connection
     try {
       console.log('Testing connection to ClickHouse...')
       const pingResult = await client.ping()
-      console.log('Ping successful:', pingResult)
+      console.log('Ping result - clickhouse:', pingResult)
 
       // If we're just testing the connection, we can stop here
       if (testType === 'connection') {
@@ -97,8 +126,13 @@ export async function POST(request: Request): Promise<NextResponse> {
           databases = rows.map((row) => row.name)
           console.log('Successfully fetched databases:', databases)
         } catch (error) {
-          console.error('Error fetching databases:', error)
-          // Continue even if we can't fetch databases
+          console.error('Error fetching databases: - this failed', error)
+          // Close the connection first
+          await client.close()
+          return NextResponse.json({
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to fetch databases',
+          })
         }
 
         // Close the connection
