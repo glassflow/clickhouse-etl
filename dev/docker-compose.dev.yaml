@@ -1,0 +1,41 @@
+services:
+  nats:
+    image: nats:alpine
+    ports:
+      - 4222:4222
+    command: --js
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ../ui
+
+  app:
+    build:
+      context: ../
+      dockerfile: glassflow-api/Dockerfile
+    depends_on:
+      - nats
+    restart: unless-stopped
+    environment:
+      GLASSFLOW_LOG_FILE_PATH: /tmp/logs/glassflow
+      GLASSFLOW_NATS_SERVER: nats:4222
+    volumes:
+      - logs:/tmp/logs/glassflow
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - 8080:8080
+    depends_on:
+      - ui
+      - app
+    volumes:
+      - logs:/logs:ro
+      - ../nginx:/etc/nginx/templates
+    restart: unless-stopped
+    environment:
+      NGINX_ENTRYPOINT_LOCAL_RESOLVERS: true
+
+volumes:
+  logs:

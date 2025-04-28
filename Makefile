@@ -21,3 +21,7 @@ ui:
 
 .PHONY: build
 build: nats-kafka-bridge clickhouse-etl ui
+
+.PHONY: run-local
+run-local: build
+	docker-compose -f ./dev/docker-compose.dev.yaml up
