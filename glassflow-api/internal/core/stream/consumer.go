@@ -10,15 +10,16 @@ import (
 )
 
 type ConsumerConfig struct {
-	NatsStream   string
-	NatsConsumer string
-	NatsSubject  string
-	AckWait      time.Duration
+	NatsStream    string
+	NatsConsumer  string
+	NatsSubject   string
+	AckWait       time.Duration
+	ExpireTimeout time.Duration
 }
 
 type Consumer struct {
-	Consumer   jetstream.Consumer
-	consumeCtx jetstream.ConsumeContext
+	Consumer      jetstream.Consumer
+	expireTimeout time.Duration
 }
 
 const (
@@ -57,6 +58,11 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 		ackWait = cfg.AckWait
 	}
 
+	expireTimeout := time.Duration(1) * time.Second
+	if cfg.ExpireTimeout > 0 {
+		expireTimeout = cfg.ExpireTimeout
+	}
+
 	//nolint:exhaustruct // optional config
 	consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Name:          cfg.NatsConsumer,
@@ -72,29 +78,11 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 	}
 
 	return &Consumer{
-		Consumer:   consumer,
-		consumeCtx: nil,
+		Consumer:      consumer,
+		expireTimeout: expireTimeout,
 	}, nil
 }
 
 func (c *Consumer) Next() (jetstream.Msg, error) {
-	return c.Consumer.Next(jetstream.FetchMaxWait(time.Duration(1) * time.Second)) //nolint:wrapcheck // no need to wrap
-}
-
-func (c *Consumer) Subscribe(msgHandlerFunc func(jetstream.Msg)) error {
-	ctx, err := c.Consumer.Consume(msgHandlerFunc)
-	if err != nil {
-		return fmt.Errorf("subscribe: %w", err)
-	}
-
-	c.consumeCtx = ctx
-
-	return nil
-}
-
-func (c *Consumer) Unsubscribe() {
-	if c.consumeCtx != nil {
-		c.consumeCtx.Stop()
-		c.consumeCtx = nil
-	}
+	return c.Consumer.Next(jetstream.FetchMaxWait(c.expireTimeout)) //nolint:wrapcheck // no need to wrap
 }
