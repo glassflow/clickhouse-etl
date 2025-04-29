@@ -60,6 +60,8 @@ export const JSON_DATA_TYPES = [
   'bytes',
 ]
 
+export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int']
+
 // ClickHouse data types
 export const CLICKHOUSE_DATA_TYPES = [
   'String',
