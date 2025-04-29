@@ -1,4 +1,4 @@
-import { TIME_WINDOW_UNIT_OPTIONS } from './constants'
+import { TIME_WINDOW_UNIT_OPTIONS, JSON_DATA_TYPES_DEDUPLICATION_JOIN } from './constants'
 
 // Define the form configuration
 export const JoinKeySelectFormConfig = {
@@ -26,6 +26,7 @@ export const JoinKeySelectFormConfig = {
         placeholder: 'Select...',
         type: 'select',
         required: 'Data type is required',
+        defaultValue: JSON_DATA_TYPES_DEDUPLICATION_JOIN[0],
       },
       'streams.0.joinTimeWindowValue': {
         name: 'streams.0.joinTimeWindowValue',
@@ -68,6 +69,7 @@ export const JoinKeySelectFormConfig = {
         placeholder: 'Select...',
         type: 'select',
         required: 'Data type is required',
+        defaultValue: JSON_DATA_TYPES_DEDUPLICATION_JOIN[0],
       },
       'streams.1.joinTimeWindowValue': {
         name: 'streams.1.joinTimeWindowValue',

@@ -3,35 +3,24 @@
 import { useEffect, useState, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { JSON_DATA_TYPES, OperationKeys } from '@/src/config/constants'
+import { JSON_DATA_TYPES_DEDUPLICATION_JOIN, OperationKeys } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
-import { useFetchTopics, useFetchEvent } from '../hooks/kafka-mng-hooks'
 import { EventPreview } from '../components/wizard/EventPreview'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
-import { TopicSelectorFormConfig } from '@/src/config/topic-selector-form-config'
 import { parseForCodeEditor } from '@/src/utils'
 import { useRenderFormFields, FormGroup, renderFormField } from '@/src/components/ui/form'
 import { FieldErrors, useFormContext } from 'react-hook-form'
 import Image from 'next/image'
 import InfoIcon from '@/src/images/info.svg'
-import {
-  KafkaTopicSelectorSchema,
-  KafkaTopicSelectorType,
-  KafkaTopicSelectorWithEventType,
-} from '@/src/scheme/topics.scheme'
+import { KafkaTopicSelectorType } from '@/src/scheme/topics.scheme'
 import { JoinConfigSchema, JoinConfigType } from '@/src/scheme/join.scheme'
 import { JoinKeySelectFormConfig } from '@/src/config/join-key-select-form-config'
 import { getEventKeys } from '@/src/utils/common.client'
-import { UseFormRegister, FieldValues } from 'react-hook-form'
-import { get } from 'http'
 import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { v4 as uuidv4 } from 'uuid'
 import { Label } from '@/src/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/src/components/ui/tooltip'
-import { Input } from '@/src/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 
 export type JoinConfiguratorProps = {
   steps: any
@@ -401,7 +390,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
         label: key,
         value: key,
       })) || [],
-    'streams.0.dataType': JSON_DATA_TYPES.map((type) => ({
+    'streams.0.dataType': JSON_DATA_TYPES_DEDUPLICATION_JOIN.map((type) => ({
       label: type,
       value: type,
     })),
@@ -417,7 +406,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
         label: key,
         value: key,
       })) || [],
-    'streams.1.dataType': JSON_DATA_TYPES.map((type) => ({
+    'streams.1.dataType': JSON_DATA_TYPES_DEDUPLICATION_JOIN.map((type) => ({
       label: type,
       value: type,
     })),
