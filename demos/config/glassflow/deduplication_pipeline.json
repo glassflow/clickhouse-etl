@@ -1,5 +1,5 @@
 {
-    "pipeline_id": "deduplication-pipeline",
+    "pipeline_id": "deduplication-demo-pipeline",
     "source": {
       "type": "kafka",
       "provider": "confluent",
@@ -70,19 +70,19 @@
           "source_id": "user_events_with_duplicates",
           "field_name": "event_id",
           "column_name": "event_id",
-          "column_type": "string"
+          "column_type": "uuid"
         },
         {
           "source_id": "user_events_with_duplicates",
           "field_name": "user_id",
           "column_name": "user_id",
-          "column_type": "string"
+          "column_type": "uuid"
         },
         {
           "source_id": "user_events_with_duplicates",
           "field_name": "created_at",
           "column_name": "created_at",
-          "column_type": "string"
+          "column_type": "datetime"
         },
         {
           "source_id": "user_events_with_duplicates",
