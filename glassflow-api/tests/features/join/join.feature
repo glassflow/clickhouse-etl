@@ -1,16 +1,38 @@
 @join
 Feature: Join Operator
-    Background: Run setup before each scenario
-        Given a running NATS instance for operator test
 
+    Background: Run setup before each join scenario
+        # Given a consumer config for the "left" stream "left_stream" and subject "left_subject" and consumer "left_consumer"
+        Given a "left" stream consumer with config
+            """json
+            {
+                "stream": "left_stream",
+                "subject": "left_subject",
+                "consumer": "left_consumer"
+            }
+            """
+        And a running "left" stream
+        And a "right" stream consumer with config
+            """json
+            {
+                "stream": "right_stream",
+                "subject": "right_subject",
+                "consumer": "right_consumer"
+            }
+            """
+        And a running "right" stream
+        And a "results" stream consumer with config
+            """json
+            {
+                "stream": "results_stream",
+                "subject": "results_subject",
+                "consumer": "results_consumer"
+            }
+            """
+        And a running "results" stream
+        
     Scenario: Basic join of 2 streams
-        And a left stream consumer config "left_stream" and subject "left_subject" and consumer "left_consumer"
-        And a running left stream
-        And a right stream consumer config "right_stream" and subject "right_subject" and consumer "right_consumer"
-        And a running right stream
-        And a results consumer config "results_stream" and subject "results_subject" and consumer "results_consumer"
-        And a running results stream
-        And an operator schema config with mapping
+        Given an operator schema config with mapping
             """json
             {
                 "streams": {
@@ -80,13 +102,7 @@ Feature: Join Operator
             | 1              | Alice            | alice@gmail.com    | 1               |
 
     Scenario: Join 2 streams with multiple events per same key
-        And a left stream consumer config "left_stream" and subject "left_subject" and consumer "left_consumer"
-        And a running left stream
-        And a right stream consumer config "right_stream" and subject "right_subject" and consumer "right_consumer"
-        And a running right stream
-        And a results consumer config "results_stream" and subject "results_subject" and consumer "results_consumer"
-        And a running results stream
-        And an operator schema config with mapping
+        Given an operator schema config with mapping
             """json
             {
                 "streams": {
@@ -157,13 +173,7 @@ Feature: Join Operator
             | 1              | Charlie          | service@gmail.com  | 1               |
 
     Scenario: Join 2 streams with no matching key
-        And a left stream consumer config "left_stream" and subject "left_subject" and consumer "left_consumer"
-        And a running left stream
-        And a right stream consumer config "right_stream" and subject "right_subject" and consumer "right_consumer"
-        And a running right stream
-        And a results consumer config "results_stream" and subject "results_subject" and consumer "results_consumer"
-        And a running results stream
-        And an operator schema config with mapping
+        Given an operator schema config with mapping
             """json
             {
                 "streams": {
@@ -230,13 +240,7 @@ Feature: Join Operator
         Then I check results count is 0
 
     Scenario: Stop join gracefully
-        And a left stream consumer config "left_stream" and subject "left_subject" and consumer "left_consumer"
-        And a running left stream
-        And a right stream consumer config "right_stream" and subject "right_subject" and consumer "right_consumer"
-        And a running right stream
-        And a results consumer config "results_stream" and subject "results_subject" and consumer "results_consumer"
-        And a running results stream
-        And an operator schema config with mapping
+        Given an operator schema config with mapping
             """json
             {
                 "streams": {
@@ -303,5 +307,5 @@ Feature: Join Operator
             | 4  | box4@mailbox.com |
             | 5  | box4@mailbox.com |
         And I run join operator with left TTL "2s" right TTL "2s"
-        And I stop join operator gracefully after "0s"
+        And I gracefully stop join operator after "0s"
         Then I check results count is 2

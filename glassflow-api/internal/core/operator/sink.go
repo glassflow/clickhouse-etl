@@ -53,7 +53,7 @@ func (s *SinkOperator) Start(ctx context.Context, errChan chan<- error) {
 	}
 }
 
-func (s *SinkOperator) Stop(opts ...StopOtion) {
+func (s *SinkOperator) Stop(opts ...StopOption) {
 	noWait := false
 	options := &StopOptions{
 		NoWait: false,

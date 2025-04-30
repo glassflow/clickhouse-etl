@@ -1,10 +1,10 @@
 @sink
 Feature: Clickhouse ETL sink
-
-    Background: Run setup before each scenario
         Given a running NATS instance
         And a running ClickHouse instance
-        And a running NATS stream "test_stream" with subject "test_subject"
+
+    Background: Run setup before each scenario
+        Given a running NATS stream "test_stream" with subject "test_subject"
         And a ClickHouse client with db "default" and table "events_test"
 
     Scenario: Successfully import events from NATS to Clickhouse
@@ -205,7 +205,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after 1 seconds
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 1 rows
         And I run ClickHouse sink
         When I publish 1 events to the stream with data
@@ -220,7 +220,7 @@ Feature: Clickhouse ETL sink
                 }
             ]
             """
-        And I stop ClickHouse sink after 1 seconds
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Exports events after JOIN operator
@@ -381,7 +381,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after 5 seconds
+        And I stop ClickHouse sink after "5s"
         Then the ClickHouse table "default.events_test" should contain 4 rows
 
     Scenario: Start and graceful sink stop for already existing events in stream
@@ -550,7 +550,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after 10 seconds
+        And I stop ClickHouse sink after "10s"
         Then the ClickHouse table "default.events_test" should contain 9 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time #3
@@ -623,7 +623,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after 6 seconds
+        And I stop ClickHouse sink after "6s"
         Then the ClickHouse table "default.events_test" should contain 4 rows
 
     Scenario: Import events with UUID
@@ -688,7 +688,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after 1 seconds
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Import events with float32
