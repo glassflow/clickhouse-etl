@@ -5,7 +5,8 @@ const KafkaEventSchema = z.object({
   topicIndex: z.number(),
   position: union([z.number(), z.string()]), // can be earliest, latest, or a specific offset
   kafkaOffset: z.number().optional(),
-  isFromCache: z.boolean().optional(),
+  isAtEarliest: z.boolean().optional(),
+  isAtLatest: z.boolean().optional(),
 })
 
 const KafkaTopicSchema = z.object({
