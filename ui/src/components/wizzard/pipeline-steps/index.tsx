@@ -1,5 +1,5 @@
 export * from '../../../modules/KafkaConnector'
-export * from '../../../modules/KafkaTopicSelector'
+export * from '../../../modules/topic-selector-with-preview/KafkaTopicSelector'
 export * from '../../../modules/DeduplicationConfigurator'
 export * from '../../../modules/clickhouse-mapper/ClickhouseMapper'
 export * from '../../../modules/ClickhouseConnector'
