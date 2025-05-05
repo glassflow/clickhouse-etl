@@ -1,4 +1,6 @@
-<img alt="GlassFlow Logo" src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/glassfow-banner.jpg" width="80%">
+<a href="https://glassflow.dev">
+  <img alt="GlassFlow Logo" src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/glassfow-banner.jpg">
+</a>
 
 [![Slack](https://img.shields.io/badge/Join%20Slack-GlassFlow%20Hub-blueviolet?logo=slack)](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
 [![GitHub Issues](https://img.shields.io/github/issues/glassflow/clickhouse-etl?style=social&label=GitHub%20Issues)](https://github.com/glassflow/clickhouse-etl/issues)
