@@ -254,6 +254,25 @@ The demos use several configuration files:
      docker compose exec clickhouse clickhouse-client --user default --password secret --query "SELECT count() FROM <table_name>"
      ```
 
+4. **Connecting to Local Kafka and ClickHouse**:
+   - **Kafka**:
+     ```yaml
+     Authentication Method: SASL/PLAIN
+     Security Protocol: SASL_PLAINTEXT
+     Bootstrap Servers: kafka:9094
+     Username: admin
+     Password: admin-secret
+     ```
+   - **ClickHouse**:
+     ```yaml
+     Host: clickhouse
+     HTTP/S Port: 8123
+     Native Port: 9000
+     Username: default
+     Password: secret
+     Use SSL: false
+     ```
+
 ## Cleanup
 
 To stop and remove all containers:
