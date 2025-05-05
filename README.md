@@ -1,6 +1,12 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/glassfow-banner.jpg" alt="GlassFlow ClickHouse ETL Banner" width="800"/>
-</div>
+<a href="https://glassflow.dev">
+  <img alt="GlassFlow Logo" src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/assets/glassfow-banner.jpg">
+</a>
+
+[![Slack](https://img.shields.io/badge/Join%20Slack-GlassFlow%20Hub-blueviolet?logo=slack)](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
+[![GitHub Issues](https://img.shields.io/github/issues/glassflow/clickhouse-etl?style=social&label=GitHub%20Issues)](https://github.com/glassflow/clickhouse-etl/issues)
+[![Email Support](https://img.shields.io/badge/Email%20Support-help%40glassflow.dev-blue?logo=gmail)](mailto:help@glassflow.dev)
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/glassflowdev.svg?style=social&label=Follow%20%40GlassFlow)](https://twitter.com/glassflowdev)
+
 
 # GlassFlow for ClickHouse Streaming ETL
 
@@ -394,10 +400,3 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
-
-## Support
-
-For support, please:
-- Open an issue in the GitHub repository
-- Join our [Slack community](https://join.slack.com/t/glassflowhub/shared_invite/zt-2g3s6nhci-bb8cXP9g9jAQ942gHP5tqg)
-- Email us at [help@glassflow.dev](mailto:help@glassflow.dev)
