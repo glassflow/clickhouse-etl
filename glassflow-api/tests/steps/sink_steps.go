@@ -78,10 +78,11 @@ func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
 	}
 
 	s.streamConfig = &stream.ConsumerConfig{
-		NatsStream:   cfg.StreamName,
-		NatsConsumer: cfg.ConsumerName,
-		NatsSubject:  cfg.SubjectName,
-		AckWait:      ackWaitDuration,
+		NatsStream:    cfg.StreamName,
+		NatsConsumer:  cfg.ConsumerName,
+		NatsSubject:   cfg.SubjectName,
+		AckWait:       ackWaitDuration,
+		ExpireTimeout: streamConsumerExpireTimeout,
 	}
 	return nil
 }

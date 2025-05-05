@@ -17,9 +17,11 @@ import (
 
 // BaseTestSuite provides common functionality for test suites
 type BaseTestSuite struct {
-	natsContainer *testutils.NATSContainer
-	chContainer   *testutils.ClickHouseContainer
-	natsClient    *client.NATSClient
+	natsContainer  *testutils.NATSContainer
+	chContainer    *testutils.ClickHouseContainer
+	kafkaContainer *testutils.KafkaContainer
+
+	natsClient *client.NATSClient
 
 	wg    sync.WaitGroup
 	errCh chan error
@@ -88,6 +90,35 @@ func (b *BaseTestSuite) cleanupCH() error {
 			return fmt.Errorf("stop clickhouse container: %w", err)
 		}
 		b.chContainer = nil
+	}
+
+	return nil
+}
+
+func (b *BaseTestSuite) setupKafka() error {
+	kContainer, err := testutils.StartKafkaContainer(context.Background())
+	if err != nil {
+		return fmt.Errorf("start kafka container: %w", err)
+	}
+	b.kafkaContainer = kContainer
+	return nil
+}
+
+func (b *BaseTestSuite) getKafkaURI() (string, error) {
+	if b.kafkaContainer == nil {
+		return "", fmt.Errorf("kafka container not initialized")
+	}
+
+	return b.kafkaContainer.GetURI(), nil
+}
+
+func (b *BaseTestSuite) cleanupKafka() error {
+	if b.kafkaContainer != nil {
+		err := b.kafkaContainer.Stop(context.Background())
+		if err != nil {
+			return fmt.Errorf("stop kafka container: %w", err)
+		}
+		b.kafkaContainer = nil
 	}
 
 	return nil

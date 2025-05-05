@@ -1,10 +1,15 @@
 package testutils
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
+	"time"
+
+	// "github.com/segmentio/kafka-go"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
 func NewTestLogger() *slog.Logger {
@@ -18,7 +23,6 @@ func NewTestLogger() *slog.Logger {
 func CombineErrors(errs []error) error {
 	if len(errs) > 0 {
 		var errStr strings.Builder
-		errStr.WriteString("cleanup errors: ")
 		for i, err := range errs {
 			if i > 0 {
 				errStr.WriteString("; ")
@@ -26,6 +30,155 @@ func CombineErrors(errs []error) error {
 			errStr.WriteString(err.Error())
 		}
 		return fmt.Errorf("errors occurred: %s", errStr.String())
+	}
+
+	return nil
+}
+
+type KafkaEvent struct {
+	Key   string
+	Value []byte
+}
+
+type KafkaWriter struct {
+	kafkaURI string
+}
+
+func NewKafkaWriter(kafkaURI string) *KafkaWriter {
+	return &KafkaWriter{
+		kafkaURI: kafkaURI,
+	}
+}
+
+func (kw *KafkaWriter) CreateTopic(ctx context.Context, topic string, partitions int) error {
+	adminConfig := kafka.ConfigMap{
+		"bootstrap.servers":       kw.kafkaURI,
+		"socket.keepalive.enable": true,
+		"client.id":               "kafka-admin",
+		"debug":                   "broker,admin",
+		"broker.address.family":   "v4",
+	}
+
+	adminClient, err := kafka.NewAdminClient(&adminConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create admin client: %w", err)
+	}
+	defer adminClient.Close()
+
+	// Create topic specification
+	topicSpec := kafka.TopicSpecification{ //nolint:exhaustruct // only necessary fields
+		Topic:             topic,
+		NumPartitions:     partitions,
+		ReplicationFactor: 1,
+	}
+
+	// Create the topic
+	results, err := adminClient.CreateTopics(
+		ctx,
+		[]kafka.TopicSpecification{topicSpec},
+		kafka.SetAdminOperationTimeout(time.Second*30),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create topic: %w", err)
+	}
+
+	// Check if there was an error with this specific topic
+	for _, result := range results {
+		if result.Error.Code() != kafka.ErrNoError && result.Error.Code() != kafka.ErrTopicAlreadyExists {
+			return fmt.Errorf("failed to create topic %s: %w", result.Topic, result.Error)
+		}
+	}
+
+	return nil
+}
+
+func (kw *KafkaWriter) DeleteTopic(ctx context.Context, topic string) error {
+	adminConfig := &kafka.ConfigMap{
+		"bootstrap.servers":       kw.kafkaURI,
+		"socket.keepalive.enable": true,
+		"client.id":               "kafka-admin",
+		"debug":                   "broker,admin",
+		"broker.address.family":   "v4",
+	}
+
+	adminClient, err := kafka.NewAdminClient(adminConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create admin client: %w", err)
+	}
+	defer adminClient.Close()
+
+	// Delete the topic
+	results, err := adminClient.DeleteTopics(
+		ctx,
+		[]string{topic},
+		kafka.SetAdminOperationTimeout(time.Second*30),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete topic: %w", err)
+	}
+
+	// Check if there was an error with this specific topic
+	for _, result := range results {
+		if result.Error.Code() != kafka.ErrNoError && result.Error.Code() != kafka.ErrUnknownTopic {
+			return fmt.Errorf("failed to delete topic %s: %w", result.Topic, result.Error)
+		}
+	}
+
+	return nil
+}
+
+func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error {
+	config := &kafka.ConfigMap{
+		"bootstrap.servers":       kw.kafkaURI,
+		"socket.keepalive.enable": true,
+		"client.id":               "kafka-admin",
+		"debug":                   "broker,admin",
+		"broker.address.family":   "v4",
+	}
+
+	// Create producer
+	producer, err := kafka.NewProducer(config)
+	if err != nil {
+		return fmt.Errorf("failed to create producer: %w", err)
+	}
+	defer producer.Close()
+
+	// Delivery channel
+	deliveryChan := make(chan kafka.Event)
+	defer close(deliveryChan)
+
+	// Send messages
+	for _, event := range events {
+		err := producer.Produce(&kafka.Message{ //nolint:exhaustruct // only necessary fields
+			TopicPartition: kafka.TopicPartition{ //nolint:exhaustruct // only necessary fields
+				Topic:     &topic,
+				Partition: kafka.PartitionAny,
+			},
+			Key:   []byte(event.Key),
+			Value: event.Value,
+		}, deliveryChan)
+
+		if err != nil {
+			return fmt.Errorf("failed to produce message: %w", err)
+		}
+	}
+
+	// Wait for all messages to be delivered
+	for i := 0; i < len(events); i++ {
+		e := <-deliveryChan
+		m, ok := e.(*kafka.Message)
+		if !ok {
+			return fmt.Errorf("failed to cast event")
+		}
+		if m.TopicPartition.Error != nil {
+			return fmt.Errorf("delivery failed: %w", m.TopicPartition.Error)
+		}
+	}
+
+	// Flush any remaining messages
+	remaining := producer.Flush(5000) // 5 second timeout
+	if remaining > 0 {
+		return fmt.Errorf("%d messages remain unflushed", remaining)
 	}
 
 	return nil
