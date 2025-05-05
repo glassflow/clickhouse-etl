@@ -106,7 +106,7 @@ The project includes a comprehensive demo setup in the [`demos`](demos/) folder 
 
 - Local Kafka instance with Zookeeper
 - Local ClickHouse instance
-- Sample data generation using [`glassgen`](https://pypi.org/project/glassgen/)
+- Sample data generation 
 - Example pipeline configurations
 - Step-by-step instructions for running the demo
 
