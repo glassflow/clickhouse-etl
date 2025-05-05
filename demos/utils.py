@@ -13,7 +13,7 @@ from rich import print, box
 from rich.table import Table
 from rich.console import Console
 
-console = Console()
+console = Console(width=140)
 
 
 def create_clickhouse_client(sink_config: models.SinkConfig):
@@ -78,16 +78,16 @@ def truncate_table(sink_config: models.SinkConfig, client):
     client.command(f"TRUNCATE TABLE {sink_config.table}")
 
 
-def get_clickhouse_table_row(sink_config: models.SinkConfig, client):
+def get_clickhouse_table_rows(sink_config: models.SinkConfig, client, n_rows: int = 1):
     full_table_name = f"{sink_config.database}.{sink_config.table}"
-    query = f"SELECT * FROM {full_table_name} DESC LIMIT 1"
+    query = f"SELECT * FROM {full_table_name} DESC LIMIT {n_rows}"
     result = client.query(query)
     if result.result_rows:
         # Get column names directly from result.column_names
         columns = result.column_names
         # Convert row to dictionary
-        return dict(zip(columns, result.result_rows[0]))
-    return None
+        return [dict(zip(columns, row)) for row in result.result_rows]
+    return []
 
 
 def load_conf(path: str) -> models.PipelineConfig:
@@ -218,9 +218,14 @@ def create_pipeline_if_not_exists(
     else:
         if pipeline_id:
             if not skip_confirmation:
+                log(
+                    message=f"Pipeline [italic u]{config.pipeline_id}[/italic u] is already running.",
+                    status="Blocked",
+                    is_warning=True,
+                    component="GlassFlow",
+                )
                 resp = query_yes_no(
-                    question=f"Pipeline [italic u]{pipeline_id}[/italic u] is running. "
-                    f"Do you want to delete it and create a new pipeline with ID [italic u]{config.pipeline_id}[/italic u]?",
+                    question=f"Do you want to delete your active pipeline and create a new one with ID [italic u]{config.pipeline_id}[/italic u]?",
                     default_yes=True,
                 )
             else:
@@ -238,8 +243,8 @@ def create_pipeline_if_not_exists(
                 )
             else:
                 log(
-                    message="Exited! Delete current pipeline or update config to send events to existing pipeline",
-                    status="",
+                    message="Delete current pipeline or update config to send events to existing pipeline",
+                    status="Exited",
                     is_failure=True,
                     component="GlassFlow",
                 )
@@ -330,14 +335,8 @@ def query_yes_no(question, default_yes: bool | None = None):
 
     while True:
         try:
-            log(
-                message=question + prompt,
-                status="",
-                is_warning=True,
-                end="",
-                component="GlassFlow",
-            )
-            resp = input().strip().lower()
+            resp = console.input("\n" + question + prompt).strip().lower()
+            console.print("")
             if default_yes is not None and resp == "":
                 return default_yes
             else:
@@ -362,7 +361,7 @@ def log(
         status_icon = "[red]✗[/red]"
         status_message = f"[red]{status}[/red]"
     elif is_warning and not is_success and not is_failure:
-        status_icon = "[yellow]⚠[/yellow]"
+        status_icon = "[yellow]△[/yellow]"
         status_message = f"[yellow]{status}[/yellow]"
     elif not any([is_success, is_failure, is_warning]):
         raise ValueError(
@@ -389,7 +388,7 @@ def log(
     )
     table.add_column("Status", justify="left", width=2)
     table.add_column("Component", justify="left", width=12)
-    table.add_column("Message", justify="left", width=70)
+    table.add_column("Message", justify="left", width=80)
     table.add_column("Status", justify="left", width=20)
     table.add_row(status_icon, component_str, message, status_message)
     print(table, **print_kwargs)
@@ -404,6 +403,7 @@ def print_gen_stats(stats: list[dict], topics: list[str]):
     """
     table = Table(
         show_header=True,
+        box=box.SIMPLE_HEAD,
         style="sky_blue3",
         show_edge=True,
         expand=False,
@@ -430,22 +430,28 @@ def print_gen_stats(stats: list[dict], topics: list[str]):
             row.append(value_str)
         table.add_row(*row)
 
-    print("")
-    print(table)
-    print("")
+    console.print("")
+    console.print(table, justify="center")
+    console.print("")
 
 
-def print_clickhouse_record(record: dict, title: str = "ClickHouse Record"):
+def print_clickhouse_record(records: list[dict], title: str = "ClickHouse Record"):
     """Print a ClickHouse record in a table format"""
-    table = Table(
-        show_header=True,
-        style="yellow",
-        show_edge=True,
-        expand=False,
-        padding=(0, 1),
-        title=title,
-    )
-    for key, _ in record.items():
-        table.add_column(key, justify="left")
-    table.add_row(*map(str, record.values()))
-    print(table)
+    if records:
+        table = Table(
+            show_header=True,
+            box=box.SIMPLE_HEAD,
+            style="yellow",
+            show_edge=True,
+            expand=False,
+            padding=(0, 1),
+            title=title,
+        )
+        for idx, record in enumerate(records):
+            if idx == 0:
+                for key, _ in record.items():
+                    table.add_column(key, justify="left")
+            table.add_row(*map(str, record.values()))
+        console.print("")
+        console.print(table, justify="center")
+        console.print("")
