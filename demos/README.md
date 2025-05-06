@@ -98,6 +98,16 @@ docker compose exec -T kafka kafka-console-producer \
     --producer.config /etc/kafka/client.properties
 ```
 
+### 5. See results on ClickHouse
+
+```bash
+docker compose exec clickhouse clickhouse-client \
+    --user default \
+    --password secret \
+     -f prettycompact \
+    --query "SELECT * FROM users_dedup"
+```
+
 ## (Option 2) Create a Pipeline Using Python Demos
 
 The Python demos automate the entire process, including:
@@ -136,7 +146,13 @@ pip install -r requirements.txt
 Demonstrates how to deduplicate events using GlassFlow's deduplication capabilities:
 
 ```bash
-python demo_deduplication.py [options]
+# Run with default options
+python demo_deduplication.py
+
+# Run 100k examples with 50% duplicates
+python demo_deduplication.py \
+   --num_records 100000 \
+   --duplication-rate 0.5
 ```
 
 Options:
@@ -154,7 +170,14 @@ Options:
 Demonstrates how to join data from two different Kafka topics using GlassFlow's temporal join capabilities:
 
 ```bash
-python demo_join.py [options]
+# Run with default options
+python demo_join.py
+
+# Run with 100k events on the left and 1k events on the right and print the last 100 rows in the CH table
+python demo_join.py \
+   --left-num-records 100000 \
+   --right-num-records 1000 \
+   -p 100
 ```
 
 Options:
