@@ -298,8 +298,8 @@ if __name__ == "__main__":
         "--print-n-rows",
         "-p",
         type=int,
-        default=1,
-        help="Number of records to print from Clickhouse table (default: 1)",
+        default=5,
+        help="Number of records to print from Clickhouse table (default: 5)",
     )
     args = parser.parse_args()
 
