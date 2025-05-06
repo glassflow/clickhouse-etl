@@ -2,8 +2,8 @@
 
 This demo showcases the capabilities of GlassFlow ClickHouse ETL using a local development environment. You can interact with the demo in two ways:
 
-1. **[Through the GlassFlow UI](#create-a-pipeline-using-the-glassflow-ui)**: Connect directly to the local Kafka and ClickHouse instances
-2. **[Through Python Scripts](#create-a-pipeline-using-python-demos)**: Use our Python SDK to automate the pipeline setup and generate events
+- **[Through the GlassFlow UI](#create-a-pipeline-using-the-glassflow-ui)**: Connect directly to the local Kafka and ClickHouse instances
+- **[Through Python Scripts](#create-a-pipeline-using-python-demos)**: Use our Python SDK to automate the pipeline setup and generate events
 
 ## Prerequisites
 
@@ -25,19 +25,48 @@ This will start:
 - ClickHouse (ports 8123, 9000)
 - GlassFlow ClickHouse ETL application (port 8080)
 
-## Create a Pipeline Using the GlassFlow UI
+## (Option 1) Create a Pipeline Using the GlassFlow UI
 
 Once the GlassFlow application is running, the web interface will be available at http://localhost:8080. 
 You can create a new pipeline and connect it to the local Kafka and ClickHouse instances.
 
 In order to create a pipeline, you'll need the following:
-1. Create the required Kafka topics
-2. Set up the ClickHouse tables
-3. Create and configure your pipelines through the UI
-4. Generate and send events to Kafka
 
-### Kafka Connection Details
+### 1. Create the Kafka Topics
 
+```bash
+# Create a new Kafka topic
+docker compose exec kafka kafka-topics \
+    --topic users \
+    --create \
+    --partitions 1 \
+    --replication-factor 1 \
+    --bootstrap-server localhost:9093 \
+    --command-config /etc/kafka/client.properties
+```
+
+### 2. Create ClickHouse Table
+
+```bash
+docker compose exec clickhouse clickhouse-client \
+    --user default \
+    --password secret \
+    --query "
+CREATE TABLE IF NOT EXISTS users_dedup (
+    event_id Int32,
+    user_id Int32,
+    name String,
+    email String,
+    created_at DateTime
+) ENGINE = MergeTree 
+ORDER BY event_id"
+```
+
+### 3. Create GlassFlow Pipeline through the UI
+
+Go to http://localhost:8080 and follow the steps to create a pipeline. 
+
+- Kafka Connection Details
 ```yaml
 Authentication Method: SASL/PLAIN
 Security Protocol: SASL_PLAINTEXT
@@ -46,8 +75,7 @@ Username: admin
 Password: admin-secret
 ```
 
-### ClickHouse Connection Details
-
+- ClickHouse Connection Details
 ```yaml
 Host: clickhouse
 HTTP/S Port: 8123
@@ -57,7 +85,20 @@ Password: secret
 Use SSL: false
 ```
 
-## Create a Pipeline Using Python Demos
+### 4. Generate and send events to Kafka
+
+```bash
+# Send multiple JSON events to Kafka
+echo '{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:00:00Z"}
+{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:01:00Z"}
+{"event_id": "124", "user_id": "457", "name": "Jane Smith", "email": "jane@example.com", "created_at": "2024-03-20T10:03:00Z"}' | \
+docker compose exec -T kafka kafka-console-producer \
+    --topic users \
+    --bootstrap-server localhost:9093 \
+    --producer.config /etc/kafka/client.properties
+```
+
+## (Option 2) Create a Pipeline Using Python Demos
 
 The Python demos automate the entire process, including:
 - Creating Kafka topics
