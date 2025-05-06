@@ -8,6 +8,11 @@
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a>      
 </div>
 </div>
+
+<div align="center">
+  <p>Join our weekly office hours every Wednesday 15:00-18:00 CET</p>
+  <a href="https://www.glassflow.dev/office-hours"><img src="https://img.shields.io/badge/Join%20Next%20Office%20Hour-Schedule%20Now-blue?logo=calendar" alt="Join Next Office Hour"></a>
+</div>
 </br>
 
 [![Slack](https://img.shields.io/badge/Join%20Slack-GlassFlow%20Hub-blueviolet?logo=slack)](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
