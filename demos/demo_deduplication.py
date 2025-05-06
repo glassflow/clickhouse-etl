@@ -75,7 +75,20 @@ def main(
     generator_schema: str,
     skip_confirmation: bool,
     cleanup: bool,
+    print_n_rows: int,
 ):
+    """Run deduplication pipeline with configurable parameters
+
+    Args:
+        num_records (int): Number of records to generate
+        duplication_rate (float): Duplication rate
+        rps (int): Records per second
+        config_path (str): Path to pipeline configuration JSON file
+        generator_schema (str): Path to generator schema JSON file
+        skip_confirmation (bool): Skip confirmation prompt
+        cleanup (bool): Cleanup Clickhouse table before running the pipeline
+        print_n_rows (int): Number of records to print from Clickhouse table
+    """
     pipeline_config = utils.load_conf(config_path)
     clickhouse_client = utils.create_clickhouse_client(pipeline_config.sink)
 
@@ -125,13 +138,13 @@ def main(
         pipeline_config.sink, clickhouse_client
     )
 
-    row = utils.get_clickhouse_table_row(pipeline_config.sink, clickhouse_client)
-
-    if row:
-        utils.print_clickhouse_record(
-            row,
-            title=f"Record from table [italic u]{pipeline_config.sink.table}[/italic u]",
-        )
+    rows = utils.get_clickhouse_table_rows(
+        pipeline_config.sink, clickhouse_client, n_rows=print_n_rows
+    )
+    utils.print_clickhouse_record(
+        rows,
+        title=f"Records from table [italic u]{pipeline_config.sink.table}[/italic u]",
+    )
 
     clickhouse_client.close()
 
@@ -194,6 +207,13 @@ if __name__ == "__main__":
         action="store_true",
         help="Cleanup Clickhouse table before running the pipeline",
     )
+    parser.add_argument(
+        "--print-n-rows",
+        "-p",
+        type=int,
+        default=5,
+        help="Number of records to print from Clickhouse table (default: 5)",
+    )
     args = parser.parse_args()
 
     main(
@@ -204,4 +224,5 @@ if __name__ == "__main__":
         args.generator_schema,
         args.yes,
         args.cleanup,
+        args.print_n_rows,
     )
