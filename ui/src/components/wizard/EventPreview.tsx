@@ -148,13 +148,13 @@ export const EventPreview = ({
         </div>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-4">
+          {/* <div className="flex justify-between items-center mb-4">
             {isEmptyTopic && (
               <div className="text-amber-500 text-sm">
                 This topic has no events. Please enter the event schema manually.
               </div>
             )}
-          </div>
+          </div> */}
 
           {showInternalNavigationButtons && <NavigationButtons />}
 
@@ -180,6 +180,12 @@ export const EventPreview = ({
             </div>
           )}
 
+          {isEmptyTopic && (
+            <div className="bg-amber-500/20 p-3 mb-3 rounded-md text-amber-500 text-sm">
+              This topic has no events. Please select a different topic with events to proceed.
+            </div>
+          )}
+
           <div className="flex-grow relative w-full h-full code-editor-container">
             {isLoadingEvent ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black-500 bg-opacity-50">
@@ -191,9 +197,13 @@ export const EventPreview = ({
                   mode="json"
                   theme={editorTheme}
                   name="event-editor"
-                  value={isEmptyTopic ? manualEvent : event}
+                  value={
+                    isEmptyTopic
+                      ? `// This topic has no events.\n// Please select a different topic with events to proceed.\n\n{\n  "message": "No events available in this topic"\n}`
+                      : event
+                  }
                   onChange={handleEditorChange}
-                  readOnly={!isEmptyTopic}
+                  readOnly={true}
                   width="100%"
                   height="100%"
                   minLines={10}
