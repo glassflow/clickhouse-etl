@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
 import { useStore } from '@/src/store'
-import { JoinConfigurator } from './JoinConfigurator'
+import { JoinConfiguratorWrapper } from './JoinConfiguratorWrapper'
 
 const deduplicationJourney = [
   StepKeys.KAFKA_CONNECTION,
@@ -67,7 +67,7 @@ const componentsMap = {
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: TopicDeduplicationSwitch1,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: TopicDeduplicationSwitch2,
-  [StepKeys.JOIN_CONFIGURATOR]: JoinConfigurator,
+  [StepKeys.JOIN_CONFIGURATOR]: JoinConfiguratorWrapper,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionSetup,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapperSwitch,
   [StepKeys.REVIEW_CONFIGURATION]: ReviewConfiguration,
