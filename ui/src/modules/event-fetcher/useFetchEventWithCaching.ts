@@ -1,7 +1,31 @@
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useFetchEvent } from '@/src/hooks/kafka-mng-hooks'
 import { useState, useEffect } from 'react'
-import { useStore } from '@/src/store'
+import { useEventFetchContext } from './EventFetchContext'
+
+export type EventFetchState = {
+  event: any
+  currentOffset: number | null
+  earliestOffset: number | null
+  latestOffset: number | null
+  isAtLatest: boolean
+  isAtEarliest?: boolean
+  isLoading: boolean
+  error: string | null
+  isEmptyTopic: boolean
+}
+
+interface FetchEventResponse {
+  success: boolean
+  error?: string
+  event?: any // Replace with proper event type
+  offset: number
+  metadata: {
+    earliestOffset: number
+    latestOffset: number
+    offset: number
+  }
+}
 
 export const useFetchEventWithCaching = (
   kafka: KafkaStore,
@@ -12,457 +36,284 @@ export const useFetchEventWithCaching = (
   initialOffset: string = 'latest',
   onEventLoaded?: (event: any) => void,
 ) => {
-  const [isFromCache, setIsFromCache] = useState(false)
-  const { topicsStore, kafkaStore } = useStore()
-  const {
-    fetchEvent,
-    event,
-    isLoadingEvent,
-    eventError,
-    hasMoreEvents,
-    hasOlderEvents,
-    resetEventState,
-    currentOffset,
-  } = useFetchEvent(kafka, selectedFormat)
-
-  // Add state to track the current topic
+  const { fetchEvent, event, isLoadingEvent, eventError } = useFetchEvent(kafka, selectedFormat)
   const [currentTopic, setCurrentTopic] = useState<string | null>(null)
+  const { state, setState } = useEventFetchContext()
 
-  const {
-    getTopic,
-    getEvent,
-    addTopic,
-    updateTopic,
-    // New cache methods
-    getEventFromCache,
-    addEventToCache,
-    updateEventCache,
-    clearEventCache,
-    eventCache,
-  } = topicsStore
-
-  // Update event when it changes in the hook
+  // Update state when event changes
   useEffect(() => {
-    if (event && currentTopic && currentOffset !== null && !isLoadingEvent) {
-      // Store in cache
-      addEventToCache(currentTopic, currentOffset, event)
+    if (event && currentTopic && !isLoadingEvent) {
+      setState((prev) => ({
+        ...prev,
+        event,
+        isLoading: false,
+        error: null,
+      }))
 
-      // Update cache metadata
-      const cache = eventCache[currentTopic]
-      updateEventCache(currentTopic, {
-        currentOffset: currentOffset,
-        minOffset: Math.min(cache?.minOffset || Infinity, currentOffset),
-        maxOffset: Math.max(cache?.maxOffset || -Infinity, currentOffset),
-      })
-
-      // Update kafka offset
-      setKafkaOffset(currentOffset)
-
-      // Notify parent if callback provided
       if (onEventLoaded) {
         onEventLoaded({
-          event: event,
+          event,
           position: initialOffset,
-          kafkaOffset: currentOffset,
-          isFromCache: isFromCache,
+          kafkaOffset: state.currentOffset,
+          isAtLatest: state.isAtLatest,
         })
       }
     }
-  }, [event, currentOffset, isLoadingEvent, currentTopic])
+  }, [event, currentTopic, isLoadingEvent])
 
-  const fetchCachedEvent = (topicName: string, offset: number) => {
-    if (!topicName) return
+  // Update state when error occurs
+  useEffect(() => {
+    if (eventError) {
+      setState((prev) => ({
+        ...prev,
+        error: eventError,
+        isLoading: false,
+      }))
+      onEventError(eventError)
+    }
+  }, [eventError])
 
-    setCurrentTopic(topicName)
-
-    const cache = eventCache[topicName]
-    if (!cache || !cache.events[offset]) {
-      console.error('Event not found in cache at offset:', offset)
+  // Function to fetch next event
+  const handleFetchNextEvent = async (topicName: string, currentOffset: number) => {
+    if (!topicName || currentOffset === null) {
+      console.warn('handleFetchNextEvent: Invalid parameters', { topicName, currentOffset })
       return
     }
 
-    const cachedEvent = cache.events[offset]
-    setKafkaOffset(offset)
-    setIsFromCache(true)
-    updateEventCache(topicName, { currentOffset: offset })
-
-    // Notify parent if callback provided
-    if (onEventLoaded) {
-      onEventLoaded({
-        event: cachedEvent,
-        position: initialOffset,
-        kafkaOffset: offset,
-        isFromCache: true,
-      })
-    }
-    return cachedEvent
-  }
-
-  // Helper function to fetch event with caching
-  const fetchEventWithCaching = async ({
-    topicName,
-    requestType,
-    offsetParam,
-  }: {
-    topicName: string
-    requestType: 'earliest' | 'latest' | 'next' | 'previous' | 'offset'
-    offsetParam?: number
-  }) => {
-    if (!topicName) return null
-
     setCurrentTopic(topicName)
+    setState((prev) => ({ ...prev, isLoading: true, error: null }))
     onEventLoading()
-    setIsFromCache(false)
 
     try {
-      const cache = eventCache[topicName]
-      let result = null
+      const response = (await fetchEvent(topicName, true, { direction: 'next' })) as unknown as FetchEventResponse
 
-      // Case 1: Fetch "earliest" event
-      if (requestType === 'earliest') {
-        if (cache && cache.minOffset !== Infinity && cache.events[cache.minOffset]) {
-          // Use cached earliest event
-          const cachedEvent = cache.events[cache.minOffset]
-          setKafkaOffset(cache.minOffset)
-          updateEventCache(topicName, { currentOffset: cache.minOffset })
-          setIsFromCache(true)
-          result = cachedEvent
-        } else {
-          // Fetch from Kafka
-          const newEvent = await fetchEvent(topicName, false, { position: 'earliest' })
-
-          // Store in cache
-          addEventToCache(topicName, currentOffset || 0, newEvent)
-          updateEventCache(topicName, {
-            minOffset: Math.min(cache?.minOffset || Infinity, currentOffset || 0),
-            currentOffset: currentOffset || 0,
-          })
-
-          setKafkaOffset(currentOffset || 0)
-          result = newEvent
-        }
+      if (!response) {
+        throw new Error('Failed to fetch next event')
       }
 
-      // Case 2: Fetch "latest" event - always fetch from Kafka
-      if (requestType === 'latest') {
-        try {
-          // Call fetchEvent and get the result
-          await fetchEvent(topicName, false, { position: 'latest' })
-
-          // IMPORTANT: The event is now in the 'event' variable from useFetchEvent hook
-          // We need to use that instead of the return value from fetchEvent
-          if (!event) {
-            return null
-          }
-
-          // Use the event from the hook
-          const newEvent = event
-
-          // Store in cache
-          addEventToCache(topicName, currentOffset || 0, newEvent)
-          updateEventCache(topicName, {
-            maxOffset: Math.max(cache?.maxOffset || -Infinity, currentOffset || 0),
-            latestOffset: currentOffset || 0,
-            currentOffset: currentOffset || 0,
-          })
-
-          setKafkaOffset(currentOffset || 0)
-          result = newEvent
-        } catch (error) {
-          console.error('Error fetching latest event:', error)
-          onEventError(error)
-          return null
+      // If we got an error response from the API
+      if (!response.success) {
+        if (response.error?.includes('End of topic reached')) {
+          setState((prev) => ({
+            ...prev,
+            error: 'No more events available at this time. New events may arrive later.',
+            isLoading: false,
+          }))
+          return
         }
+        throw new Error(response.error || 'Failed to fetch next event')
       }
 
-      // Case 3: Fetch "next" event
-      if (requestType === 'next') {
-        const currentOffsetValue = offsetParam || currentOffset || (cache?.currentOffset ?? 0)
-        const nextOffset = currentOffsetValue + 1
-
-        // Check if we have the next event cached
-        if (cache && cache.events[nextOffset]) {
-          setKafkaOffset(nextOffset)
-          updateEventCache(topicName, { currentOffset: nextOffset })
-          setIsFromCache(true)
-          result = cache.events[nextOffset]
-        }
-
-        // If we've reached what was previously the latest, fetch fresh latest
-        if (cache && currentOffsetValue === cache.latestOffset) {
-          result = await fetchEventWithCaching({ topicName: topicName, requestType: 'latest' })
-        }
-
-        // Otherwise fetch next from Kafka
-        const newEvent = await fetchEvent(topicName, true)
-
-        // Store in cache
-        addEventToCache(topicName, currentOffset || 0, newEvent)
-        updateEventCache(topicName, {
-          maxOffset: Math.max(cache?.maxOffset || -Infinity, currentOffset || 0),
-          currentOffset: currentOffset || 0,
-        })
-
-        setKafkaOffset(currentOffset || 0)
-        result = newEvent
+      // If we got a successful response but no event
+      if (!response.event) {
+        throw new Error('No event received from server')
       }
 
-      // Case 4: Fetch "previous" event
-      if (requestType === 'previous') {
-        const currentOffsetValue = offsetParam || currentOffset || (cache?.currentOffset ?? 0)
-        const prevOffset = currentOffsetValue - 1
-
-        // Check if we have the previous event cached
-        if (cache && cache.events[prevOffset]) {
-          setKafkaOffset(prevOffset)
-          updateEventCache(topicName, { currentOffset: prevOffset })
-          setIsFromCache(true)
-          result = cache.events[prevOffset]
-        }
-
-        // If we've reached what was previously the earliest, fetch fresh earliest
-        if (cache && currentOffsetValue === cache.minOffset) {
-          result = await fetchEventWithCaching({ topicName: topicName, requestType: 'earliest' })
-        }
-
-        // Otherwise fetch previous from Kafka
-        const newEvent = await fetchEvent(topicName, false, { direction: 'previous' })
-
-        // Store in cache
-        addEventToCache(topicName, currentOffset || 0, newEvent)
-        updateEventCache(topicName, {
-          minOffset: Math.min(cache?.minOffset || Infinity, currentOffset || 0),
-          currentOffset: currentOffset || 0,
-        })
-
-        setKafkaOffset(currentOffset || 0)
-        result = newEvent
-      }
-
-      // FIXME: fix this later - we're not supporting offset fetching yet
-      // // Case 5: Fetch specific offset
-      // if (requestType === 'offset' && offsetParam !== undefined) {
-      //   // Check if we have this offset cached
-      //   if (cache && cache.events[offsetParam]) {
-      //     setKafkaOffset(offsetParam)
-      //     updateEventCache(topicName, { currentOffset: offsetParam })
-      //     setIsFromCache(true)
-      //     console.log('Event fetched:', {
-      //       requestType,
-      //       result: cache.events[offsetParam] || null,
-      //       isFromCache: isFromCache,
-      //       currentOffset: currentOffset,
-      //     })
-      //     result = cache.events[offsetParam]
-      //   }
-
-      //   // Otherwise fetch from Kafka
-      //   const newEvent = await fetchEvent(topicName, false, { offset: offsetParam })
-
-      //   // Store in cache
-      //   addEventToCache(topicName, currentOffset, newEvent)
-      //   updateEventCache(topicName, {
-      //     minOffset: Math.min(cache?.minOffset || Infinity, currentOffset),
-      //     maxOffset: Math.max(cache?.maxOffset || -Infinity, currentOffset),
-      //     currentOffset: currentOffset,
-      //   })
-
-      //   setKafkaOffset(currentOffset)
-      //   console.log('Event fetched:', {
-      //     requestType,
-      //     result: newEvent || null,
-      //     isFromCache: isFromCache,
-      //     currentOffset: currentOffset,
-      //   })
-      //   result = newEvent
-      // }
-
-      if (!result) {
-        console.warn(`No event returned for ${requestType} request on topic ${topicName}`)
-        // Don't throw an error, just return null
-        // onEventError(new Error(`No event found for ${requestType} request`));
-      }
-
-      return result
+      // Update state with the new event and metadata
+      setState((prev) => ({
+        ...prev,
+        event: response.event,
+        currentOffset: response.offset,
+        earliestOffset: response.metadata.earliestOffset,
+        latestOffset: response.metadata.latestOffset,
+        isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+        isLoading: false,
+        error: null,
+      }))
     } catch (error) {
-      onEventError(error)
-      return null
-    }
-  }
-
-  // Simplify the handleRefreshEvent function to just trigger the fetch
-  const handleRefreshEvent = (topicName: string, fetchNext: boolean = false) => {
-    if (!topicName) return
-
-    setCurrentTopic(topicName)
-    console.log('Refresh event requested:', { fetchNext })
-    onEventLoading()
-
-    // Just call fetchEvent - the useEffect above will handle the result
-    fetchEvent(topicName, fetchNext).catch(onEventError)
-  }
-
-  // Function to fetch next event
-  const handleFetchNextEvent = (topicName: string, kafkaOffset: number) => {
-    if (!topicName || kafkaOffset === null) return
-
-    setCurrentTopic(topicName)
-    console.log('Fetching next event after offset:', kafkaOffset)
-    onEventLoading()
-
-    // Check if we have next events in cache
-    const cache = eventCache[topicName]
-    if (cache) {
-      console.log('Cache contents:', {
-        allOffsets: Object.keys(cache.events)
-          .map(Number)
-          .sort((a, b) => a - b),
-        minOffset: cache.minOffset,
-        maxOffset: cache.maxOffset,
-      })
-
-      // Find the next offset in cache
-      const nextOffsets = Object.keys(cache.events)
-        .map(Number)
-        .filter((offset) => {
-          const isHigher = offset > kafkaOffset
-          console.log(`Offset ${offset} > ${kafkaOffset}? ${isHigher}`)
-          return isHigher
-        })
-        .sort((a, b) => a - b) // Sort in ascending order
-
-      console.log('Available next offsets in cache:', nextOffsets)
-
-      if (nextOffsets.length > 0) {
-        // Use cached next event
-        const nextOffset = nextOffsets[0]
-        console.log('Found next event in cache at offset:', nextOffset)
-        fetchCachedEvent(topicName, nextOffset)
-        return
+      if (error instanceof Error) {
+        if (error.message?.includes('End of topic reached') || error.message?.includes('No more events available')) {
+          setState((prev) => ({
+            ...prev,
+            error: 'No more events available at this time. New events may arrive later.',
+            isLoading: false,
+          }))
+        } else if (error.message?.includes('Invalid response format')) {
+          setState((prev) => ({
+            ...prev,
+            error: 'Failed to fetch next event. Please try again.',
+            isLoading: false,
+          }))
+        } else {
+          onEventError(error)
+        }
+      } else {
+        onEventError(error)
       }
     }
-
-    // If not in cache, fetch from Kafka
-    console.log('No next event in cache, fetching from Kafka')
-    fetchEvent(topicName, true).catch(onEventError)
   }
 
   // Function to fetch previous event
-  const handleFetchPreviousEvent = (topicName: string, kafkaOffset: number) => {
-    if (!topicName || kafkaOffset === null) return
-
-    setCurrentTopic(topicName)
-    console.log('Fetching previous event before offset:', kafkaOffset)
-    onEventLoading()
-
-    // Check if we have previous events in cache
-    const cache = eventCache[topicName]
-    if (cache) {
-      console.log('Cache contents for previous event lookup:', {
-        allOffsets: Object.keys(cache.events)
-          .map(Number)
-          .sort((a, b) => a - b),
-        minOffset: cache.minOffset,
-        maxOffset: cache.maxOffset,
-        currentOffset: kafkaOffset,
-      })
-
-      // Find the previous offset in cache
-      const prevOffsets = Object.keys(cache.events)
-        .map(Number)
-        .filter((offset) => offset < kafkaOffset)
-        .sort((a, b) => b - a) // Sort in descending order to get closest previous
-
-      console.log('Available previous offsets in cache:', prevOffsets)
-
-      if (prevOffsets.length > 0) {
-        // Use cached previous event
-        const prevOffset = prevOffsets[0]
-        console.log('Found previous event in cache at offset:', prevOffset)
-        fetchCachedEvent(topicName, prevOffset)
-        return
-      }
-    }
-
-    // If not in cache or no previous events in cache, fetch from Kafka
-    console.log('No previous event in cache, fetching from Kafka with direction: previous')
-    fetchEvent(topicName, false, { direction: 'previous' }).catch(onEventError)
-  }
-
-  // Function to fetch oldest event (at offset 0)
-  const handleFetchOldestEvent = (topicName: string) => {
-    if (!topicName) return
-
-    setCurrentTopic(topicName)
-    console.log('Fetching oldest event (at offset 0)')
-    onEventLoading()
-
-    // Clear any cached state
-    setIsFromCache(false)
-    setKafkaOffset(0)
-
-    // Check if we have the earliest event cached
-    const cache = eventCache[topicName]
-    if (cache && cache.minOffset !== Infinity && cache.events[cache.minOffset]) {
-      console.log('Using cached earliest event at offset:', cache.minOffset)
-      fetchCachedEvent(topicName, cache.minOffset)
+  const handleFetchPreviousEvent = async (topicName: string, currentOffset: number) => {
+    if (!topicName || currentOffset === null) {
+      console.warn('handleFetchPreviousEvent: Invalid parameters', { topicName, currentOffset })
       return
     }
 
-    // Force a fresh fetch from Kafka
-    console.log('Forcing fetch from Kafka for earliest event')
-    fetchEvent(topicName, false, { position: 'earliest' })
-      .then(() => {
-        console.log('Earliest event fetch completed')
-      })
-      .catch(onEventError)
+    setCurrentTopic(topicName)
+    setState((prev) => ({ ...prev, isLoading: true, error: null }))
+    onEventLoading()
+
+    try {
+      const response = (await fetchEvent(topicName, false, { direction: 'previous' })) as unknown as FetchEventResponse
+
+      if (!response) {
+        throw new Error('Failed to fetch previous event')
+      }
+
+      // If we got an error response from the API
+      if (!response.success) {
+        if (response.error?.includes('Beginning of topic reached')) {
+          setState((prev) => ({
+            ...prev,
+            error: 'You have reached the beginning of the topic. No more previous events available.',
+            isLoading: false,
+          }))
+          return
+        }
+        throw new Error(response.error || 'Failed to fetch previous event')
+      }
+
+      // If we got a successful response but no event
+      if (!response.event) {
+        throw new Error('No event received from server')
+      }
+
+      // Update state with the new event and metadata
+      setState((prev) => ({
+        ...prev,
+        event: response.event,
+        currentOffset: response.offset,
+        earliestOffset: response.metadata.earliestOffset,
+        latestOffset: response.metadata.latestOffset,
+        isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+        isLoading: false,
+        error: null,
+      }))
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message?.includes('Beginning of topic reached')) {
+          setState((prev) => ({
+            ...prev,
+            error: 'You have reached the beginning of the topic. No more previous events available.',
+            isLoading: false,
+          }))
+        } else if (error.message?.includes('Invalid response format')) {
+          setState((prev) => ({
+            ...prev,
+            error: 'Failed to fetch previous event. Please try again.',
+            isLoading: false,
+          }))
+        } else {
+          onEventError(error)
+        }
+      } else {
+        onEventError(error)
+      }
+    }
   }
 
   // Function to fetch newest event (latest)
-  const handleFetchNewestEvent = (topicName: string) => {
+  const handleFetchNewestEvent = async (topicName: string) => {
     if (!topicName) return
 
     setCurrentTopic(topicName)
-    console.log('Fetching newest event (latest position)')
+    setState((prev) => ({ ...prev, isLoading: true, error: null }))
     onEventLoading()
 
-    // Clear any cached state
-    setIsFromCache(false)
-    setKafkaOffset(0)
+    try {
+      const response = (await fetchEvent(topicName, false, { position: 'latest' })) as unknown as FetchEventResponse
 
-    // Check if we have the latest event cached
-    const cache = eventCache[topicName]
-    if (cache && cache.latestOffset !== undefined && cache.events[cache.latestOffset]) {
-      console.log('Using cached latest event at offset:', cache.latestOffset)
-      fetchCachedEvent(topicName, cache.latestOffset)
-      return
+      if (!response?.metadata) {
+        console.error('Invalid response format:', response)
+        throw new Error('Invalid response format from server')
+      }
+
+      setState((prev) => ({
+        ...prev,
+        event: response.event,
+        currentOffset: response.metadata.offset,
+        earliestOffset: response.metadata.earliestOffset,
+        latestOffset: response.metadata.latestOffset,
+        isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+        isLoading: false,
+        error: null,
+      }))
+    } catch (error) {
+      if (error instanceof Error && error.message?.includes('No events found')) {
+        setState((prev) => ({
+          ...prev,
+          isAtLatest: true,
+          error: 'No events found in this topic',
+        }))
+      } else {
+        onEventError(error)
+      }
     }
+  }
 
-    // Force a fresh fetch from Kafka
-    console.log('Forcing fetch from Kafka for latest event')
-    fetchEvent(topicName, false, { position: 'latest' })
-      .then(() => {
-        console.log('Latest event fetch completed')
-      })
-      .catch(onEventError)
+  // Function to fetch oldest event (earliest)
+  const handleFetchOldestEvent = async (topicName: string) => {
+    if (!topicName) return
+
+    setCurrentTopic(topicName)
+    setState((prev) => ({ ...prev, isLoading: true, error: null }))
+    onEventLoading()
+
+    try {
+      const response = (await fetchEvent(topicName, false, { position: 'earliest' })) as unknown as FetchEventResponse
+
+      if (!response?.metadata) {
+        throw new Error('Invalid response format from server')
+      }
+
+      setState((prev) => ({
+        ...prev,
+        event: response.event,
+        currentOffset: response.metadata.offset,
+        earliestOffset: response.metadata.earliestOffset,
+        latestOffset: response.metadata.latestOffset,
+        isAtLatest: false,
+        isAtEarliest: true,
+        isLoading: false,
+        error: null,
+      }))
+    } catch (error) {
+      if (error instanceof Error && error.message?.includes('No events found')) {
+        setState((prev) => ({
+          ...prev,
+          isAtLatest: true,
+          isAtEarliest: true,
+          error: 'No events found in this topic',
+        }))
+      } else {
+        onEventError(error)
+      }
+    }
+  }
+
+  // Function to refresh current event
+  const handleRefreshEvent = async (topicName: string, fetchNext: boolean = false) => {
+    if (!topicName) return
+
+    setCurrentTopic(topicName)
+    setState((prev) => ({ ...prev, isLoading: true, error: null }))
+    onEventLoading()
+
+    try {
+      await fetchEvent(topicName, fetchNext)
+    } catch (error) {
+      console.error('Error in handleRefreshEvent:', error)
+      onEventError(error)
+    }
   }
 
   return {
-    fetchEventWithCaching,
-    eventCache,
-    isFromCache,
-    currentOffset,
-    hasMoreEvents,
-    hasOlderEvents,
-    resetEventState,
-    handleRefreshEvent,
+    state,
+    handleFetchNewestEvent,
+    handleFetchOldestEvent,
     handleFetchNextEvent,
     handleFetchPreviousEvent,
-    handleFetchOldestEvent,
-    handleFetchNewestEvent,
-    isLoadingEvent,
-    eventError,
-    fetchCachedEvent,
-    event, // Export the event directly from the hook
+    handleRefreshEvent,
   }
 }

@@ -14,6 +14,7 @@ import { ClipboardIcon, CheckIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { InputModal, ModalResult } from '@/src/components/InputModal'
 import { saveConfiguration } from '@/src/utils/storage'
+import { useAnalytics } from '@/src/hooks/useAnalytics'
 
 interface ReviewConfigurationProps {
   steps: any
@@ -193,6 +194,7 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const { bootstrapServers, securityProtocol } = kafkaStore
   const router = useRouter()
   const selectedTopics = Object.values(topicsStore.topics || {})
+  const { trackFunnelStep, trackPageView } = useAnalytics()
 
   // Add state for the modal
   const [isDeployModalVisible, setIsDeployModalVisible] = useState(false)
@@ -200,6 +202,15 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const [jsonContent, setJsonContent] = useState('')
   const [yamlContent, setYamlContent] = useState('')
   const [apiConfigContent, setApiConfigContent] = useState('')
+
+  // Track page view when component loads
+  useEffect(() => {
+    trackPageView('pipelines', {
+      referer: document.referrer,
+      timestamp: new Date().toISOString(),
+      step: 'review',
+    })
+  }, [trackPageView])
 
   const getMappingType = (eventField: string, mapping: any) => {
     const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
@@ -431,6 +442,14 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   }, [kafkaStore, clickhouseConnection, clickhouseDestination, selectedTopics])
 
   const handleFinishDeploymentStep = () => {
+    // Track the deploy button click event
+    trackFunnelStep('deployClicked', {
+      pipelineId,
+      kafkaTopicsCount: selectedTopics.length,
+      clickhouseTable: clickhouseDestination?.table,
+      clickhouseDatabase: clickhouseDestination?.database,
+    })
+
     if (validate && !validate(StepKeys.REVIEW_CONFIGURATION, {})) {
       return
     }

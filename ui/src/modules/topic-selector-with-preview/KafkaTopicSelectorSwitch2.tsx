@@ -1,6 +1,7 @@
 'use client'
 
 import { KafkaTopicSelector, TopicSelectorProps } from './KafkaTopicSelector'
+import { EventFetchProvider } from '../event-fetcher/EventFetchContext'
 
 export const KafkaTopicSelectorSwitch2 = ({
   steps,
@@ -8,5 +9,9 @@ export const KafkaTopicSelectorSwitch2 = ({
   validate,
   index = 1,
 }: TopicSelectorProps & { index: number }) => {
-  return <KafkaTopicSelector steps={steps} onNext={onNext} validate={validate} index={index} />
+  return (
+    <EventFetchProvider>
+      <KafkaTopicSelector steps={steps} onNext={onNext} validate={validate} index={index} />
+    </EventFetchProvider>
+  )
 }

@@ -164,7 +164,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
             )}
           </div>
           <div className="w-[30%]">
-            <JSONDateTypesSelector value={selectedKeyType} onChange={handleKeyTypeSelect} />
+            <JSONDateTypesSelector value={selectedKeyType} onChange={handleKeyTypeSelect} isDeduplicationJoin={true} />
           </div>
         </div>
       </div>
