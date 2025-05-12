@@ -1,3 +1,8 @@
+---
+title: 'Installation'
+description: 'Learn how to install and set up GlassFlow for ClickHouse Streaming ETL'
+---
+
 # Installation
 
 GlassFlow for ClickHouse Streaming ETL is designed to run locally using Docker and docker-compose. 
@@ -24,57 +29,9 @@ cd clickhouse-etl
 docker-compose up
 ```
 
-3. Access the web interface at `http://localhost:8080` to configure the pipeline. 
+3. Access the web interface at `http://localhost:8080` to configure the pipeline. For detailed instructions on setting up your first pipeline, see the [Usage Guide](/usage).
 
-## Components
-
-The docker-compose setup includes four main components:
-
-### 1. NATS Server
-- Image: `nats:alpine`
-- Port: 4222
-- Purpose: Message broker for internal communication between components
-- Features: 
-  - JetStream enabled
-  - Automatic restart unless stopped manually
-
-### 2. Frontend UI
-- Image: `glassflow/clickhouse-etl-fe:stable`
-- Purpose: Web-based user interface for pipeline management
-- Features:
-  - Always pulls the latest stable version
-  - Served through Nginx
-
-### 3. Backend Application
-- Image: `glassflow/clickhouse-etl-be:stable`
-- Purpose: Core ETL engine that processes the data
-- Features:
-  - Always pulls the latest stable version
-  - Connects to NATS server
-  - Automatic restart unless stopped manually
-  - Logs stored in a Docker volume
-
-### 4. Nginx
-- Image: `nginx:1.27-alpine`
-- Port: 8080
-- Purpose: Reverse proxy for the UI and API
-- Features:
-  - Routes traffic to frontend and backend services
-  - Serves static files
-  - Automatic restart unless stopped manually
-
-## Volumes
-
-The setup uses the following Docker volumes:
-
-- `logs`: Stores application logs for persistence
-
-## Environment Variables
-
-The backend service uses the following environment variables:
-
-- `GLASSFLOW_LOG_FILE_PATH`: Path for log files (`/tmp/logs/glassflow`)
-- `GLASSFLOW_NATS_SERVER`: NATS server address (`nats:4222`)
+For details about the Docker components that are running, see the [System Components](/architecture/system_components) page.
 
 ## Stopping the Services
 

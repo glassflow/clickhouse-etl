@@ -1,7 +1,6 @@
 ---
 title: 'Local Testing'
 description: 'Learn how to test GlassFlow using the local demo environment'
-emoji: '🧪'
 ---
 
 # Local Testing
@@ -25,7 +24,12 @@ Before starting, ensure you have:
 
 ## Setting Up the Demo Environment
 
-1. Start the local infrastructure:
+1. Navigate to the demo directory:
+```bash
+cd demo
+```
+
+2. Start the local infrastructure:
 ```bash
 docker compose up -d
 ```
@@ -124,7 +128,12 @@ The Python demos automate the entire process, including:
 
 ### Setting Up Python Environment
 
-1. Create and activate a virtual environment:
+1. Navigate to the demo directory:
+```bash
+cd demo
+```
+
+2. Create and activate a virtual environment:
 ```bash
 # Create virtual environment
 python -m venv venv
@@ -136,7 +145,7 @@ source venv/bin/activate
 # .\venv\Scripts\activate
 ```
 
-2. Install dependencies:
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
