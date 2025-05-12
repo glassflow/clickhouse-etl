@@ -18,6 +18,7 @@ import {
 import axios from 'axios'
 import { InputModal, ModalResult } from '@/src/components/shared/InputModal'
 import { saveConfiguration } from '@/src/utils/storage'
+import { isValidApiConfig } from '@/src/modules/pipelines/helpers'
 import TrashIcon from '../../images/trash.svg'
 import ModifyIcon from '../../images/modify.svg'
 import AngryIcon from '../../images/angry.svg'
@@ -34,7 +35,7 @@ import LaughIconSelected from '../../images/selected/laugh.svg'
 // NOTE: Set to true to enable saving pipelines
 const SAVE_PIPELINE_ENABLED = true
 
-type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'delete_failed'
+type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'delete_failed' | 'no_configuration'
 type FeedbackType = 'angry' | 'frown' | 'meh' | 'smile' | 'laugh' | null
 
 const FEEDBACK_SUBMITTED_KEY = 'glassflow-feedback-submitted'
@@ -52,6 +53,7 @@ export function PipelineDeployer() {
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const router = useRouter()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   // Check if feedback was already submitted
   useEffect(() => {
@@ -90,23 +92,27 @@ export function PipelineDeployer() {
         const response = await getPipelineStatus()
 
         if (response.pipeline_id === pipelineId) {
-          console.log('pipelineId matches - pipeline is active with the same id: ', pipelineId)
           setStatus('active')
           setError(null)
         } else if (response.pipeline_id && response.pipeline_id !== pipelineId) {
-          console.log('pipelineId does not match - active pipeline has a different id: ', response.pipeline_id)
           setStatus('deploy_failed')
           setError('Pipeline is active with a different id')
         } else {
           console.log('This should not happen, we should always have a pipeline id or we throw an error')
-          // No pipeline exists, we can deploy
-          // TODO: this should not happen, we should always have a pipeline id or we throw an error
         }
       } catch (err: any) {
         if (err.code === 404) {
-          // No pipeline exists, we can deploy
-          if (apiConfig) {
+          // No pipeline exists, check if we have valid configuration
+          if (isValidApiConfig(apiConfig)) {
             deployPipeline()
+          } else {
+            // No valid configuration, redirect to home
+            setStatus('no_configuration')
+            setError('No pipeline configuration found. Redirecting to home page...')
+            setIsRedirecting(true)
+            setTimeout(() => {
+              router.push('/home')
+            }, 7000)
           }
         } else {
           setStatus('deploy_failed')
@@ -118,7 +124,6 @@ export function PipelineDeployer() {
     const deployPipeline = async () => {
       try {
         const response = await createPipeline(apiConfig)
-        console.log('response of deployPipeline: ', response)
         setStatus('active')
         setError(null)
 
@@ -139,10 +144,18 @@ export function PipelineDeployer() {
       }
     }
 
-    if (apiConfig) {
+    if (isValidApiConfig(apiConfig)) {
       checkPipelineStatus()
+    } else {
+      // If we're on the pipelines page without a valid config, redirect to home
+      setStatus('no_configuration')
+      setError('No pipeline configuration found. Redirecting to home page...')
+      setIsRedirecting(true)
+      setTimeout(() => {
+        router.push('/home')
+      }, 7000)
     }
-  }, [apiConfig, pipelineId, trackPipelineAction])
+  }, [apiConfig, pipelineId, trackPipelineAction, router])
 
   const handleDeleteClick = () => {
     setIsDeleteModalVisible(true)
@@ -249,6 +262,8 @@ export function PipelineDeployer() {
       case 'deploy_failed':
       case 'delete_failed':
         return 'text-[var(--color-foreground-error)]'
+      case 'no_configuration':
+        return 'text-[var(--color-foreground-warning)]'
       default:
         return ''
     }
@@ -266,6 +281,8 @@ export function PipelineDeployer() {
         return 'Pipeline deployment failed'
       case 'delete_failed':
         return 'Pipeline delete failed'
+      case 'no_configuration':
+        return 'No valid configuration - Deployment not possible'
       default:
         return 'Unknown status'
     }
@@ -306,7 +323,7 @@ export function PipelineDeployer() {
     <div className="flex flex-col items-center justify-center gap-4">
       <div className="flex items-center gap-2">
         <h1 className={cn('text-2xl font-semibold', getStatusClass(status))}>{getStatusText(status)}</h1>
-        {status === 'deploying' && <Loader2 className="h-6 w-6 animate-spin" />}
+        {(status === 'deploying' || isRedirecting) && <Loader2 className="h-6 w-6 animate-spin" />}
       </div>
 
       {error && (
