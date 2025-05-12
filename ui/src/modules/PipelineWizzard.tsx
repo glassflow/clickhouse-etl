@@ -159,24 +159,57 @@ function PipelineWizzard() {
     const stepIndex = currentJourney.indexOf(stepName)
 
     if (stepIndex !== -1) {
-      const previousSteps = currentJourney.slice(0, stepIndex)
-      const allPreviousStepsCompleted = previousSteps.every((step) => completedSteps.includes(step))
-
-      if (allPreviousStepsCompleted) {
+      // For join journey, we need to ensure steps are completed in order
+      if (operationsSelected?.operation === OperationKeys.JOINING) {
+        // Always mark the current step as completed
         addCompletedStep(stepName)
-      }
 
-      // Handle special case for review configuration
-      if (stepName === StepKeys.REVIEW_CONFIGURATION) {
-        setActiveStep(StepKeys.DEPLOY_PIPELINE)
-        router.push('/pipelines/')
-        return
-      }
+        // Special handling for topic selection steps
+        if (stepName === StepKeys.TOPIC_SELECTION_1) {
+          // When completing first topic selection, ensure it's marked as completed
+          addCompletedStep(StepKeys.TOPIC_SELECTION_1)
+          // Set the next step as active
+          setActiveStep(StepKeys.TOPIC_SELECTION_2)
+          return
+        } else if (stepName === StepKeys.TOPIC_SELECTION_2) {
+          // When completing second topic selection, ensure both are marked as completed
+          addCompletedStep(StepKeys.TOPIC_SELECTION_1)
+          addCompletedStep(StepKeys.TOPIC_SELECTION_2)
+        }
 
-      // Set the next step as active
-      const nextStep = currentJourney[stepIndex + 1]
-      if (nextStep) {
-        setActiveStep(nextStep)
+        // Handle special case for review configuration
+        if (stepName === StepKeys.REVIEW_CONFIGURATION) {
+          setActiveStep(StepKeys.DEPLOY_PIPELINE)
+          router.push('/pipelines/')
+          return
+        }
+
+        // Set the next step as active
+        const nextStep = currentJourney[stepIndex + 1]
+        if (nextStep) {
+          setActiveStep(nextStep)
+        }
+      } else {
+        // For other journeys, maintain the existing behavior
+        const previousSteps = currentJourney.slice(0, stepIndex)
+        const allPreviousStepsCompleted = previousSteps.every((step) => completedSteps.includes(step))
+
+        if (allPreviousStepsCompleted) {
+          addCompletedStep(stepName)
+        }
+
+        // Handle special case for review configuration
+        if (stepName === StepKeys.REVIEW_CONFIGURATION) {
+          setActiveStep(StepKeys.DEPLOY_PIPELINE)
+          router.push('/pipelines/')
+          return
+        }
+
+        // Set the next step as active
+        const nextStep = currentJourney[stepIndex + 1]
+        if (nextStep) {
+          setActiveStep(nextStep)
+        }
       }
     }
 
