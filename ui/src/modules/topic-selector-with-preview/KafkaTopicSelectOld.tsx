@@ -6,21 +6,17 @@ import { useStore } from '@/src/store'
 import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
-import { useFetchTopics, useFetchEvent } from '../hooks/kafka-mng-hooks'
-import { EventPreview } from '../components/wizard/EventPreview'
+import { useFetchTopics } from '../../hooks/kafka-mng-hooks'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
-import { TopicSelectorFormConfig } from '@/src/config/topic-selector-form-config'
-import { parseForCodeEditor } from '@/src/utils'
-import { useRenderFormFields, FormGroup } from '@/src/components/ui/form'
-import { FieldErrors, useFormContext } from 'react-hook-form'
+
 import {
   KafkaTopicSelectorSchema,
   KafkaTopicSelectorType,
   KafkaTopicSelectorWithEventType,
 } from '@/src/scheme/topics.scheme'
-import EventFetcher from './event-fetcher/EventFetcher'
+import EventFetcher from '../event-fetcher/EventFetcher'
 import classnames from 'classnames'
 import { TopicSelectorForm } from '@/src/components/TopicSelectorForm'
 import Image from 'next/image'

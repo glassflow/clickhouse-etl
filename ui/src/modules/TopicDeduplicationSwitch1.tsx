@@ -1,5 +1,6 @@
 'use client'
 import { TopicDeduplicationConfigurator, TopicDeduplicationConfiguratorProps } from './TopicDeduplicationConfigurator'
+import { EventFetchProvider } from './event-fetcher/EventFetchContext'
 
 export const TopicDeduplicationSwitch1 = ({
   steps,
@@ -7,5 +8,9 @@ export const TopicDeduplicationSwitch1 = ({
   validate,
   index = 0,
 }: TopicDeduplicationConfiguratorProps & { index: number }) => {
-  return <TopicDeduplicationConfigurator steps={steps} onNext={onNext} validate={validate} index={index} />
+  return (
+    <EventFetchProvider>
+      <TopicDeduplicationConfigurator steps={steps} onNext={onNext} validate={validate} index={index} />
+    </EventFetchProvider>
+  )
 }

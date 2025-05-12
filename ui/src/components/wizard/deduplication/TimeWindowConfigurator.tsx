@@ -25,7 +25,6 @@ export function TimeWindowConfigurator({
   label = 'Deduplication Time Window',
   tooltip = 'Set a value between 5 minutes to 7 days, with 1M events limit. Longer time windows can process more events but may result in slower performance.',
 }: TimeWindowConfiguratorProps) {
-  console.log('windowUnit - time window configurator', windowUnit)
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">

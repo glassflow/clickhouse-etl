@@ -435,10 +435,28 @@ export class KafkaClient {
             return
           }
 
-          // If we have a target offset, only process messages at that offset
-          if (targetOffset !== null && message.offset !== targetOffset) {
-            console.log(`KafkaClient: Ignoring message at offset ${message.offset}, waiting for offset ${targetOffset}`)
-            return
+          // If we have a target offset, check if we should process this message
+          if (targetOffset !== null) {
+            const messageOffset = BigInt(message.offset)
+            const targetOffsetBig = BigInt(targetOffset)
+
+            // For earliest position, accept any message from the earliest offset onwards
+            if (options?.position === 'earliest') {
+              if (messageOffset < targetOffsetBig) {
+                console.log(
+                  `KafkaClient: Ignoring message at offset ${message.offset}, waiting for offset >= ${targetOffset}`,
+                )
+                return
+              }
+            } else {
+              // For other positions, require exact offset match
+              if (messageOffset !== targetOffsetBig) {
+                console.log(
+                  `KafkaClient: Ignoring message at offset ${message.offset}, waiting for offset ${targetOffset}`,
+                )
+                return
+              }
+            }
           }
 
           messageReceived = true
@@ -572,12 +590,14 @@ export class KafkaClient {
         }
 
         // Set a timeout to reject if no message is received
+        // Use a longer timeout for earliest position
+        const timeoutDuration = options?.position === 'earliest' ? 30000 : 15000
         timeoutId = setTimeout(() => {
           if (!messageReceived) {
             console.log(`KafkaClient: Timeout reached, no messages received after ${Date.now() - startTime}ms`)
             reject(new Error(`Timeout waiting for message from topic: ${topic}`))
           }
-        }, 15000) // 15 second timeout
+        }, timeoutDuration)
       })
 
       console.log(`KafkaClient: Waiting for message promise to resolve...`)

@@ -8,91 +8,19 @@ import dynamic from 'next/dynamic'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import { cn } from '@/src/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
+import { EDITOR_THEMES } from '@/src/config/constants'
 
 // Dynamically import AceEditor to avoid SSR issues
 const AceEditor = dynamic(
   async () => {
     const ace = await import('react-ace')
     await import('ace-builds/src-noconflict/mode-json')
-    await import('ace-builds/src-noconflict/theme-ambiance')
-    await import('ace-builds/src-noconflict/theme-chaos')
-    await import('ace-builds/src-noconflict/theme-chrome')
-    await import('ace-builds/src-noconflict/theme-clouds')
-    await import('ace-builds/src-noconflict/theme-clouds_midnight')
-    await import('ace-builds/src-noconflict/theme-cobalt')
-    await import('ace-builds/src-noconflict/theme-crimson_editor')
-    await import('ace-builds/src-noconflict/theme-dawn')
-    await import('ace-builds/src-noconflict/theme-dracula')
-    await import('ace-builds/src-noconflict/theme-dreamweaver')
-    await import('ace-builds/src-noconflict/theme-eclipse')
-    await import('ace-builds/src-noconflict/theme-github')
-    await import('ace-builds/src-noconflict/theme-gruvbox')
-    await import('ace-builds/src-noconflict/theme-iplastic')
-    await import('ace-builds/src-noconflict/theme-kuroir')
     await import('ace-builds/src-noconflict/theme-merbivore')
-    await import('ace-builds/src-noconflict/theme-mono_industrial')
-    await import('ace-builds/src-noconflict/theme-monokai')
-    await import('ace-builds/src-noconflict/theme-nord_dark')
 
-    await import('ace-builds/src-noconflict/theme-one_dark')
-
-    await import('ace-builds/src-noconflict/theme-pastel_on_dark')
-
-    await import('ace-builds/src-noconflict/theme-solarized_dark')
-    await import('ace-builds/src-noconflict/theme-solarized_light')
-
-    await import('ace-builds/src-noconflict/theme-terminal')
-    await import('ace-builds/src-noconflict/theme-textmate')
-
-    await import('ace-builds/src-noconflict/theme-tomorrow')
-    await import('ace-builds/src-noconflict/theme-tomorrow_night')
-    await import('ace-builds/src-noconflict/theme-tomorrow_night_blue')
-    await import('ace-builds/src-noconflict/theme-tomorrow_night_eighties')
-    await import('ace-builds/src-noconflict/theme-tomorrow_night_bright')
-
-    await import('ace-builds/src-noconflict/theme-twilight')
-
-    await import('ace-builds/src-noconflict/theme-xcode')
     return ace
   },
   { ssr: false },
 )
-
-// List of available themes
-const EDITOR_THEMES = [
-  { value: 'ambiance', label: 'Ambiance' },
-  { value: 'chaos', label: 'Chaos' },
-  { value: 'chrome', label: 'Chrome' },
-  { value: 'clouds', label: 'Clouds' },
-  { value: 'clouds_midnight', label: 'Clouds Midnight' },
-  { value: 'cobalt', label: 'Cobalt' },
-  { value: 'crimson_editor', label: 'Crimson Editor' },
-  { value: 'dawn', label: 'Dawn' },
-  { value: 'dracula', label: 'Dracula' },
-  { value: 'dreamweaver', label: 'Dreamweaver' },
-  { value: 'eclipse', label: 'Eclipse' },
-  { value: 'github', label: 'GitHub' },
-  { value: 'gruvbox', label: 'Gruvbox' },
-  { value: 'iplastic', label: 'iPlastic' },
-  { value: 'kuroir', label: 'Kuroir' },
-  { value: 'merbivore', label: 'Merbivore' },
-  { value: 'mono_industrial', label: 'Mono Industrial' },
-  { value: 'monokai', label: 'Monokai' },
-  { value: 'nord_dark', label: 'Nord Dark' },
-  { value: 'one_dark', label: 'One Dark' },
-  { value: 'pastel_on_dark', label: 'Pastel on Dark' },
-  { value: 'solarized_dark', label: 'Solarized Dark' },
-  { value: 'solarized_light', label: 'Solarized Light' },
-  { value: 'terminal', label: 'Terminal' },
-  { value: 'textmate', label: 'TextMate' },
-  { value: 'tomorrow', label: 'Tomorrow' },
-  { value: 'tomorrow_night', label: 'Tomorrow Night' },
-  { value: 'tomorrow_night_blue', label: 'Tomorrow Night Blue' },
-  { value: 'tomorrow_night_bright', label: 'Tomorrow Night Bright' },
-  { value: 'tomorrow_night_eighties', label: 'Tomorrow Night Eighties' },
-  { value: 'twilight', label: 'Twilight' },
-  { value: 'xcode', label: 'XCode' },
-]
 
 type EventPreviewProps = {
   event: string
@@ -107,7 +35,8 @@ type EventPreviewProps = {
   hasOlderEvents: boolean
   eventPosition: number
   showInternalNavigationButtons: boolean
-  isFromCache?: boolean
+  isAtEarliest?: boolean
+  isAtLatest?: boolean
   isEmptyTopic?: boolean
   onEventChange?: (event: string) => void
 }
@@ -125,7 +54,8 @@ export const EventPreview = ({
   hasOlderEvents,
   eventPosition,
   showInternalNavigationButtons = false,
-  isFromCache = false,
+  isAtEarliest = false,
+  isAtLatest = false,
   isEmptyTopic = false,
   onEventChange,
 }: EventPreviewProps) => {
@@ -154,7 +84,7 @@ export const EventPreview = ({
           variant="outline"
           size="sm"
           onClick={handleFetchOldestEvent}
-          disabled={isLoadingEvent || !topic || (eventPosition === 0 && hasOlderEvents === false)}
+          disabled={isLoadingEvent || !topic || isAtEarliest}
           title="Fetch oldest event"
         >
           <span className="sr-only">First</span>
@@ -165,7 +95,7 @@ export const EventPreview = ({
           variant="outline"
           size="sm"
           onClick={handleFetchPreviousEvent}
-          disabled={isLoadingEvent || !hasOlderEvents || !topic || eventPosition <= 0}
+          disabled={isLoadingEvent || isAtEarliest || !topic}
           title="Fetch previous event"
         >
           <span className="sr-only">Previous</span>
@@ -178,7 +108,7 @@ export const EventPreview = ({
           variant="outline"
           size="sm"
           onClick={() => handleRefreshEvent(topic, true)}
-          disabled={isLoadingEvent || !hasMoreEvents || !topic}
+          disabled={isLoadingEvent || isAtLatest || !topic}
           title="Fetch next event"
         >
           <span className="sr-only">Next</span>
@@ -189,7 +119,7 @@ export const EventPreview = ({
           variant="outline"
           size="sm"
           onClick={handleFetchNewestEvent}
-          disabled={isLoadingEvent || !topic || (!hasMoreEvents && eventPosition > 0)}
+          disabled={isLoadingEvent || !topic || isAtLatest}
           title="Fetch newest event"
         >
           <span className="sr-only">Latest</span>
@@ -218,14 +148,13 @@ export const EventPreview = ({
         </div>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-4">
-            {isFromCache && <span className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded-full">Cached</span>}
+          {/* <div className="flex justify-between items-center mb-4">
             {isEmptyTopic && (
               <div className="text-amber-500 text-sm">
                 This topic has no events. Please enter the event schema manually.
               </div>
             )}
-          </div>
+          </div> */}
 
           {showInternalNavigationButtons && <NavigationButtons />}
 
@@ -251,6 +180,12 @@ export const EventPreview = ({
             </div>
           )}
 
+          {isEmptyTopic && (
+            <div className="bg-amber-500/20 p-3 mb-3 rounded-md text-amber-500 text-sm">
+              This topic has no events. Please select a different topic with events to proceed.
+            </div>
+          )}
+
           <div className="flex-grow relative w-full h-full code-editor-container">
             {isLoadingEvent ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black-500 bg-opacity-50">
@@ -262,9 +197,13 @@ export const EventPreview = ({
                   mode="json"
                   theme={editorTheme}
                   name="event-editor"
-                  value={isEmptyTopic ? manualEvent : event}
+                  value={
+                    isEmptyTopic
+                      ? `// This topic has no events.\n// Please select a different topic with events to proceed.\n\n{\n  "message": "No events available in this topic"\n}`
+                      : event
+                  }
                   onChange={handleEditorChange}
-                  readOnly={!isEmptyTopic}
+                  readOnly={true}
                   width="100%"
                   height="100%"
                   minLines={10}

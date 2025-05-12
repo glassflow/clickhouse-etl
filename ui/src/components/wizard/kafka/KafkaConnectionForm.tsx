@@ -87,11 +87,13 @@ export const KafkaConnectionForm = ({
     resolver: zodResolver(KafkaConnectionFormSchema),
     // @ts-expect-error - FIXME: fix this later
     defaultValues: initialValues,
-    mode: 'onChange',
+    mode: 'onBlur',
+    criteriaMode: 'firstError',
+    shouldFocusError: false,
   })
 
   const { watch, setValue, trigger, handleSubmit } = formMethods
-  const { errors, isValid } = formMethods.formState
+  const { errors, isValid, isDirty, touchedFields } = formMethods.formState
 
   // Watch for changes to auth method and security protocol
   const currentAuthMethod = watch('authMethod')
@@ -99,7 +101,9 @@ export const KafkaConnectionForm = ({
 
   // Handle form field changes
   const handleFormChange = () => {
-    setUserInteracted(true)
+    if (!userInteracted) {
+      setUserInteracted(true)
+    }
 
     // Track the first interaction with the Kafka connection form
     if (!hasTrackedInitialInteraction) {
@@ -159,18 +163,12 @@ export const KafkaConnectionForm = ({
       if (bootstrapServers)
         setValue('bootstrapServers', bootstrapServers as KafkaConnectionFormType['bootstrapServers'])
 
-      // Only trigger validation if returning to a previously filled form
-      if (!isInitialRender) {
-        trigger()
-      }
-
+      // Only manually trigger validation if returning to a form with stored values
+      // and only after the user has explicitly interacted with it
       formInitialized.current = true
     }
 
-    // Only trigger validation if returning to a previously filled form
-    if (!isInitialRender) {
-      trigger()
-    }
+    // Remove automatic validation trigger
 
     // Mark that we're no longer on initial render after the first effect run
     return () => {
@@ -178,10 +176,12 @@ export const KafkaConnectionForm = ({
         setIsInitialRender(false)
       }
     }
-  }, [authMethod, securityProtocol, bootstrapServers, setValue, trigger, isInitialRender, isReturningToForm])
+  }, [authMethod, securityProtocol, bootstrapServers, setValue, isInitialRender, isReturningToForm])
 
-  // Determine if we should show validation errors
-  const shouldShowValidationErrors = userInteracted || !isInitialRender || isReturningToForm
+  // Determine if we should show validation errors - only if user has interacted with the form
+  // or explicitly returning to a previously valid form
+  const shouldShowValidationErrors =
+    userInteracted || (isReturningToForm && !isInitialRender && Object.keys(touchedFields).length > 0)
 
   const onSubmit = (values: KafkaConnectionFormType) => {
     const { authMethod, securityProtocol, bootstrapServers } = values
@@ -250,10 +250,11 @@ export const KafkaConnectionForm = ({
     // Mark that user has interacted with the form
     setUserInteracted(true)
 
+    // Manually trigger validation now that the user has explicitly requested it
     const result = await formMethods.trigger()
 
     if (!result) {
-      console.log('form has validation errors', formMethods.formState.errors)
+      console.log('Form has validation errors', formMethods.formState.errors)
       return
     }
 

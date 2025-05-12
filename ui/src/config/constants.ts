@@ -60,6 +60,8 @@ export const JSON_DATA_TYPES = [
   'bytes',
 ]
 
+export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int']
+
 // ClickHouse data types
 export const CLICKHOUSE_DATA_TYPES = [
   'String',
@@ -264,3 +266,38 @@ export const AUTH_OPTIONS = {
     active: false,
   },
 }
+
+export const EDITOR_THEMES = [
+  { value: 'ambiance', label: 'Ambiance' },
+  { value: 'chaos', label: 'Chaos' },
+  { value: 'chrome', label: 'Chrome' },
+  { value: 'clouds', label: 'Clouds' },
+  { value: 'clouds_midnight', label: 'Clouds Midnight' },
+  { value: 'cobalt', label: 'Cobalt' },
+  { value: 'crimson_editor', label: 'Crimson Editor' },
+  { value: 'dawn', label: 'Dawn' },
+  { value: 'dracula', label: 'Dracula' },
+  { value: 'dreamweaver', label: 'Dreamweaver' },
+  { value: 'eclipse', label: 'Eclipse' },
+  { value: 'github', label: 'GitHub' },
+  { value: 'gruvbox', label: 'Gruvbox' },
+  { value: 'iplastic', label: 'iPlastic' },
+  { value: 'kuroir', label: 'Kuroir' },
+  { value: 'merbivore', label: 'Merbivore' },
+  { value: 'mono_industrial', label: 'Mono Industrial' },
+  { value: 'monokai', label: 'Monokai' },
+  { value: 'nord_dark', label: 'Nord Dark' },
+  { value: 'one_dark', label: 'One Dark' },
+  { value: 'pastel_on_dark', label: 'Pastel on Dark' },
+  { value: 'solarized_dark', label: 'Solarized Dark' },
+  { value: 'solarized_light', label: 'Solarized Light' },
+  { value: 'terminal', label: 'Terminal' },
+  { value: 'textmate', label: 'TextMate' },
+  { value: 'tomorrow', label: 'Tomorrow' },
+  { value: 'tomorrow_night', label: 'Tomorrow Night' },
+  { value: 'tomorrow_night_blue', label: 'Tomorrow Night Blue' },
+  { value: 'tomorrow_night_bright', label: 'Tomorrow Night Bright' },
+  { value: 'tomorrow_night_eighties', label: 'Tomorrow Night Eighties' },
+  { value: 'twilight', label: 'Twilight' },
+  { value: 'xcode', label: 'XCode' },
+]
