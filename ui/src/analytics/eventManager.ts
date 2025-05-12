@@ -26,8 +26,6 @@ export const initAnalytics = () => {
   try {
     // Log initialization info in both dev and production for troubleshooting
     const tokenPreview = MIXPANEL_TOKEN.substring(0, 4) + '...' + MIXPANEL_TOKEN.substring(MIXPANEL_TOKEN.length - 4)
-    console.log(`Initializing Mixpanel with token: ${tokenPreview} (${isDev ? 'Development' : 'Production'} mode)`)
-    console.log('Environment:', process.env.NODE_ENV || 'not set')
 
     // Initialize mixpanel with the token
     mixpanel.init(MIXPANEL_TOKEN, {
@@ -44,8 +42,6 @@ export const initAnalytics = () => {
         debug: false,
       })
     }
-
-    console.log('Analytics initialized successfully')
   } catch (error) {
     console.error('Failed to initialize analytics:', error)
   }
@@ -84,8 +80,6 @@ export const setAnalyticsEnabled = (enabled: boolean) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('analytics-enabled', enabled.toString())
   }
-
-  console.log(`Analytics ${enabled ? 'enabled' : 'disabled'}`)
 }
 
 // Load analytics preference from localStorage

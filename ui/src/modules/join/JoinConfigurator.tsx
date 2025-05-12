@@ -348,8 +348,6 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   // Simplified event fetching logic
   useEffect(() => {
     const fetchEventData = async (topicName: string, initialOffset: string, setEvent: (data: any) => void) => {
-      console.log(`Fetching event for topic: ${topicName}`)
-
       try {
         // Get the event directly from the store
         // @ts-expect-error - FIXME: fix this later
@@ -358,14 +356,11 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
         })
 
         if (eventData && eventData.event) {
-          console.log(`Fetched event for ${topicName}:`, eventData.event)
           setEvent(eventData.event)
         } else {
-          console.warn(`No event data found for ${topicName}`)
           setEvent(null)
         }
       } catch (error) {
-        console.error(`Error fetching event for ${topicName}:`, error)
         setEvent(null)
       }
     }

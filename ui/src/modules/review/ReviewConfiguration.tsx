@@ -126,7 +126,6 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
       setApiConfig(config)
 
       // Navigate to the pipelines page
-      console.log('Navigating to /pipelines')
       router.push('/pipelines')
     }
   }

@@ -378,7 +378,6 @@ export function ClickhouseJoinMapper({
     // Ensure we have a type - default to string if we couldn't infer a type from the data
     if (!inferredType && eventField) {
       inferredType = 'string'
-      console.log(`Warning: Couldn't infer type for ${eventField}, defaulting to string`)
     }
 
     // Check type compatibility immediately

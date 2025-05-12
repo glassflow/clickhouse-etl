@@ -65,16 +65,12 @@ const useActualStore = create<Store>()(
         set({ outboundEventPreview: preview }, false, 'setOutboundEventPreview'),
       isDirty: false,
       markAsDirty: () => {
-        console.log('Marking as dirty')
         set({ isDirty: true })
         Cookies.set('isDirty', 'true', { expires: 1 })
-        console.log('Cookie set:', document.cookie)
       },
       markAsClean: () => {
-        console.log('Marking as clean')
         set({ isDirty: false })
         Cookies.set('isDirty', 'false', { expires: 1 })
-        console.log('Cookie set:', document.cookie)
       },
       apiConfig: {},
       setApiConfig: (config: any) => set({ apiConfig: config }, false, 'setApiConfig'),

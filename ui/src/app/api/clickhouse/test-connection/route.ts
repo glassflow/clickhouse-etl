@@ -37,46 +37,19 @@ export async function POST(request: Request): Promise<NextResponse> {
         database: testType !== 'connection' ? database : undefined,
       })
     } else {
-      // Direct connection - use URL format
-      // Add more detailed logging
-      console.log('Input data for URL generation:', {
-        host,
-        port,
-        username: username ? 'provided' : 'not provided',
-        password: password ? 'provided' : 'not provided',
-        useSSL,
-        nativePort,
-      })
-
       // Generate host URL first
       const hostUrl = generateHost({ host, port, username, password, useSSL, nativePort })
-      console.log('Generated host URL:', hostUrl)
 
       try {
         // Properly extract hostname from URL
         const urlObj = new URL(hostUrl)
         const cleanHost = urlObj.hostname
-        console.log('Extracted clean hostname:', cleanHost)
 
         // URL encode the username and password to handle special characters
         const encodedUsername = encodeURIComponent(username)
         const encodedPassword = encodeURIComponent(password)
         // Only use cleanHost without adding the protocol again
         const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
-
-        console.log(
-          'Final ClickHouse connection URL structure:',
-          url.replace(encodedPassword, '****').replace(encodedUsername, '****username****'),
-        ) // Log URL structure with masked credentials
-
-        console.log('ClickHouse connection config:', {
-          useSSL,
-          secure,
-          cleanHost,
-          port,
-          hasUsername: !!username,
-          hasPassword: !!password,
-        })
 
         const tls = host.includes('https')
           ? ({
@@ -95,7 +68,6 @@ export async function POST(request: Request): Promise<NextResponse> {
           },
         })
       } catch (error) {
-        console.error('Error constructing URL:', error)
         return NextResponse.json({
           success: false,
           error: 'Invalid URL construction: ' + (error instanceof Error ? error.message : String(error)),
@@ -105,13 +77,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     // Test the connection
     try {
-      console.log('Testing connection to ClickHouse...')
       const pingResult = await client.ping()
-      console.log('Ping result - clickhouse:', pingResult)
 
       // If we're just testing the connection, we can stop here
       if (testType === 'connection') {
-        console.log('Fetching databases...')
         // Get available databases
         let databases: string[] = []
         try {
@@ -124,7 +93,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
           const rows = (await result.json()) as { name: string }[]
           databases = rows.map((row) => row.name)
-          console.log('Successfully fetched databases:', databases)
         } catch (error) {
           console.error('Error fetching databases: - this failed', error)
           // Close the connection first
@@ -137,7 +105,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
         // Close the connection
         await client.close()
-        console.log('Connection closed')
 
         return NextResponse.json({
           success: true,

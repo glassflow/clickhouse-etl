@@ -32,8 +32,6 @@ export function KafkaConnector({
   useEffect(() => {
     if (previousBootstrapServers.current !== bootstrapServers) {
       // Source has changed, perform cleanup
-      console.log('Kafka source changed from', previousBootstrapServers.current, 'to', bootstrapServers)
-
       resetTopicsStore()
 
       // Update the ref to track the new source
@@ -49,7 +47,6 @@ export function KafkaConnector({
   }, [operationsSelected?.operation, trackFunnelStep])
 
   const handleTestConnection = async (values: any) => {
-    console.log('args', values)
     await testConnection(values)
   }
 

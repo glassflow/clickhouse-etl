@@ -472,7 +472,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       [field]: value,
     }
 
-    console.log('updatedColumns', updatedColumns)
     setMappedColumns(updatedColumns)
     setClickhouseDestination({
       ...clickhouseDestination,
@@ -489,7 +488,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     // Ensure we have a type - default to string if we couldn't infer a type from the data
     if (!inferredType && eventField) {
       inferredType = 'string'
-      console.log(`Warning: Couldn't infer type for ${eventField}, defaulting to string`)
     }
 
     updatedColumns[index] = {
@@ -567,8 +565,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
     issues.incompatibleTypeMappings = invalidMappings
     issues.missingTypeMappings = missingTypeMappings
-
-    console.log('mappedColumns', mappedColumns)
 
     setValidationIssues(issues)
 

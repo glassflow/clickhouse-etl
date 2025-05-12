@@ -337,14 +337,12 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
       // Handle different fetch scenarios based on options
       if (options?.position === 'latest') {
         requestBody.position = 'latest'
-        console.log('Requesting latest event')
         // When requesting latest, we know there are no more events after this
         // but there should be older events before it
         setHasMoreEvents(false)
         setHasOlderEvents(true)
       } else if (options?.position === 'earliest') {
         requestBody.position = 'earliest'
-        console.log('Requesting earliest event')
         // When requesting earliest, we know there are no older events before this
         // but there should be more events after it
         setHasMoreEvents(true)
@@ -353,12 +351,10 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
         // For previous event, use the current offset and direction
         requestBody.direction = 'previous'
         requestBody.currentOffset = currentOffset
-        console.log('Requesting previous event')
       } else if (getNext && currentOffset !== null) {
         // For next event
         requestBody.getNext = true
         requestBody.currentOffset = currentOffset
-        console.log('Requesting next event')
       } else {
         // Default case - initial fetch with no specific position
         console.log('Requesting initial event with no specific position')
@@ -444,8 +440,6 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
       if (data.success) {
         setEvent(data.event)
         setIsLoadingEvent(false)
-
-        console.log('Raw kafka event data - hooks: ', data)
 
         // Extract the actual Kafka offset from the response
         const newOffset = data.offset ? parseInt(data.offset, 10) : null

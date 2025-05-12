@@ -54,16 +54,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       // Only use cleanHost without adding the protocol again
       const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
 
-      console.log('ClickHouse connection URL:', url.replace(encodedPassword, '****')) // Log URL with masked password
-      console.log('ClickHouse connection config:', {
-        useSSL,
-        secure,
-        cleanHost,
-        port,
-        hasUsername: !!username,
-        hasPassword: !!password,
-      })
-
       const tls = host.includes('https')
         ? ({
             rejectUnauthorized: false,
@@ -83,7 +73,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     try {
-      console.log(`Fetching tables from database '${database}'...`)
       // Get available tables
       const result = await client.query({
         query: `SHOW TABLES FROM ${database}`,

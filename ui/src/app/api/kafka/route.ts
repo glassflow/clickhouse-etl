@@ -56,7 +56,6 @@ export async function POST(request: Request) {
     // }
 
     const kafkaClient = new KafkaClient(kafkaConfig as KafkaConfig)
-    console.log('Kafka config - Kafka Client constructor:', kafkaConfig)
     const isConnected = await kafkaClient.testConnection()
 
     if (isConnected) {

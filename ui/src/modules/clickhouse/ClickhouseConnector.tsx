@@ -87,10 +87,7 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
 
       // @ts-expect-error - FIXME: fix this later
       const result = await testConnection(values.directConnection)
-      console.log('result - clickhouse:', result)
       if (result.success && result.databases.length > 0) {
-        console.log('result - clickhouse - success:', result)
-        console.log('result - clickhouse - databases:', result.databases)
         // Track successful connection
         trackFunnelStep('clickhouseConnectionSucceeded', {
           host: values.directConnection.host,

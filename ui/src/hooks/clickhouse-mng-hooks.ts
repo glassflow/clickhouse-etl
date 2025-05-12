@@ -54,23 +54,25 @@ export function useClickhouseConnection() {
       const data = await response.json()
 
       if (data.success) {
-        console.log('Successfull conneciton - data: ', data)
         setConnectionStatus('success')
         setConnectionError(null)
+
         if (data.databases && data.databases.length > 0) {
-          console.log('data.databases', data.databases)
           setAvailableDatabases(data.databases)
         }
+
         return { success: true, databases: data.databases || [] }
       } else {
         setConnectionStatus('error')
         setConnectionError(data.error || 'Test connection failed - Failed to connect to ClickHouse')
+
         return { success: false, error: data.error || 'Test connection failed - Failed to connect to ClickHouse' }
       }
     } catch (error) {
       setConnectionStatus('error')
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
       setConnectionError(errorMessage)
+
       return { success: false, error: errorMessage }
     } finally {
       setIsLoading(false)

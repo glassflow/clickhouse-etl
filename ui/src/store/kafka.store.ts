@@ -231,8 +231,6 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         bootstrapServers,
       }).filter(([key, value]) => value !== '')
 
-      console.log('dirtyFields', dirtyFields)
-
       return Object.values({
         authMethod,
         securityProtocol,

@@ -46,7 +46,6 @@ export async function POST(request: Request) {
         // Create a promise that will reject after the timeout
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
-            console.log(`[${new Date().toISOString()}] API: Aborting fetch after ${fetchTimeout}ms timeout`)
             reject(new Error(`API timeout after ${fetchTimeout / 1000} seconds`))
           }, fetchTimeout)
         })
@@ -104,7 +103,6 @@ export async function POST(request: Request) {
         const isEmptyTopic = fetchError instanceof Error && fetchError.message.includes('no events found')
 
         if (isEndOfTopic) {
-          console.log(`[${new Date().toISOString()}] API: End of topic reached`)
           return NextResponse.json({
             success: false,
             error: 'End of topic reached. No more events available.',
@@ -116,7 +114,6 @@ export async function POST(request: Request) {
         }
 
         if (isBeginningOfTopic) {
-          console.log(`[${new Date().toISOString()}] API: Beginning of topic reached`)
           return NextResponse.json({
             success: false,
             error: 'Beginning of topic reached. No previous events available.',
@@ -128,7 +125,6 @@ export async function POST(request: Request) {
         }
 
         if (isEmptyTopic) {
-          console.log(`[${new Date().toISOString()}] API: Topic is empty`)
           return NextResponse.json({
             success: false,
             error: 'No events found in this topic.',
