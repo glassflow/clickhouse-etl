@@ -1,6 +1,6 @@
 'use client'
 
-import { LogViewer } from '@/src/components/pipelines/LogViewer'
+import { LogViewer } from '@/src/modules/pipelines/LogViewer'
 
 export default function PipelineLogsPage() {
   return (

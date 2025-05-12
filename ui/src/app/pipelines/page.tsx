@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { PipelineDeployer } from '@/src/components/pipelines/PipelineDeployer'
+import { PipelineDeployer } from '@/src/modules/pipelines/PipelineDeployer'
 
 export default function PipelinesPage() {
   return (

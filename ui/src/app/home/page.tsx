@@ -24,8 +24,8 @@ import {
 } from '@/src/components/ui/dialog'
 import { AlertTriangleIcon } from 'lucide-react'
 
-import { InfoModal, ModalResult } from '@/src/components/Modal'
-import { SavedConfigurations } from '@/src/components/home/SavedConfigurations'
+import { InfoModal, ModalResult } from '@/src/components/common/Modal'
+import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
 
 // Client Component for handling searchParams
 function HomePageClient() {

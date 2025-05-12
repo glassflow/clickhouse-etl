@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useStore } from '@/src/store'
-import { ConsentDialog } from '../ConsentDialog'
+import { ConsentDialog } from '../shared/ConsentDialog'
 import {
   initAnalytics,
   setAnalyticsEnabled,

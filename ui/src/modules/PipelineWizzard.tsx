@@ -15,13 +15,13 @@ import {
   TopicDeduplicationSwitch2,
   ClickhouseMapperSwitch,
 } from '@/src/modules'
-import { ReviewConfiguration } from '@/src/modules/ReviewConfiguration'
+import { ReviewConfiguration } from '@/src/modules/review/ReviewConfiguration'
 import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
 import { useStore } from '@/src/store'
-import { JoinConfiguratorWrapper } from './JoinConfiguratorWrapper'
+import { JoinConfiguratorWrapper } from './join/JoinConfiguratorWrapper'
 
 const deduplicationJourney = [
   StepKeys.KAFKA_CONNECTION,

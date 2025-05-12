@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
-import ThemeProvider from '@/src/components/ThemeProvider'
+import ThemeProvider from '@/src/components/shared/ThemeProvider'
 import { Inter, Archivo } from 'next/font/google'
 import './globals.css'
-import { HeaderStandalone } from '../components/common/HeaderStandalone'
+import { HeaderStandalone } from '../components/shared/HeaderStandalone'
 import { Button } from '@/src/components/ui/button'
-import GlobalFooter from '@/src/components/GlobalFooter'
+import GlobalFooter from '@/src/components/shared/GlobalFooter'
 import { ConsentLayout } from '@/src/components/layout/ConsentLayout'
 
 // Define the fonts
