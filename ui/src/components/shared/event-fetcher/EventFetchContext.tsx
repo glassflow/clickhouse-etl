@@ -1,10 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react'
-import { EventFetchState } from '../../modules/kafka/useFetchEventWithCaching'
-
-type EventFetchContextType = {
-  state: EventFetchState
-  setState: React.Dispatch<React.SetStateAction<EventFetchState>>
-}
+import { EventFetchState } from '../../../modules/kafka/useFetchEventWithCaching'
+import { EventFetchContextType } from './types'
 
 const EventFetchContext = createContext<EventFetchContextType | undefined>(undefined)
 
@@ -25,6 +21,10 @@ export const EventFetchProvider = ({ children }: { children: ReactNode }) => {
 
 export const useEventFetchContext = () => {
   const ctx = useContext(EventFetchContext)
-  if (!ctx) throw new Error('useEventFetchContext must be used within EventFetchProvider')
+
+  if (!ctx) {
+    throw new Error('useEventFetchContext must be used within EventFetchProvider')
+  }
+
   return ctx
 }

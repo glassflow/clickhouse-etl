@@ -1,7 +1,7 @@
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useFetchEvent } from '@/src/hooks/kafka-mng-hooks'
 import { useState, useEffect } from 'react'
-import { useEventFetchContext } from '../../components/shared/EventFetchContext'
+import { useEventFetchContext } from '../../components/shared/event-fetcher/EventFetchContext'
 
 export type EventFetchState = {
   event: any

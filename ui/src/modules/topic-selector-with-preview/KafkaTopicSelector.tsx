@@ -14,7 +14,7 @@ import EventFetcher from '../../components/shared/event-fetcher/EventFetcher'
 import classnames from 'classnames'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
-import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
+import { TopicOffsetSelect } from '@/src/components/TopicOffsetSelect'
 
 export type TopicSelectorProps = {
   steps: any

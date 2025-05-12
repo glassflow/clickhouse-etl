@@ -2,23 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { EventPreview } from './EventPreview'
-import { Button } from '../ui/button'
+import { EventPreview } from '../EventPreview'
+import { Button } from '../../ui/button'
 import { parseForCodeEditor } from '@/src/utils/'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
-import { useFetchEventWithCaching } from '../../modules/kafka/useFetchEventWithCaching'
-
-type EventFetcherProps = {
-  topicName: string
-  topicIndex: number
-  initialOffset: string
-  initialEvent?: any
-  onEventLoading: () => void
-  onEventLoaded: (event: any) => void
-  onEventError: (error: any) => void
-  onEmptyTopic: () => void
-  onEventChange?: (event: string) => void
-}
+import { useFetchEventWithCaching } from '../../../modules/kafka/useFetchEventWithCaching'
+import { EventFetcherProps } from './types'
 
 function EventFetcher({
   topicName,

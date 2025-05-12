@@ -1,6 +1,6 @@
 'use client'
 import { TopicDeduplicationConfigurator, TopicDeduplicationConfiguratorProps } from './TopicDeduplicationConfigurator'
-import { EventFetchProvider } from '../../components/shared/EventFetchContext'
+import { EventFetchProvider } from '../../components/shared/event-fetcher/EventFetchContext'
 
 export const TopicDeduplicationSwitch2 = ({
   steps,

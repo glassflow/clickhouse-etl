@@ -15,7 +15,7 @@ import {
 } from '@/src/scheme/topics.scheme'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { TopicSelectorForm } from '@/src/modules/deduplication/components/TopicSelectorForm'
-import EventFetcher from '@/src/components/shared/EventFetcher'
+import EventFetcher from '@/src/components/shared/event-fetcher/EventFetcher'
 
 export type TopicDeduplicationConfiguratorProps = {
   steps: any

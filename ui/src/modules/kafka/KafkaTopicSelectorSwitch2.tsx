@@ -1,7 +1,7 @@
 'use client'
 
 import { KafkaTopicSelector, TopicSelectorProps } from './KafkaTopicSelector'
-import { EventFetchProvider } from '../../components/shared/EventFetchContext'
+import { EventFetchProvider } from '../../components/shared/event-fetcher/EventFetchContext'
 
 export const KafkaTopicSelectorSwitch2 = ({
   steps,
