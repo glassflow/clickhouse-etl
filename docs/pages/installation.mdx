@@ -1,0 +1,118 @@
+# Installation
+
+GlassFlow for ClickHouse Streaming ETL is designed to run locally using Docker and docker-compose. 
+The github repository is shipped with a pre-configured docker-compose file that sets up all necessary components.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed on your system:
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Git](https://git-scm.com/downloads)
+
+## Quick Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/glassflow/clickhouse-etl.git
+cd clickhouse-etl
+```
+
+2. Start the services using Docker Compose:
+```bash
+docker-compose up
+```
+
+3. Access the web interface at `http://localhost:8080` to configure the pipeline. 
+
+## Components
+
+The docker-compose setup includes four main components:
+
+### 1. NATS Server
+- Image: `nats:alpine`
+- Port: 4222
+- Purpose: Message broker for internal communication between components
+- Features: 
+  - JetStream enabled
+  - Automatic restart unless stopped manually
+
+### 2. Frontend UI
+- Image: `glassflow/clickhouse-etl-fe:stable`
+- Purpose: Web-based user interface for pipeline management
+- Features:
+  - Always pulls the latest stable version
+  - Served through Nginx
+
+### 3. Backend Application
+- Image: `glassflow/clickhouse-etl-be:stable`
+- Purpose: Core ETL engine that processes the data
+- Features:
+  - Always pulls the latest stable version
+  - Connects to NATS server
+  - Automatic restart unless stopped manually
+  - Logs stored in a Docker volume
+
+### 4. Nginx
+- Image: `nginx:1.27-alpine`
+- Port: 8080
+- Purpose: Reverse proxy for the UI and API
+- Features:
+  - Routes traffic to frontend and backend services
+  - Serves static files
+  - Automatic restart unless stopped manually
+
+## Volumes
+
+The setup uses the following Docker volumes:
+
+- `logs`: Stores application logs for persistence
+
+## Environment Variables
+
+The backend service uses the following environment variables:
+
+- `GLASSFLOW_LOG_FILE_PATH`: Path for log files (`/tmp/logs/glassflow`)
+- `GLASSFLOW_NATS_SERVER`: NATS server address (`nats:4222`)
+
+## Stopping the Services
+
+To stop all services:
+
+```bash
+docker-compose down
+```
+
+To stop services and remove volumes:
+
+```bash
+docker-compose down -v
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port Conflicts**
+   - Ensure ports 8080 and 4222 are not in use by other applications
+   - You can modify the ports in `docker-compose.yaml` if needed
+
+2. **Container Startup Issues**
+   - Check container logs: `docker-compose logs [service-name]`
+   - Ensure all required ports are accessible
+   - Verify Docker has enough resources allocated
+
+3. **UI Not Accessible**
+   - Verify all containers are running: `docker-compose ps`
+   - Check Nginx logs: `docker-compose logs nginx`
+   - Ensure you're accessing the correct URL: `http://localhost:8080`
+
+### Getting Help
+
+If you encounter any issues during installation:
+
+- Join our [Slack community](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
+- Email our support team at [help@glassflow.dev](mailto:help@glassflow.dev)
+- Open an issue on [GitHub](https://github.com/glassflow/clickhouse-etl/issues) 
+- Start a discussion on [Discussions](https://github.com/glassflow/clickhouse-etl/discussions)

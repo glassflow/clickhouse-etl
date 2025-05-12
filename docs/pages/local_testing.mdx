@@ -1,0 +1,220 @@
+---
+title: 'Local Testing'
+description: 'Learn how to test GlassFlow using the local demo environment'
+emoji: '🧪'
+---
+
+# Local Testing
+
+GlassFlow comes with a comprehensive demo environment that allows you to test its capabilities locally. This guide will show you how to set up and use the demo environment.
+
+## Demo Overview
+
+The demo environment provides two ways to interact with GlassFlow:
+
+1. **Through the GlassFlow UI**: Connect directly to local Kafka and ClickHouse instances
+2. **Through Python Scripts**: Use our Python SDK to automate pipeline setup and event generation
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- Docker and Docker Compose
+- Python 3.8+ (for Python demos)
+- pip (Python package manager)
+
+## Setting Up the Demo Environment
+
+1. Start the local infrastructure:
+```bash
+docker compose up -d
+```
+
+This will start the following services:
+- Zookeeper (port 2181)
+- Kafka (ports 9092, 9093, 9094)
+- ClickHouse (ports 8123, 9000)
+- GlassFlow ClickHouse ETL application (port 8080)
+
+## Option 1: Using the GlassFlow UI
+
+### 1. Create Kafka Topics
+
+```bash
+# Create a new Kafka topic
+docker compose exec kafka kafka-topics \
+    --topic users \
+    --create \
+    --partitions 1 \
+    --replication-factor 1 \
+    --bootstrap-server localhost:9093 \
+    --command-config /etc/kafka/client.properties
+```
+
+### 2. Create ClickHouse Table
+
+```bash
+docker compose exec clickhouse clickhouse-client \
+    --user default \
+    --password secret \
+    --query "
+CREATE TABLE IF NOT EXISTS users_dedup (
+    event_id Int32,
+    user_id Int32,
+    name String,
+    email String,
+    created_at DateTime
+) ENGINE = MergeTree 
+ORDER BY event_id"
+```
+
+### 3. Configure Pipeline in UI
+
+Access the GlassFlow UI at `http://localhost:8080` and use these connection details:
+
+#### Kafka Connection
+```yaml
+Authentication Method: SASL/PLAIN
+Security Protocol: SASL_PLAINTEXT
+Bootstrap Servers: kafka:9094
+Username: admin
+Password: admin-secret
+```
+
+#### ClickHouse Connection
+```yaml
+Host: clickhouse
+HTTP/S Port: 8123
+Native Port: 9000
+Username: default
+Password: secret
+Use SSL: false
+```
+
+### 4. Generate Test Events
+
+```bash
+# Send multiple JSON events to Kafka
+echo '{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:00:00Z"}
+{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:01:00Z"}
+{"event_id": "124", "user_id": "457", "name": "Jane Smith", "email": "jane@example.com", "created_at": "2024-03-20T10:03:00Z"}' | \
+docker compose exec -T kafka kafka-console-producer \
+    --topic users \
+    --bootstrap-server localhost:9093 \
+    --producer.config /etc/kafka/client.properties
+```
+
+### 5. Verify Results
+
+```bash
+docker compose exec clickhouse clickhouse-client \
+    --user default \
+    --password secret \
+     -f prettycompact \
+    --query "SELECT * FROM users_dedup"
+```
+
+## Option 2: Programmatically Using Python Demos
+
+The Python demos automate the entire process, including:
+- Creating Kafka topics
+- Setting up ClickHouse tables
+- Creating and configuring pipelines
+- Generating and sending test events
+
+### Setting Up Python Environment
+
+1. Create and activate a virtual environment:
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+# .\venv\Scripts\activate
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### Available Demos
+
+#### Deduplication Demo
+
+Tests GlassFlow's deduplication capabilities:
+
+```bash
+# Run with default options
+python demo_deduplication.py
+
+# Run with custom options
+python demo_deduplication.py \
+   --num_records 100000 \
+   --duplication-rate 0.5
+```
+
+Options:
+- `--num-records`: Number of records to generate (default: 10000)
+- `--duplication-rate`: Rate of duplication (default: 0.1)
+- `--rps`: Records per second (default: 1000)
+- `--config`: Path to pipeline configuration file
+- `--generator-schema`: Path to generator schema file
+- `--print-n-rows` or `-p`: Number of rows to print from results
+- `--yes` or `-y`: Skip confirmation prompts
+- `--cleanup` or `-c`: Cleanup ClickHouse table before running
+
+#### Join Demo
+
+Tests GlassFlow's temporal join capabilities:
+
+```bash
+# Run with default options
+python demo_join.py
+
+# Run with custom options
+python demo_join.py \
+   --left-num-records 100000 \
+   --right-num-records 1000 \
+   -p 100
+```
+
+Options:
+- `--left-num-records`: Number of left events (default: 10000)
+- `--right-num-records`: Number of right events (default: 10000)
+- `--rps`: Records per second (default: 1000)
+- `--config`: Path to pipeline configuration file
+- `--left-schema`: Path to left events schema
+- `--right-schema`: Path to right events schema
+- `--print-n-rows` or `-p`: Number of rows to print
+- `--yes` or `-y`: Skip confirmation prompts
+- `--cleanup` or `-c`: Cleanup ClickHouse table
+
+## Configuration Files
+
+The demo uses configuration files in the `config` directory:
+
+1. **Pipeline Configurations** (`config/glassflow/`):
+   - `deduplication_pipeline.json`: Deduplication pipeline config
+   - `join_pipeline.json`: Join pipeline config
+
+2. **Generator Schemas** (`config/glassgen/`):
+   - `user_event.json`: User event schema
+   - `order_event.json`: Order event schema
+
+## Cleaning Up
+
+To stop and remove all demo containers:
+
+```bash
+docker compose down
+```
+
+To remove all data and start fresh:
+
+```bash
+docker compose down -v
+``` 

@@ -1,150 +1,8 @@
-<a href="https://glassflow.dev">
-  <img alt="GlassFlow Logo" src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassfow-banner.jpg">
-</a>
-<div align="center">
-<div>      
-      <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
-      <a href="https://github.com/orgs/glassflow/discussions/categories/ideas"><strong>Feature Request</strong></a> ·
-      <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a>      
-</div>
-</div>
-
-<div align="center">
-  <p>Join our weekly office hours every Wednesday 15:00-18:00 CET</p>
-  <a href="https://www.glassflow.dev/office-hours"><img src="https://img.shields.io/badge/Join%20Next%20Office%20Hour-Schedule%20Now-blue?logo=calendar" alt="Join Next Office Hour"></a>
-</div>
-</br>
-
-[![Slack](https://img.shields.io/badge/Join%20Slack-GlassFlow%20Hub-blueviolet?logo=slack)](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
-[![Email Support](https://img.shields.io/badge/Email%20Support-help%40glassflow.dev-blue?logo=gmail)](mailto:help@glassflow.dev)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/glassflowdev.svg?style=social&label=Follow%20%40GlassFlow)](https://twitter.com/glassflowdev)
-
-
-# GlassFlow for ClickHouse Streaming ETL
-
-GlassFlow for ClickHouse Streaming ETL is a real-time stream processor designed to simplify data pipeline creation and management between Kafka and ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for deduplication and temporal joins.
-
-Built specifically for data engineers, GlassFlow handles late-arriving events, ensures exactly-once correctness, and scales with high-throughput data. It delivers accurate, low-latency results from streaming data without compromising simplicity or performance. The tool's intuitive web interface makes it easy to configure and monitor pipelines, while its robust architecture ensures reliable data processing.
-
-## Key Features
-
-- **Streaming Deduplication**: 
-  - Real-time deduplication of Kafka streams before ingestion into ClickHouse
-  - Configurable time windows up to 7 days for deduplication
-  - Simple configuration of deduplication keys and time windows
-  - One-click setup for deduplicated data pipelines
-  - Prevents duplicate data from reaching ClickHouse
-
-- **Temporal Stream Joins**:
-  - Join two Kafka streams in real-time
-  - Configurable time windows up to 7 days for stream joins
-  - Configure join keys and time windows through the UI
-  - Simplified join setup process
-  - Produce joined streams ready for ClickHouse ingestion
-
-- **Built-in Kafka Connector**:
-  - Powered by [NATS-Kafka Bridge](https://github.com/nats-io/nats-kafka)
-  - Automatic data extraction from Kafka topics
-  - Seamless integration with Kafka clusters
-  - No manual data pulling required
-  - Supports multiple Kafka topics and partitions
-  - Native support for JSON data types
-
-- **Optimized ClickHouse Sink**:
-  - Native ClickHouse connection for maximum performance
-  - Configurable batch sizes for efficient data ingestion
-  - Adjustable wait times for optimal throughput
-  - Built-in retry mechanisms
-  - Automatic schema detection and management
-  - Full support for JSON data types in ClickHouse
-
-- **User-Friendly Interface**: Web-based UI for pipeline configuration and management
-- **Local Development**: Includes demo setup with local Kafka and ClickHouse instances
-- **Docker Support**: Easy deployment using Docker and docker-compose
-- **Self-Hosted**: Open-source solution that can be self-hosted in your infrastructure
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/clickhouse-etl-introduction.jpg" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
-</div>
-
-## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Git
-
-### Local Development Setup
-
-1. Clone the repository:
-```bash
-git clone https://github.com/glassflow/clickhouse-etl.git
-cd clickhouse-etl
-```
-
-2. Start the services using Docker Compose:
-```bash
-docker-compose up
-```
-
-3. Access the web interface at `http://localhost:8080` to configure your pipeline:
-  - **Connection Setup**:
-     - Configure Kafka source connection parameters
-     - Configure ClickHouse sink connection parameters
-  - **Pipeline Configuration**:
-     - Select Kafka input streams
-     - Define deduplication key and time window
-     - For joins: specify join keys and time window for each stream
-     - Configure ClickHouse table settings
-  - **Pipeline Management**:
-     - Start/stop pipelines
-     - Check pipeline logs
-
-## Usage
-
-### Creating a Pipeline
-
-1. Access the web interface at `http://localhost:8080`
-2. Configure your source (Kafka) and sink (ClickHouse) connections
-3. Define your pipeline transformations:
-   - Set up deduplication rules
-   - Configure temporal joins between streams
-   - Define data transformations
-4. Start the pipeline and monitor its progress
-
-### Local Testing
-
-The project includes a comprehensive demo setup in the [`demos`](demos/) folder that provides a complete local testing environment. This setup includes:
-
-- Local Kafka instance with Zookeeper
-- Local ClickHouse instance
-- Sample data generation 
-- Example pipeline configurations
-- Step-by-step instructions for running the demo
-
-For detailed instructions on setting up and running the local testing environment, see the [Demo README file](demos/README.md).
-
-## Architecture
-
-The project consists of several key components:
-
-- **GlassFlow API**: Core ETL engine written in Go
-- **Web UI**: User interface for pipeline management
-- **NATS**: Message broker for internal communication
-- **Kafka Bridge**: Connector for Kafka integration using the [`NATS-Kafka Bridge`](https://github.com/nats-io/nats-kafka)
-
-For information about third-party components and their licenses, please see our [NOTICE](NOTICE) file.
-
-
-## Pipeline Configuration
+# Pipeline Configuration
 
 The pipeline configuration is defined in a JSON file that specifies the source, sink, and any transformations. While the web interface automatically generates this configuration, understanding its structure can be helpful for advanced users.
 
-The pipeline configuration is a JSON object that defines how data flows from Kafka topics to ClickHouse tables. It consists of three main components:
-
-1. Source Configuration (Kafka)
-2. Sink Configuration (ClickHouse)
-3. Join Configuration (Optional)
+The pipeline configuration is a JSON object that defines how data flows from Kafka topics to ClickHouse tables.
 
 ## Root Configuration
 
@@ -211,6 +69,7 @@ Each topic in the `topics` array has the following configuration:
 | `id_field_type` | string | Yes | Type of the ID field (e.g., "string"). |
 | `time_window` | string | Yes | Time window for deduplication (e.g., "1h" for one hour). |
 
+
 ## Sink Configuration
 
 The sink configuration defines how to connect to and write to ClickHouse.
@@ -239,6 +98,7 @@ Each mapping in the `table_mapping` array has the following configuration:
 | `field_name` | string | Yes | Source field name. |
 | `column_name` | string | Yes | Target column name. |
 | `column_type` | string | Yes | Target column type. |
+
 
 ## Join Configuration
 
@@ -404,11 +264,3 @@ Each source in the `sources` array has the following configuration:
 ```
 
 > 💡 **Note**: The web interface automatically generates this configuration based on user input, so manual editing is not required.
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-## License
-
-This project is licensed under the [Apache License 2.0](LICENSE).
