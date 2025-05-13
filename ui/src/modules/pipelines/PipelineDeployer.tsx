@@ -91,22 +91,44 @@ export function PipelineDeployer() {
       try {
         const response = await getPipelineStatus()
 
-        if (response.pipeline_id === pipelineId) {
-          setStatus('active')
-          setError(null)
-        } else if (response.pipeline_id && response.pipeline_id !== pipelineId) {
-          setStatus('deploy_failed')
-          setError('Pipeline is active with a different id')
+        if (response.pipeline_id) {
+          // There is a running pipeline
+          if (isValidApiConfig(apiConfig)) {
+            // We have a config, but there's already a running pipeline
+            if (response.pipeline_id !== pipelineId) {
+              setStatus('deploy_failed')
+              setError('There is already a running pipeline. Please shut it down before deploying a new one.')
+            } else {
+              // Same pipeline is running
+              setStatus('active')
+              setError(null)
+            }
+          } else {
+            // No config, but pipeline is running - just show active status
+            setStatus('active')
+            setError(null)
+          }
         } else {
-          console.log('This should not happen, we should always have a pipeline id or we throw an error')
+          // No running pipeline
+          if (isValidApiConfig(apiConfig)) {
+            // We have a valid config and no running pipeline - we can deploy
+            deployPipeline()
+          } else {
+            // No config and no pipeline - redirect to home
+            setStatus('no_configuration')
+            setError('No pipeline configuration found. Redirecting to home page...')
+            setIsRedirecting(true)
+            setTimeout(() => {
+              router.push('/home')
+            }, 7000)
+          }
         }
       } catch (err: any) {
         if (err.code === 404) {
-          // No pipeline exists, check if we have valid configuration
+          // No pipeline exists
           if (isValidApiConfig(apiConfig)) {
             deployPipeline()
           } else {
-            // No valid configuration, redirect to home
             setStatus('no_configuration')
             setError('No pipeline configuration found. Redirecting to home page...')
             setIsRedirecting(true)
@@ -144,17 +166,8 @@ export function PipelineDeployer() {
       }
     }
 
-    if (isValidApiConfig(apiConfig)) {
-      checkPipelineStatus()
-    } else {
-      // If we're on the pipelines page without a valid config, redirect to home
-      setStatus('no_configuration')
-      setError('No pipeline configuration found. Redirecting to home page...')
-      setIsRedirecting(true)
-      setTimeout(() => {
-        router.push('/home')
-      }, 7000)
-    }
+    // Always check pipeline status first
+    checkPipelineStatus()
   }, [apiConfig, pipelineId, trackPipelineAction, router])
 
   const handleDeleteClick = () => {
@@ -289,7 +302,8 @@ export function PipelineDeployer() {
   }
 
   // const canShowButtons = status === 'active' || status === 'deploy_failed' || status === 'delete_failed'
-  const canShowButtons = status === 'active' || status === 'deploy_failed'
+  const canShowButtons =
+    status === 'active' || (status === 'deploy_failed' && error?.includes('already a running pipeline'))
 
   const isNegativeFeedback = selectedFeedback === 'angry' || selectedFeedback === 'frown' || selectedFeedback === 'meh'
 
@@ -322,6 +336,7 @@ export function PipelineDeployer() {
   return (
     <div className="flex flex-col items-center justify-center gap-4">
       <div className="flex items-center gap-2">
+        {status === 'active' && <div className="w-[10px] h-[10px] bg-[#009D3F] rounded-full" />}
         <h1 className={cn('text-2xl font-semibold', getStatusClass(status))}>{getStatusText(status)}</h1>
         {(status === 'deploying' || isRedirecting) && <Loader2 className="h-6 w-6 animate-spin" />}
       </div>
@@ -329,13 +344,6 @@ export function PipelineDeployer() {
       {error && (
         <div className="text-red-500 text-center">
           <p>{error}</p>
-          {/* <p className="text-sm mt-1">Please check if the server is running and try again.</p> */}
-        </div>
-      )}
-
-      {status === 'active' && (
-        <div className="mt-4">
-          <div className="w-[10px] h-[10px] bg-[#009D3F] rounded-full" />
         </div>
       )}
 
@@ -351,13 +359,11 @@ export function PipelineDeployer() {
           </Button> */}
 
           <Button variant="outline" className="btn-tertiary flex items-center gap-2" onClick={handleModifyAndRestart}>
-            {/* Icon placeholder */}
             <Image src={ModifyIcon} alt="Modify & Restart" width={16} height={16} />
             Modify & Restart
           </Button>
 
           <Button variant="outline" className="btn-tertiary flex items-center gap-2" onClick={handleDeleteClick}>
-            {/* Icon placeholder */}
             <Image src={TrashIcon} alt="Delete Pipeline" width={16} height={16} />
             Delete Pipeline
           </Button>
