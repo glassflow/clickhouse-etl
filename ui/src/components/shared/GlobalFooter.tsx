@@ -17,12 +17,27 @@ export default function GlobalFooter() {
   return (
     <div className="relative">
       {!showButtons ? (
-        <span className="cursor-pointer hover:text-primary-600 animate-fadeIn" onClick={() => setShowButtons(true)}>
+        <span
+          className="cursor-pointer hover:text-primary-600 animate-fadeIn"
+          onMouseEnter={() => setShowButtons(true)}
+        >
           Any questions?
         </span>
       ) : (
-        <div className="flex items-center gap-[24px] animate-slideDown">
-          <Link href="https://www.glassflow.dev/contact-us#form" target="_blank" rel="noopener noreferrer" passHref>
+        <div
+          className="flex items-center gap-[24px] animate-slideDown"
+          onMouseOut={() => {
+            setTimeout(() => {
+              setShowButtons(false)
+            }, 200)
+          }}
+        >
+          <Link
+            href="https://github.com/glassflow/clickhouse-etl/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            passHref
+          >
             <Button
               className="btn-tertiary"
               type="button"
@@ -30,10 +45,15 @@ export default function GlobalFooter() {
               size="custom"
               onClick={() => setShowButtons(false)}
             >
-              Ask Us
+              Report an issue
             </Button>
           </Link>
-          <Link href="https://github.com/glassflow/clickhouse-etl" target="_blank" rel="noopener noreferrer" passHref>
+          <Link href="mailto:help@glassflow.dev" target="_blank" rel="noopener noreferrer" passHref>
+            <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+              Get help
+            </Button>
+          </Link>
+          <Link href="https://docs.glassflow.dev/" target="_blank" rel="noopener noreferrer" passHref>
             <Button className="btn-tertiary" type="button" variant="outline" size="custom">
               View documentation
             </Button>
