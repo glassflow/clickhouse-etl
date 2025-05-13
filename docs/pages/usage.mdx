@@ -1,0 +1,114 @@
+---
+title: 'Usage Guide'
+description: 'Learn how to create and manage data pipelines with GlassFlow'
+---
+
+# Usage Guide
+
+This guide will walk you through the process of creating and managing data pipelines using GlassFlow. We'll cover everything from initial setup to monitoring your pipeline's performance.
+
+## Prerequisites
+
+Before creating your pipeline, ensure you have:
+
+1. GlassFlow running locally (see [Installation Guide](/installation))
+2. Access to your Kafka cluster
+3. Access to your ClickHouse database
+4. The following information ready:
+   - Kafka connection details
+   - ClickHouse connection details
+   - Source topic names
+   - Target table names
+
+## Creating a Pipeline
+
+### 1. Access the Web Interface
+
+The glassflow web interface is available at `http://localhost:8080`
+
+### 2. Configure Source (Kafka)
+
+1. **Connection Setup**
+   - Enter your Kafka broker details
+   - Provide authentication credentials if required
+   - Test the connection
+
+2. **Topic Selection**
+   - Select the Kafka topic(s) you want to process
+   - For joins, you'll need to select both left and right topics
+   - Verify topic access and schema
+
+### 3. Configure Transformations
+
+#### Deduplication Setup
+- Select the deduplication key field
+- Set the time window for deduplication
+- Configure any additional deduplication parameters
+
+#### Join Configuration (Optional)
+If you're joining multiple topics:
+- Select the join type
+- Configure join keys for both topics
+- Set the join time window
+- Choose the join orientation (left/right)
+
+### 4. Configure Sink (ClickHouse)
+
+1. **Connection Setup**
+   - Enter your ClickHouse server details
+   - Provide authentication credentials
+   - Select the target database
+
+2. **Table Configuration**
+   - Select or create the target table
+   - Map source fields to target columns
+   - Configure data types and transformations
+
+### 5. Field Mapping
+
+The UI provides an intuitive interface for mapping fields:
+- Drag and drop fields to map them
+- Configure data type conversions
+- Set default values if needed
+- Preview the mapping results
+
+## Deploying the Pipeline
+
+### 1. Review Configuration
+- Verify all settings
+- Check field mappings
+- Review transformation rules
+
+### 2. Deploy
+- Click the "Deploy" button
+- The UI will generate the pipeline configuration. The structure of the conifguration can be found on the [Pipeline Configuration](/pipeline_configuration) page
+- The configuration is sent to the GlassFlow API
+- The pipeline starts processing data
+
+
+## Verifying Data Flow
+
+1. **Check Kafka Topics**
+   - Verify data is being produced
+   - Check message format
+   - Monitor topic health
+
+2. **Monitor ClickHouse**
+   - Verify data arrival
+   - Check data quality
+   - Monitor table growth
+   - Validate transformations
+
+## Troubleshooting
+
+### Common Issues
+- Connection problems
+- Mapping errors
+- Transformation failures
+- Performance issues
+
+### Getting Help
+- Check the [Support Guide](/support)
+- Review error messages
+- Check system logs
+- Contact support if needed

@@ -116,7 +116,7 @@ The Python demos automate the entire process, including:
 - Creating and configuring pipelines
 - Generating and sending test events
 
-![Python Demo](../docs/assets/python_demo.gif)
+![Python Demo](../docs/public/assets/python_demo.gif)
 
 ### Setup Python Environment
 

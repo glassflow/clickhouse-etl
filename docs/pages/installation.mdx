@@ -1,0 +1,75 @@
+---
+title: 'Installation'
+description: 'Learn how to install and set up GlassFlow for ClickHouse Streaming ETL'
+---
+
+# Installation
+
+GlassFlow for ClickHouse Streaming ETL is designed to run locally using Docker and docker-compose. 
+The github repository is shipped with a pre-configured docker-compose file that sets up all necessary components.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed on your system:
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Git](https://git-scm.com/downloads)
+
+## Quick Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/glassflow/clickhouse-etl.git
+cd clickhouse-etl
+```
+
+2. Start the services using Docker Compose:
+```bash
+docker-compose up
+```
+
+3. Access the web interface at `http://localhost:8080` to configure the pipeline. For detailed instructions on setting up your first pipeline, see the [Usage Guide](/usage).
+
+For details about the Docker components that are running, see the [System Components](/architecture/system_components) page.
+
+## Stopping the Services
+
+To stop all services:
+
+```bash
+docker-compose down
+```
+
+To stop services and remove volumes:
+
+```bash
+docker-compose down -v
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port Conflicts**
+   - Ensure ports 8080 and 4222 are not in use by other applications
+   - You can modify the ports in `docker-compose.yaml` if needed
+
+2. **Container Startup Issues**
+   - Check container logs: `docker-compose logs [service-name]`
+   - Ensure all required ports are accessible
+   - Verify Docker has enough resources allocated
+
+3. **UI Not Accessible**
+   - Verify all containers are running: `docker-compose ps`
+   - Check Nginx logs: `docker-compose logs nginx`
+   - Ensure you're accessing the correct URL: `http://localhost:8080`
+
+### Getting Help
+
+If you encounter any issues during installation:
+
+- Join our [Slack community](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
+- Email our support team at [help@glassflow.dev](mailto:help@glassflow.dev)
+- Open an issue on [GitHub](https://github.com/glassflow/clickhouse-etl/issues) 
+- Start a discussion on [Discussions](https://github.com/glassflow/clickhouse-etl/discussions)
