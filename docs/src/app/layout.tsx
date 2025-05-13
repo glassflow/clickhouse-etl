@@ -5,6 +5,8 @@ import { getPageMap } from 'nextra/page-map'
 import 'nextra-theme-docs/style.css'
 import { Logo } from './Logo'
 
+import { FathomAnalytics } from './fathom'
+
 export const metadata = {
   // ... your metadata API
   // https://nextjs.org/docs/app/building-your-application/optimizing/metadata
@@ -53,6 +55,7 @@ export default async function RootLayout({ children }) {
           footer={footer}
           // ...Your additional theme config options
         >
+          <FathomAnalytics />
           {children}
         </Layout>
       </body>
