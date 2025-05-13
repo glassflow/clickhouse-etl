@@ -10,14 +10,14 @@
 </div>
 
 <div align="center">
-  <p>Join our weekly office hours every Wednesday 15:00-18:00 CET</p>
-  <a href="https://www.glassflow.dev/office-hours"><img src="https://img.shields.io/badge/Join%20Next%20Office%20Hour-Schedule%20Now-blue?logo=calendar" alt="Join Next Office Hour"></a>
-</div>
-</br>
+  <p>Join our weekly office hours every Wednesday 15:00-18:00 CET</p>  
+  
+[![Join Next Office Hour](https://img.shields.io/badge/Join%20Next%20Office%20Hour-Schedule%20Now-blue?logo=calendar)](https://www.glassflow.dev/office-hours)
 
 [![Slack](https://img.shields.io/badge/Join%20Slack-GlassFlow%20Hub-blueviolet?logo=slack)](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
 [![Email Support](https://img.shields.io/badge/Email%20Support-help%40glassflow.dev-blue?logo=gmail)](mailto:help@glassflow.dev)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/glassflowdev.svg?style=social&label=Follow%20%40GlassFlow)](https://twitter.com/glassflowdev)
+</div>
 
 # GlassFlow for ClickHouse Streaming ETL
 
