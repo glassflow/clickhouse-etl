@@ -23,8 +23,8 @@ type Consumer struct {
 }
 
 const (
-	ConsumerRetries      = 4
-	ConsumerRetryBackoff = 20 * time.Millisecond
+	ConsumerRetries      = 5
+	ConsumerRetryBackoff = 30 * time.Millisecond
 )
 
 func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*Consumer, error) {
