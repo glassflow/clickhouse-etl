@@ -1,0 +1,66 @@
+'use client'
+
+import * as React from 'react'
+import { useTheme } from 'nextra-theme-docs'
+import { useState, useEffect } from 'react'
+
+const Logo = () => {
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <img
+        src="/assets/logo.svg"
+        alt="GlassFlow Logo"
+        style={{ height: '18px' }}
+      />
+    )
+  }
+
+  return (
+    <img
+      src={resolvedTheme === 'dark' ? '/assets/logo.svg' : '/assets/logo-black.svg'}
+      alt="GlassFlow Logo"
+      style={{ height: '18px' }}
+    />
+  )
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <head>
+        <link rel="icon" href="/assets/favicon.png" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#000000" />
+      </head>
+      <body>
+        <div className="nx-container nx-mx-auto">
+          <header className="nx-flex nx-items-center nx-justify-between nx-py-4">
+            <Logo />
+            <nav>
+              <a href="https://github.com/glassflow/clickhouse-etl" target="_blank" rel="noopener noreferrer">
+                GitHub
+              </a>
+            </nav>
+          </header>
+          <main>
+            {children}
+          </main>
+          <footer className="nx-py-4 nx-text-center">
+            <p>ClickHouse ETL {new Date().getFullYear()} © GlassFlow.</p>
+          </footer>
+        </div>
+      </body>
+    </html>
+  )
+}
