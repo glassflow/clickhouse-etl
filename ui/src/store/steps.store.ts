@@ -37,8 +37,6 @@ export const createStepsSlice: StateCreator<StepsSlice> = (set) => ({
   removeCompletedStepsAfter: (step: string) => {
     set((state) => {
       const stepIndex = state.completedSteps.indexOf(step)
-      console.log('stepIndex', stepIndex)
-      console.log('completedSteps', state.completedSteps)
       if (stepIndex !== -1) {
         // Keep all steps up to and including the given step
         return {

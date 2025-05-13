@@ -59,7 +59,6 @@ export function inferJsonType(value: any): string {
 // Helper function to extract fields from event data
 export const extractEventFields = (data: any, prefix = ''): string[] => {
   if (!data || typeof data !== 'object') {
-    console.log('Data is not an object, returning empty array')
     return []
   }
 

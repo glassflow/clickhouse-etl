@@ -58,8 +58,6 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   const topicFromStore = topicsFromStore[index]
   const storedEvent = topicFromStore?.selectedEvent?.event
 
-  console.log('storedEvent: ', storedEvent)
-
   // Check if we're returning to a previously filled form
   const isReturningToForm = topicFromStore && topicFromStore.name
 
@@ -255,7 +253,6 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
   // Handle offset change
   const handleOffsetChange = (value: 'earliest' | 'latest') => {
-    console.log('handleOffsetChange called with:', { value, currentOffset: initialOffset })
     setInitialOffset(value)
     setLocalState((prev) => ({
       ...prev,
@@ -318,13 +315,11 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   // Event handlers for EventFetcher
   const fetchEventHandlers = {
     onEventLoading: useCallback(() => {
-      console.log('onEventLoading called')
       setLocalState((prev) => ({ ...prev, isLoading: true }))
     }, []),
 
     onEventLoaded: useCallback(
       (event: any) => {
-        console.log('onEventLoaded called with event:', event)
         // Clear join store whenever a new event is loaded
         joinStore.setEnabled(false)
         joinStore.setType('')

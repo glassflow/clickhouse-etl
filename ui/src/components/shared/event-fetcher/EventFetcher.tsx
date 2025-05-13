@@ -20,13 +20,6 @@ function EventFetcher({
   onEmptyTopic,
   onEventChange,
 }: EventFetcherProps) {
-  console.log('EventFetcher mounted with props:', {
-    topicName,
-    topicIndex,
-    initialOffset,
-    hasInitialEvent: !!initialEvent,
-  })
-
   const { kafkaStore } = useStore()
 
   // Local state for current event
@@ -64,12 +57,6 @@ function EventFetcher({
       (!initialEvent || topicName !== currentTopic || initialOffset !== currentEvent?.position)
 
     if (shouldFetch) {
-      console.log('Fetching event because:', {
-        hasInitialEvent: !!initialEvent,
-        topicChanged: topicName !== currentTopic,
-        offsetChanged: initialOffset !== currentEvent?.position,
-      })
-
       // Reset state for new fetch
       setCurrentEvent(null)
       setCurrentTopic(topicName)
@@ -77,42 +64,20 @@ function EventFetcher({
 
       // Determine which fetch method to use based on initialOffset
       if (initialOffset === 'latest') {
-        console.log('Fetching latest event')
         handleFetchNewestEvent(topicName)
       } else if (initialOffset === 'earliest') {
-        console.log('Fetching earliest event')
         handleFetchOldestEvent(topicName)
       } else if (!isNaN(Number(initialOffset))) {
-        console.log('Fetching specific offset:', initialOffset)
         handleRefreshEvent(topicName)
       } else {
-        console.log('Defaulting to latest event fetch')
         handleFetchNewestEvent(topicName)
       }
-    } else {
-      console.log('Skipping fetch because we already have the event:', {
-        topicName,
-        currentTopic,
-        initialOffset,
-        currentPosition: currentEvent?.position,
-      })
     }
   }, [topicName, initialOffset, initialEvent, currentTopic, currentEvent?.position])
 
   // Update currentEvent when state changes
   useEffect(() => {
-    console.log('Event update effect triggered with:', {
-      event: state.event,
-      currentOffset: state.currentOffset,
-      isLoading: state.isLoading,
-      error: state.error,
-      isAtEarliest: state.isAtEarliest,
-      isAtLatest: state.isAtLatest,
-      isEmptyTopic: state.isEmptyTopic,
-    })
-
     if (state.isEmptyTopic) {
-      console.log('Topic is empty, setting empty state')
       setCurrentEvent(null)
       setCurrentTopic(topicName)
       setIsEmptyTopic(true)
@@ -130,7 +95,6 @@ function EventFetcher({
         topicIndex: topicIndex,
       }
 
-      console.log('Setting current event:', kafkaEvent)
       setCurrentEvent(kafkaEvent)
       setCurrentTopic(topicName)
       setIsEmptyTopic(false)
@@ -138,7 +102,6 @@ function EventFetcher({
     }
 
     if (state.error) {
-      console.log('Handling error state:', state.error)
       if (state.error.includes('No events found') || state.error.includes('End of topic reached')) {
         setIsEmptyTopic(true)
         setCurrentEvent(null)
@@ -151,41 +114,31 @@ function EventFetcher({
 
   // Button action handlers
   const handleFetchNext = () => {
-    console.log('Next button clicked')
     if (currentEvent && !state.isLoading) {
-      console.log('Fetching next event from offset:', currentEvent.kafkaOffset)
       handleFetchNextEvent(topicName, currentEvent.kafkaOffset)
     }
   }
 
   const handleFetchPrevious = () => {
-    console.log('Previous button clicked')
     if (currentEvent && !state.isLoading) {
-      console.log('Fetching previous event from offset:', currentEvent.kafkaOffset)
       handleFetchPreviousEvent(topicName, currentEvent.kafkaOffset)
     }
   }
 
   const handleFetchOldest = () => {
-    console.log('Oldest button clicked')
     if (topicName && !state.isLoading) {
-      console.log('Fetching oldest event for topic:', topicName)
       handleFetchOldestEvent(topicName)
     }
   }
 
   const handleFetchNewest = () => {
-    console.log('Newest button clicked')
     if (topicName && !state.isLoading) {
-      console.log('Fetching newest event for topic:', topicName)
       handleFetchNewestEvent(topicName)
     }
   }
 
   const handleRefresh = () => {
-    console.log('Refresh button clicked')
     if (topicName && !state.isLoading) {
-      console.log('Refreshing current event for topic:', topicName)
       handleFetchNewestEvent(topicName)
     }
   }

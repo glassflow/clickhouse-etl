@@ -583,15 +583,11 @@ export function renderFormField<T extends FieldValues>({
   const { name, label, placeholder, required, type = 'text', options, defaultValue, noLabel } = field
   const Component = typeMap[type as keyof typeof typeMap] || FormControlInput
 
-  console.log('Default value for the field: ', name, defaultValue)
-
   const fieldOptions =
     dynamicOptions && dynamicOptions[name] && dynamicOptions[name].length > 0 ? dynamicOptions[name] : options || []
 
   const fieldValue = values?.[name] !== undefined ? values[name] : defaultValue || ''
   const fieldError = getFieldError(errors, name) || ''
-
-  console.log('Field value: ', name, fieldValue)
 
   if (type === 'text') {
     return (

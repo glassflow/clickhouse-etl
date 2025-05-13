@@ -278,24 +278,15 @@ export class KafkaClient {
     let consumer: Consumer | null = null
     try {
       const startTime = Date.now()
-      console.log(
-        `KafkaClient: START: Attempting to fetch sample event from topic: ${topic} with format: ${format}`,
-        options ? `options: ${JSON.stringify(options)}` : '',
-        getNext ? `getNext: true, currentOffset: ${currentOffset}` : '',
-      )
 
       // Test connection first
-      console.log('KafkaClient: Testing connection...')
       const isConnected = await this.testConnection()
       if (!isConnected) {
         console.error('KafkaClient: Failed to connect to Kafka')
         throw new Error('Failed to connect to Kafka')
       }
 
-      console.log('KafkaClient: Successfully connected to Kafka')
-
       // Check if topic exists and get partition information
-      console.log(`KafkaClient: Checking if topic ${topic} exists and has messages`)
       const admin = this.kafka.admin()
       await admin.connect()
 
@@ -317,11 +308,8 @@ export class KafkaClient {
           throw new Error(`Topic ${topic} has no partitions`)
         }
 
-        console.log(`KafkaClient: Topic ${topic} exists with ${topicInfo.partitions.length} partitions`)
-
         // Try to get offsets for the topic
         const offsets = await admin.fetchTopicOffsets(topic)
-        console.log('KafkaClient: Topic offsets:', JSON.stringify(offsets))
 
         // Check if topic has any messages
         const hasMessages = offsets.some((partition) => parseInt(partition.high, 10) > parseInt(partition.low, 10))
@@ -339,7 +327,6 @@ export class KafkaClient {
 
           if (partitionWithMessages) {
             targetPartition = partitionWithMessages.partition
-            console.log(`KafkaClient: Selected partition ${targetPartition} which has messages`)
           }
         }
 
@@ -351,9 +338,7 @@ export class KafkaClient {
             const highOffset = parseInt(partitionInfo.high, 10)
             if (highOffset > 0) {
               targetOffset = (highOffset - 1).toString()
-              console.log(`KafkaClient: Using latest offset: ${targetOffset} for partition ${targetPartition}`)
             } else {
-              console.log(`KafkaClient: Partition ${targetPartition} has no messages (high offset is ${highOffset})`)
               targetOffset = '0'
             }
           }
@@ -362,12 +347,10 @@ export class KafkaClient {
           const partitionInfo = offsets.find((p) => p.partition === targetPartition)
           if (partitionInfo) {
             targetOffset = partitionInfo.low
-            console.log(`KafkaClient: Using earliest offset: ${targetOffset} for partition ${targetPartition}`)
           }
         } else if (getNext && currentOffset !== null) {
           // For next, use current offset + 1
           targetOffset = (BigInt(currentOffset) + BigInt(1)).toString()
-          console.log(`KafkaClient: Using next offset: ${targetOffset} for partition ${targetPartition}`)
         } else if (options?.direction === 'previous' && currentOffset !== null) {
           // For previous, use current offset - 1, but ensure it's not less than the low offset
           const partitionInfo = offsets.find((p) => p.partition === targetPartition)
@@ -375,11 +358,8 @@ export class KafkaClient {
             const lowOffset = BigInt(partitionInfo.low)
             const prevOffset = BigInt(currentOffset) - BigInt(1)
             targetOffset = prevOffset < lowOffset ? lowOffset.toString() : prevOffset.toString()
-            console.log(`KafkaClient: Using previous offset: ${targetOffset} for partition ${targetPartition}`)
           }
         }
-
-        console.log(`KafkaClient: Topic ${topic} has messages`)
       } finally {
         await admin.disconnect()
       }
@@ -388,13 +368,11 @@ export class KafkaClient {
       // But add a unique suffix to avoid conflicts with other consumers
       const baseGroupId = `${this.config.groupId || 'sample'}-${topic.replace(/[^a-zA-Z0-9]/g, '-')}`
       const uniqueGroupId = `${baseGroupId}-${Math.random().toString(36).substring(2, 10)}`
-      console.log(`KafkaClient: Using consumer group ID: ${uniqueGroupId}`)
 
       consumer = this.kafka.consumer({
         groupId: uniqueGroupId,
         sessionTimeout: 30000,
       })
-      console.log(`KafkaClient: Consumer created, connecting...`)
 
       // Set a timeout for the connect operation
       const connectPromise = Promise.race([
@@ -403,7 +381,6 @@ export class KafkaClient {
       ])
 
       await connectPromise
-      console.log(`KafkaClient: Consumer connected, subscribing to topic...`)
 
       // Set a timeout for the subscribe operation
       const subscribePromise = Promise.race([
@@ -412,26 +389,17 @@ export class KafkaClient {
       ])
 
       await subscribePromise
-      console.log(`KafkaClient: Subscribed to topic: ${topic}`)
 
       // Create a promise that will resolve with the first message or reject after timeout
       const messagePromise = new Promise((resolve, reject) => {
         let timeoutId: NodeJS.Timeout | null = null
         let messageReceived = false
 
-        console.log(`KafkaClient: Setting up message handler...`)
-
         const messageHandler = async ({ topic, partition, message }: any) => {
           const messageTime = Date.now()
-          console.log(
-            `KafkaClient: Received message from topic: ${topic}, partition: ${partition}, offset: ${message.offset}, after ${messageTime - startTime}ms`,
-          )
 
           // Only process messages from the target partition
           if (partition !== targetPartition) {
-            console.log(
-              `KafkaClient: Ignoring message from partition ${partition}, waiting for partition ${targetPartition}`,
-            )
             return
           }
 
@@ -443,17 +411,11 @@ export class KafkaClient {
             // For earliest position, accept any message from the earliest offset onwards
             if (options?.position === 'earliest') {
               if (messageOffset < targetOffsetBig) {
-                console.log(
-                  `KafkaClient: Ignoring message at offset ${message.offset}, waiting for offset >= ${targetOffset}`,
-                )
                 return
               }
             } else {
               // For other positions, require exact offset match
               if (messageOffset !== targetOffsetBig) {
-                console.log(
-                  `KafkaClient: Ignoring message at offset ${message.offset}, waiting for offset ${targetOffset}`,
-                )
                 return
               }
             }
@@ -467,39 +429,29 @@ export class KafkaClient {
               offset: message.offset,
               partition: partition,
             })
-            console.log(
-              `KafkaClient: Updated position for topic ${topic}: partition ${partition}, offset ${message.offset}`,
-            )
           }
 
-          console.log(`KafkaClient: Clearing timeout...`)
           if (timeoutId) {
             clearTimeout(timeoutId)
           }
 
           try {
             const messageValue = message.value.toString()
-            console.log(`KafkaClient: Message value (first 100 chars): ${messageValue.substring(0, 100)}...`)
 
             // Parse the message based on format
             let parsedMessage
-            console.log(`KafkaClient: Parsing message as ${format}...`)
 
             if (format === 'JSON') {
               try {
-                console.log(`KafkaClient: Attempting standard JSON parse...`)
                 parsedMessage = JSON.parse(messageValue)
-                console.log(`KafkaClient: Standard JSON parse successful`)
               } catch (parseError) {
                 console.error(`KafkaClient: Error parsing JSON:`, parseError)
 
                 // Try to fix common JSON issues and parse again
                 try {
-                  console.log(`KafkaClient: Attempting to fix and parse JSON...`)
                   // Fix unquoted property names (convert property: value to "property": value)
                   const fixedJson = messageValue.replace(/(\s*)(\w+)(\s*):(\s*)/g, '$1"$2"$3:$4')
                   parsedMessage = JSON.parse(fixedJson)
-                  console.log(`KafkaClient: Successfully parsed after fixing JSON format`)
                 } catch (fixError) {
                   console.error(`KafkaClient: Failed to fix and parse JSON:`, fixError)
                   parsedMessage = {
@@ -510,7 +462,6 @@ export class KafkaClient {
                 }
               }
             } else {
-              console.log(`KafkaClient: Non-JSON format, returning raw data`)
               parsedMessage = { _raw: messageValue }
             }
 
@@ -533,9 +484,7 @@ export class KafkaClient {
             }
 
             // Resolve the promise immediately with the parsed message
-            console.log(`KafkaClient: Resolving promise with parsed message...`)
             resolve(parsedMessage)
-            console.log(`KafkaClient: Promise resolved`)
           } catch (error) {
             console.error(`KafkaClient: Error processing message:`, error)
             resolve({
@@ -549,11 +498,8 @@ export class KafkaClient {
                 timestamp: message.timestamp,
               },
             })
-            console.log(`KafkaClient: Promise resolved with error details`)
           }
         }
-
-        console.log(`KafkaClient: Starting consumer...`)
 
         // Start the consumer first
         consumer
@@ -568,20 +514,16 @@ export class KafkaClient {
             reject(error)
           })
 
-        console.log(`KafkaClient: Consumer started, waiting for messages...`)
-
         // If we have a target offset, seek to it after the consumer is running
         if (targetOffset !== null) {
           // Small delay to ensure consumer is fully initialized
           setTimeout(async () => {
             try {
-              console.log(`KafkaClient: Seeking to offset ${targetOffset} in partition ${targetPartition}`)
               await consumer?.seek({
                 topic,
                 partition: targetPartition,
                 offset: targetOffset,
               })
-              console.log(`KafkaClient: Successfully seeked to offset`)
             } catch (seekError) {
               console.error(`KafkaClient: Error seeking to offset:`, seekError)
               reject(seekError)
@@ -594,15 +536,12 @@ export class KafkaClient {
         const timeoutDuration = options?.position === 'earliest' ? 30000 : 15000
         timeoutId = setTimeout(() => {
           if (!messageReceived) {
-            console.log(`KafkaClient: Timeout reached, no messages received after ${Date.now() - startTime}ms`)
             reject(new Error(`Timeout waiting for message from topic: ${topic}`))
           }
         }, timeoutDuration)
       })
 
-      console.log(`KafkaClient: Waiting for message promise to resolve...`)
       const result = await messagePromise
-      console.log(`KafkaClient: Message promise resolved after ${Date.now() - startTime}ms`)
       return result
     } catch (error) {
       console.error(`KafkaClient: Error in fetchSampleEvent:`, error)
@@ -610,8 +549,6 @@ export class KafkaClient {
     } finally {
       // Attempt to disconnect the consumer in a non-blocking way
       if (consumer) {
-        console.log(`KafkaClient: Attempting to disconnect consumer...`)
-
         // Use a timeout to prevent hanging on disconnect
         try {
           const disconnectPromise = Promise.race([
@@ -620,7 +557,6 @@ export class KafkaClient {
           ])
 
           await disconnectPromise
-          console.log(`KafkaClient: Consumer disconnected or timeout reached`)
         } catch (disconnectError) {
           console.error(`KafkaClient: Error during consumer disconnect (continuing anyway):`, disconnectError)
         }
