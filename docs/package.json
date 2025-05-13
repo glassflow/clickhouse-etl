@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "fathom-client": "^3.7.2",
     "next": "^14.0.0",
     "nextra": "^4.2.17",
     "nextra-theme-docs": "^4.2.17",

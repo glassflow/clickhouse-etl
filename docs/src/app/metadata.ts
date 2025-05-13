@@ -21,8 +21,8 @@ export const metadata: Metadata = {
     ]
   },
   twitter: {
-    handle: '@glassflowdev',
+    // handle: '@glassflowdev',
     site: '@glassflowdev',
-    cardType: 'summary_large_image'
+    // cardType: 'summary_large_image'
   }
 }
