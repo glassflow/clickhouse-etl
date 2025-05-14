@@ -16,30 +16,41 @@ export default function GlobalFooter() {
 
   return (
     <div className="relative">
-      {!showButtons ? (
-        <span className="cursor-pointer hover:text-primary-600 animate-fadeIn" onClick={() => setShowButtons(true)}>
+      <div className="flex items-center">
+        <span className="cursor-pointer hover:text-primary-600" onMouseEnter={() => setShowButtons(true)}>
           Any questions?
         </span>
-      ) : (
-        <div className="flex items-center gap-[24px] animate-slideDown">
-          <Link href="https://www.glassflow.dev/contact-us#form" target="_blank" rel="noopener noreferrer" passHref>
-            <Button
-              className="btn-tertiary"
-              type="button"
-              variant="outline"
-              size="custom"
-              onClick={() => setShowButtons(false)}
+
+        {showButtons && (
+          <div
+            className="flex items-center gap-3 ml-4 animate-slideInFromRight"
+            onMouseLeave={() => {
+              setShowButtons(false)
+            }}
+          >
+            <Link
+              href="https://github.com/glassflow/clickhouse-etl/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              passHref
             >
-              Ask Us
-            </Button>
-          </Link>
-          <Link href="https://github.com/glassflow/clickhouse-etl" target="_blank" rel="noopener noreferrer" passHref>
-            <Button className="btn-tertiary" type="button" variant="outline" size="custom">
-              View documentation
-            </Button>
-          </Link>
-        </div>
-      )}
+              <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+                Report an issue
+              </Button>
+            </Link>
+            <Link href="mailto:help@glassflow.dev" target="_blank" rel="noopener noreferrer" passHref>
+              <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+                Get help
+              </Button>
+            </Link>
+            <Link href="https://docs.glassflow.dev/" target="_blank" rel="noopener noreferrer" passHref>
+              <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+                View documentation
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
