@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from '@/src/components/ui/dialog'
 import { AlertTriangleIcon } from 'lucide-react'
+import { getPipelineStatus } from '@/src/api/pipeline'
 
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
@@ -56,6 +57,23 @@ function HomePageClient() {
   const { getIsTopicDirty } = topicsStore
   const { getIsJoinDirty } = joinStore
   const { getIsClickhouseConnectionDirty, getClickhouseMappingDirty } = clickhouseStore
+
+  // Check for running pipeline and redirect to pipeline page if one exists
+  useEffect(() => {
+    const checkRunningPipeline = async () => {
+      try {
+        const response = await getPipelineStatus()
+        if (response.pipeline_id) {
+          // There is a running pipeline, redirect to pipeline page
+          router.push('/pipelines')
+        }
+      } catch (err) {
+        // No pipeline running, stay on home page
+      }
+    }
+
+    checkRunningPipeline()
+  }, [router])
 
   // Track page view when component loads
   useEffect(() => {

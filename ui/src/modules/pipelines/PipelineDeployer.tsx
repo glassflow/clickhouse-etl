@@ -114,13 +114,8 @@ export function PipelineDeployer() {
             // We have a valid config and no running pipeline - we can deploy
             deployPipeline()
           } else {
-            // No config and no pipeline - redirect to home
-            setStatus('no_configuration')
-            setError('No pipeline configuration found. Redirecting to home page...')
-            setIsRedirecting(true)
-            setTimeout(() => {
-              router.push('/home')
-            }, 7000)
+            // No config and no pipeline - redirect to home immediately
+            router.push('/home')
           }
         }
       } catch (err: any) {
@@ -129,12 +124,8 @@ export function PipelineDeployer() {
           if (isValidApiConfig(apiConfig)) {
             deployPipeline()
           } else {
-            setStatus('no_configuration')
-            setError('No pipeline configuration found. Redirecting to home page...')
-            setIsRedirecting(true)
-            setTimeout(() => {
-              router.push('/home')
-            }, 7000)
+            // No config and no pipeline - redirect to home immediately
+            router.push('/home')
           }
         } else {
           setStatus('deploy_failed')
