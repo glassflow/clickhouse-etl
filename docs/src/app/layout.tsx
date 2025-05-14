@@ -36,7 +36,9 @@ export default async function RootLayout({ children }) {
           light: '#f5f5f5'
         }}
         color={{
-          hue: { dark: 120, light: 0 },
+          // use this if you want to use green color as the primary color
+          // hue: { dark: 120, light: 0 },
+          hue: { dark: 210, light: 210 },
           saturation: { dark: 100, light: 100 }
         }}
       >
