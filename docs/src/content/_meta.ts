@@ -1,4 +1,4 @@
-{
+export default {
     "index": { "title": "Introduction" },
     "installation": { "title": "Installation" },
     "usage": { "title": "Usage Guide" },
