@@ -43,8 +43,27 @@ export default async function RootLayout({ children }) {
         }}
       >
         <link rel="icon" href="/assets/favicon.png" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#000000" />
+        <style>{`
+          html, body {
+            transform: none !important;
+            -webkit-transform: none !important;
+            -moz-transform: none !important;
+            -ms-transform: none !important;
+            -o-transform: none !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow-x: hidden;
+          }
+          #__next {
+            transform: none !important;
+            -webkit-transform: none !important;
+            -moz-transform: none !important;
+            -ms-transform: none !important;
+            -o-transform: none !important;
+          }
+        `}</style>
       </Head>
       <body>
         <Layout
