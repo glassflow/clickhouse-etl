@@ -265,6 +265,13 @@ export const AUTH_OPTIONS = {
     securityProtocols: [SECURITY_PROTOCOL_OPTIONS.SASL_SSL],
     active: false,
   },
+  // NOTE: This is not actual auth method, it is used to avoid sending auth credentials to Kafka
+  NO_AUTH: {
+    name: 'NO_AUTH',
+    label: 'NO_AUTH',
+    securityProtocols: [SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT],
+    active: true,
+  },
 }
 
 export const EDITOR_THEMES = [

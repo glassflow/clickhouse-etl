@@ -5,7 +5,10 @@ export function getKafkaConfig(requestBody: any) {
   const { servers, securityProtocol, authMethod, certificate } = requestBody
 
   // Validate required base fields
-  if (!servers || !securityProtocol || !authMethod) {
+  if (
+    (authMethod === 'NO_AUTH' && (!servers || !securityProtocol)) ||
+    (authMethod !== 'NO_AUTH' && (!servers || !securityProtocol || !authMethod))
+  ) {
     return { success: false, error: 'Missing required Kafka connection parameters' }
   }
 
@@ -16,7 +19,7 @@ export function getKafkaConfig(requestBody: any) {
   const kafkaConfig: KafkaConfig | { success: false; error: string } = {
     brokers: servers.split(','),
     securityProtocol,
-    authMethod,
+    authMethod: authMethod === 'NO_AUTH' ? undefined : authMethod, // NOTE: Default to undefined if NO_AUTH
     clientId: 'kafka-local-test',
   }
 
@@ -27,6 +30,9 @@ export function getKafkaConfig(requestBody: any) {
 
   // Add auth-specific configuration based on auth method
   switch (authMethod) {
+    case 'NO_AUTH':
+      break
+
     case 'SASL/PLAIN':
       const { username, password, consumerGroup } = requestBody
       if (!username || !password) {
