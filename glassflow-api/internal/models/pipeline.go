@@ -14,6 +14,7 @@ type PipelineRequest struct {
 		Provider         string `json:"provider"`
 		ConnectionParams struct {
 			Brokers       []string `json:"brokers"`
+			SkipAuth      bool     `json:"skip_auth"`
 			SASLProtocol  string   `json:"protocol"`
 			SASLMechanism string   `json:"mechanism"`
 			SASLUsername  string   `json:"username"`
@@ -161,7 +162,13 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		return nil, err
 	}
 
-	if err := validateConnectionParams(req.Source.ConnectionParams.SASLMechanism, req.Source.ConnectionParams.SASLProtocol, req.Source.ConnectionParams.SASLUsername, req.Source.ConnectionParams.SASLPassword); err != nil {
+	if !req.Source.ConnectionParams.SkipAuth {
+		if err := validateKafkaAuthParams(req.Source.ConnectionParams.SASLMechanism, req.Source.ConnectionParams.SASLUsername, req.Source.ConnectionParams.SASLPassword); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := validateKafkaConnectionProtocol(req.Source.ConnectionParams.SASLProtocol); err != nil {
 		return nil, err
 	}
 
@@ -374,12 +381,9 @@ func validateBrokers(bl []string) error {
 	return nil
 }
 
-func validateConnectionParams(mechanism, protocol, username, password string) error {
+func validateKafkaAuthParams(mechanism, username, password string) error {
 	if strings.Trim(mechanism, " ") == "" {
 		return PipelineConfigError{msg: "SASL mechanism cannot be empty"}
-	}
-	if strings.Trim(protocol, " ") == "" {
-		return PipelineConfigError{msg: "SASL protocol cannot be empty"}
 	}
 	if strings.Trim(username, " ") == "" {
 		return PipelineConfigError{msg: "SASL username cannot be empty"}
@@ -394,6 +398,14 @@ func validateConnectionParams(mechanism, protocol, username, password string) er
 	case "PLAIN":
 	default:
 		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", mechanism)}
+	}
+
+	return nil
+}
+
+func validateKafkaConnectionProtocol(protocol string) error {
+	if strings.Trim(protocol, " ") == "" {
+		return PipelineConfigError{msg: "SASL protocol cannot be empty"}
 	}
 
 	switch protocol {
