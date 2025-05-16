@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
@@ -22,6 +21,7 @@ import {
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 // import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
 
 export function ClickhouseJoinMapper({
@@ -34,7 +34,7 @@ export function ClickhouseJoinMapper({
   secondaryIndex: number
 }) {
   const { clickhouseStore, topicsStore } = useStore()
-  const { trackFunnelStep } = useAnalytics()
+  const analytics = useJourneyAnalytics()
   const {
     clickhouseConnection,
     clickhouseDestination,
@@ -119,29 +119,22 @@ export function ClickhouseJoinMapper({
       setAvailableTables([])
       setTableSchema({ columns: [] })
       setMappedColumns([])
-
-      // Track the connection change event
-      trackFunnelStep('connectionChanged', {
-        component: 'ClickhouseJoinMapper',
-        primaryTopicName: primaryTopic?.name,
-        secondaryTopicName: secondaryTopic?.name,
-      })
     }
 
     // Update reference with current connection
     connectionRef.current = currentConnectionId
-  }, [clickhouseConnection, trackFunnelStep, primaryTopic?.name, secondaryTopic?.name])
+  }, [clickhouseConnection, primaryTopic?.name, secondaryTopic?.name])
 
   // Basic page view tracking, only track once on component mount
   useEffect(() => {
     if (!viewTrackedRef.current) {
-      trackFunnelStep('clickhouseJoinMapperView', {
+      analytics.page.joinKey({
         primaryTopicName: primaryTopic?.name,
         secondaryTopicName: secondaryTopic?.name,
       })
       viewTrackedRef.current = true
     }
-  }, [trackFunnelStep, primaryTopic?.name, secondaryTopic?.name])
+  }, [analytics.page, primaryTopic?.name, secondaryTopic?.name])
 
   // Get connection config
   const getConnectionConfig = () => ({
@@ -569,8 +562,13 @@ export function ClickhouseJoinMapper({
 
     // Track completion once when the form is successfully saved
     if (!completionTrackedRef.current) {
-      trackFunnelStep('clickhouseJoinMapperCompleted', {
+      analytics.key.leftJoinKey({
         primaryTopicName: primaryTopic?.name,
+        database: selectedDatabase,
+        table: selectedTable,
+      })
+
+      analytics.key.rightJoinKey({
         secondaryTopicName: secondaryTopic?.name,
         database: selectedDatabase,
         table: selectedTable,

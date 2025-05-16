@@ -89,17 +89,6 @@ export function ConsentLayout({ children }: ConsentLayoutProps) {
     localStorage.setItem(CONSENT_STORAGE_KEY, value.toString())
     localStorage.setItem(CONSENT_ANSWERED_KEY, 'true')
 
-    // Track the consent decision (only if consent was given)
-    if (value) {
-      track({
-        event: dictionary.userPreference,
-        context: 'analyticsConsent',
-        properties: {
-          consentGiven: value,
-        },
-      })
-    }
-
     // Hide dialog
     setShowConsent(false)
   }

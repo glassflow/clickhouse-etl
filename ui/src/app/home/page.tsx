@@ -8,7 +8,6 @@ import DeduplicateJoin from '../../images/deduplicate-join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
 // import { ThemeDebug } from '../../components/ThemeDebug'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { OperationKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
@@ -27,6 +26,7 @@ import { getPipelineStatus } from '@/src/api/pipeline'
 
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 // Client Component for handling searchParams
 function HomePageClient() {
@@ -46,7 +46,7 @@ function HomePageClient() {
     joinStore,
     clickhouseStore,
   } = useStore()
-  const { trackFunnelStep, trackFeatureUsage, trackPageView } = useAnalytics()
+  const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams.get('showWarning') === 'true'
   const fromPath = searchParams.get('from')
@@ -77,38 +77,32 @@ function HomePageClient() {
 
   // Track page view when component loads
   useEffect(() => {
-    trackPageView('home', {
+    analytics.page.homepage({
       referrer: fromPath || document.referrer,
       timestamp: new Date().toISOString(),
     })
-  }, [trackPageView, fromPath])
+  }, [analytics.page, fromPath])
 
   const handleOperationClick = (operation: OperationKeys) => {
-    // Track the operation selection as a funnel step
-    trackFunnelStep('operationSelected', {
-      operationType: operation,
-    })
-
-    // Also track as feature usage
-    trackFeatureUsage(operation.toLowerCase().replace('_', '-'), {
-      source: 'home-page',
-    })
+    if (operation === OperationKeys.DEDUPLICATION) {
+      analytics.operation.deduplication({
+        operationType: operation,
+      })
+    } else if (operation === OperationKeys.JOINING) {
+      analytics.operation.join({
+        operationType: operation,
+      })
+    } else if (operation === OperationKeys.DEDUPLICATION_JOINING) {
+      analytics.operation.dedupAndJoin({
+        operationType: operation,
+      })
+    } else if (operation === OperationKeys.INGEST_ONLY) {
+      analytics.operation.ingestOnly({
+        operationType: operation,
+      })
+    }
 
     completeOperationChange(operation)
-    // const isDirty =
-    //   getIsKafkaConnectionDirty() ||
-    //   getIsTopicDirty() ||
-    //   getIsJoinDirty() ||
-    //   getIsClickhouseConnectionDirty() ||
-    //   getClickhouseMappingDirty()
-
-    // if (operation !== operationsSelected.operation && isDirty) {
-    //   // Show warning modal instead of window.confirm
-    //   setShowWarningModal(true)
-    // } else {
-    //   // No data to lose, just reset
-    //   completeOperationChange(operation)
-    // }
   }
 
   const handleWarningModalComplete = (result: string) => {
