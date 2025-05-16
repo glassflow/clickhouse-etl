@@ -60,6 +60,13 @@ export const KafkaFormConfig = {
         required: 'Password is required',
         type: 'password',
       },
+      certificate: {
+        name: 'saslPlain.certificate',
+        label: 'Certificate',
+        placeholder: 'Enter certificate',
+        required: 'Certificate is required',
+        type: 'textarea',
+      },
       // consumerGroup: {
       //   name: 'saslPlain.consumerGroup',
       //   label: 'Consumer Group',
@@ -342,7 +349,13 @@ export const KafkaFormConfig = {
     securityProtocol: SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT,
     authMethod: AUTH_OPTIONS['NO_AUTH'],
     fields: {
-      // No additional fields needed for NO_AUTH
+      certificate: {
+        name: 'noAuth.certificate',
+        label: 'Certificate',
+        placeholder: 'Enter certificate',
+        required: 'Certificate is required',
+        type: 'textarea',
+      },
     },
   },
   truststore: {

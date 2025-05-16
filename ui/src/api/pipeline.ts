@@ -13,7 +13,7 @@ export interface PipelineError {
 
 export const createPipeline = async (config: any): Promise<PipelineResponse> => {
   try {
-    const response = await axios.post('http://localhost:8080/api/v1/pipeline', config)
+    const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/pipeline`, config)
     return {
       pipeline_id: response.data.pipeline_id,
       status: 'running',
