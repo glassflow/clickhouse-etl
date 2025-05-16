@@ -48,8 +48,8 @@ def generate_events_with_duplicates(
     schema = json.load(open(generator_schema))
     glassgen_config["schema"] = schema
 
-    if source_config.connection_params.brokers[0] == "kafka:9094":
-        brokers = ["localhost:9093"]
+    if source_config.connection_params.brokers[0] == "kafka:9092":
+        brokers = ["localhost:9092"]
     else:
         brokers = source_config.connection_params.brokers
 
@@ -58,10 +58,6 @@ def generate_events_with_duplicates(
         "params": {
             "bootstrap.servers": ",".join(brokers),
             "topic": source_config.topics[0].name,
-            "security.protocol": source_config.connection_params.protocol,
-            "sasl.mechanism": source_config.connection_params.mechanism,
-            "sasl.username": source_config.connection_params.username,
-            "sasl.password": source_config.connection_params.password,
         },
     }
     return glassgen.generate(config=glassgen_config)
@@ -157,6 +153,7 @@ def main(
             is_failure=True,
             component="Clickhouse",
         )
+        exit(1)
     else:
         utils.log(
             message=f"Expected {expected_records} records, and got {added_records} records",
@@ -164,6 +161,7 @@ def main(
             is_success=True,
             component="Clickhouse",
         )
+        exit(0)
 
 
 if __name__ == "__main__":

@@ -2,44 +2,28 @@ include:
  - ../docker-compose.yaml
 
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.9.0
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/zookeeper/jaas/zookeeper_jaas.conf"
-      ZOOKEEPER_AUTH_PROVIDER_1: org.apache.zookeeper.server.auth.SASLAuthenticationProvider
-      ZOOKEEPER_REQUIRECLIENTAUTHSCHEME: sasl
-    volumes:
-      - ./config/kafka/zookeeper/jaas.conf:/etc/zookeeper/jaas/zookeeper_jaas.conf
-
   kafka:
     image: confluentinc/cp-kafka:7.9.0
+    hostname: broker
     container_name: kafka
     ports:
-      - "9092:9092"
-      - "9093:9093"
+      - 9092:9092
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_PLAINTEXT,DOCKER:SASL_PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9093,DOCKER://kafka:9094
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093,DOCKER://0.0.0.0:9094
-      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
-      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/jaas/kafka_server.conf"
-    volumes:
-      - ./config/kafka/broker/kafka_server_jaas.conf:/etc/kafka/jaas/kafka_server.conf
-      - ./config/kafka/client/client.properties:/etc/kafka/client.properties
-    depends_on:
-      - zookeeper
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:29093
+      KAFKA_LISTENERS: PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
   clickhouse:
     image: clickhouse/clickhouse-server
