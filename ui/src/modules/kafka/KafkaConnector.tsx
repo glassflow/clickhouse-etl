@@ -5,8 +5,7 @@ import { use, useEffect, useState, useRef } from 'react'
 import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { useKafkaConnection } from '@/src/hooks/kafka-mng-hooks'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
-
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 export function KafkaConnector({
   steps,
   onNext,
@@ -21,10 +20,10 @@ export function KafkaConnector({
   const { resetStore: resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
   const previousBootstrapServers = useRef(bootstrapServers)
-  const { trackFunnelStep, trackError } = useAnalytics()
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const analytics = useJourneyAnalytics()
 
   const { testConnection, connectionResult, kafkaConnection: kafkaConnectionFromHook } = useKafkaConnection()
 
@@ -41,10 +40,10 @@ export function KafkaConnector({
 
   // Track when user starts entering connection details
   useEffect(() => {
-    trackFunnelStep('kafkaConnectionStarted', {
+    analytics.kafka.started({
       operation: operationsSelected?.operation,
     })
-  }, [operationsSelected?.operation, trackFunnelStep])
+  }, [operationsSelected?.operation, analytics.kafka])
 
   const handleTestConnection = async (values: any) => {
     await testConnection(values)
@@ -55,9 +54,8 @@ export function KafkaConnector({
     setError(null)
 
     try {
-      // Track connection attempt
-      trackFunnelStep('kafkaConnectionAttempt', {
-        attempt: retryCount + 1,
+      // Track when user starts entering connection details
+      analytics.kafka.started({
         operation: operationsSelected?.operation,
       })
 
@@ -65,7 +63,7 @@ export function KafkaConnector({
 
       if (result) {
         // Track successful connection
-        trackFunnelStep('kafkaConnectionSuccess', {
+        analytics.kafka.success({
           operation: operationsSelected?.operation,
           retryCount,
         })
@@ -76,17 +74,10 @@ export function KafkaConnector({
       setError(err.message)
 
       // Track connection failure with specific error type
-      trackFunnelStep('kafkaConnectionFailed', {
+      analytics.kafka.failed({
         operation: operationsSelected?.operation,
         errorType: err.name || 'Unknown',
         errorMessage: err.message,
-        retryCount,
-      })
-
-      // Track error for error analysis
-      trackError('connection', {
-        type: 'kafka_connection',
-        error: err.message,
         retryCount,
       })
     } finally {
@@ -96,10 +87,7 @@ export function KafkaConnector({
 
   // Track validation errors
   const handleValidationError = (error: string) => {
-    trackError('validation', {
-      type: 'kafka_connection',
-      field: error,
-    })
+    // TODO: track validation error
   }
 
   return (

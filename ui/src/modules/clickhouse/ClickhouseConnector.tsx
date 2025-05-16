@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
@@ -13,10 +12,11 @@ import { renderFormField } from '@/src/components/ui/form'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ClickhouseConnectionFormSchema, ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys) => void }) {
   const { clickhouseStore } = useStore()
-  const { trackFunnelStep, trackError, trackFeatureUsage } = useAnalytics()
+  const analytics = useJourneyAnalytics()
   const { clickhouseConnection, setClickhouseConnection, setAvailableDatabases } = clickhouseStore
   const [hasInteracted, setHasInteracted] = useState(false)
   const [hasTrackedView, setHasTrackedView] = useState(false)
@@ -49,22 +49,19 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
   // Track when user views this step
   useEffect(() => {
     if (!hasTrackedView) {
-      trackFunnelStep('clickhouseConnectionView', {
+      analytics.page.setupClickhouseConnection({
         isReturningVisit: !!directConnection?.host,
       })
       setHasTrackedView(true)
     }
-  }, [hasTrackedView, trackFunnelStep, directConnection?.host])
+  }, [hasTrackedView, analytics.page, directConnection?.host])
 
   // Track when user interacts with the form
   useEffect(() => {
     if (isDirty && !hasInteracted) {
-      trackFunnelStep('clickhouseConnectionStarted', {
-        isReturningVisit: !!directConnection?.host,
-      })
       setHasInteracted(true)
     }
-  }, [isDirty, hasInteracted, trackFunnelStep, directConnection?.host])
+  }, [isDirty, hasInteracted, directConnection?.host])
 
   // const useSSL = watch('directConnection.useSSL')
   // useEffect(() => {
@@ -80,7 +77,7 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
   const onSubmit = useCallback(
     async (values: ClickhouseConnectionFormType) => {
       // Track connection attempt
-      trackFunnelStep('clickhouseConnectionAttempted', {
+      analytics.clickhouse.started({
         host: values.directConnection.host,
         useSSL: values.directConnection.useSSL,
       })
@@ -89,7 +86,7 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
       const result = await testConnection(values.directConnection)
       if (result.success && result.databases.length > 0) {
         // Track successful connection
-        trackFunnelStep('clickhouseConnectionSucceeded', {
+        analytics.clickhouse.success({
           host: values.directConnection.host,
           databaseCount: result.databases?.length || 0,
         })
@@ -101,14 +98,13 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         saveConnection(values)
       } else {
         // Track connection error
-        trackError('connection', {
-          component: 'ClickhouseConnector',
+        analytics.clickhouse.failed({
           error: result.error || 'Unknown connection error',
           host: values.directConnection.host,
         })
       }
     },
-    [trackFunnelStep, trackError, testConnection, setAvailableDatabases],
+    [analytics.clickhouse, testConnection, setAvailableDatabases],
   )
 
   const saveConnection = useCallback(
@@ -135,21 +131,13 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         connectionError: null,
       }
 
-      // Track SSL usage as a feature
-      if (formValues.directConnection.useSSL) {
-        trackFeatureUsage('ssl', {
-          component: 'ClickhouseConnector',
-          enabled: true,
-        })
-      }
-
       // Update the connection in the store
       setClickhouseConnection(connector)
 
       // Proceed to next step
       onNext(StepKeys.CLICKHOUSE_CONNECTION)
     },
-    [setClickhouseConnection, onNext, trackFeatureUsage, clickhouseConnection.directConnection],
+    [setClickhouseConnection, onNext, clickhouseConnection.directConnection],
   )
 
   return (
