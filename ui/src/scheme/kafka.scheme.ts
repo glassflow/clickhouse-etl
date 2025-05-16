@@ -12,7 +12,12 @@ const KafkaBaseFormSchema = z.object({
 const SaslPlainFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+  certificate: z.string().optional(),
   consumerGroup: z.string().optional(),
+})
+
+const NoAuthFormSchema = z.object({
+  certificate: z.string().optional(),
 })
 
 const SaslJaasFormSchema = z.object({
@@ -150,6 +155,7 @@ const KafkaConnectionFormSchema = z.discriminatedUnion('authMethod', [
   // NO_AUTH - Not actual auth method, it is used to avoid sending auth credentials to Kafka
   KafkaConnectionBaseSchema.extend({
     authMethod: z.literal('NO_AUTH'),
+    certificate: z.string().optional(),
     // No additional fields needed for NO_AUTH
   }),
 ])
@@ -169,6 +175,7 @@ type LdapForm = z.infer<typeof LdapFormSchema>
 type MtlsForm = z.infer<typeof MtlsFormSchema>
 type TruststoreForm = z.infer<typeof TruststoreFormSchema>
 type KafkaConnectionForm = z.infer<typeof KafkaConnectionFormSchema>
+type NoAuthForm = z.infer<typeof NoAuthFormSchema>
 
 // Export the schemas (for validation)
 export {
@@ -186,6 +193,7 @@ export {
   MtlsFormSchema,
   TruststoreFormSchema,
   KafkaConnectionFormSchema,
+  NoAuthFormSchema,
 }
 
 // Export the types (for TypeScript)

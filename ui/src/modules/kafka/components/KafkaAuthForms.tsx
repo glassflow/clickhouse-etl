@@ -50,6 +50,11 @@ export const KafkaBaseForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
 // SASL/PLAIN specific form
 export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFormType> }) => {
   const { register } = useFormContext()
+  const { watch } = useFormContext()
+  const authMethodSelected = watch('authMethod')
+  const securityProtocolSelected = watch('securityProtocol')
+  const showCertificateField =
+    authMethodSelected === AUTH_OPTIONS['SASL/PLAIN'].name && securityProtocolSelected === 'SASL_SSL'
 
   return (
     <FormGroup className="space-y-4">
@@ -68,6 +73,17 @@ export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
             errors,
           })}
         </div>
+      </div>
+      <div className="space-y-2 w-full">
+        {showCertificateField && (
+          <div className="space-y-2 w-full">
+            {renderFormField({
+              field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.certificate as any,
+              register,
+              errors,
+            })}
+          </div>
+        )}
       </div>
       {/* <div className="space-y-2 w-[50%] pr-2">
         {renderFormField({
@@ -88,7 +104,27 @@ export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
 
 // NO_AUTH specific form
 export const NoAuthForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFormType> }) => {
-  return <FormGroup className="space-y-4"></FormGroup>
+  const { register } = useFormContext()
+  const { watch } = useFormContext()
+  const authMethodSelected = watch('authMethod')
+  const securityProtocolSelected = watch('securityProtocol')
+  const showCertificateField =
+    authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name && securityProtocolSelected === 'SASL_SSL'
+  return (
+    <FormGroup className="space-y-4">
+      <div className="flex gap-4">
+        {showCertificateField && (
+          <div className="space-y-2 w-full">
+            {renderFormField({
+              field: KafkaFormConfig[AUTH_OPTIONS['NO_AUTH'].name].fields.certificate as any,
+              register,
+              errors,
+            })}
+          </div>
+        )}
+      </div>
+    </FormGroup>
+  )
 }
 
 // SASL/JAAS specific form

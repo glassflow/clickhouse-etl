@@ -105,6 +105,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     saslPlain: {
       username: '',
       password: '',
+      certificate: '',
       consumerGroup: '',
     },
     saslJaas: {
