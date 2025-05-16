@@ -19,6 +19,7 @@ COPY ./next.config.ts ./
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV NEXT_PUBLIC_IN_DOCKER=true
 
 # Expose the port
 EXPOSE 3000

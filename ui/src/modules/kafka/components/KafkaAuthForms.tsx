@@ -86,6 +86,11 @@ export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
   )
 }
 
+// NO_AUTH specific form
+export const NoAuthForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFormType> }) => {
+  return <FormGroup className="space-y-4"></FormGroup>
+}
+
 // SASL/JAAS specific form
 export const SaslJaasForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFormType> }) => {
   const { register } = useFormContext()
@@ -269,7 +274,7 @@ export const KafkaAuthForm = ({
     // or if we're switching between auth methods
     if (authMethodSelected === 'SASL/SCRAM-256' || authMethodSelected === 'SASL/SCRAM-512') {
       setValue('securityProtocol', 'SASL_SSL')
-    } else if (authMethodSelected === 'SASL/PLAIN') {
+    } else if (authMethodSelected === 'SASL/PLAIN' || authMethodSelected === 'NO_AUTH') {
       setValue('securityProtocol', 'SASL_PLAINTEXT')
     } else if (authMethodSelected === 'SASL/JAAS') {
       setValue('securityProtocol', 'SASL_JAAS')
@@ -301,6 +306,8 @@ export const KafkaAuthForm = ({
         return <DelegationTokensForm errors={errors} />
       case 'SASL/LDAP':
         return <LdapForm errors={errors} />
+      case 'NO_AUTH':
+        return <NoAuthForm errors={errors} />
       default:
         return <SaslPlainForm errors={errors} />
     }

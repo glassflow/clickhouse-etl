@@ -338,6 +338,13 @@ export const KafkaFormConfig = {
       },
     },
   },
+  [AUTH_OPTIONS['NO_AUTH'].name]: {
+    securityProtocol: SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT,
+    authMethod: AUTH_OPTIONS['NO_AUTH'],
+    fields: {
+      // No additional fields needed for NO_AUTH
+    },
+  },
   truststore: {
     fields: {
       location: {
@@ -489,6 +496,7 @@ export const KafkaConnectionFormConfig = {
           { value: 'SASL/OAUTHBEARER', label: 'SASL/OAUTHBEARER' },
           { value: 'AWS_MSK_IAM', label: 'AWS MSK IAM' },
           { value: 'mTLS', label: 'mTLS' },
+          { value: 'NO_AUTH', label: 'NO_AUTH' },
         ],
       },
       // SCRAM-256 and SCRAM-512 fields

@@ -6,7 +6,6 @@ import { useStore } from '@/src/store'
 import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { Button } from '@/src/components/ui/button'
 import { useForm, FormProvider } from 'react-hook-form'
-import { Alert, AlertDescription } from '@/src/components/ui/'
 import { AUTH_OPTIONS, StepKeys } from '@/src/config/constants'
 import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-config'
 import { KafkaAuthForm } from './KafkaAuthForms'
@@ -43,6 +42,7 @@ export const KafkaConnectionForm = ({
     setKafkaSaslScram512,
     setKafkaDelegationTokens,
     setKafkaConnection,
+    setKafkaSkipAuth,
     isConnected,
     authMethod,
     securityProtocol,
@@ -189,6 +189,12 @@ export const KafkaConnectionForm = ({
     setKafkaSecurityProtocol(securityProtocol)
     setKafkaBootstrapServers(bootstrapServers)
 
+    if (authMethod === AUTH_OPTIONS['NO_AUTH'].name) {
+      setKafkaSkipAuth(true)
+    } else {
+      setKafkaSkipAuth(false)
+    }
+
     // Set the appropriate auth form based on auth method
     if (values.authMethod === AUTH_OPTIONS['SASL/PLAIN'].name) {
       setKafkaSaslPlain({
@@ -288,18 +294,6 @@ export const KafkaConnectionForm = ({
           errors={shouldShowValidationErrors ? errors : {}}
         />
 
-        {/* {testStatus === 'success' && (
-          <Alert className="bg-green-50 border-green-500 text-green-700">
-            <AlertDescription>Successfully connected to Kafka cluster!</AlertDescription>
-          </Alert>
-        )} */}
-
-        {/* {testStatus === 'error' && (
-          <Alert className="bg-red-50 border-red-500 text-red-700">
-            <AlertDescription>Failed to connect to Kafka cluster. Please check your credentials.</AlertDescription>
-          </Alert>
-        )} */}
-
         <div className="flex gap-4">
           <Button
             className={classnames({
@@ -315,18 +309,6 @@ export const KafkaConnectionForm = ({
           >
             {isConnecting ? 'Loading...' : 'Continue'}
           </Button>
-          {/* <Button
-            type="submit"
-            disabled={!connectionResult?.success || !isConnected}
-            variant={connectionResult?.success ? 'gradient' : 'outline'}
-            className={classnames({
-              'btn-primary': connectionResult?.success,
-              'btn-text-disabled': !connectionResult?.success,
-              'btn-text': connectionResult?.success,
-            })}
-          >
-            Continue
-          </Button> */}
         </div>
       </form>
     </FormProvider>

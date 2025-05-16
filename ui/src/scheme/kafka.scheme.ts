@@ -146,6 +146,12 @@ const KafkaConnectionFormSchema = z.discriminatedUnion('authMethod', [
     authMethod: z.literal('mTLS'),
     mtls: MtlsFormSchema,
   }),
+
+  // NO_AUTH - Not actual auth method, it is used to avoid sending auth credentials to Kafka
+  KafkaConnectionBaseSchema.extend({
+    authMethod: z.literal('NO_AUTH'),
+    // No additional fields needed for NO_AUTH
+  }),
 ])
 
 // extract the inferred type

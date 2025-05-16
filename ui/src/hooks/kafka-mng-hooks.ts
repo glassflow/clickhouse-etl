@@ -21,6 +21,9 @@ export const useKafkaConnection = () => {
 
       // Add authentication details based on the auth method
       switch (values.authMethod) {
+        case 'NO_AUTH':
+          break
+
         case 'SASL/PLAIN':
           requestBody.username = values.saslPlain.username
           requestBody.password = values.saslPlain.password
@@ -112,7 +115,7 @@ export const useKafkaConnection = () => {
       } else {
         setConnectionResult({
           success: false,
-          message: data.error || 'Failed to connect to Kafka cluster - useKafkaConnection.ts',
+          message: data.error || 'Failed to connect to Kafka cluster',
         })
 
         setKafkaConnection({
