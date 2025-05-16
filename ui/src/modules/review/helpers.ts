@@ -133,6 +133,7 @@ export const generateApiConfig = ({
         connection_params: {
           brokers: kafkaStore?.bootstrapServers?.split(',') || [],
           protocol: kafkaStore?.securityProtocol || 'PLAINTEXT',
+          skip_auth: kafkaStore?.skipAuth || false,
         } as KafkaConnectionParams,
         topics: topicsConfig,
       },

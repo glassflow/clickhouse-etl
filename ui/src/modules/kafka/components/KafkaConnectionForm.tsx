@@ -42,6 +42,7 @@ export const KafkaConnectionForm = ({
     setKafkaSaslScram512,
     setKafkaDelegationTokens,
     setKafkaConnection,
+    setKafkaSkipAuth,
     isConnected,
     authMethod,
     securityProtocol,
@@ -187,6 +188,12 @@ export const KafkaConnectionForm = ({
     setKafkaAuthMethod(authMethod)
     setKafkaSecurityProtocol(securityProtocol)
     setKafkaBootstrapServers(bootstrapServers)
+
+    if (authMethod === AUTH_OPTIONS['NO_AUTH'].name) {
+      setKafkaSkipAuth(true)
+    } else {
+      setKafkaSkipAuth(false)
+    }
 
     // Set the appropriate auth form based on auth method
     if (values.authMethod === AUTH_OPTIONS['SASL/PLAIN'].name) {

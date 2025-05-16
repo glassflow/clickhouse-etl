@@ -268,7 +268,7 @@ export const AUTH_OPTIONS = {
   // NOTE: This is not actual auth method, it is used to avoid sending auth credentials to Kafka
   NO_AUTH: {
     name: 'NO_AUTH',
-    label: 'NO_AUTH',
+    label: 'No authentication / Local Kafka',
     securityProtocols: [SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT],
     active: true,
   },
