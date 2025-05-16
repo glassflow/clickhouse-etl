@@ -130,9 +130,12 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
   // ================================ EFFECTS ================================
 
+  const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
+
   // Fetch topics on component mount
   useEffect(() => {
-    if (availableTopics.length === 0 && !isLoadingTopics) {
+    if (availableTopics.length === 0 && !isLoadingTopics && topicFetchAttempts < 3) {
+      setTopicFetchAttempts((prev) => prev + 1)
       fetchTopics()
     }
 
@@ -140,7 +143,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     if (isInitialRender) {
       setIsInitialRender(false)
     }
-  }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender])
+  }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender, topicFetchAttempts])
 
   // Update available topics when topics are fetched
   useEffect(() => {

@@ -60,6 +60,13 @@ export const KafkaFormConfig = {
         required: 'Password is required',
         type: 'password',
       },
+      certificate: {
+        name: 'saslPlain.certificate',
+        label: 'Certificate',
+        placeholder: 'Enter certificate',
+        required: 'Certificate is required',
+        type: 'textarea',
+      },
       // consumerGroup: {
       //   name: 'saslPlain.consumerGroup',
       //   label: 'Consumer Group',
@@ -338,6 +345,19 @@ export const KafkaFormConfig = {
       },
     },
   },
+  [AUTH_OPTIONS['NO_AUTH'].name]: {
+    securityProtocol: SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT,
+    authMethod: AUTH_OPTIONS['NO_AUTH'],
+    fields: {
+      certificate: {
+        name: 'noAuth.certificate',
+        label: 'Certificate',
+        placeholder: 'Enter certificate',
+        required: 'Certificate is required',
+        type: 'textarea',
+      },
+    },
+  },
   truststore: {
     fields: {
       location: {
@@ -489,6 +509,7 @@ export const KafkaConnectionFormConfig = {
           { value: 'SASL/OAUTHBEARER', label: 'SASL/OAUTHBEARER' },
           { value: 'AWS_MSK_IAM', label: 'AWS MSK IAM' },
           { value: 'mTLS', label: 'mTLS' },
+          { value: 'NO_AUTH', label: 'NO_AUTH' },
         ],
       },
       // SCRAM-256 and SCRAM-512 fields

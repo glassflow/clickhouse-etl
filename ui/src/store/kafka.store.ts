@@ -18,6 +18,8 @@ export interface KafkaStore {
   // status
   isConnected: boolean
 
+  skipAuth: boolean
+
   // base values
   authMethod: string
   securityProtocol: string
@@ -77,6 +79,8 @@ export interface KafkaStore {
   // kafka connection actions
   setKafkaConnection: (connection: KafkaConnectionFormType) => void
 
+  setKafkaSkipAuth: (skipAuth: boolean) => void
+
   // status actions
   setIsConnected: (isConnected: boolean) => void
 
@@ -93,7 +97,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     authMethod: '',
     securityProtocol: '',
     bootstrapServers: '',
-
+    skipAuth: false,
     // status
     isConnected: false,
 
@@ -101,6 +105,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     saslPlain: {
       username: '',
       password: '',
+      certificate: '',
       consumerGroup: '',
     },
     saslJaas: {
@@ -165,6 +170,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
 
     // base actions
     setKafkaAuthMethod: (authMethod: string) => set((state) => ({ kafkaStore: { ...state.kafkaStore, authMethod } })),
+    setKafkaSkipAuth: (skipAuth: boolean) => set((state) => ({ kafkaStore: { ...state.kafkaStore, skipAuth } })),
     setKafkaSecurityProtocol: (securityProtocol: string) =>
       set((state) => ({ kafkaStore: { ...state.kafkaStore, securityProtocol } })),
     setKafkaBootstrapServers: (bootstrapServers: string) =>

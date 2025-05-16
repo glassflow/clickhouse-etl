@@ -96,6 +96,12 @@ export class KafkaClient {
     // Configure authentication
     if (config.securityProtocol?.startsWith('SASL')) {
       switch (config.authMethod) {
+        case 'NO_AUTH':
+          kafkaConfig.sasl = {
+            mechanism: 'plain',
+          }
+          break
+
         case 'SASL/PLAIN':
           kafkaConfig.sasl = {
             mechanism: 'plain',

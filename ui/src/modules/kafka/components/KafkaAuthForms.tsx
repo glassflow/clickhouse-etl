@@ -50,6 +50,11 @@ export const KafkaBaseForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
 // SASL/PLAIN specific form
 export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFormType> }) => {
   const { register } = useFormContext()
+  const { watch } = useFormContext()
+  const authMethodSelected = watch('authMethod')
+  const securityProtocolSelected = watch('securityProtocol')
+  const showCertificateField =
+    authMethodSelected === AUTH_OPTIONS['SASL/PLAIN'].name && securityProtocolSelected === 'SASL_SSL'
 
   return (
     <FormGroup className="space-y-4">
@@ -69,6 +74,17 @@ export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
           })}
         </div>
       </div>
+      <div className="space-y-2 w-full">
+        {showCertificateField && (
+          <div className="space-y-2 w-full">
+            {renderFormField({
+              field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.certificate as any,
+              register,
+              errors,
+            })}
+          </div>
+        )}
+      </div>
       {/* <div className="space-y-2 w-[50%] pr-2">
         {renderFormField({
           field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.consumerGroup as any,
@@ -82,6 +98,31 @@ export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
         register,
         errors,
       })} */}
+    </FormGroup>
+  )
+}
+
+// NO_AUTH specific form
+export const NoAuthForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFormType> }) => {
+  const { register } = useFormContext()
+  const { watch } = useFormContext()
+  const authMethodSelected = watch('authMethod')
+  const securityProtocolSelected = watch('securityProtocol')
+  const showCertificateField =
+    authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name && securityProtocolSelected === 'SASL_SSL'
+  return (
+    <FormGroup className="space-y-4">
+      <div className="flex gap-4">
+        {showCertificateField && (
+          <div className="space-y-2 w-full">
+            {renderFormField({
+              field: KafkaFormConfig[AUTH_OPTIONS['NO_AUTH'].name].fields.certificate as any,
+              register,
+              errors,
+            })}
+          </div>
+        )}
+      </div>
     </FormGroup>
   )
 }
@@ -269,7 +310,7 @@ export const KafkaAuthForm = ({
     // or if we're switching between auth methods
     if (authMethodSelected === 'SASL/SCRAM-256' || authMethodSelected === 'SASL/SCRAM-512') {
       setValue('securityProtocol', 'SASL_SSL')
-    } else if (authMethodSelected === 'SASL/PLAIN') {
+    } else if (authMethodSelected === 'SASL/PLAIN' || authMethodSelected === 'NO_AUTH') {
       setValue('securityProtocol', 'SASL_PLAINTEXT')
     } else if (authMethodSelected === 'SASL/JAAS') {
       setValue('securityProtocol', 'SASL_JAAS')
@@ -301,6 +342,8 @@ export const KafkaAuthForm = ({
         return <DelegationTokensForm errors={errors} />
       case 'SASL/LDAP':
         return <LdapForm errors={errors} />
+      case 'NO_AUTH':
+        return <NoAuthForm errors={errors} />
       default:
         return <SaslPlainForm errors={errors} />
     }
