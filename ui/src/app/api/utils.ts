@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server'
 import { KafkaConfig } from '@/src/lib/kafka'
 
+const getKafkaBootstrapServers = (originalServers: string) => {
+  if (process.env.NEXT_PUBLIC_IN_DOCKER === 'true') {
+    // For UI running in Docker - replace localhost/127.0.0.1 with host.docker.internal
+    return originalServers.replace(/localhost|127\.0\.0\.1/g, 'host.docker.internal')
+  } else {
+    // For UI running locally - keep original servers
+    return originalServers
+  }
+}
+
 export function getKafkaConfig(requestBody: any) {
   const { servers, securityProtocol, authMethod, certificate } = requestBody
+
+  const bootstrapServers = getKafkaBootstrapServers(servers)
 
   // Validate required base fields
   if (
@@ -17,7 +29,7 @@ export function getKafkaConfig(requestBody: any) {
   }
 
   const kafkaConfig: KafkaConfig | { success: false; error: string } = {
-    brokers: servers.split(','),
+    brokers: bootstrapServers.split(','),
     securityProtocol,
     authMethod: authMethod === 'NO_AUTH' ? undefined : authMethod, // NOTE: Default to undefined if NO_AUTH
     clientId: 'kafka-local-test',
