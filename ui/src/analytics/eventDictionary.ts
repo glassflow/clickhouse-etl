@@ -11,134 +11,179 @@ export type EventGroup = {
 }
 
 export const dictionary: EventGroup = {
-  // View events - page navigation
-  pageView: {
-    name: 'Page View',
-    key: 'pageView',
-    contexts: {
-      home: 'Home',
-      pipelines: 'Pipelines',
-      pipelineCreate: 'Pipeline Create',
-      pipelineDetail: 'Pipeline Detail',
-      documentation: 'Documentation',
-      feedback: 'Feedback',
-      blog: 'Blog',
-    },
+  // New Journey Events (each as a separate top-level event)
+  // Page Events
+  P0_Homepage: {
+    name: 'P0 Homepage',
+    key: 'P0_Homepage',
+  },
+  P1_SetupKafkaConnection: {
+    name: 'P1 Setup Kafka Connection',
+    key: 'P1_SetupKafkaConnection',
+  },
+  P2_SelectTopic: {
+    name: 'P2 Select Topic',
+    key: 'P2_SelectTopic',
+  },
+  P2_SelectLeftTopic: {
+    name: 'P2 Select Left Topic',
+    key: 'P2_SelectLeftTopic',
+  },
+  P2_1_SelectRightTopic: {
+    name: 'P2.1 Select Right Topic',
+    key: 'P2_1_SelectRightTopic',
+  },
+  P3_DeduplicationKey: {
+    name: 'P3 Deduplication Key',
+    key: 'P3_DeduplicationKey',
+  },
+  P3_JoinKey: {
+    name: 'P3 Join Key',
+    key: 'P3_JoinKey',
+  },
+  P4_SetupClickhouseConnection: {
+    name: 'P4 Setup Clickhouse Connection',
+    key: 'P4_SetupClickhouseConnection',
+  },
+  P5_SelectDestination: {
+    name: 'P5 Select Destination',
+    key: 'P5_SelectDestination',
+  },
+  P6_PipelineActive: {
+    name: 'P6 Pipeline Active',
+    key: 'P6_PipelineActive',
   },
 
-  // User preference events
-  userPreference: {
-    name: 'User Preference',
-    key: 'userPreference',
-    contexts: {
-      analyticsConsent: 'Analytics Consent',
-      themeChanged: 'Theme Changed',
-      satisfactionScore: 'Satisfaction Score',
-    },
+  // Operation Selection Events
+  Deduplication_Clicked: {
+    name: 'Deduplication Clicked',
+    key: 'Deduplication_Clicked',
+  },
+  Join_Clicked: {
+    name: 'Join Clicked',
+    key: 'Join_Clicked',
+  },
+  DedupAndJoin_Clicked: {
+    name: 'Dedup And Join Clicked',
+    key: 'DedupAndJoin_Clicked',
+  },
+  IngestOnly_Clicked: {
+    name: 'Ingest Only Clicked',
+    key: 'IngestOnly_Clicked',
   },
 
-  // Funnel events - tracks each step in the pipeline creation process
-  funnel: {
-    name: 'Funnel Step',
-    key: 'funnel',
-    contexts: {
-      operationSelected: 'Operation Selected', // User selects data operation type
-      kafkaConnectionStarted: 'Kafka Connection Started', // User starts entering Kafka connection details
-      kafkaConnectionSuccess: 'Kafka Connection Success', // Kafka connection is successful
-      kafkaConnectionFailed: 'Kafka Connection Failed', // Kafka connection failed
-      topicSelected: 'Topic Selected', // Topic is selected
-      eventReceived: 'Event Received', // Event from topic is received
-      deduplicateKeyAdded: 'Deduplicate Key Added', // Deduplicate key is configured
-      joinKeyAdded: 'Join Key Added', // Join key is configured
-      clickhouseConnectionStarted: 'Clickhouse Connection Started', // User starts entering Clickhouse connection
-      clickhouseConnectionSuccess: 'Clickhouse Connection Success', // Clickhouse connection successful
-      clickhouseConnectionFailed: 'Clickhouse Connection Failed', // Clickhouse connection failed
-      databaseSelected: 'Database Selected', // Database selected
-      tableSelected: 'Table Selected', // Table selected
-      eventsMapped: 'Events Mapped', // Events are mapped to destination
-      deployClicked: 'Deploy Clicked', // Deploy button is clicked
-      deploySuccess: 'Deploy Success', // Pipeline deployed successfully
-      deployFailed: 'Deploy Failed', // Pipeline deployment failed
-    },
+  // Kafka Connection Events
+  KafkaConnection_Started: {
+    name: 'Kafka Connection Started',
+    key: 'KafkaConnection_Started',
+  },
+  KafkaConnection_Failed: {
+    name: 'Kafka Connection Failed',
+    key: 'KafkaConnection_Failed',
+  },
+  KafkaConnection_Success: {
+    name: 'Kafka Connection Success',
+    key: 'KafkaConnection_Success',
   },
 
-  // Pipeline events
-  pipelineAction: {
-    name: 'Pipeline Action',
-    key: 'pipelineAction',
-    contexts: {
-      create: 'Create',
-      delete: 'Delete',
-      modify: 'Modify',
-      deploy: 'Deploy',
-      pause: 'Pause',
-      resume: 'Resume',
-    },
+  // Topic Selection Events
+  TopicSelected: {
+    name: 'Topic Selected',
+    key: 'TopicSelected',
+  },
+  TopicSelected_EventReceived: {
+    name: 'Topic Selected Event Received',
+    key: 'TopicSelected_EventReceived',
+  },
+  TopicSelected_NoEvent: {
+    name: 'Topic Selected No Event',
+    key: 'TopicSelected_NoEvent',
   },
 
-  // Configuration events
-  configurationAction: {
-    name: 'Configuration Action',
-    key: 'configurationAction',
-    contexts: {
-      save: 'Save',
-      load: 'Load',
-      delete: 'Delete',
-      export: 'Export',
-      import: 'Import',
-    },
+  TopicSelected_EventError: {
+    name: 'Topic Selected Event Error',
+    key: 'TopicSelected_EventError',
   },
 
-  // Feature usage events
-  featureUsage: {
-    name: 'Feature Usage',
-    key: 'featureUsage',
-    contexts: {
-      deduplication: 'Deduplication',
-      joining: 'Joining',
-      ingestOnly: 'Ingest Only',
-      advancedMapping: 'Advanced Mapping',
-      timeWindow: 'Time Window Configuration',
-    },
+  // Key Selection Events
+  DedupKeySelected: {
+    name: 'Dedup Key Selected',
+    key: 'DedupKeySelected',
+  },
+  LeftJoinKeySelected: {
+    name: 'Left Join Key Selected',
+    key: 'LeftJoinKeySelected',
+  },
+  RightJoinKeySelected: {
+    name: 'Right Join Key Selected',
+    key: 'RightJoinKeySelected',
   },
 
-  // User engagement events
-  engagement: {
-    name: 'User Engagement',
-    key: 'engagement',
-    contexts: {
-      sendFeedback: 'Send Feedback',
-      viewDocumentation: 'View Documentation',
-      shareLink: 'Share Link',
-      downloadResource: 'Download Resource',
-      joinWaitlist: 'Join Waitlist',
-      contactSupport: 'Contact Support',
-    },
+  // Clickhouse Connection Events
+  ClickhouseConnection_Started: {
+    name: 'Clickhouse Connection Started',
+    key: 'ClickhouseConnection_Started',
+  },
+  ClickhouseConnection_Failed: {
+    name: 'Clickhouse Connection Failed',
+    key: 'ClickhouseConnection_Failed',
+  },
+  ClickhouseConnection_Success: {
+    name: 'Clickhouse Connection Success',
+    key: 'ClickhouseConnection_Success',
   },
 
-  // Error events
-  errorOccurred: {
-    name: 'Error Occurred',
-    key: 'errorOccurred',
-    contexts: {
-      connection: 'Connection Error',
-      validation: 'Validation Error',
-      deployment: 'Deployment Error',
-      runtime: 'Runtime Error',
-      timeout: 'Timeout Error',
-      authentication: 'Authentication Error',
-    },
+  // Destination Selection Events
+  Destination_DatabaseSelected: {
+    name: 'Destination Database Selected',
+    key: 'Destination_DatabaseSelected',
+  },
+  Destination_TableSelected: {
+    name: 'Destination Table Selected',
+    key: 'Destination_TableSelected',
+  },
+  Destination_ColumnsShowed: {
+    name: 'Destination Columns Showed',
+    key: 'Destination_ColumnsShowed',
   },
 
-  // Performance metrics
-  performance: {
-    name: 'Performance Metrics',
-    key: 'performance',
-    contexts: {
-      pageLoadTime: 'Page Load Time',
-      apiResponseTime: 'API Response Time',
-      operationDuration: 'Operation Duration',
-      renderTime: 'Render Time',
-    },
+  // Deploy Events
+  Deploy_Clicked: {
+    name: 'Deploy Clicked',
+    key: 'Deploy_Clicked',
+  },
+  Deploy_Failed: {
+    name: 'Deploy Failed',
+    key: 'Deploy_Failed',
+  },
+  Deploy_Success: {
+    name: 'Deploy Success',
+    key: 'Deploy_Success',
+  },
+
+  // Pipeline Modification Events
+  PipelineModify_Clicked: {
+    name: 'Pipeline Modify Clicked',
+    key: 'PipelineModify_Clicked',
+  },
+  PipelineModify_Failed: {
+    name: 'Pipeline Modify Failed',
+    key: 'PipelineModify_Failed',
+  },
+  PipelineModify_Success: {
+    name: 'Pipeline Modify Success',
+    key: 'PipelineModify_Success',
+  },
+  PipelineDelete_Clicked: {
+    name: 'Pipeline Delete Clicked',
+    key: 'PipelineDelete_Clicked',
+  },
+  PipelineDelete_Failed: {
+    name: 'Pipeline Delete Failed',
+    key: 'PipelineDelete_Failed',
+  },
+  PipelineDelete_Success: {
+    name: 'Pipeline Delete Success',
+    key: 'PipelineDelete_Success',
   },
 }

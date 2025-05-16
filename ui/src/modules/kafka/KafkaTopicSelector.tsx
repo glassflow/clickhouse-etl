@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { useFetchTopics } from '../../hooks/kafka-mng-hooks'
@@ -15,7 +14,7 @@ import classnames from 'classnames'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
-
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 export type TopicSelectorProps = {
   steps: any
   onNext: (stepName: string) => void
@@ -24,8 +23,8 @@ export type TopicSelectorProps = {
 }
 
 export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSelectorProps) {
-  const { operationsSelected, topicsStore, kafkaStore, joinStore } = useStore()
-  const { trackFunnelStep, trackError } = useAnalytics()
+  const { topicsStore, kafkaStore, joinStore } = useStore()
+  const analytics = useJourneyAnalytics()
   const {
     availableTopics,
     setAvailableTopics,
@@ -117,15 +116,14 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       } catch (e) {
         // Track error in manual event (using debounce)
         setTimeout(() => {
-          trackError('validation', {
-            component: 'ManualEventInput',
+          analytics.topic.eventError({
             topicName: topicName,
             error: e instanceof Error ? e.message : 'Invalid JSON',
           })
         }, 500)
       }
     },
-    [topicName, index, trackError, initialOffset, updateTopic, topicFromStore?.deduplication],
+    [topicName, index, analytics.topic, initialOffset, updateTopic, topicFromStore?.deduplication],
   )
 
   // ================================ EFFECTS ================================
@@ -280,7 +278,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     }
 
     // Track the deduplication key step completion
-    trackFunnelStep('eventReceived', {
+    analytics.topic.eventReceived({
       topicName,
       topicIndex: index,
       eventSize: JSON.stringify(storedEvent).length,
@@ -361,7 +359,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
         // Track successful event retrieval
         if (event) {
-          trackFunnelStep('eventReceived', {
+          analytics.topic.eventReceived({
             topicName: topicName,
             topicIndex: index,
             eventSize: JSON.stringify(event).length,
@@ -369,7 +367,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
           })
         }
       },
-      [index, topicName, initialOffset, trackFunnelStep, joinStore, updateTopic, topicFromStore?.deduplication],
+      [index, topicName, initialOffset, analytics.topic, joinStore, updateTopic, topicFromStore?.deduplication],
     ),
 
     onEventError: useCallback(
@@ -383,13 +381,12 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
         }))
 
         // Track error in event fetching
-        trackError('connection', {
-          component: 'EventFetcher',
+        analytics.topic.eventError({
           topicName: topicName,
           error: error instanceof Error ? error.message : 'Failed to fetch event',
         })
       },
-      [topicName, trackError],
+      [topicName, analytics.topic],
     ),
   }
 

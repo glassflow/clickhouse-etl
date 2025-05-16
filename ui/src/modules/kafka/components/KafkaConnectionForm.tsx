@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { Button } from '@/src/components/ui/button'
 import { useForm, FormProvider } from 'react-hook-form'
 import { AUTH_OPTIONS, StepKeys } from '@/src/config/constants'
@@ -11,7 +10,7 @@ import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-confi
 import { KafkaAuthForm } from './KafkaAuthForms'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
 import classnames from 'classnames'
-
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<boolean>
   isConnecting: boolean
@@ -29,7 +28,7 @@ export const KafkaConnectionForm = ({
   onNext,
 }: KafkaConnectionProps) => {
   const { kafkaStore } = useStore()
-  const { trackFunnelStep, trackError } = useAnalytics()
+  const analytics = useJourneyAnalytics()
   const {
     setKafkaAuthMethod,
     setKafkaSecurityProtocol,
@@ -110,7 +109,7 @@ export const KafkaConnectionForm = ({
 
     // Track the first interaction with the Kafka connection form
     if (!hasTrackedInitialInteraction) {
-      trackFunnelStep('kafkaConnectionStarted', {
+      analytics.kafka.started({
         authMethod: currentAuthMethod,
         securityProtocol: currentSecurityProtocol,
       })
@@ -129,7 +128,7 @@ export const KafkaConnectionForm = ({
         setTestStatus('success')
 
         // Track successful Kafka connection
-        trackFunnelStep('kafkaConnectionSuccess', {
+        analytics.kafka.success({
           authMethod: currentAuthMethod,
           securityProtocol: currentSecurityProtocol,
           connectionTime: isConnecting ? Date.now() : undefined,
@@ -140,21 +139,14 @@ export const KafkaConnectionForm = ({
         setTestStatus('error')
 
         // Track failed Kafka connection
-        trackFunnelStep('kafkaConnectionFailed', {
+        analytics.kafka.failed({
           authMethod: currentAuthMethod,
           securityProtocol: currentSecurityProtocol,
           error: connectionResult.message,
         })
-
-        // Also track as error
-        trackError('connection', {
-          component: 'KafkaConnectionForm',
-          error: connectionResult.message,
-          authMethod: currentAuthMethod,
-        })
       }
     }
-  }, [connectionResult, currentAuthMethod, currentSecurityProtocol, isConnecting, trackFunnelStep, trackError])
+  }, [connectionResult, currentAuthMethod, currentSecurityProtocol, isConnecting, analytics.kafka])
 
   // Initialize form with values from store if returning to the form
   useEffect(() => {
@@ -282,7 +274,7 @@ export const KafkaConnectionForm = ({
 
     if (onTestConnection) {
       // Track attempt to test connection
-      trackFunnelStep('kafkaConnectionStarted', {
+      analytics.kafka.started({
         authMethod: values.authMethod,
         securityProtocol: values.securityProtocol,
         isTest: true,

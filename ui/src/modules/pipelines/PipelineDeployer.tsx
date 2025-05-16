@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { Clock, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/src/utils'
 import { Button } from '@/src/components/ui/button'
@@ -31,6 +30,7 @@ import FrownIconSelected from '../../images/selected/frown.svg'
 import SmileIconSelected from '../../images/selected/smile.svg'
 import MehIconSelected from '../../images/selected/meh.svg'
 import LaughIconSelected from '../../images/selected/laugh.svg'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 // NOTE: Set to true to enable saving pipelines
 const SAVE_PIPELINE_ENABLED = true
@@ -42,8 +42,8 @@ const FEEDBACK_SUBMITTED_KEY = 'glassflow-feedback-submitted'
 const FEEDBACK_DELAY_MS = 1000 // 1 second delay
 
 export function PipelineDeployer() {
+  const analytics = useJourneyAnalytics()
   const { apiConfig, resetPipelineState, pipelineId } = useStore()
-  const { trackPipelineAction, trackEngagement } = useAnalytics()
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
   const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)
@@ -141,7 +141,7 @@ export function PipelineDeployer() {
         setError(null)
 
         // Track successful pipeline deployment
-        trackPipelineAction('deploy', {
+        analytics.deploy.success({
           pipelineId: response.pipeline_id,
           status: 'success',
         })
@@ -150,7 +150,7 @@ export function PipelineDeployer() {
         setError(err.message)
 
         // Track failed pipeline deployment
-        trackPipelineAction('deploy', {
+        analytics.deploy.failed({
           status: 'failed',
           error: err.message,
         })
@@ -159,7 +159,7 @@ export function PipelineDeployer() {
 
     // Always check pipeline status first
     checkPipelineStatus()
-  }, [apiConfig, pipelineId, trackPipelineAction, router])
+  }, [apiConfig, pipelineId, analytics.deploy, router])
 
   const handleDeleteClick = () => {
     setIsDeleteModalVisible(true)
@@ -186,7 +186,7 @@ export function PipelineDeployer() {
         resetPipelineState('', true)
 
         // Track successful pipeline deletion
-        trackPipelineAction('delete', {
+        analytics.pipeline.deleteClicked({
           pipelineId,
           configSaved: !!configName,
           status: 'success',
@@ -197,7 +197,7 @@ export function PipelineDeployer() {
         setError(error.message)
 
         // Track failed pipeline deletion
-        trackPipelineAction('delete', {
+        analytics.pipeline.deleteFailed({
           pipelineId,
           status: 'failed',
           error: error.message,
@@ -234,7 +234,7 @@ export function PipelineDeployer() {
         resetPipelineState('', true)
 
         // Track successful pipeline modification
-        trackPipelineAction('modify', {
+        analytics.pipeline.modifyClicked({
           pipelineId,
           configSaved: !!configName,
           status: 'success',
@@ -247,7 +247,7 @@ export function PipelineDeployer() {
         setError(error.message)
 
         // Track failed pipeline modification
-        trackPipelineAction('modify', {
+        analytics.pipeline.modifyFailed({
           pipelineId,
           status: 'failed',
           error: error.message,
@@ -300,21 +300,9 @@ export function PipelineDeployer() {
 
   const handleFeedbackSelect = (feedback: FeedbackType) => {
     setSelectedFeedback(feedback)
-    // Track feedback selection
-    trackEngagement('feedback_selected', {
-      feedback_type: feedback,
-      pipeline_id: pipelineId,
-    })
   }
 
   const handleFeedbackSubmit = () => {
-    // Track feedback submission
-    trackEngagement('feedback_submitted', {
-      feedback_type: selectedFeedback,
-      feedback_text: feedbackText,
-      pipeline_id: pipelineId,
-    })
-
     // Store feedback submission in localStorage
     localStorage.setItem(FEEDBACK_SUBMITTED_KEY, 'true')
     setHasSubmittedFeedback(true)

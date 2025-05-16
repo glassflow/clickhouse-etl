@@ -10,13 +10,13 @@ import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
 import { InputModal, ModalResult } from '@/src/components/shared/InputModal'
 import { saveConfiguration } from '@/src/utils/storage'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { generateApiConfig } from './helpers'
 import { ReviewConfigurationProps } from './types'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
 import { EditorWrapper } from './EditorWrapper'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 // NOTE: temp hack - disable saving pipelines but leave the logic in place
 const SAVE_PIPELINE_ENABLED = false
@@ -27,7 +27,7 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const { bootstrapServers, securityProtocol } = kafkaStore
   const router = useRouter()
   const selectedTopics = Object.values(topicsStore.topics || {})
-  const { trackFunnelStep, trackPageView } = useAnalytics()
+  const analytics = useJourneyAnalytics()
 
   // Add state for the modal
   const [isDeployModalVisible, setIsDeployModalVisible] = useState(false)
@@ -35,15 +35,6 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const [jsonContent, setJsonContent] = useState('')
   const [yamlContent, setYamlContent] = useState('')
   const [apiConfigContent, setApiConfigContent] = useState('')
-
-  // Track page view when component loads
-  useEffect(() => {
-    trackPageView('pipelines', {
-      referer: document.referrer,
-      timestamp: new Date().toISOString(),
-      step: 'review',
-    })
-  }, [trackPageView])
 
   const getMappingType = (eventField: string, mapping: any) => {
     const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
@@ -75,7 +66,7 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
 
   const handleFinishDeploymentStep = () => {
     // Track the deploy button click event
-    trackFunnelStep('deployClicked', {
+    analytics.deploy.clicked({
       pipelineId,
       kafkaTopicsCount: selectedTopics.length,
       clickhouseTable: clickhouseDestination?.table,
