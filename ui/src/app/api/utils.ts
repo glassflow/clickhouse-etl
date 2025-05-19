@@ -24,7 +24,12 @@ export function getKafkaConfig(requestBody: any) {
     return { success: false, error: 'Missing required Kafka connection parameters' }
   }
 
-  if (securityProtocol !== 'SASL_SSL' && securityProtocol !== 'SASL_PLAINTEXT') {
+  if (
+    securityProtocol !== 'SASL_SSL' &&
+    securityProtocol !== 'SASL_PLAINTEXT' &&
+    securityProtocol !== 'SSL' &&
+    securityProtocol !== 'PLAINTEXT'
+  ) {
     return { success: false, error: 'Unsupported security protocol' }
   }
 

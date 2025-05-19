@@ -22,7 +22,8 @@ export const useKafkaConnection = () => {
       // Add authentication details based on the auth method
       switch (values.authMethod) {
         case 'NO_AUTH':
-          requestBody.certificate = values.certificate
+          // @ts-expect-error - FIXME: introduce new type for no auth
+          requestBody.certificate = values.noAuth.certificate
           break
 
         case 'SASL/PLAIN':
@@ -166,20 +167,17 @@ export const useFetchTopics = ({ kafka }: { kafka: any }) => {
         authMethod: kafka.authMethod,
       }
 
-      // Add certificate if using SSL
-      if (kafka.securityProtocol === 'SASL_SSL') {
-        if (kafka.authMethod === 'SASL/SCRAM-256' || kafka.authMethod === 'SASL/SCRAM-512') {
-          const scramValues = kafka.authMethod === 'SASL/SCRAM-256' ? kafka.saslScram256 : kafka.saslScram512
-          requestBody.certificate = scramValues.certificate
-        }
-      }
-
       // Add authentication details based on the auth method
       switch (kafka.authMethod) {
+        case 'NO_AUTH':
+          requestBody.certificate = kafka.noAuth.certificate
+          break
+
         case 'SASL/PLAIN':
           requestBody.username = kafka.saslPlain.username
           requestBody.password = kafka.saslPlain.password
           requestBody.consumerGroup = kafka.saslPlain.consumerGroup
+          requestBody.certificate = kafka.saslPlain.certificate
           break
 
         case 'SASL/JAAS':
@@ -203,6 +201,7 @@ export const useFetchTopics = ({ kafka }: { kafka: any }) => {
           requestBody.username = scramValues.username
           requestBody.password = scramValues.password
           requestBody.consumerGroup = scramValues.consumerGroup
+          requestBody.certificate = scramValues.certificate
           break
 
         case 'AWS_MSK_IAM':
@@ -332,10 +331,17 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
       }
 
       // Add certificate if using SSL
-      if (kafka.securityProtocol === 'SASL_SSL') {
-        if (kafka.authMethod === 'SASL/SCRAM-256' || kafka.authMethod === 'SASL/SCRAM-512') {
-          const scramValues = kafka.authMethod === 'SASL/SCRAM-256' ? kafka.saslScram256 : kafka.saslScram512
-          requestBody.certificate = scramValues.certificate
+      if (kafka.securityProtocol === 'SASL_SSL' || kafka.securityProtocol === 'SSL') {
+        if (kafka.authMethod === 'SASL/SCRAM-256') {
+          requestBody.certificate = kafka.saslScram256.certificate
+        } else if (kafka.authMethod === 'SASL/SCRAM-512') {
+          requestBody.certificate = kafka.saslScram512.certificate
+        } else if (kafka.authMethod === 'SASL/PLAIN') {
+          requestBody.certificate = kafka.saslPlain.certificate
+        } else if (kafka.authMethod === 'NO_AUTH') {
+          requestBody.certificate = kafka.noAuth.certificate
+        } else {
+          // TODO: handle this case more gracefully
         }
       }
 
