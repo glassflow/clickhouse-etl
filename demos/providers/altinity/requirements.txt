@@ -1,0 +1,5 @@
+rich
+kafka-python
+clickhouse-connect
+glassgen>=0.1.13
+glassflow-clickhouse-etl
