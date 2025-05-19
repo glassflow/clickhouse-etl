@@ -34,6 +34,7 @@ export const KafkaConnectionForm = ({
     setKafkaAuthMethod,
     setKafkaSecurityProtocol,
     setKafkaBootstrapServers,
+    setKafkaNoAuth,
     setKafkaSaslPlain,
     setKafkaSaslJaas,
     setKafkaSaslGssapi,
@@ -54,6 +55,7 @@ export const KafkaConnectionForm = ({
     saslScram256,
     saslScram512,
     delegationTokens,
+    noAuth,
   } = kafkaStore
 
   // Track if this is the initial render or a return visit
@@ -75,6 +77,7 @@ export const KafkaConnectionForm = ({
     securityProtocol: securityProtocol || KafkaFormDefaultValues.securityProtocol,
     bootstrapServers: bootstrapServers || KafkaFormDefaultValues.bootstrapServers,
     saslPlain: saslPlain || KafkaFormDefaultValues.saslPlain,
+    noAuth: noAuth || KafkaFormDefaultValues.noAuth,
     // saslJaas: saslJaas || KafkaFormDefaultValues.saslJaas,
     // saslGssapi: saslGssapi || KafkaFormDefaultValues.saslGssapi,
     // saslOauthbearer: saslOauthbearer || KafkaFormDefaultValues.saslOauthbearer,
@@ -191,8 +194,15 @@ export const KafkaConnectionForm = ({
 
     if (authMethod === AUTH_OPTIONS['NO_AUTH'].name) {
       setKafkaSkipAuth(true)
+      setKafkaNoAuth({
+        // @ts-expect-error - FIXME: fix this later
+        ...values.noAuth,
+      })
     } else {
       setKafkaSkipAuth(false)
+      setKafkaNoAuth({
+        certificate: '',
+      })
     }
 
     // Set the appropriate auth form based on auth method

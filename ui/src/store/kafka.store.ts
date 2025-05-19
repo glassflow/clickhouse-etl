@@ -12,6 +12,7 @@ import {
   MtlsFormType,
   TruststoreFormType,
   KafkaConnectionFormType,
+  NoAuthFormType,
 } from '@/src/scheme/kafka.scheme'
 
 export interface KafkaStore {
@@ -48,6 +49,9 @@ export interface KafkaStore {
   // ssl - truststore connection type
   truststore: TruststoreFormType
 
+  // no auth connection type
+  noAuth: NoAuthFormType
+
   // base actions
   setKafkaAuthMethod: (authMethod: string) => void
   setKafkaSecurityProtocol: (securityProtocol: string) => void
@@ -60,6 +64,7 @@ export interface KafkaStore {
   setKafkaSaslOauthbearer: (saslOauthbearer: SaslOauthbearerFormType) => void
   setKafkaSaslScram256: (saslScram256: SaslScram256FormType) => void
   setKafkaSaslScram512: (saslScram512: SaslScram512FormType) => void
+  setKafkaNoAuth: (noAuth: NoAuthFormType) => void
 
   // aws iam actions
   setKafkaAwsIam: (awsIam: AwsIamFormType) => void
@@ -100,6 +105,11 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     skipAuth: false,
     // status
     isConnected: false,
+
+    // no auth connection type
+    noAuth: {
+      certificate: '',
+    },
 
     // sasl connection types
     saslPlain: {
@@ -177,6 +187,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
       set((state) => ({ kafkaStore: { ...state.kafkaStore, bootstrapServers } })),
 
     // sasl actions
+    setKafkaNoAuth: (noAuth: NoAuthFormType) => set((state) => ({ kafkaStore: { ...state.kafkaStore, noAuth } })),
     setKafkaSaslPlain: (saslPlain: SaslPlainFormType) =>
       set((state) => ({ kafkaStore: { ...state.kafkaStore, saslPlain } })),
     setKafkaSaslJaas: (saslJaas: SaslJaasFormType) =>

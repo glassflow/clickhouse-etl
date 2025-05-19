@@ -212,4 +212,5 @@ export type {
   MtlsForm as MtlsFormType,
   TruststoreForm as TruststoreFormType,
   KafkaConnectionForm as KafkaConnectionFormType,
+  NoAuthForm as NoAuthFormType,
 }

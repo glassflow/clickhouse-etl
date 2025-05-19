@@ -407,9 +407,13 @@ export const KafkaFormDefaultValues = {
       ? 'host.docker.internal:9092,host.docker.internal:9093,host.docker.internal:9094'
       : 'localhost:9092,localhost:9093,localhost:9094',
   isConnected: false,
+  noAuth: {
+    certificate: '',
+  },
   saslPlain: {
     username: 'admin',
     password: 'admin-secret',
+    certificate: '', // TODO: check if this is correct, added for SSL/SASL_SSL but not sure if it's correct for SASL_PLAINTEXT
     // consumerGroup: 'admin-group',
   },
   saslJaas: {

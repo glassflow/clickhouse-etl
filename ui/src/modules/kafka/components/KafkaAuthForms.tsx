@@ -54,7 +54,10 @@ export const SaslPlainForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
   const authMethodSelected = watch('authMethod')
   const securityProtocolSelected = watch('securityProtocol')
   const showCertificateField =
-    authMethodSelected === AUTH_OPTIONS['SASL/PLAIN'].name && securityProtocolSelected === 'SASL_SSL'
+    (authMethodSelected === AUTH_OPTIONS['SASL/PLAIN'].name &&
+      (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL')) ||
+    (authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name &&
+      (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL'))
 
   return (
     <FormGroup className="space-y-4">
@@ -109,7 +112,8 @@ export const NoAuthForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFor
   const authMethodSelected = watch('authMethod')
   const securityProtocolSelected = watch('securityProtocol')
   const showCertificateField =
-    authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name && securityProtocolSelected === 'SASL_SSL'
+    authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name &&
+    (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL')
   return (
     <FormGroup className="space-y-4">
       <div className="flex gap-4">
@@ -310,8 +314,10 @@ export const KafkaAuthForm = ({
     // or if we're switching between auth methods
     if (authMethodSelected === 'SASL/SCRAM-256' || authMethodSelected === 'SASL/SCRAM-512') {
       setValue('securityProtocol', 'SASL_SSL')
-    } else if (authMethodSelected === 'SASL/PLAIN' || authMethodSelected === 'NO_AUTH') {
+    } else if (authMethodSelected === 'SASL/PLAIN') {
       setValue('securityProtocol', 'SASL_PLAINTEXT')
+    } else if (authMethodSelected === 'NO_AUTH') {
+      setValue('securityProtocol', 'PLAINTEXT')
     } else if (authMethodSelected === 'SASL/JAAS') {
       setValue('securityProtocol', 'SASL_JAAS')
     } else if (authMethodSelected === 'SASL/GSSAPI') {
