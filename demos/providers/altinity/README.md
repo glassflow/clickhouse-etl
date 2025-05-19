@@ -17,7 +17,7 @@ This directory contains instructions for running the GlassFlow demos using Altin
 
 ## Configure GlassFlow
 
-Before running any demo, you need to configure GlassFlow with your Altinity ClickHouse credentials. The configuration files are located in the `../../config/glassflow/` directory:
+Before running any demo, you need to configure GlassFlow with your Altinity ClickHouse credentials. The configuration files are located in the [`config/glassflow/`](../../config/glassflow/) directory:
 
 - [`deduplication_pipeline.json`](../../config/glassflow/deduplication_pipeline.json#L56) for the deduplication demo
 - [`join_pipeline.json`](../../config/glassflow/join_pipeline.json#L102) for the join demo
