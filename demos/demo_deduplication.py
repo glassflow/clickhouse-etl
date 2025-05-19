@@ -48,17 +48,22 @@ def generate_events_with_duplicates(
     schema = json.load(open(generator_schema))
     glassgen_config["schema"] = schema
 
+    kafka_params = {"topic": source_config.topics[0].name}
     if source_config.connection_params.brokers[0] == "kafka:9092":
-        brokers = ["localhost:9092"]
+        kafka_params["bootstrap.servers"] = "localhost:9092"
     else:
-        brokers = source_config.connection_params.brokers
+        kafka_params["bootstrap.servers"] = ",".join(
+            source_config.connection_params.brokers
+        )
+    if not source_config.connection_params.skip_auth:
+        kafka_params["security.protocol"] = source_config.connection_params.protocol
+        kafka_params["sasl.mechanism"] = source_config.connection_params.mechanism
+        kafka_params["sasl.username"] = source_config.connection_params.username
+        kafka_params["sasl.password"] = source_config.connection_params.password
 
     glassgen_config["sink"] = {
         "type": "kafka",
-        "params": {
-            "bootstrap.servers": ",".join(brokers),
-            "topic": source_config.topics[0].name,
-        },
+        "params": kafka_params,
     }
     return glassgen.generate(config=glassgen_config)
 

@@ -7,7 +7,8 @@
         "brokers": [
           "kafka:9092"
         ],
-        "protocol": "PLAINTEXT"
+        "protocol": "PLAINTEXT",
+        "skip_auth": true
       },
       "topics": [
         {
