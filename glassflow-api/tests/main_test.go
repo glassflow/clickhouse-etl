@@ -8,6 +8,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
 type TestConfig struct {
@@ -30,11 +31,10 @@ func runSingleSuite(
 
 	// Allow overriding tags with environment variables
 	envTags := os.Getenv("TEST_TAGS")
-	if envTags != "" {
-		if config.Tags != "" && config.Tags != envTags {
-			t.Logf("Skip test suite %s, tags conflict: %s != %s", name, config.Tags, envTags)
-			return
-		}
+	if !testutils.CheckTags(envTags, config.Tags) {
+		t.Logf("Skip test suite %s, tags conflict: %s != %s", name, config.Tags, envTags)
+		return
+	} else {
 		config.Tags = envTags
 	}
 

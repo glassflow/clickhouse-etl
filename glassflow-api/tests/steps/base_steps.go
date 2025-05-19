@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,7 +29,6 @@ type BaseTestSuite struct {
 	errCh chan error
 }
 
-// SetupNATS initializes a NATS container and client
 func (b *BaseTestSuite) setupNATS() error {
 	if b.natsContainer == nil {
 		natsContainer, err := testutils.StartNATSContainer(context.Background())
@@ -48,7 +49,6 @@ func (b *BaseTestSuite) setupNATS() error {
 	return nil
 }
 
-// CleanupNATS stops the NATS container and closes the client
 func (b *BaseTestSuite) cleanupNATS() error {
 	var errs []error
 	if b.natsClient != nil {
@@ -133,7 +133,6 @@ func (b *BaseTestSuite) getMappingConfig(cfg *godog.DocString, target any) error
 	return nil
 }
 
-// CreateStream creates a NATS stream with the given name and subject
 func (b *BaseTestSuite) createStream(streamName, subjectName string) error {
 	js := b.natsClient.JetStream()
 
@@ -151,7 +150,6 @@ func (b *BaseTestSuite) createStream(streamName, subjectName string) error {
 	return nil
 }
 
-// DeleteStream deletes a NATS stream
 func (b *BaseTestSuite) deleteStream(streamName string) error {
 	err := b.natsClient.JetStream().DeleteStream(context.Background(), streamName)
 	if err != nil {
@@ -161,7 +159,19 @@ func (b *BaseTestSuite) deleteStream(streamName string) error {
 	return nil
 }
 
-// StopOperator stops an operator with the given function
+func (b *BaseTestSuite) deleteAllStreams() error {
+	streams := b.natsClient.JetStream().ListStreams(context.Background())
+
+	for stream := range streams.Info() {
+		err := b.deleteStream(stream.Config.Name)
+		if err != nil {
+			return fmt.Errorf("delete stream: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (b *BaseTestSuite) stopOperator(stopFn func(...operator.StopOption), graceful bool, delayDuration ...time.Duration) {
 	b.wg.Add(1)
 	go func() {
@@ -181,7 +191,6 @@ func (b *BaseTestSuite) stopOperator(stopFn func(...operator.StopOption), gracef
 	b.wg.Wait()
 }
 
-// CheckOperatorErrors checks for errors from the operator
 func (b *BaseTestSuite) checkOperatorErrors() error {
 	select {
 	case err, ok := <-b.errCh:
@@ -194,6 +203,92 @@ func (b *BaseTestSuite) checkOperatorErrors() error {
 	}
 
 	b.errCh = nil
+
+	return nil
+}
+
+func (b *BaseTestSuite) clickhouseShouldContainNumberOfRows(table string, expectedCount int) error {
+	if b.chContainer == nil {
+		return fmt.Errorf("clickhouse container not initialized")
+	}
+
+	conn, err := b.chContainer.GetConnection()
+	if err != nil {
+		return fmt.Errorf("get clickhouse connection: %w", err)
+	}
+
+	defer conn.Close()
+
+	query := "SELECT count() FROM " + table
+	row := conn.QueryRow(context.Background(), query)
+
+	var actualCount uint64
+	err = row.Scan(&actualCount)
+	if err != nil {
+		return fmt.Errorf("scan row count: %w", err)
+	}
+
+	if expectedCount < 0 {
+		return fmt.Errorf("count cannot be negative: %d", expectedCount)
+	}
+	if actualCount != uint64(expectedCount) {
+		return fmt.Errorf("unexpected row count: expected %d, got %d", expectedCount, actualCount)
+	}
+
+	return nil
+}
+
+func (b *BaseTestSuite) clickhouseShouldContainData(table string, expectedData *godog.Table) error {
+	if b.chContainer == nil {
+		return fmt.Errorf("clickhouse container not initialized")
+	}
+
+	conn, err := b.chContainer.GetConnection()
+	if err != nil {
+		return fmt.Errorf("get clickhouse connection: %w", err)
+	}
+
+	defer conn.Close()
+
+	var rowCountPosition int
+
+	columns := make([]string, 0, len(expectedData.Rows[0].Cells))
+	for ind, cell := range expectedData.Rows[0].Cells {
+		if cell.Value != "COUNT" {
+			columns = append(columns, cell.Value)
+		} else {
+			rowCountPosition = ind
+		}
+	}
+
+	for _, row := range expectedData.Rows[1:] {
+		var expectedCount, actualCount uint64
+		conds := make([]string, 0, len(row.Cells))
+		for i, cell := range row.Cells {
+			if i == rowCountPosition {
+				expectedCount, err = strconv.ParseUint(cell.Value, 10, 64)
+				if err != nil {
+					return fmt.Errorf("parse expected count: %w", err)
+				}
+				continue
+			}
+			escapedValue := strings.ReplaceAll(cell.Value, "'", "''")
+			conds = append(conds, fmt.Sprintf("%s='%s'", columns[i], escapedValue))
+		}
+
+		whereClause := strings.Join(conds, " AND ")
+		query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s", table, whereClause)
+		row := conn.QueryRow(context.Background(), query)
+		err = row.Scan(&actualCount)
+
+		if err != nil {
+			return fmt.Errorf("query clickhouse: %w", err)
+		}
+
+		if actualCount != expectedCount {
+			return fmt.Errorf("expected %d row, got %d for such WHERE clause %s", expectedCount, actualCount, whereClause)
+		}
+	}
 
 	return nil
 }

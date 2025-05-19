@@ -3,22 +3,28 @@ package steps
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
 type PipelineSteps struct {
 	BaseTestSuite
 	kWriter    *testutils.KafkaWriter
-	topicName  string
+	kTopics    []string
 	streamName string
-	tableName  string
+	chDB       string
+	chTable    string
 
-	chClient *client.ClickHouseClient
+	pipelineManager *service.PipelineManager
 }
 
 func NewPipelineSteps() *PipelineSteps {
@@ -26,6 +32,7 @@ func NewPipelineSteps() *PipelineSteps {
 		BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // only necessary fields
 			kafkaContainer: nil,
 		},
+		kTopics: make([]string, 0),
 	}
 }
 
@@ -55,13 +62,13 @@ func (p *PipelineSteps) theKafkaTopic(topic string, partitions int) error {
 	if err != nil {
 		return fmt.Errorf("create kafka topic: %w", err)
 	}
-	p.topicName = topic
+	p.kTopics = append(p.kTopics, topic)
 
 	return nil
 }
 
-func (p *PipelineSteps) cleanTopic() error {
-	if p.topicName == "" {
+func (p *PipelineSteps) cleanTopic(topicName string) error {
+	if topicName == "" {
 		return nil
 	}
 
@@ -74,7 +81,7 @@ func (p *PipelineSteps) cleanTopic() error {
 		return fmt.Errorf("create kafka writer: %w", err)
 	}
 
-	err = p.kWriter.DeleteTopic(context.Background(), p.topicName)
+	err = p.kWriter.DeleteTopic(context.Background(), topicName)
 	if err != nil {
 		return fmt.Errorf("cleanup topics: %w", err)
 	}
@@ -97,7 +104,7 @@ func (p *PipelineSteps) cleanNatsStream() error {
 		return nil
 	}
 
-	err := p.deleteStream(p.streamName)
+	err := p.deleteAllStreams()
 	if err != nil {
 		return fmt.Errorf("delete nats stream: %w", err)
 	}
@@ -105,29 +112,8 @@ func (p *PipelineSteps) cleanNatsStream() error {
 	return nil
 }
 
-func (p *PipelineSteps) aClickHouseClientWithConfig(dbName, tableName string) error {
-	chPort, err := p.chContainer.GetPort()
-	if err != nil {
-		return fmt.Errorf("get clickhouse port: %w", err)
-	}
-	p.chClient, err = client.NewClickHouseClient(context.Background(), client.ClickHouseClientConfig{ //nolint:exhaustruct // optional config
-		Port:      chPort,
-		Username:  "default",
-		Password:  base64.StdEncoding.EncodeToString([]byte("default")),
-		Database:  dbName,
-		TableName: tableName,
-	})
-	if err != nil {
-		return fmt.Errorf("create clickhouse client: %w", err)
-	}
-
-	p.tableName = dbName + "." + tableName
-
-	return nil
-}
-
 func (p *PipelineSteps) cleanClickHouseTable() error {
-	if p.tableName == "" {
+	if p.chTable == "" {
 		return nil
 	}
 	conn, err := p.chContainer.GetConnection()
@@ -136,7 +122,7 @@ func (p *PipelineSteps) cleanClickHouseTable() error {
 	}
 	defer conn.Close()
 
-	tableName := "default.events_test"
+	tableName := p.chDB + "." + p.chTable
 
 	query := "DROP TABLE IF EXISTS " + tableName
 	err = conn.Exec(context.Background(), query)
@@ -180,12 +166,16 @@ func (p *PipelineSteps) SetupResources() error {
 func (p *PipelineSteps) fastCleanup() error {
 	var errs []error
 
-	err := p.cleanTopic()
-	if err != nil {
-		errs = append(errs, err)
+	for len(p.kTopics) > 0 {
+		topicName := p.kTopics[0]
+		err := p.cleanTopic(topicName)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		p.kTopics = p.kTopics[1:]
 	}
 
-	err = p.cleanNatsStream()
+	err := p.cleanNatsStream()
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -193,6 +183,14 @@ func (p *PipelineSteps) fastCleanup() error {
 	err = p.cleanClickHouseTable()
 	if err != nil {
 		errs = append(errs, err)
+	}
+
+	if p.pipelineManager != nil {
+		err = p.pipelineManager.ShutdownPipeline()
+		if err != nil {
+			errs = append(errs, err)
+		}
+		p.pipelineManager = nil
 	}
 
 	err = testutils.CombineErrors(errs)
@@ -234,6 +232,39 @@ func (p *PipelineSteps) CleanupResources() error {
 	return nil
 }
 
+func (p *PipelineSteps) theClickHouseTableAlreadyExistsWithSchema(tableName string, db string, schema *godog.Table) error {
+	conn, err := p.chContainer.GetConnection()
+	if err != nil {
+		return fmt.Errorf("get clickhouse connection: %w", err)
+	}
+
+	defer conn.Close()
+
+	columns := make([]string, 0, len(schema.Rows)-1)
+	for i, row := range schema.Rows {
+		if i == 0 {
+			continue
+		}
+
+		if len(row.Cells) < 2 {
+			return fmt.Errorf("invalid schema row: %v", row)
+		}
+
+		columns = append(columns, fmt.Sprintf("%s %s", row.Cells[0].Value, row.Cells[1].Value))
+	}
+
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s (%s) ENGINE = Memory", db, tableName, strings.Join(columns, ", "))
+	err = conn.Exec(context.Background(), query)
+	if err != nil {
+		return fmt.Errorf("create table: %w", err)
+	}
+
+	p.chDB = db
+	p.chTable = tableName
+
+	return nil
+}
+
 func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) error {
 	if len(table.Rows) < 2 {
 		return fmt.Errorf("invalid table format, expected at least 2 rows")
@@ -270,11 +301,129 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 	return nil
 }
 
+func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineRequest, error) {
+	var pr models.PipelineRequest
+	err := json.Unmarshal([]byte(cfg), &pr)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
+	}
+
+	pr.Source.ConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
+
+	pr.Sink.Host = "localhost"
+	pr.Sink.Port, err = p.chContainer.GetPort()
+	if err != nil {
+		return nil, fmt.Errorf("get clickhouse port: %w", err)
+	}
+	pr.Sink.Username = "default"
+	pr.Sink.Password = base64.StdEncoding.EncodeToString([]byte("default"))
+	pr.Sink.Database = p.chDB
+	pr.Sink.Table = p.chTable
+
+	return &pr, nil
+}
+
+func (p *PipelineSteps) setupPipelineManager() error {
+	if p.pipelineManager != nil {
+		return fmt.Errorf("pipeline manager already initialized")
+	}
+
+	natsClient, err := client.NewNATSWrapper(p.natsContainer.GetURI(), time.Hour)
+	if err != nil {
+		return fmt.Errorf("create nats client: %w", err)
+	}
+
+	p.pipelineManager = service.NewPipelineManager(
+		p.natsContainer.GetURI(),
+		natsClient,
+		testutils.NewTestLogger(),
+	)
+
+	return nil
+}
+
+func (p *PipelineSteps) aGlassflowPipelineWithNextConfiguration(config *godog.DocString) error {
+	pipelineConfig, err := p.preparePipelineConfig(config.Content)
+	if err != nil {
+		return fmt.Errorf("prepare pipeline config: %w", err)
+	}
+
+	err = p.setupPipelineManager()
+	if err != nil {
+		return fmt.Errorf("setup pipeline manager: %w", err)
+	}
+
+	err = p.pipelineManager.SetupPipeline(pipelineConfig)
+	if err != nil {
+		return fmt.Errorf("setup pipeline: %w", err)
+	}
+
+	return nil
+}
+
+func (p *PipelineSteps) theClickHouseTableShouldContainRows(tableName string, count int) error {
+	err := p.clickhouseShouldContainNumberOfRows(tableName, count)
+	if err != nil {
+		return fmt.Errorf("check clickhouse table %s: %w", tableName, err)
+	}
+
+	return nil
+}
+
+func (p *PipelineSteps) theClickHouseTableShouldContain(tableName string, table *godog.Table) error {
+	err := p.clickhouseShouldContainData(tableName, table)
+	if err != nil {
+		return fmt.Errorf("check clickhouse table %s: %w", tableName, err)
+	}
+
+	return nil
+}
+
+func (p *PipelineSteps) shutdownPipeline() error {
+	if p.pipelineManager == nil {
+		return fmt.Errorf("pipeline manager not initialized")
+	}
+
+	err := p.pipelineManager.ShutdownPipeline()
+	if err != nil {
+		return fmt.Errorf("shutdown pipeline: %w", err)
+	}
+
+	p.pipelineManager = nil
+
+	return nil
+}
+
+func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
+	dur, err := time.ParseDuration(delay)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	time.Sleep(dur)
+
+	err = p.shutdownPipeline()
+	if err != nil {
+		return fmt.Errorf("shutdown pipeline: %w", err)
+	}
+
+	return nil
+}
+
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition$`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
-	sc.Step(`^a ClickHouse client with db "([^"]*)" and table "([^"]*)"$`, p.aClickHouseClientWithConfig)
+	sc.Step(`^the ClickHouse table "([^"]*)" on database "([^"]*)" already exists with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
+
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, p.iPublishEventsToKafka)
+
+	sc.Step(`^a glassflow pipeline with next configuration:$`, p.aGlassflowPipelineWithNextConfiguration)
+	sc.Step(`^I shutdown the glassflow pipeline$`, p.shutdownPipeline)
+	sc.Step(`^I shutdown the glassflow pipeline after "([^"]*)"$`, p.shutdownPipelineWithDelay)
+
+	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, p.theClickHouseTableShouldContainRows)
+	sc.Step(`^the ClickHouse table "([^"]*)" should contain:`, p.theClickHouseTableShouldContain)
+
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := p.fastCleanup()
 		if cleanupErr != nil {

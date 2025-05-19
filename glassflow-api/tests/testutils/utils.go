@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/segmentio/kafka-go"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
@@ -136,18 +135,15 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 		"broker.address.family":   "v4",
 	}
 
-	// Create producer
 	producer, err := kafka.NewProducer(config)
 	if err != nil {
 		return fmt.Errorf("failed to create producer: %w", err)
 	}
 	defer producer.Close()
 
-	// Delivery channel
 	deliveryChan := make(chan kafka.Event)
 	defer close(deliveryChan)
 
-	// Send messages
 	for _, event := range events {
 		err := producer.Produce(&kafka.Message{ //nolint:exhaustruct // only necessary fields
 			TopicPartition: kafka.TopicPartition{ //nolint:exhaustruct // only necessary fields
@@ -163,8 +159,7 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 		}
 	}
 
-	// Wait for all messages to be delivered
-	for i := 0; i < len(events); i++ {
+	for range events {
 		e := <-deliveryChan
 		m, ok := e.(*kafka.Message)
 		if !ok {
@@ -175,11 +170,55 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 		}
 	}
 
-	// Flush any remaining messages
 	remaining := producer.Flush(5000) // 5 second timeout
 	if remaining > 0 {
 		return fmt.Errorf("%d messages remain unflushed", remaining)
 	}
 
 	return nil
+}
+
+func CheckTags(tagExpression string, scenarioTags string) bool {
+	if tagExpression == "" {
+		return true
+	}
+
+	tagMap := make(map[string]bool)
+	for tag := range strings.SplitSeq(scenarioTags, ",") {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		tagMap[tag] = true
+	}
+
+	orParts := strings.SplitSeq(tagExpression, ",")
+
+	for orPart := range orParts {
+		andParts := strings.SplitSeq(orPart, "&&")
+
+		allAndPartsMatch := true
+		for andPart := range andParts {
+			andPart = strings.TrimSpace(andPart)
+
+			if strings.HasPrefix(andPart, "~") {
+				tag := strings.TrimPrefix(andPart, "~")
+				if tagMap[tag] {
+					allAndPartsMatch = false
+					break
+				}
+			} else {
+				if !tagMap[andPart] {
+					allAndPartsMatch = false
+					break
+				}
+			}
+		}
+
+		if allAndPartsMatch {
+			return true
+		}
+	}
+
+	return false
 }
