@@ -11,7 +11,6 @@ This directory contains instructions for running the GlassFlow demos using Altin
 - Docker and Docker Compose installed
 - Start GlassFlow and Kafka locally by running:
   ```bash
-  cd ../../  # Navigate to demos folder
   docker compose up -d
   ```
 
