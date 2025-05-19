@@ -8,6 +8,7 @@ This demo showcases the capabilities of GlassFlow ClickHouse ETL using a local d
 > [!NOTE]
 > **For Altinity ClickHouse Users**: If you're using Altinity ClickHouse instead of the local ClickHouse instance, check out the [instructions for running demos with Altinity](providers/altinity/README.md).
 
+
 ## Prerequisites
 
 - Docker and Docker Compose
