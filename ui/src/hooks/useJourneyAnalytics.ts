@@ -57,15 +57,18 @@ export function useJourneyAnalytics() {
     [analyticsConsent],
   )
 
-  // Page tracking
+  // NOTE: Page tracking - all events tracked
   const page = useMemo(
     () => ({
+      // implemented
       homepage: (properties?: Record<string, unknown>) =>
         trackWithCache('P0_Homepage', () => trackPage.homepage(properties), properties),
 
+      // implemented
       setupKafkaConnection: (properties?: Record<string, unknown>) =>
         trackWithCache('P1_SetupKafkaConnection', () => trackPage.setupKafkaConnection(properties), properties),
 
+      // TODO: missing
       selectTopic: (properties?: Record<string, unknown>) =>
         trackWithCache('P2_SelectTopic', () => trackPage.selectTopic(properties), properties),
 
@@ -77,6 +80,9 @@ export function useJourneyAnalytics() {
 
       deduplicationKey: (properties?: Record<string, unknown>) =>
         trackWithCache('P3_DeduplicationKey', () => trackPage.deduplicationKey(properties), properties),
+
+      topicDeduplication: (properties?: Record<string, unknown>) =>
+        trackWithCache('P3_TopicDeduplication', () => trackPage.topicDeduplication(properties), properties),
 
       joinKey: (properties?: Record<string, unknown>) =>
         trackWithCache('P3_JoinKey', () => trackPage.joinKey(properties), properties),
@@ -91,13 +97,13 @@ export function useJourneyAnalytics() {
       selectDestination: (properties?: Record<string, unknown>) =>
         trackWithCache('P5_SelectDestination', () => trackPage.selectDestination(properties), properties),
 
-      pipelineActive: (properties?: Record<string, unknown>) =>
-        trackWithCache('P6_PipelineActive', () => trackPage.pipelineActive(properties), properties),
+      pipelines: (properties?: Record<string, unknown>) =>
+        trackWithCache('P6_Pipelines', () => trackPage.pipelines(properties), properties),
     }),
     [trackWithCache],
   )
 
-  // Operation tracking
+  // NOTE: Operation tracking - all events tracked
   const operation = useMemo(
     () => ({
       deduplication: (properties?: Record<string, unknown>) =>
@@ -115,7 +121,7 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
-  // Kafka connection tracking
+  // NOTE: Kafka connection tracking - all events tracked
   const kafka = useMemo(
     () => ({
       started: (properties?: Record<string, unknown>) =>
@@ -130,7 +136,7 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
-  // Topic selection tracking
+  // NOTE: Topic selection tracking - all events tracked
   const topic = useMemo(
     () => ({
       selected: (properties?: Record<string, unknown>) =>
@@ -148,7 +154,7 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
-  // Key selection tracking
+  // NOTE: Key selection tracking - all events tracked
   const key = useMemo(
     () => ({
       dedupKey: (properties?: Record<string, unknown>) =>
@@ -163,7 +169,7 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
-  // Clickhouse connection tracking
+  // NOTE: Clickhouse connection tracking - all events tracked
   const clickhouse = useMemo(
     () => ({
       started: (properties?: Record<string, unknown>) =>
@@ -178,7 +184,7 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
-  // Destination selection tracking
+  // NOTE: Destination selection tracking - all events tracked
   const destination = useMemo(
     () => ({
       databaseSelected: (properties?: Record<string, unknown>) =>
@@ -219,7 +225,7 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
-  // Deploy tracking
+  // NOTE: Deploy tracking - all events tracked
   const deploy = useMemo(
     () => ({
       clicked: (properties?: Record<string, unknown>) =>
@@ -234,7 +240,7 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
-  // Pipeline modification tracking
+  // NOTE: Pipeline modification tracking - all events tracked
   const pipeline = useMemo(
     () => ({
       modifyClicked: (properties?: Record<string, unknown>) =>
@@ -254,6 +260,25 @@ export function useJourneyAnalytics() {
 
       deleteSuccess: (properties?: Record<string, unknown>) =>
         trackWithCache('PipelineDelete_Success', () => trackPipeline.deleteSuccess(properties), properties),
+
+      existingPipeline: (properties?: Record<string, unknown>) =>
+        trackWithCache('Pipeline_ExistingPipeline', () => trackPipeline.existingPipeline(properties), properties),
+
+      alreadyRunning: (properties?: Record<string, unknown>) =>
+        trackWithCache('Pipeline_AlreadyRunning', () => trackPipeline.alreadyRunning(properties), properties),
+
+      noPipeline_Deploying: (properties?: Record<string, unknown>) =>
+        trackWithCache(
+          'Pipeline_NoPipeline_Deploying',
+          () => trackPipeline.noPipeline_Deploying(properties),
+          properties,
+        ),
+
+      noPipeline_NoConfig: (properties?: Record<string, unknown>) =>
+        trackWithCache('Pipeline_NoPipeline_NoConfig', () => trackPipeline.noPipeline_NoConfig(properties), properties),
+
+      noValidConfig: (properties?: Record<string, unknown>) =>
+        trackWithCache('Pipeline_NoValidConfig', () => trackPipeline.noValidConfig(properties), properties),
     }),
     [trackWithCache],
   )

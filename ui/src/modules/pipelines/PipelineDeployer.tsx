@@ -61,6 +61,9 @@ export function PipelineDeployer() {
     if (feedbackSubmitted === 'true') {
       setHasSubmittedFeedback(true)
     }
+
+    // Track page view when component loads
+    analytics.page.pipelines({})
   }, [])
 
   // Handle showing feedback with delay and status check
@@ -96,15 +99,18 @@ export function PipelineDeployer() {
           if (isValidApiConfig(apiConfig)) {
             // We have a config, but there's already a running pipeline
             if (response.pipeline_id !== pipelineId) {
+              analytics.pipeline.existingPipeline({})
               setStatus('deploy_failed')
               setError('There is already a running pipeline. Please shut it down before deploying a new one.')
             } else {
               // Same pipeline is running
+              analytics.pipeline.alreadyRunning({})
               setStatus('active')
               setError(null)
             }
           } else {
             // No config, but pipeline is running - just show active status
+            analytics.pipeline.noValidConfig({})
             setStatus('active')
             setError(null)
           }
@@ -112,9 +118,11 @@ export function PipelineDeployer() {
           // No running pipeline
           if (isValidApiConfig(apiConfig)) {
             // We have a valid config and no running pipeline - we can deploy
+            analytics.pipeline.noPipeline_Deploying({})
             deployPipeline()
           } else {
             // No config and no pipeline - redirect to home immediately
+            analytics.pipeline.noPipeline_NoConfig({})
             router.push('/home')
           }
         }
@@ -122,9 +130,11 @@ export function PipelineDeployer() {
         if (err.code === 404) {
           // No pipeline exists
           if (isValidApiConfig(apiConfig)) {
+            analytics.pipeline.noPipeline_Deploying({})
             deployPipeline()
           } else {
             // No config and no pipeline - redirect to home immediately
+            analytics.pipeline.noPipeline_NoConfig({})
             router.push('/home')
           }
         } else {
@@ -180,17 +190,15 @@ export function PipelineDeployer() {
     // Proceed with pipeline deletion
     if (result === ModalResult.SUBMIT) {
       try {
+        analytics.pipeline.deleteClicked({})
+
         await shutdownPipeline()
         setStatus('deleted')
         setError(null)
         resetPipelineState('', true)
 
         // Track successful pipeline deletion
-        analytics.pipeline.deleteClicked({
-          pipelineId,
-          configSaved: !!configName,
-          status: 'success',
-        })
+        analytics.pipeline.deleteSuccess({})
       } catch (err) {
         const error = err as PipelineError
         setStatus('delete_failed')
@@ -198,8 +206,6 @@ export function PipelineDeployer() {
 
         // Track failed pipeline deletion
         analytics.pipeline.deleteFailed({
-          pipelineId,
-          status: 'failed',
           error: error.message,
         })
       }
@@ -228,17 +234,20 @@ export function PipelineDeployer() {
     // Reset pipeline state and navigate to home regardless of save choice
     if (result === ModalResult.SUBMIT) {
       try {
-        await shutdownPipeline()
-        setStatus('deleted')
-        setError(null)
-        resetPipelineState('', true)
-
         // Track successful pipeline modification
         analytics.pipeline.modifyClicked({
           pipelineId,
           configSaved: !!configName,
           status: 'success',
         })
+
+        await shutdownPipeline()
+        setStatus('deleted')
+        setError(null)
+        resetPipelineState('', true)
+
+        // Track successful pipeline modification
+        analytics.pipeline.modifySuccess({})
 
         router.push('/home')
       } catch (err) {
@@ -248,8 +257,6 @@ export function PipelineDeployer() {
 
         // Track failed pipeline modification
         analytics.pipeline.modifyFailed({
-          pipelineId,
-          status: 'failed',
           error: error.message,
         })
       }

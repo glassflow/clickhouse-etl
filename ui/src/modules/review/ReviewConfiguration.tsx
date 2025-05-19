@@ -22,7 +22,16 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 const SAVE_PIPELINE_ENABLED = false
 
 export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigurationProps) {
-  const { kafkaStore, clickhouseStore, topicsStore, joinStore, setApiConfig, pipelineId, setPipelineId } = useStore()
+  const {
+    kafkaStore,
+    clickhouseStore,
+    topicsStore,
+    joinStore,
+    setApiConfig,
+    pipelineId,
+    setPipelineId,
+    operationsSelected,
+  } = useStore()
   const { clickhouseConnection, clickhouseDestination } = clickhouseStore
   const { bootstrapServers, securityProtocol } = kafkaStore
   const router = useRouter()
@@ -67,10 +76,8 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const handleFinishDeploymentStep = () => {
     // Track the deploy button click event
     analytics.deploy.clicked({
-      pipelineId,
       kafkaTopicsCount: selectedTopics.length,
-      clickhouseTable: clickhouseDestination?.table,
-      clickhouseDatabase: clickhouseDestination?.database,
+      operationsSelected: operationsSelected,
     })
 
     if (validate && !validate(StepKeys.REVIEW_CONFIGURATION, {})) {

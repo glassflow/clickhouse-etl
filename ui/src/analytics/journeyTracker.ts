@@ -34,6 +34,8 @@ export const trackPage = {
 
   deduplicationKey: (properties?: Record<string, unknown>) => trackEvent('P3_DeduplicationKey', properties),
 
+  topicDeduplication: (properties?: Record<string, unknown>) => trackEvent('P3_TopicDeduplication', properties),
+
   joinKey: (properties?: Record<string, unknown>) => trackEvent('P3_JoinKey', properties),
 
   setupClickhouseConnection: (properties?: Record<string, unknown>) =>
@@ -41,7 +43,7 @@ export const trackPage = {
 
   selectDestination: (properties?: Record<string, unknown>) => trackEvent('P5_SelectDestination', properties),
 
-  pipelineActive: (properties?: Record<string, unknown>) => trackEvent('P6_PipelineActive', properties),
+  pipelines: (properties?: Record<string, unknown>) => trackEvent('P6_Pipelines', properties),
 }
 
 /**
@@ -153,6 +155,17 @@ export const trackPipeline = {
   deleteFailed: (properties?: Record<string, unknown>) => trackEvent('PipelineDelete_Failed', properties),
 
   deleteSuccess: (properties?: Record<string, unknown>) => trackEvent('PipelineDelete_Success', properties),
+
+  existingPipeline: (properties?: Record<string, unknown>) => trackEvent('Pipeline_ExistingPipeline', properties),
+
+  alreadyRunning: (properties?: Record<string, unknown>) => trackEvent('Pipeline_AlreadyRunning', properties),
+
+  noPipeline_Deploying: (properties?: Record<string, unknown>) =>
+    trackEvent('Pipeline_NoPipeline_Deploying', properties),
+
+  noPipeline_NoConfig: (properties?: Record<string, unknown>) => trackEvent('Pipeline_NoPipeline_NoConfig', properties),
+
+  noValidConfig: (properties?: Record<string, unknown>) => trackEvent('Pipeline_NoValidConfig', properties),
 }
 
 // Convenient helper to track all journey events

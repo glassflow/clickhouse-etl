@@ -6,6 +6,7 @@ import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { useKafkaConnection } from '@/src/hooks/kafka-mng-hooks'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+
 export function KafkaConnector({
   steps,
   onNext,
@@ -40,15 +41,14 @@ export function KafkaConnector({
 
   // Track when user starts entering connection details
   useEffect(() => {
-    analytics.kafka.started({
-      operation: operationsSelected?.operation,
-    })
-  }, [operationsSelected?.operation, analytics.kafka])
+    analytics.page.setupKafkaConnection({})
+  }, [operationsSelected?.operation, analytics.page])
 
   const handleTestConnection = async (values: any) => {
     await testConnection(values)
   }
 
+  // NOTE: unused method, remove it if the need does not arise
   const handleConnect = async () => {
     setIsConnecting(true)
     setError(null)

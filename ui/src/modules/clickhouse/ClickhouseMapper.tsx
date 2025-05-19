@@ -301,14 +301,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
       // Don't track the first time when we're just initializing from store
       if (prevMappedFieldsCount > 0 || !clickhouseDestination?.mapping?.length) {
-        analytics.destination.columnsSelected({
-          topicName,
-          topicIndex: index,
-          mappedFields: mappedFieldsCount,
-          totalColumns: mappedColumns.length,
-          mappingPercentage: Math.round((mappedFieldsCount / mappedColumns.length) * 100),
-        })
-
         setHasTrackedFieldMapping(true)
       }
     }
@@ -424,26 +416,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
 
     fetchTables()
-
-    // Track database selection (but only once when it changes)
-    analytics.destination.databaseSelected({
-      database: selectedDatabase,
-      topicName,
-      topicIndex: index,
-    })
   }, [selectedDatabase])
-
-  // Track table selection when it changes
-  useEffect(() => {
-    if (selectedTable) {
-      analytics.destination.tableSelected({
-        database: selectedDatabase,
-        table: selectedTable,
-        topicName,
-        topicIndex: index,
-      })
-    }
-  }, [selectedTable])
 
   // Update column mapping
   const updateColumnMapping = (index: number, field: keyof TableColumn, value: any) => {
@@ -481,18 +454,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     const isCompatible = isTypeCompatible(inferredType, updatedColumns[index].type)
 
     setMappedColumns(updatedColumns)
-
-    // Track when a field is manually mapped
-    if (eventField) {
-      analytics.destination.columnsSelected({
-        columnName: updatedColumns[index].name,
-        eventField,
-        inferredType,
-        isCompatible,
-        topicName,
-        topicIndex: index,
-      })
-    }
   }
 
   // Add validation type enum
@@ -624,6 +585,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     // Set the pending action to 'save' so we know what to do after validation
     setPendingAction('save')
 
+    analytics.destination.columnsSelected({
+      count: mappedColumns.length,
+    })
+
     // Run validation
     const validationResult = validateMapping()
 
@@ -673,11 +638,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
     // Track successful completion
     analytics.destination.mappingCompleted({
-      topicName,
-      topicIndex: index,
-      database: selectedDatabase,
-      table: selectedTable,
-      mappedColumns: mappedColumns2,
+      count: mappedColumns.length,
       totalColumns,
       mappingPercentage,
       batchSize: maxBatchSize,

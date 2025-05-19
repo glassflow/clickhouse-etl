@@ -21,6 +21,12 @@ const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || '209670ec9b3529
 // In Docker, process.env.NODE_ENV will typically be 'production'
 const isDev = process.env.NODE_ENV !== 'production'
 
+// Check if the current user is internal
+const isInternalUser = (): boolean => {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem('glassflow-is-internal') === 'true'
+}
+
 // Initialize mixpanel - this should be called when your app starts
 export const initAnalytics = () => {
   try {
@@ -170,6 +176,7 @@ export const track = ({
     const eventProps = {
       event: event.name,
       context: context,
+      isInternalUser: isInternalUser(),
       ...properties,
     }
 

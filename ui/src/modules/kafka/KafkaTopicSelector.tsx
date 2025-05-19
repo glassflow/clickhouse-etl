@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
+import { TIME_WINDOW_UNIT_OPTIONS, OperationKeys } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { useFetchTopics } from '../../hooks/kafka-mng-hooks'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
@@ -23,7 +23,7 @@ export type TopicSelectorProps = {
 }
 
 export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSelectorProps) {
-  const { topicsStore, kafkaStore, joinStore } = useStore()
+  const { topicsStore, kafkaStore, joinStore, operationsSelected } = useStore()
   const analytics = useJourneyAnalytics()
   const {
     availableTopics,
@@ -90,6 +90,8 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       ...prev,
       isLoading: false,
     }))
+
+    analytics.topic.noEvent({})
   }, [index])
 
   // Handle manual event input
@@ -129,6 +131,22 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   // ================================ EFFECTS ================================
 
   const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
+
+  // Track page view when component loads - depending on the operation, we want to track the topic selection differently
+  useEffect(() => {
+    if (
+      operationsSelected?.operation === OperationKeys.JOINING ||
+      operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
+    ) {
+      if (index === 0) {
+        analytics.page.selectTopic({})
+      } else {
+        analytics.page.selectTopic({})
+      }
+    } else {
+      analytics.page.selectTopic({})
+    }
+  }, [])
 
   // Fetch topics on component mount
   useEffect(() => {
@@ -222,6 +240,10 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     const currentStepKey = StepKeys.KAFKA_CONNECTION // We want to remove everything after Kafka connection when topic changes
     removeCompletedStepsAfter(currentStepKey)
 
+    analytics.topic.selected({
+      offset: initialOffset,
+    })
+
     // Clear previous events when topic changes
     updateTopic({
       index: index,
@@ -276,14 +298,6 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
         position: initialOffset,
       },
     }
-
-    // Track the deduplication key step completion
-    analytics.topic.eventReceived({
-      topicName,
-      topicIndex: index,
-      eventSize: JSON.stringify(storedEvent).length,
-      offset: initialOffset,
-    })
 
     // Update topic in the store
     updateTopic({

@@ -11,7 +11,7 @@ const eventCatalog: Record<string, boolean> = {
   [dictionary.P3_JoinKey.name]: true,
   [dictionary.P4_SetupClickhouseConnection.name]: true,
   [dictionary.P5_SelectDestination.name]: true,
-  [dictionary.P6_PipelineActive.name]: true,
+  [dictionary.P6_Pipelines.name]: true,
 
   // Operation Selection Events
   [dictionary.Deduplication_Clicked.name]: true,
@@ -43,6 +43,12 @@ const eventCatalog: Record<string, boolean> = {
   [dictionary.Destination_DatabaseSelected.name]: true,
   [dictionary.Destination_TableSelected.name]: true,
   [dictionary.Destination_ColumnsShowed.name]: true,
+  [dictionary.Destination_ColumnsSelected.name]: true,
+  [dictionary.Destination_DatabaseFetched.name]: true,
+  [dictionary.Destination_TableFetched.name]: true,
+  [dictionary.Destination_MappingCompleted.name]: true,
+  [dictionary.Destination_DatabaseFetchedError.name]: true,
+  [dictionary.Destination_TableFetchedError.name]: true,
 
   // Deploy Events
   [dictionary.Deploy_Clicked.name]: true,
@@ -56,6 +62,13 @@ const eventCatalog: Record<string, boolean> = {
   [dictionary.PipelineDelete_Clicked.name]: true,
   [dictionary.PipelineDelete_Failed.name]: true,
   [dictionary.PipelineDelete_Success.name]: true,
+
+  // Pipeline Status Events
+  [dictionary.Pipeline_ExistingPipeline.name]: true,
+  [dictionary.Pipeline_AlreadyRunning.name]: true,
+  [dictionary.Pipeline_NoPipeline_Deploying.name]: true,
+  [dictionary.Pipeline_NoPipeline_NoConfig.name]: true,
+  [dictionary.Pipeline_NoValidConfig.name]: true,
 }
 
 export default eventCatalog

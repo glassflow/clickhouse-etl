@@ -49,9 +49,9 @@ export const dictionary: EventGroup = {
     name: 'P5 Select Destination',
     key: 'P5_SelectDestination',
   },
-  P6_PipelineActive: {
-    name: 'P6 Pipeline Active',
-    key: 'P6_PipelineActive',
+  P6_Pipelines: {
+    name: 'P6 Pipelines',
+    key: 'P6_Pipelines',
   },
 
   // Operation Selection Events
@@ -146,7 +146,30 @@ export const dictionary: EventGroup = {
     name: 'Destination Columns Showed',
     key: 'Destination_ColumnsShowed',
   },
-
+  Destination_ColumnsSelected: {
+    name: 'Destination Columns Selected',
+    key: 'Destination_ColumnsSelected',
+  },
+  Destination_DatabaseFetched: {
+    name: 'Destination Database Fetched',
+    key: 'Destination_DatabaseFetched',
+  },
+  Destination_TableFetched: {
+    name: 'Destination Table Fetched',
+    key: 'Destination_TableFetched',
+  },
+  Destination_MappingCompleted: {
+    name: 'Destination Mapping Completed',
+    key: 'Destination_MappingCompleted',
+  },
+  Destination_DatabaseFetchedError: {
+    name: 'Destination Database Fetched Error',
+    key: 'Destination_DatabaseFetchedError',
+  },
+  Destination_TableFetchedError: {
+    name: 'Destination Table Fetched Error',
+    key: 'Destination_TableFetchedError',
+  },
   // Deploy Events
   Deploy_Clicked: {
     name: 'Deploy Clicked',
@@ -185,5 +208,25 @@ export const dictionary: EventGroup = {
   PipelineDelete_Success: {
     name: 'Pipeline Delete Success',
     key: 'PipelineDelete_Success',
+  },
+  Pipeline_ExistingPipeline: {
+    name: 'Pipeline Existing Pipeline',
+    key: 'Pipeline_ExistingPipeline',
+  },
+  Pipeline_AlreadyRunning: {
+    name: 'Pipeline Already Running',
+    key: 'Pipeline_AlreadyRunning',
+  },
+  Pipeline_NoPipeline_Deploying: {
+    name: 'Pipeline No Pipeline Deploying',
+    key: 'Pipeline_NoPipeline_Deploying',
+  },
+  Pipeline_NoPipeline_NoConfig: {
+    name: 'Pipeline No Pipeline No Config',
+    key: 'Pipeline_NoPipeline_NoConfig',
+  },
+  Pipeline_NoValidConfig: {
+    name: 'Pipeline No Valid Config',
+    key: 'Pipeline_NoValidConfig',
   },
 }

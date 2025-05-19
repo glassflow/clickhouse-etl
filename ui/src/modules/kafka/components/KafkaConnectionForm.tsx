@@ -109,10 +109,6 @@ export const KafkaConnectionForm = ({
 
     // Track the first interaction with the Kafka connection form
     if (!hasTrackedInitialInteraction) {
-      analytics.kafka.started({
-        authMethod: currentAuthMethod,
-        securityProtocol: currentSecurityProtocol,
-      })
       setHasTrackedInitialInteraction(true)
     }
   }
@@ -277,7 +273,6 @@ export const KafkaConnectionForm = ({
       analytics.kafka.started({
         authMethod: values.authMethod,
         securityProtocol: values.securityProtocol,
-        isTest: true,
       })
 
       onTestConnection(values)
