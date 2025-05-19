@@ -2,8 +2,11 @@
 
 This demo showcases the capabilities of GlassFlow ClickHouse ETL using a local development environment. You can interact with the demo in two ways:
 
-- **[Through the GlassFlow UI](#create-a-pipeline-using-the-glassflow-ui)**: Connect directly to the local Kafka and ClickHouse instances
-- **[Through Python Scripts](#create-a-pipeline-using-python-demos)**: Use our Python SDK to automate the pipeline setup and generate events
+- **[Through the GlassFlow UI](#option-1-create-a-pipeline-using-the-glassflow-ui)**: Connect directly to the local Kafka and ClickHouse instances
+- **[Through Python Scripts](#option-2-create-a-pipeline-using-python-demos)**: Use our Python SDK to automate the pipeline setup and generate events
+
+> [!NOTE]
+> **For Altinity ClickHouse Users**: If you're using Altinity ClickHouse instead of the local ClickHouse instance, check out the [instructions for running demos with Altinity](providers/altinity/README.md).
 
 ## Prerequisites
 

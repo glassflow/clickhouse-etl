@@ -66,7 +66,8 @@ ORDER BY event_id
 Execute the deduplication demo with:
 
 ```bash
-python demo_deduplication.py --config ../../config/glassflow/deduplication_pipeline.json
+cd ../../
+python demo_deduplication.py --config config/glassflow/deduplication_pipeline.json
 ```
 
 ## Join Demo
@@ -75,7 +76,7 @@ This demo demonstrates how to enrich order data with user information using stre
 
 ### 1. Create Tables in Altinity ClickHouse
 
-Run the following SQL queries in your Altinity ClickHouse instance:
+Run the following SQL queries in your Altinity ClickHouse instance to create the orders table with enriched users data:
 
 ```sql
 CREATE TABLE IF NOT EXISTS orders_with_user_data 
@@ -97,7 +98,8 @@ ORDER BY order_id
 Execute the join demo with:
 
 ```bash
-python demo_join.py --config ../../config/glassflow/join_pipeline.json
+cd ../../
+python demo_join.py --config config/glassflow/join_pipeline.json
 ```
 
 ## Notes
