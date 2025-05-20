@@ -196,7 +196,8 @@ export const stepsMetadata = {
 export const SECURITY_PROTOCOL_OPTIONS = {
   SASL_PLAINTEXT: 'SASL_PLAINTEXT',
   SASL_SSL: 'SASL_SSL',
-  // SSL: 'SSL',
+  SSL: 'SSL',
+  PLAINTEXT: 'PLAINTEXT',
 }
 
 export const INITIAL_OFFSET_OPTIONS = {

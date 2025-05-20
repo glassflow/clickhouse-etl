@@ -411,8 +411,10 @@ func validateKafkaConnectionProtocol(protocol string) error {
 	switch protocol {
 	case "SASL_SSL":
 	case "SASL_PLAINTEXT":
+	case "SSL":
+	case "PLAINTEXT":
 	default:
-		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL protocol: %s; allowed: SASL_PLAINTEXT, SASL_SSL", protocol)}
+		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL protocol: %s; allowed: SASL_PLAINTEXT, PLAINTEXT, SASL_SSL, SSL", protocol)}
 	}
 
 	return nil
