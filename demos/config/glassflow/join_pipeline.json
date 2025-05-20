@@ -5,7 +5,7 @@
       "provider": "confluent",
       "connection_params": {
         "brokers": [
-          "kafka:9092"
+          "kafka:9093"
         ],
         "protocol": "PLAINTEXT",
         "skip_auth": true

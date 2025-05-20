@@ -99,7 +99,7 @@ def create_topics_if_not_exists(source_config: models.SourceConfig):
     """Create topics in Kafka"""
 
     config = {}
-    if source_config.connection_params.brokers[0] == "kafka:9092":
+    if source_config.connection_params.brokers[0] == "kafka:9093":
         config["bootstrap_servers"] = ["localhost:9092"]
     else:
         config["bootstrap_servers"] = source_config.connection_params.brokers

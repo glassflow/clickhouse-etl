@@ -49,7 +49,7 @@ def generate_events_with_duplicates(
     glassgen_config["schema"] = schema
 
     kafka_params = {"topic": source_config.topics[0].name}
-    if source_config.connection_params.brokers[0] == "kafka:9092":
+    if source_config.connection_params.brokers[0] == "kafka:9093":
         kafka_params["bootstrap.servers"] = "localhost:9092"
     else:
         kafka_params["bootstrap.servers"] = ",".join(

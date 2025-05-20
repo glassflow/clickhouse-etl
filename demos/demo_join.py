@@ -78,7 +78,7 @@ def generate_events(
     glassgen_config["generator"]["event_options"] = duplication_config
 
     kafka_params = {"topic": topic_config.name}
-    if source_connection_params.brokers[0] == "kafka:9092":
+    if source_connection_params.brokers[0] == "kafka:9093":
         kafka_params["bootstrap.servers"] = "localhost:9092"
     else:
         kafka_params["bootstrap.servers"] = ",".join(source_connection_params.brokers)
