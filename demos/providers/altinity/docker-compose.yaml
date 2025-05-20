@@ -2,14 +2,7 @@ include:
  - ../../../docker-compose.yaml
 
 services:
-  zookeeper:
-    extends:
-      file: ../../docker-compose.yaml
-      service: zookeeper
-
   kafka:
     extends:
       file: ../../docker-compose.yaml
       service: kafka
-    depends_on:
-      - zookeeper
