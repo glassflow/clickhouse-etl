@@ -8,20 +8,16 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/join"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 )
 
-type JoinExecutor interface {
-	HandleLeftStreamEvents(context.Context, jetstream.Msg) error
-	HandleRightStreamEvents(context.Context, jetstream.Msg) error
-}
-
 type JoinOperator struct {
 	leftStreamSubsriber   *stream.Subscriber
 	rightStreamSubscriber *stream.Subscriber
-	exector               JoinExecutor
+	executor              join.Executor
 	mu                    sync.Mutex
 	handleMu              sync.Mutex
 	isClosed              bool
@@ -37,7 +33,7 @@ func NewJoinOperator(
 	leftStreamName, rightStreamName string,
 	log *slog.Logger,
 ) *JoinOperator {
-	executor := NewTemporalJoinExecutor(
+	executor := join.NewTemporalJoinExecutor(
 		resultsPublisher,
 		schema,
 		leftKVStore, rightKVStore,
@@ -47,7 +43,7 @@ func NewJoinOperator(
 	return &JoinOperator{
 		leftStreamSubsriber:   stream.NewSubscriber(leftStreamConsumer, log),
 		rightStreamSubscriber: stream.NewSubscriber(rightStreamConsumer, log),
-		exector:               executor,
+		executor:              executor,
 		mu:                    sync.Mutex{},
 		handleMu:              sync.Mutex{},
 		isClosed:              false,
@@ -66,7 +62,7 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 		j.handleMu.Lock()
 		defer j.handleMu.Unlock()
 
-		err := j.exector.HandleLeftStreamEvents(ctx, msg)
+		err := j.executor.HandleLeftStreamEvents(ctx, msg)
 		if err != nil {
 			j.log.Error("failed to handle left stream event", slog.Any("error", err))
 			return
@@ -85,7 +81,7 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 		j.handleMu.Lock()
 		defer j.handleMu.Unlock()
 
-		err := j.exector.HandleRightStreamEvents(ctx, msg)
+		err := j.executor.HandleRightStreamEvents(ctx, msg)
 		if err != nil {
 			j.log.Error("failed to handle right stream event", slog.Any("error", err))
 			return
