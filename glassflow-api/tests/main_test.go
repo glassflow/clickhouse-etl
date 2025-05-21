@@ -8,6 +8,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
 type TestConfig struct {
@@ -30,7 +31,10 @@ func runSingleSuite(
 
 	// Allow overriding tags with environment variables
 	envTags := os.Getenv("TEST_TAGS")
-	if envTags != "" {
+	if !testutils.CheckTags(envTags, config.Tags) {
+		t.Logf("Skip test suite %s, tags conflict: %s != %s", name, config.Tags, envTags)
+		return
+	} else {
 		config.Tags = envTags
 	}
 
@@ -91,9 +95,22 @@ func testJoinFeatures(t *testing.T) {
 	runSingleSuite(t, "join", joinSuite, config)
 }
 
+func testPipelineFeatures(t *testing.T) {
+	pipelineSuite := steps.NewPipelineSteps()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "pipeline")},
+		Tags:         "@pipeline",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "pipeline", pipelineSuite, config)
+}
+
 // TestFeatures runs all feature tests but in separate contexts
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
 	t.Run("SinkFeatures", testSinkFeatures)
 	t.Run("JoinOperatorFeatures", testJoinFeatures)
+	t.Run("PipelineFeatures", testPipelineFeatures)
 }

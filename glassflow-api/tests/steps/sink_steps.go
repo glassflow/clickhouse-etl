@@ -78,10 +78,11 @@ func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
 	}
 
 	s.streamConfig = &stream.ConsumerConfig{
-		NatsStream:   cfg.StreamName,
-		NatsConsumer: cfg.ConsumerName,
-		NatsSubject:  cfg.SubjectName,
-		AckWait:      ackWaitDuration,
+		NatsStream:    cfg.StreamName,
+		NatsConsumer:  cfg.ConsumerName,
+		NatsSubject:   cfg.SubjectName,
+		AckWait:       ackWaitDuration,
+		ExpireTimeout: streamConsumerExpireTimeout,
 	}
 	return nil
 }
@@ -184,12 +185,10 @@ func (s *SinkTestSuite) iPublishEventsToTheStream(count int, data *godog.DocStri
 		return fmt.Errorf("unmarshal JSON events: %w", err)
 	}
 
-	// Verify we have the expected number of events
 	if len(events) != count {
 		return fmt.Errorf("wrong number of events in JSON data: expected %d, got %d", count, len(events))
 	}
 
-	// Publish each event to the stream
 	for i := range count {
 		eventBytes, err := json.Marshal(events[i])
 		if err != nil {
@@ -270,27 +269,9 @@ func (s *SinkTestSuite) iStopClickHouseSinkAfterDelay(delay string) error {
 }
 
 func (s *SinkTestSuite) theClickHouseTableShouldContainRows(tableName string, count int) error {
-	conn, err := s.chContainer.GetConnection()
+	err := s.clickhouseShouldContainNumberOfRows(tableName, count)
 	if err != nil {
-		return fmt.Errorf("get clickhouse connection: %w", err)
-	}
-
-	defer conn.Close()
-
-	query := "SELECT count() FROM " + tableName
-	row := conn.QueryRow(context.Background(), query)
-
-	var rowCount uint64
-	err = row.Scan(&rowCount)
-	if err != nil {
-		return fmt.Errorf("scan row count: %w", err)
-	}
-
-	if count < 0 {
-		return fmt.Errorf("count cannot be negative: %d", count)
-	}
-	if rowCount != uint64(count) {
-		return fmt.Errorf("unexpected row count: expected %d, got %d", count, rowCount)
+		return fmt.Errorf("check clickhouse table %s: %w", tableName, err)
 	}
 
 	return nil
@@ -350,7 +331,6 @@ func (s *SinkTestSuite) fastCleanUp() error {
 	return nil
 }
 
-// CleanupResources handles all resource cleanup
 func (s *SinkTestSuite) CleanupResources() error {
 	var errs []error
 

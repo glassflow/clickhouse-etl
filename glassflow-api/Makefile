@@ -30,4 +30,4 @@ run-short-test:
 
 .PHONY: run-e2e-test
 run-e2e-test:
-	TESTCONTAINERS_RYUK_DISABLED=true go test -v ./tests
+	PATH="$(PWD)/../nats-kafka-bridge/bin:$$PATH" TESTCONTAINERS_RYUK_DISABLED=true go test -v ./tests
