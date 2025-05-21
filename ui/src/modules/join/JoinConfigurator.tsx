@@ -21,6 +21,7 @@ import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { v4 as uuidv4 } from 'uuid'
 import { Label } from '@/src/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/src/components/ui/tooltip'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export type JoinConfiguratorProps = {
   steps: any
@@ -36,8 +37,14 @@ export const JoinKeySelectorForm = ({
   errors?: FieldErrors<KafkaTopicSelectorType>
   dynamicOptions: any
 }) => {
+  const analytics = useJourneyAnalytics()
   const { register } = useFormContext()
   const [optionsKey, setOptionsKey] = useState('initial')
+
+  // Track page view when component loads
+  useEffect(() => {
+    analytics.page.joinKey({})
+  }, [])
 
   // NOTE: this is a hack to force a re-render of the form when the dynamic options change
   useEffect(() => {
@@ -67,7 +74,27 @@ export const JoinKeySelectorFormCustom = ({
   errors?: FieldErrors<KafkaTopicSelectorType>
   dynamicOptions: any
 }) => {
-  const { register } = useFormContext()
+  const { register, watch } = useFormContext()
+  const analytics = useJourneyAnalytics()
+
+  const stream1JoinKey = watch(`streams.0.joinKey`)
+  const stream2JoinKey = watch(`streams.1.joinKey`)
+
+  useEffect(() => {
+    if (stream1JoinKey) {
+      analytics.key.leftJoinKey({
+        key: stream1JoinKey,
+      })
+    }
+  }, [stream1JoinKey])
+
+  useEffect(() => {
+    if (stream2JoinKey) {
+      analytics.key.rightJoinKey({
+        key: stream2JoinKey,
+      })
+    }
+  }, [stream2JoinKey])
 
   const renderStreamSection = (streamIndex: number) => (
     <div className="space-y-4">

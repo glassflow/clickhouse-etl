@@ -8,6 +8,7 @@ import { parseForCodeEditor } from '@/src/utils'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function DeduplicationConfigurator({
   onNext,
@@ -16,6 +17,8 @@ export function DeduplicationConfigurator({
   onNext: (stepName: string) => void
   index: number
 }) {
+  const analytics = useJourneyAnalytics()
+
   // Access the full topics array directly instead of using getter methods
   const { topics, updateTopic } = useStore((state) => state.topicsStore)
 
@@ -27,6 +30,11 @@ export function DeduplicationConfigurator({
 
   // Extract event data
   const eventData = topicEvent?.event?.event || topicEvent?.event || '{}'
+
+  // Track page view when component loads
+  useEffect(() => {
+    analytics.page.deduplicationKey({})
+  }, [])
 
   // Directly read the deduplication config from the topic
   const deduplicationConfig = topic?.deduplication || {
@@ -60,6 +68,12 @@ export function DeduplicationConfigurator({
         ...topic,
         index,
         deduplication: updatedConfig,
+      })
+
+      analytics.key.dedupKey({
+        keyType,
+        window,
+        unit,
       })
     },
     [topic, index, updateTopic],

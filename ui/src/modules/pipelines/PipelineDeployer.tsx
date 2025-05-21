@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
 import { Clock, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/src/utils'
 import { Button } from '@/src/components/ui/button'
@@ -31,6 +30,7 @@ import FrownIconSelected from '../../images/selected/frown.svg'
 import SmileIconSelected from '../../images/selected/smile.svg'
 import MehIconSelected from '../../images/selected/meh.svg'
 import LaughIconSelected from '../../images/selected/laugh.svg'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 // NOTE: Set to true to enable saving pipelines
 const SAVE_PIPELINE_ENABLED = true
@@ -42,8 +42,8 @@ const FEEDBACK_SUBMITTED_KEY = 'glassflow-feedback-submitted'
 const FEEDBACK_DELAY_MS = 1000 // 1 second delay
 
 export function PipelineDeployer() {
+  const analytics = useJourneyAnalytics()
   const { apiConfig, resetPipelineState, pipelineId } = useStore()
-  const { trackPipelineAction, trackEngagement } = useAnalytics()
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
   const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)
@@ -61,6 +61,9 @@ export function PipelineDeployer() {
     if (feedbackSubmitted === 'true') {
       setHasSubmittedFeedback(true)
     }
+
+    // Track page view when component loads
+    analytics.page.pipelines({})
   }, [])
 
   // Handle showing feedback with delay and status check
@@ -96,15 +99,18 @@ export function PipelineDeployer() {
           if (isValidApiConfig(apiConfig)) {
             // We have a config, but there's already a running pipeline
             if (response.pipeline_id !== pipelineId) {
+              analytics.pipeline.existingPipeline({})
               setStatus('deploy_failed')
               setError('There is already a running pipeline. Please shut it down before deploying a new one.')
             } else {
               // Same pipeline is running
+              analytics.pipeline.alreadyRunning({})
               setStatus('active')
               setError(null)
             }
           } else {
             // No config, but pipeline is running - just show active status
+            analytics.pipeline.noValidConfig({})
             setStatus('active')
             setError(null)
           }
@@ -112,9 +118,11 @@ export function PipelineDeployer() {
           // No running pipeline
           if (isValidApiConfig(apiConfig)) {
             // We have a valid config and no running pipeline - we can deploy
+            analytics.pipeline.noPipeline_Deploying({})
             deployPipeline()
           } else {
             // No config and no pipeline - redirect to home immediately
+            analytics.pipeline.noPipeline_NoConfig({})
             router.push('/home')
           }
         }
@@ -122,9 +130,11 @@ export function PipelineDeployer() {
         if (err.code === 404) {
           // No pipeline exists
           if (isValidApiConfig(apiConfig)) {
+            analytics.pipeline.noPipeline_Deploying({})
             deployPipeline()
           } else {
             // No config and no pipeline - redirect to home immediately
+            analytics.pipeline.noPipeline_NoConfig({})
             router.push('/home')
           }
         } else {
@@ -141,7 +151,7 @@ export function PipelineDeployer() {
         setError(null)
 
         // Track successful pipeline deployment
-        trackPipelineAction('deploy', {
+        analytics.deploy.success({
           pipelineId: response.pipeline_id,
           status: 'success',
         })
@@ -150,7 +160,7 @@ export function PipelineDeployer() {
         setError(err.message)
 
         // Track failed pipeline deployment
-        trackPipelineAction('deploy', {
+        analytics.deploy.failed({
           status: 'failed',
           error: err.message,
         })
@@ -159,7 +169,7 @@ export function PipelineDeployer() {
 
     // Always check pipeline status first
     checkPipelineStatus()
-  }, [apiConfig, pipelineId, trackPipelineAction, router])
+  }, [apiConfig, pipelineId, analytics.deploy, router])
 
   const handleDeleteClick = () => {
     setIsDeleteModalVisible(true)
@@ -180,26 +190,22 @@ export function PipelineDeployer() {
     // Proceed with pipeline deletion
     if (result === ModalResult.SUBMIT) {
       try {
+        analytics.pipeline.deleteClicked({})
+
         await shutdownPipeline()
         setStatus('deleted')
         setError(null)
         resetPipelineState('', true)
 
         // Track successful pipeline deletion
-        trackPipelineAction('delete', {
-          pipelineId,
-          configSaved: !!configName,
-          status: 'success',
-        })
+        analytics.pipeline.deleteSuccess({})
       } catch (err) {
         const error = err as PipelineError
         setStatus('delete_failed')
         setError(error.message)
 
         // Track failed pipeline deletion
-        trackPipelineAction('delete', {
-          pipelineId,
-          status: 'failed',
+        analytics.pipeline.deleteFailed({
           error: error.message,
         })
       }
@@ -228,17 +234,20 @@ export function PipelineDeployer() {
     // Reset pipeline state and navigate to home regardless of save choice
     if (result === ModalResult.SUBMIT) {
       try {
+        // Track successful pipeline modification
+        analytics.pipeline.modifyClicked({
+          pipelineId,
+          configSaved: !!configName,
+          status: 'success',
+        })
+
         await shutdownPipeline()
         setStatus('deleted')
         setError(null)
         resetPipelineState('', true)
 
         // Track successful pipeline modification
-        trackPipelineAction('modify', {
-          pipelineId,
-          configSaved: !!configName,
-          status: 'success',
-        })
+        analytics.pipeline.modifySuccess({})
 
         router.push('/home')
       } catch (err) {
@@ -247,9 +256,7 @@ export function PipelineDeployer() {
         setError(error.message)
 
         // Track failed pipeline modification
-        trackPipelineAction('modify', {
-          pipelineId,
-          status: 'failed',
+        analytics.pipeline.modifyFailed({
           error: error.message,
         })
       }
@@ -300,21 +307,9 @@ export function PipelineDeployer() {
 
   const handleFeedbackSelect = (feedback: FeedbackType) => {
     setSelectedFeedback(feedback)
-    // Track feedback selection
-    trackEngagement('feedback_selected', {
-      feedback_type: feedback,
-      pipeline_id: pipelineId,
-    })
   }
 
   const handleFeedbackSubmit = () => {
-    // Track feedback submission
-    trackEngagement('feedback_submitted', {
-      feedback_type: selectedFeedback,
-      feedback_text: feedbackText,
-      pipeline_id: pipelineId,
-    })
-
     // Store feedback submission in localStorage
     localStorage.setItem(FEEDBACK_SUBMITTED_KEY, 'true')
     setHasSubmittedFeedback(true)

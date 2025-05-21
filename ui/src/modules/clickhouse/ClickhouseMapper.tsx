@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { useAnalytics } from '@/src/hooks/useAnalytics'
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
@@ -17,14 +16,14 @@ import {
   validateColumnMappings,
   isTypeCompatible,
 } from './helpers'
-import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
+import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } from './types'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
-import { TypeCompatibilityInfo } from './components/TypeCompatibilityInfo'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const { clickhouseStore, kafkaStore, operationsSelected } = useStore()
-  const { trackFunnelStep, trackError, trackFeatureUsage } = useAnalytics()
+  const analytics = useJourneyAnalytics()
   const {
     clickhouseConnection,
     clickhouseDestination,
@@ -116,23 +115,16 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       setAvailableTables([])
       setTableSchema({ columns: [] })
       setMappedColumns([])
-
-      // Track connection change
-      trackFunnelStep('connectionChanged', {
-        component: 'ClickhouseMapper',
-        topicName,
-        topicIndex: index,
-      })
     }
 
     // Update the connection reference
     lastConnectionRef.current = currentConnectionId
-  }, [clickhouseConnection, trackFunnelStep, topicName, index])
+  }, [clickhouseConnection, topicName, index])
 
   // Track initial view
   useEffect(() => {
     if (!hasTrackedView) {
-      trackFunnelStep('clickhouseMapperView', {
+      analytics.page.selectDestination({
         topicName,
         topicIndex: index,
         isReturningVisit: !!clickhouseDestination?.database,
@@ -140,7 +132,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       })
       setHasTrackedView(true)
     }
-  }, [hasTrackedView, trackFunnelStep, topicName, index, clickhouseDestination])
+  }, [hasTrackedView, analytics.page, topicName, index, clickhouseDestination])
 
   // Get connection config based on connection type
   const getConnectionConfig = () => ({
@@ -167,7 +159,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
       // Track database selection if it's the first time
       if (!hasTrackedDatabaseSelection || clickhouseDestination?.database !== database) {
-        trackFunnelStep('databaseSelected', {
+        analytics.destination.databaseSelected({
           database,
           topicName,
           topicIndex: index,
@@ -176,7 +168,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         setHasTrackedDatabaseSelection(true)
       }
     },
-    [hasTrackedDatabaseSelection, clickhouseDestination, trackFunnelStep, topicName, index],
+    [hasTrackedDatabaseSelection, clickhouseDestination, analytics.destination, topicName, index],
   )
 
   // Enhanced table selection handler with tracking
@@ -186,7 +178,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
       // Track table selection if it's the first time or a change
       if (!hasTrackedTableSelection || clickhouseDestination?.table !== table) {
-        trackFunnelStep('tableSelected', {
+        analytics.destination.tableSelected({
           database: selectedDatabase,
           table,
           topicName,
@@ -196,7 +188,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         setHasTrackedTableSelection(true)
       }
     },
-    [hasTrackedTableSelection, clickhouseDestination, selectedDatabase, trackFunnelStep, topicName, index],
+    [hasTrackedTableSelection, clickhouseDestination, selectedDatabase, analytics.destination, topicName, index],
   )
 
   // Sync component with store when clickhouseDestination changes
@@ -292,14 +284,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
           // Track auto-mapping success (only track once when it happens)
           const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
-          if (autoMappedCount > 0) {
-            trackFeatureUsage('autoMapping', {
-              topicName,
-              mappedCount: autoMappedCount,
-              totalColumns: updatedColumns.length,
-              mappingPercentage: Math.round((autoMappedCount / updatedColumns.length) * 100),
-            })
-          }
         }
       } else {
         console.log('No event data found')
@@ -317,18 +301,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
       // Don't track the first time when we're just initializing from store
       if (prevMappedFieldsCount > 0 || !clickhouseDestination?.mapping?.length) {
-        trackFunnelStep('fieldsMapped', {
-          topicName,
-          topicIndex: index,
-          mappedFields: mappedFieldsCount,
-          totalColumns: mappedColumns.length,
-          mappingPercentage: Math.round((mappedFieldsCount / mappedColumns.length) * 100),
-        })
-
         setHasTrackedFieldMapping(true)
       }
     }
-  }, [mappedColumns, prevMappedFieldsCount, trackFunnelStep, topicName, index, clickhouseDestination])
+  }, [mappedColumns, prevMappedFieldsCount, analytics.destination, topicName, index, clickhouseDestination])
 
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
@@ -355,15 +331,14 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           setError(null)
 
           // Track successful database fetch
-          trackFunnelStep('databasesFetched', {
+          analytics.destination.databasesFetched({
             databaseCount: data.databases?.length || 0,
           })
         } else {
           setError(data.error || 'Failed to fetch databases')
 
           // Track error
-          trackError('connection', {
-            component: 'ClickhouseMapper',
+          analytics.destination.databaseFetchedError({
             error: data.error || 'Failed to fetch databases',
           })
         }
@@ -372,8 +347,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         setError(errorMessage)
 
         // Track error
-        trackError('connection', {
-          component: 'ClickhouseMapper',
+        analytics.destination.databaseFetchedError({
           error: errorMessage,
         })
       } finally {
@@ -413,7 +387,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           setError(null)
 
           // Track tables loaded
-          trackFunnelStep('tablesFetched', {
+          analytics.destination.tablesFetched({
             database: selectedDatabase,
             tableCount: data.tables?.length || 0,
           })
@@ -421,8 +395,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           setError(data.error || `Failed to fetch tables for database '${selectedDatabase}'`)
 
           // Track error
-          trackError('connection', {
-            component: 'ClickhouseMapper',
+          analytics.destination.tableFetchedError({
             error: data.error || `Failed to fetch tables for database '${selectedDatabase}'`,
             database: selectedDatabase,
           })
@@ -432,7 +405,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         setError(errorMessage)
 
         // Track error
-        trackError('connection', {
+        analytics.destination.tableFetchedError({
           component: 'ClickhouseMapper',
           error: errorMessage,
           database: selectedDatabase,
@@ -443,26 +416,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
 
     fetchTables()
-
-    // Track database selection (but only once when it changes)
-    trackFunnelStep('databaseSelected', {
-      database: selectedDatabase,
-      topicName,
-      topicIndex: index,
-    })
   }, [selectedDatabase])
-
-  // Track table selection when it changes
-  useEffect(() => {
-    if (selectedTable) {
-      trackFunnelStep('tableSelected', {
-        database: selectedDatabase,
-        table: selectedTable,
-        topicName,
-        topicIndex: index,
-      })
-    }
-  }, [selectedTable])
 
   // Update column mapping
   const updateColumnMapping = (index: number, field: keyof TableColumn, value: any) => {
@@ -500,18 +454,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     const isCompatible = isTypeCompatible(inferredType, updatedColumns[index].type)
 
     setMappedColumns(updatedColumns)
-
-    // Track when a field is manually mapped
-    if (eventField) {
-      trackFunnelStep('fieldMapped', {
-        columnName: updatedColumns[index].name,
-        eventField,
-        inferredType,
-        isCompatible,
-        topicName,
-        topicIndex: index,
-      })
-    }
   }
 
   // Add validation type enum
@@ -567,29 +509,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     issues.missingTypeMappings = missingTypeMappings
 
     setValidationIssues(issues)
-
-    // Track validation issues
-    if (
-      issues.unmappedNonNullableColumns.length > 0 ||
-      issues.unmappedNullableColumns.length > 0 ||
-      issues.extraEventFields.length > 0 ||
-      issues.incompatibleTypeMappings.length > 0 ||
-      issues.missingTypeMappings.length > 0
-    ) {
-      trackFunnelStep('mappingValidation', {
-        topicName,
-        topicIndex: index,
-        unmappedRequiredColumns: issues.unmappedNonNullableColumns.length,
-        unmappedNullableColumns: issues.unmappedNullableColumns.length,
-        extraFields: issues.extraEventFields.length,
-        incompatibleMappings: issues.incompatibleTypeMappings.length,
-        missingTypeMappings: issues.missingTypeMappings.length,
-        hasErrors:
-          issues.unmappedNonNullableColumns.length > 0 ||
-          issues.incompatibleTypeMappings.length > 0 ||
-          issues.missingTypeMappings.length > 0,
-      })
-    }
 
     // Check in order of priority:
     // 1. Type compatibility violations (error)
@@ -659,12 +578,16 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
 
     return null // No validation issues
-  }, [mappedColumns, tableSchema.columns, eventFields, trackFunnelStep, topicName, index])
+  }, [mappedColumns, tableSchema.columns, eventFields, analytics.destination, topicName, index])
 
   // Add save configuration logic
   const saveDestinationConfig = useCallback(() => {
     // Set the pending action to 'save' so we know what to do after validation
     setPendingAction('save')
+
+    analytics.destination.columnsSelected({
+      count: mappedColumns.length,
+    })
 
     // Run validation
     const validationResult = validateMapping()
@@ -714,21 +637,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     const mappingPercentage = Math.round((mappedColumns2 / totalColumns) * 100)
 
     // Track successful completion
-    trackFunnelStep('clickhouseMapperCompleted', {
-      topicName,
-      topicIndex: index,
-      database: selectedDatabase,
-      table: selectedTable,
-      mappedColumns: mappedColumns2,
+    analytics.destination.mappingCompleted({
+      count: mappedColumns.length,
       totalColumns,
       mappingPercentage,
-      batchSize: maxBatchSize,
-      delayTime: maxDelayTime,
-      delayUnit: maxDelayTimeUnit,
-    })
-
-    // Track batch configuration as feature usage
-    trackFeatureUsage('batchConfiguration', {
       batchSize: maxBatchSize,
       delayTime: maxDelayTime,
       delayUnit: maxDelayTimeUnit,
@@ -761,8 +673,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     maxDelayTime,
     maxDelayTimeUnit,
     onNext,
-    trackFunnelStep,
-    trackFeatureUsage,
     topicName,
     index,
     setClickhouseDestination,
@@ -858,31 +768,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
             if (modalProps.type === 'error') {
               // For errors, we don't proceed even if user confirms
               setError('Please fix the validation errors before proceeding.')
-
-              // Track validation error acknowledgment
-              trackFunnelStep('validationErrorAcknowledged', {
-                topicName,
-                topicIndex: index,
-                errorType: modalProps.title,
-              })
             } else {
               // For warnings, we proceed if user confirms
               completeConfigSave()
-
-              // Track warning acceptance
-              trackFunnelStep('validationWarningAccepted', {
-                topicName,
-                topicIndex: index,
-                warningType: modalProps.title,
-              })
             }
-          } else if (result === ModalResult.NO && modalProps.type !== 'error') {
-            // Track warning rejection
-            trackFunnelStep('validationWarningRejected', {
-              topicName,
-              topicIndex: index,
-              warningType: modalProps.title,
-            })
           }
           setPendingAction('none')
         }}

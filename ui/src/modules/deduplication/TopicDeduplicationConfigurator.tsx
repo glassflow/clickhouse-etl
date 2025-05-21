@@ -16,6 +16,7 @@ import {
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { TopicSelectorForm } from '@/src/modules/deduplication/components/TopicSelectorForm'
 import EventFetcher from '@/src/components/shared/event-fetcher/EventFetcher'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export type TopicDeduplicationConfiguratorProps = {
   steps: any
@@ -30,6 +31,7 @@ export function TopicDeduplicationConfigurator({
   validate,
   index = 0,
 }: TopicDeduplicationConfiguratorProps) {
+  const analytics = useJourneyAnalytics()
   const { operationsSelected, topicsStore, kafkaStore } = useStore()
   const {
     availableTopics,
@@ -126,6 +128,9 @@ export function TopicDeduplicationConfigurator({
       fetchTopics()
     }
 
+    // Track page view when component loads
+    analytics.page.topicDeduplication({})
+
     // Mark that we're no longer on initial render after the first effect run
     return () => {
       if (isInitialRender) {
@@ -146,6 +151,8 @@ export function TopicDeduplicationConfigurator({
     if (topic === '') {
       return
     }
+
+    analytics.topic.selected({})
 
     // If the topic name changed, invalidate dependent state
     if (topic !== localState.topicName) {
@@ -190,6 +197,12 @@ export function TopicDeduplicationConfigurator({
 
       // Update deduplication status
       setDeduplicationConfigured(!!(newKeyConfig.key && newWindowConfig.window))
+
+      analytics.key.dedupKey({
+        keyType: newKeyConfig.keyType,
+        window: newWindowConfig.window,
+        unit: newWindowConfig.unit,
+      })
     },
     [],
   )
@@ -270,6 +283,8 @@ export function TopicDeduplicationConfigurator({
         userInteracted: true,
         canContinue: !!formattedEventData && !!prev.topicName && !!prev.offset,
       }))
+
+      analytics.topic.eventReceived({})
     },
 
     onEventError: (error: any) => {
@@ -280,7 +295,19 @@ export function TopicDeduplicationConfigurator({
         fetchedEvent: null,
         canContinue: false,
       }))
+
+      analytics.topic.eventError({})
     },
+  }
+
+  const handleEmptyTopic = () => {
+    // FIXME: check this
+    setLocalState((prev) => ({
+      ...prev,
+      canContinue: false,
+    }))
+
+    analytics.topic.noEvent({})
   }
 
   return (
@@ -320,13 +347,7 @@ export function TopicDeduplicationConfigurator({
                   topicName={topicName}
                   initialOffset={initialOffset}
                   topicIndex={index}
-                  onEmptyTopic={() => {
-                    // FIXME: check this
-                    setLocalState((prev) => ({
-                      ...prev,
-                      canContinue: false,
-                    }))
-                  }}
+                  onEmptyTopic={handleEmptyTopic}
                   {...eventHandlers}
                 />
               </div>

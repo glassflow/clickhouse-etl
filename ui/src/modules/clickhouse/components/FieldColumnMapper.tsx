@@ -1,3 +1,6 @@
+'use client'
+
+import { useEffect } from 'react'
 import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from '@/src/components/ui/table'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { DualSearchableSelect } from '@/src/components/common/DualSearchableSelect'
@@ -9,6 +12,7 @@ import { TableColumn } from '../types'
 import { useState } from 'react'
 import { isTypeCompatible } from '../helpers'
 import Image from 'next/image'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 // Import topic icons
 import deduplicateIcon from '@/src/images/deduplicate.svg'
@@ -39,10 +43,17 @@ export function FieldColumnMapper({
   isJoinMapping = false,
 }: FieldColumnMapperProps) {
   const [openSelectIndex, setOpenSelectIndex] = useState<number | null>(null)
-
+  const analytics = useJourneyAnalytics()
   const handleSelectOpen = (index: number, isOpen: boolean) => {
     setOpenSelectIndex(isOpen ? index : null)
   }
+
+  // track loading of the component after successful connection to ClickHouse
+  useEffect(() => {
+    analytics.destination.columnsShowed({
+      count: eventFields?.length || 0,
+    })
+  }, [eventFields])
 
   // Function to render the source topic icon based on the source
   const renderSourceTopicIcon = (column: ColumnMappingType) => {
