@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  workflow_call:
+
+jobs:
+  build-api-binary:
+    name: Build API binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        module: [glassflow-api, nats-kafka-bridge]
+        platform:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './${{ matrix.module }}/go.mod'
+          cache-dependency-path: './${{ matrix.module }}/go.mod'
+      - name: Build binary
+        working-directory: ${{ matrix.module }}
+        run: make build
+        env:
+          GOOS: ${{ matrix.platform.os }}
+          GOARCH: ${{ matrix.platform.arch }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 1
+          name: ${{ matrix.module }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: ${{ matrix.module }}/bin

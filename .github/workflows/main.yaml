@@ -6,12 +6,16 @@ on:
       - main
 
 jobs:
+  build-binary:
+    uses: ./.github/workflows/build_binary.yaml
   test:
+    needs:
+      - build-binary
     uses: ./.github/workflows/test.yaml
   build:
     needs:
       - test
-    uses: ./.github/workflows/build.yaml
+    uses: ./.github/workflows/build_image.yaml
     with:
       push: true
     secrets: inherit
