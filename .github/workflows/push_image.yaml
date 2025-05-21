@@ -1,0 +1,11 @@
+name: Push Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push-image:
+    uses: ./.github/workflows/build.yaml
+    with:
+      push: true
+    secrets: inherit

@@ -1,13 +1,18 @@
 name: Push Tag
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - v*
 
 jobs:
+  build-binary:
+    uses: ./.github/workflows/build_binary.yaml
   build-and-release:
-    uses: ./.github/workflows/build.yaml
+    needs:
+      - build-binary
+    uses: ./.github/workflows/build_image.yaml
     with:
       push: true
     secrets: inherit
