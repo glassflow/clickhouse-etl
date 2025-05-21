@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+
 export function LogViewer() {
   const [logs, setLogs] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -12,7 +14,7 @@ export function LogViewer() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logs`)
+        const response = await fetch(`${API_URL}/logs`)
         if (!response.ok) {
           throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`)
         }

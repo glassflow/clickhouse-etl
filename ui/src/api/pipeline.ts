@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+
 export interface PipelineResponse {
   pipeline_id: string
   status: 'running' | 'stopped' | 'error'
@@ -13,7 +15,7 @@ export interface PipelineError {
 
 export const createPipeline = async (config: any): Promise<PipelineResponse> => {
   try {
-    const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/pipeline`, config)
+    const response = await axios.post(`${API_URL}/pipeline`, config)
     return {
       pipeline_id: response.data.pipeline_id,
       status: 'running',
@@ -50,7 +52,7 @@ export const createPipeline = async (config: any): Promise<PipelineResponse> => 
 
 export const shutdownPipeline = async (): Promise<void> => {
   try {
-    await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/pipeline/shutdown`)
+    await axios.delete(`${API_URL}/pipeline/shutdown`)
   } catch (error: any) {
     if (error.response) {
       const { status, data } = error.response
@@ -76,7 +78,7 @@ export const shutdownPipeline = async (): Promise<void> => {
 
 export const getPipelineStatus = async (): Promise<PipelineResponse> => {
   try {
-    const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/pipeline`)
+    const response = await axios.get(`${API_URL}/pipeline`)
     if (response.data.id) {
       return {
         pipeline_id: response.data.id,
