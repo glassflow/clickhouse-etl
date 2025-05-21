@@ -1,0 +1,26 @@
+name: Notify Release
+
+on:
+  workflow_call:
+
+jobs:
+  send-release-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: New release notification
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ github.ref_name }} released"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*${{ github.ref_name }} released*"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|*View Changelog*> (Triggered By: ${{ github.actor }})"
+
