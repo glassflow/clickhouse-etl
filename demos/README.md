@@ -24,8 +24,7 @@ docker compose up -d
 ```
 
 This will start:
-- Zookeeper (port 2181)
-- Kafka (ports 9092, 9093, 9094)
+- Kafka (ports 9092)
 - ClickHouse (ports 8123, 9000)
 - GlassFlow ClickHouse ETL application (port 8080)
 
@@ -45,8 +44,7 @@ docker compose exec kafka kafka-topics \
     --create \
     --partitions 1 \
     --replication-factor 1 \
-    --bootstrap-server localhost:9093 \
-    --command-config /etc/kafka/client.properties
+    --bootstrap-server localhost:9092
 ```
 
 ### 2. Create ClickHouse Table
@@ -74,7 +72,7 @@ Go to http://localhost:8080 and follow the steps to create a pipeline.
 ```yaml
 Authentication Method: SASL/PLAIN
 Security Protocol: SASL_PLAINTEXT
-Bootstrap Servers: kafka:9094
+Bootstrap Servers: kafka:9092
 Username: admin
 Password: admin-secret
 ```
@@ -98,8 +96,7 @@ echo '{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@e
 {"event_id": "124", "user_id": "457", "name": "Jane Smith", "email": "jane@example.com", "created_at": "2024-03-20T10:03:00Z"}' | \
 docker compose exec -T kafka kafka-console-producer \
     --topic users \
-    --bootstrap-server localhost:9093 \
-    --producer.config /etc/kafka/client.properties
+    --bootstrap-server localhost:9092
 ```
 
 ### 5. See results on ClickHouse
@@ -225,7 +222,7 @@ The Python demos use several configuration files located in the `config` directo
 3. **Data Generation Issues**:
    - Verify Kafka topics:
      ```bash
-     docker compose exec kafka kafka-topics --list --bootstrap-server localhost:9093 --command-config /etc/kafka/client.properties
+     docker compose exec kafka kafka-topics --list --bootstrap-server localhost:9092
      ```
    - Check ClickHouse table:
      ```bash

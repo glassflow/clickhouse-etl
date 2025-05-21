@@ -82,12 +82,9 @@ def get_glassgen_generator(
         sink = {
             "type": "kafka",
             "params": {
-                "bootstrap.servers": "localhost:9093",
+                "bootstrap.servers": "localhost:9092",
                 "topic": topic_name,
-                "security.protocol": "SASL_PLAINTEXT",
-                "sasl.mechanism": "PLAIN",
-                "sasl.username": "admin",
-                "sasl.password": "admin-secret",
+                "security.protocol": "PLAINTEXT"
             },
         }
     elif sink_type == "yield":
@@ -179,11 +176,8 @@ class JoinEventSchema(glassgen.ConfigSchema):
 def create_kafka_topic(topic_name: str):
     """Create a Kafka topic."""
     admin_client = KafkaAdminClient(
-        bootstrap_servers="localhost:9093",
-        security_protocol="SASL_PLAINTEXT",
-        sasl_mechanism="PLAIN",
-        sasl_plain_username="admin",
-        sasl_plain_password="admin-secret"
+        bootstrap_servers="localhost:9092",
+        security_protocol="PLAINTEXT"
     )
     try:
         admin_client.create_topics([NewTopic(name=topic_name, num_partitions=1, replication_factor=1)])
@@ -242,11 +236,9 @@ def part2(client):
         show_lines=False,
         box=box.SIMPLE_HEAD,
     )
-    table.add_row("Bootstrap Servers", "kafka:9094")
-    table.add_row("Security Protocol", "SASL_PLAINTEXT")
-    table.add_row("Sasl Mechanism", "PLAIN")
-    table.add_row("Sasl Username", "admin")
-    table.add_row("Sasl Password", "admin-secret")
+    table.add_row("Bootstrap Servers", "kafka:9093")
+    table.add_row("Security Protocol", "PLAINTEXT")
+    table.add_row("Authentication Method", "No Authentication")
     table.add_row("Topic", "orders")
     console.print(table)
     input("\nOnce created, press enter to continue.")
@@ -282,11 +274,9 @@ def part3():
         show_lines=False,
         box=box.SIMPLE_HEAD,
     )
-    table.add_row("Bootstrap Servers", "kafka:9094")
-    table.add_row("Security Protocol", "SASL_PLAINTEXT")
-    table.add_row("Sasl Mechanism", "PLAIN")
-    table.add_row("Sasl Username", "admin")
-    table.add_row("Sasl Password", "admin-secret")
+    table.add_row("Bootstrap Servers", "kafka:9093")
+    table.add_row("Security Protocol", "PLAINTEXT")
+    table.add_row("Authentication Method", "No Authentication")
     table.add_row("Topic", "orders")
     console.print(table)
     input("\nOnce created, press enter to continue.")

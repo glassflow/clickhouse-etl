@@ -48,21 +48,22 @@ def generate_events_with_duplicates(
     schema = json.load(open(generator_schema))
     glassgen_config["schema"] = schema
 
-    if source_config.connection_params.brokers[0] == "kafka:9094":
-        brokers = ["localhost:9093"]
+    kafka_params = {"topic": source_config.topics[0].name}
+    if source_config.connection_params.brokers[0] == "kafka:9093":
+        kafka_params["bootstrap.servers"] = "localhost:9092"
     else:
-        brokers = source_config.connection_params.brokers
+        kafka_params["bootstrap.servers"] = ",".join(
+            source_config.connection_params.brokers
+        )
+    if not source_config.connection_params.skip_auth:
+        kafka_params["security.protocol"] = source_config.connection_params.protocol
+        kafka_params["sasl.mechanism"] = source_config.connection_params.mechanism
+        kafka_params["sasl.username"] = source_config.connection_params.username
+        kafka_params["sasl.password"] = source_config.connection_params.password
 
     glassgen_config["sink"] = {
         "type": "kafka",
-        "params": {
-            "bootstrap.servers": ",".join(brokers),
-            "topic": source_config.topics[0].name,
-            "security.protocol": source_config.connection_params.protocol,
-            "sasl.mechanism": source_config.connection_params.mechanism,
-            "sasl.username": source_config.connection_params.username,
-            "sasl.password": source_config.connection_params.password,
-        },
+        "params": kafka_params,
     }
     return glassgen.generate(config=glassgen_config)
 
@@ -157,6 +158,7 @@ def main(
             is_failure=True,
             component="Clickhouse",
         )
+        exit(1)
     else:
         utils.log(
             message=f"Expected {expected_records} records, and got {added_records} records",
@@ -164,6 +166,7 @@ def main(
             is_success=True,
             component="Clickhouse",
         )
+        exit(0)
 
 
 if __name__ == "__main__":

@@ -5,12 +5,10 @@
       "provider": "confluent",
       "connection_params": {
         "brokers": [
-          "kafka:9094"
+          "kafka:9093"
         ],
-        "protocol": "SASL_PLAINTEXT",
-        "mechanism": "PLAIN",
-        "username": "admin",
-        "password": "admin-secret"
+        "protocol": "PLAINTEXT",
+        "skip_auth": true
       },
       "topics": [
         {

@@ -98,19 +98,19 @@ def load_conf(path: str) -> models.PipelineConfig:
 def create_topics_if_not_exists(source_config: models.SourceConfig):
     """Create topics in Kafka"""
 
-    if source_config.connection_params.brokers[0] == "kafka:9094":
-        brokers = ["localhost:9093"]
+    config = {}
+    if source_config.connection_params.brokers[0] == "kafka:9093":
+        config["bootstrap_servers"] = ["localhost:9092"]
     else:
-        brokers = source_config.connection_params.brokers
+        config["bootstrap_servers"] = source_config.connection_params.brokers
+    if not source_config.connection_params.skip_auth:
+        config["security_protocol"] = source_config.connection_params.protocol.value
+        config["sasl_mechanism"] = source_config.connection_params.mechanism.value
+        config["sasl_plain_username"] = source_config.connection_params.username
+        config["sasl_plain_password"] = source_config.connection_params.password
 
     # Create Kafka admin client
-    admin_client = KafkaAdminClient(
-        bootstrap_servers=brokers,
-        security_protocol=source_config.connection_params.protocol.value,
-        sasl_mechanism=source_config.connection_params.mechanism.value,
-        sasl_plain_username=source_config.connection_params.username,
-        sasl_plain_password=source_config.connection_params.password,
-    )
+    admin_client = KafkaAdminClient(**config)
 
     # Create topic configuration
     for topic_config in source_config.topics:
