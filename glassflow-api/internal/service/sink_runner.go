@@ -54,6 +54,9 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 			TableName: cfg.Table,
 		},
 	)
+	if err != nil {
+		return fmt.Errorf("create clickhouse client: %w", err)
+	}
 
 	sinkOperator, err := operator.NewSinkOperator(
 		chClient,
