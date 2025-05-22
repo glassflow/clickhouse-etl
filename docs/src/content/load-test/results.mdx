@@ -1,0 +1,112 @@
+# Load Test Results
+
+> Last Updated: May 22, 2025
+
+## Overview
+This document presents the results from a load testing run of the ETL pipeline with GlassFlow. 
+The test was conducted to evaluate the performance and reliability of the system under various configurations.
+
+## Test Data
+The complete test results are available in the [etl-clickhouse-loadtest](https://github.com/glassflow/etl-clickhouse-loadtest) repository. The results include detailed metrics for each test variant, including throughput, latency, and processing times.
+
+### Test Data Format
+The tests were conducted using user event data with the following JSON structure:
+```json
+{
+    "event_id": "$uuid4",
+    "user_id": "$uuid4",
+    "name": "$name",
+    "email": "$email",
+    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
+}
+```
+
+### Test Scope
+These load tests focused specifically on the deduplication functionality of GlassFlow. The tests did not include temporal joins. Each test run:
+- Generated events with the above schema
+- Applied deduplication based on event_id
+- Measured performance metrics for the deduplication process
+
+## Discussion
+We encourage discussion and feedback on these results. Please join the conversation in our [GitHub Discussions](https://github.com/orgs/glassflow/discussions) where you can:
+- Share your observations
+- Ask questions about the test methodology
+- Discuss potential optimizations
+- Compare results with your own testing
+
+## Test results
+### Common Parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Duplication Rate | 0.1 |
+| Deduplication Window | 8h |
+| Max Delay Time | 10s |
+
+### Test Results
+
+| Variant ID | Max Batch Size | Number of records (millions) | Time taken to publish (sec) | RPS Achieved | Time taken to process records (sec) | Average Latency (ms) | Lag (sec) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| load_9fb6b2c9 | 5000 | 5.0 | 574.37 | 8705 | 584.98 | 0.12 | 10.1 |
+| load_0b8b8a70 | 5000 | 10.0 | 1139.92 | 8773 | 1155.68 | 0.12 | 15.04 |
+| load_a7e0c0df | 5000 | 15.0 | 1703.83 | 8804 | 1714.62 | 0.11 | 10.04 |
+| load_bd0fdf39 | 5000 | 20.0 | 2289.22 | 8737 | 2337.67 | 0.12 | 47.74 |
+| load_1542aa3b | 5000 | 5.0 | 282.82 | 17679 | 544.16 | 0.11 | 260.55 |
+| load_a85a4c42 | 5000 | 10.0 | 563.76 | 17738 | 1060.51 | 0.11 | 495.97 |
+| load_5efd111b | 5000 | 15.0 | 848.47 | 17679 | 1605.77 | 0.11 | 756.49 |
+| load_23da167d | 5000 | 20.0 | 1140.66 | 17534 | 2132.96 | 0.11 | 991.77 |
+| load_883b39a0 | 5000 | 5.0 | 192.34 | 25995 | 563.78 | 0.11 | 370.57 |
+| load_b083f89f | 5000 | 10.0 | 381.3 | 26226 | 1093.08 | 0.11 | 710.97 |
+| load_462558f4 | 5000 | 15.0 | 569.73 | 26328 | 1632.03 | 0.11 | 1061.44 |
+| load_254adf29 | 5000 | 20.0 | 768.93 | 26010 | 2383.45 | 0.12 | 1613.62 |
+| load_0c3fdefc | 5000 | 5.0 | 145.42 | 34384 | 562.14 | 0.11 | 415.78 |
+| load_3942530b | 5000 | 10.0 | 296.05 | 33779 | 1143.2 | 0.11 | 846.26 |
+| load_d2c1783c | 5000 | 15.0 | 435.93 | 34409 | 1654.28 | 0.11 | 1217.37 |
+| load_febf151f | 5000 | 20.0 | 569.23 | 35135 | 2192.82 | 0.11 | 1622.75 |
+| load_993c0bc5 | 5000 | 5.0 | 124.2 | 40256 | 570.99 | 0.11 | 445.76 |
+| load_022e44e5 | 5000 | 10.0 | 258.3 | 38715 | 1151.13 | 0.12 | 891.8 |
+| load_0adbae83 | 5000 | 15.0 | 376.69 | 39820 | 1725.38 | 0.12 | 1347.66 |
+| load_77d67ac7 | 5000 | 20.0 | 494.34 | 40458 | 2380.66 | 0.12 | 1885.24 |
+| load_af120520 | 5000 | 5.0 | 132.66 | 37691 | 619.77 | 0.12 | 485.95 |
+| load_c9424931 | 5000 | 10.0 | 218.61 | 45743 | 1161.4 | 0.12 | 941.66 |
+| load_ee837ca6 | 5000 | 15.0 | 329.38 | 45539 | 1743.12 | 0.12 | 1412.48 |
+| load_ac40b143 | 5000 | 20.0 | 408.12 | 49005 | 2252.88 | 0.11 | 1843.61 |
+| load_675d04f3 | 5000 | 5.0 | 123.82 | 40382 | 590.52 | 0.12 | 465.66 |
+| load_28956d50 | 100000 | 10.0 | 179.12 | 55829 | 1247.13 | 0.12 | 1066.62 |
+
+### Performance Graph
+
+![Test Results Scatter Plot](./test_results_scatter.png)
+
+## Key Findings
+
+### Stability
+- The system was able to handle the load without any issues, even upto 55k RPS.
+- The system was able to deduplicate the data without any issues
+
+### Lag
+- Lag was directly proportional to the RPS and the amount of data sent at the given RPS. 
+- For a given RPS, lag was increasing with the amount of data sent (expected)
+
+### Resource Utilization
+- CPU utilization was efficient across all test variants
+- Memory usage remained stable during extended test runs
+
+
+## Next Steps
+
+1. **Further Testing**
+   - Longer duration tests
+   - Higher throughput scenarios   
+   - Tests with different events data
+
+2. **Batch Size Optimization**
+   - Testing with different batch sizes to compare performance and lag
+
+3. **Monitoring Improvements**
+   - Enhanced metrics collection 
+   - Advanced analysis of the results
+
+4. **Hardware setup**
+    - Testing on different hardware 
+    - Tests with remote clickhouse and kafka to check performance with network delay
