@@ -5,19 +5,26 @@
 <div>      
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/ideas"><strong>Feature Request</strong></a> ·
-      <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a>      
+      <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
+      <a href="https://docs.glassflow.dev/demo"><strong>Watch Demo</strong></a>      
 </div>
 </div>
+
 
 <div align="center">
   <p>Join our weekly office hours every Wednesday 15:00-18:00 CET</p>  
   
 [![Join Next Office Hour](https://img.shields.io/badge/Join%20Next%20Office%20Hour-Schedule%20Now-blue?logo=calendar)](https://www.glassflow.dev/office-hours)
 
+
+
 [![Slack](https://img.shields.io/badge/Join%20Slack-GlassFlow%20Hub-blueviolet?logo=slack)](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
 [![Email Support](https://img.shields.io/badge/Email%20Support-help%40glassflow.dev-blue?logo=gmail)](mailto:help@glassflow.dev)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/glassflowdev.svg?style=social&label=Follow%20%40GlassFlow)](https://twitter.com/glassflowdev)
 </div>
+
+
+
 
 # GlassFlow for ClickHouse Streaming ETL
 
@@ -37,6 +44,13 @@ docker-compose up
 ```
 
 3. Access the web interface at `http://localhost:8080` to configure your pipeline.
+
+
+## Demo
+
+[![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/demo)
+
+
 
 ## Documentation
 
