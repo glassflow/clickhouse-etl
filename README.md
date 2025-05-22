@@ -57,10 +57,11 @@ docker-compose up
 For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.dev). The documentation includes:
 
 - [Installation Guide](https://docs.glassflow.dev/installation)
-- [Usage Guide](https://docs.glassflow.dev/usage)
-- [Pipeline Configuration](https://docs.glassflow.dev/pipeline_configuration)
-- [Local Testing](https://docs.glassflow.dev/local_testing)
+- [Usage Guide](https://docs.glassflow.dev/pipeline/usage)
+- [Pipeline Configuration](https://docs.glassflow.dev/pipeline/pipeline-configuration)
+- [Local Testing](https://docs.glassflow.dev/local-testing)
 - [Architecture](https://docs.glassflow.dev/architecture)
+- [Load Test Results](https://docs.glassflow.dev/load-test/results) - Performance benchmarks and test results
 
 ## Features
 
