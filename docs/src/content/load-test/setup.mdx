@@ -23,11 +23,11 @@ The test environment uses Docker containers for all components:
 ## Test Architecture
 
 ### Component Overview
-```
-┌───────────┐     ┌───────────┐     ┌─────────────┐     ┌─────────────┐
-│  Load     │     │   Kafka   │     │  GlassFlow  │     │  ClickHouse │
-│  Test     │────▶│  Broker   │────▶│  Pipeline   │────▶│  Database   │
-└───────────┘     └───────────┘     └─────────────┘     └─────────────┘
+```mermaid
+flowchart LR
+    A[Load Test] --> B[Kafka Broker]
+    B --> C[GlassFlow Pipeline]
+    C --> D[ClickHouse Database]
 ```
 
 ### Test Flow

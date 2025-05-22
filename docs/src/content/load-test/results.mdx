@@ -35,44 +35,64 @@ We encourage discussion and feedback on these results. Please join the conversat
 - Compare results with your own testing
 
 ## Test results
-### Common Parameters
+
+```mermaid
+flowchart LR
+    A[Load Test] -->|Kafka Ingestion RPS| B[Kafka Broker]
+    B --> C["GlassFlow Pipeline"]
+    C --> D[ClickHouse Database]        
+    B -.->|Lag| D
+```
+### GlassFlow Pipeline Parameters
 
 | Parameter | Value |
 |-----------|-------|
 | Duplication Rate | 0.1 |
 | Deduplication Window | 8h |
 | Max Delay Time | 10s |
+| Max Batch Size (GlassFlow Sink - Clickhouse) | 5000 |
 
 ### Test Results
 
-| Variant ID | Max Batch Size | Number of records (millions) | Time taken to publish (sec) | RPS Achieved | Time taken to process records (sec) | Average Latency (ms) | Lag (sec) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| load_9fb6b2c9 | 5000 | 5.0 | 574.37 | 8705 | 584.98 | 0.12 | 10.1 |
-| load_0b8b8a70 | 5000 | 10.0 | 1139.92 | 8773 | 1155.68 | 0.12 | 15.04 |
-| load_a7e0c0df | 5000 | 15.0 | 1703.83 | 8804 | 1714.62 | 0.11 | 10.04 |
-| load_bd0fdf39 | 5000 | 20.0 | 2289.22 | 8737 | 2337.67 | 0.12 | 47.74 |
-| load_1542aa3b | 5000 | 5.0 | 282.82 | 17679 | 544.16 | 0.11 | 260.55 |
-| load_a85a4c42 | 5000 | 10.0 | 563.76 | 17738 | 1060.51 | 0.11 | 495.97 |
-| load_5efd111b | 5000 | 15.0 | 848.47 | 17679 | 1605.77 | 0.11 | 756.49 |
-| load_23da167d | 5000 | 20.0 | 1140.66 | 17534 | 2132.96 | 0.11 | 991.77 |
-| load_883b39a0 | 5000 | 5.0 | 192.34 | 25995 | 563.78 | 0.11 | 370.57 |
-| load_b083f89f | 5000 | 10.0 | 381.3 | 26226 | 1093.08 | 0.11 | 710.97 |
-| load_462558f4 | 5000 | 15.0 | 569.73 | 26328 | 1632.03 | 0.11 | 1061.44 |
-| load_254adf29 | 5000 | 20.0 | 768.93 | 26010 | 2383.45 | 0.12 | 1613.62 |
-| load_0c3fdefc | 5000 | 5.0 | 145.42 | 34384 | 562.14 | 0.11 | 415.78 |
-| load_3942530b | 5000 | 10.0 | 296.05 | 33779 | 1143.2 | 0.11 | 846.26 |
-| load_d2c1783c | 5000 | 15.0 | 435.93 | 34409 | 1654.28 | 0.11 | 1217.37 |
-| load_febf151f | 5000 | 20.0 | 569.23 | 35135 | 2192.82 | 0.11 | 1622.75 |
-| load_993c0bc5 | 5000 | 5.0 | 124.2 | 40256 | 570.99 | 0.11 | 445.76 |
-| load_022e44e5 | 5000 | 10.0 | 258.3 | 38715 | 1151.13 | 0.12 | 891.8 |
-| load_0adbae83 | 5000 | 15.0 | 376.69 | 39820 | 1725.38 | 0.12 | 1347.66 |
-| load_77d67ac7 | 5000 | 20.0 | 494.34 | 40458 | 2380.66 | 0.12 | 1885.24 |
-| load_af120520 | 5000 | 5.0 | 132.66 | 37691 | 619.77 | 0.12 | 485.95 |
-| load_c9424931 | 5000 | 10.0 | 218.61 | 45743 | 1161.4 | 0.12 | 941.66 |
-| load_ee837ca6 | 5000 | 15.0 | 329.38 | 45539 | 1743.12 | 0.12 | 1412.48 |
-| load_ac40b143 | 5000 | 20.0 | 408.12 | 49005 | 2252.88 | 0.11 | 1843.61 |
-| load_675d04f3 | 5000 | 5.0 | 123.82 | 40382 | 590.52 | 0.12 | 465.66 |
-| load_28956d50 | 100000 | 10.0 | 179.12 | 55829 | 1247.13 | 0.12 | 1066.62 |
+| Variant ID | Number of records (millions) | Ingestion RPS (Kafka) | GlassFlow RPS | Average Latency (ms) | Lag (sec) |
+| --- | --- | --- | --- | --- | --- |
+| load_9fb6b2c9 | 5.0 | 8705 | 8547 | 0.117 | 10.1 |
+| load_0b8b8a70 | 10.0 | 8773 | 8653 | 0.1156 | 15.04 |
+| load_a7e0c0df | 15.0 | 8804 | 8748 | 0.1143 | 10.04 |
+| load_bd0fdf39 | 20.0 | 8737 | 8556 | 0.1169 | 47.74 |
+| load_1542aa3b | 5.0 | 17679 | 9189 | 0.1088 | 260.55 |
+| load_a85a4c42 | 10.0 | 17738 | 9429 | 0.1061 | 495.97 |
+| load_5efd111b | 15.0 | 17679 | 9341 | 0.1071 | 756.49 |
+| load_23da167d | 20.0 | 17534 | 9377 | 0.1066 | 991.77 |
+| load_883b39a0 | 5.0 | 25995 | 8869 | 0.1128 | 370.57 |
+| load_b083f89f | 10.0 | 26226 | 9148 | 0.1093 | 710.97 |
+| load_462558f4 | 15.0 | 26328 | 9191 | 0.1088 | 1061.44 |
+| load_254adf29 | 20.0 | 26010 | 8391 | 0.1192 | 1613.62 |
+| load_0c3fdefc | 5.0 | 34384 | 8895 | 0.1124 | 415.78 |
+| load_3942530b | 10.0 | 33779 | 8747 | 0.1143 | 846.26 |
+| load_d2c1783c | 15.0 | 34409 | 9067 | 0.1103 | 1217.37 |
+| load_febf151f | 20.0 | 35135 | 9121 | 0.1096 | 1622.75 |
+| load_993c0bc5 | 5.0 | 40256 | 8757 | 0.1142 | 445.76 |
+| load_022e44e5 | 10.0 | 38715 | 8687 | 0.1151 | 891.8 |
+| load_0adbae83 | 15.0 | 39820 | 8694 | 0.115 | 1347.66 |
+| load_77d67ac7 | 20.0 | 40458 | 8401 | 0.119 | 1885.24 |
+| load_af120520 | 5.0 | 37691 | 8068 | 0.124 | 485.95 |
+| load_c9424931 | 10.0 | 45743 | 8610 | 0.1161 | 941.66 |
+| load_ee837ca6 | 15.0 | 45539 | 8605 | 0.1162 | 1412.48 |
+| load_ac40b143 | 20.0 | 49005 | 8878 | 0.1126 | 1843.61 |
+| load_675d04f3 | 5.0 | 40382 | 8467 | 0.1181 | 465.66 |
+| load_28956d50 | 10.0 | 55829 | 8018 | 0.1247 | 1066.62 |
+
+
+### Result parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| Variant ID | A unique identifier for each load test run with a specific set of parameters |
+| Ingestion RPS | Rate of sending records to Kafka by the load testing framework (records per second) |
+| GlassFlow RPS | The average rate of processing that GlassFlow achieved (records per second) |
+| Average Latency | Average latency in milliseconds per record incurred by GlassFlow processing |
+| Lag | The time difference (in seconds) between when the last record was sent to Kafka by the load testing framework and when that record became available in ClickHouse |
 
 ### Performance Graph
 
