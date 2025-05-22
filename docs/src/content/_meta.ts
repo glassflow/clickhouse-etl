@@ -1,6 +1,7 @@
 export default {
     "index": { "title": "Introduction" },
     "installation": { "title": "Installation" },
+    "demo": { "title": "Demo" },
     "usage": { "title": "Usage Guide" },
     "pipeline_configuration": { "title": "Pipeline Configuration" },
     "local_testing": { "title": "Local Testing" },
