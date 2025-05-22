@@ -125,6 +125,9 @@ func NewConsumer(cc conf.ConnectorConfig, dialTimeout time.Duration) (Consumer, 
 		sc.Net.TLS.Enable = true
 		sc.Net.TLS.Config = &tlsConfig
 	}
+	if cc.SASL.TLS {
+		sc.Net.TLS.Enable = cc.SASL.TLS
+	}
 
 	if cc.MinBytes > 0 {
 		sc.Consumer.Fetch.Min = cc.MinBytes
