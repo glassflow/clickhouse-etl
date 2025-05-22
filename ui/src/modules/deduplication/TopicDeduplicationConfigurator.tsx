@@ -128,6 +128,12 @@ export function TopicDeduplicationConfigurator({
       fetchTopics()
     }
 
+    if (index === 0) {
+      analytics.page.selectLeftTopic({})
+    } else {
+      analytics.page.selectRightTopic({})
+    }
+
     // Track page view when component loads
     analytics.page.topicDeduplication({})
 
