@@ -1,6 +1,10 @@
 import { dictionary } from './eventDictionary'
 
 const eventCatalog: Record<string, boolean> = {
+  // Consent Events
+  [dictionary.Consent_Given.name]: true,
+  [dictionary.Consent_NotGiven.name]: true,
+
   // Journey Page Events
   [dictionary.P0_Homepage.name]: true,
   [dictionary.P1_SetupKafkaConnection.name]: true,
@@ -65,7 +69,7 @@ const eventCatalog: Record<string, boolean> = {
 
   // Pipeline Status Events
   [dictionary.Pipeline_ExistingPipeline.name]: true,
-  [dictionary.Pipeline_AlreadyRunning.name]: true,
+  [dictionary.Pipeline_ExistingSamePipeline.name]: true,
   [dictionary.Pipeline_NoPipeline_Deploying.name]: true,
   [dictionary.Pipeline_NoPipeline_NoConfig.name]: true,
   [dictionary.Pipeline_NoValidConfig.name]: true,

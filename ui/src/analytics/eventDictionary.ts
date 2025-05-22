@@ -11,6 +11,16 @@ export type EventGroup = {
 }
 
 export const dictionary: EventGroup = {
+  // Consent Events
+  Consent_Given: {
+    name: 'Consent Given',
+    key: 'Consent_Given',
+  },
+  Consent_NotGiven: {
+    name: 'Consent Not Given',
+    key: 'Consent_NotGiven',
+  },
+
   // New Journey Events (each as a separate top-level event)
   // Page Events
   P0_Homepage: {
@@ -213,9 +223,9 @@ export const dictionary: EventGroup = {
     name: 'Pipeline Existing Pipeline',
     key: 'Pipeline_ExistingPipeline',
   },
-  Pipeline_AlreadyRunning: {
-    name: 'Pipeline Already Running',
-    key: 'Pipeline_AlreadyRunning',
+  Pipeline_ExistingSamePipeline: {
+    name: 'Pipeline Existing Same Pipeline',
+    key: 'Pipeline_ExistingSamePipeline',
   },
   Pipeline_NoPipeline_Deploying: {
     name: 'Pipeline No Pipeline Deploying',

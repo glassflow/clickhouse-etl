@@ -18,6 +18,12 @@ const trackEvent = (eventKey: keyof typeof dictionary, properties?: Record<strin
   })
 }
 
+export const trackGeneral = {
+  consentGiven: (properties?: Record<string, unknown>) => trackEvent('Consent_Given', properties),
+
+  consentNotGiven: (properties?: Record<string, unknown>) => trackEvent('Consent_NotGiven', properties),
+}
+
 /**
  * Pages
  */
@@ -158,7 +164,8 @@ export const trackPipeline = {
 
   existingPipeline: (properties?: Record<string, unknown>) => trackEvent('Pipeline_ExistingPipeline', properties),
 
-  alreadyRunning: (properties?: Record<string, unknown>) => trackEvent('Pipeline_AlreadyRunning', properties),
+  existingSamePipeline: (properties?: Record<string, unknown>) =>
+    trackEvent('Pipeline_ExistingSamePipeline', properties),
 
   noPipeline_Deploying: (properties?: Record<string, unknown>) =>
     trackEvent('Pipeline_NoPipeline_Deploying', properties),
@@ -171,6 +178,7 @@ export const trackPipeline = {
 // Convenient helper to track all journey events
 export const trackJourney = {
   page: trackPage,
+  general: trackGeneral,
   operation: trackOperation,
   kafka: trackKafka,
   topic: trackTopic,

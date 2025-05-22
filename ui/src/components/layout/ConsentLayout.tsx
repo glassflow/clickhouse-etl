@@ -14,7 +14,7 @@ import {
 // Use the existing UUID package that's already installed as a dependency
 // Dynamically import only on the client side to avoid SSR issues
 import { v4 as uuidv4 } from 'uuid'
-
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 interface ConsentLayoutProps {
   children: React.ReactNode
 }
@@ -24,6 +24,7 @@ const CONSENT_ANSWERED_KEY = 'glassflow-consent-answered'
 const USER_ID_STORAGE_KEY = 'glassflow-user-id'
 
 export function ConsentLayout({ children }: ConsentLayoutProps) {
+  const analytics = useJourneyAnalytics()
   const { consentAnswered, setAnalyticsConsent, setConsentAnswered } = useStore()
   const [showConsent, setShowConsent] = useState(false)
 
@@ -81,6 +82,24 @@ export function ConsentLayout({ children }: ConsentLayoutProps) {
     // Save to store
     setAnalyticsConsent(value)
     setConsentAnswered(true)
+
+    // temporary enablement to track consent decision
+    setAnalyticsEnabled(true)
+
+    // Track consent decision with override
+    if (value) {
+      analytics.general.consentGiven({
+        overrideTrackingConsent: true,
+        consentType: 'explicit',
+        timestamp: new Date().toISOString(),
+      })
+    } else {
+      analytics.general.consentNotGiven({
+        overrideTrackingConsent: true,
+        consentType: 'explicit',
+        timestamp: new Date().toISOString(),
+      })
+    }
 
     // Enable or disable analytics based on consent
     setAnalyticsEnabled(value)
