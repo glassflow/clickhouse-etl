@@ -12,6 +12,12 @@ export enum StepKeys {
   DEPLOY_PIPELINE = 'deploy-pipeline',
 }
 
+export enum EventDataFormat {
+  JSON = 'json',
+  AVRO = 'avro',
+  PROTOBUF = 'protobuf',
+}
+
 export enum OperationKeys {
   DEDUPLICATION = 'deduplication',
   JOINING = 'joining',
