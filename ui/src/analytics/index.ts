@@ -5,6 +5,7 @@ export { dictionary } from './eventDictionary'
 
 // Journey tracking helpers
 export {
+  trackGeneral,
   trackJourney,
   trackPage,
   trackOperation,

@@ -139,9 +139,9 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
     ) {
       if (index === 0) {
-        analytics.page.selectTopic({})
+        analytics.page.selectLeftTopic({})
       } else {
-        analytics.page.selectTopic({})
+        analytics.page.selectRightTopic({})
       }
     } else {
       analytics.page.selectTopic({})

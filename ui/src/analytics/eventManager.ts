@@ -114,14 +114,17 @@ export const track = ({
 }: {
   event: Event
   context: unknown
-  properties?: Record<string, unknown>
+  properties?: Record<string, unknown> & {
+    overrideTrackingConsent?: boolean
+  }
 }) => {
+  const { overrideTrackingConsent } = properties || {}
   try {
     // Guard: exit early if window is not defined (SSR)
     if (typeof window === 'undefined') return
 
     // Only track if analytics is enabled and the event is in the catalog
-    if (!analyticsEnabled) {
+    if (!analyticsEnabled && !overrideTrackingConsent) {
       if (isDev) {
         console.log('Analytics disabled, not tracking:', {
           event: event.name,

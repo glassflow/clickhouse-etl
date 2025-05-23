@@ -10,6 +10,7 @@ import {
   trackDestination,
   trackDeploy,
   trackPipeline,
+  trackGeneral,
 } from '@/src/analytics'
 
 // Add a simple memoization cache to prevent duplicate calls
@@ -27,8 +28,9 @@ export function useJourneyAnalytics() {
    */
   const trackWithCache = useCallback(
     (eventName: string, trackingFunction: () => void, properties?: Record<string, unknown>) => {
-      // Only track if user has consented
-      if (!analyticsConsent) return
+      // Only track if user has consented or override is set
+      const { overrideTrackingConsent } = properties || {}
+      if (!analyticsConsent && !overrideTrackingConsent) return
 
       // Create a cache key based on event and properties
       const cacheKey = `${eventName}:${JSON.stringify(properties || {})}`
@@ -55,6 +57,17 @@ export function useJourneyAnalytics() {
       }
     },
     [analyticsConsent],
+  )
+
+  const general = useMemo(
+    () => ({
+      consentGiven: (properties?: Record<string, unknown>) =>
+        trackWithCache('Consent_Given', () => trackGeneral.consentGiven(properties), properties),
+
+      consentNotGiven: (properties?: Record<string, unknown>) =>
+        trackWithCache('Consent_NotGiven', () => trackGeneral.consentNotGiven(properties), properties),
+    }),
+    [trackWithCache],
   )
 
   // NOTE: Page tracking - all events tracked
@@ -264,21 +277,12 @@ export function useJourneyAnalytics() {
       existingPipeline: (properties?: Record<string, unknown>) =>
         trackWithCache('Pipeline_ExistingPipeline', () => trackPipeline.existingPipeline(properties), properties),
 
-      alreadyRunning: (properties?: Record<string, unknown>) =>
-        trackWithCache('Pipeline_AlreadyRunning', () => trackPipeline.alreadyRunning(properties), properties),
-
-      noPipeline_Deploying: (properties?: Record<string, unknown>) =>
+      existingSamePipeline: (properties?: Record<string, unknown>) =>
         trackWithCache(
-          'Pipeline_NoPipeline_Deploying',
-          () => trackPipeline.noPipeline_Deploying(properties),
+          'Pipeline_ExistingSamePipeline',
+          () => trackPipeline.existingSamePipeline(properties),
           properties,
         ),
-
-      noPipeline_NoConfig: (properties?: Record<string, unknown>) =>
-        trackWithCache('Pipeline_NoPipeline_NoConfig', () => trackPipeline.noPipeline_NoConfig(properties), properties),
-
-      noValidConfig: (properties?: Record<string, unknown>) =>
-        trackWithCache('Pipeline_NoValidConfig', () => trackPipeline.noValidConfig(properties), properties),
     }),
     [trackWithCache],
   )
@@ -296,6 +300,7 @@ export function useJourneyAnalytics() {
       deploy,
       pipeline,
       isEnabled: analyticsConsent,
+      general,
     }),
     [page, operation, kafka, topic, key, clickhouse, destination, deploy, pipeline, analyticsConsent],
   )

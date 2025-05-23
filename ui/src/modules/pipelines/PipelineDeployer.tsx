@@ -104,13 +104,12 @@ export function PipelineDeployer() {
               setError('There is already a running pipeline. Please shut it down before deploying a new one.')
             } else {
               // Same pipeline is running
-              analytics.pipeline.alreadyRunning({})
+              analytics.pipeline.existingSamePipeline({})
               setStatus('active')
               setError(null)
             }
           } else {
             // No config, but pipeline is running - just show active status
-            analytics.pipeline.noValidConfig({})
             setStatus('active')
             setError(null)
           }
@@ -118,11 +117,9 @@ export function PipelineDeployer() {
           // No running pipeline
           if (isValidApiConfig(apiConfig)) {
             // We have a valid config and no running pipeline - we can deploy
-            analytics.pipeline.noPipeline_Deploying({})
             deployPipeline()
           } else {
             // No config and no pipeline - redirect to home immediately
-            analytics.pipeline.noPipeline_NoConfig({})
             router.push('/home')
           }
         }
@@ -130,11 +127,9 @@ export function PipelineDeployer() {
         if (err.code === 404) {
           // No pipeline exists
           if (isValidApiConfig(apiConfig)) {
-            analytics.pipeline.noPipeline_Deploying({})
             deployPipeline()
           } else {
             // No config and no pipeline - redirect to home immediately
-            analytics.pipeline.noPipeline_NoConfig({})
             router.push('/home')
           }
         } else {
