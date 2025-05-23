@@ -80,8 +80,14 @@ export const useFetchEventWithCaching = (
       return
     }
 
+    // Reset state before starting new fetch
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      event: null,
+    }))
     setCurrentTopic(topicName)
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
     onEventLoading()
 
     try {
@@ -150,8 +156,14 @@ export const useFetchEventWithCaching = (
       return
     }
 
+    // Reset state before starting new fetch
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      event: null,
+    }))
     setCurrentTopic(topicName)
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
     onEventLoading()
 
     try {
@@ -217,8 +229,14 @@ export const useFetchEventWithCaching = (
   const handleFetchNewestEvent = async (topicName: string) => {
     if (!topicName) return
 
+    // Reset state before starting new fetch
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      event: null,
+    }))
     setCurrentTopic(topicName)
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
     onEventLoading()
 
     try {
@@ -245,6 +263,7 @@ export const useFetchEventWithCaching = (
           ...prev,
           isAtLatest: true,
           error: 'No events found in this topic',
+          isLoading: false,
         }))
       } else {
         onEventError(error)
@@ -256,8 +275,14 @@ export const useFetchEventWithCaching = (
   const handleFetchOldestEvent = async (topicName: string) => {
     if (!topicName) return
 
+    // Reset state before starting new fetch
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      event: null,
+    }))
     setCurrentTopic(topicName)
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
     onEventLoading()
 
     try {
@@ -285,6 +310,7 @@ export const useFetchEventWithCaching = (
           isAtLatest: true,
           isAtEarliest: true,
           error: 'No events found in this topic',
+          isLoading: false,
         }))
       } else {
         onEventError(error)
@@ -296,8 +322,14 @@ export const useFetchEventWithCaching = (
   const handleRefreshEvent = async (topicName: string, fetchNext: boolean = false) => {
     if (!topicName) return
 
+    // Reset state before starting new fetch
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      event: null,
+    }))
     setCurrentTopic(topicName)
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
     onEventLoading()
 
     try {

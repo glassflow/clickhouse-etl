@@ -38,6 +38,7 @@ function EventFetcher({
   })
   const [currentTopic, setCurrentTopic] = useState<string>(topicName)
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Use the custom hook
   const {
@@ -47,14 +48,23 @@ function EventFetcher({
     handleFetchNextEvent,
     handleFetchPreviousEvent,
     handleRefreshEvent,
-  } = useFetchEventWithCaching(kafkaStore, 'JSON', onEventLoading, onEventError, (offset) => {
-    if (offset !== null) {
-      setCurrentEvent((prev: any) => ({
-        ...prev,
-        kafkaOffset: offset,
-      }))
-    }
-  })
+  } = useFetchEventWithCaching(
+    kafkaStore,
+    'JSON',
+    () => {
+      setIsLoading(true)
+      onEventLoading()
+    },
+    onEventError,
+    (offset) => {
+      if (offset !== null) {
+        setCurrentEvent((prev: any) => ({
+          ...prev,
+          kafkaOffset: offset,
+        }))
+      }
+    },
+  )
 
   // Initial fetch when component mounts or topic changes or initialOffset changes
   useEffect(() => {
@@ -62,17 +72,22 @@ function EventFetcher({
     // 1. We have a topic and offset AND
     // 2. Either:
     //    a. We don't have an initial event OR
-    //    b. The topic has changed
-    const shouldFetch = topicName && initialOffset && (!initialEvent || topicName !== currentTopic)
+    //    b. The topic has changed OR
+    //    c. The offset has changed
+    const shouldFetch =
+      topicName &&
+      initialOffset &&
+      (!initialEvent || topicName !== currentTopic || initialOffset !== currentEvent?.position)
 
     if (shouldFetch) {
       // Reset state for new fetch
       setCurrentEvent(null)
       setCurrentTopic(topicName)
       setIsEmptyTopic(false)
+      setIsLoading(true)
 
       // If we have an initial event and the topic hasn't changed, use it
-      if (initialEvent && topicName === currentTopic) {
+      if (initialEvent && topicName === currentTopic && initialOffset === currentEvent?.position) {
         const kafkaEvent: KafkaEventType = {
           event: initialEvent,
           position: initialOffset,
@@ -82,6 +97,7 @@ function EventFetcher({
           topicIndex: topicIndex,
         }
         setCurrentEvent(kafkaEvent)
+        setIsLoading(false)
         onEventLoaded(kafkaEvent)
         return
       }
@@ -97,7 +113,7 @@ function EventFetcher({
         handleFetchNewestEvent(topicName)
       }
     }
-  }, [topicName, initialOffset, initialEvent, currentTopic])
+  }, [topicName, initialOffset, initialEvent, currentTopic, currentEvent?.position])
 
   // Update currentEvent when state changes
   useEffect(() => {
@@ -105,6 +121,7 @@ function EventFetcher({
       setCurrentEvent(null)
       setCurrentTopic(topicName)
       setIsEmptyTopic(true)
+      setIsLoading(false)
       onEmptyTopic()
       return
     }
@@ -122,6 +139,7 @@ function EventFetcher({
       setCurrentEvent(kafkaEvent)
       setCurrentTopic(topicName)
       setIsEmptyTopic(false)
+      setIsLoading(false)
       onEventLoaded(kafkaEvent)
     }
 
@@ -129,28 +147,14 @@ function EventFetcher({
       if (state.error.includes('No events found') || state.error.includes('End of topic reached')) {
         setIsEmptyTopic(true)
         setCurrentEvent(null)
+        setIsLoading(false)
         onEmptyTopic()
       } else {
+        setIsLoading(false)
         onEventError(state.error)
       }
     }
   }, [state])
-
-  // Update currentEvent when initialEvent changes
-  useEffect(() => {
-    if (initialEvent && !currentEvent) {
-      const kafkaEvent: KafkaEventType = {
-        event: initialEvent,
-        position: initialOffset,
-        kafkaOffset: 0,
-        isAtEarliest: false,
-        isAtLatest: false,
-        topicIndex: topicIndex,
-      }
-      setCurrentEvent(kafkaEvent)
-      onEventLoaded(kafkaEvent)
-    }
-  }, [initialEvent, currentEvent])
 
   // Button action handlers
   const handleFetchNext = () => {
@@ -185,7 +189,7 @@ function EventFetcher({
 
   return (
     <div className="flex flex-col h-full w-full min-h-[400px] overflow-auto">
-      {(currentEvent?.event || isEmptyTopic) && (
+      {(currentEvent?.event || isEmptyTopic || isLoading) && (
         <>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium step-description">Sample event</h3>
@@ -199,7 +203,7 @@ function EventFetcher({
                 : parseForCodeEditor(currentEvent?.event) || ''
             }
             topic={topicName}
-            isLoadingEvent={state.isLoading && !isEmptyTopic}
+            isLoadingEvent={isLoading || (state.isLoading && !isEmptyTopic)}
             eventError={
               isEmptyTopic ? 'This topic has no events. Please enter the event schema manually.' : state.error || ''
             }
