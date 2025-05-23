@@ -68,6 +68,7 @@ export function TopicSelectWithEventPreview({
         return
       }
 
+      // Always set loading state when changing topic
       setLocalState((prev) => ({
         ...prev,
         topicName: topic,
@@ -101,12 +102,16 @@ export function TopicSelectWithEventPreview({
         return
       }
 
+      // Always set loading state when changing offset
       setLocalState((prev) => ({
         ...prev,
         offset,
         isLoading: true,
         event: null,
       }))
+
+      // Reset event state when offset changes
+      resetEventState()
 
       // Fetch event with new offset
       if (localState.topicName) {
@@ -115,7 +120,7 @@ export function TopicSelectWithEventPreview({
         })
       }
     },
-    [localState.topicName, fetchEvent, existingTopic],
+    [localState.topicName, fetchEvent, existingTopic, resetEventState],
   )
 
   // Event handlers
