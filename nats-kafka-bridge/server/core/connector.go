@@ -17,16 +17,13 @@ package core
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"text/template"
-	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/nats-io/nats.go"
@@ -203,81 +200,6 @@ func (conn *BridgeConnector) convertFromKafkaToNatsHeaders(hdrs []sarama.RecordH
 		return nHdrs
 	}
 	return nats.Header{} // empty header by default
-}
-
-func (conn *BridgeConnector) setUpListener(target kafka.Consumer, natsCallbackFunc NATSCallback) ShutdownCallback {
-	done := make(chan bool)
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
-	traceEnabled := conn.bridge.Logger().TraceEnabled()
-
-	listenerCallbackFunc := func(conn *BridgeConnector, msg kafka.Message) {
-		start := time.Now()
-		l := int64(len(msg.Value))
-		err := natsCallbackFunc(msg)
-		if err != nil {
-			if traceEnabled {
-				conn.bridge.Logger().Tracef("%s received message from kafka", conn.String())
-			}
-			conn.stats.AddMessageIn(l)
-			conn.bridge.Logger().Errorf("publish failure for %s, %s", conn.String(), err.Error())
-			return
-		}
-
-		if conn.config.GroupID != "" {
-			err := target.Commit(cancelCtx, msg)
-			if err != nil {
-				conn.stats.AddMessageIn(l)
-				conn.bridge.Logger().Errorf("failed to commit, %s", err.Error())
-				go conn.bridge.ConnectorError(conn, err) // run in a go routine so we can finish this method
-				return
-			}
-
-			if traceEnabled {
-				conn.bridge.Logger().Tracef("%s committed message from kafka", conn.String())
-			}
-		}
-
-		conn.stats.AddRequest(l, l, time.Since(start))
-	}
-
-	conn.bridge.Logger().Tracef("starting listener for %s", conn.String())
-
-	go func() {
-		for {
-			msg, err := target.Fetch(cancelCtx)
-			if err != nil {
-				if errors.Is(err, cancelCtx.Err()) {
-					wg.Done()
-					return
-				}
-
-				conn.bridge.Logger().Noticef("error fetching message, %s", err.Error())
-				go conn.bridge.ConnectorError(conn, err) // run in a go routine so we can finish this method and unlock
-				wg.Done()
-				return
-			}
-
-			listenerCallbackFunc(conn, msg)
-
-			select {
-			case <-done:
-				wg.Done()
-				return
-			default:
-			}
-		}
-	}()
-
-	return func() error {
-		close(done)
-		cancelFunc()
-		wg.Wait()
-		return nil
-	}
 }
 
 func (conn *BridgeConnector) initDestTemplate(destTpl string) {
