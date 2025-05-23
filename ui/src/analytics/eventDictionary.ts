@@ -227,16 +227,4 @@ export const dictionary: EventGroup = {
     name: 'Pipeline Existing Same Pipeline',
     key: 'Pipeline_ExistingSamePipeline',
   },
-  Pipeline_NoPipeline_Deploying: {
-    name: 'Pipeline No Pipeline Deploying',
-    key: 'Pipeline_NoPipeline_Deploying',
-  },
-  Pipeline_NoPipeline_NoConfig: {
-    name: 'Pipeline No Pipeline No Config',
-    key: 'Pipeline_NoPipeline_NoConfig',
-  },
-  Pipeline_NoValidConfig: {
-    name: 'Pipeline No Valid Config',
-    key: 'Pipeline_NoValidConfig',
-  },
 }

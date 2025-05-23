@@ -70,9 +70,6 @@ const eventCatalog: Record<string, boolean> = {
   // Pipeline Status Events
   [dictionary.Pipeline_ExistingPipeline.name]: true,
   [dictionary.Pipeline_ExistingSamePipeline.name]: true,
-  [dictionary.Pipeline_NoPipeline_Deploying.name]: true,
-  [dictionary.Pipeline_NoPipeline_NoConfig.name]: true,
-  [dictionary.Pipeline_NoValidConfig.name]: true,
 }
 
 export default eventCatalog

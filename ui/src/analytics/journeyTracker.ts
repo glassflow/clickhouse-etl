@@ -166,13 +166,6 @@ export const trackPipeline = {
 
   existingSamePipeline: (properties?: Record<string, unknown>) =>
     trackEvent('Pipeline_ExistingSamePipeline', properties),
-
-  noPipeline_Deploying: (properties?: Record<string, unknown>) =>
-    trackEvent('Pipeline_NoPipeline_Deploying', properties),
-
-  noPipeline_NoConfig: (properties?: Record<string, unknown>) => trackEvent('Pipeline_NoPipeline_NoConfig', properties),
-
-  noValidConfig: (properties?: Record<string, unknown>) => trackEvent('Pipeline_NoValidConfig', properties),
 }
 
 // Convenient helper to track all journey events

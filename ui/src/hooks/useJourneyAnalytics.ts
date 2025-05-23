@@ -283,19 +283,6 @@ export function useJourneyAnalytics() {
           () => trackPipeline.existingSamePipeline(properties),
           properties,
         ),
-
-      noPipeline_Deploying: (properties?: Record<string, unknown>) =>
-        trackWithCache(
-          'Pipeline_NoPipeline_Deploying',
-          () => trackPipeline.noPipeline_Deploying(properties),
-          properties,
-        ),
-
-      noPipeline_NoConfig: (properties?: Record<string, unknown>) =>
-        trackWithCache('Pipeline_NoPipeline_NoConfig', () => trackPipeline.noPipeline_NoConfig(properties), properties),
-
-      noValidConfig: (properties?: Record<string, unknown>) =>
-        trackWithCache('Pipeline_NoValidConfig', () => trackPipeline.noValidConfig(properties), properties),
     }),
     [trackWithCache],
   )
