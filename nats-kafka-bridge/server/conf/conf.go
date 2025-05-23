@@ -250,8 +250,8 @@ func DefaultBridgeConfig(logColors, logTime bool) NATSKafkaBridgeConfig {
 		Logging: logging.Config{
 			Colors: logColors,
 			Time:   logTime,
-			Debug:  false,
-			Trace:  false,
+			Debug:  true,
+			Trace:  true,
 		},
 		Monitoring: HTTPConfig{
 			ReadTimeout:  5000,

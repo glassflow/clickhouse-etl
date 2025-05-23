@@ -25,7 +25,7 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultBridgeConfig(true, true)
-	require.False(t, config.Logging.Trace)
+	require.True(t, config.Logging.Trace)
 	require.Equal(t, 5000, config.Monitoring.ReadTimeout)
 	require.Equal(t, 5000, config.NATS.ConnectTimeout)
 }
