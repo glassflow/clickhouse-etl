@@ -23,7 +23,19 @@ function EventFetcher({
   const { kafkaStore } = useStore()
 
   // Local state for current event
-  const [currentEvent, setCurrentEvent] = useState<any>(initialEvent || null)
+  const [currentEvent, setCurrentEvent] = useState<any>(() => {
+    if (initialEvent) {
+      return {
+        event: initialEvent,
+        position: initialOffset,
+        kafkaOffset: 0,
+        isAtEarliest: false,
+        isAtLatest: false,
+        topicIndex: topicIndex,
+      }
+    }
+    return null
+  })
   const [currentTopic, setCurrentTopic] = useState<string>(topicName)
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
 
@@ -50,17 +62,29 @@ function EventFetcher({
     // 1. We have a topic and offset AND
     // 2. Either:
     //    a. We don't have an initial event OR
-    //    b. The topic or offset has changed
-    const shouldFetch =
-      topicName &&
-      initialOffset &&
-      (!initialEvent || topicName !== currentTopic || initialOffset !== currentEvent?.position)
+    //    b. The topic has changed
+    const shouldFetch = topicName && initialOffset && (!initialEvent || topicName !== currentTopic)
 
     if (shouldFetch) {
       // Reset state for new fetch
       setCurrentEvent(null)
       setCurrentTopic(topicName)
       setIsEmptyTopic(false)
+
+      // If we have an initial event and the topic hasn't changed, use it
+      if (initialEvent && topicName === currentTopic) {
+        const kafkaEvent: KafkaEventType = {
+          event: initialEvent,
+          position: initialOffset,
+          kafkaOffset: 0,
+          isAtEarliest: false,
+          isAtLatest: false,
+          topicIndex: topicIndex,
+        }
+        setCurrentEvent(kafkaEvent)
+        onEventLoaded(kafkaEvent)
+        return
+      }
 
       // Determine which fetch method to use based on initialOffset
       if (initialOffset === 'latest') {
@@ -73,7 +97,7 @@ function EventFetcher({
         handleFetchNewestEvent(topicName)
       }
     }
-  }, [topicName, initialOffset, initialEvent, currentTopic, currentEvent?.position])
+  }, [topicName, initialOffset, initialEvent, currentTopic])
 
   // Update currentEvent when state changes
   useEffect(() => {
@@ -111,6 +135,22 @@ function EventFetcher({
       }
     }
   }, [state])
+
+  // Update currentEvent when initialEvent changes
+  useEffect(() => {
+    if (initialEvent && !currentEvent) {
+      const kafkaEvent: KafkaEventType = {
+        event: initialEvent,
+        position: initialOffset,
+        kafkaOffset: 0,
+        isAtEarliest: false,
+        isAtLatest: false,
+        topicIndex: topicIndex,
+      }
+      setCurrentEvent(kafkaEvent)
+      onEventLoaded(kafkaEvent)
+    }
+  }, [initialEvent, currentEvent])
 
   // Button action handlers
   const handleFetchNext = () => {
