@@ -266,6 +266,7 @@ func (server *NATSKafkaBridge) ConnectorError(connector Connector, err error) {
 		server.logger.Warnf("error shutting down connector %s, bridge will try to restart, %s", description, err.Error())
 	}
 
+	server.logger.Noticef("adding connector to reconnect map", connector.ID())
 	server.reconnect[connector.ID()] = connector
 
 	server.ensureReconnectTimer()
@@ -313,6 +314,7 @@ func (server *NATSKafkaBridge) checkConnections() {
 // spawns a go routine that will acquire the lock for handling reconnect tasks
 func (server *NATSKafkaBridge) ensureReconnectTimer() {
 	if server.reconnectTimer != nil {
+		server.logger.Debugf("reconnect timer is nil, stop reconnect retry")
 		return
 	}
 
