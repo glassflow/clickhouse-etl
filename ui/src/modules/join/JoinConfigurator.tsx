@@ -3,190 +3,28 @@
 import { useEffect, useState, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { JSON_DATA_TYPES_DEDUPLICATION_JOIN, OperationKeys } from '@/src/config/constants'
+import { JSON_DATA_TYPES_DEDUPLICATION_JOIN } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { EventPreview } from '../../components/shared/EventPreview'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { parseForCodeEditor } from '@/src/utils'
-import { useRenderFormFields, FormGroup, renderFormField } from '@/src/components/ui/form'
+import { useRenderFormFields, FormGroup } from '@/src/components/ui/form'
 import { FieldErrors, useFormContext } from 'react-hook-form'
-import Image from 'next/image'
-import InfoIcon from '@/src/images/info.svg'
 import { KafkaTopicSelectorType } from '@/src/scheme/topics.scheme'
 import { JoinConfigSchema, JoinConfigType } from '@/src/scheme/join.scheme'
 import { JoinKeySelectFormConfig } from '@/src/config/join-key-select-form-config'
 import { getEventKeys } from '@/src/utils/common.client'
 import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { v4 as uuidv4 } from 'uuid'
-import { Label } from '@/src/components/ui/label'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/src/components/ui/tooltip'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { JoinKeySelector } from './JoinKeySelector'
 
 export type JoinConfiguratorProps = {
   steps: any
   onNext: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
   index: number
-}
-
-export const JoinKeySelectorForm = ({
-  errors,
-  dynamicOptions,
-}: {
-  errors?: FieldErrors<KafkaTopicSelectorType>
-  dynamicOptions: any
-}) => {
-  const analytics = useJourneyAnalytics()
-  const { register } = useFormContext()
-  const [optionsKey, setOptionsKey] = useState('initial')
-
-  // Track page view when component loads
-  useEffect(() => {
-    analytics.page.joinKey({})
-  }, [])
-
-  // NOTE: this is a hack to force a re-render of the form when the dynamic options change
-  useEffect(() => {
-    if (dynamicOptions && Object.keys(dynamicOptions).length > 0) {
-      setOptionsKey(Math.random().toString(36).substring(2, 15))
-    }
-  }, [dynamicOptions])
-
-  return (
-    <FormGroup className="space-y-4">
-      {useRenderFormFields({
-        formConfig: JoinKeySelectFormConfig,
-        formGroupName: 'joinKeySelector',
-        register,
-        errors,
-        dynamicOptions,
-        key: optionsKey, // NOTE: this is a hack to force a re-render of the form when the dynamic options change
-      })}
-    </FormGroup>
-  )
-}
-
-export const JoinKeySelectorFormCustom = ({
-  errors,
-  dynamicOptions,
-}: {
-  errors?: FieldErrors<KafkaTopicSelectorType>
-  dynamicOptions: any
-}) => {
-  const { register, watch } = useFormContext()
-  const analytics = useJourneyAnalytics()
-
-  const stream1JoinKey = watch(`streams.0.joinKey`)
-  const stream2JoinKey = watch(`streams.1.joinKey`)
-
-  useEffect(() => {
-    if (stream1JoinKey) {
-      analytics.key.leftJoinKey({
-        key: stream1JoinKey,
-      })
-    }
-  }, [stream1JoinKey])
-
-  useEffect(() => {
-    if (stream2JoinKey) {
-      analytics.key.rightJoinKey({
-        key: stream2JoinKey,
-      })
-    }
-  }, [stream2JoinKey])
-
-  const renderStreamSection = (streamIndex: number) => (
-    <div className="space-y-4">
-      <h4 className="font-medium">Stream {streamIndex + 1}</h4>
-      <div className="flex flex-col space-y-8">
-        {/* Join Key and Data Type fields - split row (2/3 + 1/3) */}
-        <div className="w-[90%] flex gap-3">
-          <div className="w-2/3">
-            {renderFormField({
-              // @ts-expect-error - FIXME: fix this later
-              field: JoinKeySelectFormConfig.joinKeySelector.fields[`streams.${streamIndex}.joinKey`] as any,
-              register,
-              errors,
-              dynamicOptions,
-            })}
-          </div>
-          <div className="w-1/3">
-            {renderFormField({
-              // @ts-expect-error - FIXME: fix this later
-              field: JoinKeySelectFormConfig.joinKeySelector.fields[`streams.${streamIndex}.dataType`] as any,
-              register,
-              errors,
-              dynamicOptions,
-            })}
-          </div>
-        </div>
-
-        {/* Time Window fields */}
-        <div className="w-[90%]">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="window-unit" className="label-regular text-content">
-                Join Time Window
-              </Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Image src={InfoIcon} alt="Info" className="w-4 h-4" />
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="right"
-                    align="start"
-                    className="max-w-[300px] bg-gray-800 text-gray-100 border border-gray-700 rounded-lg p-3 shadow-lg"
-                  >
-                    <p className="text-sm leading-relaxed">
-                      Set a value between 5 minutes to 7 days, with 1M events limit. Longer time windows can process
-                      more events but may result in slower performance.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex gap-4">
-              <div className="w-[20%] max-w-[20%]">
-                {renderFormField({
-                  // @ts-expect-error - FIXME: fix this later
-                  field: JoinKeySelectFormConfig.joinKeySelector.fields[
-                    `streams.${streamIndex}.joinTimeWindowValue`
-                  ] as any,
-                  register,
-                  errors,
-                  dynamicOptions,
-                  // @ts-expect-error - FIXME: fix this later
-                  options: {
-                    valueAsNumber: true,
-                  },
-                })}
-              </div>
-              <div className="w-[40%] max-w-[40%]">
-                {renderFormField({
-                  // @ts-expect-error - FIXME: fix this later
-                  field: JoinKeySelectFormConfig.joinKeySelector.fields[
-                    `streams.${streamIndex}.joinTimeWindowUnit`
-                  ] as any,
-                  register,
-                  errors,
-                  dynamicOptions,
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  return (
-    <FormGroup className="space-y-8">
-      {renderStreamSection(0)}
-      {renderStreamSection(1)}
-    </FormGroup>
-  )
 }
 
 export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinConfiguratorProps) {
@@ -215,9 +53,6 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   const topic2 = getTopic(index + 1)
   const event1 = topic1?.events[0]?.event
   const event2 = topic2?.events[0]?.event
-
-  console.log('event1', event1)
-  console.log('event2', event2)
 
   // Check if we're returning to a previously filled form
   const isReturningToForm = topic1 && topic1.name && topic2 && topic2.name
@@ -484,7 +319,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
                   This Kafka topic will be used as the data source for the pipeline.
                 </h3>
               </div>
-              <JoinKeySelectorFormCustom errors={errors} dynamicOptions={dynamicOptions} />
+              <JoinKeySelector errors={errors} dynamicOptions={dynamicOptions} />
             </div>
 
             {/* Right Column - Event Previews (50%) */}
