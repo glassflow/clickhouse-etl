@@ -48,9 +48,10 @@ flowchart LR
 
 ## Performance Considerations
 
-### RPS (Records Per Second)
+### Kafka Ingestion Rate (Records Per Second)
 - The tool attempts to achieve the requested RPS
-- Actual achieved RPS may vary based on:
+- The parameter controlling the Kafka ingestion rate is `num_processes`
+- The actual achieved RPS may vary based on:
   - System resources
   - Network conditions
   - Pipeline configuration
@@ -66,32 +67,43 @@ flowchart LR
   - Pipeline configuration
   - System performance
 
+### GlassFlow Processing RPS (Records Per Second)
+- The results shows the average RPS processed by GlassFlow
+
 ## Configuration Parameters
 
 ### Test Parameters
 
 The load test can be configured using the following parameters in `load_test_params.json`:
 
-| Parameter | Description | Range/Values |
-|-----------|-------------|--------------|
-| num_processes | Number of parallel processes | 4-12 (step: 2) |
-| records_per_second | Records per second to generate | 10,000-50,000 (step: 10,000) |
-| total_records | Total number of records to generate | 500,000-5,000,000 (step: 500,000) |
-| param_duplication_rate | Rate of duplicate records | 0.1 (10% duplicates) |
-| param_deduplication_window | Time window for deduplication | ["1h", "4h"] |
-| param_max_batch_size | Max batch size for the sink | [5000] |
-| param_max_delay_time | Max delay time for the sink | ["10s"] |
+| Parameter | Required/Optional | Description | Example Range/Values | Default
+|-----------|------------------|-------------|--------------|--------------|
+| num_processes | Required | Number of parallel processes | 1-N (step: 1) | - |
+| total_records | Required | Total number of records to generate | 500,000-5,000,000 (step: 500,000) | -
+| duplication_rate | Optional | Rate of duplicate records | 0.1 (10% duplicates) | 0.1 | 
+| deduplication_window | Optional | Time window for deduplication | ["1h", "4h"] | "8h" |
+| max_batch_size | Optional | Max batch size for the sink | [5000] | 5000 |
+| max_delay_time | Optional | Max delay time for the sink | ["10s"] | "10s" |
 
 #### Example Configuration
+Example configuration:
 ```json
-{
-    "num_processes": 8,
-    "records_per_second": 30000,
-    "total_records": 2000000,
-    "param_duplication_rate": 0.1,
-    "param_deduplication_window": "4h",
-    "param_max_batch_size": 5000,
-    "param_max_delay_time": "10s"
+    {
+    "parameters": {
+        "num_processes": {
+            "min": 1,
+            "max": 4,
+            "step": 1,
+            "description": "Number of parallel processes to run"
+        },        
+        "total_records": {
+            "min": 5000000,
+            "max": 10000000,
+            "step": 5000000,
+            "description": "Total number of records to generate"
+        }
+    },    
+    "max_combinations": 1
 }
 ```
 
@@ -135,37 +147,40 @@ python results.py --results-file results/load_test_1.csv
 
 The following metrics are collected and displayed for each test run:
 
-| Metric | Description | Unit | Notes |
-|--------|-------------|------|-------|
-| duration_sec | Total time taken for the test | seconds | Includes warmup period |
-| result_num_records | Total number of records processed | records | Total count of processed records |
-| result_time_taken_publish_ms | Time taken to publish records to Kafka | milliseconds | Publishing time to Kafka |
-| result_rps_achieved | Actual records per second achieved | records/sec | Actual throughput achieved |
-| result_time_taken_ms | Total processing time | milliseconds | Total time for processing |
-| result_avg_latency_ms | Average processing time per record | milliseconds | End-to-end latency per record |
-| result_lag_ms | Time between last Kafka message and ClickHouse availability | milliseconds | Processing delay |
-| result_success | Test completion status | boolean | ✅ for success, ❌ for failure |
+
+| Metric | Description | Unit |
+|--------|-------------|------|
+| duration_sec | Total time taken for the test | seconds |
+| result_num_records | Number of records processed | count |
+| result_time_taken_publish_ms | Time taken to publish records to Kafka | milliseconds |
+| result_time_taken_ms | Time taken to process records through the pipeline | milliseconds |
+| result_kafka_ingestion_rps | Records per second sent to Kafka | records/second |
+| result_avg_latency_ms | Average latency per record | milliseconds |
+| result_success | Whether the test completed successfully | boolean |
+| result_lag_ms | Lag between data generation and processing | milliseconds |
+| result_glassflow_rps | Records per second processed by GlassFlow | records/second |
 
 #### Example Results
 ```
-Variant ID: load_bd0fdf39
-
-Parameters:
-- Number of Processes: 2
-- Records per Second (requested): 200000
-- Total Records: 20000000
-- Duplication Rate: 0.1
-- Deduplication Window: 8h
-- Max Batch Size: 5000
-- Max Delay Time: 10s
-
-Results:
-- Test Duration: 2348.01
-- Records Processed: 20.0M
-- RPS Achieved: 8737
-- Average Latency: 0.0s
-- Lag: 47.74s
-- Status: 1
+ {                                                                             
+   "Parameters": {                                                            
+     "Variant ID": "load_bd0fdf39",                                           
+     "Max Batch Size": 5000,                                                  
+     "Duplication Rate": 0.1,                                                 
+     "Deduplication Window": "8h",                                            
+     "Max Delay Time": "10s"                                                  
+   },                                                                         
+   "Results": {                                                               
+     "Success": "True",                                                       
+     "Number of Records": "20.0M",                                            
+     "Time to Publish": "2289.22 s",                                          
+     "Source RPS in Kafka": "8737 records/s",                                 
+     "GlassFlow RPS": "8556 records/s",                                       
+     "Time to Process": "2337.666 s",                                         
+     "Average Latency": "0.0001 s",                                           
+     "Lag": "47.738 s"                                                        
+   }                                                                          
+ }
 ```
 
 
