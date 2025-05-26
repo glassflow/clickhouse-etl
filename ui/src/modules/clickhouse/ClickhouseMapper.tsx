@@ -253,7 +253,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     if (selectedEvent && topicEvents && topicEvents.length > 0) {
       // The structure has changed - selectedEvent is now an object with event property
       // We don't need to search in topicEvents anymore
-      const eventData = selectedEvent.event?.event
+      const eventData = selectedEvent?.event
 
       if (eventData) {
         setEventData(eventData)
