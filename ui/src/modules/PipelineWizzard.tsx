@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
 import { useStore } from '@/src/store'
-import { JoinConfiguratorWrapper } from './join/JoinConfiguratorWrapper'
+import { JoinConfiguratorWrapper } from './join/JoinManagerWrapper'
 
 const deduplicationJourney = [
   StepKeys.KAFKA_CONNECTION,
