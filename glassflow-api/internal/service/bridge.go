@@ -117,8 +117,6 @@ func (b *bridgeImpl) Start() error {
 				level = slog.LevelWarn
 			case strings.Contains(log, "[ERR]"), strings.Contains(log, "[FTL]"):
 				level = slog.LevelError
-			case strings.Contains(log, "[TRC]"), strings.Contains(log, "[DBG]"):
-				level = slog.LevelDebug
 			default:
 				level = slog.LevelDebug
 			}
