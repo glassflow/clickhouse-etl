@@ -216,6 +216,9 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
   const event1 = topic1?.events[0]?.event
   const event2 = topic2?.events[0]?.event
 
+  console.log('event1', event1)
+  console.log('event2', event2)
+
   // Check if we're returning to a previously filled form
   const isReturningToForm = topic1 && topic1.name && topic2 && topic2.name
 
@@ -407,7 +410,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
     'streams.0.joinKey':
       getEventKeys(
         // Try to get the event data from all possible sources
-        (event1 && event1.event) || currentEvent1 || (topic1?.events[0]?.event && topic1.events[0].event.event),
+        event1 || currentEvent1 || (topic1?.events[0]?.event && topic1.events[0].event.event),
       )?.map((key) => ({
         label: key,
         value: key,
@@ -423,7 +426,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
     'streams.1.joinKey':
       getEventKeys(
         // Try to get the event data from all possible sources
-        (event2 && event2.event) || currentEvent2 || (topic2?.events[0]?.event && topic2.events[0].event.event),
+        event2 || currentEvent2 || (topic2?.events[0]?.event && topic2.events[0].event.event),
       )?.map((key) => ({
         label: key,
         value: key,
@@ -495,7 +498,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
                   <EventPreview
                     key={`event1-${topic1?.name}-${JSON.stringify(currentEvent1)}`}
                     showInternalNavigationButtons={false}
-                    event={parseForCodeEditor(event1?.event || currentEvent1 || {})}
+                    event={parseForCodeEditor(event1 || currentEvent1 || {})}
                     topic={topic1?.name || ''}
                     isLoadingEvent={false}
                     eventError={''}
@@ -519,7 +522,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
                   <EventPreview
                     key={`event2-${topic2?.name}-${JSON.stringify(currentEvent2)}`}
                     showInternalNavigationButtons={false}
-                    event={parseForCodeEditor(event2?.event || currentEvent2 || {})}
+                    event={parseForCodeEditor(event2 || currentEvent2 || {})}
                     topic={topic2?.name || ''}
                     isLoadingEvent={false}
                     eventError={''}

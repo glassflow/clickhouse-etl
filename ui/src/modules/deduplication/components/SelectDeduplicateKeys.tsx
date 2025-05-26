@@ -47,6 +47,9 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
       return []
     }
 
+    // remove _metadata from the event data
+    delete data?._metadata
+
     // Extract keys from the object
     return Object.keys(data)
   }

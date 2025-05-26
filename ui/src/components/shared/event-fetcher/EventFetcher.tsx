@@ -8,7 +8,7 @@ import { parseForCodeEditor } from '@/src/utils/'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
 import { useFetchEventWithCaching } from '../../../modules/kafka/useFetchEventWithCaching'
 import { EventFetcherProps } from './types'
-
+import classnames from 'classnames'
 function EventFetcher({
   topicName,
   topicIndex,
@@ -192,7 +192,14 @@ function EventFetcher({
       {(currentEvent?.event || isEmptyTopic || isLoading) && (
         <>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium step-description">Sample event</h3>
+            <h3
+              className={classnames(
+                'text-md font-medium step-description',
+                isLoading && 'opacity-50 pointer-events-none transition-opacity duration-200',
+              )}
+            >
+              Sample event
+            </h3>
           </div>
 
           <EventPreview
