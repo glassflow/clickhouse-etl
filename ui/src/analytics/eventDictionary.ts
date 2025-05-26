@@ -21,6 +21,11 @@ export const dictionary: EventGroup = {
     key: 'Consent_NotGiven',
   },
 
+  Feedback_Submitted: {
+    name: 'Feedback Submitted',
+    key: 'Feedback_Submitted',
+  },
+
   // New Journey Events (each as a separate top-level event)
   // Page Events
   P0_Homepage: {

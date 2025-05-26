@@ -23,6 +23,7 @@ import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectCo
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 // import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
+import { generateApiConfig } from '../review/helpers'
 
 export function ClickhouseJoinMapper({
   onNext,
@@ -594,6 +595,8 @@ export function ClickhouseJoinMapper({
 
     // Move to next step
     onNext(StepKeys.CLICKHOUSE_MAPPER)
+
+    // perform actions related to creating a configuration
   }
 
   return (

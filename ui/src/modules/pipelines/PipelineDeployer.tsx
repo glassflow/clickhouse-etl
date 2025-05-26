@@ -29,6 +29,12 @@ export function PipelineDeployer() {
   const router = useRouter()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
+  // Check if feedback was already submitted
+  useEffect(() => {
+    // Track page view when component loads
+    analytics.page.pipelines({})
+  }, [])
+
   useEffect(() => {
     const checkPipelineStatus = async () => {
       try {
@@ -134,6 +140,8 @@ export function PipelineDeployer() {
 
         // Track successful pipeline deletion
         analytics.pipeline.deleteSuccess({})
+
+        router.push('/home')
       } catch (err) {
         const error = err as PipelineError
         setStatus('delete_failed')
@@ -275,7 +283,7 @@ export function PipelineDeployer() {
         </div>
       )}
 
-      <Feedback />
+      <Feedback pipelineStatus={status} />
 
       {/* Modify & Restart Modal */}
       <InputModal
@@ -308,7 +316,7 @@ export function PipelineDeployer() {
         description="Do you want to save the current pipeline configuration before deleting it?"
         inputLabel="Configuration Name"
         inputPlaceholder="e.g., Production Pipeline v1"
-        submitButtonText="Save and Delete"
+        submitButtonText="Delete Pipeline"
         cancelButtonText="Cancel"
         onComplete={handleDeleteModalComplete}
         pendingOperation="delete_pipeline"

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { XCircleIcon } from '@heroicons/react/24/outline'
@@ -20,9 +21,20 @@ import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } fro
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { generateApiConfig } from '../review/helpers'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
-  const { clickhouseStore, kafkaStore, operationsSelected } = useStore()
+  const router = useRouter()
+  const {
+    clickhouseStore,
+    kafkaStore,
+    joinStore,
+    topicsStore,
+    setApiConfig,
+    pipelineId,
+    setPipelineId,
+    operationsSelected,
+  } = useStore()
   const analytics = useJourneyAnalytics()
   const {
     clickhouseConnection,
@@ -33,8 +45,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   } = clickhouseStore
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
-
-  const { topicsStore } = useStore()
   const { getTopic } = topicsStore
 
   const selectedTopic = getTopic(index)
@@ -88,6 +98,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
 
+  const selectedTopics = Object.values(topicsStore.topics || {})
+
   // Replace individual modal states with a single modal state object
   const [modalProps, setModalProps] = useState({
     visible: false,
@@ -97,6 +109,17 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     cancelButtonText: 'No',
     type: 'info' as 'info' | 'warning' | 'error',
   })
+
+  const getMappingType = (eventField: string, mapping: any) => {
+    const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
+
+    if (mappingEntry) {
+      return mappingEntry.jsonType
+    }
+
+    // NOTE: default to string if no mapping entry is found - check this
+    return 'string'
+  }
 
   // Add a ref to track the last connection we loaded data for
   const lastConnectionRef = useRef<string>('')
@@ -660,9 +683,25 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
-    if (onNext) {
-      onNext(StepKeys.CLICKHOUSE_MAPPER)
-    }
+    const apiConfig = generateApiConfig({
+      pipelineId,
+      setPipelineId,
+      clickhouseConnection,
+      clickhouseDestination,
+      selectedTopics,
+      getMappingType,
+      joinStore,
+      kafkaStore,
+    })
+
+    setApiConfig(apiConfig)
+
+    // Navigate to the pipelines page
+    router.push('/pipelines')
+
+    // if (onNext) {
+    //   onNext(StepKeys.CLICKHOUSE_MAPPER)
+    // }
   }, [
     clickhouseDestination,
     selectedDatabase,

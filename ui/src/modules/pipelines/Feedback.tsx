@@ -3,16 +3,18 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Button } from '@/src/components/ui/button'
-import AngryIcon from '@/assets/icons/angry.svg'
-import AngryIconSelected from '@/assets/icons/angry-selected.svg'
-import FrownIcon from '@/assets/icons/frown.svg'
-import FrownIconSelected from '@/assets/icons/frown-selected.svg'
-import MehIcon from '@/assets/icons/meh.svg'
-import MehIconSelected from '@/assets/icons/meh-selected.svg'
-import SmileIcon from '@/assets/icons/smile.svg'
-import SmileIconSelected from '@/assets/icons/smile-selected.svg'
-import LaughIcon from '@/assets/icons/laugh.svg'
-import LaughIconSelected from '@/assets/icons/laugh-selected.svg'
+import TrashIcon from '../../images/trash.svg'
+import ModifyIcon from '../../images/modify.svg'
+import AngryIcon from '../../images/angry.svg'
+import FrownIcon from '../../images/frown.svg'
+import SmileIcon from '../../images/smile.svg'
+import MehIcon from '../../images/meh.svg'
+import LaughIcon from '../../images/laugh.svg'
+import AngryIconSelected from '../../images/selected/angry.svg'
+import FrownIconSelected from '../../images/selected/frown.svg'
+import SmileIconSelected from '../../images/selected/smile.svg'
+import MehIconSelected from '../../images/selected/meh.svg'
+import LaughIconSelected from '../../images/selected/laugh.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 type FeedbackType = 'angry' | 'frown' | 'meh' | 'smile' | 'laugh' | null
@@ -20,7 +22,7 @@ type FeedbackType = 'angry' | 'frown' | 'meh' | 'smile' | 'laugh' | null
 const FEEDBACK_SUBMITTED_KEY = 'glassflow-feedback-submitted'
 const FEEDBACK_DELAY_MS = 1000 // 1 second delay
 
-export const Feedback = () => {
+export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
   const analytics = useJourneyAnalytics()
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackType>(null)
   const [feedbackText, setFeedbackText] = useState('')
@@ -34,9 +36,6 @@ export const Feedback = () => {
     if (feedbackSubmitted === 'true') {
       setHasSubmittedFeedback(true)
     }
-
-    // Track page view when component loads
-    analytics.page.pipelines({})
   }, [])
 
   // Handle showing feedback with delay and status check
@@ -44,7 +43,10 @@ export const Feedback = () => {
     let timeoutId: NodeJS.Timeout
 
     const shouldShowFeedback = () => {
-      return !hasSubmittedFeedback && (status === 'active' || status === 'deploy_failed' || status === 'delete_failed')
+      return (
+        !hasSubmittedFeedback &&
+        (pipelineStatus === 'active' || pipelineStatus === 'deploy_failed' || pipelineStatus === 'delete_failed')
+      )
     }
 
     if (shouldShowFeedback()) {
@@ -60,21 +62,45 @@ export const Feedback = () => {
         clearTimeout(timeoutId)
       }
     }
-  }, [status, hasSubmittedFeedback])
+  }, [pipelineStatus, hasSubmittedFeedback])
 
   const handleFeedbackSelect = (feedback: FeedbackType) => {
     setSelectedFeedback(feedback)
+
+    // If positive feedback, immediately submit and hide
+    if (feedback === 'smile' || feedback === 'laugh') {
+      // Store feedback submission in localStorage
+      localStorage.setItem(FEEDBACK_SUBMITTED_KEY, 'true')
+      setHasSubmittedFeedback(true)
+      setShowFeedback(false)
+
+      // Track positive feedback
+      analytics.general.feedbackSubmitted({
+        feedback_type: feedback,
+        feedback_text: '',
+      })
+    }
   }
 
   const handleFeedbackSubmit = () => {
     // Store feedback submission in localStorage
     localStorage.setItem(FEEDBACK_SUBMITTED_KEY, 'true')
     setHasSubmittedFeedback(true)
+    setShowFeedback(false)
+
+    // Track negative feedback with text
+    if (selectedFeedback) {
+      analytics.general.feedbackSubmitted({
+        feedback_type: selectedFeedback,
+        feedback_text: feedbackText,
+      })
+    }
 
     // Reset form
     setSelectedFeedback(null)
     setFeedbackText('')
   }
+
   return showFeedback ? (
     <div
       className={`
