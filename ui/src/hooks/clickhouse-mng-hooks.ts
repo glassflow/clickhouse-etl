@@ -61,9 +61,6 @@ export function useClickhouseConnection() {
           setAvailableDatabases(data.databases)
         }
 
-        // Add 5 second delay to observe loading state
-        await new Promise((resolve) => setTimeout(resolve, 5000))
-
         return { success: true, databases: data.databases || [] }
       } else {
         setConnectionStatus('error')
