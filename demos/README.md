@@ -24,7 +24,7 @@ docker compose up -d
 ```
 
 This will start:
-- Kafka (ports 9092)
+- Kafka (ports 9092, 9093)
 - ClickHouse (ports 8123, 9000)
 - GlassFlow ClickHouse ETL application (port 8080)
 
@@ -44,6 +44,15 @@ docker compose exec kafka kafka-topics \
     --create \
     --partitions 1 \
     --replication-factor 1 \
+    --bootstrap-server localhost:9092
+```
+
+and send a smaple event:
+```bash
+# Send sample JSON events to Kafka
+echo '{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:00:00Z"}' | \
+docker compose exec -T kafka kafka-console-producer \
+    --topic users \
     --bootstrap-server localhost:9092
 ```
 
@@ -70,11 +79,9 @@ Go to http://localhost:8080 and follow the steps to create a pipeline.
 
 - Kafka Connection Details
 ```yaml
-Authentication Method: SASL/PLAIN
-Security Protocol: SASL_PLAINTEXT
-Bootstrap Servers: kafka:9092
-Username: admin
-Password: admin-secret
+Authentication Method: No Authentication
+Security Protocol: PLAINTEXT
+Bootstrap Servers: kafka:9093
 ```
 
 - ClickHouse Connection Details
@@ -85,6 +92,7 @@ Native Port: 9000
 Username: default
 Password: secret
 Use SSL: false
+Database: default
 ```
 
 ### 4. Generate and send events to Kafka
