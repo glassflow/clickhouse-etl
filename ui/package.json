@@ -1,11 +1,11 @@
 {
-  "name": "app-clickhouse-pivot",
-  "version": "0.1.0",
+  "name": "clickhouse-etl-ui",
+  "version": "0.1.6",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "node server.js",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production node server.js",
     "lint": "next lint"
   },
   "dependencies": {

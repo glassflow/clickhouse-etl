@@ -15,6 +15,7 @@ RUN pnpm install --prod --frozen-lockfile
 COPY ./.next ./.next
 COPY ./public ./public
 COPY ./next.config.ts ./
+COPY ./server.js ./
 
 # Set environment variables
 ENV NODE_ENV=production
