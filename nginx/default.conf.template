@@ -17,7 +17,7 @@ server {
 
     location / {
         resolver ${NGINX_LOCAL_RESOLVERS} valid=1s;
-        set $frontend "http://ui:3000";
+        set $frontend "http://ui:8080";
 
         proxy_pass $frontend;
     }
