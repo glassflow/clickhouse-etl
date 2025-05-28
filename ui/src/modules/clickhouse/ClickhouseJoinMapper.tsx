@@ -23,6 +23,7 @@ import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectCo
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 // import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
+import { generateApiConfig } from '../review/helpers'
 
 export function ClickhouseJoinMapper({
   onNext,
@@ -269,13 +270,13 @@ export function ClickhouseJoinMapper({
 
   // Update effect for handling event data changes to handle nested structure
   useEffect(() => {
-    if (primaryTopic?.selectedEvent?.event?.event) {
-      setPrimaryEventData(primaryTopic.selectedEvent.event.event)
+    if (primaryTopic?.selectedEvent?.event) {
+      setPrimaryEventData(primaryTopic.selectedEvent.event)
     }
-    if (secondaryTopic?.selectedEvent?.event?.event) {
-      setSecondaryEventData(secondaryTopic.selectedEvent.event.event)
+    if (secondaryTopic?.selectedEvent?.event) {
+      setSecondaryEventData(secondaryTopic.selectedEvent.event)
     }
-  }, [primaryTopic?.selectedEvent?.event?.event, secondaryTopic?.selectedEvent?.event?.event])
+  }, [primaryTopic?.selectedEvent?.event, secondaryTopic?.selectedEvent?.event])
 
   // NOTE: uncomment this when you want to auto-map the fields
   // Update auto-mapping effect to handle nested structure
@@ -594,6 +595,8 @@ export function ClickhouseJoinMapper({
 
     // Move to next step
     onNext(StepKeys.CLICKHOUSE_MAPPER)
+
+    // perform actions related to creating a configuration
   }
 
   return (

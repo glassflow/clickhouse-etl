@@ -66,6 +66,9 @@ export function useJourneyAnalytics() {
 
       consentNotGiven: (properties?: Record<string, unknown>) =>
         trackWithCache('Consent_NotGiven', () => trackGeneral.consentNotGiven(properties), properties),
+
+      feedbackSubmitted: (properties?: Record<string, unknown>) =>
+        trackWithCache('Feedback_Submitted', () => trackGeneral.feedbackSubmitted(properties), properties),
     }),
     [trackWithCache],
   )

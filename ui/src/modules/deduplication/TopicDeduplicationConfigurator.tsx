@@ -5,18 +5,14 @@ import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { StepKeys, TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { useFetchTopics, useFetchEvent } from '@/src/hooks/kafka-mng-hooks'
-import { useForm, FormProvider } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
-import {
-  KafkaTopicSelectorSchema,
-  KafkaTopicSelectorType,
-  KafkaTopicSelectorWithEventType,
-} from '@/src/scheme/topics.scheme'
+import { KafkaTopicSelectorType } from '@/src/scheme/topics.scheme'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
-import { TopicSelectorForm } from '@/src/modules/deduplication/components/TopicSelectorForm'
 import EventFetcher from '@/src/components/shared/event-fetcher/EventFetcher'
+import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { EventDataFormat } from '@/src/config/constants'
+import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
 
 export type TopicDeduplicationConfiguratorProps = {
   steps: any
@@ -32,7 +28,7 @@ export function TopicDeduplicationConfigurator({
   index = 0,
 }: TopicDeduplicationConfiguratorProps) {
   const analytics = useJourneyAnalytics()
-  const { operationsSelected, topicsStore, kafkaStore } = useStore()
+  const { topicsStore, kafkaStore } = useStore()
   const {
     availableTopics,
     setAvailableTopics,
@@ -56,7 +52,7 @@ export function TopicDeduplicationConfigurator({
   const [localState, setLocalState] = useState({
     topicName: existingTopic?.name || '',
     offset: (existingTopic?.initialOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
-    fetchedEvent: null,
+    fetchedEvent: existingEvent?.event || null,
     isLoading: false,
     userInteracted: false,
     canContinue: false,
@@ -79,45 +75,17 @@ export function TopicDeduplicationConfigurator({
     !!(existingTopic?.deduplication?.key && existingTopic?.deduplication?.window),
   )
 
-  const formInitialized = useRef(false)
-
   // Check if we're returning to a previously filled form
   const isReturningToForm = existingTopic && existingTopic.name
-
-  // Initialize form with React Hook Form
-  const formMethods = useForm<KafkaTopicSelectorType>({
-    resolver: zodResolver(KafkaTopicSelectorSchema),
-    defaultValues: {
-      topicName: existingTopic?.name || '',
-      initialOffset: (existingTopic?.initialOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
-    },
-    mode: 'onChange',
-  })
-
-  const {
-    watch,
-    setValue,
-    handleSubmit,
-    register,
-    trigger,
-    formState: { errors, isValid, isDirty, touchedFields },
-  } = formMethods
-
-  // Watch for changes to form values
-  const topicName = watch('topicName')
-  const initialOffset = watch('initialOffset')
 
   // Fetch topics and events
   const { topics: topicsFromKafka, isLoading, error, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
 
   const { fetchEvent, isLoadingEvent, eventError, event, hasMoreEvents, hasOlderEvents, resetEventState } =
-    useFetchEvent(
-      kafkaStore,
-      'JSON', // FIXME: hardcoded for now - we need to get the data format from the topic
-    )
+    useFetchEvent(kafkaStore, EventDataFormat.JSON)
 
   // Add a direct state for the event
-  const [currentEvent, setCurrentEvent] = useState<any>(null)
+  const [currentEvent, setCurrentEvent] = useState<any>(existingEvent?.event || null)
 
   // Add a ref to track if we've received an event
   const eventReceivedRef = useRef(false)
@@ -128,13 +96,14 @@ export function TopicDeduplicationConfigurator({
       fetchTopics()
     }
 
+    // NOTE: tracking the page view for the topic selection step
     if (index === 0) {
       analytics.page.selectLeftTopic({})
     } else {
       analytics.page.selectRightTopic({})
     }
 
-    // Track page view when component loads
+    // NOTE: Track page view when component loads
     analytics.page.topicDeduplication({})
 
     // Mark that we're no longer on initial render after the first effect run
@@ -153,7 +122,7 @@ export function TopicDeduplicationConfigurator({
   }, [topicsFromKafka])
 
   // Handle topic selection
-  const handleTopicSelect = async (topic: string) => {
+  const handleTopicSelect = async (topic: string, event: any) => {
     if (topic === '') {
       return
     }
@@ -169,37 +138,62 @@ export function TopicDeduplicationConfigurator({
       removeCompletedStepsAfter(currentStepKey)
     }
 
-    // Reset event state when topic changes
-    resetEventState()
+    // Update topic in the store with the new event
+    updateTopic({
+      index: index,
+      name: topic,
+      initialOffset: localState.offset,
+      events: [{ event, topicIndex: index, position: localState.offset }],
+      selectedEvent: { event, topicIndex: index, position: localState.offset },
+      deduplication: existingTopic?.deduplication || {
+        enabled: false,
+        window: 0,
+        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+        key: '',
+        keyType: '',
+      },
+    })
 
-    // Update form values
-    setValue('topicName', topic)
     setLocalState((prev) => ({
       ...prev,
       topicName: topic,
+      fetchedEvent: event,
+    }))
+  }
+
+  const handleOffsetChange = (offset: string, event: any) => {
+    setLocalState((prev) => ({
+      ...prev,
+      offset: offset as 'earliest' | 'latest',
     }))
 
-    // Fetch event for the selected topic
-    if (initialOffset) {
-      fetchEvent(topic, false, {
-        position: initialOffset,
+    // Update topic in the store with the new event
+    if (event) {
+      updateTopic({
+        index: index,
+        name: localState.topicName,
+        initialOffset: offset as 'earliest' | 'latest',
+        events: [{ event, topicIndex: index, position: offset as 'earliest' | 'latest' }],
+        selectedEvent: { event, topicIndex: index, position: offset as 'earliest' | 'latest' },
+        deduplication: existingTopic?.deduplication || {
+          enabled: false,
+          window: 0,
+          unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+          key: '',
+          keyType: '',
+        },
       })
     }
   }
 
-  // Handle form changes
-  const handleFormChange = () => {
-    setUserInteracted(true)
-  }
-
   // Handle deduplication config changes
   const handleDeduplicationConfigChange = useCallback(
-    (
-      newKeyConfig: { key: string; keyType: string },
-      newWindowConfig: { window: number; unit: 'seconds' | 'minutes' | 'hours' | 'days' },
-    ) => {
+    (newKeyConfig: { key: string; keyType: string }, newWindowConfig: { window: number; unit: string }) => {
       setKeyConfig(newKeyConfig)
-      setWindowConfig(newWindowConfig)
+      setWindowConfig({
+        window: newWindowConfig.window,
+        unit: newWindowConfig.unit as 'seconds' | 'minutes' | 'hours' | 'days',
+      })
 
       // Update deduplication status
       setDeduplicationConfigured(!!(newKeyConfig.key && newWindowConfig.window))
@@ -207,20 +201,20 @@ export function TopicDeduplicationConfigurator({
       analytics.key.dedupKey({
         keyType: newKeyConfig.keyType,
         window: newWindowConfig.window,
-        unit: newWindowConfig.unit,
+        unit: newWindowConfig.unit as 'seconds' | 'minutes' | 'hours' | 'days',
       })
     },
-    [],
+    [analytics.key],
   )
 
   // Update the canContinue logic to include deduplication config
-  const canContinue = topicName && isValid && (!isLoadingEvent || !!event) && deduplicationConfigured
+  const canContinue = localState.topicName && existingTopic?.selectedEvent?.event && deduplicationConfigured
 
   // Determine if we should show validation errors
   const shouldShowValidationErrors = userInteracted || !isInitialRender || isReturningToForm
 
   // Handle form submission
-  const onSubmit = (data: KafkaTopicSelectorType) => {
+  const handleSubmit = useCallback(() => {
     // Create deduplication config
     const deduplicationConfig = {
       enabled: true,
@@ -231,34 +225,18 @@ export function TopicDeduplicationConfigurator({
       keyType: keyConfig.keyType,
     }
 
-    // Get the actual event data
-    const actualEventData = event?.event || currentEvent?.event || existingEvent?.event?.event
-
-    // Get metadata from the event
-    const kafkaOffset = event?.kafkaOffset || currentEvent?.kafkaOffset || 258 // Default to 258 if not available
-    const isFromCache = event?.isFromCache || currentEvent?.isFromCache || false
-
-    // Create the properly nested event structure
-    const eventObject = {
-      event: {
-        event: actualEventData,
-        position: data.initialOffset,
-        kafkaOffset: kafkaOffset,
-        isFromCache: isFromCache,
-        topicIndex: index,
-      },
-      topicIndex: index,
-      position: data.initialOffset,
-    }
-
-    // Update topic in the store
+    // Update topic in the store with deduplication config
     updateTopic({
-      name: data.topicName,
-      initialOffset: data.initialOffset,
-      events: [eventObject],
-      selectedEvent: eventObject,
+      index: index,
+      name: existingTopic?.name || '',
+      initialOffset: existingTopic?.initialOffset || 'latest',
+      events: existingTopic?.events || [],
+      selectedEvent: existingTopic?.selectedEvent || {
+        topicIndex: index,
+        position: existingTopic?.initialOffset || 'latest',
+        event: null,
+      },
       deduplication: deduplicationConfig,
-      index,
     })
 
     // Move to next step
@@ -267,7 +245,7 @@ export function TopicDeduplicationConfigurator({
     } else {
       onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
     }
-  }
+  }, [index, existingTopic, windowConfig, keyConfig, updateTopic, onNext])
 
   // Simplify the event handlers
   const eventHandlers = {
@@ -317,62 +295,43 @@ export function TopicDeduplicationConfigurator({
   }
 
   return (
-    <FormProvider {...formMethods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full" onChange={handleFormChange}>
-        <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
-          <div className="grid grid-cols-1 gap-6">
-            <div className="flex flex-row gap-6">
-              {/* Form Fields - 40% width */}
-              <div className="w-[40%] space-y-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-sm font-weight-[400]">
-                    This Kafka topic will be used as the data source for the pipeline.
-                  </h3>
-                </div>
-                <TopicSelectorForm
-                  errors={errors}
-                  dynamicOptions={{ topicName: availableTopics.map((topic) => ({ label: topic, value: topic })) }}
-                  onChange={(data) => handleTopicSelect(data.topicName)}
-                />
-
-                {/* Use the updated disabled condition */}
-                {topicName && eventReceivedRef.current && (
+    <div className="space-y-6 w-full">
+      <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
+        <div className="grid grid-cols-1 gap-6">
+          {/* Topic Selection and Event Preview */}
+          <TopicSelectWithEventPreview
+            index={index}
+            existingTopic={existingTopic}
+            onTopicChange={handleTopicSelect}
+            onOffsetChange={handleOffsetChange}
+            availableTopics={availableTopics}
+            additionalContent={
+              existingTopic?.selectedEvent?.event && (
+                <div className="mt-6">
                   <SelectDeduplicateKeys
                     index={index}
-                    // @ts-expect-error - FIXME: fix this later
                     onChange={handleDeduplicationConfigChange}
-                    disabled={!topicName || isLoadingEvent || (!event && !currentEvent && !eventReceivedRef.current)}
-                    eventData={event || currentEvent || localState.fetchedEvent}
+                    disabled={!existingTopic?.name}
+                    eventData={existingTopic.selectedEvent.event}
                   />
-                )}
-              </div>
-
-              {/* EventPreview - 60% width */}
-              <div className="w-[60%] min-h-[400px] h-full">
-                <EventFetcher
-                  topicName={topicName}
-                  initialOffset={initialOffset}
-                  topicIndex={index}
-                  onEmptyTopic={handleEmptyTopic}
-                  {...eventHandlers}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Continue Button */}
-          <div className="flex justify-between mt-6">
-            <Button variant="gradient" className="btn-text btn-primary" type="submit" disabled={!canContinue}>
-              Continue
-            </Button>
-
-            {/* Optional: Add a debug indicator for deduplication status */}
-            {topicName && event && !deduplicationConfigured && (
-              <div className="text-amber-500 text-sm">Please configure deduplication settings to continue</div>
-            )}
-          </div>
+                </div>
+              )
+            }
+          />
         </div>
-      </form>
-    </FormProvider>
+
+        {/* Continue Button */}
+        <div className="flex justify-between mt-6 px-6">
+          <Button variant="gradient" className="btn-text btn-primary" onClick={handleSubmit} disabled={!canContinue}>
+            Continue
+          </Button>
+
+          {/* Optional: Add a debug indicator for deduplication status */}
+          {existingTopic?.name && existingTopic?.selectedEvent?.event && !deduplicationConfigured && (
+            <div className="text-amber-500 text-sm">Please configure deduplication settings to continue</div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

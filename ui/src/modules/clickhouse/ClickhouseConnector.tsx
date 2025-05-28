@@ -147,7 +147,10 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               {renderFormField({
-                field: directConnectionForm.fields.host,
+                field: {
+                  ...directConnectionForm.fields.host,
+                  readOnly: isLoading,
+                },
                 register,
                 errors,
               })}
@@ -155,25 +158,10 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
 
             <div className="space-y-2">
               {renderFormField({
-                field: directConnectionForm.fields.port,
-                register,
-                errors,
-              })}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              {renderFormField({
-                field: directConnectionForm.fields.username,
-                register,
-                errors,
-              })}
-            </div>
-
-            <div className="space-y-2">
-              {renderFormField({
-                field: directConnectionForm.fields.password,
+                field: {
+                  ...directConnectionForm.fields.port,
+                  readOnly: isLoading,
+                },
                 register,
                 errors,
               })}
@@ -183,7 +171,34 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               {renderFormField({
-                field: directConnectionForm.fields.nativePort,
+                field: {
+                  ...directConnectionForm.fields.username,
+                  readOnly: isLoading,
+                },
+                register,
+                errors,
+              })}
+            </div>
+
+            <div className="space-y-2">
+              {renderFormField({
+                field: {
+                  ...directConnectionForm.fields.password,
+                  readOnly: isLoading,
+                },
+                register,
+                errors,
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              {renderFormField({
+                field: {
+                  ...directConnectionForm.fields.nativePort,
+                  readOnly: isLoading,
+                },
                 register,
                 errors,
               })}

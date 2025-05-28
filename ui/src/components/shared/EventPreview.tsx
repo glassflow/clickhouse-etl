@@ -144,18 +144,10 @@ export const EventPreview = ({
     <div className="rounded-md p-4 h-full flex flex-col overflow-auto">
       {!topic || (isLoadingEvent && !isEmptyTopic) ? (
         <div className="h-full flex items-center justify-center bg-background-neutral rounded-md">
-          <p className="text-white">Select a topic to preview events</p>
+          <p className="text-white"></p>
         </div>
       ) : (
         <>
-          {/* <div className="flex justify-between items-center mb-4">
-            {isEmptyTopic && (
-              <div className="text-amber-500 text-sm">
-                This topic has no events. Please enter the event schema manually.
-              </div>
-            )}
-          </div> */}
-
           {showInternalNavigationButtons && <NavigationButtons />}
 
           {showThemeSelector && (
@@ -180,11 +172,11 @@ export const EventPreview = ({
             </div>
           )}
 
-          {isEmptyTopic && (
+          {/* {isEmptyTopic && (
             <div className="bg-amber-500/20 p-3 mb-3 rounded-md text-amber-500 text-sm">
               This topic has no events. Please select a different topic with events to proceed.
             </div>
-          )}
+          )} */}
 
           <div className="flex-grow relative w-full h-full code-editor-container">
             {isLoadingEvent ? (
