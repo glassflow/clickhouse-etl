@@ -669,7 +669,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       delayUnit: maxDelayTimeUnit,
     })
 
-    setClickhouseDestination({
+    // Create the updated destination config first
+    const updatedDestination = {
       ...clickhouseDestination,
       database: selectedDatabase,
       table: selectedTable,
@@ -678,30 +679,29 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       maxBatchSize: maxBatchSize,
       maxDelayTime: maxDelayTime,
       maxDelayTimeUnit: maxDelayTimeUnit,
-    })
+    }
 
-    setSuccess('Destination configuration saved successfully!')
-    setTimeout(() => setSuccess(null), 3000)
-
+    // Generate config with the updated destination
     const apiConfig = generateApiConfig({
       pipelineId,
       setPipelineId,
       clickhouseConnection,
-      clickhouseDestination,
+      clickhouseDestination: updatedDestination, // Use the updated config directly
       selectedTopics,
       getMappingType,
       joinStore,
       kafkaStore,
     })
 
+    // Update the store with the new destination config
+    setClickhouseDestination(updatedDestination)
     setApiConfig(apiConfig)
+
+    setSuccess('Destination configuration saved successfully!')
+    setTimeout(() => setSuccess(null), 3000)
 
     // Navigate to the pipelines page
     router.push('/pipelines')
-
-    // if (onNext) {
-    //   onNext(StepKeys.CLICKHOUSE_MAPPER)
-    // }
   }, [
     clickhouseDestination,
     selectedDatabase,
@@ -711,10 +711,16 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     maxBatchSize,
     maxDelayTime,
     maxDelayTimeUnit,
-    onNext,
-    topicName,
-    index,
+    pipelineId,
+    setPipelineId,
+    clickhouseConnection,
+    selectedTopics,
+    joinStore,
+    kafkaStore,
     setClickhouseDestination,
+    setApiConfig,
+    router,
+    analytics.destination,
   ])
 
   // Add this useEffect to clean up modal state
