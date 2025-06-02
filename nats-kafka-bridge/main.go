@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	"github.com/glassflow/nats-kafka-bridge/nats"
 	"github.com/glassflow/nats-kafka-bridge/server/conf"
 	"github.com/glassflow/nats-kafka-bridge/server/core"
 )
@@ -97,13 +95,6 @@ func main() {
 		slog.String("commit_hash", commit),
 		slog.String("goversion", runtime.Version()),
 	)
-
-	// setup NATS stream, take care of context
-	err = nats.SetupNATS(context.Background(), cfg.NATSServer, cfg.NATSStream, cfg.NATSSubject, cfg.NATSStreamMaxAge, cfg.NATSStreamDedupWindow)
-	if err != nil {
-		slog.Error("Error setting up NATS stream", slog.Any("error", err))
-		os.Exit(1)
-	}
 
 	// setup connector server
 	// initialize server properly

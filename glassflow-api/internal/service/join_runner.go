@@ -31,14 +31,9 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamConfig, publisherStream, publisherSubject string, schemaMapper *schema.Mapper) error {
+func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamConfig, publisherSubject string, schemaMapper *schema.Mapper) error {
 	if len(streams) == 0 {
 		return fmt.Errorf("setup joiner: length of streams must not be 0")
-	}
-
-	err := j.nc.CreateOrUpdateStream(ctx, publisherStream, publisherSubject)
-	if err != nil {
-		return fmt.Errorf("create join result stream: %w", err)
 	}
 
 	var (
@@ -48,6 +43,7 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 		rightBuffer     *kv.NATSKeyValueStore
 		leftStreamName  string
 		rightStreamName string
+		err             error
 	)
 	for _, s := range streams {
 		if s.Join.Orientation == "left" {
