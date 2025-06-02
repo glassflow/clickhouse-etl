@@ -37,12 +37,12 @@ export function SavedConfigurations() {
       // Restore the complete state
       restoreConfiguration(config.id)
 
-      // TODO: Track configuration load
+      const restoredState = useStore.getState()
 
       // Ensure we have a valid operation before navigating
       const { operationsSelected } = useStore.getState()
       if (!operationsSelected?.operation) {
-        console.error('No operation type found in restored configuration')
+        console.error('No operation type found in restored configuration. Full state:', restoredState)
         return
       }
 

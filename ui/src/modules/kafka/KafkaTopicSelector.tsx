@@ -8,13 +8,9 @@ import { StepKeys } from '@/src/config/constants'
 import { useFetchTopics } from '../../hooks/kafka-mng-hooks'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { useEventFetchContext } from '../../components/shared/event-fetcher/EventFetchContext'
-import { KafkaTopicSelectorWithEventType } from '@/src/scheme/topics.scheme'
-import EventFetcher from '../../components/shared/event-fetcher/EventFetcher'
-import classnames from 'classnames'
-import Image from 'next/image'
-import Loader from '@/src/images/loader-small.svg'
-import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
+
 export type TopicSelectorProps = {
   steps: any
   onNext: (stepName: string) => void
@@ -41,6 +37,21 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   // Get access to the steps store functions
   const { removeCompletedStepsAfter } = useStore()
 
+  // Get existing topic data if available
+  const topicFromStore = topicsFromStore[index]
+  const storedEvent = topicFromStore?.selectedEvent?.event
+
+  // Check if we're returning to a previously filled form
+  const isReturningToForm = topicFromStore && topicFromStore.name
+
+  // Hook to fetch topics
+  const {
+    topics: topicsFromKafka,
+    isLoading: isLoadingTopics,
+    error,
+    fetchTopics,
+  } = useFetchTopics({ kafka: kafkaStore })
+
   // Track if this is the initial render or a return visit
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [showEventPreview, setShowEventPreview] = useState(false)
@@ -53,32 +64,19 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     topicsFromStore[index]?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
   )
 
-  // Get existing topic data if available
-  const topicFromStore = topicsFromStore[index]
-  const storedEvent = topicFromStore?.selectedEvent?.event
-
-  // Check if we're returning to a previously filled form
-  const isReturningToForm = topicFromStore && topicFromStore.name
-
-  // Hook to fetch topics and events
-  const {
-    topics: topicsFromKafka,
-    isLoading: isLoadingTopics,
-    error,
-    fetchTopics,
-  } = useFetchTopics({ kafka: kafkaStore })
-
   // Combine the local states into a single object to reduce re-renders
   const [localState, setLocalState] = useState<{
     topicName: string
     offset: 'earliest' | 'latest'
     isLoading: boolean
     userInteracted: boolean
+    fetchedEvent: any
   }>({
     topicName: topicFromStore?.name || '',
     offset: (topicFromStore?.initialOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
     isLoading: false,
     userInteracted: false,
+    fetchedEvent: storedEvent || null,
   })
 
   // Handle empty topic state
@@ -226,94 +224,98 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   // ================================ HANDLERS ================================
 
   // Handle topic change
-  const handleTopicChange = (value: string) => {
-    setTopicName(value)
-    // If the topic name changed, invalidate dependent state
-    invalidateTopicDependentState(index)
+  const handleTopicChange = useCallback(
+    (topicName: string, event: any) => {
+      // If the topic name changed, invalidate dependent state
+      if (topicName !== topicFromStore?.name) {
+        invalidateTopicDependentState(index)
 
-    // Clear join store configuration when topics change
-    joinStore.setEnabled(false)
-    joinStore.setType('')
-    joinStore.setStreams([])
+        // Clear join store configuration
+        joinStore.setEnabled(false)
+        joinStore.setType('')
+        joinStore.setStreams([])
+      }
 
-    // Get the current step key based on index and operation type
-    const currentStepKey = StepKeys.KAFKA_CONNECTION // We want to remove everything after Kafka connection when topic changes
-    removeCompletedStepsAfter(currentStepKey)
+      // Update topic in the store
+      updateTopic({
+        index: index,
+        name: topicName,
+        initialOffset: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+        events: [
+          {
+            event,
+            topicIndex: index,
+            position: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+          },
+        ],
+        selectedEvent: {
+          event,
+          topicIndex: index,
+          position: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+        },
+        deduplication: topicFromStore?.deduplication || {
+          enabled: false,
+          window: 0,
+          unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+          key: '',
+          keyType: '',
+        },
+      })
 
-    analytics.topic.selected({
-      offset: initialOffset,
-    })
+      setLocalState((prev) => ({
+        ...prev,
+        topicName,
+        fetchedEvent: event,
+        userInteracted: true,
+      }))
 
-    // Clear previous events when topic changes
-    updateTopic({
-      index: index,
-      name: value,
-      initialOffset,
-      events: [], // Reset events array when topic changes
-      selectedEvent: {
-        topicIndex: index,
-        position: initialOffset,
-        event: undefined,
-      }, // Empty selected event but with required structure
-      deduplication: topicFromStore?.deduplication || {
-        enabled: false,
-        window: 0,
-        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-        key: '',
-        keyType: '',
-      },
-    })
-
-    setLocalState((prev) => ({
-      ...prev,
-      topicName: value,
-      isLoading: true,
-      fetchedEvent: null,
-      canContinue: false,
-      offset: initialOffset,
-    }))
-  }
+      analytics.topic.selected({
+        offset: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+      })
+    },
+    [index, topicFromStore, invalidateTopicDependentState, joinStore, updateTopic, analytics.topic],
+  )
 
   // Handle offset change
-  const handleOffsetChange = (value: 'earliest' | 'latest') => {
-    setInitialOffset(value)
-    setLocalState((prev) => ({
-      ...prev,
-      offset: value,
-      isLoading: true,
-      fetchedEvent: null,
-      canContinue: false,
-    }))
-  }
+  const handleOffsetChange = useCallback(
+    (offset: 'earliest' | 'latest', event: any) => {
+      // Update topic with new offset and event
+      updateTopic({
+        index: index,
+        name: topicFromStore?.name || '',
+        initialOffset: offset,
+        events: [
+          {
+            event,
+            topicIndex: index,
+            position: offset,
+          },
+        ],
+        selectedEvent: {
+          event,
+          topicIndex: index,
+          position: offset,
+        },
+        deduplication: topicFromStore?.deduplication || {
+          enabled: false,
+          window: 0,
+          unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+          key: '',
+          keyType: '',
+        },
+      })
+
+      setLocalState((prev) => ({
+        ...prev,
+        offset,
+        fetchedEvent: event,
+      }))
+    },
+    [index, topicFromStore, updateTopic],
+  )
 
   // Handle form submission
-  const handleSubmit = () => {
-    // Create the combined data with event
-    const submissionData: KafkaTopicSelectorWithEventType = {
-      topicName,
-      initialOffset,
-      event: {
-        event: storedEvent,
-        topicIndex: index,
-        position: initialOffset,
-      },
-    }
-
-    // Update topic in the store
-    updateTopic({
-      index: index,
-      name: topicName,
-      initialOffset,
-      events: [...(topicFromStore?.events || []), { event: storedEvent, topicIndex: index, position: initialOffset }],
-      selectedEvent: { event: storedEvent, topicIndex: index, position: initialOffset },
-      deduplication: topicFromStore?.deduplication || {
-        enabled: false,
-        window: 0,
-        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-        key: '',
-        keyType: '',
-      },
-    })
+  const handleSubmit = useCallback(() => {
     setTopicCount(topicCountFromStore + 1)
 
     // Move to next step
@@ -322,7 +324,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     } else {
       onNext(StepKeys.TOPIC_SELECTION_2)
     }
-  }
+  }, [index, onNext, setTopicCount, topicCountFromStore])
 
   // Determine if we should show validation errors
   const shouldShowValidationErrors = localState.userInteracted || !isInitialRender || isReturningToForm
@@ -408,61 +410,13 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     <div className="space-y-6 w-full">
       <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
         <div className="grid grid-cols-1 gap-6">
-          <div className="flex flex-row gap-6">
-            {/* Form Fields */}
-            <div
-              className={classnames(
-                'w-[40%] space-y-4',
-                localState.isLoading && 'opacity-50 pointer-events-none transition-opacity duration-200',
-              )}
-            >
-              <h3 className="text-md font-medium step-description">
-                This Kafka topic will be used as the data source of your pipeline.
-              </h3>
-              <div className="flex flex-col gap-4 pt-8">
-                <TopicOffsetSelect
-                  index={index}
-                  topicValue={topicName}
-                  isLoadingEvent={state.isLoading}
-                  offsetValue={initialOffset}
-                  onTopicChange={handleTopicChange}
-                  onOffsetChange={handleOffsetChange}
-                  onBlur={() => {}}
-                  onOpenChange={() => {}}
-                  topicError={''}
-                  offsetError={''}
-                  topicPlaceholder="Select a topic"
-                  offsetPlaceholder="Select initial offset"
-                  topicOptions={availableTopics.map((topic) => ({ label: topic, value: topic }))}
-                  offsetOptions={Object.entries(INITIAL_OFFSET_OPTIONS).map(([key, value]) => ({
-                    label: value,
-                    value: value as 'earliest' | 'latest',
-                  }))}
-                />
-                {state.isLoading && !isEmptyTopic && (
-                  <div className="flex items-center gap-2 text-sm text-content">
-                    <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
-                    <span>Fetching the event schema...</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Event Preview */}
-            <div className="w-[60%] min-h-[450px] h-full">
-              <EventFetcher
-                topicName={topicName}
-                initialOffset={initialOffset}
-                topicIndex={index}
-                initialEvent={storedEvent}
-                onEventLoading={fetchEventHandlers.onEventLoading}
-                onEventLoaded={fetchEventHandlers.onEventLoaded}
-                onEventError={fetchEventHandlers.onEventError}
-                onEmptyTopic={handleEmptyTopic}
-                onEventChange={handleManualEventChange}
-              />
-            </div>
-          </div>
+          <TopicSelectWithEventPreview
+            index={index}
+            existingTopic={topicFromStore}
+            onTopicChange={handleTopicChange}
+            onOffsetChange={handleOffsetChange}
+            availableTopics={availableTopics}
+          />
         </div>
 
         {/* Continue Button */}

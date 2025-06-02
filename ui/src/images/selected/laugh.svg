@@ -2,9 +2,8 @@
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="laugh">
 <path id="Vector" d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#ffa24b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_2" d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14" stroke="#ffa24b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_2" d="M18 13C17.7614 14.4124 17.0254 15.6929 15.9249 16.6099C14.8245 17.5269 13.4323 18.02 12 18C10.5677 18.02 9.1755 17.5269 8.07507 16.6099C6.97464 15.6929 6.2386 14.4124 6 13H18Z" stroke="#ffa24b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 <path id="Vector_3" d="M9 9H9.01" stroke="#ffa24b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 <path id="Vector_4" d="M15 9H15.01" stroke="#ffa24b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_5" d="M8 10C8 10 9 11 12 11C15 11 16 10 16 10" stroke="#ffa24b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-</svg> 
+</svg>

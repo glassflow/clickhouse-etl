@@ -4,6 +4,7 @@ const eventCatalog: Record<string, boolean> = {
   // Consent Events
   [dictionary.Consent_Given.name]: true,
   [dictionary.Consent_NotGiven.name]: true,
+  [dictionary.Feedback_Submitted.name]: true,
 
   // Journey Page Events
   [dictionary.P0_Homepage.name]: true,

@@ -12,6 +12,12 @@ export enum StepKeys {
   DEPLOY_PIPELINE = 'deploy-pipeline',
 }
 
+export enum EventDataFormat {
+  JSON = 'json',
+  AVRO = 'avro',
+  PROTOBUF = 'protobuf',
+}
+
 export enum OperationKeys {
   DEDUPLICATION = 'deduplication',
   JOINING = 'joining',
@@ -24,7 +30,6 @@ export const TIME_WINDOW_UNIT_OPTIONS = {
   MINUTES: { label: 'Minutes', value: 'minutes' },
   HOURS: { label: 'Hours', value: 'hours' },
   DAYS: { label: 'Days', value: 'days' },
-  MONTHS: { label: 'Months', value: 'months' },
 }
 
 export const TIME_UNITS = {

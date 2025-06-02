@@ -68,6 +68,7 @@ export const setUserIdentity = (userId: string) => {
       'App Version': process.env.NEXT_PUBLIC_APP_VERSION || 'unknown',
       Platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
       'User Agent': typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      'Internal User': isInternalUser(),
     })
 
     if (isDev) {

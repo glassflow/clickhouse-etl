@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
@@ -17,12 +17,14 @@ import {
   getNestedValue,
   validateColumnMappings,
   isTypeCompatible,
+  getMappingType,
 } from './helpers'
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-// import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
+import { generateApiConfig } from '../review/helpers'
+import { useRouter } from 'next/navigation'
 
 export function ClickhouseJoinMapper({
   onNext,
@@ -33,8 +35,18 @@ export function ClickhouseJoinMapper({
   primaryIndex: number
   secondaryIndex: number
 }) {
-  const { clickhouseStore, topicsStore } = useStore()
+  const {
+    clickhouseStore,
+    topicsStore,
+    setApiConfig,
+    pipelineId,
+    setPipelineId,
+    joinStore,
+    kafkaStore,
+    setOperationsSelected,
+  } = useStore()
   const analytics = useJourneyAnalytics()
+  const router = useRouter()
   const {
     clickhouseConnection,
     clickhouseDestination,
@@ -269,13 +281,13 @@ export function ClickhouseJoinMapper({
 
   // Update effect for handling event data changes to handle nested structure
   useEffect(() => {
-    if (primaryTopic?.selectedEvent?.event?.event) {
-      setPrimaryEventData(primaryTopic.selectedEvent.event.event)
+    if (primaryTopic?.selectedEvent?.event) {
+      setPrimaryEventData(primaryTopic.selectedEvent.event)
     }
-    if (secondaryTopic?.selectedEvent?.event?.event) {
-      setSecondaryEventData(secondaryTopic.selectedEvent.event.event)
+    if (secondaryTopic?.selectedEvent?.event) {
+      setSecondaryEventData(secondaryTopic.selectedEvent.event)
     }
-  }, [primaryTopic?.selectedEvent?.event?.event, secondaryTopic?.selectedEvent?.event?.event])
+  }, [primaryTopic?.selectedEvent?.event, secondaryTopic?.selectedEvent?.event])
 
   // NOTE: uncomment this when you want to auto-map the fields
   // Update auto-mapping effect to handle nested structure
@@ -576,8 +588,8 @@ export function ClickhouseJoinMapper({
       completionTrackedRef.current = true
     }
 
-    // Save the configuration
-    setClickhouseDestination({
+    // Create the updated destination config
+    const updatedDestination = {
       database: selectedDatabase,
       table: selectedTable,
       destinationColumns: tableSchema.columns,
@@ -586,14 +598,29 @@ export function ClickhouseJoinMapper({
       maxBatchSize: maxBatchSize || 1000,
       maxDelayTime: maxDelayTime || 1000,
       maxDelayTimeUnit: maxDelayTimeUnit || 'm',
-      // useSSL: clickhouseConnection.directConnection.useSSL || true,
+    }
+
+    // Generate API config with pipeline ID
+    const apiConfig = generateApiConfig({
+      pipelineId,
+      setPipelineId,
+      clickhouseConnection,
+      clickhouseDestination: updatedDestination,
+      selectedTopics: [primaryTopic, secondaryTopic],
+      getMappingType,
+      joinStore,
+      kafkaStore,
     })
+
+    // Update the store with both destination and API config
+    setClickhouseDestination(updatedDestination)
+    setApiConfig(apiConfig)
 
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
     // Move to next step
-    onNext(StepKeys.CLICKHOUSE_MAPPER)
+    router.push('/pipelines')
   }
 
   return (

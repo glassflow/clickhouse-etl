@@ -22,6 +22,8 @@ export const trackGeneral = {
   consentGiven: (properties?: Record<string, unknown>) => trackEvent('Consent_Given', properties),
 
   consentNotGiven: (properties?: Record<string, unknown>) => trackEvent('Consent_NotGiven', properties),
+
+  feedbackSubmitted: (properties?: Record<string, unknown>) => trackEvent('Feedback_Submitted', properties),
 }
 
 /**

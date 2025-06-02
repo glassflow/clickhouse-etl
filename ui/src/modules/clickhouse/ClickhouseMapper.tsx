@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { XCircleIcon } from '@heroicons/react/24/outline'
@@ -15,14 +16,26 @@ import {
   getNestedValue,
   validateColumnMappings,
   isTypeCompatible,
+  getMappingType,
 } from './helpers'
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } from './types'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { generateApiConfig, isValidApiConfig } from '../review/helpers'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
-  const { clickhouseStore, kafkaStore, operationsSelected } = useStore()
+  const router = useRouter()
+  const {
+    clickhouseStore,
+    kafkaStore,
+    joinStore,
+    topicsStore,
+    setApiConfig,
+    pipelineId,
+    setPipelineId,
+    operationsSelected,
+  } = useStore()
   const analytics = useJourneyAnalytics()
   const {
     clickhouseConnection,
@@ -33,8 +46,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   } = clickhouseStore
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
-
-  const { topicsStore } = useStore()
   const { getTopic } = topicsStore
 
   const selectedTopic = getTopic(index)
@@ -87,6 +98,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   })
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
+
+  const selectedTopics = Object.values(topicsStore.topics || {})
 
   // Replace individual modal states with a single modal state object
   const [modalProps, setModalProps] = useState({
@@ -253,7 +266,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     if (selectedEvent && topicEvents && topicEvents.length > 0) {
       // The structure has changed - selectedEvent is now an object with event property
       // We don't need to search in topicEvents anymore
-      const eventData = selectedEvent.event?.event
+      const eventData = selectedEvent?.event
 
       if (eventData) {
         setEventData(eventData)
@@ -646,7 +659,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       delayUnit: maxDelayTimeUnit,
     })
 
-    setClickhouseDestination({
+    // Create the updated destination config first
+    const updatedDestination = {
       ...clickhouseDestination,
       database: selectedDatabase,
       table: selectedTable,
@@ -655,14 +669,29 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       maxBatchSize: maxBatchSize,
       maxDelayTime: maxDelayTime,
       maxDelayTimeUnit: maxDelayTimeUnit,
+    }
+
+    // Generate config with the updated destination
+    const apiConfig = generateApiConfig({
+      pipelineId,
+      setPipelineId,
+      clickhouseConnection,
+      clickhouseDestination: updatedDestination,
+      selectedTopics,
+      getMappingType,
+      joinStore,
+      kafkaStore,
     })
+
+    // Update the store with the new destination config
+    setClickhouseDestination(updatedDestination)
+    setApiConfig(apiConfig)
 
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
-    if (onNext) {
-      onNext(StepKeys.CLICKHOUSE_MAPPER)
-    }
+    // Navigate to the pipelines page
+    router.push('/pipelines')
   }, [
     clickhouseDestination,
     selectedDatabase,
@@ -672,10 +701,16 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     maxBatchSize,
     maxDelayTime,
     maxDelayTimeUnit,
-    onNext,
-    topicName,
-    index,
+    pipelineId,
+    setPipelineId,
+    clickhouseConnection,
+    selectedTopics,
+    joinStore,
+    kafkaStore,
     setClickhouseDestination,
+    setApiConfig,
+    router,
+    analytics.destination,
   ])
 
   // Add this useEffect to clean up modal state

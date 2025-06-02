@@ -27,9 +27,10 @@ export const generateApiConfig = ({
 }) => {
   try {
     // Generate a new pipeline ID if one doesn't exist
-    if (!pipelineId) {
-      const newPipelineId = uuidv4()
-      setPipelineId(newPipelineId)
+    let finalPipelineId = pipelineId
+    if (!finalPipelineId) {
+      finalPipelineId = uuidv4()
+      setPipelineId(finalPipelineId)
     }
 
     const mapping = clickhouseDestination?.mapping || []
@@ -126,7 +127,7 @@ export const generateApiConfig = ({
 
     // Build the complete API config
     const config = {
-      pipeline_id: pipelineId,
+      pipeline_id: finalPipelineId,
       source: {
         type: 'kafka',
         provider: 'custom', // Or determine from connection details
@@ -232,4 +233,20 @@ export const generateApiConfig = ({
     console.error('Error generating API config:', error)
     return { error: 'Failed to generate API configuration' }
   }
+}
+
+export function isValidApiConfig(config: any): boolean {
+  if (!config) return false
+
+  // Check required fields
+  const requiredFields = ['pipeline_id', 'source', 'destination']
+  if (!requiredFields.every((field) => config[field])) return false
+
+  // Check source configuration
+  if (!config.source?.topics || !Array.isArray(config.source.topics) || config.source.topics.length === 0) return false
+
+  // Check destination configuration
+  if (!config.destination?.database || !config.destination?.table) return false
+
+  return true
 }
