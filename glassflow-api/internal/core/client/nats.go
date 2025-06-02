@@ -70,9 +70,9 @@ func (n *NATSClient) CleanupOldResources() error {
 	return nil
 }
 
-func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject string) error {
+func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject string, dedupWindow time.Duration) error {
 	//nolint:exhaustruct // readability
-	_, err := n.JetStream().CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+	sc := jetstream.StreamConfig{
 		Name:     name,
 		Subjects: []string{subject},
 		Storage:  jetstream.FileStorage,
@@ -80,7 +80,13 @@ func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject str
 		Retention: jetstream.LimitsPolicy,
 		MaxAge:    n.maxAge,
 		Discard:   jetstream.DiscardOld,
-	})
+	}
+
+	if dedupWindow > 0 {
+		sc.Duplicates = dedupWindow
+	}
+
+	_, err := n.JetStream().CreateOrUpdateStream(ctx, sc)
 	if err != nil {
 		return fmt.Errorf("cannot create nats stream: %w", err)
 	}
