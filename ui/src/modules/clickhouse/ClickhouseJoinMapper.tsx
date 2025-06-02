@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
@@ -23,8 +23,8 @@ import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, Conn
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-// import { TypeCompatibilityInfo } from './TypeCompatibilityInfo'
 import { generateApiConfig } from '../review/helpers'
+import { useRouter } from 'next/navigation'
 
 export function ClickhouseJoinMapper({
   onNext,
@@ -35,8 +35,18 @@ export function ClickhouseJoinMapper({
   primaryIndex: number
   secondaryIndex: number
 }) {
-  const { clickhouseStore, topicsStore, setApiConfig, pipelineId, setPipelineId, joinStore, kafkaStore } = useStore()
+  const {
+    clickhouseStore,
+    topicsStore,
+    setApiConfig,
+    pipelineId,
+    setPipelineId,
+    joinStore,
+    kafkaStore,
+    setOperationsSelected,
+  } = useStore()
   const analytics = useJourneyAnalytics()
+  const router = useRouter()
   const {
     clickhouseConnection,
     clickhouseDestination,
@@ -610,7 +620,7 @@ export function ClickhouseJoinMapper({
     setTimeout(() => setSuccess(null), 3000)
 
     // Move to next step
-    onNext(StepKeys.CLICKHOUSE_MAPPER)
+    router.push('/pipelines')
   }
 
   return (
