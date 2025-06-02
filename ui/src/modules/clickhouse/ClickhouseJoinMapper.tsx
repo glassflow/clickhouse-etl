@@ -17,6 +17,7 @@ import {
   getNestedValue,
   validateColumnMappings,
   isTypeCompatible,
+  getMappingType,
 } from './helpers'
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
@@ -34,7 +35,7 @@ export function ClickhouseJoinMapper({
   primaryIndex: number
   secondaryIndex: number
 }) {
-  const { clickhouseStore, topicsStore } = useStore()
+  const { clickhouseStore, topicsStore, setApiConfig, pipelineId, setPipelineId, joinStore, kafkaStore } = useStore()
   const analytics = useJourneyAnalytics()
   const {
     clickhouseConnection,
@@ -577,8 +578,8 @@ export function ClickhouseJoinMapper({
       completionTrackedRef.current = true
     }
 
-    // Save the configuration
-    setClickhouseDestination({
+    // Create the updated destination config
+    const updatedDestination = {
       database: selectedDatabase,
       table: selectedTable,
       destinationColumns: tableSchema.columns,
@@ -587,16 +588,29 @@ export function ClickhouseJoinMapper({
       maxBatchSize: maxBatchSize || 1000,
       maxDelayTime: maxDelayTime || 1000,
       maxDelayTimeUnit: maxDelayTimeUnit || 'm',
-      // useSSL: clickhouseConnection.directConnection.useSSL || true,
+    }
+
+    // Generate API config with pipeline ID
+    const apiConfig = generateApiConfig({
+      pipelineId,
+      setPipelineId,
+      clickhouseConnection,
+      clickhouseDestination: updatedDestination,
+      selectedTopics: [primaryTopic, secondaryTopic],
+      getMappingType,
+      joinStore,
+      kafkaStore,
     })
+
+    // Update the store with both destination and API config
+    setClickhouseDestination(updatedDestination)
+    setApiConfig(apiConfig)
 
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
     // Move to next step
     onNext(StepKeys.CLICKHOUSE_MAPPER)
-
-    // perform actions related to creating a configuration
   }
 
   return (

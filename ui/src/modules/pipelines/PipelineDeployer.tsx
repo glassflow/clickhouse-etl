@@ -20,7 +20,7 @@ type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'de
 
 export function PipelineDeployer() {
   const analytics = useJourneyAnalytics()
-  const { apiConfig, resetPipelineState, pipelineId } = useStore()
+  const { apiConfig, resetPipelineState, pipelineId, setPipelineId } = useStore()
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
   const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)
@@ -62,8 +62,14 @@ export function PipelineDeployer() {
         } else {
           // No running pipeline
           if (isValidApiConfig(apiConfig)) {
-            // We have a valid config and no running pipeline - we can deploy
-            deployPipeline()
+            // We have a valid config but no running pipeline
+            // Only deploy if we're not just checking status
+            if (status === 'deploying') {
+              deployPipeline()
+            } else {
+              // If we're just checking status, redirect to home
+              router.push('/home')
+            }
           } else {
             // No config and no pipeline - redirect to home immediately
             router.push('/home')
@@ -73,7 +79,13 @@ export function PipelineDeployer() {
         if (err.code === 404) {
           // No pipeline exists
           if (isValidApiConfig(apiConfig)) {
-            deployPipeline()
+            // Only deploy if we're not just checking status
+            if (status === 'deploying') {
+              deployPipeline()
+            } else {
+              // If we're just checking status, redirect to home
+              router.push('/home')
+            }
           } else {
             // No config and no pipeline - redirect to home immediately
             router.push('/home')
@@ -87,16 +99,43 @@ export function PipelineDeployer() {
 
     const deployPipeline = async () => {
       try {
-        const response = await createPipeline(apiConfig)
-        setStatus('active')
-        setError(null)
+        // Ensure we have a valid pipeline ID
+        if (!apiConfig.pipeline_id) {
+          throw new Error('Pipeline ID is missing from configuration')
+        }
 
-        // Track successful pipeline deployment
-        analytics.deploy.success({
-          pipelineId: response.pipeline_id,
-          status: 'success',
-        })
+        const response = await createPipeline(apiConfig)
+
+        // Set the pipeline ID from the response if available, otherwise use the one from config
+        const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
+        setPipelineId(newPipelineId)
+
+        // Wait a short moment for the pipeline to initialize
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // Check pipeline status again to confirm it's running
+        const statusResponse = await getPipelineStatus()
+        if (statusResponse.pipeline_id === newPipelineId) {
+          setStatus('active')
+          setError(null)
+
+          // Log successful deployment
+          console.log('Pipeline deployed successfully:', {
+            response,
+            newPipelineId,
+            status: statusResponse,
+          })
+
+          // Track successful pipeline deployment
+          analytics.deploy.success({
+            pipelineId: newPipelineId,
+            status: 'success',
+          })
+        } else {
+          throw new Error('Pipeline failed to start properly')
+        }
       } catch (err: any) {
+        console.error('Pipeline deployment failed:', err)
         setStatus('deploy_failed')
         setError(err.message)
 
@@ -110,7 +149,7 @@ export function PipelineDeployer() {
 
     // Always check pipeline status first
     checkPipelineStatus()
-  }, [apiConfig, pipelineId, analytics.deploy, router])
+  }, [apiConfig, pipelineId, analytics.deploy, router, status])
 
   const handleDeleteClick = () => {
     setIsDeleteModalVisible(true)
@@ -136,7 +175,9 @@ export function PipelineDeployer() {
         await shutdownPipeline()
         setStatus('deleted')
         setError(null)
+        // Reset pipeline state and ID
         resetPipelineState('', true)
+        setPipelineId('')
 
         // Track successful pipeline deletion
         analytics.pipeline.deleteSuccess({})

@@ -16,12 +16,13 @@ import {
   getNestedValue,
   validateColumnMappings,
   isTypeCompatible,
+  getMappingType,
 } from './helpers'
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } from './types'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { generateApiConfig } from '../review/helpers'
+import { generateApiConfig, isValidApiConfig } from '../review/helpers'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const router = useRouter()
@@ -109,17 +110,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     cancelButtonText: 'No',
     type: 'info' as 'info' | 'warning' | 'error',
   })
-
-  const getMappingType = (eventField: string, mapping: any) => {
-    const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
-
-    if (mappingEntry) {
-      return mappingEntry.jsonType
-    }
-
-    // NOTE: default to string if no mapping entry is found - check this
-    return 'string'
-  }
 
   // Add a ref to track the last connection we loaded data for
   const lastConnectionRef = useRef<string>('')
@@ -686,7 +676,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       pipelineId,
       setPipelineId,
       clickhouseConnection,
-      clickhouseDestination: updatedDestination, // Use the updated config directly
+      clickhouseDestination: updatedDestination,
       selectedTopics,
       getMappingType,
       joinStore,

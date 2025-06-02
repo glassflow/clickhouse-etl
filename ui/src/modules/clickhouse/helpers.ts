@@ -257,3 +257,14 @@ export function validateColumnMappings(mappings: any[]) {
     missingTypeMappings,
   }
 }
+
+export const getMappingType = (eventField: string, mapping: any) => {
+  const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
+
+  if (mappingEntry) {
+    return mappingEntry.jsonType
+  }
+
+  // NOTE: default to string if no mapping entry is found - check this
+  return 'string'
+}
