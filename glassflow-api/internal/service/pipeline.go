@@ -138,6 +138,14 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 	p.joinRunner = NewJoinRunner(p.log.With("component", "join"), p.nc)
 	p.sinkRunner = NewSinkRunner(p.log.With("component", "clickhouse_sink"), p.nc)
 
+	for _, s := range pipeline.Streams {
+		err := p.nc.CreateOrUpdateStream(ctx, s.Name, s.Subject, s.Deduplication.Window)
+		if err != nil {
+			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
+		}
+	}
+	p.log.Debug("created ingestion streams successfully")
+
 	err = p.bridgeRunner.SetupBridges(&pipeline.KafkaConfig, pipeline.Streams)
 	if err != nil {
 		return fmt.Errorf("setup bridges: %w", err)
@@ -147,7 +155,13 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		sinkConsumerStream = fmt.Sprintf("%s-%s", GFJoinStream, spec.PipelineID)
 		sinkConsumerSubject = GFJoinSubject
 
-		err = p.joinRunner.SetupJoiner(ctx, pipeline.Streams, sinkConsumerStream, sinkConsumerSubject, schemaMapper)
+		err = p.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
+		if err != nil {
+			return fmt.Errorf("setup join stream for pipeline: %w", err)
+		}
+		p.log.Debug("created join stream successfully")
+
+		err = p.joinRunner.SetupJoiner(ctx, pipeline.Streams, sinkConsumerSubject, schemaMapper)
 		if err != nil {
 			return fmt.Errorf("setup join operator: %w", err)
 		}
