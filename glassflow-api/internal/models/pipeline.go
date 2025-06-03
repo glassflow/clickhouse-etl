@@ -158,6 +158,10 @@ type KafkaToClickhouseMap struct {
 }
 
 func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
+	if req.PipelineID == "" {
+		return nil, PipelineConfigError{msg: "Pipeline ID cannot be empty"}
+	}
+
 	if err := validateBrokers(req.Source.ConnectionParams.Brokers); err != nil {
 		return nil, err
 	}
