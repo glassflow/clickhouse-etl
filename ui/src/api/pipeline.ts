@@ -2,6 +2,10 @@ import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
 
+// NOTE: added for debugging while testing locally and preparing for k8s deployment
+console.log('API_URL', API_URL)
+console.log('NEXT_PUBLIC_API_URL', process.env.NEXT_PUBLIC_API_URL)
+
 export interface PipelineResponse {
   pipeline_id: string
   status: 'running' | 'stopped' | 'error'

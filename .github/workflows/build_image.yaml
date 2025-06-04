@@ -152,3 +152,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+            NEXT_PUBLIC_IN_DOCKER=true

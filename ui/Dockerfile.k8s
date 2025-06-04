@@ -15,7 +15,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Set build-time environment variables
-ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_URL=http://app:8080/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_IN_DOCKER
 ENV NEXT_PUBLIC_IN_DOCKER=$NEXT_PUBLIC_IN_DOCKER
@@ -45,11 +45,9 @@ COPY --from=builder /app/server.js ./
 # Set runtime environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_IN_DOCKER=$NEXT_PUBLIC_IN_DOCKER
 
 # Expose the port
 EXPOSE 3000
 
 # Start the application
-CMD ["pnpm", "start"]
+CMD ["pnpm", "start"] 
