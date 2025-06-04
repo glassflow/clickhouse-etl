@@ -15,7 +15,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Set build-time environment variables
-ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_IN_DOCKER
 ENV NEXT_PUBLIC_IN_DOCKER=$NEXT_PUBLIC_IN_DOCKER
@@ -42,14 +42,29 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./
 COPY --from=builder /app/server.js ./
 
+# Create a separate entrypoint script file
+COPY <<EOF /app/entrypoint.sh
+#!/bin/sh
+set -e
+
+# Generate runtime config
+echo "window.__ENV__ = {" > /app/public/env.js
+echo "  NEXT_PUBLIC_API_URL: \"\${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_IN_DOCKER: \"\${NEXT_PUBLIC_IN_DOCKER:-true}\"" >> /app/public/env.js
+echo "};" >> /app/public/env.js
+
+# Start the application
+exec pnpm start
+EOF
+
+RUN chmod +x /app/entrypoint.sh
+
 # Set runtime environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_IN_DOCKER=$NEXT_PUBLIC_IN_DOCKER
 
 # Expose the port
 EXPOSE 3000
 
 # Start the application
-CMD ["pnpm", "start"]
+CMD ["/app/entrypoint.sh"]
