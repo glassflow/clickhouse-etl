@@ -1,13 +1,12 @@
 # syntax=docker/dockerfile:1.4
 
-# Build phase
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
 
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy only package files first to leverage cache
+# Copy package files first to leverage cache
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies with caching
@@ -24,32 +23,12 @@ ARG NEXT_PUBLIC_IN_DOCKER
 ENV NEXT_PUBLIC_IN_DOCKER=$NEXT_PUBLIC_IN_DOCKER
 
 # Set Node.js and Next.js optimizations
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 
 # Build the application
 RUN pnpm build
-
-# Production phase
-FROM node:20-alpine AS production
-WORKDIR /app
-
-# Install pnpm
-RUN npm install -g pnpm
-
-# Copy only package files first
-COPY package.json pnpm-lock.yaml ./
-
-# Install only production dependencies with caching
-RUN --mount=type=cache,target=/root/.pnpm-store \
-    pnpm install --prod --frozen-lockfile
-
-# Copy only necessary files from builder
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/server.js ./
 
 # Create entrypoint script
 COPY <<EOF /app/entrypoint.sh
