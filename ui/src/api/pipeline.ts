@@ -18,13 +18,14 @@ const getRuntimeEnv = () => {
   return {}
 }
 
-// Get API URL from runtime config or fallback to process.env (for build-time) or default
-const { NEXT_PUBLIC_API_URL } = getRuntimeEnv()
-const API_URL = NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+// Get API URL from runtime config
+const runtimeEnv = getRuntimeEnv()
+const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
 
 // NOTE: added for debugging while testing locally and preparing for k8s deployment
-console.log('API_URL', API_URL)
-console.log('NEXT_PUBLIC_API_URL', NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL)
+console.log('Runtime API_URL:', API_URL)
+console.log('Runtime NEXT_PUBLIC_API_URL:', runtimeEnv.NEXT_PUBLIC_API_URL)
+console.log('Process env NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
 
 export interface PipelineResponse {
   pipeline_id: string
