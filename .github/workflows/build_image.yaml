@@ -166,5 +166,3 @@ jobs:
             NEXT_PUBLIC_IN_DOCKER=true
           provenance: false
           outputs: type=image
-          build-contexts: |
-            pnpm-store=/root/.pnpm-store
