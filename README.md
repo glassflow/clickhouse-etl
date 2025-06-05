@@ -41,11 +41,22 @@ cd clickhouse-etl
 
 2. Start the services:
 ```bash
-docker-compose up
+docker compose up
 ```
 
 3. Access the web interface at `http://localhost:8080` to configure your pipeline.
 
+4. View the logs:
+```bash
+# Follow logs in real-time for all containers
+docker compose logs -f
+
+# logs for the backend app
+docker compose logs app -f
+
+# logs for the UI
+docker compose logs ui -f
+```
 
 ## Demo
 
