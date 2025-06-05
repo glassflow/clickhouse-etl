@@ -6,6 +6,7 @@ import { HeaderStandalone } from '../components/shared/HeaderStandalone'
 import { Button } from '@/src/components/ui/button'
 import GlobalFooter from '@/src/components/shared/GlobalFooter'
 import { ConsentLayout } from '@/src/components/layout/ConsentLayout'
+import Script from 'next/script'
 
 // Define the fonts
 const inter = Inter({
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="shortcut icon" href="/favicon.svg" />
       </head>
       <body className="bg-background text-foreground">
+        <Script src="/env.js" strategy="beforeInteractive" />
         <ThemeProvider>
           <ConsentLayout>
             <div className="grid grid-rows-[auto_1fr_auto] h-screen max-h-screen w-full overflow-auto">

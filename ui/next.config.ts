@@ -1,8 +1,23 @@
-import type { NextConfig } from 'next'
+import { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {
-  /* config options here */
-  output: 'standalone',
+const config: NextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
+  // Remove standalone output
+  // output: 'standalone',
+  images: {
+    domains: ['localhost'],
+  },
+  // Add experimental features for better runtime env handling
+  experimental: {
+    // This ensures environment variables are available at runtime
+    serverComponentsExternalPackages: [],
+  },
+  // Ensure environment variables are available at runtime
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_IN_DOCKER: process.env.NEXT_PUBLIC_IN_DOCKER,
+  },
   redirects: async () => [
     {
       source: '/',
@@ -12,4 +27,4 @@ const nextConfig: NextConfig = {
   ],
 }
 
-export default nextConfig
+export default config
