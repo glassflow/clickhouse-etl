@@ -97,18 +97,18 @@ The UI provides an intuitive interface for mapping fields:
    - Verify data arrival
    - Check data quality
    - Monitor table growth
-   - Validate transformations
 
-## Troubleshooting
+3. **Monitor the Pipeline logs**
 
-### Common Issues
-- Connection problems
-- Mapping errors
-- Transformation failures
-- Performance issues
-
-### Getting Help
-- Check the [Support Guide](/support)
-- Review error messages
-- Check system logs
-- Contact support if needed
+ Pipeline logs are available via docker logs. To follow the logs in real-time for all containers, run:
+ ```bash
+ docker compose logs -f
+ ```
+ To follow the logs in real-time for the backend app, run:
+ ```bash
+ docker compose logs app -f
+ ```
+ To follow the logs in real-time for the UI, run:
+ ```bash
+ docker compose logs ui -f
+ ```
