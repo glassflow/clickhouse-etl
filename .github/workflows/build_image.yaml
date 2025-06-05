@@ -102,7 +102,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 5
+    strategy:
+      matrix:
+        platform:
+          - os: linux
+            arch: amd64
+            timeout: 10
+          - os: linux
+            arch: arm64
+            timeout: 20
+    timeout-minutes: ${{ matrix.platform.timeout }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -146,9 +155,14 @@ jobs:
       - name: Build & push Docker image
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
           context: ui
           push: ${{ inputs.push }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+            NEXT_PUBLIC_IN_DOCKER=true
+          provenance: false
+          outputs: type=image

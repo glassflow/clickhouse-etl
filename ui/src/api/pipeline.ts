@@ -1,6 +1,31 @@
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+// Type declaration for runtime environment
+declare global {
+  interface Window {
+    __ENV__?: {
+      NEXT_PUBLIC_API_URL?: string
+      NEXT_PUBLIC_IN_DOCKER?: string
+    }
+  }
+}
+
+// Utility function to get runtime environment variables
+const getRuntimeEnv = () => {
+  if (typeof window !== 'undefined' && window.__ENV__) {
+    return window.__ENV__
+  }
+  return {}
+}
+
+// Get API URL from runtime config
+const runtimeEnv = getRuntimeEnv()
+const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+
+// NOTE: added for debugging while testing locally and preparing for k8s deployment
+console.log('Runtime API_URL:', API_URL)
+console.log('Runtime NEXT_PUBLIC_API_URL:', runtimeEnv.NEXT_PUBLIC_API_URL)
+console.log('Process env NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
 
 export interface PipelineResponse {
   pipeline_id: string
