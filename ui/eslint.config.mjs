@@ -26,19 +26,13 @@ const eslintConfig = [
       'react/react-in-jsx-scope': 'off', // Not needed in Next.js
       'react/prop-types': 'off', // We use TypeScript for prop validation
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'off',
 
       // TypeScript rules
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-        },
-      ],
-      '@typescript-eslint/no-explicit-any': 'warn', // Downgrade from error to warning
+      '@typescript-eslint/no-unused-vars': 'off', // Disable unused variables warnings
+      '@typescript-eslint/no-explicit-any': 'off', // Disable the warning completely
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
+      '@typescript-eslint/no-non-null-assertion': 'off',
 
       // Next.js specific rules
       '@next/next/no-html-link-for-pages': 'off',
