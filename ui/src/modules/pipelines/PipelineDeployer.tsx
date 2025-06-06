@@ -119,13 +119,6 @@ export function PipelineDeployer() {
           setStatus('active')
           setError(null)
 
-          // Log successful deployment
-          console.log('Pipeline deployed successfully:', {
-            response,
-            newPipelineId,
-            status: statusResponse,
-          })
-
           // Track successful pipeline deployment
           analytics.deploy.success({
             pipelineId: newPipelineId,
