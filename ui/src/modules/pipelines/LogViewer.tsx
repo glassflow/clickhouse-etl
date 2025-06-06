@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
 
 export function LogViewer() {
   const [logs, setLogs] = useState<string[]>([])

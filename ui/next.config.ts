@@ -3,15 +3,8 @@ import { NextConfig } from 'next'
 const config: NextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  // Remove standalone output
-  // output: 'standalone',
   images: {
     domains: ['localhost'],
-  },
-  // Add experimental features for better runtime env handling
-  experimental: {
-    // This ensures environment variables are available at runtime
-    serverComponentsExternalPackages: [],
   },
   // Ensure environment variables are available at runtime
   env: {
