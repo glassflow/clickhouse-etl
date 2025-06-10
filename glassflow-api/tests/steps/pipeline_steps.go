@@ -24,7 +24,7 @@ type PipelineSteps struct {
 	chDB       string
 	chTable    string
 
-	pipelineManager *service.PipelineManager
+	pipelineManager *service.PipelineService
 }
 
 func NewPipelineSteps() *PipelineSteps {
@@ -333,7 +333,7 @@ func (p *PipelineSteps) setupPipelineManager() error {
 		return fmt.Errorf("create nats client: %w", err)
 	}
 
-	p.pipelineManager = service.NewPipelineManager(
+	p.pipelineManager = service.NewPipelineService(
 		p.natsContainer.GetURI(),
 		natsClient,
 		testutils.NewTestLogger(),
