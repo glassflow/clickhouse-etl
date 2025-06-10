@@ -1,6 +1,26 @@
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+// Type declaration for runtime environment
+declare global {
+  interface Window {
+    __ENV__?: {
+      NEXT_PUBLIC_API_URL?: string
+      NEXT_PUBLIC_IN_DOCKER?: string
+    }
+  }
+}
+
+// Utility function to get runtime environment variables
+const getRuntimeEnv = () => {
+  if (typeof window !== 'undefined' && window.__ENV__) {
+    return window.__ENV__
+  }
+  return {}
+}
+
+// Get API URL from runtime config
+const runtimeEnv = getRuntimeEnv()
+const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
 
 export interface PipelineResponse {
   pipeline_id: string
@@ -15,91 +35,92 @@ export interface PipelineError {
 
 export const createPipeline = async (config: any): Promise<PipelineResponse> => {
   try {
-    const response = await axios.post(`${API_URL}/pipeline`, config)
-    return {
-      pipeline_id: response.data.pipeline_id,
-      status: 'running',
+    const response = await fetch('/api/pipeline', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    })
+
+    const data = await response.json()
+
+    if (data.success) {
+      return {
+        pipeline_id: data.pipeline_id,
+        status: 'running',
+      }
+    } else {
+      throw {
+        code: response.status,
+        message: data.error || 'Failed to create pipeline - client',
+      } as PipelineError
     }
   } catch (error: any) {
-    if (error.response) {
-      const { status, data } = error.response
-
-      if (status === 403) {
-        throw {
-          code: 403,
-          message: data.message || 'Pipeline already running. Please shutdown existing pipeline first.',
-        } as PipelineError
-      }
-
-      if (status === 422) {
-        throw {
-          code: 422,
-          message: data.message || 'Invalid pipeline configuration',
-        } as PipelineError
-      }
-
-      throw {
-        code: status,
-        message: data.message || 'Failed to create pipeline',
-      } as PipelineError
+    console.error('Client - Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    })
+    if (error.code) {
+      throw error
     }
     throw {
       code: 500,
-      message: 'Failed to create pipeline',
+      message: error.message || 'Failed to create pipeline - client - exception',
     } as PipelineError
   }
 }
 
 export const shutdownPipeline = async (): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/pipeline/shutdown`)
-  } catch (error: any) {
-    if (error.response) {
-      const { status, data } = error.response
+    const response = await fetch('/api/pipeline', {
+      method: 'DELETE',
+    })
 
-      if (status === 404) {
-        throw {
-          code: 404,
-          message: 'No active pipeline to shutdown',
-        } as PipelineError
-      }
+    const data = await response.json()
 
+    if (!data.success) {
       throw {
-        code: status,
-        message: data.message || 'Failed to shutdown pipeline',
+        code: response.status,
+        message: data.error || 'Failed to shutdown pipeline',
       } as PipelineError
+    }
+  } catch (error: any) {
+    if (error.code) {
+      throw error
     }
     throw {
       code: 500,
-      message: 'Failed to shutdown pipeline',
+      message: error.message || 'Failed to shutdown pipeline',
     } as PipelineError
   }
 }
 
 export const getPipelineStatus = async (): Promise<PipelineResponse> => {
   try {
-    const response = await axios.get(`${API_URL}/pipeline`)
-    if (response.data.id) {
+    const response = await fetch('/api/pipeline')
+
+    const data = await response.json()
+
+    if (data.success) {
       return {
-        pipeline_id: response.data.id,
+        pipeline_id: data.pipeline_id,
         status: 'running',
       }
-    }
-    throw {
-      code: 404,
-      message: 'No active pipeline',
-    } as PipelineError
-  } catch (error: any) {
-    if (error.response) {
-      const { status, data } = error.response
+    } else {
       throw {
-        code: status,
-        message: data.message || 'Failed to get pipeline status',
+        code: response.status,
+        message: data.error || 'Failed to get pipeline status',
       } as PipelineError
+    }
+  } catch (error: any) {
+    if (error.code) {
+      throw error
     }
     throw {
       code: 500,
-      message: 'Failed to get pipeline status',
+      message: error.message || 'Failed to get pipeline status',
     } as PipelineError
   }
 }

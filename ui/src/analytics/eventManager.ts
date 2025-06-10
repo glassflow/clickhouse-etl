@@ -37,8 +37,7 @@ export const initAnalytics = () => {
     mixpanel.init(MIXPANEL_TOKEN, {
       persistence: 'localStorage',
       debug: isDev,
-      // @ts-expect-error FIXME: explore why autocapture is not typed on Mixpanel
-      autocapture: false,
+      autocapture: false as const,
       track_pageview: 'url-with-path',
     })
 
