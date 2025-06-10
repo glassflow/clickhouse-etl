@@ -71,12 +71,14 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     isLoading: boolean
     userInteracted: boolean
     fetchedEvent: any
+    manualEvent: string
   }>({
     topicName: topicFromStore?.name || '',
     offset: (topicFromStore?.initialOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
     isLoading: false,
     userInteracted: false,
     fetchedEvent: storedEvent || null,
+    manualEvent: topicFromStore?.selectedEvent?.event || null,
   })
 
   // Handle empty topic state
@@ -93,38 +95,22 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   }, [index])
 
   // Handle manual event input
-  const handleManualEventChange = useCallback(
-    (event: string) => {
-      try {
-        // Validate JSON
-        const parsedEvent = JSON.parse(event)
-        // Update the store directly instead of local state
-        updateTopic({
-          index: index,
-          name: topicName,
-          initialOffset,
-          events: [{ event: parsedEvent, topicIndex: index, position: initialOffset }],
-          selectedEvent: { event: parsedEvent, topicIndex: index, position: initialOffset },
-          deduplication: topicFromStore?.deduplication || {
-            enabled: false,
-            window: 0,
-            unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-            key: '',
-            keyType: '',
-          },
-        })
-      } catch (e) {
-        // Track error in manual event (using debounce)
-        setTimeout(() => {
-          analytics.topic.eventError({
-            topicName: topicName,
-            error: e instanceof Error ? e.message : 'Invalid JSON',
-          })
-        }, 500)
-      }
-    },
-    [topicName, index, analytics.topic, initialOffset, updateTopic, topicFromStore?.deduplication],
-  )
+  const handleManualEventChange = (event: string) => {
+    let parsedEvent = null
+
+    // we are receiving the event from event editor as a string, so we need to parse it
+    try {
+      parsedEvent = JSON.parse(event)
+    } catch (e) {
+      console.error('Error parsing event:', e)
+      return
+    }
+
+    setLocalState((prev) => ({
+      ...prev,
+      manualEvent: parsedEvent,
+    }))
+  }
 
   // ================================ EFFECTS ================================
 
@@ -224,57 +210,54 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   // ================================ HANDLERS ================================
 
   // Handle topic change
-  const handleTopicChange = useCallback(
-    (topicName: string, event: any) => {
-      // If the topic name changed, invalidate dependent state
-      if (topicName !== topicFromStore?.name) {
-        invalidateTopicDependentState(index)
+  const handleTopicChange = (topicName: string, event: any) => {
+    // If the topic name changed, invalidate dependent state
+    if (topicName !== topicFromStore?.name) {
+      invalidateTopicDependentState(index)
 
-        // Clear join store configuration
-        joinStore.setEnabled(false)
-        joinStore.setType('')
-        joinStore.setStreams([])
-      }
+      // Clear join store configuration
+      joinStore.setEnabled(false)
+      joinStore.setType('')
+      joinStore.setStreams([])
+    }
 
-      // Update topic in the store
-      updateTopic({
-        index: index,
-        name: topicName,
-        initialOffset: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-        events: [
-          {
-            event,
-            topicIndex: index,
-            position: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-          },
-        ],
-        selectedEvent: {
+    // Update topic in the store
+    updateTopic({
+      index: index,
+      name: topicName,
+      initialOffset: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+      events: [
+        {
           event,
           topicIndex: index,
           position: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
         },
-        deduplication: topicFromStore?.deduplication || {
-          enabled: false,
-          window: 0,
-          unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-          key: '',
-          keyType: '',
-        },
-      })
+      ],
+      selectedEvent: {
+        event,
+        topicIndex: index,
+        position: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+      },
+      deduplication: topicFromStore?.deduplication || {
+        enabled: false,
+        window: 0,
+        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+        key: '',
+        keyType: '',
+      },
+    })
 
-      setLocalState((prev) => ({
-        ...prev,
-        topicName,
-        fetchedEvent: event,
-        userInteracted: true,
-      }))
+    setLocalState((prev) => ({
+      ...prev,
+      topicName,
+      fetchedEvent: event,
+      userInteracted: true,
+    }))
 
-      analytics.topic.selected({
-        offset: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-      })
-    },
-    [index, topicFromStore, invalidateTopicDependentState, joinStore, updateTopic, analytics.topic],
-  )
+    analytics.topic.selected({
+      offset: topicFromStore?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+    })
+  }
 
   // Handle offset change
   const handleOffsetChange = useCallback(
@@ -316,6 +299,33 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
   // Handle form submission
   const handleSubmit = useCallback(() => {
+    let event = null
+
+    try {
+      // if there's no event in the store, use the manual event
+      event = storedEvent || localState.manualEvent
+    } catch (e) {
+      console.error('Error parsing event:', e)
+      return
+    }
+
+    // this is how it previously worked but it's causing flickering of the event editor
+    // Update the store directly instead of local state
+    updateTopic({
+      index: index,
+      name: localState.topicName,
+      initialOffset,
+      events: [{ event: event, topicIndex: index, position: initialOffset }],
+      selectedEvent: { event: event, topicIndex: index, position: initialOffset },
+      deduplication: topicFromStore?.deduplication || {
+        enabled: false,
+        window: 0,
+        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
+        key: '',
+        keyType: '',
+      },
+    })
+
     setTopicCount(topicCountFromStore + 1)
 
     // Move to next step
@@ -324,7 +334,18 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     } else {
       onNext(StepKeys.TOPIC_SELECTION_2)
     }
-  }, [index, onNext, setTopicCount, topicCountFromStore])
+  }, [
+    index,
+    onNext,
+    setTopicCount,
+    topicCountFromStore,
+    localState.manualEvent,
+    localState.topicName,
+    storedEvent,
+    initialOffset,
+    topicFromStore?.deduplication,
+    updateTopic,
+  ])
 
   // Determine if we should show validation errors
   const shouldShowValidationErrors = localState.userInteracted || !isInitialRender || isReturningToForm
@@ -415,13 +436,19 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
             existingTopic={topicFromStore}
             onTopicChange={handleTopicChange}
             onOffsetChange={handleOffsetChange}
+            onManualEventChange={handleManualEventChange}
             availableTopics={availableTopics}
           />
         </div>
 
         {/* Continue Button */}
         <div className="flex justify-between mt-6">
-          <Button variant="gradient" className="btn-text btn-primary" onClick={handleSubmit} disabled={!storedEvent}>
+          <Button
+            variant="gradient"
+            className="btn-text btn-primary"
+            onClick={handleSubmit}
+            disabled={!(storedEvent || localState.manualEvent)}
+          >
             Continue
           </Button>
         </div>
