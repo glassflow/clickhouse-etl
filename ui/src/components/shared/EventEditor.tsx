@@ -35,13 +35,23 @@ export const EventEditor = ({
   onManualEventChange,
 }: EventEditorProps) => {
   const [manualEvent, setManualEvent] = useState(event)
+  const [isValid, setIsValid] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
 
   const handleEditorChange = (value: string) => {
     setManualEvent(value)
 
-    console.log('EventEditor: handleEditorChange', value)
+    // Validate JSON
+    try {
+      JSON.parse(value)
+      setIsValid(true)
+      setErrorMessage('')
+    } catch (error) {
+      setIsValid(false)
+      setErrorMessage('Invalid JSON format')
+    }
 
-    // propagate the manual event change to the parent component
+    // Always propagate the change to parent
     if (onManualEventChange) {
       onManualEventChange(value)
     }
@@ -73,9 +83,7 @@ export const EventEditor = ({
                   mode="json"
                   theme={EDITOR_THEME}
                   name="event-editor"
-                  // value={isEmptyTopic ? emptyEventContent : event || manualEvent}
                   value={event || manualEvent}
-                  // handles manual event change - happens only for empty topic
                   onChange={handleEditorChange}
                   readOnly={!isEmptyTopic}
                   width="100%"
@@ -99,12 +107,13 @@ export const EventEditor = ({
                     showLineNumbers: true,
                   }}
                   editorProps={{ $blockScrolling: true }}
-                  className="ace-editor ace-editor-custom ace-scroller"
-                  style={{ width: '100%', height: '100%' }}
                 />
               </>
             )}
           </div>
+          {!isValid && (
+            <div className="bg-red-500/20 p-3 mb-3 mt-3 rounded-md text-red-500 text-sm">{errorMessage}</div>
+          )}
 
           {eventError && !isEmptyTopic && (
             <div className={`mt-2 text-sm ${eventError.includes('Note:') ? 'text-amber-500' : 'text-red-500'}`}>
