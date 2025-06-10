@@ -5,17 +5,10 @@ import { runtimeConfig } from '../config'
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
 
-// Add debug logging
-console.log('API Route - Final API_URL:', API_URL)
-
 export async function POST(request: Request) {
   try {
     const config = await request.json()
-    console.log('API Route - Request config:', config)
-    console.log('API Route - Making request to:', `${API_URL}/pipeline`)
-
     const response = await axios.post(`${API_URL}/pipeline`, config)
-    console.log('API Route - Response:', response.data)
 
     return NextResponse.json({
       success: true,

@@ -22,11 +22,6 @@ const getRuntimeEnv = () => {
 const runtimeEnv = getRuntimeEnv()
 const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
 
-// NOTE: added for debugging while testing locally and preparing for k8s deployment
-console.log('Runtime API_URL:', API_URL)
-console.log('Runtime NEXT_PUBLIC_API_URL:', runtimeEnv.NEXT_PUBLIC_API_URL)
-console.log('Process env NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
-
 export interface PipelineResponse {
   pipeline_id: string
   status: 'running' | 'stopped' | 'error'
@@ -40,7 +35,6 @@ export interface PipelineError {
 
 export const createPipeline = async (config: any): Promise<PipelineResponse> => {
   try {
-    console.log('Client - Sending config:', config)
     const response = await fetch('/api/pipeline', {
       method: 'POST',
       headers: {
@@ -50,7 +44,6 @@ export const createPipeline = async (config: any): Promise<PipelineResponse> => 
     })
 
     const data = await response.json()
-    console.log('Client - Received response:', data)
 
     if (data.success) {
       return {
