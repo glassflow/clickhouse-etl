@@ -71,7 +71,7 @@ func NewJoinComponent(kind string, args []JoinSourceArgs) (zero *JoinComponent, 
 
 		jo, err := NewJoinOrder(so.JoinOrder)
 		if err != nil {
-			return zero, PipelineConfigError{msg: fmt.Sprintf("unsupported value %s for join order", so.JoinOrder)}
+			return zero, PipelineConfigError{msg: fmt.Sprintf("unsupported value %s for join orientation", so.JoinOrder)}
 		}
 		if !slices.Contains(seenJoinOrder, jo) {
 			seenJoinOrder = append(seenJoinOrder, jo)
