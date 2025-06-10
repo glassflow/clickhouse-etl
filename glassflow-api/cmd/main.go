@@ -1,7 +1,7 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +18,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	messagequeue "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/message_queue/nats"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/repository"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -36,6 +37,7 @@ type config struct {
 
 	NATSServer       string        `default:"localhost:4222" split_words:"true"`
 	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
+	NATSPipelineKV   string        `default:"glassflow-pipelines" split_words:"true"`
 }
 
 func main() {
@@ -58,6 +60,8 @@ func mainErr(cfg *config) error {
 	var logOut io.Writer
 	var logFile io.WriteCloser
 	var err error
+
+	ctx := context.Background()
 
 	switch cfg.LogFilePath {
 	case "":
@@ -90,7 +94,12 @@ func mainErr(cfg *config) error {
 		return fmt.Errorf("initialize message queue: %w", err)
 	}
 
-	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log)
+	db, err := repository.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
+	if err != nil {
+		return fmt.Errorf("get nats store: %w", err)
+	}
+
+	pipelineMgr := service.NewPipelineService(log, db)
 	dlqSvc := service.NewDLQService(mq)
 
 	handler := api.NewRouter(log, pipelineMgr, dlqSvc)
@@ -133,7 +142,8 @@ func mainErr(cfg *config) error {
 
 		go func() {
 			err := pipelineMgr.ShutdownPipeline()
-			if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
+			// if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
+			if err != nil {
 				log.Error("pipeline shutdown error", slog.Any("error", err))
 			}
 
