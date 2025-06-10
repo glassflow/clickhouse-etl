@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { EventPreview } from '../EventPreview'
-import { Button } from '../../ui/button'
+import { EventEditor } from '../EventEditor'
 import { parseForCodeEditor } from '@/src/utils/'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
 import { useFetchEventWithCaching } from '../../../modules/kafka/useFetchEventWithCaching'
 import { EventFetcherProps } from './types'
 import classnames from 'classnames'
+
 function EventFetcher({
   topicName,
   topicIndex,
@@ -18,7 +18,7 @@ function EventFetcher({
   onEventLoaded,
   onEventError,
   onEmptyTopic,
-  onEventChange,
+  onManualEventChange,
 }: EventFetcherProps) {
   const { kafkaStore } = useStore()
 
@@ -187,6 +187,9 @@ function EventFetcher({
     }
   }
 
+  const eventError =
+    state.error || (isEmptyTopic ? 'This topic has no events. Please enter the event schema manually.' : '')
+
   return (
     <div className="flex flex-col h-full w-full min-h-[400px] overflow-auto">
       {(currentEvent?.event || isEmptyTopic || isLoading) && (
@@ -202,33 +205,17 @@ function EventFetcher({
             </h3>
           </div>
 
-          <EventPreview
-            showInternalNavigationButtons={false}
-            event={
-              isEmptyTopic
-                ? '// This topic does not contain any events.\n// Please enter the event schema manually.'
-                : parseForCodeEditor(currentEvent?.event) || ''
-            }
+          <EventEditor
+            event={parseForCodeEditor(currentEvent?.event)}
             topic={topicName}
             isLoadingEvent={isLoading || (state.isLoading && !isEmptyTopic)}
-            eventError={
-              isEmptyTopic ? 'This topic has no events. Please enter the event schema manually.' : state.error || ''
-            }
-            handleRefreshEvent={handleRefresh}
-            hasMoreEvents={!state.isAtLatest}
-            handleFetchPreviousEvent={handleFetchPrevious}
-            handleFetchNewestEvent={handleFetchNewest}
-            handleFetchOldestEvent={handleFetchOldest}
-            hasOlderEvents={!state.isAtEarliest}
-            eventPosition={state.currentOffset || 0}
-            isAtEarliest={state.isAtEarliest}
-            isAtLatest={state.isAtLatest}
+            eventError={eventError}
             isEmptyTopic={isEmptyTopic}
-            onEventChange={onEventChange}
+            onManualEventChange={onManualEventChange}
           />
 
           {/* Navigation buttons are hidden to simplify the UI */}
-          {/* 
+          {/*
           {currentEvent?.event && !isEmptyTopic && (
             <div className="flex flex-row gap-2 mt-4">
               <Button
