@@ -56,7 +56,10 @@ export function TopicDeduplicationConfigurator({
     isLoading: false,
     userInteracted: false,
     canContinue: false,
-    manualEvent: existingTopic?.selectedEvent?.event || null,
+    manualEvent: existingTopic?.selectedEvent?.event
+      ? JSON.stringify(existingTopic?.selectedEvent?.event, null, 2)
+      : '',
+    isManualEventValid: false,
   })
 
   // Track if this is the initial render or a return visit
@@ -210,31 +213,58 @@ export function TopicDeduplicationConfigurator({
 
   // Handle manual event input
   const handleManualEventChange = (event: string) => {
-    let parsedEvent = null
-
-    // we are receiving the event from event editor as a string, so we need to parse it
-    try {
-      parsedEvent = JSON.parse(event)
-    } catch (e) {
-      console.error('Error parsing event:', e)
-      return
-    }
-
     setLocalState((prev) => ({
       ...prev,
-      manualEvent: parsedEvent,
+      manualEvent: event,
+      isManualEventValid: false,
     }))
   }
 
-  // Update the canContinue logic to include deduplication config
+  // Add useEffect for JSON validation
+  useEffect(() => {
+    if (localState.manualEvent) {
+      try {
+        JSON.parse(localState.manualEvent)
+        setLocalState((prev) => ({
+          ...prev,
+          isManualEventValid: true,
+        }))
+      } catch (error) {
+        setLocalState((prev) => ({
+          ...prev,
+          isManualEventValid: false,
+        }))
+      }
+    } else {
+      setLocalState((prev) => ({
+        ...prev,
+        isManualEventValid: false,
+      }))
+    }
+  }, [localState.manualEvent])
+
+  // Update the canContinue logic to include JSON validation
   const canContinue =
-    localState.topicName && (existingTopic?.selectedEvent?.event || localState.manualEvent) && deduplicationConfigured
+    localState.topicName &&
+    (existingTopic?.selectedEvent?.event || (localState.manualEvent && localState.isManualEventValid)) &&
+    deduplicationConfigured
 
   // Determine if we should show validation errors
   const shouldShowValidationErrors = userInteracted || !isInitialRender || isReturningToForm
 
   // Handle form submission
   const handleSubmit = useCallback(() => {
+    let event = null
+
+    try {
+      // if there's no event in the store, use the manual event
+      event =
+        existingTopic?.selectedEvent?.event || (localState.manualEvent ? JSON.parse(localState.manualEvent) : null)
+    } catch (e) {
+      console.error('Error parsing event:', e)
+      return
+    }
+
     // Create deduplication config
     const deduplicationConfig = {
       enabled: true,
@@ -248,7 +278,7 @@ export function TopicDeduplicationConfigurator({
     // Always create a new event array with the current event
     const events = [
       {
-        event: localState.manualEvent || existingTopic?.selectedEvent?.event,
+        event,
         topicIndex: index,
         position: localState.offset,
       },
@@ -258,7 +288,7 @@ export function TopicDeduplicationConfigurator({
     const selectedEvent = {
       topicIndex: index,
       position: localState.offset,
-      event: localState.manualEvent || existingTopic?.selectedEvent?.event,
+      event,
     }
 
     // Update topic in the store with deduplication config

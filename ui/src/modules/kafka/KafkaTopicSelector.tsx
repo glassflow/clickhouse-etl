@@ -57,6 +57,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
   const [showEventPreview, setShowEventPreview] = useState(false)
   const [showOffsetField, setShowOffsetField] = useState(false)
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
+  const [isManualEventValid, setIsManualEventValid] = useState(false)
 
   // just a replication of the topic name and offset from the store
   const [topicName, setTopicName] = useState(topicsFromStore[index]?.name || '')
@@ -72,13 +73,17 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     userInteracted: boolean
     fetchedEvent: any
     manualEvent: string
+    isManualEventValid: boolean
   }>({
     topicName: topicFromStore?.name || '',
     offset: (topicFromStore?.initialOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
     isLoading: false,
     userInteracted: false,
     fetchedEvent: storedEvent || null,
-    manualEvent: topicFromStore?.selectedEvent?.event || null,
+    manualEvent: topicFromStore?.selectedEvent?.event
+      ? JSON.stringify(topicFromStore?.selectedEvent?.event, null, 2)
+      : '',
+    isManualEventValid: false,
   })
 
   // Handle empty topic state
@@ -96,25 +101,38 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
   // Handle manual event input
   const handleManualEventChange = (event: string) => {
-    let parsedEvent = null
-
-    // we are receiving the event from event editor as a string, so we need to parse it
-    try {
-      parsedEvent = JSON.parse(event)
-    } catch (e) {
-      console.error('Error parsing event:', e)
-      return
-    }
-
     setLocalState((prev) => ({
       ...prev,
-      manualEvent: parsedEvent,
+      manualEvent: event,
+      isManualEventValid: false,
     }))
   }
 
   // ================================ EFFECTS ================================
 
   const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
+
+  useEffect(() => {
+    if (localState.manualEvent) {
+      try {
+        JSON.parse(localState.manualEvent)
+        setLocalState((prev) => ({
+          ...prev,
+          isManualEventValid: true,
+        }))
+      } catch (error) {
+        setLocalState((prev) => ({
+          ...prev,
+          isManualEventValid: false,
+        }))
+      }
+    } else {
+      setLocalState((prev) => ({
+        ...prev,
+        isManualEventValid: false,
+      }))
+    }
+  }, [localState.manualEvent])
 
   // Track page view when component loads - depending on the operation, we want to track the topic selection differently
   useEffect(() => {
@@ -303,7 +321,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
     try {
       // if there's no event in the store, use the manual event
-      event = storedEvent || localState.manualEvent
+      event = storedEvent || (localState.manualEvent ? JSON.parse(localState.manualEvent) : null)
     } catch (e) {
       console.error('Error parsing event:', e)
       return
@@ -447,7 +465,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
             variant="gradient"
             className="btn-text btn-primary"
             onClick={handleSubmit}
-            disabled={!(storedEvent || localState.manualEvent)}
+            disabled={!(storedEvent || (localState.manualEvent && localState.isManualEventValid))}
           >
             Continue
           </Button>
