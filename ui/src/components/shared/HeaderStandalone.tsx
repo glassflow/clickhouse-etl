@@ -43,10 +43,8 @@ export function HeaderStandalone() {
     <header className="h-16 w-full min-w-[var(--main-container-width)] max-w-[var(--main-container-width)] mx-auto pt-8">
       <div className="container h-full">
         <div className="flex items-center justify-center h-full w-full">
-          <Button variant="ghost" onClick={handleLogoClick}>
-            <div className="flex-shrink-0">
-              <Image src={logoFullName} alt="Glassflow Logo" width={140} height={30} />
-            </div>
+          <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
+            <Image src={logoFullName} alt="Glassflow Logo" width={140} height={30} className="cursor-pointer" />
           </Button>
         </div>
       </div>
