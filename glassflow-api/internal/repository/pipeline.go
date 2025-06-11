@@ -22,7 +22,7 @@ const (
 
 type pipeline struct {
 	Components []pipelineComponent `json:"components"`
-	OutputsMap map[string][]string `json:"output_maps"`
+	OutputsMap map[string][]string `json:"outputs_map"`
 }
 
 type pipelineComponent struct {
@@ -152,5 +152,10 @@ func (s *Storage) GetPipeline(ctx context.Context, id string) (*models.Pipeline,
 		modelOutputs[c] = outputComponents
 	}
 
-	return models.NewPipeline(entry.Key(), modelOutputs)
+	pi, err := models.NewPipeline(entry.Key(), modelOutputs)
+	if err != nil {
+		return nil, fmt.Errorf("new pipeline from KV: %w", err)
+	}
+
+	return pi, nil
 }
