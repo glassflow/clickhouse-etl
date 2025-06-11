@@ -3,7 +3,6 @@ node_modules
 .pnpm-store
 
 # Next.js
-.next
 out
 
 # Testing
@@ -43,4 +42,4 @@ Thumbs.db
 
 # Build
 dist
-build 
+build
