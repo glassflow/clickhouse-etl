@@ -11,8 +11,15 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type Subscriber struct {
-	consumer    *Consumer
+type Subscriber interface {
+	Subscribe(handler func(msg jetstream.Msg)) error
+	Closed() <-chan struct{}
+	Stop()
+	DrainAndStop()
+}
+
+type NatsSubscriber struct {
+	consumer    Consumer
 	wg          sync.WaitGroup
 	isStopSent  bool
 	isDrainSent bool
@@ -21,8 +28,8 @@ type Subscriber struct {
 	log         *slog.Logger
 }
 
-func NewSubscriber(consumer *Consumer, log *slog.Logger) *Subscriber {
-	return &Subscriber{
+func NewSubscriber(consumer Consumer, log *slog.Logger) Subscriber {
+	return &NatsSubscriber{
 		consumer:    consumer,
 		wg:          sync.WaitGroup{},
 		isStopSent:  false,
@@ -33,7 +40,7 @@ func NewSubscriber(consumer *Consumer, log *slog.Logger) *Subscriber {
 	}
 }
 
-func (s *Subscriber) Subscribe(handler func(msg jetstream.Msg)) error {
+func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 	if s.consumer == nil {
 		return fmt.Errorf("consumer is nil")
 	}
@@ -76,14 +83,14 @@ func (s *Subscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 	return nil
 }
 
-func (s *Subscriber) Closed() <-chan struct{} {
+func (s *NatsSubscriber) Closed() <-chan struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	return s.closedCh
 }
 
-func (s *Subscriber) Stop() {
+func (s *NatsSubscriber) Stop() {
 	s.mu.Lock()
 	if s.isStopSent || s.isDrainSent {
 		s.log.Warn("stop signal already sent")
@@ -104,7 +111,7 @@ func (s *Subscriber) Stop() {
 	}()
 }
 
-func (s *Subscriber) DrainAndStop() {
+func (s *NatsSubscriber) DrainAndStop() {
 	s.mu.Lock()
 	if s.isStopSent || s.isDrainSent {
 		s.log.Warn("stop signal already sent")

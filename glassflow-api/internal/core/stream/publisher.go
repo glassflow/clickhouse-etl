@@ -7,17 +7,21 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+type Publisher interface {
+	Publish(ctx context.Context, msg []byte) error
+}
+
 type PublisherConfig struct {
 	Subject string `subject:"subject"`
 }
 
-type Publisher struct {
+type NatsPublisher struct {
 	js      jetstream.JetStream
 	Subject string
 }
 
-func NewPublisher(js jetstream.JetStream, cfg PublisherConfig) *Publisher {
-	pub := &Publisher{
+func NewPublisher(js jetstream.JetStream, cfg PublisherConfig) Publisher {
+	pub := &NatsPublisher{
 		js:      js,
 		Subject: cfg.Subject,
 	}
@@ -25,7 +29,7 @@ func NewPublisher(js jetstream.JetStream, cfg PublisherConfig) *Publisher {
 	return pub
 }
 
-func (p *Publisher) Publish(ctx context.Context, msg []byte) error {
+func (p *NatsPublisher) Publish(ctx context.Context, msg []byte) error {
 	_, err := p.js.Publish(ctx, p.Subject, msg)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %w", err)

@@ -37,8 +37,8 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 	}
 
 	var (
-		leftConsumer    *stream.Consumer
-		rightConsumer   *stream.Consumer
+		leftConsumer    stream.Consumer
+		rightConsumer   stream.Consumer
 		leftBuffer      *kv.NATSKeyValueStore
 		rightBuffer     *kv.NATSKeyValueStore
 		leftStreamName  string
