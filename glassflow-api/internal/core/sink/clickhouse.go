@@ -38,7 +38,7 @@ type ClickHouseSinkConfig struct {
 type ClickHouseSink struct {
 	client         *client.ClickHouseClient
 	batch          *batch.Batch
-	streamCon      *stream.Consumer
+	streamCon      stream.Consumer
 	schemaMapper   schema.Mapper
 	isClosed       bool
 	isInputDrained bool
@@ -50,7 +50,7 @@ type ClickHouseSink struct {
 	log            *slog.Logger
 }
 
-func NewClickHouseSink(sinkCfg ClickHouseSinkConfig, client *client.ClickHouseClient, streamCon *stream.Consumer, schemaMapper *schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
+func NewClickHouseSink(sinkCfg ClickHouseSinkConfig, client *client.ClickHouseClient, streamCon stream.Consumer, schemaMapper *schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
 	maxDelayTime := time.Duration(60) * time.Second
 	if sinkCfg.MaxDelayTime > 0 {
 		maxDelayTime = sinkCfg.MaxDelayTime
