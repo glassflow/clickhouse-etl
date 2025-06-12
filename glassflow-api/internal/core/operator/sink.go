@@ -27,7 +27,7 @@ type SinkOperator struct {
 func NewSinkOperator(
 	client *client.ClickHouseClient,
 	sinkConfig sink.ClickHouseSinkConfig,
-	streamCon *stream.Consumer,
+	streamCon stream.Consumer,
 	schemaMapper *schema.Mapper,
 	log *slog.Logger,
 ) (*SinkOperator, error) {
