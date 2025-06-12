@@ -15,8 +15,8 @@ import (
 )
 
 type JoinOperator struct {
-	leftStreamSubsriber   *stream.Subscriber
-	rightStreamSubscriber *stream.Subscriber
+	leftStreamSubsriber   stream.Subscriber
+	rightStreamSubscriber stream.Subscriber
 	executor              join.Executor
 	mu                    sync.Mutex
 	handleMu              sync.Mutex
@@ -26,8 +26,8 @@ type JoinOperator struct {
 }
 
 func NewJoinOperator(
-	leftStreamConsumer, rightStreamConsumer *stream.Consumer,
-	resultsPublisher *stream.Publisher,
+	leftStreamConsumer, rightStreamConsumer stream.Consumer,
+	resultsPublisher stream.Publisher,
 	schema *schema.Mapper,
 	leftKVStore, rightKVStore *kv.NATSKeyValueStore,
 	leftStreamName, rightStreamName string,
