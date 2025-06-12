@@ -16,7 +16,7 @@ import (
 )
 
 type TemporalJoinExecutor struct {
-	resultsPublisher *stream.Publisher
+	resultsPublisher stream.Publisher
 	leftKVStore      *kv.NATSKeyValueStore
 	rightKVStore     *kv.NATSKeyValueStore
 	leftStreamName   string
@@ -26,7 +26,7 @@ type TemporalJoinExecutor struct {
 }
 
 func NewTemporalJoinExecutor(
-	resultsPublisher *stream.Publisher,
+	resultsPublisher stream.Publisher,
 	schema *schema.Mapper,
 	leftKVStore, rightKVStore *kv.NATSKeyValueStore,
 	leftStreamName, rightStreamName string,

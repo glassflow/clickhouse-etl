@@ -9,6 +9,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+type Consumer interface {
+	Next() (jetstream.Msg, error)
+}
+
 type ConsumerConfig struct {
 	NatsStream    string
 	NatsConsumer  string
@@ -17,7 +21,7 @@ type ConsumerConfig struct {
 	ExpireTimeout time.Duration
 }
 
-type Consumer struct {
+type NatsConsumer struct {
 	Consumer      jetstream.Consumer
 	expireTimeout time.Duration
 }
@@ -27,7 +31,7 @@ const (
 	ConsumerRetryBackoff = 30 * time.Millisecond
 )
 
-func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*Consumer, error) {
+func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (Consumer, error) {
 	var (
 		stream jetstream.Stream
 		err    error
@@ -77,12 +81,12 @@ func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig
 		return nil, fmt.Errorf("get or create consumer: %w", err)
 	}
 
-	return &Consumer{
+	return &NatsConsumer{
 		Consumer:      consumer,
 		expireTimeout: expireTimeout,
 	}, nil
 }
 
-func (c *Consumer) Next() (jetstream.Msg, error) {
+func (c *NatsConsumer) Next() (jetstream.Msg, error) {
 	return c.Consumer.Next(jetstream.FetchMaxWait(c.expireTimeout)) //nolint:wrapcheck // no need to wrap
 }
