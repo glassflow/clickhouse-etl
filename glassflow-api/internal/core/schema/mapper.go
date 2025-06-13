@@ -6,6 +6,14 @@ import (
 	"fmt"
 )
 
+type Mapper interface {
+	GetJoinKey(streamSchemaName string, data []byte) (any, error)
+	GetOrderedColumns() []string
+	PrepareValues(data []byte) ([]any, error)
+	GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error)
+	JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error)
+}
+
 type StreamDataField struct {
 	FieldName string `json:"field_name"`
 	FieldType string `json:"field_type"`
@@ -49,7 +57,7 @@ func NewSinkMapping(columnName, streamName, fieldName, columnType string) *SinkM
 	}
 }
 
-type Mapper struct {
+type JsonToClickHouseMapper struct {
 	Streams map[string]Stream
 	Columns []*SinkMapping
 
@@ -77,13 +85,13 @@ func convertStreams(streams map[string]StreamSchemaConfig) map[string]Stream {
 	return mappedStreams
 }
 
-func NewMapper(streamsConfig map[string]StreamSchemaConfig, sinkMappingConfig []SinkMappingConfig) (*Mapper, error) {
+func NewJsonToClickHouseMapper(streamsConfig map[string]StreamSchemaConfig, sinkMappingConfig []SinkMappingConfig) (*JsonToClickHouseMapper, error) {
 	columnMappings := make([]*SinkMapping, 0, len(sinkMappingConfig))
 	for _, mapping := range sinkMappingConfig {
 		columnMappings = append(columnMappings, NewSinkMapping(mapping.ColumnName, mapping.StreamName, mapping.FieldName, mapping.ColumnType))
 	}
 
-	m := &Mapper{ //nolint:exhaustruct //missed fields will be added
+	m := &JsonToClickHouseMapper{ //nolint:exhaustruct //missed fields will be added
 		Streams:        make(map[string]Stream),
 		Columns:        columnMappings,
 		fieldColumnMap: make(map[string]*SinkMapping),
@@ -105,7 +113,7 @@ func NewMapper(streamsConfig map[string]StreamSchemaConfig, sinkMappingConfig []
 	return m, nil
 }
 
-func (m *Mapper) validate() error {
+func (m *JsonToClickHouseMapper) validate() error {
 	if len(m.Streams) == 0 {
 		return fmt.Errorf("no streams defined in mapping")
 	}
@@ -140,7 +148,7 @@ func (m *Mapper) validate() error {
 	return nil
 }
 
-func (m *Mapper) buildColumnOrder() {
+func (m *JsonToClickHouseMapper) buildColumnOrder() {
 	m.orderedColumns = make([]string, len(m.Columns))
 
 	for i, column := range m.Columns {
@@ -149,7 +157,7 @@ func (m *Mapper) buildColumnOrder() {
 	}
 }
 
-func (m *Mapper) getKey(streamSchemaName, keyName string, data []byte) (any, error) {
+func (m *JsonToClickHouseMapper) getKey(streamSchemaName, keyName string, data []byte) (any, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 
 	if _, err := dec.Token(); err != nil {
@@ -186,7 +194,7 @@ func (m *Mapper) getKey(streamSchemaName, keyName string, data []byte) (any, err
 	return nil, fmt.Errorf("key %s not found in data", keyName)
 }
 
-func (m *Mapper) GetJoinKey(streamSchemaName string, data []byte) (any, error) {
+func (m *JsonToClickHouseMapper) GetJoinKey(streamSchemaName string, data []byte) (any, error) {
 	keyField := m.Streams[streamSchemaName].JoinKey
 	if keyField == "" {
 		return nil, fmt.Errorf("no join key defined in schema")
@@ -195,7 +203,7 @@ func (m *Mapper) GetJoinKey(streamSchemaName string, data []byte) (any, error) {
 	return m.getKey(streamSchemaName, keyField, data)
 }
 
-func (m *Mapper) prepareForClickHouse(data []byte) (map[string]any, error) {
+func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]any, error) {
 	var jsonData map[string]any
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
@@ -226,7 +234,7 @@ func (m *Mapper) prepareForClickHouse(data []byte) (map[string]any, error) {
 	return result, nil
 }
 
-func (m *Mapper) getMappedValues(data map[string]any) []any {
+func (m *JsonToClickHouseMapper) getMappedValues(data map[string]any) []any {
 	values := make([]any, len(m.orderedColumns))
 
 	for colName, value := range data {
@@ -238,11 +246,11 @@ func (m *Mapper) getMappedValues(data map[string]any) []any {
 	return values
 }
 
-func (m *Mapper) GetOrderedColumns() []string {
+func (m *JsonToClickHouseMapper) GetOrderedColumns() []string {
 	return m.orderedColumns
 }
 
-func (m *Mapper) PrepareClickHouseValues(data []byte) ([]any, error) {
+func (m *JsonToClickHouseMapper) PrepareValues(data []byte) ([]any, error) {
 	mappedData, err := m.prepareForClickHouse(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
@@ -253,7 +261,7 @@ func (m *Mapper) PrepareClickHouseValues(data []byte) ([]any, error) {
 	return values, nil
 }
 
-func (m *Mapper) GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error) {
+func (m *JsonToClickHouseMapper) GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error) {
 	var jsonData map[string]any
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
@@ -270,7 +278,7 @@ func (m *Mapper) GetFieldsMap(streamSchemaName string, data []byte) (map[string]
 	return resultedMap, nil
 }
 
-func (m *Mapper) JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error) {
+func (m *JsonToClickHouseMapper) JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error) {
 	if leftData == nil || rightData == nil {
 		return nil, fmt.Errorf("left or right data is nil")
 	}
