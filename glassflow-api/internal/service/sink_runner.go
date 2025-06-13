@@ -31,9 +31,9 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
 	}
 }
 
-func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject string, cfg models.ClickhouseConfig, schemaMapper *schema.Mapper) error {
+func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject string, cfg models.ClickhouseConfig, schemaMapper schema.Mapper) error {
 	//nolint: exhaustruct // optional config
-	consumer, err := stream.NewConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
+	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   consumerStream,
 		NatsConsumer: "clickhouse-consumer",
 		NatsSubject:  consumerSubject,
