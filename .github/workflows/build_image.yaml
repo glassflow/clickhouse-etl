@@ -56,7 +56,7 @@ jobs:
           provenance: false
           outputs: push-by-digest=true,type=image
           tags: |
-            glassflow/glassflow-etl-cloud-be
+            glassflow-etl-cloud-be
       - name: Generate output
         id: gen-output
         run: echo "${ARCH}_digest=$DIGEST" >> "$GITHUB_OUTPUT"
