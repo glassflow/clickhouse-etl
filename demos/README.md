@@ -160,7 +160,7 @@ python demo_deduplication.py
 
 # Run 100k examples with 50% duplicates
 python demo_deduplication.py \
-   --num_records 100000 \
+   --num-records 100000 \
    --duplication-rate 0.5
 ```
 
