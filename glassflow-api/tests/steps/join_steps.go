@@ -145,21 +145,21 @@ func (j *JoinTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error {
 		return fmt.Errorf("create right kv store: %w", err)
 	}
 
-	leftStreamConsumer, err := stream.NewConsumer(ctx, j.natsClient.JetStream(), *j.leftStreamConfig)
+	leftStreamConsumer, err := stream.NewNATSConsumer(ctx, j.natsClient.JetStream(), *j.leftStreamConfig)
 	if err != nil {
 		return fmt.Errorf("create left stream consumer: %w", err)
 	}
 
-	rightStreamConsumer, err := stream.NewConsumer(ctx, j.natsClient.JetStream(), *j.rightStreamConfig)
+	rightStreamConsumer, err := stream.NewNATSConsumer(ctx, j.natsClient.JetStream(), *j.rightStreamConfig)
 	if err != nil {
 		return fmt.Errorf("create right stream consumer: %w", err)
 	}
 
-	resultsPublisher := stream.NewPublisher(j.natsClient.JetStream(), stream.PublisherConfig{
+	resultsPublisher := stream.NewNATSPublisher(j.natsClient.JetStream(), stream.PublisherConfig{
 		Subject: j.resultsConsumerConfig.NatsSubject,
 	})
 
-	schemaMapper, err := schema.NewMapper(j.schemaConfig.Streams, j.schemaConfig.SinkMapping)
+	schemaMapper, err := schema.NewJsonToClickHouseMapper(j.schemaConfig.Streams, j.schemaConfig.SinkMapping)
 	if err != nil {
 		return fmt.Errorf("create schema mapper: %w", err)
 	}

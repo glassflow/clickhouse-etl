@@ -17,18 +17,18 @@ import (
 
 type TemporalJoinExecutor struct {
 	resultsPublisher stream.Publisher
-	leftKVStore      *kv.NATSKeyValueStore
-	rightKVStore     *kv.NATSKeyValueStore
+	leftKVStore      kv.KeyValueStore
+	rightKVStore     kv.KeyValueStore
 	leftStreamName   string
 	rightStreamName  string
-	schema           *schema.Mapper
+	schema           schema.Mapper
 	log              *slog.Logger
 }
 
 func NewTemporalJoinExecutor(
 	resultsPublisher stream.Publisher,
-	schema *schema.Mapper,
-	leftKVStore, rightKVStore *kv.NATSKeyValueStore,
+	schema schema.Mapper,
+	leftKVStore, rightKVStore kv.KeyValueStore,
 	leftStreamName, rightStreamName string,
 	log *slog.Logger,
 ) *TemporalJoinExecutor {

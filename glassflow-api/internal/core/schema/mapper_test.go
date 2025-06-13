@@ -74,7 +74,7 @@ func TestNewMapper(t *testing.T) {
 			{ColumnName: "col2", StreamName: "stream1", FieldName: "field2", ColumnType: "Int32"},
 		}
 
-		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.NoError(t, err)
 		assert.NotNil(t, mapper)
 		assert.Len(t, mapper.Streams, 1)
@@ -89,7 +89,7 @@ func TestNewMapper(t *testing.T) {
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "no streams defined")
@@ -107,7 +107,7 @@ func TestNewMapper(t *testing.T) {
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "no fields defined")
@@ -127,7 +127,7 @@ func TestNewMapper(t *testing.T) {
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "join key 'nonexistent_field' not found")
@@ -145,7 +145,7 @@ func TestNewMapper(t *testing.T) {
 
 		sinkMappingConfig := []SinkMappingConfig{}
 
-		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "no columns defined")
@@ -165,7 +165,7 @@ func TestNewMapper(t *testing.T) {
 			{ColumnName: "col1", StreamName: "nonexistent_stream", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "stream 'nonexistent_stream' not found")
@@ -185,7 +185,7 @@ func TestNewMapper(t *testing.T) {
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "nonexistent_field", ColumnType: "String"},
 		}
 
-		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "field 'nonexistent_field' not found")
@@ -210,7 +210,7 @@ func TestGetKey(t *testing.T) {
 		{ColumnName: "col3", StreamName: "stream1", FieldName: "bool_field", ColumnType: "Bool"},
 	}
 
-	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("get string key", func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestGetJoinKey(t *testing.T) {
 		{ColumnName: "col_data", StreamName: "stream2", FieldName: "data", ColumnType: "String"},
 	}
 
-	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("get join key", func(t *testing.T) {
@@ -315,13 +315,13 @@ func TestPrepareClickHouseValues(t *testing.T) {
 		{ColumnName: "col_bool", StreamName: "stream1", FieldName: "bool_field", ColumnType: "Bool"},
 	}
 
-	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("prepare values", func(t *testing.T) {
 		jsonData := []byte(`{"string_field": "test_value", "int_field": 42, "bool_field": true}`)
 
-		values, err := mapper.PrepareClickHouseValues(jsonData)
+		values, err := mapper.PrepareValues(jsonData)
 		require.NoError(t, err)
 		assert.Len(t, values, 3)
 		assert.Equal(t, "test_value", values[0])
@@ -332,7 +332,7 @@ func TestPrepareClickHouseValues(t *testing.T) {
 	t.Run("missing field", func(t *testing.T) {
 		jsonData := []byte(`{"string_field": "test_value", "bool_field": true}`)
 
-		values, err := mapper.PrepareClickHouseValues(jsonData)
+		values, err := mapper.PrepareValues(jsonData)
 		require.NoError(t, err)
 		assert.Len(t, values, 3)
 		assert.Equal(t, "test_value", values[0])
@@ -343,13 +343,13 @@ func TestPrepareClickHouseValues(t *testing.T) {
 	t.Run("invalid json", func(t *testing.T) {
 		jsonData := []byte(`invalid_json`)
 
-		_, err := mapper.PrepareClickHouseValues(jsonData)
+		_, err := mapper.PrepareValues(jsonData)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to prepare values for ClickHouse")
 	})
 
 	t.Run("joined streams", func(t *testing.T) {
-		joinedMapper, err := NewMapper(
+		joinedMapper, err := NewJsonToClickHouseMapper(
 			map[string]StreamSchemaConfig{
 				"stream1": {
 					Fields: []StreamDataField{
@@ -376,7 +376,7 @@ func TestPrepareClickHouseValues(t *testing.T) {
 
 		jsonData := []byte(`{"stream1.id": "12345", "stream1.name": "test_name", "stream2.id": "12345", "stream2.value": 42}`)
 
-		values, err := joinedMapper.PrepareClickHouseValues(jsonData)
+		values, err := joinedMapper.PrepareValues(jsonData)
 		require.NoError(t, err)
 		assert.Len(t, values, 3)
 		assert.Equal(t, "12345", values[0])
@@ -401,7 +401,7 @@ func TestGetFieldsMap(t *testing.T) {
 		{ColumnName: "col_name", StreamName: "stream1", FieldName: "name", ColumnType: "String"},
 	}
 
-	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("get fields map", func(t *testing.T) {
@@ -451,7 +451,7 @@ func TestJoinData(t *testing.T) {
 		{ColumnName: "quantity", StreamName: "orders", FieldName: "quantity", ColumnType: "Int32"},
 	}
 
-	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("join data", func(t *testing.T) {
@@ -514,7 +514,7 @@ func TestGetOrderedColumns(t *testing.T) {
 		{ColumnName: "col2", StreamName: "stream1", FieldName: "field2", ColumnType: "Int32"},
 	}
 
-	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	columns := mapper.GetOrderedColumns()
