@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -212,7 +213,7 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		TLSKey:  conParams.TLSKey,
 		TLSRoot: conParams.TLSRoot,
 	}
-	if conParams.SASLProtocol == "SASL_SSL" {
+	if slices.Contains([]string{"SASL_SSL", "SSL"}, conParams.SASLProtocol) {
 		kCfg.SASLTLSEnable = true
 	}
 
