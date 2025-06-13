@@ -94,7 +94,7 @@ jobs:
           AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
           ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
           TAGS: ${{ steps.meta.outputs.tags }}
-          REPOSITORY: glassflow-etl-cloud-be
+          REPOSITORY: glassflow/glassflow-etl-cloud-be
 
   build-and-push-frontend:
     name: Build And Push UI Image

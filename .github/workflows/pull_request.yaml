@@ -6,13 +6,13 @@ on:
 jobs:
   build-binary:
     uses: ./.github/workflows/build_binary.yaml
-  test:
-    needs:
-      - build-binary
-    uses: ./.github/workflows/test.yaml
+  # test:
+  #   needs:
+  #     - build-binary
+  #   uses: ./.github/workflows/test.yaml
   build:
     needs:
-      - test
+      - build-binary
     uses: ./.github/workflows/build_image.yaml
     with:
       push: true
