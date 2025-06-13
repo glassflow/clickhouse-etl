@@ -50,7 +50,7 @@ type ClickHouseSink struct {
 	log            *slog.Logger
 }
 
-func NewClickHouseSink(sinkCfg ClickHouseSinkConfig, client *client.ClickHouseClient, streamCon stream.Consumer, schemaMapper *schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
+func NewClickHouseSink(sinkCfg ClickHouseSinkConfig, client *client.ClickHouseClient, streamCon stream.Consumer, schemaMapper schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
 	maxDelayTime := time.Duration(60) * time.Second
 	if sinkCfg.MaxDelayTime > 0 {
 		maxDelayTime = sinkCfg.MaxDelayTime
@@ -72,7 +72,7 @@ func NewClickHouseSink(sinkCfg ClickHouseSinkConfig, client *client.ClickHouseCl
 		client:         client,
 		batch:          batch,
 		streamCon:      streamCon,
-		schemaMapper:   *schemaMapper,
+		schemaMapper:   schemaMapper,
 		isClosed:       false,
 		isInputDrained: false,
 		mu:             sync.Mutex{},
@@ -118,7 +118,7 @@ func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) erro
 		return fmt.Errorf("failed to get message metadata: %w", err)
 	}
 
-	values, err := ch.schemaMapper.PrepareClickHouseValues(msg.Data())
+	values, err := ch.schemaMapper.PrepareValues(msg.Data())
 	if err != nil {
 		return fmt.Errorf("failed to map data for ClickHouse: %w", err)
 	}

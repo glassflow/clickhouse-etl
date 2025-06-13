@@ -8,6 +8,13 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+type KeyValueStore interface {
+	Put(ctx context.Context, key any, value []byte) error
+	PutString(ctx context.Context, key any, value string) error
+	Get(ctx context.Context, key any) ([]byte, error)
+	Delete(ctx context.Context, key any) error
+}
+
 type KeyValueStoreConfig struct {
 	StoreName string
 	TTL       time.Duration
