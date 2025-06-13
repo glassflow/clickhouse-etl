@@ -1,6 +1,7 @@
 name: Pull Request Creation
 on:
-  pull_request
+  - push
+  - pull_request
 
 jobs:
   build-binary:
@@ -14,6 +15,6 @@ jobs:
       - test
     uses: ./.github/workflows/build_image.yaml
     with:
-      push: false
+      push: true
     secrets: inherit
 
