@@ -205,12 +205,12 @@ func (s *SinkTestSuite) iPublishEventsToTheStream(count int, data *godog.DocStri
 }
 
 func (s *SinkTestSuite) iRunClickHouseSink() error {
-	streamConsumer, err := stream.NewConsumer(context.Background(), s.natsClient.JetStream(), *s.streamConfig)
+	streamConsumer, err := stream.NewNATSConsumer(context.Background(), s.natsClient.JetStream(), *s.streamConfig)
 	if err != nil {
 		return fmt.Errorf("create stream consumer: %w", err)
 	}
 
-	schemaMapper, err := schema.NewMapper(s.schemaConfig.Streams, s.schemaConfig.SinkMapping)
+	schemaMapper, err := schema.NewJsonToClickHouseMapper(s.schemaConfig.Streams, s.schemaConfig.SinkMapping)
 	if err != nil {
 		return fmt.Errorf("create schema mapper: %w", err)
 	}

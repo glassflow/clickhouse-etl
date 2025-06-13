@@ -20,7 +20,7 @@ type NatsPublisher struct {
 	Subject string
 }
 
-func NewPublisher(js jetstream.JetStream, cfg PublisherConfig) Publisher {
+func NewNATSPublisher(js jetstream.JetStream, cfg PublisherConfig) *NatsPublisher {
 	pub := &NatsPublisher{
 		js:      js,
 		Subject: cfg.Subject,

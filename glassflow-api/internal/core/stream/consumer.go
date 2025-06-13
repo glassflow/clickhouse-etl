@@ -31,7 +31,7 @@ const (
 	ConsumerRetryBackoff = 30 * time.Millisecond
 )
 
-func NewConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (Consumer, error) {
+func NewNATSConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*NatsConsumer, error) {
 	var (
 		stream jetstream.Stream
 		err    error

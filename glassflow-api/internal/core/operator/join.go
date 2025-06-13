@@ -28,8 +28,8 @@ type JoinOperator struct {
 func NewJoinOperator(
 	leftStreamConsumer, rightStreamConsumer stream.Consumer,
 	resultsPublisher stream.Publisher,
-	schema *schema.Mapper,
-	leftKVStore, rightKVStore *kv.NATSKeyValueStore,
+	schema schema.Mapper,
+	leftKVStore, rightKVStore kv.KeyValueStore,
 	leftStreamName, rightStreamName string,
 	log *slog.Logger,
 ) *JoinOperator {
@@ -41,8 +41,8 @@ func NewJoinOperator(
 		log,
 	)
 	return &JoinOperator{
-		leftStreamSubsriber:   stream.NewSubscriber(leftStreamConsumer, log),
-		rightStreamSubscriber: stream.NewSubscriber(rightStreamConsumer, log),
+		leftStreamSubsriber:   stream.NewNATSSubscriber(leftStreamConsumer, log),
+		rightStreamSubscriber: stream.NewNATSSubscriber(rightStreamConsumer, log),
 		executor:              executor,
 		mu:                    sync.Mutex{},
 		handleMu:              sync.Mutex{},

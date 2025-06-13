@@ -31,7 +31,7 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamConfig, publisherSubject string, schemaMapper *schema.Mapper) error {
+func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamConfig, publisherSubject string, schemaMapper schema.Mapper) error {
 	if len(streams) == 0 {
 		return fmt.Errorf("setup joiner: length of streams must not be 0")
 	}
@@ -39,8 +39,8 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 	var (
 		leftConsumer    stream.Consumer
 		rightConsumer   stream.Consumer
-		leftBuffer      *kv.NATSKeyValueStore
-		rightBuffer     *kv.NATSKeyValueStore
+		leftBuffer      kv.KeyValueStore
+		rightBuffer     kv.KeyValueStore
 		leftStreamName  string
 		rightStreamName string
 		err             error
@@ -50,7 +50,7 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 			leftStreamName = s.Name
 
 			//nolint: exhaustruct // optional config
-			leftConsumer, err = stream.NewConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
+			leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 				NatsStream:   s.Name,
 				NatsConsumer: "leftStreamConsumer",
 				NatsSubject:  s.Subject,
@@ -74,7 +74,7 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 			rightStreamName = s.Name
 
 			//nolint: exhaustruct // optional config
-			rightConsumer, err = stream.NewConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
+			rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 				NatsStream:   s.Name,
 				NatsConsumer: "rightStreamConsumer",
 				NatsSubject:  s.Subject,
@@ -97,7 +97,7 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 		}
 	}
 
-	resultsPublisher := stream.NewPublisher(j.nc.JetStream(), stream.PublisherConfig{
+	resultsPublisher := stream.NewNATSPublisher(j.nc.JetStream(), stream.PublisherConfig{
 		Subject: publisherSubject,
 	})
 

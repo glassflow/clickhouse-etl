@@ -28,7 +28,7 @@ type NatsSubscriber struct {
 	log         *slog.Logger
 }
 
-func NewSubscriber(consumer Consumer, log *slog.Logger) Subscriber {
+func NewNATSSubscriber(consumer Consumer, log *slog.Logger) *NatsSubscriber {
 	return &NatsSubscriber{
 		consumer:    consumer,
 		wg:          sync.WaitGroup{},

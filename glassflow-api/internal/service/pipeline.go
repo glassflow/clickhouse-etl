@@ -125,7 +125,7 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 
 	// TODO: transfer all schema mapper validations in models.NewPipeline
 	// so validation errors are handled the same way with correct HTTPStatus
-	schemaMapper, err := schema.NewMapper(streamsCfg, sinkCfg)
+	schemaMapper, err := schema.NewJsonToClickHouseMapper(streamsCfg, sinkCfg)
 	if err != nil {
 		return fmt.Errorf("new schema mapper: %w", err)
 	}
