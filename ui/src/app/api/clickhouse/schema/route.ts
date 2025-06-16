@@ -32,10 +32,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       password: requestBody.password,
       database,
       useSSL: requestBody.useSSL ?? true,
-      secure: requestBody.secure,
+
       connectionType: requestBody.connectionType,
       proxyUrl: requestBody.proxyUrl,
       connectionString: requestBody.connectionString,
+      skipCertificateVerification: requestBody.skipCertificateVerification ?? false,
     }
 
     try {

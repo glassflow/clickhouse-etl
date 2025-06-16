@@ -79,7 +79,6 @@ const mockClickhouseConnector = {
   database: 'default',
   table: 'DE47100400000156459000_EUR_10_03_2025_1143',
   useSSL: false,
-  secure: false,
   connectionType: 'direct',
   proxyUrl: '',
   connectionString: '',

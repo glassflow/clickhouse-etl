@@ -8,11 +8,11 @@ interface ClickhouseConnectionConfig {
   password: string
   database: string
   useSSL: boolean
-  secure: boolean
   connectionType: 'direct' | 'proxy' | 'connectionString'
   proxyUrl?: string
   connectionString?: string
   table?: string
+  skipCertificateVerification: boolean
 }
 
 export function useClickhouseConnection() {
@@ -36,7 +36,7 @@ export function useClickhouseConnection() {
         password: connectionConfig.password,
         database: connectionConfig.database,
         useSSL: connectionConfig.useSSL,
-        secure: connectionConfig.secure,
+        skipCertificateVerification: connectionConfig.skipCertificateVerification,
         connectionType: connectionConfig.connectionType,
         proxyUrl: connectionConfig.proxyUrl,
         connectionString: connectionConfig.connectionString,
@@ -121,7 +121,6 @@ export function useClickhouseConnection() {
         password: connectionConfig.password,
         database: connectionConfig.database,
         useSSL: connectionConfig.useSSL,
-        secure: connectionConfig.secure,
         connectionType: connectionConfig.connectionType,
         proxyUrl: connectionConfig.proxyUrl,
         connectionString: connectionConfig.connectionString,
@@ -180,7 +179,6 @@ export function useClickhouseConnection() {
         database: connectionConfig.database,
         table: connectionConfig.table,
         useSSL: connectionConfig.useSSL,
-        secure: connectionConfig.secure,
         connectionType: connectionConfig.connectionType,
         proxyUrl: connectionConfig.proxyUrl,
         connectionString: connectionConfig.connectionString,

@@ -45,7 +45,6 @@ export type ClickhouseSink = {
   database: string
   username: string
   password: string
-  secure: boolean
   max_batch_size: number
   max_delay_time: string
   table: string
