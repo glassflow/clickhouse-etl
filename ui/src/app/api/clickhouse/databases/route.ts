@@ -1,111 +1,44 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@clickhouse/client'
-import { generateHost } from '@/src/utils/common.server'
-import { Agent } from 'undici'
+import {
+  createClickHouseConnection,
+  parseTabSeparated,
+  closeConnection,
+  type ClickHouseConfig,
+} from '@/src/utils/clickhouse'
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const requestBody = await request.json()
 
-    const {
-      host,
-      port,
-      nativePort,
-      username,
-      password,
-      useSSL = true,
-      secure,
-      connectionType,
-      proxyUrl,
-      connectionString,
-    } = requestBody
-
-    let client
-
-    // Create client based on connection type
-    if (connectionType === 'connectionString' && connectionString) {
-      client = createClient({
-        url: connectionString,
-      })
-    } else if (connectionType === 'proxy' && proxyUrl) {
-      client = createClient({
-        url: proxyUrl,
-        username,
-        password,
-      })
-    } else {
-      // Direct connection - use URL format
-      // Properly extract hostname from URL
-      const urlObj = new URL(generateHost({ host, port, username, password, useSSL, nativePort }))
-      const cleanHost = urlObj.hostname
-      // URL encode the username and password to handle special characters
-      const encodedUsername = encodeURIComponent(username)
-      const encodedPassword = encodeURIComponent(password)
-      // Only use cleanHost without adding the protocol again
-      const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
-
-      // Always create undici dispatcher to skip certificate verification for SSL connections
-      const dispatcher = new Agent({
-        connect: {
-          rejectUnauthorized: false, // Always skip cert verification
-        },
-      })
-
-      // Always use direct HTTP for SSL connections (certificate verification always skipped)
-      if (useSSL) {
-        try {
-          // Get databases with direct fetch
-          const testUrl = `${useSSL ? 'https' : 'http'}://${cleanHost}:${port}/?query=${encodeURIComponent('SHOW DATABASES FORMAT TabSeparated')}`
-          const authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
-
-          const response = await fetch(testUrl, {
-            method: 'GET',
-            headers: {
-              Authorization: authHeader,
-            },
-            // @ts-expect-error - undici dispatcher not in standard fetch types
-            dispatcher,
-          })
-
-          if (response.ok) {
-            const data = await response.text()
-            const databases = data
-              .trim()
-              .split('\n')
-              .filter((db) => db.trim() !== '')
-
-            return NextResponse.json({
-              success: true,
-              databases,
-              method: 'direct-http',
-            })
-          } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-          }
-        } catch (directError) {
-          return NextResponse.json({
-            success: false,
-            error: `Connection failed: ${directError instanceof Error ? directError.message : String(directError)}`,
-          })
-        }
-      } else {
-        // Use ClickHouse client for HTTP (non-SSL) connections
-        client = createClient({
-          url,
-          request_timeout: 30000,
-          keep_alive: {
-            enabled: true,
-            idle_socket_ttl: 25000,
-          },
-        })
-      }
+    const config: ClickHouseConfig = {
+      host: requestBody.host,
+      port: requestBody.port,
+      nativePort: requestBody.nativePort,
+      username: requestBody.username,
+      password: requestBody.password,
+      useSSL: requestBody.useSSL ?? true,
+      secure: requestBody.secure,
+      connectionType: requestBody.connectionType,
+      proxyUrl: requestBody.proxyUrl,
+      connectionString: requestBody.connectionString,
     }
 
-    // This will only execute for HTTP connections or proxy/connectionString
-    if (client) {
-      try {
-        // Get available databases
-        const result = await client.query({
+    try {
+      const connection = await createClickHouseConnection(config)
+
+      if (connection.type === 'direct' && connection.directFetch) {
+        // Direct HTTP approach for SSL connections
+        const data = await connection.directFetch('SHOW DATABASES FORMAT TabSeparated')
+        const databases = parseTabSeparated(data)
+
+        return NextResponse.json({
+          success: true,
+          databases,
+          method: 'direct-http',
+        })
+      } else if (connection.type === 'client' && connection.client) {
+        // ClickHouse client approach for HTTP connections
+        const result = await connection.client.query({
           query: 'SHOW DATABASES',
           format: 'JSONEachRow',
         })
@@ -113,19 +46,20 @@ export async function POST(request: Request): Promise<NextResponse> {
         const rows = (await result.json()) as { name: string }[]
         const databases = rows.map((row) => row.name)
 
-        // Close the connection
-        await client.close()
+        await closeConnection(connection)
 
         return NextResponse.json({
           success: true,
           databases,
         })
-      } catch (error) {
-        return NextResponse.json({
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to fetch databases',
-        })
+      } else {
+        throw new Error('Invalid connection configuration')
       }
+    } catch (error) {
+      return NextResponse.json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch databases',
+      })
     }
   } catch (error) {
     return NextResponse.json(
@@ -136,13 +70,4 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 500 },
     )
   }
-
-  // Fallback return (should not reach here)
-  return NextResponse.json(
-    {
-      success: false,
-      error: 'Invalid connection configuration',
-    },
-    { status: 400 },
-  )
 }
