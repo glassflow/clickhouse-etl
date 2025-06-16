@@ -168,13 +168,9 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 	}
 
 	if !req.Source.ConnectionParams.SkipAuth {
-		if err := validateKafkaAuthParams(req.Source.ConnectionParams.SASLMechanism, req.Source.ConnectionParams.SASLUsername, req.Source.ConnectionParams.SASLPassword); err != nil {
+		if err := validateKafkaConnectionParams(req.Source.ConnectionParams.SASLMechanism, req.Source.ConnectionParams.SASLUsername, req.Source.ConnectionParams.SASLPassword, req.Source.ConnectionParams.SASLProtocol); err != nil {
 			return nil, err
 		}
-	}
-
-	if err := validateKafkaConnectionProtocol(req.Source.ConnectionParams.SASLProtocol); err != nil {
-		return nil, err
 	}
 
 	if !req.Join.Enabled && len(req.Source.Topics) != MinStreamsSupportedWithoutJoin {
@@ -386,7 +382,7 @@ func validateBrokers(bl []string) error {
 	return nil
 }
 
-func validateKafkaAuthParams(mechanism, username, password string) error {
+func validateKafkaConnectionParams(mechanism, username, password, protocol string) error {
 	if strings.Trim(mechanism, " ") == "" {
 		return PipelineConfigError{msg: "SASL mechanism cannot be empty"}
 	}
@@ -396,19 +392,6 @@ func validateKafkaAuthParams(mechanism, username, password string) error {
 	if password == "" {
 		return PipelineConfigError{msg: "SASL password cannot be empty"}
 	}
-
-	switch mechanism {
-	case "SCRAM-SHA-256":
-	case "SCRAM-SHA-512":
-	case "PLAIN":
-	default:
-		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", mechanism)}
-	}
-
-	return nil
-}
-
-func validateKafkaConnectionProtocol(protocol string) error {
 	if strings.Trim(protocol, " ") == "" {
 		return PipelineConfigError{msg: "SASL protocol cannot be empty"}
 	}
@@ -420,6 +403,16 @@ func validateKafkaConnectionProtocol(protocol string) error {
 	case "PLAINTEXT":
 	default:
 		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL protocol: %s; allowed: SASL_PLAINTEXT, PLAINTEXT, SASL_SSL, SSL", protocol)}
+	}
+
+	switch mechanism {
+	case "SCRAM-SHA-256", "SCRAM-SHA-512":
+		if !slices.Contains([]string{"SASL_SSL", "SASL_PLAINTEXT"}, protocol) {
+			return PipelineConfigError{msg: fmt.Sprintf("Unsupported protocol %q for SASL mechanism; allowed protocols: SASL_PLAINTEXT, SASL_SSL", protocol)}
+		}
+	case "PLAIN":
+	default:
+		return PipelineConfigError{msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", mechanism)}
 	}
 
 	return nil
