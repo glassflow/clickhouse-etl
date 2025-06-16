@@ -17,10 +17,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       username: requestBody.username,
       password: requestBody.password,
       useSSL: requestBody.useSSL ?? true,
-      secure: requestBody.secure,
       connectionType: requestBody.connectionType,
       proxyUrl: requestBody.proxyUrl,
       connectionString: requestBody.connectionString,
+      skipCertificateVerification: requestBody.skipCertificateVerification ?? false,
     }
 
     try {

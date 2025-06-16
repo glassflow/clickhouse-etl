@@ -6,7 +6,6 @@ export type ConnectionConfig = {
   password: string
   database?: string
   useSSL?: boolean
-  secure?: boolean
   connectionType: 'direct'
 }
 

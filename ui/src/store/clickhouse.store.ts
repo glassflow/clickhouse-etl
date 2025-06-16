@@ -53,6 +53,7 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
         password: '',
         nativePort: '',
         useSSL: true,
+        skipCertificateVerification: false,
       },
       connectionStatus: 'idle',
       connectionError: null,

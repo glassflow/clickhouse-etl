@@ -10,10 +10,10 @@ export interface ClickHouseConfig {
   password: string
   database?: string
   useSSL?: boolean
-  secure?: boolean
   connectionType?: string
   proxyUrl?: string
   connectionString?: string
+  skipCertificateVerification?: boolean
 }
 
 export interface ClickHouseConnection {
@@ -25,7 +25,16 @@ export interface ClickHouseConnection {
 }
 
 export async function createClickHouseConnection(config: ClickHouseConfig): Promise<ClickHouseConnection> {
-  const { host, port, nativePort, username, password, database, useSSL = true } = config
+  const {
+    host,
+    port,
+    nativePort,
+    username,
+    password,
+    database,
+    useSSL = true,
+    skipCertificateVerification = false,
+  } = config
 
   // Direct connection logic
   const urlObj = new URL(
@@ -40,7 +49,7 @@ export async function createClickHouseConnection(config: ClickHouseConfig): Prom
     // Always use direct HTTP for SSL connections
     const dispatcher = new Agent({
       connect: {
-        rejectUnauthorized: false, // Always skip cert verification
+        rejectUnauthorized: !skipCertificateVerification,
       },
     })
 

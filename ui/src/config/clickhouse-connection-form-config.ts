@@ -43,6 +43,13 @@ export const ClickhouseConnectionFormConfig = {
         defaultValue: true,
         placeholder: 'Use SSL',
       },
+      skipCertificateVerification: {
+        name: 'directConnection.skipCertificateVerification',
+        label: 'Skip Certificate Verification',
+        type: 'boolean',
+        defaultValue: true,
+        placeholder: 'Skip Certificate Verification',
+      },
     },
   },
   proxyConnectionForm: {
