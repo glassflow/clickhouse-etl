@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@clickhouse/client'
 import { generateHost } from '@/src/utils/common.server'
+import { Agent } from 'undici'
+
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const requestBody = await request.json()
@@ -51,22 +53,59 @@ export async function POST(request: Request): Promise<NextResponse> {
         // Only use cleanHost without adding the protocol again
         const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
 
-        const tls = host.includes('https')
-          ? ({
-              rejectUnauthorized: false,
-              servername: cleanHost,
-            } as any)
-          : undefined
-
-        client = createClient({
-          url,
-          tls,
-          request_timeout: 30000, // 30 seconds timeout
-          keep_alive: {
-            enabled: true,
-            idle_socket_ttl: 25000, // 25 seconds
+        // Always create undici dispatcher to skip certificate verification for SSL connections
+        const dispatcher = new Agent({
+          connect: {
+            rejectUnauthorized: false, // Always skip cert verification
           },
         })
+
+        // Always use direct HTTP for SSL connections (certificate verification always skipped)
+        if (useSSL) {
+          try {
+            // Test connection with direct fetch
+            const testUrl = `${useSSL ? 'https' : 'http'}://${cleanHost}:${port}/?query=${encodeURIComponent('SHOW DATABASES')}`
+            const authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
+
+            const response = await fetch(testUrl, {
+              method: 'GET',
+              headers: {
+                Authorization: authHeader,
+              },
+              // @ts-expect-error - undici dispatcher not in standard fetch types
+              dispatcher,
+            })
+
+            if (response.ok) {
+              const data = await response.text()
+              const databases = data.trim().split('\n')
+
+              return NextResponse.json({
+                success: true,
+                message: 'Successfully connected to ClickHouse',
+                databases,
+                method: 'direct-http',
+              })
+            } else {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+            }
+          } catch (directError) {
+            return NextResponse.json({
+              success: false,
+              error: `Connection failed: ${directError instanceof Error ? directError.message : String(directError)}`,
+            })
+          }
+        } else {
+          // Use ClickHouse client for HTTP (non-SSL) connections
+          client = createClient({
+            url,
+            request_timeout: 30000,
+            keep_alive: {
+              enabled: true,
+              idle_socket_ttl: 25000,
+            },
+          })
+        }
       } catch (error) {
         return NextResponse.json({
           success: false,
@@ -94,7 +133,6 @@ export async function POST(request: Request): Promise<NextResponse> {
           const rows = (await result.json()) as { name: string }[]
           databases = rows.map((row) => row.name)
         } catch (error) {
-          console.error('Error fetching databases: - this failed', error)
           // Close the connection first
           await client.close()
           return NextResponse.json({
