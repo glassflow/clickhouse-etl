@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@clickhouse/client'
 import { generateHost } from '@/src/utils/common.server'
+import { Agent } from 'undici'
+
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const requestBody = await request.json()
@@ -42,51 +44,90 @@ export async function POST(request: Request): Promise<NextResponse> {
       // Only use cleanHost without adding the protocol again
       const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
 
-      const tls = host.includes('https')
-        ? ({
-            rejectUnauthorized: false,
-            servername: cleanHost,
-          } as any)
-        : undefined
-
-      client = createClient({
-        url,
-        tls,
-        request_timeout: 30000, // 30 seconds timeout
-        keep_alive: {
-          enabled: true,
-          idle_socket_ttl: 25000, // 25 seconds
+      // Always create undici dispatcher to skip certificate verification for SSL connections
+      const dispatcher = new Agent({
+        connect: {
+          rejectUnauthorized: false, // Always skip cert verification
         },
       })
+
+      // Always use direct HTTP for SSL connections (certificate verification always skipped)
+      if (useSSL) {
+        try {
+          // Get databases with direct fetch
+          const testUrl = `${useSSL ? 'https' : 'http'}://${cleanHost}:${port}/?query=${encodeURIComponent('SHOW DATABASES FORMAT TabSeparated')}`
+          const authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
+
+          const response = await fetch(testUrl, {
+            method: 'GET',
+            headers: {
+              Authorization: authHeader,
+            },
+            // @ts-expect-error - undici dispatcher not in standard fetch types
+            dispatcher,
+          })
+
+          if (response.ok) {
+            const data = await response.text()
+            const databases = data
+              .trim()
+              .split('\n')
+              .filter((db) => db.trim() !== '')
+
+            return NextResponse.json({
+              success: true,
+              databases,
+              method: 'direct-http',
+            })
+          } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+        } catch (directError) {
+          return NextResponse.json({
+            success: false,
+            error: `Connection failed: ${directError instanceof Error ? directError.message : String(directError)}`,
+          })
+        }
+      } else {
+        // Use ClickHouse client for HTTP (non-SSL) connections
+        client = createClient({
+          url,
+          request_timeout: 30000,
+          keep_alive: {
+            enabled: true,
+            idle_socket_ttl: 25000,
+          },
+        })
+      }
     }
 
-    try {
-      // Get available databases
-      const result = await client.query({
-        query: 'SHOW DATABASES',
-        format: 'JSONEachRow',
-      })
+    // This will only execute for HTTP connections or proxy/connectionString
+    if (client) {
+      try {
+        // Get available databases
+        const result = await client.query({
+          query: 'SHOW DATABASES',
+          format: 'JSONEachRow',
+        })
 
-      const rows = (await result.json()) as { name: string }[]
-      const databases = rows.map((row) => row.name)
+        const rows = (await result.json()) as { name: string }[]
+        const databases = rows.map((row) => row.name)
 
-      // Close the connection
-      await client.close()
+        // Close the connection
+        await client.close()
 
-      return NextResponse.json({
-        success: true,
-        databases,
-      })
-    } catch (error) {
-      console.error('Error fetching databases:', error)
-      return NextResponse.json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch databases',
-      })
+        return NextResponse.json({
+          success: true,
+          databases,
+        })
+      } catch (error) {
+        return NextResponse.json({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch databases',
+        })
+      }
     }
   } catch (error) {
-    console.error('Error in database API:', error)
-
     return NextResponse.json(
       {
         success: false,
@@ -95,4 +136,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 500 },
     )
   }
+
+  // Fallback return (should not reach here)
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Invalid connection configuration',
+    },
+    { status: 400 },
+  )
 }
