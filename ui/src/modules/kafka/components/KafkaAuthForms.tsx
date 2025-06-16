@@ -7,10 +7,28 @@ import { KafkaConnectionFormType } from '@/src/scheme'
 import { AUTH_OPTIONS } from '@/src/config/constants'
 import { useWatch } from 'react-hook-form'
 import { useEffect } from 'react'
+import { SECURITY_PROTOCOL_OPTIONS_SASL, SECURITY_PROTOCOL_OPTIONS } from '@/src/config/constants'
 
 // Base form - mandatory fields - allways present in the form
-export const KafkaBaseForm = ({ errors }: { errors?: FieldErrors<KafkaConnectionFormType> }) => {
+export const KafkaBaseForm = ({
+  errors,
+  authMethod,
+  securityProtocol,
+}: {
+  errors?: FieldErrors<KafkaConnectionFormType>
+  authMethod: string
+  securityProtocol: string
+}) => {
   const { register } = useFormContext()
+
+  const securityProtocolOptions = Object.values(
+    authMethod === AUTH_OPTIONS['SASL/SCRAM-256'].name || authMethod === AUTH_OPTIONS['SASL/SCRAM-512'].name
+      ? SECURITY_PROTOCOL_OPTIONS_SASL
+      : SECURITY_PROTOCOL_OPTIONS,
+  ).map((option) => ({
+    label: option,
+    value: option,
+  }))
 
   return (
     <FormGroup className="space-y-4">
@@ -24,7 +42,10 @@ export const KafkaBaseForm = ({ errors }: { errors?: FieldErrors<KafkaConnection
         </div>
         <div className="space-y-2 w-1/2">
           {renderFormField({
-            field: KafkaBaseFormConfig.base.fields.securityProtocol,
+            field: {
+              ...KafkaBaseFormConfig.base.fields.securityProtocol,
+              options: securityProtocolOptions,
+            },
             register,
             errors,
           })}
@@ -302,12 +323,12 @@ export const KafkaAuthForm = ({
   errors: FieldErrors<KafkaConnectionFormType>
 }) => {
   const { watch, setValue } = useFormContext()
-  const renderBaseForm = () => {
-    return <KafkaBaseForm errors={errors} />
-  }
-
   const authMethodSelected = watch('authMethod')
   const securityProtocolSelected = watch('securityProtocol')
+
+  const renderBaseForm = ({ authMethod, securityProtocol }: { authMethod: string; securityProtocol: string }) => {
+    return <KafkaBaseForm errors={errors} authMethod={authMethod} securityProtocol={securityProtocol} />
+  }
 
   useEffect(() => {
     // Only set the default value if the user hasn't manually changed it yet
@@ -373,7 +394,7 @@ export const KafkaAuthForm = ({
 
   return (
     <>
-      {renderBaseForm()}
+      {renderBaseForm({ authMethod, securityProtocol })}
       {renderAuthForm()}
       {renderSslFields()}
     </>
