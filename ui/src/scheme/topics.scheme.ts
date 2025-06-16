@@ -7,6 +7,7 @@ const KafkaEventSchema = z.object({
   kafkaOffset: z.number().optional(),
   isAtEarliest: z.boolean().optional(),
   isAtLatest: z.boolean().optional(),
+  isManualEvent: z.boolean().optional(),
 })
 
 const KafkaTopicSchema = z.object({

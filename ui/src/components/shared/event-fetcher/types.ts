@@ -5,6 +5,7 @@ export type EventFetcherProps = {
   topicIndex: number
   initialOffset: string
   initialEvent?: any
+  isEditingEnabled: boolean
   onEventLoading: () => void
   onEventLoaded: (event: any) => void
   onEventError: (error: any) => void

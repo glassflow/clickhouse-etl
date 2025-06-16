@@ -111,6 +111,7 @@ export function DeduplicationConfigurator({
             eventError={''}
             isEmptyTopic={false}
             onManualEventChange={() => {}}
+            isEditingEnabled={false}
           />
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 
 // Dynamically import AceEditor to avoid SSR issues
@@ -22,6 +22,7 @@ type EventEditorProps = {
   eventError: string
   isEmptyTopic?: boolean
   onManualEventChange?: (event: string) => void
+  isEditingEnabled: boolean
 }
 
 const EDITOR_THEME = 'merbivore'
@@ -33,10 +34,15 @@ export const EventEditor = ({
   eventError,
   isEmptyTopic = false,
   onManualEventChange,
+  isEditingEnabled,
 }: EventEditorProps) => {
   const [manualEvent, setManualEvent] = useState(event)
   const [isValid, setIsValid] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    setManualEvent(event)
+  }, [event])
 
   const handleEditorChange = (value: string) => {
     setManualEvent(value)
@@ -56,6 +62,9 @@ export const EventEditor = ({
       onManualEventChange(value)
     }
   }
+
+  // Editor is read-only only when it's not empty topic and not explicitly enabled for editing
+  const isReadOnly = !(isEmptyTopic || isEditingEnabled)
 
   return (
     <div className="rounded-md p-4 h-full flex flex-col overflow-auto">
@@ -83,9 +92,9 @@ export const EventEditor = ({
                   mode="json"
                   theme={EDITOR_THEME}
                   name="event-editor"
-                  value={event || manualEvent}
+                  value={manualEvent}
                   onChange={handleEditorChange}
-                  readOnly={!isEmptyTopic}
+                  readOnly={isReadOnly}
                   width="100%"
                   height="100%"
                   minLines={10}

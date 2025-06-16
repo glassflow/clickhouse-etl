@@ -327,14 +327,19 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
       return
     }
 
-    // this is how it previously worked but it's causing flickering of the event editor
-    // Update the store directly instead of local state
     updateTopic({
       index: index,
       name: localState.topicName,
       initialOffset,
-      events: [{ event: event, topicIndex: index, position: initialOffset }],
-      selectedEvent: { event: event, topicIndex: index, position: initialOffset },
+      events: [
+        { event: event, topicIndex: index, position: initialOffset, isManualEvent: localState.manualEvent !== '' },
+      ],
+      selectedEvent: {
+        event: event,
+        topicIndex: index,
+        position: initialOffset,
+        isManualEvent: localState.manualEvent !== '',
+      },
       deduplication: topicFromStore?.deduplication || {
         enabled: false,
         window: 0,
@@ -456,6 +461,7 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
             onOffsetChange={handleOffsetChange}
             onManualEventChange={handleManualEventChange}
             availableTopics={availableTopics}
+            isEditingEnabled={localState.manualEvent !== '' || localState.fetchedEvent?.isManualEvent}
           />
         </div>
 

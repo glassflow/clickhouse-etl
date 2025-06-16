@@ -92,6 +92,7 @@ export function StreamConfiguratorList({
                 eventError={''}
                 isEmptyTopic={false}
                 onManualEventChange={() => {}}
+                isEditingEnabled={false}
               />
             </div>
           </div>
@@ -130,6 +131,7 @@ export function StreamConfiguratorList({
                 eventError={''}
                 isEmptyTopic={false}
                 onManualEventChange={() => {}}
+                isEditingEnabled={false}
               />
             </div>
           </div>

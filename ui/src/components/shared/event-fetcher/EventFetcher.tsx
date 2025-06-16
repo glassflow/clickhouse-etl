@@ -19,6 +19,7 @@ function EventFetcher({
   onEventError,
   onEmptyTopic,
   onManualEventChange,
+  isEditingEnabled,
 }: EventFetcherProps) {
   const { kafkaStore } = useStore()
 
@@ -212,6 +213,7 @@ function EventFetcher({
             eventError={eventError}
             isEmptyTopic={isEmptyTopic}
             onManualEventChange={onManualEventChange}
+            isEditingEnabled={isEditingEnabled}
           />
 
           {/* Navigation buttons are hidden to simplify the UI */}
@@ -244,5 +246,4 @@ function EventFetcher({
     </div>
   )
 }
-
 export default EventFetcher

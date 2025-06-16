@@ -396,6 +396,7 @@ export function TopicDeduplicationConfigurator({
             availableTopics={availableTopics}
             additionalContent={renderDeduplicationSection()}
             onManualEventChange={handleManualEventChange}
+            isEditingEnabled={false}
           />
         </div>
 
