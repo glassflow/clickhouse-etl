@@ -205,6 +205,10 @@ export const SECURITY_PROTOCOL_OPTIONS = {
   PLAINTEXT: 'PLAINTEXT',
 }
 
+export const SECURITY_PROTOCOL_OPTIONS_SASL = Object.values(SECURITY_PROTOCOL_OPTIONS).filter(
+  (option) => option !== SECURITY_PROTOCOL_OPTIONS.PLAINTEXT && option !== SECURITY_PROTOCOL_OPTIONS.SSL,
+)
+
 export const INITIAL_OFFSET_OPTIONS = {
   LATEST: 'latest',
   EARLIEST: 'earliest',
