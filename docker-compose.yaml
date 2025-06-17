@@ -7,9 +7,7 @@ services:
     restart: unless-stopped
 
   ui:
-    # image: glassflow/clickhouse-etl-fe:stable
-    build:
-      context: ui
+    image: glassflow/clickhouse-etl-fe:stable
     pull_policy: always
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8080/api/v1}
