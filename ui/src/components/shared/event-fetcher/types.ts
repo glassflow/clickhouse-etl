@@ -5,11 +5,12 @@ export type EventFetcherProps = {
   topicIndex: number
   initialOffset: string
   initialEvent?: any
+  isEditingEnabled: boolean
   onEventLoading: () => void
   onEventLoaded: (event: any) => void
   onEventError: (error: any) => void
   onEmptyTopic: () => void
-  onEventChange?: (event: string) => void
+  onManualEventChange?: (event: string) => void
 }
 
 export type EventFetchContextType = {

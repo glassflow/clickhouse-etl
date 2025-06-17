@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
-import { EventPreview } from '@/src/components/shared/EventPreview'
+import { EventEditor } from '@/src/components/shared/EventEditor'
 import { parseForCodeEditor } from '@/src/utils'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
@@ -104,18 +104,14 @@ export function DeduplicationConfigurator({
           />
         </div>
         <div className="w-[60%] min-h-[400px]">
-          <EventPreview
+          <EventEditor
             event={parseForCodeEditor(eventData)}
             topic={topic?.name}
             isLoadingEvent={false}
             eventError={''}
-            handleRefreshEvent={() => {}}
-            handleFetchPreviousEvent={() => {}}
-            handleFetchNewestEvent={() => {}}
-            handleFetchOldestEvent={() => {}}
-            hasOlderEvents={false}
-            showInternalNavigationButtons={false}
-            eventPosition={0}
+            isEmptyTopic={false}
+            onManualEventChange={() => {}}
+            isEditingEnabled={false}
           />
         </div>
       </div>

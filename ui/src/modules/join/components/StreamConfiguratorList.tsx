@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { StreamConfigurator } from './StreamConfigurator'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { EventPreview } from '@/src/components/shared/EventPreview'
+import { EventEditor } from '@/src/components/shared/EventEditor'
 import { parseForCodeEditor } from '@/src/utils'
 
 interface StreamConfiguratorListProps {
@@ -84,20 +84,15 @@ export function StreamConfiguratorList({
               <h3 className="text-lg font-medium">Stream 1 Sample Event</h3>
             </div>
             <div className="flex-1 bg-background-neutral rounded-md p-4 min-h-[300px]">
-              <EventPreview
+              <EventEditor
                 key={`event1-${topic1?.name}-${JSON.stringify(event1)}`}
-                showInternalNavigationButtons={false}
                 event={parseForCodeEditor(event1 || {})}
                 topic={topic1?.name || ''}
                 isLoadingEvent={false}
                 eventError={''}
-                handleRefreshEvent={() => {}}
-                hasMoreEvents={false}
-                handleFetchPreviousEvent={() => {}}
-                handleFetchNewestEvent={() => {}}
-                handleFetchOldestEvent={() => {}}
-                hasOlderEvents={false}
-                eventPosition={0}
+                isEmptyTopic={false}
+                onManualEventChange={() => {}}
+                isEditingEnabled={false}
               />
             </div>
           </div>
@@ -128,20 +123,15 @@ export function StreamConfiguratorList({
               <h3 className="text-lg font-medium">Stream 2 Sample Event</h3>
             </div>
             <div className="flex-1 bg-background-neutral rounded-md p-4 min-h-[300px]">
-              <EventPreview
+              <EventEditor
                 key={`event2-${topic2?.name}-${JSON.stringify(event2)}`}
-                showInternalNavigationButtons={false}
                 event={parseForCodeEditor(event2 || {})}
                 topic={topic2?.name || ''}
                 isLoadingEvent={false}
                 eventError={''}
-                handleRefreshEvent={() => {}}
-                hasMoreEvents={false}
-                handleFetchPreviousEvent={() => {}}
-                handleFetchNewestEvent={() => {}}
-                handleFetchOldestEvent={() => {}}
-                hasOlderEvents={false}
-                eventPosition={0}
+                isEmptyTopic={false}
+                onManualEventChange={() => {}}
+                isEditingEnabled={false}
               />
             </div>
           </div>
