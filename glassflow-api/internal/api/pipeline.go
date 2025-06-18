@@ -56,7 +56,13 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 		serverError(w)
 	}
 
-	p, err := h.ps.GetPipeline(r.Context(), id)
+	pid, err := models.NewPipelineID(id)
+	if err != nil {
+		jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
+		return
+	}
+
+	p, err := h.ps.GetPipeline(r.Context(), pid)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -170,10 +176,14 @@ type clickhouseColumnMapping struct {
 }
 
 func (req *pipelineRequest) ToModel() (*models.Pipeline, error) {
+	pid, err := models.NewPipelineID(req.PipelineID)
+	if err != nil {
+		return nil, err
+	}
+
 	var (
 		sink models.Component
 		join models.Component
-		err  error
 	)
 
 	graphOutputsMap := make(map[models.Component][]models.Component)
@@ -276,7 +286,7 @@ func (req *pipelineRequest) ToModel() (*models.Pipeline, error) {
 		return nil, fmt.Errorf("unsupported source type: %s", req.Source.Kind)
 	}
 
-	p, err := models.NewPipeline(req.PipelineID, graphOutputsMap)
+	p, err := models.NewPipeline(pid, graphOutputsMap)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %w", err)
 	}
@@ -323,7 +333,7 @@ type pipelineResponse = pipelineRequest
 func ToPipelineResponse(p *models.Pipeline) pipelineResponse {
 	//nolint: exhaustruct // build pipeline
 	res := pipelineResponse{
-		PipelineID: p.PipelineID,
+		PipelineID: p.ID.String(),
 	}
 
 	for _, c := range p.Components {

@@ -92,7 +92,7 @@ func (s *Storage) InsertPipeline(ctx context.Context, p models.Pipeline) error {
 		return fmt.Errorf("marshal kv pipeline: %w", err)
 	}
 
-	_, err = s.kv.Create(ctx, p.PipelineID, pc)
+	_, err = s.kv.Create(ctx, p.ID.String(), pc)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrKeyExists) {
 			return service.ErrIDExists
@@ -103,8 +103,8 @@ func (s *Storage) InsertPipeline(ctx context.Context, p models.Pipeline) error {
 	return nil
 }
 
-func (s *Storage) GetPipeline(ctx context.Context, id string) (*models.Pipeline, error) {
-	entry, err := s.kv.Get(ctx, id)
+func (s *Storage) GetPipeline(ctx context.Context, id models.PipelineID) (*models.Pipeline, error) {
+	entry, err := s.kv.Get(ctx, id.String())
 	if err != nil {
 		if errors.Is(err, jetstream.ErrKeyNotFound) {
 			return nil, service.ErrPipelineNotExists
@@ -152,7 +152,12 @@ func (s *Storage) GetPipeline(ctx context.Context, id string) (*models.Pipeline,
 		modelOutputs[c] = outputComponents
 	}
 
-	pi, err := models.NewPipeline(entry.Key(), modelOutputs)
+	pid, err := models.NewPipelineID(entry.Key())
+	if err != nil {
+		return nil, fmt.Errorf("new pipeline ID from KV: %w", err)
+	}
+
+	pi, err := models.NewPipeline(pid, modelOutputs)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline from KV: %w", err)
 	}
