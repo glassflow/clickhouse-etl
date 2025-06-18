@@ -1,0 +1,47 @@
+---
+title: 'Kubernetes Helm'
+description: 'Install GlassFlow on Kubernetes using Helm'
+---
+
+# GlassFlow on Kubernetes using Helm
+
+This guide will walk you through the process of installing GlassFlow on Kubernetes using Helm.
+
+## Prerequisites
+
+- Kubernetes cluster
+- [Helm](https://helm.sh/docs/intro/install/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (to port forward the GlassFlow UI to your local machine)
+
+## Installation
+
+1. Add the GlassFlow Helm repository:
+```bash
+helm repo add glassflow https://glassflow.github.io/charts
+```
+
+2. Update the Helm repository:
+```bash
+helm repo update
+```
+
+3. Install the GlassFlow Helm chart:
+```bash
+helm install glassflow glassflow/glassflow-etl --create-namespace --namespace glassflow
+```
+
+4. Port forward the service to your local machine:
+```bash
+kubectl port-forward service/glassflow-chart-ui 8080:8080 -n glassflow
+```
+
+5. Access the web interface at http://localhost:8080.
+
+### Getting Help
+
+If you encounter any issues during installation:
+
+- Join our [Slack community](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
+- Email our support team at [help@glassflow.dev](mailto:help@glassflow.dev)
+- Open an issue on [GitHub](https://github.com/glassflow/clickhouse-etl/issues) 
+- Start a discussion on [Discussions](https://github.com/glassflow/clickhouse-etl/discussions)
