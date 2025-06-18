@@ -1,11 +1,11 @@
 ---
-title: 'Installation'
-description: 'Learn how to install and set up GlassFlow for ClickHouse Streaming ETL'
+title: 'Local Docker'
+description: 'Install GlassFlow locally using Docker'
 ---
 
-# Installation
+# GlassFlow on Docker
 
-GlassFlow for ClickHouse Streaming ETL is designed to run locally using Docker and docker-compose. 
+GlassFlow is designed to run locally using Docker and docker-compose. 
 The github repository is shipped with a pre-configured docker-compose file that sets up all necessary components.
 
 ## Prerequisites
@@ -29,14 +29,37 @@ cd clickhouse-etl
 docker compose up
 ```
 
-3. Access the web interface at `http://localhost:8080` to configure the pipeline. For detailed instructions on setting up your first pipeline, see the [Usage Guide](/pipeline/usage).
-
-4. Follow the logs in real-time for all containers:
+3. Follow the logs in real-time for all containers:
 ```bash
 docker compose logs -f
 ```
 
+## Verify the Installation
+
+1. Ensure that your containers are running correctly. To view the status of your containers, run the following command:
+```bash
+docker compose ps
+```
+The output should look like this:
+
+```bash
+NAME                     IMAGE                                COMMAND                  SERVICE   CREATED         STATUS         PORTS
+clickhouse-etl-app-1     glassflow/clickhouse-etl-be:stable   "/sbin/tini -- /usr/…"   app       3 minutes ago   Up 3 minutes   
+clickhouse-etl-nats-1    nats:alpine                          "docker-entrypoint.s…"   nats      3 weeks ago     Up 3 minutes   6222/tcp, 0.0.0.0:4222->4222/tcp, 8222/tcp
+clickhouse-etl-nginx-1   nginx:1.27-alpine                    "/docker-entrypoint.…"   nginx     3 weeks ago     Up 3 minutes   80/tcp, 0.0.0.0:8080->8080/tcp
+clickhouse-etl-ui-1      glassflow/clickhouse-etl-fe:stable   "docker-entrypoint.s…"   ui        3 minutes ago   Up 3 minutes   8080/tcp
+```
+
 For details about the Docker components that are running, see the [System Components](/architecture/system-components) page.
+
+
+2. Verify that the web interface is accessible at `http://localhost:8080`. In case you do not see the web interface, 
+please ensure that the containers are in running state and no other services are using the port 8080. If needed, you can modify the ports in `docker-compose.yaml` file.
+
+## Creating a Pipeline
+
+Access the web interface at `http://localhost:8080` to configure the pipeline. 
+For detailed instructions on setting up your first pipeline, see the [Usage Guide](/pipeline/usage).
 
 ## Stopping the Services
 
