@@ -82,7 +82,10 @@ func TestInsertPipelineSuccess(t *testing.T) {
 		source: {sink},
 	}
 
-	p, err := models.NewPipeline("my-pipeline", outputsMap)
+	pid, err := models.NewPipelineID("my-pipeline")
+	require.NoError(t, err)
+
+	p, err := models.NewPipeline(pid, outputsMap)
 	require.NoError(t, err)
 
 	expectedJSON := `
@@ -225,7 +228,10 @@ func TestInsertPipelineDuplicateIDFail(t *testing.T) {
 		source: {sink},
 	}
 
-	p, err := models.NewPipeline("my-pipeline", outputsMap)
+	pid, err := models.NewPipelineID("my-pipeline")
+	require.NoError(t, err)
+
+	p, err := models.NewPipeline(pid, outputsMap)
 	require.NoError(t, err)
 
 	db := setupTest(t)
@@ -282,7 +288,10 @@ func TestInsertPipelineUnknownComponentFail(t *testing.T) {
 		source: {sink},
 	}
 
-	p, err := models.NewPipeline("my-pipeline", outputsMap)
+	pid, err := models.NewPipelineID("my-pipeline")
+	require.NoError(t, err)
+
+	p, err := models.NewPipeline(pid, outputsMap)
 	require.NoError(t, err)
 
 	db := setupTest(t)
@@ -375,10 +384,13 @@ func TestGetPipelineSuccess(t *testing.T) {
 		}
 	})
 
-	p, err := db.GetPipeline(t.Context(), pipelineID)
+	pid, err := models.NewPipelineID(pipelineID)
+	require.NoError(t, err)
+
+	p, err := db.GetPipeline(t.Context(), pid)
 	require.NoError(t, err)
 	require.NotNil(t, p)
-	require.Equal(t, pipelineID, p.PipelineID)
+	require.Equal(t, pipelineID, p.ID.String())
 	require.Len(t, p.Components, 2)
 
 	k, ok := p.Components[0].(*models.KafkaSourceComponent)
@@ -409,7 +421,10 @@ func TestGetPipelineForUnknownIDFail(t *testing.T) {
 
 	pipelineID := "non-existing"
 
-	p, err := db.GetPipeline(t.Context(), pipelineID)
+	pid, err := models.NewPipelineID(pipelineID)
+	require.NoError(t, err)
+
+	p, err := db.GetPipeline(t.Context(), pid)
 	require.Nil(t, p)
 	require.EqualError(t, service.ErrPipelineNotExists, err.Error())
 }

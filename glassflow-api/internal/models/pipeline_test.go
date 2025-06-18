@@ -75,6 +75,20 @@ func (s *TestComponentInvalid) Validate() error {
 	return fmt.Errorf("invalid condition for interim component")
 }
 
+func TestNewPipelineIDSuccess(t *testing.T) {
+	id, err := NewPipelineID("test")
+	require.NoError(t, err)
+
+	require.Equal(t, "test", id.String())
+}
+
+func TestNewInvalidPipelineIDFail(t *testing.T) {
+	id, err := NewPipelineID("   ")
+	require.EqualError(t, PipelineConfigError{msg: "pipeline ID cannot be empty"}, err.Error())
+
+	require.Equal(t, "", id.String())
+}
+
 func TestPipelineIsDAGSuccess(t *testing.T) {
 	source := &TestComponentValid{}
 	source.SetID("source-1")
@@ -91,7 +105,10 @@ func TestPipelineIsDAGSuccess(t *testing.T) {
 	outputsMap[interim] = []Component{sink}
 	outputsMap[sink] = []Component{}
 
-	p, err := NewPipeline("test", outputsMap)
+	pid, err := NewPipelineID("test")
+	require.NoError(t, err)
+
+	p, err := NewPipeline(pid, outputsMap)
 	require.NoError(t, err)
 
 	require.Len(t, p.Components, 3)
@@ -112,7 +129,10 @@ func TestPipelineIsDAGWithOnlySourceAndSinkSuccess(t *testing.T) {
 
 	outputsMap[source] = []Component{sink}
 
-	p, err := NewPipeline("test", outputsMap)
+	pid, err := NewPipelineID("test")
+	require.NoError(t, err)
+
+	p, err := NewPipeline(pid, outputsMap)
 	require.NoError(t, err)
 
 	require.Len(t, p.Components, 2)
@@ -138,7 +158,10 @@ func TestPipelineIsNotDAGFail(t *testing.T) {
 	outputsMap[interim] = []Component{sink}
 	outputsMap[sink] = []Component{source}
 
-	_, err := NewPipeline("test", outputsMap)
+	pid, err := NewPipelineID("test")
+	require.NoError(t, err)
+
+	_, err = NewPipeline(pid, outputsMap)
 	require.EqualError(t, err, "invalid pipeline config: not a DAG")
 }
 
@@ -162,7 +185,10 @@ func TestPipelineDAGTwoSourcesSuccess(t *testing.T) {
 	outputsMap[interim] = []Component{sink}
 	outputsMap[sink] = []Component{}
 
-	p, err := NewPipeline("test", outputsMap)
+	pid, err := NewPipelineID("test")
+	require.NoError(t, err)
+
+	p, err := NewPipeline(pid, outputsMap)
 	require.NoError(t, err)
 
 	require.Len(t, p.Components, 4)
@@ -192,7 +218,10 @@ func TestPipelineDAGTwoSinksFail(t *testing.T) {
 	outputsMap[sink] = []Component{}
 	outputsMap[sink2] = []Component{}
 
-	_, err := NewPipeline("test", outputsMap)
+	pid, err := NewPipelineID("test")
+	require.NoError(t, err)
+
+	_, err = NewPipeline(pid, outputsMap)
 	require.EqualError(t, err, "invalid pipeline config: pipeline can have a maximum of 2 sources and 1 sink")
 }
 
@@ -212,6 +241,9 @@ func TestPipelineDAGInvalidInterimComponent(t *testing.T) {
 	outputsMap[interim] = []Component{sink}
 	outputsMap[sink] = []Component{}
 
-	_, err := NewPipeline("test", outputsMap)
+	pid, err := NewPipelineID("test")
+	require.NoError(t, err)
+
+	_, err = NewPipeline(pid, outputsMap)
 	require.EqualError(t, err, "invalid pipeline config: invalid condition for interim component")
 }

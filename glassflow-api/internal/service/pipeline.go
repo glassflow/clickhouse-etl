@@ -10,7 +10,7 @@ import (
 
 type PipelineStore interface {
 	InsertPipeline(context.Context, models.Pipeline) error
-	GetPipeline(context.Context, string) (*models.Pipeline, error)
+	GetPipeline(context.Context, models.PipelineID) (*models.Pipeline, error)
 }
 
 type PipelineService struct {
@@ -41,7 +41,7 @@ func (p *PipelineService) SetupPipeline(ctx context.Context, pi *models.Pipeline
 	return nil
 }
 
-func (p *PipelineService) GetPipeline(ctx context.Context, id string) (*models.Pipeline, error) {
+func (p *PipelineService) GetPipeline(ctx context.Context, id models.PipelineID) (*models.Pipeline, error) {
 	pi, err := p.store.GetPipeline(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("load pipeline: %w", err)

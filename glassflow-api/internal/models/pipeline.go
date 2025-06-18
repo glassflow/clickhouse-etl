@@ -1,6 +1,9 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type PipelineConfigError struct {
 	msg string
@@ -11,8 +14,24 @@ func (e PipelineConfigError) Error() string {
 }
 
 type Pipeline struct {
-	PipelineID string
+	ID         PipelineID
 	Components []Component
+}
+
+type PipelineID struct {
+	string
+}
+
+func NewPipelineID(s string) (zero PipelineID, _ error) {
+	if len(strings.TrimSpace(s)) == 0 {
+		return zero, PipelineConfigError{msg: "pipeline ID cannot be empty"}
+	}
+
+	return PipelineID{s}, nil
+}
+
+func (pid PipelineID) String() string {
+	return string(pid.string)
 }
 
 type Component interface {
@@ -34,7 +53,7 @@ const (
 	Join           ComponentKind = "join"
 )
 
-func NewPipeline(id string, outputsMap map[Component][]Component) (*Pipeline, error) {
+func NewPipeline(pid PipelineID, outputsMap map[Component][]Component) (*Pipeline, error) {
 	for c, outputs := range outputsMap {
 		for _, o := range outputs {
 			o.SetInputs(append(o.GetInputs(), c))
@@ -74,7 +93,7 @@ func NewPipeline(id string, outputsMap map[Component][]Component) (*Pipeline, er
 	}
 
 	return &Pipeline{
-		PipelineID: id,
+		ID:         pid,
 		Components: orderedComponents,
 	}, nil
 }
