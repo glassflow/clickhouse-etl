@@ -22,7 +22,9 @@ export type TopicSelectWithEventPreviewProps = {
   }
   onTopicChange?: (topicName: string, event: any) => void
   onOffsetChange?: (offset: 'earliest' | 'latest', event: any) => void
+  onManualEventChange?: (event: string) => void
   additionalContent?: React.ReactNode
+  isEditingEnabled: boolean
 }
 
 export function TopicSelectWithEventPreview({
@@ -30,9 +32,11 @@ export function TopicSelectWithEventPreview({
   existingTopic,
   onTopicChange,
   onOffsetChange,
+  onManualEventChange,
   availableTopics,
   initialOffset = INITIAL_OFFSET_OPTIONS.LATEST as 'earliest' | 'latest',
   additionalContent,
+  isEditingEnabled,
 }: TopicSelectWithEventPreviewProps) {
   const { kafkaStore } = useStore()
 
@@ -84,6 +88,11 @@ export function TopicSelectWithEventPreview({
         fetchEvent(topic, false, {
           position: localState.offset,
         })
+      }
+
+      // Then notify parent of changes
+      if (onTopicChange && topic) {
+        onTopicChange(topic, null)
       }
     },
     [localState.offset, fetchEvent, resetEventState, existingTopic],
@@ -225,10 +234,12 @@ export function TopicSelectWithEventPreview({
           initialOffset={localState.offset}
           topicIndex={index}
           initialEvent={localState.event?.event || existingTopic?.selectedEvent?.event}
+          isEditingEnabled={isEditingEnabled}
           onEventLoading={eventHandlers.onEventLoading}
           onEventLoaded={eventHandlers.onEventLoaded}
           onEventError={eventHandlers.onEventError}
           onEmptyTopic={eventHandlers.onEmptyTopic}
+          onManualEventChange={onManualEventChange}
         />
       </div>
     </div>

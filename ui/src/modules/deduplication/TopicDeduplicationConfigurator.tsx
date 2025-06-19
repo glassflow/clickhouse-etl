@@ -56,6 +56,10 @@ export function TopicDeduplicationConfigurator({
     isLoading: false,
     userInteracted: false,
     canContinue: false,
+    manualEvent: existingTopic?.selectedEvent?.event
+      ? JSON.stringify(existingTopic?.selectedEvent?.event, null, 2)
+      : '',
+    isManualEventValid: false,
   })
 
   // Track if this is the initial render or a return visit
@@ -207,14 +211,60 @@ export function TopicDeduplicationConfigurator({
     [analytics.key],
   )
 
-  // Update the canContinue logic to include deduplication config
-  const canContinue = localState.topicName && existingTopic?.selectedEvent?.event && deduplicationConfigured
+  // Handle manual event input
+  const handleManualEventChange = (event: string) => {
+    setLocalState((prev) => ({
+      ...prev,
+      manualEvent: event,
+      isManualEventValid: false,
+    }))
+  }
+
+  // Add useEffect for JSON validation
+  useEffect(() => {
+    if (localState.manualEvent) {
+      try {
+        JSON.parse(localState.manualEvent)
+        setLocalState((prev) => ({
+          ...prev,
+          isManualEventValid: true,
+        }))
+      } catch (error) {
+        setLocalState((prev) => ({
+          ...prev,
+          isManualEventValid: false,
+        }))
+      }
+    } else {
+      setLocalState((prev) => ({
+        ...prev,
+        isManualEventValid: false,
+      }))
+    }
+  }, [localState.manualEvent])
+
+  // Update the canContinue logic to include JSON validation
+  const canContinue =
+    localState.topicName &&
+    (existingTopic?.selectedEvent?.event || (localState.manualEvent && localState.isManualEventValid)) &&
+    deduplicationConfigured
 
   // Determine if we should show validation errors
   const shouldShowValidationErrors = userInteracted || !isInitialRender || isReturningToForm
 
   // Handle form submission
   const handleSubmit = useCallback(() => {
+    let event = null
+
+    try {
+      // if there's no event in the store, use the manual event
+      event =
+        existingTopic?.selectedEvent?.event || (localState.manualEvent ? JSON.parse(localState.manualEvent) : null)
+    } catch (e) {
+      console.error('Error parsing event:', e)
+      return
+    }
+
     // Create deduplication config
     const deduplicationConfig = {
       enabled: true,
@@ -225,17 +275,29 @@ export function TopicDeduplicationConfigurator({
       keyType: keyConfig.keyType,
     }
 
+    // Always create a new event array with the current event
+    const events = [
+      {
+        event,
+        topicIndex: index,
+        position: localState.offset,
+      },
+    ]
+
+    // Create selected event with current values
+    const selectedEvent = {
+      topicIndex: index,
+      position: localState.offset,
+      event,
+    }
+
     // Update topic in the store with deduplication config
     updateTopic({
       index: index,
-      name: existingTopic?.name || '',
-      initialOffset: existingTopic?.initialOffset || 'latest',
-      events: existingTopic?.events || [],
-      selectedEvent: existingTopic?.selectedEvent || {
-        topicIndex: index,
-        position: existingTopic?.initialOffset || 'latest',
-        event: null,
-      },
+      name: localState.topicName,
+      initialOffset: localState.offset,
+      events,
+      selectedEvent,
       deduplication: deduplicationConfig,
     })
 
@@ -245,7 +307,17 @@ export function TopicDeduplicationConfigurator({
     } else {
       onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
     }
-  }, [index, existingTopic, windowConfig, keyConfig, updateTopic, onNext])
+  }, [
+    index,
+    localState.topicName,
+    localState.offset,
+    localState.manualEvent,
+    existingTopic?.selectedEvent?.event,
+    windowConfig,
+    keyConfig,
+    updateTopic,
+    onNext,
+  ])
 
   // Simplify the event handlers
   const eventHandlers = {
@@ -294,6 +366,23 @@ export function TopicDeduplicationConfigurator({
     analytics.topic.noEvent({})
   }
 
+  const renderDeduplicationSection = () => {
+    if (existingTopic?.selectedEvent?.event || localState.manualEvent) {
+      return (
+        <div className="mt-6">
+          <SelectDeduplicateKeys
+            index={index}
+            onChange={handleDeduplicationConfigChange}
+            disabled={!existingTopic?.name}
+            eventData={existingTopic?.selectedEvent?.event || localState.manualEvent}
+          />
+        </div>
+      )
+    }
+
+    return null
+  }
+
   return (
     <div className="space-y-6 w-full">
       <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
@@ -305,18 +394,9 @@ export function TopicDeduplicationConfigurator({
             onTopicChange={handleTopicSelect}
             onOffsetChange={handleOffsetChange}
             availableTopics={availableTopics}
-            additionalContent={
-              existingTopic?.selectedEvent?.event && (
-                <div className="mt-6">
-                  <SelectDeduplicateKeys
-                    index={index}
-                    onChange={handleDeduplicationConfigChange}
-                    disabled={!existingTopic?.name}
-                    eventData={existingTopic.selectedEvent.event}
-                  />
-                </div>
-              )
-            }
+            additionalContent={renderDeduplicationSection()}
+            onManualEventChange={handleManualEventChange}
+            isEditingEnabled={false}
           />
         </div>
 
