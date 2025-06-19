@@ -56,7 +56,7 @@ jobs:
           provenance: false
           outputs: push-by-digest=true,type=image
           tags: |
-            glassflow-etl-cloud-be
+            glassflow/glassflow-etl-cloud-be
       - name: Generate output
         id: gen-output
         run: echo "${ARCH}_digest=$DIGEST" >> "$GITHUB_OUTPUT"
@@ -94,7 +94,7 @@ jobs:
           AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
           ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
           TAGS: ${{ steps.meta.outputs.tags }}
-          REPOSITORY: glassflow/glassflow-etl-cloud-be
+          REPOSITORY: glassflow-etl-cloud-be
 
   build-and-push-frontend:
     name: Build And Push UI Image

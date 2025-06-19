@@ -63,7 +63,7 @@ func mainErr(cfg *config) error {
 	var logFile io.WriteCloser
 	var err error
 
-	if cfg.LeftStreamName == "" || cfg.LeftStreamName == "" {
+	if cfg.LeftStreamName == "" || cfg.LeftStreamSubject == "" {
 		return fmt.Errorf("stream name and subject must be provided")
 	}
 
