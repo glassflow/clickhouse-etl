@@ -127,7 +127,7 @@ function HomePageClient() {
 
   return (
     <div className="flex flex-col items-center gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 sm:px-6 lg:px-8">
-      <h1 className="title-1 text-gradient">Welcome!</h1>
+      <h1 className="title-1 text-brand-gradient">Welcome!</h1>
       <p className="w-full text-center subtitle muted-foreground">
         Create a new pipeline with ready-to-use data operations
       </p>
@@ -135,8 +135,8 @@ function HomePageClient() {
       <div className="grid grid-cols-2 gap-4 mt-12 w-full max-w-[512px]">
         <div
           className={cn(
-            'card-gradient',
-            operationsSelected?.operation === OperationKeys.DEDUPLICATION && 'card-gradient-active',
+            'card card-elevated',
+            operationsSelected?.operation === OperationKeys.DEDUPLICATION && 'active',
             'btn-home-lg',
           )}
         >
@@ -150,8 +150,8 @@ function HomePageClient() {
         </div>
         <div
           className={cn(
-            'card-gradient',
-            operationsSelected?.operation === OperationKeys.JOINING && 'card-gradient-active',
+            'card card-elevated',
+            operationsSelected?.operation === OperationKeys.JOINING && 'active',
             'btn-home-lg',
           )}
         >
@@ -166,8 +166,8 @@ function HomePageClient() {
 
         <div
           className={cn(
-            'card-gradient',
-            operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING && 'card-gradient-active',
+            'card card-elevated',
+            operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING && 'active',
             'btn-home-lg',
           )}
         >
@@ -182,8 +182,8 @@ function HomePageClient() {
 
         <div
           className={cn(
-            'card-gradient',
-            operationsSelected?.operation === OperationKeys.INGEST_ONLY && 'card-gradient-active',
+            'card card-elevated',
+            operationsSelected?.operation === OperationKeys.INGEST_ONLY && 'active',
             'btn-home-lg',
           )}
         >

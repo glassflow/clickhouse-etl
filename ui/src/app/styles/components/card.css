@@ -1,0 +1,76 @@
+/* ================== Card/container utilities ================== */
+.card {
+  border-radius: var(--radius-large);
+  border: 1px solid var(--color-border-regular);
+  background: var(--color-background-regular);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-overlay);
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-raised);
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-overlay);
+}
+
+/* Active state for selected cards */
+.card:active {
+  box-shadow: var(--shadow-overlay);
+  position: relative;
+}
+
+.card:active:before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Configuration card style */
+.feedback-card {
+  border-radius: 12px;
+  border: 1px solid #a5b9e4;
+  background: linear-gradient(180deg, rgba(91, 102, 126, 0.15) 0%, rgba(165, 185, 228, 0.15) 100%);
+  box-shadow:
+    0px 0px 4px 0px rgba(0, 0, 0, 0.2),
+    0px 8px 16px 0px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.feedback-card:hover {
+  border-color: #c4d1f0;
+  background: linear-gradient(180deg, rgba(91, 102, 126, 0.25) 0%, rgba(165, 185, 228, 0.25) 100%);
+  box-shadow:
+    0px 0px 8px 0px rgba(0, 0, 0, 0.25),
+    0px 12px 24px 0px rgba(0, 0, 0, 0.35);
+}
+
+/* Content card style */
+.content-card {
+  border-radius: 12px;
+  border: 1px solid #3d4869;
+  background: linear-gradient(180deg, #1e1e1f 0%, #151517 100%);
+  box-shadow:
+    0px 0px 4px 0px rgba(0, 0, 0, 0.04),
+    0px 8px 16px 0px rgba(0, 0, 0, 0.08);
+}
+
+.content-card:hover {
+  background: linear-gradient(180deg, #1a1a1b 0%, #121214 100%);
+  box-shadow:
+    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
+    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+  border-color: #4a5a80;
+}

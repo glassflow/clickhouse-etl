@@ -1,0 +1,97 @@
+/* ================== Button Utilities ================== */
+.btn-primary {
+  border-radius: var(--radius-medium);
+  background: linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%);
+  box-shadow: var(--shadow-pressed);
+  color: var(--color-on-background-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-background-primary-faded);
+}
+
+.btn-primary:active {
+  background-color: var(--color-background-primary-faded);
+}
+
+.btn-neutral {
+  background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
+  color: var(--color-on-background-neutral);
+  border: none;
+  box-shadow: var(--shadow-neutral);
+}
+
+.btn-neutral:hover {
+  background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
+}
+
+.btn-neutral:active {
+  background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
+}
+
+.btn-neutral:disabled {
+  background: linear-gradient(
+    134deg,
+    var(--color-background-disabled) 18.07%,
+    var(--color-background-disabled-faded) 76.51%
+  );
+  color: var(--color-on-background-disabled);
+}
+
+.btn-critical {
+  background-color: var(--color-background-critical);
+  color: var(--color-on-background-critical);
+}
+
+.btn-critical:hover {
+  background-color: var(--color-background-critical-faded);
+}
+
+.btn-critical:active {
+  background-color: var(--color-background-critical-faded);
+}
+
+.btn-secondary {
+  background-color: var(--color-background-neutral);
+  color: var(--color-on-background-neutral);
+  border: none;
+  box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-background-neutral-faded);
+}
+
+.btn-secondary:active {
+  background-color: var(--color-background-neutral-faded);
+}
+
+.btn-secondary:disabled {
+  background-color: var(--color-background-neutral-faded);
+  color: var(--color-on-background-neutral-faded);
+}
+
+.btn-tertiary {
+  background-color: var(--color-background-neutral-black);
+  color: var(--color-on-background-neutral);
+  border: 1px solid var(--color-border-neutral);
+  box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-tertiary:hover {
+  background-color: var(--color-background-neutral-faded);
+}
+
+.btn-tertiary:active {
+  background-color: var(--color-background-neutral-faded);
+}
+
+.btn-tertiary:disabled {
+  background-color: var(--color-background-neutral-faded);
+  color: var(--color-on-background-neutral-faded);
+}
+
+.btn-home-lg {
+  width: 248px;
+  height: 100px;
+}

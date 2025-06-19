@@ -1,0 +1,42 @@
+/* ================== Modal utilities ================== */
+.info-modal-container {
+  background-color: var(--color-background-page);
+  border: 1px solid var(--color-border-info-faded);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.modal-title {
+  color: var(--color-foreground-neutral);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.modal-description {
+  color: var(--color-foreground-neutral-faded);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.step-title {
+  color: var(--color-foreground-neutral);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 2;
+}
+
+.step-description {
+  color: var(--color-foreground-neutral-faded);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.text-content {
+  color: var(--color-foreground-neutral-faded);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+}

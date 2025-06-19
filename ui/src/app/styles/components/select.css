@@ -1,0 +1,37 @@
+.select-content-custom {
+  background-color: #1e1e1f;
+  border: 1px solid var(--color-border-regular);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.select-content-custom:active {
+  background-color: #1e1e1f;
+  border: 1px solid var(--color-background-primary);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.select-item-custom {
+  color: #ffffff;
+  padding: 8px 12px;
+}
+
+.select-item-custom:hover {
+  background-color: rgba(165, 185, 228, 0.1);
+}
+
+.select-item-custom[data-highlighted] {
+  background-color: rgba(165, 185, 228, 0.2);
+  color: var(--color-background-primary);
+}
+
+.select-item-custom[data-state='checked'] {
+  background-color: rgba(165, 185, 228, 0.3);
+  color: var(--color-background-primary);
+}
+
+/* Override the default focus styles for the select trigger */
+[data-radix-select-trigger]:focus-visible {
+  outline: none !important;
+}
