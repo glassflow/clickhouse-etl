@@ -6,6 +6,7 @@ import Join from '../../images/join.svg'
 import Deduplicate from '../../images/deduplicate.svg'
 import DeduplicateJoin from '../../images/deduplicate-join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
+import PlusHome from '../../images/plus-home.svg'
 // import { ThemeDebug } from '../../components/ThemeDebug'
 import { useStore } from '@/src/store'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -27,6 +28,41 @@ import { getPipelineStatus } from '@/src/api/pipeline'
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+
+const ConnectionCard = () => {
+  return (
+    <div className="mt-12 sm:mt-16">
+      <div className="w-full text-center muted-foreground mb-4">
+        <p className="text-center subtitle-2">Save Kafka and ClickHouse credentials to setup pipelines quickly</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-[512px]">
+        <div
+          className={cn('content-card', 'h-16 sm:h-20 lg:h-24 w-full', 'cursor-pointer', 'relative', 'group')}
+          onClick={() => {}}
+        >
+          <div className="flex items-center px-4 sm:px-6 w-full h-full">
+            <Image src={PlusHome} alt="Add Kafka Connection" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+              Add Kafka Connection
+            </span>
+          </div>
+        </div>
+
+        <div
+          className={cn('content-card', 'h-16 sm:h-20 lg:h-24 w-full', 'cursor-pointer', 'relative', 'group')}
+          onClick={() => {}}
+        >
+          <div className="flex items-center px-4 sm:px-6 w-full h-full">
+            <Image src={PlusHome} alt="Add ClickHouse Connection" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+              Add ClickHouse Connection
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // Client Component for handling searchParams
 function HomePageClient() {
@@ -207,6 +243,8 @@ function HomePageClient() {
         cancelButtonText="No"
         onComplete={handleWarningModalComplete}
       />
+
+      <ConnectionCard />
 
       <div className="w-full mt-12 sm:mt-16">
         <SavedConfigurations />

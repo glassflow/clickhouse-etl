@@ -116,3 +116,13 @@
   line-height: var(--line-height-featured-2, 32px);
   letter-spacing: var(--letter-spacing-featured-2, 0px);
 }
+
+.subtitle-2 {
+  color: var(--color-foreground-neutral-faded);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-title-6, 16px);
+  font-style: normal;
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-title-6, 24px);
+  letter-spacing: var(--letter-spacing-featured-2, 0px);
+}
