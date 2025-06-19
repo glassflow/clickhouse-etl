@@ -17,7 +17,7 @@ type JoinRunner struct {
 	log *slog.Logger
 	nc  *client.NATSClient
 
-	operator *operator.JoinOperator
+	operator operator.Operator
 	c        chan error
 }
 
@@ -31,7 +31,7 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamConfig, publisherSubject string, schemaMapper schema.Mapper) error {
+func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, streams []models.StreamConfig, publisherSubject string, schemaMapper schema.Mapper) error {
 	if len(streams) == 0 {
 		return fmt.Errorf("setup joiner: length of streams must not be 0")
 	}
@@ -101,7 +101,10 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 		Subject: publisherSubject,
 	})
 
-	joinOp := operator.NewJoinOperator(
+	joinOp, err := operator.NewJoinOperator(
+		models.JoinOperatorConfig{
+			Type: joinType,
+		},
 		leftConsumer,
 		rightConsumer,
 		resultsPublisher,
@@ -112,6 +115,11 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, streams []models.StreamCon
 		rightStreamName,
 		j.log,
 	)
+
+	if err != nil {
+		j.log.Error("failed to join: ", slog.Any("error", err))
+		return fmt.Errorf("create join: %w", err)
+	}
 
 	go func() {
 		joinOp.Start(ctx, j.c)

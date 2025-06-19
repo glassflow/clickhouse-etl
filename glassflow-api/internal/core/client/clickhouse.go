@@ -9,17 +9,15 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-type ClickHouseClientConfig struct {
-	Host                 string `json:"host" default:"127.0.0.1"`
-	Port                 string `json:"port" default:"9000"`
-	Username             string `json:"username" default:"default"`
-	Secure               bool   `json:"tls_enabled" default:"false"`
-	Password             string `json:"password"`
-	Database             string `json:"database" default:"default"`
-	TableName            string `json:"table"`
-	SkipCertificateCheck bool   `json:"skip_certificate_check" default:"false"`
+type DatabaseClient interface {
+	Reconnect(ctx context.Context) error
+	PrepareBatch(ctx context.Context, query string) (driver.Batch, error)
+	GetDatabase() string
+	GetTableName() string
+	Close() error
 }
 
 type ClickHouseClient struct {
@@ -34,14 +32,14 @@ type ClickHouseClient struct {
 	skipCertificateCheck bool
 }
 
-func NewClickHouseClient(ctx context.Context, cfg ClickHouseClientConfig) (*ClickHouseClient, error) {
+func NewClickHouseClient(ctx context.Context, cfg models.ClickHouseConnectionParamsConfig) (*ClickHouseClient, error) {
 	client := &ClickHouseClient{ //nolint:exhaustruct // optional config
 		host:                 cfg.Host,
 		port:                 cfg.Port,
 		username:             cfg.Username,
 		password:             cfg.Password,
 		database:             cfg.Database,
-		tableName:            cfg.TableName,
+		tableName:            cfg.Table,
 		secure:               cfg.Secure,
 		skipCertificateCheck: cfg.SkipCertificateCheck,
 	}

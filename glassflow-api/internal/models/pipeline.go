@@ -150,7 +150,7 @@ type ClickhouseConfig struct {
 	Mapping              []KafkaToClickhouseMap
 
 	MaxBatchSize int
-	MaxDelayTime time.Duration
+	MaxDelayTime JSONDuration
 }
 
 type KafkaToClickhouseMap struct {
@@ -299,7 +299,7 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 		SkipCertificateCheck: req.Sink.SkipCertificateVerification,
 
 		MaxBatchSize: req.Sink.MaxBatchSize,
-		MaxDelayTime: req.Sink.MaxDelayTime.Duration(),
+		MaxDelayTime: req.Sink.MaxDelayTime,
 	}
 
 	mappings := make([]KafkaToClickhouseMap, len(req.Sink.Mapping))

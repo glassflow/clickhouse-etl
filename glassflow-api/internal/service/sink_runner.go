@@ -8,7 +8,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
@@ -17,7 +16,7 @@ type SinkRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	operator *operator.SinkOperator
+	operator operator.Operator
 	c        chan error
 }
 
@@ -31,7 +30,7 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
 	}
 }
 
-func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject string, cfg models.ClickhouseConfig, schemaMapper schema.Mapper) error {
+func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject string, cfg models.SinkOperatorConfig, schemaMapper schema.Mapper) error {
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   consumerStream,
@@ -42,29 +41,8 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 
-	chClient, err := client.NewClickHouseClient(
-		ctx,
-		client.ClickHouseClientConfig{
-			Host:                 cfg.Host,
-			Port:                 cfg.Port,
-			Username:             cfg.Username,
-			Secure:               cfg.Secure,
-			Password:             cfg.Password,
-			Database:             cfg.Database,
-			TableName:            cfg.Table,
-			SkipCertificateCheck: cfg.SkipCertificateCheck,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("create clickhouse client: %w", err)
-	}
-
 	sinkOperator, err := operator.NewSinkOperator(
-		chClient,
-		sink.ClickHouseSinkConfig{
-			MaxBatchSize: cfg.MaxBatchSize,
-			MaxDelayTime: cfg.MaxDelayTime,
-		},
+		cfg,
 		consumer,
 		schemaMapper,
 		s.log,

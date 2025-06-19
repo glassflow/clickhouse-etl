@@ -11,11 +11,10 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -26,9 +25,8 @@ type SinkTestSuite struct {
 	tablename  string
 
 	streamConfig *stream.ConsumerConfig
-	schemaConfig schema.Config
-	sinkConfig   sink.ClickHouseSinkConfig
-	chClient     *client.ClickHouseClient
+	schemaConfig models.MapperConfig
+	sinkConfig   models.SinkOperatorConfig
 	CHSink       operator.Operator
 }
 
@@ -103,18 +101,20 @@ func (s *SinkTestSuite) aClickHouseClientWithConfig(dbName, tableName string) er
 	if err != nil {
 		return fmt.Errorf("get clickhouse port: %w", err)
 	}
-	s.chClient, err = client.NewClickHouseClient(context.Background(), client.ClickHouseClientConfig{ //nolint:exhaustruct // optional config
-		Port:      chPort,
-		Username:  "default",
-		Password:  base64.StdEncoding.EncodeToString([]byte("default")),
-		Database:  dbName,
-		TableName: tableName,
-	})
-	if err != nil {
-		return fmt.Errorf("create clickhouse client: %w", err)
-	}
 
 	s.tablename = dbName + "." + tableName
+
+	s.sinkConfig.ClickHouseConnectionParams = models.ClickHouseConnectionParamsConfig{
+		Host:     "localhost",
+		Port:     chPort,
+		Username: "default",
+		Password: base64.StdEncoding.EncodeToString([]byte("default")),
+		Database: dbName,
+		Table:    tableName,
+		Secure:   false,
+	}
+
+	s.sinkConfig.Type = models.ClickHouseSinkType
 
 	return nil
 }
@@ -150,9 +150,10 @@ func (s *SinkTestSuite) theClickHouseTableAlreadyExistsWithSchema(tableName stri
 }
 
 func (s *SinkTestSuite) aBatchConfigWithMaxSize(maxSize int) error {
-	s.sinkConfig = sink.ClickHouseSinkConfig{ //nolint:exhaustruct // optional config
+	batchCfg := models.BatchConfig{
 		MaxBatchSize: maxSize,
 	}
+	s.sinkConfig.Batch = batchCfg
 	return nil
 }
 
@@ -161,10 +162,12 @@ func (s *SinkTestSuite) aBatchConfigWithMaxSizeAndDelay(maxSize int, duration st
 	if err != nil {
 		return fmt.Errorf("parse duration: %w", err)
 	}
-	s.sinkConfig = sink.ClickHouseSinkConfig{
+
+	batchCfg := models.BatchConfig{
 		MaxBatchSize: maxSize,
-		MaxDelayTime: maxDelayTime,
+		MaxDelayTime: *models.NewJSONDuration(maxDelayTime),
 	}
+	s.sinkConfig.Batch = batchCfg
 	return nil
 }
 
@@ -210,7 +213,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		return fmt.Errorf("create stream consumer: %w", err)
 	}
 
-	schemaMapper, err := schema.NewJsonToClickHouseMapper(s.schemaConfig.Streams, s.schemaConfig.SinkMapping)
+	schemaMapper, err := schema.NewJSONToClickHouseMapper(s.schemaConfig.Streams, s.schemaConfig.SinkMapping)
 	if err != nil {
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
@@ -218,7 +221,6 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 	logger := testutils.NewTestLogger()
 
 	sink, err := operator.NewSinkOperator(
-		s.chClient,
 		s.sinkConfig,
 		streamConsumer,
 		schemaMapper,
@@ -343,15 +345,6 @@ func (s *SinkTestSuite) CleanupResources() error {
 		}
 
 		s.CHSink = nil
-	}
-
-	// Close ClickHouse client
-	if s.chClient != nil {
-		err := s.chClient.Close()
-		if err != nil {
-			errs = append(errs, fmt.Errorf("close ClickHouse client: %w", err))
-		}
-		s.chClient = nil
 	}
 
 	// Stop ClickHouse container
