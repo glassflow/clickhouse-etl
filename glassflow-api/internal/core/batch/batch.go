@@ -6,23 +6,28 @@ import (
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 )
 
 var ErrAlreadyExists = errors.New("already exists")
 
-type DBClient interface {
-	PrepareBatch(ctx context.Context, query string) (driver.Batch, error)
+type Batch interface {
+	Reload(ctx context.Context) error
+	Size() int
+	Append(id uint64, data ...any) error
+	Send(ctx context.Context) error
 }
 
-type Batch struct {
-	client       DBClient
+type ClickHouseBatch struct {
+	client       client.DatabaseClient
 	query        string
 	currentBatch driver.Batch
 	cache        map[uint64]struct{}
 }
 
-func New(ctx context.Context, chClient DBClient, query string) (*Batch, error) {
-	b := &Batch{
+func NewClickHouseBatch(ctx context.Context, chClient client.DatabaseClient, query string) (Batch, error) {
+	b := &ClickHouseBatch{
 		client:       chClient,
 		query:        query,
 		currentBatch: nil,
@@ -37,7 +42,7 @@ func New(ctx context.Context, chClient DBClient, query string) (*Batch, error) {
 	return b, nil
 }
 
-func (b *Batch) Reload(ctx context.Context) error {
+func (b *ClickHouseBatch) Reload(ctx context.Context) error {
 	batch, err := b.client.PrepareBatch(ctx, b.query)
 	if err != nil {
 		return fmt.Errorf("failed to create batch: %w", err)
@@ -48,11 +53,11 @@ func (b *Batch) Reload(ctx context.Context) error {
 	return nil
 }
 
-func (b *Batch) Size() int {
+func (b *ClickHouseBatch) Size() int {
 	return len(b.cache)
 }
 
-func (b *Batch) Append(id uint64, data ...any) error {
+func (b *ClickHouseBatch) Append(id uint64, data ...any) error {
 	if _, ok := b.cache[id]; ok {
 		return ErrAlreadyExists //nolint:wrapcheck //custom error usage
 	}
@@ -67,7 +72,7 @@ func (b *Batch) Append(id uint64, data ...any) error {
 	return nil
 }
 
-func (b *Batch) Send(ctx context.Context) error {
+func (b *ClickHouseBatch) Send(ctx context.Context) error {
 	err := b.currentBatch.Send()
 	if err != nil {
 		return fmt.Errorf("failed to send the batch: %w", err)

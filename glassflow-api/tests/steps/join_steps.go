@@ -15,6 +15,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -29,8 +30,8 @@ type JoinTestSuite struct {
 	leftStreamConfig      *stream.ConsumerConfig
 	rightStreamConfig     *stream.ConsumerConfig
 	resultsConsumerConfig *stream.ConsumerConfig
-	schemaConfig          *schema.Config
-	joinOperator          *operator.JoinOperator
+	schemaConfig          *models.MapperConfig
+	joinOperator          operator.Operator
 }
 
 func NewJoinTestSuite() *JoinTestSuite {
@@ -159,14 +160,17 @@ func (j *JoinTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error {
 		Subject: j.resultsConsumerConfig.NatsSubject,
 	})
 
-	schemaMapper, err := schema.NewJsonToClickHouseMapper(j.schemaConfig.Streams, j.schemaConfig.SinkMapping)
+	schemaMapper, err := schema.NewJSONToClickHouseMapper(j.schemaConfig.Streams, j.schemaConfig.SinkMapping)
 	if err != nil {
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
 	logger := testutils.NewTestLogger()
 
-	operator := operator.NewJoinOperator(
+	operator, err := operator.NewJoinOperator(
+		models.JoinOperatorConfig{
+			Type: models.TemporalJoinType,
+		},
 		leftStreamConsumer,
 		rightStreamConsumer,
 		resultsPublisher,
@@ -177,6 +181,10 @@ func (j *JoinTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error {
 		j.rightStreamConfig.NatsStream,
 		logger,
 	)
+
+	if err != nil {
+		return fmt.Errorf("create join operator: %w", err)
+	}
 
 	j.joinOperator = operator
 

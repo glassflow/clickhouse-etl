@@ -280,7 +280,6 @@ func (b *BaseTestSuite) clickhouseShouldContainData(table string, expectedData *
 		query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s", table, whereClause)
 		row := conn.QueryRow(context.Background(), query)
 		err = row.Scan(&actualCount)
-
 		if err != nil {
 			return fmt.Errorf("query clickhouse: %w", err)
 		}

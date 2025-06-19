@@ -89,14 +89,14 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		sinkConsumerSubject string
 	)
 
-	streamsCfg := make(map[string]schema.StreamSchemaConfig)
+	streamsCfg := make(map[string]models.StreamSchemaConfig)
 	for _, s := range pipeline.Streams {
 		sinkConsumerStream = s.Name
 		sinkConsumerSubject = s.Subject
-		var fields []schema.StreamDataField
+		var fields []models.StreamDataField
 
 		for _, f := range s.Schema {
-			field := schema.StreamDataField{
+			field := models.StreamDataField{
 				FieldName: f.Name,
 				FieldType: f.DataType,
 			}
@@ -104,16 +104,16 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 			fields = append(fields, field)
 		}
 
-		streamsCfg[s.Name] = schema.StreamSchemaConfig{
+		streamsCfg[s.Name] = models.StreamSchemaConfig{
 			Fields:       fields,
 			JoinKeyField: s.Join.ID,
 		}
 	}
 
-	sinkCfg := make([]schema.SinkMappingConfig, len(pipeline.ClickhouseConfig.Mapping))
+	sinkCfg := make([]models.SinkMappingConfig, len(pipeline.ClickhouseConfig.Mapping))
 
 	for i, m := range pipeline.ClickhouseConfig.Mapping {
-		mapping := schema.SinkMappingConfig{
+		mapping := models.SinkMappingConfig{
 			ColumnName: m.ColumnName,
 			StreamName: m.StreamName,
 			FieldName:  m.FieldName,
@@ -125,7 +125,12 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 
 	// TODO: transfer all schema mapper validations in models.NewPipeline
 	// so validation errors are handled the same way with correct HTTPStatus
-	schemaMapper, err := schema.NewJsonToClickHouseMapper(streamsCfg, sinkCfg)
+	schemaMapper, err := schema.NewMapper(
+		models.MapperConfig{
+			Type:        models.SchemaMapperJSONToCHType,
+			Streams:     streamsCfg,
+			SinkMapping: sinkCfg,
+		})
 	if err != nil {
 		return fmt.Errorf("new schema mapper: %w", err)
 	}
@@ -161,13 +166,30 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		}
 		p.log.Debug("created join stream successfully")
 
-		err = p.joinRunner.SetupJoiner(ctx, pipeline.Streams, sinkConsumerSubject, schemaMapper)
+		err = p.joinRunner.SetupJoiner(ctx, "temporal", pipeline.Streams, sinkConsumerSubject, schemaMapper)
 		if err != nil {
 			return fmt.Errorf("setup join operator: %w", err)
 		}
 	}
 
-	err = p.sinkRunner.Start(ctx, sinkConsumerStream, sinkConsumerSubject, pipeline.ClickhouseConfig, schemaMapper)
+	err = p.sinkRunner.Start(
+		ctx, sinkConsumerStream, sinkConsumerSubject,
+		models.SinkOperatorConfig{
+			Type: models.ClickHouseSinkType,
+			Batch: models.BatchConfig{
+				MaxBatchSize: pipeline.ClickhouseConfig.MaxBatchSize,
+				MaxDelayTime: pipeline.ClickhouseConfig.MaxDelayTime,
+			},
+			ClickHouseConnectionParams: models.ClickHouseConnectionParamsConfig{
+				Host:     pipeline.ClickhouseConfig.Host,
+				Port:     pipeline.ClickhouseConfig.Port,
+				Database: pipeline.ClickhouseConfig.Database,
+				Username: pipeline.ClickhouseConfig.Username,
+				Password: pipeline.ClickhouseConfig.Password,
+				Table:    pipeline.ClickhouseConfig.Table,
+				Secure:   pipeline.ClickhouseConfig.Secure,
+			},
+		}, schemaMapper)
 	if err != nil {
 		return fmt.Errorf("start sink: %w", err)
 	}
