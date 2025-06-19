@@ -113,3 +113,24 @@
     outline-offset: 2px;
   }
 }
+
+/* Mobile: Full width with padding */
+.container {
+  padding: 0 1rem;
+}
+
+/* Tablet: Some constraints */
+@media (min-width: 768px) {
+  .container {
+    padding: 0 1.5rem;
+  }
+}
+
+/* Desktop: Full constraints */
+@media (min-width: 1024px) {
+  .container {
+    max-width: var(--main-container-width);
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+}

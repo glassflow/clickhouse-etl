@@ -12,8 +12,11 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useStore } from '@/src/store'
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
+import HelpIcon from '../../images/help-questionmark.svg'
 import { Button } from '@/src/components/ui/button'
 import classnames from 'classnames'
+import CloseIcon from '../../images/close.svg'
+import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 
 const NavButton = ({ href, icon, label }: { href: string; icon: any; label: string }) => {
   return (
@@ -30,11 +33,71 @@ const NavButton = ({ href, icon, label }: { href: string; icon: any; label: stri
   )
 }
 
+const MobileNavButton = ({ href, icon, label }: { href: string; icon: any; label: string }) => {
+  return (
+    <li className="text-sm font-medium">
+      <Link href={href} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-800 rounded-md">
+        <Image src={icon} alt={label} width={20} height={20} />
+        {label}
+      </Link>
+    </li>
+  )
+}
+
+const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: boolean) => void }) => {
+  return (
+    <div className="relative">
+      <Button variant="ghost" className="p-2 lg:px-3 lg:py-2" onClick={() => setIsOpen(!isOpen)}>
+        {/* Mobile: Show icon only */}
+        <div className="lg:hidden">
+          <Image src={HelpIcon} alt="Help" width={24} height={24} />
+        </div>
+
+        {/* Desktop: Show text with chevron */}
+        <div className="hidden lg:flex items-center gap-2">
+          Help
+          <Image src={isOpen ? ChevronUpIcon : ChevronDownIcon} alt="Toggle" width={16} height={16} />
+        </div>
+      </Button>
+
+      <div
+        className={`absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 background ${
+          isOpen ? 'block' : 'hidden'
+        }`}
+      >
+        <a
+          href="https://docs.glassflow.dev/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          View Docs
+        </a>
+        <a
+          href="mailto:help@glassflow.dev"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          Contact Us
+        </a>
+        <a
+          href="https://github.com/glassflow/clickhouse-etl/issues"
+          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          Report an Issue
+        </a>
+      </div>
+    </div>
+  )
+}
+
 export function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const { resetPipelineState } = useStore()
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false)
 
   // Replace individual modal states with a single modal state object
@@ -64,73 +127,70 @@ export function Header() {
   }
 
   return (
-    <div className="h-16 w-full min-w-[var(--main-container-width)] max-w-[var(--main-container-width)] mx-auto">
-      <div className="container h-full">
+    <div className="h-16 w-full max-w-[var(--main-container-width)] mx-auto">
+      <div className="container h-full px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row justify-between items-center h-full">
-          <div className="flex flex-row justify-start items-center gap-4 h-full">
-            <div className="flex flex-start justify-start h-full w-full items-center">
-              <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
-                <Image src={logoFullName} alt="Glassflow Logo" width={140} height={30} className="cursor-pointer" />
-              </Button>
-            </div>
-            <nav className="flex flex-row items-center gap-4 h-full">
-              <ul className="flex flex-row items-center gap-8 h-full">
-                <NavButton href="/home" icon={ListIcon} label="Create" />
-                <NavButton href="/pipelines" icon={PlugIcon} label="Pipelines" />
-                <NavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" />
-              </ul>
-            </nav>
+          {/* Mobile: Hamburger Menu (Left) */}
+          <div className="lg:hidden flex items-center">
+            <Button variant="ghost" className="p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+              <Image src={isMobileMenuOpen ? CloseIcon : BurgerIcon} alt="Menu" width={24} height={24} />
+            </Button>
           </div>
-          <div className="flex flex-row justify-end items-center gap-4 h-full">
-            <div className="relative">
-              <div
-                className="flex flex-row items-center gap-2 cursor-pointer"
-                onClick={() => setIsHelpMenuOpen(!isHelpMenuOpen)}
-              >
-                <Button variant="ghost" className="flex items-center gap-2">
-                  Help
-                </Button>
-                <div className="flex flex-row items-center gap-2">
-                  {isHelpMenuOpen ? (
-                    <Image src={ChevronUpIcon} alt="Chevron Up" width={16} height={16} />
-                  ) : (
-                    <Image src={ChevronDownIcon} alt="Chevron Down" width={16} height={16} />
-                  )}
-                </div>
-              </div>
 
-              <div
-                id="help-menu"
-                className={classnames(
-                  'absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1',
-                  isHelpMenuOpen ? 'block' : 'hidden',
-                )}
-              >
-                <a
-                  href="https://docs.glassflow.dev"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  View Docs
-                </a>
-                <a
-                  href="https://github.com/glassflow/glassflow/issues"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  Contact Us
-                </a>
-                <a
-                  href="mailto:support@glassflow.dev"
-                  className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  Report an Issue
-                </a>
-              </div>
-            </div>
+          {/* Desktop: Logo (Left) */}
+          <div className="hidden lg:flex items-center">
+            <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
+              <Image
+                src={logoFullName}
+                alt="Glassflow Logo"
+                width={140}
+                height={30}
+                className="cursor-pointer w-auto h-8"
+              />
+            </Button>
           </div>
+
+          {/* Mobile: Logo (Center) */}
+          <div className="lg:hidden flex items-center justify-center flex-1">
+            <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
+              <Image
+                src={logoFullName}
+                alt="Glassflow Logo"
+                width={140}
+                height={30}
+                className="cursor-pointer w-auto h-6 sm:h-8"
+              />
+            </Button>
+          </div>
+
+          {/* Desktop: Navigation (Center) */}
+          <nav className="hidden lg:flex flex-row items-center gap-4 h-full flex-1 justify-center">
+            <ul className="flex flex-row items-center gap-8 h-full">
+              <NavButton href="/home" icon={ListIcon} label="Create" />
+              <NavButton href="/pipelines" icon={PlugIcon} label="Pipelines" />
+              <NavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" />
+            </ul>
+          </nav>
+
+          {/* Help Menu (Right) */}
+          <div className="flex items-center">
+            <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
+          </div>
+        </div>
+
+        {/* Mobile Navigation Menu */}
+        <div
+          className={`lg:hidden transition-all duration-300 ease-in-out ${
+            isMobileMenuOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+          }`}
+        >
+          <nav className="py-4 border-t border-gray-700 background z-10">
+            <ul className="flex flex-col gap-4">
+              <MobileNavButton href="/home" icon={ListIcon} label="Create" />
+              <MobileNavButton href="/pipelines" icon={PlugIcon} label="Pipelines" />
+              <MobileNavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" />
+            </ul>
+          </nav>
         </div>
       </div>
       <InfoModal
