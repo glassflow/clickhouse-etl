@@ -1,0 +1,72 @@
+---
+title: 'AWS EC2'
+description: 'Install GlassFlow on AWS EC2'
+---
+
+# GlassFlow on AWS EC2
+
+This guide will walk you through the process of installing GlassFlow on an AWS EC2 instance.
+
+## Prerequisites
+
+- AWS account with enough permissions to create EC2 instances and security groups.
+
+## Installation
+
+1. Create a new EC2 instance using the Amazon Linux 2 AMI.
+
+2. Update the instance's security group to allow inbound traffic on port `8080` (TCP).  
+   > **Warning:** Opening port 8080 to the internet exposes the GlassFlow UI publicly. For production, restrict access by IP or use a VPN.
+
+3. Log in to the instance and install Git and Docker:
+```bash
+sudo yum update -y
+sudo yum install -y amazon-linux-extras git
+sudo amazon-linux-extras install docker -y
+sudo systemctl start docker
+sudo usermod -a -G docker $USER
+sudo systemctl enable docker
+```
+
+4. After adding your user to the Docker group, log out and log back in for the changes to take effect, or run:
+```bash
+newgrp docker
+```
+
+5. Install Docker Compose:
+```bash
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
+6. Restart your terminal session and verify Docker and Docker Compose installation:
+```bash
+docker info
+docker-compose version
+```
+
+7. Clone the GlassFlow repository:
+```bash
+git clone https://github.com/glassflow/clickhouse-etl.git
+```
+
+8. Start the services using Docker Compose:
+```bash
+cd clickhouse-etl
+docker compose up -d
+```
+
+9. Access the GlassFlow UI by visiting:
+```
+http://<instance-public-ip>:8080
+```
+Replace `<instance-public-ip>` with your EC2 instance's public IPv4 address found in the AWS EC2 Console.
+
+## Getting Help
+
+If you encounter any issues during installation:
+
+- Join our [Slack community](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
+- Email our support team at [help@glassflow.dev](mailto:help@glassflow.dev)
+- Open an issue on [GitHub](https://github.com/glassflow/clickhouse-etl/issues)
+- Start a conversation on [GitHub Discussions](https://github.com/glassflow/clickhouse-etl/discussions)

@@ -1,0 +1,93 @@
+---
+title: 'Kubernetes Helm'
+description: 'Install GlassFlow on Kubernetes using Helm'
+---
+
+# GlassFlow on Kubernetes using Helm
+
+This guide will walk you through the process of installing GlassFlow on Kubernetes using Helm.
+
+
+> ℹ️ **Note:**  
+> - The official Helm chart is available at [github.com/glassflow/charts](https://github.com/glassflow/charts).  
+> - The current Helm deployment **does not expose GlassFlow to the internet by default**. You must use `kubectl port-forward` to access the UI or API.  
+> - To expose GlassFlow externally (e.g., via a domain), you must configure ingress in your `values.yaml`. Refer to the default `values.yaml` [here](https://github.com/glassflow/charts/blob/main/charts/glassflow-etl/values.yaml).  
+> - **Scalability Notice:** The current GlassFlow deployment is **not horizontally scalable** and is **not recommended for high-load production use cases**. A new, Kubernetes-native scalable version is under development and is expected to be released by **end of July**.
+
+
+## Prerequisites
+
+- A running Kubernetes cluster
+- [Helm](https://helm.sh/docs/intro/install/) installed
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) for interacting with your cluster (e.g., port forwarding the UI)
+
+## Installation
+
+1. Add the GlassFlow Helm repository:
+```bash
+helm repo add glassflow https://glassflow.github.io/charts
+```
+
+2. Update the Helm repository:
+```bash
+helm repo update
+```
+
+3. Install the GlassFlow Helm chart:
+```bash
+helm install glassflow glassflow/glassflow-etl --create-namespace --namespace glassflow
+```
+This installs the GlassFlow Helm chart into the `glassflow` namespace. The `--create-namespace` flag ensures the namespace is created if it doesn't already exist.
+
+> 💡 **Note:**  
+> By default, the deployment is **not publicly accessible**. To expose it, you must configure ingress settings in your `values.yaml`. You can use the default template as a starting point:  
+> [glassflow-etl values.yaml](https://github.com/glassflow/charts/blob/main/charts/glassflow-etl/values.yaml)
+
+
+4. Verify that the installation is successful:
+```bash
+helm list -n glassflow
+```
+The output should look like this:
+```bash
+NAME     	NAMESPACE	REVISION	UPDATED                              	STATUS  	CHART              	APP VERSION
+glassflow	glassflow	1       	2025-06-19 09:21:00.010957 +0200 CEST	deployed	glassflow-etl-0.1.1	1.1.12     
+```
+
+List the pods that were deployed: 
+```bash
+kubectl get pods -n glassflow
+```
+The output should look like this:
+```bash
+NAME                                 READY   STATUS    RESTARTS      AGE
+glassflow-app-5dbbc96949-6d64v       1/1     Running   3 (39s ago)   56s
+glassflow-nats-0                     2/2     Running   0             56s
+glassflow-nats-box-8896f8cf6-j96mt   1/1     Running   0             56s
+glassflow-ui-5798966dd-fznwk         1/1     Running   0             56s
+```
+
+5. Port forward the UI service to your local machine to access the web interface:
+```bash
+kubectl port-forward service/glassflow-ui 8080:8080 -n glassflow
+```
+The GlassFlow UI service runs on port 8080. The command above forwards it to your local machine on the same port. If you'd prefer a different local port, simply adjust the command accordingly.
+
+6. To access the API, you can port forward the API service to your local machine:
+```bash
+kubectl port-forward service/glassflow-app 8081:8080 -n glassflow
+```
+The GlassFlow API service runs on port 8080. The command above forwards it to port 8081 on your machine. You can modify this port if needed.
+
+7. Open http://localhost:8080 in your browser to access the GlassFlow UI. You can now start creating pipelines.
+For help with your first pipeline, see the [Usage Guide](/pipeline/usage).
+
+
+## Getting Help
+
+If you encounter any issues during installation:
+
+- Join our [Slack community](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
+- Email our support team at [help@glassflow.dev](mailto:help@glassflow.dev)
+- Open an issue on [GitHub](https://github.com/glassflow/clickhouse-etl/issues) 
+- Start a conversation on [GitHub Discussions](https://github.com/glassflow/clickhouse-etl/discussions)
