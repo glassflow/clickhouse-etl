@@ -1,0 +1,79 @@
+/* ================== Input utilities ================== */
+.input-regular {
+  background-color: #1e1e1f;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 8px 12px;
+  position: relative;
+}
+
+.input-active {
+  border-radius: 6px;
+  border: 1px solid var(--color-background-primary);
+  box-shadow:
+    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
+    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+  position: relative;
+}
+
+.input-border-regular {
+  border: 1px solid var(--color-border-regular);
+}
+
+.input-border-error {
+  border-color: #ef4444;
+}
+
+/* ==== Input Utilities ==== */
+.input-gradient-active {
+  border-radius: 6px;
+  border: 1px solid var(--color-background-primary);
+  background: linear-gradient(180deg, #252527 0%, #1a1a1c 100%);
+  box-shadow:
+    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
+    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+  position: relative;
+}
+
+.input-gradient-active:before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 6px;
+  padding: 1px;
+  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Custom focus style that matches card-gradient-active */
+.input-regular:focus-visible {
+  outline: none;
+  border-color: var(--color-background-primary, #a5b9e4);
+  box-shadow: 0 0 0 2px rgba(165, 185, 228, 0.25);
+}
+
+/* Add a pseudo-element for the gradient border effect when focused */
+.input-regular:focus-visible::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 6px;
+  padding: 1px;
+  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-description-error {
+  color: var(--color-foreground-critical);
+}
