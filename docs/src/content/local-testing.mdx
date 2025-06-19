@@ -35,7 +35,6 @@ docker compose up -d
 ```
 
 This will start the following services:
-- Zookeeper (port 2181)
 - Kafka (ports 9092 - external, 9093 - internal)
 - ClickHouse (ports 8123 - HTTP, 9000 - Native)
 - GlassFlow ClickHouse ETL application (port 8080)
@@ -79,7 +78,7 @@ Access the GlassFlow UI at `http://localhost:8080` and use these connection deta
 ```yaml
 Authentication Method: No Authentication
 Security Protocol: PLAINTEXT
-Bootstrap Servers: kafka:9092
+Bootstrap Servers: kafka:9093
 ```
 
 #### ClickHouse Connection
