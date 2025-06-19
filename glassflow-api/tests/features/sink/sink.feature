@@ -28,6 +28,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [
@@ -132,6 +133,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [
@@ -242,6 +244,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "left_stream": {
                         "fields": [
@@ -329,6 +332,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [
@@ -393,6 +397,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [
@@ -478,6 +483,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [
@@ -571,6 +577,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [
@@ -644,6 +651,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [
@@ -709,6 +717,7 @@ Feature: Clickhouse ETL sink
         And a schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "default": {
                         "fields": [

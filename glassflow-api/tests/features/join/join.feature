@@ -30,11 +30,12 @@ Feature: Join Operator
             }
             """
         And a running "results" stream
-        
+
     Scenario: Basic join of 2 streams
         Given an operator schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "left_stream": {
                         "fields": [
@@ -105,6 +106,7 @@ Feature: Join Operator
         Given an operator schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "left_stream": {
                         "fields": [
@@ -176,6 +178,7 @@ Feature: Join Operator
         Given an operator schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "left_stream": {
                         "fields": [
@@ -243,6 +246,7 @@ Feature: Join Operator
         Given an operator schema config with mapping
             """json
             {
+                "type": "jsonToClickhouse",
                 "streams": {
                     "left_stream": {
                         "fields": [

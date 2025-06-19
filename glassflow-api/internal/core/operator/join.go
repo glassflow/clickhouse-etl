@@ -12,6 +12,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type JoinOperator struct {
@@ -26,13 +27,18 @@ type JoinOperator struct {
 }
 
 func NewJoinOperator(
+	cfg models.JoinOperatorConfig,
 	leftStreamConsumer, rightStreamConsumer stream.Consumer,
 	resultsPublisher stream.Publisher,
 	schema schema.Mapper,
 	leftKVStore, rightKVStore kv.KeyValueStore,
 	leftStreamName, rightStreamName string,
 	log *slog.Logger,
-) *JoinOperator {
+) (Operator, error) {
+	if cfg.Type != models.TemporalJoinType {
+		return nil, fmt.Errorf("unsupported join type")
+	}
+
 	executor := join.NewTemporalJoinExecutor(
 		resultsPublisher,
 		schema,
@@ -49,7 +55,7 @@ func NewJoinOperator(
 		isClosed:              false,
 		wg:                    sync.WaitGroup{},
 		log:                   log,
-	}
+	}, nil
 }
 
 func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {

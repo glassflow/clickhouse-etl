@@ -17,4 +17,3 @@ jobs:
     with:
       push: true
     secrets: inherit
-

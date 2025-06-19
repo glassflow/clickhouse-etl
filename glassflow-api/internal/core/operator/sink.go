@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type Sink interface {
@@ -25,13 +25,16 @@ type SinkOperator struct {
 }
 
 func NewSinkOperator(
-	client *client.ClickHouseClient,
-	sinkConfig sink.ClickHouseSinkConfig,
+	sinkConfig models.SinkOperatorConfig,
 	streamCon stream.Consumer,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
-) (*SinkOperator, error) {
-	sink, err := sink.NewClickHouseSink(sinkConfig, client, streamCon, schemaMapper, log)
+) (Operator, error) {
+	if sinkConfig.Type != models.ClickHouseSinkType {
+		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
+	}
+
+	sink, err := sink.NewClickHouseSink(sinkConfig, streamCon, schemaMapper, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sink: %w", err)
 	}
