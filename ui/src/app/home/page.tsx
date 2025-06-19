@@ -126,41 +126,41 @@ function HomePageClient() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 sm:px-6 lg:px-8">
-      <h1 className="title-1 text-brand-gradient">Welcome!</h1>
-      <p className="w-full text-center subtitle muted-foreground">
+    <div className="flex flex-col items-center gap-6 sm:gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-center">Welcome!</h1>
+      <p className="w-full text-center subtitle muted-foreground text-sm sm:text-base">
         Create a new pipeline with ready-to-use data operations
       </p>
       {/* <ThemeDebug /> */}
-      <div className="grid grid-cols-2 gap-4 mt-12 w-full max-w-[512px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-8 sm:mt-12 w-full max-w-[512px]">
         <div
           className={cn(
             'card card-elevated',
             operationsSelected?.operation === OperationKeys.DEDUPLICATION && 'active',
-            'btn-home-lg',
+            'h-16 sm:h-20 lg:h-24 w-full',
           )}
         >
           <button
-            className="flex items-center px-6 w-full h-full"
+            className="flex items-center px-4 sm:px-6 w-full h-full"
             onClick={() => handleOperationClick(OperationKeys.DEDUPLICATION)}
           >
-            <Image src={Deduplicate} alt="Deduplicate" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium text-muted-foreground">Deduplicate</span>
+            <Image src={Deduplicate} alt="Deduplicate" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">Deduplicate</span>
           </button>
         </div>
         <div
           className={cn(
             'card card-elevated',
             operationsSelected?.operation === OperationKeys.JOINING && 'active',
-            'btn-home-lg',
+            'h-16 sm:h-20 lg:h-24 w-full',
           )}
         >
           <button
-            className="flex items-center px-6 w-full h-full"
+            className="flex items-center px-4 sm:px-6 w-full h-full"
             onClick={() => handleOperationClick(OperationKeys.JOINING)}
           >
-            <Image src={Join} alt="Join" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium text-muted-foreground">Join</span>
+            <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">Join</span>
           </button>
         </div>
 
@@ -168,15 +168,17 @@ function HomePageClient() {
           className={cn(
             'card card-elevated',
             operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING && 'active',
-            'btn-home-lg',
+            'h-16 sm:h-20 lg:h-24 w-full',
           )}
         >
           <button
-            className="flex items-center px-6 w-full h-full"
+            className="flex items-center px-4 sm:px-6 w-full h-full"
             onClick={() => handleOperationClick(OperationKeys.DEDUPLICATION_JOINING)}
           >
-            <Image src={DeduplicateJoin} alt="Deduplicate Join" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium text-muted-foreground">Deduplicate & Join</span>
+            <Image src={DeduplicateJoin} alt="Deduplicate Join" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+              Deduplicate & Join
+            </span>
           </button>
         </div>
 
@@ -184,15 +186,15 @@ function HomePageClient() {
           className={cn(
             'card card-elevated',
             operationsSelected?.operation === OperationKeys.INGEST_ONLY && 'active',
-            'btn-home-lg',
+            'h-16 sm:h-20 lg:h-24 w-full',
           )}
         >
           <button
-            className="flex items-center px-6 w-full h-full"
+            className="flex items-center px-4 sm:px-6 w-full h-full"
             onClick={() => handleOperationClick(OperationKeys.INGEST_ONLY)}
           >
-            <Image src={IngestOnly} alt="Ingest Only" width={36} height={36} />
-            <span className="ml-4 text-lg font-medium text-muted-foreground">Ingest Only</span>
+            <Image src={IngestOnly} alt="Ingest Only" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">Ingest Only</span>
           </button>
         </div>
       </div>
@@ -206,7 +208,7 @@ function HomePageClient() {
         onComplete={handleWarningModalComplete}
       />
 
-      <div className="w-full mt-16">
+      <div className="w-full mt-12 sm:mt-16">
         <SavedConfigurations />
       </div>
     </div>
