@@ -89,39 +89,41 @@ export function SavedConfigurations() {
 
   return (
     <div className="w-full max-w-[512px] mx-auto px-0">
-      <div className="flex justify-center items-center mb-8">
-        <h1 className="text-2xl font-normal text-muted-foreground">Load Saved Configurations</h1>
+      <div className="flex justify-center items-center mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-normal text-muted-foreground text-center">Load Saved Configurations</h1>
       </div>
 
       {configurations.length === 0 ? (
-        <div className="text-center py-12">
-          <h2 className="text-xl font-semibold mb-2">No saved configurations</h2>
-          <p className="text-muted-foreground mb-4">Create your first pipeline configuration to get started</p>
+        <div className="text-center py-8 sm:py-12">
+          <h2 className="text-lg sm:text-xl font-semibold mb-2">No saved configurations</h2>
+          <p className="text-sm sm:text-base text-muted-foreground mb-4">
+            Create your first pipeline configuration to get started
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 w-full max-w-[512px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-[512px]">
           {configurations.map((config) => (
             <div
               key={config.id}
-              className={cn('content-card', 'btn-home-lg', 'cursor-pointer', 'relative', 'group')}
+              className={cn('content-card', 'h-20 sm:h-24 w-full', 'cursor-pointer', 'relative', 'group')}
               onClick={() => handleLoadConfiguration(config)}
             >
-              <div className="flex items-center px-6 w-full h-full">
-                <div className="flex flex-col text-muted-foreground">
-                  <span className="text-lg font-medium">{config.name}</span>
-                  <div className="flex items-center text-sm text-muted-foreground mt-1">
-                    <Clock className="h-4 w-4 mr-2" />
-                    <span>Saved {formatDate(config.timestamp)}</span>
+              <div className="flex items-center px-4 sm:px-6 w-full h-full">
+                <div className="flex flex-col text-muted-foreground flex-1 min-w-0">
+                  <span className="text-sm sm:text-lg font-medium truncate">{config.name}</span>
+                  <div className="flex items-center text-xs sm:text-sm text-muted-foreground mt-1">
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />
+                    <span className="truncate">Saved {formatDate(config.timestamp)}</span>
                   </div>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground hover:text-destructive"
+                className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground hover:text-destructive p-1 sm:p-2"
                 onClick={(e) => handleDeleteConfiguration(config.id, e)}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           ))}
