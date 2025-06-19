@@ -16,6 +16,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type StopOptions struct {
@@ -30,14 +31,9 @@ func WithNoWait(noWait bool) StopOtion {
 	}
 }
 
-type ClickHouseSinkConfig struct {
-	MaxBatchSize int           `json:"max_batch_size" default:"10000"`
-	MaxDelayTime time.Duration `json:"max_delay_time" default:"60s"`
-}
-
 type ClickHouseSink struct {
 	client         *client.ClickHouseClient
-	batch          *batch.Batch
+	batch          batch.Batch
 	streamCon      stream.Consumer
 	schemaMapper   schema.Mapper
 	isClosed       bool
@@ -50,20 +46,26 @@ type ClickHouseSink struct {
 	log            *slog.Logger
 }
 
-func NewClickHouseSink(sinkCfg ClickHouseSinkConfig, client *client.ClickHouseClient, streamCon stream.Consumer, schemaMapper schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
+func NewClickHouseSink(sinkCfg models.SinkOperatorConfig, streamCon stream.Consumer, schemaMapper schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
 	maxDelayTime := time.Duration(60) * time.Second
-	if sinkCfg.MaxDelayTime > 0 {
-		maxDelayTime = sinkCfg.MaxDelayTime
+	if sinkCfg.Batch.MaxDelayTime.Duration() > 0 {
+		maxDelayTime = sinkCfg.Batch.MaxDelayTime.Duration()
 	}
-	if sinkCfg.MaxBatchSize <= 0 {
+
+	client, err := client.NewClickHouseClient(context.Background(), sinkCfg.ClickHouseConnectionParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create clickhouse client: %w", err)
+	}
+
+	if sinkCfg.Batch.MaxBatchSize <= 0 {
 		return nil, fmt.Errorf("max batch size must be greater than 0")
 	}
+
 	query := fmt.Sprintf("INSERT INTO %s.%s (%s)", client.GetDatabase(), client.GetTableName(), strings.Join(schemaMapper.GetOrderedColumns(), ", "))
 
 	log.Debug("Insert query", slog.String("query", query))
 
-	//nolint: contextcheck // requires uninherited ctx for long lasting batches
-	batch, err := batch.New(context.Background(), client, query)
+	batch, err := batch.NewClickHouseBatch(context.Background(), client, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
@@ -76,9 +78,10 @@ func NewClickHouseSink(sinkCfg ClickHouseSinkConfig, client *client.ClickHouseCl
 		isClosed:       false,
 		isInputDrained: false,
 		mu:             sync.Mutex{},
+		timer:          nil,
 		lastMsg:        nil,
 		maxDelayTime:   maxDelayTime,
-		maxBatchSize:   sinkCfg.MaxBatchSize,
+		maxBatchSize:   sinkCfg.Batch.MaxBatchSize,
 		log:            log,
 	}, nil
 }
@@ -166,6 +169,7 @@ func (ch *ClickHouseSink) getMsg(ctx context.Context) error {
 func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	ch.log.Info("ClickHouse sink started")
 	defer ch.log.Info("ClickHouse sink stopped")
+	defer ch.clearConn()
 
 	ch.timer = time.NewTimer(ch.maxDelayTime)
 
@@ -191,6 +195,15 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 				return nil
 			}
 		}
+	}
+}
+
+func (ch *ClickHouseSink) clearConn() {
+	err := ch.client.Close()
+	if err != nil {
+		ch.log.Error("failed to close ClickHouse client connection", slog.Any("error", err))
+	} else {
+		ch.log.Debug("ClickHouse client connection closed")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,16 +24,16 @@ func TestNewSinkMapping(t *testing.T) {
 }
 
 func TestConvertStreams(t *testing.T) {
-	streamsConfig := map[string]StreamSchemaConfig{
+	streamsConfig := map[string]models.StreamSchemaConfig{
 		"stream1": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "field1", FieldType: "string"},
 				{FieldName: "field2", FieldType: "int"},
 			},
 			JoinKeyField: "field1",
 		},
 		"stream2": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "field3", FieldType: "bool"},
 			},
 			JoinKeyField: "field3",
@@ -59,9 +60,9 @@ func TestConvertStreams(t *testing.T) {
 
 func TestNewMapper(t *testing.T) {
 	t.Run("valid configuration", func(t *testing.T) {
-		streamsConfig := map[string]StreamSchemaConfig{
+		streamsConfig := map[string]models.StreamSchemaConfig{
 			"stream1": {
-				Fields: []StreamDataField{
+				Fields: []models.StreamDataField{
 					{FieldName: "field1", FieldType: "string"},
 					{FieldName: "field2", FieldType: "int"},
 				},
@@ -69,12 +70,12 @@ func TestNewMapper(t *testing.T) {
 			},
 		}
 
-		sinkMappingConfig := []SinkMappingConfig{
+		sinkMappingConfig := []models.SinkMappingConfig{
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 			{ColumnName: "col2", StreamName: "stream1", FieldName: "field2", ColumnType: "Int32"},
 		}
 
-		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.NoError(t, err)
 		assert.NotNil(t, mapper)
 		assert.Len(t, mapper.Streams, 1)
@@ -84,108 +85,108 @@ func TestNewMapper(t *testing.T) {
 	})
 
 	t.Run("no streams", func(t *testing.T) {
-		streamsConfig := map[string]StreamSchemaConfig{}
-		sinkMappingConfig := []SinkMappingConfig{
+		streamsConfig := map[string]models.StreamSchemaConfig{}
+		sinkMappingConfig := []models.SinkMappingConfig{
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "no streams defined")
 	})
 
 	t.Run("no fields in stream", func(t *testing.T) {
-		streamsConfig := map[string]StreamSchemaConfig{
+		streamsConfig := map[string]models.StreamSchemaConfig{
 			"stream1": {
-				Fields:       []StreamDataField{},
+				Fields:       []models.StreamDataField{},
 				JoinKeyField: "",
 			},
 		}
 
-		sinkMappingConfig := []SinkMappingConfig{
+		sinkMappingConfig := []models.SinkMappingConfig{
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "no fields defined")
 	})
 
 	t.Run("invalid join key", func(t *testing.T) {
-		streamsConfig := map[string]StreamSchemaConfig{
+		streamsConfig := map[string]models.StreamSchemaConfig{
 			"stream1": {
-				Fields: []StreamDataField{
+				Fields: []models.StreamDataField{
 					{FieldName: "field1", FieldType: "string"},
 				},
 				JoinKeyField: "nonexistent_field",
 			},
 		}
 
-		sinkMappingConfig := []SinkMappingConfig{
+		sinkMappingConfig := []models.SinkMappingConfig{
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "join key 'nonexistent_field' not found")
 	})
 
 	t.Run("no columns", func(t *testing.T) {
-		streamsConfig := map[string]StreamSchemaConfig{
+		streamsConfig := map[string]models.StreamSchemaConfig{
 			"stream1": {
-				Fields: []StreamDataField{
+				Fields: []models.StreamDataField{
 					{FieldName: "field1", FieldType: "string"},
 				},
 				JoinKeyField: "field1",
 			},
 		}
 
-		sinkMappingConfig := []SinkMappingConfig{}
+		sinkMappingConfig := []models.SinkMappingConfig{}
 
-		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "no columns defined")
 	})
 
 	t.Run("stream not found", func(t *testing.T) {
-		streamsConfig := map[string]StreamSchemaConfig{
+		streamsConfig := map[string]models.StreamSchemaConfig{
 			"stream1": {
-				Fields: []StreamDataField{
+				Fields: []models.StreamDataField{
 					{FieldName: "field1", FieldType: "string"},
 				},
 				JoinKeyField: "field1",
 			},
 		}
 
-		sinkMappingConfig := []SinkMappingConfig{
+		sinkMappingConfig := []models.SinkMappingConfig{
 			{ColumnName: "col1", StreamName: "nonexistent_stream", FieldName: "field1", ColumnType: "String"},
 		}
 
-		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "stream 'nonexistent_stream' not found")
 	})
 
 	t.Run("field not found", func(t *testing.T) {
-		streamsConfig := map[string]StreamSchemaConfig{
+		streamsConfig := map[string]models.StreamSchemaConfig{
 			"stream1": {
-				Fields: []StreamDataField{
+				Fields: []models.StreamDataField{
 					{FieldName: "field1", FieldType: "string"},
 				},
 				JoinKeyField: "field1",
 			},
 		}
 
-		sinkMappingConfig := []SinkMappingConfig{
+		sinkMappingConfig := []models.SinkMappingConfig{
 			{ColumnName: "col1", StreamName: "stream1", FieldName: "nonexistent_field", ColumnType: "String"},
 		}
 
-		mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+		mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 		require.Error(t, err)
 		assert.Nil(t, mapper)
 		assert.Contains(t, err.Error(), "field 'nonexistent_field' not found")
@@ -193,9 +194,9 @@ func TestNewMapper(t *testing.T) {
 }
 
 func TestGetKey(t *testing.T) {
-	streamsConfig := map[string]StreamSchemaConfig{
+	streamsConfig := map[string]models.StreamSchemaConfig{
 		"stream1": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "string_field", FieldType: "string"},
 				{FieldName: "int_field", FieldType: "int"},
 				{FieldName: "bool_field", FieldType: "bool"},
@@ -204,13 +205,13 @@ func TestGetKey(t *testing.T) {
 		},
 	}
 
-	sinkMappingConfig := []SinkMappingConfig{
+	sinkMappingConfig := []models.SinkMappingConfig{
 		{ColumnName: "col1", StreamName: "stream1", FieldName: "string_field", ColumnType: "String"},
 		{ColumnName: "col2", StreamName: "stream1", FieldName: "int_field", ColumnType: "Int32"},
 		{ColumnName: "col3", StreamName: "stream1", FieldName: "bool_field", ColumnType: "Bool"},
 	}
 
-	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("get string key", func(t *testing.T) {
@@ -255,29 +256,29 @@ func TestGetKey(t *testing.T) {
 }
 
 func TestGetJoinKey(t *testing.T) {
-	streamsConfig := map[string]StreamSchemaConfig{
+	streamsConfig := map[string]models.StreamSchemaConfig{
 		"stream1": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "id", FieldType: "string"},
 				{FieldName: "name", FieldType: "string"},
 			},
 			JoinKeyField: "id",
 		},
 		"stream2": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "data", FieldType: "string"},
 			},
 			JoinKeyField: "", // No join key defined
 		},
 	}
 
-	sinkMappingConfig := []SinkMappingConfig{
+	sinkMappingConfig := []models.SinkMappingConfig{
 		{ColumnName: "col_id", StreamName: "stream1", FieldName: "id", ColumnType: "String"},
 		{ColumnName: "col_name", StreamName: "stream1", FieldName: "name", ColumnType: "String"},
 		{ColumnName: "col_data", StreamName: "stream2", FieldName: "data", ColumnType: "String"},
 	}
 
-	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("get join key", func(t *testing.T) {
@@ -298,9 +299,9 @@ func TestGetJoinKey(t *testing.T) {
 }
 
 func TestPrepareClickHouseValues(t *testing.T) {
-	streamsConfig := map[string]StreamSchemaConfig{
+	streamsConfig := map[string]models.StreamSchemaConfig{
 		"stream1": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "string_field", FieldType: "string"},
 				{FieldName: "int_field", FieldType: "int"},
 				{FieldName: "bool_field", FieldType: "bool"},
@@ -309,13 +310,13 @@ func TestPrepareClickHouseValues(t *testing.T) {
 		},
 	}
 
-	sinkMappingConfig := []SinkMappingConfig{
+	sinkMappingConfig := []models.SinkMappingConfig{
 		{ColumnName: "col_string", StreamName: "stream1", FieldName: "string_field", ColumnType: "String"},
 		{ColumnName: "col_int", StreamName: "stream1", FieldName: "int_field", ColumnType: "Int32"},
 		{ColumnName: "col_bool", StreamName: "stream1", FieldName: "bool_field", ColumnType: "Bool"},
 	}
 
-	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("prepare values", func(t *testing.T) {
@@ -349,24 +350,24 @@ func TestPrepareClickHouseValues(t *testing.T) {
 	})
 
 	t.Run("joined streams", func(t *testing.T) {
-		joinedMapper, err := NewJsonToClickHouseMapper(
-			map[string]StreamSchemaConfig{
+		joinedMapper, err := NewJSONToClickHouseMapper(
+			map[string]models.StreamSchemaConfig{
 				"stream1": {
-					Fields: []StreamDataField{
+					Fields: []models.StreamDataField{
 						{FieldName: "id", FieldType: "string"},
 						{FieldName: "name", FieldType: "string"},
 					},
 					JoinKeyField: "id",
 				},
 				"stream2": {
-					Fields: []StreamDataField{
+					Fields: []models.StreamDataField{
 						{FieldName: "id", FieldType: "string"},
 						{FieldName: "value", FieldType: "int"},
 					},
 					JoinKeyField: "id",
 				},
 			},
-			[]SinkMappingConfig{
+			[]models.SinkMappingConfig{
 				{ColumnName: "col_id", StreamName: "stream1", FieldName: "id", ColumnType: "String"},
 				{ColumnName: "col_name", StreamName: "stream1", FieldName: "name", ColumnType: "String"},
 				{ColumnName: "col_value", StreamName: "stream2", FieldName: "value", ColumnType: "Int32"},
@@ -386,9 +387,9 @@ func TestPrepareClickHouseValues(t *testing.T) {
 }
 
 func TestGetFieldsMap(t *testing.T) {
-	streamsConfig := map[string]StreamSchemaConfig{
+	streamsConfig := map[string]models.StreamSchemaConfig{
 		"stream1": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "id", FieldType: "string"},
 				{FieldName: "name", FieldType: "string"},
 			},
@@ -396,12 +397,12 @@ func TestGetFieldsMap(t *testing.T) {
 		},
 	}
 
-	sinkMappingConfig := []SinkMappingConfig{
+	sinkMappingConfig := []models.SinkMappingConfig{
 		{ColumnName: "col_id", StreamName: "stream1", FieldName: "id", ColumnType: "String"},
 		{ColumnName: "col_name", StreamName: "stream1", FieldName: "name", ColumnType: "String"},
 	}
 
-	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("get fields map", func(t *testing.T) {
@@ -425,16 +426,16 @@ func TestGetFieldsMap(t *testing.T) {
 }
 
 func TestJoinData(t *testing.T) {
-	streamsConfig := map[string]StreamSchemaConfig{
+	streamsConfig := map[string]models.StreamSchemaConfig{
 		"users": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "id", FieldType: "string"},
 				{FieldName: "name", FieldType: "string"},
 			},
 			JoinKeyField: "id",
 		},
 		"orders": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "id", FieldType: "string"},
 				{FieldName: "product", FieldType: "string"},
 				{FieldName: "quantity", FieldType: "int"},
@@ -443,7 +444,7 @@ func TestJoinData(t *testing.T) {
 		},
 	}
 
-	sinkMappingConfig := []SinkMappingConfig{
+	sinkMappingConfig := []models.SinkMappingConfig{
 		{ColumnName: "user_id", StreamName: "users", FieldName: "id", ColumnType: "String"},
 		{ColumnName: "user_name", StreamName: "users", FieldName: "name", ColumnType: "String"},
 		{ColumnName: "order_id", StreamName: "orders", FieldName: "id", ColumnType: "String"},
@@ -451,7 +452,7 @@ func TestJoinData(t *testing.T) {
 		{ColumnName: "quantity", StreamName: "orders", FieldName: "quantity", ColumnType: "Int32"},
 	}
 
-	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	t.Run("join data", func(t *testing.T) {
@@ -499,9 +500,9 @@ func TestJoinData(t *testing.T) {
 }
 
 func TestGetOrderedColumns(t *testing.T) {
-	streamsConfig := map[string]StreamSchemaConfig{
+	streamsConfig := map[string]models.StreamSchemaConfig{
 		"stream1": {
-			Fields: []StreamDataField{
+			Fields: []models.StreamDataField{
 				{FieldName: "field1", FieldType: "string"},
 				{FieldName: "field2", FieldType: "int"},
 			},
@@ -509,12 +510,12 @@ func TestGetOrderedColumns(t *testing.T) {
 		},
 	}
 
-	sinkMappingConfig := []SinkMappingConfig{
+	sinkMappingConfig := []models.SinkMappingConfig{
 		{ColumnName: "col1", StreamName: "stream1", FieldName: "field1", ColumnType: "String"},
 		{ColumnName: "col2", StreamName: "stream1", FieldName: "field2", ColumnType: "Int32"},
 	}
 
-	mapper, err := NewJsonToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
 	require.NoError(t, err)
 
 	columns := mapper.GetOrderedColumns()
