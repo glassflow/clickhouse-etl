@@ -61,10 +61,12 @@ kubectl get pods -n glassflow
 The output should look like this:
 ```bash
 NAME                                 READY   STATUS    RESTARTS      AGE
-glassflow-app-5dbbc96949-6d64v       1/1     Running   3 (39s ago)   56s
-glassflow-nats-0                     2/2     Running   0             56s
-glassflow-nats-box-8896f8cf6-j96mt   1/1     Running   0             56s
-glassflow-ui-5798966dd-fznwk         1/1     Running   0             56s
+glassflow-app-5dbbc96949-bbjx9       1/1     Running   3 (29s ago)   44s
+glassflow-nats-0                     2/2     Running   0             44s
+glassflow-nats-1                     2/2     Running   0             44s
+glassflow-nats-2                     2/2     Running   0             44s
+glassflow-nats-box-8896f8cf6-7qcm9   1/1     Running   0             44s
+glassflow-ui-5798966dd-jzs6v         1/1     Running   0             44s
 ```
 
 5. Port forward the UI service to your local machine to access the web interface:
