@@ -2,13 +2,14 @@
   <img alt="GlassFlow Logo" src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassfow-banner.jpg">
 </a>
 
-<div align="center">
+<p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/ideas"><strong>Feature Request</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
       <a href="https://docs.glassflow.dev/demo"><strong>Watch Demo</strong></a>
-</div>
+</p>
+
 <div align="center">
 
 [![Join Next Office Hour](https://img.shields.io/badge/Join%20Next%20Office%20Hour-Schedule%20Now-blue?logo=calendar)](https://www.glassflow.dev/office-hours)
@@ -28,7 +29,7 @@
 GlassFlow is an open-source ETL tool that enables real-time data processing from Kafka to ClickHouse with features like deduplication and temporal joins.
 
 ## ⚡️ Quick Start
-
+This guide walks you through a **local installation using Docker Compose** — perfect for development, testing, or trying out GlassFlow on your machine.
 
 1. Clone the repository:
 ```bash
@@ -71,7 +72,6 @@ GlassFlow can be installed in a variety of environments depending on your use ca
 ## 🎥 Demo
 
 [![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/demo)
-
 
 
 ## 📚 Documentation
