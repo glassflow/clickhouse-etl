@@ -121,6 +121,8 @@
   /* Shadows */
   --shadow-raised: 0px 1px 5px -4px rgba(0, 0, 0, 0.5), 0px 4px 8px 0px rgba(0, 0, 0, 0.05);
   --shadow-overlay: 0px 5px 10px 0px rgba(0, 0, 0, 0.05), 0px 15px 25px 0px rgba(0, 0, 0, 0.07);
+  --shadow-pressed: 0px 0px 4px 0px rgba(0, 0, 0, 0.2), 0px 4px 8px 0px rgba(0, 0, 0, 0.3);
+  --shadow-neutral: 0px 0px 8px 0px rgba(0, 0, 0, 0.08), 0px 12px 24px 0px rgba(0, 0, 0, 0.12);
 
   /* Check if this variable exists and has the correct value */
   --background-neutral: #f5f5f5; /* This should be defined somewhere */

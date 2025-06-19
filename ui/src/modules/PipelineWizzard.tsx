@@ -332,7 +332,7 @@ function PipelineWizzard() {
               <div key={stepName} className="w-full">
                 {/* If this step is active, show its content */}
                 {currentActiveStep === stepName ? (
-                  <Card className="card-gradient p-4">
+                  <Card className="card card-elevated p-4">
                     <CardHeader>
                       <CardTitle>
                         <div className="flex items-center justify-between">
@@ -354,7 +354,7 @@ function PipelineWizzard() {
                   /* Otherwise show it as a tab */
                   <button
                     onClick={() => handleStepClick(stepName)}
-                    className="flex items-center justify-between p-4 w-full card-gradient"
+                    className="flex items-center justify-between p-4 w-full card card-elevated"
                   >
                     <div className="flex items-center">
                       <CheckIcon className="w-5 h-5 text-primary mr-2" />
@@ -374,7 +374,7 @@ function PipelineWizzard() {
 
         {/* Current active step (if not in completed steps) */}
         {!completedStepsArray.includes(currentActiveStep) && currentActiveStep && (
-          <Card className="card-gradient p-4">
+          <Card className="card card-elevated p-4">
             <CardHeader>
               <CardTitle>
                 <div className="flex items-center justify-between">
