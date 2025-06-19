@@ -36,8 +36,8 @@ docker compose up -d
 
 This will start the following services:
 - Zookeeper (port 2181)
-- Kafka (ports 9092, 9093, 9094)
-- ClickHouse (ports 8123, 9000)
+- Kafka (ports 9092 - external, 9093 - internal)
+- ClickHouse (ports 8123 - HTTP, 9000 - Native)
 - GlassFlow ClickHouse ETL application (port 8080)
 
 ## Option 1: Using the GlassFlow UI
@@ -51,8 +51,7 @@ docker compose exec kafka kafka-topics \
     --create \
     --partitions 1 \
     --replication-factor 1 \
-    --bootstrap-server localhost:9093 \
-    --command-config /etc/kafka/client.properties
+    --bootstrap-server localhost:9092
 ```
 
 ### 2. Create ClickHouse Table
@@ -74,15 +73,13 @@ ORDER BY event_id"
 
 ### 3. Configure Pipeline in UI
 
-Access the GlassFlow UI at `http://localhost:8080` and use these connection details:
+Access the GlassFlow UI at `http://localhost:8080` and use these connection details to create a deduplication pipeline:
 
 #### Kafka Connection
 ```yaml
-Authentication Method: SASL/PLAIN
-Security Protocol: SASL_PLAINTEXT
-Bootstrap Servers: kafka:9094
-Username: admin
-Password: admin-secret
+Authentication Method: No Authentication
+Security Protocol: PLAINTEXT
+Bootstrap Servers: kafka:9092
 ```
 
 #### ClickHouse Connection
@@ -99,16 +96,17 @@ Use SSL: false
 
 ```bash
 # Send multiple JSON events to Kafka
-echo '{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:00:00Z"}
-{"event_id": "123", "user_id": "456", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:01:00Z"}
-{"event_id": "124", "user_id": "457", "name": "Jane Smith", "email": "jane@example.com", "created_at": "2024-03-20T10:03:00Z"}' | \
+echo '{"event_id": 123, "user_id": 456, "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:00:00Z"}
+{"event_id": 123, "user_id": 456, "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:01:00Z"}
+{"event_id": 124, "user_id": 457, "name": "Jane Smith", "email": "jane@example.com", "created_at": "2024-03-20T10:03:00Z"}' | \
 docker compose exec -T kafka kafka-console-producer \
     --topic users \
-    --bootstrap-server localhost:9093 \
-    --producer.config /etc/kafka/client.properties
+    --bootstrap-server localhost:9092
 ```
 
 ### 5. Verify Results
+
+After a few seconds (maximum delay time - default 1 minute), you should see the deduplicated events in ClickHouse:
 
 ```bash
 docker compose exec clickhouse clickhouse-client \
@@ -116,6 +114,14 @@ docker compose exec clickhouse clickhouse-client \
     --password secret \
      -f prettycompact \
     --query "SELECT * FROM users_dedup"
+```
+
+
+```bash
+   ┌─event_id─┬─user_id─┬─name───────┬─email────────────┬──────────created_at─┐
+1. │      123 │     456 │ John Doe   │ john@example.com │ 2024-03-20 10:00:00 │
+2. │      124 │     457 │ Jane Smith │ jane@example.com │ 2024-03-20 10:03:00 │
+   └──────────┴─────────┴────────────┴──────────────────┴─────────────────────┘
 ```
 
 ## Option 2: Programmatically Using Python Demos
