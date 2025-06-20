@@ -283,8 +283,16 @@ export const KafkaConnectionForm = ({
 
   return (
     <FormProvider {...formMethods}>
-      {/* @ts-expect-error - FIXME: fix this later */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" onChange={handleFormChange}>
+      <form
+        onSubmit={handleSubmit(onSubmit as any)}
+        className="space-y-6"
+        onChange={handleFormChange}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+          }
+        }}
+      >
         <KafkaAuthForm
           authMethod={currentAuthMethod}
           securityProtocol={currentSecurityProtocol}
