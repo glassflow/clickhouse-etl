@@ -22,7 +22,7 @@ import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } fro
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { generateApiConfig, isValidApiConfig } from '../review/helpers'
+import { generateApiConfig } from './helpers'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const router = useRouter()

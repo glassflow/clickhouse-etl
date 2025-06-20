@@ -1,24 +1,16 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@clickhouse/client'
-import { generateHost } from '@/src/utils/common.server'
+import {
+  createClickHouseConnection,
+  parseTabSeparated,
+  closeConnection,
+  type ClickHouseConfig,
+} from '@/src/utils/clickhouse'
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const requestBody = await request.json()
 
-    const {
-      host,
-      port,
-      nativePort,
-      username,
-      password,
-      useSSL = true,
-      secure,
-      connectionType,
-      proxyUrl,
-      connectionString,
-      database,
-    } = requestBody
+    const { database } = requestBody
 
     if (!database) {
       return NextResponse.json(
@@ -30,75 +22,58 @@ export async function POST(request: Request): Promise<NextResponse> {
       )
     }
 
-    let client
-
-    // Create client based on connection type
-    if (connectionType === 'connectionString' && connectionString) {
-      client = createClient({
-        url: connectionString,
-      })
-    } else if (connectionType === 'proxy' && proxyUrl) {
-      client = createClient({
-        url: proxyUrl,
-        username,
-        password,
-      })
-    } else {
-      // Direct connection - use URL format
-      // Properly extract hostname from URL
-      const urlObj = new URL(generateHost({ host, port, username, password, useSSL, nativePort }))
-      const cleanHost = urlObj.hostname
-      // URL encode the username and password to handle special characters
-      const encodedUsername = encodeURIComponent(username)
-      const encodedPassword = encodeURIComponent(password)
-      // Only use cleanHost without adding the protocol again
-      const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
-
-      const tls = host.includes('https')
-        ? ({
-            rejectUnauthorized: false,
-            servername: cleanHost,
-          } as any)
-        : undefined
-
-      client = createClient({
-        url,
-        tls,
-        request_timeout: 30000, // 30 seconds timeout
-        keep_alive: {
-          enabled: true,
-          idle_socket_ttl: 25000, // 25 seconds
-        },
-      })
+    const config: ClickHouseConfig = {
+      host: requestBody.host,
+      port: requestBody.port,
+      nativePort: requestBody.nativePort,
+      username: requestBody.username,
+      password: requestBody.password,
+      database,
+      useSSL: requestBody.useSSL ?? true,
+      connectionType: requestBody.connectionType,
+      proxyUrl: requestBody.proxyUrl,
+      connectionString: requestBody.connectionString,
+      skipCertificateVerification: requestBody.skipCertificateVerification ?? false,
     }
 
     try {
-      // Get available tables
-      const result = await client.query({
-        query: `SHOW TABLES FROM ${database}`,
-        format: 'JSONEachRow',
-      })
+      const connection = await createClickHouseConnection(config)
 
-      const rows = (await result.json()) as { name: string }[]
-      const tables = rows.map((row) => row.name)
+      if (connection.type === 'direct' && connection.directFetch) {
+        // Direct HTTP approach for SSL connections
+        const data = await connection.directFetch(`SHOW TABLES FROM ${database} FORMAT TabSeparated`)
+        const tables = parseTabSeparated(data)
 
-      // Close the connection
-      await client.close()
+        return NextResponse.json({
+          success: true,
+          tables,
+        })
+      } else if (connection.type === 'client' && connection.client) {
+        // ClickHouse client approach for HTTP connections
+        const result = await connection.client.query({
+          query: `SHOW TABLES FROM ${database}`,
+          format: 'JSONEachRow',
+        })
 
-      return NextResponse.json({
-        success: true,
-        tables,
-      })
+        const rows = (await result.json()) as { name: string }[]
+        const tables = rows.map((row) => row.name)
+
+        await closeConnection(connection)
+
+        return NextResponse.json({
+          success: true,
+          tables,
+        })
+      } else {
+        throw new Error('Invalid connection configuration')
+      }
     } catch (error) {
-      console.error(`Error fetching tables for database '${database}':`, error)
       return NextResponse.json({
         success: false,
         error: error instanceof Error ? error.message : `Failed to fetch tables for database '${database}'`,
       })
     }
   } catch (error) {
-    console.error('Error in tables API:', error)
-
     return NextResponse.json(
       {
         success: false,

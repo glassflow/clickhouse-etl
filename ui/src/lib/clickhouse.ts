@@ -7,7 +7,6 @@ export interface ClickhouseConfig {
   password: string
   database: string
   useSSL: boolean
-  secure: boolean
   connectionType: 'direct' | 'proxy'
   proxyUrl?: string
   connectionString?: string
@@ -26,8 +25,7 @@ export class ClickhouseService {
       return this.client
     }
 
-    const { host, port, username, password, database, useSSL, secure, connectionType, proxyUrl, connectionString } =
-      this.config
+    const { host, port, username, password, database, useSSL, connectionType, proxyUrl, connectionString } = this.config
 
     if (connectionType === 'proxy' && proxyUrl) {
       this.client = createClient({
@@ -45,7 +43,7 @@ export class ClickhouseService {
         database,
         tls: {
           // @ts-expect-error - FIXME: fix this later
-          rejectUnauthorized: !secure,
+          rejectUnauthorized: !useSSL,
         },
       })
     }
