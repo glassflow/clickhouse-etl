@@ -24,6 +24,7 @@ import {
 } from '@/src/components/ui/dialog'
 import { AlertTriangleIcon } from 'lucide-react'
 import { getPipelineStatus } from '@/src/api/pipeline'
+import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
@@ -88,6 +89,8 @@ function HomePageClient() {
   const fromPath = searchParams.get('from')
   const [showWarningModal, setShowWarningModal] = useState(showWarning)
   const router = useRouter()
+  const [pendingOperation, setPendingOperation] = useState<string | null>(null)
+  const [isCreatePipelineModalVisible, setIsCreatePipelineModalVisible] = useState(false)
 
   const { getIsKafkaConnectionDirty } = kafkaStore
   const { getIsTopicDirty } = topicsStore
@@ -138,7 +141,8 @@ function HomePageClient() {
       })
     }
 
-    completeOperationChange(operation)
+    setPendingOperation(operation)
+    setIsCreatePipelineModalVisible(true)
   }
 
   const handleWarningModalComplete = (result: string) => {
@@ -153,12 +157,31 @@ function HomePageClient() {
     }
   }
 
-  const completeOperationChange = (operation: OperationKeys) => {
+  const completeOperationSelection = (operation: OperationKeys) => {
     resetPipelineState(operation, true)
     setOperationsSelected({
       operation,
     })
     router.push('/pipelines/create')
+  }
+
+  const handleCreatePipelineModalComplete = async (result: string, configName?: string) => {
+    setIsCreatePipelineModalVisible(false)
+
+    // Save configuration if the user chose to do so and provided a name
+    if (result === ModalResult.YES && configName) {
+      try {
+        // save pipeline name to local storage
+        completeOperationSelection(pendingOperation as OperationKeys)
+      } catch (error) {
+        console.error('Failed to save configuration:', error)
+      }
+    }
+
+    // Reset pipeline state and navigate to home regardless of save choice
+    if (result === ModalResult.CANCEL || result === ModalResult.NO) {
+      setIsCreatePipelineModalVisible(false)
+    }
   }
 
   return (
@@ -249,6 +272,8 @@ function HomePageClient() {
       <div className="w-full mt-12 sm:mt-16">
         <SavedConfigurations />
       </div>
+
+      <CreatePipelineModal visible={isCreatePipelineModalVisible} onComplete={handleCreatePipelineModalComplete} />
     </div>
   )
 }
