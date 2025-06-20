@@ -1,0 +1,17 @@
+# Mock API Configuration Example
+# Copy this to .env.local and modify as needed
+
+# Set to 'true' to enable mock mode for frontend development
+NEXT_PUBLIC_USE_MOCK_API=false
+
+# Real API Configuration (used when mock mode is disabled)
+NEXT_PUBLIC_API_URL=http://app:8080/api/v1
+
+# Development Configuration
+NODE_ENV=development
+
+# Mock Data Configuration
+# You can add more specific mock configurations here
+MOCK_KAFKA_TOPICS_COUNT=5
+MOCK_CLICKHOUSE_DATABASES_COUNT=3
+MOCK_PIPELINE_DELAY_MS=200 
