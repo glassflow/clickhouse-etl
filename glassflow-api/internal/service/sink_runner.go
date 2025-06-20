@@ -45,13 +45,14 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 	chClient, err := client.NewClickHouseClient(
 		ctx,
 		client.ClickHouseClientConfig{
-			Host:      cfg.Host,
-			Port:      cfg.Port,
-			Username:  cfg.Username,
-			Secure:    cfg.Secure,
-			Password:  cfg.Password,
-			Database:  cfg.Database,
-			TableName: cfg.Table,
+			Host:                 cfg.Host,
+			Port:                 cfg.Port,
+			Username:             cfg.Username,
+			Secure:               cfg.Secure,
+			Password:             cfg.Password,
+			Database:             cfg.Database,
+			TableName:            cfg.Table,
+			SkipCertificateCheck: cfg.SkipCertificateCheck,
 		},
 	)
 	if err != nil {
