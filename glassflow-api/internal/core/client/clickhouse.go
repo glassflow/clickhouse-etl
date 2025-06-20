@@ -12,35 +12,38 @@ import (
 )
 
 type ClickHouseClientConfig struct {
-	Host      string `json:"host" default:"127.0.0.1"`
-	Port      string `json:"port" default:"9000"`
-	Username  string `json:"username" default:"default"`
-	Secure    bool   `json:"tls_enabled" default:"false"`
-	Password  string `json:"password"`
-	Database  string `json:"database" default:"default"`
-	TableName string `json:"table"`
+	Host                 string `json:"host" default:"127.0.0.1"`
+	Port                 string `json:"port" default:"9000"`
+	Username             string `json:"username" default:"default"`
+	Secure               bool   `json:"tls_enabled" default:"false"`
+	Password             string `json:"password"`
+	Database             string `json:"database" default:"default"`
+	TableName            string `json:"table"`
+	SkipCertificateCheck bool   `json:"skip_certificate_check" default:"false"`
 }
 
 type ClickHouseClient struct {
-	conn      driver.Conn
-	host      string
-	port      string
-	username  string
-	password  string
-	database  string
-	tableName string
-	secure    bool
+	conn                 driver.Conn
+	host                 string
+	port                 string
+	username             string
+	password             string
+	database             string
+	tableName            string
+	secure               bool
+	skipCertificateCheck bool
 }
 
 func NewClickHouseClient(ctx context.Context, cfg ClickHouseClientConfig) (*ClickHouseClient, error) {
 	client := &ClickHouseClient{ //nolint:exhaustruct // optional config
-		host:      cfg.Host,
-		port:      cfg.Port,
-		username:  cfg.Username,
-		password:  cfg.Password,
-		database:  cfg.Database,
-		tableName: cfg.TableName,
-		secure:    cfg.Secure,
+		host:                 cfg.Host,
+		port:                 cfg.Port,
+		username:             cfg.Username,
+		password:             cfg.Password,
+		database:             cfg.Database,
+		tableName:            cfg.TableName,
+		secure:               cfg.Secure,
+		skipCertificateCheck: cfg.SkipCertificateCheck,
 	}
 	err := client.connect(ctx)
 	if err != nil {
@@ -76,6 +79,10 @@ func (c *ClickHouseClient) connect(ctx context.Context) error {
 	if c.secure {
 		tlsConfig = &tls.Config{ //nolint:exhaustruct //optionals
 			MinVersion: tls.VersionTLS12,
+		}
+
+		if c.skipCertificateCheck {
+			tlsConfig.InsecureSkipVerify = true
 		}
 	}
 

@@ -60,14 +60,16 @@ type PipelineRequest struct {
 	} `json:"join"`
 	Sink struct {
 		// Add validation for null/empty values
-		Host     string `json:"host"`
-		Port     string `json:"port"`
-		Database string `json:"database"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Table    string `json:"table"`
-		Secure   bool   `json:"secure"`
-		Mapping  []struct {
+		Host                        string `json:"host"`
+		Port                        string `json:"port"`
+		Database                    string `json:"database"`
+		Username                    string `json:"username"`
+		Password                    string `json:"password"`
+		Table                       string `json:"table"`
+		Secure                      bool   `json:"secure"`
+		SkipCertificateVerification bool   `json:"skip_certificate_verification"`
+
+		Mapping []struct {
 			SourceID  string `json:"source_id"`
 			FieldName string `json:"field_name"`
 
@@ -137,14 +139,15 @@ type SchemaField struct {
 }
 
 type ClickhouseConfig struct {
-	Host     string
-	Port     string
-	Database string
-	Username string
-	Password string
-	Secure   bool
-	Table    string
-	Mapping  []KafkaToClickhouseMap
+	Host                 string
+	Port                 string
+	Database             string
+	Username             string
+	Password             string
+	Secure               bool
+	SkipCertificateCheck bool
+	Table                string
+	Mapping              []KafkaToClickhouseMap
 
 	MaxBatchSize int
 	MaxDelayTime time.Duration
@@ -286,13 +289,14 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 
 	//nolint: exhaustruct // mappings are added later
 	chCfg := ClickhouseConfig{
-		Host:     req.Sink.Host,
-		Port:     req.Sink.Port,
-		Database: req.Sink.Database,
-		Username: req.Sink.Username,
-		Password: req.Sink.Password,
-		Table:    req.Sink.Table,
-		Secure:   req.Sink.Secure,
+		Host:                 req.Sink.Host,
+		Port:                 req.Sink.Port,
+		Database:             req.Sink.Database,
+		Username:             req.Sink.Username,
+		Password:             req.Sink.Password,
+		Table:                req.Sink.Table,
+		Secure:               req.Sink.Secure,
+		SkipCertificateCheck: req.Sink.SkipCertificateVerification,
 
 		MaxBatchSize: req.Sink.MaxBatchSize,
 		MaxDelayTime: req.Sink.MaxDelayTime.Duration(),
