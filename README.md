@@ -85,6 +85,13 @@ For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.de
 - [Architecture](https://docs.glassflow.dev/architecture)
 - [Load Test Results](https://docs.glassflow.dev/load-test/results) - Performance benchmarks and test results
 
+## 🗺️ Roadmap
+
+Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's coming next in GlassFlow. We're actively working on new features and improvements based on community feedback.
+
+**Want to suggest a feature?** We'd love to hear from you! Please use our [GitHub Discussions](https://github.com/orgs/glassflow/discussions/categories/ideas) to share your ideas and help shape the future of GlassFlow.
+
+
 ## 	✨ Features
 
 - Real-time data processing from Kafka to ClickHouse
