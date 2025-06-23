@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
             <footer className="w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-6 shrink-0">
               <div className="max-w-[1240px] mx-auto w-full flex gap-6 flex-wrap items-center justify-center">
-                <GlobalFooter />
+                {/* <GlobalFooter /> */}
               </div>
             </footer>
           </ConsentLayout>

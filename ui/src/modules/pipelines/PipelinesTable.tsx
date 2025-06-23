@@ -79,19 +79,10 @@ export function PipelinesTable({
             style={{ gridTemplateColumns }}
           >
             {columns.map((column) => (
-              <div key={column.key} className="table-cell">
+              <div key={column.key} className="table-cell" data-label={column.header}>
                 {column.render ? column.render(item) : (item as any)[column.key]}
               </div>
             ))}
-            {/* Context Menu Column */}
-            {/* <div className="table-cell flex justify-end">
-              <TableContextMenu
-                onPause={onPause ? () => onPause(item) : undefined}
-                onEdit={onEdit ? () => onEdit(item) : undefined}
-                onRename={onRename ? () => onRename(item) : undefined}
-                onDelete={onDelete ? () => onDelete(item) : undefined}
-              />
-            </div> */}
           </div>
         ))}
         {data.length === 0 && (

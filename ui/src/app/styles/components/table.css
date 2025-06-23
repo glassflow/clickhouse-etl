@@ -77,25 +77,25 @@
     font-style: italic;
   }
 
-  /* Responsive design */
-  @media (max-width: 768px) {
+  /* Responsive design for desktop and tablet only */
+  @media (max-width: 1024px) {
+    /* Tablet layout */
     .table-header-row,
     .table-row {
-      gap: 0.5rem;
-      grid-template-columns: 1fr !important;
+      grid-template-columns: 1.5fr 1.5fr 1fr 0.5fr;
+      gap: 0.75rem;
     }
 
-    .table-header-cell {
-      font-weight: 600;
-      color: var(--color-foreground-neutral, #374151);
-    }
-
+    .table-header-cell,
     .table-cell {
-      padding-left: 1rem;
+      font-size: 14px;
     }
+  }
 
-    .table-cell-empty {
-      grid-column: 1;
+  @media (max-width: 768px) {
+    /* Hide table on mobile - will use separate mobile component */
+    .table-container {
+      display: none;
     }
   }
 }

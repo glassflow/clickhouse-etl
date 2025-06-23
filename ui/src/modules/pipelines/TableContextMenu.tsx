@@ -45,44 +45,48 @@ export const TableContextMenu = ({ onPause, onEdit, onRename, onDelete, disabled
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
 
           {/* Menu dropdown */}
-          <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px]">
+          <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]">
             {onPause && (
               <Button
+                variant="ghost"
                 className="flex justify-start items-center w-full px-3 py-2 text-sm text-foreground hover:bg-[var(--color-background-neutral-faded)] transition-colors"
                 onClick={() => handleMenuClick(onPause)}
               >
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
+                <Pause className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Pause</span>
               </Button>
             )}
 
             {onEdit && (
               <Button
+                variant="ghost"
                 className="flex justify-start items-center w-full px-3 py-2 text-sm text-foreground hover:bg-[var(--color-background-neutral-faded)] transition-colors"
                 onClick={() => handleMenuClick(onEdit)}
               >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
+                <Edit className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Edit</span>
               </Button>
             )}
 
             {onRename && (
               <Button
+                variant="ghost"
                 className="flex justify-start items-center w-full px-3 py-2 text-sm text-foreground hover:bg-[var(--color-background-neutral-faded)] transition-colors"
                 onClick={() => handleMenuClick(onRename)}
               >
-                <FileText className="h-4 w-4 mr-2" />
-                Rename
+                <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Rename</span>
               </Button>
             )}
 
             {onDelete && (
               <Button
+                variant="ghost"
                 className="flex justify-start items-center w-full px-3 py-2 text-sm text-destructive hover:bg-[var(--color-background-neutral-faded)] transition-colors"
                 onClick={() => handleMenuClick(onDelete)}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+                <Trash2 className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Delete</span>
               </Button>
             )}
           </div>

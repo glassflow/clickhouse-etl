@@ -17,6 +17,7 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { Feedback } from './Feedback'
 import { Pipeline } from '@/src/api/pipeline-api'
 import { PipelinesTable, TableColumn } from '@/src/modules/pipelines/PipelinesTable'
+import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 
@@ -29,6 +30,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   const [error, setError] = useState<string | null>(null)
   const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   const router = useRouter()
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -37,6 +39,17 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   useEffect(() => {
     // Track page view when component loads
     analytics.page.pipelines({})
+  }, [])
+
+  // Check screen size for responsive behavior
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
   const handleDeleteClick = () => {
@@ -171,7 +184,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
     }
   }
 
-  // Define table columns
+  // Define table columns for desktop
   const columns: TableColumn<Pipeline>[] = [
     {
       key: 'name',
@@ -247,23 +260,35 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   return (
     <div className="flex flex-col w-full gap-6">
       {/* Header with title and button */}
-      <div className="flex items-center justify-between w-full">
-        <h1 className="text-2xl font-semibold">Pipelines</h1>
-        <Button onClick={() => router.push('/home')} className="bg-primary text-primary-foreground hover:bg-primary/90">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
+        <h1 className="text-xl sm:text-2xl font-semibold">Pipelines</h1>
+        <Button
+          onClick={() => router.push('/home')}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
+        >
           Create Pipeline
         </Button>
       </div>
 
-      {/* Custom Table */}
-      <PipelinesTable
-        data={pipelines}
-        columns={columns}
-        emptyMessage="No pipelines found. Create your first pipeline to get started."
-        onPause={handlePause}
-        onEdit={handleEdit}
-        onRename={handleRename}
-        onDelete={handleDelete}
-      />
+      {/* Desktop/Tablet Table */}
+      <div className="hidden md:block">
+        <PipelinesTable
+          data={pipelines}
+          columns={columns}
+          emptyMessage="No pipelines found. Create your first pipeline to get started."
+        />
+      </div>
+
+      {/* Mobile List */}
+      <div className="md:hidden">
+        <MobilePipelinesList
+          pipelines={pipelines}
+          onPause={handlePause}
+          onEdit={handleEdit}
+          onRename={handleRename}
+          onDelete={handleDelete}
+        />
+      </div>
 
       <InputModal
         visible={isModifyModalVisible}
