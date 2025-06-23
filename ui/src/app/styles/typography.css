@@ -103,6 +103,13 @@
   color: var(--color-foreground-neutral);
 }
 
+.text-content {
+  color: var(--color-foreground-neutral-faded);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
 .text-normal-accent {
   color: var(--color-foreground-accent);
 }

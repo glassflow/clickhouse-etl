@@ -1,4 +1,55 @@
 [data-theme='light'] {
+  /* Color system */
+  --color-background-primary: #ffa24b;
+  --color-background-primary-faded: #fff3ea;
+  --color-border-primary: #ffa24b;
+  --color-border-primary-faded: #ffd4a3;
+  --color-foreground-primary: #ffa24b;
+
+  --color-background-critical: #e22c2c;
+  --color-background-critical-faded: #fef2f2;
+  --color-border-critical: #e22c2c;
+  --color-border-critical-faded: #fecaca;
+  --color-foreground-critical: #e22c2c;
+
+  --color-background-warning: #f59e0b;
+  --color-background-warning-faded: #fffbeb;
+  --color-border-warning: #f59e0b;
+  --color-border-warning-faded: #fde68a;
+  --color-foreground-warning: #f59e0b;
+
+  --color-background-positive: #10b981;
+  --color-background-positive-faded: #ecfdf5;
+  --color-border-positive: #10b981;
+  --color-border-positive-faded: #a7f3d0;
+  --color-foreground-positive: #10b981;
+
+  --color-background-neutral: #f3f3f5;
+  --color-background-neutral-faded: #f9f9fa;
+  --color-border-neutral: #e5e7eb;
+  --color-border-neutral-faded: #f3f4f6;
+  --color-foreground-neutral: #374151;
+  --color-foreground-neutral-faded: #6b7280;
+
+  --color-background-disabled: #f9fafb;
+  --color-background-disabled-faded: #f3f4f6;
+  --color-border-disabled: #d1d5db;
+  --color-foreground-disabled: #9ca3af;
+
+  --color-border-info: #3b82f6;
+  --color-border-info-faded: #dbeafe;
+  --color-foreground-info: #3b82f6;
+  --color-foreground-info-faded: #60a5fa;
+
+  --color-border-regular: #e5e7eb;
+  --color-background-regular: #ffffff;
+
+  --color-background-elevation-base: #ffffff;
+  --color-background-elevation-raised: #ffffff;
+  --color-background-elevation-overlay: #ffffff;
+  --color-background-page: #ffffff;
+  --color-background-page-faded: #f9fafb;
+
   /* Color-specific variables for light mode */
   --color-on-background-primary: #000000;
   --color-on-background-critical: #ffffff;
