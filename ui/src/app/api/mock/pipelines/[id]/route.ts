@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 interface Pipeline {
   id: string
   name: string
-  status: 'running' | 'paused' | 'error' | 'stopped'
+  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'error'
   created_at: string
   updated_at: string
   config: {
@@ -32,7 +32,7 @@ const mockPipelines: Pipeline[] = [
   {
     id: 'pipeline-001',
     name: 'User Events Pipeline',
-    status: 'running',
+    status: 'active',
     created_at: '2024-01-15T10:30:00Z',
     updated_at: '2024-01-15T14:45:00Z',
     config: {

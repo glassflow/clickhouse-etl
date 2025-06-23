@@ -4,7 +4,7 @@ import { getApiUrl, isMockMode } from '@/src/utils/mock-api'
 export interface Pipeline {
   id: string
   name: string
-  status: 'running' | 'paused' | 'error' | 'stopped'
+  status: 'active' | 'paused' | 'terminated' | 'deleted'
   created_at: string
   updated_at: string
   config: {

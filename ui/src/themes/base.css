@@ -109,6 +109,8 @@
   --color-brand: #ffa24b;
   --color-white: #ffffff;
   --color-black: #000000;
+  --color-grey-faded: #242424;
+  --color-grey-faded-2: #141414;
 
   /* Animation */
   --duration-fast: 200ms;

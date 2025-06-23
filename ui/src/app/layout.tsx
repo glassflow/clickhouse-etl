@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="shortcut icon" href="/favicon.svg" />
       </head>
-      <body className="bg-background text-foreground">
+      <body className="background text-foreground">
         <Script src="/env.js" strategy="beforeInteractive" />
         <ThemeProvider>
           <ConsentLayout>

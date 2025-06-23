@@ -3,7 +3,7 @@ import { generateMockKafkaEvent, generateMockKafkaTopics } from '@/src/utils/moc
 
 export interface PipelineResponse {
   pipeline_id: string
-  status: 'running' | 'stopped' | 'error'
+  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'error'
   error?: string
 }
 
@@ -28,7 +28,7 @@ export const createPipeline = async (config: any): Promise<PipelineResponse> => 
     if (data.success) {
       return {
         pipeline_id: data.pipeline_id,
-        status: 'running',
+        status: 'active',
       }
     } else {
       throw {
@@ -84,7 +84,7 @@ export const getPipelineStatus = async (): Promise<PipelineResponse> => {
     if (data.success) {
       return {
         pipeline_id: data.pipeline_id,
-        status: 'running',
+        status: 'active',
       }
     } else {
       throw {

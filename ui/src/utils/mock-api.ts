@@ -14,7 +14,7 @@ export const getApiUrl = (endpoint: string) => {
 export const generateMockPipeline = (id: string = `pipeline-${Date.now()}`) => ({
   id,
   name: `Mock Pipeline ${id}`,
-  status: 'running' as const,
+  status: 'active' as const,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   config: {

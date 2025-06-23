@@ -1,0 +1,15 @@
+.chip-positive {
+  background-color: var(--color-background-positive);
+  color: var(--color-on-background-positive);
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.chip-negative {
+  background-color: var(--color-background-negative);
+  color: var(--color-on-background-negative);
+}
