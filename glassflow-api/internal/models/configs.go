@@ -81,13 +81,14 @@ type JoinOperatorConfig struct {
 }
 
 type ClickHouseConnectionParamsConfig struct {
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	Database string `json:"database"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Table    string `json:"table"`
-	Secure   bool   `json:"secure"`
+	Host                 string `json:"host"`
+	Port                 string `json:"port"`
+	Database             string `json:"database"`
+	Username             string `json:"username"`
+	Password             string `json:"password"`
+	Table                string `json:"table"`
+	Secure               bool   `json:"secure"`
+	SkipCertificateCheck bool   `json:"skip_certificate_check"`
 }
 
 type BatchConfig struct {

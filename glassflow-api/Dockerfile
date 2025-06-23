@@ -5,7 +5,7 @@ RUN apk add -U --no-cache ca-certificates tini && \
   adduser -G etl -h /nonexisent -s /sbin/nologin -D -H -u 1001 etl
 
 COPY ./nats-kafka-bridge/bin/nats-kafka-bridge /usr/local/bin/nats-kafka-bridge
-COPY ./glassflow-api/bin/clickhouse-etl /usr/local/bin/clickhouse-etl
+COPY ./glassflow-api/bin/glassflow  /usr/local/bin/clickhouse-etl
 
 RUN mkdir -p /tmp/logs/glassflow && chown 1001:1001 /tmp/logs/glassflow
 
