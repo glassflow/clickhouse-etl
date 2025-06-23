@@ -81,6 +81,22 @@ type PipelineRequest struct {
 	} `json:"sink"`
 }
 
+type PipelineID struct {
+	string
+}
+
+func NewPipelineID(s string) (zero PipelineID, _ error) {
+	if len(strings.TrimSpace(s)) == 0 {
+		return zero, PipelineConfigError{msg: "pipeline ID cannot be empty"}
+	}
+
+	return PipelineID{s}, nil
+}
+
+func (pid PipelineID) String() string {
+	return pid.string
+}
+
 type PipelineConfigError struct {
 	msg string
 }
