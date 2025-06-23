@@ -21,6 +21,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
+	messagequeue "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/message_queue/nats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
@@ -154,7 +155,14 @@ func mainErr(cfg *config, role Role) error {
 func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
 	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log)
 
-	handler := api.NewRouter(log, pipelineMgr)
+	mq, err := messagequeue.NewClient(cfg.NATSServer)
+	if err != nil {
+		return fmt.Errorf("initialize message queue: %w", err)
+	}
+
+	dlqSvc := service.NewDLQService(mq)
+
+	handler := api.NewRouter(log, pipelineMgr, dlqSvc)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
