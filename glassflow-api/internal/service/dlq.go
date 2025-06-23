@@ -1,0 +1,57 @@
+package service
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+)
+
+const DLQSuffix = "DLQ"
+
+type MessageQueue interface {
+	FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error)
+	GetDLQState(ctx context.Context, stream string) (models.DLQState, error)
+}
+
+type DLQ struct {
+	mq MessageQueue
+}
+
+func NewDLQService(mq MessageQueue) *DLQ {
+	return &DLQ{mq}
+}
+
+var (
+	ErrDLQNotExists    = fmt.Errorf("dlq does not exist")
+	ErrNoMessagesInDLQ = fmt.Errorf("no content")
+)
+
+// WARNING: bad design choice since the api request can fail and the
+// acknowledged messages will be lost. Only a dirty solution for now,
+// must be changed to a streaming API in future
+func (d *DLQ) ConsumeDLQ(ctx context.Context, pid models.PipelineID, batchSize models.DLQBatchSize) ([]models.DLQMessage, error) {
+	dlqStream := fmt.Sprintf("%s-%s", pid.String(), DLQSuffix)
+
+	batch, err := d.mq.FetchDLQMessages(ctx, dlqStream, batchSize.Int)
+	if err != nil {
+		return nil, fmt.Errorf("consume dlq: %w", err)
+	}
+
+	if len(batch) == 0 {
+		return nil, ErrNoMessagesInDLQ
+	}
+
+	return batch, nil
+}
+
+func (d *DLQ) GetDLQState(ctx context.Context, pid models.PipelineID) (zero models.DLQState, _ error) {
+	dlqStream := fmt.Sprintf("%s-%s", pid.String(), DLQSuffix)
+
+	state, err := d.mq.GetDLQState(ctx, dlqStream)
+	if err != nil {
+		return zero, fmt.Errorf("get dlq state: %w", err)
+	}
+
+	return state, nil
+}
