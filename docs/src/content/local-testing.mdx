@@ -61,8 +61,8 @@ docker compose exec clickhouse clickhouse-client \
     --password secret \
     --query "
 CREATE TABLE IF NOT EXISTS users_dedup (
-    event_id Int32,
-    user_id Int32,
+    event_id UUID,
+    user_id UUID,
     name String,
     email String,
     created_at DateTime
@@ -70,18 +70,50 @@ CREATE TABLE IF NOT EXISTS users_dedup (
 ORDER BY event_id"
 ```
 
-### 3. Configure Pipeline in UI
+### 3. Generate Test Events in Kafka
+
+```bash
+# Send multiple JSON events to Kafka
+echo '{"event_id": "49a6fdd6f305428881f3436eb498fc9d", "user_id": "8db09a6aa33a46f6bdabe4683a34ac4d", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:00:00Z"}
+{"event_id": "49a6fdd6f305428881f3436eb498fc9d", "user_id": "8db09a6aa33a46f6bdabe4683a34ac4d", "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:01:00Z"}
+{"event_id": "f0ed455046a543459d9a51502cdc756d", "user_id": "a7f93b87e29c4978848731e204e47e97", "name": "Jane Smith", "email": "jane@example.com", "created_at": "2024-03-20T10:03:00Z"}' | \
+docker compose exec -T kafka kafka-console-producer \
+    --topic users \
+    --bootstrap-server localhost:9092
+```
+
+### 4. Configure Pipeline in UI
 
 Access the GlassFlow UI at `http://localhost:8080` and use these connection details to create a deduplication pipeline:
 
-#### Kafka Connection
+**Kafka Connection**
 ```yaml
 Authentication Method: No Authentication
 Security Protocol: PLAINTEXT
 Bootstrap Servers: kafka:9093
 ```
+**Kafka Topic**
+```yaml
+Topic Name: users
+Consumer Group Initial Offset: latest
+Schema:
+{
+  "event_id": "49a6fdd6f305428881f3436eb498fc9d",
+  "user_id": "8db09a6aa33a46f6bdabe4683a34ac4d",
+  "name": "Jane Smith",
+  "email": "jane@example.com",
+  "created_at": "2024-03-20T10:03:00Z"
+}
+```
+**Deduplication**
+```yaml
+Enabled: true
+Deduplicate Key: event_id
+Deduplicate Key Type: string
+Time Window: 1h
+```
 
-#### ClickHouse Connection
+**ClickHouse Connection**
 ```yaml
 Host: clickhouse
 HTTP/S Port: 8123
@@ -90,17 +122,9 @@ Username: default
 Password: secret
 Use SSL: false
 ```
-
-### 4. Generate Test Events
-
-```bash
-# Send multiple JSON events to Kafka
-echo '{"event_id": 123, "user_id": 456, "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:00:00Z"}
-{"event_id": 123, "user_id": 456, "name": "John Doe", "email": "john@example.com", "created_at": "2024-03-20T10:01:00Z"}
-{"event_id": 124, "user_id": 457, "name": "Jane Smith", "email": "jane@example.com", "created_at": "2024-03-20T10:03:00Z"}' | \
-docker compose exec -T kafka kafka-console-producer \
-    --topic users \
-    --bootstrap-server localhost:9092
+**ClickHouse Table**
+```yaml
+Table: users_dedup
 ```
 
 ### 5. Verify Results
