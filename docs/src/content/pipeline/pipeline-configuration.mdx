@@ -27,9 +27,9 @@ The source configuration defines how to connect to and consume from Kafka topics
 | `type` | string | Yes | "kafka" is the only supported source |
 | `provider` | string | No | Kafka provider, e.g. "aiven" |
 | `topics` | array | Yes | List of Kafka topics to consume from. See [Topic Configuration](#topic-configuration). |
-| `connection_params` | object | Yes | Kafka connection parameters. See [Connection Parameters](#connection-parameters). |
+| `connection_params` | object | Yes | Kafka connection parameters. See [Kafka Connection Parameters](#kafka-connection-parameters). |
 
-### Connection Parameters
+### Kafka Connection Parameters
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -64,7 +64,15 @@ Each topic in the `topics` array has the following configuration:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Field name. |
-| `type` | string | Yes | Field type (e.g., "String", "Integer"). |
+| `type` | string | Yes | Field type. |
+
+The `type` parameter accepts the following Kafka data types:
+
+- `'string'` - For text data, including datetime strings
+- `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
+- `'float32'`, `'float64'` - For floating-point numbers
+- `'bool'` - For boolean values
+- `'bytes'` - For binary data
 
 ### Deduplication Configuration
 
