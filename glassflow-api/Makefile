@@ -12,12 +12,12 @@ ci-print-lint-version: ## print linter version
 
 .PHONY: run
 run:
-	go run cmd/main.go
+	go run cmd/glassflow/main.go
 
 .PHONY: build
 build:
-	CGO_ENABLED=0 go build -mod=readonly -o bin/clickhouse-etl \
-	cmd/main.go
+	CGO_ENABLED=0 go build -mod=readonly -o bin/glassflow \
+	cmd/glassflow/main.go
 
 .PHONY: run-test
 run-test:

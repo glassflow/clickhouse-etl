@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type Mapper interface {
@@ -14,31 +16,9 @@ type Mapper interface {
 	JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error)
 }
 
-type StreamDataField struct {
-	FieldName string `json:"field_name"`
-	FieldType string `json:"field_type"`
-}
-
-type StreamSchemaConfig struct {
-	Fields       []StreamDataField `json:"fields"`
-	JoinKeyField string            `json:"join_key_field"`
-}
-
-type SinkMappingConfig struct {
-	ColumnName string `json:"column_name"`
-	StreamName string `json:"stream_name"`
-	FieldName  string `json:"field_name"`
-	ColumnType string `json:"column_type"`
-}
-
 type Stream struct {
 	Fields  map[string]KafkaDataType
 	JoinKey string
-}
-
-type Config struct {
-	Streams     map[string]StreamSchemaConfig `json:"streams"`
-	SinkMapping []SinkMappingConfig           `json:"sink_mapping"`
 }
 
 type SinkMapping struct {
@@ -46,6 +26,20 @@ type SinkMapping struct {
 	StreamName string
 	FieldName  string
 	ColumnType ClickHouseDataType
+}
+
+func NewMapper(cfg models.MapperConfig) (Mapper, error) {
+	if cfg.Type != "jsonToClickhouse" {
+		return nil, fmt.Errorf("unsupported mapper type: %s", cfg.Type)
+	}
+
+	mapper, err := NewJSONToClickHouseMapper(cfg.Streams, cfg.SinkMapping)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create JsonToClickHouseMapper: %w", err)
+	}
+
+	return mapper, nil
 }
 
 func NewSinkMapping(columnName, streamName, fieldName, columnType string) *SinkMapping {
@@ -66,7 +60,7 @@ type JsonToClickHouseMapper struct {
 	columnOrderMap map[string]int
 }
 
-func convertStreams(streams map[string]StreamSchemaConfig) map[string]Stream {
+func convertStreams(streams map[string]models.StreamSchemaConfig) map[string]Stream {
 	mappedStreams := make(map[string]Stream)
 
 	for streamName, streamConfig := range streams {
@@ -85,7 +79,7 @@ func convertStreams(streams map[string]StreamSchemaConfig) map[string]Stream {
 	return mappedStreams
 }
 
-func NewJsonToClickHouseMapper(streamsConfig map[string]StreamSchemaConfig, sinkMappingConfig []SinkMappingConfig) (*JsonToClickHouseMapper, error) {
+func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfig, sinkMappingConfig []models.SinkMappingConfig) (*JsonToClickHouseMapper, error) {
 	columnMappings := make([]*SinkMapping, 0, len(sinkMappingConfig))
 	for _, mapping := range sinkMappingConfig {
 		columnMappings = append(columnMappings, NewSinkMapping(mapping.ColumnName, mapping.StreamName, mapping.FieldName, mapping.ColumnType))
