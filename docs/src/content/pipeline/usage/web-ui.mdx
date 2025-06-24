@@ -1,0 +1,353 @@
+---
+title: 'Web UI'
+description: 'Learn how to use the GlassFlow web interface to create and manage data pipelines'
+---
+
+# Web UI
+
+The GlassFlow web interface provides an intuitive, visual way to create and manage data pipelines without writing code. This guide will walk you through the complete process of setting up different types of pipelines using the web interface.
+
+## Getting Started
+
+### Access the Web Interface
+
+The GlassFlow web interface is available at `http://localhost:8080` by default. For production deployments, use your configured GlassFlow URL.
+
+### Pipeline Types
+
+The web interface supports four main pipeline types:
+
+1. **Deduplicate** - Remove duplicate records based on specified keys
+2. **Join** - Combine data from multiple Kafka topics
+3. **Deduplicate and Join** - Both deduplication and joining in a single pipeline
+4. **Ingest Only** - Simple data ingestion without transformations
+
+## Creating a Deduplication Pipeline
+
+This section walks through creating a pipeline that removes duplicate records from a Kafka topic.
+
+### Step 1: Setup Kafka Connection
+
+**Screenshot: Setup Kafka Connection Screen**
+
+Configure the connection to your Kafka cluster:
+
+**Connection Parameters**
+
+- **Brokers**: Enter your Kafka broker addresses (e.g., `localhost:9092` or `kafka-cluster:9093`)
+- **Protocol**: Select the connection protocol
+  - `PLAINTEXT` - For unsecured local development
+  - `SASL_SSL` - For production with authentication
+  - `SSL` - For SSL-secured connections
+- **Authentication**: Configure if required
+  - **Username**: Your Kafka username
+  - **Password**: Your Kafka password (base64 encoded)
+  - **Mechanism**: Authentication mechanism (e.g., `SCRAM-SHA-256`)
+  - **Root CA**: SSL certificate (base64 encoded)
+- **Skip Authentication**: Enable for unsecured connections
+
+**Connection Testing**
+
+After entering your connection details:
+1. Click "Test Connection" to verify connectivity
+2. Ensure you can successfully connect to your Kafka cluster
+3. Proceed to the next step once connection is confirmed
+
+### Step 2: Select Topic
+
+**Screenshot: Select Topic Screen**
+
+Choose the Kafka topic and define its schema:
+
+**Topic Selection**
+
+- **Topic Name**: Select the Kafka topic you want to process
+- **Consumer Group Initial Offset**: Choose where to start reading
+  - `earliest` - Start from the beginning of the topic
+  - `latest` - Start from the most recent messages
+
+**Schema Definition**
+
+Define the structure of your data:
+
+- **Schema Type**: Select `JSON` for JSON-formatted messages
+- **Fields**: Add fields that match your data structure
+  - **Field Name**: The name of the field in your JSON
+  - **Field Type**: Select from supported types:
+    - `string` - For text data and datetime strings
+    - `int8`, `int16`, `int32`, `int64` - For integer values
+    - `float32`, `float64` - For floating-point numbers
+    - `bool` - For boolean values
+    - `bytes` - For binary data
+
+**Example Schema:**
+```
+user_id: string
+name: string
+email: string
+country: string
+created_at: string
+```
+
+### Step 3: Define Deduplicate Keys
+
+**Screenshot: Define Deduplicate Keys Screen**
+
+Configure deduplication settings to remove duplicate records:
+
+**Deduplication Configuration**
+
+- **Enable Deduplication**: Toggle to enable/disable deduplication
+- **ID Field**: Select the field to use for identifying duplicates
+  - Choose a field that uniquely identifies each record
+  - Common choices: `user_id`, `event_id`, `transaction_id`
+- **ID Field Type**: Specify the data type of the ID field
+  - Usually `string` for most use cases
+- **Time Window**: Set the deduplication time window
+  - `30s` - 30 seconds
+  - `1m` - 1 minute
+  - `1h` - 1 hour
+  - `12h` - 12 hours
+  - `24h` - 24 hours
+
+**Deduplication Logic**
+
+The system will:
+1. Track the specified ID field within the time window
+2. Keep only the first occurrence of each unique ID
+3. Discard subsequent duplicates within the time window
+4. Reset tracking after the time window expires
+
+### Step 4: Setup ClickHouse Connection
+
+**Screenshot: Setup ClickHouse Connection Screen**
+
+Configure the connection to your ClickHouse database:
+
+**Connection Parameters**
+
+- **Host**: Enter your ClickHouse server address
+- **Port**: Specify the ClickHouse port (default: `8123` for HTTP, `8443` for HTTPS)
+- **Username**: Your ClickHouse username
+- **Password**: Your ClickHouse password (base64 encoded)
+- **Database**: Select the target database
+- **Secure Connection**: Enable for TLS/SSL connections
+
+**Connection Testing**
+
+1. Click "Test Connection" to verify connectivity
+2. Ensure you can successfully connect to your ClickHouse instance
+3. Proceed once connection is confirmed
+
+### Step 5: Select Destination
+
+**Screenshot: Select Destination Screen**
+
+Configure the destination table and field mappings:
+
+**Table Configuration**
+
+- **Table**: Select an existing table or create a new one
+- **Table Name**: Enter the name for your destination table
+
+**Field Mapping**
+
+Map source fields to ClickHouse columns:
+
+- **Source Field**: The field from your Kafka topic
+- **Column Name**: The corresponding ClickHouse column name
+- **Column Type**: Select the ClickHouse data type:
+  - `String` - For text data
+  - `Int8`, `Int16`, `Int32`, `Int64` - For integers
+  - `Float32`, `Float64` - For floating-point numbers
+  - `DateTime` - For timestamp data
+  - `Boolean` - For boolean values
+
+**Batch Configuration**
+
+- **Max Batch Size**: Maximum number of records per batch (default: 1000)
+- **Max Delay Time**: Maximum time to wait before flushing batch (default: 1s)
+
+## Creating a Join Pipeline
+
+This section covers creating pipelines that combine data from multiple Kafka topics.
+
+### Step 1-2: Setup Multiple Kafka Connections
+
+Follow the same steps as the deduplication pipeline, but configure connections for multiple Kafka topics:
+
+1. **Setup First Kafka Connection** (Left Topic)
+2. **Select First Topic** and define schema
+3. **Setup Second Kafka Connection** (Right Topic)
+4. **Select Second Topic** and define schema
+
+### Step 3: Configure Join Settings
+
+**Screenshot: Configure Join Settings Screen**
+
+**Join Configuration**
+
+- **Join Type**: Select `temporal` for time-based joins
+- **Join Key**: Specify the field used to match records between topics
+- **Time Window**: Set the join time window for matching records
+- **Orientation**: Choose join direction
+  - `left` - Keep all records from the first topic
+  - `right` - Keep all records from the second topic
+  - `inner` - Keep only matching records
+
+**Join Logic**
+
+The system will:
+1. Match records based on the join key
+2. Consider records within the specified time window
+3. Combine matching records according to the join orientation
+4. Output the joined results
+
+### Step 4-5: Setup ClickHouse and Destination
+
+Follow the same steps as the deduplication pipeline for the destination configuration.
+
+## Creating a Deduplicate and Join Pipeline
+
+This pipeline type combines both deduplication and joining capabilities.
+
+### Step 1-2: Setup Multiple Kafka Connections
+
+Configure connections for all topics you want to process.
+
+### Step 3: Configure Deduplication
+
+Set up deduplication for each topic individually:
+- Configure deduplication keys for the first topic
+- Configure deduplication keys for the second topic
+- Set appropriate time windows for each
+
+### Step 4: Configure Join Settings
+
+Set up the join configuration as described in the join pipeline section.
+
+### Step 5-6: Setup ClickHouse and Destination
+
+Configure the destination as in previous pipeline types.
+
+## Creating an Ingest Only Pipeline
+
+This is the simplest pipeline type for basic data ingestion without transformations.
+
+### Step 1: Setup Kafka Connection
+
+Follow the same Kafka connection setup as other pipeline types.
+
+### Step 2: Select Topic
+
+Choose your topic and define the schema.
+
+### Step 3: Setup ClickHouse Connection
+
+Configure the ClickHouse connection.
+
+### Step 4: Select Destination
+
+Configure the destination table and field mappings.
+
+**Note**: No deduplication or join configuration is needed for ingest-only pipelines.
+
+## Deploying the Pipeline
+
+### Review Configuration
+
+**Screenshot: Review Configuration Screen**
+
+Before deploying:
+1. Review all connection settings
+2. Verify field mappings
+3. Check transformation configurations
+4. Ensure all required fields are properly configured
+
+### Deploy
+
+**Screenshot: Deploy Pipeline Screen**
+
+1. Click the "Deploy" button
+2. The system will:
+   - Validate your configuration
+   - Generate the pipeline configuration
+   - Send the configuration to the GlassFlow API
+   - Start the pipeline processing
+
+### Deployment Status
+
+**Screenshot: Pipeline Status Screen**
+
+Monitor your pipeline:
+- **Status**: Shows if the pipeline is running, stopped, or in error
+- **Metrics**: View processing statistics
+- **Logs**: Access pipeline logs for debugging
+
+## Pipeline Management
+
+### Deleting Pipelines
+
+**Screenshot: Delete Pipeline Screen**
+
+- Remove pipeline configurations
+- Clean up resources
+
+**Important**: Only one pipeline can be active at a time in the current version.
+
+## Best Practices
+
+**1. Connection Security**
+
+- Use secure connections (SASL_SSL/SSL) for production
+- Store credentials securely
+- Test connections before deploying
+
+**2. Schema Design**
+
+- Define clear, consistent field names
+- Use appropriate data types
+- Consider future data structure changes
+
+**3. Performance Tuning**
+
+- Adjust batch sizes based on your data volume
+- Set appropriate time windows for deduplication
+- Monitor pipeline performance metrics
+
+**4. Error Handling**
+
+- Review pipeline logs regularly
+- Set up monitoring for pipeline failures
+- Have fallback strategies for data processing
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Connection Failures**
+   - Verify network connectivity
+   - Check authentication credentials
+   - Ensure proper SSL certificates
+
+2. **Schema Mismatches**
+   - Verify field names match exactly
+   - Check data type compatibility
+   - Review JSON structure
+
+3. **Performance Issues**
+   - Adjust batch sizes
+   - Review time window settings
+   - Monitor resource usage
+
+### Getting Help
+
+- Check the pipeline logs for detailed error messages
+- Review the [Pipeline Configuration](/pipeline/pipeline-configuration) documentation
+- Consult the [FAQ](/faq) for common solutions
+
+## Next Steps
+
+- Explore the [Pipeline Configuration](/pipeline/pipeline-configuration) documentation for detailed configuration options
+- Check out the [demo scripts](/local-testing) for more examples
+- Learn about [monitoring and observability](/pipeline/usage#verifying-data-flow) for your pipelines
