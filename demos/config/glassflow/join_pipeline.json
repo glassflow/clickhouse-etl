@@ -114,43 +114,43 @@
           "source_id": "orders",
           "field_name": "order_id",
           "column_name": "order_id",
-          "column_type": "uuid"
+          "column_type": "UUID"
         },
         {
           "source_id": "orders",
           "field_name": "user_id",
           "column_name": "user_id",
-          "column_type": "uuid"
+          "column_type": "UUID"
         },
         {
           "source_id": "user_events",
           "field_name": "name",
-          "column_name": "user_name",
-          "column_type": "string"
+          "column_name": "name",
+          "column_type": "String"
         },
         {
           "source_id": "user_events",
           "field_name": "email",
-          "column_name": "user_email",
-          "column_type": "string"
+          "column_name": "email",
+          "column_type": "String"
         },
         {
           "source_id": "orders",
           "field_name": "amount",
           "column_name": "amount",
-          "column_type": "int32"
+          "column_type": "Int32"
         },
         {
           "source_id": "orders",
           "field_name": "price",
           "column_name": "price",
-          "column_type": "float32"
+          "column_type": "Float32"
         },
         {
           "source_id": "orders",
           "field_name": "created_at",
           "column_name": "created_at",
-          "column_type": "datetime"
+          "column_type": "DateTime"
         }
       ]
     }
