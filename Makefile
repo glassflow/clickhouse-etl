@@ -9,11 +9,11 @@ run: nats-kafka-bridge
 
 .PHONY: nats-kafka-bridge
 nats-kafka-bridge:
-	$(MAKE) -C nats-kafka-bridge build
+	$(MAKE) -C nats-kafka-bridge build-linux-amd64
 
 .PHONY: clickhouse-etl
 clickhouse-etl:
-	$(MAKE) -C glassflow-api build
+	$(MAKE) -C glassflow-api build-linux-amd64
 
 .PHONY: ui
 ui:
@@ -24,4 +24,4 @@ build: nats-kafka-bridge clickhouse-etl ui
 
 .PHONY: run-local
 run-local: build
-	docker-compose -f ./dev/docker-compose.dev.yaml up
+	docker compose -f ./dev/docker-compose.dev.yaml up

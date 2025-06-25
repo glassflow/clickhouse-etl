@@ -520,3 +520,108 @@ func TestGetOrderedColumns(t *testing.T) {
 	columns := mapper.GetOrderedColumns()
 	assert.Equal(t, []string{"col1", "col2"}, columns)
 }
+
+func TestNestedJsonFields(t *testing.T) {
+	streamsConfig := map[string]StreamSchemaConfig{
+		"stream1": {
+			Fields: []StreamDataField{
+				{FieldName: "user.name", FieldType: "string"},
+				{FieldName: "user.address.city", FieldType: "string"},
+				{FieldName: "user.address.zip", FieldType: "string"},
+				{FieldName: "metadata.timestamp", FieldType: "string"},
+				{FieldName: "simple_field", FieldType: "string"},
+			},
+			JoinKeyField: "user.name",
+		},
+	}
+
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "user_name", StreamName: "stream1", FieldName: "user.name", ColumnType: "String"},
+		{ColumnName: "city", StreamName: "stream1", FieldName: "user.address.city", ColumnType: "String"},
+		{ColumnName: "zip", StreamName: "stream1", FieldName: "user.address.zip", ColumnType: "String"},
+		{ColumnName: "timestamp", StreamName: "stream1", FieldName: "metadata.timestamp", ColumnType: "String"},
+		{ColumnName: "simple", StreamName: "stream1", FieldName: "simple_field", ColumnType: "String"},
+	}
+
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	require.NoError(t, err)
+
+	t.Run("prepare values with nested fields", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": {
+				"name": "John Doe",
+				"address": {
+					"city": "New York",
+					"zip": "10001"
+				}
+			},
+			"metadata": {
+				"timestamp": "2023-01-01T00:00:00Z"
+			},
+			"simple_field": "test_value"
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 5)
+		assert.Equal(t, "John Doe", values[0])             // user_name
+		assert.Equal(t, "New York", values[1])             // city
+		assert.Equal(t, "10001", values[2])                // zip
+		assert.Equal(t, "2023-01-01T00:00:00Z", values[3]) // timestamp
+		assert.Equal(t, "test_value", values[4])           // simple
+	})
+
+	t.Run("get nested join key", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": {
+				"name": "Jane Smith"
+			}
+		}`)
+
+		value, err := mapper.GetJoinKey("stream1", jsonData)
+		require.NoError(t, err)
+		assert.Equal(t, "Jane Smith", value)
+	})
+
+	t.Run("get fields map with nested fields", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": {
+				"name": "Bob Johnson",
+				"address": {
+					"city": "Los Angeles",
+					"zip": "90210"
+				}
+			},
+			"metadata": {
+				"timestamp": "2023-02-01T00:00:00Z"
+			},
+			"simple_field": "another_value"
+		}`)
+
+		fieldsMap, err := mapper.GetFieldsMap("stream1", jsonData)
+		require.NoError(t, err)
+		assert.Len(t, fieldsMap, 5)
+		assert.Equal(t, "Bob Johnson", fieldsMap["user.name"])
+		assert.Equal(t, "Los Angeles", fieldsMap["user.address.city"])
+		assert.Equal(t, "90210", fieldsMap["user.address.zip"])
+		assert.Equal(t, "2023-02-01T00:00:00Z", fieldsMap["metadata.timestamp"])
+		assert.Equal(t, "another_value", fieldsMap["simple_field"])
+	})
+
+	t.Run("missing nested field", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": {
+				"name": "Test User"
+			}
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 5)
+		assert.Equal(t, "Test User", values[0]) // user_name
+		assert.Nil(t, values[1])                // city (missing)
+		assert.Nil(t, values[2])                // zip (missing)
+		assert.Nil(t, values[3])                // timestamp (missing)
+		assert.Nil(t, values[4])                // simple_field (missing)
+	})
+}
