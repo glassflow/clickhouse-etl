@@ -23,7 +23,7 @@ import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, Conn
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { generateApiConfig } from '../review/helpers'
+import { generateApiConfig } from './helpers'
 import { useRouter } from 'next/navigation'
 
 export function ClickhouseJoinMapper({
