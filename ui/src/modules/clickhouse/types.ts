@@ -6,7 +6,6 @@ export type ConnectionConfig = {
   password: string
   database?: string
   useSSL?: boolean
-  secure?: boolean
   connectionType: 'direct'
 }
 
@@ -37,4 +36,14 @@ export interface TableSchema {
 
 export interface SampleEvent {
   [key: string]: any
+}
+
+export interface KafkaConnectionParams {
+  brokers: string[]
+  protocol: string
+  mechanism?: string
+  username?: string
+  password?: string
+  oauthBearerToken?: string
+  root_ca?: string
 }

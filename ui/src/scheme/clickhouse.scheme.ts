@@ -8,8 +8,8 @@ const DirectConnectionSchema = z.object({
   password: z.string().min(1, 'Password is required'),
   database: z.string().optional(),
   useSSL: z.boolean().optional(),
-  secure: z.boolean().optional(),
   nativePort: z.string().min(1, 'Native Port is required'),
+  skipCertificateVerification: z.boolean().optional(),
 })
 
 // Connection form schema

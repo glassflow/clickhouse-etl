@@ -34,6 +34,8 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         username: directConnection?.username || '',
         password: directConnection?.password || '',
         nativePort: directConnection?.nativePort || '',
+        useSSL: directConnection?.useSSL || true,
+        skipCertificateVerification: directConnection?.skipCertificateVerification || true,
       },
     },
   })
@@ -126,6 +128,7 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
           password: formValues.directConnection.password,
           nativePort: formValues.directConnection.nativePort,
           useSSL: formValues.directConnection.useSSL,
+          skipCertificateVerification: formValues.directConnection.skipCertificateVerification,
         },
         connectionStatus: 'success',
         connectionError: null,
@@ -210,6 +213,15 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
               {renderFormField({
                 // @ts-expect-error - FIXME: fix this later
                 field: directConnectionForm.fields.useSSL,
+                register,
+                errors,
+              })}
+            </div>
+
+            <div className="space-y-2">
+              {renderFormField({
+                // @ts-expect-error - FIXME: fix this later
+                field: directConnectionForm.fields.skipCertificateVerification,
                 register,
                 errors,
               })}
