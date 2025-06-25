@@ -13,7 +13,7 @@
       "topics": [
         {
           "consumer_group_initial_offset": "latest",
-          "name": "user_events_with_duplicates",
+          "name": "users",
           "schema": {
             "type": "json",
             "fields": [
@@ -62,37 +62,37 @@
       "secure": false,
       "max_batch_size": 1000,
       "max_delay_time": "30s",
-      "table": "user_events_deduplicated",
+      "table": "users_dedup",
       "table_mapping": [
         {
-          "source_id": "user_events_with_duplicates",
+          "source_id": "users",
           "field_name": "event_id",
           "column_name": "event_id",
-          "column_type": "uuid"
+          "column_type": "UUID"
         },
         {
-          "source_id": "user_events_with_duplicates",
+          "source_id": "users",
           "field_name": "user_id",
           "column_name": "user_id",
-          "column_type": "uuid"
+          "column_type": "UUID"
         },
         {
-          "source_id": "user_events_with_duplicates",
+          "source_id": "users",
           "field_name": "created_at",
           "column_name": "created_at",
-          "column_type": "datetime"
+          "column_type": "DateTime"
         },
         {
-          "source_id": "user_events_with_duplicates",
+          "source_id": "users",
           "field_name": "name",
-          "column_name": "user_name",
-          "column_type": "string"
+          "column_name": "name",
+          "column_type": "String"
         },
         {
-          "source_id": "user_events_with_duplicates",
+          "source_id": "users",
           "field_name": "email",
-          "column_name": "user_email",
-          "column_type": "string"
+          "column_name": "email",
+          "column_type": "String"
         }
       ]
     }
