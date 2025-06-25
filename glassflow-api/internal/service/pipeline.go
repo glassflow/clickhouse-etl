@@ -14,17 +14,24 @@ type PipelineStore interface {
 }
 
 type PipelineService struct {
-	log   *slog.Logger
-	store PipelineStore
+	log          *slog.Logger
+	store        PipelineStore
+	orchestrator Orchestrator
+}
+
+type Orchestrator interface {
+	SetupPipeline(context.Context, models.Pipeline) error
 }
 
 func NewPipelineService(
 	log *slog.Logger,
 	store PipelineStore,
+	orchestrator Orchestrator,
 ) *PipelineService {
 	return &PipelineService{
-		log:   log,
-		store: store,
+		log:          log,
+		store:        store,
+		orchestrator: orchestrator,
 	}
 }
 
@@ -37,6 +44,11 @@ func (p *PipelineService) SetupPipeline(ctx context.Context, pi *models.Pipeline
 	err := p.store.InsertPipeline(ctx, *pi)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
+	}
+
+	err = p.orchestrator.SetupPipeline(ctx, *pi)
+	if err != nil {
+		return fmt.Errorf("orchestrate pipeline: %w", err)
 	}
 	return nil
 }

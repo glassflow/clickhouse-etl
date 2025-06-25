@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -23,6 +22,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	messagequeue "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/message_queue/nats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/repository"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -77,6 +78,7 @@ type config struct {
 
 	NATSServer       string        `default:"localhost:4222" split_words:"true"`
 	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
+	NATSPipelineKV   string        `default:"glassflow-pipelines" split_words:"true"`
 }
 
 func main() {
@@ -153,13 +155,21 @@ func mainErr(cfg *config, role Role) error {
 }
 
 func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
-	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log)
+	ctx := context.Background()
 
 	mq, err := messagequeue.NewClient(cfg.NATSServer)
 	if err != nil {
 		return fmt.Errorf("initialize message queue: %w", err)
 	}
 
+	db, err := repository.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
+	if err != nil {
+		return fmt.Errorf("get nats store: %w", err)
+	}
+
+	orchestrator := orchestrator.New()
+
+	pipelineMgr := service.NewPipelineService(log, db, orchestrator)
 	dlqSvc := service.NewDLQService(mq)
 
 	handler := api.NewRouter(log, pipelineMgr, dlqSvc)
@@ -202,7 +212,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 
 		go func() {
 			err := pipelineMgr.ShutdownPipeline()
-			if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
+			if err != nil {
 				log.Error("pipeline shutdown error", slog.Any("error", err))
 			}
 

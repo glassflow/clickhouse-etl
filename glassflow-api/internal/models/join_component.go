@@ -19,6 +19,19 @@ func (j *JoinComponent) Validate() error {
 	if len(j.GetInputs()) != 2 {
 		return fmt.Errorf("join component must have exactly 2 sources")
 	}
+
+	inputIDs := make([]string, 0, len(j.GetInputs()))
+
+	for _, i := range j.GetInputs() {
+		inputIDs = append(inputIDs, i.ID())
+	}
+
+	for _, j := range j.Sources {
+		if !slices.Contains(inputIDs, j.Source) {
+			return fmt.Errorf("undefined join source: %s", j.Source)
+		}
+	}
+
 	return nil
 }
 

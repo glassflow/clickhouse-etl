@@ -12,16 +12,16 @@ import (
 type handler struct {
 	log *slog.Logger
 
-	pipelineManager *service.PipelineService
-	ds              *service.DLQ
+	ps *service.PipelineService
+	ds *service.DLQ
 }
 
 func NewRouter(log *slog.Logger, psvc *service.PipelineService, dsvc *service.DLQ) http.Handler {
 	h := handler{
 		log: log,
 
-		pipelineManager: psvc,
-		ds:              dsvc,
+		ps: psvc,
+		ds: dsvc,
 	}
 
 	r := mux.NewRouter()

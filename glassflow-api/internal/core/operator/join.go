@@ -27,18 +27,14 @@ type JoinOperator struct {
 }
 
 func NewJoinOperator(
-	cfg models.JoinOperatorConfig,
+	_ models.JoinComponent,
 	leftStreamConsumer, rightStreamConsumer stream.Consumer,
 	resultsPublisher stream.Publisher,
 	schema schema.Mapper,
 	leftKVStore, rightKVStore kv.KeyValueStore,
 	leftStreamName, rightStreamName string,
 	log *slog.Logger,
-) (Operator, error) {
-	if cfg.Type != models.TemporalJoinType {
-		return nil, fmt.Errorf("unsupported join type")
-	}
-
+) Operator {
 	executor := join.NewTemporalJoinExecutor(
 		resultsPublisher,
 		schema,
@@ -55,7 +51,7 @@ func NewJoinOperator(
 		isClosed:              false,
 		wg:                    sync.WaitGroup{},
 		log:                   log,
-	}, nil
+	}
 }
 
 func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {

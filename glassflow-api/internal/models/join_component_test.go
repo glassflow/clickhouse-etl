@@ -161,3 +161,31 @@ func TestNewJoinComponent(t *testing.T) {
 		})
 	}
 }
+
+func TestJoinComponentValidateForNonExistingSourcesFail(t *testing.T) {
+	c, err := NewJoinComponent("temporal", []JoinSourceArgs{
+		{
+			Source:    "stream1",
+			JoinKey:   "",
+			Window:    5 * time.Second,
+			JoinOrder: "left",
+		},
+		{
+			Source:    "stream2",
+			JoinKey:   "id",
+			Window:    5 * time.Second,
+			JoinOrder: "right",
+		},
+	})
+	require.NoError(t, err)
+
+	source1 := &TestComponentValid{}
+	source1.SetID("stream1")
+
+	source2 := &TestComponentValid{}
+	source2.SetID("invalidName")
+
+	c.SetInputs([]Component{source1, source2})
+
+	require.EqualError(t, c.Validate(), "undefined join source: invalidName")
+}

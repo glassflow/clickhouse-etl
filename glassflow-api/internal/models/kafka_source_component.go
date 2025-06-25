@@ -122,7 +122,8 @@ func (k *KafkaSourceComponent) GetOutputs() []Component {
 }
 
 func (k *KafkaSourceComponent) ID() string {
-	return "kafka-source-" + k.Topic.Name
+	// TODO: add a prefix may be pipeline ID to it!
+	return k.Topic.Name
 }
 
 type KafkaSourceArgs struct {
