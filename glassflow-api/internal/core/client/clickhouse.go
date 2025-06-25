@@ -9,6 +9,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
