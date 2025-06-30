@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { XCircleIcon } from '@heroicons/react/24/outline'
@@ -25,6 +25,7 @@ import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { generateApiConfig } from './helpers'
 import { useRouter } from 'next/navigation'
+import { getPreviewMode } from '@/src/utils/env'
 
 export function ClickhouseJoinMapper({
   onNext,
@@ -64,6 +65,13 @@ export function ClickhouseJoinMapper({
   // Add tracking refs to avoid re-renders and prevent infinite loops
   const viewTrackedRef = useRef(false)
   const completionTrackedRef = useRef(false)
+
+  // Analytics tracking states
+  const [hasTrackedView, setHasTrackedView] = useState(false)
+  const [hasTrackedDatabaseSelection, setHasTrackedDatabaseSelection] = useState(false)
+  const [hasTrackedTableSelection, setHasTrackedTableSelection] = useState(false)
+  const [hasTrackedFieldMapping, setHasTrackedFieldMapping] = useState(false)
+  const [prevMappedFieldsCount, setPrevMappedFieldsCount] = useState(0)
 
   // Initialize state
   const [selectedDatabase, setSelectedDatabase] = useState<string>(clickhouseDestination?.database || '')
@@ -139,14 +147,14 @@ export function ClickhouseJoinMapper({
 
   // Basic page view tracking, only track once on component mount
   useEffect(() => {
-    if (!viewTrackedRef.current) {
+    if (!hasTrackedView) {
       analytics.page.joinKey({
         primaryTopicName: primaryTopic?.name,
         secondaryTopicName: secondaryTopic?.name,
       })
-      viewTrackedRef.current = true
+      setHasTrackedView(true)
     }
-  }, [analytics.page, primaryTopic?.name, secondaryTopic?.name])
+  }, [hasTrackedView, analytics.page, primaryTopic?.name, secondaryTopic?.name])
 
   // Get connection config
   const getConnectionConfig = () => ({
@@ -165,6 +173,58 @@ export function ClickhouseJoinMapper({
     setMappedColumns,
     setSuccess,
   })
+
+  // Enhanced database selection handler with tracking
+  const handleDatabaseSelection = useCallback(
+    (database: string) => {
+      setSelectedDatabase(database)
+
+      // Track database selection if it's the first time
+      if (!hasTrackedDatabaseSelection || clickhouseDestination?.database !== database) {
+        analytics.destination.databaseSelected({
+          database,
+          primaryTopicName: primaryTopic?.name,
+          secondaryTopicName: secondaryTopic?.name,
+          isChange: !!clickhouseDestination?.database && clickhouseDestination.database !== database,
+        })
+        setHasTrackedDatabaseSelection(true)
+      }
+    },
+    [
+      hasTrackedDatabaseSelection,
+      clickhouseDestination,
+      analytics.destination,
+      primaryTopic?.name,
+      secondaryTopic?.name,
+    ],
+  )
+
+  // Enhanced table selection handler with tracking
+  const handleTableSelection = useCallback(
+    (table: string) => {
+      setSelectedTable(table)
+
+      // Track table selection if it's the first time or a change
+      if (!hasTrackedTableSelection || clickhouseDestination?.table !== table) {
+        analytics.destination.tableSelected({
+          database: selectedDatabase,
+          table,
+          primaryTopicName: primaryTopic?.name,
+          secondaryTopicName: secondaryTopic?.name,
+          isChange: !!clickhouseDestination?.table && clickhouseDestination.table !== table,
+        })
+        setHasTrackedTableSelection(true)
+      }
+    },
+    [
+      hasTrackedTableSelection,
+      clickhouseDestination,
+      selectedDatabase,
+      analytics.destination,
+      primaryTopic?.name,
+      secondaryTopic?.name,
+    ],
+  )
 
   // Sync component with store when clickhouseDestination changes
   useEffect(() => {
@@ -288,6 +348,28 @@ export function ClickhouseJoinMapper({
       setSecondaryEventData(secondaryTopic.selectedEvent.event)
     }
   }, [primaryTopic?.selectedEvent?.event, secondaryTopic?.selectedEvent?.event])
+
+  // Track field mapping changes
+  useEffect(() => {
+    const mappedFieldsCount = mappedColumns.filter((col) => col.eventField).length
+
+    // Only track if there's a real change in field mapping count
+    if (mappedFieldsCount > 0 && mappedFieldsCount !== prevMappedFieldsCount) {
+      setPrevMappedFieldsCount(mappedFieldsCount)
+
+      // Don't track the first time when we're just initializing from store
+      if (prevMappedFieldsCount > 0 || !clickhouseDestination?.mapping?.length) {
+        setHasTrackedFieldMapping(true)
+      }
+    }
+  }, [
+    mappedColumns,
+    prevMappedFieldsCount,
+    analytics.destination,
+    primaryTopic?.name,
+    secondaryTopic?.name,
+    clickhouseDestination,
+  ])
 
   // NOTE: uncomment this when you want to auto-map the fields
   // Update auto-mapping effect to handle nested structure
@@ -526,31 +608,8 @@ export function ClickhouseJoinMapper({
     return null // No validation issues
   }
 
-  // Add save configuration logic
-  const saveDestinationConfig = () => {
-    // Set the pending action to 'save' so we know what to do after validation
-    setPendingAction('save')
-
-    // Run validation
-    const validationResult = validateMapping()
-
-    if (validationResult) {
-      // Show modal with validation result
-      setModalProps({
-        visible: true,
-        title: validationResult.title,
-        message: validationResult.message,
-        okButtonText: validationResult.okButtonText,
-        cancelButtonText: validationResult.cancelButtonText,
-        type: validationResult.type,
-      })
-    } else {
-      // No validation issues, proceed directly
-      completeConfigSave()
-    }
-  }
-
-  const completeConfigSave = () => {
+  // Complete the save after modal confirmation
+  const completeConfigSave = useCallback(() => {
     // Before saving, do a final validation of type compatibility
     const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
 
@@ -585,6 +644,22 @@ export function ClickhouseJoinMapper({
         database: selectedDatabase,
         table: selectedTable,
       })
+
+      // Calculate mapping stats
+      const totalColumns = tableSchema.columns.length
+      const mappedColumnsCount = mappedColumns.filter((col) => col.eventField).length
+      const mappingPercentage = Math.round((mappedColumnsCount / totalColumns) * 100)
+
+      // Track successful completion
+      analytics.destination.mappingCompleted({
+        count: mappedColumns.length,
+        totalColumns,
+        mappingPercentage,
+        batchSize: maxBatchSize,
+        delayTime: maxDelayTime,
+        delayUnit: maxDelayTimeUnit,
+      })
+
       completionTrackedRef.current = true
     }
 
@@ -619,9 +694,73 @@ export function ClickhouseJoinMapper({
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
-    // Move to next step
-    router.push('/pipelines')
-  }
+    const isPreviewMode = getPreviewMode()
+
+    if (isPreviewMode) {
+      // Navigate to the review configuration step for preview
+      onNext(StepKeys.CLICKHOUSE_MAPPER)
+    } else {
+      // Navigate directly to the pipelines page
+      router.push('/pipelines')
+    }
+  }, [
+    mappedColumns,
+    tableSchema.columns,
+    maxBatchSize,
+    maxDelayTime,
+    maxDelayTimeUnit,
+    pipelineId,
+    setPipelineId,
+    clickhouseConnection,
+    primaryTopic,
+    secondaryTopic,
+    joinStore,
+    kafkaStore,
+    setClickhouseDestination,
+    setApiConfig,
+    router,
+    analytics.key,
+    analytics.destination,
+    selectedDatabase,
+    selectedTable,
+    completionTrackedRef,
+  ])
+
+  // Add save configuration logic
+  const saveDestinationConfig = useCallback(() => {
+    // Set the pending action to 'save' so we know what to do after validation
+    setPendingAction('save')
+
+    analytics.destination.columnsSelected({
+      count: mappedColumns.length,
+    })
+
+    // Run validation
+    const validationResult = validateMapping()
+
+    if (validationResult) {
+      // Show modal with validation result
+      setModalProps({
+        visible: true,
+        title: validationResult.title,
+        message: validationResult.message,
+        okButtonText: validationResult.okButtonText,
+        cancelButtonText: validationResult.cancelButtonText,
+        type: validationResult.type,
+      })
+    } else {
+      // No validation issues, proceed directly
+      completeConfigSave()
+    }
+  }, [mappedColumns, validateMapping, completeConfigSave, analytics.destination])
+
+  // Add this useEffect to clean up modal state
+  useEffect(() => {
+    return () => {
+      // Clean up modal state when component unmounts
+      setModalProps((prev) => ({ ...prev, visible: false }))
+    }
+  }, [])
 
   return (
     <div className="flex flex-col gap-8">
@@ -629,13 +768,13 @@ export function ClickhouseJoinMapper({
         <DatabaseTableSelectContainer
           availableDatabases={availableDatabases}
           selectedDatabase={selectedDatabase}
-          setSelectedDatabase={setSelectedDatabase}
+          setSelectedDatabase={handleDatabaseSelection}
           testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
           isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
-          setSelectedTable={setSelectedTable}
+          setSelectedTable={handleTableSelection}
           testTableAccess={testTableAccess as TableAccessTestFn}
         />
 
