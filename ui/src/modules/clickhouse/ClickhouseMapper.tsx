@@ -291,6 +291,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
                 eventField: matchingField,
                 jsonType: inferJsonType(getNestedValue(eventData, matchingField)),
               }
+            } else {
+              console.log(`No match found for column "${col.name}"`)
             }
           })
           setMappedColumns(updatedColumns)
@@ -690,8 +692,15 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
-    // Navigate to the pipelines page
-    router.push('/pipelines')
+    const isPreviewMode = process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
+
+    if (isPreviewMode) {
+      // Navigate to the review configuration step for preview
+      onNext(StepKeys.CLICKHOUSE_MAPPER)
+    } else {
+      // Navigate directly to the pipelines page
+      router.push('/pipelines')
+    }
   }, [
     clickhouseDestination,
     selectedDatabase,
