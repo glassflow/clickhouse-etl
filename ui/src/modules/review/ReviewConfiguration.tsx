@@ -14,6 +14,7 @@ import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
 import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { getPreviewMode } from '@/src/utils/env'
 
 export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigurationProps) {
   const {
@@ -33,7 +34,7 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const analytics = useJourneyAnalytics()
 
   // Check if preview mode is enabled
-  const isPreviewMode = process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
+  const isPreviewMode = getPreviewMode()
 
   const [activeTab, setActiveTab] = useState('overview')
   const [jsonContent, setJsonContent] = useState('')
@@ -115,17 +116,6 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold mb-2">
-          {isPreviewMode ? 'Preview Configuration' : 'Review Configuration'}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {isPreviewMode
-            ? 'Preview your pipeline configuration before proceeding to deployment.'
-            : 'Review your pipeline configuration before proceeding to deployment.'}
-        </p>
-      </div>
-
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 mb-4">
           <TabsTrigger
@@ -212,7 +202,7 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
           size="custom"
           onClick={handleContinueToPipelines}
         >
-          {isPreviewMode ? 'Preview' : 'Continue to Pipelines'}
+          Continue
         </Button>
       </div>
     </div>

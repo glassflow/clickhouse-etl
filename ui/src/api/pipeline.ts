@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getApiUrl } from '@/src/utils/env'
 
 // Type declaration for runtime environment
 declare global {
@@ -6,6 +7,7 @@ declare global {
     __ENV__?: {
       NEXT_PUBLIC_API_URL?: string
       NEXT_PUBLIC_IN_DOCKER?: string
+      NEXT_PUBLIC_PREVIEW_MODE?: string
     }
   }
 }
@@ -19,8 +21,7 @@ const getRuntimeEnv = () => {
 }
 
 // Get API URL from runtime config
-const runtimeEnv = getRuntimeEnv()
-const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
+const API_URL = getApiUrl()
 
 export interface PipelineResponse {
   pipeline_id: string
