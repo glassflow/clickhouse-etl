@@ -41,13 +41,26 @@ const (
 	CHTypeInt32   ClickHouseDataType = "Int32"
 	CHTypeInt64   ClickHouseDataType = "Int64"
 
+	CHTypeLCInt8  ClickHouseDataType = "LowCardinality(Int8)"
+	CHTypeLCInt16 ClickHouseDataType = "LowCardinality(Int16)"
+	CHTypeLCInt32 ClickHouseDataType = "LowCardinality(Int32)"
+	CHTypeLCInt64 ClickHouseDataType = "LowCardinality(Int64)"
+
 	CHTypeUInt8  ClickHouseDataType = "UInt8"
 	CHTypeUInt16 ClickHouseDataType = "UInt16"
 	CHTypeUInt32 ClickHouseDataType = "UInt32"
 	CHTypeUInt64 ClickHouseDataType = "UInt64"
 
+	CHTypeLCUInt8  ClickHouseDataType = "LowCardinality(UInt8)"
+	CHTypeLCUInt16 ClickHouseDataType = "LowCardinality(UInt16)"
+	CHTypeLCUInt32 ClickHouseDataType = "LowCardinality(UInt32)"
+	CHTypeLCUInt64 ClickHouseDataType = "LowCardinality(UInt64)"
+
 	CHTypeFloat32 ClickHouseDataType = "Float32"
 	CHTypeFloat64 ClickHouseDataType = "Float64"
+
+	CHTypeLCFloat32 ClickHouseDataType = "LowCardinality(Float32)"
+	CHTypeLCFloat64 ClickHouseDataType = "LowCardinality(Float64)"
 
 	CHTypeEnum8  ClickHouseDataType = "Enum8"
 	CHTypeEnum16 ClickHouseDataType = "Enum16"
@@ -109,52 +122,52 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 			return zero, fmt.Errorf("mismatched types: expected %s, got %s", KafkaTypeBool, fieldType)
 		}
 		return ExtractEventValue(KafkaTypeBool, data)
-	case CHTypeInt8:
+	case CHTypeInt8, CHTypeLCInt8:
 		if fieldType == KafkaTypeInt8 || fieldType == KafkaTypeInt {
 			return ExtractEventValue(KafkaTypeInt8, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeInt8, KafkaTypeInt, fieldType)
-	case CHTypeInt16:
+	case CHTypeInt16, CHTypeLCInt16:
 		if fieldType == KafkaTypeInt16 || fieldType == KafkaTypeInt {
 			return ExtractEventValue(KafkaTypeInt16, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeInt16, KafkaTypeInt, fieldType)
-	case CHTypeInt32:
+	case CHTypeInt32, CHTypeLCInt32:
 		if fieldType == KafkaTypeInt32 || fieldType == KafkaTypeInt {
 			return ExtractEventValue(KafkaTypeInt32, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeInt32, KafkaTypeInt, fieldType)
-	case CHTypeInt64:
+	case CHTypeInt64, CHTypeLCInt64:
 		if fieldType == KafkaTypeInt64 || fieldType == KafkaTypeInt {
 			return ExtractEventValue(KafkaTypeInt64, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeInt64, KafkaTypeInt, fieldType)
-	case CHTypeUInt8:
+	case CHTypeUInt8, CHTypeLCUInt8:
 		if fieldType == KafkaTypeUint8 || fieldType == KafkaTypeUint {
 			return ExtractEventValue(KafkaTypeUint8, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeUint8, KafkaTypeUint, fieldType)
-	case CHTypeUInt16:
+	case CHTypeUInt16, CHTypeLCUInt16:
 		if fieldType == KafkaTypeUint16 || fieldType == KafkaTypeUint {
 			return ExtractEventValue(KafkaTypeUint16, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeUint16, KafkaTypeUint, fieldType)
-	case CHTypeUInt32:
+	case CHTypeUInt32, CHTypeLCUInt32:
 		if fieldType == KafkaTypeUint32 || fieldType == KafkaTypeUint {
 			return ExtractEventValue(KafkaTypeUint32, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeUint32, KafkaTypeUint, fieldType)
-	case CHTypeUInt64:
+	case CHTypeUInt64, CHTypeLCUInt64:
 		if fieldType == KafkaTypeUint64 || fieldType == KafkaTypeUint {
 			return ExtractEventValue(KafkaTypeUint64, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeUint64, KafkaTypeUint, fieldType)
-	case CHTypeFloat32:
+	case CHTypeFloat32, CHTypeLCFloat32:
 		if fieldType == KafkaTypeFloat32 || fieldType == KafkaTypeFloat {
 			return ExtractEventValue(KafkaTypeFloat32, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeFloat32, KafkaTypeFloat, fieldType)
-	case CHTypeFloat64:
+	case CHTypeFloat64, CHTypeLCFloat64:
 		if fieldType == KafkaTypeFloat64 || fieldType == KafkaTypeFloat {
 			return ExtractEventValue(KafkaTypeFloat64, data)
 		}
