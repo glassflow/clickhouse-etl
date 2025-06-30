@@ -755,3 +755,68 @@ Feature: Clickhouse ETL sink
         And I run ClickHouse sink
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
+
+    Scenario: Import events with low cardinality string
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name | data_type              |
+            | id          | Int32                  |
+            | type        | LowCardinality(String) |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "3s"
+            }
+            """
+        And a batch config with max size 2
+        And a schema config with mapping
+            """json
+            {
+                "streams": {
+                    "default": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "int32"
+                            },
+                            {
+                                "field_name": "type",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "default",
+                        "column_type": "Int32"
+                    },
+                    {
+                        "column_name": "type",
+                        "field_name": "type",
+                        "stream_name": "default",
+                        "column_type": "LowCardinality(String)"
+                    }
+                ]
+            }
+            """
+        When I publish 2 events to the stream with data
+            """json
+            [
+                {
+                    "id": 150,
+                    "amount": "red"
+                },
+                {
+                    "id": 2067868,
+                    "amount": "blue"
+                }
+            ]
+            """
+        And I run ClickHouse sink
+        And I gracefully stop ClickHouse sink
+        Then the ClickHouse table "default.events_test" should contain 2 rows

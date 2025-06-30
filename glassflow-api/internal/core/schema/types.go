@@ -56,6 +56,11 @@ const (
 	CHTypeDateTime64 ClickHouseDataType = "DateTime64"
 
 	CHTypeUUID ClickHouseDataType = "UUID"
+
+	CHTypeLCString  ClickHouseDataType = "LowCardinality(String)"
+	CHTypeLCFString ClickHouseDataType = "LowCardinality(FixedString)"
+
+	CHTypeLCDateTime ClickHouseDataType = "LowCardinality(DateTime)"
 )
 
 func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
@@ -154,7 +159,7 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 			return ExtractEventValue(KafkaTypeFloat64, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeFloat64, KafkaTypeFloat, fieldType)
-	case CHTypeEnum8, CHTypeEnum16, CHTypeUUID, CHTypeFString:
+	case CHTypeEnum8, CHTypeEnum16, CHTypeUUID, CHTypeFString, CHTypeLCString, CHTypeLCFString:
 		if fieldType != KafkaTypeString {
 			return zero, fmt.Errorf("mismatched types: expected %s, got %s", KafkaTypeString, fieldType)
 		}
@@ -164,7 +169,7 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 			return ExtractEventValue(KafkaTypeString, data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", KafkaTypeString, KafkaTypeBytes, fieldType)
-	case CHTypeDateTime, CHTypeDateTime64:
+	case CHTypeDateTime, CHTypeDateTime64, CHTypeLCDateTime:
 		if fieldType == KafkaTypeInt64 {
 			return ParseDateTimeFromInt64(data)
 		}
