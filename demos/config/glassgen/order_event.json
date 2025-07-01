@@ -1,7 +1,11 @@
 {
-    "order_id": "$uuid4",
-    "user_id": "$uuid4",
-    "amount": "$intrange(1,15)",
-    "price": "$price(1,250)",
+    "order": {
+        "id": "$uuid4",
+        "amount": "$intrange(1,15)",
+        "price": "$price(1,250)"
+    },
+    "user": {
+        "id": "$uuid4"
+    },
     "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
 }

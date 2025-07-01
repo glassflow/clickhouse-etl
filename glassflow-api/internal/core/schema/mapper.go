@@ -191,7 +191,7 @@ func (m *Mapper) prepareForClickHouse(data []byte) (map[string]any, error) {
 	for _, column := range m.Columns {
 		fieldName := column.FieldName
 		if len(m.Streams) > 1 {
-			fieldName = column.StreamName + "." + fieldName
+			fieldName = column.StreamName + "$$" + fieldName
 		}
 
 		// Use getNestedValue to support nested JSON fields with dot notation
@@ -279,11 +279,11 @@ func (m *Mapper) JoinData(leftStreamName string, leftData []byte, rightStreamNam
 
 	result = make(map[string]any)
 	for key, value := range leftMap {
-		result[leftStreamName+"."+key] = value
+		result[leftStreamName+"$$"+key] = value
 	}
 
 	for key, value := range rightMap {
-		result[rightStreamName+"."+key] = value
+		result[rightStreamName+"$$"+key] = value
 	}
 
 	resultData, err := json.Marshal(result)
@@ -296,11 +296,20 @@ func (m *Mapper) JoinData(leftStreamName string, leftData []byte, rightStreamNam
 
 // getNestedValue extracts a value from a nested JSON object using dot notation
 // Example: getNestedValue(data, "user.address.city") would extract data["user"]["address"]["city"]
+// For join operators, the first part is treated as stream name and the rest as nested path
 func getNestedValue(data map[string]any, path string) (any, bool) {
+	// print the data and path here using log debug
+
 	if data == nil || path == "" {
 		return nil, false
 	}
 
+	// First, try to find the path as a flat key (for join operators with $$ separator)
+	if value, exists := data[path]; exists {
+		return value, true
+	}
+
+	// If not found as flat key, treat as nested path
 	parts := strings.Split(path, ".")
 	current := any(data)
 

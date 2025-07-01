@@ -250,7 +250,7 @@ func TestGetKey(t *testing.T) {
 
 		_, err := mapper.getKey("stream1", "string_field", jsonData)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to read JSON token")
+		assert.Contains(t, err.Error(), "failed to parse JSON data")
 	})
 }
 
@@ -374,7 +374,7 @@ func TestPrepareClickHouseValues(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		jsonData := []byte(`{"stream1.id": "12345", "stream1.name": "test_name", "stream2.id": "12345", "stream2.value": 42}`)
+		jsonData := []byte(`{"stream1$$id": "12345", "stream1$$name": "test_name", "stream2$$id": "12345", "stream2$$value": 42}`)
 
 		values, err := joinedMapper.PrepareClickHouseValues(jsonData)
 		require.NoError(t, err)
@@ -465,11 +465,11 @@ func TestJoinData(t *testing.T) {
 		err = json.Unmarshal(joinedData, &result)
 		require.NoError(t, err)
 
-		assert.Equal(t, "12345", result["users.id"])
-		assert.Equal(t, "John Doe", result["users.name"])
-		assert.Equal(t, "12345", result["orders.id"])
-		assert.Equal(t, "Widget", result["orders.product"])
-		assert.InEpsilon(t, float64(5), result["orders.quantity"], 0.0001)
+		assert.Equal(t, "12345", result["users$$id"])
+		assert.Equal(t, "John Doe", result["users$$name"])
+		assert.Equal(t, "12345", result["orders$$id"])
+		assert.Equal(t, "Widget", result["orders$$product"])
+		assert.InEpsilon(t, float64(5), result["orders$$quantity"], 0.0001)
 	})
 
 	t.Run("nil data", func(t *testing.T) {
