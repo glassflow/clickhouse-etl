@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getApiUrl } from '@/src/utils/env'
+import { getRuntimeEnv } from '@/src/utils/common.client'
 
 // Type declaration for runtime environment
 declare global {
@@ -12,16 +12,8 @@ declare global {
   }
 }
 
-// Utility function to get runtime environment variables
-const getRuntimeEnv = () => {
-  if (typeof window !== 'undefined' && window.__ENV__) {
-    return window.__ENV__
-  }
-  return {}
-}
-
-// Get API URL from runtime config
-const API_URL = getApiUrl()
+const runtimeEnv = getRuntimeEnv()
+const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
 
 export interface PipelineResponse {
   pipeline_id: string

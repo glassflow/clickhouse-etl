@@ -14,7 +14,6 @@ import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
 import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { getPreviewMode } from '@/src/utils/env'
 
 export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigurationProps) {
   const {
@@ -32,9 +31,6 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
   const router = useRouter()
   const selectedTopics = Object.values(topicsStore.topics || {})
   const analytics = useJourneyAnalytics()
-
-  // Check if preview mode is enabled
-  const isPreviewMode = getPreviewMode()
 
   const [activeTab, setActiveTab] = useState('overview')
   const [jsonContent, setJsonContent] = useState('')
