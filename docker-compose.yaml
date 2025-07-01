@@ -7,14 +7,7 @@ services:
     restart: unless-stopped
 
   ui:
-    # image: glassflow/clickhouse-etl-fe:stable
-    build:
-      context: ui
-      dockerfile: Dockerfile
-      # args:
-      #   - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8080/api/v1}
-      #   - NEXT_PUBLIC_IN_DOCKER=${NEXT_PUBLIC_IN_DOCKER:-true}
-      #   - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
+    image: glassflow/clickhouse-etl-fe:stable
     pull_policy: always
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8080/api/v1}
@@ -22,10 +15,7 @@ services:
       - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
 
   app:
-    # image: glassflow/clickhouse-etl-be:stable
-    build:
-      context: .
-      dockerfile: glassflow-api/Dockerfile
+    image: glassflow/clickhouse-etl-be:stable
     pull_policy: always
     depends_on:
       - nats

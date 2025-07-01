@@ -7,7 +7,7 @@ import { Button } from '@/src/components/ui/button'
 import GlobalFooter from '@/src/components/shared/GlobalFooter'
 import { ConsentLayout } from '@/src/components/layout/ConsentLayout'
 import Script from 'next/script'
-import { EnvDebug } from '@/src/components/debug/EnvDebug'
+// import { EnvDebug } from '@/src/components/debug/EnvDebug'
 
 // Define the fonts
 const inter = Inter({
@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
               </footer>
             </div>
-            <EnvDebug />
+            {/* <EnvDebug /> */}
           </ConsentLayout>
         </ThemeProvider>
       </body>
