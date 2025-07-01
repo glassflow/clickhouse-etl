@@ -23,7 +23,10 @@ import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectCo
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { generateApiConfig } from './helpers'
-import { getPreviewMode } from '@/src/utils/env'
+import { getRuntimeEnv } from '@/src/utils/common.client'
+
+const runtimeEnv = getRuntimeEnv()
+const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const router = useRouter()
@@ -692,8 +695,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
-
-    const isPreviewMode = getPreviewMode()
 
     if (isPreviewMode) {
       // Navigate to the review configuration step for preview

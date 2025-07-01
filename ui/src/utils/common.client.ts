@@ -28,3 +28,11 @@ export function getEventKeys(data: any): string[] {
     return []
   }
 }
+
+// Utility function to get runtime environment variables
+export const getRuntimeEnv = () => {
+  if (typeof window !== 'undefined' && window.__ENV__) {
+    return window.__ENV__
+  }
+  return {}
+}

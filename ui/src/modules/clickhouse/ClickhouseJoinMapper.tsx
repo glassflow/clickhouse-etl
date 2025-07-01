@@ -25,7 +25,10 @@ import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { generateApiConfig } from './helpers'
 import { useRouter } from 'next/navigation'
-import { getPreviewMode } from '@/src/utils/env'
+import { getRuntimeEnv } from '@/src/utils/common.client'
+
+const runtimeEnv = getRuntimeEnv()
+const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
 export function ClickhouseJoinMapper({
   onNext,
@@ -693,8 +696,6 @@ export function ClickhouseJoinMapper({
 
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
-
-    const isPreviewMode = getPreviewMode()
 
     if (isPreviewMode) {
       // Navigate to the review configuration step for preview
