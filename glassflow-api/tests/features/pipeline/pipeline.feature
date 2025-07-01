@@ -438,3 +438,89 @@ Feature: Kafka to CH pipeline
             | id  | COUNT |
             | 123 | 4     |
             | 567 | 1     |
+
+    Scenario: Insert LowCardinality(String) data type to ClickHouse from Kafka
+        Given a Kafka topic "test" with 1 partition
+        And the ClickHouse table "test" on database "default" already exists with schema
+            | column_name | data_type              |
+            | id          | String                 |
+            | measurment  | LowCardinality(String) |
+
+        And I write these events to Kafka topic "test_topic":
+            | key | value                                |
+            | 1   | {"id": "123", "measurment": "red"}   |
+            | 2   | {"id": "124", "measurment": "blue"}  |
+            | 3   | {"id": "125", "measurment": "green"} |
+
+        And a glassflow pipeline with next configuration:
+            """json
+            {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
+                "source": {
+                    "type": "kafka",
+                    "connection_params": {
+                        "brokers": [],
+                        "skip_auth": true,
+                        "protocol": "SASL_PLAINTEXT",
+                        "mechanism": "",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
+                    },
+                    "topics": [
+                        {
+                            "consumer_group_initial_offset": "earliest",
+                            "name": "test_topic",
+                            "schema": {
+                                "type": "json",
+                                "fields": [
+                                    {
+                                        "name": "id",
+                                        "type": "string"
+                                    },
+                                    {
+                                        "name": "measurment",
+                                        "type": "string"
+                                    }
+                                ]
+                            },
+                            "deduplication": {
+                                "enabled": false
+                            }
+                        }
+                    ]
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "database": "default",
+                    "secure": false,
+                    "max_batch_size": 1000,
+                    "max_delay_time": "1s",
+                    "table": "test",
+                    "table_mapping": [
+                        {
+                            "source_id": "test_topic",
+                            "field_name": "id",
+                            "column_name": "id",
+                            "column_type": "String"
+                        },
+                        {
+                            "source_id": "test_topic",
+                            "field_name": "measurment",
+                            "column_name": "measurment",
+                            "column_type": "LowCardinality(String)"
+                        }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                }
+            }
+            """
+        And I shutdown the glassflow pipeline after "5s"
+
+        Then the ClickHouse table "default.test" should contain:
+            | id  | measurment | COUNT |
+            | 123 | red        | 1     |
+            | 124 | blue       | 1     |
+            | 125 | green      | 1     |
