@@ -3,7 +3,7 @@ import { Label } from '@/src/components/ui/label'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { JSONDateTypesSelector } from '@/src/components/shared/JSONDateTypesSelector'
 import { useStore } from '@/src/store'
-import { getEventKeys } from '@/src/utils/common.client'
+import { extractEventFields } from '@/src/modules/clickhouse/helpers'
 import { TimeWindowConfigurator } from './TimeWindowConfigurator'
 import { TIME_WINDOW_UNIT_OPTIONS } from '../../../config/constants'
 
@@ -28,32 +28,6 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
 
   const topic = getTopic(index)
 
-  // Custom function to extract keys from event data
-  const extractKeysFromEvent = (data: any): string[] => {
-    if (!data) return []
-
-    // If it's a string, try to parse it
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data)
-      } catch (e) {
-        // If parsing fails, return empty array
-        return []
-      }
-    }
-
-    // If it's not an object after parsing, return empty array
-    if (typeof data !== 'object' || data === null) {
-      return []
-    }
-
-    // remove _metadata from the event data
-    delete data?._metadata
-
-    // Extract keys from the object
-    return Object.keys(data)
-  }
-
   // Consolidated useEffect for initialization and event data processing
   useEffect(() => {
     // Initialize from topic
@@ -73,8 +47,8 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
         // Extract the actual event data
         const actualEventData = eventData.event || eventData
 
-        // Use our custom function
-        const keys = extractKeysFromEvent(actualEventData)
+        // Use the nested event keys function to get all available fields including nested ones
+        const keys = extractEventFields(actualEventData)
 
         if (keys.length > 0) {
           setAvailableKeys(keys)
