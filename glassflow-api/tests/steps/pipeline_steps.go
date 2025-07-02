@@ -13,6 +13,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -333,10 +334,16 @@ func (p *PipelineSteps) setupPipelineManager() error {
 		return fmt.Errorf("create nats client: %w", err)
 	}
 
+	db, err := storage.New(context.Background(), "glassflow-pipeline-test", natsClient.JetStream())
+	if err != nil {
+		return fmt.Errorf("create nats pipeline storage: %w", err)
+	}
+
 	p.pipelineManager = service.NewPipelineManager(
 		p.natsContainer.GetURI(),
 		natsClient,
 		testutils.NewTestLogger(),
+		db,
 	)
 
 	return nil

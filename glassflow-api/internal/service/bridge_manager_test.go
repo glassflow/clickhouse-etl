@@ -42,7 +42,7 @@ func TestAllBridgesStartedAndStopped(t *testing.T) {
 	bMgr := NewBridgeRunner(newMockFactory())
 
 	numberOfTopics := 5
-	streams := make([]models.StreamConfig, numberOfTopics)
+	streams := make([]models.BridgeSpec, numberOfTopics)
 
 	err := bMgr.SetupBridges(&models.KafkaConfig{}, streams)
 	require.NoError(t, err)
