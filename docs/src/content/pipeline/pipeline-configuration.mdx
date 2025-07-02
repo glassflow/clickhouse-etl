@@ -98,6 +98,7 @@ The sink configuration defines how to connect to and write to ClickHouse.
 | `password` | string | Yes | ClickHouse password. |
 | `table` | string | Yes | Target table name. |
 | `secure` | boolean | No | Whether to use secure connection. Defaults to false. |
+| `skip_certificate_verification` | boolean | No | Whether to skip certificate verification. Defaults to false. |
 | `max_batch_size` | integer | No | Maximum number of records to batch before writing. Defaults to 1000. |
 | `max_delay_time` | string | No | Maximum delay time before the messages are flushed into the sink. Defaults to "10m". |
 | `table_mapping` | array | Yes | List of field to column mappings. See [Table Mapping Configuration](#table-mapping-configuration). |
