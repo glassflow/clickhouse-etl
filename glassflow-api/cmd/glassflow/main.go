@@ -25,6 +25,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 )
 
 type Role string
@@ -77,6 +78,7 @@ type config struct {
 
 	NATSServer       string        `default:"localhost:4222" split_words:"true"`
 	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
+	NATSPipelineKV   string        `default:"glassflow-pipelines" split_words:"true"`
 }
 
 func main() {
@@ -153,7 +155,14 @@ func mainErr(cfg *config, role Role) error {
 }
 
 func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
-	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log)
+	ctx := context.Background()
+
+	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
+	if err != nil {
+		return fmt.Errorf("create nats store for pipelines: %w", err)
+	}
+
+	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log, db)
 
 	mq, err := messagequeue.NewClient(cfg.NATSServer)
 	if err != nil {

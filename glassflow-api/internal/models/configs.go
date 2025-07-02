@@ -1,5 +1,13 @@
 package models
 
+import (
+	"encoding/json"
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+)
+
 const (
 	KafkaIngestorType        = "kafka"
 	TemporalJoinType         = "temporal"
@@ -13,8 +21,10 @@ type StreamDataField struct {
 }
 
 type StreamSchemaConfig struct {
-	Fields       []StreamDataField `json:"fields"`
-	JoinKeyField string            `json:"join_key_field"`
+	Fields          []StreamDataField `json:"fields"`
+	JoinKeyField    string            `json:"join_key_field"`
+	JoinOrientation string            `json:"join_orientation"`
+	JoinWindow      JSONDuration      `json:"join_window"`
 }
 
 type SinkMappingConfig struct {
@@ -37,11 +47,7 @@ type KafkaConnectionParamsConfig struct {
 	SASLMechanism string   `json:"mechanism"`
 	SASLUsername  string   `json:"username"`
 	SASLPassword  string   `json:"password"`
-	TLSKey        string   `json:"key"`
-	TLSCert       string   `json:"cert"`
 	TLSRoot       string   `json:"root_ca"`
-	IAMEnable     bool     `json:"iam_enable"`
-	IAMRegion     string   `json:"iam_region"`
 }
 
 type DeduplicationConfig struct {
@@ -67,6 +73,75 @@ type IngestorOperatorConfig struct {
 	KafkaTopics           []KafkaTopicsConfig         `json:"kafka_topics"`
 }
 
+func NewIngestorOperatorConfig(provider string, conn KafkaConnectionParamsConfig, topics []KafkaTopicsConfig) (zero IngestorOperatorConfig, _ error) {
+	if len(conn.Brokers) == 0 {
+		return zero, PipelineConfigError{Msg: "must have at least one kafka server"}
+	}
+
+	for _, s := range conn.Brokers {
+		if len(strings.TrimSpace(s)) == 0 {
+			return zero, PipelineConfigError{Msg: "kafka server cannot be empty"}
+		}
+	}
+
+	if strings.Trim(conn.SASLProtocol, " ") == "" {
+		return zero, PipelineConfigError{Msg: "SASL protocol cannot be empty"}
+	}
+
+	switch conn.SASLProtocol {
+	case "SASL_PLAINTEXT":
+	case "PLAINTEXT":
+	case "SASL_SSL":
+	case "SSL":
+	default:
+		return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL protocol: %s; allowed: SASL_PLAINTEXT, PLAINTEXT, SASL_SSL, SSL", conn.SASLProtocol)}
+	}
+
+	// TODO: add validation for protocol w/o skipAuth
+	if !conn.SkipAuth {
+		if len(strings.TrimSpace(conn.SASLMechanism)) == 0 {
+			return zero, PipelineConfigError{Msg: "SASL mechanism cannot be empty"}
+		}
+		if len(strings.TrimSpace(conn.SASLUsername)) == 0 {
+			return zero, PipelineConfigError{Msg: "SASL username cannot be empty"}
+		}
+		if len(conn.SASLPassword) == 0 {
+			return zero, PipelineConfigError{Msg: "SASL password cannot be empty"}
+		}
+
+		switch conn.SASLMechanism {
+		case "SCRAM-SHA-256":
+		case "SCRAM-SHA-512":
+		case "PLAIN":
+		default:
+			return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", conn.SASLMechanism)}
+		}
+	}
+	for _, kt := range topics {
+		switch strings.ToLower(kt.ConsumerGroupInitialOffset) {
+		case "earliest":
+		case "latest":
+		default:
+			return zero, PipelineConfigError{Msg: "invalid consumer_group_initial_offset; allowed values: `earliest` or `latest`"}
+		}
+	}
+
+	return IngestorOperatorConfig{
+		Type:     KafkaIngestorType,
+		Provider: provider,
+		KafkaConnectionParams: KafkaConnectionParamsConfig{
+			Brokers:       conn.Brokers,
+			SkipAuth:      conn.SkipAuth,
+			SASLProtocol:  conn.SASLProtocol,
+			SASLMechanism: conn.SASLMechanism,
+			SASLUsername:  conn.SASLUsername,
+			SASLPassword:  conn.SASLPassword,
+			TLSRoot:       conn.TLSRoot,
+		},
+		KafkaTopics: topics,
+	}, nil
+}
+
 type JoinSourceConfig struct {
 	SourceID    string       `json:"source_id"`
 	JoinKey     string       `json:"join_key"`
@@ -78,6 +153,68 @@ type JoinOperatorConfig struct {
 	Type    string             `json:"type"`
 	Enabled bool               `json:"enabled"`
 	Sources []JoinSourceConfig `json:"sources"`
+}
+
+type JoinOrder string
+
+const (
+	JoinLeft  JoinOrder = "left"
+	JoinRight JoinOrder = "right"
+)
+
+func (jo JoinOrder) String() string {
+	return string(jo)
+}
+
+func NewJoinOrder(s string) (zero JoinOrder, _ error) {
+	switch s {
+	case JoinLeft.String():
+		return JoinLeft, nil
+	case JoinRight.String():
+		return JoinRight, nil
+	default:
+		return zero, fmt.Errorf("unsupported join order")
+	}
+}
+
+const MaxStreamsSupportedWithJoin = 2
+
+func NewJoinOperatorConfig(kind string, sources []JoinSourceConfig) (zero JoinOperatorConfig, _ error) {
+	if kind != strings.ToLower(strings.TrimSpace(TemporalJoinType)) {
+		return zero, PipelineConfigError{Msg: "invalid join type; only temporal joins are supported"}
+	}
+
+	if len(sources) != MaxStreamsSupportedWithJoin {
+		return zero, PipelineConfigError{Msg: "join component must have two distinct sources"}
+	}
+
+	var seenJoinOrder []JoinOrder
+
+	for _, so := range sources {
+		if len(strings.TrimSpace(so.SourceID)) == 0 {
+			return zero, PipelineConfigError{Msg: "join source cannot be empty"}
+		}
+
+		jo, err := NewJoinOrder(so.Orientation)
+		if err != nil {
+			return zero, PipelineConfigError{Msg: fmt.Sprintf("unsupported value %s for join orientation", so.Orientation)}
+		}
+		if !slices.Contains(seenJoinOrder, jo) {
+			seenJoinOrder = append(seenJoinOrder, jo)
+		} else {
+			return zero, PipelineConfigError{Msg: "join sources cannot have same orientations"}
+		}
+
+		if len(strings.TrimSpace(so.JoinKey)) == 0 {
+			return zero, PipelineConfigError{Msg: "join key cannot be empty"}
+		}
+	}
+
+	return JoinOperatorConfig{
+		Sources: sources,
+		Type:    TemporalJoinType,
+		Enabled: true,
+	}, nil
 }
 
 type ClickHouseConnectionParamsConfig struct {
@@ -103,9 +240,128 @@ type SinkOperatorConfig struct {
 	ClickHouseConnectionParams ClickHouseConnectionParamsConfig `json:"clickhouse_connection_params"`
 }
 
+type ClickhouseSinkArgs struct {
+	Host                 string
+	Port                 string
+	DB                   string
+	User                 string
+	Password             string
+	Table                string
+	Secure               bool
+	MaxBatchSize         int
+	MaxDelayTime         JSONDuration
+	SkipCertificateCheck bool
+}
+
+func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig, _ error) {
+	if len(strings.TrimSpace(args.Host)) == 0 {
+		return zero, PipelineConfigError{Msg: "clickhouse host cannot be empty"}
+	}
+
+	if len(strings.TrimSpace(args.Port)) == 0 {
+		return zero, PipelineConfigError{Msg: "clickhouse port cannot be empty"}
+	}
+
+	if len(strings.TrimSpace(args.DB)) == 0 {
+		return zero, PipelineConfigError{Msg: "clickhouse database cannot be empty"}
+	}
+
+	if len(strings.TrimSpace(args.User)) == 0 {
+		return zero, PipelineConfigError{Msg: "clickhouse user cannot be empty"}
+	}
+
+	if len(args.Password) == 0 {
+		return zero, PipelineConfigError{Msg: "clickhouse password cannot be empty"}
+	}
+
+	if len(strings.TrimSpace(args.Table)) == 0 {
+		return zero, PipelineConfigError{Msg: "clickhouse table cannot be empty"}
+	}
+
+	if args.MaxBatchSize == 0 {
+		return zero, PipelineConfigError{Msg: "clickhouse max_batch_size must be greater than 0"}
+	}
+
+	return SinkOperatorConfig{
+		Type: ClickHouseSinkType,
+		Batch: BatchConfig{
+			MaxBatchSize: args.MaxBatchSize,
+			MaxDelayTime: args.MaxDelayTime,
+		},
+		ClickHouseConnectionParams: ClickHouseConnectionParamsConfig{
+			Host:                 args.Host,
+			Port:                 args.Port,
+			Database:             args.DB,
+			Username:             args.User,
+			Password:             args.Password,
+			Table:                args.Table,
+			Secure:               args.Secure,
+			SkipCertificateCheck: args.SkipCertificateCheck,
+		},
+	}, nil
+}
+
 type PipelineConfig struct {
+	ID       string                 `json:"pipeline_id"`
 	Mapper   MapperConfig           `json:"mapper"`
 	Ingestor IngestorOperatorConfig `json:"kafka_topics"`
 	Join     JoinOperatorConfig     `json:"join"`
 	Sink     SinkOperatorConfig     `json:"sink"`
+}
+
+type PipelineConfigError struct {
+	Msg string
+}
+
+func (e PipelineConfigError) Error() string {
+	return "invalid pipeline config: " + e.Msg
+}
+
+func NewPipelineConfig(id string, mc MapperConfig, ic IngestorOperatorConfig, jc JoinOperatorConfig, sc SinkOperatorConfig) PipelineConfig {
+	return PipelineConfig{
+		ID:       id,
+		Mapper:   mc,
+		Ingestor: ic,
+		Join:     jc,
+		Sink:     sc,
+	}
+}
+
+type JSONDuration struct {
+	t time.Duration
+}
+
+func (d *JSONDuration) UnmarshalJSON(b []byte) error {
+	var rawValue any
+
+	err := json.Unmarshal(b, &rawValue)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal duration: %w", err)
+	}
+
+	switch val := rawValue.(type) {
+	case string:
+		var err error
+		d.t, err = time.ParseDuration(val)
+		if err != nil {
+			return fmt.Errorf("unable to parse as duration: %w", err)
+		}
+	default:
+		return fmt.Errorf("invalid duration: %#v", rawValue)
+	}
+
+	return nil
+}
+
+func (d JSONDuration) MarshalJSON() ([]byte, error) {
+	//nolint: wrapcheck // no more error context needed
+	return json.Marshal(d.String())
+}
+
+func (d JSONDuration) String() string {
+	return d.t.String()
+}
+
+func (d JSONDuration) Duration() time.Duration {
+	return d.t
 }

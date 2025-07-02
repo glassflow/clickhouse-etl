@@ -31,8 +31,17 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, streams []models.StreamConfig, publisherSubject string, schemaMapper schema.Mapper) error {
-	if len(streams) == 0 {
+func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, publisherSubject string, schemaMapper schema.Mapper) error {
+	var mapper schema.JsonToClickHouseMapper
+
+	switch sm := schemaMapper.(type) {
+	case *schema.JsonToClickHouseMapper:
+		mapper = *sm
+	default:
+		return fmt.Errorf("unsupported schema mapper")
+	}
+
+	if len(mapper.Streams) == 0 {
 		return fmt.Errorf("setup joiner: length of streams must not be 0")
 	}
 
@@ -45,15 +54,15 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, streams [
 		rightStreamName string
 		err             error
 	)
-	for _, s := range streams {
-		if s.Join.Orientation == "left" {
-			leftStreamName = s.Name
+	for n, s := range mapper.Streams {
+		if s.JoinOrientation == "left" {
+			leftStreamName = n
 
 			//nolint: exhaustruct // optional config
 			leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-				NatsStream:   s.Name,
+				NatsStream:   n,
 				NatsConsumer: "leftStreamConsumer",
-				NatsSubject:  s.Subject,
+				NatsSubject:  n + ".input",
 			})
 			if err != nil {
 				return fmt.Errorf("create left consumer: %w", err)
@@ -63,21 +72,21 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, streams [
 				ctx,
 				j.nc.JetStream(),
 				kv.KeyValueStoreConfig{
-					StoreName: s.Name,
-					TTL:       s.Join.Window,
+					StoreName: n,
+					TTL:       s.JoinWindow,
 				})
 			if err != nil {
 				j.log.Error("failed to create left stream buffer: ", slog.Any("error", err))
 				return fmt.Errorf("create left buffer: %w", err)
 			}
 		} else {
-			rightStreamName = s.Name
+			rightStreamName = n
 
 			//nolint: exhaustruct // optional config
 			rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-				NatsStream:   s.Name,
+				NatsStream:   n,
 				NatsConsumer: "rightStreamConsumer",
-				NatsSubject:  s.Subject,
+				NatsSubject:  n + ".input",
 			})
 			if err != nil {
 				return fmt.Errorf("create right consumer: %w", err)
@@ -87,8 +96,8 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, streams [
 				ctx,
 				j.nc.JetStream(),
 				kv.KeyValueStoreConfig{
-					StoreName: s.Name,
-					TTL:       s.Join.Window,
+					StoreName: n,
+					TTL:       s.JoinWindow,
 				})
 			if err != nil {
 				j.log.Error("failed to create right stream buffer: ", slog.Any("error", err))

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -41,13 +42,12 @@ func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pid, err := models.NewPipelineID(id)
-	if err != nil {
+	if len(strings.TrimSpace(id)) == 0 {
 		jsonError(w, http.StatusUnprocessableEntity, err.Error(), map[string]string{"pipeline_id": id})
 		return
 	}
 
-	msgs, err := h.ds.ConsumeDLQ(r.Context(), pid, dlqBatch)
+	msgs, err := h.ds.ConsumeDLQ(r.Context(), id, dlqBatch)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrDLQNotExists):
@@ -55,7 +55,7 @@ func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNoMessagesInDLQ):
 			w.WriteHeader(http.StatusNoContent)
 		default:
-			h.log.Error("Consuming DLQ failed", slog.String("pipeline_id", pid.String()), slog.Any("error", err))
+			h.log.Error("Consuming DLQ failed", slog.String("pipeline_id", id), slog.Any("error", err))
 			serverError(w)
 		}
 		return
@@ -89,19 +89,18 @@ func (h *handler) getDLQState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pid, err := models.NewPipelineID(id)
-	if err != nil {
-		jsonError(w, http.StatusUnprocessableEntity, err.Error(), map[string]string{"pipeline_id": id})
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", map[string]string{"pipeline_id": id})
 		return
 	}
 
-	state, err := h.ds.GetDLQState(r.Context(), pid)
+	state, err := h.ds.GetDLQState(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrDLQNotExists):
 			jsonError(w, http.StatusNotFound, "dlq for pipeline does not exist", map[string]string{"pipeline_id": id})
 		default:
-			h.log.Error("DLQ state fetch failed", slog.String("pipeline_id", pid.String()), slog.Any("error", err))
+			h.log.Error("DLQ state fetch failed", slog.String("pipeline_id", id), slog.Any("error", err))
 			serverError(w)
 		}
 		return
