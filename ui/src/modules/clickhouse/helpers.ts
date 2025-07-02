@@ -37,7 +37,7 @@ export const generateApiConfig = ({
       let eventData = {}
       if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
         // Get the actual event data (either directly or from .event property)
-        const rawEvent = topic.selectedEvent.event.event || topic.selectedEvent.event
+        const rawEvent = topic?.selectedEvent?.event || {}
 
         // Clone the event and remove _metadata
         eventData = { ...rawEvent }
@@ -92,7 +92,7 @@ export const generateApiConfig = ({
               // Try to find which topic contains this field
               for (const topic of selectedTopics) {
                 if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
-                  const eventData = topic.selectedEvent.event.event || topic.selectedEvent.event
+                  const eventData = topic?.selectedEvent?.event || {}
 
                   // Check if the field exists in this topic's event data
                   if (mapping.eventField in eventData) {

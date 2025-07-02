@@ -45,7 +45,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
 
       try {
         // Extract the actual event data
-        const actualEventData = eventData.event || eventData
+        const actualEventData = eventData || {}
 
         // Use the nested event keys function to get all available fields including nested ones
         const keys = extractEventFields(actualEventData)
