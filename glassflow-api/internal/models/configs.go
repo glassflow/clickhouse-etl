@@ -331,6 +331,10 @@ type JSONDuration struct {
 	t time.Duration
 }
 
+func NewJSONDuration(d time.Duration) *JSONDuration {
+	return &JSONDuration{t: d}
+}
+
 func (d *JSONDuration) UnmarshalJSON(b []byte) error {
 	var rawValue any
 
