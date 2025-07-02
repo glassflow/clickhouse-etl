@@ -36,32 +36,12 @@ func NewPipelineSteps() *PipelineSteps {
 	}
 }
 
-func (p *PipelineSteps) createKafkaWriter() error {
-	if p.kWriter != nil {
-		return nil
-	}
-
-	uri, err := p.getKafkaURI()
-	if err != nil {
-		return fmt.Errorf("get kafka uri: %w", err)
-	}
-
-	writer := testutils.NewKafkaWriter(uri)
-	p.kWriter = writer
-
-	return nil
-}
-
 func (p *PipelineSteps) theKafkaTopic(topic string, partitions int) error {
-	err := p.createKafkaWriter()
-	if err != nil {
-		return fmt.Errorf("create kafka writer: %w", err)
-	}
-
-	err = p.kWriter.CreateTopic(context.Background(), topic, partitions)
+	err := p.createKafkaTopic(topic, partitions)
 	if err != nil {
 		return fmt.Errorf("create kafka topic: %w", err)
 	}
+
 	p.kTopics = append(p.kTopics, topic)
 
 	return nil
@@ -72,19 +52,11 @@ func (p *PipelineSteps) cleanTopic(topicName string) error {
 		return nil
 	}
 
-	if p.kafkaContainer == nil {
-		return fmt.Errorf("kafka container not initialized")
+	err := p.deleteKafkaTopic(topicName)
+	if err != nil {
+		return fmt.Errorf("delete kafka topic %s: %w", topicName, err)
 	}
 
-	err := p.createKafkaWriter()
-	if err != nil {
-		return fmt.Errorf("create kafka writer: %w", err)
-	}
-
-	err = p.kWriter.DeleteTopic(context.Background(), topicName)
-	if err != nil {
-		return fmt.Errorf("cleanup topics: %w", err)
-	}
 	return nil
 }
 

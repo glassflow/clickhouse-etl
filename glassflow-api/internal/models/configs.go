@@ -33,6 +33,7 @@ type MapperConfig struct {
 type KafkaConnectionParamsConfig struct {
 	Brokers       []string `json:"brokers"`
 	SkipAuth      bool     `json:"skip_auth"`
+	SASLTLSEnable bool     `json:"sasl_tls_enable"`
 	SASLProtocol  string   `json:"protocol"`
 	SASLMechanism string   `json:"mechanism"`
 	SASLUsername  string   `json:"username"`
@@ -53,7 +54,7 @@ type DeduplicationConfig struct {
 }
 
 type KafkaTopicsConfig struct {
-	Topic                      string `json:"name"`
+	Name                       string `json:"name"`
 	ID                         string `json:"id"`
 	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
 

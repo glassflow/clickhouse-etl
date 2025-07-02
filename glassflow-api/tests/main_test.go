@@ -107,10 +107,24 @@ func testPipelineFeatures(t *testing.T) {
 	runSingleSuite(t, "pipeline", pipelineSuite, config)
 }
 
+func testIngetorFeatures(t *testing.T) {
+	ingestorSuite := steps.NewIngestorTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "ingestor")},
+		Tags:         "@ingestor",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "ingestor", ingestorSuite, config)
+}
+
 // TestFeatures runs all feature tests but in separate contexts
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
 	t.Run("SinkFeatures", testSinkFeatures)
 	t.Run("JoinOperatorFeatures", testJoinFeatures)
 	t.Run("PipelineFeatures", testPipelineFeatures)
+
+	t.Run("IngestorFeatures", testIngetorFeatures)
 }
