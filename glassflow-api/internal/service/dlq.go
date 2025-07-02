@@ -30,8 +30,8 @@ var (
 // WARNING: bad design choice since the api request can fail and the
 // acknowledged messages will be lost. Only a dirty solution for now,
 // must be changed to a streaming API in future
-func (d *DLQ) ConsumeDLQ(ctx context.Context, pid models.PipelineID, batchSize models.DLQBatchSize) ([]models.DLQMessage, error) {
-	dlqStream := fmt.Sprintf("%s-%s", pid.String(), DLQSuffix)
+func (d *DLQ) ConsumeDLQ(ctx context.Context, pid string, batchSize models.DLQBatchSize) ([]models.DLQMessage, error) {
+	dlqStream := fmt.Sprintf("%s-%s", pid, DLQSuffix)
 
 	batch, err := d.mq.FetchDLQMessages(ctx, dlqStream, batchSize.Int)
 	if err != nil {
@@ -45,8 +45,8 @@ func (d *DLQ) ConsumeDLQ(ctx context.Context, pid models.PipelineID, batchSize m
 	return batch, nil
 }
 
-func (d *DLQ) GetDLQState(ctx context.Context, pid models.PipelineID) (zero models.DLQState, _ error) {
-	dlqStream := fmt.Sprintf("%s-%s", pid.String(), DLQSuffix)
+func (d *DLQ) GetDLQState(ctx context.Context, pid string) (zero models.DLQState, _ error) {
+	dlqStream := fmt.Sprintf("%s-%s", pid, DLQSuffix)
 
 	state, err := d.mq.GetDLQState(ctx, dlqStream)
 	if err != nil {

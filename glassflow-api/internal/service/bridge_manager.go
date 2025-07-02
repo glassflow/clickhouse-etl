@@ -36,14 +36,14 @@ func NewBridgeRunner(factory BridgeFactory) *BridgeRunner {
 
 func (bmgr *BridgeRunner) SetupBridges(
 	kafkaCfg *models.KafkaConfig,
-	streams []models.StreamConfig,
+	specs []models.BridgeSpec,
 ) error {
-	specs := bmgr.createBridgeSpec(streams)
-
 	bridges := make([]Bridge, len(specs))
 
 	for i, s := range specs {
 		bridge := bmgr.factory.CreateBridge(kafkaCfg, &s)
+
+		fmt.Printf("%+v\n", bridge)
 
 		err := bridge.Start()
 		if err != nil {
@@ -68,31 +68,6 @@ func (bmgr *BridgeRunner) SetupBridges(
 	}
 
 	return nil
-}
-
-func (bmgr *BridgeRunner) createBridgeSpec(streams []models.StreamConfig) []models.BridgeSpec {
-	bridges := make([]models.BridgeSpec, len(streams))
-	// streamSchemas := make(map[string]models.StreamSchema, len(spec.Source.Topics))
-
-	for i, s := range streams {
-		//nolint: exhaustruct // add dedup only after enabled check
-		bs := models.BridgeSpec{
-			Topic:                      s.Source.Name,
-			Stream:                     s.Name,
-			Subject:                    s.Subject,
-			ConsumerGroupID:            fmt.Sprintf("%s-%s", "cg", s.Name),
-			ConsumerGroupInitialOffset: s.Source.ConsumerGroupInitialOffset,
-		}
-
-		bs.DedupEnabled = s.Deduplication.Enabled
-		bs.DedupKey = s.Deduplication.ID
-		bs.DedupKeyType = s.Deduplication.Type
-		bs.DedupWindow = s.Deduplication.Window
-
-		bridges[i] = bs
-	}
-
-	return bridges
 }
 
 func (bmgr *BridgeRunner) Get(id string) Bridge {

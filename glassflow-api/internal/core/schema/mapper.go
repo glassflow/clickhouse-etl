@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
@@ -17,8 +18,10 @@ type Mapper interface {
 }
 
 type Stream struct {
-	Fields  map[string]KafkaDataType
-	JoinKey string
+	Fields          map[string]KafkaDataType
+	JoinKey         string
+	JoinOrientation string
+	JoinWindow      time.Duration
 }
 
 type SinkMapping struct {
@@ -34,7 +37,6 @@ func NewMapper(cfg models.MapperConfig) (Mapper, error) {
 	}
 
 	mapper, err := NewJSONToClickHouseMapper(cfg.Streams, cfg.SinkMapping)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create JsonToClickHouseMapper: %w", err)
 	}
@@ -71,8 +73,10 @@ func convertStreams(streams map[string]models.StreamSchemaConfig) map[string]Str
 		}
 
 		mappedStreams[streamName] = Stream{
-			Fields:  fields,
-			JoinKey: streamConfig.JoinKeyField,
+			Fields:          fields,
+			JoinKey:         streamConfig.JoinKeyField,
+			JoinOrientation: streamConfig.JoinOrientation,
+			JoinWindow:      streamConfig.JoinWindow.Duration(),
 		}
 	}
 

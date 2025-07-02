@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -13,7 +14,11 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-var ErrPipelineNotFound = errors.New("no active pipeline found")
+var (
+	ErrIDExists          = errors.New("pipeline with this ID already exists")
+	ErrPipelineNotFound  = errors.New("no active pipeline found")
+	ErrPipelineNotExists = errors.New("no pipeline with given id exists")
+)
 
 type ActivePipelineError struct {
 	pipelineID string
@@ -27,6 +32,7 @@ type PipelineManager struct {
 	natsServer string
 	nc         *client.NATSClient
 	log        *slog.Logger
+	store      PipelineStore
 
 	bridgeRunner *BridgeRunner
 	joinRunner   *JoinRunner
@@ -36,16 +42,23 @@ type PipelineManager struct {
 	m  sync.Mutex
 }
 
+type PipelineStore interface {
+	InsertPipeline(context.Context, models.PipelineConfig) error
+	GetPipeline(context.Context, string) (*models.PipelineConfig, error)
+}
+
 func NewPipelineManager(
 	natsServer string,
 	nc *client.NATSClient,
 	log *slog.Logger,
+	store PipelineStore,
 ) *PipelineManager {
 	//nolint: exhaustruct // runners will be created on setup
 	return &PipelineManager{
 		natsServer: natsServer,
 		nc:         nc,
 		log:        log,
+		store:      store,
 	}
 }
 
@@ -55,7 +68,7 @@ const (
 	ShutdownTimeout = 30 * time.Second
 )
 
-func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
+func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 	p.m.Lock()
 	defer p.m.Unlock()
 
@@ -69,6 +82,17 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		}
 	}()
 
+	ctx := context.Background()
+
+	existing, err := p.store.GetPipeline(ctx, pi.ID)
+	if err != nil && !errors.Is(err, ErrPipelineNotExists) {
+		return fmt.Errorf("check existing pipeline ID: %w", err)
+	}
+
+	if existing != nil {
+		return ErrIDExists
+	}
+
 	if p.id != "" {
 		return ActivePipelineError{pipelineID: p.id}
 	}
@@ -77,65 +101,19 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		p.log.Error("error on cleaning up nats resources", slog.Any("error", err))
 	}
 
-	pipeline, err := models.NewPipeline(spec)
-	if err != nil {
-		return fmt.Errorf("parse pipeline config: %w", err)
-	}
-
-	ctx := context.Background()
-
 	var (
 		sinkConsumerStream  string
 		sinkConsumerSubject string
 	)
 
-	streamsCfg := make(map[string]models.StreamSchemaConfig)
-	for _, s := range pipeline.Streams {
-		sinkConsumerStream = s.Name
-		sinkConsumerSubject = s.Subject
-		var fields []models.StreamDataField
-
-		for _, f := range s.Schema {
-			field := models.StreamDataField{
-				FieldName: f.Name,
-				FieldType: f.DataType,
-			}
-
-			fields = append(fields, field)
-		}
-
-		streamsCfg[s.Name] = models.StreamSchemaConfig{
-			Fields:       fields,
-			JoinKeyField: s.Join.ID,
-		}
-	}
-
-	sinkCfg := make([]models.SinkMappingConfig, len(pipeline.ClickhouseConfig.Mapping))
-
-	for i, m := range pipeline.ClickhouseConfig.Mapping {
-		mapping := models.SinkMappingConfig{
-			ColumnName: m.ColumnName,
-			StreamName: m.StreamName,
-			FieldName:  m.FieldName,
-			ColumnType: m.ColumnType,
-		}
-
-		sinkCfg[i] = mapping
-	}
-
 	// TODO: transfer all schema mapper validations in models.NewPipeline
 	// so validation errors are handled the same way with correct HTTPStatus
-	schemaMapper, err := schema.NewMapper(
-		models.MapperConfig{
-			Type:        models.SchemaMapperJSONToCHType,
-			Streams:     streamsCfg,
-			SinkMapping: sinkCfg,
-		})
+	schemaMapper, err := schema.NewMapper(pi.Mapper)
 	if err != nil {
-		return fmt.Errorf("new schema mapper: %w", err)
+		return models.PipelineConfigError{Msg: fmt.Sprintf("new schema mapper: %s", err)}
 	}
 
-	p.id = pipeline.ID
+	p.id = pi.ID
 
 	p.log = p.log.With("pipeline_id", p.id)
 
@@ -143,21 +121,48 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 	p.joinRunner = NewJoinRunner(p.log.With("component", "join"), p.nc)
 	p.sinkRunner = NewSinkRunner(p.log.With("component", "clickhouse_sink"), p.nc)
 
-	for _, s := range pipeline.Streams {
-		err := p.nc.CreateOrUpdateStream(ctx, s.Name, s.Subject, s.Deduplication.Window)
+	for _, t := range pi.Ingestor.KafkaTopics {
+		err := p.nc.CreateOrUpdateStream(ctx, t.Topic, t.Topic+".input", t.Deduplication.Window.Duration())
 		if err != nil {
 			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
 		}
 	}
 	p.log.Debug("created ingestion streams successfully")
 
-	err = p.bridgeRunner.SetupBridges(&pipeline.KafkaConfig, pipeline.Streams)
+	bridgeSpecs := make([]models.BridgeSpec, len(pi.Ingestor.KafkaTopics))
+
+	for _, t := range pi.Ingestor.KafkaTopics {
+		sinkConsumerStream = t.Topic
+		sinkConsumerSubject = t.Topic + ".input"
+
+		bridgeSpecs = append(bridgeSpecs, models.BridgeSpec{
+			Topic:                      t.Topic,
+			DedupEnabled:               t.Deduplication.Enabled,
+			DedupWindow:                t.Deduplication.Window.Duration(),
+			DedupKey:                   t.Deduplication.ID,
+			DedupKeyType:               t.Deduplication.Type,
+			ConsumerGroupID:            "cg-" + t.Topic,
+			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
+			Stream:                     t.Topic,
+			Subject:                    t.Topic + ".input",
+		})
+	}
+
+	// TODO: Remove when ingestor is ready
+	err = p.bridgeRunner.SetupBridges(&models.KafkaConfig{
+		Brokers:       pi.Ingestor.KafkaConnectionParams.Brokers,
+		SASLUser:      pi.Ingestor.KafkaConnectionParams.SASLUsername,
+		SASLPassword:  pi.Ingestor.KafkaConnectionParams.SASLPassword,
+		SASLMechanism: pi.Ingestor.KafkaConnectionParams.SASLMechanism,
+		SASLTLSEnable: slices.Contains([]string{"SASL_SSL", "SSL"}, pi.Ingestor.KafkaConnectionParams.SASLProtocol),
+		TLSRoot:       pi.Ingestor.KafkaConnectionParams.TLSRoot,
+	}, bridgeSpecs)
 	if err != nil {
 		return fmt.Errorf("setup bridges: %w", err)
 	}
 
-	if spec.Join.Enabled {
-		sinkConsumerStream = fmt.Sprintf("%s-%s", GFJoinStream, spec.PipelineID)
+	if pi.Join.Enabled {
+		sinkConsumerStream = fmt.Sprintf("%s-%s", GFJoinStream, pi.ID)
 		sinkConsumerSubject = GFJoinSubject
 
 		err = p.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
@@ -166,7 +171,7 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		}
 		p.log.Debug("created join stream successfully")
 
-		err = p.joinRunner.SetupJoiner(ctx, "temporal", pipeline.Streams, sinkConsumerSubject, schemaMapper)
+		err = p.joinRunner.SetupJoiner(ctx, "temporal", sinkConsumerSubject, schemaMapper)
 		if err != nil {
 			return fmt.Errorf("setup join operator: %w", err)
 		}
@@ -177,21 +182,26 @@ func (p *PipelineManager) SetupPipeline(spec *models.PipelineRequest) error {
 		models.SinkOperatorConfig{
 			Type: models.ClickHouseSinkType,
 			Batch: models.BatchConfig{
-				MaxBatchSize: pipeline.ClickhouseConfig.MaxBatchSize,
-				MaxDelayTime: pipeline.ClickhouseConfig.MaxDelayTime,
+				MaxBatchSize: pi.Sink.Batch.MaxBatchSize,
+				MaxDelayTime: pi.Sink.Batch.MaxDelayTime,
 			},
 			ClickHouseConnectionParams: models.ClickHouseConnectionParamsConfig{
-				Host:     pipeline.ClickhouseConfig.Host,
-				Port:     pipeline.ClickhouseConfig.Port,
-				Database: pipeline.ClickhouseConfig.Database,
-				Username: pipeline.ClickhouseConfig.Username,
-				Password: pipeline.ClickhouseConfig.Password,
-				Table:    pipeline.ClickhouseConfig.Table,
-				Secure:   pipeline.ClickhouseConfig.Secure,
+				Host:     pi.Sink.ClickHouseConnectionParams.Host,
+				Port:     pi.Sink.ClickHouseConnectionParams.Port,
+				Database: pi.Sink.ClickHouseConnectionParams.Database,
+				Username: pi.Sink.ClickHouseConnectionParams.Username,
+				Password: pi.Sink.ClickHouseConnectionParams.Password,
+				Table:    pi.Sink.ClickHouseConnectionParams.Table,
+				Secure:   pi.Sink.ClickHouseConnectionParams.Secure,
 			},
 		}, schemaMapper)
 	if err != nil {
 		return fmt.Errorf("start sink: %w", err)
+	}
+
+	err = p.store.InsertPipeline(ctx, *pi)
+	if err != nil {
+		return fmt.Errorf("insert pipeline: %w", err)
 	}
 
 	return nil
@@ -215,14 +225,14 @@ func (p *PipelineManager) ShutdownPipeline() error {
 	return nil
 }
 
-func (p *PipelineManager) GetPipeline() (zero string, _ error) {
+func (p *PipelineManager) GetPipeline(ctx context.Context, id string) (zero models.PipelineConfig, _ error) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
-	if p.id == "" {
-		//nolint: wrapcheck // custom internal errors
-		return zero, ErrPipelineNotFound
+	pi, err := p.store.GetPipeline(ctx, id)
+	if err != nil {
+		return zero, fmt.Errorf("load pipeline: %w", err)
 	}
 
-	return p.id, nil
+	return *pi, nil
 }
