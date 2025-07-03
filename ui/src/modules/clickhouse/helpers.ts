@@ -313,11 +313,13 @@ export const extractEventFields = (data: any, prefix = ''): string[] => {
     const fullPath = prefix ? `${prefix}.${key}` : key
     const value = data[key]
 
-    // Handle nested objects (but not arrays)
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       // Recursively extract nested fields
       const nestedFields = extractEventFields(value, fullPath)
       fields = [...fields, ...nestedFields]
+    } else if (Array.isArray(value)) {
+      // Only add the array field itself for cases where users want the whole array
+      fields.push(fullPath)
     } else {
       // Only add leaf fields (fields with primitive values, not objects)
       fields.push(fullPath)
@@ -363,7 +365,11 @@ export const getNestedValue = (obj: any, path: string): any => {
     if (current === null || current === undefined || typeof current !== 'object') {
       return undefined
     }
-    current = current[part]
+    if (typeof current === 'object' && current !== null) {
+      current = (current as any)[part]
+    } else {
+      return undefined
+    }
   }
 
   return current

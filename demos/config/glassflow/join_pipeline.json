@@ -36,6 +36,10 @@
               {
                 "name": "created_at",
                 "type": "string"
+              },
+              {
+                "name": "tags",
+                "type": "array"
               }
             ]
           },
@@ -68,6 +72,10 @@
               {
                 "name": "created_at",
                 "type": "string"
+              },
+              {
+                "name": "category",
+                "type": "array"
               }
             ]
           },
@@ -151,6 +159,12 @@
           "field_name": "created_at",
           "column_name": "created_at",
           "column_type": "DateTime"
+        },
+        {
+          "source_id": "orders",
+          "field_name": "category",
+          "column_name": "category",
+          "column_type": "Array(String)"
         }
       ]
     }

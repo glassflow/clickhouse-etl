@@ -7,5 +7,6 @@
     "user": {
         "id": "$uuid4"
     },
-    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
+    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)",
+    "category": "$array(prefixed_id, 2, category, 1, 1000)"
 }

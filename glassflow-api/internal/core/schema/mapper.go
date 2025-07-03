@@ -295,11 +295,8 @@ func (m *Mapper) JoinData(leftStreamName string, leftData []byte, rightStreamNam
 }
 
 // getNestedValue extracts a value from a nested JSON object using dot notation
-// Example: getNestedValue(data, "user.address.city") would extract data["user"]["address"]["city"]
-// For join operators, the first part is treated as stream name and the rest as nested path
+// Only supports direct field access, not array indexing.
 func getNestedValue(data map[string]any, path string) (any, bool) {
-	// print the data and path here using log debug
-
 	if data == nil || path == "" {
 		return nil, false
 	}
@@ -309,7 +306,6 @@ func getNestedValue(data map[string]any, path string) (any, bool) {
 		return value, true
 	}
 
-	// If not found as flat key, treat as nested path
 	parts := strings.Split(path, ".")
 	current := any(data)
 
@@ -318,15 +314,12 @@ func getNestedValue(data map[string]any, path string) (any, bool) {
 			return nil, false
 		}
 
-		// Check if current is a map
-		if mapValue, ok := current.(map[string]any); ok {
-			if val, exists := mapValue[part]; exists {
-				current = val
-			} else {
-				return nil, false
-			}
-		} else {
-			// Current is not a map, can't traverse further
+		mapValue, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = mapValue[part]
+		if !ok {
 			return nil, false
 		}
 	}

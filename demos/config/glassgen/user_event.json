@@ -7,5 +7,6 @@
         "name": "$name",
         "email": "$email"
     },
-    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
+    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)",
+    "tags": "$array(prefixed_id, 2, tag, 1, 1000)"
 }

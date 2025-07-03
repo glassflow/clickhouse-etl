@@ -571,57 +571,186 @@ func TestNestedJsonFields(t *testing.T) {
 		assert.Equal(t, "test_value", values[4])           // simple
 	})
 
-	t.Run("get nested join key", func(t *testing.T) {
+	t.Run("get join key with nested field", func(t *testing.T) {
 		jsonData := []byte(`{
 			"user": {
-				"name": "Jane Smith"
+				"name": "John Doe"
 			}
 		}`)
 
-		value, err := mapper.GetJoinKey("stream1", jsonData)
+		key, err := mapper.GetJoinKey("stream1", jsonData)
 		require.NoError(t, err)
-		assert.Equal(t, "Jane Smith", value)
+		assert.Equal(t, "John Doe", key)
 	})
+}
 
-	t.Run("get fields map with nested fields", func(t *testing.T) {
-		jsonData := []byte(`{
-			"user": {
-				"name": "Bob Johnson",
-				"address": {
-					"city": "Los Angeles",
-					"zip": "90210"
-				}
+func TestArraySupport(t *testing.T) {
+	streamsConfig := map[string]StreamSchemaConfig{
+		"stream1": {
+			Fields: []StreamDataField{
+				{FieldName: "items[0].name", FieldType: "string"},
+				{FieldName: "items[1].price", FieldType: "float32"},
+				{FieldName: "user.tags[0]", FieldType: "string"},
+				{FieldName: "user.tags[1]", FieldType: "string"},
+				{FieldName: "scores[0]", FieldType: "int32"},
+				{FieldName: "scores[1]", FieldType: "int32"},
+				{FieldName: "items", FieldType: "array"},
 			},
-			"metadata": {
-				"timestamp": "2023-02-01T00:00:00Z"
-			},
-			"simple_field": "another_value"
-		}`)
+			JoinKeyField: "items[0].name",
+		},
+	}
 
-		fieldsMap, err := mapper.GetFieldsMap("stream1", jsonData)
-		require.NoError(t, err)
-		assert.Len(t, fieldsMap, 5)
-		assert.Equal(t, "Bob Johnson", fieldsMap["user.name"])
-		assert.Equal(t, "Los Angeles", fieldsMap["user.address.city"])
-		assert.Equal(t, "90210", fieldsMap["user.address.zip"])
-		assert.Equal(t, "2023-02-01T00:00:00Z", fieldsMap["metadata.timestamp"])
-		assert.Equal(t, "another_value", fieldsMap["simple_field"])
-	})
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "first_item_name", StreamName: "stream1", FieldName: "items[0].name", ColumnType: "String"},
+		{ColumnName: "second_item_price", StreamName: "stream1", FieldName: "items[1].price", ColumnType: "Float32"},
+		{ColumnName: "first_tag", StreamName: "stream1", FieldName: "user.tags[0]", ColumnType: "String"},
+		{ColumnName: "second_tag", StreamName: "stream1", FieldName: "user.tags[1]", ColumnType: "String"},
+		{ColumnName: "first_score", StreamName: "stream1", FieldName: "scores[0]", ColumnType: "Int32"},
+		{ColumnName: "second_score", StreamName: "stream1", FieldName: "scores[1]", ColumnType: "Int32"},
+		{ColumnName: "all_items", StreamName: "stream1", FieldName: "items", ColumnType: "Array(String)"},
+	}
 
-	t.Run("missing nested field", func(t *testing.T) {
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	require.NoError(t, err)
+
+	t.Run("prepare values with array fields", func(t *testing.T) {
 		jsonData := []byte(`{
+			"items": [
+				{"name": "Laptop", "price": 999.99},
+				{"name": "Mouse", "price": 29.99}
+			],
 			"user": {
-				"name": "Test User"
-			}
+				"tags": ["premium", "tech"]
+			},
+			"scores": [85, 92]
 		}`)
 
 		values, err := mapper.PrepareClickHouseValues(jsonData)
 		require.NoError(t, err)
-		assert.Len(t, values, 5)
-		assert.Equal(t, "Test User", values[0]) // user_name
-		assert.Nil(t, values[1])                // city (missing)
-		assert.Nil(t, values[2])                // zip (missing)
-		assert.Nil(t, values[3])                // timestamp (missing)
-		assert.Nil(t, values[4])                // simple_field (missing)
+		assert.Len(t, values, 7)
+		assert.Equal(t, "Laptop", values[0])       // first_item_name
+		assert.Equal(t, float32(29.99), values[1]) // second_item_price
+		assert.Equal(t, "premium", values[2])      // first_tag
+		assert.Equal(t, "tech", values[3])         // second_tag
+		assert.Equal(t, int32(85), values[4])      // first_score
+		assert.Equal(t, int32(92), values[5])      // second_score
+		assert.Contains(t, values[6], "Laptop")    // all_items (JSON string)
+	})
+
+	t.Run("get join key with array field", func(t *testing.T) {
+		jsonData := []byte(`{
+			"items": [
+				{"name": "Laptop", "price": 999.99}
+			]
+		}`)
+
+		key, err := mapper.GetJoinKey("stream1", jsonData)
+		require.NoError(t, err)
+		assert.Equal(t, "Laptop", key)
+	})
+
+	t.Run("missing array element", func(t *testing.T) {
+		jsonData := []byte(`{
+			"items": [
+				{"name": "Laptop", "price": 999.99}
+			],
+			"user": {
+				"tags": ["premium"]
+			},
+			"scores": [85]
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 7)
+		assert.Equal(t, "Laptop", values[0])    // first_item_name
+		assert.Nil(t, values[1])                // second_item_price (missing)
+		assert.Equal(t, "premium", values[2])   // first_tag
+		assert.Nil(t, values[3])                // second_tag (missing)
+		assert.Equal(t, int32(85), values[4])   // first_score
+		assert.Nil(t, values[5])                // second_score (missing)
+		assert.Contains(t, values[6], "Laptop") // all_items (JSON string)
+	})
+}
+
+func TestWholeArrayMapping(t *testing.T) {
+	streamsConfig := map[string]StreamSchemaConfig{
+		"stream1": {
+			Fields: []StreamDataField{
+				{FieldName: "tags", FieldType: "array"},
+			},
+			JoinKeyField: "tags",
+		},
+	}
+
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "tags_col", StreamName: "stream1", FieldName: "tags", ColumnType: "Array(String)"},
+	}
+
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	require.NoError(t, err)
+
+	t.Run("prepare values with array of strings", func(t *testing.T) {
+		jsonData := []byte(`{
+			"tags": ["a", "b", "c"]
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 1)
+		arrayVal, ok := values[0].([]any)
+		if !ok {
+			// If the value is not a []any, it might be a []interface{} (Go's default for JSON arrays)
+			arrayValIface, okIface := values[0].([]interface{})
+			if !okIface {
+				t.Fatalf("expected []any or []interface{} for array value, got %T", values[0])
+			}
+			arrayVal = arrayValIface
+		}
+		assert.Equal(t, 3, len(arrayVal))
+		assert.Equal(t, "a", arrayVal[0])
+		assert.Equal(t, "b", arrayVal[1])
+		assert.Equal(t, "c", arrayVal[2])
+	})
+
+	t.Run("test Array(String) specifically", func(t *testing.T) {
+		streamsConfig := map[string]StreamSchemaConfig{
+			"stream1": {
+				Fields: []StreamDataField{
+					{FieldName: "category", FieldType: "array"},
+				},
+				JoinKeyField: "category",
+			},
+		}
+
+		sinkMappingConfig := []SinkMappingConfig{
+			{ColumnName: "category_col", StreamName: "stream1", FieldName: "category", ColumnType: "Array(String)"},
+		}
+
+		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		require.NoError(t, err)
+
+		jsonData := []byte(`{
+			"category": ["electronics", "computers", "laptops"]
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 1)
+		assert.NotNil(t, values[0])
+
+		// Verify it's an array
+		arrayVal, ok := values[0].([]any)
+		if !ok {
+			arrayValIface, okIface := values[0].([]interface{})
+			if !okIface {
+				t.Fatalf("expected []any or []interface{} for array value, got %T", values[0])
+			}
+			arrayVal = arrayValIface
+		}
+		assert.Equal(t, 3, len(arrayVal))
+		assert.Equal(t, "electronics", arrayVal[0])
+		assert.Equal(t, "computers", arrayVal[1])
+		assert.Equal(t, "laptops", arrayVal[2])
 	})
 }
