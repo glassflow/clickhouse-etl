@@ -36,7 +36,7 @@ type Consumer interface {
 	Close() error
 }
 
-func newConnectionConfig(conn models.KafkaConnectionParamsConfig) *sarama.Config {
+func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) *sarama.Config {
 	cfg := sarama.NewConfig()
 	cfg.Net.DialTimeout = DefaultDialTimeout
 	cfg.ClientID = ClientID
@@ -86,6 +86,12 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig) *sarama.Config
 		cfg.Net.TLS.Enable = conn.SASLTLSEnable
 	}
 
+	if topic.ConsumerGroupInitialOffset == models.InitialOffsetEarliest.String() {
+		cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
+	} else {
+		cfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+	}
+
 	return cfg
 }
 
@@ -108,7 +114,7 @@ type groupConsumer struct {
 }
 
 func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) (Consumer, error) {
-	cfg := newConnectionConfig(connectionParams)
+	cfg := newConnectionConfig(connectionParams, topic)
 	cGroup, err := sarama.NewConsumerGroup(
 		connectionParams.Brokers,
 		ConsumerGroupName,

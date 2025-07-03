@@ -79,6 +79,7 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 				slog.Any("error", err),
 				slog.String("topic", k.topic.Name),
 				slog.String("dedupKey", k.topic.Deduplication.ID),
+				slog.String("subject", string(msg.Value)),
 			)
 			return
 		}
@@ -127,7 +128,7 @@ func (k *KafkaIngestor) setupDeduplicationHeader(headers nats.Header, msgData []
 		return nil // No deduplication required
 	}
 
-	keyValue, err := k.schemaMapper.GetJoinKey(k.topic.Name, msgData)
+	keyValue, err := k.schemaMapper.GetKey(k.topic.Name, dedupKey, msgData)
 	if err != nil {
 		return fmt.Errorf("failed to get deduplication key: %w", err)
 	}
@@ -151,7 +152,7 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 			return fmt.Errorf("failed to fetch message: %w", err)
 		}
 
-		slog.Debug("Received message from Kafka",
+		k.log.Debug("Received message from Kafka",
 			slog.String("topic", msg.Topic),
 			slog.String("partition", fmt.Sprint(msg.Partition)),
 			slog.Int64("offset", msg.Offset),
@@ -184,8 +185,8 @@ func (k *KafkaIngestor) Stop(noWait bool) {
 	}
 
 	if err := k.consumer.Close(); err != nil {
-		slog.Error("failed to close Kafka consumer", slog.Any("error", err))
+		k.log.Error("failed to close Kafka consumer", slog.Any("error", err))
 	}
 
-	slog.Info("Kafka ingestor stopped")
+	k.log.Info("Kafka ingestor stopped")
 }

@@ -18,7 +18,6 @@ import (
 
 type PipelineSteps struct {
 	BaseTestSuite
-	kWriter    *testutils.KafkaWriter
 	kTopics    []string
 	streamName string
 	chDB       string
