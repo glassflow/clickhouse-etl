@@ -23,6 +23,8 @@ type BaseTestSuite struct {
 	chContainer    *testutils.ClickHouseContainer
 	kafkaContainer *testutils.KafkaContainer
 
+	kWriter *testutils.KafkaWriter
+
 	natsClient *client.NATSClient
 
 	wg    sync.WaitGroup
@@ -110,6 +112,58 @@ func (b *BaseTestSuite) getKafkaURI() (string, error) {
 	}
 
 	return b.kafkaContainer.GetURI(), nil
+}
+
+func (b *BaseTestSuite) createKafkaWriter() error {
+	if b.kWriter != nil {
+		return nil
+	}
+
+	uri, err := b.getKafkaURI()
+	if err != nil {
+		return fmt.Errorf("get kafka uri: %w", err)
+	}
+
+	writer := testutils.NewKafkaWriter(uri)
+	b.kWriter = writer
+
+	return nil
+}
+
+func (b *BaseTestSuite) createKafkaTopic(topic string, partitions int) error {
+	if b.kafkaContainer == nil {
+		return fmt.Errorf("kafka container is not initialized")
+	}
+
+	err := b.createKafkaWriter()
+	if err != nil {
+		return fmt.Errorf("create kafka writer: %w", err)
+	}
+
+	err = b.kWriter.CreateTopic(context.Background(), topic, partitions)
+	if err != nil {
+		return fmt.Errorf("create kafka topic: %w", err)
+	}
+
+	return nil
+}
+
+func (b *BaseTestSuite) deleteKafkaTopic(topic string) error {
+	if b.kafkaContainer == nil {
+		return fmt.Errorf("kafka container is not initialized")
+	}
+
+	err := b.createKafkaWriter()
+	if err != nil {
+		return fmt.Errorf("create kafka writer: %w", err)
+	}
+
+	err = b.kWriter.DeleteTopic(context.Background(), topic)
+	if err != nil {
+		return fmt.Errorf("delete kafka topic: %w", err)
+	}
+
+	return nil
 }
 
 func (b *BaseTestSuite) cleanupKafka() error {

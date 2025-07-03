@@ -203,7 +203,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	topics := make([]models.KafkaTopicsConfig, 0, len(p.Source.Topics))
 	for _, t := range p.Source.Topics {
 		topics = append(topics, models.KafkaTopicsConfig{
-			Topic:                      t.Topic,
+			Name:                       t.Topic,
 			ID:                         t.ID,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Deduplication: models.DeduplicationConfig{
@@ -317,7 +317,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	for _, t := range p.Ingestor.KafkaTopics {
 		//nolint: exhaustruct // schema is added later
 		kt := kafkaTopic{
-			Topic:                      t.Topic,
+			Topic:                      t.Name,
 			ID:                         t.ID,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Deduplication: topicDedupConfig{
@@ -331,7 +331,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		for name, mapper := range p.Mapper.Streams {
 			var schemaFields []topicSchemaField
 
-			if name == t.Topic {
+			if name == t.Name {
 				for _, f := range mapper.Fields {
 					schemaFields = append(schemaFields, topicSchemaField{
 						Name:     f.FieldName,

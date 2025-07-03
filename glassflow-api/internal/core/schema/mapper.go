@@ -11,6 +11,7 @@ import (
 
 type Mapper interface {
 	GetJoinKey(streamSchemaName string, data []byte) (any, error)
+	GetKey(streamSchemaName, keyName string, data []byte) (any, error)
 	GetOrderedColumns() []string
 	PrepareValues(data []byte) ([]any, error)
 	GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error)
@@ -199,6 +200,22 @@ func (m *JsonToClickHouseMapper) GetJoinKey(streamSchemaName string, data []byte
 	}
 
 	return m.getKey(streamSchemaName, keyField, data)
+}
+
+func (m *JsonToClickHouseMapper) GetKey(streamSchemaName, keyName string, data []byte) (any, error) {
+	if keyName == "" {
+		return nil, fmt.Errorf("key name cannot be empty")
+	}
+
+	if _, exists := m.Streams[streamSchemaName]; !exists {
+		return nil, fmt.Errorf("stream '%s' not found in configuration", streamSchemaName)
+	}
+
+	if _, exists := m.Streams[streamSchemaName].Fields[keyName]; !exists {
+		return nil, fmt.Errorf("key '%s' not found in stream '%s'", keyName, streamSchemaName)
+	}
+
+	return m.getKey(streamSchemaName, keyName, data)
 }
 
 func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]any, error) {

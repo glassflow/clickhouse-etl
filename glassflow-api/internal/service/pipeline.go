@@ -122,7 +122,7 @@ func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 	p.sinkRunner = NewSinkRunner(p.log.With("component", "clickhouse_sink"), p.nc)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		err := p.nc.CreateOrUpdateStream(ctx, t.Topic, t.Topic+".input", t.Deduplication.Window.Duration())
+		err := p.nc.CreateOrUpdateStream(ctx, t.Name, t.Name+".input", t.Deduplication.Window.Duration())
 		if err != nil {
 			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
 		}
@@ -132,19 +132,19 @@ func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 	bridgeSpecs := make([]models.BridgeSpec, len(pi.Ingestor.KafkaTopics))
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		sinkConsumerStream = t.Topic
-		sinkConsumerSubject = t.Topic + ".input"
+		sinkConsumerStream = t.Name
+		sinkConsumerSubject = t.Name + ".input"
 
 		bridgeSpecs = append(bridgeSpecs, models.BridgeSpec{
-			Topic:                      t.Topic,
+			Topic:                      t.Name,
 			DedupEnabled:               t.Deduplication.Enabled,
 			DedupWindow:                t.Deduplication.Window.Duration(),
 			DedupKey:                   t.Deduplication.ID,
 			DedupKeyType:               t.Deduplication.Type,
-			ConsumerGroupID:            "cg-" + t.Topic,
+			ConsumerGroupID:            "cg-" + t.Name,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
-			Stream:                     t.Topic,
-			Subject:                    t.Topic + ".input",
+			Stream:                     t.Name,
+			Subject:                    t.Name + ".input",
 		})
 	}
 

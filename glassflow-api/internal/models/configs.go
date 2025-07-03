@@ -43,11 +43,27 @@ type MapperConfig struct {
 type KafkaConnectionParamsConfig struct {
 	Brokers       []string `json:"brokers"`
 	SkipAuth      bool     `json:"skip_auth"`
+	SASLTLSEnable bool     `json:"sasl_tls_enable"`
 	SASLProtocol  string   `json:"protocol"`
 	SASLMechanism string   `json:"mechanism"`
 	SASLUsername  string   `json:"username"`
 	SASLPassword  string   `json:"password"`
 	TLSRoot       string   `json:"root_ca"`
+	TLSCert       string   `json:"tls_cert"`
+	TLSKey        string   `json:"tls_key"`
+	IAMEnable     bool     `json:"iam_enable"`
+	IAMRegion     string   `json:"iam_region"`
+}
+
+type ConsumerGroupOffset string
+
+const (
+	InitialOffsetEarliest ConsumerGroupOffset = "earliest"
+	InitialOffsetLatest   ConsumerGroupOffset = "latest"
+)
+
+func (o ConsumerGroupOffset) String() string {
+	return string(o)
 }
 
 type DeduplicationConfig struct {
@@ -59,7 +75,7 @@ type DeduplicationConfig struct {
 }
 
 type KafkaTopicsConfig struct {
-	Topic                      string `json:"name"`
+	Name                       string `json:"name"`
 	ID                         string `json:"id"`
 	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
 
