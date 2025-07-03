@@ -44,6 +44,12 @@
   --color-border-regular: #373737;
   --color-background-regular: #161616;
 
+  --color-menu-background: #3d3d3d;
+  --color-menu-background-faded: #2d2d2d;
+  --color-menu-background-overlay: #3d3d3d;
+  --color-menu-background-page: #3d3d3d;
+  --color-menu-background-page-faded: #2d2d2d;
+
   --color-background-elevation-base: #161617;
   --color-background-elevation-raised: #18191a;
   --color-background-elevation-overlay: #1d1d1f;
@@ -78,6 +84,11 @@
   --color-on-brand: #000000;
   --color-rgb-white: 255, 255, 255;
   --color-rgb-black: 0, 0, 0;
+  --color-rgb-positive: #10b981; /* Green for positive */
+  --color-rgb-negative: #e22c2c; /* Red for negative */
+  --color-rgb-warning: #f59e0b; /* Yellow for warning */
+  --color-rgb-info: #3b82f6; /* Blue for info */
+  --color-rgb-regular: #ffffff; /* White for regular */
 
   /* shadcn/ui variables */
   --background: var(--color-background-page);
