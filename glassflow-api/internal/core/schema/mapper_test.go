@@ -250,7 +250,7 @@ func TestGetKey(t *testing.T) {
 
 		_, err := mapper.getKey("stream1", "string_field", jsonData)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to read JSON token")
+		assert.Contains(t, err.Error(), "failed to parse JSON data")
 	})
 }
 
@@ -374,7 +374,7 @@ func TestPrepareClickHouseValues(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		jsonData := []byte(`{"stream1.id": "12345", "stream1.name": "test_name", "stream2.id": "12345", "stream2.value": 42}`)
+		jsonData := []byte(`{"stream1$$id": "12345", "stream1$$name": "test_name", "stream2$$id": "12345", "stream2$$value": 42}`)
 
 		values, err := joinedMapper.PrepareClickHouseValues(jsonData)
 		require.NoError(t, err)
@@ -465,11 +465,11 @@ func TestJoinData(t *testing.T) {
 		err = json.Unmarshal(joinedData, &result)
 		require.NoError(t, err)
 
-		assert.Equal(t, "12345", result["users.id"])
-		assert.Equal(t, "John Doe", result["users.name"])
-		assert.Equal(t, "12345", result["orders.id"])
-		assert.Equal(t, "Widget", result["orders.product"])
-		assert.InEpsilon(t, float64(5), result["orders.quantity"], 0.0001)
+		assert.Equal(t, "12345", result["users$$id"])
+		assert.Equal(t, "John Doe", result["users$$name"])
+		assert.Equal(t, "12345", result["orders$$id"])
+		assert.Equal(t, "Widget", result["orders$$product"])
+		assert.InEpsilon(t, float64(5), result["orders$$quantity"], 0.0001)
 	})
 
 	t.Run("nil data", func(t *testing.T) {
@@ -519,4 +519,149 @@ func TestGetOrderedColumns(t *testing.T) {
 
 	columns := mapper.GetOrderedColumns()
 	assert.Equal(t, []string{"col1", "col2"}, columns)
+}
+
+func TestNestedJsonFields(t *testing.T) {
+	streamsConfig := map[string]StreamSchemaConfig{
+		"stream1": {
+			Fields: []StreamDataField{
+				{FieldName: "user.name", FieldType: "string"},
+				{FieldName: "user.address.city", FieldType: "string"},
+				{FieldName: "user.address.zip", FieldType: "string"},
+				{FieldName: "metadata.timestamp", FieldType: "string"},
+				{FieldName: "simple_field", FieldType: "string"},
+			},
+			JoinKeyField: "user.name",
+		},
+	}
+
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "user_name", StreamName: "stream1", FieldName: "user.name", ColumnType: "String"},
+		{ColumnName: "city", StreamName: "stream1", FieldName: "user.address.city", ColumnType: "String"},
+		{ColumnName: "zip", StreamName: "stream1", FieldName: "user.address.zip", ColumnType: "String"},
+		{ColumnName: "timestamp", StreamName: "stream1", FieldName: "metadata.timestamp", ColumnType: "String"},
+		{ColumnName: "simple", StreamName: "stream1", FieldName: "simple_field", ColumnType: "String"},
+	}
+
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	require.NoError(t, err)
+
+	t.Run("prepare values with nested fields", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": {
+				"name": "John Doe",
+				"address": {
+					"city": "New York",
+					"zip": "10001"
+				}
+			},
+			"metadata": {
+				"timestamp": "2023-01-01T00:00:00Z"
+			},
+			"simple_field": "test_value"
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 5)
+		assert.Equal(t, "John Doe", values[0])             // user_name
+		assert.Equal(t, "New York", values[1])             // city
+		assert.Equal(t, "10001", values[2])                // zip
+		assert.Equal(t, "2023-01-01T00:00:00Z", values[3]) // timestamp
+		assert.Equal(t, "test_value", values[4])           // simple
+	})
+
+	t.Run("get join key with nested field", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": {
+				"name": "John Doe"
+			}
+		}`)
+
+		key, err := mapper.GetJoinKey("stream1", jsonData)
+		require.NoError(t, err)
+		assert.Equal(t, "John Doe", key)
+	})
+}
+
+func TestWholeArrayMapping(t *testing.T) {
+	streamsConfig := map[string]StreamSchemaConfig{
+		"stream1": {
+			Fields: []StreamDataField{
+				{FieldName: "tags", FieldType: "array"},
+			},
+			JoinKeyField: "tags",
+		},
+	}
+
+	sinkMappingConfig := []SinkMappingConfig{
+		{ColumnName: "tags_col", StreamName: "stream1", FieldName: "tags", ColumnType: "Array(String)"},
+	}
+
+	mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+	require.NoError(t, err)
+
+	t.Run("prepare values with array of strings", func(t *testing.T) {
+		jsonData := []byte(`{
+			"tags": ["a", "b", "c"]
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 1)
+		arrayVal, ok := values[0].([]any)
+		if !ok {
+			// If the value is not a []any, it might be a []interface{} (Go's default for JSON arrays)
+			arrayValIface, okIface := values[0].([]interface{})
+			if !okIface {
+				t.Fatalf("expected []any or []interface{} for array value, got %T", values[0])
+			}
+			arrayVal = arrayValIface
+		}
+		assert.Equal(t, 3, len(arrayVal))
+		assert.Equal(t, "a", arrayVal[0])
+		assert.Equal(t, "b", arrayVal[1])
+		assert.Equal(t, "c", arrayVal[2])
+	})
+
+	t.Run("test Array(String) specifically", func(t *testing.T) {
+		streamsConfig := map[string]StreamSchemaConfig{
+			"stream1": {
+				Fields: []StreamDataField{
+					{FieldName: "category", FieldType: "array"},
+				},
+				JoinKeyField: "category",
+			},
+		}
+
+		sinkMappingConfig := []SinkMappingConfig{
+			{ColumnName: "category_col", StreamName: "stream1", FieldName: "category", ColumnType: "Array(String)"},
+		}
+
+		mapper, err := NewMapper(streamsConfig, sinkMappingConfig)
+		require.NoError(t, err)
+
+		jsonData := []byte(`{
+			"category": ["electronics", "computers", "laptops"]
+		}`)
+
+		values, err := mapper.PrepareClickHouseValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 1)
+		assert.NotNil(t, values[0])
+
+		// Verify it's an array
+		arrayVal, ok := values[0].([]any)
+		if !ok {
+			arrayValIface, okIface := values[0].([]interface{})
+			if !okIface {
+				t.Fatalf("expected []any or []interface{} for array value, got %T", values[0])
+			}
+			arrayVal = arrayValIface
+		}
+		assert.Equal(t, 3, len(arrayVal))
+		assert.Equal(t, "electronics", arrayVal[0])
+		assert.Equal(t, "computers", arrayVal[1])
+		assert.Equal(t, "laptops", arrayVal[2])
+	})
 }
