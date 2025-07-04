@@ -7,15 +7,31 @@ on:
 
 jobs:
   build-docker-image:
-    name: Build API Image
+    name: Build Component Image
     runs-on: ubuntu-latest
     outputs:
-      amd64_digest: ${{ steps.gen-output.outputs.amd64_digest }}
-      arm64_digest: ${{ steps.gen-output.outputs.arm64_digest }}
+      glassflow-etl-amd64: ${{ steps.gen-output.outputs.glassflow-etl-amd64 }}
+      glassflow-etl-arm64: ${{ steps.gen-output.outputs.glassflow-etl-arm64 }}
+      glassflow-ingestor-amd64: ${{ steps.gen-output.outputs.glassflow-ingestor-amd64 }}
+      glassflow-ingestor-arm64: ${{ steps.gen-output.outputs.glassflow-ingestor-arm64 }}
+      glassflow-join-amd64: ${{ steps.gen-output.outputs.glassflow-join-amd64 }}
+      glassflow-join-arm64: ${{ steps.gen-output.outputs.glassflow-join-arm64 }}
+      glassflow-sink-amd64: ${{ steps.gen-output.outputs.glassflow-sink-amd64 }}
+      glassflow-sink-arm64: ${{ steps.gen-output.outputs.glassflow-sink-arm64 }}
     permissions:
       contents: read
+      packages: write
     strategy:
       matrix:
+        component:
+          - name: glassflow-etl
+            image_name: glassflow-etl-be
+          - name: glassflow-ingestor
+            image_name: glassflow-etl-ingestor
+          - name: glassflow-join
+            image_name: glassflow-etl-join
+          - name: glassflow-sink
+            image_name: glassflow-etl-sink
         platform:
           - os: linux
             arch: amd64
@@ -28,17 +44,18 @@ jobs:
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub
+      - name: Login to ghcr
         uses: docker/login-action@v3
         with:
-          username: glassflow
-          password: ${{ secrets.DOCKER_HUB_TOKEN_CLOUD_IMAGE }}
-      - name: Download artifact
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Download bridge artifact
         uses: actions/download-artifact@v4
         with:
           name: nats-kafka-bridge-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
           path: nats-kafka-bridge/bin
-      - name: Download artifact
+      - name: Download etl artifact
         uses: actions/download-artifact@v4
         with:
           name: glassflow-api-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
@@ -51,22 +68,40 @@ jobs:
         with:
           platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
           context: .
-          file: glassflow-api/Dockerfile
+          file: glassflow-api/docker/${{ matrix.component.name }}/Dockerfile
           push: ${{ inputs.push }}
           provenance: false
           outputs: push-by-digest=true,type=image
           tags: |
-            glassflow/glassflow-etl-cloud-be
+            ghcr.io/glassflow/${{ matrix.component.image_name }}
       - name: Generate output
         id: gen-output
-        run: echo "${ARCH}_digest=$DIGEST" >> "$GITHUB_OUTPUT"
+        run: echo "${COMPONENT}-${ARCH}=$DIGEST" >> "$GITHUB_OUTPUT"
         env:
           ARCH: ${{ matrix.platform.arch }}
           DIGEST: ${{ steps.build-arch-image.outputs.digest }}
+          COMPONENT: ${{ matrix.component.name }}
 
   push-docker-manifest:
     name: Push API Image
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        component:
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-etl-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-etl-arm64 }}
+            repository: glassflow-etl-be
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-ingestor-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-ingestor-arm64 }}
+            repository: glassflow-etl-ingestor
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-join-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-join-arm64 }}
+            repository: glassflow-etl-join
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-sink-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-sink-arm64 }}
+            repository: glassflow-etl-sink
     if: ${{ inputs.push }}
     needs: build-docker-image
     steps:
@@ -77,11 +112,12 @@ jobs:
           tags: |
             type=sha,prefix=,format=long
             type=raw,value=glassflow-cloud,enable=${{ github.ref_name == 'glassflow-cloud' }}
-      - name: Login to Docker Hub
+      - name: Login to ghcr
         uses: docker/login-action@v3
         with:
-          username: glassflow
-          password: ${{ secrets.DOCKER_HUB_TOKEN_CLOUD_IMAGE }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Push multiarch manifest
         run: |
           echo "$TAGS" | while IFS= read -r TAG; do
@@ -91,16 +127,16 @@ jobs:
             docker manifest push "$REPOSITORY:$TAG"
           done
         env:
-          AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
-          ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
+          AMD64_DIGEST: ${{ matrix.component.amd64_digest }}
+          ARM64_DIGEST: ${{ matrix.component.arm64_digest }}
           TAGS: ${{ steps.meta.outputs.tags }}
-          REPOSITORY: glassflow/glassflow-etl-cloud-be
+          REPOSITORY: ghcr.io/glassflow/${{ matrix.component.repository }}
 
   build-and-push-frontend:
     name: Build And Push UI Image
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      packages: write
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -131,15 +167,16 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            glassflow/glassflow-etl-cloud-fe
+            ghcr.io/glassflow/glassflow-etl-fe
           tags: |
             type=sha,prefix=,format=long
             type=raw,value=glassflow-cloud,enable=${{ github.ref_name == 'glassflow-cloud' }}
-      - name: Login to Docker Hub
+      - name: Login to ghcr
         uses: docker/login-action@v3
         with:
-          username: glassflow
-          password: ${{ secrets.DOCKER_HUB_TOKEN_CLOUD_IMAGE }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Build & push Docker image
         uses: docker/build-push-action@v6
         with:
