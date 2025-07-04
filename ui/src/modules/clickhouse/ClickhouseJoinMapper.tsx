@@ -4,12 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { XCircleIcon } from '@heroicons/react/24/outline'
-import { useClickhouseConnection } from './hooks'
+import { useClickhouseConnection, useClickhouseDatabases, useClickhouseTables, useClickhouseTableSchema } from './hooks'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { FieldColumnMapper } from './components/FieldColumnMapper'
-import { useClickhouseTableSchema } from './hooks'
 import {
   extractEventFields,
   inferJsonType,
@@ -62,12 +61,10 @@ export function ClickhouseJoinMapper({
   // Initialize state
   const [selectedDatabase, setSelectedDatabase] = useState<string>(clickhouseDestination?.database || '')
   const [selectedTable, setSelectedTable] = useState<string>(clickhouseDestination?.table || '')
-  const [availableTables, setAvailableTables] = useState<string[]>([])
   const [tableSchema, setTableSchema] = useState<TableSchema>({
     columns: clickhouseDestination?.destinationColumns || [],
   })
   const [mappedColumns, setMappedColumns] = useState<TableColumn[]>(clickhouseDestination?.mapping || [])
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -112,6 +109,21 @@ export function ClickhouseJoinMapper({
   // Track previous connection to detect changes
   const connectionRef = useRef<string>('')
 
+  // Use hooks for data fetching
+  const { databases, isLoading: databasesLoading, error: databasesError, fetchDatabases } = useClickhouseDatabases()
+  const {
+    tables: availableTables,
+    isLoading: tablesLoading,
+    error: tablesError,
+    fetchTables,
+  } = useClickhouseTables(selectedDatabase)
+  const {
+    fetchTableSchema,
+    schema: storeSchema,
+    isLoading: schemaLoading,
+    error: schemaError,
+  } = useClickhouseTableSchema(selectedDatabase, selectedTable)
+
   // Add effect to reset state when connection changes
   useEffect(() => {
     // Create a connection identifier string
@@ -122,7 +134,6 @@ export function ClickhouseJoinMapper({
       // Reset local state
       setSelectedDatabase('')
       setSelectedTable('')
-      setAvailableTables([])
       setTableSchema({ columns: [] })
       setMappedColumns([])
     }
@@ -184,12 +195,6 @@ export function ClickhouseJoinMapper({
     })
     return { success: result.success, error: result.error }
   }
-  const {
-    fetchTableSchema,
-    schema: storeSchema,
-    isLoading: schemaLoading,
-    error: schemaError,
-  } = useClickhouseTableSchema(selectedDatabase, selectedTable)
 
   // Sync local tableSchema state with store schema data
   useEffect(() => {
@@ -272,54 +277,14 @@ export function ClickhouseJoinMapper({
 
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
-    const databases = getDatabases()
     if (databases.length > 0) {
       return
-    }
-
-    const fetchDatabases = async () => {
-      setIsLoading(true)
-
-      try {
-        const connectionConfig = getConnectionConfig()
-        const response = await fetch('/api/clickhouse/databases', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            host: connectionConfig.host,
-            port: connectionConfig.port,
-            username: connectionConfig.username,
-            password: connectionConfig.password,
-            useSSL: connectionConfig.useSSL,
-            skipCertificateVerification: connectionConfig.skipCertificateVerification,
-            connectionType: connectionConfig.connectionType,
-            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          // Update the store with databases
-          const connectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}`
-          clickhouseStore.updateDatabases(data.databases || [], connectionId)
-          setError(null)
-        } else {
-          setError(data.error || 'Failed to fetch databases')
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred')
-      } finally {
-        setIsLoading(false)
-      }
     }
 
     if (connectionStatus === 'success') {
       fetchDatabases()
     }
-  }, [connectionStatus, getDatabases, clickhouseStore, clickhouseConnection])
+  }, [connectionStatus, fetchDatabases, databases.length])
 
   // Add effect for extracting fields from primary event
   useEffect(() => {
@@ -388,45 +353,8 @@ export function ClickhouseJoinMapper({
       return
     }
 
-    const fetchTables = async () => {
-      setIsLoading(true)
-      try {
-        const connectionConfig = getConnectionConfig()
-        const response = await fetch('/api/clickhouse/tables', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            host: connectionConfig.host,
-            port: connectionConfig.port,
-            username: connectionConfig.username,
-            password: connectionConfig.password,
-            database: selectedDatabase,
-            useSSL: connectionConfig.useSSL,
-            skipCertificateVerification: connectionConfig.skipCertificateVerification,
-            connectionType: connectionConfig.connectionType,
-            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          setAvailableTables(data.tables || [])
-          setError(null)
-        } else {
-          setError(data.error || `Failed to fetch tables for database '${selectedDatabase}'`)
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchTables()
-  }, [selectedDatabase])
+  }, [selectedDatabase, fetchTables])
 
   // Add column mapping functions
   const updateColumnMapping = (index: number, field: keyof TableColumn, value: any) => {
@@ -691,15 +619,21 @@ export function ClickhouseJoinMapper({
     router.push('/pipelines')
   }
 
+  // Combine loading states
+  const isLoading = databasesLoading || tablesLoading || schemaLoading
+
+  // Combine error states
+  const combinedError = error || databasesError || tablesError || schemaError
+
   return (
     <div className="flex flex-col gap-8">
       <div className="space-y-6">
         <DatabaseTableSelectContainer
-          availableDatabases={getDatabases()}
+          availableDatabases={databases}
           selectedDatabase={selectedDatabase}
           setSelectedDatabase={setSelectedDatabase}
           testDatabaseAccess={testDatabaseAccessWrapper}
-          isLoading={isLoading || schemaLoading}
+          isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
@@ -756,10 +690,10 @@ export function ClickhouseJoinMapper({
           </div>
         )} */}
 
-        {(error || schemaError) && (
+        {combinedError && (
           <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center">
             <XCircleIcon className="h-5 w-5 mr-2" />
-            <span>{error || schemaError}</span>
+            <span>{combinedError}</span>
           </div>
         )}
       </div>

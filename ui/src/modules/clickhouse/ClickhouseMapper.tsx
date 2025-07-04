@@ -23,8 +23,7 @@ import {
 } from './helpers'
 
 import { useStore } from '@/src/store'
-import { useClickhouseTableSchema } from './hooks'
-import { useClickhouseConnection } from './hooks'
+import { useClickhouseTableSchema, useClickhouseConnection, useClickhouseDatabases, useClickhouseTables } from './hooks'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
@@ -71,12 +70,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Initialize state from store values
   const [selectedDatabase, setSelectedDatabase] = useState<string>(clickhouseDestination?.database || '')
   const [selectedTable, setSelectedTable] = useState<string>(clickhouseDestination?.table || '')
-  const [availableTables, setAvailableTables] = useState<string[]>([])
   const [tableSchema, setTableSchema] = useState<TableSchema>({
     columns: clickhouseDestination?.destinationColumns || [],
   })
   const [mappedColumns, setMappedColumns] = useState<TableColumn[]>(clickhouseDestination?.mapping || [])
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -122,6 +119,21 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Add a ref to track the last connection we loaded data for
   const lastConnectionRef = useRef<string>('')
 
+  // Use hooks for data fetching
+  const { databases, isLoading: databasesLoading, error: databasesError, fetchDatabases } = useClickhouseDatabases()
+  const {
+    tables: availableTables,
+    isLoading: tablesLoading,
+    error: tablesError,
+    fetchTables,
+  } = useClickhouseTables(selectedDatabase)
+  const {
+    fetchTableSchema,
+    schema: storeSchema,
+    isLoading: schemaLoading,
+    error: schemaError,
+  } = useClickhouseTableSchema(selectedDatabase, selectedTable)
+
   // Reset UI state when the connection changes
   // This ensures the UI reflects the current connection data
   useEffect(() => {
@@ -133,7 +145,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       // Connection changed, reset local state
       setSelectedDatabase('')
       setSelectedTable('')
-      setAvailableTables([])
       setTableSchema({ columns: [] })
       setMappedColumns([])
     }
@@ -197,22 +208,6 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     })
     return { success: result.success, error: result.error }
   }
-  const {
-    fetchTableSchema,
-    schema: storeSchema,
-    isLoading: schemaLoading,
-    error: schemaError,
-  } = useClickhouseTableSchema(selectedDatabase, selectedTable)
-  // const { fetchTableSchema } = useFetchTableSchema({
-  //   selectedDatabase,
-  //   selectedTable,
-  //   setTableSchema,
-  //   setIsLoading,
-  //   setError,
-  //   getConnectionConfig,
-  //   setMappedColumns,
-  //   setSuccess,
-  // })
 
   // Enhanced database selection handler with tracking
   const handleDatabaseSelection = useCallback(
@@ -332,7 +327,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           setMappedColumns(defaultMapping)
         }
       } else {
-        // Fetch schema from API
+        // Fetch schema from API using hook
         fetchTableSchema()
       }
     }
@@ -398,70 +393,14 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
-    if (getDatabases().length > 0) {
+    if (databases.length > 0) {
       return
-    }
-
-    const fetchDatabases = async () => {
-      setIsLoading(true)
-
-      try {
-        const connectionConfig = getConnectionConfig()
-        const response = await fetch('/api/clickhouse/databases', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            host: connectionConfig.host,
-            port: connectionConfig.port,
-            username: connectionConfig.username,
-            password: connectionConfig.password,
-            useSSL: connectionConfig.useSSL,
-            skipCertificateVerification: connectionConfig.skipCertificateVerification,
-            connectionType: connectionConfig.connectionType,
-            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          const connectionId =
-            getConnectionId() ||
-            `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}`
-          updateDatabases(data.databases || [], connectionId)
-          setError(null)
-
-          // Track successful database fetch
-          analytics.destination.databasesFetched({
-            databaseCount: data.databases?.length || 0,
-          })
-        } else {
-          setError(data.error || 'Failed to fetch databases')
-
-          // Track error
-          analytics.destination.databaseFetchedError({
-            error: data.error || 'Failed to fetch databases',
-          })
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
-        setError(errorMessage)
-
-        // Track error
-        analytics.destination.databaseFetchedError({
-          error: errorMessage,
-        })
-      } finally {
-        setIsLoading(false)
-      }
     }
 
     if (connectionStatus === 'success') {
       fetchDatabases()
     }
-  }, [connectionStatus, updateDatabases, getDatabases])
+  }, [connectionStatus, fetchDatabases, databases.length])
 
   // Load tables when database is selected
   useEffect(() => {
@@ -469,70 +408,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       return
     }
 
-    const fetchTables = async () => {
-      setIsLoading(true)
-
-      const config = getConnectionConfig()
-
-      console.log('fetchTables - config:', config)
-      console.log('fetchTables - clickhouseConnection from store:', clickhouseConnection)
-      try {
-        const connectionConfig = getConnectionConfig()
-        const response = await fetch('/api/clickhouse/tables', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            host: connectionConfig.host,
-            port: connectionConfig.port,
-            username: connectionConfig.username,
-            password: connectionConfig.password,
-            database: selectedDatabase,
-            useSSL: connectionConfig.useSSL,
-            skipCertificateVerification: connectionConfig.skipCertificateVerification,
-            connectionType: connectionConfig.connectionType,
-            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          setAvailableTables(data.tables || [])
-          setError(null)
-
-          // Track tables loaded
-          analytics.destination.tablesFetched({
-            database: selectedDatabase,
-            tableCount: data.tables?.length || 0,
-          })
-        } else {
-          setError(data.error || `Failed to fetch tables for database '${selectedDatabase}'`)
-
-          // Track error
-          analytics.destination.tableFetchedError({
-            error: data.error || `Failed to fetch tables for database '${selectedDatabase}'`,
-            database: selectedDatabase,
-          })
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
-        setError(errorMessage)
-
-        // Track error
-        analytics.destination.tableFetchedError({
-          component: 'ClickhouseMapper',
-          error: errorMessage,
-          database: selectedDatabase,
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchTables()
-  }, [selectedDatabase])
+  }, [selectedDatabase, fetchTables])
 
   // Update column mapping
   const updateColumnMapping = (index: number, field: keyof TableColumn, value: any) => {
@@ -826,15 +703,21 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
   }, [])
 
+  // Combine loading states
+  const isLoading = databasesLoading || tablesLoading || schemaLoading
+
+  // Combine error states
+  const combinedError = error || databasesError || tablesError || schemaError
+
   return (
     <div className="flex flex-col gap-8 mb-4">
       <div className="space-y-6">
         <DatabaseTableSelectContainer
-          availableDatabases={getDatabases()}
+          availableDatabases={databases}
           selectedDatabase={selectedDatabase}
           setSelectedDatabase={handleDatabaseSelection}
           testDatabaseAccess={testDatabaseAccessWrapper}
-          isLoading={isLoading || schemaLoading}
+          isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
@@ -867,7 +750,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
                 className={cn({
                   'btn-primary': true,
                   'btn-text': true,
-                  'opacity-50': isLoading || schemaLoading,
+                  'opacity-50': isLoading,
                 })}
                 size="sm"
                 onClick={saveDestinationConfig}
@@ -886,10 +769,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           </div>
         )} */}
 
-        {(error || schemaError) && (
+        {combinedError && (
           <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
             <XCircleIcon className="h-5 w-5 mr-2" />
-            <span>{error || schemaError}</span>
+            <span>{combinedError}</span>
           </div>
         )}
       </div>
