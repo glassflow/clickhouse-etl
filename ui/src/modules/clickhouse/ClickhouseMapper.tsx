@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/src/components/ui/button'
@@ -60,7 +60,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   const topicEvents = selectedTopic?.events
   const topicName = selectedTopic?.name
 
-  // Analytics tracking states
+  // Analytics tracking states (keep these as local state since they're UI-specific)
   const [hasTrackedView, setHasTrackedView] = useState(false)
   const [hasTrackedDatabaseSelection, setHasTrackedDatabaseSelection] = useState(false)
   const [hasTrackedTableSelection, setHasTrackedTableSelection] = useState(false)
@@ -74,20 +74,17 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     columns: clickhouseDestination?.destinationColumns || [],
   })
   const [mappedColumns, setMappedColumns] = useState<TableColumn[]>(clickhouseDestination?.mapping || [])
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-
   const [maxBatchSize, setMaxBatchSize] = useState(clickhouseDestination?.maxBatchSize || 1000)
   const [maxDelayTime, setMaxDelayTime] = useState(clickhouseDestination?.maxDelayTime || 1)
   const [maxDelayTimeUnit, setMaxDelayTimeUnit] = useState(clickhouseDestination?.maxDelayTimeUnit || 'm')
 
+  // Local state for UI-specific concerns only
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [eventFields, setEventFields] = useState<string[]>([])
   const [eventData, setEventData] = useState<any>(selectedEvent?.event || null)
-  const [showWarningModal, setShowWarningModal] = useState(false)
-  const [showErrorModal, setShowErrorModal] = useState(false)
-  const [showInfoModal, setShowInfoModal] = useState(false)
-  const [modalMessage, setModalMessage] = useState('')
-  const [modalTitle, setModalTitle] = useState('')
+
+  // Update validation state to include type incompatibilities
   const [validationIssues, setValidationIssues] = useState<{
     unmappedNullableColumns: string[]
     unmappedNonNullableColumns: string[]
@@ -101,6 +98,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     incompatibleTypeMappings: [],
     missingTypeMappings: [],
   })
+
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
 
@@ -135,23 +133,25 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   } = useClickhouseTableSchema(selectedDatabase, selectedTable)
 
   // Reset UI state when the connection changes
-  // This ensures the UI reflects the current connection data
   useEffect(() => {
     // Create a connection identifier string to detect changes
     const currentConnectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}:${clickhouseConnection.directConnection.username}`
 
     // Check if connection has changed since we last loaded data
     if (lastConnectionRef.current && lastConnectionRef.current !== currentConnectionId) {
-      // Connection changed, reset local state
-      setSelectedDatabase('')
-      setSelectedTable('')
-      setTableSchema({ columns: [] })
-      setMappedColumns([])
+      // Connection changed, reset store state
+      setClickhouseDestination({
+        ...clickhouseDestination,
+        database: '',
+        table: '',
+        mapping: [],
+        destinationColumns: [],
+      })
     }
 
     // Update the connection reference
     lastConnectionRef.current = currentConnectionId
-  }, [clickhouseConnection, topicName, index])
+  }, [clickhouseConnection, topicName, index, setClickhouseDestination])
 
   // Track initial view
   useEffect(() => {
@@ -213,6 +213,9 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   const handleDatabaseSelection = useCallback(
     (database: string) => {
       setSelectedDatabase(database)
+      setSelectedTable('') // Reset table when database changes
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
 
       // Track database selection if it's the first time
       if (!hasTrackedDatabaseSelection || clickhouseDestination?.database !== database) {
@@ -231,7 +234,14 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Enhanced table selection handler with tracking
   const handleTableSelection = useCallback(
     (table: string) => {
+      // Only update if the table actually changed
+      if (selectedTable === table) {
+        return
+      }
+
       setSelectedTable(table)
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
 
       // Track table selection if it's the first time or a change
       if (!hasTrackedTableSelection || clickhouseDestination?.table !== table) {
@@ -248,52 +258,36 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     [hasTrackedTableSelection, clickhouseDestination, selectedDatabase, analytics.destination, topicName, index],
   )
 
-  // Sync component with store when clickhouseDestination changes
-  useEffect(() => {
-    if (clickhouseDestination) {
-      // Update database selection
-      if (clickhouseDestination.database && clickhouseDestination.database !== selectedDatabase) {
-        setSelectedDatabase(clickhouseDestination.database)
-      }
-
-      // Update table selection
-      if (clickhouseDestination.table && clickhouseDestination.table !== selectedTable) {
-        setSelectedTable(clickhouseDestination.table)
-      }
-
-      // Update table schema if available
-      if (clickhouseDestination.destinationColumns?.length > 0) {
-        setTableSchema({ columns: clickhouseDestination.destinationColumns })
-      }
-
-      // Update mapped columns if available
-      if (clickhouseDestination.mapping?.length > 0) {
-        setMappedColumns(clickhouseDestination.mapping)
-      }
-    }
-  }, [clickhouseDestination])
-
-  // Sync local tableSchema state with store schema data
+  // Sync table schema from store when it's updated
   useEffect(() => {
     if (storeSchema && storeSchema.length > 0) {
-      setTableSchema({ columns: storeSchema })
-
-      // If we have mapping data in destination, use that
-      if (clickhouseDestination?.mapping?.length > 0) {
-        setMappedColumns(clickhouseDestination.mapping)
-      } else {
-        // Otherwise create default mapping
-        const defaultMapping = storeSchema.map((col) => ({
-          ...col,
-          jsonType: '',
-          isNullable: false,
-          isKey: false,
-          eventField: '',
-        }))
-        setMappedColumns(defaultMapping)
+      // Only update if we don't already have the same schema
+      if (
+        tableSchema.columns.length === storeSchema.length &&
+        tableSchema.columns.every((col, index) => col.name === storeSchema[index]?.name)
+      ) {
+        return
       }
+
+      const shouldKeepExistingMapping =
+        mappedColumns.length > 0 &&
+        mappedColumns.length === storeSchema.length &&
+        mappedColumns.every((col, index) => col.name === storeSchema[index]?.name)
+
+      const newMapping = shouldKeepExistingMapping
+        ? mappedColumns
+        : storeSchema.map((col) => ({
+            ...col,
+            jsonType: '',
+            isNullable: false,
+            isKey: false,
+            eventField: '',
+          }))
+
+      setTableSchema({ columns: storeSchema })
+      setMappedColumns(newMapping)
     }
-  }, [storeSchema, clickhouseDestination])
+  }, [storeSchema, tableSchema.columns, mappedColumns])
 
   // Load table schema when database and table are selected
   useEffect(() => {
@@ -310,22 +304,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         clickhouseDestination.database === selectedDatabase &&
         clickhouseDestination.table === selectedTable
       ) {
-        setTableSchema({ columns: clickhouseDestination.destinationColumns })
-
-        // If we also have mapping data, use that
-        if (clickhouseDestination.mapping?.length > 0) {
-          setMappedColumns(clickhouseDestination.mapping)
-        } else {
-          // Otherwise create default mapping
-          const defaultMapping = clickhouseDestination.destinationColumns.map((col) => ({
-            ...col,
-            jsonType: '',
-            isNullable: false,
-            isKey: false,
-            eventField: '',
-          }))
-          setMappedColumns(defaultMapping)
-        }
+        // Schema is already in destination, no need to fetch
+        return
       } else {
         // Fetch schema from API using hook
         fetchTableSchema()
@@ -350,7 +330,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         // Try to auto-map fields if we have mapping data
         if (clickhouseDestination?.mapping?.length > 0) {
           // Mapping already exists, keep it
-          setMappedColumns(clickhouseDestination.mapping)
+          return
         } else if (mappedColumns.length > 0 && fields.length > 0) {
           // Try to auto-map based on field names
           const updatedColumns = [...mappedColumns]
@@ -365,7 +345,11 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
               }
             }
           })
-          setMappedColumns(updatedColumns)
+
+          setClickhouseDestination({
+            ...clickhouseDestination,
+            mapping: updatedColumns,
+          })
 
           // Track auto-mapping success (only track once when it happens)
           const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
@@ -374,7 +358,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         console.log('No event data found')
       }
     }
-  }, [selectedEvent, topicEvents])
+  }, [selectedEvent, topicEvents, clickhouseDestination, mappedColumns, setClickhouseDestination])
 
   // Track field mapping changes
   useEffect(() => {
@@ -697,9 +681,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   useEffect(() => {
     return () => {
       // Clean up modal state when component unmounts
-      setShowWarningModal(false)
-      setShowErrorModal(false)
-      setShowInfoModal(false)
+      setModalProps((prev) => ({ ...prev, visible: false }))
     }
   }, [])
 

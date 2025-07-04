@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { XCircleIcon } from '@heroicons/react/24/outline'
@@ -58,22 +58,23 @@ export function ClickhouseJoinMapper({
   const viewTrackedRef = useRef(false)
   const completionTrackedRef = useRef(false)
 
-  // Initialize state
-  const [selectedDatabase, setSelectedDatabase] = useState<string>(clickhouseDestination?.database || '')
-  const [selectedTable, setSelectedTable] = useState<string>(clickhouseDestination?.table || '')
-  const [tableSchema, setTableSchema] = useState<TableSchema>({
+  // Store-only state (no local state duplication)
+  const selectedDatabase = clickhouseDestination?.database || ''
+  const selectedTable = clickhouseDestination?.table || ''
+  const tableSchema: TableSchema = {
     columns: clickhouseDestination?.destinationColumns || [],
-  })
-  const [mappedColumns, setMappedColumns] = useState<TableColumn[]>(clickhouseDestination?.mapping || [])
+  }
+  const mappedColumns = useMemo(() => clickhouseDestination?.mapping || [], [clickhouseDestination?.mapping])
+  const maxBatchSize = clickhouseDestination?.maxBatchSize || 1000
+  const maxDelayTime = clickhouseDestination?.maxDelayTime || 1000
+  const maxDelayTimeUnit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+
+  // Local state for UI-specific concerns only
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  const [maxBatchSize, setMaxBatchSize] = useState(clickhouseDestination?.maxBatchSize || 1000)
-  const [maxDelayTime, setMaxDelayTime] = useState(clickhouseDestination?.maxDelayTime || 1000)
-  const [maxDelayTimeUnit, setMaxDelayTimeUnit] = useState(clickhouseDestination?.maxDelayTimeUnit || 'm')
   const [eventFields, setEventFields] = useState<string[]>([])
   const [primaryEventData, setPrimaryEventData] = useState<any>(primaryTopic?.selectedEvent?.event?.event || null)
-  const [secondaryEventData, setSecondaryEventData] = useState<any>(secondaryTopic?.selectedEvent?.event?.event || null)
+  const secondaryEventData = secondaryTopic?.selectedEvent?.event?.event || null
 
   // Update validation state to include type incompatibilities
   const [validationIssues, setValidationIssues] = useState<{
@@ -131,16 +132,19 @@ export function ClickhouseJoinMapper({
 
     // If we have a previous connection and it's different, reset state
     if (connectionRef.current && connectionRef.current !== currentConnectionId) {
-      // Reset local state
-      setSelectedDatabase('')
-      setSelectedTable('')
-      setTableSchema({ columns: [] })
-      setMappedColumns([])
+      // Reset store state
+      setClickhouseDestination({
+        ...clickhouseDestination,
+        database: '',
+        table: '',
+        mapping: [],
+        destinationColumns: [],
+      })
     }
 
     // Update reference with current connection
     connectionRef.current = currentConnectionId
-  }, [clickhouseConnection, primaryTopic?.name, secondaryTopic?.name])
+  }, [clickhouseConnection, primaryTopic?.name, secondaryTopic?.name, setClickhouseDestination])
 
   // Basic page view tracking, only track once on component mount
   useEffect(() => {
@@ -196,52 +200,37 @@ export function ClickhouseJoinMapper({
     return { success: result.success, error: result.error }
   }
 
-  // Sync local tableSchema state with store schema data
+  // Sync table schema from store when it's updated
   useEffect(() => {
     if (storeSchema && storeSchema.length > 0) {
-      setTableSchema({ columns: storeSchema })
-
-      // If we have mapping data in destination, use that
-      if (clickhouseDestination?.mapping?.length > 0) {
-        setMappedColumns(clickhouseDestination.mapping)
-      } else {
-        // Otherwise create default mapping
-        const defaultMapping = storeSchema.map((col) => ({
-          ...col,
-          jsonType: '',
-          isNullable: false,
-          isKey: false,
-          eventField: '',
-        }))
-        setMappedColumns(defaultMapping)
+      // Only update if we don't already have the same schema
+      const currentSchema = clickhouseDestination?.destinationColumns || []
+      if (
+        currentSchema.length === storeSchema.length &&
+        currentSchema.every((col, index) => col.name === storeSchema[index]?.name)
+      ) {
+        return
       }
+
+      setClickhouseDestination({
+        ...clickhouseDestination,
+        destinationColumns: storeSchema,
+        // Always create default mapping when schema changes, unless we already have a valid mapping
+        mapping:
+          clickhouseDestination?.mapping?.length > 0 &&
+          clickhouseDestination.mapping.length === storeSchema.length &&
+          clickhouseDestination.mapping.every((col, index) => col.name === storeSchema[index]?.name)
+            ? clickhouseDestination.mapping
+            : storeSchema.map((col) => ({
+                ...col,
+                jsonType: '',
+                isNullable: false,
+                isKey: false,
+                eventField: '',
+              })),
+      })
     }
-  }, [storeSchema, clickhouseDestination])
-
-  // Sync component with store when clickhouseDestination changes
-  useEffect(() => {
-    if (clickhouseDestination) {
-      // Update database selection
-      if (clickhouseDestination.database && clickhouseDestination.database !== selectedDatabase) {
-        setSelectedDatabase(clickhouseDestination.database)
-      }
-
-      // Update table selection
-      if (clickhouseDestination.table && clickhouseDestination.table !== selectedTable) {
-        setSelectedTable(clickhouseDestination.table)
-      }
-
-      // Update table schema if available
-      if (clickhouseDestination.destinationColumns?.length > 0) {
-        setTableSchema({ columns: clickhouseDestination.destinationColumns })
-      }
-
-      // Update mapped columns if available
-      if (clickhouseDestination.mapping?.length > 0) {
-        setMappedColumns(clickhouseDestination.mapping)
-      }
-    }
-  }, [clickhouseDestination])
+  }, [storeSchema, setClickhouseDestination])
 
   // Load table schema when database and table are selected
   useEffect(() => {
@@ -252,28 +241,14 @@ export function ClickhouseJoinMapper({
         clickhouseDestination.database === selectedDatabase &&
         clickhouseDestination.table === selectedTable
       ) {
-        setTableSchema({ columns: clickhouseDestination.destinationColumns })
-
-        // If we also have mapping data, use that
-        if (clickhouseDestination.mapping?.length > 0) {
-          setMappedColumns(clickhouseDestination.mapping)
-        } else {
-          // Otherwise create default mapping
-          const defaultMapping = clickhouseDestination.destinationColumns.map((col) => ({
-            ...col,
-            jsonType: '',
-            isNullable: false,
-            isKey: false,
-            eventField: '',
-          }))
-          setMappedColumns(defaultMapping)
-        }
+        // Schema is already in destination, no need to fetch
+        return
       } else {
         // Now this reference is valid
         fetchTableSchema()
       }
     }
-  }, [selectedDatabase, selectedTable])
+  }, [selectedDatabase, selectedTable, clickhouseDestination, fetchTableSchema])
 
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
@@ -309,43 +284,7 @@ export function ClickhouseJoinMapper({
     if (primaryTopic?.selectedEvent?.event) {
       setPrimaryEventData(primaryTopic.selectedEvent.event)
     }
-    if (secondaryTopic?.selectedEvent?.event) {
-      setSecondaryEventData(secondaryTopic.selectedEvent.event)
-    }
-  }, [primaryTopic?.selectedEvent?.event, secondaryTopic?.selectedEvent?.event])
-
-  // NOTE: uncomment this when you want to auto-map the fields
-  // Update auto-mapping effect to handle nested structure
-  // useEffect(() => {
-  //   if (tableSchema.columns.length > 0 && (primaryEventFields.length > 0 || secondaryEventFields.length > 0)) {
-  //     const updatedColumns = tableSchema.columns.map((column) => {
-  //       let bestMatch = findBestMatchingField(column.name, primaryEventFields)
-  //       let source: 'primary' | 'secondary' = 'primary'
-  //       let eventData = primaryTopic?.selectedEvent?.event?.event
-
-  //       if (!bestMatch) {
-  //         bestMatch = findBestMatchingField(column.name, secondaryEventFields)
-  //         source = 'secondary'
-  //         eventData = secondaryTopic?.selectedEvent?.event?.event
-  //       }
-
-  //       if (bestMatch) {
-  //         const value = eventData ? getNestedValue(eventData, bestMatch) : undefined
-  //         const inferredType = inferJsonType(value)
-
-  //         return {
-  //           ...column,
-  //           eventField: bestMatch,
-  //           jsonType: inferredType,
-  //         }
-  //       }
-
-  //       return column
-  //     })
-
-  //     setMappedColumns(updatedColumns)
-  //   }
-  // }, [tableSchema.columns, primaryEventFields, secondaryEventFields])
+  }, [primaryTopic?.selectedEvent?.event])
 
   // Add this effect hook to fetch tables when database is selected
   useEffect(() => {
@@ -356,17 +295,20 @@ export function ClickhouseJoinMapper({
     fetchTables()
   }, [selectedDatabase, fetchTables])
 
-  // Add column mapping functions
+  // Add column mapping functions - store-only
   const updateColumnMapping = (index: number, field: keyof TableColumn, value: any) => {
     const updatedColumns = [...mappedColumns]
     updatedColumns[index] = {
       ...updatedColumns[index],
       [field]: value,
     }
-    setMappedColumns(updatedColumns)
+    setClickhouseDestination({
+      ...clickhouseDestination,
+      mapping: updatedColumns,
+    })
   }
 
-  // Update mapEventFieldToColumn to validate and infer types correctly
+  // Update mapEventFieldToColumn to validate and infer types correctly - store-only
   const mapEventFieldToColumn = (index: number, eventField: string, source?: 'primary' | 'secondary') => {
     const updatedColumns = [...mappedColumns]
     const eventData =
@@ -394,7 +336,10 @@ export function ClickhouseJoinMapper({
       sourceTopic: topicName, // Add the source topic name to the mapping
     }
 
-    setMappedColumns(updatedColumns)
+    setClickhouseDestination({
+      ...clickhouseDestination,
+      mapping: updatedColumns,
+    })
   }
 
   // Add validation type enum
@@ -631,13 +576,28 @@ export function ClickhouseJoinMapper({
         <DatabaseTableSelectContainer
           availableDatabases={databases}
           selectedDatabase={selectedDatabase}
-          setSelectedDatabase={setSelectedDatabase}
+          setSelectedDatabase={(database) =>
+            setClickhouseDestination({
+              ...clickhouseDestination,
+              database,
+              table: '', // Reset table when database changes
+              mapping: [],
+              destinationColumns: [],
+            })
+          }
           testDatabaseAccess={testDatabaseAccessWrapper}
           isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
-          setSelectedTable={setSelectedTable}
+          setSelectedTable={(table) =>
+            setClickhouseDestination({
+              ...clickhouseDestination,
+              table,
+              mapping: [], // Reset mapping when table changes
+              destinationColumns: [],
+            })
+          }
           testTableAccess={testTableAccessWrapper}
         />
 
@@ -649,9 +609,24 @@ export function ClickhouseJoinMapper({
                 maxBatchSize={maxBatchSize}
                 maxDelayTime={maxDelayTime}
                 maxDelayTimeUnit={maxDelayTimeUnit}
-                onMaxBatchSizeChange={setMaxBatchSize}
-                onMaxDelayTimeChange={setMaxDelayTime}
-                onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
+                onMaxBatchSizeChange={(value) =>
+                  setClickhouseDestination({
+                    ...clickhouseDestination,
+                    maxBatchSize: value,
+                  })
+                }
+                onMaxDelayTimeChange={(value) =>
+                  setClickhouseDestination({
+                    ...clickhouseDestination,
+                    maxDelayTime: value,
+                  })
+                }
+                onMaxDelayTimeUnitChange={(value) =>
+                  setClickhouseDestination({
+                    ...clickhouseDestination,
+                    maxDelayTimeUnit: value,
+                  })
+                }
               />
               <FieldColumnMapper
                 eventFields={[...primaryEventFields, ...secondaryEventFields]}
