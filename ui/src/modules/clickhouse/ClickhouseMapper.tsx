@@ -28,7 +28,23 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 
-export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
+type MappingMode = 'single' | 'join' | 'dedup'
+
+interface ClickhouseMapperProps {
+  onNext: (step: StepKeys) => void
+  index?: number
+  primaryIndex?: number
+  secondaryIndex?: number
+  mode?: MappingMode
+}
+
+export function ClickhouseMapper({
+  onNext,
+  index = 0,
+  primaryIndex = 0,
+  secondaryIndex = 1,
+  mode = 'single',
+}: ClickhouseMapperProps) {
   const router = useRouter()
   const {
     clickhouseStore,
@@ -55,7 +71,11 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
 
-  const selectedTopic = getTopic(index)
+  // Topic data based on mode
+  const selectedTopic = mode === 'single' ? getTopic(index) : null
+  const primaryTopic = mode !== 'single' ? topicsStore.getTopic(primaryIndex) : null
+  const secondaryTopic = mode !== 'single' ? topicsStore.getTopic(secondaryIndex) : null
+
   const selectedEvent = selectedTopic?.selectedEvent
   const topicEvents = selectedTopic?.events
   const topicName = selectedTopic?.name
@@ -84,6 +104,11 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   const [eventFields, setEventFields] = useState<string[]>([])
   const [eventData, setEventData] = useState<any>(selectedEvent?.event || null)
 
+  // Join/dedup specific state
+  const [primaryEventData, setPrimaryEventData] = useState<any>(primaryTopic?.selectedEvent?.event?.event || null)
+  const [primaryEventFields, setPrimaryEventFields] = useState<string[]>([])
+  const [secondaryEventFields, setSecondaryEventFields] = useState<string[]>([])
+
   // Update validation state to include type incompatibilities
   const [validationIssues, setValidationIssues] = useState<{
     unmappedNullableColumns: string[]
@@ -102,7 +127,13 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
 
-  const selectedTopics = Object.values(topicsStore.topics || {})
+  const selectedTopics = useMemo(() => {
+    if (mode === 'single') {
+      return selectedTopic ? [selectedTopic] : []
+    } else {
+      return [primaryTopic, secondaryTopic].filter(Boolean)
+    }
+  }, [mode, selectedTopic, primaryTopic, secondaryTopic])
 
   // Replace individual modal states with a single modal state object
   const [modalProps, setModalProps] = useState({
@@ -116,6 +147,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
   // Add a ref to track the last connection we loaded data for
   const lastConnectionRef = useRef<string>('')
+
+  // Add tracking refs to avoid re-renders and prevent infinite loops (for join mode)
+  const viewTrackedRef = useRef(false)
+  const completionTrackedRef = useRef(false)
 
   // Use hooks for data fetching
   const { databases, isLoading: databasesLoading, error: databasesError, fetchDatabases } = useClickhouseDatabases()
@@ -139,32 +174,45 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
     // Check if connection has changed since we last loaded data
     if (lastConnectionRef.current && lastConnectionRef.current !== currentConnectionId) {
-      // Connection changed, reset store state
-      setClickhouseDestination({
-        ...clickhouseDestination,
-        database: '',
-        table: '',
-        mapping: [],
-        destinationColumns: [],
-      })
+      // Connection changed, reset local state
+      setSelectedDatabase('')
+      setSelectedTable('')
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
     }
 
     // Update the connection reference
     lastConnectionRef.current = currentConnectionId
-  }, [clickhouseConnection, topicName, index, setClickhouseDestination])
+  }, [clickhouseConnection, topicName, index, primaryTopic?.name, secondaryTopic?.name])
 
-  // Track initial view
+  // Track initial view based on mode
   useEffect(() => {
     if (!hasTrackedView) {
-      analytics.page.selectDestination({
-        topicName,
-        topicIndex: index,
-        isReturningVisit: !!clickhouseDestination?.database,
-        existingMappingCount: clickhouseDestination?.mapping?.length || 0,
-      })
+      if (mode === 'single') {
+        analytics.page.selectDestination({
+          topicName,
+          topicIndex: index,
+          isReturningVisit: !!clickhouseDestination?.database,
+          existingMappingCount: clickhouseDestination?.mapping?.length || 0,
+        })
+      } else {
+        analytics.page.joinKey({
+          primaryTopicName: primaryTopic?.name,
+          secondaryTopicName: secondaryTopic?.name,
+        })
+      }
       setHasTrackedView(true)
     }
-  }, [hasTrackedView, analytics.page, topicName, index, clickhouseDestination])
+  }, [
+    hasTrackedView,
+    analytics.page,
+    topicName,
+    index,
+    clickhouseDestination,
+    mode,
+    primaryTopic?.name,
+    secondaryTopic?.name,
+  ])
 
   // Get connection config based on connection type
   const getConnectionConfig = () => ({
@@ -221,14 +269,23 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       if (!hasTrackedDatabaseSelection || clickhouseDestination?.database !== database) {
         analytics.destination.databaseSelected({
           database,
-          topicName,
+          topicName: mode === 'single' ? topicName : `${primaryTopic?.name} + ${secondaryTopic?.name}`,
           topicIndex: index,
           isChange: !!clickhouseDestination?.database && clickhouseDestination.database !== database,
         })
         setHasTrackedDatabaseSelection(true)
       }
     },
-    [hasTrackedDatabaseSelection, clickhouseDestination, analytics.destination, topicName, index],
+    [
+      hasTrackedDatabaseSelection,
+      clickhouseDestination,
+      analytics.destination,
+      topicName,
+      index,
+      mode,
+      primaryTopic?.name,
+      secondaryTopic?.name,
+    ],
   )
 
   // Enhanced table selection handler with tracking
@@ -248,14 +305,24 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         analytics.destination.tableSelected({
           database: selectedDatabase,
           table,
-          topicName,
+          topicName: mode === 'single' ? topicName : `${primaryTopic?.name} + ${secondaryTopic?.name}`,
           topicIndex: index,
           isChange: !!clickhouseDestination?.table && clickhouseDestination.table !== table,
         })
         setHasTrackedTableSelection(true)
       }
     },
-    [hasTrackedTableSelection, clickhouseDestination, selectedDatabase, analytics.destination, topicName, index],
+    [
+      hasTrackedTableSelection,
+      clickhouseDestination,
+      selectedDatabase,
+      analytics.destination,
+      topicName,
+      index,
+      mode,
+      primaryTopic?.name,
+      secondaryTopic?.name,
+    ],
   )
 
   // Sync table schema from store when it's updated
@@ -313,8 +380,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
   }, [selectedDatabase, selectedTable, getTableSchema, clickhouseDestination, fetchTableSchema])
 
-  // Load event fields when event data changes
+  // Load event fields when event data changes (single mode)
   useEffect(() => {
+    if (mode !== 'single') return
+
     if (selectedEvent && topicEvents && topicEvents.length > 0) {
       // The structure has changed - selectedEvent is now an object with event property
       // We don't need to search in topicEvents anymore
@@ -346,6 +415,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
             }
           })
 
+          setMappedColumns(updatedColumns)
           setClickhouseDestination({
             ...clickhouseDestination,
             mapping: updatedColumns,
@@ -358,7 +428,39 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         console.log('No event data found')
       }
     }
-  }, [selectedEvent, topicEvents, clickhouseDestination, mappedColumns, setClickhouseDestination])
+  }, [selectedEvent, topicEvents, clickhouseDestination, mappedColumns, setClickhouseDestination, mode])
+
+  // Load event fields for join/dedup mode
+  useEffect(() => {
+    if (mode === 'single') return
+
+    // Extract fields from primary event
+    if (primaryEventData) {
+      const fields = extractEventFields(primaryEventData)
+      setPrimaryEventFields(fields)
+      setEventFields([...fields]) // Initialize with primary fields
+    }
+  }, [primaryEventData, mode])
+
+  useEffect(() => {
+    if (mode === 'single') return
+
+    // Extract fields from secondary event
+    if (secondaryTopic?.selectedEvent?.event?.event) {
+      const fields = extractEventFields(secondaryTopic.selectedEvent.event.event)
+      setSecondaryEventFields(fields)
+      setEventFields((prev) => [...prev, ...fields]) // Add secondary fields
+    }
+  }, [secondaryTopic?.selectedEvent?.event?.event, mode])
+
+  // Update effect for handling event data changes to handle nested structure (join/dedup mode)
+  useEffect(() => {
+    if (mode === 'single') return
+
+    if (primaryTopic?.selectedEvent?.event) {
+      setPrimaryEventData(primaryTopic.selectedEvent.event)
+    }
+  }, [primaryTopic?.selectedEvent?.event, mode])
 
   // Track field mapping changes
   useEffect(() => {
@@ -411,9 +513,19 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   }
 
   // Map event field to column
-  const mapEventFieldToColumn = (index: number, eventField: string) => {
+  const mapEventFieldToColumn = (index: number, eventField: string, source?: 'primary' | 'secondary') => {
     const updatedColumns = [...mappedColumns]
-    const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+
+    // Get the appropriate event data based on mode and source
+    let fieldValue: any
+    if (mode === 'single') {
+      fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+    } else {
+      const eventData =
+        source === 'secondary' ? secondaryTopic?.selectedEvent?.event?.event : primaryTopic?.selectedEvent?.event?.event
+      fieldValue = eventData ? getNestedValue(eventData, eventField) : undefined
+    }
+
     let inferredType = eventField ? inferJsonType(fieldValue) : updatedColumns[index].jsonType
 
     // Ensure we have a type - default to string if we couldn't infer a type from the data
@@ -421,10 +533,15 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       inferredType = 'string'
     }
 
+    // Determine which topic this field belongs to (for join/dedup mode)
+    const topicName =
+      mode !== 'single' && source ? (source === 'secondary' ? secondaryTopic?.name : primaryTopic?.name) : undefined
+
     updatedColumns[index] = {
       ...updatedColumns[index],
       eventField: eventField,
       jsonType: inferredType,
+      ...(topicName && { sourceTopic: topicName }), // Only add sourceTopic for join/dedup mode
     }
 
     // Check compatibility immediately for better user feedback
@@ -477,7 +594,8 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     })
 
     // Find extra event fields
-    const extraFields = eventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
+    const allEventFields = mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]
+    const extraFields = allEventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
     issues.extraEventFields = extraFields
 
     // Validate type compatibility
@@ -555,7 +673,17 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
 
     return null // No validation issues
-  }, [mappedColumns, tableSchema.columns, eventFields, analytics.destination, topicName, index])
+  }, [
+    mappedColumns,
+    tableSchema.columns,
+    eventFields,
+    primaryEventFields,
+    secondaryEventFields,
+    mode,
+    analytics.destination,
+    topicName,
+    index,
+  ])
 
   // Add save configuration logic
   const saveDestinationConfig = useCallback(() => {
@@ -623,6 +751,22 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       delayUnit: maxDelayTimeUnit,
     })
 
+    // Track completion for join mode
+    if (mode !== 'single' && !completionTrackedRef.current) {
+      analytics.key.leftJoinKey({
+        primaryTopicName: primaryTopic?.name,
+        database: selectedDatabase,
+        table: selectedTable,
+      })
+
+      analytics.key.rightJoinKey({
+        secondaryTopicName: secondaryTopic?.name,
+        database: selectedDatabase,
+        table: selectedTable,
+      })
+      completionTrackedRef.current = true
+    }
+
     // Create the updated destination config first
     const updatedDestination = {
       ...clickhouseDestination,
@@ -675,6 +819,9 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     setApiConfig,
     router,
     analytics.destination,
+    mode,
+    primaryTopic?.name,
+    secondaryTopic?.name,
   ])
 
   // Add this useEffect to clean up modal state
@@ -719,10 +866,15 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
               onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
             />
             <FieldColumnMapper
-              eventFields={eventFields}
+              eventFields={mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]}
               mappedColumns={mappedColumns}
               updateColumnMapping={updateColumnMapping}
               mapEventFieldToColumn={mapEventFieldToColumn}
+              primaryEventFields={mode !== 'single' ? primaryEventFields : undefined}
+              secondaryEventFields={mode !== 'single' ? secondaryEventFields : undefined}
+              primaryTopicName={mode !== 'single' ? primaryTopic?.name : undefined}
+              secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
+              isJoinMapping={mode !== 'single'}
             />
             {/* TypeCompatibilityInfo is temporarily hidden */}
             {/* <TypeCompatibilityInfo /> */}
