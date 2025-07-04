@@ -22,19 +22,19 @@
                 "type": "string"
               },
               {
-                "name": "user_id",
+                "name": "data.user_id",
                 "type": "string"
               },
               {
-                "name": "name",
+                "name": "data.name",
                 "type": "string"
               },
               {
-                "name": "email",
+                "name": "data.email",
                 "type": "string"
               },
               {
-                "name": "created_at",
+                "name": "data.created_at",
                 "type": "string"
               }
             ]
@@ -72,25 +72,25 @@
         },
         {
           "source_id": "users",
-          "field_name": "user_id",
+          "field_name": "data.user_id",
           "column_name": "user_id",
           "column_type": "UUID"
         },
         {
           "source_id": "users",
-          "field_name": "created_at",
+          "field_name": "data.created_at",
           "column_name": "created_at",
           "column_type": "DateTime"
         },
         {
           "source_id": "users",
-          "field_name": "name",
+          "field_name": "data.name",
           "column_name": "name",
           "column_type": "String"
         },
         {
           "source_id": "users",
-          "field_name": "email",
+          "field_name": "data.email",
           "column_name": "email",
           "column_type": "String"
         }

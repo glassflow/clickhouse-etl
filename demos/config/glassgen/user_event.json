@@ -1,7 +1,10 @@
 {
     "event_id": "$uuid4",
-    "user_id": "$uuid4",
-    "name": "$name",
-    "email": "$email",
-    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
+    "data": {
+        "user_id": "$uuid4",
+        "name": "$name",
+        "email": "$email",
+        "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
+    },
+    "timestamp": "$datetime(%Y-%m-%d %H:%M:%S)"
 }

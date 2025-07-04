@@ -251,7 +251,7 @@ def create_pipeline_if_not_exists(
                 exit(0)
 
         if config.join.enabled:
-            join_key = config.join.sources[0].join_key
+            join_key = config.join.sources[1].join_key
         else:
             join_key = None
         create_table_if_not_exists(config.sink, clickhouse_client, join_key)

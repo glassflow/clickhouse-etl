@@ -22,19 +22,19 @@
                 "type": "string"
               },
               {
-                "name": "user_id",
+                "name": "data.user_id",
                 "type": "string"
               },
               {
-                "name": "name",
+                "name": "data.name",
                 "type": "string"
               },
               {
-                "name": "email",
+                "name": "data.email",
                 "type": "string"
               },
               {
-                "name": "created_at",
+                "name": "data.created_at",
                 "type": "string"
               }
             ]
@@ -83,7 +83,7 @@
       "sources": [
         {
           "source_id": "user_events",
-          "join_key": "user_id",
+          "join_key": "data.user_id",
           "join_key_type": "string",
           "time_window": "1h",
           "orientation": "right"
@@ -124,13 +124,13 @@
         },
         {
           "source_id": "user_events",
-          "field_name": "name",
+          "field_name": "data.name",
           "column_name": "name",
           "column_type": "String"
         },
         {
           "source_id": "user_events",
-          "field_name": "email",
+          "field_name": "data.email",
           "column_name": "email",
           "column_type": "String"
         },
