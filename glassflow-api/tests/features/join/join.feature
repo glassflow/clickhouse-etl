@@ -97,7 +97,7 @@ Feature: Join Operator
         And I run join operator with left TTL "2s" right TTL "2s"
         And I stop join operator after "3s"
         Then I check results with content
-            | left_stream.id | left_stream.name | right_stream.email | right_stream.id |
+            | left_stream$$id | left_stream$$name | right_stream$$email | right_stream$$id |
             | 2              | Bob              | bob@mailbox.com    | 2               |
             | 1              | Alice            | alice@gmail.com    | 1               |
 
@@ -167,7 +167,7 @@ Feature: Join Operator
         And I run join operator with left TTL "2s" right TTL "2s"
         And I stop join operator after "3s"
         Then I check results with content
-            | left_stream.id | left_stream.name | right_stream.email | right_stream.id |
+            | left_stream$$id | left_stream$$name | right_stream$$email | right_stream$$id |
             | 2              | Bob              | bob@mailbox.com    | 2               |
             | 1              | Alice            | service@gmail.com  | 1               |
             | 1              | Charlie          | service@gmail.com  | 1               |

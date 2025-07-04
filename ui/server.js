@@ -43,6 +43,8 @@ app.prepare().then(() => {
     console.log('═'.repeat(100))
     console.log(centerText('Glassflow Clickhouse ETL is up and running!'))
     console.log(centerText(`UI at ${createClickableUrl('http://localhost:8080')}`))
+    console.log(centerText(`API at ${createClickableUrl('http://localhost:8080/api/v1')}`))
+    console.log(centerText(`Backend at ${createClickableUrl(process.env.NEXT_PUBLIC_API_URL)}`))
     console.log(centerText(`Docs at ${createClickableUrl('https://docs.glassflow.dev')}`))
     console.log(centerText(`Get Help at ${createClickableUrl('https://www.glassflow.dev/contact-us')}`))
     console.log('═'.repeat(100))

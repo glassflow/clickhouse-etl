@@ -1,9 +1,9 @@
 package schema
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type StreamDataField struct {
@@ -150,40 +150,25 @@ func (m *Mapper) buildColumnOrder() {
 }
 
 func (m *Mapper) getKey(streamSchemaName, keyName string, data []byte) (any, error) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-
-	if _, err := dec.Token(); err != nil {
-		return nil, fmt.Errorf("failed to read JSON token: %w", err)
+	var jsonData map[string]any
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
-	for dec.More() {
-		key, err := dec.Token()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read JSON key: %w", err)
-		}
-
-		if keyStr, ok := key.(string); ok && keyStr == keyName {
-			var rawValue any
-			if err := dec.Decode(&rawValue); err != nil {
-				return nil, fmt.Errorf("failed to decode value for key %s: %w", keyName, err)
-			}
-
-			fieldType := m.Streams[streamSchemaName].Fields[keyName]
-
-			convertedValue, err := ExtractEventValue(fieldType, rawValue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert key value: %w", err)
-			}
-
-			return convertedValue, nil
-		}
-
-		if _, err := dec.Token(); err != nil {
-			return nil, fmt.Errorf("failed to skip value: %w", err)
-		}
+	// Use getNestedValue to support nested JSON fields with dot notation
+	value, exists := getNestedValue(jsonData, keyName)
+	if !exists {
+		return nil, fmt.Errorf("key %s not found in data", keyName)
 	}
 
-	return nil, fmt.Errorf("key %s not found in data", keyName)
+	fieldType := m.Streams[streamSchemaName].Fields[keyName]
+
+	convertedValue, err := ExtractEventValue(fieldType, value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert key value: %w", err)
+	}
+
+	return convertedValue, nil
 }
 
 func (m *Mapper) GetJoinKey(streamSchemaName string, data []byte) (any, error) {
@@ -206,9 +191,11 @@ func (m *Mapper) prepareForClickHouse(data []byte) (map[string]any, error) {
 	for _, column := range m.Columns {
 		fieldName := column.FieldName
 		if len(m.Streams) > 1 {
-			fieldName = column.StreamName + "." + fieldName
+			fieldName = column.StreamName + "$$" + fieldName
 		}
-		value, exists := jsonData[fieldName]
+
+		// Use getNestedValue to support nested JSON fields with dot notation
+		value, exists := getNestedValue(jsonData, fieldName)
 		if !exists {
 			continue
 		}
@@ -261,9 +248,10 @@ func (m *Mapper) GetFieldsMap(streamSchemaName string, data []byte) (map[string]
 
 	resultedMap := make(map[string]any)
 
-	for key, value := range jsonData {
-		if _, exists := m.Streams[streamSchemaName].Fields[key]; exists {
-			resultedMap[key] = value
+	for fieldName := range m.Streams[streamSchemaName].Fields {
+		// Use getNestedValue to support nested JSON fields with dot notation
+		if value, exists := getNestedValue(jsonData, fieldName); exists {
+			resultedMap[fieldName] = value
 		}
 	}
 
@@ -291,11 +279,11 @@ func (m *Mapper) JoinData(leftStreamName string, leftData []byte, rightStreamNam
 
 	result = make(map[string]any)
 	for key, value := range leftMap {
-		result[leftStreamName+"."+key] = value
+		result[leftStreamName+"$$"+key] = value
 	}
 
 	for key, value := range rightMap {
-		result[rightStreamName+"."+key] = value
+		result[rightStreamName+"$$"+key] = value
 	}
 
 	resultData, err := json.Marshal(result)
@@ -304,4 +292,37 @@ func (m *Mapper) JoinData(leftStreamName string, leftData []byte, rightStreamNam
 	}
 
 	return resultData, nil
+}
+
+// getNestedValue extracts a value from a nested JSON object using dot notation
+// Only supports direct field access, not array indexing.
+func getNestedValue(data map[string]any, path string) (any, bool) {
+	if data == nil || path == "" {
+		return nil, false
+	}
+
+	// First, try to find the path as a flat key (for join operators with $$ separator)
+	if value, exists := data[path]; exists {
+		return value, true
+	}
+
+	parts := strings.Split(path, ".")
+	current := any(data)
+
+	for _, part := range parts {
+		if current == nil {
+			return nil, false
+		}
+
+		mapValue, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = mapValue[part]
+		if !ok {
+			return nil, false
+		}
+	}
+
+	return current, true
 }

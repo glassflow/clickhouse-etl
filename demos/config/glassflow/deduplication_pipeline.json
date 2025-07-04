@@ -18,30 +18,34 @@
             "type": "json",
             "fields": [
               {
-                "name": "event_id",
+                "name": "event.id",
                 "type": "string"
               },
               {
-                "name": "data.user_id",
+                "name": "user.id",
                 "type": "string"
               },
               {
-                "name": "data.name",
+                "name": "user.name",
                 "type": "string"
               },
               {
-                "name": "data.email",
+                "name": "user.email",
                 "type": "string"
               },
               {
-                "name": "data.created_at",
+                "name": "created_at",
                 "type": "string"
+              },
+              {
+                "name": "tags",
+                "type": "array"
               }
             ]
           },
           "deduplication": {
             "enabled": true,
-            "id_field": "event_id",
+            "id_field": "event.id",
             "id_field_type": "string",
             "time_window": "1h"
           }
@@ -66,33 +70,39 @@
       "table_mapping": [
         {
           "source_id": "users",
-          "field_name": "event_id",
+          "field_name": "event.id",
           "column_name": "event_id",
           "column_type": "UUID"
         },
         {
           "source_id": "users",
-          "field_name": "data.user_id",
+          "field_name": "user.id",
           "column_name": "user_id",
           "column_type": "UUID"
         },
         {
           "source_id": "users",
-          "field_name": "data.created_at",
+          "field_name": "created_at",
           "column_name": "created_at",
           "column_type": "DateTime"
         },
         {
           "source_id": "users",
-          "field_name": "data.name",
+          "field_name": "user.name",
           "column_name": "name",
           "column_type": "String"
         },
         {
           "source_id": "users",
-          "field_name": "data.email",
+          "field_name": "user.email",
           "column_name": "email",
           "column_type": "String"
+        },
+        {
+          "source_id": "users",
+          "field_name": "tags",
+          "column_name": "tags",
+          "column_type": "Array(String)"
         }
       ]
     }

@@ -36,7 +36,7 @@ def create_clickhouse_client(sink_config: models.SinkConfig):
 
 
 def create_table_if_not_exists(
-    sink_config: models.SinkConfig, client, join_key: str = None
+    sink_config: models.SinkConfig, client, order_by_column: str = None
 ):
     """Create a table in ClickHouse if it doesn't exist"""
     if client.command(f"EXISTS TABLE {sink_config.table}"):
@@ -47,9 +47,9 @@ def create_table_if_not_exists(
             component="Clickhouse",
         )
         return
-    order_by_column = (
-        sink_config.table_mapping[0].column_name if not join_key else join_key
-    )
+    if not order_by_column:
+        order_by_column = sink_config.table_mapping[0].column_name
+
     columns_def = [
         f"{m.column_name} {m.column_type}" for m in sink_config.table_mapping
     ]
@@ -250,11 +250,7 @@ def create_pipeline_if_not_exists(
                 )
                 exit(0)
 
-        if config.join.enabled:
-            join_key = config.join.sources[1].join_key
-        else:
-            join_key = None
-        create_table_if_not_exists(config.sink, clickhouse_client, join_key)
+        create_table_if_not_exists(config.sink, clickhouse_client)
         create_topics_if_not_exists(config.source)
 
         try:
