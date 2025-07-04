@@ -24,10 +24,10 @@ import {
 
 import { useStore } from '@/src/store'
 import { useClickhouseTableSchema } from './hooks'
-import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
+import { useClickhouseConnection } from './hooks'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
-import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } from './types'
+import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const router = useRouter()
@@ -162,6 +162,41 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   })
 
   const { testDatabaseAccess, testTableAccess } = useClickhouseConnection()
+
+  // Create wrapper functions that match the expected type signatures
+  const testDatabaseAccessWrapper = async (connectionConfig: ConnectionConfig) => {
+    if (!connectionConfig.database) {
+      return { success: false, error: 'No database specified' }
+    }
+    const result = await testDatabaseAccess({
+      host: connectionConfig.host,
+      port: connectionConfig.port,
+      username: connectionConfig.username,
+      password: connectionConfig.password,
+      database: connectionConfig.database,
+      useSSL: connectionConfig.useSSL,
+      connectionType: connectionConfig.connectionType,
+    })
+    return { success: result.success, error: result.error }
+  }
+
+  const testTableAccessWrapper = async (connectionConfig: ConnectionConfig) => {
+    // For table access, we need to get the table from the current selection
+    if (!connectionConfig.database || !selectedTable) {
+      return { success: false, error: 'No database or table specified' }
+    }
+    const result = await testTableAccess({
+      host: connectionConfig.host,
+      port: connectionConfig.port,
+      username: connectionConfig.username,
+      password: connectionConfig.password,
+      database: connectionConfig.database,
+      table: selectedTable,
+      useSSL: connectionConfig.useSSL,
+      connectionType: connectionConfig.connectionType,
+    })
+    return { success: result.success, error: result.error }
+  }
   const {
     fetchTableSchema,
     schema: storeSchema,
@@ -371,12 +406,22 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
       setIsLoading(true)
 
       try {
+        const connectionConfig = getConnectionConfig()
         const response = await fetch('/api/clickhouse/databases', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(getConnectionConfig()),
+          body: JSON.stringify({
+            host: connectionConfig.host,
+            port: connectionConfig.port,
+            username: connectionConfig.username,
+            password: connectionConfig.password,
+            useSSL: connectionConfig.useSSL,
+            skipCertificateVerification: connectionConfig.skipCertificateVerification,
+            connectionType: connectionConfig.connectionType,
+            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
+          }),
         })
 
         const data = await response.json()
@@ -426,15 +471,28 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
     const fetchTables = async () => {
       setIsLoading(true)
+
+      const config = getConnectionConfig()
+
+      console.log('fetchTables - config:', config)
+      console.log('fetchTables - clickhouseConnection from store:', clickhouseConnection)
       try {
+        const connectionConfig = getConnectionConfig()
         const response = await fetch('/api/clickhouse/tables', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            ...getConnectionConfig(),
+            host: connectionConfig.host,
+            port: connectionConfig.port,
+            username: connectionConfig.username,
+            password: connectionConfig.password,
             database: selectedDatabase,
+            useSSL: connectionConfig.useSSL,
+            skipCertificateVerification: connectionConfig.skipCertificateVerification,
+            connectionType: connectionConfig.connectionType,
+            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
           }),
         })
 
@@ -775,13 +833,13 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           availableDatabases={getDatabases()}
           selectedDatabase={selectedDatabase}
           setSelectedDatabase={handleDatabaseSelection}
-          testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
+          testDatabaseAccess={testDatabaseAccessWrapper}
           isLoading={isLoading || schemaLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
           setSelectedTable={handleTableSelection}
-          testTableAccess={testTableAccess as TableAccessTestFn}
+          testTableAccess={testTableAccessWrapper}
         />
 
         {/* Batch Size / Delay Time / Column Mapping */}

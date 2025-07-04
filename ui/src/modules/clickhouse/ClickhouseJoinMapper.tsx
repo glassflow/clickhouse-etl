@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { XCircleIcon } from '@heroicons/react/24/outline'
-import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
+import { useClickhouseConnection } from './hooks'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
@@ -149,6 +149,41 @@ export function ClickhouseJoinMapper({
   })
 
   const { testDatabaseAccess, testTableAccess } = useClickhouseConnection()
+
+  // Create wrapper functions that match the expected type signatures
+  const testDatabaseAccessWrapper = async (connectionConfig: ConnectionConfig) => {
+    if (!connectionConfig.database) {
+      return { success: false, error: 'No database specified' }
+    }
+    const result = await testDatabaseAccess({
+      host: connectionConfig.host,
+      port: connectionConfig.port,
+      username: connectionConfig.username,
+      password: connectionConfig.password,
+      database: connectionConfig.database,
+      useSSL: connectionConfig.useSSL,
+      connectionType: connectionConfig.connectionType,
+    })
+    return { success: result.success, error: result.error }
+  }
+
+  const testTableAccessWrapper = async (connectionConfig: ConnectionConfig) => {
+    // For table access, we need to get the table from the current selection
+    if (!connectionConfig.database || !selectedTable) {
+      return { success: false, error: 'No database or table specified' }
+    }
+    const result = await testTableAccess({
+      host: connectionConfig.host,
+      port: connectionConfig.port,
+      username: connectionConfig.username,
+      password: connectionConfig.password,
+      database: connectionConfig.database,
+      table: selectedTable,
+      useSSL: connectionConfig.useSSL,
+      connectionType: connectionConfig.connectionType,
+    })
+    return { success: result.success, error: result.error }
+  }
   const {
     fetchTableSchema,
     schema: storeSchema,
@@ -246,12 +281,22 @@ export function ClickhouseJoinMapper({
       setIsLoading(true)
 
       try {
+        const connectionConfig = getConnectionConfig()
         const response = await fetch('/api/clickhouse/databases', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(getConnectionConfig()),
+          body: JSON.stringify({
+            host: connectionConfig.host,
+            port: connectionConfig.port,
+            username: connectionConfig.username,
+            password: connectionConfig.password,
+            useSSL: connectionConfig.useSSL,
+            skipCertificateVerification: connectionConfig.skipCertificateVerification,
+            connectionType: connectionConfig.connectionType,
+            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
+          }),
         })
 
         const data = await response.json()
@@ -346,14 +391,22 @@ export function ClickhouseJoinMapper({
     const fetchTables = async () => {
       setIsLoading(true)
       try {
+        const connectionConfig = getConnectionConfig()
         const response = await fetch('/api/clickhouse/tables', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            ...getConnectionConfig(),
+            host: connectionConfig.host,
+            port: connectionConfig.port,
+            username: connectionConfig.username,
+            password: connectionConfig.password,
             database: selectedDatabase,
+            useSSL: connectionConfig.useSSL,
+            skipCertificateVerification: connectionConfig.skipCertificateVerification,
+            connectionType: connectionConfig.connectionType,
+            nativePort: connectionConfig.nativePort ? Number(connectionConfig.nativePort) : undefined,
           }),
         })
 
@@ -645,13 +698,13 @@ export function ClickhouseJoinMapper({
           availableDatabases={getDatabases()}
           selectedDatabase={selectedDatabase}
           setSelectedDatabase={setSelectedDatabase}
-          testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
+          testDatabaseAccess={testDatabaseAccessWrapper}
           isLoading={isLoading || schemaLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
           setSelectedTable={setSelectedTable}
-          testTableAccess={testTableAccess as TableAccessTestFn}
+          testTableAccess={testTableAccessWrapper}
         />
 
         {/* Column Mapping */}
