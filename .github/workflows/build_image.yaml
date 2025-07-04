@@ -14,6 +14,7 @@ jobs:
       arm64_digest: ${{ steps.gen-output.outputs.arm64_digest }}
     permissions:
       contents: read
+      packages: write
     strategy:
       matrix:
         platform:
@@ -28,11 +29,12 @@ jobs:
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub
+      - name: Login to ghcr
         uses: docker/login-action@v3
         with:
-          username: glassflow
-          password: ${{ secrets.DOCKER_HUB_TOKEN_CLOUD_IMAGE }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -56,7 +58,7 @@ jobs:
           provenance: false
           outputs: push-by-digest=true,type=image
           tags: |
-            glassflow/glassflow-etl-cloud-be
+            ghcr.io/glassflow/glassflow-etl-cloud-be
       - name: Generate output
         id: gen-output
         run: echo "${ARCH}_digest=$DIGEST" >> "$GITHUB_OUTPUT"
@@ -67,6 +69,8 @@ jobs:
   push-docker-manifest:
     name: Push API Image
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     if: ${{ inputs.push }}
     needs: build-docker-image
     steps:
@@ -77,11 +81,12 @@ jobs:
           tags: |
             type=sha,prefix=,format=long
             type=raw,value=glassflow-cloud,enable=${{ github.ref_name == 'glassflow-cloud' }}
-      - name: Login to Docker Hub
+      - name: Login to ghcr
         uses: docker/login-action@v3
         with:
-          username: glassflow
-          password: ${{ secrets.DOCKER_HUB_TOKEN_CLOUD_IMAGE }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Push multiarch manifest
         run: |
           echo "$TAGS" | while IFS= read -r TAG; do
@@ -94,13 +99,13 @@ jobs:
           AMD64_DIGEST: ${{ needs.build-docker-image.outputs.amd64_digest }}
           ARM64_DIGEST: ${{ needs.build-docker-image.outputs.arm64_digest }}
           TAGS: ${{ steps.meta.outputs.tags }}
-          REPOSITORY: glassflow/glassflow-etl-cloud-be
+          REPOSITORY: ghcr.io/glassflow/glassflow-etl-cloud-be
 
   build-and-push-frontend:
     name: Build And Push UI Image
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      packages: write
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -131,15 +136,16 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            glassflow/glassflow-etl-cloud-fe
+            ghcr.io/glassflow/glassflow-etl-cloud-fe
           tags: |
             type=sha,prefix=,format=long
             type=raw,value=glassflow-cloud,enable=${{ github.ref_name == 'glassflow-cloud' }}
-      - name: Login to Docker Hub
+      - name: Login to ghcr
         uses: docker/login-action@v3
         with:
-          username: glassflow
-          password: ${{ secrets.DOCKER_HUB_TOKEN_CLOUD_IMAGE }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Build & push Docker image
         uses: docker/build-push-action@v6
         with:

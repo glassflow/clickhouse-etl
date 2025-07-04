@@ -1,7 +1,10 @@
 name: Pull Request Creation
 on:
-  - push
   - pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-binary:
@@ -12,9 +15,9 @@ jobs:
     uses: ./.github/workflows/test.yaml
   build:
     needs:
-      - test
+      - build-binary
     uses: ./.github/workflows/build_image.yaml
     with:
-      push: true
+      push: false
     secrets: inherit
 
