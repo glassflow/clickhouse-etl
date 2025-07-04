@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { generateHost } from '@/src/utils/common.server'
+import { generateConnectionId } from '@/src/utils/common.client'
+import { useStore } from '@/src/store'
 
 interface ClickhouseConnectionConfig {
   host: string
@@ -19,8 +20,10 @@ export function useClickhouseConnection() {
   const [isLoading, setIsLoading] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [connectionError, setConnectionError] = useState<string | null>(null)
-  const [availableDatabases, setAvailableDatabases] = useState<string[]>([])
   const [availableTables, setAvailableTables] = useState<string[]>([])
+
+  const { clickhouseStore } = useStore()
+  const { updateDatabases } = clickhouseStore
 
   const testConnection = async (connectionConfig: ClickhouseConnectionConfig) => {
     setIsLoading(true)
@@ -58,7 +61,16 @@ export function useClickhouseConnection() {
         setConnectionError(null)
 
         if (data.databases && data.databases.length > 0) {
-          setAvailableDatabases(data.databases)
+          updateDatabases(
+            data.databases,
+            generateConnectionId({
+              type: 'direct',
+              cleanHost: connectionConfig.host,
+              port: parseInt(connectionConfig.port),
+              username: connectionConfig.username,
+              password: connectionConfig.password,
+            }),
+          )
         }
 
         return { success: true, databases: data.databases || [] }
@@ -219,7 +231,6 @@ export function useClickhouseConnection() {
     isLoading,
     connectionStatus,
     connectionError,
-    availableDatabases,
     availableTables,
     getDatabases,
     testConnection,

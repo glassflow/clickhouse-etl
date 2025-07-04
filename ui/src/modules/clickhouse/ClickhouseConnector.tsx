@@ -13,16 +13,19 @@ import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ClickhouseConnectionFormSchema, ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { generateConnectionId } from '@/src/utils/common.client'
 
 export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys) => void }) {
   const { clickhouseStore } = useStore()
   const analytics = useJourneyAnalytics()
-  const { clickhouseConnection, setClickhouseConnection, setAvailableDatabases } = clickhouseStore
-  const [hasInteracted, setHasInteracted] = useState(false)
-  const [hasTrackedView, setHasTrackedView] = useState(false)
+
+  const { clickhouseConnection, setClickhouseConnection, updateDatabases, updateTables } = clickhouseStore
 
   const { directConnection } = clickhouseConnection
   const { directConnectionForm } = ClickhouseConnectionFormConfig
+
+  const [hasInteracted, setHasInteracted] = useState(false)
+  const [hasTrackedView, setHasTrackedView] = useState(false)
 
   const formMethod = useForm<ClickhouseConnectionFormType>({
     resolver: zodResolver(ClickhouseConnectionFormSchema),
@@ -65,17 +68,15 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
     }
   }, [isDirty, hasInteracted, directConnection?.host])
 
-  // const useSSL = watch('directConnection.useSSL')
-  // useEffect(() => {
-  //   setValue('directConnection.nativePort', useSSL ? '9440' : '8443')
-  // }, [useSSL])
-
+  // Set default values for useSSL and skipCertificateVerification
   useEffect(() => {
     setValue('directConnection.useSSL', true)
+    setValue('directConnection.skipCertificateVerification', true)
   }, [setValue])
 
   const { isLoading, connectionStatus, connectionError, testConnection } = useClickhouseConnection()
 
+  // form submit handler
   const onSubmit = useCallback(
     async (values: ClickhouseConnectionFormType) => {
       // Track connection attempt
@@ -86,6 +87,7 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
 
       // @ts-expect-error - FIXME: fix this later
       const result = await testConnection(values.directConnection)
+
       if (result.success && result.databases.length > 0) {
         // Track successful connection
         analytics.clickhouse.success({
@@ -93,11 +95,20 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
           databaseCount: result.databases?.length || 0,
         })
 
-        // First update the databases from the new connection
-        setAvailableDatabases(result.databases)
-
-        // Then save the connection details
+        // save the connection details in the store
         saveConnection(values)
+
+        // Then update the databases from the new connection
+        updateDatabases(
+          result.databases,
+          generateConnectionId({
+            type: 'direct',
+            cleanHost: values.directConnection.host,
+            port: parseInt(values.directConnection.port),
+            username: values.directConnection.username,
+            password: values.directConnection.password,
+          }),
+        )
       } else {
         // Track connection error
         analytics.clickhouse.failed({
@@ -106,9 +117,10 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         })
       }
     },
-    [analytics.clickhouse, testConnection, setAvailableDatabases],
+    [analytics.clickhouse, testConnection, updateDatabases],
   )
 
+  // helper function to save the connection details in the store
   const saveConnection = useCallback(
     (formValues: ClickhouseConnectionFormType) => {
       // Check if connection details have changed from previous values

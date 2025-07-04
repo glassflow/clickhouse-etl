@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+
 import { Button } from '@/src/components/ui/button'
-import { useStore } from '@/src/store'
 import { XCircleIcon } from '@heroicons/react/24/outline'
-import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
-import { StepKeys } from '@/src/config/constants'
-import { cn } from '@/src/utils'
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { FieldColumnMapper } from './components/FieldColumnMapper'
-import { useFetchTableSchema } from './hooks'
+import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
+import { BatchDelaySelector } from './components/BatchDelaySelector'
+
+import { StepKeys } from '@/src/config/constants'
+
+import { cn } from '@/src/utils'
 import {
   extractEventFields,
   inferJsonType,
@@ -17,12 +19,15 @@ import {
   validateColumnMappings,
   isTypeCompatible,
   getMappingType,
+  generateApiConfig,
 } from './helpers'
-import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } from './types'
-import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
-import { BatchDelaySelector } from './components/BatchDelaySelector'
+
+import { useStore } from '@/src/store'
+import { useClickhouseTableSchema } from './hooks'
+import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { generateApiConfig } from './helpers'
+
+import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn } from './types'
 
 export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKeys) => void; index: number }) {
   const router = useRouter()
@@ -41,8 +46,11 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     clickhouseConnection,
     clickhouseDestination,
     setClickhouseDestination,
-    availableDatabases,
-    setAvailableDatabases,
+    getDatabases,
+    getTables,
+    getTableSchema,
+    updateDatabases,
+    getConnectionId,
   } = clickhouseStore
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
@@ -154,16 +162,22 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
   })
 
   const { testDatabaseAccess, testTableAccess } = useClickhouseConnection()
-  const { fetchTableSchema } = useFetchTableSchema({
-    selectedDatabase,
-    selectedTable,
-    setTableSchema,
-    setIsLoading,
-    setError,
-    getConnectionConfig,
-    setMappedColumns,
-    setSuccess,
-  })
+  const {
+    fetchTableSchema,
+    schema: storeSchema,
+    isLoading: schemaLoading,
+    error: schemaError,
+  } = useClickhouseTableSchema(selectedDatabase, selectedTable)
+  // const { fetchTableSchema } = useFetchTableSchema({
+  //   selectedDatabase,
+  //   selectedTable,
+  //   setTableSchema,
+  //   setIsLoading,
+  //   setError,
+  //   getConnectionConfig,
+  //   setMappedColumns,
+  //   setSuccess,
+  // })
 
   // Enhanced database selection handler with tracking
   const handleDatabaseSelection = useCallback(
@@ -229,11 +243,39 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     }
   }, [clickhouseDestination])
 
+  // Sync local tableSchema state with store schema data
+  useEffect(() => {
+    if (storeSchema && storeSchema.length > 0) {
+      setTableSchema({ columns: storeSchema })
+
+      // If we have mapping data in destination, use that
+      if (clickhouseDestination?.mapping?.length > 0) {
+        setMappedColumns(clickhouseDestination.mapping)
+      } else {
+        // Otherwise create default mapping
+        const defaultMapping = storeSchema.map((col) => ({
+          ...col,
+          jsonType: '',
+          isNullable: false,
+          isKey: false,
+          eventField: '',
+        }))
+        setMappedColumns(defaultMapping)
+      }
+    }
+  }, [storeSchema, clickhouseDestination])
+
   // Load table schema when database and table are selected
   useEffect(() => {
     if (selectedDatabase && selectedTable) {
-      // If we already have schema data in the store, use that
-      if (
+      // First check if we have schema data in the new store structure
+      const schemaFromStore = getTableSchema(selectedDatabase, selectedTable)
+
+      if (schemaFromStore.length > 0) {
+        // Schema is already in store, the sync effect above will handle it
+        return
+      } else if (
+        // Fallback to old pattern for backward compatibility
         clickhouseDestination?.destinationColumns?.length > 0 &&
         clickhouseDestination.database === selectedDatabase &&
         clickhouseDestination.table === selectedTable
@@ -255,11 +297,11 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           setMappedColumns(defaultMapping)
         }
       } else {
-        // Now this reference is valid
+        // Fetch schema from API
         fetchTableSchema()
       }
     }
-  }, [selectedDatabase, selectedTable])
+  }, [selectedDatabase, selectedTable, getTableSchema, clickhouseDestination, fetchTableSchema])
 
   // Load event fields when event data changes
   useEffect(() => {
@@ -321,7 +363,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
 
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
-    if (availableDatabases.length > 0) {
+    if (getDatabases().length > 0) {
       return
     }
 
@@ -340,7 +382,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         const data = await response.json()
 
         if (data.success) {
-          setAvailableDatabases(data.databases || [])
+          const connectionId =
+            getConnectionId() ||
+            `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}`
+          updateDatabases(data.databases || [], connectionId)
           setError(null)
 
           // Track successful database fetch
@@ -371,7 +416,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     if (connectionStatus === 'success') {
       fetchDatabases()
     }
-  }, [connectionStatus, availableDatabases.length, setAvailableDatabases])
+  }, [connectionStatus, updateDatabases, getDatabases])
 
   // Load tables when database is selected
   useEffect(() => {
@@ -727,11 +772,11 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
     <div className="flex flex-col gap-8 mb-4">
       <div className="space-y-6">
         <DatabaseTableSelectContainer
-          availableDatabases={availableDatabases}
+          availableDatabases={getDatabases()}
           selectedDatabase={selectedDatabase}
           setSelectedDatabase={handleDatabaseSelection}
           testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
-          isLoading={isLoading}
+          isLoading={isLoading || schemaLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
@@ -740,7 +785,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
         />
 
         {/* Batch Size / Delay Time / Column Mapping */}
-        {selectedTable && tableSchema.columns.length > 0 && (
+        {selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading && (
           <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
             <BatchDelaySelector
               maxBatchSize={maxBatchSize}
@@ -764,7 +809,7 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
                 className={cn({
                   'btn-primary': true,
                   'btn-text': true,
-                  'opacity-50': isLoading,
+                  'opacity-50': isLoading || schemaLoading,
                 })}
                 size="sm"
                 onClick={saveDestinationConfig}
@@ -783,10 +828,10 @@ export function ClickhouseMapper({ onNext, index = 0 }: { onNext: (step: StepKey
           </div>
         )} */}
 
-        {error && (
+        {(error || schemaError) && (
           <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
             <XCircleIcon className="h-5 w-5 mr-2" />
-            <span>{error}</span>
+            <span>{error || schemaError}</span>
           </div>
         )}
       </div>

@@ -9,7 +9,7 @@ import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { FieldColumnMapper } from './components/FieldColumnMapper'
-import { useFetchTableSchema } from './hooks'
+import { useClickhouseTableSchema } from './hooks'
 import {
   extractEventFields,
   inferJsonType,
@@ -47,13 +47,7 @@ export function ClickhouseJoinMapper({
   } = useStore()
   const analytics = useJourneyAnalytics()
   const router = useRouter()
-  const {
-    clickhouseConnection,
-    clickhouseDestination,
-    setClickhouseDestination,
-    availableDatabases,
-    setAvailableDatabases,
-  } = clickhouseStore
+  const { clickhouseConnection, clickhouseDestination, setClickhouseDestination, getDatabases } = clickhouseStore
 
   const { connectionStatus } = clickhouseConnection
 
@@ -155,16 +149,34 @@ export function ClickhouseJoinMapper({
   })
 
   const { testDatabaseAccess, testTableAccess } = useClickhouseConnection()
-  const { fetchTableSchema } = useFetchTableSchema({
-    selectedDatabase,
-    selectedTable,
-    setTableSchema,
-    setIsLoading,
-    setError,
-    getConnectionConfig,
-    setMappedColumns,
-    setSuccess,
-  })
+  const {
+    fetchTableSchema,
+    schema: storeSchema,
+    isLoading: schemaLoading,
+    error: schemaError,
+  } = useClickhouseTableSchema(selectedDatabase, selectedTable)
+
+  // Sync local tableSchema state with store schema data
+  useEffect(() => {
+    if (storeSchema && storeSchema.length > 0) {
+      setTableSchema({ columns: storeSchema })
+
+      // If we have mapping data in destination, use that
+      if (clickhouseDestination?.mapping?.length > 0) {
+        setMappedColumns(clickhouseDestination.mapping)
+      } else {
+        // Otherwise create default mapping
+        const defaultMapping = storeSchema.map((col) => ({
+          ...col,
+          jsonType: '',
+          isNullable: false,
+          isKey: false,
+          eventField: '',
+        }))
+        setMappedColumns(defaultMapping)
+      }
+    }
+  }, [storeSchema, clickhouseDestination])
 
   // Sync component with store when clickhouseDestination changes
   useEffect(() => {
@@ -225,7 +237,8 @@ export function ClickhouseJoinMapper({
 
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
-    if (availableDatabases.length > 0) {
+    const databases = getDatabases()
+    if (databases.length > 0) {
       return
     }
 
@@ -244,7 +257,9 @@ export function ClickhouseJoinMapper({
         const data = await response.json()
 
         if (data.success) {
-          setAvailableDatabases(data.databases || [])
+          // Update the store with databases
+          const connectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}`
+          clickhouseStore.updateDatabases(data.databases || [], connectionId)
           setError(null)
         } else {
           setError(data.error || 'Failed to fetch databases')
@@ -259,7 +274,7 @@ export function ClickhouseJoinMapper({
     if (connectionStatus === 'success') {
       fetchDatabases()
     }
-  }, [connectionStatus, availableDatabases.length, setAvailableDatabases])
+  }, [connectionStatus, getDatabases, clickhouseStore, clickhouseConnection])
 
   // Add effect for extracting fields from primary event
   useEffect(() => {
@@ -627,11 +642,11 @@ export function ClickhouseJoinMapper({
     <div className="flex flex-col gap-8">
       <div className="space-y-6">
         <DatabaseTableSelectContainer
-          availableDatabases={availableDatabases}
+          availableDatabases={getDatabases()}
           selectedDatabase={selectedDatabase}
           setSelectedDatabase={setSelectedDatabase}
           testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
-          isLoading={isLoading}
+          isLoading={isLoading || schemaLoading}
           getConnectionConfig={getConnectionConfig}
           availableTables={availableTables}
           selectedTable={selectedTable}
@@ -640,7 +655,7 @@ export function ClickhouseJoinMapper({
         />
 
         {/* Column Mapping */}
-        {selectedTable && tableSchema.columns.length > 0 && (
+        {selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading && (
           <>
             <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
               <BatchDelaySelector
@@ -688,10 +703,10 @@ export function ClickhouseJoinMapper({
           </div>
         )} */}
 
-        {error && (
+        {(error || schemaError) && (
           <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center">
             <XCircleIcon className="h-5 w-5 mr-2" />
-            <span>{error}</span>
+            <span>{error || schemaError}</span>
           </div>
         )}
       </div>
