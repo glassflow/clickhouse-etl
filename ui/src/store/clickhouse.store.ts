@@ -1,12 +1,23 @@
 import { StateCreator } from 'zustand'
 import { ClickhouseConnectionFormType } from '@/src/scheme'
 
-export interface ClickhouseStore {
-  // connection state
-  clickhouseConnection: ClickhouseConnectionFormType
-  availableDatabases: string[]
+// ClickHouse data structure - single source of truth
+interface ClickHouseData {
+  lastFetched: number
+  connectionId: string
+  databases?: string[]
+  tables?: Record<string, string[]> // database -> tables mapping
+  tableSchemas?: Record<string, any[]> // "database:table" -> schema mapping
+}
 
-  // destination state
+export interface ClickhouseStore {
+  // connection configuration
+  clickhouseConnection: ClickhouseConnectionFormType
+
+  // Single source of truth for ClickHouse data
+  clickhouseData: ClickHouseData | null
+
+  // destination configuration including mapping and other settings
   clickhouseDestination: {
     scheme: string
     database: string
@@ -20,7 +31,6 @@ export interface ClickhouseStore {
   }
 
   // actions
-  setAvailableDatabases: (databases: string[]) => void
   setClickhouseConnection: (connector: ClickhouseConnectionFormType) => void
   setClickhouseDestination: (destination: {
     scheme: string
@@ -35,6 +45,18 @@ export interface ClickhouseStore {
   resetDestinationState: () => void
   getIsClickhouseConnectionDirty: () => boolean
   getClickhouseMappingDirty: () => boolean
+
+  // Data management actions
+  updateDatabases: (databases: string[], connectionId: string) => void
+  updateTables: (database: string, tables: string[], connectionId: string) => void
+  updateTableSchema: (database: string, table: string, schema: any[], connectionId: string) => void
+  clearData: () => void
+
+  // Getters for easy access - derived data
+  getDatabases: () => string[]
+  getTables: (database: string) => string[]
+  getTableSchema: (database: string, table: string) => any[]
+  getConnectionId: () => string | null
 }
 
 export interface ClickhouseSlice {
@@ -43,7 +65,7 @@ export interface ClickhouseSlice {
 
 export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) => ({
   clickhouseStore: {
-    // connection state
+    // connection configuration
     clickhouseConnection: {
       connectionType: 'direct',
       directConnection: {
@@ -58,9 +80,11 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
       connectionStatus: 'idle',
       connectionError: null,
     },
-    availableDatabases: [],
 
-    // destination state
+    // Single source of truth for ClickHouse data
+    clickhouseData: null,
+
+    // destination configuration including mapping and other settings
     clickhouseDestination: {
       scheme: '',
       database: '',
@@ -74,14 +98,6 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
     },
 
     // actions
-    setAvailableDatabases: (databases: string[]) =>
-      set((state) => ({
-        clickhouseStore: {
-          ...state.clickhouseStore,
-          availableDatabases: databases,
-        },
-      })),
-
     setClickhouseConnection: (connector: ClickhouseConnectionFormType) =>
       set((state) => {
         // Check if connection details have changed
@@ -99,7 +115,7 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
               ...state.clickhouseStore,
               clickhouseConnection: connector,
               // Reset dependent data when connection changes
-              availableDatabases: [],
+              clickhouseData: null,
               clickhouseDestination: {
                 ...state.clickhouseStore.clickhouseDestination,
                 database: '',
@@ -124,7 +140,7 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
       set((state) => ({
         clickhouseStore: {
           ...state.clickhouseStore,
-          availableDatabases: [],
+          clickhouseData: null,
           clickhouseDestination: {
             scheme: '',
             database: '',
@@ -167,6 +183,80 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
     getClickhouseMappingDirty: () => {
       const { mapping } = get().clickhouseStore.clickhouseDestination
       return mapping.some((value) => value !== '')
+    },
+
+    // Data management actions
+    updateDatabases: (databases: string[], connectionId: string) =>
+      set((state) => ({
+        clickhouseStore: {
+          ...state.clickhouseStore,
+          clickhouseData: {
+            lastFetched: Date.now(),
+            connectionId,
+            databases,
+            tables: state.clickhouseStore.clickhouseData?.tables || {},
+            tableSchemas: state.clickhouseStore.clickhouseData?.tableSchemas || {},
+          },
+        },
+      })),
+
+    updateTables: (database: string, tables: string[], connectionId: string) =>
+      set((state) => ({
+        clickhouseStore: {
+          ...state.clickhouseStore,
+          clickhouseData: {
+            lastFetched: Date.now(),
+            connectionId,
+            databases: state.clickhouseStore.clickhouseData?.databases || [],
+            tables: {
+              ...state.clickhouseStore.clickhouseData?.tables,
+              [database]: tables,
+            },
+            tableSchemas: state.clickhouseStore.clickhouseData?.tableSchemas || {},
+          },
+        },
+      })),
+
+    updateTableSchema: (database: string, table: string, schema: any[], connectionId: string) =>
+      set((state) => ({
+        clickhouseStore: {
+          ...state.clickhouseStore,
+          clickhouseData: {
+            lastFetched: Date.now(),
+            connectionId,
+            databases: state.clickhouseStore.clickhouseData?.databases || [],
+            tables: state.clickhouseStore.clickhouseData?.tables || {},
+            tableSchemas: {
+              ...state.clickhouseStore.clickhouseData?.tableSchemas,
+              [`${database}:${table}`]: schema,
+            },
+          },
+        },
+      })),
+
+    clearData: () =>
+      set((state) => ({
+        clickhouseStore: {
+          ...state.clickhouseStore,
+          clickhouseData: null,
+        },
+      })),
+
+    // Getters for easy access
+    getDatabases: () => {
+      return get().clickhouseStore.clickhouseData?.databases || []
+    },
+
+    getTables: (database: string) => {
+      return get().clickhouseStore.clickhouseData?.tables?.[database] || []
+    },
+
+    getTableSchema: (database: string, table: string) => {
+      return get().clickhouseStore.clickhouseData?.tableSchemas?.[`${database}:${table}`] || []
+    },
+
+    getConnectionId: () => {
+      return get().clickhouseStore.clickhouseData?.connectionId || null
     },
   },
 })
