@@ -7,6 +7,7 @@ import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { FieldColumnMapper } from './components/FieldColumnMapper'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
+import { CacheRefreshButton } from './components/CacheRefreshButton'
 
 import { StepKeys } from '@/src/config/constants'
 
@@ -328,21 +329,36 @@ export function ClickhouseMapper({
   // Sync table schema from store when it's updated
   useEffect(() => {
     if (storeSchema && storeSchema.length > 0) {
-      // Only update if we don't already have the same schema
-      if (
-        tableSchema.columns.length === storeSchema.length &&
-        tableSchema.columns.every((col, index) => col.name === storeSchema[index]?.name)
-      ) {
+      // Only update if the schema has actually changed
+      const schemaChanged =
+        tableSchema.columns.length !== storeSchema.length ||
+        !tableSchema.columns.every(
+          (col, index) =>
+            col.name === storeSchema[index]?.name &&
+            col.type === storeSchema[index]?.type &&
+            col.isNullable === storeSchema[index]?.isNullable,
+        )
+
+      if (!schemaChanged) {
         return
       }
 
+      // Check if we have existing mappings that can be preserved
       const shouldKeepExistingMapping =
         mappedColumns.length > 0 &&
         mappedColumns.length === storeSchema.length &&
         mappedColumns.every((col, index) => col.name === storeSchema[index]?.name)
 
+      // Create new mapping - preserve existing mappings where possible
       const newMapping = shouldKeepExistingMapping
-        ? mappedColumns
+        ? mappedColumns.map((existingCol, index) => ({
+            ...storeSchema[index], // Update with latest schema info
+            jsonType: existingCol.jsonType,
+            isNullable: existingCol.isNullable,
+            isKey: existingCol.isKey,
+            eventField: existingCol.eventField,
+            ...(existingCol.sourceTopic && { sourceTopic: existingCol.sourceTopic }), // Preserve source topic for join mode
+          }))
         : storeSchema.map((col) => ({
             ...col,
             jsonType: '',
@@ -838,6 +854,34 @@ export function ClickhouseMapper({
   // Combine error states
   const combinedError = error || databasesError || tablesError || schemaError
 
+  const handleRefreshDatabases = async () => {
+    await fetchDatabases()
+
+    // Clear dependent state when databases are refreshed
+    if (selectedDatabase && !databases.includes(selectedDatabase)) {
+      setSelectedDatabase('')
+      setSelectedTable('')
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
+    }
+  }
+
+  const handleRefreshTables = async () => {
+    await fetchTables()
+    // Clear dependent state when tables are refreshed
+    if (selectedTable && !availableTables.includes(selectedTable)) {
+      setSelectedTable('')
+      setTableSchema({ columns: [] })
+      setMappedColumns([])
+    }
+  }
+
+  const handleRefreshTableSchema = async () => {
+    await fetchTableSchema()
+    // Don't clear mapping - let the sync effect handle updating the schema
+    // while preserving existing mappings where possible
+  }
+
   return (
     <div className="flex flex-col gap-8 mb-4">
       <div className="space-y-6">
@@ -852,11 +896,25 @@ export function ClickhouseMapper({
           selectedTable={selectedTable}
           setSelectedTable={handleTableSelection}
           testTableAccess={testTableAccessWrapper}
+          onRefreshDatabases={handleRefreshDatabases}
+          onRefreshTables={handleRefreshTables}
         />
 
         {/* Batch Size / Delay Time / Column Mapping */}
         {selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading && (
           <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+            {/* Table Schema Refresh Button */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-content">Table Schema & Mapping</h3>
+              <CacheRefreshButton
+                type="tableSchema"
+                database={selectedDatabase}
+                table={selectedTable}
+                onRefresh={handleRefreshTableSchema}
+                size="sm"
+                variant="outline"
+              />
+            </div>
             <BatchDelaySelector
               maxBatchSize={maxBatchSize}
               maxDelayTime={maxDelayTime}

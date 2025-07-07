@@ -49,7 +49,6 @@ export function CacheRefreshButton({
       title={`Refresh ${type} data`}
     >
       <ArrowPathIcon className="h-4 w-4" />
-      {isRefreshing && <span className="ml-2">Refreshing...</span>}
     </Button>
   )
 }
