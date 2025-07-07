@@ -37,7 +37,7 @@ export const generateApiConfig = ({
       let eventData = {}
       if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
         // Get the actual event data (either directly or from .event property)
-        const rawEvent = topic.selectedEvent.event.event || topic.selectedEvent.event
+        const rawEvent = topic?.selectedEvent?.event || {}
 
         // Clone the event and remove _metadata
         eventData = { ...rawEvent }
@@ -52,11 +52,13 @@ export const generateApiConfig = ({
         id: topic.name, // Using topic name as id for now
         schema: {
           type: 'json',
-          fields: Object.keys(eventData).map((key) => {
-            const mappingType = getMappingType(key, mapping)
+          fields: extractEventFields(eventData).map((fieldPath) => {
+            const mappingType = getMappingType(fieldPath, mapping)
+            const inferredType = getFieldType(eventData, fieldPath)
+
             return {
-              name: key,
-              type: mappingType,
+              name: fieldPath,
+              type: mappingType || inferredType,
             }
           }),
         },
@@ -90,7 +92,7 @@ export const generateApiConfig = ({
               // Try to find which topic contains this field
               for (const topic of selectedTopics) {
                 if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
-                  const eventData = topic.selectedEvent.event.event || topic.selectedEvent.event
+                  const eventData = topic?.selectedEvent?.event || {}
 
                   // Check if the field exists in this topic's event data
                   if (mapping.eventField in eventData) {
@@ -294,13 +296,14 @@ export function inferJsonType(value: any): string {
   return 'object'
 }
 
-// Helper function to extract fields from event data
+// Helper function to extract fields from event data with support for nested objects and arrays
 export const extractEventFields = (data: any, prefix = ''): string[] => {
   if (!data || typeof data !== 'object') {
     return []
   }
 
   let fields: string[] = []
+
   Object.keys(data).forEach((key) => {
     // Skip _metadata and key fields
     if (key.startsWith('_metadata')) {
@@ -308,11 +311,18 @@ export const extractEventFields = (data: any, prefix = ''): string[] => {
     }
 
     const fullPath = prefix ? `${prefix}.${key}` : key
-    fields.push(fullPath)
+    const value = data[key]
 
-    // Recursively extract nested fields
-    if (data[key] && typeof data[key] === 'object' && !Array.isArray(data[key])) {
-      fields = [...fields, ...extractEventFields(data[key], fullPath)]
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      // Recursively extract nested fields
+      const nestedFields = extractEventFields(value, fullPath)
+      fields = [...fields, ...nestedFields]
+    } else if (Array.isArray(value)) {
+      // Only add the array field itself for cases where users want the whole array
+      fields.push(fullPath)
+    } else {
+      // Only add leaf fields (fields with primitive values, not objects)
+      fields.push(fullPath)
     }
   })
 
@@ -321,26 +331,26 @@ export const extractEventFields = (data: any, prefix = ''): string[] => {
 
 // Helper function to find best matching field
 export const findBestMatchingField = (columnName: string, fields: string[]): string | undefined => {
-  const normalizedColumnName = columnName.toLowerCase().replace(/[^a-z0-9]/g, '')
+  // Normalize by removing underscores, dots, and lowercasing
+  const normalize = (str: string) => str.toLowerCase().replace(/[_\.]/g, '')
+  const normalizedColumnName = normalize(columnName)
 
-  // First try exact match
-  const exactMatch = fields.find((field) => {
-    const fieldParts = field.split('.')
-    const lastPart = fieldParts[fieldParts.length - 1]
-    return lastPart.toLowerCase() === normalizedColumnName
+  // Try to match the full path structure
+  const pathMatch = fields.find((field) => normalize(field) === normalizedColumnName)
+  if (pathMatch) return pathMatch
+
+  // Try to match by last part (for flat fields)
+  const lastPartMatch = fields.find((field) => {
+    const lastPart = field.split('.').pop() || ''
+    return normalize(lastPart) === normalizedColumnName
   })
-
-  if (exactMatch) return exactMatch
+  if (lastPartMatch) return lastPartMatch
 
   // Then try contains match
   const containsMatch = fields.find((field) => {
-    const fieldParts = field.split('.')
-    const lastPart = fieldParts[fieldParts.length - 1]
-    return (
-      lastPart.toLowerCase().includes(normalizedColumnName) || normalizedColumnName.includes(lastPart.toLowerCase())
-    )
+    const lastPart = field.split('.').pop() || ''
+    return normalize(lastPart).includes(normalizedColumnName) || normalizedColumnName.includes(normalize(lastPart))
   })
-
   return containsMatch
 }
 
@@ -355,10 +365,23 @@ export const getNestedValue = (obj: any, path: string): any => {
     if (current === null || current === undefined || typeof current !== 'object') {
       return undefined
     }
-    current = current[part]
+    if (typeof current === 'object' && current !== null) {
+      current = (current as any)[part]
+    } else {
+      return undefined
+    }
   }
 
   return current
+}
+
+// Helper function to get the type for a specific field path
+export const getFieldType = (data: any, fieldPath: string): string => {
+  const value = getNestedValue(data, fieldPath)
+  if (value === undefined || value === null) {
+    return 'string' // Default type for undefined/null values
+  }
+  return inferJsonType(value)
 }
 
 /**

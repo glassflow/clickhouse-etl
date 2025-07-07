@@ -19,6 +19,11 @@ build:
 	CGO_ENABLED=0 go build -mod=readonly -o bin/clickhouse-etl \
 	cmd/main.go
 
+.PHONY: build-linux-amd64
+build-linux-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -o bin/clickhouse-etl \
+	cmd/main.go
+
 .PHONY: run-test
 run-test:
 	go test -v -count=1 -race $(shell go list ./... | grep -v /tests)

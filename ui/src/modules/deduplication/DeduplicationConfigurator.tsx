@@ -29,7 +29,7 @@ export function DeduplicationConfigurator({
   const topicEvent = topic?.events?.[0] || null
 
   // Extract event data
-  const eventData = topicEvent?.event?.event || topicEvent?.event || '{}'
+  const eventData = topicEvent?.event || '{}'
 
   // Track page view when component loads
   useEffect(() => {
