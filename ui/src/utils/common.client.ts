@@ -28,3 +28,15 @@ export function getEventKeys(data: any): string[] {
     return []
   }
 }
+
+export interface ClickHouseConnectionId {
+  type: 'direct' | 'client'
+  cleanHost: string
+  port: number
+  username: string
+  password: string
+}
+
+export function generateConnectionId(connection: ClickHouseConnectionId): string {
+  return `${connection.type}:${connection.cleanHost}:${connection.port}:${connection.username}:${connection.password}`
+}

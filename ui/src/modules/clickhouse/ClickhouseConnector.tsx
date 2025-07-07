@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
-import { useClickhouseConnection } from '@/src/hooks/clickhouse-mng-hooks'
+import { useClickhouseConnection } from './hooks'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
 import { ClickhouseConnectionFormConfig } from '@/src/config/clickhouse-connection-form-config'
@@ -17,12 +17,14 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys) => void }) {
   const { clickhouseStore } = useStore()
   const analytics = useJourneyAnalytics()
-  const { clickhouseConnection, setClickhouseConnection, setAvailableDatabases } = clickhouseStore
-  const [hasInteracted, setHasInteracted] = useState(false)
-  const [hasTrackedView, setHasTrackedView] = useState(false)
+
+  const { clickhouseConnection, setClickhouseConnection } = clickhouseStore
 
   const { directConnection } = clickhouseConnection
   const { directConnectionForm } = ClickhouseConnectionFormConfig
+
+  const [hasInteracted, setHasInteracted] = useState(false)
+  const [hasTrackedView, setHasTrackedView] = useState(false)
 
   const formMethod = useForm<ClickhouseConnectionFormType>({
     resolver: zodResolver(ClickhouseConnectionFormSchema),
@@ -34,11 +36,29 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         username: directConnection?.username || '',
         password: directConnection?.password || '',
         nativePort: directConnection?.nativePort || '',
-        useSSL: directConnection?.useSSL || true,
-        skipCertificateVerification: directConnection?.skipCertificateVerification || true,
+        useSSL: directConnection?.useSSL ?? true,
+        skipCertificateVerification: directConnection?.skipCertificateVerification ?? true,
       },
     },
   })
+
+  // Update form values when store changes (for persistence)
+  useEffect(() => {
+    if (directConnection) {
+      formMethod.reset({
+        connectionType: 'direct',
+        directConnection: {
+          host: directConnection.host || '',
+          port: directConnection.port || '',
+          username: directConnection.username || '',
+          password: directConnection.password || '',
+          nativePort: directConnection.nativePort || '',
+          useSSL: directConnection.useSSL ?? true,
+          skipCertificateVerification: directConnection.skipCertificateVerification ?? true,
+        },
+      })
+    }
+  }, [directConnection, formMethod])
 
   const {
     register,
@@ -65,17 +85,15 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
     }
   }, [isDirty, hasInteracted, directConnection?.host])
 
-  // const useSSL = watch('directConnection.useSSL')
-  // useEffect(() => {
-  //   setValue('directConnection.nativePort', useSSL ? '9440' : '8443')
-  // }, [useSSL])
-
+  // Set default values for useSSL and skipCertificateVerification
   useEffect(() => {
     setValue('directConnection.useSSL', true)
+    setValue('directConnection.skipCertificateVerification', true)
   }, [setValue])
 
   const { isLoading, connectionStatus, connectionError, testConnection } = useClickhouseConnection()
 
+  // form submit handler
   const onSubmit = useCallback(
     async (values: ClickhouseConnectionFormType) => {
       // Track connection attempt
@@ -84,63 +102,53 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         useSSL: values.directConnection.useSSL,
       })
 
-      // @ts-expect-error - FIXME: fix this later
-      const result = await testConnection(values.directConnection)
-      if (result.success && result.databases.length > 0) {
+      // First save the connection details to the store
+      const newConnection = {
+        ...clickhouseConnection,
+        directConnection: {
+          host: values.directConnection.host,
+          port: values.directConnection.port,
+          username: values.directConnection.username,
+          password: values.directConnection.password,
+          nativePort: values.directConnection.nativePort,
+          useSSL: values.directConnection.useSSL,
+          skipCertificateVerification: values.directConnection.skipCertificateVerification,
+        },
+        connectionStatus: 'loading' as const,
+        connectionError: null,
+      }
+
+      setClickhouseConnection(newConnection)
+
+      // Test the connection with the form values
+      const result = await testConnection({
+        host: values.directConnection.host,
+        port: values.directConnection.port,
+        username: values.directConnection.username,
+        password: values.directConnection.password,
+        nativePort: values.directConnection.nativePort,
+        useSSL: values.directConnection.useSSL,
+        skipCertificateVerification: values.directConnection.skipCertificateVerification,
+      })
+
+      if (result?.success && result.databases?.length > 0) {
         // Track successful connection
         analytics.clickhouse.success({
           host: values.directConnection.host,
           databaseCount: result.databases?.length || 0,
         })
 
-        // First update the databases from the new connection
-        setAvailableDatabases(result.databases)
-
-        // Then save the connection details
-        saveConnection(values)
+        // Proceed to next step
+        onNext(StepKeys.CLICKHOUSE_CONNECTION)
       } else {
         // Track connection error
         analytics.clickhouse.failed({
-          error: result.error || 'Unknown connection error',
+          error: result?.error || 'Unknown connection error',
           host: values.directConnection.host,
         })
       }
     },
-    [analytics.clickhouse, testConnection, setAvailableDatabases],
-  )
-
-  const saveConnection = useCallback(
-    (formValues: ClickhouseConnectionFormType) => {
-      // Check if connection details have changed from previous values
-      const prevConnection = clickhouseConnection.directConnection
-      const hasConnectionChanged =
-        prevConnection.host !== formValues.directConnection.host ||
-        prevConnection.port !== formValues.directConnection.port ||
-        prevConnection.username !== formValues.directConnection.username ||
-        prevConnection.password !== formValues.directConnection.password
-
-      const connector: ClickhouseConnectionFormType = {
-        connectionType: 'direct',
-        directConnection: {
-          host: formValues.directConnection.host,
-          port: formValues.directConnection.port,
-          username: formValues.directConnection.username,
-          password: formValues.directConnection.password,
-          nativePort: formValues.directConnection.nativePort,
-          useSSL: formValues.directConnection.useSSL,
-          skipCertificateVerification: formValues.directConnection.skipCertificateVerification,
-        },
-        connectionStatus: 'success',
-        connectionError: null,
-      }
-
-      // Update the connection in the store
-      setClickhouseConnection(connector)
-
-      // Proceed to next step
-      onNext(StepKeys.CLICKHOUSE_CONNECTION)
-    },
-    [setClickhouseConnection, onNext, clickhouseConnection.directConnection],
+    [analytics.clickhouse, testConnection, setClickhouseConnection, clickhouseConnection, onNext],
   )
 
   return (
