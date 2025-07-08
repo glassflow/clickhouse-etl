@@ -9,6 +9,8 @@ services:
   ui:
     build:
       context: ../ui
+    environment:
+      - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
 
   app:
     build:

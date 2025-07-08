@@ -9,7 +9,7 @@ import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { v4 as uuidv4 } from 'uuid'
 import { StreamConfiguratorList } from './components/StreamConfiguratorList'
 import { JoinConfigType } from '@/src/scheme/join.scheme'
-import { getEventKeys } from '@/src/utils/common.client'
+import { extractEventFields } from '@/src/modules/clickhouse/helpers'
 
 export type JoinManagerProps = {
   steps: any
@@ -184,7 +184,7 @@ export function JoinManager({ steps, onNext, validate, index = 0 }: JoinManagerP
     streams: [
       {
         joinKey:
-          getEventKeys(event1)?.map((key) => ({
+          extractEventFields(event1)?.map((key) => ({
             label: key,
             value: key,
           })) || [],
@@ -199,7 +199,7 @@ export function JoinManager({ steps, onNext, validate, index = 0 }: JoinManagerP
       },
       {
         joinKey:
-          getEventKeys(event2)?.map((key) => ({
+          extractEventFields(event2)?.map((key) => ({
             label: key,
             value: key,
           })) || [],

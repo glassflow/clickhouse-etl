@@ -5,10 +5,10 @@ const config: NextConfig = {
   images: {
     domains: ['localhost'],
   },
-  // Ensure environment variables are available at runtime
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_IN_DOCKER: process.env.NEXT_PUBLIC_IN_DOCKER,
+    NEXT_PUBLIC_PREVIEW_MODE: process.env.NEXT_PUBLIC_PREVIEW_MODE,
   },
   redirects: async () => [
     {

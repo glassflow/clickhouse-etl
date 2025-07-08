@@ -177,12 +177,12 @@ function PipelineWizzard() {
           addCompletedStep(StepKeys.TOPIC_SELECTION_2)
         }
 
-        // Handle special case for review configuration
-        if (stepName === StepKeys.REVIEW_CONFIGURATION) {
-          setActiveStep(StepKeys.DEPLOY_PIPELINE)
-          router.push('/pipelines/')
-          return
-        }
+        // // Handle special case for review configuration
+        // if (stepName === StepKeys.REVIEW_CONFIGURATION) {
+        //   setActiveStep(StepKeys.DEPLOY_PIPELINE)
+        //   router.push('/pipelines/')
+        //   return
+        // }
 
         // Set the next step as active
         const nextStep = currentJourney[stepIndex + 1]
