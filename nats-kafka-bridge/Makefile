@@ -48,3 +48,9 @@ build:
 	CGO_ENABLED=0 go build -mod=readonly -o bin/nats-kafka-bridge \
 	-ldflags "-X main.commit=${COMMIT_HASH} -X main.app=${APP}" \
 	main.go
+
+.PHONY: build-linux-amd64
+build-linux-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -o bin/nats-kafka-bridge \
+	-ldflags "-X main.commit=${COMMIT_HASH} -X main.app=${APP}" \
+	main.go

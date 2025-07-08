@@ -29,6 +29,8 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 
+import { getRuntimeEnv } from '@/src/utils/common.client'
+
 type MappingMode = 'single' | 'join' | 'dedup'
 
 interface ClickhouseMapperProps {
@@ -38,6 +40,9 @@ interface ClickhouseMapperProps {
   secondaryIndex?: number
   mode?: MappingMode
 }
+
+const runtimeEnv = getRuntimeEnv()
+const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
 export function ClickhouseMapper({
   onNext,
@@ -428,6 +433,8 @@ export function ClickhouseMapper({
                 eventField: matchingField,
                 jsonType: inferJsonType(getNestedValue(eventData, matchingField)),
               }
+            } else {
+              console.log(`No match found for column "${col.name}"`)
             }
           })
 
@@ -814,8 +821,13 @@ export function ClickhouseMapper({
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
-    // Navigate to the pipelines page
-    router.push('/pipelines')
+    if (isPreviewMode) {
+      // Navigate to the review configuration step for preview
+      onNext(StepKeys.CLICKHOUSE_MAPPER)
+    } else {
+      // Navigate directly to the pipelines page
+      router.push('/pipelines')
+    }
   }, [
     clickhouseDestination,
     selectedDatabase,
