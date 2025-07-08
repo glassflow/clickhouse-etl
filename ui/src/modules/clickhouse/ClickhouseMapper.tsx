@@ -29,6 +29,8 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 
+import { getRuntimeEnv } from '@/src/utils/common.client'
+
 type MappingMode = 'single' | 'join' | 'dedup'
 
 interface ClickhouseMapperProps {
@@ -38,6 +40,9 @@ interface ClickhouseMapperProps {
   secondaryIndex?: number
   mode?: MappingMode
 }
+
+const runtimeEnv = getRuntimeEnv()
+const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
 export function ClickhouseMapper({
   onNext,
