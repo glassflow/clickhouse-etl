@@ -36,8 +36,9 @@ const mockDLQStats: Record<string, DLQStats> = {
 }
 
 // GET /api/mock/pipelines/{id}/dlq/stats
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const stats = mockDLQStats[params.id]
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const stats = mockDLQStats[id]
 
   if (!stats) {
     return NextResponse.json({ success: false, error: 'DLQ stats not found for pipeline' }, { status: 404 })
