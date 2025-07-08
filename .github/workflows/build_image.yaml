@@ -145,8 +145,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: ui/pnpm-lock.yaml
+          # cache: 'pnpm'
+          # cache-dependency-path: ui/pnpm-lock.yaml
       - name: Install dependencies
         working-directory: ui
         run: pnpm install --frozen-lockfile
