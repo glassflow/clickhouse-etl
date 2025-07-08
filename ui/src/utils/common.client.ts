@@ -29,10 +29,14 @@ export function getEventKeys(data: any): string[] {
   }
 }
 
-// Utility function to get runtime environment variables
-export const getRuntimeEnv = () => {
-  if (typeof window !== 'undefined' && window.__ENV__) {
-    return window.__ENV__
-  }
-  return {}
+export interface ClickHouseConnectionId {
+  type: 'direct' | 'client'
+  cleanHost: string
+  port: number
+  username: string
+  password: string
+}
+
+export function generateConnectionId(connection: ClickHouseConnectionId): string {
+  return `${connection.type}:${connection.cleanHost}:${connection.port}:${connection.username}:${connection.password}`
 }
