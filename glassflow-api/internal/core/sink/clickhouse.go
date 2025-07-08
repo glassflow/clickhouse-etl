@@ -107,7 +107,7 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	if err != nil {
 		ch.log.Error("failed to get message metadata", slog.Any("error", err))
 	} else {
-		ch.log.Debug("Message acked by JetStream", slog.Any("stream", mdata.Sequence.Stream))
+		ch.log.Info("Message acked by JetStream", slog.Any("stream", mdata.Sequence.Stream))
 	}
 
 	ch.lastMsg = nil

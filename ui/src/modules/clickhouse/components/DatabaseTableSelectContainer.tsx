@@ -13,6 +13,8 @@ interface DatabaseTableSelectContainerProps {
   selectedTable: string
   setSelectedTable: (table: string) => void
   testTableAccess: TableAccessTestFn
+  onRefreshDatabases?: () => Promise<void>
+  onRefreshTables?: () => Promise<void>
 }
 
 export function DatabaseTableSelectContainer({
@@ -26,6 +28,8 @@ export function DatabaseTableSelectContainer({
   selectedTable,
   setSelectedTable,
   testTableAccess,
+  onRefreshDatabases,
+  onRefreshTables,
 }: DatabaseTableSelectContainerProps) {
   return (
     <div className="flex justify-between items-center gap-8 mb-8">
@@ -38,6 +42,7 @@ export function DatabaseTableSelectContainer({
           testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
           isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
+          onRefresh={onRefreshDatabases}
         />
       </div>
 
@@ -52,6 +57,7 @@ export function DatabaseTableSelectContainer({
             testTableAccess={testTableAccess as TableAccessTestFn}
             isLoading={isLoading}
             getConnectionConfig={getConnectionConfig}
+            onRefresh={onRefreshTables}
           />
         </div>
       )}
