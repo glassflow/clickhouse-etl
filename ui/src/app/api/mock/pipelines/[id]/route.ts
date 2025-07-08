@@ -110,8 +110,9 @@ const findPipeline = (id: string): Pipeline | undefined => {
 }
 
 // GET /api/mock/pipelines/{id}
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const pipeline = findPipeline(params.id)
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const pipeline = findPipeline(id)
 
   if (!pipeline) {
     return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
@@ -121,10 +122,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 // PATCH /api/mock/pipelines/{id}
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await request.json()
-    const pipeline = findPipeline(params.id)
+    const { id } = await params
+    const pipeline = findPipeline(id)
 
     if (!pipeline) {
       return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
@@ -147,8 +149,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 // DELETE /api/mock/pipelines/{id}
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const pipelineIndex = mockPipelines.findIndex((p) => p.id === params.id)
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const pipelineIndex = mockPipelines.findIndex((p) => p.id === id)
 
   if (pipelineIndex === -1) {
     return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })

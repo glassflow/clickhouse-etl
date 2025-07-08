@@ -79,8 +79,9 @@ const findSchema = (id: string): Schema | undefined => {
 }
 
 // GET /api/mock/schemas/{id}
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const schema = findSchema(params.id)
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const schema = findSchema(id)
 
   if (!schema) {
     return NextResponse.json({ success: false, error: 'Schema not found' }, { status: 404 })
@@ -90,10 +91,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 // PATCH /api/mock/schemas/{id}
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await request.json()
-    const schema = findSchema(params.id)
+    const { id } = await params
+    const schema = findSchema(id)
 
     if (!schema) {
       return NextResponse.json({ success: false, error: 'Schema not found' }, { status: 404 })
@@ -116,8 +118,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 // DELETE /api/mock/schemas/{id}
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const schemaIndex = mockSchemas.findIndex((s) => s.id === params.id)
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const schemaIndex = mockSchemas.findIndex((s) => s.id === id)
 
   if (schemaIndex === -1) {
     return NextResponse.json({ success: false, error: 'Schema not found' }, { status: 404 })

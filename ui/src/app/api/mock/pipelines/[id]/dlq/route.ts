@@ -54,8 +54,9 @@ const mockDLQData: Record<string, DLQEvent[]> = {
 }
 
 // GET /api/mock/pipelines/{id}/dlq
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const events = mockDLQData[params.id] || []
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const events = mockDLQData[id] || []
 
   return NextResponse.json({
     success: true,
