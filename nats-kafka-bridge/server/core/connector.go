@@ -232,6 +232,37 @@ func (conn *BridgeConnector) dest(msg interface{}) string {
 	return buf.String()
 }
 
+// getNestedValue extracts a value from a nested JSON object using dot notation
+// Example: getNestedValue(data, "user.address.city") would extract data["user"]["address"]["city"]
+func getNestedValue(data map[string]interface{}, path string) (interface{}, bool) {
+	if data == nil || path == "" {
+		return nil, false
+	}
+
+	parts := strings.Split(path, ".")
+	current := interface{}(data)
+
+	for _, part := range parts {
+		if current == nil {
+			return nil, false
+		}
+
+		// Check if current is a map
+		if mapValue, ok := current.(map[string]interface{}); ok {
+			if val, exists := mapValue[part]; exists {
+				current = val
+			} else {
+				return nil, false
+			}
+		} else {
+			// Current is not a map, can't traverse further
+			return nil, false
+		}
+	}
+
+	return current, true
+}
+
 func setupDedupHeader(oHdr nats.Header, msg []byte, dedupKey, dedupKeyType string) error {
 	data := make(map[string]interface{})
 	err := json.Unmarshal(msg, &data)
@@ -239,16 +270,22 @@ func setupDedupHeader(oHdr nats.Header, msg []byte, dedupKey, dedupKeyType strin
 		return fmt.Errorf("unmarshal kafka message: %w", err)
 	}
 
+	// Use getNestedValue to support nested JSON fields with dot notation
+	value, exists := getNestedValue(data, dedupKey)
+	if !exists {
+		return fmt.Errorf("deduplication id field '%s' not found in kafka message", dedupKey)
+	}
+
 	switch dedupKeyType {
 	case "string":
-		if msgID, ok := data[dedupKey].(string); ok {
+		if msgID, ok := value.(string); ok {
 			oHdr[dedupHeader] = []string{msgID}
 		} else {
 			return fmt.Errorf("string deduplication id missing in kafka message")
 		}
 	case "int":
 		// json always marshalls numbers as float64
-		if msgID, ok := data[dedupKey].(float64); ok {
+		if msgID, ok := value.(float64); ok {
 			oHdr[dedupHeader] = []string{strconv.Itoa(int(msgID))}
 		} else {
 			return fmt.Errorf("integer deduplication id missing in kafka message")
