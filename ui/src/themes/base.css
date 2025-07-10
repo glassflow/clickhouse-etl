@@ -108,7 +108,9 @@
   /* Brand colors */
   --color-brand: #ffa24b;
   --color-white: #ffffff;
+  --color-white-faded: #f1f2f6; /* used for subtitles, sublabels, etc. */
   --color-black: #000000;
+  --color-black-faded: #0e0e10; /* used for background */
   --color-grey-faded: #242424;
   --color-grey-faded-2: #141414;
 

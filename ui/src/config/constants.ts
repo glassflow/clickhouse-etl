@@ -107,6 +107,39 @@ export const CLICKHOUSE_DATA_TYPES = [
   'JSON',
 ]
 
+export const STATUS_CONFIG = {
+  active: {
+    label: 'Active',
+    className: 'chip-positive',
+  },
+  paused: {
+    label: 'Paused',
+    className: 'chip-neutral',
+  },
+  pausing: {
+    label: 'Pausing',
+    className: 'chip-neutral-faded',
+  },
+  deleted: {
+    label: 'Deleted',
+    className: 'chip-negative',
+  },
+  deleting: {
+    label: 'Deleting',
+    className: 'chip-neutral-faded',
+  },
+  terminated: {
+    label: 'Terminated',
+    className: 'chip-negative',
+  },
+  error: {
+    label: 'Error',
+    className: 'chip-negative',
+  },
+} as const
+
+export type StatusType = keyof typeof STATUS_CONFIG
+
 export const stepsMetadata = {
   [StepKeys.KAFKA_CONNECTION]: {
     key: StepKeys.KAFKA_CONNECTION,

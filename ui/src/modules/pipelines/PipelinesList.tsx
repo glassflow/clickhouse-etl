@@ -276,6 +276,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
           data={pipelines}
           columns={columns}
           emptyMessage="No pipelines found. Create your first pipeline to get started."
+          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.id}`)}
         />
       </div>
 
@@ -287,6 +288,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
           onEdit={handleEdit}
           onRename={handleRename}
           onDelete={handleDelete}
+          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.id}`)}
         />
       </div>
 

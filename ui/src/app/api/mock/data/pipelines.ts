@@ -1,34 +1,7 @@
-import { NextResponse } from 'next/server'
-
-// Type definition for pipeline
-interface Pipeline {
-  id: string
-  name: string
-  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'pausing' | 'deleting' | 'error'
-  created_at: string
-  updated_at: string
-  config: {
-    kafka: {
-      topics: string[]
-      consumer_group: string
-    }
-    clickhouse: {
-      database: string
-      table: string
-    }
-    operations: string[]
-  }
-  stats: {
-    events_processed: number
-    events_failed: number
-    throughput_per_second: number
-    last_event_processed: string | null
-  }
-  error?: string
-}
+import { Pipeline } from '../types'
 
 // Mock data for pipelines (shared with parent route)
-const mockPipelines: Pipeline[] = [
+export const mockPipelines: Pipeline[] = [
   {
     id: 'pipeline-001',
     name: 'User Events Pipeline',
@@ -203,65 +176,3 @@ const mockPipelines: Pipeline[] = [
     error: 'Kafka connection timeout',
   },
 ]
-
-// Helper function to find pipeline by ID
-const findPipeline = (id: string): Pipeline | undefined => {
-  return mockPipelines.find((p) => p.id === id)
-}
-
-// GET /api/mock/pipelines/{id}
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const pipeline = findPipeline(id)
-
-  if (!pipeline) {
-    return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-  }
-
-  return NextResponse.json({ success: true, pipeline })
-}
-
-// PATCH /api/mock/pipelines/{id}
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
-    const body = await request.json()
-    const pipeline = findPipeline(id)
-
-    if (!pipeline) {
-      return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-    }
-
-    // Update pipeline
-    Object.assign(pipeline, {
-      ...body,
-      updated_at: new Date().toISOString(),
-    })
-
-    return NextResponse.json({
-      success: true,
-      pipeline,
-      message: 'Pipeline updated successfully',
-    })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to update pipeline' }, { status: 500 })
-  }
-}
-
-// DELETE /api/mock/pipelines/{id}
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const pipelineIndex = mockPipelines.findIndex((p) => p.id === id)
-
-  if (pipelineIndex === -1) {
-    return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-  }
-
-  const deletedPipeline = mockPipelines.splice(pipelineIndex, 1)[0]
-
-  return NextResponse.json({
-    success: true,
-    message: 'Pipeline deleted successfully',
-    pipeline: deletedPipeline,
-  })
-}
