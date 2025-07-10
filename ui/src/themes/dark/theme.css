@@ -1,29 +1,38 @@
 [data-theme='dark'] {
   /* Color system */
+  /* Primary */
   --color-background-primary: #ffa24b;
   --color-background-primary-faded: #332010;
   --color-border-primary: #efb07c;
   --color-border-primary-faded: #4b311b;
   --color-foreground-primary: #ffa24b;
+  --color-foreground-primary-faded: #ffa24b;
 
-  --color-background-critical: #d72828;
+  /* Critical */
+  --color-background-critical: #8e1d1d33;
   --color-background-critical-faded: #391b18;
   --color-border-critical: #e68075;
   --color-border-critical-faded: #532a26;
-  --color-foreground-critical: #e68075;
+  --color-foreground-critical: #cb2d2b;
+  --color-foreground-critical-faded: #cb2d2b;
 
+  /* Warning */
   --color-background-warning: #d7ae06;
   --color-background-warning-faded: #2b2410;
   --color-border-warning: #eed58a;
   --color-border-warning-faded: #40371b;
   --color-foreground-warning: #eed58a;
+  --color-foreground-warning-faded: #eed58a;
 
-  --color-background-positive: #118850;
+  /* Positive */
+  --color-background-positive: #0d754433;
   --color-background-positive-faded: #152a1d;
   --color-border-positive: #57b17c;
   --color-border-positive-faded: #223f2d;
-  --color-foreground-positive: #57b17c;
+  --color-foreground-positive: #00d370;
+  --color-foreground-positive-faded: #00d370;
 
+  /* Neutral */
   --color-background-neutral: #393a42;
   --color-background-neutral-faded: #212227;
   --color-border-neutral: #ffffff24;
@@ -31,19 +40,31 @@
   --color-foreground-neutral: #f3f3f5;
   --color-foreground-neutral-faded: #c7c9d1;
 
+  /* Disabled */
   --color-background-disabled: #242527;
   --color-background-disabled-faded: #1b1b1d;
   --color-border-disabled: #262729;
+  --color-border-disabled-faded: #262729;
   --color-foreground-disabled: #494a4e;
+  --color-foreground-disabled-faded: #494a4e;
 
+  /* Info */
+  --color-background-info: #393a42;
+  --color-background-info-faded: #212227;
   --color-border-info: #6c6c6c;
   --color-border-info-faded: #4c4c4c;
-  --color-foreground-info: #ffa24b;
-  --color-foreground-info-faded: #ffa24b;
+  --color-foreground-info: #3b82f6;
+  --color-foreground-info-faded: #3b82f6;
 
-  --color-border-regular: #373737;
+  /* Regular */
   --color-background-regular: #161616;
+  --color-background-regular-faded: #161616;
+  --color-border-regular: #373737;
+  --color-border-regular-faded: #373737;
+  --color-foreground-regular: #ffffff;
+  --color-foreground-regular-faded: #ffffff;
 
+  /* Menu */
   --color-menu-background: #3d3d3d;
   --color-menu-background-faded: #2d2d2d;
   --color-menu-background-overlay: #3d3d3d;

@@ -1,0 +1,171 @@
+// home page
+{
+  "top-header": {
+    "name": "Top Header",
+    "color": "#DFE2EA", (color background neutral - var(--rs-color-background-neutral))
+    "background": "#141515" (no token name)
+  },
+  "menu-item": {
+    "name": "Menu Item",
+    "color": "#DFE2EA" (color background neutral - var(--rs-color-background-neutral))
+  },
+  "menu-item-active": {
+    "name": "Menu Item Active",
+    "color": "#FFAC5E"
+  },
+  "menu-item-active-background": {
+    "name": "Menu Item Active Background",
+    "color": "#161616"
+  },
+  "menu-item-active-background-faded": {
+    "name": "Menu Item Active Background Faded",
+    "color": "#16161680"
+  },
+  "top-title-gradient": {
+    "name": "Top Title Gradient",
+    "value": {
+      "gradient": "linear-gradient(90deg, #E0E0E3 0%, #FFFFFF 100%)"
+    }
+  },
+  "center-title-gradient": {
+    "name": "Center Title Gradient",
+    "value": {
+      "gradient": "linear-gradient(90deg, #FFAC5E 0%, #A5B9E4 100%)"
+    }
+  },
+  "center-subtitle": {
+    "name": "Center Subtitle",
+    "color": "#F1F2F6"
+  },
+  "page-background": {
+    "name": "Page Background",
+    "color": "#0E0E10"
+  },
+  "page-background-faded": {
+    "name": "Page Background Faded",
+    "color": "#F1F2F6"
+  },
+  "button-large": {
+    "name": "Button Large Background",
+    "background": {
+      "gradient": "linear-gradient(90deg, #1E1E1F 0%, #151517 100%)"
+    },
+    "border": {
+      "gradient": "linear-gradient(90deg, #2D2D2D 0%, #69553D 100%)"
+    }
+  },
+
+  // card that represent the pipeline step
+  "card-background": {
+    "name": "Form Background",
+    "color": "#16161680",
+    "opacity": 0.5
+  },
+  "card-title": {
+    "name": "Form Title",
+    "color": "#F1F2F6"
+  },
+  "card-subtitle": {
+    "name": "Form Subtitle",
+    "color": "#F1F2F6"
+  },
+  "card-border": {
+    "name": "Card Border",
+    "gradient": "linear-gradient(90deg, #373737 0%, #6C6C6C 100%)"
+  },
+
+  // form withing the step card
+  "form-title": {
+    "name": "Form Title",
+    "color": "#F1F2F6"
+  },
+  "form-subtitle": {
+    // not used
+    "name": "Form Subtitle",
+    "color": "#F1F2F6"
+  },
+  "form-input-label": {
+    "name": "Form Input Label",
+    "color": "#A8ADB8"
+  },
+  "form-input-sublabel-neutral": {
+    "name": "Form Input Sublabel Neutral",
+    "color": "#A8ADB8"
+  },
+  "form-input-sublabel-error": {
+    "name": "Form Input Sublabel Error",
+    "color": "#FF0000"
+  },
+  "form-input-background": {
+    "name": "Form Input Background",
+    "color": "#161617"
+  },
+  "form-input-placeholder": {
+    "name": "Form Input Placeholder",
+    "color": "#5B667E"
+  },
+  "form-input-text": {
+    "name": "Form Input Text",
+    "color": "#F1F2F6"
+  },
+  "form-input-border": {
+    "name": "Form Input Border",
+    "color": "#373737"
+  },
+  "form-input-error": {
+    "name": "Form Input Error",
+    "color": "#FF0000"
+  },
+  "form-input-alternate": {
+    "name": "Form Input Alternate",
+    "background": "#16181E",
+    "color": "#FFFFFF",
+    "secondary-color": "#A8ADB8" // this is text-gray token
+  },
+
+  "button-primary": {
+    "name": "Button Primary",
+    "background": {
+      "gradient": "linear-gradient(90deg, #FFA959 0%, #E7872E 100%)"
+    },
+    "color": "#000000"
+  },
+  "button-neutral": {
+    "name": "Button Neutral",
+    "background": {
+      "gradient": "linear-gradient(90deg, #24242E 0%, #22222D 100%)"
+    },
+    "color": "#F1F2F6"
+  },
+
+  "status-active": {
+    "name": "Status Active",
+    "color": "#00D370",
+    "background": "#0D754433",
+    "opacity": 0.2
+  },
+  "status-paused": {
+    "name": "Status Paused",
+    "color": "#F1F2F6",
+    "background": "#86868633",
+    "opacity": 0.2
+  },
+  "status-pausing": {
+    "name": "Status Pausing",
+    "color": "#A8A8A8",
+    "background": "#50505033",
+    "opacity": 0.2
+  },
+  "status-deleting": {
+    "name": "Status Deleting",
+    "color": "#CB2D2B",
+    "background": "#8E1D1D33",
+    "opacity": 0.2
+  },
+  "status-deleted": {
+    "name": "Status Deleted",
+    "color": "#A8A8A8",
+    "background": "#50505033",
+    "opacity": 0.2
+  }
+}

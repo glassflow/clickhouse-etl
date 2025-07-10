@@ -93,8 +93,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 // PATCH /api/mock/schemas/{id}
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const body = await request.json()
     const { id } = await params
+    const body = await request.json()
     const schema = findSchema(id)
 
     if (!schema) {

@@ -4,10 +4,12 @@ export const isMockMode = () => {
 }
 
 export const getApiUrl = (endpoint: string) => {
+  const baseUrl = typeof window === 'undefined' ? 'http://localhost:8080' : ''
+
   if (isMockMode()) {
-    return `/api/mock/${endpoint}`
+    return `${baseUrl}/api/mock/${endpoint}`
   }
-  return `/api/${endpoint}`
+  return `${baseUrl}/api/${endpoint}`
 }
 
 // Mock data generators for more realistic responses

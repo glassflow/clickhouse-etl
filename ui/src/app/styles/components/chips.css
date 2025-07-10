@@ -1,6 +1,15 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 .chip-positive {
   background-color: var(--color-background-positive);
-  color: var(--color-on-background-positive);
+  color: var(--color-foreground-positive);
   display: inline-flex;
   align-items: center;
   padding: 0.5rem 1rem;
@@ -10,6 +19,16 @@
 }
 
 .chip-negative {
-  background-color: var(--color-background-negative);
-  color: var(--color-on-background-negative);
+  background-color: var(--color-background-critical);
+  color: var(--color-foreground-critical);
+}
+
+.chip-neutral {
+  background-color: var(--color-background-neutral);
+  color: var(--color-foreground-neutral);
+}
+
+.chip-neutral-faded {
+  background-color: var(--color-background-neutral-faded);
+  color: var(--color-foreground-neutral-faded);
 }
