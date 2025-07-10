@@ -2,8 +2,6 @@ package steps
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -273,26 +271,28 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 	return nil
 }
 
-func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineRequest, error) {
-	var pr models.PipelineRequest
-	err := json.Unmarshal([]byte(cfg), &pr)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
-	}
+func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfig, error) {
+	// var pr models.PipelineRequest
+	// var pr api.pipelineJSON
+	// err := json.Unmarshal([]byte(cfg), &pr)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
+	// }
 
-	pr.Source.ConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
+	// pr.Source.ConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
 
-	pr.Sink.Host = "localhost"
-	pr.Sink.Port, err = p.chContainer.GetPort()
-	if err != nil {
-		return nil, fmt.Errorf("get clickhouse port: %w", err)
-	}
-	pr.Sink.Username = "default"
-	pr.Sink.Password = base64.StdEncoding.EncodeToString([]byte("default"))
-	pr.Sink.Database = p.chDB
-	pr.Sink.Table = p.chTable
+	// pr.Sink.Host = "localhost"
+	// pr.Sink.Port, err = p.chContainer.GetPort()
+	// if err != nil {
+	// 	return nil, fmt.Errorf("get clickhouse port: %w", err)
+	// }
+	// pr.Sink.Username = "default"
+	// pr.Sink.Password = base64.StdEncoding.EncodeToString([]byte("default"))
+	// pr.Sink.Database = p.chDB
+	// pr.Sink.Table = p.chTable
 
-	return &pr, nil
+	// return &pr, nil
+	panic("not yet implemented")
 }
 
 func (p *PipelineSteps) setupPipelineManager() error {

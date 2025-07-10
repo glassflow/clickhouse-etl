@@ -2,7 +2,6 @@ package steps
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -129,6 +128,11 @@ func (s *IngestorTestSuite) iPublishEventsToKafka(topicName string, table *godog
 
 	events := make([]testutils.KafkaEvent, 0, len(table.Rows)-1)
 
+	headers := make([]string, len(table.Rows[0].Cells))
+	for i, cell := range table.Rows[0].Cells {
+		headers[i] = cell.Value
+	}
+
 	// Skip the header row
 	for i := 1; i < len(table.Rows); i++ {
 		row := table.Rows[i]
@@ -136,13 +140,23 @@ func (s *IngestorTestSuite) iPublishEventsToKafka(topicName string, table *godog
 			return fmt.Errorf("invalid event row format, expected at least key and value columns")
 		}
 
-		key := row.Cells[0].Value
-		jsonData := row.Cells[1].Value
+		event := testutils.KafkaEvent{}
 
-		events = append(events, testutils.KafkaEvent{
-			Key:   key,
-			Value: []byte(jsonData),
-		})
+		for i, cell := range row.Cells {
+			if i < len(headers) {
+				if headers[i] == "partition" {
+					event.Partition = cell.Value
+				} else if headers[i] == "key" {
+					event.Key = cell.Value
+				} else if headers[i] == "value" {
+					event.Value = []byte(cell.Value)
+				} else {
+					return fmt.Errorf("unknown field %s", headers[i])
+				}
+			}
+		}
+
+		events = append(events, event)
 	}
 
 	err := s.createKafkaWriter()
@@ -250,32 +264,22 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 		headers[i] = cell.Value
 	}
 
-	expectedEventsMap := make(map[[sha256.Size]byte]string)
-
+	expectedEvents := make(map[string]map[string]any)
 	for i := 1; i < len(dataTable.Rows); i++ {
 		row := dataTable.Rows[i]
 		event := make(map[string]any)
-
-		rowStr := make([]string, 0, len(row.Cells))
+		sign := make([]string, 0, len(row.Cells))
 
 		for j, cell := range row.Cells {
 			if j < len(headers) {
 				event[headers[j]] = cell.Value
-				rowStr = append(rowStr, cell.Value)
+				sign = append(sign, fmt.Sprint(cell.Value))
 			}
 		}
 
-		eventBytes, err := json.Marshal(event)
-		if err != nil {
-			return fmt.Errorf("marshal event %s: %w", event, err)
-		}
-
-		// Calculate SHA-256 hash of the event
-		hash := sha256.Sum256(eventBytes)
-		expectedEventsMap[hash] = strings.Join(rowStr, " | ")
+		expectedEvents[strings.Join(sign, "")] = event
 	}
 
-	// Fetch messages with a timeout
 	msgs, err := consumer.Fetch(2*expectedCount, jetstream.FetchMaxWait(fetchTimeout))
 	if err != nil {
 		return fmt.Errorf("fetch messages: %w", err)
@@ -288,33 +292,39 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 			break
 		}
 
-		var event map[string]any
-		if err := json.Unmarshal(msg.Data(), &event); err != nil {
-			return fmt.Errorf("unmarshal message data: %w", err)
+		if receivedCount >= len(expectedEvents) {
+			return fmt.Errorf("too much events: actual %d, expected %d", receivedCount, len(expectedEvents))
 		}
 
-		// Calculate SHA-256 hash of the event
-		hash := sha256.Sum256(msg.Data())
+		var actual map[string]any
 
-		if _, exists := expectedEventsMap[hash]; !exists {
-			return fmt.Errorf("unexpected event: %v", event)
+		err := json.Unmarshal(msg.Data(), &actual)
+		if err != nil {
+			return fmt.Errorf("failed unmarshal message data: %w", err)
 		}
 
-		delete(expectedEventsMap, hash)
+		sign := make([]string, 0)
+
+		for _, header := range headers {
+			sign = append(sign, fmt.Sprint(actual[header]))
+		}
+
+		expected, exists := expectedEvents[strings.Join(sign, "")]
+		if !exists {
+			return fmt.Errorf("not expect4ed event %v", actual)
+		}
+
+		if len(expected) != len(actual) {
+			return fmt.Errorf("Events have differenet numer of keys: %v and actual: %v", expected, actual)
+		}
+
+		for k, v := range expected {
+			if v != actual[k] {
+				return fmt.Errorf("Events are different: %v and actual: %v", expected, actual)
+			}
+		}
 
 		receivedCount++
-
-		if err := msg.Ack(); err != nil {
-			return fmt.Errorf("ack message: %w", err)
-		}
-	}
-
-	if receivedCount < expectedCount {
-		events := "\n"
-		for k := range expectedEventsMap {
-			events += expectedEventsMap[k] + "\n"
-		}
-		return fmt.Errorf("expected %d events, but received only %d, missed events: %s", expectedCount, receivedCount, events)
 	}
 
 	return nil
