@@ -273,10 +273,10 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 			fields = append(fields, field)
 		}
 
-		// //nolint: exhaustruct // join info will be filled later
-		// streamsCfg[t.Topic] = models.StreamSchemaConfig{
-		// 	Fields: fields,
-		// }
+		//nolint: exhaustruct // join info will be filled later
+		streamsCfg[t.Topic] = models.StreamSchemaConfig{
+			Fields: fields,
+		}
 
 		for _, js := range p.Join.Sources {
 			if js.SourceID == t.Topic {
