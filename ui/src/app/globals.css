@@ -20,10 +20,6 @@
     /* Border radius */
     --radius: var(--radius-medium);
 
-    /* Colors */
-    --background: var(--color-background-page);
-    --foreground: var(--color-foreground-neutral);
-
     /* Animation */
     --transition-fast: var(--duration-fast);
     --transition-medium: var(--duration-medium);
@@ -33,6 +29,10 @@
     /* Shadows */
     --shadow-sm: var(--shadow-raised);
     --shadow-md: var(--shadow-overlay);
+
+    /* shadcn/ui color mappings */
+    --background: var(--color-background-page);
+    --foreground: var(--color-foreground-neutral);
 
     --card: var(--color-background-elevation-raised);
     --card-foreground: var(--color-foreground-neutral);
@@ -59,20 +59,7 @@
     --input: var(--color-border-neutral);
     --ring: var(--color-background-primary);
 
-    --chart-1: var(--color-background-primary);
-    --chart-2: var(--color-background-primary);
-    --chart-3: var(--color-background-primary);
-    --chart-4: var(--color-background-primary);
-    --chart-5: var(--color-background-primary);
-    --sidebar: var(--color-background-neutral);
-    --sidebar-foreground: var(--color-foreground-neutral);
-    --sidebar-primary: var(--color-background-primary);
-    --sidebar-primary-foreground: var(--color-on-background-primary);
-    --sidebar-accent: var(--color-background-neutral-faded);
-    --sidebar-accent-foreground: var(--color-foreground-neutral);
-    --sidebar-border: var(--color-border-neutral);
-    --sidebar-ring: var(--color-background-primary);
-
+    /* Layout */
     --main-container-width: 1240px;
     --hero-container-width: 648px;
   }
@@ -80,11 +67,6 @@
 
 /* Custom utility classes */
 @layer utilities {
-  /* ================== Background ================== */
-  .background {
-    background-color: var(--color-background-page);
-  }
-
   /* Border utilities */
   .border-primary {
     border-color: var(--color-border-primary);
@@ -102,6 +84,7 @@
     border-radius: var(--radius-large);
   }
 
+  /* Interactive states */
   .hover-elevate:hover {
     box-shadow: var(--shadow-overlay);
   }
@@ -114,19 +97,17 @@
   }
 }
 
-/* Mobile: Full width with padding */
+/* Container responsive system */
 .container {
   padding: 0 1rem;
 }
 
-/* Tablet: Some constraints */
 @media (min-width: 768px) {
   .container {
     padding: 0 1.5rem;
   }
 }
 
-/* Desktop: Full constraints */
 @media (min-width: 1024px) {
   .container {
     max-width: var(--main-container-width);
