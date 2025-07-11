@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getRuntimeEnv } from '@/src/utils/common.client'
 
 // Type declaration for runtime environment
 declare global {
@@ -6,25 +7,17 @@ declare global {
     __ENV__?: {
       NEXT_PUBLIC_API_URL?: string
       NEXT_PUBLIC_IN_DOCKER?: string
+      NEXT_PUBLIC_PREVIEW_MODE?: string
     }
   }
 }
 
-// Utility function to get runtime environment variables
-const getRuntimeEnv = () => {
-  if (typeof window !== 'undefined' && window.__ENV__) {
-    return window.__ENV__
-  }
-  return {}
-}
-
-// Get API URL from runtime config
 const runtimeEnv = getRuntimeEnv()
 const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
 
 export interface PipelineResponse {
   pipeline_id: string
-  status: 'running' | 'stopped' | 'error'
+  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'error'
   error?: string
 }
 
@@ -48,7 +41,7 @@ export const createPipeline = async (config: any): Promise<PipelineResponse> => 
     if (data.success) {
       return {
         pipeline_id: data.pipeline_id,
-        status: 'running',
+        status: 'active',
       }
     } else {
       throw {
@@ -106,7 +99,7 @@ export const getPipelineStatus = async (): Promise<PipelineResponse> => {
     if (data.success) {
       return {
         pipeline_id: data.pipeline_id,
-        status: 'running',
+        status: 'active',
       }
     } else {
       throw {

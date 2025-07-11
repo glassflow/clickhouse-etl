@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       pipeline_id: response.data.pipeline_id,
-      status: 'running',
+      status: 'active',
     })
   } catch (error: any) {
     console.error('API Route - Error details:', {
@@ -51,7 +51,7 @@ export async function GET() {
       return NextResponse.json({
         success: true,
         pipeline_id: response.data.id,
-        status: 'running',
+        status: 'active',
       })
     }
 

@@ -16,6 +16,7 @@ import Cookies from 'js-cookie'
 
 interface Store extends KafkaSlice, ClickhouseSlice, StepsSlice, TopicsSlice, JoinSlice {
   pipelineId: string
+  pipelineName: string
   operationsSelected: OperationsSelectedType
   deduplicationConfig: DeduplicationConfigType
   outboundEventPreview: OutboundEventPreviewType
@@ -46,6 +47,8 @@ const useActualStore = create<Store>()(
       ...createJoinSlice(set, get, store),
       pipelineId: '',
       setPipelineId: (id: string) => set({ pipelineId: id }, false, 'setPipelineId'),
+      pipelineName: '',
+      setPipelineName: (name: string) => set({ pipelineName: name }, false, 'setPipelineName'),
       operationsSelected: {
         operation: '', // we can select only one operation - deduplication, joining, deduplication & joining
       },

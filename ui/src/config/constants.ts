@@ -63,6 +63,7 @@ export const JSON_DATA_TYPES = [
   'float32',
   'float64',
   'bytes',
+  'array',
 ]
 
 export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int']
