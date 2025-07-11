@@ -9,7 +9,7 @@
 
   /* Table header */
   .table-header {
-    background-color: var(--color-grey-faded, #f9f9fa);
+    background-color: var(--color-background-elevation-raised-faded);
     border-radius: 12px;
     padding: 1rem;
   }
@@ -44,7 +44,7 @@
 
   .table-row {
     display: grid !important;
-    background-color: var(--color-grey-faded-2, #f9f9fa);
+    background-color: var(--color-background-elevation-raised-faded-2);
     color: var(--color-foreground-neutral);
     grid-template-columns: 2fr 2fr 1fr 0.5fr; /* Fallback for 4 columns */
     gap: 1rem;

@@ -38,7 +38,13 @@ const ConnectionCard = () => {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-[512px]">
         <div
-          className={cn('content-card', 'h-16 sm:h-20 lg:h-24 w-full', 'cursor-pointer', 'relative', 'group')}
+          className={cn(
+            'card card-elevated-subtle',
+            'h-16 sm:h-20 lg:h-24 w-full',
+            'cursor-pointer',
+            'relative',
+            'group',
+          )}
           onClick={() => {}}
         >
           <div className="flex items-center px-4 sm:px-6 w-full h-full">
@@ -50,7 +56,13 @@ const ConnectionCard = () => {
         </div>
 
         <div
-          className={cn('content-card', 'h-16 sm:h-20 lg:h-24 w-full', 'cursor-pointer', 'relative', 'group')}
+          className={cn(
+            'card card-elevated-subtle',
+            'h-16 sm:h-20 lg:h-24 w-full',
+            'cursor-pointer',
+            'relative',
+            'group',
+          )}
           onClick={() => {}}
         >
           <div className="flex items-center px-4 sm:px-6 w-full h-full">
