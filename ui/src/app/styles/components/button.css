@@ -71,6 +71,45 @@
   color: var(--color-on-background-neutral-faded);
 }
 
+/* ================== Action Icon Utilities ================== */
+.action-icon {
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+
+/* Default state - use theme colors */
+.action-icon--default {
+  color: var(--icon-color-default);
+}
+
+/* Active state - use primary color */
+.action-icon--active {
+  color: var(--icon-color-active);
+}
+
+/* Disabled state - use disabled color */
+.action-icon--disabled {
+  color: var(--icon-color-disabled);
+  opacity: 0.5;
+}
+
+/* Action button specific styles */
+.btn-action {
+  transition: all var(--duration-fast) var(--easing-standard);
+}
+
+.btn-action:hover .action-icon {
+  color: var(--icon-color-hover);
+}
+
+.btn-action:active .action-icon {
+  color: var(--icon-color-active);
+}
+
+.btn-action:disabled .action-icon {
+  color: var(--icon-color-disabled);
+  opacity: 0.5;
+}
+
 .btn-tertiary {
   background-color: var(--color-background-neutral-black);
   color: var(--color-on-background-neutral);
@@ -94,4 +133,28 @@
 .btn-home-lg {
   width: 248px;
   height: 100px;
+}
+
+.btn-action {
+  background-color: var(--color-background-neutral-faded);
+  color: linear-gradient(180deg, var(--color-black-100) 0%, var(--color-black-200) 100%);
+  border: none;
+  box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
+  padding: 1.24rem 1.75rem;
+  border-radius: var(--radius-medium);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  text-align: center;
+  text-decoration: none;
+}
+
+.btn-action:hover {
+  background: linear-gradient(180deg, var(--color-gradient-grey-100) 0%, var(--color-gradient-grey-200) 100%);
+  color: var(--color-on-background-primary);
+}
+
+.btn-action:active {
+  background: linear-gradient(180deg, var(--color-gradient-grey-100) 0%, var(--color-gradient-grey-200) 100%);
+  color: var(--color-on-background-primary);
 }
