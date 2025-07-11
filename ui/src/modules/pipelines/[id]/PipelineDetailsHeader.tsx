@@ -3,6 +3,7 @@ import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
 import { StatusBadge } from '@/src/components/common/StatusBadge'
 import { StatusType } from '@/src/config/constants'
+import ActionButton from '@/src/components/shared/ActionButton'
 
 function PipelineDetailsHeader({
   title,
@@ -24,10 +25,9 @@ function PipelineDetailsHeader({
           <div className="flex flex-row flex-end gap-2">
             {actions || (
               <>
-                <Button variant="outline">Edit</Button>
-                <Button variant="outline">Delete</Button>
-                <Button variant="outline">Pause</Button>
-                <Button variant="outline">Restart</Button>
+                <ActionButton action="rename" />
+                <ActionButton action="delete" />
+                <ActionButton action="pause" />
               </>
             )}
           </div>

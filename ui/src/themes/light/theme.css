@@ -69,6 +69,12 @@
   --color-rgb-white: 255, 255, 255;
   --color-rgb-black: 0, 0, 0;
 
+  /* Icon colors for light theme */
+  --icon-color-default: var(--color-gray-600);
+  --icon-color-active: var(--color-orange-300);
+  --icon-color-hover: var(--color-gray-800);
+  --icon-color-disabled: var(--color-gray-400);
+
   /* shadcn/ui variables */
   --background: var(--color-gray-50);
   --foreground: var(--color-gray-800);

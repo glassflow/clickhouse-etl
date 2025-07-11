@@ -115,6 +115,12 @@
   --color-rgb-info: var(--color-blue-500);
   --color-rgb-regular: var(--color-gray-50);
 
+  /* Icon colors for dark theme */
+  --icon-color-default: var(--color-gray-dark-100);
+  --icon-color-active: var(--color-orange-300);
+  --icon-color-hover: var(--color-gray-dark-900);
+  --icon-color-disabled: var(--color-gray-dark-500);
+
   /* shadcn/ui variables */
   --background: var(--color-background-page);
   --foreground: var(--color-foreground-neutral);

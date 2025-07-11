@@ -180,6 +180,9 @@
   --color-gray-dark-900: #161617;
   --color-gray-dark-950: #0e0e10;
 
+  --color-gradient-grey-100: #bebebe;
+  --color-gradient-grey-200: #a1a1a1;
+
   --color-black-100: #242424; /* used for background in table header, list header */
   --color-black-200: #2d2d2d; /* used for border with gradient - end */
   --color-black-300: #1e1e1f; /* used for background with gradient - start */
