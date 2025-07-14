@@ -29,6 +29,7 @@ import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 import { InfoModal, ModalResult } from '@/src/components/common/Modal'
 import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { generatePipelineId } from '@/src/modules/clickhouse/helpers'
 
 const ConnectionCard = () => {
   return (
@@ -82,6 +83,10 @@ function HomePageClient() {
   const {
     operationsSelected,
     setOperationsSelected,
+    pipelineName,
+    setPipelineName,
+    pipelineId,
+    setPipelineId,
     analyticsConsent,
     setAnalyticsConsent,
     consentAnswered,
@@ -169,11 +174,16 @@ function HomePageClient() {
     }
   }
 
-  const completeOperationSelection = (operation: OperationKeys) => {
+  const completeOperationSelection = (operation: OperationKeys, configName: string) => {
     resetPipelineState(operation, true)
     setOperationsSelected({
       operation,
     })
+    setPipelineName(configName)
+    const pipelineId = generatePipelineId(configName)
+    setPipelineId(pipelineId)
+    // FIXME: generate pipeline id based on config name and store it in the store
+    // FIXME: before storing, check does it already exist, the name, and if it does, adjust generation logic
     router.push('/pipelines/create')
   }
 
@@ -184,7 +194,7 @@ function HomePageClient() {
     if (result === ModalResult.YES && configName) {
       try {
         // save pipeline name to local storage
-        completeOperationSelection(pendingOperation as OperationKeys)
+        completeOperationSelection(pendingOperation as OperationKeys, configName)
       } catch (error) {
         console.error('Failed to save configuration:', error)
       }

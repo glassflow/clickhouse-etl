@@ -34,6 +34,7 @@ interface Store extends KafkaSlice, ClickhouseSlice, StepsSlice, TopicsSlice, Jo
   markAsClean: () => void
   resetPipelineState: (operation: string, force?: boolean) => void
   setPipelineId: (id: string) => void
+  setPipelineName: (name: string) => void
 }
 
 // Wrap your store with devtools middleware
