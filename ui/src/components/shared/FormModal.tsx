@@ -11,7 +11,7 @@ import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import { useState, useEffect } from 'react'
-import { ModalResult } from '@/src/components/common/Modal'
+import { ModalResult } from '@/src/components/common/InfoModal'
 
 export function FormModal({
   visible,

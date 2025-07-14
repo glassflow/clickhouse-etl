@@ -23,14 +23,16 @@ export function InfoModal({
   cancelButtonText,
   onComplete,
   pendingOperation,
+  criticalOperation,
 }: {
   visible: boolean
   title: string
-  description: string
+  description: string | React.ReactNode
   okButtonText: string
   cancelButtonText: string
   onComplete: (result: string, pendingOperation: string) => void
   pendingOperation?: string
+  criticalOperation?: boolean
 }) {
   return (
     <Dialog
@@ -49,7 +51,7 @@ export function InfoModal({
           border: '1px solid rgba(255, 255, 255, 0.125)',
         }}
       />
-      <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg">
+      <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">{title}</DialogTitle>
           <DialogDescription className="modal-description">{description}</DialogDescription>
@@ -65,7 +67,7 @@ export function InfoModal({
             {cancelButtonText}
           </Button>
           <Button
-            className="btn-primary"
+            className={criticalOperation ? 'btn-critical' : 'btn-primary'}
             onClick={() => {
               onComplete(ModalResult.YES, pendingOperation || '')
             }}
