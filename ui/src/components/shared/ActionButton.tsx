@@ -1,5 +1,5 @@
 import { Button } from '@/src/components/ui/button'
-import { DeleteIcon, RenameIcon, PauseIcon, RestartIcon, CreateIcon } from '@/src/components/icons'
+import { DeleteIcon, RenameIcon, PauseIcon, RestartIcon, CreateIcon, EditIcon } from '@/src/components/icons'
 import classnames from 'classnames'
 
 const actionIcons = {
@@ -8,6 +8,7 @@ const actionIcons = {
   pause: PauseIcon,
   restart: RestartIcon,
   create: CreateIcon,
+  edit: EditIcon,
 }
 
 const actionLabels = {
@@ -16,6 +17,7 @@ const actionLabels = {
   pause: 'Pause',
   restart: 'Restart',
   create: 'Create',
+  edit: 'Edit',
 }
 
 function ActionButton({
@@ -24,7 +26,7 @@ function ActionButton({
   variant = 'default',
   onClick,
 }: {
-  action: 'rename' | 'delete' | 'pause' | 'restart' | 'create'
+  action: 'rename' | 'delete' | 'pause' | 'restart' | 'create' | 'edit'
   className?: string
   variant?: 'default' | 'active' | 'disabled'
   onClick?: () => void
