@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import logoFullName from '../../images/logo-full-name.svg'
 import ListIcon from '../../images/list.svg'
@@ -33,10 +33,24 @@ const NavButton = ({ href, icon, label }: { href: string; icon: any; label: stri
   )
 }
 
-const MobileNavButton = ({ href, icon, label }: { href: string; icon: any; label: string }) => {
+const MobileNavButton = ({
+  href,
+  icon,
+  label,
+  onClick,
+}: {
+  href: string
+  icon: any
+  label: string
+  onClick?: () => void
+}) => {
   return (
     <li className="text-sm font-medium">
-      <Link href={href} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-800 rounded-md">
+      <Link
+        href={href}
+        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-800 rounded-md"
+        onClick={onClick}
+      >
         <Image src={icon} alt={label} width={20} height={20} />
         {label}
       </Link>
@@ -45,8 +59,39 @@ const MobileNavButton = ({ href, icon, label }: { href: string; icon: any; label
 }
 
 const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: boolean) => void }) => {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscapeKey)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscapeKey)
+    }
+  }, [isOpen, setIsOpen])
+
+  const handleMenuItemClick = () => {
+    setIsOpen(false)
+  }
+
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       <Button variant="ghost" className="p-2 lg:px-3 lg:py-2" onClick={() => setIsOpen(!isOpen)}>
         {/* Mobile: Show icon only */}
         <div className="lg:hidden">
@@ -61,7 +106,7 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
       </Button>
 
       <div
-        className={`absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 background ${
+        className={`absolute right-0 mt-2 w-48 bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md shadow-lg py-1 background z-50 ${
           isOpen ? 'block' : 'hidden'
         }`}
       >
@@ -70,6 +115,7 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
           target="_blank"
           rel="noopener noreferrer"
           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={handleMenuItemClick}
         >
           View Docs
         </a>
@@ -78,12 +124,14 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
           target="_blank"
           rel="noopener noreferrer"
           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={handleMenuItemClick}
         >
           Contact Us
         </a>
         <a
           href="https://github.com/glassflow/clickhouse-etl/issues"
           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={handleMenuItemClick}
         >
           Report an Issue
         </a>
@@ -109,6 +157,30 @@ export function Header() {
     cancelButtonText: 'No',
     type: 'info' as 'info' | 'warning' | 'error',
   })
+
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+
+  // Click outside and Escape for mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false)
+      }
+    }
+    if (isMobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleEscapeKey)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscapeKey)
+    }
+  }, [isMobileMenuOpen])
 
   const handleLogoClick = () => {
     if (pathname !== '/home') {
@@ -166,8 +238,8 @@ export function Header() {
           {/* Desktop: Navigation (Center) */}
           <nav className="hidden lg:flex flex-row items-center gap-4 h-full flex-1 justify-center">
             <ul className="flex flex-row items-center gap-8 h-full">
-              <NavButton href="/home" icon={ListIcon} label="Create" />
-              <NavButton href="/pipelines" icon={PlugIcon} label="Pipelines" />
+              <NavButton href="/home" icon={PlugIcon} label="Create" />
+              <NavButton href="/pipelines" icon={ListIcon} label="Pipelines" />
               <NavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" />
             </ul>
           </nav>
@@ -180,15 +252,26 @@ export function Header() {
 
         {/* Mobile Navigation Menu */}
         <div
+          ref={mobileMenuRef}
           className={`lg:hidden transition-all duration-300 ease-in-out ${
             isMobileMenuOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
           }`}
         >
-          <nav className="py-4 border-t border-gray-700 background z-10">
+          <nav className="py-4 bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md z-10">
             <ul className="flex flex-col gap-4">
-              <MobileNavButton href="/home" icon={ListIcon} label="Create" />
-              <MobileNavButton href="/pipelines" icon={PlugIcon} label="Pipelines" />
-              <MobileNavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" />
+              <MobileNavButton href="/home" icon={PlugIcon} label="Create" onClick={() => setIsMobileMenuOpen(false)} />
+              <MobileNavButton
+                href="/pipelines"
+                icon={ListIcon}
+                label="Pipelines"
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
+              <MobileNavButton
+                href="/connections"
+                icon={Plug2Icon}
+                label="Source/Sink Connections"
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
             </ul>
           </nav>
         </div>

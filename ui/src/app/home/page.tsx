@@ -281,9 +281,9 @@ function HomePageClient() {
 
       <ConnectionCard />
 
-      <div className="w-full mt-12 sm:mt-16">
+      {/* <div className="w-full mt-12 sm:mt-16">
         <SavedConfigurations />
-      </div>
+      </div> */}
 
       <CreatePipelineModal visible={isCreatePipelineModalVisible} onComplete={handleCreatePipelineModalComplete} />
     </div>
