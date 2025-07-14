@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-import { FormModal } from '@/src/components/shared/FormModal'
+import { FormModal } from '@/src/components/common/FormModal'
 
 type CreatePipelineModalProps = {
   visible: boolean
