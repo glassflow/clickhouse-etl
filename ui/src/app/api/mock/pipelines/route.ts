@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { Pipeline } from '../types'
-import { mockPipelines as mockPipelinesData } from '../data/pipelines'
+import { Pipeline, mockPipelines as mockPipelinesData } from '../data/pipelines'
 
 // GET /api/mock/pipelines
 export async function GET() {
@@ -16,22 +15,41 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
+    // You may want to validate body.source, body.join, body.sink, etc.
     const newPipeline: Pipeline = {
       id: `pipeline-${Date.now()}`,
       name: body.name || 'New Pipeline',
       status: 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      config: body.config || {
-        kafka: {
-          topics: [],
-          consumer_group: '',
+      transformationName: body.transformationName || '',
+      source: body.source || {
+        type: 'kafka',
+        provider: '',
+        connection_params: {
+          brokers: [],
+          protocol: '',
+          mechanism: '',
+          username: '',
+          password: '',
+          root_ca: '',
         },
-        clickhouse: {
-          database: '',
-          table: '',
-        },
-        operations: [],
+        topics: [],
+      },
+      join: body.join || { enabled: false },
+      sink: body.sink || {
+        type: 'clickhouse',
+        provider: '',
+        host: '',
+        port: '',
+        database: '',
+        username: '',
+        password: '',
+        secure: false,
+        max_batch_size: 0,
+        max_delay_time: '',
+        table: '',
+        table_mapping: [],
       },
       stats: {
         events_processed: 0,

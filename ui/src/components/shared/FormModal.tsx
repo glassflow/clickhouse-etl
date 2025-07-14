@@ -92,7 +92,7 @@ export function FormModal({
           border: '1px solid rgba(255, 255, 255, 0.125)',
         }}
       />
-      <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg">
+      <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-4">{title}</DialogTitle>
           <DialogDescription className="modal-description mb-4">{description}</DialogDescription>
@@ -104,7 +104,7 @@ export function FormModal({
             value={inputValue}
             onChange={handleInputChange}
             placeholder={inputPlaceholder}
-            className={error ? 'border-red-500' : ''}
+            className={error ? 'border-red-500' : 'input-regular input-border-regular'}
           />
           {error && <p className="text-sm text-red-500">{error}</p>}
           <label className="text-sm font-medium text-muted-foreground">{secondaryLabel}</label>

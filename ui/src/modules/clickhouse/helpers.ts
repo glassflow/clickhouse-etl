@@ -529,3 +529,32 @@ export const getMappingType = (eventField: string, mapping: any) => {
   // NOTE: default to string if no mapping entry is found - check this
   return 'string'
 }
+
+export const generatePipelineId = (pipelineName: string, existingIds: string[] = []): string => {
+  // Convert pipeline name to lowercase and replace spaces/special chars with dashes
+  const baseId = pipelineName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with dashes
+    .replace(/-+/g, '-') // Replace multiple dashes with single dash
+
+  if (!existingIds.includes(baseId)) {
+    return baseId
+  }
+
+  // Find existing numbered versions
+  const basePattern = new RegExp(`^${baseId}(-\\d+)?$`)
+  const numberedVersions = existingIds
+    .filter((id) => basePattern.test(id))
+    .map((id) => {
+      const match = id.match(/-(\d+)$/)
+      return match ? parseInt(match[1]) : 0
+    })
+
+  // Get the highest number used
+  const maxNumber = Math.max(0, ...numberedVersions)
+
+  // Return next available number
+  return `${baseId}-${maxNumber + 1}`
+}

@@ -1,6 +1,79 @@
-import { Pipeline } from '../types'
+// clickhouse-etl/ui/src/app/api/mock/data/pipelines.ts
 
-// Mock data for pipelines (shared with parent route)
+export interface Pipeline {
+  id: string
+  name: string
+  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'pausing' | 'deleting' | 'error'
+  created_at: string
+  updated_at: string
+  transformationName?: string
+  source: {
+    type: string
+    provider: string
+    connection_params: {
+      brokers: string[]
+      protocol: string
+      mechanism: string
+      username: string
+      password: string
+      root_ca: string
+    }
+    topics: Array<{
+      consumer_group_initial_offset: string
+      name: string
+      schema: {
+        type: string
+        fields: Array<{
+          name: string
+          type: string
+        }>
+      }
+      deduplication: {
+        enabled: boolean
+        id_field: string
+        id_field_type: string
+        time_window: string
+      }
+    }>
+  }
+  join: {
+    enabled: boolean
+    type?: string
+    sources?: Array<{
+      source_id: string
+      join_key: string
+      time_window: string
+      orientation: 'left' | 'right'
+    }>
+  }
+  sink: {
+    type: string
+    provider: string
+    host: string
+    port: string
+    database: string
+    username: string
+    password: string
+    secure: boolean
+    max_batch_size: number
+    max_delay_time: string
+    table: string
+    table_mapping: Array<{
+      source_id: string
+      field_name: string
+      column_name: string
+      column_type: string
+    }>
+  }
+  stats: {
+    events_processed: number
+    events_failed: number
+    throughput_per_second: number
+    last_event_processed: string | null
+  }
+  error?: string
+}
+
 export const mockPipelines: Pipeline[] = [
   {
     id: 'pipeline-001',
@@ -8,16 +81,74 @@ export const mockPipelines: Pipeline[] = [
     status: 'active',
     created_at: '2024-01-15T10:30:00Z',
     updated_at: '2024-01-15T14:45:00Z',
-    config: {
-      kafka: {
-        topics: ['user-events', 'user-actions'],
-        consumer_group: 'user-events-consumer',
+    transformationName: 'Deduplicate',
+    source: {
+      type: 'kafka',
+      provider: 'aiven',
+      connection_params: {
+        brokers: ['kafka-broker-0:9092', 'kafka-broker-1:9092'],
+        protocol: 'SASL_SSL',
+        mechanism: 'SCRAM-SHA-256',
+        username: '<user>',
+        password: '<password>',
+        root_ca: '<base64 encoded ca>',
       },
-      clickhouse: {
-        database: 'analytics',
-        table: 'user_events',
-      },
-      operations: ['deduplication', 'transformation'],
+      topics: [
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'Customer-orders-v1',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'sales_order', type: 'string' },
+              { name: 'customer_id', type: 'string' },
+              { name: 'timestamp', type: 'string' },
+            ],
+          },
+          deduplication: {
+            enabled: true,
+            id_field: 'sales_order',
+            id_field_type: 'string',
+            time_window: '12h',
+          },
+        },
+      ],
+    },
+    join: {
+      enabled: false,
+    },
+    sink: {
+      type: 'clickhouse',
+      provider: 'aiven',
+      host: '<host>',
+      port: '12753',
+      database: 'default',
+      username: '<user>',
+      password: '<password>',
+      secure: true,
+      max_batch_size: 1,
+      max_delay_time: '10m',
+      table: 'sales_analytics',
+      table_mapping: [
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'sales_order',
+          column_name: 'sales_order',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'customer_id',
+          column_name: 'customer_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'timestamp',
+          column_name: 'order_at',
+          column_type: 'DateTime',
+        },
+      ],
     },
     stats: {
       events_processed: 15420,
@@ -28,20 +159,123 @@ export const mockPipelines: Pipeline[] = [
   },
   {
     id: 'pipeline-002',
-    name: 'System Logs Pipeline',
-    status: 'pausing',
+    name: 'Sales Analytics',
+    status: 'paused',
     created_at: '2024-01-12T16:45:00Z',
     updated_at: '2024-01-15T13:10:00Z',
-    config: {
-      kafka: {
-        topics: ['system-logs', 'error-logs'],
-        consumer_group: 'logs-consumer',
+    transformationName: 'Deduplicate & Join',
+    source: {
+      type: 'kafka',
+      provider: 'aiven',
+      connection_params: {
+        brokers: ['kafka-broker-0:9092', 'kafka-broker-1:9092'],
+        protocol: 'SASL_SSL',
+        mechanism: 'SCRAM-SHA-256',
+        username: '<user>',
+        password: '<password>',
+        root_ca: '<base64 encoded ca>',
       },
-      clickhouse: {
-        database: 'monitoring',
-        table: 'system_logs',
-      },
-      operations: ['deduplication'],
+      topics: [
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'Customer-orders-v1',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'session_id', type: 'string' },
+              { name: 'user_id', type: 'string' },
+              { name: 'timestamp', type: 'string' },
+            ],
+          },
+          deduplication: {
+            enabled: true,
+            id_field: 'sale_order',
+            id_field_type: 'string',
+            time_window: '12h',
+          },
+        },
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'Customer-orders-v2',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'user_id', type: 'string' },
+              { name: 'order_id', type: 'string' },
+              { name: 'timestamp', type: 'string' },
+            ],
+          },
+          deduplication: {
+            enabled: true,
+            id_field: 'orders',
+            id_field_type: 'string',
+            time_window: '12h',
+          },
+        },
+      ],
+    },
+    join: {
+      enabled: true,
+      type: 'temporal',
+      sources: [
+        {
+          source_id: 'Customer-orders-v1',
+          join_key: 'user_id',
+          time_window: '1h',
+          orientation: 'left',
+        },
+        {
+          source_id: 'Customer-orders-v2',
+          join_key: 'userID',
+          time_window: '1h',
+          orientation: 'right',
+        },
+      ],
+    },
+    sink: {
+      type: 'clickhouse',
+      provider: 'aiven',
+      host: '<host>',
+      port: '12753',
+      database: 'default',
+      username: '<user>',
+      password: '<password>',
+      secure: true,
+      max_batch_size: 1,
+      max_delay_time: '10m',
+      table: 'sales_analytics',
+      table_mapping: [
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'session_id',
+          column_name: 'session_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'user_id',
+          column_name: 'user_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v2',
+          field_name: 'order_id',
+          column_name: 'order_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'timestamp',
+          column_name: 'login_at',
+          column_type: 'DateTime',
+        },
+        {
+          source_id: 'Customer-orders-v2',
+          field_name: 'timestamp',
+          column_name: 'order_placed_at',
+          column_type: 'DateTime',
+        },
+      ],
     },
     stats: {
       events_processed: 4560,
@@ -54,19 +288,77 @@ export const mockPipelines: Pipeline[] = [
   {
     id: 'pipeline-003',
     name: 'Order Processing Pipeline',
-    status: 'paused',
+    status: 'active',
     created_at: '2024-01-10T09:15:00Z',
     updated_at: '2024-01-15T12:20:00Z',
-    config: {
-      kafka: {
-        topics: ['orders', 'order-updates'],
-        consumer_group: 'order-consumer',
+    transformationName: 'Ingest Only',
+    source: {
+      type: 'kafka',
+      provider: 'aiven',
+      connection_params: {
+        brokers: ['kafka-broker-0:9092'],
+        protocol: 'SASL_SSL',
+        mechanism: 'SCRAM-SHA-256',
+        username: '<user>',
+        password: '<password>',
+        root_ca: '<base64 encoded ca>',
       },
-      clickhouse: {
-        database: 'ecommerce',
-        table: 'orders',
-      },
-      operations: ['deduplication', 'joining'],
+      topics: [
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'order-events',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'order_id', type: 'string' },
+              { name: 'customer_id', type: 'string' },
+              { name: 'amount', type: 'number' },
+            ],
+          },
+          deduplication: {
+            enabled: false,
+            id_field: '',
+            id_field_type: 'string',
+            time_window: '0h',
+          },
+        },
+      ],
+    },
+    join: {
+      enabled: false,
+    },
+    sink: {
+      type: 'clickhouse',
+      provider: 'aiven',
+      host: '<host>',
+      port: '12753',
+      database: 'ecommerce',
+      username: '<user>',
+      password: '<password>',
+      secure: true,
+      max_batch_size: 100,
+      max_delay_time: '5m',
+      table: 'orders',
+      table_mapping: [
+        {
+          source_id: 'order-events',
+          field_name: 'order_id',
+          column_name: 'order_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'order-events',
+          field_name: 'customer_id',
+          column_name: 'customer_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'order-events',
+          field_name: 'amount',
+          column_name: 'order_amount',
+          column_type: 'Decimal(10,2)',
+        },
+      ],
     },
     stats: {
       events_processed: 8920,
@@ -74,105 +366,5 @@ export const mockPipelines: Pipeline[] = [
       throughput_per_second: 85,
       last_event_processed: '2024-01-15T12:19:45Z',
     },
-  },
-  {
-    id: 'pipeline-004',
-    name: 'System Logs Pipeline',
-    status: 'deleting',
-    created_at: '2024-01-12T16:45:00Z',
-    updated_at: '2024-01-15T13:10:00Z',
-    config: {
-      kafka: {
-        topics: ['system-logs', 'error-logs'],
-        consumer_group: 'logs-consumer',
-      },
-      clickhouse: {
-        database: 'monitoring',
-        table: 'system_logs',
-      },
-      operations: ['deduplication'],
-    },
-    stats: {
-      events_processed: 4560,
-      events_failed: 156,
-      throughput_per_second: 0,
-      last_event_processed: '2024-01-15T13:09:20Z',
-    },
-    error: 'Kafka connection timeout',
-  },
-  {
-    id: 'pipeline-005',
-    name: 'System Logs Pipeline',
-    status: 'deleted',
-    created_at: '2024-01-12T16:45:00Z',
-    updated_at: '2024-01-15T13:10:00Z',
-    config: {
-      kafka: {
-        topics: ['system-logs', 'error-logs'],
-        consumer_group: 'logs-consumer',
-      },
-      clickhouse: {
-        database: 'monitoring',
-        table: 'system_logs',
-      },
-      operations: ['deduplication'],
-    },
-    stats: {
-      events_processed: 4560,
-      events_failed: 156,
-      throughput_per_second: 0,
-      last_event_processed: '2024-01-15T13:09:20Z',
-    },
-    error: 'Kafka connection timeout',
-  },
-  {
-    id: 'pipeline-006',
-    name: 'System Logs Pipeline',
-    status: 'error',
-    created_at: '2024-01-12T16:45:00Z',
-    updated_at: '2024-01-15T13:10:00Z',
-    config: {
-      kafka: {
-        topics: ['system-logs', 'error-logs'],
-        consumer_group: 'logs-consumer',
-      },
-      clickhouse: {
-        database: 'monitoring',
-        table: 'system_logs',
-      },
-      operations: ['deduplication'],
-    },
-    stats: {
-      events_processed: 4560,
-      events_failed: 156,
-      throughput_per_second: 0,
-      last_event_processed: '2024-01-15T13:09:20Z',
-    },
-    error: 'Kafka connection timeout',
-  },
-  {
-    id: 'pipeline-007',
-    name: 'System Logs Pipeline',
-    status: 'terminated',
-    created_at: '2024-01-12T16:45:00Z',
-    updated_at: '2024-01-15T13:10:00Z',
-    config: {
-      kafka: {
-        topics: ['system-logs', 'error-logs'],
-        consumer_group: 'logs-consumer',
-      },
-      clickhouse: {
-        database: 'monitoring',
-        table: 'system_logs',
-      },
-      operations: ['deduplication'],
-    },
-    stats: {
-      events_processed: 4560,
-      events_failed: 156,
-      throughput_per_second: 0,
-      last_event_processed: '2024-01-15T13:09:20Z',
-    },
-    error: 'Kafka connection timeout',
   },
 ]
