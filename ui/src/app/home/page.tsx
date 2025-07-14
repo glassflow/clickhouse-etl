@@ -26,7 +26,7 @@ import { AlertTriangleIcon } from 'lucide-react'
 import { getPipelineStatus } from '@/src/api/pipeline'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 
-import { InfoModal, ModalResult } from '@/src/components/common/Modal'
+import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { generatePipelineId } from '@/src/modules/clickhouse/helpers'

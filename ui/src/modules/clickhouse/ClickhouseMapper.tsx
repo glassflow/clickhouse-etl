@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation'
 
 import { Button } from '@/src/components/ui/button'
 import { XCircleIcon } from '@heroicons/react/24/outline'
-import { InfoModal, ModalResult } from '@/src/components/common/Modal'
+import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { FieldColumnMapper } from './components/FieldColumnMapper'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'

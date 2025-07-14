@@ -2,11 +2,8 @@
 
 import React, { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { Loader2 } from 'lucide-react'
-import { cn } from '@/src/utils'
 import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { createPipeline, shutdownPipeline, getPipelineStatus, PipelineError } from '@/src/api/pipeline'
 import { InputModal, ModalResult } from '@/src/components/shared/InputModal'
 import { saveConfiguration } from '@/src/utils/storage'
@@ -21,6 +18,13 @@ import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { CreateIcon } from '@/src/components/icons'
+import { InfoModal } from '@/src/components/common/InfoModal'
+import { Checkbox } from '@/src/components/ui/checkbox'
+import PausePipelineModal from './components/PausePipelineModal'
+import DeletePipelineModal from './components/DeletePipelineModal'
+import RenamePipelineModal from './components/RenamePipelineModal'
+import EditPipelineModal from './components/EditPipelineModal'
+import { usePausePipelineModal, useDeletePipelineModal, useRenamePipelineModal, useEditPipelineModal } from './hooks'
 
 type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'delete_failed' | 'no_configuration'
 
@@ -29,8 +33,11 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   const { apiConfig, resetPipelineState, pipelineId, setPipelineId } = useStore()
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
-  const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false)
+  const { isRenameModalVisible, openRenameModal, closeRenameModal } = useRenamePipelineModal()
+  const { isDeleteModalVisible, openDeleteModal, closeDeleteModal } = useDeletePipelineModal()
+  const { isPauseModalVisible, openPauseModal, closePauseModal } = usePausePipelineModal()
+  const { isEditModalVisible, openEditModal, closeEditModal } = useEditPipelineModal()
+  const [processEvents, setProcessEvents] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
 
   const router = useRouter()
@@ -54,11 +61,11 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   }, [])
 
   const handleDeleteClick = () => {
-    setIsDeleteModalVisible(true)
+    openDeleteModal()
   }
 
   const handleDeleteModalComplete = async (result: string, configName: string, operation: string) => {
-    setIsDeleteModalVisible(false)
+    closeDeleteModal()
 
     // Save configuration if the user chose to do so and provided a name
     if (result === ModalResult.SUBMIT && configName) {
@@ -99,11 +106,11 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   }
 
   const handleModifyAndRestart = () => {
-    setIsModifyModalVisible(true)
+    openRenameModal()
   }
 
   const handleModifyModalComplete = async (result: string, configName: string, operation: string) => {
-    setIsModifyModalVisible(false)
+    closeRenameModal()
 
     // Save configuration if the user chose to do so and provided a name
     if (result === ModalResult.SUBMIT && configName) {
@@ -241,22 +248,22 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   // Context menu handlers
   const handlePause = (pipeline: Pipeline) => {
     console.log('Pause pipeline:', pipeline.id)
-    // Add your pause logic here
+    openPauseModal()
   }
 
   const handleEdit = (pipeline: Pipeline) => {
     console.log('Edit pipeline:', pipeline.id)
-    handleModifyAndRestart()
+    openEditModal()
   }
 
   const handleRename = (pipeline: Pipeline) => {
     console.log('Rename pipeline:', pipeline.id)
-    // Add your rename logic here
+    openRenameModal()
   }
 
   const handleDelete = (pipeline: Pipeline) => {
     console.log('Delete pipeline:', pipeline.id)
-    handleDeleteClick()
+    openDeleteModal()
   }
 
   const handleCreate = () => {
@@ -296,49 +303,45 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
         />
       </div>
 
-      <InputModal
-        visible={isModifyModalVisible}
-        title="Modify Pipeline Configuration"
-        description="Warning: Modifying the pipeline will stop the current pipeline and you may miss events during the transition. Do you want to save the current configuration before proceeding?"
-        inputLabel="Configuration Name"
-        inputPlaceholder="e.g., Production Pipeline v1"
-        submitButtonText="Continue"
-        cancelButtonText="Cancel"
-        onComplete={handleModifyModalComplete}
-        pendingOperation="modify_pipeline"
-        initialValue=""
-        showSaveOption={true}
-        validation={(value) => {
-          if (!value.trim()) {
-            return 'Configuration name is required'
-          }
-          if (value.length < 3) {
-            return 'Configuration name must be at least 3 characters long'
-          }
-          return null
+      <PausePipelineModal
+        visible={isPauseModalVisible}
+        onOk={() => {
+          closePauseModal()
+        }}
+        onCancel={() => {
+          closePauseModal()
         }}
       />
-
-      <InputModal
+      <RenamePipelineModal
+        visible={isRenameModalVisible}
+        onOk={() => {
+          closeRenameModal()
+        }}
+        onCancel={() => {
+          closeRenameModal()
+        }}
+      />
+      <EditPipelineModal
+        visible={isEditModalVisible}
+        onOk={() => {
+          closeEditModal()
+        }}
+        onCancel={() => {
+          closeEditModal()
+        }}
+      />
+      <DeletePipelineModal
         visible={isDeleteModalVisible}
-        title="Delete Pipeline"
-        description="Do you want to save the current pipeline configuration before deleting it?"
-        inputLabel="Configuration Name"
-        inputPlaceholder="e.g., Production Pipeline v1"
-        submitButtonText="Delete Pipeline"
-        cancelButtonText="Cancel"
-        onComplete={handleDeleteModalComplete}
-        pendingOperation="delete_pipeline"
-        initialValue=""
-        showSaveOption={true}
-        validation={(value) => {
-          if (!value.trim()) {
-            return 'Configuration name is required'
-          }
-          if (value.length < 3) {
-            return 'Configuration name must be at least 3 characters long'
-          }
-          return null
+        onOk={(processEvents) => {
+          closeDeleteModal()
+          console.log(processEvents)
+        }}
+        onCancel={() => {
+          closeDeleteModal()
+        }}
+        callback={(result) => {
+          console.log(result)
+          setProcessEvents(result)
         }}
       />
     </div>
