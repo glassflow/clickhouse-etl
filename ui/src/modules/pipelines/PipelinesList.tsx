@@ -20,6 +20,7 @@ import { PipelinesTable, TableColumn } from '@/src/modules/pipelines/PipelinesTa
 import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
+import { CreateIcon } from '@/src/components/icons'
 
 type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'delete_failed' | 'no_configuration'
 
@@ -196,7 +197,8 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
       key: 'operations',
       header: 'Transformation',
       width: '2fr',
-      render: (pipeline) => pipeline.config?.operations?.join(', ') || 'None',
+      // @ts-expect-error TODO: fix this
+      render: (pipeline) => pipeline?.transformationName || 'None',
     },
     {
       key: 'status',
@@ -257,16 +259,18 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
     handleDeleteClick()
   }
 
+  const handleCreate = () => {
+    router.push('/home')
+  }
+
   return (
     <div className="flex flex-col w-full gap-6">
       {/* Header with title and button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
         <h1 className="text-xl sm:text-2xl font-semibold">Pipelines</h1>
-        <Button
-          onClick={() => router.push('/home')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
-        >
-          Create Pipeline
+        <Button variant="default" className="btn-primary btn-text" onClick={handleCreate}>
+          <CreateIcon className="action-icon" size={16} />
+          New Pipeline
         </Button>
       </div>
 
