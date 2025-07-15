@@ -1,6 +1,6 @@
 import { Button } from '@/src/components/ui/button'
 import { DeleteIcon, RenameIcon, PauseIcon, RestartIcon, CreateIcon, EditIcon } from '@/src/components/icons'
-import classnames from 'classnames'
+import { cn } from '@/src/utils'
 
 const actionIcons = {
   rename: RenameIcon,
@@ -34,8 +34,8 @@ function ActionButton({
   const IconComponent = actionIcons[action]
 
   return (
-    <Button variant="outline" className={classnames('btn-action', className)} onClick={onClick}>
-      <IconComponent className={classnames('action-icon', `action-icon--${variant}`)} size={16} />
+    <Button variant="outline" className={cn('btn-action', className)} onClick={onClick}>
+      <IconComponent className={cn('action-icon', `action-icon--${variant}`)} size={16} />
       {actionLabels[action]}
     </Button>
   )

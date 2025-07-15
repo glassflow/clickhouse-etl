@@ -1,7 +1,7 @@
 import React from 'react'
 import { Badge } from '../ui/badge'
 import { STATUS_CONFIG, StatusType } from '../../config/constants'
-import classnames from 'classnames'
+import { cn } from '@/src/utils'
 
 interface StatusBadgeProps {
   status: StatusType
@@ -36,7 +36,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
       break
   }
 
-  return <Badge className={classnames(statusClass, className, 'chip')}>{statusConfig.label}</Badge>
+  return <Badge className={cn(statusClass, className, 'chip')}>{statusConfig.label}</Badge>
 }
 
 export default StatusBadge

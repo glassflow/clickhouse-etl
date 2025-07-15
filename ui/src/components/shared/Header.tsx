@@ -14,7 +14,6 @@ import { useStore } from '@/src/store'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import HelpIcon from '../../images/help-questionmark.svg'
 import { Button } from '@/src/components/ui/button'
-import classnames from 'classnames'
 import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 
