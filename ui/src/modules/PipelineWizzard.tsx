@@ -13,7 +13,6 @@ import {
   KafkaTopicSelectorSwitch2,
   TopicDeduplicationSwitch1,
   TopicDeduplicationSwitch2,
-  ClickhouseMapperSwitch,
 } from '@/src/modules'
 import { ReviewConfiguration } from '@/src/modules/review/ReviewConfiguration'
 import { StepKeys } from '@/src/config/constants'
@@ -69,7 +68,7 @@ const componentsMap = {
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: TopicDeduplicationSwitch2,
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfiguratorWrapper,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionSetup,
-  [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapperSwitch,
+  [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
   [StepKeys.REVIEW_CONFIGURATION]: ReviewConfiguration,
 }
 
