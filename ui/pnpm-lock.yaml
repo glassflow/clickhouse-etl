@@ -92,6 +92,9 @@ importers:
       classnames:
         specifier: ^2.5.1
         version: 2.5.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       cmdk:
         specifier: 1.0.0
         version: 1.0.0(@types/react-dom@19.1.6(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -164,7 +167,13 @@ importers:
 >>>>>>> fc4c696 (chore: recreate lock file)
 =======
         version: 2.4.0-canary.14(@types/node@20.19.6)(typescript@5.8.3)
+<<<<<<< HEAD
 >>>>>>> 874a9d0 (chore: recrete lock file)
+=======
+      tailwind-merge:
+        specifier: ^3.3.1
+        version: 3.3.1
+>>>>>>> 0b6b276 (chore: remove direct usage of classname, switch to utility, use clsx + tailwind merge)
       tls:
         specifier: ^0.0.1
         version: 0.0.1
@@ -4348,9 +4357,15 @@ packages:
     engines: {node: ^14.18.0 || >=16.0.0}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   tailwindcss@4.1.10:
     resolution: {integrity: sha512-P3nr6WkvKV/ONsTzj6Gb57sWPMX29EPNPopo7+FcpkQaNsrNpZ1pv8QmrYI2RqEKD7mlGqLnGovlcYnBK0IqUA==}
 =======
+=======
+  tailwind-merge@3.3.1:
+    resolution: {integrity: sha512-gBXpgUm/3rp1lMZZrM/w7D8GKqshif0zAymAhbCyIt8KMe+0v9DQ7cdYLR4FHH/cKpdTXb+A/tKKU3eolfsI+g==}
+
+>>>>>>> 0b6b276 (chore: remove direct usage of classname, switch to utility, use clsx + tailwind merge)
   tailwindcss@4.1.11:
     resolution: {integrity: sha512-2E9TBm6MDD/xKYe+dvJZAmg3yxIEDNRc0jwlNyDg/4Fil2QcSLjFKGVff0lAf1jjeaArlG/M75Ey/EYr/OJtBA==}
 >>>>>>> fc4c696 (chore: recreate lock file)
@@ -9551,8 +9566,13 @@ snapshots:
       '@pkgr/core': 0.2.7
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   tailwindcss@4.1.10: {}
 =======
+=======
+  tailwind-merge@3.3.1: {}
+
+>>>>>>> 0b6b276 (chore: remove direct usage of classname, switch to utility, use clsx + tailwind merge)
   tailwindcss@4.1.11: {}
 >>>>>>> fc4c696 (chore: recreate lock file)
 

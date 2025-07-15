@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import classnames from 'classnames'
+import { cn } from '@/src/utils'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
@@ -187,7 +187,7 @@ export function TopicSelectWithEventPreview({
     <div className="flex flex-row gap-6">
       {/* Form Fields */}
       <div
-        className={classnames(
+        className={cn(
           'w-[40%] space-y-4',
           localState.isLoading && 'opacity-50 pointer-events-none transition-opacity duration-200',
         )}

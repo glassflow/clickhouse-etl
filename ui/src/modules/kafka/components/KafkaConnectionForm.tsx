@@ -9,7 +9,7 @@ import { AUTH_OPTIONS, StepKeys } from '@/src/config/constants'
 import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-config'
 import { KafkaAuthForm } from './KafkaAuthForms'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
-import classnames from 'classnames'
+import { cn } from '@/src/utils'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<boolean>
@@ -301,7 +301,7 @@ export const KafkaConnectionForm = ({
 
         <div className="flex gap-4">
           <Button
-            className={classnames({
+            className={cn({
               'btn-primary': connectionResult?.success,
               'btn-text': true,
               'opacity-50': isConnecting,
