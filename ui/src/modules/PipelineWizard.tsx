@@ -7,7 +7,7 @@ import {
   KafkaConnector,
   KafkaTopicSelector,
   DeduplicationConfigurator,
-  ClickhouseConnectionSetup,
+  ClickhouseConnector,
   ClickhouseMapper,
   TopicDeduplicationConfigurator,
 } from '@/src/modules'
@@ -64,7 +64,7 @@ const componentsMap = {
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: TopicDeduplicationConfigurator,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: TopicDeduplicationConfigurator,
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfiguratorWrapper,
-  [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionSetup,
+  [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnector,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
   [StepKeys.REVIEW_CONFIGURATION]: ReviewConfiguration,
 }

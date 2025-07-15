@@ -472,6 +472,7 @@ export function useRenderFormFields({
   key,
   values,
   hiddenFields,
+  viewOnly,
 }: {
   formConfig: any
   formGroupName: string
@@ -481,6 +482,7 @@ export function useRenderFormFields({
   key?: string
   values?: Record<string, any>
   hiddenFields?: string[]
+  viewOnly?: boolean
 }) {
   const { control, getValues } = useFormContext()
   const config: Record<string, any> = formConfig[formGroupName as keyof typeof formConfig]
@@ -542,6 +544,7 @@ export function useRenderFormFields({
                 options={fieldOptions}
                 defaultValue={fieldValue}
                 noLabel={noLabel}
+                readOnly={viewOnly}
               />
             </div>
           )
@@ -559,6 +562,7 @@ export function renderFormField<T extends FieldValues>({
   values,
   control,
   onChange,
+  viewOnly,
 }: {
   field: {
     name: string
@@ -579,6 +583,7 @@ export function renderFormField<T extends FieldValues>({
   values?: Record<string, any>
   control?: Control<T>
   onChange?: (value: any) => void
+  viewOnly?: boolean
 }) {
   const { name, label, placeholder, required, type = 'text', options, defaultValue, noLabel } = field
   const Component = typeMap[type as keyof typeof typeMap] || FormControlInput
@@ -600,7 +605,7 @@ export function renderFormField<T extends FieldValues>({
         required={required || ''}
         error={fieldError}
         type={type}
-        readOnly={field.readOnly}
+        readOnly={field.readOnly || viewOnly}
         className={field.className}
         noLabel={noLabel}
       />

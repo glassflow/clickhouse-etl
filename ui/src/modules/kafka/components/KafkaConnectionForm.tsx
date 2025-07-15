@@ -18,7 +18,10 @@ type KafkaConnectionProps = {
     success: boolean
     message: string
   } | null
-  onNext: (step: StepKeys) => void
+  onNext?: (step: StepKeys) => void
+  onComplete?: () => void
+  standalone?: boolean
+  viewOnly?: boolean
 }
 
 export const KafkaConnectionForm = ({
@@ -26,6 +29,9 @@ export const KafkaConnectionForm = ({
   isConnecting,
   connectionResult,
   onNext,
+  onComplete,
+  standalone,
+  viewOnly,
 }: KafkaConnectionProps) => {
   const { kafkaStore } = useStore()
   const analytics = useJourneyAnalytics()
@@ -243,8 +249,10 @@ export const KafkaConnectionForm = ({
       })
     }
 
-    if (onNext) {
+    if (!standalone && onNext) {
       onNext(StepKeys.KAFKA_CONNECTION)
+    } else if (standalone && onComplete) {
+      onComplete()
     }
   }
 
@@ -297,6 +305,7 @@ export const KafkaConnectionForm = ({
           authMethod={currentAuthMethod}
           securityProtocol={currentSecurityProtocol}
           errors={shouldShowValidationErrors ? errors : {}}
+          viewOnly={viewOnly}
         />
 
         <div className="flex gap-4">
