@@ -9,8 +9,6 @@ import {
   DeduplicationConfigurator,
   ClickhouseConnectionSetup,
   ClickhouseMapper,
-  KafkaTopicSelectorSwitch1,
-  KafkaTopicSelectorSwitch2,
   TopicDeduplicationSwitch1,
   TopicDeduplicationSwitch2,
 } from '@/src/modules'
@@ -61,8 +59,8 @@ const deduplicateJoinJourney = [
 
 const componentsMap = {
   [StepKeys.KAFKA_CONNECTION]: KafkaConnector,
-  [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelectorSwitch1,
-  [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelectorSwitch2,
+  [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelector,
+  [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelector,
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: TopicDeduplicationSwitch1,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: TopicDeduplicationSwitch2,
@@ -245,6 +243,19 @@ function PipelineWizzard() {
     }
 
     const StepComponent = stepComponents[stepKey]
+
+    // Pass currentStep prop for KafkaTopicSelector components
+    if (stepKey === StepKeys.TOPIC_SELECTION_1 || stepKey === StepKeys.TOPIC_SELECTION_2) {
+      return (
+        <StepComponent
+          steps={stepsMetadata}
+          onNext={(step: StepKeys) => handleNext(step)}
+          validate={validateStep}
+          currentStep={stepKey}
+        />
+      )
+    }
+
     return <StepComponent steps={stepsMetadata} onNext={(step: StepKeys) => handleNext(step)} validate={validateStep} />
   }
 
