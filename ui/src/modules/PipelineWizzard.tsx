@@ -9,8 +9,7 @@ import {
   DeduplicationConfigurator,
   ClickhouseConnectionSetup,
   ClickhouseMapper,
-  TopicDeduplicationSwitch1,
-  TopicDeduplicationSwitch2,
+  TopicDeduplicationConfigurator,
 } from '@/src/modules'
 import { ReviewConfiguration } from '@/src/modules/review/ReviewConfiguration'
 import { StepKeys } from '@/src/config/constants'
@@ -62,8 +61,8 @@ const componentsMap = {
   [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelector,
   [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelector,
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: TopicDeduplicationSwitch1,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: TopicDeduplicationSwitch2,
+  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: TopicDeduplicationConfigurator,
+  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: TopicDeduplicationConfigurator,
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfiguratorWrapper,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionSetup,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
@@ -244,8 +243,13 @@ function PipelineWizzard() {
 
     const StepComponent = stepComponents[stepKey]
 
-    // Pass currentStep prop for KafkaTopicSelector components
-    if (stepKey === StepKeys.TOPIC_SELECTION_1 || stepKey === StepKeys.TOPIC_SELECTION_2) {
+    // Pass currentStep prop for KafkaTopicSelector and TopicDeduplicationConfigurator components
+    if (
+      stepKey === StepKeys.TOPIC_SELECTION_1 ||
+      stepKey === StepKeys.TOPIC_SELECTION_2 ||
+      stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+      stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+    ) {
       return (
         <StepComponent
           steps={stepsMetadata}
