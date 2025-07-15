@@ -1,6 +1,6 @@
 'use client'
 
-import PipelineWizard from '@/src/modules/PipelineWizzard'
+import PipelineWizard from '@/src/modules/PipelineWizard'
 
 export default function CreatePipelinePage() {
   return (
