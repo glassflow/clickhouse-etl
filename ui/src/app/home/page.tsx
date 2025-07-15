@@ -7,27 +7,15 @@ import Deduplicate from '../../images/deduplicate.svg'
 import DeduplicateJoin from '../../images/deduplicate-join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
 import PlusHome from '../../images/plus-home.svg'
-// import { ThemeDebug } from '../../components/ThemeDebug'
 import { useStore } from '@/src/store'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { OperationKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils'
-import { Button } from '@/src/components/ui/button'
 import { useState, Suspense, useEffect } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/src/components/ui/dialog'
-import { AlertTriangleIcon } from 'lucide-react'
 import { getPipelineStatus } from '@/src/api/pipeline'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
-import { SavedConfigurations } from '@/src/components/shared/SavedConfigurations'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { generatePipelineId } from '@/src/modules/clickhouse/helpers'
 
@@ -290,10 +278,6 @@ function HomePageClient() {
       />
 
       <ConnectionCard />
-
-      {/* <div className="w-full mt-12 sm:mt-16">
-        <SavedConfigurations />
-      </div> */}
 
       <CreatePipelineModal visible={isCreatePipelineModalVisible} onComplete={handleCreatePipelineModalComplete} />
     </div>
