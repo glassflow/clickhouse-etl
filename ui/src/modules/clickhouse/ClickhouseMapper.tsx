@@ -9,7 +9,7 @@ import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectCo
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { CacheRefreshButton } from './components/CacheRefreshButton'
 
-import { StepKeys } from '@/src/config/constants'
+import { StepKeys, OperationKeys } from '@/src/config/constants'
 
 import { cn } from '@/src/utils'
 import {
@@ -35,22 +35,12 @@ type MappingMode = 'single' | 'join' | 'dedup'
 
 interface ClickhouseMapperProps {
   onNext: (step: StepKeys) => void
-  index?: number
-  primaryIndex?: number
-  secondaryIndex?: number
-  mode?: MappingMode
 }
 
 const runtimeEnv = getRuntimeEnv()
 const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
-export function ClickhouseMapper({
-  onNext,
-  index = 0,
-  primaryIndex = 0,
-  secondaryIndex = 1,
-  mode = 'single',
-}: ClickhouseMapperProps) {
+export function ClickhouseMapper({ onNext }: ClickhouseMapperProps) {
   const router = useRouter()
   const {
     clickhouseStore,
@@ -76,6 +66,15 @@ export function ClickhouseMapper({
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
+
+  // Determine operation mode and indices
+  const isJoinOperation =
+    operationsSelected.operation === OperationKeys.JOINING ||
+    operationsSelected.operation === OperationKeys.DEDUPLICATION_JOINING
+  const mode: MappingMode = isJoinOperation ? 'join' : 'single'
+  const index = 0
+  const primaryIndex = 0
+  const secondaryIndex = 1
 
   // Topic data based on mode
   const selectedTopic = mode === 'single' ? getTopic(index) : null
@@ -469,8 +468,8 @@ export function ClickhouseMapper({
     if (mode === 'single') return
 
     // Extract fields from secondary event
-    if (secondaryTopic?.selectedEvent?.event?.event) {
-      const fields = extractEventFields(secondaryTopic.selectedEvent.event.event)
+    if (secondaryTopic?.selectedEvent?.event) {
+      const fields = extractEventFields(secondaryTopic.selectedEvent.event)
       setSecondaryEventFields(fields)
       setEventFields((prev) => [...prev, ...fields]) // Add secondary fields
     }
