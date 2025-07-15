@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,8 +36,9 @@ func CombineErrors(errs []error) error {
 }
 
 type KafkaEvent struct {
-	Key   string
-	Value []byte
+	Key       string
+	Value     []byte
+	Partition string
 }
 
 type KafkaWriter struct {
@@ -145,10 +147,18 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 	defer close(deliveryChan)
 
 	for _, event := range events {
+		partition := kafka.PartitionAny
+		if event.Partition != "" {
+			p, err := strconv.ParseInt(event.Partition, 10, 32)
+			partition = int32(p)
+			if err != nil {
+				return fmt.Errorf("failed to set partition %s", event.Partition)
+			}
+		}
 		err := producer.Produce(&kafka.Message{ //nolint:exhaustruct // only necessary fields
 			TopicPartition: kafka.TopicPartition{ //nolint:exhaustruct // only necessary fields
 				Topic:     &topic,
-				Partition: kafka.PartitionAny,
+				Partition: partition,
 			},
 			Key:   []byte(event.Key),
 			Value: event.Value,

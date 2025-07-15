@@ -320,7 +320,7 @@ func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig
 type PipelineConfig struct {
 	ID       string                 `json:"pipeline_id"`
 	Mapper   MapperConfig           `json:"mapper"`
-	Ingestor IngestorOperatorConfig `json:"kafka_topics"`
+	Ingestor IngestorOperatorConfig `json:"ingestor"`
 	Join     JoinOperatorConfig     `json:"join"`
 	Sink     SinkOperatorConfig     `json:"sink"`
 }

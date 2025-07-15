@@ -167,7 +167,7 @@ func (p *PipelineSteps) fastCleanup() error {
 
 	err = testutils.CombineErrors(errs)
 	if err != nil {
-		return fmt.Errorf("cleanup resources: %w", err)
+		return fmt.Errorf("fast cleanup resources: %w", err)
 	}
 
 	return nil
@@ -273,26 +273,28 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 	return nil
 }
 
-func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineRequest, error) {
-	var pr models.PipelineRequest
-	err := json.Unmarshal([]byte(cfg), &pr)
+func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfig, error) {
+	var pc models.PipelineConfig
+
+	err := json.Unmarshal([]byte(cfg), &pc)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
 	}
 
-	pr.Source.ConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
+	pc.Ingestor.KafkaConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
 
-	pr.Sink.Host = "localhost"
-	pr.Sink.Port, err = p.chContainer.GetPort()
+	pc.Sink.ClickHouseConnectionParams.Host = "localhost"
+	pc.Sink.ClickHouseConnectionParams.Port, err = p.chContainer.GetPort()
 	if err != nil {
 		return nil, fmt.Errorf("get clickhouse port: %w", err)
 	}
-	pr.Sink.Username = "default"
-	pr.Sink.Password = base64.StdEncoding.EncodeToString([]byte("default"))
-	pr.Sink.Database = p.chDB
-	pr.Sink.Table = p.chTable
 
-	return &pr, nil
+	pc.Sink.ClickHouseConnectionParams.Username = "default"
+	pc.Sink.ClickHouseConnectionParams.Password = base64.StdEncoding.EncodeToString([]byte("default"))
+	pc.Sink.ClickHouseConnectionParams.Database = p.chDB
+	pc.Sink.ClickHouseConnectionParams.Table = p.chTable
+
+	return &pc, nil
 }
 
 func (p *PipelineSteps) setupPipelineManager() error {

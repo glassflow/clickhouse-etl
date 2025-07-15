@@ -25,27 +25,27 @@ jobs:
         working-directory: './glassflow-api'
         run: make run-test
 
-  # test-e2e:
-  #   name: test e2e
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: Setup go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version-file: './glassflow-api/go.mod'
-  #         cache-dependency-path: './glassflow-api/go.mod'
-  #     - name: Download artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: nats-kafka-bridge-linux-amd64
-  #         path: nats-kafka-bridge/bin
-  #     - name: Make artifact executable
-  #       run: chmod +x nats-kafka-bridge/bin/* && echo "$PWD/nats-kafka-bridge/bin" >> "$GITHUB_PATH"
-  #     - name: run e2e test
-  #       working-directory: './glassflow-api'
-  #       run: make run-e2e-test
+  test-e2e:
+    name: test e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: './glassflow-api/go.mod'
+          cache-dependency-path: './glassflow-api/go.mod'
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nats-kafka-bridge-linux-amd64
+          path: nats-kafka-bridge/bin
+      - name: Make artifact executable
+        run: chmod +x nats-kafka-bridge/bin/* && echo "$PWD/nats-kafka-bridge/bin" >> "$GITHUB_PATH"
+      - name: run e2e test
+        working-directory: './glassflow-api'
+        run: make run-e2e-test
 
   test-bridge:
     name: test kafka->nats bridge
