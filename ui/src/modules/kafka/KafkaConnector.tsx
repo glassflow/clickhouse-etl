@@ -11,10 +11,16 @@ export function KafkaConnector({
   steps,
   onNext,
   validate,
+  standalone = false,
+  onComplete,
+  viewOnly = false,
 }: {
   steps: any
   onNext: (step: StepKeys) => void
   validate: () => Promise<boolean>
+  standalone?: boolean
+  onComplete?: () => void
+  viewOnly?: boolean
 }) {
   const { kafkaStore, topicsStore, operationsSelected } = useStore()
   const { bootstrapServers } = kafkaStore
@@ -98,6 +104,9 @@ export function KafkaConnector({
         isConnecting={isConnecting}
         connectionResult={connectionResult}
         onNext={onNext}
+        onComplete={onComplete}
+        standalone={standalone}
+        viewOnly={viewOnly}
       />
       {connectionResult && (
         <div

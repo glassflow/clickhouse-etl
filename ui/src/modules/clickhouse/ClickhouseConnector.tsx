@@ -14,7 +14,15 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { ClickhouseConnectionFormSchema, ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
-export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys) => void }) {
+export function ClickhouseConnector({
+  onNext,
+  onComplete,
+  standalone,
+}: {
+  onNext?: (step: StepKeys) => void
+  onComplete?: () => void
+  standalone?: boolean
+}) {
   const { clickhouseStore } = useStore()
   const analytics = useJourneyAnalytics()
 
@@ -139,7 +147,11 @@ export function ClickhouseConnectionSetup({ onNext }: { onNext: (step: StepKeys)
         })
 
         // Proceed to next step
-        onNext(StepKeys.CLICKHOUSE_CONNECTION)
+        if (!standalone && onNext) {
+          onNext(StepKeys.CLICKHOUSE_CONNECTION)
+        } else if (standalone && onComplete) {
+          onComplete()
+        }
       } else {
         // Track connection error
         analytics.clickhouse.failed({

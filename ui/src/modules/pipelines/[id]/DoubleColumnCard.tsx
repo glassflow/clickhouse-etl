@@ -1,10 +1,20 @@
 import { Card } from '@/src/components/ui/card'
 
-function DoubleCard({ label, value, width = 'half' }: { label: string[]; value: string[]; width?: 'full' | 'half' }) {
+function DoubleColumnCard({
+  label,
+  value,
+  width = 'half',
+  onClick,
+}: {
+  label: string[]
+  value: string[]
+  width?: 'full' | 'half'
+  onClick?: () => void
+}) {
   const widthClass = width === 'full' ? 'w-full' : 'w-1/2'
 
   return (
-    <Card className={`border-[var(--color-border-neutral)] rounded-md p-4 ${widthClass}`}>
+    <Card className={`border-[var(--color-border-neutral)] rounded-md p-4 ${widthClass}`} onClick={onClick}>
       <div className="flex flex-row justify-between gap-4">
         <div className="flex flex-col gap-2 text-left">
           <span className="text-lg font-bold">{label[0]}</span>
@@ -19,4 +29,4 @@ function DoubleCard({ label, value, width = 'half' }: { label: string[]; value: 
   )
 }
 
-export default DoubleCard
+export default DoubleColumnCard

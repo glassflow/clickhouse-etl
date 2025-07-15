@@ -86,10 +86,12 @@ export const KafkaAuthForm = ({
   authMethod,
   securityProtocol,
   errors,
+  viewOnly,
 }: {
   authMethod: string
   securityProtocol: string
   errors: FieldErrors<KafkaConnectionFormType>
+  viewOnly?: boolean
 }) => {
   const { watch, setValue } = useFormContext()
   const authMethodSelected = watch('authMethod')
@@ -116,39 +118,39 @@ export const KafkaAuthForm = ({
     // Only run when authMethodSelected changes, not when securityProtocolSelected changes
   }, [authMethodSelected, setValue])
 
-  const renderAuthForm = () => {
+  const renderAuthForm = ({ viewOnly }: { viewOnly?: boolean }) => {
     switch (authMethod) {
       case 'SASL/PLAIN':
-        return <SaslPlainForm errors={errors} />
+        return <SaslPlainForm errors={errors} viewOnly={viewOnly} />
       case 'SASL/JAAS':
-        return <SaslJaasForm errors={errors} />
+        return <SaslJaasForm errors={errors} viewOnly={viewOnly} />
       case 'SASL/GSSAPI':
-        return <SaslGssapiForm errors={errors} />
+        return <SaslGssapiForm errors={errors} viewOnly={viewOnly} />
       case 'SASL/OAUTHBEARER':
-        return <SaslOauthbearerForm errors={errors} />
+        return <SaslOauthbearerForm errors={errors} viewOnly={viewOnly} />
       case 'SASL/SCRAM-256':
-        return <SaslScram256Form errors={errors} />
+        return <SaslScram256Form errors={errors} viewOnly={viewOnly} />
       case 'SASL/SCRAM-512':
-        return <SaslScram512Form errors={errors} />
+        return <SaslScram512Form errors={errors} viewOnly={viewOnly} />
       case 'AWS_MSK_IAM':
-        return <AwsIamForm errors={errors} />
+        return <AwsIamForm errors={errors} viewOnly={viewOnly} />
       case 'mTLS':
-        return <MtlsForm errors={errors} />
+        return <MtlsForm errors={errors} viewOnly={viewOnly} />
       case 'Delegation tokens':
-        return <DelegationTokensForm errors={errors} />
+        return <DelegationTokensForm errors={errors} viewOnly={viewOnly} />
       case 'SASL/LDAP':
-        return <LdapForm errors={errors} />
+        return <LdapForm errors={errors} viewOnly={viewOnly} />
       case 'NO_AUTH':
-        return <NoAuthForm errors={errors} />
+        return <NoAuthForm errors={errors} viewOnly={viewOnly} />
       default:
-        return <SaslPlainForm errors={errors} />
+        return <SaslPlainForm errors={errors} viewOnly={viewOnly} />
     }
   }
 
   const { register } = useFormContext()
 
   // SSL-specific fields that show up when SASL_SSL is selected
-  const renderSslFields = () => {
+  const renderSslFields = ({ viewOnly }: { viewOnly?: boolean }) => {
     if (securityProtocol === 'SASL_SSL') {
       return (
         <FormGroup>
@@ -164,8 +166,8 @@ export const KafkaAuthForm = ({
   return (
     <>
       {renderBaseForm({ authMethod, securityProtocol })}
-      {renderAuthForm()}
-      {renderSslFields()}
+      {renderAuthForm({ viewOnly: viewOnly })}
+      {renderSslFields({ viewOnly: viewOnly })}
     </>
   )
 }

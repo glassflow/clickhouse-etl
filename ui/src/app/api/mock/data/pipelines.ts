@@ -367,4 +367,132 @@ export const mockPipelines: Pipeline[] = [
       last_event_processed: '2024-01-15T12:19:45Z',
     },
   },
+  {
+    id: 'pipeline-004',
+    name: 'Sales Analytics 2',
+    status: 'paused',
+    created_at: '2024-01-12T16:45:00Z',
+    updated_at: '2024-01-15T13:10:00Z',
+    transformationName: 'Join',
+    source: {
+      type: 'kafka',
+      provider: 'aiven',
+      connection_params: {
+        brokers: ['kafka-broker-0:9092', 'kafka-broker-1:9092'],
+        protocol: 'SASL_SSL',
+        mechanism: 'SCRAM-SHA-256',
+        username: '<user>',
+        password: '<password>',
+        root_ca: '<base64 encoded ca>',
+      },
+      topics: [
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'Customer-orders-v1',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'session_id', type: 'string' },
+              { name: 'user_id', type: 'string' },
+              { name: 'timestamp', type: 'string' },
+            ],
+          },
+          deduplication: {
+            enabled: false,
+            id_field: 'sale_order',
+            id_field_type: 'string',
+            time_window: '12h',
+          },
+        },
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'Customer-orders-v2',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'user_id', type: 'string' },
+              { name: 'order_id', type: 'string' },
+              { name: 'timestamp', type: 'string' },
+            ],
+          },
+          deduplication: {
+            enabled: false,
+            id_field: 'orders',
+            id_field_type: 'string',
+            time_window: '12h',
+          },
+        },
+      ],
+    },
+    join: {
+      enabled: true,
+      type: 'temporal',
+      sources: [
+        {
+          source_id: 'Customer-orders-v1',
+          join_key: 'user_id',
+          time_window: '1h',
+          orientation: 'left',
+        },
+        {
+          source_id: 'Customer-orders-v2',
+          join_key: 'userID',
+          time_window: '1h',
+          orientation: 'right',
+        },
+      ],
+    },
+    sink: {
+      type: 'clickhouse',
+      provider: 'aiven',
+      host: '<host>',
+      port: '12753',
+      database: 'default',
+      username: '<user>',
+      password: '<password>',
+      secure: true,
+      max_batch_size: 1,
+      max_delay_time: '10m',
+      table: 'sales_analytics',
+      table_mapping: [
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'session_id',
+          column_name: 'session_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'user_id',
+          column_name: 'user_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v2',
+          field_name: 'order_id',
+          column_name: 'order_id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'Customer-orders-v1',
+          field_name: 'timestamp',
+          column_name: 'login_at',
+          column_type: 'DateTime',
+        },
+        {
+          source_id: 'Customer-orders-v2',
+          field_name: 'timestamp',
+          column_name: 'order_placed_at',
+          column_type: 'DateTime',
+        },
+      ],
+    },
+    stats: {
+      events_processed: 4560,
+      events_failed: 156,
+      throughput_per_second: 0,
+      last_event_processed: '2024-01-15T13:09:20Z',
+    },
+    error: 'Kafka connection timeout',
+  },
 ]
