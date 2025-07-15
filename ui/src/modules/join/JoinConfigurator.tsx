@@ -11,7 +11,7 @@ import { StreamConfiguratorList } from './components/StreamConfiguratorList'
 import { JoinConfigType } from '@/src/scheme/join.scheme'
 import { extractEventFields } from '@/src/modules/clickhouse/helpers'
 
-export type JoinManagerProps = {
+export type JoinConfiguratorProps = {
   steps: any
   onNext: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
@@ -20,7 +20,7 @@ export type JoinManagerProps = {
 
 type StreamField = 'streamId' | 'joinKey' | 'dataType' | 'joinTimeWindowValue' | 'joinTimeWindowUnit'
 
-export function JoinManager({ steps, onNext, validate, index = 0 }: JoinManagerProps) {
+export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinConfiguratorProps) {
   const { topicsStore, joinStore } = useStore()
   const { getTopic, getEvent } = topicsStore
   const { enabled, type, streams, setEnabled, setType, setStreams } = joinStore
