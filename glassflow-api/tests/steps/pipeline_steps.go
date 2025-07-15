@@ -2,6 +2,8 @@ package steps
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -165,7 +167,7 @@ func (p *PipelineSteps) fastCleanup() error {
 
 	err = testutils.CombineErrors(errs)
 	if err != nil {
-		return fmt.Errorf("cleanup resources: %w", err)
+		return fmt.Errorf("fast cleanup resources: %w", err)
 	}
 
 	return nil
@@ -272,27 +274,27 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 }
 
 func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfig, error) {
-	// var pr models.PipelineRequest
-	// var pr api.pipelineJSON
-	// err := json.Unmarshal([]byte(cfg), &pr)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
-	// }
+	var pc models.PipelineConfig
 
-	// pr.Source.ConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
+	err := json.Unmarshal([]byte(cfg), &pc)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
+	}
 
-	// pr.Sink.Host = "localhost"
-	// pr.Sink.Port, err = p.chContainer.GetPort()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("get clickhouse port: %w", err)
-	// }
-	// pr.Sink.Username = "default"
-	// pr.Sink.Password = base64.StdEncoding.EncodeToString([]byte("default"))
-	// pr.Sink.Database = p.chDB
-	// pr.Sink.Table = p.chTable
+	pc.Ingestor.KafkaConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
 
-	// return &pr, nil
-	panic("not yet implemented")
+	pc.Sink.ClickHouseConnectionParams.Host = "localhost"
+	pc.Sink.ClickHouseConnectionParams.Port, err = p.chContainer.GetPort()
+	if err != nil {
+		return nil, fmt.Errorf("get clickhouse port: %w", err)
+	}
+
+	pc.Sink.ClickHouseConnectionParams.Username = "default"
+	pc.Sink.ClickHouseConnectionParams.Password = base64.StdEncoding.EncodeToString([]byte("default"))
+	pc.Sink.ClickHouseConnectionParams.Database = p.chDB
+	pc.Sink.ClickHouseConnectionParams.Table = p.chTable
+
+	return &pc, nil
 }
 
 func (p *PipelineSteps) setupPipelineManager() error {

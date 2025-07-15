@@ -19,9 +19,40 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
-                "source": {
+                "mapper": {
+                    "type": "jsonToClickhouse",
+                    "streams": {
+                        "test_topic": {
+                            "fields": [
+                                {
+                                    "field_name": "id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "name",
+                                    "field_type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "sink_mapping": [
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "id",
+                            "column_name": "id",
+                            "column_type": "String"
+                        },
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "name",
+                            "column_name": "name",
+                            "column_type": "String"
+                        }
+                    ]
+                },
+                "ingestor": {
                     "type": "kafka",
-                    "connection_params": {
+                    "kafka_connection_params": {
                         "brokers": [],
                         "skip_auth": true,
                         "protocol": "SASL_PLAINTEXT",
@@ -30,23 +61,10 @@ Feature: Kafka to CH pipeline
                         "password": "",
                         "root_ca": ""
                     },
-                    "topics": [
+                    "kafka_topics": [
                         {
-                            "consumer_group_initial_offset": "earliest",
                             "name": "test_topic",
-                            "schema": {
-                                "type": "json",
-                                "fields": [
-                                    {
-                                        "name": "id",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "name": "name",
-                                        "type": "string"
-                                    }
-                                ]
-                            },
+                            "consumer_group_initial_offset": "earliest",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",
@@ -56,30 +74,20 @@ Feature: Kafka to CH pipeline
                         }
                     ]
                 },
-                "sink": {
-                    "type": "clickhouse",
-                    "database": "default",
-                    "secure": false,
-                    "max_batch_size": 1000,
-                    "max_delay_time": "1s",
-                    "table": "events_test",
-                    "table_mapping": [
-                        {
-                            "source_id": "test_topic",
-                            "field_name": "id",
-                            "column_name": "id",
-                            "column_type": "String"
-                        },
-                        {
-                            "source_id": "test_topic",
-                            "field_name": "name",
-                            "column_name": "name",
-                            "column_type": "String"
-                        }
-                    ]
-                },
                 "join": {
                     "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "events_test"
+                    }
                 }
             }
             """
@@ -104,10 +112,59 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
-                "source": {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00002",
+                "mapper": {
+                    "type": "jsonToClickhouse",
+                    "streams": {
+                        "test_users": {
+                            "fields": [
+                                {
+                                    "field_name": "id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "name",
+                                    "field_type": "string"
+                                }
+                            ],
+                            "join_key_field": "id",
+                            "join_window": "1h",
+                            "join_orientation": "right"
+                        },
+                        "test_emails": {
+                            "fields": [
+                                {
+                                    "field_name": "user_id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "email",
+                                    "field_type": "string"
+                                }
+                            ],
+                            "join_key_field": "user_id",
+                            "join_window": "1h",
+                            "join_orientation": "left"
+                        }
+                    },
+                    "sink_mapping": [
+                        {
+                            "stream_name": "test_users",
+                            "field_name": "name",
+                            "column_name": "name",
+                            "column_type": "String"
+                        },
+                        {
+                            "stream_name": "test_emails",
+                            "field_name": "email",
+                            "column_name": "email",
+                            "column_type": "String"
+                        }
+                    ]
+                },
+                "ingestor": {
                     "type": "kafka",
-                    "connection_params": {
+                    "kafka_connection_params": {
                         "brokers": [],
                         "skip_auth": true,
                         "protocol": "SASL_PLAINTEXT",
@@ -116,68 +173,20 @@ Feature: Kafka to CH pipeline
                         "password": "",
                         "root_ca": ""
                     },
-                    "topics": [
+                    "kafka_topics": [
                         {
-                            "consumer_group_initial_offset": "earliest",
                             "name": "test_emails",
-                            "schema": {
-                                "type": "json",
-                                "fields": [
-                                    {
-                                        "name": "user_id",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "name": "email",
-                                        "type": "string"
-                                    }
-                                ]
-                            },
-                            "deduplication": {
-                                "enabled": false
-                            }
-                        },
-                        {
                             "consumer_group_initial_offset": "earliest",
-                            "name": "test_users",
-                            "schema": {
-                                "type": "json",
-                                "fields": [
-                                    {
-                                        "name": "id",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "name": "name",
-                                        "type": "string"
-                                    }
-                                ]
-                            },
                             "deduplication": {
                                 "enabled": false
                             }
-                        }
-                    ]
-                },
-                "sink": {
-                    "type": "clickhouse",
-                    "database": "default",
-                    "secure": false,
-                    "max_batch_size": 1000,
-                    "max_delay_time": "1s",
-                    "table": "test_users",
-                    "table_mapping": [
-                        {
-                            "source_id": "test_users",
-                            "field_name": "name",
-                            "column_name": "name",
-                            "column_type": "String"
                         },
                         {
-                            "source_id": "test_emails",
-                            "field_name": "email",
-                            "column_name": "email",
-                            "column_type": "String"
+                            "name": "test_users",
+                            "consumer_group_initial_offset": "earliest",
+                            "deduplication": {
+                                "enabled": false
+                            }
                         }
                     ]
                 },
@@ -198,6 +207,18 @@ Feature: Kafka to CH pipeline
                             "orientation": "right"
                         }
                     ]
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "test_users"
+                    }
                 }
             }
             """
@@ -232,10 +253,59 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
-                "source": {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00003",
+                "mapper": {
+                    "type": "jsonToClickhouse",
+                    "streams": {
+                        "test_users": {
+                            "fields": [
+                                {
+                                    "field_name": "id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "name",
+                                    "field_type": "string"
+                                }
+                            ],
+                            "join_key_field": "id",
+                            "join_window": "1h",
+                            "join_orientation": "right"
+                        },
+                        "test_emails": {
+                            "fields": [
+                                {
+                                    "field_name": "user_id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "email",
+                                    "field_type": "string"
+                                }
+                            ],
+                            "join_key_field": "user_id",
+                            "join_window": "1h",
+                            "join_orientation": "left"
+                        }
+                    },
+                    "sink_mapping": [
+                        {
+                            "stream_name": "test_users",
+                            "field_name": "name",
+                            "column_name": "name",
+                            "column_type": "String"
+                        },
+                        {
+                            "stream_name": "test_emails",
+                            "field_name": "email",
+                            "column_name": "email",
+                            "column_type": "String"
+                        }
+                    ]
+                },
+                "ingestor": {
                     "type": "kafka",
-                    "connection_params": {
+                    "kafka_connection_params": {
                         "brokers": [],
                         "skip_auth": true,
                         "protocol": "SASL_PLAINTEXT",
@@ -244,23 +314,10 @@ Feature: Kafka to CH pipeline
                         "password": "",
                         "root_ca": ""
                     },
-                    "topics": [
+                    "kafka_topics": [
                         {
-                            "consumer_group_initial_offset": "earliest",
                             "name": "test_emails",
-                            "schema": {
-                                "type": "json",
-                                "fields": [
-                                    {
-                                        "name": "user_id",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "name": "email",
-                                        "type": "string"
-                                    }
-                                ]
-                            },
+                            "consumer_group_initial_offset": "earliest",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "user_id",
@@ -269,46 +326,14 @@ Feature: Kafka to CH pipeline
                             }
                         },
                         {
-                            "consumer_group_initial_offset": "earliest",
                             "name": "test_users",
-                            "schema": {
-                                "type": "json",
-                                "fields": [
-                                    {
-                                        "name": "id",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "name": "name",
-                                        "type": "string"
-                                    }
-                                ]
-                            },
+                            "consumer_group_initial_offset": "earliest",
                             "deduplication": {
-                                "enabled": false
+                                "enabled": true,
+                                "id_field": "id",
+                                "id_field_type": "string",
+                                "time_window": "1h"
                             }
-                        }
-                    ]
-                },
-                "sink": {
-                    "type": "clickhouse",
-                    "database": "default",
-                    "secure": false,
-                    "max_batch_size": 1000,
-                    "max_delay_time": "1s",
-                    "table": "test_users",
-                    "table_mapping": [
-                        {
-                            "source_id": "test_users",
-                            "field_name": "name",
-                            "column_name": "name",
-                            "column_type": "String"
-                        },
-                        {
-                            "source_id": "test_emails",
-                            "field_name": "email",
-                            "column_name": "email",
-                            "column_type": "String"
                         }
                     ]
                 },
@@ -329,6 +354,18 @@ Feature: Kafka to CH pipeline
                             "orientation": "right"
                         }
                     ]
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "test_users"
+                    }
                 }
             }
             """
@@ -370,10 +407,41 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
-                "source": {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00004",
+                "mapper": {
+                    "type": "jsonToClickhouse",
+                    "streams": {
+                        "test_topic": {
+                            "fields": [
+                                {
+                                    "field_name": "id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "name",
+                                    "field_type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "sink_mapping": [
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "id",
+                            "column_name": "id",
+                            "column_type": "String"
+                        },
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "name",
+                            "column_name": "name",
+                            "column_type": "String"
+                        }
+                    ]
+                },
+                "ingestor": {
                     "type": "kafka",
-                    "connection_params": {
+                    "kafka_connection_params": {
                         "brokers": [],
                         "skip_auth": true,
                         "protocol": "SASL_PLAINTEXT",
@@ -382,53 +450,30 @@ Feature: Kafka to CH pipeline
                         "password": "",
                         "root_ca": ""
                     },
-                    "topics": [
+                    "kafka_topics": [
                         {
-                            "consumer_group_initial_offset": "earliest",
                             "name": "test_topic",
-                            "schema": {
-                                "type": "json",
-                                "fields": [
-                                    {
-                                        "name": "id",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "name": "name",
-                                        "type": "string"
-                                    }
-                                ]
-                            },
+                            "consumer_group_initial_offset": "earliest",
                             "deduplication": {
                                 "enabled": false
                             }
                         }
                     ]
                 },
-                "sink": {
-                    "type": "clickhouse",
-                    "database": "default",
-                    "secure": false,
-                    "max_batch_size": 1000,
-                    "max_delay_time": "1s",
-                    "table": "events_test",
-                    "table_mapping": [
-                        {
-                            "source_id": "test_topic",
-                            "field_name": "id",
-                            "column_name": "id",
-                            "column_type": "String"
-                        },
-                        {
-                            "source_id": "test_topic",
-                            "field_name": "name",
-                            "column_name": "name",
-                            "column_type": "String"
-                        }
-                    ]
-                },
                 "join": {
                     "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "events_test"
+                    }
                 }
             }
             """
@@ -440,13 +485,13 @@ Feature: Kafka to CH pipeline
             | 567 | 1     |
 
     Scenario: Insert LowCardinality(String) data type to ClickHouse from Kafka
-        Given a Kafka topic "test" with 1 partition
+        Given a Kafka topic "test_measurments" with 1 partition
         And the ClickHouse table "test" on database "default" already exists with schema
             | column_name | data_type              |
             | id          | String                 |
             | measurment  | LowCardinality(String) |
 
-        And I write these events to Kafka topic "test_topic":
+        And I write these events to Kafka topic "test_measurments":
             | key | value                                |
             | 1   | {"id": "123", "measurment": "red"}   |
             | 2   | {"id": "124", "measurment": "blue"}  |
@@ -455,10 +500,41 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
-                "source": {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00005",
+                "mapper": {
+                    "type": "jsonToClickhouse",
+                    "streams": {
+                        "test_measurments": {
+                            "fields": [
+                                {
+                                    "field_name": "id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "measurment",
+                                    "field_type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "sink_mapping": [
+                        {
+                            "stream_name": "test_measurments",
+                            "field_name": "id",
+                            "column_name": "id",
+                            "column_type": "String"
+                        },
+                        {
+                            "stream_name": "test_measurments",
+                            "field_name": "measurment",
+                            "column_name": "measurment",
+                            "column_type": "String"
+                        }
+                    ]
+                },
+                "ingestor": {
                     "type": "kafka",
-                    "connection_params": {
+                    "kafka_connection_params": {
                         "brokers": [],
                         "skip_auth": true,
                         "protocol": "SASL_PLAINTEXT",
@@ -467,59 +543,40 @@ Feature: Kafka to CH pipeline
                         "password": "",
                         "root_ca": ""
                     },
-                    "topics": [
+                    "kafka_topics": [
                         {
+                            "name": "test_measurments",
                             "consumer_group_initial_offset": "earliest",
-                            "name": "test_topic",
-                            "schema": {
-                                "type": "json",
-                                "fields": [
-                                    {
-                                        "name": "id",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "name": "measurment",
-                                        "type": "string"
-                                    }
-                                ]
-                            },
                             "deduplication": {
-                                "enabled": false
+                                "enabled": true,
+                                "id_field": "id",
+                                "id_field_type": "string",
+                                "time_window": "1h"
                             }
-                        }
-                    ]
-                },
-                "sink": {
-                    "type": "clickhouse",
-                    "database": "default",
-                    "secure": false,
-                    "max_batch_size": 1000,
-                    "max_delay_time": "1s",
-                    "table": "test",
-                    "table_mapping": [
-                        {
-                            "source_id": "test_topic",
-                            "field_name": "id",
-                            "column_name": "id",
-                            "column_type": "String"
-                        },
-                        {
-                            "source_id": "test_topic",
-                            "field_name": "measurment",
-                            "column_name": "measurment",
-                            "column_type": "LowCardinality(String)"
                         }
                     ]
                 },
                 "join": {
                     "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "test"
+                    }
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "5s"
+        And I shutdown the glassflow pipeline after "1s"
 
-        Then the ClickHouse table "default.test" should contain:
+        Then the ClickHouse table "default.test" should contain 3 rows
+        And the ClickHouse table "default.test" should contain:
             | id  | measurment | COUNT |
             | 123 | red        | 1     |
             | 124 | blue       | 1     |

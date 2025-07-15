@@ -124,7 +124,7 @@ func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
 	t.Run("SinkFeatures", testSinkFeatures)
 	t.Run("JoinOperatorFeatures", testJoinFeatures)
-	// t.Run("PipelineFeatures", testPipelineFeatures)
+	t.Run("PipelineFeatures", testPipelineFeatures)
 
 	t.Run("IngestorFeatures", testIngetorFeatures)
 }
