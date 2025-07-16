@@ -343,9 +343,6 @@ const mockOperationsSelected = {
   operation: 'deduplication',
 }
 
-// Mock data for DeduplicationConfig
-const mockDeduplicationConfig = {}
-
 // Mock data for JoinConfig
 const mockJoinConfig = {
   join: false,
@@ -377,7 +374,6 @@ const mockData = {
   clickhouseDestination: mockClickhouseDestination,
   topicsStore: mockTopicsStore,
   operationsSelected: mockOperationsSelected,
-  deduplicationConfig: mockDeduplicationConfig,
   joinConfig: mockJoinConfig,
   outboundEventPreview: mockOutboundEventPreview,
   ...mockWizardState,

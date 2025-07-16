@@ -7,7 +7,6 @@ export interface SavedConfiguration {
   timestamp: number
   state: {
     operationsSelected: any
-    deduplicationConfig: any
     outboundEventPreview: any
     analyticsConsent: boolean
     consentAnswered: boolean
@@ -35,7 +34,6 @@ export function saveConfiguration(name: string, description?: string): SavedConf
     timestamp: Date.now(),
     state: {
       operationsSelected: store.operationsSelected,
-      deduplicationConfig: store.deduplicationConfig,
       outboundEventPreview: store.outboundEventPreview,
       analyticsConsent: store.analyticsConsent,
       consentAnswered: store.consentAnswered,
@@ -91,7 +89,6 @@ export function restoreConfiguration(id: string): void {
 
     // Restore all store states
     store.setOperationsSelected(config.state.operationsSelected)
-    store.setDeduplicationConfig(config.state.deduplicationConfig)
     store.setOutboundEventPreview(config.state.outboundEventPreview)
     store.setAnalyticsConsent(config.state.analyticsConsent)
     store.setConsentAnswered(config.state.consentAnswered)
