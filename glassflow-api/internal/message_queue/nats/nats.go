@@ -88,9 +88,11 @@ func (c *JSClient) FetchDLQMessages(ctx context.Context, stream string, batchSiz
 
 	// WARNING: potential data loss in case of http failure
 	// or pod destruction. MUST BE CHANGED in the "real version"!!
-	err = lastMsg.Ack()
-	if err != nil {
-		return nil, fmt.Errorf("acknowledge all consumed dlq: %w", err)
+	if lastMsg != nil {
+		err = lastMsg.Ack()
+		if err != nil {
+			return nil, fmt.Errorf("acknowledge all consumed dlq: %w", err)
+		}
 	}
 
 	return dlqMsgs, nil
