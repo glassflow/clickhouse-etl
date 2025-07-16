@@ -1,53 +1,83 @@
 import { StateCreator } from 'zustand'
 
-export interface StepsSlice {
+export interface StepsStoreProps {
   activeStep: string
-  setActiveStep: (step: string) => void
   completedSteps: string[]
+  editingStep: string
+}
+export interface StepsStore extends StepsStoreProps {
+  // actions
+  setActiveStep: (step: string) => void
   setCompletedSteps: (steps: string[]) => void
   addCompletedStep: (step: string) => void
   removeCompletedStepsAfter: (step: string) => void
-  editingStep: string
   setEditingStep: (step: string) => void
+
+  // reset steps store
+  resetStepsStore: () => void
+}
+
+export interface StepsSlice {
+  stepsStore: StepsStore
+}
+
+export const initialStepsStore: StepsStoreProps = {
+  activeStep: '',
+  completedSteps: [],
+  editingStep: '',
 }
 
 export const createStepsSlice: StateCreator<StepsSlice> = (set) => ({
-  activeStep: '',
-  setActiveStep: (step: string) => set({ activeStep: step }),
-  completedSteps: [] as string[],
-  setCompletedSteps: (steps: string[]) => {
-    set((state) => ({
-      ...state,
-      completedSteps: steps,
-    }))
-  },
+  stepsStore: {
+    ...initialStepsStore,
 
-  addCompletedStep: (step: string) => {
-    set((state) => {
-      if (!state.completedSteps.includes(step)) {
-        return {
-          ...state,
-          completedSteps: [...state.completedSteps, step],
+    // actions
+    setActiveStep: (step: string) =>
+      set((state) => ({
+        stepsStore: { ...state.stepsStore, activeStep: step },
+      })),
+    setCompletedSteps: (steps: string[]) => {
+      set((state) => ({
+        stepsStore: {
+          ...state.stepsStore,
+          completedSteps: steps,
+        },
+      }))
+    },
+
+    addCompletedStep: (step: string) => {
+      set((state) => {
+        if (!state.stepsStore.completedSteps.includes(step)) {
+          return {
+            stepsStore: {
+              ...state.stepsStore,
+              completedSteps: [...state.stepsStore.completedSteps, step],
+            },
+          }
         }
-      }
-      return state
-    })
-  },
+        return state
+      })
+    },
 
-  removeCompletedStepsAfter: (step: string) => {
-    set((state) => {
-      const stepIndex = state.completedSteps.indexOf(step)
-      if (stepIndex !== -1) {
-        // Keep all steps up to and including the given step
-        return {
-          ...state,
-          completedSteps: state.completedSteps.slice(0, stepIndex + 1),
+    removeCompletedStepsAfter: (step: string) => {
+      set((state) => {
+        const stepIndex = state.stepsStore.completedSteps.indexOf(step)
+        if (stepIndex !== -1) {
+          // Keep all steps up to and including the given step
+          return {
+            stepsStore: {
+              ...state.stepsStore,
+              completedSteps: state.stepsStore.completedSteps.slice(0, stepIndex + 1),
+            },
+          }
         }
-      }
-      return state
-    })
-  },
+        return state
+      })
+    },
 
-  editingStep: '',
-  setEditingStep: (step: string) => set({ editingStep: step }),
+    setEditingStep: (step: string) => set((state) => ({ stepsStore: { ...state.stepsStore, editingStep: step } })),
+
+    // reset steps store
+    resetStepsStore: () => set((state) => ({ stepsStore: { ...state.stepsStore, ...initialStepsStore } })),
+  },
 })
