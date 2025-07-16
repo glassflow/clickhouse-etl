@@ -10,7 +10,7 @@ interface ClickHouseData {
   tableSchemas?: Record<string, any[]> // "database:table" -> schema mapping
 }
 
-export interface ClickhouseStore {
+export interface ClickhouseStoreProps {
   // connection configuration
   clickhouseConnection: ClickhouseConnectionFormType
 
@@ -29,7 +29,9 @@ export interface ClickhouseStore {
     maxDelayTimeUnit: string
     // useSSL: boolean
   }
+}
 
+export interface ClickhouseStore extends ClickhouseStoreProps {
   // actions
   setClickhouseConnection: (connector: ClickhouseConnectionFormType) => void
   setClickhouseDestination: (destination: {
@@ -61,6 +63,34 @@ export interface ClickhouseStore {
 
 export interface ClickhouseSlice {
   clickhouseStore: ClickhouseStore
+}
+
+export const initialClickhouseStore: ClickhouseStoreProps = {
+  clickhouseConnection: {
+    connectionType: 'direct',
+    directConnection: {
+      host: '',
+      port: '',
+      username: '',
+      password: '',
+      nativePort: '',
+      useSSL: true,
+      skipCertificateVerification: false,
+    },
+    connectionStatus: 'idle',
+    connectionError: null,
+  },
+  clickhouseData: null,
+  clickhouseDestination: {
+    scheme: '',
+    database: '',
+    table: '',
+    mapping: [],
+    destinationColumns: [],
+    maxBatchSize: 1000,
+    maxDelayTime: 1,
+    maxDelayTimeUnit: 'm',
+  },
 }
 
 export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) => ({
@@ -258,5 +288,9 @@ export const createClickhouseSlice: StateCreator<ClickhouseSlice> = (set, get) =
     getConnectionId: () => {
       return get().clickhouseStore.clickhouseData?.connectionId || null
     },
+
+    // reset clickhouse store
+    resetClickhouseStore: () =>
+      set((state) => ({ clickhouseStore: { ...state.clickhouseStore, ...initialClickhouseStore } })),
   },
 })

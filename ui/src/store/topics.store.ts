@@ -12,53 +12,57 @@ type KafkaEventCache = {
   currentOffset: number
 }
 
+export interface TopicsStoreProps {
+  // available topics
+  availableTopics: string[]
+
+  // topic count
+  topicCount: number
+
+  // topics and events - new approach
+  topics: KafkaTopicsType
+
+  // Add event cache
+  eventCache: Record<string, KafkaEventCache>
+}
+
+export interface TopicsStore extends TopicsStoreProps {
+  // available topics actions
+  setAvailableTopics: (topics: AvailableTopicsType) => void
+
+  setTopicCount: (index: number) => void
+
+  setTopicDeduplicationWindow: (window: number, unit: 'seconds' | 'minutes' | 'hours' | 'days') => void
+
+  setTopicSelectedEvent: (event: KafkaEventType) => void
+
+  setTopicEvents: (events: KafkaEventType[]) => void
+
+  addTopic: (topic: KafkaTopicType) => void
+
+  updateTopic: (topic: KafkaTopicType) => void
+
+  getTopic: (index: number) => KafkaTopicType | undefined
+
+  getSelectedEvent: (index: number) => KafkaEventType | undefined
+
+  getEvent: (index: number, eventIndex: number) => KafkaEventType | undefined
+
+  // Add new methods
+  getEventFromCache: (topicName: string, offset: number) => any
+  addEventToCache: (topicName: string, offset: number, event: any) => void
+  updateEventCache: (topicName: string, cacheUpdate: Partial<KafkaEventCache>) => void
+  clearEventCache: (topicName?: string) => void
+  getIsTopicDirty: () => boolean
+
+  // New method to invalidate dependent state
+  invalidateTopicDependentState: (index: number) => void
+
+  resetTopicsStore: () => void
+}
+
 export interface TopicsSlice {
-  topicsStore: {
-    // available topics
-    availableTopics: string[]
-
-    // topic count
-    topicCount: number
-
-    // topics and events - new approach
-    topics: KafkaTopicsType
-
-    // Add event cache
-    eventCache: Record<string, KafkaEventCache>
-
-    // available topics actions
-    setAvailableTopics: (topics: AvailableTopicsType) => void
-
-    setTopicCount: (index: number) => void
-
-    setTopicDeduplicationWindow: (window: number, unit: 'seconds' | 'minutes' | 'hours' | 'days') => void
-
-    setTopicSelectedEvent: (event: KafkaEventType) => void
-
-    setTopicEvents: (events: KafkaEventType[]) => void
-
-    addTopic: (topic: KafkaTopicType) => void
-
-    updateTopic: (topic: KafkaTopicType) => void
-
-    getTopic: (index: number) => KafkaTopicType | undefined
-
-    getSelectedEvent: (index: number) => KafkaEventType | undefined
-
-    getEvent: (index: number, eventIndex: number) => KafkaEventType | undefined
-
-    // Add new methods
-    getEventFromCache: (topicName: string, offset: number) => any
-    addEventToCache: (topicName: string, offset: number, event: any) => void
-    updateEventCache: (topicName: string, cacheUpdate: Partial<KafkaEventCache>) => void
-    clearEventCache: (topicName?: string) => void
-    getIsTopicDirty: () => boolean
-
-    // New method to invalidate dependent state
-    invalidateTopicDependentState: (index: number) => void
-
-    resetStore: () => void
-  }
+  topicsStore: TopicsStore
 }
 
 export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
@@ -67,6 +71,7 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
     availableTopics: [],
     topicCount: 0,
     topics: {},
+    eventCache: {},
 
     // actions
     setAvailableTopics: (topics: AvailableTopicsType) =>
@@ -89,9 +94,6 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
     getTopic: (index: number) => get().topicsStore.topics[index],
     getEvent: (index: number, eventIndex: number) => get().topicsStore.topics[index]?.events?.[eventIndex],
     getSelectedEvent: (index: number) => get().topicsStore.topics[index]?.selectedEvent,
-
-    // Initialize event cache
-    eventCache: {},
 
     // Get event from cache
     getEventFromCache: (topicName, offset) => {
@@ -235,7 +237,9 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
       const { topics } = get().topicsStore
       return Object.keys(topics).length > 0
     },
-    resetStore: () => {
+
+    // reset topics store
+    resetTopicsStore: () => {
       set((state) => ({
         topicsStore: {
           ...state.topicsStore,

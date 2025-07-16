@@ -24,7 +24,7 @@ export function KafkaConnector({
 }) {
   const { kafkaStore, topicsStore, operationsSelected } = useStore()
   const { bootstrapServers } = kafkaStore
-  const { resetStore: resetTopicsStore } = topicsStore
+  const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
   const previousBootstrapServers = useRef(bootstrapServers)
   const [isConnecting, setIsConnecting] = useState(false)
