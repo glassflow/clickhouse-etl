@@ -14,19 +14,21 @@ import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createJoinSlice, JoinSlice } from './join.store'
 import Cookies from 'js-cookie'
 
-interface Store extends KafkaSlice, ClickhouseSlice, StepsSlice, TopicsSlice, JoinSlice {
+interface BaseStoreProps {
   pipelineId: string
   pipelineName: string
   operationsSelected: OperationsSelectedType
-  deduplicationConfig: DeduplicationConfigType
   outboundEventPreview: OutboundEventPreviewType
   analyticsConsent: boolean
   consentAnswered: boolean
   isDirty: boolean
   apiConfig: any
+}
+
+interface Store extends BaseStoreProps, KafkaSlice, ClickhouseSlice, StepsSlice, TopicsSlice, JoinSlice {
+  // actions
   setApiConfig: (config: any) => void
   setOperationsSelected: (operations: OperationsSelectedType) => void
-  setDeduplicationConfig: (config: DeduplicationConfigType) => void
   setOutboundEventPreview: (preview: OutboundEventPreviewType) => void
   setAnalyticsConsent: (consent: boolean) => void
   setConsentAnswered: (consent: boolean) => void
@@ -48,25 +50,28 @@ const useActualStore = create<Store>()(
       ...createJoinSlice(set, get, store),
       pipelineId: '',
       setPipelineId: (id: string) => set({ pipelineId: id }, false, 'setPipelineId'),
+
       pipelineName: '',
       setPipelineName: (name: string) => set({ pipelineName: name }, false, 'setPipelineName'),
+
       operationsSelected: {
         operation: '', // we can select only one operation - deduplication, joining, deduplication & joining
       },
       setOperationsSelected: (operations: OperationsSelectedType) =>
         set({ operationsSelected: operations }, false, 'setOperationsSelected'),
+
       analyticsConsent: false,
+      setAnalyticsConsent: (consent: boolean) => set({ analyticsConsent: consent }, false, 'setAnalyticsConsent'),
+
       consentAnswered: false,
       setConsentAnswered: (consent: boolean) => set({ consentAnswered: consent }, false, 'setConsentAnswered'),
-      setAnalyticsConsent: (consent: boolean) => set({ analyticsConsent: consent }, false, 'setAnalyticsConsent'),
-      deduplicationConfig: {},
-      setDeduplicationConfig: (config: DeduplicationConfigType) =>
-        set({ deduplicationConfig: config }, false, 'setDeduplicationConfig'),
+
       outboundEventPreview: {
         events: [],
       },
       setOutboundEventPreview: (preview: OutboundEventPreviewType) =>
         set({ outboundEventPreview: preview }, false, 'setOutboundEventPreview'),
+
       isDirty: false,
       markAsDirty: () => {
         set({ isDirty: true })
@@ -76,8 +81,11 @@ const useActualStore = create<Store>()(
         set({ isDirty: false })
         Cookies.set('isDirty', 'false', { expires: 1 })
       },
+
       apiConfig: {},
       setApiConfig: (config: any) => set({ apiConfig: config }, false, 'setApiConfig'),
+
+      // reset pipeline state
       resetPipelineState: (operation: string, force = false) => {
         const state = get()
 
@@ -96,7 +104,6 @@ const useActualStore = create<Store>()(
               type: 'temporal',
               streams: [],
             },
-            deduplicationConfig: {},
             clickhouseDestination: {
               scheme: '',
               database: '',
