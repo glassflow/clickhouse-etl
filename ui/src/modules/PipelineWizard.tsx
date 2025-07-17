@@ -134,7 +134,8 @@ function PipelineWizard() {
   }, [operationsSelected?.operation])
 
   const stepComponents = getWizardJourneySteps(operationsSelected?.operation)
-  const { completedSteps, setCompletedSteps, activeStep, setActiveStep, addCompletedStep } = useStore()
+  const { stepsStore } = useStore()
+  const { completedSteps, setCompletedSteps, activeStep, setActiveStep, addCompletedStep } = stepsStore
   const completedStepsArray = Array.from(completedSteps)
   const [editingStep, setEditingStep] = useState<string | null>(null)
   const [previousActiveStep, setPreviousActiveStep] = useState<string | null>(null)
