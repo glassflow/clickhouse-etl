@@ -1,0 +1,164 @@
+/* ================== Card/container utilities ================== */
+.card {
+  border-radius: var(--radius-large);
+  border: 1px solid var(--color-border-regular);
+  background: var(--color-background-regular);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-overlay);
+}
+
+.card-elevated {
+  background: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+  transition: all var(--duration-medium) var(--easing-standard);
+  
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: var(--radius-large);
+    background: linear-gradient(180deg, var(--color-orange-950) 0%, var(--color-black-400) 100%);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: all var(--duration-medium) var(--easing-standard);
+  }
+  
+  box-shadow: var(--shadow-raised);
+}
+
+.card-elevated:hover {
+  /* Slightly lighter background gradient for subtle prominence */
+  background: linear-gradient(180deg, var(--color-black-200) 0%, var(--color-black-500) 100%);
+  
+  /* Enhanced shadow for more depth */
+  box-shadow: 
+    0px 2px 8px -2px rgba(0, 0, 0, 0.6),
+    0px 8px 16px 0px rgba(0, 0, 0, 0.1),
+    0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+  
+  /* Subtle scale effect */
+  {{/* transform: translateY(-1px); */}}
+  
+  &::before {
+    /* More pronounced border gradient */
+    background: linear-gradient(180deg, 
+      var(--color-orange-hover-light) 0%, 
+      var(--color-orange-hover-light) 100%
+    );
+    
+    /* Slightly thicker border on hover */
+    {{/* padding: 1.5px; */}}
+  }
+}
+
+.card-elevated-subtle {
+  background: var(--color-gray-dark-950);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+  transition: all var(--duration-medium) var(--easing-standard);
+  
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: var(--radius-large);
+    background: linear-gradient(180deg, var(--color-blue-300) 0%, var(--color-black-200) 100%);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: all var(--duration-medium) var(--easing-standard);
+  }
+  
+  box-shadow: var(--shadow-raised);
+}
+
+.card-elevated-subtle:hover {
+  /* Slightly lighter background for subtle prominence */
+  background: var(--color-gray-dark-900);
+  
+  /* Enhanced shadow for more depth */
+  box-shadow: 
+    0px 2px 8px -2px rgba(0, 0, 0, 0.6),
+    0px 8px 16px 0px rgba(0, 0, 0, 0.1),
+    0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+  
+  &::before {
+    /* More pronounced blue border gradient */
+    background: linear-gradient(180deg, 
+      var(--color-blue-400) 0%, 
+      var(--color-blue-300) 100%
+    );
+  }
+}
+
+/* Active state for selected cards */
+.card:active {
+  box-shadow: var(--shadow-overlay);
+  position: relative;
+}
+
+.card:active:before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Configuration card style */
+.feedback-card {
+  border-radius: 12px;
+  border: 1px solid #a5b9e4;
+  background: linear-gradient(180deg, rgba(91, 102, 126, 0.15) 0%, rgba(165, 185, 228, 0.15) 100%);
+  box-shadow:
+    0px 0px 4px 0px rgba(0, 0, 0, 0.2),
+    0px 8px 16px 0px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.feedback-card:hover {
+  border-color: #c4d1f0;
+  background: linear-gradient(180deg, rgba(91, 102, 126, 0.25) 0%, rgba(165, 185, 228, 0.25) 100%);
+  box-shadow:
+    0px 0px 8px 0px rgba(0, 0, 0, 0.25),
+    0px 12px 24px 0px rgba(0, 0, 0, 0.35);
+}
+
+/* Content card style */
+.content-card {
+  border-radius: 12px;
+  border: 1px solid #3d4869;
+  background: linear-gradient(180deg, #1e1e1f 0%, #151517 100%);
+  box-shadow:
+    0px 0px 4px 0px rgba(0, 0, 0, 0.04),
+    0px 8px 16px 0px rgba(0, 0, 0, 0.08);
+}
+
+.content-card:hover {
+  background: linear-gradient(180deg, #1a1a1b 0%, #121214 100%);
+  box-shadow:
+    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
+    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+  border-color: #4a5a80;
+}

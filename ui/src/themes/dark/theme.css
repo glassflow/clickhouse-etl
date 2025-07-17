@@ -1,54 +1,85 @@
 [data-theme='dark'] {
-  /* Color system */
-  --color-background-primary: #ffa24b;
-  --color-background-primary-faded: #332010;
-  --color-border-primary: #efb07c;
-  --color-border-primary-faded: #4b311b;
-  --color-foreground-primary: #ffa24b;
+  /* Color system - referencing base color tokens */
 
-  --color-background-critical: #d72828;
-  --color-background-critical-faded: #391b18;
-  --color-border-critical: #e68075;
-  --color-border-critical-faded: #532a26;
-  --color-foreground-critical: #e68075;
+  /* Primary */
+  --color-background-primary: var(--color-orange-300);
+  --color-background-primary-faded: var(--color-orange-800);
+  --color-border-primary: var(--color-orange-400);
+  --color-border-primary-faded: var(--color-orange-900);
+  --color-foreground-primary: var(--color-orange-300);
+  --color-foreground-primary-faded: var(--color-orange-300);
 
-  --color-background-warning: #d7ae06;
-  --color-background-warning-faded: #2b2410;
-  --color-border-warning: #eed58a;
-  --color-border-warning-faded: #40371b;
-  --color-foreground-warning: #eed58a;
+  /* Critical */
+  --color-background-critical: var(--color-red-600);
+  --color-background-critical-faded: var(--color-red-800);
+  --color-border-critical: var(--color-red-400);
+  --color-border-critical-faded: var(--color-red-900);
+  --color-foreground-critical: var(--color-red-500);
+  --color-foreground-critical-faded: var(--color-red-500);
 
-  --color-background-positive: #118850;
-  --color-background-positive-faded: #152a1d;
-  --color-border-positive: #57b17c;
-  --color-border-positive-faded: #223f2d;
-  --color-foreground-positive: #57b17c;
+  /* Warning */
+  --color-background-warning: var(--color-yellow-600);
+  --color-background-warning-faded: var(--color-yellow-800);
+  --color-border-warning: var(--color-yellow-400);
+  --color-border-warning-faded: var(--color-yellow-900);
+  --color-foreground-warning: var(--color-yellow-400);
+  --color-foreground-warning-faded: var(--color-yellow-400);
 
-  --color-background-neutral: #393a42;
-  --color-background-neutral-faded: #212227;
-  --color-border-neutral: #ffffff24;
-  --color-border-neutral-faded: #ffffff17;
-  --color-foreground-neutral: #f3f3f5;
-  --color-foreground-neutral-faded: #c7c9d1;
+  /* Positive */
+  --color-background-positive: var(--color-green-600);
+  --color-background-positive-faded: var(--color-green-800);
+  --color-border-positive: var(--color-green-400);
+  --color-border-positive-faded: var(--color-green-900);
+  --color-foreground-positive: var(--color-green-500);
+  --color-foreground-positive-faded: var(--color-green-500);
 
-  --color-background-disabled: #242527;
-  --color-background-disabled-faded: #1b1b1d;
-  --color-border-disabled: #262729;
-  --color-foreground-disabled: #494a4e;
+  /* Neutral */
+  --color-background-neutral: var(--color-gray-dark-600);
+  --color-background-neutral-faded: var(--color-gray-dark-700);
+  --color-border-neutral: rgba(255, 255, 255, 0.14);
+  --color-border-neutral-faded: rgba(255, 255, 255, 0.09);
+  --color-foreground-neutral: var(--color-gray-dark-50);
+  --color-foreground-neutral-faded: var(--color-gray-dark-100);
 
-  --color-border-info: #6c6c6c;
-  --color-border-info-faded: #4c4c4c;
-  --color-foreground-info: #ffa24b;
-  --color-foreground-info-faded: #ffa24b;
+  /* Disabled */
+  --color-background-disabled: var(--color-gray-dark-800);
+  --color-background-disabled-faded: var(--color-gray-dark-900);
+  --color-border-disabled: var(--color-gray-dark-800);
+  --color-border-disabled-faded: var(--color-gray-dark-800);
+  --color-foreground-disabled: var(--color-gray-dark-500);
+  --color-foreground-disabled-faded: var(--color-gray-dark-500);
 
-  --color-border-regular: #373737;
-  --color-background-regular: #161616;
+  /* Info */
+  --color-background-info: var(--color-gray-dark-600);
+  --color-background-info-faded: var(--color-gray-dark-700);
+  --color-border-info: var(--color-gray-dark-300);
+  --color-border-info-faded: var(--color-gray-dark-400);
+  --color-foreground-info: var(--color-blue-500);
+  --color-foreground-info-faded: var(--color-blue-500);
 
-  --color-background-elevation-base: #161617;
-  --color-background-elevation-raised: #18191a;
-  --color-background-elevation-overlay: #1d1d1f;
-  --color-background-page: #0e0e10;
-  --color-background-page-faded: #131414;
+  /* Regular */
+  --color-background-regular: var(--color-gray-dark-900);
+  --color-background-regular-faded: var(--color-gray-dark-900);
+  --color-border-regular: var(--color-gray-dark-300);
+  --color-border-regular-faded: var(--color-gray-dark-300);
+  --color-foreground-regular: var(--color-gray-50);
+  --color-foreground-regular-faded: var(--color-gray-50);
+
+  /* Menu */
+  --color-menu-background: var(--color-gray-dark-300);
+  --color-menu-background-faded: var(--color-gray-dark-800);
+  --color-menu-background-overlay: var(--color-gray-dark-300);
+  --color-menu-background-page: var(--color-gray-dark-300);
+  --color-menu-background-page-faded: var(--color-gray-dark-800);
+
+  /* Elevation */
+  --color-background-elevation-base: var(--color-black-500);
+  --color-background-elevation-raised: var(--color-gray-dark-900);
+  --color-background-elevation-raised-faded: var(--color-black-100);
+  --color-background-elevation-raised-faded-2: var(--color-black-600);
+  --color-background-elevation-overlay: var(--color-gray-dark-800);
+  --color-background-page: var(--color-gray-dark-950);
+  --color-background-page-faded: var(--color-gray-dark-800);
 
   /* RGB color values for opacity adjustments */
   --color-rgb-background-primary: 255, 162, 75;
@@ -59,7 +90,7 @@
   --color-rgb-background-warning-faded: 43, 36, 16;
   --color-rgb-background-positive: 17, 136, 80;
   --color-rgb-background-positive-faded: 21, 42, 29;
-  --color-on-background-neutral: #ffffff;
+  --color-on-background-neutral: var(--color-gray-50);
   --color-rgb-background-neutral: 57, 58, 66;
   --color-rgb-background-neutral-faded: 33, 34, 39;
   --color-rgb-background-disabled: 36, 37, 39;
@@ -71,13 +102,24 @@
   --color-rgb-background-page-faded: 19, 20, 20;
 
   /* On-color text */
-  --color-on-background-primary: #000000;
-  --color-on-background-critical: #ffffff;
-  --color-on-background-warning: #000000;
-  --color-on-background-positive: #ffffff;
-  --color-on-brand: #000000;
+  --color-on-background-primary: var(--color-gray-950);
+  --color-on-background-critical: var(--color-gray-50);
+  --color-on-background-warning: var(--color-gray-950);
+  --color-on-background-positive: var(--color-gray-50);
+  --color-on-brand: var(--color-gray-950);
   --color-rgb-white: 255, 255, 255;
   --color-rgb-black: 0, 0, 0;
+  --color-rgb-positive: var(--color-green-500);
+  --color-rgb-negative: var(--color-red-500);
+  --color-rgb-warning: var(--color-yellow-500);
+  --color-rgb-info: var(--color-blue-500);
+  --color-rgb-regular: var(--color-gray-50);
+
+  /* Icon colors for dark theme */
+  --icon-color-default: var(--color-gray-dark-100);
+  --icon-color-active: var(--color-orange-300);
+  --icon-color-hover: var(--color-gray-dark-900);
+  --icon-color-disabled: var(--color-gray-dark-500);
 
   /* shadcn/ui variables */
   --background: var(--color-background-page);

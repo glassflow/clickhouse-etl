@@ -9,6 +9,8 @@
 @import '../themes/dark/theme.css';
 @import '../themes/light/theme.css';
 
+@import './styles/index.css';
+
 @layer base {
   :root {
     /* Typography */
@@ -17,10 +19,6 @@
 
     /* Border radius */
     --radius: var(--radius-medium);
-
-    /* Colors */
-    --background: var(--color-background-page);
-    --foreground: var(--color-foreground-neutral);
 
     /* Animation */
     --transition-fast: var(--duration-fast);
@@ -31,6 +29,10 @@
     /* Shadows */
     --shadow-sm: var(--shadow-raised);
     --shadow-md: var(--shadow-overlay);
+
+    /* shadcn/ui color mappings */
+    --background: var(--color-background-page);
+    --foreground: var(--color-foreground-neutral);
 
     --card: var(--color-background-elevation-raised);
     --card-foreground: var(--color-foreground-neutral);
@@ -57,20 +59,7 @@
     --input: var(--color-border-neutral);
     --ring: var(--color-background-primary);
 
-    --chart-1: var(--color-background-primary);
-    --chart-2: var(--color-background-primary);
-    --chart-3: var(--color-background-primary);
-    --chart-4: var(--color-background-primary);
-    --chart-5: var(--color-background-primary);
-    --sidebar: var(--color-background-neutral);
-    --sidebar-foreground: var(--color-foreground-neutral);
-    --sidebar-primary: var(--color-background-primary);
-    --sidebar-primary-foreground: var(--color-on-background-primary);
-    --sidebar-accent: var(--color-background-neutral-faded);
-    --sidebar-accent-foreground: var(--color-foreground-neutral);
-    --sidebar-border: var(--color-border-neutral);
-    --sidebar-ring: var(--color-background-primary);
-
+    /* Layout */
     --main-container-width: 1240px;
     --hero-container-width: 648px;
   }
@@ -78,683 +67,51 @@
 
 /* Custom utility classes */
 @layer utilities {
-  .title-1 {
-    font-size: var(--font-size-title-1);
-    line-height: var(--line-height-title-1);
-    font-family: var(--font-family-title-1);
-    font-weight: var(--font-weight-title-1);
-    letter-spacing: var(--letter-spacing-title-1);
-    color: var(--color-foreground-accent);
+  /* Border utilities */
+  .border-primary {
+    border-color: var(--color-border-primary);
   }
-
-  .title-2 {
-    font-size: var(--font-size-title-2);
-    line-height: var(--line-height-title-2);
-    font-family: var(--font-family-title-2);
-    font-weight: var(--font-weight-title-2);
-    letter-spacing: var(--letter-spacing-title-2);
+  .border-critical {
+    border-color: var(--color-border-critical);
   }
-
-  .title-3 {
-    font-size: var(--font-size-title-3);
-    line-height: var(--line-height-title-3);
-    font-family: var(--font-family-title-3);
-    font-weight: var(--font-weight-title-3);
-    letter-spacing: var(--letter-spacing-title-3);
+  .border-radius-small {
+    border-radius: var(--radius-small);
   }
-
-  .title-4 {
-    font-size: var(--font-size-title-4);
-    line-height: var(--line-height-title-4);
-    font-family: var(--font-family-title-4);
-    font-weight: var(--font-weight-title-4);
-    letter-spacing: var(--letter-spacing-title-4);
-  }
-
-  .title-5 {
-    font-size: var(--font-size-title-5);
-    line-height: var(--line-height-title-5);
-    font-family: var(--font-family-title-5);
-    font-weight: var(--font-weight-title-5);
-    letter-spacing: var(--letter-spacing-title-5);
-  }
-
-  .title-6 {
-    font-size: var(--font-size-title-6);
-    line-height: var(--line-height-title-6);
-    font-family: var(--font-family-title-6);
-    font-weight: var(--font-weight-title-6);
-    letter-spacing: var(--letter-spacing-title-6);
-  }
-
-  .body-1 {
-    font-size: var(--font-size-body-1);
-    line-height: var(--line-height-body-1);
-    font-family: var(--font-family-body-1);
-    letter-spacing: var(--letter-spacing-body-1);
-  }
-
-  .body-2 {
-    font-size: var(--font-size-body-2);
-    line-height: var(--line-height-body-2);
-    font-family: var(--font-family-body-2);
-    letter-spacing: var(--letter-spacing-body-2);
-  }
-
-  .body-3 {
-    font-size: var(--font-size-body-3);
-    line-height: var(--line-height-body-3);
-    font-family: var(--font-family-body-3);
-    letter-spacing: var(--letter-spacing-body-3);
-  }
-
-  .spacing-1 {
-    margin: var(--unit-x1);
-    padding: var(--unit-x1);
-  }
-
-  .spacing-2 {
-    margin: var(--unit-x2);
-    padding: var(--unit-x2);
-  }
-
-  .spacing-3 {
-    margin: var(--unit-x3);
-    padding: var(--unit-x3);
-  }
-
-  .spacing-4 {
-    margin: var(--unit-x4);
-    padding: var(--unit-x4);
-  }
-
-  .text-gradient {
-    background: linear-gradient(283deg, #ffac5e 21.34%, #a5b9e4 102.9%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .text-normal {
-    color: var(--color-foreground-neutral);
-  }
-
-  .text-normal-accent {
-    color: var(--color-foreground-accent);
-  }
-
-  .text-gradient-primary {
-    background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .subtitle {
-    color: var(--color-foreground-neutral-faded);
-    font-family: var(--font-family-body);
-    font-size: var(--font-size-featured-2, 24px);
-    font-style: normal;
-    font-weight: var(--font-weight-regular);
-    line-height: var(--line-height-featured-2, 32px);
-    letter-spacing: var(--letter-spacing-featured-2, 0px);
-  }
-
-  .background {
-    background-color: var(--color-background-page);
-  }
-
-  /* Card/container utility class */
-  .card-gradient {
-    border-radius: 12px;
-    border: 1px solid var(--color-border-regular);
-    background: var(--color-background-regular);
-    box-shadow:
-      0px 0px 4px 0px rgba(0, 0, 0, 0.04),
-      0px 8px 16px 0px rgba(0, 0, 0, 0.08);
-  }
-
-  .card-gradient:hover {
-    background: var(--color-background-regular);
-    box-shadow:
-      0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-      0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-    border-color: var(--color-border-regular);
-  }
-
-  /* Active state for selected cards */
-  .card-gradient-active {
-    border-radius: 12px;
-    border: 1px solid var(--color-background-primary);
-    background: var(--color-background-regular);
-    box-shadow:
-      0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-      0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-    position: relative;
-  }
-
-  .card-gradient-active:before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 14px;
-    padding: 1px;
-    background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  .input-gradient-active {
-    border-radius: 6px;
-    border: 1px solid var(--color-background-primary);
-    background: linear-gradient(180deg, #252527 0%, #1a1a1c 100%);
-    box-shadow:
-      0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-      0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-    position: relative;
-  }
-
-  .input-gradient-active:before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 6px;
-    padding: 1px;
-    background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  /* Configuration card style */
-  .feedback-card {
-    border-radius: 12px;
-    border: 1px solid #a5b9e4;
-    background: linear-gradient(180deg, rgba(91, 102, 126, 0.15) 0%, rgba(165, 185, 228, 0.15) 100%);
-    box-shadow:
-      0px 0px 4px 0px rgba(0, 0, 0, 0.2),
-      0px 8px 16px 0px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(10px);
-  }
-
-  .feedback-card:hover {
-    border-color: #c4d1f0;
-    background: linear-gradient(180deg, rgba(91, 102, 126, 0.25) 0%, rgba(165, 185, 228, 0.25) 100%);
-    box-shadow:
-      0px 0px 8px 0px rgba(0, 0, 0, 0.25),
-      0px 12px 24px 0px rgba(0, 0, 0, 0.35);
-  }
-
-  /* Content card style */
-  .content-card {
-    border-radius: 12px;
-    border: 1px solid #3d4869;
-    background: linear-gradient(180deg, #1e1e1f 0%, #151517 100%);
-    box-shadow:
-      0px 0px 4px 0px rgba(0, 0, 0, 0.04),
-      0px 8px 16px 0px rgba(0, 0, 0, 0.08);
-  }
-
-  .content-card:hover {
-    background: linear-gradient(180deg, #1a1a1b 0%, #121214 100%);
-    box-shadow:
-      0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-      0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-    border-color: #4a5a80;
-  }
-
-  /* Button text style */
-  .btn-text {
-    color: var(--color-black);
-    font-family: var(--font-family-body);
-    font-size: var(--font-size-body-3, 14px);
-    font-style: normal;
-    font-weight: var(--font-weight-medium, 500);
-    line-height: var(--line-height-body-3, 20px);
-    letter-spacing: var(--letter-spacing-body-3, 0px);
-  }
-
-  /* Disabled button text style */
-  .btn-text-disabled {
-    color: var(--color-foreground-neutral-faded);
-    font-family: var(--font-family-body);
-    font-size: var(--font-size-body-3, 14px);
-    font-style: normal;
-    font-weight: var(--font-weight-medium, 500);
-    line-height: var(--line-height-body-3, 20px);
-    letter-spacing: var(--letter-spacing-body-3, 0px);
-  }
-
-  /* Input styles */
-  .input-regular {
-    background-color: #1e1e1f;
-    color: #ffffff;
-    border-radius: 6px;
-    padding: 8px 12px;
-    position: relative;
-  }
-
-  .input-active {
-    border-radius: 6px;
-    border: 1px solid var(--color-background-primary);
-    box-shadow:
-      0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-      0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-    position: relative;
-  }
-
-  .input-border-regular {
-    border: 1px solid var(--color-border-regular);
-  }
-
-  .input-border-error {
-    border-color: #ef4444;
-  }
-
-  /* Custom focus style that matches card-gradient-active */
-  .input-regular:focus-visible {
-    outline: none;
-    border-color: var(--color-background-primary, #a5b9e4);
-    box-shadow: 0 0 0 2px rgba(165, 185, 228, 0.25);
-  }
-
-  /* Add a pseudo-element for the gradient border effect when focused */
-  .input-regular:focus-visible::before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 6px;
-    padding: 1px;
-    background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .input-description-error {
-    color: var(--color-foreground-critical);
-  }
-
-  /* Select component styles */
-  .select-content-custom {
-    background-color: #1e1e1f;
-    border: 1px solid var(--color-border-regular);
-    overflow: hidden;
-    z-index: 50;
-  }
-
-  .select-content-custom:active {
-    background-color: #1e1e1f;
-    border: 1px solid var(--color-background-primary);
-    overflow: hidden;
-    z-index: 50;
-  }
-
-  .select-item-custom {
-    color: #ffffff;
-    padding: 8px 12px;
-  }
-
-  .select-item-custom:hover {
-    background-color: rgba(165, 185, 228, 0.1);
-  }
-
-  .select-item-custom[data-highlighted] {
-    background-color: rgba(165, 185, 228, 0.2);
-    color: var(--color-background-primary);
-  }
-
-  .select-item-custom[data-state='checked'] {
-    background-color: rgba(165, 185, 228, 0.3);
-    color: var(--color-background-primary);
-  }
-
-  /* Override the default focus styles for the select trigger */
-  [data-radix-select-trigger]:focus-visible {
-    outline: none !important;
-  }
-
-  /* Event Preview styles */
-  .event-preview-container {
-    position: relative;
-    background-color: #1e1e1f;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Make sure the editor container takes full height */
-  .event-preview-container > div {
-    flex: 1;
-    display: flex;
-    align-items: stretch;
-  }
-
-  /* Remove default Ace Editor border */
-  .ace-editor-custom {
-    background-color: transparent !important;
-    flex: 1;
-  }
-
-  .ace_editor {
-    background-color: transparent !important;
-    border: none !important;
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  .ace_gutter {
-    background-color: rgba(30, 30, 31, 0.8) !important;
-  }
-
-  .ace_content {
-    background-color: transparent !important;
-  }
-
-  /* Override Ace Editor focus styles */
-  .ace_focus {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  .btn-primary {
+  .border-radius-medium {
     border-radius: var(--radius-medium);
-    background: linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%);
-    box-shadow:
-      0px 0px 4px 0px rgba(0, 0, 0, 0.2),
-      0px 4px 8px 0px rgba(0, 0, 0, 0.3);
-    color: var(--color-on-background-primary);
+  }
+  .border-radius-large {
+    border-radius: var(--radius-large);
   }
 
-  .btn-primary:hover {
-    background-color: var(--color-background-primary-faded);
+  /* Interactive states */
+  .hover-elevate:hover {
+    box-shadow: var(--shadow-overlay);
   }
-
-  .btn-primary:active {
-    background-color: var(--color-background-primary-faded);
+  .hover-scale:hover {
+    transform: scale(1.02);
   }
-
-  .btn-neutral {
-    background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
-    color: var(--color-on-background-neutral);
-    border: none;
-    box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
-  }
-
-  .btn-neutral:hover {
-    background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
-  }
-
-  .btn-neutral:active {
-    background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
-  }
-
-  .btn-neutral:disabled {
-    background: linear-gradient(
-      134deg,
-      var(--color-background-disabled) 18.07%,
-      var(--color-background-disabled-faded) 76.51%
-    );
-    color: var(--color-on-background-disabled);
-  }
-
-  .btn-critical {
-    background-color: var(--color-background-critical);
-    color: var(--color-on-background-critical);
-  }
-
-  .btn-critical:hover {
-    background-color: var(--color-background-critical-faded);
-  }
-
-  .btn-critical:active {
-    background-color: var(--color-background-critical-faded);
-  }
-
-  .btn-secondary {
-    background-color: var(--color-background-neutral);
-    color: var(--color-on-background-neutral);
-    border: none;
-    box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
-  }
-
-  .btn-secondary:hover {
-    background-color: var(--color-background-neutral-faded);
-  }
-
-  .btn-secondary:active {
-    background-color: var(--color-background-neutral-faded);
-  }
-
-  .btn-secondary:disabled {
-    background-color: var(--color-background-neutral-faded);
-    color: var(--color-on-background-neutral-faded);
-  }
-
-  .btn-tertiary {
-    background-color: var(--color-background-neutral-black);
-    color: var(--color-on-background-neutral);
-    border: 1px solid var(--color-border-neutral);
-    box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
-  }
-
-  .btn-tertiary:hover {
-    background-color: var(--color-background-neutral-faded);
-  }
-
-  .btn-tertiary:active {
-    background-color: var(--color-background-neutral-faded);
-  }
-
-  .btn-tertiary:disabled {
-    background-color: var(--color-background-neutral-faded);
-    color: var(--color-on-background-neutral-faded);
-  }
-
-  .btn-home-lg {
-    width: 248px;
-    height: 100px;
-  }
-
-  .code-editor-container {
-    background-color: var(--color-background-neutral);
-    border-radius: 6px;
-    padding: 0;
-    overflow: auto;
-    width: 100%;
-    height: 100%;
-  }
-
-  /* Add this to ensure the editor itself doesn't restrict scrolling */
-  .ace_editor {
-    position: absolute !important;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 100% !important;
-    width: 100% !important;
-  }
-
-  /* Ensure scrollbars are visible and working */
-  .ace_scroller {
-    overflow: auto !important;
-  }
-
-  .info-modal-container {
-    background-color: var(--color-background-page);
-    border: 1px solid var(--color-border-info-faded);
-    border-radius: 12px;
-    overflow: auto;
-  }
-
-  .modal-title {
-    color: var(--color-foreground-neutral);
-    font-size: 32px;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .modal-description {
-    color: var(--color-foreground-neutral-faded);
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 1.5;
-  }
-
-  .step-title {
-    color: var(--color-foreground-neutral);
-    font-size: 24px;
-    font-weight: 600;
-    line-height: 2;
-  }
-
-  .step-description {
-    color: var(--color-foreground-neutral-faded);
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 1.2;
-  }
-
-  .text-content {
-    color: var(--color-foreground-neutral-faded);
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.2;
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-background-primary);
+    outline-offset: 2px;
   }
 }
 
-/* Add these animations to your existing CSS */
+/* Container responsive system */
+.container {
+  padding: 0 1rem;
+}
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+@media (min-width: 768px) {
+  .container {
+    padding: 0 1.5rem;
   }
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+@media (min-width: 1024px) {
+  .container {
+    max-width: var(--main-container-width);
+    margin: 0 auto;
+    padding: 0 2rem;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.6;
-  }
-}
-
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes feedbackEntrance {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.2s ease-out;
-}
-
-.animate-slideDown {
-  animation: slideDown 0.2s ease-out;
-}
-
-.animate-pulse {
-  animation: pulse 1.5s infinite;
-}
-
-.animate-slideUpFade {
-  animation: slideUpFade 0.3s ease-out;
-}
-
-.animate-feedback-entrance {
-  animation: feedbackEntrance 0.5s ease-out forwards;
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.5s ease-out forwards;
-}
-
-.animate-slideInFromRight {
-  animation: slideInFromRight 0.3s ease-out forwards;
-}
-
-.animate-delay-100 {
-  animation-delay: 0.1s;
-}
-
-.animate-delay-200 {
-  animation-delay: 0.2s;
-}
-
-.animate-delay-300 {
-  animation-delay: 0.3s;
-}
-
-.animate-delay-400 {
-  animation-delay: 0.4s;
 }

@@ -9,16 +9,43 @@ import { useFetchTopics } from '../../hooks/kafka-mng-hooks'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
+import { EventFetchProvider } from '../../components/shared/event-fetcher/EventFetchContext'
 
 export type TopicSelectorProps = {
   steps: any
   onNext: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
-  index: number
+  currentStep?: string
 }
 
-export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSelectorProps) {
+export function KafkaTopicSelector({ steps, onNext, validate, currentStep }: TopicSelectorProps) {
   const { topicsStore, kafkaStore, joinStore, operationsSelected } = useStore()
+
+  // Determine index based on current step and operation
+  const getIndex = useCallback(() => {
+    if (!currentStep) return 0
+
+    // For join operations, determine if this is the first or second topic selection
+    if (
+      operationsSelected?.operation === OperationKeys.JOINING ||
+      operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
+    ) {
+      if (currentStep === StepKeys.TOPIC_SELECTION_1 || currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+        return 0 // Left topic
+      } else if (
+        currentStep === StepKeys.TOPIC_SELECTION_2 ||
+        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+      ) {
+        return 1 // Right topic
+      }
+    }
+
+    // For non-join operations, always use index 0
+    return 0
+  }, [currentStep, operationsSelected?.operation])
+
+  const index = getIndex()
+
   const {
     topics: topicsFromKafka,
     isLoading: isLoadingTopics,
@@ -255,11 +282,18 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
 
     setTopicCount(topicCountFromStore + 1)
 
-    // Move to next step
-    if (index === 0) {
+    // Move to next step based on current step
+    if (currentStep === StepKeys.TOPIC_SELECTION_1) {
       onNext(StepKeys.TOPIC_SELECTION_1)
-    } else {
+    } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
       onNext(StepKeys.TOPIC_SELECTION_2)
+    } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+      onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+    } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+      onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+    } else {
+      // Fallback for any other topic selection step
+      onNext(currentStep || StepKeys.TOPIC_SELECTION_1)
     }
   }, [
     index,
@@ -272,35 +306,38 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     storedEvent,
     storedTopic?.deduplication,
     updateTopic,
+    currentStep,
   ])
 
   return (
-    <div className="space-y-6 w-full">
-      <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
-        <div className="grid grid-cols-1 gap-6">
-          <TopicSelectWithEventPreview
-            index={index}
-            existingTopic={storedTopic}
-            onTopicChange={handleTopicChange}
-            onOffsetChange={handleOffsetChange}
-            onManualEventChange={handleManualEventChange}
-            availableTopics={availableTopics}
-            isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
-          />
-        </div>
+    <EventFetchProvider>
+      <div className="space-y-6 w-full">
+        <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
+          <div className="grid grid-cols-1 gap-6">
+            <TopicSelectWithEventPreview
+              index={index}
+              existingTopic={storedTopic}
+              onTopicChange={handleTopicChange}
+              onOffsetChange={handleOffsetChange}
+              onManualEventChange={handleManualEventChange}
+              availableTopics={availableTopics}
+              isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
+            />
+          </div>
 
-        {/* Continue Button */}
-        <div className="flex justify-between mt-6">
-          <Button
-            variant="gradient"
-            className="btn-text btn-primary"
-            onClick={handleSubmit}
-            disabled={!(storedEvent || (manualEvent && isManualEventValid))}
-          >
-            Continue
-          </Button>
+          {/* Continue Button */}
+          <div className="flex justify-between mt-6">
+            <Button
+              variant="gradient"
+              className="btn-text btn-primary"
+              onClick={handleSubmit}
+              disabled={!(storedEvent || (manualEvent && isManualEventValid))}
+            >
+              Continue
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </EventFetchProvider>
   )
 }

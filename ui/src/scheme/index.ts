@@ -58,6 +58,7 @@ const OperationsSelected = z.object({
   operation: z.string(),
 })
 
+// TODO: remove this schema - it is not used anywhere
 const DeduplicationConfigPerTopic = z.object({
   window: z.string(),
   windowUnit: z.string(),

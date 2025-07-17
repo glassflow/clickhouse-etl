@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { StepKeys, TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
+import { StepKeys, TIME_WINDOW_UNIT_OPTIONS, OperationKeys } from '@/src/config/constants'
 import { useFetchTopics, useFetchEvent } from '@/src/hooks/kafka-mng-hooks'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { KafkaTopicSelectorType } from '@/src/scheme/topics.scheme'
@@ -13,22 +13,43 @@ import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSel
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { EventDataFormat } from '@/src/config/constants'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
+import { EventFetchProvider } from '../../components/shared/event-fetcher/EventFetchContext'
 
 export type TopicDeduplicationConfiguratorProps = {
   steps: any
   onNext: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
-  index: number
+  currentStep?: string
 }
 
 export function TopicDeduplicationConfigurator({
   steps,
   onNext,
   validate,
-  index = 0,
+  currentStep,
 }: TopicDeduplicationConfiguratorProps) {
   const analytics = useJourneyAnalytics()
-  const { topicsStore, kafkaStore } = useStore()
+  const { topicsStore, kafkaStore, operationsSelected } = useStore()
+
+  // Determine index based on current step and operation
+  const getIndex = useCallback(() => {
+    if (!currentStep) return 0
+
+    // For join operations, determine if this is the first or second topic deduplication
+    if (operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING) {
+      if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+        return 0 // Left topic
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+        return 1 // Right topic
+      }
+    }
+
+    // For non-join operations, always use index 0
+    return 0
+  }, [currentStep, operationsSelected?.operation])
+
+  const index = getIndex()
+
   const {
     availableTopics,
     setAvailableTopics,
@@ -301,11 +322,14 @@ export function TopicDeduplicationConfigurator({
       deduplication: deduplicationConfig,
     })
 
-    // Move to next step
-    if (index === 0) {
+    // Move to next step based on current step
+    if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
       onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
-    } else {
+    } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
       onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+    } else {
+      // Fallback for any other topic deduplication step
+      onNext(currentStep || StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
     }
   }, [
     index,
@@ -317,6 +341,7 @@ export function TopicDeduplicationConfigurator({
     keyConfig,
     updateTopic,
     onNext,
+    currentStep,
   ])
 
   // Simplify the event handlers
@@ -384,34 +409,36 @@ export function TopicDeduplicationConfigurator({
   }
 
   return (
-    <div className="space-y-6 w-full">
-      <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
-        <div className="grid grid-cols-1 gap-6">
-          {/* Topic Selection and Event Preview */}
-          <TopicSelectWithEventPreview
-            index={index}
-            existingTopic={existingTopic}
-            onTopicChange={handleTopicSelect}
-            onOffsetChange={handleOffsetChange}
-            availableTopics={availableTopics}
-            additionalContent={renderDeduplicationSection()}
-            onManualEventChange={handleManualEventChange}
-            isEditingEnabled={false}
-          />
-        </div>
+    <EventFetchProvider>
+      <div className="space-y-6 w-full">
+        <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Topic Selection and Event Preview */}
+            <TopicSelectWithEventPreview
+              index={index}
+              existingTopic={existingTopic}
+              onTopicChange={handleTopicSelect}
+              onOffsetChange={handleOffsetChange}
+              availableTopics={availableTopics}
+              additionalContent={renderDeduplicationSection()}
+              onManualEventChange={handleManualEventChange}
+              isEditingEnabled={false}
+            />
+          </div>
 
-        {/* Continue Button */}
-        <div className="flex justify-between mt-6 px-6">
-          <Button variant="gradient" className="btn-text btn-primary" onClick={handleSubmit} disabled={!canContinue}>
-            Continue
-          </Button>
+          {/* Continue Button */}
+          <div className="flex justify-between mt-6 px-6">
+            <Button variant="gradient" className="btn-text btn-primary" onClick={handleSubmit} disabled={!canContinue}>
+              Continue
+            </Button>
 
-          {/* Optional: Add a debug indicator for deduplication status */}
-          {existingTopic?.name && existingTopic?.selectedEvent?.event && !deduplicationConfigured && (
-            <div className="text-amber-500 text-sm">Please configure deduplication settings to continue</div>
-          )}
+            {/* Optional: Add a debug indicator for deduplication status */}
+            {existingTopic?.name && existingTopic?.selectedEvent?.event && !deduplicationConfigured && (
+              <div className="text-amber-500 text-sm">Please configure deduplication settings to continue</div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </EventFetchProvider>
   )
 }

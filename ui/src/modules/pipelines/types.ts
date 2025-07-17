@@ -61,3 +61,5 @@ export type ApiConfig = {
   source: KafkaSource
   sink: ClickhouseSink
 }
+
+export type StepType = 'kafka' | 'clickhouse' | 'deduplication' | 'join' | 'deduplication_join' | 'ingest-only' | null

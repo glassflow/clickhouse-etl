@@ -11,14 +11,20 @@ export function KafkaConnector({
   steps,
   onNext,
   validate,
+  standalone = false,
+  onComplete,
+  viewOnly = false,
 }: {
   steps: any
   onNext: (step: StepKeys) => void
   validate: () => Promise<boolean>
+  standalone?: boolean
+  onComplete?: () => void
+  viewOnly?: boolean
 }) {
   const { kafkaStore, topicsStore, operationsSelected } = useStore()
   const { bootstrapServers } = kafkaStore
-  const { resetStore: resetTopicsStore } = topicsStore
+  const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
   const previousBootstrapServers = useRef(bootstrapServers)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -98,6 +104,9 @@ export function KafkaConnector({
         isConnecting={isConnecting}
         connectionResult={connectionResult}
         onNext={onNext}
+        onComplete={onComplete}
+        standalone={standalone}
+        viewOnly={viewOnly}
       />
       {connectionResult && (
         <div

@@ -1,0 +1,69 @@
+{
+  "button-large": {
+    "name": "Button Large Background",
+    "background": {
+      "gradient": "linear-gradient(90deg, #1E1E1F 0%, #151517 100%)"
+    },
+    "border": {
+      "gradient": "linear-gradient(90deg, #2D2D2D 0%, #69553D 100%)"
+    }
+  },
+
+  "card-border": {
+    "name": "Card Border",
+    "gradient": "linear-gradient(90deg, #373737 0%, #6C6C6C 100%)"
+  },
+
+  "form-input-alternate": {
+    "name": "Form Input Alternate",
+    "background": "#16181E",
+    "color": "#FFFFFF",
+    "secondary-color": "#A8ADB8"
+  },
+
+  "button-primary": {
+    "name": "Button Primary",
+    "background": {
+      "gradient": "linear-gradient(90deg, #FFA959 0%, #E7872E 100%)"
+    },
+    "color": "#000000"
+  },
+  "button-neutral": {
+    "name": "Button Neutral",
+    "background": {
+      "gradient": "linear-gradient(90deg, #24242E 0%, #22222D 100%)"
+    },
+    "color": "#F1F2F6"
+  },
+
+  "status-active": {
+    "name": "Status Active",
+    "color": "#00D370",
+    "background": "#0D754433",
+    "opacity": 0.2
+  },
+  "status-paused": {
+    "name": "Status Paused",
+    "color": "#F1F2F6",
+    "background": "#86868633",
+    "opacity": 0.2
+  },
+  "status-pausing": {
+    "name": "Status Pausing",
+    "color": "#A8A8A8",
+    "background": "#50505033",
+    "opacity": 0.2
+  },
+  "status-deleting": {
+    "name": "Status Deleting",
+    "color": "#CB2D2B",
+    "background": "#8E1D1D33",
+    "opacity": 0.2
+  },
+  "status-deleted": {
+    "name": "Status Deleted",
+    "color": "#A8A8A8",
+    "background": "#50505033",
+    "opacity": 0.2
+  }
+}

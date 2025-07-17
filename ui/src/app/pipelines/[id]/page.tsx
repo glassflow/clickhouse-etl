@@ -1,0 +1,12 @@
+import PipelineDetailsModule from '@/src/modules/pipelines/[id]/PipelineDetailsModule'
+import { getPipeline } from '@/src/api/pipeline-api'
+
+async function PipelinePage({ params }: { params: Promise<{ id: string }> }) {
+  const finalParams = await params
+  const { id } = finalParams
+  const pipeline = await getPipeline(id)
+
+  return <PipelineDetailsModule pipeline={pipeline} />
+}
+
+export default PipelinePage

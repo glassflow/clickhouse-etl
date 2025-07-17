@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand'
 
-interface JoinStream {
+export interface JoinStream {
   streamId: string
   topicName: string
   joinKey: string
@@ -10,16 +10,31 @@ interface JoinStream {
   orientation: 'left' | 'right'
 }
 
+export interface JoinStoreProps {
+  enabled: boolean
+  type: string
+  streams: JoinStream[]
+}
+
+export interface JoinStore extends JoinStoreProps {
+  // actions
+  setEnabled: (enabled: boolean) => void
+  setType: (type: string) => void
+  setStreams: (streams: JoinStream[]) => void
+  getIsJoinDirty: () => boolean
+
+  // reset join store
+  resetJoinStore: () => void
+}
+
 export interface JoinSlice {
-  joinStore: {
-    enabled: boolean
-    type: string
-    streams: JoinStream[]
-    setEnabled: (enabled: boolean) => void
-    setType: (type: string) => void
-    setStreams: (streams: JoinStream[]) => void
-    getIsJoinDirty: () => boolean
-  }
+  joinStore: JoinStore
+}
+
+export const initialJoinStore: JoinStoreProps = {
+  enabled: false,
+  type: 'temporal',
+  streams: [],
 }
 
 export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
@@ -51,5 +66,8 @@ export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
       const { streams } = get().joinStore
       return streams.length > 0
     },
+
+    // reset join store
+    resetJoinStore: () => set((state) => ({ joinStore: { ...state.joinStore, ...initialJoinStore } })),
   },
 })
