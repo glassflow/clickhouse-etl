@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/ingestor"
@@ -23,9 +22,8 @@ type IngestorOperator struct {
 func NewIngestorOperator(
 	config models.IngestorOperatorConfig,
 	topicName string,
-	natsServerAddr string,
 	natsStreamSubject string,
-	natsMaxStreamDuration time.Duration,
+	nc *client.NATSClient,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
 ) (*IngestorOperator, error) {
@@ -33,21 +31,16 @@ func NewIngestorOperator(
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
 
-	if natsServerAddr == "" {
-		return nil, fmt.Errorf("NATS server address cannot be empty")
-	}
-
 	if natsStreamSubject == "" {
 		return nil, fmt.Errorf("NATS stream subject cannot be empty")
 	}
 
-	natsJSClient, err := client.NewNATSWrapper(natsServerAddr, natsMaxStreamDuration)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create NATS client: %w", err)
+	if nc == nil {
+		return nil, fmt.Errorf("NATS client cannot be nil")
 	}
 
 	streamPublisher := stream.NewNATSPublisher(
-		natsJSClient.JetStream(),
+		nc.JetStream(),
 		stream.PublisherConfig{
 			Subject: natsStreamSubject,
 		},
