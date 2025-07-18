@@ -74,6 +74,8 @@ GlassFlow can be installed in a variety of environments depending on your use ca
 ### Live Demo
 See a working demo of GlassFlow in action at [demo.glassflow.dev](https://demo.glassflow.dev).
 
+![GlassFlow Pipeline Data Flow](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassflow_demo.png)
+
 *GlassFlow Pipeline showing real-time streaming from Kafka through GlassFlow to ClickHouse*
 
 ### Demo Video
