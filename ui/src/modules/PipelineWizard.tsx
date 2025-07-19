@@ -254,14 +254,20 @@ function PipelineWizard() {
       return (
         <StepComponent
           steps={stepsMetadata}
-          onNext={(step: StepKeys) => handleNext(step)}
+          onCompleteStep={(step: StepKeys) => handleNext(step)}
           validate={validateStep}
           currentStep={stepKey}
         />
       )
     }
 
-    return <StepComponent steps={stepsMetadata} onNext={(step: StepKeys) => handleNext(step)} validate={validateStep} />
+    return (
+      <StepComponent
+        steps={stepsMetadata}
+        onCompleteStep={(step: StepKeys) => handleNext(step)}
+        validate={validateStep}
+      />
+    )
   }
 
   const getCompletedStepTitle = (stepName: StepKeys) => {

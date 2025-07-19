@@ -34,13 +34,13 @@ import { getRuntimeEnv } from '@/src/utils/common.client'
 type MappingMode = 'single' | 'join' | 'dedup'
 
 interface ClickhouseMapperProps {
-  onNext: (step: StepKeys) => void
+  onCompleteStep: (step: StepKeys) => void
 }
 
 const runtimeEnv = getRuntimeEnv()
 const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
-export function ClickhouseMapper({ onNext }: ClickhouseMapperProps) {
+export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
   const router = useRouter()
   const {
     clickhouseStore,
@@ -822,7 +822,7 @@ export function ClickhouseMapper({ onNext }: ClickhouseMapperProps) {
 
     if (isPreviewMode) {
       // Navigate to the review configuration step for preview
-      onNext(StepKeys.CLICKHOUSE_MAPPER)
+      onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
     } else {
       // Navigate directly to the pipelines page
       router.push('/pipelines')

@@ -18,9 +18,7 @@ type KafkaConnectionProps = {
     success: boolean
     message: string
   } | null
-  onNext?: (step: StepKeys) => void
-  onComplete?: () => void
-  standalone?: boolean
+  onCompleteStep?: (step: StepKeys) => void
   viewOnly?: boolean
 }
 
@@ -28,9 +26,7 @@ export const KafkaConnectionForm = ({
   onTestConnection,
   isConnecting,
   connectionResult,
-  onNext,
-  onComplete,
-  standalone,
+  onCompleteStep,
   viewOnly,
 }: KafkaConnectionProps) => {
   const { kafkaStore } = useStore()
@@ -249,11 +245,7 @@ export const KafkaConnectionForm = ({
       })
     }
 
-    if (!standalone && onNext) {
-      onNext(StepKeys.KAFKA_CONNECTION)
-    } else if (standalone && onComplete) {
-      onComplete()
-    }
+    onCompleteStep?.(StepKeys.KAFKA_CONNECTION as StepKeys)
   }
 
   const testConnection = async () => {

@@ -9,14 +9,12 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function KafkaConnector({
   steps,
-  onNext,
+  onCompleteStep,
   validate,
-  standalone = false,
-  onComplete,
   viewOnly = false,
 }: {
   steps: any
-  onNext: (step: StepKeys) => void
+  onCompleteStep?: (step: StepKeys, standalone?: boolean) => void
   validate: () => Promise<boolean>
   standalone?: boolean
   onComplete?: () => void
@@ -73,7 +71,7 @@ export function KafkaConnector({
           operation: operationsSelected?.operation,
           retryCount,
         })
-        onNext(StepKeys.TOPIC_SELECTION_1)
+        onCompleteStep?.(StepKeys.TOPIC_SELECTION_1)
       }
     } catch (err: any) {
       setRetryCount((prev) => prev + 1)
@@ -103,9 +101,7 @@ export function KafkaConnector({
         onTestConnection={handleTestConnection}
         isConnecting={isConnecting}
         connectionResult={connectionResult}
-        onNext={onNext}
-        onComplete={onComplete}
-        standalone={standalone}
+        onCompleteStep={onCompleteStep}
         viewOnly={viewOnly}
       />
       {connectionResult && (

@@ -17,14 +17,14 @@ import { EventFetchProvider } from '../../components/shared/event-fetcher/EventF
 
 export type TopicDeduplicationConfiguratorProps = {
   steps: any
-  onNext: (stepName: string) => void
+  onCompleteStep: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
   currentStep?: string
 }
 
 export function TopicDeduplicationConfigurator({
   steps,
-  onNext,
+  onCompleteStep,
   validate,
   currentStep,
 }: TopicDeduplicationConfiguratorProps) {
@@ -63,6 +63,7 @@ export function TopicDeduplicationConfigurator({
   } = topicsStore
 
   // Get access to the steps store functions
+  // FIXME: used other methods to handle this scenario, need to refactor
   const { removeCompletedStepsAfter } = useStore()
 
   // Get existing topic data if available
@@ -324,12 +325,12 @@ export function TopicDeduplicationConfigurator({
 
     // Move to next step based on current step
     if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
     } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-      onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
     } else {
       // Fallback for any other topic deduplication step
-      onNext(currentStep || StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      onCompleteStep(currentStep || StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
     }
   }, [
     index,
@@ -340,7 +341,7 @@ export function TopicDeduplicationConfigurator({
     windowConfig,
     keyConfig,
     updateTopic,
-    onNext,
+    onCompleteStep,
     currentStep,
   ])
 

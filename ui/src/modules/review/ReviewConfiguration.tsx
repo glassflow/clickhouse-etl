@@ -15,7 +15,7 @@ import { KafkaConnectionPreview } from './KafkaConnectionPreview'
 import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
-export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigurationProps) {
+export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
     kafkaStore,
     clickhouseStore,

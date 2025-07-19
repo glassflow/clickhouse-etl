@@ -127,7 +127,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           <CurrentStepComponent
             steps={steps}
-            onNext={handleNext}
+            onCompleteStep={handleNext}
             validate={async () => true} // You might want to implement proper validation
             standalone={true}
             onComplete={handleComplete}

@@ -15,11 +15,11 @@ import { ClickhouseConnectionFormSchema, ClickhouseConnectionFormType } from '@/
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function ClickhouseConnector({
-  onNext,
+  onCompleteStep,
   onComplete,
   standalone,
 }: {
-  onNext?: (step: StepKeys) => void
+  onCompleteStep?: (step: StepKeys) => void
   onComplete?: () => void
   standalone?: boolean
 }) {
@@ -146,9 +146,9 @@ export function ClickhouseConnector({
           databaseCount: result.databases?.length || 0,
         })
 
-        // Proceed to next step
-        if (!standalone && onNext) {
-          onNext(StepKeys.CLICKHOUSE_CONNECTION)
+        // Proceed to next step FIXME
+        if (!standalone && onCompleteStep) {
+          onCompleteStep(StepKeys.CLICKHOUSE_CONNECTION)
         } else if (standalone && onComplete) {
           onComplete()
         }
@@ -160,7 +160,7 @@ export function ClickhouseConnector({
         })
       }
     },
-    [analytics.clickhouse, testConnection, setClickhouseConnection, clickhouseConnection, onNext],
+    [analytics.clickhouse, testConnection, setClickhouseConnection, clickhouseConnection, onCompleteStep],
   )
 
   return (

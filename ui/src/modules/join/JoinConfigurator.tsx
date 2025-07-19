@@ -13,14 +13,14 @@ import { extractEventFields } from '@/src/modules/clickhouse/helpers'
 
 export type JoinConfiguratorProps = {
   steps: any
-  onNext: (stepName: string) => void
+  onCompleteStep: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
   index: number
 }
 
 type StreamField = 'streamId' | 'joinKey' | 'dataType' | 'joinTimeWindowValue' | 'joinTimeWindowUnit'
 
-export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinConfiguratorProps) {
+export function JoinConfigurator({ steps, onCompleteStep, validate, index = 0 }: JoinConfiguratorProps) {
   const { topicsStore, joinStore } = useStore()
   const { getTopic, getEvent } = topicsStore
   const { enabled, type, streams, setEnabled, setType, setStreams } = joinStore
@@ -160,7 +160,7 @@ export function JoinConfigurator({ steps, onNext, validate, index = 0 }: JoinCon
     )
 
     // Move to next step
-    onNext(StepKeys.JOIN_CONFIGURATOR)
+    onCompleteStep(StepKeys.JOIN_CONFIGURATOR as StepKeys)
   }
 
   // Handle field changes

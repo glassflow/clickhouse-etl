@@ -11,10 +11,10 @@ import SelectDeduplicateKeys from '@/src/modules/deduplication/components/Select
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function DeduplicationConfigurator({
-  onNext,
+  onCompleteStep,
   index = 0,
 }: {
-  onNext: (stepName: string) => void
+  onCompleteStep: (stepName: string) => void
   index: number
 }) {
   const analytics = useJourneyAnalytics()
@@ -82,8 +82,8 @@ export function DeduplicationConfigurator({
   // Handle continue button click
   const handleSave = useCallback(() => {
     if (!topic?.name) return
-    onNext(StepKeys.DEDUPLICATION_CONFIGURATOR)
-  }, [topic, onNext])
+    onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
+  }, [topic, onCompleteStep])
 
   if (!topic || !topicEvent) {
     return <div>No topic or event data available for index {index}</div>

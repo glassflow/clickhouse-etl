@@ -13,12 +13,12 @@ import { EventFetchProvider } from '../../components/shared/event-fetcher/EventF
 
 export type TopicSelectorProps = {
   steps: any
-  onNext: (stepName: string) => void
+  onCompleteStep: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
   currentStep?: string
 }
 
-export function KafkaTopicSelector({ steps, onNext, validate, currentStep }: TopicSelectorProps) {
+export function KafkaTopicSelector({ steps, onCompleteStep, validate, currentStep }: TopicSelectorProps) {
   const { topicsStore, kafkaStore, joinStore, operationsSelected } = useStore()
 
   // Determine index based on current step and operation
@@ -284,20 +284,20 @@ export function KafkaTopicSelector({ steps, onNext, validate, currentStep }: Top
 
     // Move to next step based on current step
     if (currentStep === StepKeys.TOPIC_SELECTION_1) {
-      onNext(StepKeys.TOPIC_SELECTION_1)
+      onCompleteStep(StepKeys.TOPIC_SELECTION_1)
     } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
-      onNext(StepKeys.TOPIC_SELECTION_2)
+      onCompleteStep(StepKeys.TOPIC_SELECTION_2)
     } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
     } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-      onNext(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
     } else {
       // Fallback for any other topic selection step
-      onNext(currentStep || StepKeys.TOPIC_SELECTION_1)
+      onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
     }
   }, [
     index,
-    onNext,
+    onCompleteStep,
     setTopicCount,
     topicCountFromStore,
     manualEvent,
