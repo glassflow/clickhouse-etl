@@ -18,7 +18,8 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
     kafkaStore,
-    clickhouseStore,
+    clickhouseConnectionStore,
+    clickhouseDestinationStore,
     topicsStore,
     joinStore,
     setApiConfig,
@@ -27,7 +28,8 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     operationsSelected,
     apiConfig,
   } = useStore()
-  const { clickhouseConnection, clickhouseDestination } = clickhouseStore
+  const { clickhouseConnection } = clickhouseConnectionStore
+  const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()
   const selectedTopics = Object.values(topicsStore.topics || {})
   const analytics = useJourneyAnalytics()

@@ -86,7 +86,6 @@ function HomePageClient() {
     markAsClean,
     kafkaStore,
     joinStore,
-    clickhouseStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
@@ -100,7 +99,6 @@ function HomePageClient() {
   const { getIsKafkaConnectionDirty } = kafkaStore
   const { getIsTopicDirty } = topicsStore
   const { getIsJoinDirty } = joinStore
-  const { getIsClickhouseConnectionDirty, getClickhouseMappingDirty } = clickhouseStore
 
   // Check for running pipeline and redirect to pipeline page if one exists
   useEffect(() => {

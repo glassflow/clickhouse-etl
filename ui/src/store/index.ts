@@ -8,7 +8,8 @@ import {
 } from '@/src/scheme'
 import mockData from './mocks'
 import { createKafkaSlice, KafkaSlice } from './kafka.store'
-import { createClickhouseSlice, ClickhouseSlice } from './clickhouse.store'
+import { createClickhouseConnectionSlice, ClickhouseConnectionSlice } from './clickhouse-connection.store'
+import { createClickhouseDestinationSlice, ClickhouseDestinationSlice } from './clickhouse-destination.store'
 import { createStepsSlice, StepsSlice } from './steps.store'
 import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createJoinSlice, JoinSlice } from './join.store'
@@ -25,7 +26,14 @@ interface BaseStoreProps {
   apiConfig: any
 }
 
-interface Store extends BaseStoreProps, KafkaSlice, ClickhouseSlice, StepsSlice, TopicsSlice, JoinSlice {
+interface Store
+  extends BaseStoreProps,
+    KafkaSlice,
+    ClickhouseConnectionSlice,
+    ClickhouseDestinationSlice,
+    StepsSlice,
+    TopicsSlice,
+    JoinSlice {
   // actions
   setApiConfig: (config: any) => void
   setOperationsSelected: (operations: OperationsSelectedType) => void
@@ -44,7 +52,8 @@ const useActualStore = create<Store>()(
   devtools(
     (set, get, store) => ({
       ...createKafkaSlice(set, get, store),
-      ...createClickhouseSlice(set, get, store),
+      ...createClickhouseConnectionSlice(set, get, store),
+      ...createClickhouseDestinationSlice(set, get, store),
       ...createStepsSlice(set, get, store),
       ...createTopicsSlice(set, get, store),
       ...createJoinSlice(set, get, store),

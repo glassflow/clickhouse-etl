@@ -13,7 +13,8 @@ export interface SavedConfiguration {
     isDirty: boolean
     apiConfig: any
     kafkaStore: any
-    clickhouseStore: any
+    clickhouseConnectionStore: any
+    clickhouseDestinationStore: any
     topicsStore: any
     joinStore: any
   }
@@ -40,7 +41,8 @@ export function saveConfiguration(name: string, description?: string): SavedConf
       isDirty: store.isDirty,
       apiConfig: store.apiConfig,
       kafkaStore: store.kafkaStore,
-      clickhouseStore: store.clickhouseStore,
+      clickhouseConnectionStore: store.clickhouseConnectionStore,
+      clickhouseDestinationStore: store.clickhouseDestinationStore,
       topicsStore: store.topicsStore,
       joinStore: store.joinStore,
     },
@@ -97,7 +99,8 @@ export function restoreConfiguration(id: string): void {
 
     // Restore slice states
     Object.assign(store.kafkaStore, config.state.kafkaStore)
-    Object.assign(store.clickhouseStore, config.state.clickhouseStore)
+    Object.assign(store.clickhouseConnectionStore, config.state.clickhouseConnectionStore)
+    Object.assign(store.clickhouseDestinationStore, config.state.clickhouseDestinationStore)
     Object.assign(store.topicsStore, config.state.topicsStore)
     Object.assign(store.joinStore, config.state.joinStore)
   } catch (error) {

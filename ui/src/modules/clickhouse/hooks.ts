@@ -4,8 +4,8 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 // Unified ClickHouse connection hook that handles all connection-related operations
 export const useClickhouseConnection = () => {
-  const { clickhouseStore } = useStore()
-  const { clickhouseConnection, setClickhouseConnection, updateDatabases } = clickhouseStore
+  const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
+  const { clickhouseConnection, setClickhouseConnection, updateDatabases } = clickhouseConnectionStore
   const analytics = useJourneyAnalytics()
 
   // Local state for connection management (replicating original behavior)
@@ -485,8 +485,9 @@ export const useClickhouseConnection = () => {
 }
 
 export const useClickhouseDatabases = () => {
-  const { clickhouseStore } = useStore()
-  const { clickhouseConnection, clickhouseData, updateDatabases, getDatabases, getConnectionId } = clickhouseStore
+  const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
+  const { clickhouseConnection, clickhouseData, updateDatabases, getDatabases, getConnectionId } =
+    clickhouseConnectionStore
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const analytics = useJourneyAnalytics()
@@ -552,8 +553,8 @@ export const useClickhouseDatabases = () => {
 }
 
 export const useClickhouseTables = (database: string) => {
-  const { clickhouseStore } = useStore()
-  const { clickhouseConnection, clickhouseData, updateTables, getTables, getConnectionId } = clickhouseStore
+  const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
+  const { clickhouseConnection, clickhouseData, updateTables, getTables, getConnectionId } = clickhouseConnectionStore
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const analytics = useJourneyAnalytics()
@@ -622,8 +623,9 @@ export const useClickhouseTables = (database: string) => {
 }
 
 export const useClickhouseTableSchema = (database: string, table: string) => {
-  const { clickhouseStore } = useStore()
-  const { clickhouseConnection, clickhouseData, updateTableSchema, getTableSchema, getConnectionId } = clickhouseStore
+  const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
+  const { clickhouseConnection, clickhouseData, updateTableSchema, getTableSchema, getConnectionId } =
+    clickhouseConnectionStore
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const analytics = useJourneyAnalytics()

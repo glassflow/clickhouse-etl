@@ -143,7 +143,6 @@ export type StatusType = keyof typeof STATUS_CONFIG
 export const stepsMetadata = {
   [StepKeys.KAFKA_CONNECTION]: {
     key: StepKeys.KAFKA_CONNECTION,
-    storeKey: 'kafkaStore',
     title: 'Setup Kafka Connection',
     description: 'Provide your Kafka credentials to send data automatically to the pipeline.',
     formTitle: 'Kafka Connection',
@@ -151,7 +150,6 @@ export const stepsMetadata = {
   },
   [StepKeys.TOPIC_SELECTION_1]: {
     key: StepKeys.TOPIC_SELECTION_1,
-    storeKey: 'selectedTopics',
     title: 'Select Topic',
     joinTitle: 'Select Left Topic',
     description: '',
@@ -161,7 +159,6 @@ export const stepsMetadata = {
   },
   [StepKeys.TOPIC_SELECTION_2]: {
     key: StepKeys.TOPIC_SELECTION_2,
-    storeKey: 'selectedTopics',
     title: 'Select Right Topic',
     joinTitle: 'Select Right Topic',
     description: '',
@@ -171,7 +168,6 @@ export const stepsMetadata = {
   },
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
     key: StepKeys.DEDUPLICATION_CONFIGURATOR,
-    storeKey: 'deduplicationConfigurator',
     title: 'Define Deduplicate Keys',
     description: '',
     formTitle: 'Define Deduplicate Keys',
@@ -179,7 +175,6 @@ export const stepsMetadata = {
   },
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
     key: StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1,
-    storeKey: 'topicDeduplicationConfigurator',
     title: 'Select Left Topic',
     description: '',
     formTitle: 'Select Left Topic',
@@ -187,7 +182,6 @@ export const stepsMetadata = {
   },
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
     key: StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2,
-    storeKey: 'topicDeduplicationConfigurator',
     title: 'Select Right Topic',
     description: '',
     formTitle: 'Select Right Topic',
@@ -195,14 +189,12 @@ export const stepsMetadata = {
   },
   [StepKeys.JOIN_CONFIGURATOR]: {
     key: StepKeys.JOIN_CONFIGURATOR,
-    storeKey: 'joinConfigurator',
     title: 'Define Join Key',
     description: '',
     formTitle: 'Define Join Key',
     formDescription: '',
   },
   [StepKeys.CLICKHOUSE_CONNECTION]: {
-    storeKey: 'clickhouseStore',
     title: 'Setup ClickHouse Connection',
     description: 'Provide your ClickHouse credentials to send events directly to database.',
     formTitle: 'Setup ClickHouse Connection',
@@ -210,7 +202,6 @@ export const stepsMetadata = {
   },
   [StepKeys.CLICKHOUSE_MAPPER]: {
     key: StepKeys.CLICKHOUSE_MAPPER,
-    storeKey: 'clickhouseDestination',
     title: 'Select Destination',
     description: 'Select a ClickHouse database and table to send events to.',
     formTitle: 'Select Destination',
@@ -218,7 +209,6 @@ export const stepsMetadata = {
   },
   [StepKeys.REVIEW_CONFIGURATION]: {
     key: StepKeys.REVIEW_CONFIGURATION,
-    storeKey: 'reviewConfiguration',
     title: 'Review',
     description: 'Review and deploy',
     formTitle: 'Review',
@@ -226,7 +216,6 @@ export const stepsMetadata = {
   },
   [StepKeys.DEPLOY_PIPELINE]: {
     key: StepKeys.DEPLOY_PIPELINE,
-    storeKey: 'deployPipeline',
     title: 'Deploy Pipeline',
     description: 'Deploy the pipeline to the ClickHouse database.',
   },

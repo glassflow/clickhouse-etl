@@ -29,7 +29,7 @@ interface StandaloneStepRendererProps {
 }
 
 function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepRendererProps) {
-  const { kafkaStore, clickhouseStore } = useStore()
+  const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
 

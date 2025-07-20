@@ -23,10 +23,10 @@ export function ClickhouseConnector({
   onComplete?: () => void
   standalone?: boolean
 }) {
-  const { clickhouseStore } = useStore()
+  const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
   const analytics = useJourneyAnalytics()
 
-  const { clickhouseConnection, setClickhouseConnection } = clickhouseStore
+  const { clickhouseConnection, setClickhouseConnection } = clickhouseConnectionStore
 
   const { directConnection } = clickhouseConnection
   const { directConnectionForm } = ClickhouseConnectionFormConfig

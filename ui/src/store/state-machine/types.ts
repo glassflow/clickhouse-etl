@@ -1,7 +1,13 @@
 // Types for the dependency system
 import { OperationKeys } from '@/src/config/constants'
 
-export type StoreSlice = 'kafkaStore' | 'clickhouseStore' | 'topicsStore' | 'joinStore' | 'stepsStore'
+export type StoreSlice =
+  | 'kafkaStore'
+  | 'clickhouseConnectionStore'
+  | 'clickhouseDestinationStore'
+  | 'topicsStore'
+  | 'joinStore'
+  | 'stepsStore'
 export type OperationType =
   | OperationKeys.DEDUPLICATION
   | OperationKeys.JOINING
