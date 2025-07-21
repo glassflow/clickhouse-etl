@@ -4,12 +4,8 @@ $(eval export $(shell sed -ne 's/ *#.*$$//; /./ s/=.*$$// p' .env))
 endif
 
 .PHONY: run
-run: nats-kafka-bridge
-	PATH="$(PWD)/nats-kafka-bridge/bin:$$PATH" $(MAKE) -C glassflow-api run
-
-.PHONY: nats-kafka-bridge
-nats-kafka-bridge:
-	$(MAKE) -C nats-kafka-bridge build
+run:
+	$(MAKE) -C glassflow-api run
 
 .PHONY: clickhouse-etl
 clickhouse-etl:
@@ -20,7 +16,7 @@ ui:
 	$(MAKE) -C ui build
 
 .PHONY: build
-build: nats-kafka-bridge clickhouse-etl ui
+build: clickhouse-etl ui
 
 .PHONY: run-local
 run-local: build
