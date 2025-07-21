@@ -63,12 +63,28 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Select the Kafka topic to use',
         },
       })
-    } else if (stepType === StepKeys.CLICKHOUSE_CONNECTION) {
+    } else if (stepType === StepKeys.DEDUPLICATION_CONFIGURATOR) {
       setSteps({
-        [StepKeys.CLICKHOUSE_CONNECTION]: {
-          component: ClickhouseConnector,
-          title: 'ClickHouse Connection',
-          description: 'Configure your ClickHouse connection settings',
+        [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
+          component: DeduplicationConfigurator,
+          title: 'Deduplication',
+          description: 'Configure deduplication settings',
+        },
+      })
+    } else if (stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+      setSteps({
+        [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
+          component: TopicDeduplicationConfigurator,
+          title: 'Topic Deduplication',
+          description: 'Configure topic deduplication settings',
+        },
+      })
+    } else if (stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+      setSteps({
+        [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
+          component: TopicDeduplicationConfigurator,
+          title: 'Topic Deduplication',
+          description: 'Configure topic deduplication settings',
         },
       })
     } else if (stepType === StepKeys.JOIN_CONFIGURATOR) {
@@ -79,12 +95,12 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure join settings',
         },
       })
-    } else if (stepType === StepKeys.DEDUPLICATION_CONFIGURATOR) {
+    } else if (stepType === StepKeys.CLICKHOUSE_CONNECTION) {
       setSteps({
-        [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
-          component: DeduplicationConfigurator,
-          title: 'Deduplication',
-          description: 'Configure deduplication settings',
+        [StepKeys.CLICKHOUSE_CONNECTION]: {
+          component: ClickhouseConnector,
+          title: 'ClickHouse Connection',
+          description: 'Configure your ClickHouse connection settings',
         },
       })
     } else if (stepType === StepKeys.CLICKHOUSE_MAPPER) {
