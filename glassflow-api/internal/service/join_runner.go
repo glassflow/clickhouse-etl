@@ -124,7 +124,6 @@ func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, publisher
 		rightStreamName,
 		j.log,
 	)
-
 	if err != nil {
 		j.log.Error("failed to join: ", slog.Any("error", err))
 		return fmt.Errorf("create join: %w", err)

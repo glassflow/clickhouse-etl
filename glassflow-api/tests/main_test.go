@@ -125,6 +125,5 @@ func TestFeatures(t *testing.T) {
 	t.Run("SinkFeatures", testSinkFeatures)
 	t.Run("JoinOperatorFeatures", testJoinFeatures)
 	t.Run("PipelineFeatures", testPipelineFeatures)
-
 	t.Run("IngestorFeatures", testIngetorFeatures)
 }

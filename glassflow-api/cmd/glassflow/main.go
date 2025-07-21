@@ -162,7 +162,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 		return fmt.Errorf("create nats store for pipelines: %w", err)
 	}
 
-	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log, db)
+	pipelineMgr := service.NewPipelineManager(nc, log, db)
 
 	mq, err := messagequeue.NewClient(cfg.NATSServer)
 	if err != nil {

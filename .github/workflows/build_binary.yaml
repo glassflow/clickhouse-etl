@@ -11,7 +11,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        module: [glassflow-api, nats-kafka-bridge]
+        module: [glassflow-api]
         platform:
           - os: linux
             arch: amd64

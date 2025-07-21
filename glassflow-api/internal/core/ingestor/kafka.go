@@ -46,10 +46,6 @@ func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, na
 		}
 	}
 
-	if topic.ID == "" {
-		return nil, fmt.Errorf("topic with name %s not found in configuration", topicName)
-	}
-
 	consumer, err := kafka.NewConsumer(config.KafkaConnectionParams, topic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
@@ -142,10 +138,12 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	k.ctxCancelFunc = cancelFunc
 
+	k.log.Info("Starting Kafka ingestor", slog.String("topic", k.topic.Name))
+
 	for {
 		msg, err := k.consumer.Fetch(cancelCtx)
 		if err != nil {
-			if errors.Is(err, ctx.Err()) {
+			if errors.Is(err, cancelCtx.Err()) {
 				return nil
 			}
 
@@ -169,7 +167,7 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 	return nil
 }
 
-func (k *KafkaIngestor) Stop(noWait bool) {
+func (k *KafkaIngestor) Stop() {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
@@ -180,7 +178,7 @@ func (k *KafkaIngestor) Stop(noWait bool) {
 
 	k.isClosed = true
 
-	if noWait && k.ctxCancelFunc != nil {
+	if k.ctxCancelFunc != nil {
 		k.ctxCancelFunc()
 	}
 

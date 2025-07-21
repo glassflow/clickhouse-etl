@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -15,6 +16,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/cucumber/godog"
+)
+
+const (
+	timeoutDuration = 1 * time.Minute
 )
 
 type natsStreamConfig struct {
@@ -84,7 +89,6 @@ func (s *IngestorTestSuite) theNatsStreamConfig(cfg *godog.DocString) error {
 }
 
 func (s *IngestorTestSuite) runNatsStream() error {
-	fmt.Println("Running NATS stream with config:", s.streamCfg)
 	if s.streamCfg.Stream == "" || s.streamCfg.Subject == "" || s.streamCfg.Consumer == "" {
 		return fmt.Errorf("nats stream config is not set properly")
 	}
@@ -144,13 +148,14 @@ func (s *IngestorTestSuite) iPublishEventsToKafka(topicName string, table *godog
 
 		for i, cell := range row.Cells {
 			if i < len(headers) {
-				if headers[i] == "partition" {
+				switch headers[i] {
+				case "partition":
 					event.Partition = cell.Value
-				} else if headers[i] == "key" {
+				case "key":
 					event.Key = cell.Value
-				} else if headers[i] == "value" {
+				case "value":
 					event.Value = []byte(cell.Value)
-				} else {
+				default:
 					return fmt.Errorf("unknown field %s", headers[i])
 				}
 			}
@@ -187,29 +192,46 @@ func (s *IngestorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error
 }
 
 func (s *IngestorTestSuite) anIngestorOperatorConfig(config string) error {
-	err := json.Unmarshal([]byte(config), &s.ingestorCfg)
+	var ingCgf models.IngestorOperatorConfig
+	err := json.Unmarshal([]byte(config), &ingCgf)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal ingestor operator config: %w", err)
 	}
 
-	s.ingestorCfg.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
+	ingCgf.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
+
+	s.ingestorCfg, err = models.NewIngestorOperatorConfig(ingCgf.Provider, ingCgf.KafkaConnectionParams, ingCgf.KafkaTopics)
+	if err != nil {
+		return fmt.Errorf("create ingestor operator config: %w", err)
+	}
 
 	return nil
 }
 
 func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 	logger := testutils.NewTestLogger()
-	dur := 1 * time.Hour
+
+	if s.natsContainer == nil {
+		return fmt.Errorf("nats container is not initialized")
+	}
+
+	if s.schemaMapper == nil {
+		return fmt.Errorf("schema mapper is not initialized")
+	}
+
+	nc, err := client.NewNATSWrapper(s.natsContainer.GetURI(), timeoutDuration)
+	if err != nil {
+		return fmt.Errorf("create nats client: %w", err)
+	}
+
 	ingestor, err := operator.NewIngestorOperator(
 		s.ingestorCfg,
 		s.topicName,
-		s.natsContainer.GetURI(),
 		s.streamCfg.Subject,
-		dur,
+		nc,
 		s.schemaMapper,
 		logger,
 	)
-
 	if err != nil {
 		return fmt.Errorf("create ingestor operator: %w", err)
 	}
@@ -238,7 +260,6 @@ func (s *IngestorTestSuite) createNatsConsumer() (zero jetstream.Consumer, _ err
 		Durable:       s.streamCfg.Consumer,
 		FilterSubject: s.streamCfg.Subject,
 	})
-
 	if err != nil {
 		return zero, fmt.Errorf("create or update nats consumer: %w", err)
 	}
@@ -273,7 +294,7 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 		for j, cell := range row.Cells {
 			if j < len(headers) {
 				event[headers[j]] = cell.Value
-				sign = append(sign, fmt.Sprint(cell.Value))
+				sign = append(sign, cell.Value)
 			}
 		}
 
@@ -292,7 +313,7 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 			break
 		}
 
-		if receivedCount >= len(expectedEvents) {
+		if receivedCount > len(expectedEvents) {
 			return fmt.Errorf("too much events: actual %d, expected %d", receivedCount, len(expectedEvents))
 		}
 
@@ -315,16 +336,20 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 		}
 
 		if len(expected) != len(actual) {
-			return fmt.Errorf("Events have differenet numer of keys: %v and actual: %v", expected, actual)
+			return fmt.Errorf("events have differenet numer of keys: %v and actual: %v", expected, actual)
 		}
 
 		for k, v := range expected {
 			if v != actual[k] {
-				return fmt.Errorf("Events are different: %v and actual: %v", expected, actual)
+				return fmt.Errorf("events are different: %v and actual: %v", expected, actual)
 			}
 		}
 
 		receivedCount++
+	}
+
+	if receivedCount < expectedCount {
+		return fmt.Errorf("not enough events: expected %d, got %d", expectedCount, receivedCount)
 	}
 
 	return nil
@@ -384,7 +409,6 @@ func (s *IngestorTestSuite) CleanupResources() error {
 }
 
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
-
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
 	sc.Step(`^run the NATS stream$`, s.runNatsStream)
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)

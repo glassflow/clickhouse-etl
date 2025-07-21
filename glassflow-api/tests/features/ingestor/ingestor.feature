@@ -155,20 +155,20 @@ Feature: Kafka Ingestor
             """
 
         When I write these events to Kafka topic "test_topic":
-            | key | value                                  |
-            | 1   | {"id": "123", "name": "John Doe"}      |
-            | 2   | {"id": "456", "name": "Jane Smith"}    |
-            | 3   | {"id": "789", "name": "Bob Johnson"}   |
-            | 4   | {"id": "789", "name": "Ulm Petterson"} |
+            | key | value                                   |
+            | 1   | {"id": "123", "name": "Sir Paul"}       |
+            | 2   | {"id": "456", "name": "Judy Smith"}     |
+            | 3   | {"id": "789", "name": "Bob Bishop"}     |
+            | 4   | {"id": "789", "name": "Uliana Gromova"} |
 
         And a running ingestor operator
 
         Then I check results with content
-            | id  | name        |
-            | 123 | John Doe    |
-            | 456 | Jane Smith  |
-            | 789 | Bob Johnson |
-            | 789 | Ulm Petterson |
+            | id  | name           |
+            | 123 | Sir Paul       |
+            | 456 | Judy Smith     |
+            | 789 | Bob Bishop     |
+            | 789 | Uliana Gromova |
 
     Scenario: Kafka Ingestor with deduplication and multiple partitions
         Given a Kafka topic "test_topic" with 3 partitions
@@ -235,18 +235,18 @@ Feature: Kafka Ingestor
             }
             """
 
-       When I write these events to Kafka topic "test_topic":
-            | partition | key | value                                 |
-            | 0         | 1   | {"id": "123", "name":"John Doe"}      |
-            | 1         | 2   | {"id": "456", "name":"Jane Smith"}    |
-            | 2         | 3   | {"id": "789", "name":"Bob Johnson"}   |
-            | 0         | 4   | {"id": "789", "name":"Ulm Petterson"} |
+        When I write these events to Kafka topic "test_topic":
+            | partition | key | value                                   |
+            | 0         | 1   | {"id": "123", "name":"Max Wilson"}      |
+            | 1         | 2   | {"id": "456", "name":"Pete Roller"}     |
+            | 2         | 3   | {"id": "789", "name":"Fedor Smolov"}    |
+            | 0         | 4   | {"id": "789", "name":"Victor Thurilla"} |
 
         And a running ingestor operator
 
         Then I check results with content
-            | id  | name        |
-            | 123 | John Doe    |
-            | 456 | Jane Smith  |
-            | 789 | Bob Johnson |
+            | id  | name         |
+            | 123 | Max Wilson   |
+            | 456 | Pete Roller  |
+            | 789 | Fedor Smolov |
 

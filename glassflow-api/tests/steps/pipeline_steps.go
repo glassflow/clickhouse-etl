@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ type PipelineSteps struct {
 	streamName string
 	chDB       string
 	chTable    string
+	log        *slog.Logger
 
 	pipelineManager *service.PipelineManager
 }
@@ -33,6 +35,7 @@ func NewPipelineSteps() *PipelineSteps {
 			kafkaContainer: nil,
 		},
 		kTopics: make([]string, 0),
+		log:     testutils.NewTestLogger(),
 	}
 }
 
@@ -238,6 +241,7 @@ func (p *PipelineSteps) theClickHouseTableAlreadyExistsWithSchema(tableName stri
 }
 
 func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) error {
+	p.log.Info("Publishing events to Kafka topic", slog.String("topic", topic))
 	if len(table.Rows) < 2 {
 		return fmt.Errorf("invalid table format, expected at least 2 rows")
 	}
@@ -270,6 +274,8 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 		return fmt.Errorf("write events to kafka: %w", err)
 	}
 
+	p.log.Info("Published events to Kafka topic", slog.String("topic", topic), slog.Int("events_count", len(events)))
+
 	return nil
 }
 
@@ -282,6 +288,14 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 	}
 
 	pc.Ingestor.KafkaConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
+	pc.Ingestor, err = models.NewIngestorOperatorConfig(
+		pc.Ingestor.Provider,
+		pc.Ingestor.KafkaConnectionParams,
+		pc.Ingestor.KafkaTopics,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create ingestor operator config: %w", err)
+	}
 
 	pc.Sink.ClickHouseConnectionParams.Host = "localhost"
 	pc.Sink.ClickHouseConnectionParams.Port, err = p.chContainer.GetPort()
@@ -313,9 +327,8 @@ func (p *PipelineSteps) setupPipelineManager() error {
 	}
 
 	p.pipelineManager = service.NewPipelineManager(
-		p.natsContainer.GetURI(),
 		natsClient,
-		testutils.NewTestLogger(),
+		p.log,
 		db,
 	)
 
@@ -360,6 +373,7 @@ func (p *PipelineSteps) theClickHouseTableShouldContain(tableName string, table 
 }
 
 func (p *PipelineSteps) shutdownPipeline() error {
+	p.log.Info("Shutting down pipeline")
 	if p.pipelineManager == nil {
 		return fmt.Errorf("pipeline manager not initialized")
 	}
@@ -371,10 +385,13 @@ func (p *PipelineSteps) shutdownPipeline() error {
 
 	p.pipelineManager = nil
 
+	p.log.Info("Pipeline shutdown completed after delay")
+
 	return nil
 }
 
 func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
+	p.log.Info("Shutting down pipeline with delay", slog.String("delay", delay))
 	dur, err := time.ParseDuration(delay)
 	if err != nil {
 		return fmt.Errorf("parse duration: %w", err)
@@ -386,6 +403,10 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 	if err != nil {
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
+
+	p.pipelineManager = nil
+
+	p.log.Info("Pipeline shutdown completed after delay")
 
 	return nil
 }

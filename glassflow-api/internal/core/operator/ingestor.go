@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/ingestor"
@@ -14,18 +13,23 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
+type Ingestor interface {
+	Start(ctx context.Context) error
+	Stop()
+}
+
 type IngestorOperator struct {
-	ingestor ingestor.Ingestor
-	wg       sync.WaitGroup
-	log      *slog.Logger
+	ingestor  Ingestor
+	topicName string
+	wg        sync.WaitGroup
+	log       *slog.Logger
 }
 
 func NewIngestorOperator(
 	config models.IngestorOperatorConfig,
 	topicName string,
-	natsServerAddr string,
 	natsStreamSubject string,
-	natsMaxStreamDuration time.Duration,
+	nc *client.NATSClient,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
 ) (*IngestorOperator, error) {
@@ -33,21 +37,16 @@ func NewIngestorOperator(
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
 
-	if natsServerAddr == "" {
-		return nil, fmt.Errorf("NATS server address cannot be empty")
-	}
-
 	if natsStreamSubject == "" {
 		return nil, fmt.Errorf("NATS stream subject cannot be empty")
 	}
 
-	natsJSClient, err := client.NewNATSWrapper(natsServerAddr, natsMaxStreamDuration)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create NATS client: %w", err)
+	if nc == nil {
+		return nil, fmt.Errorf("NATS client cannot be nil")
 	}
 
 	streamPublisher := stream.NewNATSPublisher(
-		natsJSClient.JetStream(),
+		nc.JetStream(),
 		stream.PublisherConfig{
 			Subject: natsStreamSubject,
 		},
@@ -77,28 +76,12 @@ func (i *IngestorOperator) Start(ctx context.Context, errChan chan<- error) {
 		return
 	}
 
-	i.log.Info("Ingestor operator started successfully")
+	i.log.Info("Ingestor operator started successfully", slog.String("topic", i.topicName))
 }
 
-func (i *IngestorOperator) Stop(opts ...StopOption) {
-	noWait := false
-	options := &StopOptions{
-		NoWait: false,
-	}
-
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	i.log.Info("Stopping ingestor operator", "noWait", options.NoWait)
-
-	if options.NoWait {
-		noWait = true
-	}
-
-	i.ingestor.Stop(noWait)
-
+func (i *IngestorOperator) Stop(_ ...StopOption) {
+	i.log.Info("Stopping ingestor operator")
+	i.ingestor.Stop()
 	i.wg.Wait()
-
 	i.log.Info("Ingestor operator stopped")
 }

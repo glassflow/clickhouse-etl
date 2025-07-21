@@ -87,9 +87,9 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 	}
 
 	if topic.ConsumerGroupInitialOffset == models.InitialOffsetEarliest.String() {
-		cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
-	} else {
 		cfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+	} else {
+		cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
 	}
 
 	return cfg
