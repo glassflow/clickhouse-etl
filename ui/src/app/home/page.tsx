@@ -68,25 +68,7 @@ const ConnectionCard = () => {
 
 // Client Component for handling searchParams
 function HomePageClient() {
-  const {
-    operationsSelected,
-    setOperationsSelected,
-    pipelineName,
-    setPipelineName,
-    pipelineId,
-    setPipelineId,
-    analyticsConsent,
-    setAnalyticsConsent,
-    consentAnswered,
-    setConsentAnswered,
-    resetPipelineState,
-    topicsStore,
-    isDirty,
-    markAsDirty,
-    markAsClean,
-    kafkaStore,
-    joinStore,
-  } = useStore()
+  const { topicsStore, kafkaStore, joinStore, configStore, resetAllPipelineState } = useStore()
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams.get('showWarning') === 'true'
@@ -99,6 +81,15 @@ function HomePageClient() {
   const { getIsKafkaConnectionDirty } = kafkaStore
   const { getIsTopicDirty } = topicsStore
   const { getIsJoinDirty } = joinStore
+  const {
+    setOperationsSelected,
+    setPipelineName,
+    setPipelineId,
+    setAnalyticsConsent,
+    setConsentAnswered,
+    pipelineId,
+    operationsSelected,
+  } = configStore
 
   // Check for running pipeline and redirect to pipeline page if one exists
   useEffect(() => {
@@ -153,7 +144,7 @@ function HomePageClient() {
 
     if (result === ModalResult.YES) {
       // Reset pipeline state and stay on home page
-      resetPipelineState('', true)
+      resetAllPipelineState('', true)
     } else {
       // Go back to previous page
       router.push(fromPath || '/')
@@ -161,7 +152,7 @@ function HomePageClient() {
   }
 
   const completeOperationSelection = (operation: OperationKeys, configName: string) => {
-    resetPipelineState(operation, true)
+    resetAllPipelineState(operation, true)
     setOperationsSelected({
       operation,
     })

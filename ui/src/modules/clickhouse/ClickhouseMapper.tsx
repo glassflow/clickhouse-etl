@@ -42,17 +42,8 @@ const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.
 
 export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
   const router = useRouter()
-  const {
-    clickhouseConnectionStore,
-    clickhouseDestinationStore,
-    kafkaStore,
-    joinStore,
-    topicsStore,
-    setApiConfig,
-    pipelineId,
-    setPipelineId,
-    operationsSelected,
-  } = useStore()
+  const { clickhouseConnectionStore, clickhouseDestinationStore, kafkaStore, joinStore, topicsStore, configStore } =
+    useStore()
   const analytics = useJourneyAnalytics()
   const { clickhouseConnection, getDatabases, getTables, getTableSchema, updateDatabases, getConnectionId } =
     clickhouseConnectionStore
@@ -60,6 +51,7 @@ export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
+  const { setApiConfig, setPipelineId, setOperationsSelected, pipelineId, operationsSelected } = configStore
 
   // Determine operation mode and indices
   const isJoinOperation =

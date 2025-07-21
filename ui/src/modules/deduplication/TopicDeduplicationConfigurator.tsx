@@ -29,7 +29,8 @@ export function TopicDeduplicationConfigurator({
   currentStep,
 }: TopicDeduplicationConfiguratorProps) {
   const analytics = useJourneyAnalytics()
-  const { topicsStore, kafkaStore, operationsSelected } = useStore()
+  const { topicsStore, kafkaStore, configStore } = useStore()
+  const { operationsSelected } = configStore
 
   // Determine index based on current step and operation
   const getIndex = useCallback(() => {
@@ -64,7 +65,8 @@ export function TopicDeduplicationConfigurator({
 
   // Get access to the steps store functions
   // FIXME: used other methods to handle this scenario, need to refactor
-  const { removeCompletedStepsAfter } = useStore()
+  const { stepsStore } = useStore()
+  const { removeCompletedStepsAfter } = stepsStore
 
   // Get existing topic data if available
   const existingTopic = getTopic(index)

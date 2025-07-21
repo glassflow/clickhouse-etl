@@ -16,18 +16,9 @@ import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
-  const {
-    kafkaStore,
-    clickhouseConnectionStore,
-    clickhouseDestinationStore,
-    topicsStore,
-    joinStore,
-    setApiConfig,
-    pipelineId,
-    setPipelineId,
-    operationsSelected,
-    apiConfig,
-  } = useStore()
+  const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, topicsStore, joinStore, configStore } =
+    useStore()
+  const { apiConfig, pipelineId, setPipelineId, operationsSelected } = configStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()

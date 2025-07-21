@@ -11,8 +11,9 @@ import ClickHouseIcon from '@/src/images/clickhouse.svg'
 import Image from 'next/image'
 import StandaloneStepRenderer from '@/src/modules/StandaloneStepRenderer'
 import { StepKeys } from '@/src/config/constants'
+import { Pipeline } from '@/src/api/pipeline-api'
 
-function PipelineDetailsModule({ pipeline }: { pipeline: any }) {
+function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
 
   const handleStepClick = (step: StepKeys) => {

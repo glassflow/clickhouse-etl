@@ -47,6 +47,22 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure your Kafka connection settings',
         },
       })
+    } else if (stepType === StepKeys.TOPIC_SELECTION_1) {
+      setSteps({
+        [StepKeys.TOPIC_SELECTION_1]: {
+          component: KafkaTopicSelector,
+          title: 'Kafka Topic Selection',
+          description: 'Select the Kafka topic to use',
+        },
+      })
+    } else if (stepType === StepKeys.TOPIC_SELECTION_2) {
+      setSteps({
+        [StepKeys.TOPIC_SELECTION_2]: {
+          component: KafkaTopicSelector,
+          title: 'Kafka Topic Selection',
+          description: 'Select the Kafka topic to use',
+        },
+      })
     } else if (stepType === StepKeys.CLICKHOUSE_CONNECTION) {
       setSteps({
         [StepKeys.CLICKHOUSE_CONNECTION]: {

@@ -30,7 +30,8 @@ type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'de
 
 export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   const analytics = useJourneyAnalytics()
-  const { apiConfig, resetPipelineState, pipelineId, setPipelineId } = useStore()
+  const { configStore, resetAllPipelineState } = useStore()
+  const { pipelineId, setPipelineId } = configStore
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
   const { isRenameModalVisible, openRenameModal, closeRenameModal } = useRenamePipelineModal()
@@ -85,7 +86,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
         setStatus('deleted')
         setError(null)
         // Reset pipeline state and ID
-        resetPipelineState('', true)
+        resetAllPipelineState('', true)
         setPipelineId('')
 
         // Track successful pipeline deletion
@@ -137,7 +138,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
         await shutdownPipeline()
         setStatus('deleted')
         setError(null)
-        resetPipelineState('', true)
+        resetAllPipelineState('', true)
 
         // Track successful pipeline modification
         analytics.pipeline.modifySuccess({})

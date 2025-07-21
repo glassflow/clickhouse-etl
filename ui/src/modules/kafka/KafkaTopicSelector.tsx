@@ -19,7 +19,8 @@ export type TopicSelectorProps = {
 }
 
 export function KafkaTopicSelector({ steps, onCompleteStep, validate, currentStep }: TopicSelectorProps) {
-  const { topicsStore, kafkaStore, joinStore, operationsSelected } = useStore()
+  const { topicsStore, kafkaStore, joinStore, configStore } = useStore()
+  const { operationsSelected } = configStore
 
   // Determine index based on current step and operation
   const getIndex = useCallback(() => {

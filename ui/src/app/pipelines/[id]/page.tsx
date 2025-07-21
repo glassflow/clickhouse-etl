@@ -6,6 +6,8 @@ async function PipelinePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = finalParams
   const pipeline = await getPipeline(id)
 
+  console.log('pipeline', pipeline)
+
   return <PipelineDetailsModule pipeline={pipeline} />
 }
 

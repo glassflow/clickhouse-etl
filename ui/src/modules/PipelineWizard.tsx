@@ -106,7 +106,8 @@ const getWizardJourneySteps = (operation: string | undefined): Record<string, Re
 }
 
 function PipelineWizard() {
-  const { operationsSelected } = useStore()
+  const { configStore } = useStore()
+  const { operationsSelected } = configStore
   const router = useRouter()
 
   // If no operation is selected, redirect to home

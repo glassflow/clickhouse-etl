@@ -20,7 +20,8 @@ export function KafkaConnector({
   onComplete?: () => void
   viewOnly?: boolean
 }) {
-  const { kafkaStore, topicsStore, operationsSelected } = useStore()
+  const { kafkaStore, topicsStore, configStore } = useStore()
+  const { operationsSelected } = configStore
   const { bootstrapServers } = kafkaStore
   const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
