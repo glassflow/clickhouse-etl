@@ -101,7 +101,7 @@ const mockClickhouseConnector = {
     connectionStatus: 'success',
     connectionError: null,
   },
-  clickhouseData: null,
+  clickhouseMetadata: null,
   // Mock actions
   setClickhouseConnection: () => {},
   getIsClickhouseConnectionDirty: () => false,

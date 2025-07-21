@@ -68,7 +68,6 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
       set((state) => ({
         clickhouseDestinationStore: {
           ...state.clickhouseDestinationStore,
-          clickhouseData: null,
           clickhouseDestination: {
             scheme: '',
             database: '',
@@ -104,14 +103,6 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
       const { mapping } = get().clickhouseDestinationStore.clickhouseDestination
       return mapping.some((value) => value !== '')
     },
-
-    clearData: () =>
-      set((state) => ({
-        clickhouseDestinationStore: {
-          ...state.clickhouseDestinationStore,
-          clickhouseData: null,
-        },
-      })),
 
     // reset destination store
     resetDestinationStore: () =>

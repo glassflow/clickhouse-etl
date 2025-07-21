@@ -486,7 +486,7 @@ export const useClickhouseConnection = () => {
 
 export const useClickhouseDatabases = () => {
   const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
-  const { clickhouseConnection, clickhouseData, updateDatabases, getDatabases, getConnectionId } =
+  const { clickhouseConnection, clickhouseMetadata, updateDatabases, getDatabases, getConnectionId } =
     clickhouseConnectionStore
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -547,14 +547,15 @@ export const useClickhouseDatabases = () => {
     isLoading,
     error,
     fetchDatabases,
-    hasData: !!clickhouseData,
+    hasData: !!clickhouseMetadata,
     connectionId,
   }
 }
 
 export const useClickhouseTables = (database: string) => {
   const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
-  const { clickhouseConnection, clickhouseData, updateTables, getTables, getConnectionId } = clickhouseConnectionStore
+  const { clickhouseConnection, clickhouseMetadata, updateTables, getTables, getConnectionId } =
+    clickhouseConnectionStore
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const analytics = useJourneyAnalytics()
@@ -617,14 +618,14 @@ export const useClickhouseTables = (database: string) => {
     isLoading,
     error,
     fetchTables,
-    hasData: !!clickhouseData?.tables?.[database],
+    hasData: !!clickhouseMetadata?.tables?.[database],
     connectionId,
   }
 }
 
 export const useClickhouseTableSchema = (database: string, table: string) => {
   const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
-  const { clickhouseConnection, clickhouseData, updateTableSchema, getTableSchema, getConnectionId } =
+  const { clickhouseConnection, clickhouseMetadata, updateTableSchema, getTableSchema, getConnectionId } =
     clickhouseConnectionStore
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -691,7 +692,7 @@ export const useClickhouseTableSchema = (database: string, table: string) => {
     isLoading,
     error,
     fetchTableSchema,
-    hasData: !!clickhouseData?.tableSchemas?.[`${database}:${table}`],
+    hasData: !!clickhouseMetadata?.tableSchemas?.[`${database}:${table}`],
     connectionId,
   }
 }

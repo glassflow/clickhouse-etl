@@ -2,7 +2,7 @@ import { StateCreator } from 'zustand'
 import { ClickhouseConnectionFormType } from '@/src/scheme'
 
 // ClickHouse data structure - single source of truth
-interface ClickHouseData {
+interface ClickHouseMetadata {
   lastFetched: number
   connectionId: string
   databases?: string[]
@@ -15,7 +15,7 @@ export interface ClickhouseConnectionStoreProps {
   clickhouseConnection: ClickhouseConnectionFormType
 
   // Single source of truth for ClickHouse data
-  clickhouseData: ClickHouseData | null
+  clickhouseMetadata: ClickHouseMetadata | null
 }
 
 export interface ClickhouseConnectionStore extends ClickhouseConnectionStoreProps {
@@ -27,7 +27,7 @@ export interface ClickhouseConnectionStore extends ClickhouseConnectionStoreProp
   updateDatabases: (databases: string[], connectionId: string) => void
   updateTables: (database: string, tables: string[], connectionId: string) => void
   updateTableSchema: (database: string, table: string, schema: any[], connectionId: string) => void
-  clearData: () => void
+  clearMetadata: () => void
 
   // Getters for easy access - derived data
   getDatabases: () => string[]
@@ -55,7 +55,7 @@ export const initialClickhouseConnectionStore: ClickhouseConnectionStoreProps = 
     connectionStatus: 'idle',
     connectionError: null,
   },
-  clickhouseData: null,
+  clickhouseMetadata: null,
 }
 
 export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionSlice> = (set, get) => ({
@@ -77,7 +77,7 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
     },
 
     // Single source of truth for ClickHouse data
-    clickhouseData: null,
+    clickhouseMetadata: null,
 
     // actions
     setClickhouseConnection: (connector: ClickhouseConnectionFormType) =>
@@ -97,7 +97,7 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
               ...state.clickhouseConnectionStore,
               clickhouseConnection: connector,
               // Reset dependent data when connection changes
-              clickhouseData: null,
+              clickhouseMetadata: null,
             },
           }
         }
@@ -126,12 +126,12 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
       set((state) => ({
         clickhouseConnectionStore: {
           ...state.clickhouseConnectionStore,
-          clickhouseData: {
+          clickhouseMetadata: {
             lastFetched: Date.now(),
             connectionId,
             databases,
-            tables: state.clickhouseConnectionStore.clickhouseData?.tables || {},
-            tableSchemas: state.clickhouseConnectionStore.clickhouseData?.tableSchemas || {},
+            tables: state.clickhouseConnectionStore.clickhouseMetadata?.tables || {},
+            tableSchemas: state.clickhouseConnectionStore.clickhouseMetadata?.tableSchemas || {},
           },
         },
       })),
@@ -140,15 +140,15 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
       set((state) => ({
         clickhouseConnectionStore: {
           ...state.clickhouseConnectionStore,
-          clickhouseData: {
+          clickhouseMetadata: {
             lastFetched: Date.now(),
             connectionId,
-            databases: state.clickhouseConnectionStore.clickhouseData?.databases || [],
+            databases: state.clickhouseConnectionStore.clickhouseMetadata?.databases || [],
             tables: {
-              ...state.clickhouseConnectionStore.clickhouseData?.tables,
+              ...state.clickhouseConnectionStore.clickhouseMetadata?.tables,
               [database]: tables,
             },
-            tableSchemas: state.clickhouseConnectionStore.clickhouseData?.tableSchemas || {},
+            tableSchemas: state.clickhouseConnectionStore.clickhouseMetadata?.tableSchemas || {},
           },
         },
       })),
@@ -157,42 +157,42 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
       set((state) => ({
         clickhouseConnectionStore: {
           ...state.clickhouseConnectionStore,
-          clickhouseData: {
+          clickhouseMetadata: {
             lastFetched: Date.now(),
             connectionId,
-            databases: state.clickhouseConnectionStore.clickhouseData?.databases || [],
-            tables: state.clickhouseConnectionStore.clickhouseData?.tables || {},
+            databases: state.clickhouseConnectionStore.clickhouseMetadata?.databases || [],
+            tables: state.clickhouseConnectionStore.clickhouseMetadata?.tables || {},
             tableSchemas: {
-              ...state.clickhouseConnectionStore.clickhouseData?.tableSchemas,
+              ...state.clickhouseConnectionStore.clickhouseMetadata?.tableSchemas,
               [`${database}:${table}`]: schema,
             },
           },
         },
       })),
 
-    clearData: () =>
+    clearMetadata: () =>
       set((state) => ({
         clickhouseConnectionStore: {
           ...state.clickhouseConnectionStore,
-          clickhouseData: null,
+          clickhouseMetadata: null,
         },
       })),
 
     // Getters for easy access
     getDatabases: () => {
-      return get().clickhouseConnectionStore.clickhouseData?.databases || []
+      return get().clickhouseConnectionStore.clickhouseMetadata?.databases || []
     },
 
     getTables: (database: string) => {
-      return get().clickhouseConnectionStore.clickhouseData?.tables?.[database] || []
+      return get().clickhouseConnectionStore.clickhouseMetadata?.tables?.[database] || []
     },
 
     getTableSchema: (database: string, table: string) => {
-      return get().clickhouseConnectionStore.clickhouseData?.tableSchemas?.[`${database}:${table}`] || []
+      return get().clickhouseConnectionStore.clickhouseMetadata?.tableSchemas?.[`${database}:${table}`] || []
     },
 
     getConnectionId: () => {
-      return get().clickhouseConnectionStore.clickhouseData?.connectionId || null
+      return get().clickhouseConnectionStore.clickhouseMetadata?.connectionId || null
     },
 
     // reset clickhouse store
