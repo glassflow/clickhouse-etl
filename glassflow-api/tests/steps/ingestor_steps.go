@@ -192,12 +192,18 @@ func (s *IngestorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error
 }
 
 func (s *IngestorTestSuite) anIngestorOperatorConfig(config string) error {
-	err := json.Unmarshal([]byte(config), &s.ingestorCfg)
+	var ingCgf models.IngestorOperatorConfig
+	err := json.Unmarshal([]byte(config), &ingCgf)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal ingestor operator config: %w", err)
 	}
 
-	s.ingestorCfg.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
+	ingCgf.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
+
+	s.ingestorCfg, err = models.NewIngestorOperatorConfig(ingCgf.Provider, ingCgf.KafkaConnectionParams, ingCgf.KafkaTopics)
+	if err != nil {
+		return fmt.Errorf("create ingestor operator config: %w", err)
+	}
 
 	return nil
 }
@@ -307,7 +313,7 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 			break
 		}
 
-		if receivedCount >= len(expectedEvents) {
+		if receivedCount > len(expectedEvents) {
 			return fmt.Errorf("too much events: actual %d, expected %d", receivedCount, len(expectedEvents))
 		}
 
@@ -340,6 +346,10 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 		}
 
 		receivedCount++
+	}
+
+	if receivedCount < expectedCount {
+		return fmt.Errorf("not enough events: expected %d, got %d", expectedCount, receivedCount)
 	}
 
 	return nil

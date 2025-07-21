@@ -235,7 +235,7 @@ Feature: Kafka to CH pipeline
             | 2   | {"id": "456", "name": "Jane Smith"}  |
             | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "1s"
+        And I shutdown the glassflow pipeline after "2s"
         Then the ClickHouse table "default.test_users" should contain:
             | name        | email                | COUNT |
             | John Doe    | john.doe@mailbox.com | 1     |
@@ -382,7 +382,7 @@ Feature: Kafka to CH pipeline
             | 2   | {"id": "456", "name": "Jane Smith"}  |
             | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "1s"
+        And I shutdown the glassflow pipeline after "2s"
         Then the ClickHouse table "default.test_users" should contain:
             | name        | email                | COUNT |
             | John Doe    | john.doe@mailbox.com | 1     |

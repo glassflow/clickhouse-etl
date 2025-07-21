@@ -100,7 +100,7 @@ func mainErr(cfg *config) error {
 		return fmt.Errorf("create nats store for pipelines: %w", err)
 	}
 
-	pipelineMgr := service.NewPipelineManager(cfg.NATSServer, nc, log, db)
+	pipelineMgr := service.NewPipelineManager(nc, log, db)
 	dlqSvc := service.NewDLQService(mq)
 
 	handler := api.NewRouter(log, pipelineMgr, dlqSvc)

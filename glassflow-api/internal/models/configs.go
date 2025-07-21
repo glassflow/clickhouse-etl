@@ -133,10 +133,12 @@ func NewIngestorOperatorConfig(provider string, conn KafkaConnectionParamsConfig
 			return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", conn.SASLMechanism)}
 		}
 	}
-	for _, kt := range topics {
+	for i, kt := range topics {
 		switch strings.ToLower(kt.ConsumerGroupInitialOffset) {
-		case "earliest":
-		case "latest":
+		case InitialOffsetEarliest.String():
+		case InitialOffsetLatest.String():
+		case "":
+			topics[i].ConsumerGroupInitialOffset = InitialOffsetEarliest.String()
 		default:
 			return zero, PipelineConfigError{Msg: "invalid consumer_group_initial_offset; allowed values: `earliest` or `latest`"}
 		}

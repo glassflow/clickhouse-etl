@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"sync"
 	"time"
 
@@ -29,14 +28,13 @@ func (e ActivePipelineError) Error() string {
 }
 
 type PipelineManager struct {
-	natsServer string
-	nc         *client.NATSClient
-	log        *slog.Logger
-	store      PipelineStore
+	nc    *client.NATSClient
+	log   *slog.Logger
+	store PipelineStore
 
-	bridgeRunner *BridgeRunner
-	joinRunner   *JoinRunner
-	sinkRunner   *SinkRunner
+	ingestorRunner *IngestorRunner
+	joinRunner     *JoinRunner
+	sinkRunner     *SinkRunner
 
 	id string
 	m  sync.Mutex
@@ -48,17 +46,15 @@ type PipelineStore interface {
 }
 
 func NewPipelineManager(
-	natsServer string,
 	nc *client.NATSClient,
 	log *slog.Logger,
 	store PipelineStore,
 ) *PipelineManager {
 	//nolint: exhaustruct // runners will be created on setup
 	return &PipelineManager{
-		natsServer: natsServer,
-		nc:         nc,
-		log:        log,
-		store:      store,
+		nc:    nc,
+		log:   log,
+		store: store,
 	}
 }
 
@@ -117,7 +113,7 @@ func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 
 	p.log = p.log.With("pipeline_id", p.id)
 
-	p.bridgeRunner = NewBridgeRunner(NewFactory(p.natsServer, p.log.With("component", "kafka_bridge")))
+	p.ingestorRunner = NewIngestorRunner(p.log.With("component", "ingestor"), p.nc)
 	p.joinRunner = NewJoinRunner(p.log.With("component", "join"), p.nc)
 	p.sinkRunner = NewSinkRunner(p.log.With("component", "clickhouse_sink"), p.nc)
 
@@ -129,36 +125,18 @@ func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 	}
 	p.log.Debug("created ingestion streams successfully")
 
-	bridgeSpecs := make([]models.BridgeSpec, len(pi.Ingestor.KafkaTopics))
-
 	for _, t := range pi.Ingestor.KafkaTopics {
 		sinkConsumerStream = t.Name
 		sinkConsumerSubject = t.Name + ".input"
 
-		bridgeSpecs = append(bridgeSpecs, models.BridgeSpec{
-			Topic:                      t.Name,
-			DedupEnabled:               t.Deduplication.Enabled,
-			DedupWindow:                t.Deduplication.Window.Duration(),
-			DedupKey:                   t.Deduplication.ID,
-			DedupKeyType:               t.Deduplication.Type,
-			ConsumerGroupID:            "cg-" + t.Name,
-			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
-			Stream:                     t.Name,
-			Subject:                    t.Name + ".input",
-		})
-	}
-
-	// TODO: Remove when ingestor is ready
-	err = p.bridgeRunner.SetupBridges(&models.KafkaConfig{
-		Brokers:       pi.Ingestor.KafkaConnectionParams.Brokers,
-		SASLUser:      pi.Ingestor.KafkaConnectionParams.SASLUsername,
-		SASLPassword:  pi.Ingestor.KafkaConnectionParams.SASLPassword,
-		SASLMechanism: pi.Ingestor.KafkaConnectionParams.SASLMechanism,
-		SASLTLSEnable: slices.Contains([]string{"SASL_SSL", "SSL"}, pi.Ingestor.KafkaConnectionParams.SASLProtocol),
-		TLSRoot:       pi.Ingestor.KafkaConnectionParams.TLSRoot,
-	}, bridgeSpecs)
-	if err != nil {
-		return fmt.Errorf("setup bridges: %w", err)
+		p.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
+		err = p.ingestorRunner.Start(
+			ctx, t.Name, *pi,
+			schemaMapper,
+		)
+		if err != nil {
+			return fmt.Errorf("start ingestor for topic %s: %w", t.Name, err)
+		}
 	}
 
 	if pi.Join.Enabled {
@@ -216,7 +194,7 @@ func (p *PipelineManager) ShutdownPipeline() error {
 		return ErrPipelineNotFound
 	}
 
-	p.bridgeRunner.Shutdown(ShutdownTimeout)
+	p.ingestorRunner.Shutdown()
 	p.joinRunner.Shutdown()
 	p.sinkRunner.Shutdown()
 
