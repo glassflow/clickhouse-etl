@@ -15,7 +15,7 @@ export const mockPipelines: Pipeline[] = [
       provider: 'local',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
-        protocol: 'SASL_PLAINTEXT',
+        protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
         // username: 'admin',
         // password: 'admin',
@@ -105,7 +105,7 @@ export const mockPipelines: Pipeline[] = [
       provider: 'aiven',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
-        protocol: 'SASL_PLAINTEXT',
+        protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
         // username: 'admin',
         // password: 'admin',
@@ -254,7 +254,7 @@ export const mockPipelines: Pipeline[] = [
       provider: 'aiven',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
-        protocol: 'SASL_PLAINTEXT',
+        protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
         // username: 'admin',
         // password: 'admin',
@@ -350,7 +350,7 @@ export const mockPipelines: Pipeline[] = [
       provider: 'aiven',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
-        protocol: 'SASL_PLAINTEXT',
+        protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
         // username: 'admin',
         // password: 'admin',
