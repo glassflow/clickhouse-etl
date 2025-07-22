@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { KafkaConfig } from '@/src/lib/kafka-service'
+import { KafkaConfig } from '@/src/lib/kafka-client'
 
 const getKafkaBootstrapServers = (originalServers: string) => {
   if (process.env.NEXT_PUBLIC_IN_DOCKER === 'true') {

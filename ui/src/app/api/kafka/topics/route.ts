@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { KafkaClient, KafkaConfig } from '@/src/lib/kafka-service'
+import { KafkaClient, KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../../utils'
 export async function POST(request: Request) {
   try {
