@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { KafkaClient, KafkaConfig } from '@/src/lib/kafka-client'
+import { KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../../utils'
+import { KafkaService } from '@/src/services/kafka-service'
+
 export async function POST(request: Request) {
   try {
     const requestBody = await request.json()
@@ -12,19 +14,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: kafkaConfig.error }, { status: 400 })
     }
 
-    // Add SSL configuration if needed
-    // if (securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL') {
-    //   const { truststore } = requestBody
-    //   if (truststore) {
-    //     kafkaConfig.truststore = truststore
-    //   }
-    // }
-
-    const kafkaClient = new KafkaClient(kafkaConfig as KafkaConfig)
+    const kafkaService = new KafkaService()
 
     try {
       // First test the connection
-      const isConnected = await kafkaClient.testConnection()
+      const isConnected = await kafkaService.testConnection(kafkaConfig as KafkaConfig)
 
       if (!isConnected) {
         return NextResponse.json({
@@ -34,7 +28,7 @@ export async function POST(request: Request) {
       }
 
       // Fetch topics
-      const topics = await kafkaClient.listTopics()
+      const topics = await kafkaService.getTopics(kafkaConfig as KafkaConfig)
 
       return NextResponse.json({
         success: true,
