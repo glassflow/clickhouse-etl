@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'

@@ -34,12 +34,12 @@ export function saveConfiguration(name: string, description?: string): SavedConf
     description,
     timestamp: Date.now(),
     state: {
-      operationsSelected: store.operationsSelected,
-      outboundEventPreview: store.outboundEventPreview,
-      analyticsConsent: store.analyticsConsent,
-      consentAnswered: store.consentAnswered,
-      isDirty: store.isDirty,
-      apiConfig: store.apiConfig,
+      operationsSelected: store.configStore.operationsSelected,
+      outboundEventPreview: store.configStore.outboundEventPreview,
+      analyticsConsent: store.configStore.analyticsConsent,
+      consentAnswered: store.configStore.consentAnswered,
+      isDirty: store.configStore.isDirty,
+      apiConfig: store.configStore.apiConfig,
       kafkaStore: store.kafkaStore,
       clickhouseConnectionStore: store.clickhouseConnectionStore,
       clickhouseDestinationStore: store.clickhouseDestinationStore,
@@ -90,12 +90,12 @@ export function restoreConfiguration(id: string): void {
     const store = useStore.getState()
 
     // Restore all store states
-    store.setOperationsSelected(config.state.operationsSelected)
-    store.setOutboundEventPreview(config.state.outboundEventPreview)
-    store.setAnalyticsConsent(config.state.analyticsConsent)
-    store.setConsentAnswered(config.state.consentAnswered)
-    store.markAsDirty() // or markAsClean based on isDirty
-    store.setApiConfig(config.state.apiConfig)
+    store.configStore.setOperationsSelected(config.state.operationsSelected)
+    store.configStore.setOutboundEventPreview(config.state.outboundEventPreview)
+    store.configStore.setAnalyticsConsent(config.state.analyticsConsent)
+    store.configStore.setConsentAnswered(config.state.consentAnswered)
+    store.configStore.markAsDirty() // or markAsClean based on isDirty
+    store.configStore.setApiConfig(config.state.apiConfig)
 
     // Restore slice states
     Object.assign(store.kafkaStore, config.state.kafkaStore)

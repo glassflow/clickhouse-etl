@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { PipelinesList } from '@/src/modules/pipelines/PipelinesList'
 import { NoPipelines } from '@/src/modules/pipelines/NoPipelines'
 
-import { getPipelines, Pipeline } from '@/src/api/pipeline-api'
+import { getPipelines } from '@/src/api/pipeline-api'
+import { Pipeline } from '@/src/types/pipeline'
 
 export default function PipelinesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([])

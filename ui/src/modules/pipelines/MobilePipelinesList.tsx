@@ -1,8 +1,8 @@
 import React from 'react'
-import { Pipeline } from '@/src/api/pipeline-api'
+import { Pipeline } from '@/src/types/pipeline'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 interface MobilePipelinesListProps {
   pipelines: Pipeline[]
@@ -81,7 +81,7 @@ export function MobilePipelinesList({
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                 Transformation
               </div>
-              <div className="text-sm text-foreground">{pipeline.config?.operations?.join(', ') || 'None'}</div>
+              <div className="text-sm text-foreground">{pipeline.transformationName || 'None'}</div>
             </div>
 
             {/* Status */}

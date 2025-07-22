@@ -9,7 +9,7 @@ import { AUTH_OPTIONS, StepKeys } from '@/src/config/constants'
 import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-config'
 import { KafkaAuthForm } from './KafkaAuthForms'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<boolean>

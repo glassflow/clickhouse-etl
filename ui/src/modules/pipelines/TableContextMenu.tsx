@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { MoreVertical, Pause, Edit, FileText, Trash2 } from 'lucide-react'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 interface TableContextMenuProps {
   onPause?: () => void

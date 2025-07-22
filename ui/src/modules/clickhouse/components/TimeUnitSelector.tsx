@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { MAX_DELAY_TIME_UNITS } from '@/src/config/constants'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 export function TimeUnitSelector({
   value,

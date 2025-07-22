@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { JSON_DATA_TYPES, JSON_DATA_TYPES_DEDUPLICATION_JOIN } from '@/src/config/constants'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 export function JSONDateTypesSelector({
   value,

@@ -1,7 +1,7 @@
 import React from 'react'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { TableContextMenu } from './TableContextMenu'
-import { Pipeline } from '@/src/api/pipeline-api'
+import { Pipeline } from '@/src/types/pipeline'
 
 export interface TableColumn<T> {
   key: string

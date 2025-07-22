@@ -4,7 +4,7 @@ import { KafkaConnectionForm } from '@/src/modules/kafka/components/KafkaConnect
 import { use, useEffect, useState, useRef } from 'react'
 import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
-import { useKafkaConnection } from '@/src/hooks/kafka-mng-hooks'
+import { useKafkaConnection } from '@/src/hooks/useKafkaConnection'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function KafkaConnector({

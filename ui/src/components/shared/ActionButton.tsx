@@ -1,6 +1,6 @@
 import { Button } from '@/src/components/ui/button'
 import { DeleteIcon, RenameIcon, PauseIcon, RestartIcon, CreateIcon, EditIcon } from '@/src/components/icons'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 const actionIcons = {
   rename: RenameIcon,

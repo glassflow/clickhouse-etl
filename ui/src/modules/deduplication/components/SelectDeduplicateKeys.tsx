@@ -3,7 +3,7 @@ import { Label } from '@/src/components/ui/label'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { JSONDateTypesSelector } from '@/src/components/shared/JSONDateTypesSelector'
 import { useStore } from '@/src/store'
-import { extractEventFields } from '@/src/modules/clickhouse/helpers'
+import { extractEventFields } from '@/src/utils/common.client'
 import { TimeWindowConfigurator } from './TimeWindowConfigurator'
 import { TIME_WINDOW_UNIT_OPTIONS } from '../../../config/constants'
 

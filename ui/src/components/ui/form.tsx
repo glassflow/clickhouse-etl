@@ -16,7 +16,7 @@ import {
   Control,
 } from 'react-hook-form'
 
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { Label } from '@/src/components/ui/label'
 import { Input } from './input'
 import { Textarea } from './textarea'

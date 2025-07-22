@@ -11,7 +11,7 @@ import ClickHouseIcon from '@/src/images/clickhouse.svg'
 import Image from 'next/image'
 import StandaloneStepRenderer from '@/src/modules/StandaloneStepRenderer'
 import { StepKeys } from '@/src/config/constants'
-import { Pipeline } from '@/src/api/pipeline-api'
+import { Pipeline } from '@/src/types/pipeline'
 import { hydrateKafkaConnection } from '@/src/store/hydration/kafka-connection'
 import { hydrateClickhouseConnection } from '@/src/store/hydration/clickhouse-connection'
 
@@ -36,7 +36,7 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
   return (
     <div>
       <div className="flex flex-col gap-4">
-        <PipelineDetailsHeader title={pipeline.name} status={pipeline.status} actions={pipeline.actions} />
+        <PipelineDetailsHeader title={pipeline.name} status={pipeline.status} />
       </div>
       <div className="flex flex-col gap-4">
         <PipelineStatusOverviewSection />

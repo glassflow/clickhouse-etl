@@ -1,7 +1,7 @@
 import React from 'react'
 import { Badge } from '../ui/badge'
 import { STATUS_CONFIG, StatusType } from '../../config/constants'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 interface StatusBadgeProps {
   status: StatusType

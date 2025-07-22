@@ -10,7 +10,7 @@ import { ColumnMappingType } from '@/src/scheme/clickhouse.scheme'
 import { JSON_DATA_TYPES } from '@/src/config/constants'
 import { TableColumn } from '../types'
 import { useState } from 'react'
-import { isTypeCompatible } from '../helpers'
+import { isTypeCompatible } from '../utils'
 import Image from 'next/image'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 

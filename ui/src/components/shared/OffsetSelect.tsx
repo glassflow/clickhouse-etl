@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { useState } from 'react'
 
 export function OffsetSelect({

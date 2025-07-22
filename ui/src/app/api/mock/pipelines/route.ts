@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { Pipeline, mockPipelines as mockPipelinesData } from '../data/pipelines'
+import { mockPipelines as mockPipelinesData } from '../data/pipelines'
+import { Pipeline } from '@/src/types/pipeline'
 
 // GET /api/mock/pipelines
 export async function GET() {

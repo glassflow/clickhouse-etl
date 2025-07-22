@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 interface CacheRefreshButtonProps {
   type: 'databases' | 'tables' | 'tableSchema'

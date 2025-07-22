@@ -1,5 +1,5 @@
 import { Card } from '@/src/components/ui/card'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 interface TitleCardWithIconProps {
   title: string

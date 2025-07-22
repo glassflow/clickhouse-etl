@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { mockPipelines, Pipeline } from '../../data/pipelines'
+import { mockPipelines } from '../../data/pipelines'
+import { Pipeline } from '@/src/types/pipeline'
 
 // Helper function to find pipeline by ID
 const findPipeline = (id: string): Pipeline | undefined => {

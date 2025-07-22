@@ -1,5 +1,5 @@
 import { KafkaStore } from '@/src/store/kafka.store'
-import { useFetchEvent } from '@/src/hooks/kafka-mng-hooks'
+import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { useState, useEffect } from 'react'
 import { useEventFetchContext } from '../../components/shared/event-fetcher/EventFetchContext'
 

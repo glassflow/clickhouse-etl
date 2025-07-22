@@ -2,6 +2,14 @@ import { createClient, ClickHouseClient } from '@clickhouse/client'
 import { generateHost } from '@/src/utils/common.server'
 import { Agent } from 'undici'
 
+interface ClickHouseConnection {
+  type: 'direct' | 'client'
+  directFetch?: (query: string) => Promise<string>
+  client?: ClickHouseClient
+  cleanHost?: string
+  dispatcher?: Agent
+}
+
 export interface ClickHouseConfig {
   host: string
   port: number
@@ -14,14 +22,6 @@ export interface ClickHouseConfig {
   proxyUrl?: string
   connectionString?: string
   skipCertificateVerification?: boolean
-}
-
-export interface ClickHouseConnection {
-  type: 'direct' | 'client'
-  directFetch?: (query: string) => Promise<string>
-  client?: ClickHouseClient
-  cleanHost?: string
-  dispatcher?: Agent
 }
 
 export async function createClickHouseConnection(config: ClickHouseConfig): Promise<ClickHouseConnection> {
@@ -112,6 +112,7 @@ export function parseJSONEachRow(data: string): any[] {
     .filter(Boolean)
 }
 
+// TODO: not used - check and remove if not needed
 export async function executeQuery(connection: ClickHouseConnection, query: string): Promise<string> {
   if (connection.type === 'direct' && connection.directFetch) {
     return await connection.directFetch(query)

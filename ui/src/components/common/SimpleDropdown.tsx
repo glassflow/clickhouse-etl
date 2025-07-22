@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 type SimpleDropdownProps = {
   label: string

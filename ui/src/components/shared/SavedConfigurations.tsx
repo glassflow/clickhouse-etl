@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/src/components/ui/button'
 import { Plus, Clock, Trash2 } from 'lucide-react'
-import { getConfigurations, deleteConfiguration, restoreConfiguration } from '@/src/utils/storage'
-import { SavedConfiguration } from '@/src/utils/storage'
+import { getConfigurations, deleteConfiguration, restoreConfiguration } from '@/src/utils/local-storage-config'
+import { SavedConfiguration } from '@/src/utils/local-storage-config'
 import { useStore } from '@/src/store'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 export function SavedConfigurations() {
   const router = useRouter()

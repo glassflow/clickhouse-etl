@@ -9,7 +9,7 @@ import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { v4 as uuidv4 } from 'uuid'
 import { StreamConfiguratorList } from './components/StreamConfiguratorList'
 import { JoinConfigType } from '@/src/scheme/join.scheme'
-import { extractEventFields } from '@/src/modules/clickhouse/helpers'
+import { extractEventFields } from '@/src/utils/common.client'
 
 export type JoinConfiguratorProps = {
   steps: any

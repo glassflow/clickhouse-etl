@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
 import EventFetcher from '@/src/components/shared/event-fetcher/EventFetcher'
-import { useFetchEvent } from '@/src/hooks/kafka-mng-hooks'
+import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { useStore } from '@/src/store'
 import { EventDataFormat } from '@/src/config/constants'
 

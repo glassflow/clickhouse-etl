@@ -6,13 +6,13 @@ import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { createPipeline, shutdownPipeline, getPipelineStatus, PipelineError } from '@/src/api/pipeline'
 import { InputModal, ModalResult } from '@/src/components/common/InputModal'
-import { saveConfiguration } from '@/src/utils/storage'
+import { saveConfiguration } from '@/src/utils/local-storage-config'
 import { isValidApiConfig } from '@/src/modules/pipelines/helpers'
 import TrashIcon from '../../images/trash.svg'
 import ModifyIcon from '../../images/modify.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { Feedback } from './Feedback'
-import { Pipeline } from '@/src/api/pipeline-api'
+import { Pipeline } from '@/src/types/pipeline'
 import { PipelinesTable, TableColumn } from '@/src/modules/pipelines/PipelinesTable'
 import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
 import { Badge } from '@/src/components/ui/badge'
@@ -205,7 +205,6 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
       key: 'operations',
       header: 'Transformation',
       width: '2fr',
-      // @ts-expect-error TODO: fix this
       render: (pipeline) => pipeline?.transformationName || 'None',
     },
     {

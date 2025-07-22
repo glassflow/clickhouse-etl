@@ -1,5 +1,10 @@
 import { v4 as uuidv4 } from 'uuid'
 import { KafkaConnectionParams } from './types'
+import { extractEventFields } from '@/src/utils/common.client'
+
+const encodeBase64 = (password: string) => {
+  return password ? Buffer.from(password).toString('base64') : undefined
+}
 
 // Generate API config without updating the store
 export const generateApiConfig = ({
@@ -234,10 +239,6 @@ export const generateApiConfig = ({
   }
 }
 
-const encodeBase64 = (password: string) => {
-  return password ? Buffer.from(password).toString('base64') : undefined
-}
-
 // Helper function to infer JSON type
 export function inferJsonType(value: any): string {
   if (value === null) return 'null'
@@ -294,39 +295,6 @@ export function inferJsonType(value: any): string {
 
   // For objects, return object type
   return 'object'
-}
-
-// Helper function to extract fields from event data with support for nested objects and arrays
-export const extractEventFields = (data: any, prefix = ''): string[] => {
-  if (!data || typeof data !== 'object') {
-    return []
-  }
-
-  let fields: string[] = []
-
-  Object.keys(data).forEach((key) => {
-    // Skip _metadata and key fields
-    if (key.startsWith('_metadata')) {
-      return
-    }
-
-    const fullPath = prefix ? `${prefix}.${key}` : key
-    const value = data[key]
-
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      // Recursively extract nested fields
-      const nestedFields = extractEventFields(value, fullPath)
-      fields = [...fields, ...nestedFields]
-    } else if (Array.isArray(value)) {
-      // Only add the array field itself for cases where users want the whole array
-      fields.push(fullPath)
-    } else {
-      // Only add leaf fields (fields with primitive values, not objects)
-      fields.push(fullPath)
-    }
-  })
-
-  return fields
 }
 
 // Helper function to find best matching field
@@ -528,33 +496,4 @@ export const getMappingType = (eventField: string, mapping: any) => {
 
   // NOTE: default to string if no mapping entry is found - check this
   return 'string'
-}
-
-export const generatePipelineId = (pipelineName: string, existingIds: string[] = []): string => {
-  // Convert pipeline name to lowercase and replace spaces/special chars with dashes
-  const baseId = pipelineName
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-    .replace(/\s+/g, '-') // Replace spaces with dashes
-    .replace(/-+/g, '-') // Replace multiple dashes with single dash
-
-  if (!existingIds.includes(baseId)) {
-    return baseId
-  }
-
-  // Find existing numbered versions
-  const basePattern = new RegExp(`^${baseId}(-\\d+)?$`)
-  const numberedVersions = existingIds
-    .filter((id) => basePattern.test(id))
-    .map((id) => {
-      const match = id.match(/-(\d+)$/)
-      return match ? parseInt(match[1]) : 0
-    })
-
-  // Get the highest number used
-  const maxNumber = Math.max(0, ...numberedVersions)
-
-  // Return next available number
-  return `${baseId}-${maxNumber + 1}`
 }

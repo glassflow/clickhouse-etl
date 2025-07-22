@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
 import { EventEditor } from '../EventEditor'
-import { parseForCodeEditor } from '@/src/utils/'
+import { parseForCodeEditor } from '@/src/utils/common.client'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
 import { useFetchEventWithCaching } from '../../../modules/kafka/useFetchEventWithCaching'
 import { EventFetcherProps } from './types'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 function EventFetcher({
   topicName,

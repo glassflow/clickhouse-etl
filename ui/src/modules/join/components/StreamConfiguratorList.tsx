@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { StreamConfigurator } from './StreamConfigurator'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { EventEditor } from '@/src/components/shared/EventEditor'
-import { parseForCodeEditor } from '@/src/utils'
+import { parseForCodeEditor } from '@/src/utils/common.client'
 
 interface StreamConfiguratorListProps {
   streams: {

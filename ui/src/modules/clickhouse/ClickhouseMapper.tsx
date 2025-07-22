@@ -11,9 +11,8 @@ import { CacheRefreshButton } from './components/CacheRefreshButton'
 
 import { StepKeys, OperationKeys } from '@/src/config/constants'
 
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import {
-  extractEventFields,
   inferJsonType,
   findBestMatchingField,
   getNestedValue,
@@ -21,10 +20,14 @@ import {
   isTypeCompatible,
   getMappingType,
   generateApiConfig,
-} from './helpers'
+} from './utils'
+import { extractEventFields } from '@/src/utils/common.client'
 
 import { useStore } from '@/src/store'
-import { useClickhouseTableSchema, useClickhouseConnection, useClickhouseDatabases, useClickhouseTables } from './hooks'
+import { useClickhouseConnection } from '@/src/hooks/useClickhouseConnection'
+import { useClickhouseDatabases } from '@/src/hooks/useClickhouseDatabases'
+import { useClickhouseTables } from '@/src/hooks/useClickhouseTables'
+import { useClickhouseTableSchema } from '@/src/hooks/useClickhouseTableSchema'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'

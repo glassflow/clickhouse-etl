@@ -5,7 +5,7 @@ import {
   buildTestQuery,
   parseTestResult,
   type ClickHouseConfig,
-} from '@/src/utils/clickhouse'
+} from '@/src/app/api/clickhouse/clickhouse-utils'
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {

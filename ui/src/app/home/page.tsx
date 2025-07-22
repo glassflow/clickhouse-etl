@@ -10,14 +10,14 @@ import PlusHome from '../../images/plus-home.svg'
 import { useStore } from '@/src/store'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { OperationKeys } from '@/src/config/constants'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { useState, Suspense, useEffect } from 'react'
 import { getPipelineStatus } from '@/src/api/pipeline'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { generatePipelineId } from '@/src/modules/clickhouse/helpers'
+import { generatePipelineId } from '@/src/utils/common.client'
 
 const ConnectionCard = () => {
   return (
