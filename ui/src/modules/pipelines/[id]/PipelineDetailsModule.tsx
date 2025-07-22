@@ -14,6 +14,9 @@ import { StepKeys } from '@/src/config/constants'
 import { Pipeline } from '@/src/types/pipeline'
 import { hydrateKafkaConnection } from '@/src/store/hydration/kafka-connection'
 import { hydrateClickhouseConnection } from '@/src/store/hydration/clickhouse-connection'
+import { hydrateKafkaTopics } from '@/src/store/hydration/topics'
+import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-destination'
+import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
 
 function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
@@ -21,7 +24,10 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
   useEffect(() => {
     if (pipeline && pipeline?.source && pipeline?.sink) {
       hydrateKafkaConnection(pipeline)
+      hydrateKafkaTopics(pipeline)
       hydrateClickhouseConnection(pipeline)
+      hydrateClickhouseDestination(pipeline)
+      hydrateJoinConfiguration(pipeline)
     }
   }, [pipeline])
 

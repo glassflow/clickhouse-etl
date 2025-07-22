@@ -61,7 +61,6 @@ const useActualStore = create<Store>()(
               ...state.topicsStore,
               topics: {},
               topicCount: 0,
-              eventCache: {},
               availableTopics: state.topicsStore.availableTopics,
             },
             joinStore: {

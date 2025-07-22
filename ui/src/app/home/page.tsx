@@ -79,7 +79,7 @@ function HomePageClient() {
   const [isCreatePipelineModalVisible, setIsCreatePipelineModalVisible] = useState(false)
 
   const { getIsKafkaConnectionDirty } = kafkaStore
-  const { getIsTopicDirty } = topicsStore
+  // const { getIsTopicDirty } = topicsStore // TODO: check if why this was needed
   const { getIsJoinDirty } = joinStore
   const {
     setOperationsSelected,

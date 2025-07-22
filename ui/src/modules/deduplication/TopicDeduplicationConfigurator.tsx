@@ -57,7 +57,6 @@ export function TopicDeduplicationConfigurator({
     setAvailableTopics,
     topics: topicsFromStore,
     topicCount: topicCountFromStore,
-    addTopic,
     updateTopic,
     getTopic,
     getEvent,

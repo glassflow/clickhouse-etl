@@ -14,9 +14,9 @@ export interface Pipeline {
       brokers: string[]
       protocol: string
       mechanism: string
-      username: string
-      password: string
-      root_ca: string
+      username?: string
+      password?: string
+      root_ca?: string
     }
     topics: Array<{
       consumer_group_initial_offset: string
@@ -51,9 +51,10 @@ export interface Pipeline {
     provider: string
     host: string
     port: string
+    nativePort?: string
     database: string
-    username: string
-    password: string
+    username?: string
+    password?: string
     secure: boolean
     max_batch_size: number
     max_delay_time: string
