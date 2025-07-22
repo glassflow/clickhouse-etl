@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -42,6 +43,8 @@ type config struct {
 }
 
 func main() {
+	slog.Info("Starting main")
+
 	var cfg config
 	err := envconfig.Process("glassflow", &cfg)
 	if err != nil {
