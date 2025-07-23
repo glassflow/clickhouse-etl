@@ -25,6 +25,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
+  const [editMode, setEditMode] = useState(false)
 
   // Initialize steps based on stepType
   useEffect(() => {
@@ -137,7 +138,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
   //       validate={async () => true} // You might want to implement proper validation
   //       standalone={true}
   //       onComplete={handleComplete}
-  //       viewOnly={false}
+  //       readOnly={false}
   //     />
   //   </StepRendererModal>
   // )
@@ -150,7 +151,9 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
         validate={async () => true} // You might want to implement proper validation
         standalone={true}
         onComplete={handleComplete}
-        viewOnly={false}
+        readOnly={!editMode}
+        onEnableEdit={() => setEditMode(true)}
+        onDisableEdit={() => setEditMode(false)}
       />
     </StepRendererPageComponent>
   )

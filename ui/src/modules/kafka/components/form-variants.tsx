@@ -9,10 +9,10 @@ import { AUTH_OPTIONS } from '@/src/config/constants'
 // SASL/PLAIN specific form
 export const SaslPlainForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
   const { watch } = useFormContext()
@@ -32,7 +32,7 @@ export const SaslPlainForm = ({
             field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.username as any,
             register,
             errors,
-            viewOnly,
+            readOnly,
           })}
         </div>
         <div className="space-y-2 w-full lg:w-1/2">
@@ -40,7 +40,7 @@ export const SaslPlainForm = ({
             field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.password as any,
             register,
             errors,
-            viewOnly,
+            readOnly,
           })}
         </div>
       </div>
@@ -51,7 +51,7 @@ export const SaslPlainForm = ({
               field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.certificate as any,
               register,
               errors,
-              viewOnly,
+              readOnly,
             })}
           </div>
         )}
@@ -76,10 +76,10 @@ export const SaslPlainForm = ({
 // NO_AUTH specific form
 export const NoAuthForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
   const { watch } = useFormContext()
@@ -97,7 +97,7 @@ export const NoAuthForm = ({
               field: KafkaFormConfig[AUTH_OPTIONS['NO_AUTH'].name].fields.certificate as any,
               register,
               errors,
-              viewOnly,
+              readOnly,
             })}
           </div>
         )}
@@ -109,10 +109,10 @@ export const NoAuthForm = ({
 // SASL/JAAS specific form
 export const SaslJaasForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -123,7 +123,7 @@ export const SaslJaasForm = ({
         formGroupName: 'SASL/JAAS',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -132,10 +132,10 @@ export const SaslJaasForm = ({
 // SASL/GSSAPI specific form
 export const SaslGssapiForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -146,7 +146,7 @@ export const SaslGssapiForm = ({
         formGroupName: 'SASL/GSSAPI',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -155,10 +155,10 @@ export const SaslGssapiForm = ({
 // SASL/OAUTHBEARER specific form
 export const SaslOauthbearerForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -169,7 +169,7 @@ export const SaslOauthbearerForm = ({
         formGroupName: 'SASL/OAUTHBEARER',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -178,10 +178,10 @@ export const SaslOauthbearerForm = ({
 // SASL/SCRAM-256 specific form
 export const SaslScram256Form = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -192,7 +192,7 @@ export const SaslScram256Form = ({
         formGroupName: 'SASL/SCRAM-256',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -201,10 +201,10 @@ export const SaslScram256Form = ({
 // SASL/SCRAM-512 specific form
 export const SaslScram512Form = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -215,7 +215,7 @@ export const SaslScram512Form = ({
         formGroupName: 'SASL/SCRAM-512',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -224,10 +224,10 @@ export const SaslScram512Form = ({
 // mTLS specific form
 export const MtlsForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -238,7 +238,7 @@ export const MtlsForm = ({
         formGroupName: 'mTLS',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -247,10 +247,10 @@ export const MtlsForm = ({
 // AWS_MSK_IAM specific form
 export const AwsIamForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -261,7 +261,7 @@ export const AwsIamForm = ({
         formGroupName: 'AWS_MSK_IAM',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -270,10 +270,10 @@ export const AwsIamForm = ({
 // Delegation tokens specific form
 export const DelegationTokensForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -284,7 +284,7 @@ export const DelegationTokensForm = ({
         formGroupName: 'Delegation tokens',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -293,10 +293,10 @@ export const DelegationTokensForm = ({
 // LDAP specific form
 export const LdapForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -307,7 +307,7 @@ export const LdapForm = ({
         formGroupName: 'SASL/LDAP',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )
@@ -316,10 +316,10 @@ export const LdapForm = ({
 // Truststore specific form
 export const TruststoreForm = ({
   errors,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
 
@@ -330,7 +330,7 @@ export const TruststoreForm = ({
         formGroupName: 'trustStore',
         register,
         errors,
-        viewOnly,
+        readOnly,
       })}
     </FormGroup>
   )

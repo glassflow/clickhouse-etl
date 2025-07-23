@@ -26,12 +26,12 @@ export const KafkaBaseForm = ({
   errors,
   authMethod,
   securityProtocol,
-  viewOnly,
+  readOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
   authMethod: string
   securityProtocol: string
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { register } = useFormContext()
   const [isVisible, setIsVisible] = useState(false)
@@ -62,7 +62,7 @@ export const KafkaBaseForm = ({
             field: KafkaBaseFormConfig.base.fields.authMethod,
             register,
             errors,
-            viewOnly,
+            readOnly,
           })}
         </div>
         <div className="space-y-2 w-full lg:w-1/2">
@@ -73,7 +73,7 @@ export const KafkaBaseForm = ({
             },
             register,
             errors,
-            viewOnly,
+            readOnly,
           })}
         </div>
       </div>
@@ -82,7 +82,7 @@ export const KafkaBaseForm = ({
           field: KafkaBaseFormConfig.base.fields.bootstrapServers,
           register,
           errors,
-          viewOnly,
+          readOnly,
         })}
       </div>
       {/* INFO: old implementation - using useRenderFormFields - does not allow custom styles and layout*/}
@@ -101,12 +101,12 @@ export const KafkaAuthForm = ({
   authMethod,
   securityProtocol,
   errors,
-  viewOnly,
+  readOnly,
 }: {
   authMethod: string
   securityProtocol: string
   errors: FieldErrors<KafkaConnectionFormType>
-  viewOnly?: boolean
+  readOnly?: boolean
 }) => {
   const { watch, setValue } = useFormContext()
   const [isVisible, setIsVisible] = useState(false)
@@ -121,14 +121,14 @@ export const KafkaAuthForm = ({
   const renderBaseForm = ({
     authMethod,
     securityProtocol,
-    viewOnly,
+    readOnly,
   }: {
     authMethod: string
     securityProtocol: string
-    viewOnly?: boolean
+    readOnly?: boolean
   }) => {
     return (
-      <KafkaBaseForm errors={errors} authMethod={authMethod} securityProtocol={securityProtocol} viewOnly={viewOnly} />
+      <KafkaBaseForm errors={errors} authMethod={authMethod} securityProtocol={securityProtocol} readOnly={readOnly} />
     )
   }
 
@@ -149,39 +149,39 @@ export const KafkaAuthForm = ({
     // Only run when authMethodSelected changes, not when securityProtocolSelected changes
   }, [authMethodSelected, setValue])
 
-  const renderAuthForm = ({ viewOnly }: { viewOnly?: boolean }) => {
+  const renderAuthForm = ({ readOnly }: { readOnly?: boolean }) => {
     switch (authMethod) {
       case 'SASL/PLAIN':
-        return <SaslPlainForm errors={errors} viewOnly={viewOnly} />
+        return <SaslPlainForm errors={errors} readOnly={readOnly} />
       case 'SASL/JAAS':
-        return <SaslJaasForm errors={errors} viewOnly={viewOnly} />
+        return <SaslJaasForm errors={errors} readOnly={readOnly} />
       case 'SASL/GSSAPI':
-        return <SaslGssapiForm errors={errors} viewOnly={viewOnly} />
+        return <SaslGssapiForm errors={errors} readOnly={readOnly} />
       case 'SASL/OAUTHBEARER':
-        return <SaslOauthbearerForm errors={errors} viewOnly={viewOnly} />
+        return <SaslOauthbearerForm errors={errors} readOnly={readOnly} />
       case 'SASL/SCRAM-256':
-        return <SaslScram256Form errors={errors} viewOnly={viewOnly} />
+        return <SaslScram256Form errors={errors} readOnly={readOnly} />
       case 'SASL/SCRAM-512':
-        return <SaslScram512Form errors={errors} viewOnly={viewOnly} />
+        return <SaslScram512Form errors={errors} readOnly={readOnly} />
       case 'AWS_MSK_IAM':
-        return <AwsIamForm errors={errors} viewOnly={viewOnly} />
+        return <AwsIamForm errors={errors} readOnly={readOnly} />
       case 'mTLS':
-        return <MtlsForm errors={errors} viewOnly={viewOnly} />
+        return <MtlsForm errors={errors} readOnly={readOnly} />
       case 'Delegation tokens':
-        return <DelegationTokensForm errors={errors} viewOnly={viewOnly} />
+        return <DelegationTokensForm errors={errors} readOnly={readOnly} />
       case 'SASL/LDAP':
-        return <LdapForm errors={errors} viewOnly={viewOnly} />
+        return <LdapForm errors={errors} readOnly={readOnly} />
       case 'NO_AUTH':
-        return <NoAuthForm errors={errors} viewOnly={viewOnly} />
+        return <NoAuthForm errors={errors} readOnly={readOnly} />
       default:
-        return <SaslPlainForm errors={errors} viewOnly={viewOnly} />
+        return <SaslPlainForm errors={errors} readOnly={readOnly} />
     }
   }
 
   const { register } = useFormContext()
 
   // SSL-specific fields that show up when SASL_SSL is selected
-  const renderSslFields = ({ viewOnly }: { viewOnly?: boolean }) => {
+  const renderSslFields = ({ readOnly }: { readOnly?: boolean }) => {
     if (securityProtocol === 'SASL_SSL') {
       return (
         <FormGroup>
@@ -200,9 +200,9 @@ export const KafkaAuthForm = ({
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
       }`}
     >
-      <div>{renderBaseForm({ authMethod, securityProtocol, viewOnly })}</div>
-      <div>{renderAuthForm({ viewOnly: viewOnly })}</div>
-      <div>{renderSslFields({ viewOnly: viewOnly })}</div>
+      <div>{renderBaseForm({ authMethod, securityProtocol, readOnly })}</div>
+      <div>{renderAuthForm({ readOnly: readOnly })}</div>
+      <div>{renderSslFields({ readOnly: readOnly })}</div>
     </div>
   )
 }

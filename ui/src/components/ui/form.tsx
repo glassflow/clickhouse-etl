@@ -205,8 +205,9 @@ const FormControlInput = <T extends FieldValues>({
             'text-content',
             error && 'input-border-error',
             isFocused && 'input-active scale-[1.01]',
+            readOnly && 'opacity-50 cursor-not-allowed',
           )}
-          onFocus={() => setIsFocused(true)}
+          onFocus={() => !readOnly && setIsFocused(true)}
           onBlur={() => {
             if (!document.querySelector('[data-state="open"]')) {
               setIsFocused(false)
@@ -233,6 +234,7 @@ function FormControlTextarea({
   register,
   error,
   noLabel,
+  readOnly,
   ...props
 }: React.ComponentProps<typeof FormGroup> & {
   name: string
@@ -242,6 +244,7 @@ function FormControlTextarea({
   register: UseFormRegister<FieldValues>
   error: string
   noLabel?: boolean
+  readOnly?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   return (
@@ -252,6 +255,7 @@ function FormControlTextarea({
         <Textarea
           {...register(name, { required: required })}
           placeholder={placeholder}
+          readOnly={readOnly}
           {...props}
           className={cn(
             'w-full',
@@ -261,8 +265,9 @@ function FormControlTextarea({
             'text-content',
             error && 'input-border-error',
             isFocused && 'input-active scale-[1.01]',
+            readOnly && 'opacity-50 cursor-not-allowed',
           )}
-          onFocus={() => setIsFocused(true)}
+          onFocus={() => !readOnly && setIsFocused(true)}
           onBlur={() => {
             // Only blur if the dropdown is closed
             // This prevents losing the focus styles when clicking an option
@@ -293,6 +298,7 @@ function FormControlSelect({
   options,
   defaultValue,
   noLabel,
+  readOnly,
   ...props
 }: React.ComponentProps<typeof FormGroup> & {
   name: string
@@ -305,6 +311,7 @@ function FormControlSelect({
   options: any[]
   defaultValue?: string
   noLabel?: boolean
+  readOnly?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   const { control, getValues } = useFormContext()
@@ -326,12 +333,17 @@ function FormControlSelect({
                 value={field.value}
                 defaultValue={field.value}
                 onValueChange={(value) => {
-                  field.onChange(value)
-                  field.onBlur() // Trigger validation
+                  if (!readOnly) {
+                    field.onChange(value)
+                    field.onBlur() // Trigger validation
+                  }
                 }}
                 onOpenChange={(open) => {
-                  setIsFocused(open)
+                  if (!readOnly) {
+                    setIsFocused(open)
+                  }
                 }}
+                disabled={readOnly}
               >
                 <SelectTrigger
                   className={cn(
@@ -342,14 +354,16 @@ function FormControlSelect({
                     'text-content',
                     error && 'input-border-error',
                     isFocused && 'input-active scale-[1.01]',
+                    readOnly && 'opacity-50 cursor-not-allowed',
                   )}
-                  onFocus={() => setIsFocused(true)}
+                  onFocus={() => !readOnly && setIsFocused(true)}
                   onBlur={() => {
                     if (!document.querySelector('[data-state="open"]')) {
                       setIsFocused(false)
                       field.onBlur() // Trigger validation on blur
                     }
                   }}
+                  disabled={readOnly}
                 >
                   <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
@@ -389,6 +403,7 @@ function FormControlSwitch({
   register,
   error,
   noLabel,
+  readOnly,
   ...props
 }: React.ComponentProps<typeof FormGroup> & {
   name: string
@@ -396,6 +411,7 @@ function FormControlSwitch({
   register: UseFormRegister<FieldValues>
   error: string
   noLabel?: boolean
+  readOnly?: boolean
 }) {
   const [isChecked, setIsChecked] = useState(false)
   const { control } = useFormContext()
@@ -412,13 +428,17 @@ function FormControlSwitch({
             <Switch
               checked={field.value}
               onCheckedChange={(checked) => {
-                field.onChange(checked)
-                setIsChecked(checked)
+                if (!readOnly) {
+                  field.onChange(checked)
+                  setIsChecked(checked)
+                }
               }}
+              disabled={readOnly}
               className={cn(
                 'data-[state=checked]:bg-[var(--primary)]',
                 'data-[state=unchecked]:bg-[var(--background)]',
                 'transition-colors duration-200 ease-in-out',
+                readOnly && 'opacity-50 cursor-not-allowed',
               )}
             />
           )}
@@ -472,7 +492,7 @@ export function useRenderFormFields({
   key,
   values,
   hiddenFields,
-  viewOnly,
+  readOnly,
 }: {
   formConfig: any
   formGroupName: string
@@ -482,7 +502,7 @@ export function useRenderFormFields({
   key?: string
   values?: Record<string, any>
   hiddenFields?: string[]
-  viewOnly?: boolean
+  readOnly?: boolean
 }) {
   const { control, getValues } = useFormContext()
   const config: Record<string, any> = formConfig[formGroupName as keyof typeof formConfig]
@@ -544,7 +564,7 @@ export function useRenderFormFields({
                 options={fieldOptions}
                 defaultValue={fieldValue}
                 noLabel={noLabel}
-                readOnly={viewOnly}
+                readOnly={readOnly}
               />
             </div>
           )
@@ -562,7 +582,7 @@ export function renderFormField<T extends FieldValues>({
   values,
   control,
   onChange,
-  viewOnly,
+  readOnly,
 }: {
   field: {
     name: string
@@ -583,7 +603,7 @@ export function renderFormField<T extends FieldValues>({
   values?: Record<string, any>
   control?: Control<T>
   onChange?: (value: any) => void
-  viewOnly?: boolean
+  readOnly?: boolean
 }) {
   const { name, label, placeholder, required, type = 'text', options, defaultValue, noLabel } = field
   const Component = typeMap[type as keyof typeof typeMap] || FormControlInput
@@ -605,7 +625,7 @@ export function renderFormField<T extends FieldValues>({
         required={required || ''}
         error={fieldError}
         type={type}
-        readOnly={field.readOnly || viewOnly}
+        readOnly={field.readOnly || readOnly}
         className={field.className}
         noLabel={noLabel}
       />
@@ -632,6 +652,7 @@ export function renderFormField<T extends FieldValues>({
         options={fieldOptions}
         defaultValue={fieldValue}
         noLabel={noLabel}
+        readOnly={field.readOnly || readOnly}
       />
     </div>
   )

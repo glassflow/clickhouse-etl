@@ -3,7 +3,14 @@ import { cn } from '@/src/utils/common.client'
 import Loader from '@/src/images/loader-small.svg'
 import Image from 'next/image'
 
-function StepActionButton({
+const actionTypeClasses = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  tertiary: 'btn-tertiary',
+  destructive: 'btn-destructive',
+}
+
+function FormActionButton({
   children,
   isSuccess = false,
   isLoading = false,
@@ -14,6 +21,9 @@ function StepActionButton({
   failedText = 'Failed',
   loadingText = 'Loading...',
   regularText = 'Continue',
+  className,
+  actionType = 'primary',
+  showLoadingIcon = false,
 }: {
   children?: React.ReactNode
   isSuccess?: boolean
@@ -25,21 +35,26 @@ function StepActionButton({
   failedText?: string
   loadingText?: string
   regularText?: string
+  className?: string
+  actionType?: 'primary' | 'secondary' | 'tertiary' | 'destructive'
+  showLoadingIcon?: boolean
 }) {
   return (
     <Button
-      className={cn({
-        'btn-primary': isSuccess,
+      className={cn(className, {
+        [actionTypeClasses[actionType]]: true,
         'btn-text': true,
         'opacity-50': isLoading,
       })}
       type="button"
-      variant="gradient"
+      variant={actionType === 'secondary' ? 'secondary' : 'gradient'}
       size="custom"
       onClick={onClick || (() => {})}
       disabled={disabled}
     >
-      {isLoading && <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />}
+      {isLoading && showLoadingIcon && (
+        <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
+      )}
       {isLoading
         ? loadingText || 'Loading...'
         : isFailed !== undefined && isFailed
@@ -51,4 +66,4 @@ function StepActionButton({
   )
 }
 
-export default StepActionButton
+export default FormActionButton

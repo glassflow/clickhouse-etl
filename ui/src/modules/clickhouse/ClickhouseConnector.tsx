@@ -18,10 +18,12 @@ export function ClickhouseConnector({
   onCompleteStep,
   onComplete,
   standalone,
+  readOnly,
 }: {
   onCompleteStep?: (step: StepKeys) => void
   onComplete?: () => void
   standalone?: boolean
+  readOnly?: boolean
 }) {
   const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
   const analytics = useJourneyAnalytics()

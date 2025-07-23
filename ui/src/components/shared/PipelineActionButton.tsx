@@ -20,7 +20,7 @@ const actionLabels = {
   edit: 'Edit',
 }
 
-function ActionButton({
+function PipelineActionButton({
   action,
   className,
   variant = 'default',
@@ -41,4 +41,4 @@ function ActionButton({
   )
 }
 
-export default ActionButton
+export default PipelineActionButton

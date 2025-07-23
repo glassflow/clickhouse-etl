@@ -12,14 +12,19 @@ export function KafkaConnector({
   steps,
   onCompleteStep,
   validate,
-  viewOnly = false,
+  readOnly = false,
+  onEnableEdit,
+  onDisableEdit,
+  standalone,
 }: {
   steps: any
   onCompleteStep?: (step: StepKeys, standalone?: boolean) => void
   validate: () => Promise<boolean>
   standalone?: boolean
   onComplete?: () => void
-  viewOnly?: boolean
+  readOnly?: boolean
+  onEnableEdit?: () => void
+  onDisableEdit?: () => void
 }) {
   const { kafkaStore, topicsStore, configStore } = useStore()
   const { operationsSelected } = configStore
@@ -105,7 +110,10 @@ export function KafkaConnector({
         isConnecting={isConnectingFromHook}
         connectionResult={connectionResult}
         onCompleteStep={onCompleteStep}
-        viewOnly={viewOnly}
+        readOnly={readOnly}
+        onEnableEdit={onEnableEdit}
+        onDisableEdit={onDisableEdit}
+        standalone={standalone}
       />
       {connectionResult && (
         <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />

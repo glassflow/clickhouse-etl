@@ -11,7 +11,8 @@ import { KafkaAuthForm } from './KafkaAuthForms'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
 import { cn } from '@/src/utils/common.client'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import StepActionButton from '@/src/components/shared/StepActionButton'
+import FormActionButton from '@/src/components/shared/FormActionButton'
+import { FormEditActionSet } from '@/src/components/shared/FormEditActionSet'
 
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<boolean>
@@ -21,7 +22,8 @@ type KafkaConnectionProps = {
     message: string
   } | null
   onCompleteStep?: (step: StepKeys) => void
-  viewOnly?: boolean
+  readOnly?: boolean
+  standalone?: boolean
 }
 
 export const KafkaConnectionForm = ({
@@ -29,7 +31,8 @@ export const KafkaConnectionForm = ({
   isConnecting,
   connectionResult,
   onCompleteStep,
-  viewOnly,
+  readOnly,
+  standalone,
 }: KafkaConnectionProps) => {
   const { kafkaStore } = useStore()
   const analytics = useJourneyAnalytics()
@@ -299,19 +302,32 @@ export const KafkaConnectionForm = ({
           authMethod={currentAuthMethod}
           securityProtocol={currentSecurityProtocol}
           errors={shouldShowValidationErrors ? errors : {}}
-          viewOnly={viewOnly}
+          readOnly={readOnly}
         />
 
         <div className="flex gap-4">
-          <StepActionButton
-            onClick={testConnection}
-            isLoading={isConnecting}
-            isSuccess={connectionResult?.success}
-            disabled={isConnecting}
-            successText="Continue"
-            loadingText="Testing..."
-            regularText="Continue"
-          />
+          {standalone && (
+            <FormEditActionSet
+              editModeDefault={false}
+              onEnableEditMode={() => {}}
+              onSaveChanges={() => {}}
+              onDiscardChanges={() => {}}
+            />
+          )}
+
+          {!standalone && (
+            <FormActionButton
+              onClick={testConnection}
+              isLoading={isConnecting}
+              isSuccess={connectionResult?.success}
+              disabled={isConnecting}
+              successText="Continue"
+              loadingText="Testing..."
+              regularText="Continue"
+              actionType="primary"
+              showLoadingIcon={true}
+            />
+          )}
         </div>
       </form>
     </FormProvider>

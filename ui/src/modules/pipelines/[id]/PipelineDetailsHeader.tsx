@@ -5,7 +5,7 @@ import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
 import { StatusBadge } from '@/src/components/common/StatusBadge'
 import { StatusType } from '@/src/config/constants'
-import ActionButton from '@/src/components/shared/ActionButton'
+import PipelineActionButton from '@/src/components/shared/PipelineActionButton'
 import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import EditPipelineModal from '@/src/modules/pipelines/components/EditPipelineModal'
@@ -56,10 +56,10 @@ function PipelineDetailsHeader({
             <div className="flex flex-row flex-end gap-2">
               {actions || (
                 <>
-                  <ActionButton action="edit" onClick={handleEdit} />
-                  <ActionButton action="rename" onClick={handleRename} />
-                  <ActionButton action="delete" onClick={handleDelete} />
-                  <ActionButton action="pause" onClick={handlePause} />
+                  <PipelineActionButton action="edit" onClick={handleEdit} />
+                  <PipelineActionButton action="rename" onClick={handleRename} />
+                  <PipelineActionButton action="delete" onClick={handleDelete} />
+                  <PipelineActionButton action="pause" onClick={handlePause} />
                 </>
               )}
             </div>
