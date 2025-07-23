@@ -86,7 +86,7 @@ func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
 }
 
 func (s *SinkTestSuite) aRunningNATSJetStream(streamName, subjectName string) error {
-	err := s.createStream(streamName, subjectName)
+	err := s.createStream(streamName, subjectName, 0)
 	if err != nil {
 		return fmt.Errorf("create nats stream: %w", err)
 	}

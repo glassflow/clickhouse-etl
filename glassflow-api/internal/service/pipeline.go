@@ -121,6 +121,8 @@ func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 	}
 	p.log.Debug("created ingestion streams successfully")
 
+	err = p.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(p.id), models.GetDLQStreamSubjectName(p.id), 0)
+
 	for _, t := range pi.Ingestor.KafkaTopics {
 		sinkConsumerStream = t.Name
 		sinkConsumerSubject = t.Name + ".input"

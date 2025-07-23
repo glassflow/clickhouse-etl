@@ -521,3 +521,180 @@ func TestGetOrderedColumns(t *testing.T) {
 	columns := mapper.GetOrderedColumns()
 	assert.Equal(t, []string{"col1", "col2"}, columns)
 }
+
+func TestValidateSchema(t *testing.T) {
+	streamsConfig := map[string]models.StreamSchemaConfig{
+		"user_stream": {
+			Fields: []models.StreamDataField{
+				{FieldName: "user_id", FieldType: "string"},
+				{FieldName: "username", FieldType: "string"},
+				{FieldName: "age", FieldType: "int"},
+				{FieldName: "is_active", FieldType: "bool"},
+			},
+			JoinKeyField: "user_id",
+		},
+		"order_stream": {
+			Fields: []models.StreamDataField{
+				{FieldName: "order_id", FieldType: "string"},
+				{FieldName: "amount", FieldType: "float"},
+				{FieldName: "timestamp", FieldType: "string"},
+			},
+			JoinKeyField: "order_id",
+		},
+	}
+
+	sinkMappingConfig := []models.SinkMappingConfig{
+		{ColumnName: "col_user_id", StreamName: "user_stream", FieldName: "user_id", ColumnType: "String"},
+		{ColumnName: "col_username", StreamName: "user_stream", FieldName: "username", ColumnType: "String"},
+		{ColumnName: "col_age", StreamName: "user_stream", FieldName: "age", ColumnType: "Int32"},
+		{ColumnName: "col_is_active", StreamName: "user_stream", FieldName: "is_active", ColumnType: "Bool"},
+		{ColumnName: "col_order_id", StreamName: "order_stream", FieldName: "order_id", ColumnType: "String"},
+		{ColumnName: "col_amount", StreamName: "order_stream", FieldName: "amount", ColumnType: "Float64"},
+		{ColumnName: "col_timestamp", StreamName: "order_stream", FieldName: "timestamp", ColumnType: "String"},
+	}
+
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	require.NoError(t, err)
+
+	t.Run("valid data with all required fields", func(t *testing.T) {
+		validUserData := []byte(`{
+			"user_id": "user123",
+			"username": "john_doe",
+			"age": 30,
+			"is_active": true
+		}`)
+
+		err := mapper.ValidateSchema("user_stream", validUserData)
+		assert.NoError(t, err)
+	})
+
+	t.Run("valid data for different stream", func(t *testing.T) {
+		validOrderData := []byte(`{
+			"order_id": "order456",
+			"amount": 99.99,
+			"timestamp": "2025-07-24T10:00:00Z"
+		}`)
+
+		err := mapper.ValidateSchema("order_stream", validOrderData)
+		assert.NoError(t, err)
+	})
+
+	t.Run("valid data with extra fields", func(t *testing.T) {
+		dataWithExtraFields := []byte(`{
+			"user_id": "user123",
+			"username": "john_doe",
+			"age": 30,
+			"is_active": true,
+			"extra_field": "extra_value",
+			"another_extra": 123
+		}`)
+
+		err := mapper.ValidateSchema("user_stream", dataWithExtraFields)
+		assert.NoError(t, err)
+	})
+
+	t.Run("missing required field", func(t *testing.T) {
+		missingFieldData := []byte(`{
+			"user_id": "user123",
+			"username": "john_doe",
+			"age": 30
+		}`)
+
+		err := mapper.ValidateSchema("user_stream", missingFieldData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "field 'is_active' not found in data for stream 'user_stream'")
+	})
+
+	t.Run("multiple missing fields", func(t *testing.T) {
+		partialData := []byte(`{
+			"user_id": "user123"
+		}`)
+
+		err := mapper.ValidateSchema("user_stream", partialData)
+		require.Error(t, err)
+		// Should fail on the first missing field it encounters
+		assert.Contains(t, err.Error(), "not found in data for stream 'user_stream'")
+	})
+
+	t.Run("empty JSON object", func(t *testing.T) {
+		emptyData := []byte(`{}`)
+
+		err := mapper.ValidateSchema("user_stream", emptyData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found in data for stream 'user_stream'")
+	})
+
+	t.Run("stream not found in configuration", func(t *testing.T) {
+		validData := []byte(`{
+			"some_field": "some_value"
+		}`)
+
+		err := mapper.ValidateSchema("nonexistent_stream", validData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "stream 'nonexistent_stream' not found in configuration")
+	})
+
+	t.Run("invalid JSON data", func(t *testing.T) {
+		invalidJSON := []byte(`{
+			"user_id": "user123",
+			"username": "john_doe"
+			"age": 30  // missing comma
+		}`)
+
+		err := mapper.ValidateSchema("user_stream", invalidJSON)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse JSON data")
+	})
+
+	t.Run("malformed JSON", func(t *testing.T) {
+		malformedJSON := []byte(`not_json_at_all`)
+
+		err := mapper.ValidateSchema("user_stream", malformedJSON)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse JSON data")
+	})
+
+	t.Run("null values in required fields", func(t *testing.T) {
+		nullValueData := []byte(`{
+			"user_id": null,
+			"username": "john_doe",
+			"age": 30,
+			"is_active": true
+		}`)
+
+		// This should pass validation as the field exists (even though it's null)
+		// The ValidateSchema method only checks for field presence, not value validation
+		err := mapper.ValidateSchema("user_stream", nullValueData)
+		assert.NoError(t, err)
+	})
+
+	t.Run("fields with different data types than expected", func(t *testing.T) {
+		wrongTypeData := []byte(`{
+			"user_id": 123,
+			"username": ["array", "instead", "of", "string"],
+			"age": "thirty",
+			"is_active": "yes"
+		}`)
+
+		// This should pass validation as the method only checks for field presence
+		// Type validation would be handled elsewhere in the pipeline
+		err := mapper.ValidateSchema("user_stream", wrongTypeData)
+		assert.NoError(t, err)
+	})
+
+	t.Run("nested JSON structure", func(t *testing.T) {
+		nestedData := []byte(`{
+			"user_id": "user123",
+			"username": "john_doe",
+			"age": 30,
+			"is_active": true,
+			"profile": {
+				"address": "123 Main St",
+				"phone": "555-0123"
+			}
+		}`)
+
+		err := mapper.ValidateSchema("user_stream", nestedData)
+		assert.NoError(t, err)
+	})
+}

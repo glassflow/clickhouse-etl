@@ -13,6 +13,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/cucumber/godog"
@@ -32,6 +33,8 @@ type IngestorTestSuite struct {
 	BaseTestSuite
 
 	streamCfg natsStreamConfig
+
+	dlqStreamCfg natsStreamConfig
 
 	schemaConfig models.MapperConfig
 
@@ -88,14 +91,28 @@ func (s *IngestorTestSuite) theNatsStreamConfig(cfg *godog.DocString) error {
 	return nil
 }
 
-func (s *IngestorTestSuite) runNatsStream() error {
+func (s *IngestorTestSuite) runNatsStreams(deduplicationWindow time.Duration) error {
 	if s.streamCfg.Stream == "" || s.streamCfg.Subject == "" || s.streamCfg.Consumer == "" {
 		return fmt.Errorf("nats stream config is not set properly")
 	}
 
-	err := s.createStream(s.streamCfg.Stream, s.streamCfg.Subject)
+	err := s.createStream(s.streamCfg.Stream, s.streamCfg.Subject, deduplicationWindow)
 	if err != nil {
 		return fmt.Errorf("create nats stream: %w", err)
+	}
+
+	pipelineID := uuid.New().String()
+
+	// create DLQ nats stream
+	s.dlqStreamCfg = natsStreamConfig{
+		Stream:   models.GetDLQStreamName(pipelineID),
+		Subject:  "failed",
+		Consumer: "dlq-consumer",
+	}
+
+	err = s.createStream(s.dlqStreamCfg.Stream, s.dlqStreamCfg.Subject, deduplicationWindow)
+	if err != nil {
+		return fmt.Errorf("create nats DLQ stream: %w", err)
 	}
 
 	return nil
@@ -209,6 +226,7 @@ func (s *IngestorTestSuite) anIngestorOperatorConfig(config string) error {
 }
 
 func (s *IngestorTestSuite) aRunningIngestorOperator() error {
+	var duration time.Duration
 	logger := testutils.NewTestLogger()
 
 	if s.natsContainer == nil {
@@ -217,6 +235,17 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 
 	if s.schemaMapper == nil {
 		return fmt.Errorf("schema mapper is not initialized")
+	}
+
+	if s.ingestorCfg.KafkaTopics != nil || len(s.ingestorCfg.KafkaTopics) == 1 {
+		if s.ingestorCfg.KafkaTopics[0].Deduplication.Enabled {
+			duration = s.ingestorCfg.KafkaTopics[0].Deduplication.Window.Duration()
+		}
+	}
+
+	err := s.runNatsStreams(duration)
+	if err != nil {
+		return fmt.Errorf("run nats stream: %w", err)
 	}
 
 	nc, err := client.NewNATSWrapper(s.natsContainer.GetURI(), timeoutDuration)
@@ -228,6 +257,7 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 		s.ingestorCfg,
 		s.topicName,
 		s.streamCfg.Subject,
+		s.dlqStreamCfg.Subject,
 		nc,
 		s.schemaMapper,
 		logger,
@@ -249,16 +279,16 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 	return nil
 }
 
-func (s *IngestorTestSuite) createNatsConsumer() (zero jetstream.Consumer, _ error) {
+func (s *IngestorTestSuite) createNatsConsumer(streamCfg natsStreamConfig) (zero jetstream.Consumer, _ error) {
 	if s.natsContainer == nil {
 		return zero, fmt.Errorf("nats container is not initialized")
 	}
 
 	js := s.natsClient.JetStream()
-	consumer, err := js.CreateOrUpdateConsumer(context.Background(), s.streamCfg.Stream, jetstream.ConsumerConfig{
-		Name:          s.streamCfg.Consumer,
-		Durable:       s.streamCfg.Consumer,
-		FilterSubject: s.streamCfg.Subject,
+	consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamCfg.Stream, jetstream.ConsumerConfig{
+		Name:          streamCfg.Consumer,
+		Durable:       streamCfg.Consumer,
+		FilterSubject: streamCfg.Subject,
 	})
 	if err != nil {
 		return zero, fmt.Errorf("create or update nats consumer: %w", err)
@@ -267,9 +297,9 @@ func (s *IngestorTestSuite) createNatsConsumer() (zero jetstream.Consumer, _ err
 	return consumer, nil
 }
 
-func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) error {
+func (s *IngestorTestSuite) checkResultsFromNatsStream(streamConfig natsStreamConfig, dataTable *godog.Table) error {
 	time.Sleep(1 * time.Second) // Give some time for the ingestor to process events
-	consumer, err := s.createNatsConsumer()
+	consumer, err := s.createNatsConsumer(streamConfig)
 	if err != nil {
 		return fmt.Errorf("create nats consumer: %w", err)
 	}
@@ -332,7 +362,7 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 
 		expected, exists := expectedEvents[strings.Join(sign, "")]
 		if !exists {
-			return fmt.Errorf("not expect4ed event %v", actual)
+			return fmt.Errorf("not expected event %v", actual)
 		}
 
 		if len(expected) != len(actual) {
@@ -348,8 +378,27 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(dataTable *godog.Table) e
 		receivedCount++
 	}
 
-	if receivedCount < expectedCount {
-		return fmt.Errorf("not enough events: expected %d, got %d", expectedCount, receivedCount)
+	if receivedCount != expectedCount {
+		return fmt.Errorf("not equal number of events: expected %d, got %d from stream %s, subject %s", expectedCount, receivedCount, streamConfig.Stream, streamConfig.Subject)
+	}
+
+	return nil
+}
+
+func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
+	err := s.checkResultsFromNatsStream(s.streamCfg, dataTable)
+	if err != nil {
+		return fmt.Errorf("check results stream: %w", err)
+	}
+
+	return nil
+}
+
+func (s *IngestorTestSuite) checkDLQStream(dataTable *godog.Table) error {
+	err := s.checkResultsFromNatsStream(s.dlqStreamCfg, dataTable)
+
+	if err != nil {
+		return fmt.Errorf("check DLQ stream: %w", err)
 	}
 
 	return nil
@@ -410,14 +459,15 @@ func (s *IngestorTestSuite) CleanupResources() error {
 
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
-	sc.Step(`^run the NATS stream$`, s.runNatsStream)
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
 	sc.Step(`^an ingestor operator config:$`, s.anIngestorOperatorConfig)
 	sc.Step(`a Kafka topic "([^"]*)" with (\d+) partition`, s.aKafkaTopicWithPartitions)
 	sc.Step(`^a running ingestor operator$`, s.aRunningIngestorOperator)
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, s.iPublishEventsToKafka)
-	sc.Step(`^I check results with content$`, s.checkResultsFromNatsStream)
+	sc.Step(`^I check results stream with content$`, s.checkResultsStream)
+	sc.Step(`^I check DLQ stream with content$`, s.checkDLQStream)
+
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := s.fastJoinCleanUp()
 		if cleanupErr != nil {

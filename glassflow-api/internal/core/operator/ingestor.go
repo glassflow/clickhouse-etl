@@ -29,6 +29,7 @@ func NewIngestorOperator(
 	config models.IngestorOperatorConfig,
 	topicName string,
 	natsStreamSubject string,
+	dlqStreamSubject string,
 	nc *client.NATSClient,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
@@ -52,7 +53,14 @@ func NewIngestorOperator(
 		},
 	)
 
-	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, schemaMapper, log)
+	dlqStreamPublisher := stream.NewNATSPublisher(
+		nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: dlqStreamSubject,
+		},
+	)
+
+	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}

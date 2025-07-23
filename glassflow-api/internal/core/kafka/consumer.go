@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -95,8 +96,8 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 	return cfg
 }
 
-func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) (Consumer, error) {
-	consumer, err := newGroupConsumer(conn, topic)
+func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
+	consumer, err := newGroupConsumer(conn, topic, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create group consumer: %w", err)
 	}
@@ -110,10 +111,14 @@ type groupConsumer struct {
 	commitCh     chan *sarama.ConsumerMessage
 	consumeErrCh chan error
 
+	cancel context.CancelFunc
+
 	closeCh chan struct{}
+
+	log *slog.Logger
 }
 
-func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) (Consumer, error) {
+func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
 	cfg := newConnectionConfig(connectionParams, topic)
 	cGroup, err := sarama.NewConsumerGroup(
 		connectionParams.Brokers,
@@ -130,12 +135,16 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		commitCh:     make(chan *sarama.ConsumerMessage),
 		consumeErrCh: make(chan error),
 		closeCh:      make(chan struct{}),
+		log:          log,
 	}
+
+	ctx := context.Background()
+	ctx, consumer.cancel = context.WithCancel(ctx)
 
 	go func(kTopic string) {
 		topics := []string{kTopic}
 		for {
-			if err := consumer.cGroup.Consume(context.Background(), topics, consumer); err != nil {
+			if err := consumer.cGroup.Consume(ctx, topics, consumer); err != nil {
 				consumer.consumeErrCh <- err
 			}
 		}
@@ -187,9 +196,13 @@ func (c *groupConsumer) Commit(ctx context.Context, msg Message) error {
 }
 
 func (c *groupConsumer) Close() error {
+	c.log.Info("Closing Kafka consumer group", slog.String("group", ConsumerGroupName))
 	close(c.fetchCh)
 	close(c.commitCh)
 	close(c.closeCh)
+	if c.cancel != nil {
+		c.cancel()
+	}
 	if err := c.cGroup.Close(); err != nil {
 		return fmt.Errorf("failed to close consumer group: %w", err)
 	}
@@ -210,10 +223,16 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 	for {
 		select {
 		case msg := <-claim.Messages():
+			if msg == nil {
+				// Channel closed, exit gracefully
+				return nil
+			}
 			c.fetchCh <- msg
 
 			msg = <-c.commitCh
-			session.MarkMessage(msg, "")
+			if msg != nil {
+				session.MarkMessage(msg, "")
+			}
 
 		case <-c.closeCh:
 			return nil
@@ -225,9 +244,11 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 }
 
 func convertToMessageHeaders(consumerHeaders []*sarama.RecordHeader) []sarama.RecordHeader {
-	msgHeaders := make([]sarama.RecordHeader, len(consumerHeaders))
-	for i, element := range consumerHeaders {
-		msgHeaders[i] = *element
+	msgHeaders := make([]sarama.RecordHeader, 0, len(consumerHeaders))
+	for _, element := range consumerHeaders {
+		if element != nil {
+			msgHeaders = append(msgHeaders, *element)
+		}
 	}
 	return msgHeaders
 }
