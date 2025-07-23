@@ -167,7 +167,7 @@ export function ClickhouseConnector({
     <div className="flex flex-col gap-8">
       <FormProvider {...formMethod}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-2">
               {renderFormField({
                 field: {
@@ -191,7 +191,7 @@ export function ClickhouseConnector({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-2">
               {renderFormField({
                 field: {
@@ -215,7 +215,7 @@ export function ClickhouseConnector({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-2">
               {renderFormField({
                 field: {
@@ -228,7 +228,7 @@ export function ClickhouseConnector({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-2">
               {renderFormField({
                 // @ts-expect-error - FIXME: fix this later

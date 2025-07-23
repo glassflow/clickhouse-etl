@@ -32,9 +32,9 @@ export function DatabaseTableSelectContainer({
   onRefreshTables,
 }: DatabaseTableSelectContainerProps) {
   return (
-    <div className="flex justify-between items-center gap-8 mb-8">
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-8 mb-8">
       {/* Database Selection */}
-      <div className="w-1/2">
+      <div className="w-full lg:w-1/2">
         <DatabaseSelect
           availableDatabases={availableDatabases}
           selectedDatabase={selectedDatabase}
@@ -48,7 +48,7 @@ export function DatabaseTableSelectContainer({
 
       {/* Table Selection */}
       {selectedDatabase && (
-        <div className="w-1/2">
+        <div className="w-full lg:w-1/2">
           <TableSelect
             selectedDatabase={selectedDatabase}
             availableTables={availableTables}

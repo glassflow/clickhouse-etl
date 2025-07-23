@@ -4,7 +4,7 @@ export function KafkaConnectionPreview({ kafkaStore }: { kafkaStore: any }) {
   const { bootstrapServers, securityProtocol } = kafkaStore
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
       <div className="text-sm text-muted-foreground">Bootstrap Servers:</div>
       <div>{bootstrapServers || 'Not configured'}</div>
 

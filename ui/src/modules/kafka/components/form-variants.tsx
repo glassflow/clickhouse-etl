@@ -26,8 +26,8 @@ export const SaslPlainForm = ({
 
   return (
     <FormGroup className="space-y-4">
-      <div className="flex gap-4">
-        <div className="space-y-2 w-1/2">
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="space-y-2 w-full lg:w-1/2">
           {renderFormField({
             field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.username as any,
             register,
@@ -35,7 +35,7 @@ export const SaslPlainForm = ({
             viewOnly,
           })}
         </div>
-        <div className="space-y-2 w-1/2">
+        <div className="space-y-2 w-full lg:w-1/2">
           {renderFormField({
             field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.password as any,
             register,
@@ -90,7 +90,7 @@ export const NoAuthForm = ({
     (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL')
   return (
     <FormGroup className="space-y-4">
-      <div className="flex gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         {showCertificateField && (
           <div className="space-y-2 w-full">
             {renderFormField({

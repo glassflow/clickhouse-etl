@@ -11,6 +11,8 @@ export const useKafkaConnection = () => {
       setIsConnecting(true)
       setConnectionResult(null)
 
+      await new Promise((resolve) => setTimeout(resolve, 5000))
+
       // Base request body with common properties
       const requestBody: any = {
         servers: values.bootstrapServers,

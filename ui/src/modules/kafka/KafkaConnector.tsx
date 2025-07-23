@@ -6,6 +6,7 @@ import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { useKafkaConnection } from '@/src/hooks/useKafkaConnection'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
 
 export function KafkaConnector({
   steps,
@@ -26,12 +27,16 @@ export function KafkaConnector({
   const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
   const previousBootstrapServers = useRef(bootstrapServers)
-  const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const analytics = useJourneyAnalytics()
 
-  const { testConnection, connectionResult, kafkaConnection: kafkaConnectionFromHook } = useKafkaConnection()
+  const {
+    testConnection,
+    connectionResult,
+    kafkaConnection: kafkaConnectionFromHook,
+    isConnecting: isConnectingFromHook,
+  } = useKafkaConnection()
 
   // Monitor changes to bootstrapServers
   useEffect(() => {
@@ -55,7 +60,6 @@ export function KafkaConnector({
 
   // NOTE: unused method, remove it if the need does not arise
   const handleConnect = async () => {
-    setIsConnecting(true)
     setError(null)
 
     try {
@@ -85,8 +89,6 @@ export function KafkaConnector({
         errorMessage: err.message,
         retryCount,
       })
-    } finally {
-      setIsConnecting(false)
     }
   }
 
@@ -100,17 +102,13 @@ export function KafkaConnector({
       <KafkaConnectionForm
         // @ts-expect-error - FIXME: fix this later
         onTestConnection={handleTestConnection}
-        isConnecting={isConnecting}
+        isConnecting={isConnectingFromHook}
         connectionResult={connectionResult}
         onCompleteStep={onCompleteStep}
         viewOnly={viewOnly}
       />
       {connectionResult && (
-        <div
-          className={`mt-4 p-3 rounded ${connectionResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-        >
-          {connectionResult.message}
-        </div>
+        <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />
       )}
     </>
   )

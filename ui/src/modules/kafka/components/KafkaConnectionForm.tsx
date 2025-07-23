@@ -11,6 +11,8 @@ import { KafkaAuthForm } from './KafkaAuthForms'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
 import { cn } from '@/src/utils/common.client'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import StepActionButton from '@/src/components/shared/StepActionButton'
+
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<boolean>
   isConnecting: boolean
@@ -301,20 +303,15 @@ export const KafkaConnectionForm = ({
         />
 
         <div className="flex gap-4">
-          <Button
-            className={cn({
-              'btn-primary': connectionResult?.success,
-              'btn-text': true,
-              'opacity-50': isConnecting,
-            })}
-            type="button"
-            variant="gradient"
-            size="custom"
+          <StepActionButton
             onClick={testConnection}
+            isLoading={isConnecting}
+            isSuccess={connectionResult?.success}
             disabled={isConnecting}
-          >
-            {isConnecting ? 'Loading...' : 'Continue'}
-          </Button>
+            successText="Continue"
+            loadingText="Testing..."
+            regularText="Continue"
+          />
         </div>
       </form>
     </FormProvider>

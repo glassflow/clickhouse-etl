@@ -5,7 +5,7 @@ import { KafkaBaseFormConfig } from '@/src/config/kafka-connection-form-config'
 import { FieldErrors } from 'react-hook-form'
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { AUTH_OPTIONS } from '@/src/config/constants'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { SECURITY_PROTOCOL_OPTIONS_SASL, SECURITY_PROTOCOL_OPTIONS } from '@/src/config/constants'
 import {
   SaslPlainForm,
@@ -26,12 +26,20 @@ export const KafkaBaseForm = ({
   errors,
   authMethod,
   securityProtocol,
+  viewOnly,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
   authMethod: string
   securityProtocol: string
+  viewOnly?: boolean
 }) => {
   const { register } = useFormContext()
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 100)
+    return () => clearTimeout(timer)
+  }, [])
 
   const securityProtocolOptions = Object.values(
     authMethod === AUTH_OPTIONS['SASL/SCRAM-256'].name || authMethod === AUTH_OPTIONS['SASL/SCRAM-512'].name
@@ -43,16 +51,21 @@ export const KafkaBaseForm = ({
   }))
 
   return (
-    <FormGroup className="space-y-4">
-      <div className="flex gap-4">
-        <div className="space-y-2 w-1/2">
+    <FormGroup
+      className={`space-y-4 transition-all duration-700 ease-out ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+      }`}
+    >
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="space-y-2 w-full lg:w-1/2">
           {renderFormField({
             field: KafkaBaseFormConfig.base.fields.authMethod,
             register,
             errors,
+            viewOnly,
           })}
         </div>
-        <div className="space-y-2 w-1/2">
+        <div className="space-y-2 w-full lg:w-1/2">
           {renderFormField({
             field: {
               ...KafkaBaseFormConfig.base.fields.securityProtocol,
@@ -60,6 +73,7 @@ export const KafkaBaseForm = ({
             },
             register,
             errors,
+            viewOnly,
           })}
         </div>
       </div>
@@ -68,6 +82,7 @@ export const KafkaBaseForm = ({
           field: KafkaBaseFormConfig.base.fields.bootstrapServers,
           register,
           errors,
+          viewOnly,
         })}
       </div>
       {/* INFO: old implementation - using useRenderFormFields - does not allow custom styles and layout*/}
@@ -94,11 +109,27 @@ export const KafkaAuthForm = ({
   viewOnly?: boolean
 }) => {
   const { watch, setValue } = useFormContext()
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 200)
+    return () => clearTimeout(timer)
+  }, [])
   const authMethodSelected = watch('authMethod')
   const securityProtocolSelected = watch('securityProtocol')
 
-  const renderBaseForm = ({ authMethod, securityProtocol }: { authMethod: string; securityProtocol: string }) => {
-    return <KafkaBaseForm errors={errors} authMethod={authMethod} securityProtocol={securityProtocol} />
+  const renderBaseForm = ({
+    authMethod,
+    securityProtocol,
+    viewOnly,
+  }: {
+    authMethod: string
+    securityProtocol: string
+    viewOnly?: boolean
+  }) => {
+    return (
+      <KafkaBaseForm errors={errors} authMethod={authMethod} securityProtocol={securityProtocol} viewOnly={viewOnly} />
+    )
   }
 
   useEffect(() => {
@@ -164,10 +195,14 @@ export const KafkaAuthForm = ({
   }
 
   return (
-    <>
-      {renderBaseForm({ authMethod, securityProtocol })}
-      {renderAuthForm({ viewOnly: viewOnly })}
-      {renderSslFields({ viewOnly: viewOnly })}
-    </>
+    <div
+      className={`space-y-4 md:space-y-6 transition-all duration-700 ease-out ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+      }`}
+    >
+      <div>{renderBaseForm({ authMethod, securityProtocol, viewOnly })}</div>
+      <div>{renderAuthForm({ viewOnly: viewOnly })}</div>
+      <div>{renderSslFields({ viewOnly: viewOnly })}</div>
+    </div>
   )
 }

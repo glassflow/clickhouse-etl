@@ -1,8 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { CheckIcon, ChevronLeftIcon, ChevronDownIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { OperationKeys, stepsMetadata } from '@/src/config/constants'
 import {
   KafkaConnector,
   KafkaTopicSelector,
@@ -11,16 +9,11 @@ import {
   ClickhouseMapper,
   TopicDeduplicationConfigurator,
 } from '@/src/modules'
-import { ReviewConfiguration } from '@/src/modules/review/ReviewConfiguration'
 import { StepKeys } from '@/src/config/constants'
-import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { validateStep } from '@/src/scheme/validators'
 import { useStore } from '@/src/store'
-import { JoinConfiguratorWrapper } from './join/JoinConfiguratorWrapper'
-import { Button } from '@/src/components/ui/button'
-import { StepType } from './pipelines/types'
 import { JoinConfigurator } from './join/JoinConfigurator'
+import StepRendererModal from './StepRendererModal'
+import StepRendererPageComponent from './StepRendererPageComponent'
 
 interface StandaloneStepRendererProps {
   stepType: StepKeys
@@ -136,38 +129,30 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
   const CurrentStepComponent = steps[currentStep].component
   const stepInfo = steps[currentStep]
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleBack} className="p-2">
-              <ChevronLeftIcon className="h-5 w-5" />
-            </Button>
-            <div>
-              <h2 className="text-xl font-semibold">{stepInfo.title}</h2>
-              <p className="text-sm text-gray-600">{stepInfo.description}</p>
-            </div>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose} className="p-2">
-            <XMarkIcon className="h-5 w-5" />
-          </Button>
-        </div>
+  // return (
+  //   <StepRendererModal stepInfo={stepInfo} handleBack={handleBack} onClose={onClose}>
+  //     <CurrentStepComponent
+  //       steps={steps}
+  //       onCompleteStep={handleNext}
+  //       validate={async () => true} // You might want to implement proper validation
+  //       standalone={true}
+  //       onComplete={handleComplete}
+  //       viewOnly={false}
+  //     />
+  //   </StepRendererModal>
+  // )
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          <CurrentStepComponent
-            steps={steps}
-            onCompleteStep={handleNext}
-            validate={async () => true} // You might want to implement proper validation
-            standalone={true}
-            onComplete={handleComplete}
-            viewOnly={false}
-          />
-        </div>
-      </div>
-    </div>
+  return (
+    <StepRendererPageComponent stepInfo={stepInfo} handleBack={handleBack} onClose={onClose}>
+      <CurrentStepComponent
+        steps={steps}
+        onCompleteStep={handleNext}
+        validate={async () => true} // You might want to implement proper validation
+        standalone={true}
+        onComplete={handleComplete}
+        viewOnly={false}
+      />
+    </StepRendererPageComponent>
   )
 }
 
