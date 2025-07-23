@@ -9,6 +9,9 @@ import (
 )
 
 const (
+	GFJoinStream  = "gf-stream-joined"
+	GFJoinSubject = "merged"
+
 	KafkaIngestorType        = "kafka"
 	TemporalJoinType         = "temporal"
 	SchemaMapperJSONToCHType = "jsonToClickhouse"
@@ -386,4 +389,8 @@ func (d JSONDuration) String() string {
 
 func (d JSONDuration) Duration() time.Duration {
 	return d.t
+}
+
+func GetJoinedStreamName(pipelineID string) string {
+	return fmt.Sprintf("%s-%s", GFJoinStream, pipelineID)
 }

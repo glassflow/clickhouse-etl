@@ -31,7 +31,7 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) SetupJoiner(ctx context.Context, joinType string, publisherSubject string, schemaMapper schema.Mapper) error {
+func (j *JoinRunner) Start(ctx context.Context, joinType string, publisherSubject string, schemaMapper schema.Mapper) error {
 	var mapper schema.JsonToClickHouseMapper
 
 	switch sm := schemaMapper.(type) {

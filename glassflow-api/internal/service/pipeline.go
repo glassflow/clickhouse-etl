@@ -19,6 +19,8 @@ var (
 	ErrPipelineNotExists = errors.New("no pipeline with given id exists")
 )
 
+const ShutdownTimeout = 30 * time.Second
+
 type ActivePipelineError struct {
 	pipelineID string
 }
@@ -57,12 +59,6 @@ func NewPipelineManager(
 		store: store,
 	}
 }
-
-const (
-	GFJoinStream    = "gf-stream-joined"
-	GFJoinSubject   = "merged"
-	ShutdownTimeout = 30 * time.Second
-)
 
 func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 	p.m.Lock()
@@ -140,8 +136,8 @@ func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 	}
 
 	if pi.Join.Enabled {
-		sinkConsumerStream = fmt.Sprintf("%s-%s", GFJoinStream, pi.ID)
-		sinkConsumerSubject = GFJoinSubject
+		sinkConsumerStream = models.GetJoinedStreamName(pi.ID)
+		sinkConsumerSubject = models.GFJoinSubject
 
 		err = p.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
 		if err != nil {
@@ -149,30 +145,26 @@ func (p *PipelineManager) SetupPipeline(pi *models.PipelineConfig) error {
 		}
 		p.log.Debug("created join stream successfully")
 
-		err = p.joinRunner.SetupJoiner(ctx, "temporal", sinkConsumerSubject, schemaMapper)
+		err = p.joinRunner.Start(ctx, "temporal", sinkConsumerSubject, schemaMapper)
 		if err != nil {
 			return fmt.Errorf("setup join operator: %w", err)
 		}
 	}
 
 	err = p.sinkRunner.Start(
-		ctx, sinkConsumerStream, sinkConsumerSubject,
+		ctx,
+		sinkConsumerStream,
+		sinkConsumerSubject,
 		models.SinkOperatorConfig{
 			Type: models.ClickHouseSinkType,
 			Batch: models.BatchConfig{
 				MaxBatchSize: pi.Sink.Batch.MaxBatchSize,
 				MaxDelayTime: pi.Sink.Batch.MaxDelayTime,
 			},
-			ClickHouseConnectionParams: models.ClickHouseConnectionParamsConfig{
-				Host:     pi.Sink.ClickHouseConnectionParams.Host,
-				Port:     pi.Sink.ClickHouseConnectionParams.Port,
-				Database: pi.Sink.ClickHouseConnectionParams.Database,
-				Username: pi.Sink.ClickHouseConnectionParams.Username,
-				Password: pi.Sink.ClickHouseConnectionParams.Password,
-				Table:    pi.Sink.ClickHouseConnectionParams.Table,
-				Secure:   pi.Sink.ClickHouseConnectionParams.Secure,
-			},
-		}, schemaMapper)
+			ClickHouseConnectionParams: pi.Sink.ClickHouseConnectionParams,
+		},
+		schemaMapper,
+	)
 	if err != nil {
 		return fmt.Errorf("start sink: %w", err)
 	}
