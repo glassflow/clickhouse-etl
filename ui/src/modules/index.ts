@@ -1,4 +1,4 @@
-export * from './kafka/KafkaConnector'
+export * from './kafka/KafkaConnectionContainer'
 export * from './kafka/KafkaTopicSelector'
 export * from './deduplication/DeduplicationConfigurator'
 export * from './clickhouse/ClickhouseMapper'

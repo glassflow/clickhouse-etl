@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-  KafkaConnector,
+  KafkaConnectionContainer,
   KafkaTopicSelector,
   DeduplicationConfigurator,
   ClickhouseConnector,
@@ -36,7 +36,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
     if (stepType === StepKeys.KAFKA_CONNECTION) {
       setSteps({
         [StepKeys.KAFKA_CONNECTION]: {
-          component: KafkaConnector,
+          component: KafkaConnectionContainer,
           title: 'Kafka Connection',
           description: 'Configure your Kafka connection settings',
         },
@@ -130,6 +130,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
   const CurrentStepComponent = steps[currentStep].component
   const stepInfo = steps[currentStep]
 
+  // NOTE: uncomment this to use the modal version
   // return (
   //   <StepRendererModal stepInfo={stepInfo} handleBack={handleBack} onClose={onClose}>
   //     <CurrentStepComponent

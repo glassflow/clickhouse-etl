@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { CheckIcon, ChevronLeftIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { OperationKeys, stepsMetadata } from '@/src/config/constants'
 import {
-  KafkaConnector,
+  KafkaConnectionContainer,
   KafkaTopicSelector,
   DeduplicationConfigurator,
   ClickhouseConnector,
@@ -57,7 +57,7 @@ const deduplicateJoinJourney = [
 ]
 
 const componentsMap = {
-  [StepKeys.KAFKA_CONNECTION]: KafkaConnector,
+  [StepKeys.KAFKA_CONNECTION]: KafkaConnectionContainer,
   [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelector,
   [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelector,
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,

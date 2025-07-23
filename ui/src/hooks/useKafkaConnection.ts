@@ -6,7 +6,7 @@ export const useKafkaConnection = () => {
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null)
   const [kafkaConnection, setKafkaConnection] = useState<KafkaConnectionFormType | null>(null)
 
-  const testConnection = async (values: KafkaConnectionFormType) => {
+  const testConnection = async (values: KafkaConnectionFormType): Promise<{ success: boolean; message: string }> => {
     try {
       setIsConnecting(true)
       setConnectionResult(null)
@@ -108,36 +108,40 @@ export const useKafkaConnection = () => {
       const data = await response.json()
 
       if (data.success) {
-        setConnectionResult({
+        const result = {
           success: true,
           message: 'Successfully connected to Kafka cluster!',
-        })
+        }
+        setConnectionResult(result)
         setKafkaConnection({
           ...values,
           isConnected: true,
         })
+        return result
       } else {
-        setConnectionResult({
+        const result = {
           success: false,
           message: data.error || 'Failed to connect to Kafka cluster',
-        })
-
+        }
+        setConnectionResult(result)
         setKafkaConnection({
           ...values,
           isConnected: false,
         })
+        return result
       }
     } catch (error) {
       console.error('Error testing Kafka connection:', error)
-      setConnectionResult({
+      const result = {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error occurred',
-      })
-
+      }
+      setConnectionResult(result)
       setKafkaConnection({
         ...values,
         isConnected: false,
       })
+      return result
     } finally {
       setIsConnecting(false)
     }

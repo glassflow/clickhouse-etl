@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-  KafkaConnector,
+  KafkaConnectionContainer,
   KafkaTopicSelector,
   DeduplicationConfigurator,
   ClickhouseConnector,

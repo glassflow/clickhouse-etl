@@ -21,17 +21,17 @@ import {
   LdapForm,
 } from './form-variants'
 
-// Base form - mandatory fields - allways present in the form
-export const KafkaBaseForm = ({
+// Base form - mandatory fields - always present in the form
+const KafkaBaseForm = ({
   errors,
   authMethod,
-  securityProtocol,
   readOnly,
+  securityProtocolOptions,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
   authMethod: string
-  securityProtocol: string
   readOnly?: boolean
+  securityProtocolOptions: Array<{ label: string; value: string }>
 }) => {
   const { register } = useFormContext()
   const [isVisible, setIsVisible] = useState(false)
@@ -40,15 +40,6 @@ export const KafkaBaseForm = ({
     const timer = setTimeout(() => setIsVisible(true), 100)
     return () => clearTimeout(timer)
   }, [])
-
-  const securityProtocolOptions = Object.values(
-    authMethod === AUTH_OPTIONS['SASL/SCRAM-256'].name || authMethod === AUTH_OPTIONS['SASL/SCRAM-512'].name
-      ? SECURITY_PROTOCOL_OPTIONS_SASL
-      : SECURITY_PROTOCOL_OPTIONS,
-  ).map((option) => ({
-    label: option,
-    value: option,
-  }))
 
   return (
     <FormGroup
@@ -85,19 +76,12 @@ export const KafkaBaseForm = ({
           readOnly,
         })}
       </div>
-      {/* INFO: old implementation - using useRenderFormFields - does not allow custom styles and layout*/}
-      {/* {useRenderFormFields({
-        formConfig: KafkaBaseFormConfig,
-        formGroupName: 'base',
-        register,
-        errors,
-      })} */}
     </FormGroup>
   )
 }
 
 // Main component that selects the correct form based on auth type and protocol
-export const KafkaAuthForm = ({
+export const KafkaConnectionFormRenderer = ({
   authMethod,
   securityProtocol,
   errors,
@@ -108,46 +92,37 @@ export const KafkaAuthForm = ({
   errors: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
 }) => {
-  const { watch, setValue } = useFormContext()
+  const { watch } = useFormContext()
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 200)
     return () => clearTimeout(timer)
   }, [])
-  const authMethodSelected = watch('authMethod')
-  const securityProtocolSelected = watch('securityProtocol')
 
-  const renderBaseForm = ({
-    authMethod,
-    securityProtocol,
-    readOnly,
-  }: {
-    authMethod: string
-    securityProtocol: string
-    readOnly?: boolean
-  }) => {
+  const authMethodSelected = watch('authMethod')
+
+  // Determine security protocol options based on auth method
+  const securityProtocolOptions = Object.values(
+    authMethodSelected === AUTH_OPTIONS['SASL/SCRAM-256'].name ||
+      authMethodSelected === AUTH_OPTIONS['SASL/SCRAM-512'].name
+      ? SECURITY_PROTOCOL_OPTIONS_SASL
+      : SECURITY_PROTOCOL_OPTIONS,
+  ).map((option) => ({
+    label: option,
+    value: option,
+  }))
+
+  const renderBaseForm = ({ authMethod, readOnly }: { authMethod: string; readOnly?: boolean }) => {
     return (
-      <KafkaBaseForm errors={errors} authMethod={authMethod} securityProtocol={securityProtocol} readOnly={readOnly} />
+      <KafkaBaseForm
+        errors={errors}
+        authMethod={authMethod}
+        readOnly={readOnly}
+        securityProtocolOptions={securityProtocolOptions}
+      />
     )
   }
-
-  useEffect(() => {
-    // Only set the default value if the user hasn't manually changed it yet
-    // or if we're switching between auth methods
-    if (authMethodSelected === 'SASL/SCRAM-256' || authMethodSelected === 'SASL/SCRAM-512') {
-      setValue('securityProtocol', 'SASL_SSL')
-    } else if (authMethodSelected === 'SASL/PLAIN') {
-      setValue('securityProtocol', 'SASL_PLAINTEXT')
-    } else if (authMethodSelected === 'NO_AUTH') {
-      setValue('securityProtocol', 'PLAINTEXT')
-    } else if (authMethodSelected === 'SASL/JAAS') {
-      setValue('securityProtocol', 'SASL_JAAS')
-    } else if (authMethodSelected === 'SASL/GSSAPI') {
-      setValue('securityProtocol', 'SASL_GSSAPI')
-    }
-    // Only run when authMethodSelected changes, not when securityProtocolSelected changes
-  }, [authMethodSelected, setValue])
 
   const renderAuthForm = ({ readOnly }: { readOnly?: boolean }) => {
     switch (authMethod) {
@@ -178,31 +153,14 @@ export const KafkaAuthForm = ({
     }
   }
 
-  const { register } = useFormContext()
-
-  // SSL-specific fields that show up when SASL_SSL is selected
-  const renderSslFields = ({ readOnly }: { readOnly?: boolean }) => {
-    if (securityProtocol === 'SASL_SSL') {
-      return (
-        <FormGroup>
-          {/* <FormLabel>SSL Verification</FormLabel> */}
-          {/* <FormControl><Switch {...register('sslVerification')} /></FormControl> */}
-          {/* <TruststoreForm errors={errors} /> */}
-        </FormGroup>
-      )
-    }
-    return null
-  }
-
   return (
     <div
       className={`space-y-4 md:space-y-6 transition-all duration-700 ease-out ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
       }`}
     >
-      <div>{renderBaseForm({ authMethod, securityProtocol, readOnly })}</div>
+      <div>{renderBaseForm({ authMethod, readOnly })}</div>
       <div>{renderAuthForm({ readOnly: readOnly })}</div>
-      <div>{renderSslFields({ readOnly: readOnly })}</div>
     </div>
   )
 }

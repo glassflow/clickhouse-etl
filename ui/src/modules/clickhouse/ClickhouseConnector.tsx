@@ -13,12 +13,14 @@ import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ClickhouseConnectionFormSchema, ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { FormEditActionSet } from '@/src/components/shared/FormEditActionSet'
+import FormActionButton from '@/src/components/shared/FormActionButton'
 
 export function ClickhouseConnector({
   onCompleteStep,
   onComplete,
   standalone,
-  readOnly,
+  readOnly = true,
 }: {
   onCompleteStep?: (step: StepKeys) => void
   onComplete?: () => void
@@ -178,6 +180,7 @@ export function ClickhouseConnector({
                 },
                 register,
                 errors,
+                readOnly,
               })}
             </div>
 
@@ -189,6 +192,7 @@ export function ClickhouseConnector({
                 },
                 register,
                 errors,
+                readOnly,
               })}
             </div>
           </div>
@@ -202,6 +206,7 @@ export function ClickhouseConnector({
                 },
                 register,
                 errors,
+                readOnly,
               })}
             </div>
 
@@ -213,6 +218,7 @@ export function ClickhouseConnector({
                 },
                 register,
                 errors,
+                readOnly,
               })}
             </div>
           </div>
@@ -226,6 +232,7 @@ export function ClickhouseConnector({
                 },
                 register,
                 errors,
+                readOnly,
               })}
             </div>
           </div>
@@ -237,6 +244,7 @@ export function ClickhouseConnector({
                 field: directConnectionForm.fields.useSSL,
                 register,
                 errors,
+                readOnly,
               })}
             </div>
 
@@ -246,12 +254,13 @@ export function ClickhouseConnector({
                 field: directConnectionForm.fields.skipCertificateVerification,
                 register,
                 errors,
+                readOnly,
               })}
             </div>
           </div>
 
           <div className="flex justify-start gap-4 mt-6">
-            <Button
+            {/* <Button
               variant={connectionStatus === 'success' ? 'gradient' : 'outline'}
               type="submit"
               disabled={isLoading}
@@ -261,7 +270,32 @@ export function ClickhouseConnector({
               })}
             >
               {isLoading ? 'Testing...' : 'Continue'}
-            </Button>
+            </Button> */}
+
+            {standalone && (
+              <FormEditActionSet
+                editModeDefault={false}
+                onEnableEditMode={() => {}}
+                onSaveChanges={() => {}}
+                onDiscardChanges={() => {}}
+              />
+            )}
+
+            {!standalone && (
+              <FormActionButton
+                onClick={() => {
+                  handleSubmit(onSubmit)()
+                }}
+                isLoading={isLoading}
+                isSuccess={connectionStatus === 'success'}
+                disabled={isLoading}
+                successText="Continue"
+                loadingText="Testing..."
+                regularText="Continue"
+                actionType="primary"
+                showLoadingIcon={true}
+              />
+            )}
           </div>
 
           {connectionStatus === 'success' && (
