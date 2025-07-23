@@ -28,40 +28,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 )
 
-type Role string
-
-const (
-	RoleSink     Role = "sink"
-	RoleJoin     Role = "join"
-	RoleIngestor Role = "ingestor"
-	RoleETL      Role = ""
-)
-
-func (r Role) Valid() bool {
-	switch r {
-	case RoleSink, RoleJoin, RoleIngestor, RoleETL:
-		return true
-	default:
-		return false
-	}
-}
-
-func (r Role) String() string {
-	if r == RoleETL {
-		return "ETL Pipeline"
-	}
-	return string(r)
-}
-
-func AllRoles() []string {
-	return []string{
-		string(RoleSink),
-		string(RoleJoin),
-		string(RoleIngestor),
-		string(RoleETL),
-	}
-}
-
 type config struct {
 	LogFormat    string     `default:"json" split_words:"true"`
 	LogLevel     slog.Level `default:"debug" split_words:"true"`
@@ -76,10 +42,18 @@ type config struct {
 
 	PipelineConfig string `default:"pipeline.json" split_words:"true"`
 
+	IngestorTopic string `default:"" split_words:"true"`
+
+	JoinType string `default:"temporal" split_words:"true"`
+
 	NATSServer       string        `default:"localhost:4222" split_words:"true"`
 	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
 	NATSPipelineKV   string        `default:"glassflow-pipelines" split_words:"true"`
 }
+
+type RunnerFunc func() error
+
+type ShutdownFunc func()
 
 func main() {
 	if err := run(); err != nil {
@@ -94,9 +68,9 @@ func run() error {
 	roleStr := flag.String("role", "", "Role to run: sink, join, ingester or empty for pipeline manager")
 	flag.Parse()
 
-	role := Role(*roleStr)
+	role := models.Role(*roleStr)
 	if !role.Valid() {
-		return fmt.Errorf("invalid role specified: %s, valid roles are: %v", role, AllRoles())
+		return fmt.Errorf("invalid role specified: %s, valid roles are: %v", role, models.AllRoles())
 	}
 
 	err := envconfig.Process("glassflow", &cfg)
@@ -107,7 +81,7 @@ func run() error {
 	return mainErr(&cfg, role)
 }
 
-func mainErr(cfg *config, role Role) error {
+func mainErr(cfg *config, role models.Role) error {
 	var logOut io.Writer
 	var logFile io.WriteCloser
 	var err error
@@ -140,14 +114,16 @@ func mainErr(cfg *config, role Role) error {
 		return fmt.Errorf("nats client: %w", err)
 	}
 
+	defer cleanUp(nc, log)
+
 	switch role {
-	case RoleSink:
+	case models.RoleSink:
 		return mainSink(nc, cfg, shutdown, log)
-	case RoleJoin:
+	case models.RoleJoin:
 		return mainJoin(nc, cfg, shutdown, log)
-	case RoleIngestor:
+	case models.RoleIngestor:
 		return mainIngestor(nc, cfg, shutdown, log)
-	case RoleETL:
+	case models.RoleETL:
 		return mainEtl(nc, cfg, shutdown, log)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
@@ -224,18 +200,11 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 }
 
 func mainSink(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
-	// todo: implement sink functionality
 	var streamName, streamSubject string
-	var pipelineCfg models.PipelineConfig
 
-	cfgPath, err := os.ReadFile(cfg.PipelineConfig)
+	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
-		return fmt.Errorf("failed to access sink config file %w", err)
-	}
-
-	err = json.Unmarshal(cfgPath, &pipelineCfg)
-	if err != nil {
-		return fmt.Errorf("unable to parse sink config %w", err)
+		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
 
 	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
@@ -243,53 +212,129 @@ func mainSink(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), l
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
+	if pipelineCfg.Join.Enabled {
+		streamName = models.GetJoinedStreamName(pipelineCfg.ID)
+		streamSubject = models.GFJoinSubject
+	} else {
+		if len(pipelineCfg.Ingestor.KafkaTopics) == 0 {
+			return fmt.Errorf("no Kafka topics configured")
+		}
+		streamName = pipelineCfg.Ingestor.KafkaTopics[0].Name
+		streamSubject = streamName + ".input"
+	}
+
 	sinkRunner := service.NewSinkRunner(log, nc)
 
-	serverErr := make(chan error, 1)
+	return runWithGracefulShutdown(
+		func() error {
+			return sinkRunner.Start(
+				context.Background(),
+				streamName,
+				streamSubject,
+				pipelineCfg.Sink,
+				schemaMapper,
+			)
+		},
+		sinkRunner.Shutdown,
+		shutdown,
+		log,
+		models.RoleSink.String(),
+	)
+}
 
+func mainJoin(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
+	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get pipeline config: %w", err)
+	}
+
+	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
+	if err != nil {
+		return fmt.Errorf("create schema mapper: %w", err)
+	}
+
+	joinRunner := service.NewJoinRunner(log, nc)
+
+	return runWithGracefulShutdown(
+		func() error {
+			return joinRunner.Start(
+				context.Background(),
+				cfg.JoinType,
+				models.GFJoinSubject,
+				schemaMapper,
+			)
+		},
+		joinRunner.Shutdown,
+		shutdown,
+		log,
+		models.RoleJoin.String(),
+	)
+}
+
+func mainIngestor(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
+	if cfg.IngestorTopic == "" {
+		return fmt.Errorf("ingestor topic must be specified")
+	}
+
+	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get pipeline config: %w", err)
+	}
+
+	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
+	if err != nil {
+		return fmt.Errorf("create schema mapper: %w", err)
+	}
+
+	ingestorRunner := service.NewIngestorRunner(log, nc)
+
+	return runWithGracefulShutdown(
+		func() error {
+			return ingestorRunner.Start(
+				context.Background(),
+				cfg.IngestorTopic,
+				pipelineCfg,
+				schemaMapper,
+			)
+		},
+		ingestorRunner.Shutdown,
+		shutdown,
+		log,
+		models.RoleIngestor.String(),
+	)
+}
+
+func runWithGracefulShutdown(
+	runnerFunc RunnerFunc,
+	shutdownFunc ShutdownFunc,
+	shutdown <-chan os.Signal,
+	log *slog.Logger,
+	serviceName string,
+) error {
+	serverErr := make(chan error, 1)
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
-
 	go func() {
 		defer wg.Done()
-		serverErr <- sinkRunner.Start(
-			context.Background(),
-			streamName,
-			streamSubject,
-			pipelineCfg.Sink,
-			schemaMapper,
-		)
+		serverErr <- runnerFunc()
 	}()
 
 	select {
 	case err := <-serverErr:
 		if err != nil {
-			return fmt.Errorf("sink runner failed: %w", err)
+			return fmt.Errorf("%s runner failed: %w", serviceName, err)
 		}
 	case <-shutdown:
-		log.Info("Received termination signal - sink operator will shutdown")
+		log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 		wg.Add(1)
-
 		go func() {
-			sinkRunner.Shutdown()
-			wg.Done()
+			defer wg.Done()
+			shutdownFunc()
 		}()
 	}
 
 	wg.Wait()
-	return nil
-}
-
-func mainJoin(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
-	// todo: implement join functionality
-	log.Info("Sink functionality is not implemented yet")
-	return nil
-}
-
-func mainIngestor(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
-	// todo: implement ingestor functionality
-	log.Info("Sink functionality is not implemented yet")
 	return nil
 }
 
@@ -313,4 +358,29 @@ func configureLogger(cfg *config, logOut io.Writer) *slog.Logger {
 	}
 
 	return slog.New(logHandler)
+}
+
+func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ error) {
+	var pipelineCfg models.PipelineConfig
+
+	cfgJSON, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return zero, fmt.Errorf("failed to access sink config file: %w", err)
+	}
+
+	err = json.Unmarshal(cfgJSON, &pipelineCfg)
+	if err != nil {
+		return zero, fmt.Errorf("unable to parse sink config: %w", err)
+	}
+
+	return pipelineCfg, nil
+}
+
+func cleanUp(nc *client.NATSClient, log *slog.Logger) {
+	if nc != nil {
+		err := nc.Close()
+		if err != nil {
+			log.Error("failed to close NATS connection", slog.Any("error", err))
+		}
+	}
 }
