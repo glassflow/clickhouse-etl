@@ -5,7 +5,7 @@ import {
   KafkaConnectionContainer,
   KafkaTopicSelector,
   DeduplicationConfigurator,
-  ClickhouseConnector,
+  ClickhouseConnectionContainer,
   ClickhouseMapper,
   TopicDeduplicationConfigurator,
 } from '@/src/modules'
@@ -92,7 +92,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
     } else if (stepType === StepKeys.CLICKHOUSE_CONNECTION) {
       setSteps({
         [StepKeys.CLICKHOUSE_CONNECTION]: {
-          component: ClickhouseConnector,
+          component: ClickhouseConnectionContainer,
           title: 'ClickHouse Connection',
           description: 'Configure your ClickHouse connection settings',
         },

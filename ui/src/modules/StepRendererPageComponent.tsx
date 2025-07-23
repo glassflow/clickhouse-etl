@@ -5,7 +5,7 @@ import {
   KafkaConnectionContainer,
   KafkaTopicSelector,
   DeduplicationConfigurator,
-  ClickhouseConnector,
+  ClickhouseConnectionContainer,
   ClickhouseMapper,
   TopicDeduplicationConfigurator,
 } from '@/src/modules'
