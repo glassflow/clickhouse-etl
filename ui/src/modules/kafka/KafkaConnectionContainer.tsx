@@ -12,22 +12,20 @@ import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-confi
 
 export function KafkaConnectionContainer({
   steps,
-  onCompleteStep,
+  onComplete,
   validate,
   readOnly = false,
-  onEnableEdit,
-  onDisableEdit,
+  toggleEditMode,
   standalone,
 }: {
   steps: any
-  onCompleteStep?: (step: StepKeys, standalone?: boolean) => void
+  onComplete?: (step: StepKeys, standalone?: boolean) => void
   validate: () => Promise<boolean>
   standalone?: boolean
-  onComplete?: () => void
   readOnly?: boolean
-  onEnableEdit?: () => void
-  onDisableEdit?: () => void
+  toggleEditMode?: () => void
 }) {
+  const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { kafkaStore, topicsStore, configStore } = useStore()
   const { operationsSelected } = configStore
   const {
@@ -60,8 +58,6 @@ export function KafkaConnectionContainer({
   const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
   const previousBootstrapServers = useRef(bootstrapServers)
-  const [error, setError] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
   const [connectionFormValues, setConnectionFormValues] = useState<KafkaConnectionFormType | null>(null)
 
   const analytics = useJourneyAnalytics()
@@ -75,7 +71,7 @@ export function KafkaConnectionContainer({
   // Prepare initial values by merging defaults with store values
   const initialValues = {
     ...KafkaFormDefaultValues,
-    authMethod: authMethod || KafkaFormDefaultValues.authMethod,
+    authMethod: (authMethod || KafkaFormDefaultValues.authMethod) as KafkaConnectionFormType['authMethod'],
     securityProtocol: securityProtocol || KafkaFormDefaultValues.securityProtocol,
     bootstrapServers: bootstrapServers || KafkaFormDefaultValues.bootstrapServers,
     saslPlain: saslPlain || KafkaFormDefaultValues.saslPlain,
@@ -86,7 +82,7 @@ export function KafkaConnectionContainer({
     saslScram256: saslScram256 || KafkaFormDefaultValues.saslScram256,
     saslScram512: saslScram512 || KafkaFormDefaultValues.saslScram512,
     // delegationTokens: delegationTokens || KafkaFormDefaultValues.delegationToken,
-  }
+  } as KafkaConnectionFormType
 
   // Monitor changes to bootstrapServers
   useEffect(() => {
@@ -202,7 +198,7 @@ export function KafkaConnectionContainer({
       })
     }
 
-    onCompleteStep?.(StepKeys.KAFKA_CONNECTION as StepKeys)
+    onComplete?.(StepKeys.KAFKA_CONNECTION as StepKeys, standalone)
   }
 
   const handleTestConnection = async (values: KafkaConnectionFormType) => {
@@ -223,10 +219,15 @@ export function KafkaConnectionContainer({
     }
   }
 
+  const handleDiscardConnectionChange = () => {
+    setClearErrorMessage(true)
+  }
+
   return (
     <>
       <KafkaConnectionFormManager
         onTestConnection={handleTestConnection}
+        onDiscardConnectionChange={handleDiscardConnectionChange}
         isConnecting={isConnectingFromHook}
         connectionResult={connectionResult}
         readOnly={readOnly}
@@ -235,8 +236,9 @@ export function KafkaConnectionContainer({
         authMethod={authMethod}
         securityProtocol={securityProtocol}
         bootstrapServers={bootstrapServers}
+        toggleEditMode={toggleEditMode}
       />
-      {connectionResult && (
+      {connectionResult && !clearErrorMessage && (
         <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />
       )}
     </>

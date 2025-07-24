@@ -94,22 +94,7 @@ export const useClickhouseConnection = () => {
           const errorMsg = data.error || 'Test connection failed - Failed to connect to ClickHouse'
           setConnectionError(errorMsg)
 
-          // Update store connection status - only update status, don't spread connection
-          setClickhouseConnection({
-            connectionType: 'direct',
-            directConnection: {
-              host: connectionConfig.host,
-              port: connectionConfig.port,
-              username: connectionConfig.username,
-              password: connectionConfig.password,
-              nativePort: connectionConfig.nativePort ?? '',
-              useSSL: connectionConfig.useSSL ?? true,
-              skipCertificateVerification: connectionConfig.skipCertificateVerification ?? true,
-            },
-            connectionStatus: 'error',
-            connectionError: errorMsg,
-          })
-
+          // Don't update store on failure - let the container handle it
           analytics.clickhouse.failed({
             error: errorMsg,
             host: connectionConfig.host,
@@ -122,22 +107,7 @@ export const useClickhouseConnection = () => {
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
         setConnectionError(errorMessage)
 
-        // Update store connection status - only update status, don't spread connection
-        setClickhouseConnection({
-          connectionType: 'direct',
-          directConnection: {
-            host: connectionConfig.host,
-            port: connectionConfig.port,
-            username: connectionConfig.username,
-            password: connectionConfig.password,
-            nativePort: connectionConfig.nativePort ?? '',
-            useSSL: connectionConfig.useSSL ?? true,
-            skipCertificateVerification: connectionConfig.skipCertificateVerification ?? true,
-          },
-          connectionStatus: 'error',
-          connectionError: errorMessage,
-        })
-
+        // Don't update store on failure - let the container handle it
         analytics.clickhouse.failed({
           error: errorMessage,
           host: connectionConfig.host,
@@ -231,22 +201,7 @@ export const useClickhouseConnection = () => {
           const errorMsg = data.error || `Failed to access database '${connectionConfig.database}'`
           setConnectionError(errorMsg)
 
-          // Update store connection status - only update status, don't spread connection
-          setClickhouseConnection({
-            connectionType: 'direct',
-            directConnection: {
-              host: connectionConfig.host,
-              port: connectionConfig.port,
-              username: connectionConfig.username,
-              password: connectionConfig.password,
-              nativePort: connectionConfig.nativePort ?? '',
-              useSSL: connectionConfig.useSSL ?? true,
-              skipCertificateVerification: connectionConfig.skipCertificateVerification ?? true,
-            },
-            connectionStatus: 'error',
-            connectionError: errorMsg,
-          })
-
+          // Don't update store on failure - let the container handle it
           analytics.destination.tableFetchedError({
             database: connectionConfig.database,
             error: errorMsg,
@@ -259,22 +214,7 @@ export const useClickhouseConnection = () => {
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
         setConnectionError(errorMessage)
 
-        // Update store connection status - only update status, don't spread connection
-        setClickhouseConnection({
-          connectionType: 'direct',
-          directConnection: {
-            host: connectionConfig.host,
-            port: connectionConfig.port,
-            username: connectionConfig.username,
-            password: connectionConfig.password,
-            nativePort: connectionConfig.nativePort ?? '',
-            useSSL: connectionConfig.useSSL ?? true,
-            skipCertificateVerification: connectionConfig.skipCertificateVerification ?? true,
-          },
-          connectionStatus: 'error',
-          connectionError: errorMessage,
-        })
-
+        // Don't update store on failure - let the container handle it
         analytics.destination.tableFetchedError({
           database: connectionConfig.database,
           error: errorMessage,
@@ -372,22 +312,7 @@ export const useClickhouseConnection = () => {
             `Failed to access table '${connectionConfig.table}' in database '${connectionConfig.database}'`
           setConnectionError(errorMsg)
 
-          // Update store connection status - only update status, don't spread connection
-          setClickhouseConnection({
-            connectionType: 'direct',
-            directConnection: {
-              host: connectionConfig.host,
-              port: connectionConfig.port,
-              username: connectionConfig.username,
-              password: connectionConfig.password,
-              nativePort: connectionConfig.nativePort ?? '',
-              useSSL: connectionConfig.useSSL ?? true,
-              skipCertificateVerification: connectionConfig.skipCertificateVerification ?? true,
-            },
-            connectionStatus: 'error',
-            connectionError: errorMsg,
-          })
-
+          // Don't update store on failure - let the container handle it
           analytics.destination.tableFetchedError({
             database: connectionConfig.database,
             table: connectionConfig.table,
@@ -401,22 +326,7 @@ export const useClickhouseConnection = () => {
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
         setConnectionError(errorMessage)
 
-        // Update store connection status - only update status, don't spread connection
-        setClickhouseConnection({
-          connectionType: 'direct',
-          directConnection: {
-            host: connectionConfig.host,
-            port: connectionConfig.port,
-            username: connectionConfig.username,
-            password: connectionConfig.password,
-            nativePort: connectionConfig.nativePort ?? '',
-            useSSL: connectionConfig.useSSL ?? true,
-            skipCertificateVerification: connectionConfig.skipCertificateVerification ?? true,
-          },
-          connectionStatus: 'error',
-          connectionError: errorMessage,
-        })
-
+        // Don't update store on failure - let the container handle it
         analytics.destination.tableFetchedError({
           database: connectionConfig.database,
           table: connectionConfig.table,

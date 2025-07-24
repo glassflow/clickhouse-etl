@@ -2,11 +2,14 @@ import { FormEditActionButtonGroup } from '@/src/components/shared/FormEditActio
 import FormActionButton from '@/src/components/shared/FormActionButton'
 
 type FormActionsProps = {
+  onSubmit: () => void
+  onDiscard?: () => void
+  toggleEditMode?: () => void
   standalone?: boolean
-  handleSubmit: () => void
+  readOnly?: boolean
+  disabled?: boolean
   isLoading?: boolean
   isSuccess?: boolean
-  disabled?: boolean
   successText?: string
   loadingText?: string
   regularText?: string
@@ -15,11 +18,14 @@ type FormActionsProps = {
 }
 
 function FormActions({
+  onSubmit,
+  onDiscard,
+  toggleEditMode,
   standalone,
-  handleSubmit,
+  readOnly,
+  disabled,
   isLoading,
   isSuccess,
-  disabled,
   successText,
   loadingText,
   regularText,
@@ -30,16 +36,24 @@ function FormActions({
     <div className="flex gap-4">
       {standalone && (
         <FormEditActionButtonGroup
-          editModeDefault={false}
-          onEnableEditMode={() => {}}
-          onSaveChanges={() => {}}
-          onDiscardChanges={() => {}}
+          editMode={!readOnly}
+          onSubmit={onSubmit}
+          onDiscard={onDiscard || (() => {})}
+          toggleEditMode={toggleEditMode}
+          isLoading={isLoading}
+          isSuccess={isSuccess}
+          disabled={disabled}
+          successText={successText}
+          loadingText={loadingText}
+          regularText={regularText}
+          actionType={actionType}
+          showLoadingIcon={showLoadingIcon}
         />
       )}
 
       {!standalone && (
         <FormActionButton
-          onClick={handleSubmit}
+          onClick={onSubmit}
           isLoading={isLoading}
           isSuccess={isSuccess}
           disabled={disabled}

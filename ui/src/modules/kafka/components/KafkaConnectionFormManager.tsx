@@ -3,15 +3,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, FormProvider } from 'react-hook-form'
-import { StepKeys } from '@/src/config/constants'
 import { KafkaConnectionFormRenderer } from './KafkaConnectionFormRenderer'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
-import FormActionButton from '@/src/components/shared/FormActionButton'
-import { FormEditActionButtonGroup } from '@/src/components/shared/FormEditActionButtonGroup'
 import FormActions from '@/src/components/shared/FormActions'
 
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<void>
+  onDiscardConnectionChange: () => void
   isConnecting: boolean
   connectionResult: {
     success: boolean
@@ -23,10 +21,12 @@ type KafkaConnectionProps = {
   authMethod: string
   securityProtocol: string
   bootstrapServers: string
+  toggleEditMode?: () => void
 }
 
 export const KafkaConnectionFormManager = ({
   onTestConnection,
+  onDiscardConnectionChange,
   isConnecting,
   connectionResult,
   readOnly,
@@ -35,7 +35,10 @@ export const KafkaConnectionFormManager = ({
   authMethod,
   securityProtocol,
   bootstrapServers,
+  toggleEditMode,
 }: KafkaConnectionProps) => {
+  // Create a ref to store the original values for discard functionality
+  const originalValuesRef = useRef(initialValues)
   // Track if this is the initial render or a return visit
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [userInteracted, setUserInteracted] = useState(false)
@@ -82,6 +85,11 @@ export const KafkaConnectionFormManager = ({
       setUserInteracted(true)
     }
   }
+
+  // Update original values ref when store values change
+  useEffect(() => {
+    originalValuesRef.current = initialValues
+  }, [initialValues])
 
   // Initialize form with values from store if returning to the form
   useEffect(() => {
@@ -130,8 +138,28 @@ export const KafkaConnectionFormManager = ({
     }
 
     if (onTestConnection) {
-      onTestConnection(values)
+      await onTestConnection(values)
     }
+  }
+
+  const handleDiscard = () => {
+    // Reset form to original values from store
+    formMethods.reset(originalValuesRef.current)
+
+    // Reset user interaction state
+    setUserInteracted(false)
+
+    // Reset form initialization flag to allow re-initialization
+    formInitialized.current = false
+
+    // Force re-initialization by setting values manually
+    if (authMethod) formMethods.setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
+    if (securityProtocol)
+      formMethods.setValue('securityProtocol', securityProtocol as KafkaConnectionFormType['securityProtocol'])
+    if (bootstrapServers)
+      formMethods.setValue('bootstrapServers', bootstrapServers as KafkaConnectionFormType['bootstrapServers'])
+
+    onDiscardConnectionChange()
   }
 
   return (
@@ -154,11 +182,14 @@ export const KafkaConnectionFormManager = ({
         />
 
         <FormActions
+          onSubmit={submitFormValues}
+          onDiscard={handleDiscard}
+          toggleEditMode={toggleEditMode}
           standalone={standalone}
-          handleSubmit={submitFormValues}
+          readOnly={readOnly}
+          disabled={isConnecting}
           isLoading={isConnecting}
           isSuccess={connectionResult?.success}
-          disabled={isConnecting}
           successText="Continue"
           loadingText="Testing..."
           regularText="Continue"

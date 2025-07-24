@@ -12,6 +12,7 @@ import FormActions from '@/src/components/shared/FormActions'
 
 type ClickhouseConnectionProps = {
   onTestConnection: (values: ClickhouseConnectionFormType) => Promise<void>
+  onDiscardConnectionChange: () => void
   isConnecting: boolean
   connectionResult: {
     success: boolean
@@ -27,10 +28,12 @@ type ClickhouseConnectionProps = {
   nativePort: string
   useSSL: boolean
   skipCertificateVerification: boolean
+  toggleEditMode?: () => void
 }
 
 export const ClickhouseConnectionFormManager = ({
   onTestConnection,
+  onDiscardConnectionChange,
   isConnecting,
   connectionResult,
   readOnly,
@@ -43,7 +46,11 @@ export const ClickhouseConnectionFormManager = ({
   nativePort,
   useSSL,
   skipCertificateVerification,
+  toggleEditMode,
 }: ClickhouseConnectionProps) => {
+  // Create a ref to store the original values for discard functionality
+  const originalValuesRef = useRef(initialValues)
+
   // Track if this is the initial render or a return visit
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [userInteracted, setUserInteracted] = useState(false)
@@ -78,6 +85,11 @@ export const ClickhouseConnectionFormManager = ({
       setUserInteracted(true)
     }
   }
+
+  // Update original values ref when initial values change
+  useEffect(() => {
+    originalValuesRef.current = initialValues
+  }, [initialValues])
 
   // Initialize form with values from store if returning to the form
   useEffect(() => {
@@ -142,8 +154,31 @@ export const ClickhouseConnectionFormManager = ({
     }
 
     if (onTestConnection) {
-      onTestConnection(values)
+      await onTestConnection(values)
     }
+  }
+
+  const handleDiscard = () => {
+    // Reset form to original values from store
+    formMethods.reset(originalValuesRef.current)
+
+    // Reset user interaction state
+    setUserInteracted(false)
+
+    // Reset form initialization flag to allow re-initialization
+    formInitialized.current = false
+
+    // Force re-initialization by setting values manually
+    if (host) formMethods.setValue('directConnection.host', host)
+    if (port) formMethods.setValue('directConnection.port', port)
+    if (username) formMethods.setValue('directConnection.username', username)
+    if (password) formMethods.setValue('directConnection.password', password)
+    if (nativePort) formMethods.setValue('directConnection.nativePort', nativePort)
+    if (useSSL !== undefined) formMethods.setValue('directConnection.useSSL', useSSL)
+    if (skipCertificateVerification !== undefined)
+      formMethods.setValue('directConnection.skipCertificateVerification', skipCertificateVerification)
+
+    onDiscardConnectionChange()
   }
 
   return (
@@ -166,7 +201,10 @@ export const ClickhouseConnectionFormManager = ({
 
         <FormActions
           standalone={standalone}
-          handleSubmit={submitFormValues}
+          onSubmit={submitFormValues}
+          onDiscard={handleDiscard}
+          toggleEditMode={toggleEditMode}
+          readOnly={readOnly}
           isLoading={isConnecting}
           isSuccess={connectionResult?.success}
           disabled={isConnecting}

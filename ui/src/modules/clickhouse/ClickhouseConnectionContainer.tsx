@@ -8,18 +8,22 @@ import { StepKeys } from '@/src/config/constants'
 import { ClickhouseConnectionFormManager } from './components/ClickhouseConnectionFormManager'
 import { ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
 
 export function ClickhouseConnectionContainer({
   onCompleteStep,
   onComplete,
   standalone,
   readOnly = false,
+  toggleEditMode,
 }: {
   onCompleteStep?: (step: StepKeys) => void
   onComplete?: () => void
   standalone?: boolean
   readOnly?: boolean
+  toggleEditMode?: () => void
 }) {
+  const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { clickhouseConnectionStore } = useStore()
   const analytics = useJourneyAnalytics()
 
@@ -73,7 +77,7 @@ export function ClickhouseConnectionContainer({
   }, [connectionStatus, connectionError, connectionFormValues, analytics.clickhouse])
 
   const saveConnectionData = (values: ClickhouseConnectionFormType) => {
-    // Save the connection details to the store
+    // Save the connection details to the store only after successful test
     const newConnection = {
       ...clickhouseConnection,
       directConnection: {
@@ -109,25 +113,7 @@ export function ClickhouseConnectionContainer({
     // save local version of the form values to be used in the analytics
     setConnectionFormValues(values)
 
-    // First save the connection details to the store with loading status
-    const newConnection = {
-      ...clickhouseConnection,
-      directConnection: {
-        host: values.directConnection.host,
-        port: values.directConnection.port,
-        username: values.directConnection.username,
-        password: values.directConnection.password,
-        nativePort: values.directConnection.nativePort,
-        useSSL: values.directConnection.useSSL,
-        skipCertificateVerification: values.directConnection.skipCertificateVerification,
-      },
-      connectionStatus: 'loading' as const,
-      connectionError: null,
-    }
-
-    setClickhouseConnection(newConnection)
-
-    // Test the connection with the form values
+    // Test the connection with the form values FIRST
     const result = await testConnection({
       host: values.directConnection.host,
       port: values.directConnection.port,
@@ -144,10 +130,23 @@ export function ClickhouseConnectionContainer({
     }
   }
 
+  const handleDiscardConnectionChange = () => {
+    // Clear any error messages when discarding changes
+    // Reset connection status to clear any error states
+    const resetConnection = {
+      ...clickhouseConnection,
+      connectionStatus: 'idle' as const,
+      connectionError: null,
+    }
+    setClickhouseConnection(resetConnection)
+    setClearErrorMessage(true)
+  }
+
   return (
     <>
       <ClickhouseConnectionFormManager
         onTestConnection={handleTestConnection}
+        onDiscardConnectionChange={handleDiscardConnectionChange}
         isConnecting={isLoading}
         connectionResult={
           connectionStatus === 'success'
@@ -166,23 +165,15 @@ export function ClickhouseConnectionContainer({
         nativePort={directConnection?.nativePort || ''}
         useSSL={directConnection?.useSSL ?? true}
         skipCertificateVerification={directConnection?.skipCertificateVerification ?? true}
+        toggleEditMode={toggleEditMode}
       />
 
-      {connectionStatus === 'success' && (
-        <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center">
-          <CheckCircleIcon className="h-5 w-5 mr-2" />
-          <span>Successfully connected to ClickHouse!</span>
-        </div>
+      {connectionStatus === 'success' && !clearErrorMessage && (
+        <ActionStatusMessage message="Successfully connected to ClickHouse!" success={true} />
       )}
 
-      {connectionStatus === 'error' && (
-        <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md flex items-center">
-          <XCircleIcon className="h-5 w-5 mr-2" />
-          <div>
-            <p className="font-medium">Connection failed</p>
-            {connectionError && <p className="text-sm">{connectionError}</p>}
-          </div>
-        </div>
+      {connectionStatus === 'error' && !clearErrorMessage && (
+        <ActionStatusMessage message={connectionError || 'Connection failed'} success={false} />
       )}
     </>
   )

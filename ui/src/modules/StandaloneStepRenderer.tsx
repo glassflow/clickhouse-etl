@@ -112,9 +112,13 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
     setCurrentStep(nextStep)
   }
 
-  const handleComplete = () => {
+  const handleComplete = (nextStep?: StepKeys, standalone?: boolean) => {
     // Handle completion - could save changes, close modal, etc.
-    onClose()
+    if (standalone) {
+      onClose()
+    } else {
+      handleNext(nextStep || StepKeys.KAFKA_CONNECTION)
+    }
   }
 
   const handleBack = () => {
@@ -153,8 +157,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
         standalone={true}
         onComplete={handleComplete}
         readOnly={!editMode}
-        onEnableEdit={() => setEditMode(true)}
-        onDisableEdit={() => setEditMode(false)}
+        toggleEditMode={() => setEditMode(!editMode)}
       />
     </StepRendererPageComponent>
   )
