@@ -9,13 +9,18 @@ import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import FormActions from '@/src/components/shared/FormActions'
 
 export function DeduplicationConfigurator({
   onCompleteStep,
   index = 0,
+  readOnly,
+  standalone,
 }: {
   onCompleteStep: (stepName: string) => void
   index: number
+  readOnly?: boolean
+  standalone?: boolean
 }) {
   const analytics = useJourneyAnalytics()
 
@@ -101,6 +106,7 @@ export function DeduplicationConfigurator({
             onChange={handleDeduplicationConfigChange}
             disabled={!topic?.name}
             eventData={eventData}
+            readOnly={readOnly}
           />
         </div>
         <div className="w-[60%] min-h-[400px]">
@@ -112,25 +118,23 @@ export function DeduplicationConfigurator({
             isEmptyTopic={false}
             onManualEventChange={() => {}}
             isEditingEnabled={false}
+            readOnly={readOnly}
           />
         </div>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-start gap-4 mt-4">
-        <Button
-          onClick={handleSave}
-          disabled={!canContinue}
-          variant={canContinue ? 'gradient' : 'outline'}
-          className={cn({
-            'btn-primary': canContinue,
-            'btn-text-disabled': !canContinue,
-            'btn-text': canContinue,
-          })}
-        >
-          Continue
-        </Button>
-      </div>
+      <FormActions
+        standalone={standalone}
+        handleSubmit={handleSave}
+        isLoading={false}
+        isSuccess={false}
+        disabled={!canContinue}
+        successText="Continue"
+        loadingText="Loading..."
+        regularText="Continue"
+        actionType="primary"
+        showLoadingIcon={false}
+      />
     </div>
   )
 }

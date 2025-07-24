@@ -10,6 +10,8 @@ export function OffsetSelect({
   error,
   placeholder,
   options,
+  readOnly,
+  standalone,
 }: {
   value: 'earliest' | 'latest'
   onChange: (value: 'earliest' | 'latest') => void
@@ -18,11 +20,14 @@ export function OffsetSelect({
   error: string
   placeholder: string
   options: { label: string; value: 'earliest' | 'latest' }[]
+  readOnly?: boolean
+  standalone?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   return (
     <div className="relative w-full">
       <Select
+        disabled={readOnly}
         value={value}
         defaultValue={value}
         onValueChange={(value) => {

@@ -10,6 +10,8 @@ export function TopicSelect({
   error,
   placeholder,
   options,
+  readOnly,
+  standalone,
 }: {
   value: string
   onChange: (value: string) => void
@@ -18,11 +20,14 @@ export function TopicSelect({
   error: string
   placeholder: string
   options: { label: string; value: string }[]
+  readOnly?: boolean
+  standalone?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   return (
     <div className="relative w-full">
       <Select
+        disabled={readOnly}
         value={value}
         defaultValue={value}
         onValueChange={(value) => {

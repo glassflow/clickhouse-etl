@@ -25,6 +25,7 @@ export type TopicSelectWithEventPreviewProps = {
   onManualEventChange?: (event: string) => void
   additionalContent?: React.ReactNode
   isEditingEnabled: boolean
+  readOnly?: boolean
 }
 
 export function TopicSelectWithEventPreview({
@@ -37,6 +38,7 @@ export function TopicSelectWithEventPreview({
   initialOffset = INITIAL_OFFSET_OPTIONS.LATEST as 'earliest' | 'latest',
   additionalContent,
   isEditingEnabled,
+  readOnly,
 }: TopicSelectWithEventPreviewProps) {
   const { kafkaStore } = useStore()
 
@@ -214,6 +216,7 @@ export function TopicSelectWithEventPreview({
               label: value,
               value: value as 'earliest' | 'latest',
             }))}
+            readOnly={readOnly}
           />
           {localState.isLoading && (
             <div className="flex items-center gap-2 text-sm text-content">
@@ -240,6 +243,7 @@ export function TopicSelectWithEventPreview({
           onEventError={eventHandlers.onEventError}
           onEmptyTopic={eventHandlers.onEmptyTopic}
           onManualEventChange={onManualEventChange}
+          readOnly={readOnly}
         />
       </div>
     </div>

@@ -12,9 +12,10 @@ interface SelectDeduplicateKeysProps {
   disabled?: boolean
   onChange: (keyConfig: { key: string; keyType: string }, windowConfig: { window: number; unit: string }) => void
   eventData: Record<string, any>
+  readOnly?: boolean
 }
 
-function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }: SelectDeduplicateKeysProps) {
+function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, readOnly }: SelectDeduplicateKeysProps) {
   const [selectedKey, setSelectedKey] = useState('')
   const [selectedKeyType, setSelectedKeyType] = useState('string')
   const [localWindow, setLocalWindow] = useState(1)
@@ -133,6 +134,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
                 onSelect={handleKeySelect}
                 placeholder="Enter de-duplicate key"
                 clearable={true}
+                readOnly={readOnly}
               />
             ) : (
               <div className="text-sm text-gray-500 p-2 border rounded">
@@ -141,7 +143,12 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
             )}
           </div>
           <div className="w-[30%]">
-            <JSONDateTypesSelector value={selectedKeyType} onChange={handleKeyTypeSelect} isDeduplicationJoin={true} />
+            <JSONDateTypesSelector
+              value={selectedKeyType}
+              onChange={handleKeyTypeSelect}
+              isDeduplicationJoin={true}
+              readOnly={readOnly}
+            />
           </div>
         </div>
       </div>
@@ -151,6 +158,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
         setWindow={handleWindowChange}
         windowUnit={localWindowUnit}
         setWindowUnit={handleWindowUnitChange}
+        readOnly={readOnly}
       />
     </div>
   )

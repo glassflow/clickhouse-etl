@@ -5,7 +5,7 @@ import { useFormContext } from 'react-hook-form'
 import { renderFormField } from '@/src/components/ui/form'
 import { FormGroup } from '@/src/components/ui'
 import FormActionButton from '@/src/components/shared/FormActionButton'
-import { FormEditActionSet } from '@/src/components/shared/FormEditActionSet'
+import { FormEditActionButtonGroup } from '@/src/components/shared/FormEditActionButtonGroup'
 
 interface FormField {
   name: string
@@ -122,7 +122,7 @@ export function ConnectionFormRenderer({
       {/* Action Buttons */}
       <div className="flex gap-4">
         {standalone && (
-          <FormEditActionSet
+          <FormEditActionButtonGroup
             editModeDefault={false}
             onEnableEditMode={() => {}}
             onSaveChanges={() => {}}

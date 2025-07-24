@@ -13,6 +13,7 @@ interface DatabaseSelectProps {
   isLoading: boolean
   getConnectionConfig: () => Omit<ConnectionConfig, 'connectionType'>
   onRefresh?: () => Promise<void>
+  readOnly?: boolean
 }
 
 export function DatabaseSelect({
@@ -23,6 +24,7 @@ export function DatabaseSelect({
   // isLoading,
   // getConnectionConfig,
   onRefresh,
+  readOnly,
 }: DatabaseSelectProps) {
   return (
     <div className="space-y-2">
@@ -36,7 +38,7 @@ export function DatabaseSelect({
       </div>
       <div className="flex items-center justify-between">
         {availableDatabases.length > 0 ? (
-          <Select value={selectedDatabase} onValueChange={setSelectedDatabase}>
+          <Select value={selectedDatabase} onValueChange={setSelectedDatabase} disabled={readOnly}>
             <SelectTrigger
               id="database"
               className="w-full text-content select-content-custom transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
@@ -59,12 +61,14 @@ export function DatabaseSelect({
               value={selectedDatabase}
               onChange={(e) => setSelectedDatabase(e.target.value)}
               className="flex-1 text-content"
+              disabled={readOnly}
             />
             {/* {renderTestAccessButton()} */}
           </div>
         )}
         {onRefresh && (
           <CacheRefreshButton
+            disabled={readOnly}
             type="databases"
             onRefresh={onRefresh}
             size="sm"

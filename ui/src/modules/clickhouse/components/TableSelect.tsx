@@ -16,6 +16,7 @@ interface TableSelectProps {
   onOpenChange?: (isOpen: boolean) => void
   open?: boolean
   onRefresh?: () => Promise<void>
+  readOnly?: boolean
 }
 
 export function TableSelect({
@@ -29,6 +30,7 @@ export function TableSelect({
   onOpenChange,
   open,
   onRefresh,
+  readOnly,
 }: TableSelectProps) {
   return (
     <div className="space-y-2">
@@ -42,7 +44,13 @@ export function TableSelect({
       </div>
       <div className="flex items-center justify-between">
         {availableTables.length > 0 ? (
-          <Select value={selectedTable} onValueChange={setSelectedTable} open={open} onOpenChange={onOpenChange}>
+          <Select
+            value={selectedTable}
+            onValueChange={setSelectedTable}
+            open={open}
+            onOpenChange={onOpenChange}
+            disabled={readOnly}
+          >
             <SelectTrigger
               id="table"
               className="w-full text-content select-content-custom transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
@@ -65,12 +73,14 @@ export function TableSelect({
               value={selectedTable}
               onChange={(e) => setSelectedTable(e.target.value)}
               className="flex-1"
+              disabled={readOnly}
             />
             {/* {renderTestAccessButton()} */}
           </div>
         )}
         {onRefresh && (
           <CacheRefreshButton
+            disabled={readOnly}
             type="tables"
             database={selectedDatabase}
             onRefresh={onRefresh}

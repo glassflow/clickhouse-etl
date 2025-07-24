@@ -8,6 +8,7 @@ import { FieldColumnMapper } from './components/FieldColumnMapper'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { CacheRefreshButton } from './components/CacheRefreshButton'
+import FormActions from '@/src/components/shared/FormActions'
 
 import { StepKeys, OperationKeys } from '@/src/config/constants'
 
@@ -38,12 +39,14 @@ type MappingMode = 'single' | 'join' | 'dedup'
 
 interface ClickhouseMapperProps {
   onCompleteStep: (step: StepKeys) => void
+  standalone?: boolean
+  readOnly?: boolean
 }
 
 const runtimeEnv = getRuntimeEnv()
 const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
-export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
+export function ClickhouseMapper({ onCompleteStep, standalone, readOnly }: ClickhouseMapperProps) {
   const router = useRouter()
   const { clickhouseConnectionStore, clickhouseDestinationStore, kafkaStore, joinStore, topicsStore, configStore } =
     useStore()
@@ -898,6 +901,7 @@ export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
           testTableAccess={testTableAccessWrapper}
           onRefreshDatabases={handleRefreshDatabases}
           onRefreshTables={handleRefreshTables}
+          readOnly={readOnly}
         />
 
         {/* Batch Size / Delay Time / Column Mapping */}
@@ -913,6 +917,7 @@ export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
                 onRefresh={handleRefreshTableSchema}
                 size="sm"
                 variant="outline"
+                disabled={readOnly}
               />
             </div>
             <BatchDelaySelector
@@ -922,6 +927,7 @@ export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
               onMaxBatchSizeChange={setMaxBatchSize}
               onMaxDelayTimeChange={setMaxDelayTime}
               onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
+              readOnly={readOnly}
             />
             <FieldColumnMapper
               eventFields={mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]}
@@ -933,22 +939,22 @@ export function ClickhouseMapper({ onCompleteStep }: ClickhouseMapperProps) {
               primaryTopicName={mode !== 'single' ? primaryTopic?.name : undefined}
               secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
               isJoinMapping={mode !== 'single'}
+              readOnly={readOnly}
             />
             {/* TypeCompatibilityInfo is temporarily hidden */}
             {/* <TypeCompatibilityInfo /> */}
             <div className="flex gap-2 mt-4">
-              <Button
-                variant="outline"
-                className={cn({
-                  'btn-primary': true,
-                  'btn-text': true,
-                  'opacity-50': isLoading,
-                })}
-                size="sm"
-                onClick={saveDestinationConfig}
-              >
-                Continue
-              </Button>
+              <FormActions
+                handleSubmit={saveDestinationConfig}
+                isLoading={isLoading}
+                isSuccess={!!success}
+                disabled={isLoading}
+                successText="Continue"
+                actionType="primary"
+                showLoadingIcon={false}
+                regularText="Continue"
+                loadingText="Saving..."
+              />
             </div>
           </div>
         )}

@@ -5,7 +5,7 @@ import { useStore } from '@/src/store'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/useClickhouseConnection'
 import { StepKeys } from '@/src/config/constants'
-import { ClickhouseConnectionFormManager } from './ClickhouseConnectionFormManager'
+import { ClickhouseConnectionFormManager } from './components/ClickhouseConnectionFormManager'
 import { ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 

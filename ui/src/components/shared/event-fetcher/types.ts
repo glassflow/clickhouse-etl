@@ -11,6 +11,7 @@ export type EventFetcherProps = {
   onEventError: (error: any) => void
   onEmptyTopic: () => void
   onManualEventChange?: (event: string) => void
+  readOnly?: boolean
 }
 
 export type EventFetchContextType = {

@@ -11,6 +11,7 @@ interface CacheRefreshButtonProps {
   className?: string
   size?: 'sm' | 'lg' | 'default'
   variant?: 'outline' | 'ghost' | 'default'
+  disabled?: boolean
 }
 
 export function CacheRefreshButton({
@@ -21,6 +22,7 @@ export function CacheRefreshButton({
   className,
   size = 'sm',
   variant = 'outline',
+  disabled,
 }: CacheRefreshButtonProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
@@ -38,7 +40,7 @@ export function CacheRefreshButton({
       variant={variant}
       size={size}
       onClick={handleRefresh}
-      disabled={isRefreshing}
+      disabled={isRefreshing || disabled}
       className={cn(
         'transition-all duration-200',
         {

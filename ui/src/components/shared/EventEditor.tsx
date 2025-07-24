@@ -23,6 +23,7 @@ type EventEditorProps = {
   isEmptyTopic?: boolean
   onManualEventChange?: (event: string) => void
   isEditingEnabled: boolean
+  readOnly?: boolean
 }
 
 const EDITOR_THEME = 'merbivore'
@@ -35,6 +36,7 @@ export const EventEditor = ({
   isEmptyTopic = false,
   onManualEventChange,
   isEditingEnabled,
+  readOnly,
 }: EventEditorProps) => {
   const [manualEvent, setManualEvent] = useState(event)
   const [isValid, setIsValid] = useState(true)
@@ -64,7 +66,7 @@ export const EventEditor = ({
   }
 
   // Editor is read-only only when it's not empty topic and not explicitly enabled for editing
-  const isReadOnly = !(isEmptyTopic || isEditingEnabled)
+  const isReadOnly = !(isEmptyTopic || isEditingEnabled) || readOnly
 
   return (
     <div className="rounded-md p-4 h-full flex flex-col overflow-auto">

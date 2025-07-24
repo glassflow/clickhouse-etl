@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import FormActionButton from './FormActionButton'
 
-export const FormEditActionSet = ({
+export const FormEditActionButtonGroup = ({
   editModeDefault,
   onEnableEditMode,
   onSaveChanges,

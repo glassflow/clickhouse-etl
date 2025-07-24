@@ -15,6 +15,7 @@ interface DatabaseTableSelectContainerProps {
   testTableAccess: TableAccessTestFn
   onRefreshDatabases?: () => Promise<void>
   onRefreshTables?: () => Promise<void>
+  readOnly?: boolean
 }
 
 export function DatabaseTableSelectContainer({
@@ -30,6 +31,7 @@ export function DatabaseTableSelectContainer({
   testTableAccess,
   onRefreshDatabases,
   onRefreshTables,
+  readOnly,
 }: DatabaseTableSelectContainerProps) {
   return (
     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-8 mb-8">
@@ -43,6 +45,7 @@ export function DatabaseTableSelectContainer({
           isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
           onRefresh={onRefreshDatabases}
+          readOnly={readOnly}
         />
       </div>
 
@@ -58,6 +61,7 @@ export function DatabaseTableSelectContainer({
             isLoading={isLoading}
             getConnectionConfig={getConnectionConfig}
             onRefresh={onRefreshTables}
+            readOnly={readOnly}
           />
         </div>
       )}

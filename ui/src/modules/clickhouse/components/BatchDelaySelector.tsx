@@ -5,6 +5,16 @@ import { Label } from '@/src/components/ui/label'
 import { Input } from '@/src/components/ui/input'
 import { TimeUnitSelector } from './TimeUnitSelector'
 
+type BatchDelaySelectorProps = {
+  maxBatchSize: number
+  maxDelayTime: number
+  maxDelayTimeUnit: string
+  onMaxBatchSizeChange: (value: number) => void
+  onMaxDelayTimeChange: (value: number) => void
+  onMaxDelayTimeUnitChange: (value: string) => void
+  readOnly?: boolean
+}
+
 export function BatchDelaySelector({
   maxBatchSize,
   maxDelayTime,
@@ -12,14 +22,8 @@ export function BatchDelaySelector({
   onMaxBatchSizeChange,
   onMaxDelayTimeChange,
   onMaxDelayTimeUnitChange,
-}: {
-  maxBatchSize: number
-  maxDelayTime: number
-  maxDelayTimeUnit: string
-  onMaxBatchSizeChange: (value: number) => void
-  onMaxDelayTimeChange: (value: number) => void
-  onMaxDelayTimeUnitChange: (value: string) => void
-}) {
+  readOnly,
+}: BatchDelaySelectorProps) {
   const [maxBatchSizeLocal, setMaxBatchSizeLocal] = useState<number | null>(maxBatchSize)
   const [maxDelayTimeLocal, setMaxDelayTimeLocal] = useState<number | null>(maxDelayTime)
   const [maxDelayTimeUnitLocal, setMaxDelayTimeUnitLocal] = useState(maxDelayTimeUnit)
@@ -57,6 +61,7 @@ export function BatchDelaySelector({
             }
           }}
           className="text-sm text-content input-regular input-border-regular"
+          disabled={readOnly}
         />
       </div>
 
@@ -78,6 +83,7 @@ export function BatchDelaySelector({
             }
           }}
           className="text-sm text-content input-regular input-border-regular"
+          disabled={readOnly}
         />
       </div>
 
@@ -89,6 +95,7 @@ export function BatchDelaySelector({
             setMaxDelayTimeUnitLocal(value)
           }}
           className="text-sm text-content input-regular input-border-regular"
+          disabled={readOnly}
         />
       </div>
     </div>

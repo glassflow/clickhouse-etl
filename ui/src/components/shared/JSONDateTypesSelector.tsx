@@ -10,15 +10,17 @@ export function JSONDateTypesSelector({
   onChange,
   className,
   isDeduplicationJoin,
+  readOnly,
 }: {
   value: string
   onChange: (value: string) => void
   className?: string
   isDeduplicationJoin?: boolean
+  readOnly?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value} onValueChange={onChange} disabled={readOnly}>
       <SelectTrigger
         className={cn(
           'w-full',

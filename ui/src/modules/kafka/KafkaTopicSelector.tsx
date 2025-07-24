@@ -10,15 +10,27 @@ import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
 import { EventFetchProvider } from '../../components/shared/event-fetcher/EventFetchContext'
+import { FormEditActionButtonGroup } from '@/src/components/shared/FormEditActionButtonGroup'
+import FormActionButton from '@/src/components/shared/FormActionButton'
+import FormActions from '@/src/components/shared/FormActions'
 
 export type TopicSelectorProps = {
   steps: any
   onCompleteStep: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
   currentStep?: string
+  readOnly?: boolean
+  standalone?: boolean
 }
 
-export function KafkaTopicSelector({ steps, onCompleteStep, validate, currentStep }: TopicSelectorProps) {
+export function KafkaTopicSelector({
+  steps,
+  onCompleteStep,
+  validate,
+  currentStep,
+  readOnly,
+  standalone,
+}: TopicSelectorProps) {
   const { topicsStore, kafkaStore, joinStore, configStore } = useStore()
   const { operationsSelected } = configStore
 
@@ -323,20 +335,22 @@ export function KafkaTopicSelector({ steps, onCompleteStep, validate, currentSte
               onManualEventChange={handleManualEventChange}
               availableTopics={availableTopics}
               isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
+              readOnly={readOnly}
             />
           </div>
 
-          {/* Continue Button */}
-          <div className="flex justify-between mt-6">
-            <Button
-              variant="gradient"
-              className="btn-text btn-primary"
-              onClick={handleSubmit}
-              disabled={!(storedEvent || (manualEvent && isManualEventValid))}
-            >
-              Continue
-            </Button>
-          </div>
+          <FormActions
+            standalone={standalone}
+            handleSubmit={handleSubmit}
+            isLoading={false}
+            isSuccess={false}
+            disabled={!!(!storedEvent || (manualEvent && !isManualEventValid))}
+            successText="Continue"
+            loadingText="Loading..."
+            regularText="Continue"
+            actionType="primary"
+            showLoadingIcon={false}
+          />
         </div>
       </div>
     </EventFetchProvider>

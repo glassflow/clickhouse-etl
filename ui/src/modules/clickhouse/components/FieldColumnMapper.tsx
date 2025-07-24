@@ -29,6 +29,7 @@ interface FieldColumnMapperProps {
   primaryTopicName?: string
   secondaryTopicName?: string
   isJoinMapping?: boolean
+  readOnly?: boolean
 }
 
 export function FieldColumnMapper({
@@ -41,6 +42,7 @@ export function FieldColumnMapper({
   primaryTopicName = 'Primary Topic',
   secondaryTopicName = 'Secondary Topic',
   isJoinMapping = false,
+  readOnly,
 }: FieldColumnMapperProps) {
   const [openSelectIndex, setOpenSelectIndex] = useState<number | null>(null)
   const analytics = useJourneyAnalytics()
@@ -85,12 +87,17 @@ export function FieldColumnMapper({
   return (
     <>
       <div className="flex justify-between items-center mb-12">
-        <h3 className="text-lg font-medium text-content">Map incoming event fields to ClickHouse table columns.</h3>
+        <h3 className="text-lg font-medium text-content">
+          Map incoming event fields to ClickHouse table columns.
+          {readOnly && <span className="text-sm text-gray-500 ml-2">(Read-only)</span>}
+        </h3>
         {/* TypeCompatibilityInfo is temporarily hidden */}
         {/* <TypeCompatibilityInfo /> */}
       </div>
 
-      <Table className="[&_tr]:border-0 [&_td]:border-0 [&_th]:border-0 [&_thead]:border-0 [&_tbody]:border-0 border-0">
+      <Table
+        className={`[&_tr]:border-0 [&_td]:border-0 [&_th]:border-0 [&_thead]:border-0 [&_tbody]:border-0 border-0 ${readOnly ? 'opacity-75' : ''}`}
+      >
         <TableHeader className="[&_tr]:border-b-0">
           <TableRow className="border-0">
             <TableHead className="text-content border-0">Fields in incoming event</TableHead>
@@ -107,7 +114,7 @@ export function FieldColumnMapper({
             return (
               <TableRow
                 key={column.name}
-                className="border-0 hover:bg-[var(--color-background-neutral-faded)]"
+                className={`border-0 ${!readOnly ? 'hover:bg-[var(--color-background-neutral-faded)]' : ''}`}
                 style={{
                   transition: 'background-color 0.2s ease-in-out',
                 }}
@@ -125,6 +132,7 @@ export function FieldColumnMapper({
                       secondaryLabel={secondaryTopicName}
                       open={openSelectIndex === index}
                       onOpenChange={(isOpen) => handleSelectOpen(index, isOpen)}
+                      disabled={readOnly}
                     />
                   ) : (
                     <SearchableSelect
@@ -135,6 +143,8 @@ export function FieldColumnMapper({
                       className="w-full"
                       open={openSelectIndex === index}
                       onOpenChange={(isOpen) => handleSelectOpen(index, isOpen)}
+                      disabled={readOnly}
+                      readOnly={readOnly}
                     />
                   )}
                 </TableCell>
@@ -142,8 +152,11 @@ export function FieldColumnMapper({
                   <Select
                     value={column.jsonType || ''}
                     onValueChange={(value) => updateColumnMapping(index, 'jsonType', value)}
+                    disabled={readOnly}
                   >
-                    <SelectTrigger className="w-full bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] hover:bg-[var(--color-background-neutral-faded)] transition-colors text-content select-content-custom">
+                    <SelectTrigger
+                      className={`w-full bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] hover:bg-[var(--color-background-neutral-faded)] transition-colors text-content select-content-custom ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] shadow-md text-content select-content-custom">

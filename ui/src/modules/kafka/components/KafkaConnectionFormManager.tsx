@@ -7,7 +7,8 @@ import { StepKeys } from '@/src/config/constants'
 import { KafkaConnectionFormRenderer } from './KafkaConnectionFormRenderer'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
 import FormActionButton from '@/src/components/shared/FormActionButton'
-import { FormEditActionSet } from '@/src/components/shared/FormEditActionSet'
+import { FormEditActionButtonGroup } from '@/src/components/shared/FormEditActionButtonGroup'
+import FormActions from '@/src/components/shared/FormActions'
 
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<void>
@@ -152,30 +153,18 @@ export const KafkaConnectionFormManager = ({
           readOnly={readOnly}
         />
 
-        <div className="flex gap-4">
-          {standalone && (
-            <FormEditActionSet
-              editModeDefault={false}
-              onEnableEditMode={() => {}}
-              onSaveChanges={() => {}}
-              onDiscardChanges={() => {}}
-            />
-          )}
-
-          {!standalone && (
-            <FormActionButton
-              onClick={submitFormValues}
-              isLoading={isConnecting}
-              isSuccess={connectionResult?.success}
-              disabled={isConnecting}
-              successText="Continue"
-              loadingText="Testing..."
-              regularText="Continue"
-              actionType="primary"
-              showLoadingIcon={true}
-            />
-          )}
-        </div>
+        <FormActions
+          standalone={standalone}
+          handleSubmit={submitFormValues}
+          isLoading={isConnecting}
+          isSuccess={connectionResult?.success}
+          disabled={isConnecting}
+          successText="Continue"
+          loadingText="Testing..."
+          regularText="Continue"
+          actionType="primary"
+          showLoadingIcon={true}
+        />
       </form>
     </FormProvider>
   )
