@@ -59,12 +59,7 @@ export function KafkaTopicSelector({
 
   const index = getIndex()
 
-  const {
-    topics: topicsFromKafka,
-    isLoading: isLoadingTopics,
-    error,
-    fetchTopics,
-  } = useFetchTopics({ kafka: kafkaStore })
+  const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
   const analytics = useJourneyAnalytics()
 
   const {
@@ -341,7 +336,7 @@ export function KafkaTopicSelector({
 
           <FormActions
             standalone={standalone}
-            handleSubmit={handleSubmit}
+            onSubmit={handleSubmit}
             isLoading={false}
             isSuccess={false}
             disabled={!!(!storedEvent || (manualEvent && !isManualEventValid))}

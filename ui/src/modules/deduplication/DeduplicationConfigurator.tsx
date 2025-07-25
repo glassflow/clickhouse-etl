@@ -125,7 +125,7 @@ export function DeduplicationConfigurator({
 
       <FormActions
         standalone={standalone}
-        handleSubmit={handleSave}
+        onSubmit={handleSave}
         isLoading={false}
         isSuccess={false}
         disabled={!canContinue}

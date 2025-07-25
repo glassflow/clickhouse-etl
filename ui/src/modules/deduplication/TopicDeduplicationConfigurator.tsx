@@ -107,7 +107,7 @@ export function TopicDeduplicationConfigurator({
   const isReturningToForm = existingTopic && existingTopic.name
 
   // Fetch topics and events
-  const { topics: topicsFromKafka, isLoading, error, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
+  const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
 
   const { fetchEvent, isLoadingEvent, eventError, event, hasMoreEvents, hasOlderEvents, resetEventState } =
     useFetchEvent(kafkaStore, EventDataFormat.JSON)
@@ -120,7 +120,7 @@ export function TopicDeduplicationConfigurator({
 
   // Fetch topics on component mount
   useEffect(() => {
-    if (availableTopics.length === 0 && !isLoading) {
+    if (availableTopics.length === 0 && !isLoadingTopics) {
       fetchTopics()
     }
 

@@ -945,7 +945,7 @@ export function ClickhouseMapper({ onCompleteStep, standalone, readOnly }: Click
             {/* <TypeCompatibilityInfo /> */}
             <div className="flex gap-2 mt-4">
               <FormActions
-                handleSubmit={saveDestinationConfig}
+                onSubmit={saveDestinationConfig}
                 isLoading={isLoading}
                 isSuccess={!!success}
                 disabled={isLoading}

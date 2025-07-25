@@ -1,6 +1,7 @@
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useState } from 'react'
+import { kafkaApiClient } from '../services/kafka-api-client'
 
 export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
   const [isLoadingEvent, setIsLoadingEvent] = useState(false)
@@ -41,154 +42,44 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
       if (isLoadingEvent) {
         setIsLoadingEvent(false)
         setEventError('Request timed out. Using sample data instead.')
-
-        const mockData = {
-          _mock: true,
-          id: Math.floor(Math.random() * 10000),
-          timestamp: new Date().toISOString(),
-          topic: topic,
-          data: {
-            sample: `This is mock ${getNext ? 'next' : 'first'} data because the actual fetch timed out`,
-            randomValue: Math.random(),
-          },
-          _offset: getNext && currentOffset ? parseInt(currentOffset.toString()) + 1 : 0,
-        }
-
-        setEvent(mockData as unknown as JSON)
-        setCurrentOffset(getNext && currentOffset ? parseInt(currentOffset.toString()) + 1 : null)
+        setEvent(null)
+        setCurrentOffset(null)
       }
     }, 30000)
 
     try {
-      // Base request body with common properties
-      const requestBody: any = {
-        servers: kafka.bootstrapServers,
-        securityProtocol: kafka.securityProtocol,
-        authMethod: kafka.authMethod,
-        topic: topic,
-        format: selectedFormat,
-        runConsumerFirst: true,
-      }
-
-      // Add certificate if using SSL
-      if (kafka.securityProtocol === 'SASL_SSL' || kafka.securityProtocol === 'SSL') {
-        if (kafka.authMethod === 'SASL/SCRAM-256') {
-          requestBody.certificate = kafka.saslScram256.certificate
-        } else if (kafka.authMethod === 'SASL/SCRAM-512') {
-          requestBody.certificate = kafka.saslScram512.certificate
-        } else if (kafka.authMethod === 'SASL/PLAIN') {
-          requestBody.certificate = kafka.saslPlain.certificate
-        } else if (kafka.authMethod === 'NO_AUTH') {
-          requestBody.certificate = kafka.noAuth.certificate
-        } else {
-          // TODO: handle this case more gracefully
-        }
-      }
-
       // Handle different fetch scenarios based on options
       if (options?.position === 'latest') {
-        requestBody.position = 'latest'
         // When requesting latest, we know there are no more events after this
         // but there should be older events before it
         setHasMoreEvents(false)
         setHasOlderEvents(true)
       } else if (options?.position === 'earliest') {
-        requestBody.position = 'earliest'
         // When requesting earliest, we know there are no older events before this
         // but there should be more events after it
         setHasMoreEvents(true)
         setHasOlderEvents(false)
-      } else if (options?.direction === 'previous' && currentOffset !== null) {
-        // For previous event, use the current offset and direction
-        requestBody.direction = 'previous'
-        requestBody.currentOffset = currentOffset
-      } else if (getNext && currentOffset !== null) {
-        // For next event
-        requestBody.getNext = true
-        requestBody.currentOffset = currentOffset
-      } else {
-        // Default case - initial fetch with no specific position
-        console.log('Requesting initial event with no specific position')
       }
 
-      // Add authentication details based on the auth method
-      switch (kafka.authMethod) {
-        case 'SASL/PLAIN':
-          requestBody.username = kafka.saslPlain.username
-          requestBody.password = kafka.saslPlain.password
-          requestBody.consumerGroup = kafka.saslPlain.consumerGroup
-          break
-
-        case 'SASL/JAAS':
-          requestBody.jaasConfig = kafka.saslJaas.jaasConfig
-          break
-
-        case 'SASL/GSSAPI':
-          requestBody.kerberosPrincipal = kafka.saslGssapi.kerberosPrincipal
-          requestBody.kerberosKeytab = kafka.saslGssapi.kerberosKeytab
-          requestBody.kerberosRealm = kafka.saslGssapi.kerberosRealm
-          requestBody.kdc = kafka.saslGssapi.kdc
-          break
-
-        case 'SASL/OAUTHBEARER':
-          requestBody.oauthBearerToken = kafka.saslOauthbearer.oauthBearerToken
-          break
-
-        case 'SASL/SCRAM-256':
-        case 'SASL/SCRAM-512':
-          const scramValues = kafka.authMethod === 'SASL/SCRAM-256' ? kafka.saslScram256 : kafka.saslScram512
-          requestBody.username = scramValues.username
-          requestBody.password = scramValues.password
-          requestBody.consumerGroup = scramValues.consumerGroup
-          break
-
-        case 'AWS_MSK_IAM':
-          requestBody.awsRegion = kafka.awsIam.awsRegion
-          requestBody.awsIAMRoleArn = kafka.awsIam.awsIAMRoleArn
-          requestBody.awsAccessKey = kafka.awsIam.awsAccessKey
-          requestBody.awsAccessKeySecret = kafka.awsIam.awsAccessKeySecret
-          break
-
-        case 'Delegation tokens':
-          requestBody.delegationToken = kafka.delegationTokens.delegationToken
-          break
-
-        case 'SASL/LDAP':
-          requestBody.ldapServerUrl = kafka.ldap.ldapServerUrl
-          requestBody.ldapServerPort = kafka.ldap.ldapServerPort
-          requestBody.ldapBindDn = kafka.ldap.ldapBindDn
-          requestBody.ldapBindPassword = kafka.ldap.ldapBindPassword
-          requestBody.ldapUserSearchFilter = kafka.ldap.ldapUserSearchFilter
-          requestBody.ldapBaseDn = kafka.ldap.ldapBaseDn
-          break
-
-        case 'mTLS':
-          requestBody.clientCert = kafka.mtls.clientCert
-          requestBody.clientKey = kafka.mtls.clientKey
-          requestBody.password = kafka.mtls.password
-          break
-      }
-
-      // Add SSL-specific properties if using SSL
-      // NOTE: This is not used in the current implementation
-      // if (kafka.securityProtocol === 'SASL_SSL' || kafka.securityProtocol === 'SSL') {
-      //   requestBody.truststore = kafka.truststore
-      // }
-
-      const response = await fetch('/api/kafka/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+      const response = await kafkaApiClient.fetchEvent(kafka, {
+        topic,
+        format: selectedFormat,
+        runConsumerFirst: true,
+        getNext,
+        currentOffset: currentOffset?.toString() || null,
+        position: options?.position,
+        direction: options?.direction,
+        currentPosition: currentOffset,
       })
 
       clearTimeout(fetchTimeout)
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch event')
       }
 
-      const data = await response.json()
-      if (data.success) {
+      const data = response.data
+      if (data && data.success) {
         setEvent(data.event)
         setIsLoadingEvent(false)
 
@@ -230,13 +121,13 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
           setEventError(null)
         }
       } else {
-        console.error('API returned error:', data.error)
+        console.error('API returned error:', response.error)
 
         // Handle specific error cases
-        if (data.error && (data.error.includes('end of topic') || data.error.includes('no more events'))) {
+        if (response.error && (response.error.includes('end of topic') || response.error.includes('no more events'))) {
           setHasMoreEvents(false)
           setEventError('No more events available')
-        } else if (data.error && data.error.includes('Timeout waiting for message')) {
+        } else if (response.error && response.error.includes('Timeout waiting for message')) {
           // Handle timeout errors specifically
           if (getNext) {
             setHasMoreEvents(false)
@@ -245,10 +136,10 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
             setHasOlderEvents(false)
             setEventError('No previous events available')
           } else {
-            setEventError(data.error || 'Failed to fetch event')
+            setEventError(response.error || 'Failed to fetch event')
           }
         } else {
-          setEventError(data.error || 'Failed to fetch event')
+          setEventError(response.error || 'Failed to fetch event')
         }
       }
     } catch (error) {
