@@ -5,7 +5,7 @@ import { useStore } from '@/src/store'
 import { EventEditor } from '../EventEditor'
 import { parseForCodeEditor } from '@/src/utils/common.client'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
-import { useFetchEventWithCaching } from '../../../modules/kafka/useFetchEventWithCaching'
+import { useFetchEventWithCaching } from '../../../modules/kafka/hooks/useFetchEventWithCaching'
 import { EventFetcherProps } from './types'
 import { cn } from '@/src/utils/common.client'
 

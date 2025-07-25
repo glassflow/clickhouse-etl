@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react'
-import { EventFetchState } from '../../../modules/kafka/useFetchEventWithCaching'
+import { EventFetchState } from '../../../modules/kafka/hooks/useFetchEventWithCaching'
 import { EventFetchContextType } from './types'
 
 const EventFetchContext = createContext<EventFetchContextType | undefined>(undefined)
