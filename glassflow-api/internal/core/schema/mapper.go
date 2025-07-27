@@ -16,6 +16,7 @@ type Mapper interface {
 	PrepareValues(data []byte) ([]any, error)
 	GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error)
 	JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error)
+	ValidateSchema(streamSchemaName string, data []byte) error
 }
 
 type Stream struct {
@@ -291,6 +292,25 @@ func (m *JsonToClickHouseMapper) GetFieldsMap(streamSchemaName string, data []by
 	}
 
 	return resultedMap, nil
+}
+
+func (m *JsonToClickHouseMapper) ValidateSchema(streamSchemaName string, data []byte) error {
+	if _, exists := m.Streams[streamSchemaName]; !exists {
+		return fmt.Errorf("stream '%s' not found in configuration", streamSchemaName)
+	}
+
+	var jsonData map[string]any
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		return fmt.Errorf("failed to parse JSON data: %w", err)
+	}
+
+	for key := range m.Streams[streamSchemaName].Fields {
+		if _, exists := jsonData[key]; !exists {
+			return fmt.Errorf("field '%s' not found in data for stream '%s'", key, streamSchemaName)
+		}
+	}
+
+	return nil
 }
 
 func (m *JsonToClickHouseMapper) JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error) {

@@ -7,18 +7,25 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/IBM/sarama"
+	"github.com/nats-io/nats.go"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/kafka"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+)
 
-	"github.com/IBM/sarama"
-	"github.com/nats-io/nats.go"
+var (
+	ErrValidateSchema  = errors.New("failed to validate data")
+	ErrDeduplicateData = errors.New("failed to deduplicate data")
+	ErrPublishData     = errors.New("failed to publish message")
 )
 
 type KafkaIngestor struct {
 	consumer     kafka.Consumer
 	publisher    stream.Publisher
+	dlqPublisher stream.Publisher
 	schemaMapper schema.Mapper
 
 	topic models.KafkaTopicsConfig
@@ -30,7 +37,7 @@ type KafkaIngestor struct {
 	log *slog.Logger
 }
 
-func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, natsPub stream.Publisher, schema schema.Mapper, log *slog.Logger) (*KafkaIngestor, error) {
+func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, natsPub, dlqPub stream.Publisher, schema schema.Mapper, log *slog.Logger) (*KafkaIngestor, error) {
 	var topic models.KafkaTopicsConfig
 
 	if topicName == "" {
@@ -46,7 +53,7 @@ func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, na
 		}
 	}
 
-	consumer, err := kafka.NewConsumer(config.KafkaConnectionParams, topic)
+	consumer, err := kafka.NewConsumer(config.KafkaConnectionParams, topic, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
@@ -54,6 +61,7 @@ func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, na
 	return &KafkaIngestor{
 		consumer:      consumer,
 		publisher:     natsPub,
+		dlqPublisher:  dlqPub,
 		schemaMapper:  schema,
 		isClosed:      false,
 		topic:         topic,
@@ -63,13 +71,40 @@ func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, na
 	}, nil
 }
 
+func (k *KafkaIngestor) PushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) {
+	k.log.Error("Pushing message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
+
+	data, err := models.NewDLQMessage(models.RoleIngestor.String(), err.Error(), orgMsg).ToJSON()
+	if err != nil {
+		k.log.Error("Failed to convert DLQ message to JSON", slog.Any("error", err), slog.String("topic", k.topic.Name))
+		return
+	}
+
+	if err := k.dlqPublisher.Publish(ctx, data); err != nil {
+		k.log.Error("Failed to publish message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
+	}
+}
+
 func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 	nMsg := nats.NewMsg(k.publisher.GetSubject())
 	nMsg.Data = msg.Value
 
 	nMsg.Header = k.convertKafkaToNATSHeaders(msg.Headers)
 
+	err := k.schemaMapper.ValidateSchema(k.topic.Name, msg.Value)
+	if err != nil {
+		k.log.Error("Failed to validate data", slog.Any("error", err), slog.String("topic", k.topic.Name))
+		k.PushMsgToDLQ(ctx, msg.Value, ErrValidateSchema)
+		k.commitMsg(ctx, msg)
+		return
+	}
+
 	if k.topic.Deduplication.Enabled {
+		k.log.Debug("Setting up deduplication header for message",
+			slog.String("topic", k.topic.Name),
+			slog.String("dedupKey", k.topic.Deduplication.ID),
+			slog.String("subject", string(msg.Value)),
+		)
 		if err := k.setupDeduplicationHeader(nMsg.Header, msg.Value, k.topic.Deduplication.ID); err != nil {
 			k.log.Error("Failed to setup deduplication header",
 				slog.Any("error", err),
@@ -77,11 +112,13 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 				slog.String("dedupKey", k.topic.Deduplication.ID),
 				slog.String("subject", string(msg.Value)),
 			)
+			k.PushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData)
+			k.commitMsg(ctx, msg)
 			return
 		}
 	}
 
-	err := k.publisher.PublishNatsMsg(ctx, nMsg)
+	err = k.publisher.PublishNatsMsg(ctx, nMsg)
 	if err != nil {
 		k.log.Error("Failed to publish message to NATS",
 			slog.Any("error", err),
@@ -91,11 +128,24 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 		return
 	}
 
-	err = k.consumer.Commit(ctx, msg)
-	if err != nil {
+	k.commitMsg(ctx, msg)
+}
+
+func (k *KafkaIngestor) commitMsg(ctx context.Context, msg kafka.Message) {
+	if msg.Topic == "" || msg.Partition < 0 || msg.Offset < 0 {
+		k.log.Error("Failed to commit messsage: invalid message parameters",
+			slog.String("topic", msg.Topic),
+			slog.String("partition", fmt.Sprint(msg.Partition)),
+			slog.Int64("offset", msg.Offset),
+		)
+
+		return
+	}
+
+	if err := k.consumer.Commit(ctx, msg); err != nil {
 		k.log.Error("Failed to commit Kafka message",
 			slog.Any("error", err),
-			slog.String("topic", k.topic.Name),
+			slog.String("topic", msg.Topic),
 			slog.String("partition", fmt.Sprint(msg.Partition)),
 			slog.Int64("offset", msg.Offset),
 		)
@@ -128,6 +178,16 @@ func (k *KafkaIngestor) setupDeduplicationHeader(headers nats.Header, msgData []
 	if err != nil {
 		return fmt.Errorf("failed to get deduplication key: %w", err)
 	}
+
+	if keyValue == nil {
+		return fmt.Errorf("deduplication key is nil for topic %s", k.topic.Name)
+	}
+
+	k.log.Debug("Setting deduplication header",
+		slog.String("topic", k.topic.Name),
+		slog.String("dedupKey", dedupKey),
+		slog.Any("keyValue", keyValue),
+	)
 
 	headers.Set("Nats-Msg-Id", fmt.Sprintf("%v", keyValue))
 
@@ -175,6 +235,8 @@ func (k *KafkaIngestor) Stop() {
 		k.log.Debug("Kafka ingestor is already stopped.")
 		return
 	}
+
+	k.log.Info("Stopping Kafka ingestor", slog.String("topic", k.topic.Name))
 
 	k.isClosed = true
 

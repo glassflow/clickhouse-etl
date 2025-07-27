@@ -187,16 +187,22 @@ func (b *BaseTestSuite) getMappingConfig(cfg *godog.DocString, target any) error
 	return nil
 }
 
-func (b *BaseTestSuite) createStream(streamName, subjectName string) error {
+func (b *BaseTestSuite) createStream(streamName, subjectName string, timeWindow time.Duration) error {
+	streamConfig := jetstream.StreamConfig{ //nolint:exhaustruct //only necessary fields
+		Name:     streamName,
+		Subjects: []string{subjectName},
+	}
+
+	if timeWindow > 0 {
+		streamConfig.Duplicates = timeWindow
+	}
+
 	js := b.natsClient.JetStream()
 
 	// Create stream if not exists
 	_, err := js.Stream(context.Background(), streamName)
 	if err != nil {
-		_, err = js.CreateOrUpdateStream(context.Background(), jetstream.StreamConfig{ //nolint:exhaustruct //only necessary fields
-			Name:     streamName,
-			Subjects: []string{subjectName},
-		})
+		_, err = js.CreateOrUpdateStream(context.Background(), streamConfig)
 		if err != nil {
 			return fmt.Errorf("create stream: %w", err)
 		}

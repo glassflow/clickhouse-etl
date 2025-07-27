@@ -64,7 +64,7 @@ func (p *PipelineSteps) cleanTopic(topicName string) error {
 }
 
 func (p *PipelineSteps) aRunningNATSJetStream(streamName, subjectName string) error {
-	err := p.createStream(streamName, subjectName)
+	err := p.createStream(streamName, subjectName, 0)
 	if err != nil {
 		return fmt.Errorf("create nats stream: %w", err)
 	}

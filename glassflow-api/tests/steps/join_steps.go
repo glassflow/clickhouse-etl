@@ -86,11 +86,11 @@ func (j *JoinTestSuite) aStreamConsumerConfig(position string, data *godog.DocSt
 func (j *JoinTestSuite) aRunningStream(stream string) error {
 	switch stream {
 	case "left":
-		return j.createStream(j.leftStreamConfig.NatsStream, j.leftStreamConfig.NatsSubject)
+		return j.createStream(j.leftStreamConfig.NatsStream, j.leftStreamConfig.NatsSubject, 0)
 	case "right":
-		return j.createStream(j.rightStreamConfig.NatsStream, j.rightStreamConfig.NatsSubject)
+		return j.createStream(j.rightStreamConfig.NatsStream, j.rightStreamConfig.NatsSubject, 0)
 	case "results":
-		return j.createStream(j.resultsConsumerConfig.NatsStream, j.resultsConsumerConfig.NatsSubject)
+		return j.createStream(j.resultsConsumerConfig.NatsStream, j.resultsConsumerConfig.NatsSubject, 0)
 	default:
 		return fmt.Errorf("unknown stream: %s", stream)
 	}

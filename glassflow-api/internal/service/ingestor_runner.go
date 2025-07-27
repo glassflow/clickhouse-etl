@@ -35,6 +35,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		pipelineCfg.Ingestor,
 		topicName,
 		topicName+".input",
+		models.GetDLQStreamSubjectName(pipelineCfg.ID),
 		i.nc,
 		schemaMapper,
 		i.log,
