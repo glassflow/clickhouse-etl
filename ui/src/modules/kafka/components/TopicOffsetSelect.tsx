@@ -109,8 +109,8 @@ export function TopicOffsetSelect({
           },
         })
 
-        // Force a re-render of the EventFetcher by clearing the current event
-        // This will trigger the useEffect in EventFetcher
+        // Force a re-render of the EventManager by clearing the current event
+        // This will trigger the useEffect in EventManager
         if (topicValue) {
           updateTopic({
             index: index,

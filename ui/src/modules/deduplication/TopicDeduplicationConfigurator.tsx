@@ -9,12 +9,12 @@ import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { KafkaTopicSelectorType } from '@/src/scheme/topics.scheme'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
-import EventFetcher from '@/src/components/shared/event-fetcher/EventFetcher'
+import EventManager from '@/src/components/shared/event-fetcher/EventManager'
 import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { EventDataFormat } from '@/src/config/constants'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
-import { EventFetchProvider } from '../../components/shared/event-fetcher/EventFetchContext'
+import { EventManagerContextProvider } from '../../components/shared/event-fetcher/EventManagerContext'
 
 export type TopicDeduplicationConfiguratorProps = {
   steps: any
@@ -412,7 +412,7 @@ export function TopicDeduplicationConfigurator({
   }
 
   return (
-    <EventFetchProvider>
+    <EventManagerContextProvider>
       <div className="space-y-6 w-full">
         <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
           <div className="grid grid-cols-1 gap-6">
@@ -442,6 +442,6 @@ export function TopicDeduplicationConfigurator({
           </div>
         </div>
       </div>
-    </EventFetchProvider>
+    </EventManagerContextProvider>
   )
 }

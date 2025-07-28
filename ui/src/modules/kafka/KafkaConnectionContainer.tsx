@@ -12,14 +12,14 @@ import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-confi
 
 export function KafkaConnectionContainer({
   steps,
-  onComplete,
+  onCompleteStep,
   validate,
   readOnly = false,
   toggleEditMode,
   standalone,
 }: {
   steps: any
-  onComplete?: (step: StepKeys, standalone?: boolean) => void
+  onCompleteStep?: (step: StepKeys) => void
   validate: () => Promise<boolean>
   standalone?: boolean
   readOnly?: boolean
@@ -198,7 +198,7 @@ export function KafkaConnectionContainer({
       })
     }
 
-    onComplete?.(StepKeys.KAFKA_CONNECTION as StepKeys, standalone)
+    onCompleteStep?.(StepKeys.KAFKA_CONNECTION as StepKeys)
   }
 
   const handleTestConnection = async (values: KafkaConnectionFormType) => {

@@ -9,7 +9,7 @@ import { useFetchEventWithCaching } from '../../../modules/kafka/hooks/useFetchE
 import { EventFetcherProps } from './types'
 import { cn } from '@/src/utils/common.client'
 
-function EventFetcher({
+function EventManager({
   topicName,
   topicIndex,
   initialOffset,
@@ -248,4 +248,4 @@ function EventFetcher({
     </div>
   )
 }
-export default EventFetcher
+export default EventManager

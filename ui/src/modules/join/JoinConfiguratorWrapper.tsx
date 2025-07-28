@@ -1,12 +1,12 @@
 'use client'
 
 import { JoinConfigurator, JoinConfiguratorProps } from './JoinConfigurator'
-import { EventFetchProvider } from '../../components/shared/event-fetcher/EventFetchContext'
+import { EventManagerContextProvider } from '../../components/shared/event-fetcher/EventManagerContext'
 
 export const JoinConfiguratorWrapper = (props: JoinConfiguratorProps) => {
   return (
-    <EventFetchProvider>
+    <EventManagerContextProvider>
       <JoinConfigurator {...props} />
-    </EventFetchProvider>
+    </EventManagerContextProvider>
   )
 }

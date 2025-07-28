@@ -6,7 +6,7 @@ import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
-import EventFetcher from '@/src/components/shared/event-fetcher/EventFetcher'
+import EventManager from '@/src/components/shared/event-fetcher/EventManager'
 import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { useStore } from '@/src/store'
 import { EventDataFormat } from '@/src/config/constants'
@@ -232,7 +232,7 @@ export function TopicSelectWithEventPreview({
 
       {/* Event Preview */}
       <div className="w-[60%] min-h-[450px] h-full">
-        <EventFetcher
+        <EventManager
           topicName={localState.topicName}
           initialOffset={localState.offset}
           topicIndex={index}

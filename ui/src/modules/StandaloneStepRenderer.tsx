@@ -7,7 +7,6 @@ import {
   DeduplicationConfigurator,
   ClickhouseConnectionContainer,
   ClickhouseMapper,
-  TopicDeduplicationConfigurator,
 } from '@/src/modules'
 import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
@@ -68,7 +67,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
     } else if (stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
       setSteps({
         [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
-          component: TopicDeduplicationConfigurator,
+          component: KafkaTopicSelector,
           title: 'Topic Deduplication',
           description: 'Configure topic deduplication settings',
         },
@@ -76,7 +75,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
     } else if (stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
       setSteps({
         [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
-          component: TopicDeduplicationConfigurator,
+          component: KafkaTopicSelector,
           title: 'Topic Deduplication',
           description: 'Configure topic deduplication settings',
         },
@@ -137,28 +136,44 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
   // NOTE: uncomment this to use the modal version
   // return (
   //   <StepRendererModal stepInfo={stepInfo} handleBack={handleBack} onClose={onClose}>
-  //     <CurrentStepComponent
-  //       steps={steps}
-  //       onCompleteStep={handleNext}
-  //       validate={async () => true} // You might want to implement proper validation
-  //       standalone={true}
-  //       onComplete={handleComplete}
-  //       readOnly={false}
-  //     />
+  //     <CurrentStepComponent {...topicSelectorProps} />
   //   </StepRendererModal>
   // )
 
+  // Determine if this is a deduplication configurator step
+  const isDeduplicationStep =
+    stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+
+  // Determine if this is a topic selector step that needs currentStep prop
+  const isTopicSelectorStep =
+    stepType === StepKeys.TOPIC_SELECTION_1 ||
+    stepType === StepKeys.TOPIC_SELECTION_2 ||
+    stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+    stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+
+  // Base props for all components
+  const baseProps = {
+    steps,
+    onCompleteStep: handleNext,
+    validate: async () => true, // You might want to implement proper validation
+    standalone: true,
+    onComplete: handleComplete,
+    readOnly: !editMode,
+    toggleEditMode: () => setEditMode(!editMode),
+  }
+
+  // Additional props for topic selector components
+  const topicSelectorProps = isTopicSelectorStep
+    ? {
+        ...baseProps,
+        currentStep: stepType,
+        enableDeduplication: isDeduplicationStep,
+      }
+    : baseProps
+
   return (
     <StepRendererPageComponent stepInfo={stepInfo} handleBack={handleBack} onClose={onClose}>
-      <CurrentStepComponent
-        steps={steps}
-        onCompleteStep={handleNext}
-        validate={async () => true} // You might want to implement proper validation
-        standalone={true}
-        onComplete={handleComplete}
-        readOnly={!editMode}
-        toggleEditMode={() => setEditMode(!editMode)}
-      />
+      <CurrentStepComponent {...topicSelectorProps} />
     </StepRendererPageComponent>
   )
 }

@@ -2,9 +2,9 @@ import React, { createContext, useContext, useState, ReactNode } from 'react'
 import { EventFetchState } from '../../../modules/kafka/hooks/useFetchEventWithCaching'
 import { EventFetchContextType } from './types'
 
-const EventFetchContext = createContext<EventFetchContextType | undefined>(undefined)
+const EventManagerContext = createContext<EventFetchContextType | undefined>(undefined)
 
-export const EventFetchProvider = ({ children }: { children: ReactNode }) => {
+export const EventManagerContextProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<EventFetchState>({
     event: null,
     currentOffset: null,
@@ -16,14 +16,14 @@ export const EventFetchProvider = ({ children }: { children: ReactNode }) => {
     isEmptyTopic: false,
   })
 
-  return <EventFetchContext.Provider value={{ state, setState }}>{children}</EventFetchContext.Provider>
+  return <EventManagerContext.Provider value={{ state, setState }}>{children}</EventManagerContext.Provider>
 }
 
-export const useEventFetchContext = () => {
-  const ctx = useContext(EventFetchContext)
+export const useEventManagerContext = () => {
+  const ctx = useContext(EventManagerContext)
 
   if (!ctx) {
-    throw new Error('useEventFetchContext must be used within EventFetchProvider')
+    throw new Error('useEventManagerContext must be used within EventManagerContextProvider')
   }
 
   return ctx

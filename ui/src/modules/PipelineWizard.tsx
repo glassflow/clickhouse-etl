@@ -9,7 +9,6 @@ import {
   DeduplicationConfigurator,
   ClickhouseConnectionContainer,
   ClickhouseMapper,
-  TopicDeduplicationConfigurator,
 } from '@/src/modules'
 import { ReviewConfiguration } from '@/src/modules/review/ReviewConfiguration'
 import { StepKeys } from '@/src/config/constants'
@@ -61,8 +60,8 @@ const componentsMap = {
   [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelector,
   [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelector,
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: TopicDeduplicationConfigurator,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: TopicDeduplicationConfigurator,
+  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: KafkaTopicSelector,
+  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: KafkaTopicSelector,
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfiguratorWrapper,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionContainer,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
@@ -245,19 +244,25 @@ function PipelineWizard() {
 
     const StepComponent = stepComponents[stepKey]
 
-    // Pass currentStep prop for KafkaTopicSelector and TopicDeduplicationConfigurator components
+    // Pass currentStep and enableDeduplication props for KafkaTopicSelector components
     if (
       stepKey === StepKeys.TOPIC_SELECTION_1 ||
       stepKey === StepKeys.TOPIC_SELECTION_2 ||
       stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
       stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
     ) {
+      // For deduplication configurator steps, enable deduplication functionality
+      const enableDeduplication =
+        stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+        stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+
       return (
         <StepComponent
           steps={stepsMetadata}
           onCompleteStep={(step: StepKeys) => handleNext(step)}
           validate={validateStep}
           currentStep={stepKey}
+          enableDeduplication={enableDeduplication}
         />
       )
     }

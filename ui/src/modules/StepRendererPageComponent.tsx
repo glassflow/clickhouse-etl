@@ -1,17 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import {
-  KafkaConnectionContainer,
-  KafkaTopicSelector,
-  DeduplicationConfigurator,
-  ClickhouseConnectionContainer,
-  ClickhouseMapper,
-  TopicDeduplicationConfigurator,
-} from '@/src/modules'
-import { StepKeys } from '@/src/config/constants'
-import { useStore } from '@/src/store'
-import { JoinConfigurator } from './join/JoinConfigurator'
+import React from 'react'
 
 interface StepRendererPageComponentProps {
   children: React.ReactNode
