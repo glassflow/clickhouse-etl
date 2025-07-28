@@ -7,7 +7,7 @@ const findPipeline = (id: string): Pipeline | undefined => {
   return mockPipelines.find((p) => p.id === id)
 }
 
-// GET /api/mock/pipelines/{id}
+// GET /api/mock/pipeline/{id}
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const pipeline = findPipeline(id)
@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return NextResponse.json({ success: true, pipeline })
 }
 
-// PATCH /api/mock/pipelines/{id}
+// PATCH /api/mock/pipeline/{id}
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -46,7 +46,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 }
 
-// DELETE /api/mock/pipelines/{id}
+// DELETE /api/mock/pipeline/{id}
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const pipelineIndex = mockPipelines.findIndex((p) => p.id === id)

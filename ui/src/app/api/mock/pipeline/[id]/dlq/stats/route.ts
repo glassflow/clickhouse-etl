@@ -35,7 +35,7 @@ const mockDLQStats: Record<string, DLQStats> = {
   },
 }
 
-// GET /api/mock/pipelines/{id}/dlq/stats
+// GET /api/mock/pipeline/{id}/dlq/stats
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const stats = mockDLQStats[id]

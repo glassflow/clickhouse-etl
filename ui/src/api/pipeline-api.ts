@@ -4,7 +4,7 @@ import type { Pipeline, Schema, Connection, DLQStats, DLQEvent, ApiResponse, Api
 // Pipeline API functions
 export const getPipelines = async (): Promise<Pipeline[]> => {
   try {
-    const url = getApiUrl('pipelines')
+    const url = getApiUrl('pipeline')
     const response = await fetch(url)
     const data = await response.json()
 
@@ -21,7 +21,7 @@ export const getPipelines = async (): Promise<Pipeline[]> => {
 
 export const getPipeline = async (id: string): Promise<Pipeline> => {
   try {
-    const url = getApiUrl(`pipelines/${id}`)
+    const url = getApiUrl(`pipeline/${id}`)
     const response = await fetch(url)
     const data = await response.json()
 
@@ -38,7 +38,7 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
 
 export const createPipeline = async (pipelineData: Partial<Pipeline>): Promise<Pipeline> => {
   try {
-    const url = getApiUrl('pipelines')
+    const url = getApiUrl('pipeline')
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -59,7 +59,7 @@ export const createPipeline = async (pipelineData: Partial<Pipeline>): Promise<P
 
 export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Promise<Pipeline> => {
   try {
-    const url = getApiUrl(`pipelines/${id}`)
+    const url = getApiUrl(`pipeline/${id}`)
     const response = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -80,7 +80,7 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
 
 export const deletePipeline = async (id: string): Promise<void> => {
   try {
-    const url = getApiUrl(`pipelines/${id}`)
+    const url = getApiUrl(`pipeline/${id}`)
     const response = await fetch(url, { method: 'DELETE' })
     const data = await response.json()
 
@@ -96,7 +96,7 @@ export const deletePipeline = async (id: string): Promise<void> => {
 // DLQ API functions
 export const getDLQStats = async (pipelineId: string): Promise<DLQStats> => {
   try {
-    const url = getApiUrl(`pipelines/${pipelineId}/dlq/stats`)
+    const url = getApiUrl(`pipeline/${pipelineId}/dlq/stats`)
     const response = await fetch(url)
     const data = await response.json()
 
@@ -113,7 +113,7 @@ export const getDLQStats = async (pipelineId: string): Promise<DLQStats> => {
 
 export const getDLQEvents = async (pipelineId: string): Promise<DLQEvent[]> => {
   try {
-    const url = getApiUrl(`pipelines/${pipelineId}/dlq`)
+    const url = getApiUrl(`pipeline/${pipelineId}/dlq`)
     const response = await fetch(url)
     const data = await response.json()
 

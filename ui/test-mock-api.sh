@@ -6,26 +6,26 @@ BASE_URL="http://localhost:8080/api/mock"
 echo "🧪 Testing Mock API Endpoints"
 echo "=============================="
 
-# Test pipelines endpoints
-echo -e "\n📋 Testing Pipelines:"
-echo "GET /pipelines"
-curl -s "$BASE_URL/pipelines" | jq '.success, .total'
+# Test pipeline endpoints
+echo -e "\n📋 Testing Pipeline:"
+echo "GET /pipeline"
+curl -s "$BASE_URL/pipeline" | jq '.success, .total'
 
-echo -e "\nGET /pipelines/pipeline-001"
-curl -s "$BASE_URL/pipelines/pipeline-001" | jq '.success, .pipeline.name'
+echo -e "\nGET /pipeline/pipeline-001"
+curl -s "$BASE_URL/pipeline/pipeline-001" | jq '.success, .pipeline.name'
 
-echo -e "\nPOST /pipelines"
-curl -s -X POST "$BASE_URL/pipelines" \
+echo -e "\nPOST /pipeline"
+curl -s -X POST "$BASE_URL/pipeline" \
   -H "Content-Type: application/json" \
   -d '{"name": "Test Pipeline"}' | jq '.success, .pipeline.name'
 
 # Test DLQ endpoints
 echo -e "\n📊 Testing DLQ:"
-echo "GET /pipelines/pipeline-001/dlq/stats"
-curl -s "$BASE_URL/pipelines/pipeline-001/dlq/stats" | jq '.success, .stats.total_failed_events'
+echo "GET /pipeline/pipeline-001/dlq/stats"
+curl -s "$BASE_URL/pipeline/pipeline-001/dlq/stats" | jq '.success, .stats.total_failed_events'
 
-echo -e "\nGET /pipelines/pipeline-001/dlq"
-curl -s "$BASE_URL/pipelines/pipeline-001/dlq" | jq '.success, .total'
+echo -e "\nGET /pipeline/pipeline-001/dlq"
+curl -s "$BASE_URL/pipeline/pipeline-001/dlq" | jq '.success, .total'
 
 # Test schemas endpoints
 echo -e "\n📝 Testing Schemas:"

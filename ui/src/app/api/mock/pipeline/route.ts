@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { mockPipelines as mockPipelinesData } from '../data/pipelines'
 import { Pipeline } from '@/src/types/pipeline'
 
-// GET /api/mock/pipelines
+// GET /api/mock/pipeline
 export async function GET() {
   return NextResponse.json({
     success: true,
@@ -11,7 +11,7 @@ export async function GET() {
   })
 }
 
-// POST /api/mock/pipelines
+// POST /api/mock/pipeline
 export async function POST(request: Request) {
   try {
     const body = await request.json()

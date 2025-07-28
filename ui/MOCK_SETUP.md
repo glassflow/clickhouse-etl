@@ -35,14 +35,14 @@ This guide explains how to use the mock API system to develop the frontend witho
 
 ```
 src/app/api/mock/
-├── pipelines/
-│   ├── route.ts                    # GET /pipelines, POST /pipelines
+├── pipeline/
+│   ├── route.ts                    # GET /pipeline, POST /pipeline
 │   └── [id]/
-│       ├── route.ts                # GET /pipelines/{id}, PATCH /pipelines/{id}, DELETE /pipelines/{id}
+│       ├── route.ts                # GET /pipeline/{id}, PATCH /pipeline/{id}, DELETE /pipeline/{id}
 │       └── dlq/
-│           ├── route.ts            # GET /pipelines/{id}/dlq
+│           ├── route.ts            # GET /pipeline/{id}/dlq
 │           └── stats/
-│               └── route.ts        # GET /pipelines/{id}/dlq/stats
+│               └── route.ts        # GET /pipeline/{id}/dlq/stats
 ├── schemas/
 │   ├── route.ts                    # GET /schemas, POST /schemas
 │   └── [id]/
