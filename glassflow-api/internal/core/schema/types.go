@@ -1,6 +1,10 @@
 package schema
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
 
 type (
 	KafkaDataType      string
@@ -29,6 +33,7 @@ const (
 	KafkaTypeFloat64 KafkaDataType = "float64"
 
 	KafkaTypeBytes KafkaDataType = "bytes"
+	KafkaTypeArray KafkaDataType = "array"
 )
 
 const (
@@ -110,6 +115,10 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 		return ParseFloat32(data)
 	case KafkaTypeFloat64:
 		return ParseFloat64(data)
+	case KafkaTypeArray:
+		// For arrays, we return the array as-is since it's already in the correct format
+		// The actual processing will be done by the ConvertValue function
+		return data, nil
 	default:
 		return zero, nil
 	}
@@ -194,6 +203,20 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s, %s or %s, got %s", KafkaTypeInt64, KafkaTypeFloat64, KafkaTypeString, fieldType)
 	default:
+		// Handle any ClickHouse Array type
+		if strings.HasPrefix(string(columnType), "Array(") {
+			if fieldType == KafkaTypeArray {
+				return data, nil
+			}
+			if arrayData, ok := data.([]any); ok {
+				jsonBytes, err := json.Marshal(arrayData)
+				if err != nil {
+					return zero, fmt.Errorf("failed to marshal array to JSON: %w", err)
+				}
+				return string(jsonBytes), nil
+			}
+			return zero, fmt.Errorf("expected array data for Array type, got %T", data)
+		}
 		return zero, fmt.Errorf("unsupported ClickHouse data type: %s", columnType)
 	}
 }
