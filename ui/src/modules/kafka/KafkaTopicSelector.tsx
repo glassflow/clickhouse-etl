@@ -28,6 +28,7 @@ export type TopicSelectorProps = {
   currentStep?: string
   readOnly?: boolean
   standalone?: boolean
+  toggleEditMode?: () => void
   // NEW: Deduplication-specific props
   enableDeduplication?: boolean
   onDeduplicationChange?: (config: DeduplicationConfig) => void
@@ -41,6 +42,7 @@ export function KafkaTopicSelector({
   currentStep,
   readOnly,
   standalone,
+  toggleEditMode,
   // NEW: Deduplication props with defaults
   enableDeduplication = false,
   onDeduplicationChange,
@@ -508,6 +510,8 @@ export function KafkaTopicSelector({
             regularText="Continue"
             actionType="primary"
             showLoadingIcon={false}
+            readOnly={readOnly}
+            toggleEditMode={toggleEditMode}
           />
 
           {/* NEW: Optional debug indicator for deduplication status */}

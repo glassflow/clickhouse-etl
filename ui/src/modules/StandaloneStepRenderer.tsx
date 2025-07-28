@@ -24,12 +24,15 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
+  // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
 
-  // Initialize steps based on stepType
+  // Initialize steps based on stepType and reset edit mode when step changes
   useEffect(() => {
     if (stepType) {
       setCurrentStep(stepType)
+      // Reset edit mode whenever step type changes
+      setEditMode(false)
     }
 
     if (stepType === StepKeys.KAFKA_CONNECTION) {

@@ -34,7 +34,7 @@ function FormActions({
 }: FormActionsProps) {
   return (
     <div className="flex gap-4">
-      {standalone && (
+      {standalone && toggleEditMode && (
         <FormEditActionButtonGroup
           editMode={!readOnly}
           onSubmit={onSubmit}
@@ -51,7 +51,7 @@ function FormActions({
         />
       )}
 
-      {!standalone && (
+      {(!standalone || !toggleEditMode) && (
         <FormActionButton
           onClick={onSubmit}
           isLoading={isLoading}

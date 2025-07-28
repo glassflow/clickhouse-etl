@@ -16,11 +16,13 @@ export function DeduplicationConfigurator({
   index = 0,
   readOnly,
   standalone,
+  toggleEditMode,
 }: {
   onCompleteStep: (stepName: string) => void
   index: number
   readOnly?: boolean
   standalone?: boolean
+  toggleEditMode?: () => void
 }) {
   const analytics = useJourneyAnalytics()
 
@@ -134,6 +136,8 @@ export function DeduplicationConfigurator({
         regularText="Continue"
         actionType="primary"
         showLoadingIcon={false}
+        readOnly={readOnly}
+        toggleEditMode={toggleEditMode}
       />
     </div>
   )
