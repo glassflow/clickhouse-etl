@@ -8,21 +8,21 @@ echo "=============================="
 
 # Test pipeline endpoints
 echo -e "\n📋 Testing Pipeline:"
-echo "GET /pipeline"
-curl -s "$BASE_URL/pipeline" | jq '.success, .total'
+echo "GET /pipeline (list pipelines)"
+curl -s "$BASE_URL/pipeline" | jq '.success, .total, .pipelines[0].pipeline_id'
 
-echo -e "\nGET /pipeline/pipeline-001"
+echo -e "\nGET /pipeline/pipeline-001 (detailed pipeline)"
 curl -s "$BASE_URL/pipeline/pipeline-001" | jq '.success, .pipeline.name'
 
-echo -e "\nPOST /pipeline"
+echo -e "\nPOST /pipeline (create pipeline)"
 curl -s -X POST "$BASE_URL/pipeline" \
   -H "Content-Type: application/json" \
   -d '{"name": "Test Pipeline"}' | jq '.success, .pipeline.name'
 
 # Test DLQ endpoints
 echo -e "\n📊 Testing DLQ:"
-echo "GET /pipeline/pipeline-001/dlq/stats"
-curl -s "$BASE_URL/pipeline/pipeline-001/dlq/stats" | jq '.success, .stats.total_failed_events'
+echo "GET /pipeline/pipeline-001/dlq/state"
+curl -s "$BASE_URL/pipeline/pipeline-001/dlq/state" | jq '.total_messages, .unconsumed_messages'
 
 echo -e "\nGET /pipeline/pipeline-001/dlq"
 curl -s "$BASE_URL/pipeline/pipeline-001/dlq" | jq '.success, .total'

@@ -1,16 +1,16 @@
 import React from 'react'
-import { Pipeline } from '@/src/types/pipeline'
+import { ListPipelineConfig } from '@/src/types/pipeline'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { cn } from '@/src/utils/common.client'
 
 interface MobilePipelinesListProps {
-  pipelines: Pipeline[]
-  onPause?: (pipeline: Pipeline) => void
-  onEdit?: (pipeline: Pipeline) => void
-  onRename?: (pipeline: Pipeline) => void
-  onDelete?: (pipeline: Pipeline) => void
-  onRowClick?: (pipeline: Pipeline) => void
+  pipelines: ListPipelineConfig[]
+  onPause?: (pipeline: ListPipelineConfig) => void
+  onEdit?: (pipeline: ListPipelineConfig) => void
+  onRename?: (pipeline: ListPipelineConfig) => void
+  onDelete?: (pipeline: ListPipelineConfig) => void
+  onRowClick?: (pipeline: ListPipelineConfig) => void
 }
 
 export function MobilePipelinesList({
@@ -52,7 +52,7 @@ export function MobilePipelinesList({
     <div className="flex flex-col gap-3 p-4">
       {pipelines.map((pipeline, index) => (
         <div
-          key={pipeline.id || index}
+          key={pipeline.pipeline_id || index}
           className={cn(
             'bg-background border border-[var(--color-border-neutral)] rounded-lg p-4 shadow-sm',
             onRowClick && 'cursor-pointer hover:bg-muted/50 transition-colors',
@@ -81,14 +81,14 @@ export function MobilePipelinesList({
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                 Transformation
               </div>
-              <div className="text-sm text-foreground">{pipeline.transformationName || 'None'}</div>
+              <div className="text-sm text-foreground">{pipeline.transformation_type || 'None'}</div>
             </div>
 
             {/* Status */}
             <div>
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Status</div>
               <div>
-                <Badge variant={getStatusVariant(pipeline.status)}>{pipeline.status}</Badge>
+                <Badge variant={getStatusVariant(pipeline.state)}>{pipeline.state}</Badge>
               </div>
             </div>
           </div>

@@ -1,6 +1,38 @@
 // clickhouse-etl/ui/src/app/api/mock/data/pipelines.ts
 
-import type { Pipeline } from '@/src/types/pipeline'
+import type { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
+
+// Mock data for the list endpoint (matches backend ListPipelineConfig)
+export const mockPipelinesList: ListPipelineConfig[] = [
+  {
+    pipeline_id: 'pipeline-001',
+    name: 'Deduplication Pipeline',
+    transformation_type: 'Deduplication',
+    created_at: '2024-01-15T10:30:00Z',
+    state: 'active',
+  },
+  {
+    pipeline_id: 'pipeline-002',
+    name: 'Deduplication & Join Pipeline',
+    transformation_type: 'Join & Deduplication',
+    created_at: '2024-01-12T16:45:00Z',
+    state: 'paused',
+  },
+  {
+    pipeline_id: 'pipeline-003',
+    name: 'Ingest Only Pipeline',
+    transformation_type: 'Ingest Only',
+    created_at: '2024-01-10T09:15:00Z',
+    state: 'active',
+  },
+  {
+    pipeline_id: 'pipeline-004',
+    name: 'Join Pipeline',
+    transformation_type: 'Join',
+    created_at: '2024-01-12T16:45:00Z',
+    state: 'paused',
+  },
+]
 
 export const mockPipelines: Pipeline[] = [
   {

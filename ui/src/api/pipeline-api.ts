@@ -1,8 +1,18 @@
 import { getApiUrl, isMockMode } from '@/src/utils/mock-api'
-import type { Pipeline, Schema, Connection, DLQStats, DLQEvent, ApiResponse, ApiError } from '@/src/types/pipeline'
+import type {
+  Pipeline,
+  ListPipelineConfig,
+  Schema,
+  Connection,
+  DLQStats,
+  DLQState,
+  DLQEvent,
+  ApiResponse,
+  ApiError,
+} from '@/src/types/pipeline'
 
 // Pipeline API functions
-export const getPipelines = async (): Promise<Pipeline[]> => {
+export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
   try {
     const url = getApiUrl('pipeline')
     const response = await fetch(url)
@@ -108,6 +118,23 @@ export const getDLQStats = async (pipelineId: string): Promise<DLQStats> => {
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to fetch DLQ stats' } as ApiError
+  }
+}
+
+export const getDLQState = async (pipelineId: string): Promise<DLQState> => {
+  try {
+    const url = getApiUrl(`pipeline/${pipelineId}/dlq/state`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw { code: response.status, message: 'Failed to fetch DLQ state' } as ApiError
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch DLQ state' } as ApiError
   }
 }
 

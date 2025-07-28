@@ -45,7 +45,7 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
         <PipelineDetailsHeader title={pipeline.name} status={pipeline.status} />
       </div>
       <div className="flex flex-col gap-4">
-        <PipelineStatusOverviewSection />
+        <PipelineStatusOverviewSection pipeline={pipeline} />
       </div>
       <div className="flex flex-row gap-4">
         <div className="flex flex-col gap-4 w-1/6">

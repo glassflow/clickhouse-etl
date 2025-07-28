@@ -1,5 +1,22 @@
 // Shared pipeline types used across the application
 
+// Type for pipeline list endpoint (matches backend ListPipelineConfig)
+export interface ListPipelineConfig {
+  pipeline_id: string
+  name: string
+  transformation_type: 'Join' | 'Join & Deduplication' | 'Deduplication' | 'Ingest Only'
+  created_at: string
+  state: string
+}
+
+// Type for DLQ state (matches backend dlqStateResponse)
+export interface DLQState {
+  last_received_at: string | null
+  last_consumed_at: string | null
+  total_messages: number
+  unconsumed_messages: number
+}
+
 export interface Pipeline {
   id: string
   name: string

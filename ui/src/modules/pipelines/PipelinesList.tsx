@@ -12,7 +12,7 @@ import TrashIcon from '../../images/trash.svg'
 import ModifyIcon from '../../images/modify.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { Feedback } from './Feedback'
-import { Pipeline } from '@/src/types/pipeline'
+import { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { PipelinesTable, TableColumn } from '@/src/modules/pipelines/PipelinesTable'
 import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
 import { Badge } from '@/src/components/ui/badge'
@@ -28,7 +28,7 @@ import { usePausePipelineModal, useDeletePipelineModal, useRenamePipelineModal, 
 
 type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'delete_failed' | 'no_configuration'
 
-export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
+export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }) {
   const analytics = useJourneyAnalytics()
   const { configStore, resetAllPipelineState } = useStore()
   const { pipelineId, setPipelineId } = configStore
@@ -194,7 +194,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   }
 
   // Define table columns for desktop
-  const columns: TableColumn<Pipeline>[] = [
+  const columns: TableColumn<ListPipelineConfig>[] = [
     {
       key: 'name',
       header: 'Name',
@@ -205,7 +205,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
       key: 'operations',
       header: 'Transformation',
       width: '2fr',
-      render: (pipeline) => pipeline?.transformationName || 'None',
+      render: (pipeline) => pipeline.transformation_type || 'None',
     },
     {
       key: 'status',
@@ -227,7 +227,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
           }
         }
 
-        return <Badge variant={getStatusVariant(pipeline.status)}>{pipeline.status}</Badge>
+        return <Badge variant={getStatusVariant(pipeline.state)}>{pipeline.state}</Badge>
       },
     },
     {
@@ -246,23 +246,23 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
   ]
 
   // Context menu handlers
-  const handlePause = (pipeline: Pipeline) => {
-    console.log('Pause pipeline:', pipeline.id)
+  const handlePause = (pipeline: ListPipelineConfig) => {
+    console.log('Pause pipeline:', pipeline.pipeline_id)
     openPauseModal()
   }
 
-  const handleEdit = (pipeline: Pipeline) => {
-    console.log('Edit pipeline:', pipeline.id)
+  const handleEdit = (pipeline: ListPipelineConfig) => {
+    console.log('Edit pipeline:', pipeline.pipeline_id)
     openEditModal()
   }
 
-  const handleRename = (pipeline: Pipeline) => {
-    console.log('Rename pipeline:', pipeline.id)
+  const handleRename = (pipeline: ListPipelineConfig) => {
+    console.log('Rename pipeline:', pipeline.pipeline_id)
     openRenameModal()
   }
 
-  const handleDelete = (pipeline: Pipeline) => {
-    console.log('Delete pipeline:', pipeline.id)
+  const handleDelete = (pipeline: ListPipelineConfig) => {
+    console.log('Delete pipeline:', pipeline.pipeline_id)
     openDeleteModal()
   }
 
@@ -287,7 +287,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
           data={pipelines}
           columns={columns}
           emptyMessage="No pipelines found. Create your first pipeline to get started."
-          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.id}`)}
+          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
         />
       </div>
 
@@ -299,7 +299,7 @@ export function PipelinesList({ pipelines }: { pipelines: Pipeline[] }) {
           onEdit={handleEdit}
           onRename={handleRename}
           onDelete={handleDelete}
-          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.id}`)}
+          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
         />
       </div>
 

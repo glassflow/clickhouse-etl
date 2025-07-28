@@ -5,10 +5,10 @@ import { PipelinesList } from '@/src/modules/pipelines/PipelinesList'
 import { NoPipelines } from '@/src/modules/pipelines/NoPipelines'
 
 import { getPipelines } from '@/src/api/pipeline-api'
-import { Pipeline } from '@/src/types/pipeline'
+import { ListPipelineConfig } from '@/src/types/pipeline'
 
 export default function PipelinesPage() {
-  const [pipelines, setPipelines] = useState<Pipeline[]>([])
+  const [pipelines, setPipelines] = useState<ListPipelineConfig[]>([])
 
   const fetchPipelines = async () => {
     const pipelines = await getPipelines()

@@ -55,25 +55,25 @@ src/app/api/mock/
 
 ### API Endpoints Supported
 
-| Endpoint                             | Method | Mock Response           |
-| ------------------------------------ | ------ | ----------------------- |
-| `/api/mock/pipelines`                | GET    | List all pipelines      |
-| `/api/mock/pipelines`                | POST   | Create new pipeline     |
-| `/api/mock/pipelines/{id}`           | GET    | Get specific pipeline   |
-| `/api/mock/pipelines/{id}`           | PATCH  | Update pipeline         |
-| `/api/mock/pipelines/{id}`           | DELETE | Delete pipeline         |
-| `/api/mock/pipelines/{id}/dlq/stats` | GET    | DLQ statistics          |
-| `/api/mock/pipelines/{id}/dlq`       | GET    | DLQ events              |
-| `/api/mock/schemas`                  | GET    | List all schemas        |
-| `/api/mock/schemas`                  | POST   | Create new schema       |
-| `/api/mock/schemas/{id}`             | GET    | Get specific schema     |
-| `/api/mock/schemas/{id}`             | PATCH  | Update schema           |
-| `/api/mock/schemas/{id}`             | DELETE | Delete schema           |
-| `/api/mock/connections`              | GET    | List all connections    |
-| `/api/mock/connections`              | POST   | Create new connection   |
-| `/api/mock/connections/{id}`         | GET    | Get specific connection |
-| `/api/mock/connections/{id}`         | PATCH  | Update connection       |
-| `/api/mock/connections/{id}`         | DELETE | Delete connection       |
+| Endpoint                            | Method | Mock Response                            |
+| ----------------------------------- | ------ | ---------------------------------------- |
+| `/api/mock/pipeline`                | GET    | List of pipelines (ListPipelineConfig[]) |
+| `/api/mock/pipeline`                | POST   | Create new pipeline                      |
+| `/api/mock/pipeline/{id}`           | GET    | Get detailed pipeline                    |
+| `/api/mock/pipeline/{id}`           | PATCH  | Update pipeline                          |
+| `/api/mock/pipeline/{id}`           | DELETE | Delete pipeline                          |
+| `/api/mock/pipeline/{id}/dlq`       | GET    | Get DLQ events                           |
+| `/api/mock/pipeline/{id}/dlq/state` | GET    | Get DLQ state (matches backend)          |
+| `/api/mock/schemas`                 | GET    | List all schemas                         |
+| `/api/mock/schemas`                 | POST   | Create new schema                        |
+| `/api/mock/schemas/{id}`            | GET    | Get specific schema                      |
+| `/api/mock/schemas/{id}`            | PATCH  | Update schema                            |
+| `/api/mock/schemas/{id}`            | DELETE | Delete schema                            |
+| `/api/mock/connections`             | GET    | List all connections                     |
+| `/api/mock/connections`             | POST   | Create new connection                    |
+| `/api/mock/connections/{id}`        | GET    | Get specific connection                  |
+| `/api/mock/connections/{id}`        | PATCH  | Update connection                        |
+| `/api/mock/connections/{id}`        | DELETE | Delete connection                        |
 
 ## Configuration
 
