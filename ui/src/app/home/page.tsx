@@ -71,8 +71,8 @@ function HomePageClient() {
   const { topicsStore, kafkaStore, joinStore, configStore, resetAllPipelineState } = useStore()
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
-  const showWarning = searchParams.get('showWarning') === 'true'
-  const fromPath = searchParams.get('from')
+  const showWarning = searchParams?.get('showWarning') === 'true'
+  const fromPath = searchParams?.get('from')
   const [showWarningModal, setShowWarningModal] = useState(showWarning)
   const router = useRouter()
   const [pendingOperation, setPendingOperation] = useState<string | null>(null)
