@@ -153,7 +153,7 @@ const JoinDeduplicationCase = ({
             leftTopic?.deduplication?.enabled ? leftTopic.deduplication.id_field : 'None',
           ]}
           width="full"
-          onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
+          onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)}
         />
 
         <DoubleColumnCard
@@ -163,7 +163,7 @@ const JoinDeduplicationCase = ({
             rightTopic?.name || 'N/A',
           ]}
           width="full"
-          onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
+          onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)}
         />
       </div>
 
