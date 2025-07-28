@@ -93,6 +93,18 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, toPipelineJSON(p))
 }
 
+// TODO: set up pagination to avoid unsavory memory errors
+func (h *handler) getPipelines(w http.ResponseWriter, r *http.Request) {
+	pipelines, err := h.pipelineManager.GetPipelines(r.Context())
+	if err != nil {
+		h.log.Error("Unable to list pipelines", slog.Any("error", err))
+		serverError(w)
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, pipelines)
+}
+
 type pipelineJSON struct {
 	PipelineID string `json:"pipeline_id"`
 	Source     struct {

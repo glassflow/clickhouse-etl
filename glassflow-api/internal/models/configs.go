@@ -323,12 +323,55 @@ func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig
 }
 
 type PipelineConfig struct {
-	ID       string                 `json:"pipeline_id"`
-	Mapper   MapperConfig           `json:"mapper"`
-	Ingestor IngestorOperatorConfig `json:"ingestor"`
-	Join     JoinOperatorConfig     `json:"join"`
-	Sink     SinkOperatorConfig     `json:"sink"`
+	ID        string                 `json:"pipeline_id"`
+	Mapper    MapperConfig           `json:"mapper"`
+	Ingestor  IngestorOperatorConfig `json:"ingestor"`
+	Join      JoinOperatorConfig     `json:"join"`
+	Sink      SinkOperatorConfig     `json:"sink"`
+	CreatedAt time.Time              `json:"created_at"`
 }
+
+// TODO: add name and status to pipeline
+func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
+	transformation := IngestTransformation
+
+	if pc.Join.Enabled {
+		transformation = JoinTransformation
+	}
+
+	for _, t := range pc.Ingestor.KafkaTopics {
+		if t.Deduplication.Enabled {
+			if pc.Join.Enabled {
+				transformation = DedupJoinTransformation
+			} else {
+				transformation = DedupTransformation
+			}
+		}
+	}
+
+	return ListPipelineConfig{
+		ID:             pc.ID,
+		Name:           pc.ID,
+		Transformation: transformation,
+		CreatedAt:      pc.CreatedAt,
+		State:          "",
+	}
+}
+
+type ListPipelineConfig struct {
+	ID             string             `json:"pipeline_id"`
+	Name           string             `json:"name"`
+	Transformation TransformationType `json:"transformation_type"`
+	CreatedAt      time.Time          `json:"created_at"`
+	State          string             `json:"state"`
+}
+
+type TransformationType string
+
+const JoinTransformation TransformationType = "Join"
+const DedupJoinTransformation TransformationType = "Join & Deduplication"
+const DedupTransformation TransformationType = "Deduplication"
+const IngestTransformation TransformationType = "Ingest Only"
 
 type PipelineConfigError struct {
 	Msg string
@@ -340,11 +383,12 @@ func (e PipelineConfigError) Error() string {
 
 func NewPipelineConfig(id string, mc MapperConfig, ic IngestorOperatorConfig, jc JoinOperatorConfig, sc SinkOperatorConfig) PipelineConfig {
 	return PipelineConfig{
-		ID:       id,
-		Mapper:   mc,
-		Ingestor: ic,
-		Join:     jc,
-		Sink:     sc,
+		ID:        id,
+		Mapper:    mc,
+		Ingestor:  ic,
+		Join:      jc,
+		Sink:      sc,
+		CreatedAt: time.Now().UTC(),
 	}
 }
 
