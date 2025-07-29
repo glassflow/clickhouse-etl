@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { mockPipelines as mockPipelinesData, mockPipelinesList } from '../data/pipelines'
+import { mockPipelines as mockPipelinesData, getMockPipelinesList } from '../data/pipelines'
 import { Pipeline } from '@/src/types/pipeline'
 
 // GET /api/mock/pipeline - Returns list of pipelines (matches backend ListPipelineConfig)
 export async function GET() {
   return NextResponse.json({
     success: true,
-    pipelines: mockPipelinesList,
-    total: mockPipelinesList.length,
+    pipelines: getMockPipelinesList(),
+    total: getMockPipelinesList().length,
   })
 }
 

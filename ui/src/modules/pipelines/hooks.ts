@@ -2,10 +2,21 @@ import { useState } from 'react'
 
 export function usePausePipelineModal() {
   const [isPauseModalVisible, setIsPauseModalVisible] = useState(false)
-  const openPauseModal = () => setIsPauseModalVisible(true)
-  const closePauseModal = () => setIsPauseModalVisible(false)
+  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+
+  const openPauseModal = (pipeline?: any) => {
+    setSelectedPipeline(pipeline)
+    setIsPauseModalVisible(true)
+  }
+
+  const closePauseModal = () => {
+    setIsPauseModalVisible(false)
+    setSelectedPipeline(null)
+  }
+
   return {
     isPauseModalVisible,
+    selectedPipeline,
     openPauseModal,
     closePauseModal,
     onOk: closePauseModal,
@@ -39,10 +50,21 @@ export function useRenamePipelineModal() {
 
 export function useEditPipelineModal() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
-  const openEditModal = () => setIsEditModalVisible(true)
-  const closeEditModal = () => setIsEditModalVisible(false)
+  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+
+  const openEditModal = (pipeline?: any) => {
+    setSelectedPipeline(pipeline)
+    setIsEditModalVisible(true)
+  }
+
+  const closeEditModal = () => {
+    setIsEditModalVisible(false)
+    setSelectedPipeline(null)
+  }
+
   return {
     isEditModalVisible,
+    selectedPipeline,
     openEditModal,
     closeEditModal,
     onOk: closeEditModal,
@@ -52,10 +74,21 @@ export function useEditPipelineModal() {
 
 export function useDeletePipelineModal() {
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false)
-  const openDeleteModal = () => setIsDeleteModalVisible(true)
-  const closeDeleteModal = () => setIsDeleteModalVisible(false)
+  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+
+  const openDeleteModal = (pipeline?: any) => {
+    setSelectedPipeline(pipeline)
+    setIsDeleteModalVisible(true)
+  }
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalVisible(false)
+    setSelectedPipeline(null)
+  }
+
   return {
     isDeleteModalVisible,
+    selectedPipeline,
     openDeleteModal,
     closeDeleteModal,
     onOk: closeDeleteModal,

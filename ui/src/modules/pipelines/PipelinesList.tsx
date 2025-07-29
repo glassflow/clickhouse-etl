@@ -26,22 +26,93 @@ import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
 import { usePausePipelineModal, useDeletePipelineModal, useRenamePipelineModal, useEditPipelineModal } from './hooks'
 import { PipelineStatus } from '@/src/types/pipeline'
+import { pausePipeline, resumePipeline, deletePipeline, renamePipeline } from '@/src/api/pipeline-api'
+import Image from 'next/image'
+import Loader from '@/src/images/loader-small.svg'
 
-export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }) {
+type PipelinesListProps = {
+  pipelines: ListPipelineConfig[]
+  onRefresh?: () => Promise<void>
+  onUpdatePipelineStatus?: (pipelineId: string, status: PipelineStatus) => void
+  onUpdatePipelineName?: (pipelineId: string, newName: string) => void
+  onRemovePipeline?: (pipelineId: string) => void
+}
+
+export function PipelinesList({
+  pipelines,
+  onRefresh,
+  onUpdatePipelineStatus,
+  onUpdatePipelineName,
+  onRemovePipeline,
+}: PipelinesListProps) {
   const analytics = useJourneyAnalytics()
   const { configStore, resetAllPipelineState } = useStore()
   const { pipelineId, setPipelineId } = configStore
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
-  const { isRenameModalVisible, selectedPipeline, openRenameModal, closeRenameModal } = useRenamePipelineModal()
-  const { isDeleteModalVisible, openDeleteModal, closeDeleteModal } = useDeletePipelineModal()
-  const { isPauseModalVisible, openPauseModal, closePauseModal } = usePausePipelineModal()
-  const { isEditModalVisible, openEditModal, closeEditModal } = useEditPipelineModal()
+  const {
+    isRenameModalVisible,
+    selectedPipeline: renameSelectedPipeline,
+    openRenameModal,
+    closeRenameModal,
+  } = useRenamePipelineModal()
+  const {
+    isDeleteModalVisible,
+    selectedPipeline: deleteSelectedPipeline,
+    openDeleteModal,
+    closeDeleteModal,
+  } = useDeletePipelineModal()
+  const {
+    isPauseModalVisible,
+    selectedPipeline: pauseSelectedPipeline,
+    openPauseModal,
+    closePauseModal,
+  } = usePausePipelineModal()
+  const {
+    isEditModalVisible,
+    selectedPipeline: editSelectedPipeline,
+    openEditModal,
+    closeEditModal,
+  } = useEditPipelineModal()
   const [processEvents, setProcessEvents] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
 
+  // Track loading operations for individual pipelines
+  const [pipelineOperations, setPipelineOperations] = useState<
+    Record<
+      string,
+      {
+        isLoading: boolean
+        operation: 'pause' | 'resume' | 'delete' | 'rename' | 'edit' | null
+      }
+    >
+  >({})
+
   const router = useRouter()
   const [isRedirecting, setIsRedirecting] = useState(false)
+
+  // Helper functions to manage pipeline operation state
+  const setPipelineLoading = (pipelineId: string, operation: 'pause' | 'resume' | 'delete' | 'rename' | 'edit') => {
+    setPipelineOperations((prev) => ({
+      ...prev,
+      [pipelineId]: { isLoading: true, operation },
+    }))
+  }
+
+  const clearPipelineLoading = (pipelineId: string) => {
+    setPipelineOperations((prev) => ({
+      ...prev,
+      [pipelineId]: { isLoading: false, operation: null },
+    }))
+  }
+
+  const isPipelineLoading = (pipelineId: string) => {
+    return pipelineOperations[pipelineId]?.isLoading || false
+  }
+
+  const getPipelineOperation = (pipelineId: string) => {
+    return pipelineOperations[pipelineId]?.operation || null
+  }
 
   // Check if feedback was already submitted
   useEffect(() => {
@@ -198,7 +269,28 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
       key: 'name',
       header: 'Name',
       width: '2fr',
-      render: (pipeline) => <span className="font-medium">{pipeline.name}</span>,
+      render: (pipeline) => {
+        const isLoading = isPipelineLoading(pipeline.pipeline_id)
+        const operation = getPipelineOperation(pipeline.pipeline_id)
+
+        return (
+          <div className="flex items-center gap-2">
+            {isLoading && (
+              <div className="flex items-center gap-1">
+                <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
+                <span className="text-xs text-blue-600">
+                  {operation === 'pause' && 'Pausing...'}
+                  {operation === 'resume' && 'Resuming...'}
+                  {operation === 'delete' && 'Deleting...'}
+                  {operation === 'rename' && 'Renaming...'}
+                  {operation === 'edit' && 'Editing...'}
+                </span>
+              </div>
+            )}
+            <span className="font-medium">{pipeline.name}</span>
+          </div>
+        )
+      },
     },
     {
       key: 'operations',
@@ -239,7 +331,10 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
       width: '1fr',
       render: (pipeline) => (
         <TableContextMenu
+          pipelineStatus={pipeline.state as Pipeline['status']}
+          isLoading={isPipelineLoading(pipeline.pipeline_id)}
           onPause={() => handlePause(pipeline)}
+          onResume={() => handleResume(pipeline)}
           onEdit={() => handleEdit(pipeline)}
           onRename={() => handleRename(pipeline)}
           onDelete={() => handleDelete(pipeline)}
@@ -251,12 +346,35 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
   // Context menu handlers
   const handlePause = (pipeline: ListPipelineConfig) => {
     console.log('Pause pipeline:', pipeline.pipeline_id)
-    openPauseModal()
+    openPauseModal(pipeline)
+  }
+
+  const handleResume = async (pipeline: ListPipelineConfig) => {
+    console.log('Resume pipeline:', pipeline.pipeline_id)
+    setPipelineLoading(pipeline.pipeline_id, 'resume')
+
+    // Optimistically update status to show transitional state
+    const currentStatus = pipeline.state as PipelineStatus
+    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deploying') // Use deploying as transitional state for resume
+
+    try {
+      await resumePipeline(pipeline.pipeline_id)
+      console.log('Pipeline resumed successfully:', pipeline.pipeline_id)
+
+      // Refetch data to get the actual updated status
+      await onRefresh?.()
+    } catch (error) {
+      console.error('Failed to resume pipeline:', error)
+      // Revert optimistic update on error
+      onUpdatePipelineStatus?.(pipeline.pipeline_id, currentStatus)
+    } finally {
+      clearPipelineLoading(pipeline.pipeline_id)
+    }
   }
 
   const handleEdit = (pipeline: ListPipelineConfig) => {
     console.log('Edit pipeline:', pipeline.pipeline_id)
-    openEditModal()
+    openEditModal(pipeline)
   }
 
   const handleRename = (pipeline: ListPipelineConfig) => {
@@ -266,7 +384,7 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
 
   const handleDelete = (pipeline: ListPipelineConfig) => {
     console.log('Delete pipeline:', pipeline.pipeline_id)
-    openDeleteModal()
+    openDeleteModal(pipeline)
   }
 
   const handleCreate = () => {
@@ -299,17 +417,40 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
         <MobilePipelinesList
           pipelines={pipelines}
           onPause={handlePause}
+          onResume={handleResume}
           onEdit={handleEdit}
           onRename={handleRename}
           onDelete={handleDelete}
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
+          isPipelineLoading={isPipelineLoading}
+          getPipelineOperation={getPipelineOperation}
         />
       </div>
 
       <PausePipelineModal
         visible={isPauseModalVisible}
-        onOk={() => {
-          closePauseModal()
+        onOk={async () => {
+          if (!pauseSelectedPipeline) return
+
+          closePauseModal() // Close modal immediately
+          setPipelineLoading(pauseSelectedPipeline.pipeline_id, 'pause')
+
+          // Optimistically update status to 'pausing'
+          onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'pausing')
+
+          try {
+            await pausePipeline(pauseSelectedPipeline.pipeline_id)
+            console.log('Pipeline paused successfully:', pauseSelectedPipeline.pipeline_id)
+
+            // Refetch data to get the actual updated status
+            await onRefresh?.()
+          } catch (error) {
+            console.error('Failed to pause pipeline:', error)
+            // Revert optimistic update on error
+            onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'active')
+          } finally {
+            clearPipelineLoading(pauseSelectedPipeline.pipeline_id)
+          }
         }}
         onCancel={() => {
           closePauseModal()
@@ -317,11 +458,30 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
       />
       <RenamePipelineModal
         visible={isRenameModalVisible}
-        currentName={selectedPipeline?.pipeline_name || ''}
-        onOk={(newName) => {
-          // TODO: Implement actual rename API call
-          console.log('Renaming pipeline', selectedPipeline?.pipeline_id, 'to', newName)
-          closeRenameModal()
+        currentName={renameSelectedPipeline?.name || ''}
+        onOk={async (newName) => {
+          if (!renameSelectedPipeline || !newName) return
+
+          closeRenameModal() // Close modal immediately
+          setPipelineLoading(renameSelectedPipeline.pipeline_id, 'rename')
+
+          // Optimistically update the name
+          const oldName = renameSelectedPipeline.name
+          onUpdatePipelineName?.(renameSelectedPipeline.pipeline_id, newName)
+
+          try {
+            await renamePipeline(renameSelectedPipeline.pipeline_id, newName)
+            console.log('Pipeline renamed successfully:', renameSelectedPipeline.pipeline_id, 'to', newName)
+
+            // Refetch data to ensure consistency
+            await onRefresh?.()
+          } catch (error) {
+            console.error('Failed to rename pipeline:', error)
+            // Revert optimistic update on error
+            onUpdatePipelineName?.(renameSelectedPipeline.pipeline_id, oldName)
+          } finally {
+            clearPipelineLoading(renameSelectedPipeline.pipeline_id)
+          }
         }}
         onCancel={() => {
           closeRenameModal()
@@ -329,8 +489,27 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
       />
       <EditPipelineModal
         visible={isEditModalVisible}
-        onOk={() => {
-          closeEditModal()
+        onOk={async () => {
+          if (!editSelectedPipeline) return
+
+          closeEditModal() // Close modal immediately
+          setPipelineLoading(editSelectedPipeline.pipeline_id, 'edit')
+
+          try {
+            // TODO: Implement edit pipeline API call when available
+            // await editPipeline(editSelectedPipeline.pipeline_id, editData)
+            console.log('Pipeline edit initiated:', editSelectedPipeline.pipeline_id)
+
+            // Simulate edit operation
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+
+            // Refetch data after edit operation completes
+            await onRefresh?.()
+          } catch (error) {
+            console.error('Failed to edit pipeline:', error)
+          } finally {
+            clearPipelineLoading(editSelectedPipeline.pipeline_id)
+          }
         }}
         onCancel={() => {
           closeEditModal()
@@ -338,9 +517,34 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
       />
       <DeletePipelineModal
         visible={isDeleteModalVisible}
-        onOk={(processEvents) => {
-          closeDeleteModal()
-          console.log(processEvents)
+        onOk={async (processEvents) => {
+          if (!deleteSelectedPipeline) return
+
+          closeDeleteModal() // Close modal immediately
+          setPipelineLoading(deleteSelectedPipeline.pipeline_id, 'delete')
+
+          // Optimistically update status to 'deleting'
+          onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, 'deleting')
+
+          try {
+            await deletePipeline(deleteSelectedPipeline.pipeline_id, processEvents)
+            console.log(
+              'Pipeline deleted successfully:',
+              deleteSelectedPipeline.pipeline_id,
+              'graceful:',
+              processEvents,
+            )
+
+            // Remove pipeline from list or refetch data
+            onRemovePipeline?.(deleteSelectedPipeline.pipeline_id)
+            await onRefresh?.()
+          } catch (error) {
+            console.error('Failed to delete pipeline:', error)
+            // Revert optimistic update on error
+            onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, deleteSelectedPipeline.state)
+          } finally {
+            clearPipelineLoading(deleteSelectedPipeline.pipeline_id)
+          }
         }}
         onCancel={() => {
           closeDeleteModal()

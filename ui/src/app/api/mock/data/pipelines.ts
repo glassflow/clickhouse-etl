@@ -2,41 +2,32 @@
 
 import type { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 
-// Mock data for the list endpoint (matches backend ListPipelineConfig)
-export const mockPipelinesList: ListPipelineConfig[] = [
-  {
-    pipeline_id: 'pipeline-001',
-    name: 'Deduplication Pipeline',
-    transformation_type: 'Deduplication',
-    created_at: '2024-01-15T10:30:00Z',
-    state: 'active',
-  },
-  {
-    pipeline_id: 'pipeline-002',
-    name: 'Deduplication & Join Pipeline',
-    transformation_type: 'Join & Deduplication',
-    created_at: '2024-01-12T16:45:00Z',
-    state: 'paused',
-  },
-  {
-    pipeline_id: 'pipeline-003',
-    name: 'Ingest Only Pipeline',
-    transformation_type: 'Ingest Only',
-    created_at: '2024-01-10T09:15:00Z',
-    state: 'active',
-  },
-  {
-    pipeline_id: 'pipeline-004',
-    name: 'Join Pipeline',
-    transformation_type: 'Join',
-    created_at: '2024-01-12T16:45:00Z',
-    state: 'paused',
-  },
-]
-
 // Utility function to find a pipeline by ID
 export const findPipeline = (id: string): Pipeline | undefined => {
   return mockPipelines.find((p) => p.id === id)
+}
+
+// Utility function to convert Pipeline to ListPipelineConfig
+const pipelineToListConfig = (pipeline: Pipeline): ListPipelineConfig => ({
+  pipeline_id: pipeline.id,
+  name: pipeline.name,
+  transformation_type: (pipeline.transformationName || 'Ingest Only') as
+    | 'Join'
+    | 'Join & Deduplication'
+    | 'Deduplication'
+    | 'Ingest Only',
+  created_at: pipeline.created_at,
+  state: pipeline.status,
+})
+
+// Function to synchronize list data from detailed data
+export const syncPipelinesList = (): ListPipelineConfig[] => {
+  return mockPipelines.map(pipelineToListConfig)
+}
+
+// Dynamic getter for pipeline list - always in sync with detailed data
+export const getMockPipelinesList = (): ListPipelineConfig[] => {
+  return syncPipelinesList()
 }
 
 export const mockPipelines: Pipeline[] = [
@@ -46,7 +37,7 @@ export const mockPipelines: Pipeline[] = [
     status: 'active',
     created_at: '2024-01-15T10:30:00Z',
     updated_at: '2024-01-15T14:45:00Z',
-    transformationName: 'Deduplicate',
+    transformationName: 'Deduplication',
     source: {
       type: 'kafka',
       provider: 'local',
@@ -136,7 +127,7 @@ export const mockPipelines: Pipeline[] = [
     status: 'paused',
     created_at: '2024-01-12T16:45:00Z',
     updated_at: '2024-01-15T13:10:00Z',
-    transformationName: 'Deduplicate & Join',
+    transformationName: 'Deduplication & Join',
     source: {
       type: 'kafka',
       provider: 'aiven',
