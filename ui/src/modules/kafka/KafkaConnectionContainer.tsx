@@ -17,6 +17,7 @@ export function KafkaConnectionContainer({
   readOnly = false,
   toggleEditMode,
   standalone,
+  onComplete,
 }: {
   steps: any
   onCompleteStep?: (step: StepKeys) => void
@@ -24,6 +25,7 @@ export function KafkaConnectionContainer({
   standalone?: boolean
   readOnly?: boolean
   toggleEditMode?: () => void
+  onComplete?: () => void
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { kafkaStore, topicsStore, configStore } = useStore()
@@ -198,7 +200,12 @@ export function KafkaConnectionContainer({
       })
     }
 
-    onCompleteStep?.(StepKeys.KAFKA_CONNECTION as StepKeys)
+    // Proceed to next step or close standalone component
+    if (!standalone && onCompleteStep) {
+      onCompleteStep(StepKeys.KAFKA_CONNECTION as StepKeys)
+    } else if (standalone && onComplete) {
+      onComplete()
+    }
   }
 
   const handleTestConnection = async (values: KafkaConnectionFormType) => {

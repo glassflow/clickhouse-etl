@@ -120,12 +120,8 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
   }
 
   const handleComplete = (nextStep?: StepKeys, standalone?: boolean) => {
-    // Handle completion - could save changes, close modal, etc.
-    if (standalone) {
-      onClose()
-    } else {
-      handleNext(nextStep || StepKeys.KAFKA_CONNECTION)
-    }
+    // In StandaloneStepRenderer, we're always in standalone mode, so always close
+    onClose()
   }
 
   const handleBack = () => {
