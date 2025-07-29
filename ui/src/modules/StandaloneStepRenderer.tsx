@@ -13,29 +13,34 @@ import { useStore } from '@/src/store'
 import { JoinConfigurator } from './join/JoinConfigurator'
 import StepRendererModal from './StepRendererModal'
 import StepRendererPageComponent from './StepRendererPageComponent'
+import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
+import { StepDataPreloader } from '@/src/components/StepDataPreloader'
 
 interface StandaloneStepRendererProps {
-  stepType: StepKeys
+  stepKey: StepKeys
   onClose: () => void
   pipeline?: any
 }
 
-function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepRendererProps) {
+function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRendererProps) {
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
 
-  // Initialize steps based on stepType and reset edit mode when step changes
+  // Pre-load data required for this step
+  const preloader = useStepDataPreloader(stepKey, pipeline)
+
+  // Initialize steps based on stepKey and reset edit mode when step changes
   useEffect(() => {
-    if (stepType) {
-      setCurrentStep(stepType)
+    if (stepKey) {
+      setCurrentStep(stepKey)
       // Reset edit mode whenever step type changes
       setEditMode(false)
     }
 
-    if (stepType === StepKeys.KAFKA_CONNECTION) {
+    if (stepKey === StepKeys.KAFKA_CONNECTION) {
       setSteps({
         [StepKeys.KAFKA_CONNECTION]: {
           component: KafkaConnectionContainer,
@@ -43,7 +48,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure your Kafka connection settings',
         },
       })
-    } else if (stepType === StepKeys.TOPIC_SELECTION_1) {
+    } else if (stepKey === StepKeys.TOPIC_SELECTION_1) {
       setSteps({
         [StepKeys.TOPIC_SELECTION_1]: {
           component: KafkaTopicSelector,
@@ -51,7 +56,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Select the Kafka topic to use',
         },
       })
-    } else if (stepType === StepKeys.TOPIC_SELECTION_2) {
+    } else if (stepKey === StepKeys.TOPIC_SELECTION_2) {
       setSteps({
         [StepKeys.TOPIC_SELECTION_2]: {
           component: KafkaTopicSelector,
@@ -59,7 +64,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Select the Kafka topic to use',
         },
       })
-    } else if (stepType === StepKeys.DEDUPLICATION_CONFIGURATOR) {
+    } else if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR) {
       setSteps({
         [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
           component: DeduplicationConfigurator,
@@ -67,7 +72,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure deduplication settings',
         },
       })
-    } else if (stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+    } else if (stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
       setSteps({
         [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
           component: KafkaTopicSelector,
@@ -75,7 +80,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure topic deduplication settings',
         },
       })
-    } else if (stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+    } else if (stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
       setSteps({
         [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
           component: KafkaTopicSelector,
@@ -83,7 +88,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure topic deduplication settings',
         },
       })
-    } else if (stepType === StepKeys.JOIN_CONFIGURATOR) {
+    } else if (stepKey === StepKeys.JOIN_CONFIGURATOR) {
       setSteps({
         [StepKeys.JOIN_CONFIGURATOR]: {
           component: JoinConfigurator,
@@ -91,7 +96,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure join settings',
         },
       })
-    } else if (stepType === StepKeys.CLICKHOUSE_CONNECTION) {
+    } else if (stepKey === StepKeys.CLICKHOUSE_CONNECTION) {
       setSteps({
         [StepKeys.CLICKHOUSE_CONNECTION]: {
           component: ClickhouseConnectionContainer,
@@ -99,7 +104,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
           description: 'Configure your ClickHouse connection settings',
         },
       })
-    } else if (stepType === StepKeys.CLICKHOUSE_MAPPER) {
+    } else if (stepKey === StepKeys.CLICKHOUSE_MAPPER) {
       setSteps({
         [StepKeys.CLICKHOUSE_MAPPER]: {
           component: ClickhouseMapper,
@@ -108,7 +113,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
         },
       })
     }
-  }, [stepType])
+  }, [stepKey])
 
   const handleNext = (nextStep: StepKeys) => {
     setCurrentStep(nextStep)
@@ -129,7 +134,22 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
     onClose()
   }
 
-  if (!stepType || !currentStep || !steps[currentStep]) {
+  // Show preloader if data is still loading or if there's an error
+  if (preloader.isLoading || preloader.error) {
+    const stepInfo = steps[stepKey]
+    return (
+      <StepDataPreloader
+        isLoading={preloader.isLoading}
+        error={preloader.error}
+        progress={preloader.progress}
+        onRetry={preloader.retry}
+        stepTitle={stepInfo?.title || 'Configuration Step'}
+      />
+    )
+  }
+
+  // Don't render the component until preloading is complete
+  if (!preloader.isComplete || !stepKey || !currentStep || !steps[currentStep]) {
     return null
   }
 
@@ -145,14 +165,14 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
 
   // Determine if this is a deduplication configurator step
   const isDeduplicationStep =
-    stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+    stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
 
   // Determine if this is a topic selector step that needs currentStep prop
   const isTopicSelectorStep =
-    stepType === StepKeys.TOPIC_SELECTION_1 ||
-    stepType === StepKeys.TOPIC_SELECTION_2 ||
-    stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
-    stepType === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+    stepKey === StepKeys.TOPIC_SELECTION_1 ||
+    stepKey === StepKeys.TOPIC_SELECTION_2 ||
+    stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+    stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
 
   // Base props for all components
   const baseProps = {
@@ -169,7 +189,7 @@ function StandaloneStepRenderer({ stepType, onClose, pipeline }: StandaloneStepR
   const topicSelectorProps = isTopicSelectorStep
     ? {
         ...baseProps,
-        currentStep: stepType,
+        currentStep: stepKey,
         enableDeduplication: isDeduplicationStep,
       }
     : baseProps

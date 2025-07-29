@@ -17,7 +17,6 @@ import { hydrateClickhouseConnection } from '@/src/store/hydration/clickhouse-co
 import { hydrateKafkaTopics } from '@/src/store/hydration/topics'
 import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
-import { PIPELINE_STATUS_CONFIG, PIPELINE_STATUS_MAP } from '@/src/config/constants'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
@@ -119,7 +118,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
       </div>
 
       {/* Render the standalone step renderer when a step is active */}
-      {activeStep && <StandaloneStepRenderer stepType={activeStep} onClose={handleCloseStep} pipeline={pipeline} />}
+      {activeStep && <StandaloneStepRenderer stepKey={activeStep} onClose={handleCloseStep} pipeline={pipeline} />}
     </div>
   )
 }

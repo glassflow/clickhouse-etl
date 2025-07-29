@@ -446,8 +446,9 @@ export class KafkaClient {
 
             // Parse the message based on format
             let parsedMessage
+            console.log(`KafkaClient: Parsing message with format: "${format}"`)
 
-            if (format === 'JSON') {
+            if (format === 'JSON' || format === 'json') {
               try {
                 parsedMessage = JSON.parse(messageValue)
               } catch (parseError) {
@@ -578,7 +579,7 @@ export class KafkaClient {
       console.warn(`Failed to fetch real event from ${topic}, using mock data:`, error)
 
       // Return mock data based on format
-      if (format === 'JSON') {
+      if (format === 'JSON' || format === 'json') {
         return {
           _mock: true,
           timestamp: new Date().toISOString(),
@@ -596,19 +597,19 @@ export class KafkaClient {
             createdAt: new Date().toISOString(),
           },
         }
-      } else if (format === 'AVRO') {
+      } else if (format === 'AVRO' || format === 'avro') {
         return {
           _mock: true,
           _note: 'Mock AVRO data',
           data: { id: '12345', name: 'Sample AVRO Event' },
         }
-      } else if (format === 'CSV') {
+      } else if (format === 'CSV' || format === 'csv') {
         return {
           _mock: true,
           _note: 'Mock CSV data',
           _raw: 'id,name,value\n12345,Sample CSV Event,42',
         }
-      } else if (format === 'TSV') {
+      } else if (format === 'TSV' || format === 'tsv') {
         return {
           _mock: true,
           _note: 'Mock TSV data',

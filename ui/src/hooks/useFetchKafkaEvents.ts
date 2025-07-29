@@ -79,6 +79,7 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
       }
 
       const data = response.data
+
       if (data && data.success) {
         setEvent(data.event)
         setIsLoadingEvent(false)

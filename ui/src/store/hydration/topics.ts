@@ -45,6 +45,8 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
   const data = await response.json()
   if (!data.success) throw new Error(data.error || 'Failed to fetch topics')
 
+  console.log('data', data)
+
   // 3. Set available topics in the store
   useStore.getState().topicsStore.setAvailableTopics(data.topics)
 
