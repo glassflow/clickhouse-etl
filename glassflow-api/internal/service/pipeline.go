@@ -45,6 +45,7 @@ type PipelineManager struct {
 type PipelineStore interface {
 	InsertPipeline(context.Context, models.PipelineConfig) error
 	GetPipeline(context.Context, string) (*models.PipelineConfig, error)
+	GetPipelines(context.Context) ([]models.PipelineConfig, error)
 }
 
 func NewPipelineManager(
@@ -207,4 +208,21 @@ func (p *PipelineManager) GetPipeline(ctx context.Context, id string) (zero mode
 	}
 
 	return *pi, nil
+}
+
+func (p *PipelineManager) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	pipelines, err := p.store.GetPipelines(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load pipelines: %w", err)
+	}
+
+	ps := make([]models.ListPipelineConfig, 0, len(pipelines))
+	for _, p := range pipelines {
+		ps = append(ps, p.ToListPipeline())
+	}
+
+	return ps, nil
 }

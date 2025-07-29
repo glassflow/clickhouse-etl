@@ -45,3 +45,32 @@ func (s *Storage) GetPipeline(ctx context.Context, id string) (*models.PipelineC
 
 	return &p, nil
 }
+
+// TODO: there must be a pagination setup when it is a "real" product
+func (s *Storage) GetPipelines(ctx context.Context) ([]models.PipelineConfig, error) {
+	var pipelines []models.PipelineConfig
+
+	iter, err := s.kv.ListKeys(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list keys for bucket %s: %w", s.kv.Bucket(), err)
+	}
+
+	// NOTE: inefficient but as of 28.07.2025 NATS doesn't provide a way for getting all entries in
+	// a bucket directly
+	for id := range iter.Keys() {
+		entry, err := s.kv.Get(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("error getting key %q from kv list: %w", id, err)
+		}
+
+		var p models.PipelineConfig
+		err = json.Unmarshal(entry.Value(), &p)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal loaded entry for %q: %w", id, err)
+		}
+
+		pipelines = append(pipelines, p)
+	}
+
+	return pipelines, nil
+}
