@@ -84,7 +84,6 @@ export function KafkaTopicSelector({
     setAvailableTopics,
     topics: topicsFromStore,
     topicCount: topicCountFromStore,
-    setTopicCount,
     updateTopic,
     invalidateTopicDependentState,
   } = topicsStore
@@ -428,8 +427,6 @@ export function KafkaTopicSelector({
 
     updateTopic(finalTopicData)
 
-    setTopicCount(topicCountFromStore + 1)
-
     // Move to next step based on current step
     if (currentStep === StepKeys.TOPIC_SELECTION_1) {
       onCompleteStep(StepKeys.TOPIC_SELECTION_1)
@@ -446,7 +443,6 @@ export function KafkaTopicSelector({
   }, [
     index,
     onCompleteStep,
-    setTopicCount,
     topicCountFromStore,
     manualEvent,
     localTopicName,

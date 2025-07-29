@@ -56,6 +56,6 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
       const topicState = mapBackendTopicToStore(topicConfig, idx)
       useStore.getState().topicsStore.updateTopic(topicState)
     })
-    useStore.getState().topicsStore.setTopicCount(pipelineConfig.source.topics.length)
+    // useStore.getState().topicsStore.setTopicCount(pipelineConfig.source.topics.length)
   }
 }

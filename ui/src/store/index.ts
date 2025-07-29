@@ -13,7 +13,7 @@ import { createClickhouseDestinationSlice, ClickhouseDestinationSlice } from './
 import { createStepsSlice, StepsSlice } from './steps.store'
 import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createJoinSlice, JoinSlice } from './join.store'
-import { createPipelineConfigSlice, PipelineConfigSlice } from './pipeline-config'
+import { createPipelineConfigSlice, PipelineConfigSlice, getTopicCountForOperation } from './pipeline-config'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -44,6 +44,7 @@ const useActualStore = create<Store>()(
       resetAllPipelineState: (operation: string, force = false) => {
         const state = get()
         const currentConfig = state.configStore
+        const topicCount = getTopicCountForOperation(operation)
 
         if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
           set((state) => ({
@@ -60,7 +61,7 @@ const useActualStore = create<Store>()(
             topicsStore: {
               ...state.topicsStore,
               topics: {},
-              topicCount: 0,
+              topicCount: topicCount,
               availableTopics: state.topicsStore.availableTopics,
             },
             joinStore: {
@@ -86,6 +87,10 @@ const useActualStore = create<Store>()(
               operationsSelected: {
                 operation: operation,
               },
+            },
+            topicsStore: {
+              ...state.topicsStore,
+              topicCount: topicCount,
             },
           }))
         }

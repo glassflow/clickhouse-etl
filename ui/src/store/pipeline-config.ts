@@ -16,6 +16,19 @@ import { createJoinSlice, JoinSlice } from './join.store'
 import Cookies from 'js-cookie'
 import { StateCreator } from 'zustand'
 
+// Helper function to determine topic count based on operation type
+export const getTopicCountForOperation = (operation: string): number => {
+  switch (operation) {
+    case 'joining':
+    case 'deduplication_joining':
+      return 2 // Join operations need 2 topics
+    case 'ingest_only':
+    case 'deduplication':
+    default:
+      return 1 // Simple operations need 1 topic
+  }
+}
+
 interface PipelineConfigStoreProps {
   pipelineId: string
   pipelineName: string

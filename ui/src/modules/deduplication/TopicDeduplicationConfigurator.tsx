@@ -52,16 +52,8 @@ export function TopicDeduplicationConfigurator({
 
   const index = getIndex()
 
-  const {
-    availableTopics,
-    setAvailableTopics,
-    topics: topicsFromStore,
-    topicCount: topicCountFromStore,
-    updateTopic,
-    getTopic,
-    getEvent,
-    invalidateTopicDependentState,
-  } = topicsStore
+  const { availableTopics, setAvailableTopics, updateTopic, getTopic, getEvent, invalidateTopicDependentState } =
+    topicsStore
 
   // Get access to the steps store functions
   // FIXME: used other methods to handle this scenario, need to refactor
