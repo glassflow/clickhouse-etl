@@ -324,6 +324,7 @@ func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig
 
 type PipelineConfig struct {
 	ID        string                 `json:"pipeline_id"`
+	Name      string                 `json:"name"`
 	Mapper    MapperConfig           `json:"mapper"`
 	Ingestor  IngestorOperatorConfig `json:"ingestor"`
 	Join      JoinOperatorConfig     `json:"join"`
@@ -351,7 +352,7 @@ func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
 
 	return ListPipelineConfig{
 		ID:             pc.ID,
-		Name:           pc.ID,
+		Name:           pc.Name,
 		Transformation: transformation,
 		CreatedAt:      pc.CreatedAt,
 		State:          "",
@@ -383,9 +384,10 @@ func (e PipelineConfigError) Error() string {
 	return "invalid pipeline config: " + e.Msg
 }
 
-func NewPipelineConfig(id string, mc MapperConfig, ic IngestorOperatorConfig, jc JoinOperatorConfig, sc SinkOperatorConfig) PipelineConfig {
+func NewPipelineConfig(id, name string, mc MapperConfig, ic IngestorOperatorConfig, jc JoinOperatorConfig, sc SinkOperatorConfig) PipelineConfig {
 	return PipelineConfig{
 		ID:        id,
+		Name:      name,
 		Mapper:    mc,
 		Ingestor:  ic,
 		Join:      jc,
