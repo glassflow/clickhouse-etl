@@ -107,6 +107,7 @@ func (h *handler) getPipelines(w http.ResponseWriter, r *http.Request) {
 
 type pipelineJSON struct {
 	PipelineID string `json:"pipeline_id"`
+	Name       string `json:"name"`
 	Source     struct {
 		Kind             string                 `json:"type"`
 		Provider         string                 `json:"provider"`
@@ -321,7 +322,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		SinkMapping: sinkCfg,
 	}
 
-	return models.NewPipelineConfig(p.PipelineID, mc, ic, jc, sc), nil
+	return models.NewPipelineConfig(p.PipelineID, p.Name, mc, ic, jc, sc), nil
 }
 
 func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
@@ -385,6 +386,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 
 	return pipelineJSON{
 		PipelineID: p.ID,
+		Name:       p.Name,
 		Source: struct {
 			Kind             string                 `json:"type"`
 			Provider         string                 `json:"provider"`
