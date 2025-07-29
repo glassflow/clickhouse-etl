@@ -15,10 +15,21 @@ export function usePausePipelineModal() {
 
 export function useRenamePipelineModal() {
   const [isRenameModalVisible, setIsRenameModalVisible] = useState(false)
-  const openRenameModal = () => setIsRenameModalVisible(true)
-  const closeRenameModal = () => setIsRenameModalVisible(false)
+  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+
+  const openRenameModal = (pipeline?: any) => {
+    setSelectedPipeline(pipeline)
+    setIsRenameModalVisible(true)
+  }
+
+  const closeRenameModal = () => {
+    setIsRenameModalVisible(false)
+    setSelectedPipeline(null)
+  }
+
   return {
     isRenameModalVisible,
+    selectedPipeline,
     openRenameModal,
     closeRenameModal,
     onOk: closeRenameModal,

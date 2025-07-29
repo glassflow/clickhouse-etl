@@ -1,25 +1,34 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import PipelineDetailsHeader from './PipelineDetailsHeader'
-import OverviewCard from './DeadLetterQueueCard'
-import TitleCardWithIcon from './TitleCardWithIcon'
 import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
+import TitleCardWithIcon from './TitleCardWithIcon'
 import TransformationSection from './TransformationSection'
-import KafkaIcon from '@/src/images/kafka.svg'
-import ClickHouseIcon from '@/src/images/clickhouse.svg'
-import Image from 'next/image'
 import StandaloneStepRenderer from '@/src/modules/StandaloneStepRenderer'
 import { StepKeys } from '@/src/config/constants'
 import { Pipeline } from '@/src/types/pipeline'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import KafkaIcon from '@/src/images/kafka.svg'
+import ClickHouseIcon from '@/src/images/clickhouse.svg'
 import { hydrateKafkaConnection } from '@/src/store/hydration/kafka-connection'
 import { hydrateClickhouseConnection } from '@/src/store/hydration/clickhouse-connection'
 import { hydrateKafkaTopics } from '@/src/store/hydration/topics'
 import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
+import { PIPELINE_STATUS_CONFIG, PIPELINE_STATUS_MAP } from '@/src/config/constants'
+import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
 
-function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
+function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
+  const [pipeline, setPipeline] = useState<Pipeline>(initialPipeline)
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
+  const [sharedActionState, setSharedActionState] = useState<any>({ isLoading: false })
+  const router = useRouter()
+
+  // Determine if pipeline editing operations should be disabled
+  // Consider both pipeline status AND if any action is currently loading
+  const isEditingDisabled = shouldDisablePipelineOperation(pipeline.status) || sharedActionState.isLoading
 
   useEffect(() => {
     if (pipeline && pipeline?.source && pipeline?.sink) {
@@ -32,6 +41,10 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
   }, [pipeline])
 
   const handleStepClick = (step: StepKeys) => {
+    // Prevent step clicks when editing is disabled
+    if (isEditingDisabled) {
+      return
+    }
     setActiveStep(step)
   }
 
@@ -39,10 +52,30 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
     setActiveStep(null)
   }
 
+  const handlePipelineUpdate = (updatedPipeline: Pipeline) => {
+    console.log('Pipeline updated:', updatedPipeline)
+    setPipeline(updatedPipeline)
+  }
+
+  const handlePipelineDeleted = () => {
+    console.log('Pipeline deleted')
+    // Redirect to pipelines list after deletion
+    router.push('/pipelines')
+  }
+
+  const handleActionStateChange = (actionState: any) => {
+    setSharedActionState(actionState)
+  }
+
   return (
     <div>
       <div className="flex flex-col gap-4">
-        <PipelineDetailsHeader title={pipeline.name} status={pipeline.status} />
+        <PipelineDetailsHeader
+          pipeline={pipeline}
+          onPipelineUpdate={handlePipelineUpdate}
+          onPipelineDeleted={handlePipelineDeleted}
+          onActionStateChange={handleActionStateChange}
+        />
       </div>
       <div className="flex flex-col gap-4">
         <PipelineStatusOverviewSection pipeline={pipeline} />
@@ -55,8 +88,9 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
           </div>
           <TitleCardWithIcon
             title="Kafka"
-            isClickable={true}
+            isClickable={!isEditingDisabled}
             onClick={() => handleStepClick(StepKeys.KAFKA_CONNECTION)}
+            disabled={isEditingDisabled}
           >
             <Image src={KafkaIcon} alt="Kafka" className="w-8 h-8" width={32} height={32} />
           </TitleCardWithIcon>
@@ -66,7 +100,7 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
           <div className="text-center">
             <span className="text-lg font-bold">Transformation: {pipeline.transformationName || 'Default'}</span>
           </div>
-          <TransformationSection pipeline={pipeline} onStepClick={handleStepClick} />
+          <TransformationSection pipeline={pipeline} onStepClick={handleStepClick} disabled={isEditingDisabled} />
         </div>
         <div className="flex flex-col gap-4 w-1/6">
           {/* Sink */}
@@ -75,8 +109,9 @@ function PipelineDetailsModule({ pipeline }: { pipeline: Pipeline }) {
           </div>
           <TitleCardWithIcon
             title="ClickHouse"
-            isClickable={true}
+            isClickable={!isEditingDisabled}
             onClick={() => handleStepClick(StepKeys.CLICKHOUSE_CONNECTION)}
+            disabled={isEditingDisabled}
           >
             <Image src={ClickHouseIcon} alt="ClickHouse" className="w-8 h-8" width={32} height={32} />
           </TitleCardWithIcon>

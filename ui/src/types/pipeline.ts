@@ -1,5 +1,11 @@
 // Shared pipeline types used across the application
 
+import { PIPELINE_STATUS_MAP } from '../config/constants'
+
+export type PipelineStatus = keyof typeof PIPELINE_STATUS_MAP
+
+export type PipelineAction = 'edit' | 'rename' | 'delete' | 'pause' | 'resume'
+
 // Type for pipeline list endpoint (matches backend ListPipelineConfig)
 export interface ListPipelineConfig {
   pipeline_id: string
@@ -20,7 +26,7 @@ export interface DLQState {
 export interface Pipeline {
   id: string
   name: string
-  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'pausing' | 'deleting' | 'error'
+  status: PipelineStatus
   created_at: string
   updated_at: string
   transformationName?: string

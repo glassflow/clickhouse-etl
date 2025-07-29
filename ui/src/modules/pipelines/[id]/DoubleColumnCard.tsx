@@ -5,16 +5,21 @@ function DoubleColumnCard({
   value,
   width = 'half',
   onClick,
+  disabled,
 }: {
   label: string[]
   value: string[]
   width?: 'full' | 'half'
   onClick?: () => void
+  disabled?: boolean
 }) {
   const widthClass = width === 'full' ? 'w-full' : 'w-1/2'
 
   return (
-    <Card className={`border-[var(--color-border-neutral)] rounded-md p-4 ${widthClass}`} onClick={onClick}>
+    <Card
+      className={`border-[var(--color-border-neutral)] rounded-md p-4 ${widthClass} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex flex-row justify-between gap-4">
         <div className="flex flex-col gap-2 text-left">
           <span className="text-lg font-bold">{label[0]}</span>

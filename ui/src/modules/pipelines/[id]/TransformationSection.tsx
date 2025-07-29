@@ -12,6 +12,7 @@ const DeduplicationCase = ({
   totalSourceFields,
   totalDestinationColumns,
   onStepClick: onStepClick,
+  disabled,
 }: {
   topic: any
   hasDedup: boolean
@@ -19,6 +20,7 @@ const DeduplicationCase = ({
   totalSourceFields: number
   totalDestinationColumns: number
   onStepClick: (step: StepKeys) => void
+  disabled: boolean
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -29,6 +31,7 @@ const DeduplicationCase = ({
         orientation="center"
         width="full"
         onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
+        disabled={disabled}
       />
 
       {/* Middle card: Deduplication Key (only if dedup is enabled) */}
@@ -39,6 +42,7 @@ const DeduplicationCase = ({
           orientation="center"
           width="full"
           onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR)}
+          disabled={disabled}
         />
       )}
 
@@ -48,6 +52,7 @@ const DeduplicationCase = ({
         value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
+        disabled={disabled}
       />
     </div>
   )
@@ -62,6 +67,7 @@ const JoinCase = ({
   totalSourceFields,
   totalDestinationColumns,
   onStepClick,
+  disabled,
 }: {
   leftTopic: any
   rightTopic: any
@@ -71,6 +77,7 @@ const JoinCase = ({
   totalSourceFields: number
   totalDestinationColumns: number
   onStepClick: (step: StepKeys) => void
+  disabled: boolean
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -82,6 +89,7 @@ const JoinCase = ({
           value={[leftTopic?.name || 'N/A']}
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
+          disabled={disabled}
         />
 
         <SingleColumnCard
@@ -90,6 +98,7 @@ const JoinCase = ({
           value={[rightTopic?.name || 'N/A']}
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_2)}
+          disabled={disabled}
         />
       </div>
 
@@ -101,6 +110,7 @@ const JoinCase = ({
           value={[leftSource?.join_key || 'N/A']}
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
+          disabled={disabled}
         />
 
         <SingleColumnCard
@@ -109,6 +119,7 @@ const JoinCase = ({
           value={[rightSource?.join_key || 'N/A']}
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
+          disabled={disabled}
         />
       </div>
 
@@ -118,6 +129,7 @@ const JoinCase = ({
         value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
+        disabled={disabled}
       />
     </div>
   )
@@ -132,6 +144,7 @@ const JoinDeduplicationCase = ({
   totalSourceFields,
   totalDestinationColumns,
   onStepClick,
+  disabled,
 }: {
   leftTopic: any
   rightTopic: any
@@ -141,6 +154,7 @@ const JoinDeduplicationCase = ({
   totalSourceFields: number
   totalDestinationColumns: number
   onStepClick: (step: StepKeys) => void
+  disabled: boolean
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -154,6 +168,7 @@ const JoinDeduplicationCase = ({
           ]}
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)}
+          disabled={disabled}
         />
 
         <DoubleColumnCard
@@ -164,6 +179,7 @@ const JoinDeduplicationCase = ({
           ]}
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)}
+          disabled={disabled}
         />
       </div>
 
@@ -175,6 +191,7 @@ const JoinDeduplicationCase = ({
           value={[leftSource?.join_key || 'N/A']}
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
+          disabled={disabled}
         />
 
         <SingleColumnCard
@@ -183,6 +200,7 @@ const JoinDeduplicationCase = ({
           value={[rightSource?.join_key || 'N/A']}
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
+          disabled={disabled}
         />
       </div>
 
@@ -192,12 +210,21 @@ const JoinDeduplicationCase = ({
         value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
+        disabled={disabled}
       />
     </div>
   )
 }
 
-function TransformationSection({ pipeline, onStepClick }: { pipeline: any; onStepClick: (step: StepKeys) => void }) {
+function TransformationSection({
+  pipeline,
+  onStepClick,
+  disabled,
+}: {
+  pipeline: any
+  onStepClick: (step: StepKeys) => void
+  disabled: boolean
+}) {
   const { source, join, sink } = pipeline
 
   // Extract topics from source
@@ -226,6 +253,7 @@ function TransformationSection({ pipeline, onStepClick }: { pipeline: any; onSte
         totalSourceFields={totalSourceFields}
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
+        disabled={disabled}
       />
     )
   }
@@ -248,6 +276,7 @@ function TransformationSection({ pipeline, onStepClick }: { pipeline: any; onSte
         totalSourceFields={totalSourceFields}
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
+        disabled={disabled}
       />
     )
   }
@@ -264,6 +293,7 @@ function TransformationSection({ pipeline, onStepClick }: { pipeline: any; onSte
         totalSourceFields={totalSourceFields}
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
+        disabled={disabled}
       />
     )
   }
@@ -276,11 +306,13 @@ function TransformationSection({ pipeline, onStepClick }: { pipeline: any; onSte
         value={[`${topics.length} topic(s), Join: ${hasJoin ? 'Yes' : 'No'}`]}
         orientation="center"
         width="full"
+        disabled={disabled}
       />
       <DoubleColumnCard
         label={['Destination Table', 'Schema Mapping']}
         value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
         width="full"
+        disabled={disabled}
       />
     </div>
   )

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { getRuntimeEnv } from '@/src/utils/common.client'
+import { PipelineStatus } from '@/src/types/pipeline'
 
 // Type declaration for runtime environment
 declare global {
@@ -17,7 +18,7 @@ const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_UR
 
 export interface PipelineResponse {
   pipeline_id: string
-  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'error'
+  status: PipelineStatus
   error?: string
 }
 

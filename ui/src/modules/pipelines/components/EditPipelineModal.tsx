@@ -3,12 +3,12 @@ import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 const EditDescriptionMessage = () => {
   return (
     <>
-      <p>
+      <span className="text-sm">
         To edit the pipeline, it must be paused first. Any events currently in the queue will be processed before
         pausing, which may take some time.
-      </p>
+      </span>
       <br />
-      <p>Are you sure you want to pause and edit the pipeline?</p>
+      <span className="text-sm">Are you sure you want to pause and edit the pipeline?</span>
     </>
   )
 }

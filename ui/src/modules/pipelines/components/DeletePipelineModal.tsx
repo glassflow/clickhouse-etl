@@ -1,13 +1,6 @@
-import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
+import { ConfirmationModal, ModalResult } from '@/src/components/common/ConfirmationModal'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import { useState } from 'react'
-
-const config = {
-  title: 'Delete Pipeline?',
-  description: 'You are about to delete this pipeline permanently. Are you sure you want to continue?',
-  okButtonText: 'Delete Pipeline',
-  cancelButtonText: 'Cancel',
-}
 
 function DeletePipelineModal({
   visible,
@@ -30,24 +23,21 @@ function DeletePipelineModal({
   }
 
   return (
-    <InfoModal
+    <ConfirmationModal
       visible={visible}
-      title={config.title}
-      description={
-        <>
-          <p>You are about to delete this pipeline permanently. Are you sure you want to continue?</p>
-          <br />
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="process-events"
-              className="border-input"
-              bg-primary
-              checked={processEvents}
-              onCheckedChange={handleCheckboxChange}
-            />
-            <p>Process events in the queue (if any) before delete</p>
-          </div>
-        </>
+      title="Delete Pipeline?"
+      description="You are about to delete this pipeline permanently. Are you sure you want to continue?"
+      content={
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="process-events"
+            className="border-input"
+            bg-primary
+            checked={processEvents}
+            onCheckedChange={handleCheckboxChange}
+          />
+          <span className="text-sm">Process events in the queue (if any) before delete</span>
+        </div>
       }
       okButtonText="Delete Pipeline"
       cancelButtonText="Cancel"

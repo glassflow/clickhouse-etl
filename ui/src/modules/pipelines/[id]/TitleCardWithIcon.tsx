@@ -6,17 +6,30 @@ interface TitleCardWithIconProps {
   children: React.ReactNode
   onClick?: () => void
   isClickable?: boolean
+  disabled?: boolean
 }
 
-function TitleCardWithIcon({ title, children, onClick, isClickable = false }: TitleCardWithIconProps) {
+function TitleCardWithIcon({
+  title,
+  children,
+  onClick,
+  isClickable = false,
+  disabled = false,
+}: TitleCardWithIconProps) {
+  const handleClick = () => {
+    if (disabled) return
+    onClick?.()
+  }
+
   return (
     <Card
       className={cn(
         'border-[var(--color-border-neutral)] rounded-md p-6 h-48 flex flex-col items-center justify-center',
         isClickable &&
           'cursor-pointer transition-all duration-200 hover:shadow-md hover:border-gray-300 hover:scale-[1.02]',
+        disabled && 'opacity-50 cursor-not-allowed',
       )}
-      onClick={onClick}
+      onClick={handleClick}
     >
       <div className="flex flex-col items-center justify-center gap-4">
         <div className="flex items-center justify-center">{children}</div>

@@ -15,8 +15,7 @@ import TrashIcon from '../../images/trash.svg'
 import ModifyIcon from '../../images/modify.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { Feedback } from './Feedback'
-
-type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'delete_failed' | 'no_configuration'
+import { PipelineStatus } from '@/src/types/pipeline'
 
 export function PipelineDeployer() {
   const analytics = useJourneyAnalytics()

@@ -1,7 +1,8 @@
 import React from 'react'
 import { Badge } from '../ui/badge'
-import { STATUS_CONFIG, StatusType } from '../../config/constants'
+import { PIPELINE_STATUS_CONFIG, StatusType } from '../../config/constants'
 import { cn } from '@/src/utils/common.client'
+import { PIPELINE_STATUS_MAP } from '@/src/config/constants'
 
 interface StatusBadgeProps {
   status: StatusType
@@ -9,7 +10,7 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
-  const statusConfig = STATUS_CONFIG[status]
+  const statusConfig = PIPELINE_STATUS_CONFIG[status]
 
   if (!statusConfig) {
     console.warn(`Unknown status: ${status}`)
@@ -19,19 +20,18 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
   let statusClass = 'chip-neutral'
 
   switch (status) {
-    case 'active':
+    case PIPELINE_STATUS_MAP.active:
       statusClass = 'chip-positive'
       break
-    case 'paused':
+    case PIPELINE_STATUS_MAP.paused:
     case 'pausing':
       statusClass = 'chip-neutral'
       break
-    case 'deleting':
-    case 'terminated':
-    case 'deleted':
+    case PIPELINE_STATUS_MAP.deleting:
+    case PIPELINE_STATUS_MAP.deleted:
       statusClass = 'chip-neutral-faded'
       break
-    case 'error':
+    case PIPELINE_STATUS_MAP.error:
       statusClass = 'chip-negative'
       break
   }

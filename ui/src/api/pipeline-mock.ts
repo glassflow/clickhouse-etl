@@ -1,9 +1,10 @@
 import { getApiUrl, isMockMode } from '@/src/utils/mock-api'
 import { generateMockKafkaEvent, generateMockKafkaTopics } from '@/src/utils/mock-api'
+import { PipelineStatus } from '@/src/types/pipeline'
 
 export interface PipelineResponse {
   pipeline_id: string
-  status: 'active' | 'terminated' | 'deleted' | 'paused' | 'error'
+  status: PipelineStatus
   error?: string
 }
 

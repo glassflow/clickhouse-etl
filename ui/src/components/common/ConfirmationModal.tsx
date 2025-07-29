@@ -15,10 +15,11 @@ export const ModalResult = {
   NO: 'NO',
 }
 
-export function InfoModal({
+export function ConfirmationModal({
   visible,
   title,
   description,
+  content,
   okButtonText,
   cancelButtonText,
   onComplete,
@@ -27,7 +28,8 @@ export function InfoModal({
 }: {
   visible: boolean
   title: string
-  description: string | React.ReactNode
+  description: string
+  content?: React.ReactNode
   okButtonText: string
   cancelButtonText: string
   onComplete: (result: string, pendingOperation: string) => void
@@ -54,9 +56,11 @@ export function InfoModal({
       <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">{title}</DialogTitle>
-          <DialogDescription className="modal-description gap-2">{description}</DialogDescription>
+          <DialogDescription className="modal-description text-sm mb-4">{description}</DialogDescription>
         </DialogHeader>
-        {/* <DialogContent className="modal-description">this is where the content goes</DialogContent> */}
+
+        {content && <div className="mb-6">{content}</div>}
+
         <DialogFooter className="mt-6">
           <Button
             variant="outline"

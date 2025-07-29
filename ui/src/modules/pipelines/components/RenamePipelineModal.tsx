@@ -1,48 +1,32 @@
-import { ModalResult, InfoModal } from '@/src/components/common/InfoModal'
-
-const RenameDescriptionMessage = () => {
-  return (
-    <>
-      <p>
-        Renaming the pipeline will have no effect on pipeline. The pipeline will continue to run with the same
-        configuration.
-      </p>
-      <br />
-      <p>Are you sure you want to rename the pipeline?</p>
-    </>
-  )
-}
-
-const config = {
-  title: 'Rename Pipeline?',
-  description: <RenameDescriptionMessage />,
-  okButtonText: 'Rename Pipeline',
-  cancelButtonText: 'Cancel',
-}
+import { ModalResult } from '@/src/components/common/InfoModal'
+import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 
 function RenamePipelineModal({
   visible,
   onOk,
   onCancel,
+  currentName,
 }: {
   visible: boolean
-  onOk: () => void
+  onOk: (newName: string) => void
   onCancel: () => void
+  currentName: string
 }) {
+  const handleComplete = (result: string, value?: string) => {
+    if (result === ModalResult.YES && value) {
+      onOk(value)
+    } else {
+      onCancel()
+    }
+  }
+
   return (
-    <InfoModal
+    <CreatePipelineModal
       visible={visible}
-      title={config.title}
-      description={config.description}
-      okButtonText={config.okButtonText}
-      cancelButtonText={config.cancelButtonText}
-      onComplete={(result) => {
-        if (result === ModalResult.YES) {
-          onOk()
-        } else {
-          onCancel()
-        }
-      }}
+      onComplete={handleComplete}
+      mode="rename"
+      initialValue={currentName}
+      currentName={currentName}
     />
   )
 }

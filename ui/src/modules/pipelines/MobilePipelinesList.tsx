@@ -3,6 +3,7 @@ import { ListPipelineConfig } from '@/src/types/pipeline'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { cn } from '@/src/utils/common.client'
+import { PIPELINE_STATUS_MAP } from '@/src/config/constants'
 
 interface MobilePipelinesListProps {
   pipelines: ListPipelineConfig[]
@@ -23,14 +24,18 @@ export function MobilePipelinesList({
 }: MobilePipelinesListProps) {
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'active':
+      case PIPELINE_STATUS_MAP.active:
         return 'success'
-      case 'paused':
+      case PIPELINE_STATUS_MAP.paused:
         return 'warning'
-      case 'terminated':
-        return 'error'
-      case 'deleted':
+      case PIPELINE_STATUS_MAP.deleted:
         return 'secondary'
+      case PIPELINE_STATUS_MAP.pausing:
+        return 'warning'
+      case PIPELINE_STATUS_MAP.deleting:
+        return 'secondary'
+      case PIPELINE_STATUS_MAP.error:
+        return 'error'
       default:
         return 'default'
     }

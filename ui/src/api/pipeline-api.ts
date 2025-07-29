@@ -88,9 +88,9 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   }
 }
 
-export const deletePipeline = async (id: string): Promise<void> => {
+export const deletePipeline = async (id: string, graceful: boolean = false): Promise<void> => {
   try {
-    const url = getApiUrl(`pipeline/${id}`)
+    const url = getApiUrl(`pipeline/${id}?graceful=${graceful}`)
     const response = await fetch(url, { method: 'DELETE' })
     const data = await response.json()
 
@@ -100,6 +100,61 @@ export const deletePipeline = async (id: string): Promise<void> => {
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to delete pipeline' } as ApiError
+  }
+}
+
+export const pausePipeline = async (id: string): Promise<Pipeline> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/pause`)
+    const response = await fetch(url, { method: 'POST' })
+    const data = await response.json()
+
+    if (data.success) {
+      return data.pipeline
+    } else {
+      throw { code: response.status, message: data.error || 'Failed to pause pipeline' } as ApiError
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to pause pipeline' } as ApiError
+  }
+}
+
+export const resumePipeline = async (id: string): Promise<Pipeline> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resume`)
+    const response = await fetch(url, { method: 'POST' })
+    const data = await response.json()
+
+    if (data.success) {
+      return data.pipeline
+    } else {
+      throw { code: response.status, message: data.error || 'Failed to resume pipeline' } as ApiError
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to resume pipeline' } as ApiError
+  }
+}
+
+export const renamePipeline = async (id: string, newName: string): Promise<Pipeline> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}`)
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName }),
+    })
+    const data = await response.json()
+
+    if (data.success) {
+      return data.pipeline
+    } else {
+      throw { code: response.status, message: data.error || 'Failed to rename pipeline' } as ApiError
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to rename pipeline' } as ApiError
   }
 }
 

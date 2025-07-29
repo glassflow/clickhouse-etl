@@ -107,38 +107,68 @@ export const CLICKHOUSE_DATA_TYPES = [
   'JSON',
 ]
 
-export const STATUS_CONFIG = {
+export const PIPELINE_STATUS_MAP = {
+  deploying: 'deploying',
+  active: 'active',
+  paused: 'paused',
+  pausing: 'pausing',
+  deleted: 'deleted',
+  deleting: 'deleting',
+  error: 'error',
+  deploy_failed: 'deploy_failed',
+  delete_failed: 'delete_failed',
+  no_configuration: 'no_configuration',
+}
+
+export const PIPELINE_STATUS_CONFIG = {
   active: {
     label: 'Active',
     className: 'chip-positive',
+    key: PIPELINE_STATUS_MAP.active,
   },
   paused: {
     label: 'Paused',
     className: 'chip-neutral',
+    key: PIPELINE_STATUS_MAP.paused,
   },
   pausing: {
     label: 'Pausing',
     className: 'chip-neutral-faded',
+    key: PIPELINE_STATUS_MAP.pausing,
   },
   deleted: {
     label: 'Deleted',
     className: 'chip-negative',
+    key: PIPELINE_STATUS_MAP.deleted,
   },
   deleting: {
     label: 'Deleting',
     className: 'chip-neutral-faded',
-  },
-  terminated: {
-    label: 'Terminated',
-    className: 'chip-negative',
+    key: PIPELINE_STATUS_MAP.deleting,
   },
   error: {
     label: 'Error',
     className: 'chip-negative',
+    key: PIPELINE_STATUS_MAP.error,
+  },
+  deploy_failed: {
+    label: 'Deploy Failed',
+    className: 'chip-negative',
+    key: PIPELINE_STATUS_MAP.deploy_failed,
+  },
+  delete_failed: {
+    label: 'Delete Failed',
+    className: 'chip-negative',
+    key: PIPELINE_STATUS_MAP.delete_failed,
+  },
+  no_configuration: {
+    label: 'No Configuration',
+    className: 'chip-neutral',
+    key: PIPELINE_STATUS_MAP.no_configuration,
   },
 } as const
 
-export type StatusType = keyof typeof STATUS_CONFIG
+export type StatusType = keyof typeof PIPELINE_STATUS_CONFIG
 
 export const stepsMetadata = {
   [StepKeys.KAFKA_CONNECTION]: {

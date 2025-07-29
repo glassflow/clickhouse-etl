@@ -25,8 +25,7 @@ import DeletePipelineModal from './components/DeletePipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
 import { usePausePipelineModal, useDeletePipelineModal, useRenamePipelineModal, useEditPipelineModal } from './hooks'
-
-type PipelineStatus = 'deploying' | 'active' | 'deleted' | 'deploy_failed' | 'delete_failed' | 'no_configuration'
+import { PipelineStatus } from '@/src/types/pipeline'
 
 export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }) {
   const analytics = useJourneyAnalytics()
@@ -34,7 +33,7 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
   const { pipelineId, setPipelineId } = configStore
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
-  const { isRenameModalVisible, openRenameModal, closeRenameModal } = useRenamePipelineModal()
+  const { isRenameModalVisible, selectedPipeline, openRenameModal, closeRenameModal } = useRenamePipelineModal()
   const { isDeleteModalVisible, openDeleteModal, closeDeleteModal } = useDeletePipelineModal()
   const { isPauseModalVisible, openPauseModal, closePauseModal } = usePausePipelineModal()
   const { isEditModalVisible, openEditModal, closeEditModal } = useEditPipelineModal()
@@ -218,7 +217,11 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
               return 'success'
             case 'paused':
               return 'warning'
-            case 'terminated':
+            case 'pausing':
+              return 'warning'
+            case 'deleting':
+              return 'secondary'
+            case 'error':
               return 'error'
             case 'deleted':
               return 'secondary'
@@ -258,7 +261,7 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
 
   const handleRename = (pipeline: ListPipelineConfig) => {
     console.log('Rename pipeline:', pipeline.pipeline_id)
-    openRenameModal()
+    openRenameModal(pipeline)
   }
 
   const handleDelete = (pipeline: ListPipelineConfig) => {
@@ -314,7 +317,10 @@ export function PipelinesList({ pipelines }: { pipelines: ListPipelineConfig[] }
       />
       <RenamePipelineModal
         visible={isRenameModalVisible}
-        onOk={() => {
+        currentName={selectedPipeline?.pipeline_name || ''}
+        onOk={(newName) => {
+          // TODO: Implement actual rename API call
+          console.log('Renaming pipeline', selectedPipeline?.pipeline_id, 'to', newName)
           closeRenameModal()
         }}
         onCancel={() => {

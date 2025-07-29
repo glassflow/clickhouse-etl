@@ -1,7 +1,7 @@
 import React from 'react'
 import { cn } from '@/src/utils/common.client'
 import { TableContextMenu } from './TableContextMenu'
-import { Pipeline } from '@/src/types/pipeline'
+import { ListPipelineConfig } from '@/src/types/pipeline'
 
 export interface TableColumn<T> {
   key: string
@@ -11,16 +11,16 @@ export interface TableColumn<T> {
 }
 
 export interface PipelinesTableProps {
-  data: Pipeline[]
-  columns: TableColumn<Pipeline>[]
+  data: ListPipelineConfig[]
+  columns: TableColumn<ListPipelineConfig>[]
   emptyMessage?: string
   className?: string
-  onRowClick?: (item: Pipeline) => void
+  onRowClick?: (item: ListPipelineConfig) => void
   isLoading?: boolean
-  onPause?: (pipeline: Pipeline) => void
-  onEdit?: (pipeline: Pipeline) => void
-  onRename?: (pipeline: Pipeline) => void
-  onDelete?: (pipeline: Pipeline) => void
+  onPause?: (pipeline: ListPipelineConfig) => void
+  onEdit?: (pipeline: ListPipelineConfig) => void
+  onRename?: (pipeline: ListPipelineConfig) => void
+  onDelete?: (pipeline: ListPipelineConfig) => void
 }
 
 export function PipelinesTable({

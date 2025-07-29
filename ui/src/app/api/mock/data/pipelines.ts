@@ -34,6 +34,11 @@ export const mockPipelinesList: ListPipelineConfig[] = [
   },
 ]
 
+// Utility function to find a pipeline by ID
+export const findPipeline = (id: string): Pipeline | undefined => {
+  return mockPipelines.find((p) => p.id === id)
+}
+
 export const mockPipelines: Pipeline[] = [
   {
     id: 'pipeline-001',

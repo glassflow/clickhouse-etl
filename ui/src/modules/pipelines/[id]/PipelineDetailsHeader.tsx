@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
@@ -10,38 +11,129 @@ import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipeli
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import EditPipelineModal from '@/src/modules/pipelines/components/EditPipelineModal'
 import PausePipelineModal from '@/src/modules/pipelines/components/PausePipelineModal'
-import {
-  useDeletePipelineModal,
-  useRenamePipelineModal,
-  useEditPipelineModal,
-  usePausePipelineModal,
-} from '@/src/modules/pipelines/hooks'
+import { Pipeline } from '@/src/types/pipeline'
+import { usePipelineActions } from '@/src/hooks/usePipelineActions'
+import { PipelineAction } from '@/src/types/pipeline'
+import Image from 'next/image'
+import Loader from '@/src/images/loader-small.svg'
+
+interface PipelineDetailsHeaderProps {
+  pipeline: Pipeline
+  onPipelineUpdate?: (updatedPipeline: Pipeline) => void
+  onPipelineDeleted?: () => void
+  actions?: React.ReactNode
+  onActionStateChange?: (actionState: any) => void
+}
 
 function PipelineDetailsHeader({
-  title,
-  status,
+  pipeline,
+  onPipelineUpdate,
+  onPipelineDeleted,
   actions,
-}: {
-  title: string
-  status: StatusType
-  actions?: React.ReactNode
-}) {
-  const { isDeleteModalVisible, openDeleteModal, closeDeleteModal } = useDeletePipelineModal()
-  const { isRenameModalVisible, openRenameModal, closeRenameModal } = useRenamePipelineModal()
-  const { isEditModalVisible, openEditModal, closeEditModal } = useEditPipelineModal()
-  const { isPauseModalVisible, openPauseModal, closePauseModal } = usePausePipelineModal()
+  onActionStateChange,
+}: PipelineDetailsHeaderProps) {
+  const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
 
-  const handleDelete = () => {
-    openDeleteModal()
+  const {
+    actionState,
+    executeAction,
+    getActionConfiguration,
+    getButtonText,
+    isActionDisabled,
+    shouldShowModal,
+    clearError,
+  } = usePipelineActions(pipeline)
+
+  // Notify parent component when action state changes
+  useEffect(() => {
+    onActionStateChange?.(actionState)
+  }, [actionState, onActionStateChange])
+
+  const handleActionClick = async (action: PipelineAction) => {
+    const config = getActionConfiguration(action)
+
+    if (config.isDisabled) {
+      return // Button should be disabled, but extra safety check
+    }
+
+    if (shouldShowModal(action)) {
+      setActiveModal(action)
+    } else {
+      // Execute action directly (like resume)
+      try {
+        const result = await executeAction(action)
+        if (result && onPipelineUpdate) {
+          onPipelineUpdate(result as Pipeline)
+        }
+      } catch (error) {
+        console.error(`Failed to ${action} pipeline:`, error)
+      }
+    }
   }
-  const handleRename = () => {
-    openRenameModal()
+
+  const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
+    // Close modal immediately after user confirms
+    setActiveModal(null)
+
+    try {
+      const result = await executeAction(action, payload)
+
+      if (action === 'delete') {
+        onPipelineDeleted?.()
+      } else if (result && onPipelineUpdate) {
+        onPipelineUpdate(result as Pipeline)
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} pipeline:`, error)
+      // Error will be shown in the header via actionState.error
+    }
   }
-  const handleEdit = () => {
-    openEditModal()
+
+  const handleModalCancel = () => {
+    setActiveModal(null)
+    clearError()
   }
-  const handlePause = () => {
-    openPauseModal()
+
+  const renderActionButton = (action: PipelineAction) => {
+    const config = getActionConfiguration(action)
+    const buttonText = getButtonText(action)
+    const disabled = isActionDisabled(action)
+
+    // Use regular Button for more flexibility with loading states and disabled state
+    return (
+      <Button
+        key={action}
+        variant="outline"
+        onClick={() => handleActionClick(action)}
+        disabled={disabled}
+        className="btn-action"
+        title={config.disabledReason}
+      >
+        {actionState.isLoading && actionState.lastAction === action ? (
+          <span className="flex items-center gap-1">
+            <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
+            Loading...
+          </span>
+        ) : (
+          buttonText
+        )}
+      </Button>
+    )
+  }
+
+  const getActionButtons = () => {
+    // Show resume button if paused, pause button if active
+    const showPause = pipeline.status === 'active'
+    const showResume = pipeline.status === 'paused'
+
+    return (
+      <>
+        {showResume && renderActionButton('resume')}
+        {renderActionButton('rename')}
+        {renderActionButton('delete')}
+        {showPause && renderActionButton('pause')}
+      </>
+    )
   }
 
   return (
@@ -50,64 +142,71 @@ function PipelineDetailsHeader({
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2">
             <div className="flex flex-row flex-start gap-2">
-              <h2 className="text-2xl font-bold">{title}</h2>
-              <StatusBadge status={status} />
-            </div>
-            <div className="flex flex-row flex-end gap-2">
-              {actions || (
-                <>
-                  <PipelineActionButton action="edit" onClick={handleEdit} />
-                  <PipelineActionButton action="rename" onClick={handleRename} />
-                  <PipelineActionButton action="delete" onClick={handleDelete} />
-                  <PipelineActionButton action="pause" onClick={handlePause} />
-                </>
+              {actionState.isLoading && (
+                <div className="flex items-center gap-2">
+                  <Image src={Loader} alt="Loading" width={24} height={24} className="animate-spin" />
+                  <span className="text-sm text-blue-600 font-medium">
+                    {actionState.lastAction === 'pause' && 'Pausing pipeline...'}
+                    {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
+                    {actionState.lastAction === 'delete' && 'Deleting pipeline...'}
+                    {actionState.lastAction === 'rename' && 'Renaming pipeline...'}
+                    {actionState.lastAction === 'edit' && 'Updating pipeline...'}
+                  </span>
+                </div>
+              )}
+              <h2 className="text-2xl font-bold">{pipeline.name}</h2>
+              <StatusBadge status={pipeline.status as StatusType} />
+              {actionState.error && (
+                <Badge variant="destructive" className="ml-2">
+                  {actionState.error}
+                </Badge>
               )}
             </div>
+            <div className="flex flex-row flex-end gap-2">{actions || getActionButtons()}</div>
           </div>
         </div>
       </Card>
 
+      {/* Delete Modal */}
       <DeletePipelineModal
-        visible={isDeleteModalVisible}
-        onOk={() => {
-          closeDeleteModal()
+        visible={activeModal === 'delete'}
+        onOk={(processEvents) => {
+          handleModalConfirm('delete', { graceful: processEvents })
         }}
-        onCancel={() => {
-          closeDeleteModal()
-        }}
+        onCancel={handleModalCancel}
         callback={(result) => {
-          console.log(result)
+          console.log('Process events gracefully:', result)
         }}
       />
 
+      {/* Rename Modal */}
       <RenamePipelineModal
-        visible={isRenameModalVisible}
-        onOk={() => {
-          closeRenameModal()
+        visible={activeModal === 'rename'}
+        currentName={pipeline.name}
+        onOk={(newName) => {
+          handleModalConfirm('rename', { name: newName })
         }}
-        onCancel={() => {
-          closeRenameModal()
-        }}
+        onCancel={handleModalCancel}
       />
 
+      {/* Edit Modal */}
       <EditPipelineModal
-        visible={isEditModalVisible}
+        visible={activeModal === 'edit'}
         onOk={() => {
-          closeEditModal()
+          // Note: EditPipelineModal needs to be updated to capture edit data
+          // For now, this is a placeholder
+          handleModalConfirm('edit', {})
         }}
-        onCancel={() => {
-          closeEditModal()
-        }}
+        onCancel={handleModalCancel}
       />
 
+      {/* Pause Modal */}
       <PausePipelineModal
-        visible={isPauseModalVisible}
+        visible={activeModal === 'pause'}
         onOk={() => {
-          closePauseModal()
+          handleModalConfirm('pause')
         }}
-        onCancel={() => {
-          closePauseModal()
-        }}
+        onCancel={handleModalCancel}
       />
     </>
   )
