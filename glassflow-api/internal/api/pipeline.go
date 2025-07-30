@@ -17,9 +17,10 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[pipelineJSON](w, r)
 	if err != nil {
 		var jsonErr invalidJSONError
-		if errors.As(err, &jsonErr) {
+		switch {
+		case errors.As(err, &jsonErr):
 			jsonError(w, http.StatusBadRequest, err.Error(), nil)
-		} else {
+		default:
 			h.log.Error("failed to read create pipeline request", slog.Any("error", err))
 			serverError(w)
 		}
@@ -103,6 +104,49 @@ func (h *handler) getPipelines(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusOK, pipelines)
+}
+
+type updatePipelineNameRequest struct {
+	Name string `json:"name"`
+}
+
+func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+	}
+
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	req, err := parseRequest[updatePipelineNameRequest](w, r)
+	if err != nil {
+		var jsonErr invalidJSONError
+		switch {
+		case errors.As(err, &jsonErr):
+			jsonError(w, http.StatusBadRequest, err.Error(), nil)
+		default:
+			h.log.Error("failed to read update pipeline request", slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
+
+	err = h.pipelineManager.UpdatePipelineName(r.Context(), id, req.Name)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
+		default:
+			h.log.Error("failed to update pipeline name", slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
 }
 
 type pipelineJSON struct {
