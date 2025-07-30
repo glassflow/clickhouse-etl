@@ -46,6 +46,7 @@ type PipelineStore interface {
 	InsertPipeline(context.Context, models.PipelineConfig) error
 	GetPipeline(context.Context, string) (*models.PipelineConfig, error)
 	GetPipelines(context.Context) ([]models.PipelineConfig, error)
+	PatchPipelineName(context.Context, string, string) error
 }
 
 func NewPipelineManager(
@@ -225,4 +226,13 @@ func (p *PipelineManager) GetPipelines(ctx context.Context) ([]models.ListPipeli
 	}
 
 	return ps, nil
+}
+
+func (p *PipelineManager) UpdatePipelineName(ctx context.Context, id, name string) error {
+	err := p.store.PatchPipelineName(ctx, id, name)
+	if err != nil {
+		return fmt.Errorf("update pipeline: %w", err)
+	}
+
+	return nil
 }

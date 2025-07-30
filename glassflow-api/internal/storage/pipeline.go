@@ -74,3 +74,33 @@ func (s *Storage) GetPipelines(ctx context.Context) ([]models.PipelineConfig, er
 
 	return pipelines, nil
 }
+
+func (s *Storage) PatchPipelineName(ctx context.Context, id, name string) error {
+	entry, err := s.kv.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return service.ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline to patch from kv: %w", err)
+	}
+
+	var p models.PipelineConfig
+	err = json.Unmarshal(entry.Value(), &p)
+	if err != nil {
+		return fmt.Errorf("unmarshal loaded entry: %w", err)
+	}
+
+	p.Name = name
+
+	pc, err := json.Marshal(p)
+	if err != nil {
+		return fmt.Errorf("marshal kv pipeline: %w", err)
+	}
+
+	_, err = s.kv.Update(ctx, p.ID, pc, entry.Revision())
+	if err != nil {
+		return fmt.Errorf("patch pipeline name in kv: %w", err)
+	}
+
+	return nil
+}
