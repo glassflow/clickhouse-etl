@@ -16,6 +16,7 @@ export const generateApiConfig = ({
   getMappingType,
   joinStore,
   kafkaStore,
+  deduplicationStore,
 }: {
   pipelineId: string
   setPipelineId: (pipelineId: string) => void
@@ -25,6 +26,7 @@ export const generateApiConfig = ({
   getMappingType: (eventField: string, mapping: any) => string
   joinStore: any
   kafkaStore: any
+  deduplicationStore: any
 }) => {
   try {
     // Generate a new pipeline ID if one doesn't exist
@@ -37,7 +39,7 @@ export const generateApiConfig = ({
     const mapping = clickhouseDestination?.mapping || []
 
     // Map topics to the expected format
-    const topicsConfig = selectedTopics.map((topic: any) => {
+    const topicsConfig = selectedTopics.map((topic: any, topicIndex: number) => {
       // Extract event data, ensuring _metadata is removed
       let eventData = {}
       if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
@@ -50,6 +52,9 @@ export const generateApiConfig = ({
           delete (eventData as any)._metadata
         }
       }
+
+      // Get deduplication config from the new separated store
+      const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex) || null
 
       return {
         consumer_group_initial_offset: topic.initialOffset,
@@ -68,13 +73,13 @@ export const generateApiConfig = ({
           }),
         },
         deduplication:
-          topic.deduplication && topic.deduplication.enabled
+          deduplicationConfig && deduplicationConfig.enabled
             ? {
                 enabled: true,
-                id_field: topic.deduplication.key,
-                id_field_type: topic.deduplication.keyType,
-                time_window: topic.deduplication.window
-                  ? `${topic.deduplication.window}${topic.deduplication.windowUnit?.charAt(0) || 'h'}`
+                id_field: deduplicationConfig.key,
+                id_field_type: deduplicationConfig.keyType,
+                time_window: deduplicationConfig.window
+                  ? `${deduplicationConfig.window}${deduplicationConfig.unit?.charAt(0) || 'h'}`
                   : '1h',
               }
             : {
@@ -156,16 +161,18 @@ export const generateApiConfig = ({
                       time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
                       orientation: stream.orientation,
                     }))
-                  : topicsConfig.map((topic: any, index: number) => ({
-                      source_id: topic.name,
-                      join_key:
-                        (topic.deduplication as any)?.key ||
-                        (topic.deduplication as any)?.keyField ||
-                        topic.deduplication?.id_field ||
-                        '',
-                      time_window: '1h',
-                      orientation: index === 0 ? 'left' : 'right',
-                    })),
+                  : topicsConfig.map((topic: any, index: number) => {
+                      // Get deduplication config for join key
+                      const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
+                      const joinKey = deduplicationConfig?.key || ''
+
+                      return {
+                        source_id: topic.name,
+                        join_key: joinKey,
+                        time_window: '1h',
+                        orientation: index === 0 ? 'left' : 'right',
+                      }
+                    }),
             },
           }
         : {}),

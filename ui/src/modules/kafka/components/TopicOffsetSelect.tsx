@@ -68,13 +68,6 @@ export function TopicOffsetSelect({
             position: offsetValue,
             event: undefined,
           },
-          deduplication: {
-            enabled: false,
-            window: 0,
-            unit: 'hours',
-            key: '',
-            keyType: '',
-          },
         })
       }
     },
@@ -100,13 +93,6 @@ export function TopicOffsetSelect({
             position: value,
             event: undefined,
           },
-          deduplication: {
-            enabled: false,
-            window: 0,
-            unit: 'hours',
-            key: '',
-            keyType: '',
-          },
         })
 
         // Force a re-render of the EventManager by clearing the current event
@@ -121,13 +107,6 @@ export function TopicOffsetSelect({
               topicIndex: index,
               position: value,
               event: undefined,
-            },
-            deduplication: {
-              enabled: false,
-              window: 0,
-              unit: 'hours',
-              key: '',
-              keyType: '',
             },
           })
         }

@@ -53,30 +53,30 @@ export function KafkaTopicSelector({
   const validationEngine = useValidationEngine()
   const { operationsSelected } = configStore
 
-  // Determine index based on current step and operation
+  console.log('KafkaTopicSelector currentStep', currentStep)
+
+  // Determine index based on current step (more reliable than operationsSelected during editing)
   const getIndex = useCallback(() => {
     if (!currentStep) return 0
 
-    // For join operations, determine if this is the first or second topic selection
-    if (
-      operationsSelected?.operation === OperationKeys.JOINING ||
-      operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
+    // Determine index based on step name, which is more reliable during editing
+    if (currentStep === StepKeys.TOPIC_SELECTION_1 || currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+      return 0 // Left topic (first topic)
+    } else if (
+      currentStep === StepKeys.TOPIC_SELECTION_2 ||
+      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
     ) {
-      if (currentStep === StepKeys.TOPIC_SELECTION_1 || currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-        return 0 // Left topic
-      } else if (
-        currentStep === StepKeys.TOPIC_SELECTION_2 ||
-        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-      ) {
-        return 1 // Right topic
-      }
+      return 1 // Right topic (second topic)
     }
 
-    // For non-join operations, always use index 0
+    // For any other step, default to index 0
     return 0
-  }, [currentStep, operationsSelected?.operation])
+  }, [currentStep])
 
   const index = getIndex()
+  console.log('KafkaTopicSelector index', index)
+  console.log('KafkaTopicSelector operationsSelected', operationsSelected)
+  console.log('KafkaTopicSelector currentStep', currentStep)
 
   const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
   const analytics = useJourneyAnalytics()
@@ -95,33 +95,43 @@ export function KafkaTopicSelector({
   const storedTopicName = storedTopic?.name
   const storedEvent = storedTopic?.selectedEvent?.event
   const initialOffset = storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
+
+  // Use stored topic data
+  const effectiveTopic = storedTopic
+  const effectiveTopicName = effectiveTopic?.name
+  const effectiveEvent = effectiveTopic?.selectedEvent?.event
+  const effectiveOffset = effectiveTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
   const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [isManualEventValid, setIsManualEventValid] = useState(false)
   const [manualEvent, setManualEvent] = useState('')
-  const [localTopicName, setLocalTopicName] = useState(storedTopic?.name || '')
+  const [localTopicName, setLocalTopicName] = useState(effectiveTopicName || '')
   const [localOffset, setLocalOffset] = useState<'earliest' | 'latest'>(
-    (storedTopic?.initialOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
+    (effectiveOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
   )
 
   // NEW: Deduplication state management
+  // Get deduplication config from the new separated store
+  const deduplicationStore = useStore((state) => state.deduplicationStore)
+  const storedDeduplicationConfig = deduplicationStore.getDeduplication(index)
+
   const [deduplicationConfig, setDeduplicationConfig] = useState<{
     key: string
     keyType: string
     window: number
     unit: 'seconds' | 'minutes' | 'hours' | 'days'
   }>({
-    key: initialDeduplicationConfig?.key || storedTopic?.deduplication?.key || '',
-    keyType: initialDeduplicationConfig?.keyType || storedTopic?.deduplication?.keyType || 'string',
-    window: initialDeduplicationConfig?.window || storedTopic?.deduplication?.window || 1,
+    key: initialDeduplicationConfig?.key || storedDeduplicationConfig?.key || '',
+    keyType: initialDeduplicationConfig?.keyType || storedDeduplicationConfig?.keyType || 'string',
+    window: initialDeduplicationConfig?.window || storedDeduplicationConfig?.window || 1,
     unit:
       initialDeduplicationConfig?.unit ||
-      storedTopic?.deduplication?.unit ||
+      storedDeduplicationConfig?.unit ||
       (TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days'),
   })
 
   const [deduplicationConfigured, setDeduplicationConfigured] = useState(
-    !!(initialDeduplicationConfig?.key || (storedTopic?.deduplication?.key && storedTopic?.deduplication?.window)),
+    !!(initialDeduplicationConfig?.key || (storedDeduplicationConfig?.key && storedDeduplicationConfig?.window)),
   )
 
   const handleManualEventChange = (event: string) => {
@@ -198,12 +208,13 @@ export function KafkaTopicSelector({
     }
   }, [manualEvent])
 
-  // Track page view when component loads - depending on the operation, we want to track the topic selection differently
+  // Track page view when component loads - depending on the step, we want to track the topic selection differently
   useEffect(() => {
-    if (
-      operationsSelected?.operation === OperationKeys.JOINING ||
-      operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
-    ) {
+    // Determine if this is a join operation based on step name (more reliable than operationsSelected)
+    const isJoinOperation =
+      currentStep === StepKeys.TOPIC_SELECTION_2 || currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+
+    if (isJoinOperation) {
       if (index === 0) {
         analytics.page.selectLeftTopic({})
       } else {
@@ -217,7 +228,7 @@ export function KafkaTopicSelector({
     if (enableDeduplication) {
       analytics.page.topicDeduplication({})
     }
-  }, [enableDeduplication, index, operationsSelected?.operation, analytics.page])
+  }, [enableDeduplication, index, currentStep, analytics.page])
 
   // Fetch topics on component mount
   useEffect(() => {
@@ -299,27 +310,39 @@ export function KafkaTopicSelector({
             key: deduplicationConfig.key,
             keyType: deduplicationConfig.keyType,
           }
-        : storedTopic?.deduplication || baseDeduplicationConfig
+        : storedDeduplicationConfig || baseDeduplicationConfig
 
-    // Update topic in the store
-    updateTopic({
+    // Create topic data
+    const topicData = {
       index: index,
       name: topicName,
       initialOffset: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-      events: [
-        {
-          event,
-          topicIndex: index,
-          position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-        },
-      ],
-      selectedEvent: {
-        event,
-        topicIndex: index,
-        position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-      },
-      deduplication: deduplicationToUse,
-    })
+      events: event
+        ? [
+            {
+              event,
+              topicIndex: index,
+              position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+            },
+          ]
+        : [],
+      selectedEvent: event
+        ? {
+            event,
+            topicIndex: index,
+            position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+          }
+        : {
+            event: undefined,
+            topicIndex: index,
+            position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
+          },
+    }
+
+    // Update topic in the store (without deduplication)
+    updateTopic(topicData)
+    // Update deduplication store separately
+    deduplicationStore.updateDeduplication(index, deduplicationToUse)
 
     setLocalTopicName(topicName)
 
@@ -350,10 +373,10 @@ export function KafkaTopicSelector({
               key: deduplicationConfig.key,
               keyType: deduplicationConfig.keyType,
             }
-          : storedTopic?.deduplication || baseDeduplicationConfig
+          : storedDeduplicationConfig || baseDeduplicationConfig
 
-      // Update topic with new offset and event
-      updateTopic({
+      // Create topic data
+      const topicData = {
         index: index,
         name: storedTopic?.name || '',
         initialOffset: offset,
@@ -369,12 +392,24 @@ export function KafkaTopicSelector({
           topicIndex: index,
           position: offset,
         },
-        deduplication: deduplicationToUse,
-      })
+      }
+
+      // Update topic with new offset and event (without deduplication)
+      updateTopic(topicData)
+      // Update deduplication store separately
+      deduplicationStore.updateDeduplication(index, deduplicationToUse)
 
       setLocalOffset(offset)
     },
-    [index, storedTopic, updateTopic, enableDeduplication, deduplicationConfigured, deduplicationConfig],
+    [
+      index,
+      storedTopic,
+      updateTopic,
+      enableDeduplication,
+      deduplicationConfigured,
+      deduplicationConfig,
+      deduplicationStore,
+    ],
   )
 
   // NEW: Enhanced form submission handler that includes deduplication config
@@ -413,7 +448,7 @@ export function KafkaTopicSelector({
             key: deduplicationConfig.key,
             keyType: deduplicationConfig.keyType,
           }
-        : storedTopic?.deduplication || {
+        : storedDeduplicationConfig || {
             enabled: false,
             window: 0,
             unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
@@ -421,13 +456,11 @@ export function KafkaTopicSelector({
             keyType: '',
           }
 
-    // Combine base data with deduplication config
-    const finalTopicData = {
-      ...baseTopicData,
-      deduplication: deduplicationData,
-    }
+    // Update topic without deduplication
+    updateTopic(baseTopicData)
 
-    updateTopic(finalTopicData)
+    // Update deduplication store separately
+    deduplicationStore.updateDeduplication(index, deduplicationData)
 
     // Trigger validation engine to mark this section as valid and invalidate dependents
     if (currentStep === StepKeys.TOPIC_SELECTION_1) {
@@ -455,12 +488,13 @@ export function KafkaTopicSelector({
     localTopicName,
     localOffset,
     storedEvent,
-    storedTopic?.deduplication,
+    storedDeduplicationConfig,
     updateTopic,
     currentStep,
     enableDeduplication,
     deduplicationConfigured,
     deduplicationConfig,
+    deduplicationStore,
   ])
 
   // NEW: Conditional rendering for deduplication section
@@ -491,13 +525,13 @@ export function KafkaTopicSelector({
           <div className="grid grid-cols-1 gap-6">
             <TopicSelectWithEventPreview
               index={index}
-              existingTopic={storedTopic}
+              existingTopic={effectiveTopic}
               onTopicChange={handleTopicChange}
               onOffsetChange={handleOffsetChange}
               onManualEventChange={handleManualEventChange}
               availableTopics={availableTopics}
               additionalContent={renderDeduplicationSection()}
-              isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
+              isEditingEnabled={manualEvent !== '' || effectiveTopic?.selectedEvent?.isManualEvent || false}
               readOnly={readOnly}
             />
           </div>

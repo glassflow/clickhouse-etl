@@ -311,7 +311,7 @@ const mockClickhouseDestination = {
   getIsDestinationMappingDirty: () => false,
 }
 
-// Mock data for TopicsStore
+// Mock data for TopicsStore (updated to remove deduplication)
 const mockTopicsStore = {
   availableTopics: ['transactions', 'credit_card_1_transactions', '__consumer_offsets'],
   topicCount: 1,
@@ -364,16 +364,38 @@ const mockTopicsStore = {
         },
         topicIndex: 0,
       },
-      deduplication: {
-        enabled: true,
-        index: 0,
-        window: 5,
-        unit: 'minutes',
-        key: 'booking_date',
-        keyType: 'string',
-      },
     },
   },
+  // Mock actions
+  updateTopic: () => {},
+  invalidateTopicDependentState: () => {},
+  resetTopicsStore: () => {},
+  markAsValid: () => {},
+  markAsInvalidated: () => {},
+  getTopic: (index: number) => mockTopicsStore.topics[index.toString() as keyof typeof mockTopicsStore.topics],
+  getEvent: () => null,
+  validation: { isValid: true, isInvalidated: false },
+}
+
+// Mock data for DeduplicationStore (new separated store)
+const mockDeduplicationStore = {
+  deduplicationConfigs: {
+    '0': {
+      enabled: true,
+      window: 5,
+      unit: 'minutes',
+      key: 'booking_date',
+      keyType: 'string',
+    },
+  },
+  // Mock actions
+  updateDeduplication: () => {},
+  invalidateDeduplication: () => {},
+  getDeduplication: (index: number) =>
+    mockDeduplicationStore.deduplicationConfigs[
+      index.toString() as keyof typeof mockDeduplicationStore.deduplicationConfigs
+    ],
+  validation: { isValid: true, isInvalidated: false },
 }
 
 // Mock data for OperationsSelected
@@ -432,6 +454,7 @@ const mockData = {
   clickhouseConnectionStore: mockClickhouseConnector,
   clickhouseDestinationStore: mockClickhouseDestination,
   topicsStore: mockTopicsStore,
+  deduplicationStore: mockDeduplicationStore,
   configStore: {
     pipelineId: '',
     pipelineName: '',

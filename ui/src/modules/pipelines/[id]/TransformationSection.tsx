@@ -3,6 +3,7 @@ import DoubleColumnCard from './DoubleColumnCard'
 import { StepType } from '../types'
 import { StepKeys } from '@/src/config/constants'
 import SingleColumnCard from './SingleColumnCard'
+import { useStore } from '@/src/store'
 
 // covers the case where there is a single topic and no join for deduplication or ingest only
 const DeduplicationCase = ({
@@ -38,17 +39,21 @@ const DeduplicationCase = ({
       />
 
       {/* Middle card: Deduplication Key (only if dedup is enabled) */}
-      {hasDedup && (
-        <SingleCard
-          label={['Deduplication Key']}
-          value={[topic.deduplication.id_field]}
-          orientation="center"
-          width="full"
-          onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR)}
-          disabled={disabled}
-          validation={validation}
-        />
-      )}
+      {hasDedup &&
+        (() => {
+          const deduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(0)
+          return (
+            <SingleCard
+              label={['Deduplication Key']}
+              value={[deduplicationConfig?.key || 'N/A']}
+              orientation="center"
+              width="full"
+              onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR)}
+              disabled={disabled}
+              validation={validation}
+            />
+          )
+        })()}
 
       {/* Bottom card: Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -175,7 +180,10 @@ const JoinDeduplicationCase = ({
           label={['Left Topic', 'Dedup Key']}
           value={[
             leftTopic?.name || 'N/A',
-            leftTopic?.deduplication?.enabled ? leftTopic.deduplication.id_field : 'None',
+            (() => {
+              const deduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(0)
+              return deduplicationConfig?.enabled ? deduplicationConfig.key : 'None'
+            })(),
           ]}
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)}
@@ -186,7 +194,10 @@ const JoinDeduplicationCase = ({
         <DoubleColumnCard
           label={['Dedup Key', 'Right Topic']}
           value={[
-            rightTopic?.deduplication?.enabled ? rightTopic.deduplication.id_field : 'None',
+            (() => {
+              const deduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(1)
+              return deduplicationConfig?.enabled ? deduplicationConfig.key : 'None'
+            })(),
             rightTopic?.name || 'N/A',
           ]}
           width="full"
@@ -261,7 +272,8 @@ function TransformationSection({
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
     const topic = topics[0]
-    const hasDedup = topic.deduplication?.enabled || false
+    const deduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(0)
+    const hasDedup = deduplicationConfig?.enabled || false
 
     return (
       <DeduplicationCase

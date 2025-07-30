@@ -28,15 +28,16 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
   const { getTopic } = topicsStore
 
   const topic = getTopic(index)
+  const deduplicationConfig = useStore((state) => state.deduplicationStore.getDeduplication(index))
 
   // Consolidated useEffect for initialization and event data processing
   useEffect(() => {
-    // Initialize from topic
-    if (topic?.deduplication) {
-      setSelectedKey(topic.deduplication.key || '')
-      setSelectedKeyType(topic.deduplication.keyType || 'string')
-      setLocalWindow(topic.deduplication.window || 1)
-      setLocalWindowUnit(topic.deduplication.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
+    // Initialize from deduplication store
+    if (deduplicationConfig) {
+      setSelectedKey(deduplicationConfig.key || '')
+      setSelectedKeyType(deduplicationConfig.keyType || 'string')
+      setLocalWindow(deduplicationConfig.window || 1)
+      setLocalWindowUnit(deduplicationConfig.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
     }
 
     // Process event data
@@ -63,7 +64,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
         setIsLoading(false)
       }
     }
-  }, [topic, eventData])
+  }, [deduplicationConfig, eventData])
 
   // Simplified getAvailableKeys - no need to filter out selected keys
   const getAvailableKeys = useCallback(() => {

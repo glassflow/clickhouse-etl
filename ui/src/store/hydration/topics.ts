@@ -1,6 +1,6 @@
 import { useStore } from '../index'
 
-// Helper to map backend topic config to your store's topic shape
+// Helper to map backend topic config to your store's topic shape (without deduplication)
 function mapBackendTopicToStore(topicConfig: any, index: number) {
   const initialOffset = topicConfig.consumer_group_initial_offset || 'latest'
   return {
@@ -13,15 +13,27 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
       position: initialOffset,
       event: undefined,
     },
-    deduplication: topicConfig.deduplication
-      ? {
-          enabled: topicConfig.deduplication.enabled,
-          key: topicConfig.deduplication.id_field,
-          keyType: topicConfig.deduplication.id_field_type,
-          window: parseInt(topicConfig.deduplication.time_window) || 0,
-          unit: topicConfig.deduplication.time_window?.replace(/[0-9]/g, '') || 'hours',
-        }
-      : undefined,
+  }
+}
+
+// Helper to map backend deduplication config to the new deduplication store
+function mapBackendDeduplicationToStore(topicConfig: any, index: number) {
+  if (!topicConfig.deduplication) {
+    return {
+      enabled: false,
+      window: 0,
+      unit: 'hours',
+      key: '',
+      keyType: 'string',
+    }
+  }
+
+  return {
+    enabled: topicConfig.deduplication.enabled,
+    key: topicConfig.deduplication.id_field,
+    keyType: topicConfig.deduplication.id_field_type,
+    window: parseInt(topicConfig.deduplication.time_window) || 0,
+    unit: topicConfig.deduplication.time_window?.replace(/[0-9]/g, '') || 'hours',
   }
 }
 
@@ -53,8 +65,13 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
   // 4. Set selected topics from backend config
   if (pipelineConfig?.source?.topics) {
     pipelineConfig.source.topics.forEach((topicConfig: any, idx: number) => {
+      // Map topic data (without deduplication)
       const topicState = mapBackendTopicToStore(topicConfig, idx)
       useStore.getState().topicsStore.updateTopic(topicState)
+
+      // Map deduplication data to the new separated store
+      const deduplicationState = mapBackendDeduplicationToStore(topicConfig, idx)
+      useStore.getState().deduplicationStore.updateDeduplication(idx, deduplicationState)
     })
     // useStore.getState().topicsStore.setTopicCount(pipelineConfig.source.topics.length)
   }

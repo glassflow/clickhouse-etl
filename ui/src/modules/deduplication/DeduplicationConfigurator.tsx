@@ -28,11 +28,12 @@ export function DeduplicationConfigurator({
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
 
-  // Access the full topics array directly instead of using getter methods
-  const { topics, updateTopic } = useStore((state) => state.topicsStore)
+  // Use the new separated store structure with proper memoization
+  const deduplicationConfig = useStore((state) => state.deduplicationStore.getDeduplication(index))
+  const updateDeduplication = useStore((state) => state.deduplicationStore.updateDeduplication)
 
-  // Get current topic directly from the array
-  const topic = topics[index]
+  // Get topic data for event information
+  const topic = useStore((state) => state.topicsStore.getTopic(index))
 
   // Get the event directly from the topic's events array
   const topicEvent = topic?.events?.[0] || null
@@ -45,39 +46,36 @@ export function DeduplicationConfigurator({
     analytics.page.deduplicationKey({})
   }, [])
 
-  // Directly read the deduplication config from the topic
-  const deduplicationConfig = topic?.deduplication || {
+  // Use deduplication config from the new store, with fallback
+  const currentDeduplicationConfig = deduplicationConfig || {
     enabled: false,
-    window: '',
-    unit: '',
+    window: 0,
+    unit: 'hours',
     key: '',
     keyType: 'string',
   }
 
   // Determine if we can continue based directly on the store data
-  const canContinue = !!(deduplicationConfig.key && deduplicationConfig.window && deduplicationConfig.unit)
+  const canContinue = !!(
+    currentDeduplicationConfig.key &&
+    currentDeduplicationConfig.window &&
+    currentDeduplicationConfig.unit
+  )
 
-  // Update the topic in the store directly without local state
+  // Update the deduplication config in the new store
   const handleDeduplicationConfigChange = useCallback(
     ({ key, keyType }: { key: string; keyType: string }, { window, unit }: { window: number; unit: string }) => {
-      if (!topic) return
-
       // Create an updated deduplication config
       const updatedConfig = {
         enabled: true,
-        index,
         window,
         unit: unit as 'seconds' | 'minutes' | 'hours' | 'days',
         key,
         keyType,
       }
 
-      // Update the topic directly in the store
-      updateTopic({
-        ...topic,
-        index,
-        deduplication: updatedConfig,
-      })
+      // Update the deduplication config in the new store
+      updateDeduplication(index, updatedConfig)
 
       analytics.key.dedupKey({
         keyType,
@@ -85,7 +83,7 @@ export function DeduplicationConfigurator({
         unit,
       })
     },
-    [topic, index, updateTopic],
+    [index, updateDeduplication],
   )
 
   // Handle continue button click

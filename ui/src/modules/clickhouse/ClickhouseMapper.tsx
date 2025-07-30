@@ -49,8 +49,15 @@ const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.
 
 export function ClickhouseMapper({ onCompleteStep, standalone, readOnly, toggleEditMode }: ClickhouseMapperProps) {
   const router = useRouter()
-  const { clickhouseConnectionStore, clickhouseDestinationStore, kafkaStore, joinStore, topicsStore, configStore } =
-    useStore()
+  const {
+    clickhouseConnectionStore,
+    clickhouseDestinationStore,
+    kafkaStore,
+    joinStore,
+    topicsStore,
+    configStore,
+    deduplicationStore,
+  } = useStore()
   const analytics = useJourneyAnalytics()
   const { clickhouseConnection, getDatabases, getTables, getTableSchema, updateDatabases, getConnectionId } =
     clickhouseConnectionStore
@@ -804,6 +811,7 @@ export function ClickhouseMapper({ onCompleteStep, standalone, readOnly, toggleE
       getMappingType,
       joinStore,
       kafkaStore,
+      deduplicationStore,
     })
 
     // Update the store with the new destination config

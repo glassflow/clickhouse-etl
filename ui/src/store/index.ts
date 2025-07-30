@@ -12,6 +12,7 @@ import { createClickhouseConnectionSlice, ClickhouseConnectionSlice } from './cl
 import { createClickhouseDestinationSlice, ClickhouseDestinationSlice } from './clickhouse-destination.store'
 import { createStepsSlice, StepsSlice } from './steps.store'
 import { createTopicsSlice, TopicsSlice } from './topics.store'
+import { createDeduplicationSlice, DeduplicationSlice } from './deduplication.store'
 import { createJoinSlice, JoinSlice } from './join.store'
 import { createPipelineConfigSlice, PipelineConfigSlice, getTopicCountForOperation } from './pipeline-config'
 import Cookies from 'js-cookie'
@@ -22,6 +23,7 @@ interface Store
     ClickhouseDestinationSlice,
     StepsSlice,
     TopicsSlice,
+    DeduplicationSlice,
     JoinSlice,
     PipelineConfigSlice {
   // Global reset function that can reset all slices
@@ -37,6 +39,7 @@ const useActualStore = create<Store>()(
       ...createClickhouseDestinationSlice(set, get, store),
       ...createStepsSlice(set, get, store),
       ...createTopicsSlice(set, get, store),
+      ...createDeduplicationSlice(set, get, store),
       ...createJoinSlice(set, get, store),
       ...createPipelineConfigSlice(set, get, store),
 
@@ -63,6 +66,10 @@ const useActualStore = create<Store>()(
               topics: {},
               topicCount: topicCount,
               availableTopics: state.topicsStore.availableTopics,
+            },
+            deduplicationStore: {
+              ...state.deduplicationStore,
+              deduplicationConfigs: {},
             },
             joinStore: {
               ...state.joinStore,

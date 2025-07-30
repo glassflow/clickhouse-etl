@@ -16,15 +16,6 @@ const KafkaTopicSchema = z.object({
   events: z.array(KafkaEventSchema), // all events fetched previously including current event
   selectedEvent: KafkaEventSchema, // current event
   initialOffset: z.enum(['earliest', 'latest']), // current offset
-  deduplication: z
-    .object({
-      enabled: z.boolean(),
-      window: z.number(),
-      unit: z.enum(['seconds', 'minutes', 'hours', 'days']),
-      key: z.string(),
-      keyType: z.string(),
-    })
-    .optional(),
 })
 
 const KafkaTopicsSchema = z.record(z.number(), KafkaTopicSchema)

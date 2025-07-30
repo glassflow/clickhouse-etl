@@ -97,7 +97,7 @@ export function TopicSelectWithEventPreview({
         onTopicChange(topic, null)
       }
     },
-    [localState.offset, fetchEvent, resetEventState, existingTopic],
+    [localState.offset, fetchEvent, resetEventState, existingTopic, onTopicChange],
   )
 
   // Handle offset change

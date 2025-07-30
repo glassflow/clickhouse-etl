@@ -33,6 +33,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const clickhouseDestinationValidation = useStore((state) => state.clickhouseDestinationStore.validation)
   const joinValidation = useStore((state) => state.joinStore.validation)
   const topicsValidation = useStore((state) => state.topicsStore.validation)
+  const deduplicationValidation = useStore((state) => state.deduplicationStore.validation)
 
   // Determine if pipeline editing operations should be disabled
   // Consider both pipeline status AND if any action is currently loading
@@ -53,6 +54,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     if (isEditingDisabled) {
       return
     }
+    console.log('Step clicked:', step)
     setActiveStep(step)
   }
 
@@ -116,6 +118,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
               kafkaValidation: kafkaValidation,
               topicsValidation: topicsValidation,
               joinValidation: joinValidation,
+              deduplicationValidation: deduplicationValidation,
               clickhouseConnectionValidation: clickhouseConnectionValidation,
               clickhouseDestinationValidation: clickhouseDestinationValidation,
             }}

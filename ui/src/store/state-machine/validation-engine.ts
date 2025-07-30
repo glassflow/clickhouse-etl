@@ -25,17 +25,25 @@ export class DistributedValidationEngine {
    */
   onSectionConfigured(section: StepKeys) {
     // Mark current section as valid
-    const currentSlice = this.getStoreSliceForSection(section)
-    if (currentSlice?.markAsValid) {
-      currentSlice.markAsValid()
+    const currentSlices = this.getStoreSliceForSection(section)
+    if (currentSlices && currentSlices.length > 0) {
+      currentSlices.forEach((slice) => {
+        if (slice?.markAsValid) {
+          slice.markAsValid()
+        }
+      })
     }
 
     // Find and invalidate all dependent sections
     const dependentSections = this.findDependentSections(section)
     dependentSections.forEach((dependentSection) => {
       const dependentSlice = this.getStoreSliceForSection(dependentSection)
-      if (dependentSlice?.markAsInvalidated) {
-        dependentSlice.markAsInvalidated(section)
+      if (dependentSlice && dependentSlice.length > 0) {
+        dependentSlice.forEach((slice) => {
+          if (slice?.markAsInvalidated) {
+            slice.markAsInvalidated(section)
+          }
+        })
       }
     })
   }
@@ -45,16 +53,24 @@ export class DistributedValidationEngine {
    */
   onSectionReset(section: StepKeys) {
     const currentSlice = this.getStoreSliceForSection(section)
-    if (currentSlice?.markAsNotConfigured) {
-      currentSlice.markAsNotConfigured()
+    if (currentSlice && currentSlice.length > 0) {
+      currentSlice.forEach((slice) => {
+        if (slice?.markAsNotConfigured) {
+          slice.markAsNotConfigured()
+        }
+      })
     }
 
     // Also reset all dependent sections
     const dependentSections = this.findDependentSections(section)
     dependentSections.forEach((dependentSection) => {
       const dependentSlice = this.getStoreSliceForSection(dependentSection)
-      if (dependentSlice?.markAsNotConfigured) {
-        dependentSlice.markAsNotConfigured()
+      if (dependentSlice && dependentSlice.length > 0) {
+        dependentSlice.forEach((slice) => {
+          if (slice?.markAsNotConfigured) {
+            slice.markAsNotConfigured()
+          }
+        })
       }
     })
   }
@@ -64,8 +80,12 @@ export class DistributedValidationEngine {
    */
   invalidateSection(section: StepKeys, invalidatedBy: string) {
     const slice = this.getStoreSliceForSection(section)
-    if (slice?.markAsInvalidated) {
-      slice.markAsInvalidated(invalidatedBy)
+    if (slice && slice.length > 0) {
+      slice.forEach((slice) => {
+        if (slice?.markAsInvalidated) {
+          slice.markAsInvalidated(invalidatedBy)
+        }
+      })
     }
   }
 
@@ -74,7 +94,10 @@ export class DistributedValidationEngine {
    */
   getSectionValidation(section: StepKeys) {
     const slice = this.getStoreSliceForSection(section)
-    return slice?.validation || { status: 'not-configured' }
+    if (slice && slice.length > 0) {
+      return slice.map((slice) => slice?.validation || { status: 'not-configured' })
+    }
+    return { status: 'not-configured' }
   }
 
   /**
@@ -83,8 +106,12 @@ export class DistributedValidationEngine {
   resetAllValidations() {
     Object.values(StepKeys).forEach((section) => {
       const slice = this.getStoreSliceForSection(section as StepKeys)
-      if (slice?.resetValidation) {
-        slice.resetValidation()
+      if (slice && slice.length > 0) {
+        slice.forEach((slice) => {
+          if (slice?.resetValidation) {
+            slice.resetValidation()
+          }
+        })
       }
     })
   }
@@ -112,17 +139,17 @@ export class DistributedValidationEngine {
    */
   private getStoreSliceForSection(section: StepKeys) {
     const mapping = {
-      [StepKeys.KAFKA_CONNECTION]: this.store.kafkaStore,
-      [StepKeys.TOPIC_SELECTION_1]: this.store.topicsStore,
-      [StepKeys.TOPIC_SELECTION_2]: this.store.topicsStore,
-      [StepKeys.DEDUPLICATION_CONFIGURATOR]: this.store.topicsStore, // Dedup config lives in topics
-      [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: this.store.topicsStore,
-      [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: this.store.topicsStore,
-      [StepKeys.JOIN_CONFIGURATOR]: this.store.joinStore,
-      [StepKeys.CLICKHOUSE_CONNECTION]: this.store.clickhouseConnectionStore,
-      [StepKeys.CLICKHOUSE_MAPPER]: this.store.clickhouseDestinationStore,
-      [StepKeys.REVIEW_CONFIGURATION]: this.store.configStore, // Review uses config store
-      [StepKeys.DEPLOY_PIPELINE]: this.store.configStore, // Deploy uses config store
+      [StepKeys.KAFKA_CONNECTION]: [this.store.kafkaStore],
+      [StepKeys.TOPIC_SELECTION_1]: [this.store.topicsStore],
+      [StepKeys.TOPIC_SELECTION_2]: [this.store.topicsStore],
+      [StepKeys.DEDUPLICATION_CONFIGURATOR]: [this.store.deduplicationStore],
+      [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: [this.store.deduplicationStore, this.store.topicsStore],
+      [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: [this.store.deduplicationStore, this.store.topicsStore],
+      [StepKeys.JOIN_CONFIGURATOR]: [this.store.joinStore],
+      [StepKeys.CLICKHOUSE_CONNECTION]: [this.store.clickhouseConnectionStore],
+      [StepKeys.CLICKHOUSE_MAPPER]: [this.store.clickhouseDestinationStore],
+      [StepKeys.REVIEW_CONFIGURATION]: [this.store.configStore], // Review uses config store
+      [StepKeys.DEPLOY_PIPELINE]: [this.store.configStore], // Deploy uses config store
     }
 
     return mapping[section]

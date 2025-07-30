@@ -167,7 +167,7 @@ export const mockPipelines: Pipeline[] = [
         },
         {
           consumer_group_initial_offset: 'earliest',
-          name: 'transactions',
+          name: 'other_transactions',
           schema: {
             type: 'json',
             fields: [
@@ -203,7 +203,7 @@ export const mockPipelines: Pipeline[] = [
           orientation: 'left',
         },
         {
-          source_id: 'transactions',
+          source_id: 'other_transactions',
           join_key: 'transaction_id',
           time_window: '1h',
           orientation: 'right',
@@ -448,7 +448,7 @@ export const mockPipelines: Pipeline[] = [
           orientation: 'left',
         },
         {
-          source_id: 'transactions',
+          source_id: 'other_transactions',
           join_key: 'transaction_id',
           time_window: '1h',
           orientation: 'right',

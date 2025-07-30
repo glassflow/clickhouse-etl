@@ -16,8 +16,15 @@ import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
-  const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, topicsStore, joinStore, configStore } =
-    useStore()
+  const {
+    kafkaStore,
+    clickhouseConnectionStore,
+    clickhouseDestinationStore,
+    topicsStore,
+    joinStore,
+    configStore,
+    deduplicationStore,
+  } = useStore()
   const { apiConfig, pipelineId, setPipelineId, operationsSelected } = configStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
@@ -70,34 +77,33 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       return (
         <li key={index} className="mb-4">
           <div className="font-medium">{topicName}</div>
-          {topic?.deduplication && (
-            <div className="ml-4 mt-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Deduplication:</span>{' '}
-                {topic.deduplication.enabled ? 'Enabled' : 'Disabled'}
-              </div>
-              {topic.deduplication.enabled && (
-                <>
+          {(() => {
+            const deduplicationConfig = deduplicationStore.getDeduplication(index)
+            return (
+              deduplicationConfig && (
+                <div className="ml-4 mt-2 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Method:</span>{' '}
-                    {topic.deduplication.method === 'key' ? 'Key-based' : 'Hash-based'}
+                    <span className="text-muted-foreground">Deduplication:</span>{' '}
+                    {deduplicationConfig.enabled ? 'Enabled' : 'Disabled'}
                   </div>
-                  {topic.deduplication.method === 'key' && (
-                    <div>
-                      <span className="text-muted-foreground">Key Field:</span>{' '}
-                      {topic.deduplication.keyField || 'Not specified'}
-                    </div>
+                  {deduplicationConfig.enabled && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">Key Field:</span>{' '}
+                        {deduplicationConfig.key || 'Not specified'}
+                      </div>
+                      {deduplicationConfig.window && (
+                        <div>
+                          <span className="text-muted-foreground">Time Window:</span> {deduplicationConfig.window}{' '}
+                          {deduplicationConfig.unit || 'hours'}
+                        </div>
+                      )}
+                    </>
                   )}
-                  {topic.deduplication.window && (
-                    <div>
-                      <span className="text-muted-foreground">Time Window:</span> {topic.deduplication.window}{' '}
-                      {topic.deduplication.windowUnit || 'seconds'}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+                </div>
+              )
+            )
+          })()}
         </li>
       )
     })

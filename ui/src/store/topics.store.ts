@@ -92,6 +92,11 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
         store.joinStore.setStreams([])
       }
 
+      // Invalidate deduplication store for this topic index
+      if (store.deduplicationStore) {
+        store.deduplicationStore.invalidateDeduplication(index)
+      }
+
       // Then update the topic to remove dependent state
       set((state) => {
         // Keep only these properties, remove all others
