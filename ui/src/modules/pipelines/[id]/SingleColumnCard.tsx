@@ -1,4 +1,5 @@
 import { Card } from '@/src/components/ui/card'
+import { cn } from '@/src/utils/common.client'
 
 function SingleColumnCard({
   label,
@@ -7,6 +8,7 @@ function SingleColumnCard({
   width = 'half',
   onClick,
   disabled,
+  validation,
 }: {
   label: string[]
   value: string[]
@@ -14,6 +16,7 @@ function SingleColumnCard({
   width?: 'full' | 'half'
   onClick?: () => void
   disabled?: boolean
+  validation?: any
 }) {
   const widthClass = width === 'full' ? 'w-full' : 'w-1/2'
   const alignmentClass = orientation === 'left' ? 'items-start' : orientation === 'right' ? 'items-end' : 'items-center'
@@ -21,7 +24,12 @@ function SingleColumnCard({
 
   return (
     <Card
-      className={`border-[var(--color-border-neutral)] rounded-md p-4 ${widthClass} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={cn(
+        'border-[var(--color-border-neutral)] rounded-md p-4',
+        widthClass,
+        disabled ? 'opacity-50 cursor-not-allowed' : '',
+        validation?.status === 'invalidated' && 'border-red-500',
+      )}
       onClick={onClick}
     >
       <div className={`flex flex-col gap-4 ${alignmentClass}`}>

@@ -6,6 +6,7 @@ import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
 import TitleCardWithIcon from './TitleCardWithIcon'
 import TransformationSection from './TransformationSection'
 import StandaloneStepRenderer from '@/src/modules/StandaloneStepRenderer'
+import SectionCard from '@/src/components/SectionCard'
 import { StepKeys } from '@/src/config/constants'
 import { Pipeline } from '@/src/types/pipeline'
 import { useRouter } from 'next/navigation'
@@ -18,12 +19,20 @@ import { hydrateKafkaTopics } from '@/src/store/hydration/topics'
 import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
+import { useStore } from '@/src/store'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const [pipeline, setPipeline] = useState<Pipeline>(initialPipeline)
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
   const [sharedActionState, setSharedActionState] = useState<any>({ isLoading: false })
   const router = useRouter()
+
+  // Get validation states from stores
+  const kafkaValidation = useStore((state) => state.kafkaStore.validation)
+  const clickhouseConnectionValidation = useStore((state) => state.clickhouseConnectionStore.validation)
+  const clickhouseDestinationValidation = useStore((state) => state.clickhouseDestinationStore.validation)
+  const joinValidation = useStore((state) => state.joinStore.validation)
+  const topicsValidation = useStore((state) => state.topicsStore.validation)
 
   // Determine if pipeline editing operations should be disabled
   // Consider both pipeline status AND if any action is currently loading
@@ -86,8 +95,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             <span className="text-lg font-bold">Source</span>
           </div>
           <TitleCardWithIcon
+            validation={kafkaValidation}
             title="Kafka"
-            isClickable={!isEditingDisabled}
             onClick={() => handleStepClick(StepKeys.KAFKA_CONNECTION)}
             disabled={isEditingDisabled}
           >
@@ -99,7 +108,18 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           <div className="text-center">
             <span className="text-lg font-bold">Transformation: {pipeline.transformationName || 'Default'}</span>
           </div>
-          <TransformationSection pipeline={pipeline} onStepClick={handleStepClick} disabled={isEditingDisabled} />
+          <TransformationSection
+            pipeline={pipeline}
+            onStepClick={handleStepClick}
+            disabled={isEditingDisabled}
+            validation={{
+              kafkaValidation: kafkaValidation,
+              topicsValidation: topicsValidation,
+              joinValidation: joinValidation,
+              clickhouseConnectionValidation: clickhouseConnectionValidation,
+              clickhouseDestinationValidation: clickhouseDestinationValidation,
+            }}
+          />
         </div>
         <div className="flex flex-col gap-4 w-1/6">
           {/* Sink */}
@@ -107,8 +127,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             <span className="text-lg font-bold">Sink</span>
           </div>
           <TitleCardWithIcon
+            validation={clickhouseConnectionValidation}
             title="ClickHouse"
-            isClickable={!isEditingDisabled}
             onClick={() => handleStepClick(StepKeys.CLICKHOUSE_CONNECTION)}
             disabled={isEditingDisabled}
           >

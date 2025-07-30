@@ -50,20 +50,20 @@ const DEPENDENCY_GRAPH: DependencyGraph = {
       id: 'topic-selection',
       type: 'step',
       dependencies: ['kafka-connection'],
-      dependents: ['deduplication-configurator', 'join-configurator', 'clickhouse-mapper'],
+      dependents: ['join-configurator', 'clickhouse-mapper'],
       resetMethod: 'resetTopicSelection',
     },
     'deduplication-configurator': {
       id: 'deduplication-configurator',
       type: 'step',
-      dependencies: ['topic-selection'],
+      dependencies: [],
       dependents: [],
       resetMethod: 'resetDeduplicationConfig',
     },
     'join-configurator': {
       id: 'join-configurator',
       type: 'step',
-      dependencies: ['topic-selection'],
+      dependencies: [],
       dependents: ['clickhouse-mapper'],
       resetMethod: 'resetJoinConfig',
     },
@@ -142,3 +142,5 @@ const DEPENDENCY_GRAPH: DependencyGraph = {
     { from: 'stepsStore', to: 'clickhouseStore' }, // Steps control ClickHouse flow
   ],
 }
+
+export { DEPENDENCY_GRAPH }

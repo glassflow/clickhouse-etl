@@ -1,4 +1,11 @@
 import { StateCreator } from 'zustand'
+import {
+  ValidationState,
+  ValidationMethods,
+  createInitialValidation,
+  createValidValidation,
+  createInvalidatedValidation,
+} from '@/src/types/validation'
 
 export interface ClickhouseDestinationProps {
   // destination configuration including mapping and other settings
@@ -13,6 +20,8 @@ export interface ClickhouseDestinationProps {
     maxDelayTimeUnit: string
     // useSSL: boolean
   }
+  // validation state
+  validation: ValidationState
 }
 
 export const initialClickhouseDestinationStore: ClickhouseDestinationProps = {
@@ -26,9 +35,10 @@ export const initialClickhouseDestinationStore: ClickhouseDestinationProps = {
     maxDelayTime: 1,
     maxDelayTimeUnit: 'm',
   },
+  validation: createInitialValidation(),
 }
 
-export interface ClickhouseDestinationStore extends ClickhouseDestinationProps {
+export interface ClickhouseDestinationStore extends ClickhouseDestinationProps, ValidationMethods {
   // actions
   setClickhouseDestination: (destination: {
     scheme: string
@@ -62,6 +72,8 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
       maxDelayTimeUnit: 'm',
       useSSL: true,
     },
+    // validation state
+    validation: createInitialValidation(),
 
     // actions
     resetDestinationState: () =>
@@ -96,6 +108,7 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
         clickhouseDestinationStore: {
           ...state.clickhouseDestinationStore,
           clickhouseDestination: destination,
+          validation: createValidValidation(), // Auto-mark as valid when destination is set
         },
       })),
 
@@ -108,6 +121,39 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
     resetDestinationStore: () =>
       set((state) => ({
         clickhouseDestinationStore: { ...state.clickhouseDestinationStore, ...initialClickhouseDestinationStore },
+      })),
+
+    // Validation methods
+    markAsValid: () =>
+      set((state) => ({
+        clickhouseDestinationStore: {
+          ...state.clickhouseDestinationStore,
+          validation: createValidValidation(),
+        },
+      })),
+
+    markAsInvalidated: (invalidatedBy: string) =>
+      set((state) => ({
+        clickhouseDestinationStore: {
+          ...state.clickhouseDestinationStore,
+          validation: createInvalidatedValidation(invalidatedBy),
+        },
+      })),
+
+    markAsNotConfigured: () =>
+      set((state) => ({
+        clickhouseDestinationStore: {
+          ...state.clickhouseDestinationStore,
+          validation: createInitialValidation(),
+        },
+      })),
+
+    resetValidation: () =>
+      set((state) => ({
+        clickhouseDestinationStore: {
+          ...state.clickhouseDestinationStore,
+          validation: createInitialValidation(),
+        },
       })),
   },
 })

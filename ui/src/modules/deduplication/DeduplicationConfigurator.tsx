@@ -10,6 +10,7 @@ import { cn } from '@/src/utils/common.client'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import FormActions from '@/src/components/shared/FormActions'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 
 export function DeduplicationConfigurator({
   onCompleteStep,
@@ -25,6 +26,7 @@ export function DeduplicationConfigurator({
   toggleEditMode?: () => void
 }) {
   const analytics = useJourneyAnalytics()
+  const validationEngine = useValidationEngine()
 
   // Access the full topics array directly instead of using getter methods
   const { topics, updateTopic } = useStore((state) => state.topicsStore)
@@ -89,8 +91,12 @@ export function DeduplicationConfigurator({
   // Handle continue button click
   const handleSave = useCallback(() => {
     if (!topic?.name) return
+
+    // Trigger validation engine to mark this section as valid and invalidate dependents
+    validationEngine.onSectionConfigured(StepKeys.DEDUPLICATION_CONFIGURATOR)
+
     onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
-  }, [topic, onCompleteStep])
+  }, [topic, onCompleteStep, validationEngine])
 
   if (!topic || !topicEvent) {
     return <div>No topic or event data available for index {index}</div>

@@ -14,6 +14,13 @@ import {
   KafkaConnectionFormType,
   NoAuthFormType,
 } from '@/src/scheme/kafka.scheme'
+import {
+  ValidationState,
+  ValidationMethods,
+  createInitialValidation,
+  createValidValidation,
+  createInvalidatedValidation,
+} from '@/src/types/validation'
 
 export interface KafkaStoreProps {
   // status
@@ -51,8 +58,11 @@ export interface KafkaStoreProps {
 
   // ssl - truststore connection type
   truststore: TruststoreFormType
+
+  // validation state
+  validation: ValidationState
 }
-export interface KafkaStore extends KafkaStoreProps {
+export interface KafkaStore extends KafkaStoreProps, ValidationMethods {
   // base actions
   setKafkaAuthMethod: (authMethod: string) => void
   setKafkaSecurityProtocol: (securityProtocol: string) => void
@@ -117,6 +127,7 @@ export const initialKafkaStore: KafkaStoreProps = {
     consumerGroup: '',
   },
   isConnected: false,
+  validation: createInitialValidation(),
   saslJaas: {
     jaasConfig: '',
   },
@@ -177,6 +188,8 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     skipAuth: false,
     // status
     isConnected: false,
+    // validation state
+    validation: createInitialValidation(),
 
     // no auth connection type
     noAuth: {
@@ -294,7 +307,13 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
 
     // kafka connection actions
     setKafkaConnection: (connection: KafkaConnectionFormType) =>
-      set((state) => ({ kafkaStore: { ...state.kafkaStore, ...connection } })),
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          ...connection,
+          validation: createValidValidation(), // Auto-mark as valid when connection is set
+        },
+      })),
 
     // status actions
     setIsConnected: (isConnected: boolean) => set((state) => ({ kafkaStore: { ...state.kafkaStore, isConnected } })),
@@ -331,5 +350,38 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
 
     // reset kafka store
     resetKafkaStore: () => set((state) => ({ kafkaStore: { ...state.kafkaStore, ...initialKafkaStore } })),
+
+    // Validation methods
+    markAsValid: () =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createValidValidation(),
+        },
+      })),
+
+    markAsInvalidated: (invalidatedBy: string) =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createInvalidatedValidation(invalidatedBy),
+        },
+      })),
+
+    markAsNotConfigured: () =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createInitialValidation(),
+        },
+      })),
+
+    resetValidation: () =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createInitialValidation(),
+        },
+      })),
   },
 })

@@ -1,6 +1,13 @@
 import { StateCreator } from 'zustand'
 import { AvailableTopicsType, KafkaEventType, KafkaTopicType, KafkaTopicsType } from '@/src/scheme/topics.scheme'
 import { create } from 'zustand'
+import {
+  ValidationState,
+  ValidationMethods,
+  createInitialValidation,
+  createValidValidation,
+  createInvalidatedValidation,
+} from '@/src/types/validation'
 
 // New type definitions for event caching
 type KafkaEventCache = {
@@ -21,9 +28,12 @@ export interface TopicsStoreProps {
 
   // topics and events - new approach
   topics: KafkaTopicsType
+
+  // validation state
+  validation: ValidationState
 }
 
-export interface TopicsStore extends TopicsStoreProps {
+export interface TopicsStore extends TopicsStoreProps, ValidationMethods {
   // available topics actions
   setAvailableTopics: (topics: AvailableTopicsType) => void
 
@@ -51,6 +61,7 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
     availableTopics: [],
     topicCount: 0,
     topics: {},
+    validation: createInitialValidation(),
 
     // actions
     setAvailableTopics: (topics: AvailableTopicsType) =>
@@ -58,7 +69,11 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
     setTopicCount: (index: number) => set((state) => ({ topicsStore: { ...state.topicsStore, topicCount: index } })),
     updateTopic: (topic: KafkaTopicType) =>
       set((state) => ({
-        topicsStore: { ...state.topicsStore, topics: { ...state.topicsStore.topics, [topic.index]: topic } },
+        topicsStore: {
+          ...state.topicsStore,
+          topics: { ...state.topicsStore.topics, [topic.index]: topic },
+          validation: createValidValidation(), // Auto-mark as valid when topic is updated
+        },
       })),
     getTopic: (index: number) => get().topicsStore.topics[index],
     getEvent: (index: number, eventIndex: number) => get().topicsStore.topics[index]?.events?.[eventIndex],
@@ -112,8 +127,42 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
           topics: {},
           availableTopics: [],
           topicCount: 0,
+          validation: createInitialValidation(),
         },
       }))
     },
+
+    // Validation methods
+    markAsValid: () =>
+      set((state) => ({
+        topicsStore: {
+          ...state.topicsStore,
+          validation: createValidValidation(),
+        },
+      })),
+
+    markAsInvalidated: (invalidatedBy: string) =>
+      set((state) => ({
+        topicsStore: {
+          ...state.topicsStore,
+          validation: createInvalidatedValidation(invalidatedBy),
+        },
+      })),
+
+    markAsNotConfigured: () =>
+      set((state) => ({
+        topicsStore: {
+          ...state.topicsStore,
+          validation: createInitialValidation(),
+        },
+      })),
+
+    resetValidation: () =>
+      set((state) => ({
+        topicsStore: {
+          ...state.topicsStore,
+          validation: createInitialValidation(),
+        },
+      })),
   },
 })

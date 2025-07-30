@@ -1,4 +1,5 @@
 import { Card } from '@/src/components/ui/card'
+import { ValidationState } from '@/src/types/validation'
 import { cn } from '@/src/utils/common.client'
 
 interface TitleCardWithIconProps {
@@ -7,6 +8,7 @@ interface TitleCardWithIconProps {
   onClick?: () => void
   isClickable?: boolean
   disabled?: boolean
+  validation?: ValidationState
 }
 
 function TitleCardWithIcon({
@@ -15,6 +17,7 @@ function TitleCardWithIcon({
   onClick,
   isClickable = false,
   disabled = false,
+  validation,
 }: TitleCardWithIconProps) {
   const handleClick = () => {
     if (disabled) return
@@ -28,6 +31,7 @@ function TitleCardWithIcon({
         isClickable &&
           'cursor-pointer transition-all duration-200 hover:shadow-md hover:border-gray-300 hover:scale-[1.02]',
         disabled && 'opacity-50 cursor-not-allowed',
+        validation?.status === 'invalidated' && 'border-red-500',
       )}
       onClick={handleClick}
     >

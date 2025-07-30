@@ -13,6 +13,7 @@ const DeduplicationCase = ({
   totalDestinationColumns,
   onStepClick: onStepClick,
   disabled,
+  validation,
 }: {
   topic: any
   hasDedup: boolean
@@ -21,6 +22,7 @@ const DeduplicationCase = ({
   totalDestinationColumns: number
   onStepClick: (step: StepKeys) => void
   disabled: boolean
+  validation: any
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -32,6 +34,7 @@ const DeduplicationCase = ({
         width="full"
         onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
         disabled={disabled}
+        validation={validation}
       />
 
       {/* Middle card: Deduplication Key (only if dedup is enabled) */}
@@ -43,6 +46,7 @@ const DeduplicationCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR)}
           disabled={disabled}
+          validation={validation}
         />
       )}
 
@@ -53,6 +57,7 @@ const DeduplicationCase = ({
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
+        validation={validation}
       />
     </div>
   )
@@ -68,6 +73,7 @@ const JoinCase = ({
   totalDestinationColumns,
   onStepClick,
   disabled,
+  validation,
 }: {
   leftTopic: any
   rightTopic: any
@@ -78,6 +84,7 @@ const JoinCase = ({
   totalDestinationColumns: number
   onStepClick: (step: StepKeys) => void
   disabled: boolean
+  validation: any
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -90,6 +97,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
           disabled={disabled}
+          validation={validation}
         />
 
         <SingleColumnCard
@@ -99,6 +107,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_2)}
           disabled={disabled}
+          validation={validation}
         />
       </div>
 
@@ -145,6 +154,7 @@ const JoinDeduplicationCase = ({
   totalDestinationColumns,
   onStepClick,
   disabled,
+  validation,
 }: {
   leftTopic: any
   rightTopic: any
@@ -155,6 +165,7 @@ const JoinDeduplicationCase = ({
   totalDestinationColumns: number
   onStepClick: (step: StepKeys) => void
   disabled: boolean
+  validation: any
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -169,6 +180,7 @@ const JoinDeduplicationCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)}
           disabled={disabled}
+          validation={validation.topicsValidation}
         />
 
         <DoubleColumnCard
@@ -180,6 +192,7 @@ const JoinDeduplicationCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)}
           disabled={disabled}
+          validation={validation.topicsValidation}
         />
       </div>
 
@@ -192,6 +205,7 @@ const JoinDeduplicationCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
+          validation={validation.joinValidation}
         />
 
         <SingleColumnCard
@@ -201,6 +215,7 @@ const JoinDeduplicationCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
+          validation={validation.joinValidation}
         />
       </div>
 
@@ -211,6 +226,7 @@ const JoinDeduplicationCase = ({
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
+        validation={validation.clickhouseDestinationValidation}
       />
     </div>
   )
@@ -220,10 +236,12 @@ function TransformationSection({
   pipeline,
   onStepClick,
   disabled,
+  validation,
 }: {
   pipeline: any
   onStepClick: (step: StepKeys) => void
   disabled: boolean
+  validation: any
 }) {
   const { source, join, sink } = pipeline
 
@@ -254,6 +272,7 @@ function TransformationSection({
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
         disabled={disabled}
+        validation={validation.topicsValidation}
       />
     )
   }
@@ -277,6 +296,7 @@ function TransformationSection({
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
         disabled={disabled}
+        validation={validation.joinValidation}
       />
     )
   }
@@ -294,6 +314,10 @@ function TransformationSection({
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
         disabled={disabled}
+        validation={{
+          topicsValidation: validation.topicsValidation,
+          joinValidation: validation.joinValidation,
+        }}
       />
     )
   }

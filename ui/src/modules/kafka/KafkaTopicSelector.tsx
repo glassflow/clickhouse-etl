@@ -11,6 +11,7 @@ import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/Topi
 import { EventManagerContextProvider } from '../../components/shared/event-fetcher/EventManagerContext'
 import FormActions from '@/src/components/shared/FormActions'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 
 // Type definitions for deduplication config
 export type DeduplicationConfig = {
@@ -49,6 +50,7 @@ export function KafkaTopicSelector({
   initialDeduplicationConfig,
 }: TopicSelectorProps) {
   const { topicsStore, kafkaStore, joinStore, configStore } = useStore()
+  const validationEngine = useValidationEngine()
   const { operationsSelected } = configStore
 
   // Determine index based on current step and operation
@@ -427,17 +429,22 @@ export function KafkaTopicSelector({
 
     updateTopic(finalTopicData)
 
-    // Move to next step based on current step
+    // Trigger validation engine to mark this section as valid and invalidate dependents
     if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
       onCompleteStep(StepKeys.TOPIC_SELECTION_1)
     } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
       onCompleteStep(StepKeys.TOPIC_SELECTION_2)
     } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
       onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
     } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
       onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
     } else {
       // Fallback for any other topic selection step
+      validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
       onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
     }
   }, [

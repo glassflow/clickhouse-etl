@@ -1,5 +1,12 @@
 import { StateCreator } from 'zustand'
 import { ClickhouseConnectionFormType } from '@/src/scheme'
+import {
+  ValidationState,
+  ValidationMethods,
+  createInitialValidation,
+  createValidValidation,
+  createInvalidatedValidation,
+} from '@/src/types/validation'
 
 // ClickHouse data structure - single source of truth
 interface ClickHouseMetadata {
@@ -16,9 +23,12 @@ export interface ClickhouseConnectionStoreProps {
 
   // Single source of truth for ClickHouse data
   clickhouseMetadata: ClickHouseMetadata | null
+
+  // validation state
+  validation: ValidationState
 }
 
-export interface ClickhouseConnectionStore extends ClickhouseConnectionStoreProps {
+export interface ClickhouseConnectionStore extends ClickhouseConnectionStoreProps, ValidationMethods {
   // actions
   setClickhouseConnection: (connector: ClickhouseConnectionFormType) => void
   getIsClickhouseConnectionDirty: () => boolean
@@ -56,6 +66,7 @@ export const initialClickhouseConnectionStore: ClickhouseConnectionStoreProps = 
     connectionError: null,
   },
   clickhouseMetadata: null,
+  validation: createInitialValidation(),
 }
 
 export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionSlice> = (set, get) => ({
@@ -79,6 +90,9 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
     // Single source of truth for ClickHouse data
     clickhouseMetadata: null,
 
+    // validation state
+    validation: createInitialValidation(),
+
     // actions
     setClickhouseConnection: (connector: ClickhouseConnectionFormType) =>
       set((state) => {
@@ -98,6 +112,11 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
               clickhouseConnection: connector,
               // Reset dependent data when connection changes
               clickhouseMetadata: null,
+              // Mark as valid when connection is set
+              validation:
+                connector.connectionStatus === 'success'
+                  ? createValidValidation()
+                  : state.clickhouseConnectionStore.validation,
             },
           }
         }
@@ -107,6 +126,11 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
           clickhouseConnectionStore: {
             ...state.clickhouseConnectionStore,
             clickhouseConnection: connector,
+            // Mark as valid when connection is successfully established
+            validation:
+              connector.connectionStatus === 'success'
+                ? createValidValidation()
+                : state.clickhouseConnectionStore.validation,
           },
         }
       }),
@@ -201,6 +225,39 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
         clickhouseConnectionStore: {
           ...state.clickhouseConnectionStore,
           ...initialClickhouseConnectionStore,
+        },
+      })),
+
+    // Validation methods
+    markAsValid: () =>
+      set((state) => ({
+        clickhouseConnectionStore: {
+          ...state.clickhouseConnectionStore,
+          validation: createValidValidation(),
+        },
+      })),
+
+    markAsInvalidated: (invalidatedBy: string) =>
+      set((state) => ({
+        clickhouseConnectionStore: {
+          ...state.clickhouseConnectionStore,
+          validation: createInvalidatedValidation(invalidatedBy),
+        },
+      })),
+
+    markAsNotConfigured: () =>
+      set((state) => ({
+        clickhouseConnectionStore: {
+          ...state.clickhouseConnectionStore,
+          validation: createInitialValidation(),
+        },
+      })),
+
+    resetValidation: () =>
+      set((state) => ({
+        clickhouseConnectionStore: {
+          ...state.clickhouseConnectionStore,
+          validation: createInitialValidation(),
         },
       })),
   },

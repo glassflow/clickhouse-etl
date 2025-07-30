@@ -28,6 +28,7 @@ interface StreamConfiguratorListProps {
   event2: any
   topic1: any
   topic2: any
+  readOnly?: boolean
 }
 
 export function StreamConfiguratorList({
@@ -39,6 +40,7 @@ export function StreamConfiguratorList({
   event2,
   topic1,
   topic2,
+  readOnly,
 }: StreamConfiguratorListProps) {
   const analytics = useJourneyAnalytics()
 
@@ -74,6 +76,7 @@ export function StreamConfiguratorList({
               dataType: errors['streams.0.dataType'],
               joinTimeWindowValue: errors['streams.0.joinTimeWindowValue'],
             }}
+            readOnly={readOnly}
           />
         </div>
 
@@ -93,6 +96,7 @@ export function StreamConfiguratorList({
                 isEmptyTopic={false}
                 onManualEventChange={() => {}}
                 isEditingEnabled={false}
+                readOnly={readOnly}
               />
             </div>
           </div>
@@ -113,6 +117,7 @@ export function StreamConfiguratorList({
               dataType: errors['streams.1.dataType'],
               joinTimeWindowValue: errors['streams.1.joinTimeWindowValue'],
             }}
+            readOnly={readOnly}
           />
         </div>
 
@@ -132,6 +137,7 @@ export function StreamConfiguratorList({
                 isEmptyTopic={false}
                 onManualEventChange={() => {}}
                 isEditingEnabled={false}
+                readOnly={readOnly}
               />
             </div>
           </div>

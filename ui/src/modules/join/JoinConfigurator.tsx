@@ -10,18 +10,32 @@ import { v4 as uuidv4 } from 'uuid'
 import { StreamConfiguratorList } from './components/StreamConfiguratorList'
 import { JoinConfigType } from '@/src/scheme/join.scheme'
 import { extractEventFields } from '@/src/utils/common.client'
+import FormActions from '@/src/components/shared/FormActions'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 
 export type JoinConfiguratorProps = {
   steps: any
   onCompleteStep: (stepName: string) => void
   validate: (stepName: string, data: any) => boolean
   index: number
+  readOnly?: boolean
+  standalone?: boolean
+  toggleEditMode?: () => void
 }
 
 type StreamField = 'streamId' | 'joinKey' | 'dataType' | 'joinTimeWindowValue' | 'joinTimeWindowUnit'
 
-export function JoinConfigurator({ steps, onCompleteStep, validate, index = 0 }: JoinConfiguratorProps) {
+export function JoinConfigurator({
+  steps,
+  onCompleteStep,
+  validate,
+  index = 0,
+  readOnly,
+  standalone,
+  toggleEditMode,
+}: JoinConfiguratorProps) {
   const { topicsStore, joinStore } = useStore()
+  const validationEngine = useValidationEngine()
   const { getTopic, getEvent } = topicsStore
   const { enabled, type, streams, setEnabled, setType, setStreams } = joinStore
 
@@ -159,6 +173,9 @@ export function JoinConfigurator({ steps, onCompleteStep, validate, index = 0 }:
       })),
     )
 
+    // Trigger validation engine to mark this section as valid and invalidate dependents
+    validationEngine.onSectionConfigured(StepKeys.JOIN_CONFIGURATOR)
+
     // Move to next step
     onCompleteStep(StepKeys.JOIN_CONFIGURATOR as StepKeys)
   }
@@ -234,26 +251,25 @@ export function JoinConfigurator({ steps, onCompleteStep, validate, index = 0 }:
               event2={event2}
               topic1={topic1}
               topic2={topic2}
+              readOnly={readOnly}
             />
           </div>
         </div>
 
-        <div className="flex justify-between mt-6">
-          <Button
-            variant="gradient"
-            className="btn-text btn-primary"
-            type="submit"
-            disabled={!canContinue}
-            onClick={() => {
-              if (!showValidation) {
-                setShowValidation(true)
-                validateForm()
-              }
-            }}
-          >
-            Continue
-          </Button>
-        </div>
+        <FormActions
+          standalone={standalone}
+          onSubmit={() => handleSubmit({} as React.FormEvent)}
+          isLoading={false}
+          isSuccess={false}
+          disabled={!canContinue}
+          successText="Continue"
+          loadingText="Loading..."
+          regularText="Continue"
+          actionType="primary"
+          showLoadingIcon={false}
+          readOnly={readOnly}
+          toggleEditMode={toggleEditMode}
+        />
       </div>
     </form>
   )

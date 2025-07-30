@@ -129,6 +129,7 @@ function PipelineDetailsHeader({
     return (
       <>
         {showResume && renderActionButton('resume')}
+        {renderActionButton('edit')}
         {renderActionButton('rename')}
         {renderActionButton('delete')}
         {showPause && renderActionButton('pause')}
@@ -193,8 +194,9 @@ function PipelineDetailsHeader({
       <EditPipelineModal
         visible={activeModal === 'edit'}
         onOk={() => {
-          // Note: EditPipelineModal needs to be updated to capture edit data
-          // For now, this is a placeholder
+          // For edit action, we don't need to pass any payload
+          // The actual editing happens in the pipeline details page
+          // This modal just confirms the user wants to proceed
           handleModalConfirm('edit', {})
         }}
         onCancel={handleModalCancel}

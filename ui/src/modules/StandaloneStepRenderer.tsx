@@ -36,8 +36,9 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
   useEffect(() => {
     if (stepKey) {
       setCurrentStep(stepKey)
+      console.log('pipeline?.status', pipeline?.status)
       // Reset edit mode whenever step type changes
-      setEditMode(false)
+      setEditMode(pipeline?.status === 'active' ? false : true)
     }
 
     if (stepKey === StepKeys.KAFKA_CONNECTION) {

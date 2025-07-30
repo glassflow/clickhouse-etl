@@ -4,23 +4,30 @@ const EditDescriptionMessage = () => {
   return (
     <>
       <span className="text-sm">
-        To edit the pipeline, it must be paused first. Any events currently in the queue will be processed before
-        pausing, which may take some time.
+        You are about to edit this pipeline configuration. This will open the pipeline details page where you can
+        modify:
       </span>
       <br />
-      <span className="text-sm">Are you sure you want to pause and edit the pipeline?</span>
+      <ul className="text-sm list-disc list-inside mt-2 space-y-1">
+        <li>Kafka connection settings</li>
+        <li>Topic selection and deduplication</li>
+        <li>Join configurations</li>
+        <li>ClickHouse connection and mapping</li>
+      </ul>
+      <br />
+      <span className="text-sm">Are you sure you want to proceed with editing?</span>
     </>
   )
 }
 
 const config = {
-  title: 'Edit Pipeline?',
+  title: 'Edit Pipeline Configuration',
   description: <EditDescriptionMessage />,
-  okButtonText: 'Pause and Edit Pipeline',
+  okButtonText: 'Edit Pipeline',
   cancelButtonText: 'Cancel',
 }
 
-function PausePipelineModal({ visible, onOk, onCancel }: { visible: boolean; onOk: () => void; onCancel: () => void }) {
+function EditPipelineModal({ visible, onOk, onCancel }: { visible: boolean; onOk: () => void; onCancel: () => void }) {
   return (
     <InfoModal
       visible={visible}
@@ -39,4 +46,4 @@ function PausePipelineModal({ visible, onOk, onCancel }: { visible: boolean; onO
   )
 }
 
-export default PausePipelineModal
+export default EditPipelineModal

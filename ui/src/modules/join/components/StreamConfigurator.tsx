@@ -34,6 +34,7 @@ interface StreamConfiguratorProps {
     dataType?: string
     joinTimeWindowValue?: string
   }
+  readOnly?: boolean
 }
 
 export function StreamConfigurator({
@@ -42,6 +43,7 @@ export function StreamConfigurator({
   availableKeys,
   onChange,
   errors = {},
+  readOnly,
 }: StreamConfiguratorProps) {
   const getMaxValueForUnit = (unit: string) => {
     switch (unit) {
@@ -76,7 +78,11 @@ export function StreamConfigurator({
               <Label htmlFor={`join-key-${streamIndex}`} className="label-regular text-content">
                 Join Key
               </Label>
-              <Select value={stream.joinKey} onValueChange={(value) => onChange(streamIndex, 'joinKey', value)}>
+              <Select
+                value={stream.joinKey}
+                onValueChange={(value) => onChange(streamIndex, 'joinKey', value)}
+                disabled={readOnly}
+              >
                 <SelectTrigger
                   id={`join-key-${streamIndex}`}
                   className={`w-full input-regular select-content-custom text-content ${
@@ -101,7 +107,11 @@ export function StreamConfigurator({
               <Label htmlFor={`data-type-${streamIndex}`} className="label-regular text-content">
                 Data Type
               </Label>
-              <Select value={stream.dataType} onValueChange={(value) => onChange(streamIndex, 'dataType', value)}>
+              <Select
+                value={stream.dataType}
+                onValueChange={(value) => onChange(streamIndex, 'dataType', value)}
+                disabled={readOnly}
+              >
                 <SelectTrigger
                   id={`data-type-${streamIndex}`}
                   className={`w-full input-regular select-content-custom text-content ${
@@ -136,6 +146,7 @@ export function StreamConfigurator({
             setWindowUnit={(value) => onChange(streamIndex, 'joinTimeWindowUnit', value)}
             label="Join Time Window"
             tooltip="Set a value between 5 minutes to 7 days, with 1M events limit. Longer time windows can process more events but may result in slower performance."
+            readOnly={readOnly}
           />
           {errors.joinTimeWindowValue && <p className="text-sm text-red-500">{errors.joinTimeWindowValue}</p>}
         </div>

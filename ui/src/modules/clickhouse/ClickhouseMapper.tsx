@@ -41,12 +41,13 @@ interface ClickhouseMapperProps {
   onCompleteStep: (step: StepKeys) => void
   standalone?: boolean
   readOnly?: boolean
+  toggleEditMode?: () => void
 }
 
 const runtimeEnv = getRuntimeEnv()
 const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
-export function ClickhouseMapper({ onCompleteStep, standalone, readOnly }: ClickhouseMapperProps) {
+export function ClickhouseMapper({ onCompleteStep, standalone, readOnly, toggleEditMode }: ClickhouseMapperProps) {
   const router = useRouter()
   const { clickhouseConnectionStore, clickhouseDestinationStore, kafkaStore, joinStore, topicsStore, configStore } =
     useStore()
@@ -945,6 +946,7 @@ export function ClickhouseMapper({ onCompleteStep, standalone, readOnly }: Click
             {/* <TypeCompatibilityInfo /> */}
             <div className="flex gap-2 mt-4">
               <FormActions
+                standalone={standalone}
                 onSubmit={saveDestinationConfig}
                 isLoading={isLoading}
                 isSuccess={!!success}
@@ -954,6 +956,8 @@ export function ClickhouseMapper({ onCompleteStep, standalone, readOnly }: Click
                 showLoadingIcon={false}
                 regularText="Continue"
                 loadingText="Saving..."
+                readOnly={readOnly}
+                toggleEditMode={toggleEditMode}
               />
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { Card } from '@/src/components/ui/card'
+import { cn } from '@/src/utils/common.client'
 
 function DoubleColumnCard({
   label,
@@ -6,18 +7,27 @@ function DoubleColumnCard({
   width = 'half',
   onClick,
   disabled,
+  validation,
 }: {
   label: string[]
   value: string[]
   width?: 'full' | 'half'
   onClick?: () => void
   disabled?: boolean
+  validation?: any
 }) {
   const widthClass = width === 'full' ? 'w-full' : 'w-1/2'
 
   return (
     <Card
-      className={`border-[var(--color-border-neutral)] rounded-md p-4 ${widthClass} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={cn(
+        'border-[var(--color-border-neutral)] rounded-md p-4',
+        widthClass,
+        disabled ? 'opacity-50 cursor-not-allowed' : '',
+        validation?.topicsValidation?.status === 'invalidated' || validation?.joinValidation?.status === 'invalidated'
+          ? 'border-red-500'
+          : '',
+      )}
       onClick={onClick}
     >
       <div className="flex flex-row justify-between gap-4">

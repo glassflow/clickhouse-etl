@@ -1,4 +1,11 @@
 import { StateCreator } from 'zustand'
+import {
+  ValidationState,
+  ValidationMethods,
+  createInitialValidation,
+  createValidValidation,
+  createInvalidatedValidation,
+} from '@/src/types/validation'
 
 export interface JoinStream {
   streamId: string
@@ -14,9 +21,10 @@ export interface JoinStoreProps {
   enabled: boolean
   type: string
   streams: JoinStream[]
+  validation: ValidationState
 }
 
-export interface JoinStore extends JoinStoreProps {
+export interface JoinStore extends JoinStoreProps, ValidationMethods {
   // actions
   setEnabled: (enabled: boolean) => void
   setType: (type: string) => void
@@ -35,6 +43,7 @@ export const initialJoinStore: JoinStoreProps = {
   enabled: false,
   type: 'temporal',
   streams: [],
+  validation: createInitialValidation(),
 }
 
 export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
@@ -43,6 +52,7 @@ export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
     enabled: false,
     type: 'temporal',
     streams: [],
+    validation: createInitialValidation(),
 
     // actions
     setEnabled: (enabled: boolean) => set((state) => ({ joinStore: { ...state.joinStore, enabled } })),
@@ -60,6 +70,7 @@ export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
             joinTimeWindowUnit: stream.joinTimeWindowUnit,
             orientation: stream.orientation,
           })),
+          validation: createValidValidation(), // Auto-mark as valid when streams are set
         },
       })),
     getIsJoinDirty: () => {
@@ -69,5 +80,38 @@ export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
 
     // reset join store
     resetJoinStore: () => set((state) => ({ joinStore: { ...state.joinStore, ...initialJoinStore } })),
+
+    // Validation methods
+    markAsValid: () =>
+      set((state) => ({
+        joinStore: {
+          ...state.joinStore,
+          validation: createValidValidation(),
+        },
+      })),
+
+    markAsInvalidated: (invalidatedBy: string) =>
+      set((state) => ({
+        joinStore: {
+          ...state.joinStore,
+          validation: createInvalidatedValidation(invalidatedBy),
+        },
+      })),
+
+    markAsNotConfigured: () =>
+      set((state) => ({
+        joinStore: {
+          ...state.joinStore,
+          validation: createInitialValidation(),
+        },
+      })),
+
+    resetValidation: () =>
+      set((state) => ({
+        joinStore: {
+          ...state.joinStore,
+          validation: createInitialValidation(),
+        },
+      })),
   },
 })
