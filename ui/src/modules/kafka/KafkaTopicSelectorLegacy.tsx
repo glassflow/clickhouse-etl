@@ -26,6 +26,7 @@ export function KafkaTopicSelector({
   enableDeduplication = false,
   onDeduplicationChange,
   initialDeduplicationConfig,
+  pipelineActionState,
 }: TopicSelectorProps) {
   const { topicsStore, kafkaStore, joinStore } = useStore()
   const validationEngine = useValidationEngine()
@@ -499,6 +500,7 @@ export function KafkaTopicSelector({
           showLoadingIcon={false}
           readOnly={readOnly}
           toggleEditMode={toggleEditMode}
+          pipelineActionState={pipelineActionState}
         />
 
         {/* NEW: Optional debug indicator for deduplication status */}

@@ -18,12 +18,14 @@ export function DeduplicationConfigurator({
   readOnly,
   standalone,
   toggleEditMode,
+  pipelineActionState,
 }: {
   onCompleteStep: (stepName: string) => void
   index: number
   readOnly?: boolean
   standalone?: boolean
   toggleEditMode?: () => void
+  pipelineActionState?: any
 }) {
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
@@ -142,6 +144,7 @@ export function DeduplicationConfigurator({
         showLoadingIcon={false}
         readOnly={readOnly}
         toggleEditMode={toggleEditMode}
+        pipelineActionState={pipelineActionState}
       />
     </div>
   )

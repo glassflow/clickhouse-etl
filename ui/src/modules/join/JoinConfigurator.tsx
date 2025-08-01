@@ -21,6 +21,7 @@ export type JoinConfiguratorProps = {
   readOnly?: boolean
   standalone?: boolean
   toggleEditMode?: () => void
+  pipelineActionState?: any
 }
 
 type StreamField = 'streamId' | 'joinKey' | 'dataType' | 'joinTimeWindowValue' | 'joinTimeWindowUnit'
@@ -33,6 +34,7 @@ export function JoinConfigurator({
   readOnly,
   standalone,
   toggleEditMode,
+  pipelineActionState,
 }: JoinConfiguratorProps) {
   const { topicsStore, joinStore } = useStore()
   const validationEngine = useValidationEngine()
@@ -269,6 +271,7 @@ export function JoinConfigurator({
           showLoadingIcon={false}
           readOnly={readOnly}
           toggleEditMode={toggleEditMode}
+          pipelineActionState={pipelineActionState}
         />
       </div>
     </form>

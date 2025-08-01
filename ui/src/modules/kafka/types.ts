@@ -20,4 +20,6 @@ export type TopicSelectorProps = {
   enableDeduplication?: boolean
   onDeduplicationChange?: (config: DeduplicationConfig) => void
   initialDeduplicationConfig?: Partial<DeduplicationConfig>
+  // NEW: Pipeline action state for loading indicators
+  pipelineActionState?: any
 }

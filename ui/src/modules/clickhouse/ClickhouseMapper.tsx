@@ -42,12 +42,19 @@ interface ClickhouseMapperProps {
   standalone?: boolean
   readOnly?: boolean
   toggleEditMode?: () => void
+  pipelineActionState?: any
 }
 
 const runtimeEnv = getRuntimeEnv()
 const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
-export function ClickhouseMapper({ onCompleteStep, standalone, readOnly, toggleEditMode }: ClickhouseMapperProps) {
+export function ClickhouseMapper({
+  onCompleteStep,
+  standalone,
+  readOnly,
+  toggleEditMode,
+  pipelineActionState,
+}: ClickhouseMapperProps) {
   const router = useRouter()
   const {
     clickhouseConnectionStore,
@@ -966,6 +973,7 @@ export function ClickhouseMapper({ onCompleteStep, standalone, readOnly, toggleE
                 loadingText="Saving..."
                 readOnly={readOnly}
                 toggleEditMode={toggleEditMode}
+                pipelineActionState={pipelineActionState}
               />
             </div>
           </div>
