@@ -13,7 +13,9 @@ import (
 
 const (
 	GlassflowStreamPrefix = "gf-stream"
-	NATSCleanupTimeout    = 5 * time.Second
+	// TODO: don't define same consts at multiple places
+	GlassflowDLQSuffix = "-DLQ"
+	NATSCleanupTimeout = 5 * time.Second
 )
 
 type NATSClient struct {
@@ -42,8 +44,8 @@ func NewNATSWrapper(url string, streamAge time.Duration) (*NATSClient, error) {
 	}, nil
 }
 
-func (n *NATSClient) CleanupOldResources() error {
-	ctx, cancel := context.WithTimeout(context.Background(), NATSCleanupTimeout)
+func (n *NATSClient) CleanupOldResources(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, NATSCleanupTimeout)
 	defer cancel()
 
 	streamIterator := n.js.ListStreams(nats.Context(ctx))
@@ -54,7 +56,7 @@ func (n *NATSClient) CleanupOldResources() error {
 	for s := range streamIterator.Info() {
 		name := s.Config.Name
 
-		if !strings.Contains(name, GlassflowStreamPrefix) {
+		if !strings.Contains(name, GlassflowStreamPrefix) && !strings.Contains(name, GlassflowDLQSuffix) {
 			continue
 		}
 
