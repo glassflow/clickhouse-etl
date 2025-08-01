@@ -34,7 +34,7 @@ func NewRouter(log *slog.Logger, pSvc service.PipelineManager, dlqSvc service.DL
 		Queries("batch_size", "{batchSize}").
 		Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}/dlq/state", h.getDLQState).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/shutdown/{id}", h.shutdownPipeline).Methods("DELETE")
+	r.HandleFunc("/api/v1/pipeline/{id}", h.shutdownPipeline).Methods("DELETE")
 
 	r.Use(Recovery(log), RequestLogging(log))
 
