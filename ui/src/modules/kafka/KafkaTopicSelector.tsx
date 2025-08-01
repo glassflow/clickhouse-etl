@@ -1,18 +1,16 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '@/src/store'
-import { TIME_WINDOW_UNIT_OPTIONS, OperationKeys } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { useFetchTopics } from '@/src/hooks/useFetchKafkaTopics'
-import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
-import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
 import FormActions from '@/src/components/shared/FormActions'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { TopicSelectorProps } from '@/src/modules/kafka/types'
 import useGetIndex from '@/src/modules/kafka/useGetIndex'
+import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
 
 export function KafkaTopicSelector({
   steps,
@@ -27,10 +25,9 @@ export function KafkaTopicSelector({
   onDeduplicationChange,
   initialDeduplicationConfig,
 }: TopicSelectorProps) {
-  const { topicsStore, kafkaStore, joinStore } = useStore()
+  const { topicsStore, kafkaStore } = useStore()
   const validationEngine = useValidationEngine()
   const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
-  const analytics = useJourneyAnalytics()
   const getIndex = useGetIndex(currentStep || '')
 
   const {
@@ -41,145 +38,55 @@ export function KafkaTopicSelector({
     updateTopic,
     invalidateTopicDependentState,
   } = topicsStore
-  const deduplicationStore = useStore((state) => state.deduplicationStore)
 
   const index = getIndex()
 
   // Get existing topic data if available
   const storedTopic = topicsFromStore[index]
-  const storedTopicName = storedTopic?.name
-  const storedEvent = storedTopic?.selectedEvent?.event
-  const initialOffset = storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
-
-  // Use stored topic data
   const effectiveTopic = storedTopic
-  const effectiveTopicName = effectiveTopic?.name
-  const effectiveEvent = effectiveTopic?.selectedEvent?.event
-  const effectiveOffset = effectiveTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
 
   const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
   const [isInitialRender, setIsInitialRender] = useState(true)
-  const [isManualEventValid, setIsManualEventValid] = useState(false)
-  const [manualEvent, setManualEvent] = useState('')
-  const [localTopicName, setLocalTopicName] = useState(effectiveTopicName || '')
-  const [localOffset, setLocalOffset] = useState<'earliest' | 'latest'>(
-    (effectiveOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
-  )
 
-  const storedDeduplicationConfig = deduplicationStore.getDeduplication(index)
-
-  const [deduplicationConfig, setDeduplicationConfig] = useState<{
-    key: string
-    keyType: string
-    window: number
-    unit: 'seconds' | 'minutes' | 'hours' | 'days'
-  }>({
-    key: initialDeduplicationConfig?.key || storedDeduplicationConfig?.key || '',
-    keyType: initialDeduplicationConfig?.keyType || storedDeduplicationConfig?.keyType || 'string',
-    window: initialDeduplicationConfig?.window || storedDeduplicationConfig?.window || 1,
-    unit:
-      initialDeduplicationConfig?.unit ||
-      storedDeduplicationConfig?.unit ||
-      (TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days'),
+  // Use the new hook for all topic selection logic
+  const {
+    topicName,
+    offset,
+    event,
+    isLoading,
+    isEmptyTopic,
+    error,
+    deduplicationConfig,
+    deduplicationConfigured,
+    canContinue,
+    isDraftMode,
+    manualEvent,
+    isManualEventValid,
+    selectTopic,
+    selectOffset,
+    configureDeduplication,
+    handleManualEventChange,
+    submit,
+    // NEW: Navigation state and functions
+    currentOffset,
+    earliestOffset,
+    latestOffset,
+    isAtLatest,
+    isAtEarliest,
+    fetchNewestEvent,
+    fetchOldestEvent,
+    fetchNextEvent,
+    fetchPreviousEvent,
+    refreshEvent,
+  } = useKafkaTopicSelectorState({
+    index,
+    enableDeduplication,
+    onDeduplicationChange,
+    initialDeduplicationConfig,
+    currentStep,
   })
 
-  const [deduplicationConfigured, setDeduplicationConfigured] = useState(
-    !!(initialDeduplicationConfig?.key || (storedDeduplicationConfig?.key && storedDeduplicationConfig?.window)),
-  )
-
-  const handleManualEventChange = (event: string) => {
-    setManualEvent(event)
-    try {
-      JSON.parse(event)
-      setIsManualEventValid(true)
-    } catch (error) {
-      setIsManualEventValid(false)
-    }
-  }
-
-  const handleDeduplicationConfigChange = useCallback(
-    (newKeyConfig: { key: string; keyType: string }, newWindowConfig: { window: number; unit: string }) => {
-      const updatedConfig = {
-        key: newKeyConfig.key,
-        keyType: newKeyConfig.keyType,
-        window: newWindowConfig.window,
-        unit: newWindowConfig.unit as 'seconds' | 'minutes' | 'hours' | 'days',
-      }
-
-      setDeduplicationConfig(updatedConfig)
-
-      // Update deduplication status
-      const isConfigured = !!(newKeyConfig.key && newWindowConfig.window)
-      setDeduplicationConfigured(isConfigured)
-
-      // Notify parent component if callback provided
-      if (onDeduplicationChange) {
-        onDeduplicationChange({
-          enabled: isConfigured,
-          ...updatedConfig,
-        })
-      }
-
-      // Analytics tracking for deduplication
-      if (isConfigured) {
-        analytics.key.dedupKey({
-          keyType: newKeyConfig.keyType,
-          window: newWindowConfig.window,
-          unit: newWindowConfig.unit as 'seconds' | 'minutes' | 'hours' | 'days',
-        })
-      }
-    },
-    [onDeduplicationChange, analytics.key],
-  )
-
-  const canContinue = useMemo(() => {
-    const hasValidTopic = localTopicName && (storedEvent || (manualEvent && isManualEventValid))
-
-    if (!enableDeduplication) {
-      return hasValidTopic
-    }
-
-    // For deduplication mode, also require deduplication config
-    return hasValidTopic && deduplicationConfigured
-  }, [localTopicName, storedEvent, manualEvent, isManualEventValid, enableDeduplication, deduplicationConfigured])
-
   // ================================ EFFECTS ================================
-
-  // Validate manual event - enable continue button only if the manual event is valid
-  useEffect(() => {
-    if (manualEvent) {
-      try {
-        JSON.parse(manualEvent)
-        setIsManualEventValid(true)
-      } catch (error) {
-        setIsManualEventValid(false)
-      }
-    } else {
-      setIsManualEventValid(false)
-    }
-  }, [manualEvent])
-
-  // Track page view when component loads - depending on the step, we want to track the topic selection differently
-  useEffect(() => {
-    // Determine if this is a join operation based on step name (more reliable than operationsSelected)
-    const isJoinOperation =
-      currentStep === StepKeys.TOPIC_SELECTION_2 || currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-
-    if (isJoinOperation) {
-      if (index === 0) {
-        analytics.page.selectLeftTopic({})
-      } else {
-        analytics.page.selectRightTopic({})
-      }
-    } else {
-      analytics.page.selectTopic({})
-    }
-
-    // NEW: Track deduplication page view if enabled
-    if (enableDeduplication) {
-      analytics.page.topicDeduplication({})
-    }
-  }, [enableDeduplication, index, currentStep, analytics.page])
 
   // Fetch topics on component mount
   useEffect(() => {
@@ -201,217 +108,30 @@ export function KafkaTopicSelector({
     }
   }, [topicsFromKafka, setAvailableTopics])
 
-  // Update local state when topic name changes
-  useEffect(() => {
-    if (storedTopicName && !isInitialRender) {
-      // Skip if we're just setting the initial value or there's no actual change
-      if (storedTopicName === '' || storedTopicName === localTopicName) return
-
-      // Clear join store whenever topic name changes
-      joinStore.setEnabled(false)
-      joinStore.setType('')
-      joinStore.setStreams([])
-
-      setLocalTopicName(storedTopicName)
-      setManualEvent('')
-      setIsManualEventValid(false)
-    }
-  }, [storedTopicName, localTopicName, isInitialRender, joinStore])
-
-  // Update local state when offset changes
-  useEffect(() => {
-    if (initialOffset && !isInitialRender) {
-      // Skip if there's no actual change to avoid loops
-      if (initialOffset === localOffset) return
-
-      setLocalOffset(initialOffset)
-    }
-  }, [initialOffset, isInitialRender, localOffset])
-
   // ================================ HANDLERS ================================
 
-  // Handle topic change
-  const handleTopicChange = (topicName: string, event: any) => {
-    // If the topic name changed, invalidate dependent state
-    if (topicName !== storedTopic?.name) {
-      invalidateTopicDependentState(index)
-
-      // Clear join store configuration
-      joinStore.setEnabled(false)
-      joinStore.setType('')
-      joinStore.setStreams([])
-    }
-
-    // Create base deduplication config
-    const baseDeduplicationConfig = {
-      enabled: false,
-      window: 0,
-      unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-      key: '',
-      keyType: '',
-    }
-
-    // Use existing deduplication config if available, otherwise use base config
-    const deduplicationToUse =
-      enableDeduplication && deduplicationConfigured
-        ? {
-            enabled: true,
-            window: deduplicationConfig.window,
-            unit: deduplicationConfig.unit,
-            key: deduplicationConfig.key,
-            keyType: deduplicationConfig.keyType,
-          }
-        : storedDeduplicationConfig || baseDeduplicationConfig
-
-    // Create topic data
-    const topicData = {
-      index: index,
-      name: topicName,
-      initialOffset: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-      events: event
-        ? [
-            {
-              event,
-              topicIndex: index,
-              position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-            },
-          ]
-        : [],
-      selectedEvent: event
-        ? {
-            event,
-            topicIndex: index,
-            position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-          }
-        : {
-            event: undefined,
-            topicIndex: index,
-            position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-          },
-    }
-
-    // Update topic in the store (without deduplication)
-    updateTopic(topicData)
-    // Update deduplication store separately
-    deduplicationStore.updateDeduplication(index, deduplicationToUse)
-
-    setLocalTopicName(topicName)
-
-    analytics.topic.selected({
-      offset: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-    })
-  }
-
-  // Handle offset change
-  const handleOffsetChange = useCallback(
-    (offset: 'earliest' | 'latest', event: any) => {
-      // Create base deduplication config
-      const baseDeduplicationConfig = {
-        enabled: false,
-        window: 0,
-        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-        key: '',
-        keyType: '',
-      }
-
-      // Use existing deduplication config if available, otherwise use base config
-      const deduplicationToUse =
-        enableDeduplication && deduplicationConfigured
-          ? {
-              enabled: true,
-              window: deduplicationConfig.window,
-              unit: deduplicationConfig.unit,
-              key: deduplicationConfig.key,
-              keyType: deduplicationConfig.keyType,
-            }
-          : storedDeduplicationConfig || baseDeduplicationConfig
-
-      // Create topic data
-      const topicData = {
-        index: index,
-        name: storedTopic?.name || '',
-        initialOffset: offset,
-        events: [
-          {
-            event,
-            topicIndex: index,
-            position: offset,
-          },
-        ],
-        selectedEvent: {
-          event,
-          topicIndex: index,
-          position: offset,
-        },
-      }
-
-      // Update topic with new offset and event (without deduplication)
-      updateTopic(topicData)
-      // Update deduplication store separately
-      deduplicationStore.updateDeduplication(index, deduplicationToUse)
-
-      setLocalOffset(offset)
+  // Handle topic change using the hook
+  const handleTopicChange = useCallback(
+    (topicName: string, event: any) => {
+      // Use the hook's topic selection
+      selectTopic(topicName)
     },
-    [
-      index,
-      storedTopic,
-      updateTopic,
-      enableDeduplication,
-      deduplicationConfigured,
-      deduplicationConfig,
-      deduplicationStore,
-    ],
+    [selectTopic],
   )
 
-  // NEW: Enhanced form submission handler that includes deduplication config
+  // Handle offset change using the hook
+  const handleOffsetChange = useCallback(
+    (offset: 'earliest' | 'latest', event: any) => {
+      // Use the hook's offset selection
+      selectOffset(offset)
+    },
+    [selectOffset],
+  )
+
+  // Enhanced form submission handler using the hook
   const handleSubmit = useCallback(() => {
-    let event = null
-
-    try {
-      // if there's no event in the store, use the manual event
-      event = (manualEvent ? JSON.parse(manualEvent) : null) || storedEvent
-    } catch (e) {
-      console.error('Error parsing event:', e)
-      return
-    }
-
-    // Create base topic data
-    const baseTopicData = {
-      index: index,
-      name: localTopicName,
-      initialOffset: localOffset,
-      events: [{ event: event, topicIndex: index, position: localOffset, isManualEvent: manualEvent !== '' }],
-      selectedEvent: {
-        event: event,
-        topicIndex: index,
-        position: localOffset,
-        isManualEvent: manualEvent !== '',
-      },
-    }
-
-    // Create deduplication config based on mode
-    const deduplicationData =
-      enableDeduplication && deduplicationConfigured
-        ? {
-            enabled: true,
-            window: deduplicationConfig.window,
-            unit: deduplicationConfig.unit,
-            key: deduplicationConfig.key,
-            keyType: deduplicationConfig.keyType,
-          }
-        : storedDeduplicationConfig || {
-            enabled: false,
-            window: 0,
-            unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-            key: '',
-            keyType: '',
-          }
-
-    // Update topic without deduplication
-    updateTopic(baseTopicData)
-
-    // Update deduplication store separately
-    deduplicationStore.updateDeduplication(index, deduplicationData)
+    // Use the hook's submit function
+    submit()
 
     // Trigger validation engine to mark this section as valid and invalidate dependents
     if (currentStep === StepKeys.TOPIC_SELECTION_1) {
@@ -431,28 +151,13 @@ export function KafkaTopicSelector({
       validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
       onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
     }
-  }, [
-    index,
-    onCompleteStep,
-    topicCountFromStore,
-    manualEvent,
-    localTopicName,
-    localOffset,
-    storedEvent,
-    storedDeduplicationConfig,
-    updateTopic,
-    currentStep,
-    enableDeduplication,
-    deduplicationConfigured,
-    deduplicationConfig,
-    deduplicationStore,
-  ])
+  }, [submit, currentStep, validationEngine, onCompleteStep])
 
   // NEW: Conditional rendering for deduplication section
   const renderDeduplicationSection = () => {
     if (!enableDeduplication) return null
 
-    const eventData = storedEvent || (manualEvent && isManualEventValid ? JSON.parse(manualEvent) : null)
+    const eventData = event || (manualEvent && isManualEventValid ? JSON.parse(manualEvent) : null)
 
     if (!eventData) return null
 
@@ -460,8 +165,8 @@ export function KafkaTopicSelector({
       <div className="mt-6">
         <SelectDeduplicateKeys
           index={index}
-          onChange={handleDeduplicationConfigChange}
-          disabled={!localTopicName}
+          onChange={configureDeduplication}
+          disabled={!topicName}
           eventData={eventData}
           readOnly={readOnly}
         />
@@ -483,6 +188,23 @@ export function KafkaTopicSelector({
             additionalContent={renderDeduplicationSection()}
             isEditingEnabled={manualEvent !== '' || effectiveTopic?.selectedEvent?.isManualEvent || false}
             readOnly={readOnly}
+            // NEW: Pass hook data to prevent duplicate fetching
+            topicName={topicName}
+            offset={offset}
+            event={event}
+            isLoading={isLoading}
+            error={error}
+            // NEW: Pass navigation functions and state
+            currentOffset={currentOffset}
+            earliestOffset={earliestOffset}
+            latestOffset={latestOffset}
+            isAtLatest={isAtLatest}
+            isAtEarliest={isAtEarliest}
+            fetchNewestEvent={fetchNewestEvent}
+            fetchOldestEvent={fetchOldestEvent}
+            fetchNextEvent={fetchNextEvent}
+            fetchPreviousEvent={fetchPreviousEvent}
+            refreshEvent={refreshEvent}
           />
         </div>
 
@@ -502,7 +224,7 @@ export function KafkaTopicSelector({
         />
 
         {/* NEW: Optional debug indicator for deduplication status */}
-        {enableDeduplication && localTopicName && storedEvent && !deduplicationConfigured && (
+        {enableDeduplication && topicName && event && !deduplicationConfigured && (
           <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
         )}
       </div>

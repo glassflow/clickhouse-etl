@@ -1,13 +1,28 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useStore } from '@/src/store'
 import { EventEditor } from '../EventEditor'
 import { parseForCodeEditor } from '@/src/utils/common.client'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
-import { useEventManagerState } from '../../../modules/kafka/hooks/useEventManagerState'
 import { EventFetcherProps } from './types'
 import { cn } from '@/src/utils/common.client'
+
+// NEW: Extended props to include navigation functions and state
+interface ExtendedEventFetcherProps extends EventFetcherProps {
+  // Navigation functions from the hook
+  fetchNewestEvent?: (topicName: string) => Promise<void>
+  fetchOldestEvent?: (topicName: string) => Promise<void>
+  fetchNextEvent?: (topicName: string, currentOffset: number) => Promise<void>
+  fetchPreviousEvent?: (topicName: string, currentOffset: number) => Promise<void>
+  refreshEvent?: (topicName: string, fetchNext?: boolean) => Promise<void>
+
+  // Navigation state from the hook
+  currentOffset?: number | null
+  earliestOffset?: number | null
+  latestOffset?: number | null
+  isAtLatest?: boolean
+  isAtEarliest?: boolean
+}
 
 function EventManager({
   topicName,
@@ -21,18 +36,27 @@ function EventManager({
   onManualEventChange,
   isEditingEnabled,
   readOnly,
-}: EventFetcherProps) {
-  const { kafkaStore } = useStore()
-
+  // NEW: Navigation props from hook
+  fetchNewestEvent,
+  fetchOldestEvent,
+  fetchNextEvent,
+  fetchPreviousEvent,
+  refreshEvent,
+  currentOffset,
+  earliestOffset,
+  latestOffset,
+  isAtLatest,
+  isAtEarliest,
+}: ExtendedEventFetcherProps) {
   // Local state for current event
   const [currentEvent, setCurrentEvent] = useState<any>(() => {
     if (initialEvent) {
       return {
         event: initialEvent,
         position: initialOffset,
-        kafkaOffset: 0,
-        isAtEarliest: false,
-        isAtLatest: false,
+        kafkaOffset: currentOffset || 0,
+        isAtEarliest: isAtEarliest || false,
+        isAtLatest: isAtLatest || false,
         topicIndex: topicIndex,
       }
     }
@@ -42,171 +66,74 @@ function EventManager({
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Use the custom hook
-  const { state, fetchNewestEvent, fetchOldestEvent, fetchNextEvent, fetchPreviousEvent, refreshEvent } =
-    useEventManagerState(
-      kafkaStore,
-      'JSON',
-      () => {
-        setIsLoading(true)
-        onEventLoading()
-      },
-      onEventError,
-      (offset) => {
-        if (offset !== null) {
-          setCurrentEvent((prev: any) => ({
-            ...prev,
-            kafkaOffset: offset,
-          }))
-        }
-      },
-    )
-
-  // Initial fetch when component mounts or topic changes or initialOffset changes
+  // Update currentEvent when initialEvent changes (from hook)
   useEffect(() => {
-    // Only fetch if:
-    // 1. We have a topic and offset AND
-    // 2. Either:
-    //    a. We don't have an initial event OR
-    //    b. The topic has changed OR
-    //    c. The offset has changed
-    const shouldFetch =
-      topicName &&
-      initialOffset &&
-      (!initialEvent || topicName !== currentTopic || initialOffset !== currentEvent?.position)
-
-    if (shouldFetch) {
-      // Reset state for new fetch
-      setCurrentEvent(null)
-      setCurrentTopic(topicName)
-      setIsEmptyTopic(false)
-      setIsLoading(true)
-
-      // If we have an initial event and the topic hasn't changed, use it
-      if (initialEvent && topicName === currentTopic && initialOffset === currentEvent?.position) {
-        const kafkaEvent: KafkaEventType = {
-          event: initialEvent,
-          position: initialOffset,
-          kafkaOffset: 0,
-          isAtEarliest: false,
-          isAtLatest: false,
-          topicIndex: topicIndex,
-        }
-        setCurrentEvent(kafkaEvent)
-        setIsLoading(false)
-        onEventLoaded(kafkaEvent)
-        return
-      }
-
-      // NEW: If we have an initialEvent from the parent, use it instead of fetching
-      if (initialEvent) {
-        const kafkaEvent: KafkaEventType = {
-          event: initialEvent,
-          position: initialOffset,
-          kafkaOffset: 0,
-          isAtEarliest: false,
-          isAtLatest: false,
-          topicIndex: topicIndex,
-        }
-        setCurrentEvent(kafkaEvent)
-        setCurrentTopic(topicName)
-        setIsEmptyTopic(false)
-        setIsLoading(false)
-        onEventLoaded(kafkaEvent)
-        return
-      }
-
-      // Determine which fetch method to use based on initialOffset
-      if (initialOffset === 'latest') {
-        fetchNewestEvent(topicName)
-      } else if (initialOffset === 'earliest') {
-        fetchOldestEvent(topicName)
-      } else if (!isNaN(Number(initialOffset))) {
-        refreshEvent(topicName)
-      } else {
-        fetchNewestEvent(topicName)
-      }
-    }
-  }, [topicName, initialOffset, initialEvent, currentTopic, currentEvent?.position])
-
-  // Update currentEvent when state changes
-  useEffect(() => {
-    if (state.isEmptyTopic) {
-      setCurrentEvent(null)
-      setCurrentTopic(topicName)
-      setIsEmptyTopic(true)
-      setIsLoading(false)
-      onEmptyTopic()
-      return
-    }
-
-    if (state.event) {
+    if (initialEvent) {
       const kafkaEvent: KafkaEventType = {
-        event: state.event,
+        event: initialEvent,
         position: initialOffset,
-        kafkaOffset: state.currentOffset || 0,
-        isAtEarliest: state.isAtEarliest,
-        isAtLatest: state.isAtLatest,
+        kafkaOffset: currentOffset || 0,
+        isAtEarliest: isAtEarliest || false,
+        isAtLatest: isAtLatest || false,
         topicIndex: topicIndex,
       }
-
       setCurrentEvent(kafkaEvent)
       setCurrentTopic(topicName)
       setIsEmptyTopic(false)
       setIsLoading(false)
-      onEventLoaded(kafkaEvent)
+      onEventLoaded?.(kafkaEvent)
     }
+  }, [initialEvent, initialOffset, currentOffset, isAtEarliest, isAtLatest, topicName, topicIndex, onEventLoaded])
 
-    if (state.error) {
-      if (state.error.includes('No events found') || state.error.includes('End of topic reached')) {
-        setIsEmptyTopic(true)
-        setCurrentEvent(null)
-        setIsLoading(false)
-        onEmptyTopic()
-      } else {
-        setIsLoading(false)
-        onEventError(state.error)
-      }
+  // Update when topic changes
+  useEffect(() => {
+    if (topicName !== currentTopic) {
+      setCurrentTopic(topicName)
+      setCurrentEvent(null)
+      setIsEmptyTopic(false)
+      setIsLoading(false)
     }
-  }, [state])
+  }, [topicName, currentTopic])
 
-  // Button action handlers
+  // Button action handlers using hook functions
   const handleFetchNext = () => {
-    if (currentEvent && !state.isLoading) {
-      fetchNextEvent(topicName, currentEvent.kafkaOffset)
+    if (currentEvent && !isLoading && fetchNextEvent && currentOffset !== null && currentOffset !== undefined) {
+      fetchNextEvent(topicName, currentOffset)
     }
   }
 
   const handleFetchPrevious = () => {
-    if (currentEvent && !state.isLoading) {
-      fetchPreviousEvent(topicName, currentEvent.kafkaOffset)
+    if (currentEvent && !isLoading && fetchPreviousEvent && currentOffset !== null && currentOffset !== undefined) {
+      fetchPreviousEvent(topicName, currentOffset)
     }
   }
 
   const handleFetchOldest = () => {
-    if (topicName && !state.isLoading) {
+    if (topicName && !isLoading && fetchOldestEvent) {
       fetchOldestEvent(topicName)
     }
   }
 
   const handleFetchNewest = () => {
-    if (topicName && !state.isLoading) {
+    if (topicName && !isLoading && fetchNewestEvent) {
       fetchNewestEvent(topicName)
     }
   }
 
   const handleRefresh = () => {
-    if (topicName && !state.isLoading) {
-      fetchNewestEvent(topicName)
+    if (topicName && !isLoading && refreshEvent) {
+      refreshEvent(topicName)
     }
   }
 
-  const eventError =
-    state.error || (isEmptyTopic ? 'This topic has no events. Please enter the event schema manually.' : '')
+  // Determine if we should show empty topic state
+  const shouldShowEmptyTopic = !currentEvent?.event && !isLoading
+
+  const eventError = shouldShowEmptyTopic ? 'This topic has no events. Please enter the event schema manually.' : ''
 
   return (
     <div className="flex flex-col h-full w-full min-h-[400px] overflow-auto">
-      {(currentEvent?.event || isEmptyTopic || isLoading) && (
+      {(currentEvent?.event || shouldShowEmptyTopic || isLoading) && (
         <>
           <div className="flex justify-between items-center mb-4">
             <h3
@@ -222,9 +149,9 @@ function EventManager({
           <EventEditor
             event={parseForCodeEditor(currentEvent?.event)}
             topic={topicName}
-            isLoadingEvent={isLoading || (state.isLoading && !isEmptyTopic)}
+            isLoadingEvent={isLoading}
             eventError={eventError}
-            isEmptyTopic={isEmptyTopic}
+            isEmptyTopic={shouldShowEmptyTopic}
             onManualEventChange={onManualEventChange}
             isEditingEnabled={isEditingEnabled}
             readOnly={readOnly}
@@ -232,14 +159,14 @@ function EventManager({
 
           {/* Navigation buttons are hidden to simplify the UI */}
           {/*
-          {currentEvent?.event && !isEmptyTopic && (
+          {currentEvent?.event && !shouldShowEmptyTopic && (
             <div className="flex flex-row gap-2 mt-4">
               <Button
                 onClick={handleFetchPrevious}
                 variant="gradient"
                 className="btn-text btn-neutral"
                 type="button"
-                disabled={state.isAtEarliest || !topicName}
+                disabled={isAtEarliest || !topicName}
               >
                 Previous Event
               </Button>
@@ -248,7 +175,7 @@ function EventManager({
                 variant="gradient"
                 className="btn-text btn-neutral"
                 type="button"
-                disabled={state.isAtLatest || !topicName}
+                disabled={isAtLatest || !topicName}
               >
                 Next Event
               </Button>

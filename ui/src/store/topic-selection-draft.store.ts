@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand'
-import { DeduplicationConfig } from '@/src/modules/kafka/KafkaTopicSelector'
+import { DeduplicationConfig } from '@/src/modules/kafka/KafkaTopicSelectorLegacy'
 
 export interface TopicData {
   index: number

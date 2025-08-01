@@ -29,6 +29,17 @@ export type TopicSelectWithEventPreviewProps = {
   event?: any
   isLoading?: boolean
   error?: string | null
+  // NEW: Navigation props from hook
+  currentOffset?: number | null
+  earliestOffset?: number | null
+  latestOffset?: number | null
+  isAtLatest?: boolean
+  isAtEarliest?: boolean
+  fetchNewestEvent?: (topicName: string) => Promise<void>
+  fetchOldestEvent?: (topicName: string) => Promise<void>
+  fetchNextEvent?: (topicName: string, currentOffset: number) => Promise<void>
+  fetchPreviousEvent?: (topicName: string, currentOffset: number) => Promise<void>
+  refreshEvent?: (topicName: string, fetchNext?: boolean) => Promise<void>
 }
 
 export function TopicSelectWithEventPreview({
@@ -48,6 +59,17 @@ export function TopicSelectWithEventPreview({
   event: hookEvent,
   isLoading: hookIsLoading,
   error: hookError,
+  // NEW: Navigation props from hook
+  currentOffset: hookCurrentOffset,
+  earliestOffset: hookEarliestOffset,
+  latestOffset: hookLatestOffset,
+  isAtLatest: hookIsAtLatest,
+  isAtEarliest: hookIsAtEarliest,
+  fetchNewestEvent: hookFetchNewestEvent,
+  fetchOldestEvent: hookFetchOldestEvent,
+  fetchNextEvent: hookFetchNextEvent,
+  fetchPreviousEvent: hookFetchPreviousEvent,
+  refreshEvent: hookRefreshEvent,
 }: TopicSelectWithEventPreviewProps) {
   // Use hook data if provided, otherwise fall back to local state
   const topicName = hookTopicName || existingTopic?.name || ''
@@ -157,6 +179,16 @@ export function TopicSelectWithEventPreview({
           }}
           onManualEventChange={handleManualEventChange}
           readOnly={readOnly}
+          currentOffset={hookCurrentOffset}
+          earliestOffset={hookEarliestOffset}
+          latestOffset={hookLatestOffset}
+          isAtLatest={hookIsAtLatest}
+          isAtEarliest={hookIsAtEarliest}
+          fetchNewestEvent={hookFetchNewestEvent}
+          fetchOldestEvent={hookFetchOldestEvent}
+          fetchNextEvent={hookFetchNextEvent}
+          fetchPreviousEvent={hookFetchPreviousEvent}
+          refreshEvent={hookRefreshEvent}
         />
       </div>
     </div>

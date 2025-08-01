@@ -6,7 +6,6 @@ import { OperationKeys, stepsMetadata } from '@/src/config/constants'
 import {
   KafkaConnectionContainer,
   KafkaTopicSelector,
-  KafkaTopicSelectorSlim,
   DeduplicationConfigurator,
   ClickhouseConnectionContainer,
   ClickhouseMapper,
@@ -58,11 +57,11 @@ const deduplicateJoinJourney = [
 
 const componentsMap = {
   [StepKeys.KAFKA_CONNECTION]: KafkaConnectionContainer,
-  [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelectorSlim,
-  [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelectorSlim,
+  [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelector,
+  [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelector,
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: KafkaTopicSelectorSlim,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: KafkaTopicSelectorSlim,
+  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: KafkaTopicSelector,
+  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: KafkaTopicSelector,
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfigurator,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionContainer,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
