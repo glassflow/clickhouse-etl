@@ -7,6 +7,7 @@ import {
   DeduplicationConfigurator,
   ClickhouseConnectionContainer,
   ClickhouseMapper,
+  KafkaTopicSelectorSlim,
 } from '@/src/modules'
 import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
@@ -52,7 +53,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
     } else if (stepKey === StepKeys.TOPIC_SELECTION_1) {
       setSteps({
         [StepKeys.TOPIC_SELECTION_1]: {
-          component: KafkaTopicSelector,
+          component: KafkaTopicSelectorSlim,
           title: 'Kafka Topic Selection',
           description: 'Select the Kafka topic to use',
         },
@@ -60,7 +61,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
     } else if (stepKey === StepKeys.TOPIC_SELECTION_2) {
       setSteps({
         [StepKeys.TOPIC_SELECTION_2]: {
-          component: KafkaTopicSelector,
+          component: KafkaTopicSelectorSlim,
           title: 'Kafka Topic Selection',
           description: 'Select the Kafka topic to use',
         },
@@ -76,7 +77,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
     } else if (stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
       setSteps({
         [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
-          component: KafkaTopicSelector,
+          component: KafkaTopicSelectorSlim,
           title: 'Topic Deduplication',
           description: 'Configure topic deduplication settings',
         },
@@ -84,7 +85,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
     } else if (stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
       setSteps({
         [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
-          component: KafkaTopicSelector,
+          component: KafkaTopicSelectorSlim,
           title: 'Topic Deduplication',
           description: 'Configure topic deduplication settings',
         },

@@ -98,6 +98,24 @@ function EventManager({
         return
       }
 
+      // NEW: If we have an initialEvent from the parent, use it instead of fetching
+      if (initialEvent) {
+        const kafkaEvent: KafkaEventType = {
+          event: initialEvent,
+          position: initialOffset,
+          kafkaOffset: 0,
+          isAtEarliest: false,
+          isAtLatest: false,
+          topicIndex: topicIndex,
+        }
+        setCurrentEvent(kafkaEvent)
+        setCurrentTopic(topicName)
+        setIsEmptyTopic(false)
+        setIsLoading(false)
+        onEventLoaded(kafkaEvent)
+        return
+      }
+
       // Determine which fetch method to use based on initialOffset
       if (initialOffset === 'latest') {
         fetchNewestEvent(topicName)

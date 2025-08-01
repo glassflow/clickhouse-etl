@@ -171,9 +171,9 @@ export function useKafkaTopicSelectorState({
       resetEventState()
 
       if (offset === 'latest') {
-        fetchEvent(topicName, false, { position: 'latest' })
+        fetchNewestEvent(topicName)
       } else if (offset === 'earliest') {
-        fetchEvent(topicName, false, { position: 'earliest' })
+        fetchOldestEvent(topicName)
       }
     }
   }, [topicName, offset, fetchEvent, resetEventState])
@@ -200,6 +200,293 @@ export function useKafkaTopicSelectorState({
       }))
     }
   }, [eventError])
+
+  // NEW: Navigation functions (from useEventManagerState)
+  const fetchNewestEvent = useCallback(
+    async (topicName: string) => {
+      if (!topicName) return
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+        event: null,
+      }))
+
+      try {
+        const response = (await fetchEvent(topicName, false, { position: 'latest' })) as unknown as FetchEventResponse
+
+        if (!response?.metadata) {
+          console.error('Invalid response format:', response)
+          throw new Error('Invalid response format from server')
+        }
+
+        setState((prev) => ({
+          ...prev,
+          event: response.event,
+          currentOffset: response.metadata.offset,
+          earliestOffset: response.metadata.earliestOffset,
+          latestOffset: response.metadata.latestOffset,
+          isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+          isLoading: false,
+          error: null,
+        }))
+      } catch (error) {
+        if (error instanceof Error && error.message?.includes('No events found')) {
+          setState((prev) => ({
+            ...prev,
+            isAtLatest: true,
+            error: 'No events found in this topic',
+            isLoading: false,
+          }))
+        } else {
+          setState((prev) => ({
+            ...prev,
+            error: error instanceof Error ? error.message : 'Failed to fetch event',
+            isLoading: false,
+          }))
+        }
+      }
+    },
+    [fetchEvent],
+  )
+
+  const fetchOldestEvent = useCallback(
+    async (topicName: string) => {
+      if (!topicName) return
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+        event: null,
+      }))
+
+      try {
+        const response = (await fetchEvent(topicName, false, { position: 'earliest' })) as unknown as FetchEventResponse
+
+        if (!response?.metadata) {
+          throw new Error('Invalid response format from server')
+        }
+
+        setState((prev) => ({
+          ...prev,
+          event: response.event,
+          currentOffset: response.metadata.offset,
+          earliestOffset: response.metadata.earliestOffset,
+          latestOffset: response.metadata.latestOffset,
+          isAtLatest: false,
+          isAtEarliest: true,
+          isLoading: false,
+          error: null,
+        }))
+      } catch (error) {
+        if (error instanceof Error && error.message?.includes('No events found')) {
+          setState((prev) => ({
+            ...prev,
+            isAtLatest: true,
+            isAtEarliest: true,
+            error: 'No events found in this topic',
+            isLoading: false,
+          }))
+        } else {
+          setState((prev) => ({
+            ...prev,
+            error: error instanceof Error ? error.message : 'Failed to fetch event',
+            isLoading: false,
+          }))
+        }
+      }
+    },
+    [fetchEvent],
+  )
+
+  const fetchNextEvent = useCallback(
+    async (topicName: string, currentOffset: number) => {
+      if (!topicName || currentOffset === null) {
+        console.warn('fetchNextEvent: Invalid parameters', { topicName, currentOffset })
+        return
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+        event: null,
+      }))
+
+      try {
+        const response = (await fetchEvent(topicName, true, { direction: 'next' })) as unknown as FetchEventResponse
+
+        if (!response) {
+          throw new Error('Failed to fetch next event')
+        }
+
+        if (!response.success) {
+          if (response.error?.includes('End of topic reached')) {
+            setState((prev) => ({
+              ...prev,
+              error: 'No more events available at this time. New events may arrive later.',
+              isLoading: false,
+            }))
+            return
+          }
+          throw new Error(response.error || 'Failed to fetch next event')
+        }
+
+        if (!response.event) {
+          throw new Error('No event received from server')
+        }
+
+        setState((prev) => ({
+          ...prev,
+          event: response.event,
+          currentOffset: response.offset,
+          earliestOffset: response.metadata.earliestOffset,
+          latestOffset: response.metadata.latestOffset,
+          isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+          isLoading: false,
+          error: null,
+        }))
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message?.includes('End of topic reached') || error.message?.includes('No more events available')) {
+            setState((prev) => ({
+              ...prev,
+              error: 'No more events available at this time. New events may arrive later.',
+              isLoading: false,
+            }))
+          } else if (error.message?.includes('Invalid response format')) {
+            setState((prev) => ({
+              ...prev,
+              error: 'Failed to fetch next event. Please try again.',
+              isLoading: false,
+            }))
+          } else {
+            setState((prev) => ({
+              ...prev,
+              error: error.message,
+              isLoading: false,
+            }))
+          }
+        } else {
+          setState((prev) => ({
+            ...prev,
+            error: 'Failed to fetch next event',
+            isLoading: false,
+          }))
+        }
+      }
+    },
+    [fetchEvent],
+  )
+
+  const fetchPreviousEvent = useCallback(
+    async (topicName: string, currentOffset: number) => {
+      if (!topicName || currentOffset === null) {
+        console.warn('fetchPreviousEvent: Invalid parameters', { topicName, currentOffset })
+        return
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+        event: null,
+      }))
+
+      try {
+        const response = (await fetchEvent(topicName, false, {
+          direction: 'previous',
+        })) as unknown as FetchEventResponse
+
+        if (!response) {
+          throw new Error('Failed to fetch previous event')
+        }
+
+        if (!response.success) {
+          if (response.error?.includes('Beginning of topic reached')) {
+            setState((prev) => ({
+              ...prev,
+              error: 'You have reached the beginning of the topic. No more previous events available.',
+              isLoading: false,
+            }))
+            return
+          }
+          throw new Error(response.error || 'Failed to fetch previous event')
+        }
+
+        if (!response.event) {
+          throw new Error('No event received from server')
+        }
+
+        setState((prev) => ({
+          ...prev,
+          event: response.event,
+          currentOffset: response.offset,
+          earliestOffset: response.metadata.earliestOffset,
+          latestOffset: response.metadata.latestOffset,
+          isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+          isLoading: false,
+          error: null,
+        }))
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message?.includes('Beginning of topic reached')) {
+            setState((prev) => ({
+              ...prev,
+              error: 'You have reached the beginning of the topic. No more previous events available.',
+              isLoading: false,
+            }))
+          } else if (error.message?.includes('Invalid response format')) {
+            setState((prev) => ({
+              ...prev,
+              error: 'Failed to fetch previous event. Please try again.',
+              isLoading: false,
+            }))
+          } else {
+            setState((prev) => ({
+              ...prev,
+              error: error.message,
+              isLoading: false,
+            }))
+          }
+        } else {
+          setState((prev) => ({
+            ...prev,
+            error: 'Failed to fetch previous event',
+            isLoading: false,
+          }))
+        }
+      }
+    },
+    [fetchEvent],
+  )
+
+  const refreshEvent = useCallback(
+    async (topicName: string, fetchNext: boolean = false) => {
+      if (!topicName) return
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+        event: null,
+      }))
+
+      try {
+        await fetchEvent(topicName, fetchNext)
+      } catch (error) {
+        console.error('Error in refreshEvent:', error)
+        setState((prev) => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Failed to refresh event',
+          isLoading: false,
+        }))
+      }
+    },
+    [fetchEvent],
+  )
 
   // Handle manual event change (from KafkaTopicSelector)
   const handleManualEventChange = useCallback((event: string) => {
@@ -430,6 +717,12 @@ export function useKafkaTopicSelectorState({
     isDraftMode,
     manualEvent,
     isManualEventValid,
+    // NEW: Navigation state
+    currentOffset: state.currentOffset,
+    earliestOffset: state.earliestOffset,
+    latestOffset: state.latestOffset,
+    isAtLatest: state.isAtLatest,
+    isAtEarliest: state.isAtEarliest,
 
     // Actions
     selectTopic: handleTopicChange,
@@ -437,5 +730,11 @@ export function useKafkaTopicSelectorState({
     configureDeduplication: handleDeduplicationConfigChange,
     handleManualEventChange,
     submit: handleSubmit,
+    // NEW: Navigation actions
+    fetchNewestEvent,
+    fetchOldestEvent,
+    fetchNextEvent,
+    fetchPreviousEvent,
+    refreshEvent,
   }
 }

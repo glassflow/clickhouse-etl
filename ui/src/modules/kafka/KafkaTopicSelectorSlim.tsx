@@ -12,7 +12,7 @@ import { TopicSelectorProps } from '@/src/modules/kafka/types'
 import useGetIndex from '@/src/modules/kafka/useGetIndex'
 import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
 
-export function KafkaTopicSelector({
+export function KafkaTopicSelectorSlim({
   steps,
   onCompleteStep,
   validate,
@@ -177,6 +177,12 @@ export function KafkaTopicSelector({
             additionalContent={renderDeduplicationSection()}
             isEditingEnabled={manualEvent !== '' || effectiveTopic?.selectedEvent?.isManualEvent || false}
             readOnly={readOnly}
+            // NEW: Pass hook data to prevent duplicate fetching
+            topicName={topicName}
+            offset={offset}
+            event={event}
+            isLoading={isLoading}
+            error={error}
           />
         </div>
 

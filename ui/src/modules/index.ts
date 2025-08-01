@@ -1,6 +1,6 @@
 export * from './kafka/KafkaConnectionContainer'
 export * from './kafka/KafkaTopicSelector'
-export * from './kafka/KafkaTopicSelectorEditing'
+export * from './kafka/KafkaTopicSelectorSlim'
 export * from './deduplication/DeduplicationConfigurator'
 export * from './clickhouse/ClickhouseMapper'
 export * from './clickhouse/ClickhouseConnectionContainer'
