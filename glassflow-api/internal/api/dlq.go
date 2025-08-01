@@ -47,7 +47,7 @@ func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msgs, err := h.ds.ConsumeDLQ(r.Context(), id, dlqBatch)
+	msgs, err := h.dlqSvc.ConsumeDLQ(r.Context(), id, dlqBatch)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrDLQNotExists):
@@ -94,7 +94,7 @@ func (h *handler) getDLQState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := h.ds.GetDLQState(r.Context(), id)
+	state, err := h.dlqSvc.GetDLQState(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrDLQNotExists):

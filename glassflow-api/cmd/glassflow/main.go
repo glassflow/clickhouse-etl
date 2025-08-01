@@ -40,6 +40,8 @@ type config struct {
 	ServerIdleTimeout     time.Duration `default:"5m" split_words:"true"`
 	ServerShutdownTimeout time.Duration `default:"30s" split_words:"true"`
 
+	RunLocal bool `default:"false" split_words:"true"`
+
 	PipelineConfig string `default:"pipeline.json" split_words:"true"`
 
 	IngestorTopic string `default:"" split_words:"true"`
@@ -138,16 +140,23 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 		return fmt.Errorf("create nats store for pipelines: %w", err)
 	}
 
-	pipelineMgr := service.NewPipelineManager(nc, log, db)
-
 	mq, err := messagequeue.NewClient(cfg.NATSServer)
 	if err != nil {
 		return fmt.Errorf("initialize message queue: %w", err)
 	}
 
-	dlqSvc := service.NewDLQService(mq)
+	var orchestrator service.Orchestrator
 
-	handler := api.NewRouter(log, pipelineMgr, dlqSvc)
+	if cfg.RunLocal {
+		orchestrator = service.NewLocalOrchestrator(nc, log)
+	} else {
+		orchestrator = service.NewK8sOrchestrator(log)
+	}
+
+	pipelineSvc := service.NewPipelineManager(orchestrator, db)
+	dlqSvc := service.NewDLQImpl(mq)
+
+	handler := api.NewRouter(log, pipelineSvc, dlqSvc)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
@@ -186,12 +195,15 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 		}()
 
 		go func() {
-			err := pipelineMgr.ShutdownPipeline()
-			if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
-				log.Error("pipeline shutdown error", slog.Any("error", err))
+			switch o := orchestrator.(type) {
+			case *service.LocalOrchestrator:
+				err := orchestrator.ShutdownPipeline(context.Background(), o.ActivePipelineID())
+				if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
+					log.Error("pipeline shutdown error", slog.Any("error", err))
+				}
+				wg.Done()
+			default:
 			}
-
-			wg.Done()
 		}()
 	}
 
