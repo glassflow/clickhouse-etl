@@ -1,4 +1,4 @@
-import { EventFetchState } from '../../../modules/kafka/hooks/useFetchEventState'
+import { EventManagerState } from '../../../modules/kafka/hooks/useEventManagerState'
 
 export type EventFetcherProps = {
   topicName: string
@@ -15,6 +15,6 @@ export type EventFetcherProps = {
 }
 
 export type EventFetchContextType = {
-  state: EventFetchState
-  setState: React.Dispatch<React.SetStateAction<EventFetchState>>
+  state: EventManagerState
+  setState: React.Dispatch<React.SetStateAction<EventManagerState>>
 }

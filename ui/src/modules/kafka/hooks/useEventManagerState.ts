@@ -2,7 +2,7 @@ import { KafkaStore } from '@/src/store/kafka.store'
 import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { useState, useEffect } from 'react'
 
-export type EventFetchState = {
+export type EventManagerState = {
   event: any
   currentOffset: number | null
   earliestOffset: number | null
@@ -26,7 +26,7 @@ interface FetchEventResponse {
   }
 }
 
-export const useFetchEventState = (
+export const useEventManagerState = (
   kafka: KafkaStore,
   selectedFormat: string,
   onEventLoading: () => void,
@@ -39,7 +39,7 @@ export const useFetchEventState = (
   const [currentTopic, setCurrentTopic] = useState<string | null>(null)
 
   // Use local state instead of context
-  const [state, setState] = useState<EventFetchState>({
+  const [state, setState] = useState<EventManagerState>({
     event: null,
     currentOffset: null,
     earliestOffset: null,

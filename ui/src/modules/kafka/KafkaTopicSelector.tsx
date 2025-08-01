@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useStore } from '@/src/store'
 import { TIME_WINDOW_UNIT_OPTIONS, OperationKeys } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
@@ -8,33 +8,11 @@ import { useFetchTopics } from '@/src/hooks/useFetchKafkaTopics'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
-import { EventManagerContextProvider } from '../../components/shared/event-fetcher/EventManagerContext'
 import FormActions from '@/src/components/shared/FormActions'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
-
-// Type definitions for deduplication config
-export type DeduplicationConfig = {
-  enabled: boolean
-  window: number
-  unit: 'seconds' | 'minutes' | 'hours' | 'days'
-  key: string
-  keyType: string
-}
-
-export type TopicSelectorProps = {
-  steps: any
-  onCompleteStep: (stepName: string) => void
-  validate: (stepName: string, data: any) => boolean
-  currentStep?: string
-  readOnly?: boolean
-  standalone?: boolean
-  toggleEditMode?: () => void
-  // NEW: Deduplication-specific props
-  enableDeduplication?: boolean
-  onDeduplicationChange?: (config: DeduplicationConfig) => void
-  initialDeduplicationConfig?: Partial<DeduplicationConfig>
-}
+import { TopicSelectorProps } from '@/src/modules/kafka/types'
+import useGetIndex from '@/src/modules/kafka/useGetIndex'
 
 export function KafkaTopicSelector({
   steps,
@@ -49,37 +27,11 @@ export function KafkaTopicSelector({
   onDeduplicationChange,
   initialDeduplicationConfig,
 }: TopicSelectorProps) {
-  const { topicsStore, kafkaStore, joinStore, configStore } = useStore()
+  const { topicsStore, kafkaStore, joinStore } = useStore()
   const validationEngine = useValidationEngine()
-  const { operationsSelected } = configStore
-
-  console.log('KafkaTopicSelector currentStep', currentStep)
-
-  // Determine index based on current step (more reliable than operationsSelected during editing)
-  const getIndex = useCallback(() => {
-    if (!currentStep) return 0
-
-    // Determine index based on step name, which is more reliable during editing
-    if (currentStep === StepKeys.TOPIC_SELECTION_1 || currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      return 0 // Left topic (first topic)
-    } else if (
-      currentStep === StepKeys.TOPIC_SELECTION_2 ||
-      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-    ) {
-      return 1 // Right topic (second topic)
-    }
-
-    // For any other step, default to index 0
-    return 0
-  }, [currentStep])
-
-  const index = getIndex()
-  console.log('KafkaTopicSelector index', index)
-  console.log('KafkaTopicSelector operationsSelected', operationsSelected)
-  console.log('KafkaTopicSelector currentStep', currentStep)
-
   const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
   const analytics = useJourneyAnalytics()
+  const getIndex = useGetIndex(currentStep || '')
 
   const {
     availableTopics,
@@ -89,6 +41,9 @@ export function KafkaTopicSelector({
     updateTopic,
     invalidateTopicDependentState,
   } = topicsStore
+  const deduplicationStore = useStore((state) => state.deduplicationStore)
+
+  const index = getIndex()
 
   // Get existing topic data if available
   const storedTopic = topicsFromStore[index]
@@ -101,6 +56,7 @@ export function KafkaTopicSelector({
   const effectiveTopicName = effectiveTopic?.name
   const effectiveEvent = effectiveTopic?.selectedEvent?.event
   const effectiveOffset = effectiveTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
+
   const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [isManualEventValid, setIsManualEventValid] = useState(false)
@@ -110,9 +66,6 @@ export function KafkaTopicSelector({
     (effectiveOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
   )
 
-  // NEW: Deduplication state management
-  // Get deduplication config from the new separated store
-  const deduplicationStore = useStore((state) => state.deduplicationStore)
   const storedDeduplicationConfig = deduplicationStore.getDeduplication(index)
 
   const [deduplicationConfig, setDeduplicationConfig] = useState<{

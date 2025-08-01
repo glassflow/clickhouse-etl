@@ -5,7 +5,7 @@ import { useStore } from '@/src/store'
 import { EventEditor } from '../EventEditor'
 import { parseForCodeEditor } from '@/src/utils/common.client'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
-import { useFetchEventState } from '../../../modules/kafka/hooks/useFetchEventState'
+import { useEventManagerState } from '../../../modules/kafka/hooks/useEventManagerState'
 import { EventFetcherProps } from './types'
 import { cn } from '@/src/utils/common.client'
 
@@ -44,7 +44,7 @@ function EventManager({
 
   // Use the custom hook
   const { state, fetchNewestEvent, fetchOldestEvent, fetchNextEvent, fetchPreviousEvent, refreshEvent } =
-    useFetchEventState(
+    useEventManagerState(
       kafkaStore,
       'JSON',
       () => {
