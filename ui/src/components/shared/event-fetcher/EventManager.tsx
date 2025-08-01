@@ -5,7 +5,7 @@ import { useStore } from '@/src/store'
 import { EventEditor } from '../EventEditor'
 import { parseForCodeEditor } from '@/src/utils/common.client'
 import { KafkaEventType } from '@/src/scheme/topics.scheme'
-import { useFetchEventWithCaching } from '../../../modules/kafka/hooks/useFetchEventWithCaching'
+import { useFetchEventState } from '../../../modules/kafka/hooks/useFetchEventState'
 import { EventFetcherProps } from './types'
 import { cn } from '@/src/utils/common.client'
 
@@ -43,30 +43,24 @@ function EventManager({
   const [isLoading, setIsLoading] = useState(false)
 
   // Use the custom hook
-  const {
-    state,
-    handleFetchNewestEvent,
-    handleFetchOldestEvent,
-    handleFetchNextEvent,
-    handleFetchPreviousEvent,
-    handleRefreshEvent,
-  } = useFetchEventWithCaching(
-    kafkaStore,
-    'JSON',
-    () => {
-      setIsLoading(true)
-      onEventLoading()
-    },
-    onEventError,
-    (offset) => {
-      if (offset !== null) {
-        setCurrentEvent((prev: any) => ({
-          ...prev,
-          kafkaOffset: offset,
-        }))
-      }
-    },
-  )
+  const { state, fetchNewestEvent, fetchOldestEvent, fetchNextEvent, fetchPreviousEvent, refreshEvent } =
+    useFetchEventState(
+      kafkaStore,
+      'JSON',
+      () => {
+        setIsLoading(true)
+        onEventLoading()
+      },
+      onEventError,
+      (offset) => {
+        if (offset !== null) {
+          setCurrentEvent((prev: any) => ({
+            ...prev,
+            kafkaOffset: offset,
+          }))
+        }
+      },
+    )
 
   // Initial fetch when component mounts or topic changes or initialOffset changes
   useEffect(() => {
@@ -106,13 +100,13 @@ function EventManager({
 
       // Determine which fetch method to use based on initialOffset
       if (initialOffset === 'latest') {
-        handleFetchNewestEvent(topicName)
+        fetchNewestEvent(topicName)
       } else if (initialOffset === 'earliest') {
-        handleFetchOldestEvent(topicName)
+        fetchOldestEvent(topicName)
       } else if (!isNaN(Number(initialOffset))) {
-        handleRefreshEvent(topicName)
+        refreshEvent(topicName)
       } else {
-        handleFetchNewestEvent(topicName)
+        fetchNewestEvent(topicName)
       }
     }
   }, [topicName, initialOffset, initialEvent, currentTopic, currentEvent?.position])
@@ -161,31 +155,31 @@ function EventManager({
   // Button action handlers
   const handleFetchNext = () => {
     if (currentEvent && !state.isLoading) {
-      handleFetchNextEvent(topicName, currentEvent.kafkaOffset)
+      fetchNextEvent(topicName, currentEvent.kafkaOffset)
     }
   }
 
   const handleFetchPrevious = () => {
     if (currentEvent && !state.isLoading) {
-      handleFetchPreviousEvent(topicName, currentEvent.kafkaOffset)
+      fetchPreviousEvent(topicName, currentEvent.kafkaOffset)
     }
   }
 
   const handleFetchOldest = () => {
     if (topicName && !state.isLoading) {
-      handleFetchOldestEvent(topicName)
+      fetchOldestEvent(topicName)
     }
   }
 
   const handleFetchNewest = () => {
     if (topicName && !state.isLoading) {
-      handleFetchNewestEvent(topicName)
+      fetchNewestEvent(topicName)
     }
   }
 
   const handleRefresh = () => {
     if (topicName && !state.isLoading) {
-      handleFetchNewestEvent(topicName)
+      fetchNewestEvent(topicName)
     }
   }
 

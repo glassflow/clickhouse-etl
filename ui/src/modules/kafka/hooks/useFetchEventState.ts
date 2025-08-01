@@ -26,7 +26,7 @@ interface FetchEventResponse {
   }
 }
 
-export const useFetchEventWithCaching = (
+export const useFetchEventState = (
   kafka: KafkaStore,
   selectedFormat: string,
   onEventLoading: () => void,
@@ -84,9 +84,9 @@ export const useFetchEventWithCaching = (
   }, [eventError])
 
   // Function to fetch next event
-  const handleFetchNextEvent = async (topicName: string, currentOffset: number) => {
+  const fetchNextEvent = async (topicName: string, currentOffset: number) => {
     if (!topicName || currentOffset === null) {
-      console.warn('handleFetchNextEvent: Invalid parameters', { topicName, currentOffset })
+      console.warn('fetchNextEvent: Invalid parameters', { topicName, currentOffset })
       return
     }
 
@@ -160,9 +160,9 @@ export const useFetchEventWithCaching = (
   }
 
   // Function to fetch previous event
-  const handleFetchPreviousEvent = async (topicName: string, currentOffset: number) => {
+  const fetchPreviousEvent = async (topicName: string, currentOffset: number) => {
     if (!topicName || currentOffset === null) {
-      console.warn('handleFetchPreviousEvent: Invalid parameters', { topicName, currentOffset })
+      console.warn('fetchPreviousEvent: Invalid parameters', { topicName, currentOffset })
       return
     }
 
@@ -236,7 +236,7 @@ export const useFetchEventWithCaching = (
   }
 
   // Function to fetch newest event (latest)
-  const handleFetchNewestEvent = async (topicName: string) => {
+  const fetchNewestEvent = async (topicName: string) => {
     if (!topicName) return
 
     // Reset state before starting new fetch
@@ -282,7 +282,7 @@ export const useFetchEventWithCaching = (
   }
 
   // Function to fetch oldest event (earliest)
-  const handleFetchOldestEvent = async (topicName: string) => {
+  const fetchOldestEvent = async (topicName: string) => {
     if (!topicName) return
 
     // Reset state before starting new fetch
@@ -329,7 +329,7 @@ export const useFetchEventWithCaching = (
   }
 
   // Function to refresh current event
-  const handleRefreshEvent = async (topicName: string, fetchNext: boolean = false) => {
+  const refreshEvent = async (topicName: string, fetchNext: boolean = false) => {
     if (!topicName) return
 
     // Reset state before starting new fetch
@@ -352,10 +352,10 @@ export const useFetchEventWithCaching = (
 
   return {
     state,
-    handleFetchNewestEvent,
-    handleFetchOldestEvent,
-    handleFetchNextEvent,
-    handleFetchPreviousEvent,
-    handleRefreshEvent,
+    fetchNewestEvent,
+    fetchOldestEvent,
+    fetchNextEvent,
+    fetchPreviousEvent,
+    refreshEvent,
   }
 }

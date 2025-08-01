@@ -1,4 +1,4 @@
-import { EventFetchState } from '../../../modules/kafka/hooks/useFetchEventWithCaching'
+import { EventFetchState } from '../../../modules/kafka/hooks/useFetchEventState'
 
 export type EventFetcherProps = {
   topicName: string
