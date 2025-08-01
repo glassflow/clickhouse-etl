@@ -97,7 +97,6 @@ export function KafkaTopicSelector({
     }
   }
 
-  // NEW: Handle deduplication config changes
   const handleDeduplicationConfigChange = useCallback(
     (newKeyConfig: { key: string; keyType: string }, newWindowConfig: { window: number; unit: string }) => {
       const updatedConfig = {
@@ -133,7 +132,6 @@ export function KafkaTopicSelector({
     [onDeduplicationChange, analytics.key],
   )
 
-  // NEW: Enhanced validation logic that includes deduplication requirements
   const canContinue = useMemo(() => {
     const hasValidTopic = localTopicName && (storedEvent || (manualEvent && isManualEventValid))
 

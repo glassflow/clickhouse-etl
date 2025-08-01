@@ -1,0 +1,205 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useStore } from '@/src/store'
+import { StepKeys } from '@/src/config/constants'
+import { useFetchTopics } from '@/src/hooks/useFetchKafkaTopics'
+import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
+import FormActions from '@/src/components/shared/FormActions'
+import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
+import { TopicSelectorProps } from '@/src/modules/kafka/types'
+import useGetIndex from '@/src/modules/kafka/useGetIndex'
+import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
+
+export function KafkaTopicSelector({
+  steps,
+  onCompleteStep,
+  validate,
+  currentStep,
+  readOnly,
+  standalone,
+  toggleEditMode,
+  // NEW: Deduplication props with defaults
+  enableDeduplication = false,
+  onDeduplicationChange,
+  initialDeduplicationConfig,
+}: TopicSelectorProps) {
+  const { topicsStore, kafkaStore } = useStore()
+  const validationEngine = useValidationEngine()
+  const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
+  const getIndex = useGetIndex(currentStep || '')
+
+  const {
+    availableTopics,
+    setAvailableTopics,
+    topics: topicsFromStore,
+    topicCount: topicCountFromStore,
+    updateTopic,
+    invalidateTopicDependentState,
+  } = topicsStore
+
+  const index = getIndex()
+
+  // Get existing topic data if available
+  const storedTopic = topicsFromStore[index]
+  const effectiveTopic = storedTopic
+
+  const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
+  const [isInitialRender, setIsInitialRender] = useState(true)
+
+  // Use the new hook for all topic selection logic
+  const {
+    topicName,
+    offset,
+    event,
+    isLoading,
+    isEmptyTopic,
+    error,
+    deduplicationConfig,
+    deduplicationConfigured,
+    canContinue,
+    isDraftMode,
+    manualEvent,
+    isManualEventValid,
+    selectTopic,
+    selectOffset,
+    configureDeduplication,
+    handleManualEventChange,
+    submit,
+  } = useKafkaTopicSelectorState({
+    index,
+    enableDeduplication,
+    onDeduplicationChange,
+    initialDeduplicationConfig,
+    currentStep,
+  })
+
+  // ================================ EFFECTS ================================
+
+  // Fetch topics on component mount
+  useEffect(() => {
+    if (availableTopics.length === 0 && !isLoadingTopics && topicFetchAttempts < 3) {
+      setTopicFetchAttempts((prev) => prev + 1)
+      fetchTopics()
+    }
+
+    // Mark that we're no longer on initial render after the first effect run
+    if (isInitialRender) {
+      setIsInitialRender(false)
+    }
+  }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender, topicFetchAttempts])
+
+  // Update available topics when topics are fetched
+  useEffect(() => {
+    if (topicsFromKafka.length > 0) {
+      setAvailableTopics(topicsFromKafka)
+    }
+  }, [topicsFromKafka, setAvailableTopics])
+
+  // ================================ HANDLERS ================================
+
+  // Handle topic change using the hook
+  const handleTopicChange = useCallback(
+    (topicName: string, event: any) => {
+      // Use the hook's topic selection
+      selectTopic(topicName)
+    },
+    [selectTopic],
+  )
+
+  // Handle offset change using the hook
+  const handleOffsetChange = useCallback(
+    (offset: 'earliest' | 'latest', event: any) => {
+      // Use the hook's offset selection
+      selectOffset(offset)
+    },
+    [selectOffset],
+  )
+
+  // Enhanced form submission handler using the hook
+  const handleSubmit = useCallback(() => {
+    // Use the hook's submit function
+    submit()
+
+    // Trigger validation engine to mark this section as valid and invalidate dependents
+    if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
+      onCompleteStep(StepKeys.TOPIC_SELECTION_1)
+    } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
+      onCompleteStep(StepKeys.TOPIC_SELECTION_2)
+    } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+    } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+      validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+    } else {
+      // Fallback for any other topic selection step
+      validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
+      onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
+    }
+  }, [submit, currentStep, validationEngine, onCompleteStep])
+
+  // NEW: Conditional rendering for deduplication section
+  const renderDeduplicationSection = () => {
+    if (!enableDeduplication) return null
+
+    const eventData = event || (manualEvent && isManualEventValid ? JSON.parse(manualEvent) : null)
+
+    if (!eventData) return null
+
+    return (
+      <div className="mt-6">
+        <SelectDeduplicateKeys
+          index={index}
+          onChange={configureDeduplication}
+          disabled={!topicName}
+          eventData={eventData}
+          readOnly={readOnly}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 w-full">
+      <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
+        <div className="grid grid-cols-1 gap-6">
+          <TopicSelectWithEventPreview
+            index={index}
+            existingTopic={effectiveTopic}
+            onTopicChange={handleTopicChange}
+            onOffsetChange={handleOffsetChange}
+            onManualEventChange={handleManualEventChange}
+            availableTopics={availableTopics}
+            additionalContent={renderDeduplicationSection()}
+            isEditingEnabled={manualEvent !== '' || effectiveTopic?.selectedEvent?.isManualEvent || false}
+            readOnly={readOnly}
+          />
+        </div>
+
+        <FormActions
+          standalone={standalone}
+          onSubmit={handleSubmit}
+          isLoading={false}
+          isSuccess={false}
+          disabled={!canContinue}
+          successText="Continue"
+          loadingText="Loading..."
+          regularText="Continue"
+          actionType="primary"
+          showLoadingIcon={false}
+          readOnly={readOnly}
+          toggleEditMode={toggleEditMode}
+        />
+
+        {/* NEW: Optional debug indicator for deduplication status */}
+        {enableDeduplication && topicName && event && !deduplicationConfigured && (
+          <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
+        )}
+      </div>
+    </div>
+  )
+}

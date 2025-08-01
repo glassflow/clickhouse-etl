@@ -1,23 +1,57 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '@/src/store'
-import { useEventManagerState } from './useEventManagerState'
+import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
-import { KafkaEventType } from '@/src/scheme/topics.scheme'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { StepKeys } from '@/src/config/constants'
 
 interface UseTopicSelectionStateProps {
   index: number
   enableDeduplication?: boolean
   onDeduplicationChange?: (config: any) => void
   initialDeduplicationConfig?: any
+  currentStep?: string
 }
 
-export function useTopicSelectionState({
+export type EventFetchState = {
+  event: any
+  currentOffset: number | null
+  earliestOffset: number | null
+  latestOffset: number | null
+  isAtLatest: boolean
+  isAtEarliest?: boolean
+  isLoading: boolean
+  error: string | null
+  isEmptyTopic: boolean
+}
+
+interface FetchEventResponse {
+  success: boolean
+  error?: string
+  event?: any
+  offset: number
+  metadata: {
+    earliestOffset: number
+    latestOffset: number
+    offset: number
+  }
+}
+
+export function useKafkaTopicSelectorState({
   index,
   enableDeduplication = false,
   onDeduplicationChange,
   initialDeduplicationConfig,
+  currentStep,
 }: UseTopicSelectionStateProps) {
-  const { topicsStore, deduplicationStore, topicSelectionDraft } = useStore()
+  const { topicsStore, deduplicationStore, topicSelectionDraft, kafkaStore, joinStore } = useStore()
+  const analytics = useJourneyAnalytics()
+
+  // Memoize kafkaStore to prevent unnecessary re-renders
+  const memoizedKafkaStore = useMemo(() => kafkaStore, [kafkaStore])
+
+  // Use ref to track if we've already fetched for this topic/offset combination
+  const lastFetchRef = useRef<{ topic: string; offset: string } | null>(null)
 
   // Topic selection state
   const [topicName, setTopicName] = useState('')
@@ -53,39 +87,139 @@ export function useTopicSelectionState({
     !!(initialDeduplicationConfig?.key || (effectiveDeduplicationConfig?.key && effectiveDeduplicationConfig?.window)),
   )
 
-  // Event state using the orchestrator hook
-  const eventState = useEventManagerState({
-    topicName: effectiveTopicName || '',
-    initialOffset: effectiveOffset,
-    initialEvent: effectiveEvent,
-    topicIndex: index,
-    onEventLoading: () => {
-      // Handle loading state if needed
-    },
-    onEventLoaded: (event: KafkaEventType) => {
-      // Event loaded callback
-    },
-    onEventError: (error: any) => {
-      // Handle error if needed
-    },
-    onEmptyTopic: () => {
-      // Handle empty topic if needed
-    },
+  // Manual event state (from KafkaTopicSelector)
+  const [isManualEventValid, setIsManualEventValid] = useState(false)
+  const [manualEvent, setManualEvent] = useState('')
+
+  // Event state using the base hook
+  const { fetchEvent, event, isLoadingEvent, eventError, resetEventState } = useFetchEvent(memoizedKafkaStore, 'JSON')
+
+  // Local state for event management
+  const [state, setState] = useState<EventFetchState>({
+    event: null,
+    currentOffset: null,
+    earliestOffset: null,
+    latestOffset: null,
+    isAtLatest: false,
+    isLoading: false,
+    error: null,
+    isEmptyTopic: false,
   })
 
   // Initialize from existing data
   useEffect(() => {
-    if (effectiveTopicName) {
+    if (effectiveTopicName && effectiveTopicName !== topicName) {
       setTopicName(effectiveTopicName)
     }
-    if (effectiveOffset) {
+    if (effectiveOffset && effectiveOffset !== offset) {
       setOffset(effectiveOffset as 'earliest' | 'latest')
     }
-  }, [effectiveTopicName, effectiveOffset])
+  }, [effectiveTopicName, effectiveOffset, topicName, offset])
+
+  // Validate manual event - enable continue button only if the manual event is valid
+  useEffect(() => {
+    if (manualEvent) {
+      try {
+        JSON.parse(manualEvent)
+        setIsManualEventValid(true)
+      } catch (error) {
+        setIsManualEventValid(false)
+      }
+    } else {
+      setIsManualEventValid(false)
+    }
+  }, [manualEvent])
+
+  // Track page view when component loads - depending on the step, we want to track the topic selection differently
+  useEffect(() => {
+    // Determine if this is a join operation based on step name (more reliable than operationsSelected)
+    const isJoinOperation =
+      currentStep === StepKeys.TOPIC_SELECTION_2 || currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+
+    if (isJoinOperation) {
+      if (index === 0) {
+        analytics.page.selectLeftTopic({})
+      } else {
+        analytics.page.selectRightTopic({})
+      }
+    } else {
+      analytics.page.selectTopic({})
+    }
+
+    // NEW: Track deduplication page view if enabled
+    if (enableDeduplication) {
+      analytics.page.topicDeduplication({})
+    }
+  }, [enableDeduplication, index, currentStep, analytics.page])
+
+  // Fetch event when topic or offset changes
+  useEffect(() => {
+    // Prevent duplicate fetches
+    const currentFetch = { topic: topicName, offset }
+    if (
+      lastFetchRef.current &&
+      lastFetchRef.current.topic === currentFetch.topic &&
+      lastFetchRef.current.offset === currentFetch.offset
+    ) {
+      return
+    }
+
+    if (topicName && offset) {
+      lastFetchRef.current = currentFetch
+
+      // Reset event state when topic changes
+      resetEventState()
+
+      if (offset === 'latest') {
+        fetchEvent(topicName, false, { position: 'latest' })
+      } else if (offset === 'earliest') {
+        fetchEvent(topicName, false, { position: 'earliest' })
+      }
+    }
+  }, [topicName, offset, fetchEvent, resetEventState])
+
+  // Update state when event changes
+  useEffect(() => {
+    if (event && !isLoadingEvent) {
+      setState((prev) => ({
+        ...prev,
+        event,
+        isLoading: false,
+        error: null,
+      }))
+    }
+  }, [event, isLoadingEvent])
+
+  // Update state when error occurs
+  useEffect(() => {
+    if (eventError) {
+      setState((prev) => ({
+        ...prev,
+        error: eventError,
+        isLoading: false,
+      }))
+    }
+  }, [eventError])
+
+  // Handle manual event change (from KafkaTopicSelector)
+  const handleManualEventChange = useCallback((event: string) => {
+    setManualEvent(event)
+    try {
+      JSON.parse(event)
+      setIsManualEventValid(true)
+    } catch (error) {
+      setIsManualEventValid(false)
+    }
+  }, [])
 
   // Handle topic change
   const handleTopicChange = useCallback(
     (newTopicName: string) => {
+      // Only update if the topic name actually changed
+      if (newTopicName === topicName) {
+        return
+      }
+
       setTopicName(newTopicName)
 
       // Create topic data
@@ -109,20 +243,29 @@ export function useTopicSelectionState({
       }
 
       // Clear join store when topic changes
-      const { joinStore } = useStore.getState()
       joinStore.setEnabled(false)
       joinStore.setType('')
       joinStore.setStreams([])
 
       // Invalidate dependent state
       topicsStore.invalidateTopicDependentState(index)
+
+      // Analytics tracking
+      analytics.topic.selected({
+        offset: offset,
+      })
     },
-    [index, offset, isDraftMode, topicsStore, topicSelectionDraft],
+    [index, offset, isDraftMode, topicsStore, topicSelectionDraft, topicName, joinStore, analytics.topic],
   )
 
   // Handle offset change
   const handleOffsetChange = useCallback(
     (newOffset: 'earliest' | 'latest') => {
+      // Only update if the offset actually changed
+      if (newOffset === offset) {
+        return
+      }
+
       setOffset(newOffset)
 
       // Create topic data
@@ -145,7 +288,7 @@ export function useTopicSelectionState({
         topicsStore.updateTopic(topicData)
       }
     },
-    [index, topicName, isDraftMode, topicsStore, topicSelectionDraft],
+    [index, topicName, isDraftMode, topicsStore, topicSelectionDraft, offset],
   )
 
   // Handle deduplication config change
@@ -180,13 +323,22 @@ export function useTopicSelectionState({
       if (onDeduplicationChange) {
         onDeduplicationChange(deduplicationData)
       }
+
+      // Analytics tracking for deduplication
+      if (isConfigured) {
+        analytics.key.dedupKey({
+          keyType: newKeyConfig.keyType,
+          window: newWindowConfig.window,
+          unit: newWindowConfig.unit as 'seconds' | 'minutes' | 'hours' | 'days',
+        })
+      }
     },
-    [index, isDraftMode, topicSelectionDraft, deduplicationStore, onDeduplicationChange],
+    [index, isDraftMode, topicSelectionDraft, deduplicationStore, onDeduplicationChange, analytics.key],
   )
 
-  // Determine if we can continue
+  // Determine if we can continue (enhanced from KafkaTopicSelector)
   const canContinue = useMemo(() => {
-    const hasValidTopic = topicName && (eventState.event || eventState.isEmptyTopic)
+    const hasValidTopic = topicName && (state.event || (manualEvent && isManualEventValid))
 
     if (!enableDeduplication) {
       return hasValidTopic
@@ -194,20 +346,31 @@ export function useTopicSelectionState({
 
     // For deduplication mode, also require deduplication config
     return hasValidTopic && deduplicationConfigured
-  }, [topicName, eventState.event, eventState.isEmptyTopic, enableDeduplication, deduplicationConfigured])
+  }, [topicName, state.event, manualEvent, isManualEventValid, enableDeduplication, deduplicationConfigured])
 
-  // Submit handler
+  // Submit handler (enhanced from KafkaTopicSelector)
   const handleSubmit = useCallback(() => {
+    let finalEvent = null
+
+    try {
+      // if there's no event in the store, use the manual event
+      finalEvent = (manualEvent ? JSON.parse(manualEvent) : null) || state.event
+    } catch (e) {
+      console.error('Error parsing event:', e)
+      return
+    }
+
     // Create final topic data
     const topicData = {
       index,
       name: topicName,
       initialOffset: offset,
-      events: eventState.event ? [eventState.event] : [],
-      selectedEvent: eventState.event || {
-        event: undefined,
+      events: [{ event: finalEvent, topicIndex: index, position: offset, isManualEvent: manualEvent !== '' }],
+      selectedEvent: {
+        event: finalEvent,
         topicIndex: index,
         position: offset,
+        isManualEvent: manualEvent !== '',
       },
     }
 
@@ -241,7 +404,8 @@ export function useTopicSelectionState({
     index,
     topicName,
     offset,
-    eventState.event,
+    state.event,
+    manualEvent,
     enableDeduplication,
     deduplicationConfigured,
     deduplicationConfig,
@@ -256,19 +420,22 @@ export function useTopicSelectionState({
     // State
     topicName,
     offset,
-    event: eventState.event,
-    isLoading: eventState.isLoading,
-    isEmptyTopic: eventState.isEmptyTopic,
-    error: eventState.error,
+    event: state.event,
+    isLoading: state.isLoading,
+    isEmptyTopic: state.isEmptyTopic,
+    error: state.error,
     deduplicationConfig,
     deduplicationConfigured,
     canContinue,
     isDraftMode,
+    manualEvent,
+    isManualEventValid,
 
     // Actions
     selectTopic: handleTopicChange,
     selectOffset: handleOffsetChange,
     configureDeduplication: handleDeduplicationConfigChange,
+    handleManualEventChange,
     submit: handleSubmit,
   }
 }
