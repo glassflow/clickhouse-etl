@@ -104,3 +104,20 @@ func (s *Storage) PatchPipelineName(ctx context.Context, id, name string) error 
 
 	return nil
 }
+
+func (s *Storage) DeletePipeline(ctx context.Context, id string) error {
+	entry, err := s.kv.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return service.ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline to delete from kv: %w", err)
+	}
+
+	err = s.kv.Delete(ctx, id, jetstream.LastRevision(entry.Revision()))
+	if err != nil {
+		return fmt.Errorf("delete pipeline: %w", err)
+	}
+
+	return nil
+}
