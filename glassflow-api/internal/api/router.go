@@ -12,30 +12,29 @@ import (
 type handler struct {
 	log *slog.Logger
 
-	pipelineManager *service.PipelineManager
-	ds              *service.DLQ
+	pipelineManager service.PipelineManager
+	dlqSvc          service.DLQ
 }
 
-func NewRouter(log *slog.Logger, psvc *service.PipelineManager, dsvc *service.DLQ) http.Handler {
-	h := handler{
-		log: log,
-
-		pipelineManager: psvc,
-		ds:              dsvc,
-	}
-
+func NewRouter(log *slog.Logger, pSvc service.PipelineManager, dlqSvc service.DLQ) http.Handler {
 	r := mux.NewRouter()
+
+	h := handler{
+		log:             log,
+		pipelineManager: pSvc,
+		dlqSvc:          dlqSvc,
+	}
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline", h.createPipeline).Methods("POST")
+	r.HandleFunc("/api/v1/pipeline/{id}", h.getPipeline).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}", h.updatePipelineName).Methods("PATCH")
 	r.HandleFunc("/api/v1/pipeline", h.getPipelines).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/{id}", h.getPipeline).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/shutdown", h.shutdownPipeline).Methods("DELETE")
 	r.HandleFunc("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ).
 		Queries("batch_size", "{batchSize}").
 		Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}/dlq/state", h.getDLQState).Methods("GET")
+	r.HandleFunc("/api/v1/pipeline/shutdown/{id}", h.shutdownPipeline).Methods("DELETE")
 
 	r.Use(Recovery(log), RequestLogging(log))
 
