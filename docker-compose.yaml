@@ -22,6 +22,7 @@ services:
     environment:
       GLASSFLOW_LOG_FILE_PATH: /tmp/logs/glassflow
       GLASSFLOW_NATS_SERVER: nats:4222
+      GLASSFLOW_RUN_LOCAL: true
     volumes:
       - logs:/tmp/logs/glassflow
 
