@@ -179,6 +179,8 @@ export function TopicSelectWithEventPreview({
           }}
           onManualEventChange={handleManualEventChange}
           readOnly={readOnly}
+          // NEW: Pass loading state from hook
+          isLoading={isLoading}
           currentOffset={hookCurrentOffset}
           earliestOffset={hookEarliestOffset}
           latestOffset={hookLatestOffset}

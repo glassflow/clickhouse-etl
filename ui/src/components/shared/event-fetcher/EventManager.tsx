@@ -22,6 +22,9 @@ interface ExtendedEventFetcherProps extends EventFetcherProps {
   latestOffset?: number | null
   isAtLatest?: boolean
   isAtEarliest?: boolean
+
+  // Loading state from the hook
+  isLoading?: boolean
 }
 
 function EventManager({
@@ -47,6 +50,8 @@ function EventManager({
   latestOffset,
   isAtLatest,
   isAtEarliest,
+  // NEW: Loading state from hook
+  isLoading: hookIsLoading,
 }: ExtendedEventFetcherProps) {
   // Local state for current event
   const [currentEvent, setCurrentEvent] = useState<any>(() => {
@@ -64,7 +69,9 @@ function EventManager({
   })
   const [currentTopic, setCurrentTopic] = useState<string>(topicName)
   const [isEmptyTopic, setIsEmptyTopic] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+
+  // Use loading state from hook instead of local state
+  const isLoading = hookIsLoading || false
 
   // Update currentEvent when initialEvent changes (from hook)
   useEffect(() => {
@@ -80,7 +87,6 @@ function EventManager({
       setCurrentEvent(kafkaEvent)
       setCurrentTopic(topicName)
       setIsEmptyTopic(false)
-      setIsLoading(false)
       onEventLoaded?.(kafkaEvent)
     }
   }, [initialEvent, initialOffset, currentOffset, isAtEarliest, isAtLatest, topicName, topicIndex, onEventLoaded])
@@ -91,7 +97,6 @@ function EventManager({
       setCurrentTopic(topicName)
       setCurrentEvent(null)
       setIsEmptyTopic(false)
-      setIsLoading(false)
     }
   }, [topicName, currentTopic])
 
@@ -127,7 +132,8 @@ function EventManager({
   }
 
   // Determine if we should show empty topic state
-  const shouldShowEmptyTopic = !currentEvent?.event && !isLoading
+  // Only show empty topic when we're not loading and have no event
+  const shouldShowEmptyTopic = !isLoading && !currentEvent?.event
 
   const eventError = shouldShowEmptyTopic ? 'This topic has no events. Please enter the event schema manually.' : ''
 

@@ -127,7 +127,7 @@ export function TopicOffsetSelect({
         options={topicOptions}
         readOnly={readOnly}
       />
-      {topicValue && !isLoadingEvent && (
+      {topicValue && (
         <OffsetSelect
           value={offsetValue}
           onChange={handleOffsetChange}
@@ -136,7 +136,7 @@ export function TopicOffsetSelect({
           error={offsetError}
           placeholder={offsetPlaceholder}
           options={offsetOptions}
-          readOnly={readOnly}
+          readOnly={readOnly || isLoadingEvent}
         />
       )}
     </div>
