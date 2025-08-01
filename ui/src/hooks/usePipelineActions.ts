@@ -50,11 +50,10 @@ export const usePipelineActions = (pipeline: Pipeline) => {
           break
 
         case 'edit':
-          // For edit action in pipeline details, we don't make an immediate API call
-          // The actual editing happens through the UI components
-          // This action just confirms the user wants to proceed with editing
-          console.log('Edit action confirmed for pipeline:', pipeline.id)
-          result = pipeline // Return the current pipeline as no immediate update is needed
+          if (!payload) {
+            throw new Error('Update data is required for edit action')
+          }
+          result = await updatePipeline(pipeline.id, payload)
           break
 
         default:
