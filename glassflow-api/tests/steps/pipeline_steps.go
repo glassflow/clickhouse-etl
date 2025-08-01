@@ -26,7 +26,8 @@ type PipelineSteps struct {
 	chTable    string
 	log        *slog.Logger
 
-	pipelineManager *service.PipelineManager
+	pipelineManager *service.PipelineManagerImpl
+	orchestrator    *service.LocalOrchestrator
 }
 
 func NewPipelineSteps() *PipelineSteps {
@@ -161,7 +162,7 @@ func (p *PipelineSteps) fastCleanup() error {
 	}
 
 	if p.pipelineManager != nil {
-		err = p.pipelineManager.ShutdownPipeline()
+		err = p.pipelineManager.DeletePipeline(context.Background(), p.orchestrator.ActivePipelineID())
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -326,9 +327,11 @@ func (p *PipelineSteps) setupPipelineManager() error {
 		return fmt.Errorf("create nats pipeline storage: %w", err)
 	}
 
+	orchestrator := service.NewLocalOrchestrator(natsClient, p.log)
+	p.orchestrator = orchestrator.(*service.LocalOrchestrator)
+
 	p.pipelineManager = service.NewPipelineManager(
-		natsClient,
-		p.log,
+		orchestrator,
 		db,
 	)
 
@@ -346,7 +349,7 @@ func (p *PipelineSteps) aGlassflowPipelineWithNextConfiguration(config *godog.Do
 		return fmt.Errorf("setup pipeline manager: %w", err)
 	}
 
-	err = p.pipelineManager.SetupPipeline(pipelineConfig)
+	err = p.pipelineManager.CreatePipeline(context.Background(), pipelineConfig)
 	if err != nil {
 		return fmt.Errorf("setup pipeline: %w", err)
 	}
@@ -378,7 +381,7 @@ func (p *PipelineSteps) shutdownPipeline() error {
 		return fmt.Errorf("pipeline manager not initialized")
 	}
 
-	err := p.pipelineManager.ShutdownPipeline()
+	err := p.pipelineManager.DeletePipeline(context.Background(), p.orchestrator.ActivePipelineID())
 	if err != nil {
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
