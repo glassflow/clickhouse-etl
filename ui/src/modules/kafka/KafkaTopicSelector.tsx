@@ -519,44 +519,42 @@ export function KafkaTopicSelector({
   }
 
   return (
-    <EventManagerContextProvider>
-      <div className="space-y-6 w-full">
-        <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
-          <div className="grid grid-cols-1 gap-6">
-            <TopicSelectWithEventPreview
-              index={index}
-              existingTopic={effectiveTopic}
-              onTopicChange={handleTopicChange}
-              onOffsetChange={handleOffsetChange}
-              onManualEventChange={handleManualEventChange}
-              availableTopics={availableTopics}
-              additionalContent={renderDeduplicationSection()}
-              isEditingEnabled={manualEvent !== '' || effectiveTopic?.selectedEvent?.isManualEvent || false}
-              readOnly={readOnly}
-            />
-          </div>
-
-          <FormActions
-            standalone={standalone}
-            onSubmit={handleSubmit}
-            isLoading={false}
-            isSuccess={false}
-            disabled={!canContinue}
-            successText="Continue"
-            loadingText="Loading..."
-            regularText="Continue"
-            actionType="primary"
-            showLoadingIcon={false}
+    <div className="space-y-6 w-full">
+      <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
+        <div className="grid grid-cols-1 gap-6">
+          <TopicSelectWithEventPreview
+            index={index}
+            existingTopic={effectiveTopic}
+            onTopicChange={handleTopicChange}
+            onOffsetChange={handleOffsetChange}
+            onManualEventChange={handleManualEventChange}
+            availableTopics={availableTopics}
+            additionalContent={renderDeduplicationSection()}
+            isEditingEnabled={manualEvent !== '' || effectiveTopic?.selectedEvent?.isManualEvent || false}
             readOnly={readOnly}
-            toggleEditMode={toggleEditMode}
           />
-
-          {/* NEW: Optional debug indicator for deduplication status */}
-          {enableDeduplication && localTopicName && storedEvent && !deduplicationConfigured && (
-            <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
-          )}
         </div>
+
+        <FormActions
+          standalone={standalone}
+          onSubmit={handleSubmit}
+          isLoading={false}
+          isSuccess={false}
+          disabled={!canContinue}
+          successText="Continue"
+          loadingText="Loading..."
+          regularText="Continue"
+          actionType="primary"
+          showLoadingIcon={false}
+          readOnly={readOnly}
+          toggleEditMode={toggleEditMode}
+        />
+
+        {/* NEW: Optional debug indicator for deduplication status */}
+        {enableDeduplication && localTopicName && storedEvent && !deduplicationConfigured && (
+          <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
+        )}
       </div>
-    </EventManagerContextProvider>
+    </div>
   )
 }

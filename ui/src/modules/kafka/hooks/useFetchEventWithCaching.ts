@@ -1,7 +1,6 @@
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { useState, useEffect } from 'react'
-import { useEventManagerContext } from '../../../components/shared/event-fetcher/EventManagerContext'
 
 export type EventFetchState = {
   event: any
@@ -38,7 +37,18 @@ export const useFetchEventWithCaching = (
 ) => {
   const { fetchEvent, event, isLoadingEvent, eventError } = useFetchEvent(kafka, selectedFormat)
   const [currentTopic, setCurrentTopic] = useState<string | null>(null)
-  const { state, setState } = useEventManagerContext()
+
+  // Use local state instead of context
+  const [state, setState] = useState<EventFetchState>({
+    event: null,
+    currentOffset: null,
+    earliestOffset: null,
+    latestOffset: null,
+    isAtLatest: false,
+    isLoading: false,
+    error: null,
+    isEmptyTopic: false,
+  })
 
   // Update state when event changes
   useEffect(() => {
