@@ -72,6 +72,34 @@ export function useEditPipelineModal() {
   }
 }
 
+export function useEditConfirmationModal() {
+  const [isEditConfirmationModalVisible, setIsEditConfirmationModalVisible] = useState(false)
+  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+  const [selectedStep, setSelectedStep] = useState<any>(null)
+
+  const openEditConfirmationModal = (pipeline?: any, step?: any) => {
+    setSelectedPipeline(pipeline)
+    setSelectedStep(step)
+    setIsEditConfirmationModalVisible(true)
+  }
+
+  const closeEditConfirmationModal = () => {
+    setIsEditConfirmationModalVisible(false)
+    setSelectedPipeline(null)
+    setSelectedStep(null)
+  }
+
+  return {
+    isEditConfirmationModalVisible,
+    selectedPipeline,
+    selectedStep,
+    openEditConfirmationModal,
+    closeEditConfirmationModal,
+    onOk: closeEditConfirmationModal,
+    onCancel: closeEditConfirmationModal,
+  }
+}
+
 export function useDeletePipelineModal() {
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false)
   const [selectedPipeline, setSelectedPipeline] = useState<any>(null)

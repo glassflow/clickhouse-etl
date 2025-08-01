@@ -20,12 +20,16 @@ import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-d
 import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
 import { useStore } from '@/src/store'
+import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const [pipeline, setPipeline] = useState<Pipeline>(initialPipeline)
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
   const [sharedActionState, setSharedActionState] = useState<any>({ isLoading: false })
   const router = useRouter()
+
+  // Use the centralized pipeline actions hook
+  const { actionState } = usePipelineActions(pipeline)
 
   // Get validation states from stores
   const kafkaValidation = useStore((state) => state.kafkaStore.validation)
@@ -37,7 +41,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // Determine if pipeline editing operations should be disabled
   // Consider both pipeline status AND if any action is currently loading
-  const isEditingDisabled = shouldDisablePipelineOperation(pipeline.status) || sharedActionState.isLoading
+  const isEditingDisabled =
+    shouldDisablePipelineOperation(pipeline.status) || sharedActionState.isLoading || actionState.isLoading
 
   useEffect(() => {
     if (pipeline && pipeline?.source && pipeline?.sink) {
@@ -75,6 +80,14 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   const handleActionStateChange = (actionState: any) => {
     setSharedActionState(actionState)
+  }
+
+  const handlePipelineStatusUpdate = (status: string) => {
+    console.log('Pipeline status updated:', status)
+    setPipeline((prev) => ({
+      ...prev,
+      status: status as Pipeline['status'],
+    }))
   }
 
   return (
@@ -141,7 +154,14 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
       </div>
 
       {/* Render the standalone step renderer when a step is active */}
-      {activeStep && <StandaloneStepRenderer stepKey={activeStep} onClose={handleCloseStep} pipeline={pipeline} />}
+      {activeStep && (
+        <StandaloneStepRenderer
+          stepKey={activeStep}
+          onClose={handleCloseStep}
+          pipeline={pipeline}
+          onPipelineStatusUpdate={handlePipelineStatusUpdate}
+        />
+      )}
     </div>
   )
 }

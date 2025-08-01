@@ -29,6 +29,7 @@ type ClickhouseConnectionProps = {
   useSSL: boolean
   skipCertificateVerification: boolean
   toggleEditMode?: () => void
+  pipelineActionState?: any
 }
 
 export const ClickhouseConnectionFormManager = ({
@@ -47,6 +48,7 @@ export const ClickhouseConnectionFormManager = ({
   useSSL,
   skipCertificateVerification,
   toggleEditMode,
+  pipelineActionState,
 }: ClickhouseConnectionProps) => {
   // Create a ref to store the original values for discard functionality
   const originalValuesRef = useRef(initialValues)
@@ -205,14 +207,19 @@ export const ClickhouseConnectionFormManager = ({
           onDiscard={handleDiscard}
           toggleEditMode={toggleEditMode}
           readOnly={readOnly}
-          isLoading={isConnecting}
+          isLoading={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
           isSuccess={connectionResult?.success}
-          disabled={isConnecting}
+          disabled={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
           successText="Continue"
-          loadingText="Testing..."
+          loadingText={
+            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
+              ? 'Pausing pipeline for editing...'
+              : 'Testing...'
+          }
           regularText="Continue"
           actionType="primary"
           showLoadingIcon={true}
+          pipelineActionState={pipelineActionState}
         />
       </form>
     </FormProvider>

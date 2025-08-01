@@ -16,12 +16,14 @@ export function ClickhouseConnectionContainer({
   standalone,
   readOnly = false,
   toggleEditMode,
+  pipelineActionState,
 }: {
   onCompleteStep?: (step: StepKeys) => void
   onComplete?: () => void
   standalone?: boolean
   readOnly?: boolean
   toggleEditMode?: () => void
+  pipelineActionState?: any
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { clickhouseConnectionStore } = useStore()
@@ -166,6 +168,7 @@ export function ClickhouseConnectionContainer({
         useSSL={directConnection?.useSSL ?? true}
         skipCertificateVerification={directConnection?.skipCertificateVerification ?? true}
         toggleEditMode={toggleEditMode}
+        pipelineActionState={pipelineActionState}
       />
 
       {connectionStatus === 'success' && !clearErrorMessage && (

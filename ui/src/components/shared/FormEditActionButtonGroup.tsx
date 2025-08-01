@@ -14,6 +14,7 @@ export const FormEditActionButtonGroup = ({
   regularText,
   actionType,
   showLoadingIcon,
+  pipelineActionState,
 }: {
   editMode?: boolean
   toggleEditMode?: () => void
@@ -27,6 +28,7 @@ export const FormEditActionButtonGroup = ({
   regularText?: string
   actionType?: 'primary' | 'secondary' | 'tertiary'
   showLoadingIcon?: boolean
+  pipelineActionState?: any
 }) => {
   const [isVisible, setIsVisible] = useState(false)
 
@@ -34,6 +36,9 @@ export const FormEditActionButtonGroup = ({
     const timer = setTimeout(() => setIsVisible(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Check if pipeline action is in progress (like pausing for editing)
+  const isPipelineActionInProgress = pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
 
   const handleSubmit = async () => {
     // Don't toggle edit mode immediately - wait for operation to complete
@@ -84,7 +89,12 @@ export const FormEditActionButtonGroup = ({
           </>
         ) : (
           <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
-            <FormActionButton actionType="primary" onClick={toggleEditMode} regularText="Edit" />
+            <FormActionButton
+              actionType="primary"
+              onClick={toggleEditMode}
+              regularText="Edit"
+              disabled={isPipelineActionInProgress}
+            />
           </div>
         )}
       </div>

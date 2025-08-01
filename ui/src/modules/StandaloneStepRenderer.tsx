@@ -15,19 +15,35 @@ import StepRendererModal from './StepRendererModal'
 import StepRendererPageComponent from './StepRendererPageComponent'
 import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
 import { StepDataPreloader } from '@/src/components/StepDataPreloader'
+import { useEditConfirmationModal } from './pipelines/hooks'
+import EditConfirmationModal from './pipelines/components/EditConfirmationModal'
+import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
   onClose: () => void
   pipeline?: any
+  onPipelineStatusUpdate?: (status: string) => void
 }
 
-function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRendererProps) {
+function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUpdate }: StandaloneStepRendererProps) {
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
+
+  // Use the centralized pipeline actions hook for state management
+  const { executeAction, actionState } = usePipelineActions(pipeline)
+
+  // Edit confirmation modal
+  const {
+    isEditConfirmationModalVisible,
+    selectedPipeline,
+    selectedStep,
+    openEditConfirmationModal,
+    closeEditConfirmationModal,
+  } = useEditConfirmationModal()
 
   // Pre-load data required for this step
   const preloader = useStepDataPreloader(stepKey, pipeline)
@@ -131,6 +147,43 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
     onClose()
   }
 
+  // Handle edit mode toggle with confirmation for active pipelines
+  const handleToggleEditMode = () => {
+    if (pipeline?.status === 'active' && !editMode) {
+      // For active pipelines, show confirmation modal before allowing edit
+      const stepInfo = steps[stepKey]
+      openEditConfirmationModal(pipeline, stepInfo)
+    } else {
+      // For paused pipelines or when exiting edit mode, toggle immediately
+      setEditMode(!editMode)
+    }
+  }
+
+  // Handle edit confirmation using the centralized pipeline actions
+  const handleEditConfirmation = async () => {
+    if (!selectedPipeline) return
+
+    closeEditConfirmationModal()
+
+    try {
+      // Use the centralized pipeline actions to pause the pipeline
+      const result = await executeAction('pause')
+
+      if (result) {
+        console.log('Pipeline paused successfully for editing:', selectedPipeline.id)
+
+        // Update pipeline status locally
+        onPipelineStatusUpdate?.('paused')
+
+        // Now enable edit mode
+        setEditMode(true)
+      }
+    } catch (error) {
+      console.error('Failed to pause pipeline for editing:', error)
+      // Don't enable edit mode if pause failed
+    }
+  }
+
   // Show preloader if data is still loading or if there's an error
   if (preloader.isLoading || preloader.error) {
     const stepInfo = steps[stepKey]
@@ -179,7 +232,9 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
     standalone: true,
     onComplete: handleComplete,
     readOnly: !editMode,
-    toggleEditMode: () => setEditMode(!editMode),
+    toggleEditMode: handleToggleEditMode,
+    // Pass pipeline action state for loading indicators
+    pipelineActionState: actionState,
   }
 
   // Additional props for topic selector components
@@ -192,9 +247,37 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline }: StandaloneStepRe
     : baseProps
 
   return (
-    <StepRendererPageComponent stepInfo={stepInfo} handleBack={handleBack} onClose={onClose}>
-      <CurrentStepComponent {...topicSelectorProps} />
-    </StepRendererPageComponent>
+    <>
+      <StepRendererPageComponent
+        stepInfo={stepInfo}
+        handleBack={handleBack}
+        onClose={onClose}
+        isLoading={actionState.isLoading}
+        loadingText={
+          actionState.lastAction === 'pause'
+            ? 'Pausing pipeline for editing...'
+            : actionState.lastAction === 'resume'
+              ? 'Resuming pipeline...'
+              : actionState.lastAction === 'delete'
+                ? 'Deleting pipeline...'
+                : actionState.lastAction === 'rename'
+                  ? 'Renaming pipeline...'
+                  : actionState.lastAction === 'edit'
+                    ? 'Updating pipeline...'
+                    : 'Processing...'
+        }
+      >
+        <CurrentStepComponent {...topicSelectorProps} />
+      </StepRendererPageComponent>
+
+      {/* Edit Confirmation Modal */}
+      <EditConfirmationModal
+        visible={isEditConfirmationModalVisible}
+        onOk={handleEditConfirmation}
+        onCancel={closeEditConfirmationModal}
+        stepName={selectedStep?.title}
+      />
+    </>
   )
 }
 

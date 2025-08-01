@@ -493,9 +493,23 @@ export function PipelinesList({
           if (!editSelectedPipeline) return
 
           closeEditModal() // Close modal immediately
+          setPipelineLoading(editSelectedPipeline.pipeline_id, 'edit')
 
-          // Navigate to pipeline details page for editing
-          router.push(`/pipelines/${editSelectedPipeline.pipeline_id}`)
+          try {
+            // TODO: Implement edit pipeline API call when available
+            // await editPipeline(editSelectedPipeline.pipeline_id, editData)
+            console.log('Pipeline edit initiated:', editSelectedPipeline.pipeline_id)
+
+            // Simulate edit operation
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+
+            // Refetch data after edit operation completes
+            await onRefresh?.()
+          } catch (error) {
+            console.error('Failed to edit pipeline:', error)
+          } finally {
+            clearPipelineLoading(editSelectedPipeline.pipeline_id)
+          }
         }}
         onCancel={() => {
           closeEditModal()

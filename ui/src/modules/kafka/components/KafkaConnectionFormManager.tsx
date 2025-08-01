@@ -22,6 +22,7 @@ type KafkaConnectionProps = {
   securityProtocol: string
   bootstrapServers: string
   toggleEditMode?: () => void
+  pipelineActionState?: any
 }
 
 export const KafkaConnectionFormManager = ({
@@ -36,6 +37,7 @@ export const KafkaConnectionFormManager = ({
   securityProtocol,
   bootstrapServers,
   toggleEditMode,
+  pipelineActionState,
 }: KafkaConnectionProps) => {
   // Create a ref to store the original values for discard functionality
   const originalValuesRef = useRef(initialValues)
@@ -187,14 +189,19 @@ export const KafkaConnectionFormManager = ({
           toggleEditMode={toggleEditMode}
           standalone={standalone}
           readOnly={readOnly}
-          disabled={isConnecting}
-          isLoading={isConnecting}
+          disabled={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
+          isLoading={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
           isSuccess={connectionResult?.success}
           successText="Continue"
-          loadingText="Testing..."
+          loadingText={
+            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
+              ? 'Pausing pipeline for editing...'
+              : 'Testing...'
+          }
           regularText="Continue"
           actionType="primary"
           showLoadingIcon={true}
+          pipelineActionState={pipelineActionState}
         />
       </form>
     </FormProvider>

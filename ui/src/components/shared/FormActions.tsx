@@ -15,6 +15,7 @@ type FormActionsProps = {
   regularText?: string
   actionType?: 'primary' | 'secondary' | 'tertiary'
   showLoadingIcon?: boolean
+  pipelineActionState?: any
 }
 
 function FormActions({
@@ -31,6 +32,7 @@ function FormActions({
   regularText,
   actionType,
   showLoadingIcon,
+  pipelineActionState,
 }: FormActionsProps) {
   return (
     <div className="flex gap-4">
@@ -48,6 +50,7 @@ function FormActions({
           regularText={regularText}
           actionType={actionType}
           showLoadingIcon={showLoadingIcon}
+          pipelineActionState={pipelineActionState}
         />
       )}
 

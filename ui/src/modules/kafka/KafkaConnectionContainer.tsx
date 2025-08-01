@@ -18,6 +18,7 @@ export function KafkaConnectionContainer({
   toggleEditMode,
   standalone,
   onComplete,
+  pipelineActionState,
 }: {
   steps: any
   onCompleteStep?: (step: StepKeys) => void
@@ -26,6 +27,7 @@ export function KafkaConnectionContainer({
   readOnly?: boolean
   toggleEditMode?: () => void
   onComplete?: () => void
+  pipelineActionState?: any
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { kafkaStore, topicsStore, configStore } = useStore()
@@ -244,6 +246,7 @@ export function KafkaConnectionContainer({
         securityProtocol={securityProtocol}
         bootstrapServers={bootstrapServers}
         toggleEditMode={toggleEditMode}
+        pipelineActionState={pipelineActionState}
       />
       {connectionResult && !clearErrorMessage && (
         <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />
