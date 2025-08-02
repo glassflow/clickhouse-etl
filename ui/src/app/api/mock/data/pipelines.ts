@@ -515,4 +515,125 @@ export const mockPipelines: Pipeline[] = [
     },
     error: 'Kafka connection timeout',
   },
+  {
+    id: 'pipeline-005',
+    name: 'Deduplication & Join Pipeline',
+    status: 'active',
+    created_at: '2024-01-12T16:45:00Z',
+    updated_at: '2024-01-15T13:10:00Z',
+    transformationName: 'Deduplication & Join',
+    source: {
+      type: 'kafka',
+      provider: 'aiven',
+      connection_params: {
+        brokers: ['localhost:9092,localhost:9093,localhost:9094'],
+        protocol: 'PLAINTEXT',
+        mechanism: 'NO_AUTH',
+        // username: 'admin',
+        // password: 'admin',
+        // root_ca: '<base64 encoded ca>',
+      },
+      topics: [
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'test_topic_1',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'id', type: 'string' },
+              { name: 'name', type: 'string' },
+            ],
+          },
+          deduplication: {
+            enabled: true,
+            id_field: 'id',
+            id_field_type: 'string',
+            time_window: '12h',
+          },
+        },
+        {
+          consumer_group_initial_offset: 'earliest',
+          name: 'test_topic_2',
+          schema: {
+            type: 'json',
+            fields: [
+              { name: 'id', type: 'string' },
+              { name: 'name', type: 'string' },
+            ],
+          },
+          deduplication: {
+            enabled: true,
+            id_field: 'id',
+            id_field_type: 'string',
+            time_window: '12h',
+          },
+        },
+      ],
+    },
+    join: {
+      enabled: true,
+      type: 'temporal',
+      sources: [
+        {
+          source_id: 'test_topic_1',
+          join_key: 'id',
+          time_window: '1h',
+          orientation: 'left',
+        },
+        {
+          source_id: 'test_topic_2',
+          join_key: 'id',
+          time_window: '1h',
+          orientation: 'right',
+        },
+      ],
+    },
+    sink: {
+      type: 'clickhouse',
+      provider: 'aiven',
+      host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
+      port: '12754',
+      nativePort: '12753',
+      database: 'vlad',
+      username: 'avnadmin',
+      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+      secure: true,
+      max_batch_size: 1,
+      max_delay_time: '10m',
+      table: 'test_table',
+      table_mapping: [
+        {
+          source_id: 'test_topic_1',
+          field_name: 'id',
+          column_name: 'id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'test_topic_1',
+          field_name: 'name',
+          column_name: 'name',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'test_topic_2',
+          field_name: 'id',
+          column_name: 'id',
+          column_type: 'UUID',
+        },
+        {
+          source_id: 'test_topic_2',
+          field_name: 'name',
+          column_name: 'name',
+          column_type: 'DateTime',
+        },
+      ],
+    },
+    stats: {
+      events_processed: 4560,
+      events_failed: 156,
+      throughput_per_second: 0,
+      last_event_processed: '2024-01-15T13:09:20Z',
+    },
+    error: 'Kafka connection timeout',
+  },
 ]

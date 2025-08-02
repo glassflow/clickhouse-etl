@@ -34,6 +34,12 @@ const mockDLQStats: Record<string, DLQStats> = {
     total_messages: 0,
     unconsumed_messages: 0,
   },
+  'pipeline-005': {
+    last_received_at: '2024-01-15T14:44:30Z',
+    last_consumed_at: '2024-01-15T14:42:30Z',
+    total_messages: 1546899,
+    unconsumed_messages: 1546899,
+  },
 }
 
 // GET /api/mock/pipeline/{id}/dlq/state - matches backend route name

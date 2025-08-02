@@ -255,20 +255,59 @@ function TransformationSection({
   disabled: boolean
   validation: any
 }) {
-  const { source, join, sink } = pipeline
+  // Get fresh data from store instead of stale pipeline config
+  const { topicsStore, joinStore, clickhouseDestinationStore } = useStore()
 
-  // Extract topics from source
-  const topics = source?.topics || []
-  const hasJoin = join?.enabled || false
-  const leftTopicDeduplication = source?.topics[0]?.deduplication?.enabled ?? false
-  const rightTopicDeduplication = source?.topics[1]?.deduplication?.enabled ?? false
-  const joinSources = join?.sources || []
+  // Extract topics from store (fresh data) - convert to array format like pipeline config
+  const storeTopics = Object.values(topicsStore.topics).map((topic: any) => ({
+    name: topic.name,
+    deduplication: {
+      enabled: false, // Will be handled by deduplicationStore
+    },
+  }))
 
-  // Get destination table info
-  const destinationTable = sink?.table || 'N/A'
-  const tableMapping = sink?.table_mapping || []
+  // Fallback to pipeline config if store is empty (e.g., when viewing existing pipeline)
+  const topics = storeTopics.length > 0 ? storeTopics : pipeline?.source?.topics || []
+  const hasJoin = joinStore.enabled || pipeline?.join?.enabled || false
+
+  // Get deduplication configs from deduplication store
+  const { deduplicationStore } = useStore()
+  const leftTopicDeduplication = deduplicationStore.getDeduplication(0)?.enabled ?? false
+  const rightTopicDeduplication = deduplicationStore.getDeduplication(1)?.enabled ?? false
+
+  // Convert join streams to pipeline config format
+  const storeJoinSources =
+    joinStore.streams.map((stream: any) => ({
+      source_id: stream.topicName,
+      join_key: stream.joinKey,
+      orientation: stream.orientation,
+    })) || []
+
+  // Fallback to pipeline config if store is empty
+  const joinSources = storeJoinSources.length > 0 ? storeJoinSources : pipeline?.join?.sources || []
+
+  // Get destination table info from store
+  const storeDestinationTable = clickhouseDestinationStore.clickhouseDestination.table
+  const storeTableMapping = clickhouseDestinationStore.clickhouseDestination.mapping || []
+
+  // Fallback to pipeline config if store is empty
+  const destinationTable = storeDestinationTable || pipeline?.sink?.table || 'N/A'
+  const tableMapping = storeTableMapping.length > 0 ? storeTableMapping : pipeline?.sink?.table_mapping || []
   const totalSourceFields = tableMapping.length
   const totalDestinationColumns = tableMapping.length
+
+  // Debug logging to understand why it's falling back
+  console.log('TransformationSection Debug:', {
+    topicsLength: topics.length,
+    hasJoin,
+    leftTopicDeduplication,
+    rightTopicDeduplication,
+    topics: topics.map((t: any) => t.name),
+    joinSources: joinSources.map((s: any) => ({ source_id: s.source_id, orientation: s.orientation })),
+    destinationTable,
+    totalSourceFields,
+    totalDestinationColumns,
+  })
 
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
