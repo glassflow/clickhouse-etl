@@ -346,7 +346,7 @@ export function ClickhouseMapper({
         !tableSchema.columns.every(
           (col, index) =>
             col.name === storeSchema[index]?.name &&
-            col.type === storeSchema[index]?.type &&
+            (col.type === storeSchema[index]?.type || col.type === storeSchema[index]?.column_type) &&
             col.isNullable === storeSchema[index]?.isNullable,
         )
 
@@ -574,7 +574,7 @@ export function ClickhouseMapper({
     }
 
     // Check compatibility immediately for better user feedback
-    const isCompatible = isTypeCompatible(inferredType, updatedColumns[index].type)
+    const isCompatible = isTypeCompatible(inferredType, updatedColumns[index].type || 'string')
 
     setMappedColumns(updatedColumns)
   }

@@ -64,9 +64,9 @@ export const createDeduplicationSlice: StateCreator<DeduplicationSlice> = (set, 
           deduplicationConfigs: {
             ...state.deduplicationStore.deduplicationConfigs,
             [topicIndex]: {
-              enabled: false,
-              window: 0,
-              unit: 'hours',
+              enabled: true,
+              window: 1,
+              unit: 'minutes',
               key: '',
               keyType: '',
             },

@@ -25,6 +25,7 @@ export function KafkaTopicSelector({
   onDeduplicationChange,
   initialDeduplicationConfig,
   pipelineActionState,
+  onCompleteStandaloneEditing,
 }: TopicSelectorProps) {
   const { topicsStore, kafkaStore } = useStore()
   const validationEngine = useValidationEngine()
@@ -162,6 +163,8 @@ export function KafkaTopicSelector({
         // Fallback for any other topic selection step
         validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
       }
+
+      onCompleteStandaloneEditing?.()
     } else {
       // In creation mode, move to next step
       if (currentStep === StepKeys.TOPIC_SELECTION_1) {

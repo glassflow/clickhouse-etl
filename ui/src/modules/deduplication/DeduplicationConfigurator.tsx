@@ -19,6 +19,7 @@ export function DeduplicationConfigurator({
   standalone,
   toggleEditMode,
   pipelineActionState,
+  onCompleteStandaloneEditing,
 }: {
   onCompleteStep: (stepName: string) => void
   index: number
@@ -26,6 +27,7 @@ export function DeduplicationConfigurator({
   standalone?: boolean
   toggleEditMode?: () => void
   pipelineActionState?: any
+  onCompleteStandaloneEditing?: () => void
 }) {
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
@@ -116,6 +118,7 @@ export function DeduplicationConfigurator({
       // In edit mode, just save changes and stay in the same section
       // Don't call onCompleteStep as we want to stay in the same section
       setIsSaveSuccess(true)
+      onCompleteStandaloneEditing?.()
       // Don't reset success state - let it stay true to keep the form closed
       // The success state will be reset when the user starts editing again
     } else {

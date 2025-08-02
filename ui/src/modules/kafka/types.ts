@@ -22,4 +22,5 @@ export type TopicSelectorProps = {
   initialDeduplicationConfig?: Partial<DeduplicationConfig>
   // NEW: Pipeline action state for loading indicators
   pipelineActionState?: any
+  onCompleteStandaloneEditing?: () => void
 }
