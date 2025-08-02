@@ -109,6 +109,16 @@ export function KafkaTopicSelector({
     }
   }, [topicsFromKafka, setAvailableTopics])
 
+  // State for tracking save success in edit mode
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false)
+
+  // Reset success state when user starts editing again
+  useEffect(() => {
+    if (!readOnly && isSaveSuccess) {
+      setIsSaveSuccess(false)
+    }
+  }, [readOnly, isSaveSuccess])
+
   // ================================ HANDLERS ================================
 
   // Handle topic change using the hook
@@ -131,28 +141,60 @@ export function KafkaTopicSelector({
 
   // Enhanced form submission handler using the hook
   const handleSubmit = useCallback(() => {
-    // Use the hook's submit function
+    // Use the hook's submit function to persist changes
     submit()
 
-    // Trigger validation engine to mark this section as valid and invalidate dependents
-    if (currentStep === StepKeys.TOPIC_SELECTION_1) {
-      validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
-      onCompleteStep(StepKeys.TOPIC_SELECTION_1)
-    } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
-      validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
-      onCompleteStep(StepKeys.TOPIC_SELECTION_2)
-    } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
-      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
-    } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-      validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
-      onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+    // Check if we're in edit mode (standalone with toggleEditMode)
+    const isEditMode = standalone && toggleEditMode
+
+    if (isEditMode) {
+      // In edit mode, just save changes and trigger validation engine
+      // Don't call onCompleteStep as we want to stay in the same section
+      if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
+      } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      } else {
+        // Fallback for any other topic selection step
+        validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
+      }
     } else {
-      // Fallback for any other topic selection step
-      validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
-      onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
+      // In creation mode, move to next step
+      if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
+        onCompleteStep(StepKeys.TOPIC_SELECTION_1)
+      } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
+        onCompleteStep(StepKeys.TOPIC_SELECTION_2)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+        onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+        onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      } else {
+        // Fallback for any other topic selection step
+        validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
+        onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
+      }
     }
-  }, [submit, currentStep, validationEngine, onCompleteStep])
+  }, [submit, currentStep, validationEngine, onCompleteStep, standalone, toggleEditMode])
+
+  // Enhanced form submission handler with success state
+  const handleSubmitWithSuccess = useCallback(() => {
+    handleSubmit()
+
+    // Set success state for edit mode to trigger UI feedback and form closure
+    if (standalone && toggleEditMode) {
+      setIsSaveSuccess(true)
+      // Don't reset success state - let it stay true to keep the form closed
+      // The success state will be reset when the user starts editing again
+    }
+  }, [handleSubmit, standalone, toggleEditMode])
 
   // NEW: Conditional rendering for deduplication section
   const renderDeduplicationSection = () => {
@@ -211,9 +253,9 @@ export function KafkaTopicSelector({
 
         <FormActions
           standalone={standalone}
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmitWithSuccess}
           isLoading={false}
-          isSuccess={false}
+          isSuccess={isSaveSuccess}
           disabled={!canContinue}
           successText="Continue"
           loadingText="Loading..."

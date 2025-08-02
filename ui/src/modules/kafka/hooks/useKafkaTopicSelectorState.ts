@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useStore } from '@/src/store'
 import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { StepKeys } from '@/src/config/constants'
 
 interface UseTopicSelectionStateProps {
@@ -46,6 +47,7 @@ export function useKafkaTopicSelectorState({
 }: UseTopicSelectionStateProps) {
   const { topicsStore, deduplicationStore, topicSelectionDraft, kafkaStore, joinStore } = useStore()
   const analytics = useJourneyAnalytics()
+  const validationEngine = useValidationEngine()
 
   // Memoize kafkaStore to prevent unnecessary re-renders
   const memoizedKafkaStore = useMemo(() => kafkaStore, [kafkaStore])
@@ -499,10 +501,10 @@ export function useKafkaTopicSelectorState({
     }
   }, [])
 
-  // Handle topic change
-  const handleTopicChange = useCallback(
+  // Handle topic selection
+  const selectTopic = useCallback(
     (newTopicName: string) => {
-      // Only update if the topic name actually changed
+      // Only update if the topic actually changed
       if (newTopicName === topicName) {
         return
       }
@@ -537,12 +539,38 @@ export function useKafkaTopicSelectorState({
       // Invalidate dependent state
       topicsStore.invalidateTopicDependentState(index)
 
+      // Trigger validation engine to invalidate dependent sections
+      // This will mark dependent sections (deduplication, join, clickhouse) as invalidated
+      if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+        validationEngine.invalidateSection(StepKeys.DEDUPLICATION_CONFIGURATOR, 'Topic selection changed')
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
+      } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic deduplication changed')
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic deduplication changed')
+      }
+
       // Analytics tracking
       analytics.topic.selected({
         offset: offset,
       })
     },
-    [index, offset, isDraftMode, topicsStore, topicSelectionDraft, topicName, joinStore, analytics.topic],
+    [
+      index,
+      offset,
+      isDraftMode,
+      topicsStore,
+      topicSelectionDraft,
+      topicName,
+      joinStore,
+      analytics.topic,
+      validationEngine,
+      currentStep,
+    ],
   )
 
   // Handle offset change
@@ -606,6 +634,15 @@ export function useKafkaTopicSelectorState({
         deduplicationStore.updateDeduplication(index, deduplicationData)
       }
 
+      // Trigger validation engine to invalidate dependent sections
+      // When deduplication changes, it affects ClickHouse mapping
+      if (
+        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+      ) {
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Deduplication configuration changed')
+      }
+
       // Notify parent component if callback provided
       if (onDeduplicationChange) {
         onDeduplicationChange(deduplicationData)
@@ -620,7 +657,16 @@ export function useKafkaTopicSelectorState({
         })
       }
     },
-    [index, isDraftMode, topicSelectionDraft, deduplicationStore, onDeduplicationChange, analytics.key],
+    [
+      index,
+      isDraftMode,
+      topicSelectionDraft,
+      deduplicationStore,
+      onDeduplicationChange,
+      analytics.key,
+      validationEngine,
+      currentStep,
+    ],
   )
 
   // Determine if we can continue (enhanced from KafkaTopicSelector)
@@ -725,7 +771,7 @@ export function useKafkaTopicSelectorState({
     isAtEarliest: state.isAtEarliest,
 
     // Actions
-    selectTopic: handleTopicChange,
+    selectTopic: selectTopic,
     selectOffset: handleOffsetChange,
     configureDeduplication: handleDeduplicationConfigChange,
     handleManualEventChange,

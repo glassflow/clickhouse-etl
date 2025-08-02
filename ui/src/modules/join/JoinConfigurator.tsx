@@ -67,6 +67,14 @@ export function JoinConfigurator({
   const [showValidation, setShowValidation] = useState(false)
   const [formIsValid, setFormIsValid] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false)
+
+  // Reset success state when user starts editing again
+  useEffect(() => {
+    if (!readOnly && isSaveSuccess) {
+      setIsSaveSuccess(false)
+    }
+  }, [readOnly, isSaveSuccess])
 
   // Get existing topic data if available
   const topic1 = getTopic(index)
@@ -175,11 +183,22 @@ export function JoinConfigurator({
       })),
     )
 
+    // Check if we're in edit mode (standalone with toggleEditMode)
+    const isEditMode = standalone && toggleEditMode
+
     // Trigger validation engine to mark this section as valid and invalidate dependents
     validationEngine.onSectionConfigured(StepKeys.JOIN_CONFIGURATOR)
 
-    // Move to next step
-    onCompleteStep(StepKeys.JOIN_CONFIGURATOR as StepKeys)
+    if (isEditMode) {
+      // In edit mode, just save changes and stay in the same section
+      // Don't call onCompleteStep as we want to stay in the same section
+      setIsSaveSuccess(true)
+      // Don't reset success state - let it stay true to keep the form closed
+      // The success state will be reset when the user starts editing again
+    } else {
+      // In creation mode, move to next step
+      onCompleteStep(StepKeys.JOIN_CONFIGURATOR as StepKeys)
+    }
   }
 
   // Handle field changes
@@ -188,6 +207,10 @@ export function JoinConfigurator({
     setFormData((prev) => ({
       streams: prev.streams.map((stream, index) => (index === streamIndex ? { ...stream, [field]: value } : stream)),
     }))
+
+    // Trigger validation engine to invalidate dependent sections when join configuration changes
+    // When join configuration changes, it affects ClickHouse mapping
+    validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Join configuration changed')
   }
 
   // Check if form can continue
@@ -262,7 +285,7 @@ export function JoinConfigurator({
           standalone={standalone}
           onSubmit={() => handleSubmit({} as React.FormEvent)}
           isLoading={false}
-          isSuccess={false}
+          isSuccess={isSaveSuccess}
           disabled={!canContinue}
           successText="Continue"
           loadingText="Loading..."

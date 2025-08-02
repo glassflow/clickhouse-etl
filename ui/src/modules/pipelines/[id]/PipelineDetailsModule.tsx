@@ -23,15 +23,18 @@ import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
-  const [pipeline, setPipeline] = useState<Pipeline>(initialPipeline)
-  const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
-  const [sharedActionState, setSharedActionState] = useState<any>({ isLoading: false })
   const router = useRouter()
 
-  // Use the centralized pipeline actions hook
+  // local copy of the pipeline data - this is used to display the pipeline data in the UI along with its status
+  const [pipeline, setPipeline] = useState<Pipeline>(initialPipeline)
+
+  // active step - determines which step is currently being rendered in the standalone step renderer
+  const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
+
+  // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
 
-  // Get validation states from stores
+  // Get validation states from stores to display in the UI - these are used to disable the UI when the pipeline is not valid
   const kafkaValidation = useStore((state) => state.kafkaStore.validation)
   const clickhouseConnectionValidation = useStore((state) => state.clickhouseConnectionStore.validation)
   const clickhouseDestinationValidation = useStore((state) => state.clickhouseDestinationStore.validation)
@@ -41,9 +44,10 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // Determine if pipeline editing operations should be disabled
   // Consider both pipeline status AND if any action is currently loading
-  const isEditingDisabled =
-    shouldDisablePipelineOperation(pipeline.status) || sharedActionState.isLoading || actionState.isLoading
+  const isEditingDisabled = shouldDisablePipelineOperation(pipeline.status) || actionState.isLoading
 
+  // Hydrate the pipeline data when the pipeline configuration is loaded - copy pipeline data to stores
+  // this does not connect to external services, it just copies the data to the stores
   useEffect(() => {
     if (pipeline && pipeline?.source && pipeline?.sink) {
       hydrateKafkaConnection(pipeline)
@@ -54,34 +58,37 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }, [pipeline])
 
+  // set active step so that the standalone step renderer can be rendered
   const handleStepClick = (step: StepKeys) => {
     // Prevent step clicks when editing is disabled
     if (isEditingDisabled) {
       return
     }
-    console.log('Step clicked:', step)
+
     setActiveStep(step)
   }
 
+  // close the standalone step renderer
   const handleCloseStep = () => {
     setActiveStep(null)
   }
 
+  // update the local copy of the pipeline data when the pipeline is updated
   const handlePipelineUpdate = (updatedPipeline: Pipeline) => {
     console.log('Pipeline updated:', updatedPipeline)
     setPipeline(updatedPipeline)
   }
 
+  // redirect to pipelines list after deletion
   const handlePipelineDeleted = () => {
     console.log('Pipeline deleted')
     // Redirect to pipelines list after deletion
     router.push('/pipelines')
   }
 
-  const handleActionStateChange = (actionState: any) => {
-    setSharedActionState(actionState)
-  }
-
+  // NOTE: this is used to update the pipeline status in the UI when the pipeline is paused or resumed
+  // it happens when pp is active and we want to edit one of the sections - for that we need to update the status
+  // in the UI so that the pipeline actions hook can determine if the pipeline is valid
   const handlePipelineStatusUpdate = (status: string) => {
     console.log('Pipeline status updated:', status)
     setPipeline((prev) => ({
@@ -97,7 +104,6 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           pipeline={pipeline}
           onPipelineUpdate={handlePipelineUpdate}
           onPipelineDeleted={handlePipelineDeleted}
-          onActionStateChange={handleActionStateChange}
         />
       </div>
       <div className="flex flex-col gap-4">

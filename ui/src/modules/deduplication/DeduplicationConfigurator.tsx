@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { EventEditor } from '@/src/components/shared/EventEditor'
@@ -48,6 +48,16 @@ export function DeduplicationConfigurator({
     analytics.page.deduplicationKey({})
   }, [])
 
+  // State for tracking save success in edit mode
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false)
+
+  // Reset success state when user starts editing again
+  useEffect(() => {
+    if (!readOnly && isSaveSuccess) {
+      setIsSaveSuccess(false)
+    }
+  }, [readOnly, isSaveSuccess])
+
   // Use deduplication config from the new store, with fallback
   const currentDeduplicationConfig = deduplicationConfig || {
     enabled: false,
@@ -79,13 +89,17 @@ export function DeduplicationConfigurator({
       // Update the deduplication config in the new store
       updateDeduplication(index, updatedConfig)
 
+      // Trigger validation engine to invalidate dependent sections
+      // When deduplication changes, it affects ClickHouse mapping
+      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Deduplication configuration changed')
+
       analytics.key.dedupKey({
         keyType,
         window,
         unit,
       })
     },
-    [index, updateDeduplication],
+    [index, updateDeduplication, validationEngine],
   )
 
   // Handle continue button click
@@ -95,8 +109,20 @@ export function DeduplicationConfigurator({
     // Trigger validation engine to mark this section as valid and invalidate dependents
     validationEngine.onSectionConfigured(StepKeys.DEDUPLICATION_CONFIGURATOR)
 
-    onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
-  }, [topic, onCompleteStep, validationEngine])
+    // Check if we're in edit mode (standalone with toggleEditMode)
+    const isEditMode = standalone && toggleEditMode
+
+    if (isEditMode) {
+      // In edit mode, just save changes and stay in the same section
+      // Don't call onCompleteStep as we want to stay in the same section
+      setIsSaveSuccess(true)
+      // Don't reset success state - let it stay true to keep the form closed
+      // The success state will be reset when the user starts editing again
+    } else {
+      // In creation mode, move to next step
+      onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
+    }
+  }, [topic, onCompleteStep, validationEngine, standalone, toggleEditMode])
 
   if (!topic || !topicEvent) {
     return <div>No topic or event data available for index {index}</div>
@@ -135,7 +161,7 @@ export function DeduplicationConfigurator({
         standalone={standalone}
         onSubmit={handleSave}
         isLoading={false}
-        isSuccess={false}
+        isSuccess={isSaveSuccess}
         disabled={!canContinue}
         successText="Continue"
         loadingText="Loading..."

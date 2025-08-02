@@ -24,7 +24,11 @@ function DoubleColumnCard({
         'border-[var(--color-border-neutral)] rounded-md p-4',
         widthClass,
         disabled ? 'opacity-50 cursor-not-allowed' : '',
-        validation?.topicsValidation?.status === 'invalidated' || validation?.joinValidation?.status === 'invalidated'
+        validation?.topicsValidation?.status === 'invalidated' ||
+          validation?.joinValidation?.status === 'invalidated' ||
+          validation?.deduplicationValidation?.status === 'invalidated' ||
+          validation?.clickhouseDestinationValidation?.status === 'invalidated' ||
+          validation?.status === 'invalidated'
           ? 'border-red-500'
           : '',
       )}

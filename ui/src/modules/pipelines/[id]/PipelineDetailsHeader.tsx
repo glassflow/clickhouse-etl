@@ -22,16 +22,9 @@ interface PipelineDetailsHeaderProps {
   onPipelineUpdate?: (updatedPipeline: Pipeline) => void
   onPipelineDeleted?: () => void
   actions?: React.ReactNode
-  onActionStateChange?: (actionState: any) => void
 }
 
-function PipelineDetailsHeader({
-  pipeline,
-  onPipelineUpdate,
-  onPipelineDeleted,
-  actions,
-  onActionStateChange,
-}: PipelineDetailsHeaderProps) {
+function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, actions }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
 
   const {
@@ -43,11 +36,6 @@ function PipelineDetailsHeader({
     shouldShowModal,
     clearError,
   } = usePipelineActions(pipeline)
-
-  // Notify parent component when action state changes
-  useEffect(() => {
-    onActionStateChange?.(actionState)
-  }, [actionState, onActionStateChange])
 
   const handleActionClick = async (action: PipelineAction) => {
     const config = getActionConfiguration(action)
@@ -62,6 +50,7 @@ function PipelineDetailsHeader({
       // Execute action directly (like resume)
       try {
         const result = await executeAction(action)
+
         if (result && onPipelineUpdate) {
           onPipelineUpdate(result as Pipeline)
         }

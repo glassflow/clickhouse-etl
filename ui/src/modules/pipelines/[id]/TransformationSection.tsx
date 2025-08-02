@@ -50,7 +50,7 @@ const DeduplicationCase = ({
               width="full"
               onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR)}
               disabled={disabled}
-              validation={validation}
+              validation={validation.deduplicationValidation}
             />
           )
         })()}
@@ -102,7 +102,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
           disabled={disabled}
-          validation={validation}
+          validation={validation.topicsValidation}
         />
 
         <SingleColumnCard
@@ -112,7 +112,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_2)}
           disabled={disabled}
-          validation={validation}
+          validation={validation.topicsValidation}
         />
       </div>
 
@@ -144,6 +144,7 @@ const JoinCase = ({
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
+        validation={validation}
       />
     </div>
   )
@@ -284,7 +285,7 @@ function TransformationSection({
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
         disabled={disabled}
-        validation={validation.topicsValidation}
+        validation={validation}
       />
     )
   }
@@ -308,7 +309,7 @@ function TransformationSection({
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
         disabled={disabled}
-        validation={validation.joinValidation}
+        validation={validation}
       />
     )
   }
@@ -326,10 +327,7 @@ function TransformationSection({
         totalDestinationColumns={totalDestinationColumns}
         onStepClick={onStepClick}
         disabled={disabled}
-        validation={{
-          topicsValidation: validation.topicsValidation,
-          joinValidation: validation.joinValidation,
-        }}
+        validation={validation}
       />
     )
   }
