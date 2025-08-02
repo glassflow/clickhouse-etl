@@ -70,6 +70,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // close the standalone step renderer
   const handleCloseStep = () => {
+    console.log('Closing step - resetting active step')
     setActiveStep(null)
   }
 

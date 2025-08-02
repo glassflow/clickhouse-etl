@@ -12,14 +12,14 @@ import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
 
 export function ClickhouseConnectionContainer({
   onCompleteStep,
-  onComplete,
+  onCompleteStandaloneEditing,
   standalone,
   readOnly = false,
   toggleEditMode,
   pipelineActionState,
 }: {
   onCompleteStep?: (step: StepKeys) => void
-  onComplete?: () => void
+  onCompleteStandaloneEditing?: () => void
   standalone?: boolean
   readOnly?: boolean
   toggleEditMode?: () => void
@@ -79,6 +79,7 @@ export function ClickhouseConnectionContainer({
   }, [connectionStatus, connectionError, connectionFormValues, analytics.clickhouse])
 
   const saveConnectionData = (values: ClickhouseConnectionFormType) => {
+    console.log('ClickhouseConnectionContainer - saveConnectionData')
     // Save the connection details to the store only after successful test
     const newConnection = {
       ...clickhouseConnection,
@@ -99,9 +100,11 @@ export function ClickhouseConnectionContainer({
 
     // Proceed to next step
     if (!standalone && onCompleteStep) {
+      console.log('ClickhouseConnectionContainer - onCompleteStep')
       onCompleteStep(StepKeys.CLICKHOUSE_CONNECTION)
-    } else if (standalone && onComplete) {
-      onComplete()
+    } else if (standalone && onCompleteStandaloneEditing) {
+      console.log('Standalone ClickhouseConnectionContainer - onCompleteStandaloneEditing')
+      onCompleteStandaloneEditing()
     }
   }
 

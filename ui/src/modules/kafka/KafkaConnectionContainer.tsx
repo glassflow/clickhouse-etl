@@ -17,7 +17,7 @@ export function KafkaConnectionContainer({
   readOnly = false,
   toggleEditMode,
   standalone,
-  onComplete,
+  onCompleteStandaloneEditing,
   pipelineActionState,
 }: {
   steps: any
@@ -26,7 +26,7 @@ export function KafkaConnectionContainer({
   standalone?: boolean
   readOnly?: boolean
   toggleEditMode?: () => void
-  onComplete?: () => void
+  onCompleteStandaloneEditing?: () => void
   pipelineActionState?: any
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
@@ -205,8 +205,9 @@ export function KafkaConnectionContainer({
     // Proceed to next step or close standalone component
     if (!standalone && onCompleteStep) {
       onCompleteStep(StepKeys.KAFKA_CONNECTION as StepKeys)
-    } else if (standalone && onComplete) {
-      onComplete()
+    } else if (standalone && onCompleteStandaloneEditing) {
+      console.log('Standalone KafkaConnectionContainer - onCompleteStandaloneEditing')
+      onCompleteStandaloneEditing()
     }
   }
 

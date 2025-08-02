@@ -230,7 +230,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     onCompleteStep: handleNext,
     validate: async () => true, // You might want to implement proper validation
     standalone: true,
-    onComplete: handleComplete,
+    onCompleteStandaloneEditing: handleComplete,
     readOnly: !editMode,
     toggleEditMode: handleToggleEditMode,
     // Pass pipeline action state for loading indicators
@@ -238,7 +238,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   }
 
   // Additional props for topic selector components
-  const topicSelectorProps = isTopicSelectorStep
+  const extendedProps = isTopicSelectorStep
     ? {
         ...baseProps,
         currentStep: stepKey,
@@ -267,7 +267,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
                     : 'Processing...'
         }
       >
-        <CurrentStepComponent {...topicSelectorProps} />
+        <CurrentStepComponent {...extendedProps} />
       </StepRendererPageComponent>
 
       {/* Edit Confirmation Modal */}
