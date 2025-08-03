@@ -25,8 +25,8 @@ const USER_ID_STORAGE_KEY = 'glassflow-user-id'
 
 export function ConsentLayout({ children }: ConsentLayoutProps) {
   const analytics = useJourneyAnalytics()
-  const { configStore } = useStore()
-  const { consentAnswered, setAnalyticsConsent, setConsentAnswered } = configStore
+  const { coreStore } = useStore()
+  const { consentAnswered, setAnalyticsConsent, setConsentAnswered } = coreStore
   const [showConsent, setShowConsent] = useState(false)
 
   // Initialize analytics on component mount and ensure user ID exists

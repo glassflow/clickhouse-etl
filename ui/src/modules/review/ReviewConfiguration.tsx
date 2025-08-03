@@ -22,10 +22,10 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     clickhouseDestinationStore,
     topicsStore,
     joinStore,
-    configStore,
+    coreStore,
     deduplicationStore,
   } = useStore()
-  const { apiConfig, pipelineId, setPipelineId, operationsSelected } = configStore
+  const { apiConfig, pipelineId, setPipelineId, operationsSelected } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()

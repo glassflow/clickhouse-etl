@@ -455,7 +455,7 @@ const mockData = {
   clickhouseDestinationStore: mockClickhouseDestination,
   topicsStore: mockTopicsStore,
   deduplicationStore: mockDeduplicationStore,
-  configStore: {
+  coreStore: {
     pipelineId: '',
     pipelineName: '',
     operationsSelected: mockOperationsSelected,

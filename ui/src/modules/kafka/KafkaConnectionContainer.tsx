@@ -30,8 +30,8 @@ export function KafkaConnectionContainer({
   pipelineActionState?: any
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
-  const { kafkaStore, topicsStore, configStore } = useStore()
-  const { operationsSelected } = configStore
+  const { kafkaStore, topicsStore, coreStore } = useStore()
+  const { operationsSelected } = coreStore
   const {
     setKafkaAuthMethod,
     setKafkaSecurityProtocol,

@@ -148,8 +148,8 @@ export class DistributedValidationEngine {
       [StepKeys.JOIN_CONFIGURATOR]: [this.store.joinStore],
       [StepKeys.CLICKHOUSE_CONNECTION]: [this.store.clickhouseConnectionStore],
       [StepKeys.CLICKHOUSE_MAPPER]: [this.store.clickhouseDestinationStore],
-      [StepKeys.REVIEW_CONFIGURATION]: [this.store.configStore], // Review uses config store
-      [StepKeys.DEPLOY_PIPELINE]: [this.store.configStore], // Deploy uses config store
+      [StepKeys.REVIEW_CONFIGURATION]: [this.store.coreStore], // Review uses config store
+      [StepKeys.DEPLOY_PIPELINE]: [this.store.coreStore], // Deploy uses config store
     }
 
     return mapping[section]

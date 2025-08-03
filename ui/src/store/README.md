@@ -47,15 +47,15 @@ The `pipeline-config.ts` slice contains general pipeline information that was pr
 ### Accessing Pipeline Config Properties
 
 ```typescript
-const { configStore } = useStore()
-const { pipelineId, pipelineName, operationsSelected } = configStore
+const { coreStore } = useStore()
+const { pipelineId, pipelineName, operationsSelected } = coreStore
 ```
 
 ### Updating Pipeline Config Properties
 
 ```typescript
-const { configStore } = useStore()
-const { setPipelineId, setPipelineName, setOperationsSelected } = configStore
+const { coreStore } = useStore()
+const { setPipelineId, setPipelineName, setOperationsSelected } = coreStore
 
 // Update properties
 setPipelineId('new-pipeline-id')
@@ -68,8 +68,8 @@ setOperationsSelected({ operation: 'deduplication' })
 For resetting only pipeline config:
 
 ```typescript
-const { configStore } = useStore()
-const { resetPipelineState } = configStore
+const { coreStore } = useStore()
+const { resetPipelineState } = coreStore
 
 resetPipelineState('deduplication', true)
 ```
@@ -95,8 +95,8 @@ const { pipelineId, setPipelineId, operationsSelected } = useStore()
 **After:**
 
 ```typescript
-const { configStore } = useStore()
-const { pipelineId, setPipelineId, operationsSelected } = configStore
+const { coreStore } = useStore()
+const { pipelineId, setPipelineId, operationsSelected } = coreStore
 ```
 
 ## Benefits

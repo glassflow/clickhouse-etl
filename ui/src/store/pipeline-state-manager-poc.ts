@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { Pipeline } from '@/src/types/pipeline'
-import { pipelineStoreFactory, PipelineStoreInstance } from './pipeline-store-factory'
+import { pipelineStoreFactory, PipelineStoreInstance } from './pipeline-store-factory-poc'
 import { DistributedValidationEngine } from './state-machine/validation-engine'
 import { DEPENDENCY_GRAPH } from './state-machine/dependency-graph'
 import { StepKeys } from '@/src/config/constants'

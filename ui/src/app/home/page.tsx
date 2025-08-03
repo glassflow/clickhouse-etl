@@ -68,7 +68,7 @@ const ConnectionCard = () => {
 
 // Client Component for handling searchParams
 function HomePageClient() {
-  const { topicsStore, kafkaStore, joinStore, configStore, resetAllPipelineState } = useStore()
+  const { topicsStore, kafkaStore, joinStore, coreStore, resetAllPipelineState } = useStore()
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams?.get('showWarning') === 'true'
@@ -77,19 +77,12 @@ function HomePageClient() {
   const router = useRouter()
   const [pendingOperation, setPendingOperation] = useState<string | null>(null)
   const [isCreatePipelineModalVisible, setIsCreatePipelineModalVisible] = useState(false)
+  const { setOperationsSelected, setPipelineName, setPipelineId, operationsSelected, enterCreateMode } = coreStore
 
-  const { getIsKafkaConnectionDirty } = kafkaStore
-  // const { getIsTopicDirty } = topicsStore // TODO: check if why this was needed
-  const { getIsJoinDirty } = joinStore
-  const {
-    setOperationsSelected,
-    setPipelineName,
-    setPipelineId,
-    setAnalyticsConsent,
-    setConsentAnswered,
-    pipelineId,
-    operationsSelected,
-  } = configStore
+  // by default enter create mode as soon as the component loads
+  useEffect(() => {
+    enterCreateMode()
+  }, [enterCreateMode])
 
   // Check for running pipeline and redirect to pipeline page if one exists
   useEffect(() => {

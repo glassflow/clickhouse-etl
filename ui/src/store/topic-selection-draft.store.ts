@@ -1,5 +1,13 @@
 import { StateCreator } from 'zustand'
-import { DeduplicationConfig } from '@/src/modules/kafka/KafkaTopicSelectorLegacy'
+
+// Define DeduplicationConfig locally to avoid import issues
+export interface DeduplicationConfig {
+  enabled: boolean
+  key: string
+  keyType: string
+  window: number
+  unit: 'seconds' | 'minutes' | 'hours' | 'days'
+}
 
 export interface TopicData {
   index: number
@@ -43,6 +51,12 @@ export interface TopicSelectionDraftState {
   commitDraft: () => { topics: Record<number, TopicData>; deduplication: Record<number, DeduplicationConfig> }
   discardDraft: () => void
   resetDraft: () => void
+
+  // Enhanced helper methods
+  getEffectiveTopic: (index: number) => TopicData | undefined
+  getEffectiveDeduplication: (index: number) => DeduplicationConfig | undefined
+  hasDraftChanges: () => boolean
+  getDraftChanges: () => { topics: Record<number, TopicData>; deduplication: Record<number, DeduplicationConfig> }
 }
 
 export interface TopicSelectionDraftSlice {
@@ -148,6 +162,38 @@ export const createTopicSelectionDraftSlice: StateCreator<TopicSelectionDraftSli
           editingStep: null,
         },
       }))
+    },
+
+    // Enhanced helper methods
+    getEffectiveTopic: (index) => {
+      const state = get()
+      const { isEditing, draftTopics, originalTopics } = state.topicSelectionDraft
+      return isEditing ? draftTopics[index] : originalTopics[index]
+    },
+
+    getEffectiveDeduplication: (index) => {
+      const state = get()
+      const { isEditing, draftDeduplication, originalDeduplication } = state.topicSelectionDraft
+      return isEditing ? draftDeduplication[index] : originalDeduplication[index]
+    },
+
+    hasDraftChanges: () => {
+      const state = get()
+      const { draftTopics, draftDeduplication, originalTopics, originalDeduplication } = state.topicSelectionDraft
+
+      const topicsChanged = JSON.stringify(draftTopics) !== JSON.stringify(originalTopics)
+      const deduplicationChanged = JSON.stringify(draftDeduplication) !== JSON.stringify(originalDeduplication)
+
+      return topicsChanged || deduplicationChanged
+    },
+
+    getDraftChanges: () => {
+      const state = get()
+      const { draftTopics, draftDeduplication } = state.topicSelectionDraft
+      return {
+        topics: { ...draftTopics },
+        deduplication: { ...draftDeduplication },
+      }
     },
   },
 })

@@ -62,7 +62,7 @@ export function ClickhouseMapper({
     kafkaStore,
     joinStore,
     topicsStore,
-    configStore,
+    coreStore,
     deduplicationStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
@@ -72,7 +72,7 @@ export function ClickhouseMapper({
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
-  const { setApiConfig, setPipelineId, setOperationsSelected, pipelineId, operationsSelected } = configStore
+  const { setApiConfig, setPipelineId, setOperationsSelected, pipelineId, operationsSelected } = coreStore
 
   // Determine operation mode and indices
   const isJoinOperation =

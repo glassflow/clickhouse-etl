@@ -21,8 +21,8 @@ const TRACKING_CACHE_TTL = 2000 // 2 seconds
  * Hook to easily track journey analytics events throughout the application
  */
 export function useJourneyAnalytics() {
-  const { configStore } = useStore()
-  const { analyticsConsent } = configStore
+  const { coreStore } = useStore()
+  const { analyticsConsent } = coreStore
 
   /**
    * Helper function to track an event with caching to prevent duplicates

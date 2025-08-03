@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { PipelineJourney } from './pipeline-state-manager'
+import { PipelineJourney } from './pipeline-state-manager-poc'
 import { createKafkaSlice } from './kafka.store'
 import { createClickhouseConnectionSlice } from './clickhouse-connection.store'
 import { createClickhouseDestinationSlice } from './clickhouse-destination.store'
@@ -8,7 +8,7 @@ import { createStepsSlice } from './steps.store'
 import { createTopicsSlice } from './topics.store'
 import { createDeduplicationSlice } from './deduplication.store'
 import { createJoinSlice } from './join.store'
-import { createPipelineConfigSlice } from './pipeline-config'
+import { createPipelineConfigSlice } from './core'
 
 export interface PipelineStoreInstance {
   id: string
@@ -103,13 +103,13 @@ export class PipelineStoreFactory {
             // Global reset function
             resetAllPipelineState: (operation: string, force = false) => {
               const state = get() as any
-              const currentConfig = state.configStore
-              const topicCount = (state.configStore as any).getTopicCountForOperation?.(operation) || 1
+              const currentConfig = state.coreStore
+              const topicCount = (state.coreStore as any).getTopicCountForOperation?.(operation) || 1
 
               if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
                 set((state: any) => ({
-                  configStore: {
-                    ...state.configStore,
+                  coreStore: {
+                    ...state.coreStore,
                     operationsSelected: {
                       operation: operation,
                     },
@@ -146,8 +146,8 @@ export class PipelineStoreFactory {
                 }))
               } else {
                 set((state: any) => ({
-                  configStore: {
-                    ...state.configStore,
+                  coreStore: {
+                    ...state.coreStore,
                     operationsSelected: {
                       operation: operation,
                     },

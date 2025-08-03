@@ -46,8 +46,8 @@ export function PipelinesList({
   onRemovePipeline,
 }: PipelinesListProps) {
   const analytics = useJourneyAnalytics()
-  const { configStore, resetAllPipelineState } = useStore()
-  const { pipelineId, setPipelineId } = configStore
+  const { coreStore, resetAllPipelineState } = useStore()
+  const { pipelineId, setPipelineId } = coreStore
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
   const {

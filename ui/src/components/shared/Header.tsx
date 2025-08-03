@@ -142,8 +142,8 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
 export function Header() {
   const router = useRouter()
   const pathname = usePathname()
-  const { configStore } = useStore()
-  const { resetPipelineState } = configStore
+  const { coreStore } = useStore()
+  const { resetPipelineState } = coreStore
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false)

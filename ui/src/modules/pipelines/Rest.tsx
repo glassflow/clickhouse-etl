@@ -19,8 +19,8 @@ import { PipelineStatus } from '@/src/types/pipeline'
 
 export function PipelineDeployer() {
   const analytics = useJourneyAnalytics()
-  const { configStore, resetAllPipelineState } = useStore()
-  const { apiConfig, pipelineId, setPipelineId } = configStore
+  const { coreStore, resetAllPipelineState } = useStore()
+  const { apiConfig, pipelineId, setPipelineId } = coreStore
   const [status, setStatus] = useState<PipelineStatus>('deploying')
   const [error, setError] = useState<string | null>(null)
   const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)

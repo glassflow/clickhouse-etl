@@ -15,7 +15,7 @@ import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createDeduplicationSlice, DeduplicationSlice } from './deduplication.store'
 import { createTopicSelectionDraftSlice, TopicSelectionDraftSlice } from './topic-selection-draft.store'
 import { createJoinSlice, JoinSlice } from './join.store'
-import { createPipelineConfigSlice, PipelineConfigSlice, getTopicCountForOperation } from './pipeline-config'
+import { createCoreSlice, CoreSlice, getTopicCountForOperation } from './core'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -27,7 +27,7 @@ interface Store
     DeduplicationSlice,
     TopicSelectionDraftSlice,
     JoinSlice,
-    PipelineConfigSlice {
+    CoreSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (operation: string, force?: boolean) => void
 }
@@ -44,18 +44,18 @@ const useActualStore = create<Store>()(
       ...createDeduplicationSlice(set, get, store),
       ...createTopicSelectionDraftSlice(set, get, store),
       ...createJoinSlice(set, get, store),
-      ...createPipelineConfigSlice(set, get, store),
+      ...createCoreSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (operation: string, force = false) => {
         const state = get()
-        const currentConfig = state.configStore
+        const currentConfig = state.coreStore
         const topicCount = getTopicCountForOperation(operation)
 
         if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
           set((state) => ({
-            configStore: {
-              ...state.configStore,
+            coreStore: {
+              ...state.coreStore,
               operationsSelected: {
                 operation: operation,
               },
@@ -92,8 +92,8 @@ const useActualStore = create<Store>()(
           }))
         } else {
           set((state) => ({
-            configStore: {
-              ...state.configStore,
+            coreStore: {
+              ...state.coreStore,
               operationsSelected: {
                 operation: operation,
               },

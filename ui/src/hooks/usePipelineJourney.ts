@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { usePipelineStateManagerEnhanced, PipelineJourney } from '@/src/store/pipeline-state-manager'
+import { usePipelineStateManagerEnhanced, PipelineJourney } from '@/src/store/pipeline-state-manager-poc'
 import { StepKeys } from '@/src/config/constants'
 
 export function usePipelineJourneyEnhanced() {
