@@ -22,9 +22,8 @@ export type JoinConfiguratorProps = {
   standalone?: boolean
   toggleEditMode?: () => void
   pipelineActionState?: any
+  onCompleteStandaloneEditing?: () => void
 }
-
-type StreamField = 'streamId' | 'joinKey' | 'dataType' | 'joinTimeWindowValue' | 'joinTimeWindowUnit'
 
 export function JoinConfigurator({
   steps,
@@ -35,6 +34,7 @@ export function JoinConfigurator({
   standalone,
   toggleEditMode,
   pipelineActionState,
+  onCompleteStandaloneEditing,
 }: JoinConfiguratorProps) {
   const { topicsStore, joinStore, coreStore } = useStore()
   const validationEngine = useValidationEngine()
@@ -164,8 +164,7 @@ export function JoinConfigurator({
   }
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = () => {
     setShowValidation(true)
 
     if (!validateForm()) {
@@ -183,18 +182,17 @@ export function JoinConfigurator({
       })),
     )
 
-    // Check if we're in edit mode (standalone with toggleEditMode)
-    const isEditMode = standalone && toggleEditMode
-
     // Trigger validation engine to mark this section as valid and invalidate dependents
     validationEngine.onSectionConfigured(StepKeys.JOIN_CONFIGURATOR)
 
-    if (isEditMode) {
+    if (standalone) {
       // In edit mode, just save changes and stay in the same section
       // Don't call onCompleteStep as we want to stay in the same section
       setIsSaveSuccess(true)
       // Don't reset success state - let it stay true to keep the form closed
       // The success state will be reset when the user starts editing again
+
+      onCompleteStandaloneEditing?.()
     } else {
       // In creation mode, move to next step
       onCompleteStep(StepKeys.JOIN_CONFIGURATOR as StepKeys)
@@ -269,7 +267,7 @@ export function JoinConfigurator({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 w-full">
+    <form className="space-y-6 w-full">
       <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-6">
         <div className="flex flex-row gap-8">
           <div className="w-full">
@@ -294,7 +292,7 @@ export function JoinConfigurator({
 
         <FormActions
           standalone={standalone}
-          onSubmit={() => handleSubmit({} as React.FormEvent)}
+          onSubmit={handleSubmit}
           onDiscard={handleDiscardChanges}
           isLoading={false}
           isSuccess={isSaveSuccess}

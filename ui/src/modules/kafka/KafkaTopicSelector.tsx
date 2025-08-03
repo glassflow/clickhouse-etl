@@ -20,7 +20,6 @@ export function KafkaTopicSelector({
   readOnly,
   standalone,
   toggleEditMode,
-  // NEW: Deduplication props with defaults
   enableDeduplication = false,
   onDeduplicationChange,
   initialDeduplicationConfig,
@@ -45,12 +44,10 @@ export function KafkaTopicSelector({
 
   // Get existing topic data if available
   const storedTopic = topicsFromStore[index]
-  const effectiveTopic = storedTopic
 
   const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
   const [isInitialRender, setIsInitialRender] = useState(true)
 
-  // Use the new hook for all topic selection logic
   const {
     topicName,
     offset,
@@ -61,7 +58,6 @@ export function KafkaTopicSelector({
     deduplicationConfig,
     deduplicationConfigured,
     canContinue,
-    isDraftMode,
     manualEvent,
     isManualEventValid,
     selectTopic,
@@ -69,7 +65,6 @@ export function KafkaTopicSelector({
     configureDeduplication,
     handleManualEventChange,
     submit,
-    // NEW: Navigation state and functions
     currentOffset,
     earliestOffset,
     latestOffset,
@@ -87,8 +82,6 @@ export function KafkaTopicSelector({
     initialDeduplicationConfig,
     currentStep,
   })
-
-  // ================================ EFFECTS ================================
 
   // Fetch topics on component mount
   useEffect(() => {
@@ -120,8 +113,6 @@ export function KafkaTopicSelector({
     }
   }, [readOnly, isSaveSuccess])
 
-  // ================================ HANDLERS ================================
-
   // Handle topic change using the hook
   const handleTopicChange = useCallback(
     (topicName: string, event: any) => {
@@ -152,6 +143,7 @@ export function KafkaTopicSelector({
       // In edit mode, just save changes and trigger validation engine
       // Don't call onCompleteStep as we want to stay in the same section
       if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+        console.log('Kafka Topic Selector: In edit mode, step 1')
         validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
       } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
         validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
@@ -166,22 +158,22 @@ export function KafkaTopicSelector({
 
       onCompleteStandaloneEditing?.()
     } else {
-      // In creation mode, move to next step
+      // In creation mode, just move to next step
       if (currentStep === StepKeys.TOPIC_SELECTION_1) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
         onCompleteStep(StepKeys.TOPIC_SELECTION_1)
       } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
         onCompleteStep(StepKeys.TOPIC_SELECTION_2)
       } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
         onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
       } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
         onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
       } else {
         // Fallback for any other topic selection step
-        validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
+        // validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
         onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
       }
     }
@@ -212,17 +204,10 @@ export function KafkaTopicSelector({
       sectionsToDiscard = ['topics', 'deduplication']
     }
 
-    console.log(`Discarding changes for sections: ${sectionsToDiscard.join(', ')}`, {
-      currentStep,
-      lastSavedConfig: coreStore.getLastSavedConfig(),
-      mode: coreStore.mode,
-    })
-
     // Discard all sections at once
     coreStore.discardSections(sectionsToDiscard)
   }, [coreStore, currentStep])
 
-  // NEW: Conditional rendering for deduplication section
   const renderDeduplicationSection = () => {
     if (!enableDeduplication) return null
 
@@ -249,21 +234,19 @@ export function KafkaTopicSelector({
         <div className="grid grid-cols-1 gap-6">
           <TopicSelectWithEventPreview
             index={index}
-            existingTopic={effectiveTopic}
+            existingTopic={storedTopic}
             onTopicChange={handleTopicChange}
             onOffsetChange={handleOffsetChange}
             onManualEventChange={handleManualEventChange}
             availableTopics={availableTopics}
             additionalContent={renderDeduplicationSection()}
-            isEditingEnabled={manualEvent !== '' || effectiveTopic?.selectedEvent?.isManualEvent || false}
+            isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
             readOnly={readOnly}
-            // NEW: Pass hook data to prevent duplicate fetching
             topicName={topicName}
             offset={offset}
             event={event}
             isLoading={isLoading}
             error={error}
-            // NEW: Pass navigation functions and state
             currentOffset={currentOffset}
             earliestOffset={earliestOffset}
             latestOffset={latestOffset}

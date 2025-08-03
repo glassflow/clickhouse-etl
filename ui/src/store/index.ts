@@ -13,7 +13,6 @@ import { createClickhouseDestinationSlice, ClickhouseDestinationSlice } from './
 import { createStepsSlice, StepsSlice } from './steps.store'
 import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createDeduplicationSlice, DeduplicationSlice } from './deduplication.store'
-import { createTopicSelectionDraftSlice, TopicSelectionDraftSlice } from './topic-selection-draft.store'
 import { createJoinSlice, JoinSlice } from './join.store'
 import { createCoreSlice, CoreSlice, getTopicCountForOperation } from './core'
 import Cookies from 'js-cookie'
@@ -25,7 +24,6 @@ interface Store
     StepsSlice,
     TopicsSlice,
     DeduplicationSlice,
-    TopicSelectionDraftSlice,
     JoinSlice,
     CoreSlice {
   // Global reset function that can reset all slices
@@ -42,7 +40,6 @@ const useActualStore = create<Store>()(
       ...createStepsSlice(set, get, store),
       ...createTopicsSlice(set, get, store),
       ...createDeduplicationSlice(set, get, store),
-      ...createTopicSelectionDraftSlice(set, get, store),
       ...createJoinSlice(set, get, store),
       ...createCoreSlice(set, get, store),
 

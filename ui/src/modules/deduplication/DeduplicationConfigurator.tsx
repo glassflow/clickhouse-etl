@@ -2,11 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { Button } from '@/src/components/ui/button'
 import { EventEditor } from '@/src/components/shared/EventEditor'
 import { parseForCodeEditor } from '@/src/utils/common.client'
 import { StepKeys } from '@/src/config/constants'
-import { cn } from '@/src/utils/common.client'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import FormActions from '@/src/components/shared/FormActions'
@@ -191,19 +189,3 @@ export function DeduplicationConfigurator({
     </div>
   )
 }
-
-// const TrashControl = ({ onRemove, index }: { onRemove: () => void; index: number }) => {
-//   return (
-//     <Button variant="ghost" size="icon" onClick={() => onRemove(index)} className="h-8 w-8">
-//       <TrashIcon className="h-4 w-4" />
-//     </Button>
-//   )
-// }
-
-// const AddKeyControl = ({ onAdd }: { onAdd: () => void }) => {
-//   return (
-//     <Button variant="outline" className="max-w-[150px] mt-2 btn-neutral" onClick={onAdd}>
-//       Add Another Key
-//     </Button>
-//   )
-// }

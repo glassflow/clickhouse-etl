@@ -44,7 +44,8 @@ export const FormEditActionButtonGroup = ({
     // Don't toggle edit mode immediately - wait for operation to complete
     await onSubmit()
 
-    // Only toggle edit mode if the operation was successful
+    // After successful submission, toggle edit mode to close the form
+    // This ensures the form closes after the operation is complete
     if (isSuccess) {
       toggleEditMode?.()
     }

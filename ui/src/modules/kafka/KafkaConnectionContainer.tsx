@@ -206,7 +206,6 @@ export function KafkaConnectionContainer({
     if (!standalone && onCompleteStep) {
       onCompleteStep(StepKeys.KAFKA_CONNECTION as StepKeys)
     } else if (standalone && onCompleteStandaloneEditing) {
-      console.log('Standalone KafkaConnectionContainer - onCompleteStandaloneEditing')
       onCompleteStandaloneEditing()
     }
   }
