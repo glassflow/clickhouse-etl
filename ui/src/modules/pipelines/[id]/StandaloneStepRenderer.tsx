@@ -27,11 +27,13 @@ interface StandaloneStepRendererProps {
 }
 
 function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUpdate }: StandaloneStepRendererProps) {
-  const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
+  const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
+
+  const { enterEditMode } = coreStore
 
   // Use the centralized pipeline actions hook for state management
   const { executeAction, actionState } = usePipelineActions(pipeline)
@@ -177,6 +179,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
 
         // Now enable edit mode
         setEditMode(true)
+        enterEditMode(pipeline)
       }
     } catch (error) {
       console.error('Failed to pause pipeline for editing:', error)

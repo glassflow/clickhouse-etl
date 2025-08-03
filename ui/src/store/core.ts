@@ -36,6 +36,9 @@ interface CoreStoreProps {
   // New mode-related fields
   mode: StoreMode
   baseConfig: Pipeline | undefined
+  // New incremental state management fields
+  lastSavedConfig: Pipeline | undefined
+  saveHistory: Pipeline[]
 }
 
 interface CoreStore extends CoreStoreProps {
@@ -60,6 +63,17 @@ interface CoreStore extends CoreStoreProps {
   enterEditMode: (config: Pipeline) => void
   enterViewMode: (config: Pipeline) => void
   isDirtyComparedToBase: () => boolean
+  // New incremental state management actions
+  setLastSavedConfig: (config: Pipeline | undefined) => void
+  addToSaveHistory: (config: Pipeline) => void
+  getLastSavedConfig: () => Pipeline | undefined
+  getSaveHistory: () => Pipeline[]
+  clearSaveHistory: () => void
+  discardToLastSaved: () => void
+  // New section-based hydration actions
+  hydrateSection: (section: string, config: Pipeline) => void
+  discardSection: (section: string) => void
+  discardSections: (sections: string[]) => void
 }
 
 export interface CoreSlice {
@@ -82,6 +96,9 @@ export const initialCoreStore: CoreStoreProps = {
   // Initialize mode-related fields
   mode: 'create',
   baseConfig: undefined,
+  // Initialize incremental state management fields
+  lastSavedConfig: undefined,
+  saveHistory: [],
 }
 
 export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
@@ -173,11 +190,9 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           isDirty: false,
         },
       }))
-      hydrateKafkaConnection(config)
-      hydrateKafkaTopics(config)
-      hydrateClickhouseConnection(config)
-      hydrateClickhouseDestination(config)
-      hydrateJoinConfiguration(config)
+      // Use the new hydrateSection method for consistency
+      const currentState = get()
+      currentState.coreStore.hydrateSection('all', config)
     },
     resetToInitial: () => {
       const state = get()
@@ -221,6 +236,8 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           ...initialCoreStore,
           mode: 'create',
           baseConfig: undefined,
+          lastSavedConfig: undefined,
+          saveHistory: [],
         },
       }))
     },
@@ -230,6 +247,8 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           ...state.coreStore,
           mode: 'edit',
           baseConfig: config,
+          lastSavedConfig: config, // Initialize lastSavedConfig with the loaded config
+          saveHistory: [config], // Initialize saveHistory with the loaded config
         },
       }))
       // Hydrate the store with the config
@@ -242,6 +261,8 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           ...state.coreStore,
           mode: 'view',
           baseConfig: config,
+          lastSavedConfig: config, // Initialize lastSavedConfig with the loaded config
+          saveHistory: [config], // Initialize saveHistory with the loaded config
         },
       }))
       // Hydrate the store with the config
@@ -257,6 +278,107 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
 
       // Compare core fields with base config
       return pipelineId !== baseConfig.id || pipelineName !== baseConfig.name
+    },
+    // New incremental state management methods
+    setLastSavedConfig: (config: Pipeline | undefined) =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, lastSavedConfig: config },
+      })),
+    addToSaveHistory: (config: Pipeline) =>
+      set((state) => ({
+        coreStore: {
+          ...state.coreStore,
+          saveHistory: [...state.coreStore.saveHistory, config],
+          lastSavedConfig: config,
+        },
+      })),
+    getLastSavedConfig: () => {
+      const state = get()
+      return state.coreStore.lastSavedConfig
+    },
+    getSaveHistory: () => {
+      const state = get()
+      return state.coreStore.saveHistory
+    },
+    clearSaveHistory: () =>
+      set((state) => ({
+        coreStore: {
+          ...state.coreStore,
+          saveHistory: [],
+          lastSavedConfig: undefined,
+        },
+      })),
+    discardToLastSaved: () => {
+      const state = get()
+      const { lastSavedConfig } = state.coreStore
+
+      if (lastSavedConfig) {
+        // Re-hydrate all slices from lastSavedConfig instead of baseConfig
+        state.coreStore.hydrateFromConfig(lastSavedConfig)
+        set((state) => ({
+          coreStore: { ...state.coreStore, isDirty: false },
+        }))
+      }
+    },
+    // New section-based hydration methods
+    hydrateSection: (section: string, config: Pipeline) => {
+      switch (section) {
+        case 'kafka':
+          hydrateKafkaConnection(config)
+          break
+        case 'topics':
+          hydrateKafkaTopics(config)
+          break
+        case 'deduplication':
+          // Topics and deduplication are closely related, so hydrate both
+          hydrateKafkaTopics(config)
+          break
+        case 'join':
+          hydrateJoinConfiguration(config)
+          break
+        case 'clickhouse-connection':
+          hydrateClickhouseConnection(config)
+          break
+        case 'clickhouse-destination':
+          hydrateClickhouseDestination(config)
+          break
+        case 'all':
+          // Hydrate all sections (current behavior)
+          hydrateKafkaConnection(config)
+          hydrateKafkaTopics(config)
+          hydrateClickhouseConnection(config)
+          hydrateClickhouseDestination(config)
+          hydrateJoinConfiguration(config)
+          break
+        default:
+          console.warn(`Unknown section for hydration: ${section}`)
+      }
+    },
+    discardSection: (section: string) => {
+      const state = get()
+      const { lastSavedConfig } = state.coreStore
+
+      if (lastSavedConfig) {
+        // Hydrate only the specific section from lastSavedConfig
+        state.coreStore.hydrateSection(section, lastSavedConfig)
+        console.log(`Discarded changes for section: ${section}`)
+      } else {
+        console.warn('No lastSavedConfig available for section discard')
+      }
+    },
+    discardSections: (sections: string[]) => {
+      const state = get()
+      const { lastSavedConfig } = state.coreStore
+
+      if (lastSavedConfig) {
+        // Hydrate each section from lastSavedConfig
+        sections.forEach((section) => {
+          state.coreStore.hydrateSection(section, lastSavedConfig)
+        })
+        console.log(`Discarded changes for sections: ${sections.join(', ')}`)
+      } else {
+        console.warn('No lastSavedConfig available for sections discard')
+      }
     },
   },
 })

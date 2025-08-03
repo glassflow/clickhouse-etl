@@ -742,6 +742,17 @@ export function ClickhouseMapper({
     }
   }, [validateMapping])
 
+  // Handle discard changes for clickhouse destination configuration
+  const handleDiscardChanges = useCallback(() => {
+    console.log('Discarding changes for clickhouse destination section', {
+      lastSavedConfig: coreStore.getLastSavedConfig(),
+      mode: coreStore.mode,
+    })
+
+    // Discard clickhouse destination section
+    coreStore.discardSection('clickhouse-destination')
+  }, [coreStore])
+
   // Complete the save after modal confirmation
   const completeConfigSave = useCallback(() => {
     // Before saving, do a final validation of type compatibility
@@ -963,6 +974,7 @@ export function ClickhouseMapper({
               <FormActions
                 standalone={standalone}
                 onSubmit={saveDestinationConfig}
+                onDiscard={handleDiscardChanges}
                 isLoading={isLoading}
                 isSuccess={!!success}
                 disabled={isLoading}

@@ -27,7 +27,7 @@ export function KafkaTopicSelector({
   pipelineActionState,
   onCompleteStandaloneEditing,
 }: TopicSelectorProps) {
-  const { topicsStore, kafkaStore } = useStore()
+  const { topicsStore, kafkaStore, coreStore } = useStore()
   const validationEngine = useValidationEngine()
   const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
   const getIndex = useGetIndex(currentStep || '')
@@ -199,6 +199,29 @@ export function KafkaTopicSelector({
     }
   }, [handleSubmit, standalone, toggleEditMode])
 
+  // Handle discard changes for this section
+  const handleDiscardChanges = useCallback(() => {
+    // Determine which sections to discard based on the current step
+    let sectionsToDiscard: string[] = ['topics']
+
+    if (
+      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+    ) {
+      // For deduplication configurator steps, discard both topics and deduplication
+      sectionsToDiscard = ['topics', 'deduplication']
+    }
+
+    console.log(`Discarding changes for sections: ${sectionsToDiscard.join(', ')}`, {
+      currentStep,
+      lastSavedConfig: coreStore.getLastSavedConfig(),
+      mode: coreStore.mode,
+    })
+
+    // Discard all sections at once
+    coreStore.discardSections(sectionsToDiscard)
+  }, [coreStore, currentStep])
+
   // NEW: Conditional rendering for deduplication section
   const renderDeduplicationSection = () => {
     if (!enableDeduplication) return null
@@ -257,6 +280,7 @@ export function KafkaTopicSelector({
         <FormActions
           standalone={standalone}
           onSubmit={handleSubmitWithSuccess}
+          onDiscard={handleDiscardChanges}
           isLoading={false}
           isSuccess={isSaveSuccess}
           disabled={!canContinue}

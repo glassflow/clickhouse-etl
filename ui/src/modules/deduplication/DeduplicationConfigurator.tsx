@@ -31,6 +31,7 @@ export function DeduplicationConfigurator({
 }) {
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
+  const { coreStore } = useStore()
 
   // Use the new separated store structure with proper memoization
   const deduplicationConfig = useStore((state) => state.deduplicationStore.getDeduplication(index))
@@ -127,6 +128,17 @@ export function DeduplicationConfigurator({
     }
   }, [topic, onCompleteStep, validationEngine, standalone, toggleEditMode])
 
+  // Handle discard changes for deduplication configuration
+  const handleDiscardChanges = useCallback(() => {
+    console.log('Discarding changes for deduplication section', {
+      lastSavedConfig: coreStore.getLastSavedConfig(),
+      mode: coreStore.mode,
+    })
+
+    // Discard deduplication section
+    coreStore.discardSection('deduplication')
+  }, [coreStore])
+
   if (!topic || !topicEvent) {
     return <div>No topic or event data available for index {index}</div>
   }
@@ -163,6 +175,7 @@ export function DeduplicationConfigurator({
       <FormActions
         standalone={standalone}
         onSubmit={handleSave}
+        onDiscard={handleDiscardChanges}
         isLoading={false}
         isSuccess={isSaveSuccess}
         disabled={!canContinue}

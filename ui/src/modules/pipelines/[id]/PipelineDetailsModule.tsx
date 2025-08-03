@@ -43,7 +43,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const deduplicationValidation = useStore((state) => state.deduplicationStore.validation)
 
   const { coreStore } = useStore()
-  const { enterViewMode, hydrateFromConfig } = coreStore
+  const { enterViewMode, hydrateFromConfig, mode } = coreStore
 
   // Determine if pipeline editing operations should be disabled
   // Consider both pipeline status AND if any action is currently loading
@@ -52,12 +52,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Hydrate the pipeline data when the pipeline configuration is loaded - copy pipeline data to stores
   // this does not connect to external services, it just copies the data to the stores
   useEffect(() => {
-    if (pipeline && pipeline?.source && pipeline?.sink) {
-      // Enter edit mode and hydrate the store with the pipeline configuration
+    if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
+      console.log('Entering view mode')
       enterViewMode(pipeline)
-      hydrateFromConfig(pipeline)
     }
-  }, [pipeline, enterViewMode])
+  }, [pipeline, enterViewMode, mode, actionState.isLoading, actionState.lastAction])
 
   // set active step so that the standalone step renderer can be rendered
   const handleStepClick = (step: StepKeys) => {

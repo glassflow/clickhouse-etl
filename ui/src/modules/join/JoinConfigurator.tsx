@@ -36,7 +36,7 @@ export function JoinConfigurator({
   toggleEditMode,
   pipelineActionState,
 }: JoinConfiguratorProps) {
-  const { topicsStore, joinStore } = useStore()
+  const { topicsStore, joinStore, coreStore } = useStore()
   const validationEngine = useValidationEngine()
   const { getTopic, getEvent } = topicsStore
   const { enabled, type, streams, setEnabled, setType, setStreams } = joinStore
@@ -221,6 +221,17 @@ export function JoinConfigurator({
         stream.streamId && stream.joinKey && stream.dataType && stream.joinTimeWindowValue && stream.joinTimeWindowUnit,
     )
 
+  // Handle discard changes for join configuration
+  const handleDiscardChanges = () => {
+    console.log('Discarding changes for join section', {
+      lastSavedConfig: coreStore.getLastSavedConfig(),
+      mode: coreStore.mode,
+    })
+
+    // Discard join section
+    coreStore.discardSection('join')
+  }
+
   // Update dynamicOptions
   const dynamicOptions = {
     streams: [
@@ -284,6 +295,7 @@ export function JoinConfigurator({
         <FormActions
           standalone={standalone}
           onSubmit={() => handleSubmit({} as React.FormEvent)}
+          onDiscard={handleDiscardChanges}
           isLoading={false}
           isSuccess={isSaveSuccess}
           disabled={!canContinue}
