@@ -2,6 +2,11 @@ import { OperationsSelectedType, OutboundEventPreviewType } from '@/src/scheme'
 import { Pipeline } from '@/src/types/pipeline'
 import Cookies from 'js-cookie'
 import { StateCreator } from 'zustand'
+import { hydrateKafkaConnection } from './hydration/kafka-connection'
+import { hydrateKafkaTopics } from './hydration/topics'
+import { hydrateClickhouseConnection } from './hydration/clickhouse-connection'
+import { hydrateClickhouseDestination } from './hydration/clickhouse-destination'
+import { hydrateJoinConfiguration } from './hydration/join-configuration'
 
 // Helper function to determine topic count based on operation type
 export const getTopicCountForOperation = (operation: string): number => {
@@ -17,7 +22,7 @@ export const getTopicCountForOperation = (operation: string): number => {
 }
 
 // Mode type for the store
-export type StoreMode = 'create' | 'edit'
+export type StoreMode = 'create' | 'edit' | 'view'
 
 interface CoreStoreProps {
   pipelineId: string
@@ -53,6 +58,7 @@ interface CoreStore extends CoreStoreProps {
   discardChanges: () => void
   enterCreateMode: () => void
   enterEditMode: (config: Pipeline) => void
+  enterViewMode: (config: Pipeline) => void
   isDirtyComparedToBase: () => boolean
 }
 
@@ -164,11 +170,14 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           ...state.coreStore,
           pipelineId: config.id,
           pipelineName: config.name,
-          // Note: Other slices will need their own hydration methods
-          // This is just the core slice hydration
           isDirty: false,
         },
       }))
+      hydrateKafkaConnection(config)
+      hydrateKafkaTopics(config)
+      hydrateClickhouseConnection(config)
+      hydrateClickhouseDestination(config)
+      hydrateJoinConfiguration(config)
     },
     resetToInitial: () => {
       const state = get()
@@ -220,6 +229,18 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         coreStore: {
           ...state.coreStore,
           mode: 'edit',
+          baseConfig: config,
+        },
+      }))
+      // Hydrate the store with the config
+      const newState = get()
+      newState.coreStore.hydrateFromConfig(config)
+    },
+    enterViewMode: (config: Pipeline) => {
+      set((state) => ({
+        coreStore: {
+          ...state.coreStore,
+          mode: 'view',
           baseConfig: config,
         },
       }))
