@@ -10,13 +10,13 @@ import {
 } from '@/src/modules'
 import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
-import { JoinConfigurator } from './join/JoinConfigurator'
+import { JoinConfigurator } from '../../join/JoinConfigurator'
 import StepRendererModal from './StepRendererModal'
 import StepRendererPageComponent from './StepRendererPageComponent'
 import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
 import { StepDataPreloader } from '@/src/components/StepDataPreloader'
-import { useEditConfirmationModal } from './pipelines/hooks'
-import EditConfirmationModal from './pipelines/components/EditConfirmationModal'
+import { useEditConfirmationModal } from '../hooks'
+import EditConfirmationModal from '../components/EditConfirmationModal'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 
 interface StandaloneStepRendererProps {

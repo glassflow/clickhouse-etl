@@ -1,11 +1,11 @@
 import { OperationKeys, StepKeys } from '@/src/config/constants'
-import { KafkaConnectionContainer } from './kafka/KafkaConnectionContainer'
-import { KafkaTopicSelector } from './kafka/KafkaTopicSelector'
-import { DeduplicationConfigurator } from './deduplication/DeduplicationConfigurator'
-import { ClickhouseConnectionContainer } from './clickhouse/ClickhouseConnectionContainer'
-import { ClickhouseMapper } from './clickhouse/ClickhouseMapper'
-import { ReviewConfiguration } from './review/ReviewConfiguration'
-import { JoinConfigurator } from './join/JoinConfigurator'
+import { KafkaConnectionContainer } from '../kafka/KafkaConnectionContainer'
+import { KafkaTopicSelector } from '../kafka/KafkaTopicSelector'
+import { DeduplicationConfigurator } from '../deduplication/DeduplicationConfigurator'
+import { ClickhouseConnectionContainer } from '../clickhouse/ClickhouseConnectionContainer'
+import { ClickhouseMapper } from '../clickhouse/ClickhouseMapper'
+import { ReviewConfiguration } from '../review/ReviewConfiguration'
+import { JoinConfigurator } from '../join/JoinConfigurator'
 
 export const deduplicationJourney = [
   StepKeys.KAFKA_CONNECTION,
