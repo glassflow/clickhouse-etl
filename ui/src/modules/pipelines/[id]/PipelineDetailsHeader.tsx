@@ -127,7 +127,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
 
   return (
     <>
-      <Card className="border-[var(--color-border-neutral)] rounded-md py-2 px-6 mb-4">
+      <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2">
             <div className="flex flex-row flex-start gap-2">

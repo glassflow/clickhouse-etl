@@ -22,11 +22,11 @@ function StepRendererPageComponent({
   loadingText = 'Processing...',
 }: StepRendererPageComponentProps) {
   return (
-    <div className="mt-6 w-full bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md animate-in fade-in slide-in-from-top-2 duration-300">
+    <div className="mt-6 w-full bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b">
+      <div className="flex items-center justify-between p-6">
         <div>
-          <h2 className="text-xl font-semibold">{stepInfo.title}</h2>
+          <h2 className="text-xl font-semibold mb-2">{stepInfo.title}</h2>
           <p className="text-sm text-gray-600">{stepInfo.description}</p>
         </div>
         {isLoading && (

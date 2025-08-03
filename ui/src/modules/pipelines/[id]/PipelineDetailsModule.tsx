@@ -110,8 +110,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
       <div className="flex flex-col gap-4">
         <PipelineStatusOverviewSection pipeline={pipeline} />
       </div>
-      <div className="flex flex-row gap-4">
-        <div className="flex flex-col gap-4 w-1/6">
+      <div className="flex flex-row gap-4 items-stretch">
+        <div className="flex flex-col gap-4 w-1/5">
           {/* Source */}
           <div className="text-center">
             <span className="text-lg font-bold">Source</span>
@@ -125,10 +125,12 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             <Image src={KafkaIcon} alt="Kafka" className="w-8 h-8" width={32} height={32} />
           </TitleCardWithIcon>
         </div>
-        <div className="flex flex-col gap-4 w-4/6">
+        <div className="flex flex-col gap-4 w-3/5">
           {/* Transformation */}
           <div className="text-center">
-            <span className="text-lg font-bold">Transformation: {pipeline.transformationName || 'Default'}</span>
+            <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
+              Transformation: {pipeline.transformationName || 'Default'}
+            </span>
           </div>
           <TransformationSection
             pipeline={pipeline}
@@ -144,7 +146,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             }}
           />
         </div>
-        <div className="flex flex-col gap-4 w-1/6">
+        <div className="flex flex-col gap-4 w-1/5">
           {/* Sink */}
           <div className="text-center">
             <span className="text-lg font-bold">Sink</span>

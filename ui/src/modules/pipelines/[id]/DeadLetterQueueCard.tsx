@@ -75,22 +75,22 @@ const renderExpandedView = ({ totalDlq, lastEventReceived, unconsumedEvents, las
       <div className="flex flex-row gap-2">
         <div className="w-3 h-3 rounded-full bg-green-500 mt-2 items-center" />
         <span className="text-md font-bold">{totalDlq}</span>
-        <span className="text-sm font-normal">Total events in DLQ</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Total events in DLQ</span>
       </div>
       <div className="flex flex-row gap-2">
         <div className="w-3 h-3 rounded-full bg-green-500 mt-2 items-center" />
         <span className="text-md font-bold">{lastEventReceived}</span>
-        <span className="text-sm font-normal">Last event received</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Last event received</span>
       </div>
       <div className="flex flex-row gap-2">
         <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
         <span className="text-md font-bold">{unconsumedEvents}</span>
-        <span className="text-sm font-normal">Unconsumed events</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Unconsumed events</span>
       </div>
       <div className="flex flex-row gap-2">
         <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
         <span className="text-md font-bold">{lastConsumedAt}</span>
-        <span className="text-sm font-normal">Last consumed at</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Last consumed at</span>
       </div>
     </div>
   )
@@ -146,7 +146,7 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
 
   if (loading) {
     return (
-      <Card className="border-[var(--color-border-neutral)] rounded-md py-2 px-6 mb-4 w-2/3">
+      <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-2/3">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2 items-center">
             <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
@@ -161,7 +161,7 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
 
   if (error) {
     return (
-      <Card className="border-[var(--color-border-neutral)] rounded-md py-2 px-6 mb-4 w-2/3">
+      <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-2/3">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2 items-center">
             <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
@@ -175,7 +175,7 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
   }
 
   return (
-    <Card className="border-[var(--color-border-neutral)] rounded-md py-2 px-6 mb-4 w-2/3">
+    <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-2/3">
       <div className="flex flex-col gap-4">
         <div className="flex flex-row justify-between gap-2 items-center">
           <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
