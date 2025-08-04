@@ -175,7 +175,7 @@ export function FieldColumnMapper({
                     ) : (
                       <ExclamationTriangleIcon
                         className="h-5 w-5 mx-auto text-red-500"
-                        title={`Type ${column.jsonType} is not compatible with ClickHouse type ${column.type}`}
+                        title={`Type ${column.jsonType} is not compatible with ClickHouse type ${column.type || 'unknown'}`}
                       />
                     )
                   ) : (
@@ -186,7 +186,7 @@ export function FieldColumnMapper({
                   {renderSourceTopicIcon(column)}
                 </TableCell>
                 <TableCell className="text-content">{column.name}</TableCell>
-                <TableCell className="text-content">{column.type}</TableCell>
+                <TableCell className="text-content">{column.type || 'Unknown'}</TableCell>
                 <TableCell className="text-center">
                   {column.isNullable ? (
                     <CheckIcon className="h-5 w-5 mx-auto text-green-500" />

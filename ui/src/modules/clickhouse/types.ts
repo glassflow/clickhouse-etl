@@ -22,7 +22,7 @@ export type TableAccessTestFn = (connectionConfig: ConnectionConfig) => Promise<
 
 export interface TableColumn {
   name: string
-  type: string
+  type?: string
   jsonType?: string
   isNullable?: boolean
   isKey?: boolean

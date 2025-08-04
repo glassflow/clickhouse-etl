@@ -612,7 +612,7 @@ export function ClickhouseMapper({
       const mappedColumn = mappedColumns.find((mc) => mc.name === column.name)
       if (!mappedColumn || !mappedColumn.eventField) {
         // Check if the column is actually nullable by examining its type
-        const isActuallyNullable = column.type.includes('Nullable') || column.isNullable === true
+        const isActuallyNullable = column?.type?.includes('Nullable') || column.isNullable === true
 
         if (isActuallyNullable) {
           issues.unmappedNullableColumns.push(column.name)

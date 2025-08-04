@@ -426,12 +426,15 @@ export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
 /**
  * Checks if a source type (Kafka/JSON) is compatible with a ClickHouse column type
  * @param sourceType The source data type (Kafka/JSON)
- * @param clickhouseType The ClickHouse column type
+ * @param clickhouseType The ClickHouse column type (can be undefined if column type is not available)
  * @returns boolean indicating if the types are compatible
  */
-export function isTypeCompatible(sourceType: string | undefined, clickhouseType: string): boolean {
+export function isTypeCompatible(sourceType: string | undefined, clickhouseType: string | undefined): boolean {
   // If no source type provided, we consider it incompatible
   if (!sourceType) return false
+
+  // If no clickhouse type provided, we consider it incompatible
+  if (!clickhouseType) return false
 
   // Handle Nullable types in ClickHouse
   if (clickhouseType.startsWith('Nullable(')) {
