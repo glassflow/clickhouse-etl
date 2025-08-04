@@ -23,7 +23,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const pipeline = findPipeline(id)
 
   if (pipeline) {
-    console.log('Mock pipeline route - Found pipeline:', pipeline.name)
     return NextResponse.json({
       success: true,
       pipeline: {
@@ -41,7 +40,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       },
     })
   } else {
-    console.log('Mock pipeline route - Pipeline not found for ID:', id)
     return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
   }
 }

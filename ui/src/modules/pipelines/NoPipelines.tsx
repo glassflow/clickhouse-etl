@@ -5,7 +5,7 @@ import { cn } from '@/src/utils/common.client'
 import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import ModifyIcon from '../../images/modify.svg'
+import PlusIcon from '../../images/plus.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function NoPipelines() {
@@ -23,15 +23,21 @@ export function NoPipelines() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <div className="flex items-center gap-2">
-        <h1 className={cn('text-2xl font-semibold')}>There is pipeline to display</h1>
-        <h3 className="text-sm text-foreground-neutral-muted">Create your first pipeline to get started</h3>
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] gap-6">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <h2 className="text-2xl font-semibold text-foreground">There is no pipeline to display</h2>
+        <p className="text-sm text-muted-foreground">Create your first pipeline to get started</p>
       </div>
 
       <Button variant="outline" className="btn-primary flex items-center gap-2" onClick={handleCreatePipeline}>
-        <Image src={ModifyIcon} alt="Modify & Restart" width={16} height={16} />
-        Modify & Restart
+        <Image
+          src={PlusIcon}
+          alt="New Pipeline"
+          width={16}
+          height={16}
+          className="filter brightness-0" // Makes the icon black to match text
+        />
+        New Pipeline
       </Button>
     </div>
   )

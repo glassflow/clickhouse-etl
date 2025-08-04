@@ -6,8 +6,10 @@ import { Pipeline } from '@/src/types/pipeline'
 export async function GET() {
   return NextResponse.json({
     success: true,
-    pipelines: getMockPipelinesList(),
-    total: getMockPipelinesList().length,
+    // pipelines: getMockPipelinesList(),
+    //total: getMockPipelinesList().length,
+    pipelines: [],
+    total: 0,
   })
 }
 
