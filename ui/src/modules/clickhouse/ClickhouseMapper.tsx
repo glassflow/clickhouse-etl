@@ -958,6 +958,7 @@ export function ClickhouseMapper({
             />
             <FieldColumnMapper
               eventFields={mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]}
+              // @ts-expect-error - mappedColumns is not typed correctly
               mappedColumns={mappedColumns}
               updateColumnMapping={updateColumnMapping}
               mapEventFieldToColumn={mapEventFieldToColumn}
