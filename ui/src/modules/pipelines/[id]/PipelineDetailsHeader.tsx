@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
-import { StatusBadge } from '@/src/components/common/StatusBadge'
-import { StatusType } from '@/src/config/constants'
 import PipelineActionButton from '@/src/components/shared/PipelineActionButton'
 import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
@@ -16,6 +14,7 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
+import { PipelineStatus } from '@/src/types/pipeline'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -83,6 +82,50 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     clearError()
   }
 
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'success'
+      case 'paused':
+        return 'warning'
+      case 'pausing':
+        return 'warning'
+      case 'deleting':
+        return 'secondary'
+      case 'error':
+        return 'error'
+      case 'deleted':
+        return 'secondary'
+      default:
+        return 'default'
+    }
+  }
+
+  const getBadgeLabel = (status: PipelineStatus) => {
+    switch (status) {
+      case 'active':
+        return 'Active'
+      case 'deploying':
+        return 'Deploying'
+      case 'deleted':
+        return 'Deleted'
+      case 'deploy_failed':
+        return 'Deploy Failed'
+      case 'delete_failed':
+        return 'Delete Failed'
+      case 'no_configuration':
+        return 'No Configuration'
+      case 'pausing':
+        return 'Pausing'
+      case 'paused':
+        return 'Paused'
+      case 'error':
+        return 'Error'
+      default:
+        return 'Unknown status'
+    }
+  }
+
   const renderActionButton = (action: PipelineAction) => {
     const config = getActionConfiguration(action)
     const buttonText = getButtonText(action)
@@ -130,7 +173,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2">
-            <div className="flex flex-row flex-start gap-2">
+            <div className="flex flex-row flex-start gap-2 items-center">
               {actionState.isLoading && (
                 <div className="flex items-center gap-2">
                   <Image src={Loader} alt="Loading" width={24} height={24} className="animate-spin" />
@@ -144,7 +187,9 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                 </div>
               )}
               <h2 className="text-2xl font-bold">{pipeline.name}</h2>
-              <StatusBadge status={pipeline.status as StatusType} />
+              <Badge variant={getStatusVariant(pipeline.status)} className="rounded-xl my-2 mx-4">
+                {getBadgeLabel(pipeline.status as PipelineStatus)}
+              </Badge>
               {actionState.error && (
                 <Badge variant="destructive" className="ml-2">
                   {actionState.error}

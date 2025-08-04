@@ -263,6 +263,31 @@ export function PipelinesList({
     }
   }
 
+  const getBadgeLabel = (status: PipelineStatus) => {
+    switch (status) {
+      case 'active':
+        return 'Active'
+      case 'deploying':
+        return 'Deploying'
+      case 'deleted':
+        return 'Deleted'
+      case 'deploy_failed':
+        return 'Deploy Failed'
+      case 'delete_failed':
+        return 'Delete Failed'
+      case 'no_configuration':
+        return 'No Configuration'
+      case 'pausing':
+        return 'Pausing'
+      case 'paused':
+        return 'Paused'
+      case 'error':
+        return 'Error'
+      default:
+        return 'Unknown status'
+    }
+  }
+
   // Define table columns for desktop
   const columns: TableColumn<ListPipelineConfig>[] = [
     {
@@ -322,7 +347,11 @@ export function PipelinesList({
           }
         }
 
-        return <Badge variant={getStatusVariant(pipeline.state)}>{pipeline.state}</Badge>
+        return (
+          <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(pipeline.state)}>
+            {getBadgeLabel(pipeline.state as PipelineStatus)}
+          </Badge>
+        )
       },
     },
     {
