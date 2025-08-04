@@ -14,6 +14,7 @@ import { cn } from '@/src/utils/common.client'
 import { useState, Suspense, useEffect } from 'react'
 import { getPipelineStatus } from '@/src/api/pipeline'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
+import { BackendHealthModal } from '@/src/components/home/BackendHealthModal'
 
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
@@ -84,7 +85,7 @@ function HomePageClient() {
     enterCreateMode()
   }, [enterCreateMode])
 
-  // Check for running pipeline and redirect to pipeline page if one exists
+  // Check for running pipeline and backend health
   useEffect(() => {
     const checkRunningPipeline = async () => {
       try {
@@ -93,8 +94,11 @@ function HomePageClient() {
           // There is a running pipeline, redirect to pipeline page
           router.push('/pipelines')
         }
+        // If we get here, backend is available, no need to show health modal
       } catch (err) {
-        // No pipeline running, stay on home page
+        // Check if this is a backend connectivity issue or just no pipeline
+        // We'll let the BackendHealthModal component handle the health check
+        console.log('Pipeline status check failed:', err)
       }
     }
 
@@ -173,6 +177,16 @@ function HomePageClient() {
     // Reset pipeline state and navigate to home regardless of save choice
     if (result === ModalResult.CANCEL || result === ModalResult.NO) {
       setIsCreatePipelineModalVisible(false)
+    }
+  }
+
+  const handleHealthCheckComplete = (isConnected: boolean) => {
+    if (isConnected) {
+      // Backend is now available, we can proceed
+      console.log('Backend is now available')
+    } else {
+      // Backend is still unavailable, user dismissed the modal
+      console.log('Backend is unavailable, user dismissed modal')
     }
   }
 
@@ -262,6 +276,8 @@ function HomePageClient() {
       <ConnectionCard />
 
       <CreatePipelineModal visible={isCreatePipelineModalVisible} onComplete={handleCreatePipelineModalComplete} />
+
+      <BackendHealthModal onHealthCheckComplete={handleHealthCheckComplete} />
     </div>
   )
 }

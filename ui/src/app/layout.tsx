@@ -7,6 +7,7 @@ import { HeaderWrapper } from '../components/shared/HeaderWrapper'
 import { Button } from '@/src/components/ui/button'
 import GlobalFooter from '@/src/components/shared/GlobalFooter'
 import { ConsentLayout } from '@/src/components/layout/ConsentLayout'
+import { HealthCheckLayout } from '@/src/components/layout/HealthCheckLayout'
 import Script from 'next/script'
 // import { EnvDebug } from '@/src/components/debug/EnvDebug'
 
@@ -39,17 +40,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script src="/env.js" strategy="beforeInteractive" />
         <ThemeProvider>
           <ConsentLayout>
-            <HeaderWrapper>
-              <Header />
-            </HeaderWrapper>
-            <main className="flex flex-col items-center w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-8 overflow-x-hidden overflow-y-auto">
-              <div className="w-full max-w-[1240px] mx-auto px-4 sm:px-0">{children}</div>
-            </main>
-            <footer className="w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-6 shrink-0">
-              <div className="max-w-[1240px] mx-auto w-full flex gap-6 flex-wrap items-center justify-center">
-                {/* <GlobalFooter /> */}
-              </div>
-            </footer>
+            <HealthCheckLayout>
+              <HeaderWrapper>
+                <Header />
+              </HeaderWrapper>
+              <main className="flex flex-col items-center w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-8 overflow-x-hidden overflow-y-auto">
+                <div className="w-full max-w-[1240px] mx-auto px-4 sm:px-0">{children}</div>
+              </main>
+              <footer className="w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-6 shrink-0">
+                <div className="max-w-[1240px] mx-auto w-full flex gap-6 flex-wrap items-center justify-center">
+                  {/* <GlobalFooter /> */}
+                </div>
+              </footer>
+            </HealthCheckLayout>
           </ConsentLayout>
         </ThemeProvider>
       </body>

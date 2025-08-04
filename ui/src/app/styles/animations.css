@@ -20,6 +20,17 @@
   }
 }
 
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(0);
+  }
+}
+
 @keyframes pulse {
   0% {
     opacity: 0.6;
@@ -108,6 +119,10 @@
 
 .animate-slideDown {
   animation: slideDown 0.2s ease-out;
+}
+
+.animate-slideDownFade {
+  animation: slideDownFade 0.3s ease-out;
 }
 
 .animate-pulse {
