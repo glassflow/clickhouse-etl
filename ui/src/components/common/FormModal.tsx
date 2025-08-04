@@ -26,6 +26,7 @@ export function FormModal({
   onChange,
   initialValue = '',
   validation,
+  isLoading = false,
 }: {
   visible: boolean
   title: string
@@ -38,26 +39,38 @@ export function FormModal({
   onComplete: (result: string, value?: string) => void
   onChange?: (value: string) => void
   initialValue?: string
-  validation?: (value: string) => string | null
+  validation?: (value: string) => string | null | Promise<string | null>
+  isLoading?: boolean
 }) {
   const [inputValue, setInputValue] = useState(initialValue)
   const [error, setError] = useState<string | null>(null)
+  const [isValidating, setIsValidating] = useState(false)
 
   // Reset input value when modal becomes visible
   useEffect(() => {
     if (visible) {
       setInputValue(initialValue)
       setError(null)
+      setIsValidating(false)
     }
   }, [visible, initialValue])
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validation) {
-      const validationError = validation(inputValue)
-      if (validationError) {
-        setError(validationError)
+      setIsValidating(true)
+      try {
+        const validationError = await validation(inputValue)
+        if (validationError) {
+          setError(validationError)
+          setIsValidating(false)
+          return
+        }
+      } catch (error) {
+        setError('Validation failed')
+        setIsValidating(false)
         return
       }
+      setIsValidating(false)
     }
     onComplete(ModalResult.YES, inputValue || '')
   }
@@ -74,6 +87,8 @@ export function FormModal({
       onChange(e.target.value)
     }
   }
+
+  const isSubmitDisabled = isLoading || isValidating
 
   return (
     <Dialog
@@ -105,17 +120,23 @@ export function FormModal({
             onChange={handleInputChange}
             placeholder={inputPlaceholder}
             className={error ? 'border-red-500' : 'input-regular input-border-regular'}
+            disabled={isLoading}
           />
           {error && <p className="text-sm text-red-500">{error}</p>}
           <label className="text-sm font-medium text-muted-foreground">{secondaryLabel}</label>
         </div>
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" className="btn-tertiary" onClick={handleCancel}>
+          <Button variant="outline" className="btn-tertiary" onClick={handleCancel} disabled={isSubmitDisabled}>
             {cancelButtonText}
           </Button>
-          <Button className="btn-primary" onClick={handleSubmit}>
-            {submitButtonText}
+          <Button
+            className="btn-primary"
+            onClick={handleSubmit}
+            disabled={isSubmitDisabled}
+            title={isSubmitDisabled ? 'Please wait for validation to complete' : undefined}
+          >
+            {isValidating ? 'Validating...' : isLoading ? 'Loading...' : submitButtonText}
           </Button>
         </DialogFooter>
       </DialogContent>

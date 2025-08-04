@@ -148,27 +148,28 @@ function HomePageClient() {
     }
   }
 
-  const completeOperationSelection = (operation: OperationKeys, configName: string) => {
+  const completeOperationSelection = (operation: OperationKeys, configName: string, pipelineId?: string) => {
     resetAllPipelineState(operation, true)
     setOperationsSelected({
       operation,
     })
     setPipelineName(configName)
-    const pipelineId = generatePipelineId(configName)
-    setPipelineId(pipelineId)
-    // FIXME: generate pipeline id based on config name and store it in the store
-    // FIXME: before storing, check does it already exist, the name, and if it does, adjust generation logic
+
+    // Use provided pipeline ID or generate one
+    const finalPipelineId = pipelineId || generatePipelineId(configName)
+    setPipelineId(finalPipelineId)
+
     router.push('/pipelines/create')
   }
 
-  const handleCreatePipelineModalComplete = async (result: string, configName?: string) => {
+  const handleCreatePipelineModalComplete = async (result: string, configName?: string, pipelineId?: string) => {
     setIsCreatePipelineModalVisible(false)
 
     // Save configuration if the user chose to do so and provided a name
     if (result === ModalResult.YES && configName) {
       try {
-        // save pipeline name to local storage
-        completeOperationSelection(pendingOperation as OperationKeys, configName)
+        // Use the generated pipeline ID from the modal
+        completeOperationSelection(pendingOperation as OperationKeys, configName, pipelineId)
       } catch (error) {
         console.error('Failed to save configuration:', error)
       }
