@@ -58,7 +58,6 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 	}
 
 	if existing != nil {
-		//nolint: wrapcheck // self defined error
 		return fmt.Errorf("create pipeline: %w", ErrIDExists)
 	}
 

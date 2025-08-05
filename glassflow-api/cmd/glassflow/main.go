@@ -23,6 +23,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	messagequeue "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/message_queue/nats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
@@ -145,15 +146,15 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 		return fmt.Errorf("initialize message queue: %w", err)
 	}
 
-	var orchestrator service.Orchestrator
+	var orch service.Orchestrator
 
 	if cfg.RunLocal {
-		orchestrator = service.NewLocalOrchestrator(nc, log)
+		orch = orchestrator.NewLocalOrchestrator(nc, log)
 	} else {
-		orchestrator = service.NewK8sOrchestrator(log)
+		orch = orchestrator.NewK8sOrchestrator(log)
 	}
 
-	pipelineSvc := service.NewPipelineManager(orchestrator, db)
+	pipelineSvc := service.NewPipelineManager(orch, db)
 	dlqSvc := service.NewDLQImpl(mq)
 
 	handler := api.NewRouter(log, pipelineSvc, dlqSvc)
@@ -195,9 +196,9 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 		}()
 
 		go func() {
-			switch o := orchestrator.(type) {
-			case *service.LocalOrchestrator:
-				err := orchestrator.ShutdownPipeline(context.Background(), o.ActivePipelineID())
+			switch o := orch.(type) {
+			case *orchestrator.LocalOrchestrator:
+				err := orch.ShutdownPipeline(context.Background(), o.ActivePipelineID())
 				if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
 					log.Error("pipeline shutdown error", slog.Any("error", err))
 				}

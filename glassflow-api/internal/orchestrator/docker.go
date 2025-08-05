@@ -1,4 +1,4 @@
-package service
+package orchestrator
 
 import (
 	"context"
@@ -10,15 +10,16 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 type LocalOrchestrator struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	ingestorRunner *IngestorRunner
-	joinRunner     *JoinRunner
-	sinkRunner     *SinkRunner
+	ingestorRunner *service.IngestorRunner
+	joinRunner     *service.JoinRunner
+	sinkRunner     *service.SinkRunner
 
 	id string
 	m  sync.Mutex
@@ -27,7 +28,7 @@ type LocalOrchestrator struct {
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
 	log *slog.Logger,
-) Orchestrator {
+) service.Orchestrator {
 	//nolint: exhaustruct // runners will be created on setup
 	return &LocalOrchestrator{
 		nc:  nc,
@@ -37,7 +38,7 @@ func NewLocalOrchestrator(
 
 const ShutdownTimeout = 30 * time.Second
 
-var _ Orchestrator = (*LocalOrchestrator)(nil)
+var _ service.Orchestrator = (*LocalOrchestrator)(nil)
 
 // SetupPipeline implements Orchestrator.
 func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.PipelineConfig) error {
@@ -55,7 +56,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	}()
 
 	if d.id != "" {
-		return fmt.Errorf("setup local pipeline: %w", ErrPipelineQuotaReached)
+		return fmt.Errorf("setup local pipeline: %w", service.ErrPipelineQuotaReached)
 	}
 
 	// FIX IT: not working anymore since local pipeline names aren't namespaced
@@ -83,9 +84,9 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	d.log = d.log.With("pipeline_id", d.id)
 
-	d.ingestorRunner = NewIngestorRunner(d.log.With("component", "ingestor"), d.nc)
-	d.joinRunner = NewJoinRunner(d.log.With("component", "join"), d.nc)
-	d.sinkRunner = NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
+	d.ingestorRunner = service.NewIngestorRunner(d.log.With("component", "ingestor"), d.nc)
+	d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc)
+	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
 		err := d.nc.CreateOrUpdateStream(ctx, t.Name, t.Name+".input", t.Deduplication.Window.Duration())
@@ -154,7 +155,7 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 	defer d.m.Unlock()
 
 	if d.id != pid {
-		return fmt.Errorf("mismatched pipeline id: %w", ErrPipelineNotFound)
+		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
 	if d.ingestorRunner != nil {

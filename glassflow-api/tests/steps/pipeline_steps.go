@@ -13,6 +13,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
@@ -27,7 +28,7 @@ type PipelineSteps struct {
 	log        *slog.Logger
 
 	pipelineManager *service.PipelineManagerImpl
-	orchestrator    *service.LocalOrchestrator
+	orchestrator    *orchestrator.LocalOrchestrator
 }
 
 func NewPipelineSteps() *PipelineSteps {
@@ -327,11 +328,11 @@ func (p *PipelineSteps) setupPipelineManager() error {
 		return fmt.Errorf("create nats pipeline storage: %w", err)
 	}
 
-	orchestrator := service.NewLocalOrchestrator(natsClient, p.log)
-	p.orchestrator = orchestrator.(*service.LocalOrchestrator)
+	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
+	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
 	p.pipelineManager = service.NewPipelineManager(
-		orchestrator,
+		orch,
 		db,
 	)
 
