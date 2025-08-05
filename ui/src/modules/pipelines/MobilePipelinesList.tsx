@@ -89,7 +89,7 @@ export function MobilePipelinesList({
                         {operation === 'resume' && 'Resuming...'}
                         {operation === 'delete' && 'Deleting...'}
                         {operation === 'rename' && 'Renaming...'}
-                        {operation === 'edit' && 'Editing...'}
+                        {operation === 'edit' && 'Pausing...'}
                       </span>
                     </div>
                   )}

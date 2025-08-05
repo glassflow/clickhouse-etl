@@ -4,16 +4,16 @@ const EditDescriptionMessage = () => {
   return (
     <>
       <span className="text-sm">
-        You are about to edit this pipeline configuration. This will open the pipeline details page where you can
-        modify:
+        To edit the pipeline, it must be paused. Any events currently in the queue will be processed before pausing,
+        which may take some time.
       </span>
       <br />
-      <ul className="text-sm list-disc list-inside mt-2 space-y-1">
+      {/* <ul className="text-sm list-disc list-inside mt-2 space-y-1">
         <li>Kafka connection settings</li>
         <li>Topic selection and deduplication</li>
         <li>Join configurations</li>
         <li>ClickHouse connection and mapping</li>
-      </ul>
+      </ul> */}
       <br />
       <span className="text-sm">Are you sure you want to proceed with editing?</span>
     </>

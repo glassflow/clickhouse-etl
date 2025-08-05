@@ -308,7 +308,7 @@ export function PipelinesList({
                   {operation === 'resume' && 'Resuming...'}
                   {operation === 'delete' && 'Deleting...'}
                   {operation === 'rename' && 'Renaming...'}
-                  {operation === 'edit' && 'Editing...'}
+                  {operation === 'edit' && 'Pausing...'}
                 </span>
               </div>
             )}
@@ -525,17 +525,29 @@ export function PipelinesList({
           setPipelineLoading(editSelectedPipeline.pipeline_id, 'edit')
 
           try {
-            // TODO: Implement edit pipeline API call when available
-            // await editPipeline(editSelectedPipeline.pipeline_id, editData)
-            console.log('Pipeline edit initiated:', editSelectedPipeline.pipeline_id)
+            // Check if pipeline is active and needs to be paused first
+            if (editSelectedPipeline.state === 'active') {
+              console.log('Pausing active pipeline before edit:', editSelectedPipeline.pipeline_id)
 
-            // Simulate edit operation
-            await new Promise((resolve) => setTimeout(resolve, 2000))
+              // Optimistically update status to 'pausing'
+              onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'pausing')
 
-            // Refetch data after edit operation completes
-            await onRefresh?.()
+              // Pause the pipeline first
+              await pausePipeline(editSelectedPipeline.pipeline_id)
+              console.log('Pipeline paused successfully for edit:', editSelectedPipeline.pipeline_id)
+
+              // Refetch data to get the actual updated status
+              await onRefresh?.()
+            } else {
+              console.log('Pipeline already paused, proceeding to edit:', editSelectedPipeline.pipeline_id)
+            }
+
+            // Navigate to pipeline details page for editing
+            router.push(`/pipelines/${editSelectedPipeline.pipeline_id}`)
           } catch (error) {
-            console.error('Failed to edit pipeline:', error)
+            console.error('Failed to prepare pipeline for edit:', error)
+            // Revert optimistic update on error
+            onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, editSelectedPipeline.state)
           } finally {
             clearPipelineLoading(editSelectedPipeline.pipeline_id)
           }
