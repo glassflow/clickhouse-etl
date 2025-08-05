@@ -117,6 +117,13 @@ const CreatePipelineModal = ({
 
   const handleComplete = (result: string, value?: string) => {
     console.log('handleComplete', result, value)
+
+    // Handle cancellation
+    if (result === 'CANCEL') {
+      onComplete(result)
+      return
+    }
+
     // Only allow completion if validation is complete and successful
     if (result === 'YES' && !isValidating && (isRenameMode || isValid)) {
       onComplete(result, value, generatedId)

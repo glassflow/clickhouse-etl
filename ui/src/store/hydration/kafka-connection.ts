@@ -2,8 +2,6 @@ import { useStore } from '../index'
 
 // Map backend pipeline config to KafkaConnectionFormType (store shape)
 function mapBackendKafkaConfigToStore(connection_params: any): any {
-  console.log('connection_params', connection_params)
-
   return {
     // base values
     authMethod: connection_params.mechanism || '',

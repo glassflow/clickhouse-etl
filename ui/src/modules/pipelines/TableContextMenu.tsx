@@ -58,6 +58,11 @@ export const TableContextMenu = ({
     setIsOpen(false)
   }
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(false)
+  }
+
   return (
     <div className="relative">
       <Button
@@ -73,7 +78,7 @@ export const TableContextMenu = ({
       {isOpen && (
         <>
           {/* Backdrop to close menu when clicking outside */}
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-0 z-10" onClick={handleBackdropClick} />
 
           {/* Menu dropdown */}
           <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]">

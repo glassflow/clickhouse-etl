@@ -149,8 +149,10 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
       <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-2/3">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2 items-center">
-            <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
-            <h3 className="text-lg font-bold">Dead Letter Queue</h3>
+            <div className="flex flex-start flex-row gap-2 items-center">
+              <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
+              <h3 className="text-lg font-bold">Dead Letter Queue</h3>
+            </div>
             <div className="w-6 h-6" /> {/* Placeholder for expand button */}
           </div>
           <div className="text-sm text-muted-foreground animate-pulse">Loading DLQ data...</div>
@@ -164,8 +166,10 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
       <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-2/3">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2 items-center">
-            <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
-            <h3 className="text-lg font-bold">Dead Letter Queue</h3>
+            <div className="flex flex-start flex-row gap-2 items-center">
+              <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
+              <h3 className="text-lg font-bold">Dead Letter Queue</h3>
+            </div>
             <div className="w-6 h-6" /> {/* Placeholder for expand button */}
           </div>
           <div className="text-sm text-red-500 animate-fadeIn">Error: {error}</div>
@@ -178,10 +182,12 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
     <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-2/3">
       <div className="flex flex-col gap-4">
         <div className="flex flex-row justify-between gap-2 items-center">
-          <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
-          <h3 className="text-lg font-bold">Dead Letter Queue</h3>
+          <div className="flex flex-start flex-row gap-2 items-center">
+            <Image src={DeadLetterQueueIcon} alt="Dead Letter Queue" className="w-6 h-6" width={24} height={24} />
+            <h3 className="text-lg font-bold">Dead Letter Queue</h3>
+          </div>
           <Image
-            src={isExpanded ? MaximizeIcon : MinimizeIcon}
+            src={isExpanded ? MinimizeIcon : MaximizeIcon}
             alt="Toggle expand"
             className={`w-6 h-6 cursor-pointer transition-transform duration-200 hover:scale-110 ${
               isAnimating ? 'animate-pulse' : ''

@@ -14,6 +14,11 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
+import PlayIcon from '@/src/images/play.svg'
+import EditIcon from '@/src/images/edit.svg'
+import RenameIcon from '@/src/images/rename.svg'
+import DeleteIcon from '@/src/images/delete.svg'
+import PauseIcon from '@/src/images/pause.svg'
 import { PipelineStatus } from '@/src/types/pipeline'
 
 interface PipelineDetailsHeaderProps {
@@ -138,16 +143,63 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         variant="outline"
         onClick={() => handleActionClick(action)}
         disabled={disabled}
-        className="btn-action"
+        className={`group ${action === 'resume' ? 'btn-primary' : 'btn-action'}`}
         title={config.disabledReason}
       >
         {actionState.isLoading && actionState.lastAction === action ? (
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-3">
             <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
             Loading...
           </span>
         ) : (
-          buttonText
+          <div className="flex items-center gap-3">
+            {action === 'resume' && (
+              <Image
+                src={PlayIcon}
+                alt="Start"
+                width={16}
+                height={16}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+            )}
+            {action === 'pause' && (
+              <Image
+                src={PauseIcon}
+                alt="Pause"
+                width={16}
+                height={16}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+            )}
+            {action === 'rename' && (
+              <Image
+                src={RenameIcon}
+                alt="Rename"
+                width={16}
+                height={16}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+            )}
+            {action === 'delete' && (
+              <Image
+                src={DeleteIcon}
+                alt="Delete"
+                width={16}
+                height={16}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+            )}
+            {action === 'edit' && (
+              <Image
+                src={EditIcon}
+                alt="Edit"
+                width={16}
+                height={16}
+                className="filter brightness-0 group-hover:brightness-0"
+              />
+            )}
+            {buttonText}
+          </div>
         )}
       </Button>
     )

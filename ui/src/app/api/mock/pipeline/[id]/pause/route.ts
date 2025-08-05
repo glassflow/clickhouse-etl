@@ -12,6 +12,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params
     const pipeline = findPipeline(id)
 
+    console.log(`Pause request for pipeline ${id}:`, {
+      found: !!pipeline,
+      status: pipeline?.status,
+      allStatuses: mockPipelines.map((p) => ({ id: p.id, status: p.status })),
+    })
+
     if (!pipeline) {
       return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
     }
@@ -28,12 +34,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     pipeline.status = 'pausing'
     pipeline.updated_at = new Date().toISOString()
 
+    console.log(`Pipeline ${id} pausing. Intermediate status:`, pipeline.status)
+
     // Simulate API processing delay (2-4 seconds)
     await new Promise((resolve) => setTimeout(resolve, 4000))
 
     // After delay, set to paused and return response
     pipeline.status = 'paused'
     pipeline.updated_at = new Date().toISOString()
+
+    console.log(`Pipeline ${id} paused successfully. Final status:`, pipeline.status)
 
     return NextResponse.json({
       success: true,

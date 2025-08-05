@@ -21,6 +21,7 @@ import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configurati
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
 import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
+import { getPipeline } from '@/src/api/pipeline-api'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -49,14 +50,35 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Consider both pipeline status AND if any action is currently loading
   const isEditingDisabled = shouldDisablePipelineOperation(pipeline.status) || actionState.isLoading
 
+  // Function to refresh pipeline data from the server
+  const refreshPipelineData = async () => {
+    try {
+      const updatedPipeline = await getPipeline(pipeline.id)
+      setPipeline(updatedPipeline)
+    } catch (error) {
+      console.error('Failed to refresh pipeline data:', error)
+    }
+  }
+
   // Hydrate the pipeline data when the pipeline configuration is loaded - copy pipeline data to stores
   // this does not connect to external services, it just copies the data to the stores
   useEffect(() => {
     if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
-      console.log('Entering view mode')
       enterViewMode(pipeline)
     }
   }, [pipeline, enterViewMode, mode, actionState.isLoading, actionState.lastAction])
+
+  // Refresh pipeline data after actions complete
+  useEffect(() => {
+    if (!actionState.isLoading && actionState.lastAction) {
+      // Add a small delay to ensure the server has processed the action
+      const timer = setTimeout(() => {
+        refreshPipelineData()
+      }, 500)
+
+      return () => clearTimeout(timer)
+    }
+  }, [actionState.isLoading, actionState.lastAction, pipeline.id])
 
   // set active step so that the standalone step renderer can be rendered
   const handleStepClick = (step: StepKeys) => {
@@ -70,19 +92,16 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // close the standalone step renderer
   const handleCloseStep = () => {
-    console.log('Closing step - resetting active step')
     setActiveStep(null)
   }
 
   // update the local copy of the pipeline data when the pipeline is updated
   const handlePipelineUpdate = (updatedPipeline: Pipeline) => {
-    console.log('Pipeline updated:', updatedPipeline)
     setPipeline(updatedPipeline)
   }
 
   // redirect to pipelines list after deletion
   const handlePipelineDeleted = () => {
-    console.log('Pipeline deleted')
     // Redirect to pipelines list after deletion
     router.push('/pipelines')
   }
@@ -91,7 +110,6 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // it happens when pp is active and we want to edit one of the sections - for that we need to update the status
   // in the UI so that the pipeline actions hook can determine if the pipeline is valid
   const handlePipelineStatusUpdate = (status: string) => {
-    console.log('Pipeline status updated:', status)
     setPipeline((prev) => ({
       ...prev,
       status: status as Pipeline['status'],

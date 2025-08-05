@@ -216,7 +216,7 @@ export const getActionButtonText = (action: PipelineAction, pipelineStatus: Pipe
     case 'pause':
       return pipelineStatus === PIPELINE_STATUS_MAP.pausing ? 'Pausing...' : 'Pause'
     case 'resume':
-      return 'Resume'
+      return 'Start'
     case 'delete':
       return pipelineStatus === PIPELINE_STATUS_MAP.deleting ? 'Deleting...' : 'Delete'
     case 'edit':

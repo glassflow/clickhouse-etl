@@ -296,19 +296,6 @@ function TransformationSection({
   const totalSourceFields = tableMapping.length
   const totalDestinationColumns = tableMapping.length
 
-  // Debug logging to understand why it's falling back
-  console.log('TransformationSection Debug:', {
-    topicsLength: topics.length,
-    hasJoin,
-    leftTopicDeduplication,
-    rightTopicDeduplication,
-    topics: topics.map((t: any) => t.name),
-    joinSources: joinSources.map((s: any) => ({ source_id: s.source_id, orientation: s.orientation })),
-    destinationTable,
-    totalSourceFields,
-    totalDestinationColumns,
-  })
-
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
     const topic = topics[0]
