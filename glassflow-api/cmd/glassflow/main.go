@@ -204,6 +204,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 				}
 				wg.Done()
 			default:
+				wg.Done()
 			}
 		}()
 	}
