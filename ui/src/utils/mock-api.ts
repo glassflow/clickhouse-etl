@@ -3,9 +3,7 @@ import { mockPipelines } from '@/src/app/api/mock/data/pipelines'
 
 // Utility to handle mock vs real API switching
 export const isMockMode = () => {
-  const mockMode = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
-  console.log('🔍 Mock mode check:', process.env.NEXT_PUBLIC_USE_MOCK_API, 'Result:', mockMode)
-  return mockMode
+  return process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
 }
 
 export const getApiUrl = (endpoint: string) => {

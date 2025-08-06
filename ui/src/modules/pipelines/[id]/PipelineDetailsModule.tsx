@@ -8,7 +8,7 @@ import TransformationSection from './TransformationSection'
 import StandaloneStepRenderer from '@/src/modules/pipelines/[id]/StandaloneStepRenderer'
 import SectionCard from '@/src/components/SectionCard'
 import { StepKeys } from '@/src/config/constants'
-import { Pipeline } from '@/src/types/pipeline'
+import { Pipeline, detectTransformationType } from '@/src/types/pipeline'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import KafkaIcon from '@/src/images/kafka.svg'
@@ -53,7 +53,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Function to refresh pipeline data from the server
   const refreshPipelineData = async () => {
     try {
-      const updatedPipeline = await getPipeline(pipeline.id)
+      const updatedPipeline = await getPipeline(pipeline.pipeline_id)
       setPipeline(updatedPipeline)
     } catch (error) {
       console.error('Failed to refresh pipeline data:', error)
@@ -78,7 +78,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
       return () => clearTimeout(timer)
     }
-  }, [actionState.isLoading, actionState.lastAction, pipeline.id])
+  }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id])
 
   // set active step so that the standalone step renderer can be rendered
   const handleStepClick = (step: StepKeys) => {
@@ -147,7 +147,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           {/* Transformation */}
           <div className="text-center">
             <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
-              Transformation: {pipeline.transformationName || 'Default'}
+              Transformation: {detectTransformationType(pipeline)}
             </span>
           </div>
           <TransformationSection

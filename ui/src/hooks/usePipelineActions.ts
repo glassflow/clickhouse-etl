@@ -29,16 +29,16 @@ export const usePipelineActions = (pipeline: Pipeline) => {
 
       switch (action) {
         case 'pause':
-          result = await pausePipeline(pipeline.id)
+          result = await pausePipeline(pipeline.pipeline_id)
           break
 
         case 'resume':
-          result = await resumePipeline(pipeline.id)
+          result = await resumePipeline(pipeline.pipeline_id)
           break
 
         case 'delete':
           const isGraceful = payload?.graceful || false
-          await deletePipeline(pipeline.id, isGraceful)
+          await deletePipeline(pipeline.pipeline_id, isGraceful)
           result = undefined
           break
 
@@ -46,14 +46,14 @@ export const usePipelineActions = (pipeline: Pipeline) => {
           if (!payload?.name) {
             throw new Error('New name is required for rename action')
           }
-          result = await renamePipeline(pipeline.id, payload.name)
+          result = await renamePipeline(pipeline.pipeline_id, payload.name)
           break
 
         case 'edit':
           if (!payload) {
             throw new Error('Update data is required for edit action')
           }
-          result = await updatePipeline(pipeline.id, payload)
+          result = await updatePipeline(pipeline.pipeline_id, payload)
           break
 
         default:

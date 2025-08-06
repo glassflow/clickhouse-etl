@@ -185,7 +185,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       set((state) => ({
         coreStore: {
           ...state.coreStore,
-          pipelineId: config.id,
+          pipelineId: config.pipeline_id,
           pipelineName: config.name,
           isDirty: false,
         },
@@ -203,7 +203,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         set((state) => ({
           coreStore: {
             ...state.coreStore,
-            pipelineId: baseConfig.id,
+            pipelineId: baseConfig.pipeline_id,
             pipelineName: baseConfig.name,
             // Reset other fields to initial state
             operationsSelected: {
@@ -277,7 +277,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       if (!baseConfig) return false
 
       // Compare core fields with base config
-      return pipelineId !== baseConfig.id || pipelineName !== baseConfig.name
+      return pipelineId !== baseConfig.pipeline_id || pipelineName !== baseConfig.name
     },
     // New incremental state management methods
     setLastSavedConfig: (config: Pipeline | undefined) =>

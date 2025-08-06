@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { generateMockPipeline } from '@/src/utils/mock-api'
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 200))
 
-  const { id } = params
+  const { id } = await params
 
   if (!id || id.trim() === '') {
     return NextResponse.json(
@@ -37,11 +37,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 200))
 
-  const { id } = params
+  const { id } = await params
   const updates = await request.json()
 
   if (!id || id.trim() === '') {
@@ -79,11 +79,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 200))
 
-  const { id } = params
+  const { id } = await params
 
   if (!id || id.trim() === '') {
     return NextResponse.json(

@@ -101,6 +101,8 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         return 'error'
       case 'deleted':
         return 'secondary'
+      case 'no_configuration':
+        return 'default'
       default:
         return 'default'
     }
@@ -126,6 +128,8 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         return 'Paused'
       case 'error':
         return 'Error'
+      case 'no_configuration':
+        return 'No Configuration'
       default:
         return 'Unknown status'
     }
@@ -239,8 +243,8 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                 </div>
               )}
               <h2 className="text-2xl font-bold">{pipeline.name}</h2>
-              <Badge variant={getStatusVariant(pipeline.status)} className="rounded-xl my-2 mx-4">
-                {getBadgeLabel(pipeline.status as PipelineStatus)}
+              <Badge variant={getStatusVariant(pipeline.status || 'no_configuration')} className="rounded-xl my-2 mx-4">
+                {getBadgeLabel((pipeline.status || 'no_configuration') as PipelineStatus)}
               </Badge>
               {actionState.error && (
                 <Badge variant="destructive" className="ml-2">

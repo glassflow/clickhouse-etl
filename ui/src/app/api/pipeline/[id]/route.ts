@@ -5,10 +5,10 @@ import { runtimeConfig } from '../../config'
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  try {
-    const { id } = params
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 
+  try {
     if (!id || id.trim() === '') {
       return NextResponse.json(
         {
@@ -38,7 +38,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json(
         {
           success: false,
-          error: data.message || `Failed to fetch pipeline ${params.id}`,
+          error: data.message || `Failed to fetch pipeline ${id}`,
         },
         { status },
       )
@@ -47,16 +47,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return NextResponse.json(
       {
         success: false,
-        error: `Failed to fetch pipeline ${params.id}`,
+        error: `Failed to fetch pipeline ${id}`,
       },
       { status: 500 },
     )
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
   try {
-    const { id } = params
     const updates = await request.json()
 
     if (!id || id.trim() === '') {
@@ -88,7 +89,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json(
         {
           success: false,
-          error: data.message || `Failed to update pipeline ${params.id}`,
+          error: data.message || `Failed to update pipeline ${id}`,
         },
         { status },
       )
@@ -97,17 +98,17 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json(
       {
         success: false,
-        error: `Failed to update pipeline ${params.id}`,
+        error: `Failed to update pipeline ${id}`,
       },
       { status: 500 },
     )
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  try {
-    const { id } = params
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 
+  try {
     if (!id || id.trim() === '') {
       return NextResponse.json(
         {
@@ -137,7 +138,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return NextResponse.json(
         {
           success: false,
-          error: data.message || `Failed to delete pipeline ${params.id}`,
+          error: data.message || `Failed to delete pipeline ${id}`,
         },
         { status },
       )
@@ -146,7 +147,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json(
       {
         success: false,
-        error: `Failed to delete pipeline ${params.id}`,
+        error: `Failed to delete pipeline ${id}`,
       },
       { status: 500 },
     )

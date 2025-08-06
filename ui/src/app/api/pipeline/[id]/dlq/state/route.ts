@@ -6,9 +6,9 @@ import { runtimeConfig } from '../../../../config'
 const API_URL = runtimeConfig.apiUrl
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
+  const { id } = await params
 
+  try {
     if (!id || id.trim() === '') {
       return NextResponse.json(
         {
