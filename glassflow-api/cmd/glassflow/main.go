@@ -52,6 +52,11 @@ type config struct {
 	NATSServer       string        `default:"localhost:4222" split_words:"true"`
 	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
 	NATSPipelineKV   string        `default:"glassflow-pipelines" split_words:"true"`
+
+	K8sResourceKind    string `default:"Pipeline" split_words:"true"`
+	K8sResourceName    string `default:"pipelines" split_words:"true"`
+	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
+	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
 }
 
 type RunnerFunc func() error
@@ -151,7 +156,15 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 	if cfg.RunLocal {
 		orch = orchestrator.NewLocalOrchestrator(nc, log)
 	} else {
-		orch = orchestrator.NewK8sOrchestrator(log)
+		orch, err = orchestrator.NewK8sOrchestrator(log, orchestrator.CustomResourceAPIGroupVersion{
+			Kind:     cfg.K8sResourceKind,
+			Resource: cfg.K8sResourceName,
+			APIGroup: cfg.K8sAPIGroup,
+			Version:  cfg.K8sAPIGroupVersion,
+		})
+		if err != nil {
+			return fmt.Errorf("create k8s orchestrator: %w", err)
+		}
 	}
 
 	pipelineSvc := service.NewPipelineManager(orch, db)
