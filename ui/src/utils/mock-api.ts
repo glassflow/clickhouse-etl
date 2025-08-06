@@ -1,5 +1,6 @@
 import { getPipelineStatusFromState } from '@/src/types/pipeline'
 import { mockPipelines } from '@/src/app/api/mock/data/pipelines'
+import { getRuntimeEnv } from '@/src/utils/common.client'
 
 // Utility to handle mock vs real API switching
 export const isMockMode = () => {
@@ -12,12 +13,19 @@ export const isMockMode = () => {
 }
 
 export const getApiUrl = (endpoint: string) => {
-  const baseUrl = typeof window === 'undefined' ? 'http://localhost:8080' : 'http://localhost:8080'
-
   if (isMockMode()) {
+    // Use localhost for mock API calls
+    const baseUrl = typeof window === 'undefined' ? 'http://localhost:8080' : 'http://localhost:8080'
     return `${baseUrl}/api/mock/${endpoint}`
   }
-  return `${baseUrl}/api/${endpoint}`
+
+  // Use the proper API URL for real backend calls
+  const runtimeEnv = getRuntimeEnv()
+  const apiUrl = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
+
+  // Remove trailing slash if present and append endpoint
+  const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
+  return `${cleanApiUrl}/${endpoint}`
 }
 
 // Mock data generators for more realistic responses
