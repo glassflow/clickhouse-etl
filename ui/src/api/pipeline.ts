@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { getRuntimeEnv } from '@/src/utils/common.client'
-import { PipelineStatus } from '@/src/types/pipeline'
+import { PipelineStatus, getPipelineStatusFromState } from '@/src/types/pipeline'
 import { getApiUrl } from '@/src/utils/mock-api'
 
 // Type declaration for runtime environment
@@ -19,7 +19,7 @@ const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_UR
 
 export interface PipelineResponse {
   pipeline_id: string
-  status: PipelineStatus
+  status: PipelineStatus // UI status (converted from backend state)
   error?: string
 }
 
@@ -32,7 +32,7 @@ export interface Pipeline {
   id: string
   pipeline_id?: string // For backward compatibility
   name: string
-  status: PipelineStatus
+  status: PipelineStatus // UI status (converted from backend state)
   created_at?: string
   updated_at?: string
 }
@@ -62,22 +62,30 @@ export const checkPipelineExists = async (pipelineId: string): Promise<boolean> 
 }
 
 /**
- * Get pipeline status
+ * Get pipeline status (converts backend state to UI status)
  */
 export const getPipelineStatus = async (): Promise<PipelineResponse> => {
   try {
-    const url = getApiUrl('pipeline/status')
+    const url = getApiUrl('pipeline')
     const response = await axios.get(url, {
       timeout: 5000,
     })
 
-    return response.data
+    // Convert backend state to UI status
+    const backendState = response.data?.state || ''
+    const uiStatus = getPipelineStatusFromState(backendState)
+
+    return {
+      pipeline_id: response.data?.pipeline_id || '',
+      status: uiStatus,
+      error: response.data?.error,
+    }
   } catch (error: any) {
     if (error.response?.status === 404) {
       // No running pipeline
       return {
         pipeline_id: '',
-        status: 'stopped' as PipelineStatus,
+        status: 'no_configuration' as PipelineStatus,
       }
     }
 

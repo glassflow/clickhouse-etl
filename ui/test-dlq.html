@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <title>DLQ Test</title>
+  </head>
+  <body>
+    <h1>DLQ State Test</h1>
+    <div id="result">Loading...</div>
+
+    <script>
+      async function testDLQState() {
+        try {
+          const response = await fetch('http://localhost:8080/api/mock/pipeline/pipeline-001/dlq/state')
+          const data = await response.json()
+          document.getElementById('result').innerHTML = `
+                    <h2>DLQ State Response:</h2>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `
+        } catch (error) {
+          document.getElementById('result').innerHTML = `
+                    <h2>Error:</h2>
+                    <pre>${error.message}</pre>
+                `
+        }
+      }
+
+      testDLQState()
+    </script>
+  </body>
+</html>

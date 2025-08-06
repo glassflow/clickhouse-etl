@@ -12,7 +12,7 @@ import TrashIcon from '../../images/trash.svg'
 import ModifyIcon from '../../images/modify.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { Feedback } from './Feedback'
-import { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
+import { Pipeline, ListPipelineConfig, getPipelineStatusFromState } from '@/src/types/pipeline'
 import { PipelinesTable, TableColumn } from '@/src/modules/pipelines/PipelinesTable'
 import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
 import { Badge } from '@/src/components/ui/badge'
@@ -360,7 +360,7 @@ export function PipelinesList({
       width: '1fr',
       render: (pipeline) => (
         <TableContextMenu
-          pipelineStatus={pipeline.state as Pipeline['status']}
+          pipelineStatus={getPipelineStatusFromState(pipeline.state)}
           isLoading={isPipelineLoading(pipeline.pipeline_id)}
           onPause={() => handlePause(pipeline)}
           onResume={() => handleResume(pipeline)}
@@ -383,7 +383,7 @@ export function PipelinesList({
     setPipelineLoading(pipeline.pipeline_id, 'resume')
 
     // Optimistically update status to show transitional state
-    const currentStatus = pipeline.state as PipelineStatus
+    const currentStatus = getPipelineStatusFromState(pipeline.state)
     onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deploying') // Use deploying as transitional state for resume
 
     try {

@@ -1,42 +1,43 @@
 import { NextResponse } from 'next/server'
-import { mockPipelines } from '../../../data/pipelines'
+import { generateMockPipeline } from '@/src/utils/mock-api'
 
-// Utility function to find pipeline by ID
-const findPipeline = (id: string) => {
-  return mockPipelines.find((p) => p.id === id)
-}
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  // Simulate network delay
+  await new Promise((resolve) => setTimeout(resolve, 200))
 
-// POST /api/mock/pipeline/{id}/resume
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
-    const pipeline = findPipeline(id)
+  const { id } = params
 
-    if (!pipeline) {
-      return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-    }
+  if (!id || id.trim() === '') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Pipeline ID is required',
+      },
+      { status: 400 },
+    )
+  }
 
-    if (pipeline.status === 'active') {
-      return NextResponse.json({ success: false, error: 'Pipeline is already active' }, { status: 400 })
-    }
+  // Simulate 90% success rate for realistic testing
+  const isSuccess = Math.random() > 0.1
 
-    if (pipeline.status !== 'paused') {
-      return NextResponse.json({ success: false, error: 'Can only resume paused pipelines' }, { status: 400 })
-    }
-
-    // Resume the pipeline immediately (no intermediate state needed)
-    pipeline.status = 'active'
-    pipeline.updated_at = new Date().toISOString()
-
-    // Simulate API processing delay (2-4 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 4000))
+  if (isSuccess) {
+    const mockPipeline = generateMockPipeline(id)
+    // Set state to active
+    mockPipeline.state = 'active'
+    // Convert state to status for UI
+    mockPipeline.status = 'active'
 
     return NextResponse.json({
       success: true,
-      pipeline,
-      message: 'Pipeline resumed successfully',
+      pipeline: mockPipeline,
     })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to resume pipeline' }, { status: 500 })
+  } else {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Pipeline with id ${id} does not exist`,
+      },
+      { status: 404 },
+    )
   }
 }

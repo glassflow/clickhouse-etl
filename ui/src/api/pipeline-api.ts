@@ -4,12 +4,12 @@ import type {
   ListPipelineConfig,
   Schema,
   Connection,
-  DLQStats,
   DLQState,
   DLQEvent,
   ApiResponse,
   ApiError,
 } from '@/src/types/pipeline'
+import { getPipelineStatusFromState } from '@/src/types/pipeline'
 
 // Pipeline API functions
 export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
@@ -36,7 +36,12 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
     const data = await response.json()
 
     if (data.success) {
-      return data.pipeline
+      // Convert backend state to UI status
+      const pipeline = data.pipeline
+      if (pipeline && pipeline.state) {
+        pipeline.status = getPipelineStatusFromState(pipeline.state)
+      }
+      return pipeline
     } else {
       throw { code: response.status, message: data.error || 'Failed to fetch pipeline' } as ApiError
     }
@@ -159,35 +164,24 @@ export const renamePipeline = async (id: string, newName: string): Promise<Pipel
 }
 
 // DLQ API functions
-export const getDLQStats = async (pipelineId: string): Promise<DLQStats> => {
-  try {
-    const url = getApiUrl(`pipeline/${pipelineId}/dlq/stats`)
-    const response = await fetch(url)
-    const data = await response.json()
-
-    if (data.success) {
-      return data.stats
-    } else {
-      throw { code: response.status, message: data.error || 'Failed to fetch DLQ stats' } as ApiError
-    }
-  } catch (error: any) {
-    if (error.code) throw error
-    throw { code: 500, message: error.message || 'Failed to fetch DLQ stats' } as ApiError
-  }
-}
-
 export const getDLQState = async (pipelineId: string): Promise<DLQState> => {
   try {
     const url = getApiUrl(`pipeline/${pipelineId}/dlq/state`)
+    console.log('🔍 DLQ State URL:', url)
+    console.log('🔍 Mock mode:', process.env.NEXT_PUBLIC_USE_MOCK_API)
+
     const response = await fetch(url)
+    console.log('🔍 DLQ State Response status:', response.status)
 
     if (!response.ok) {
       throw { code: response.status, message: 'Failed to fetch DLQ state' } as ApiError
     }
 
     const data = await response.json()
+    console.log('🔍 DLQ State Data:', data)
     return data
   } catch (error: any) {
+    console.error('🔍 DLQ State Error:', error)
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to fetch DLQ state' } as ApiError
   }

@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server'
 
-// Type definition for DLQ stats (matches backend dlqStateResponse)
-interface DLQStats {
+// Type definition for DLQ state (matches backend dlqStateResponse)
+interface DLQState {
   last_received_at: string | null
   last_consumed_at: string | null
   total_messages: number
   unconsumed_messages: number
 }
 
-// Mock DLQ stats data (matches backend dlqStateResponse structure)
-const mockDLQStats: Record<string, DLQStats> = {
+// Mock DLQ state data (matches backend dlqStateResponse structure)
+const mockDLQState: Record<string, DLQState> = {
   'pipeline-001': {
     last_received_at: '2024-01-15T14:44:30Z',
     last_consumed_at: '2024-01-15T14:42:30Z',
@@ -45,11 +45,11 @@ const mockDLQStats: Record<string, DLQStats> = {
 // GET /api/mock/pipeline/{id}/dlq/state - matches backend route name
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const stats = mockDLQStats[id]
+  const state = mockDLQState[id]
 
-  if (!stats) {
-    return NextResponse.json({ success: false, error: 'DLQ stats not found for pipeline' }, { status: 404 })
+  if (!state) {
+    return NextResponse.json({ success: false, error: 'DLQ state not found for pipeline' }, { status: 404 })
   }
 
-  return NextResponse.json(stats)
+  return NextResponse.json(state)
 }

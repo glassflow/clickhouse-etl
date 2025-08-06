@@ -1,130 +1,115 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { mockPipelines } from '../../data/pipelines'
+import { NextResponse } from 'next/server'
+import { generateMockPipeline } from '@/src/utils/mock-api'
 
-// Helper function to find pipeline by ID
-const findPipeline = (id: string) => {
-  return mockPipelines.find((p) => p.id === id)
-}
-
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-
-  // Debug logging
-  console.log('Mock pipeline route - Requested ID:', id)
-  console.log(
-    'Available mock pipeline IDs:',
-    mockPipelines.map((p) => p.id),
-  )
-
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 200))
 
-  // Check if pipeline exists
-  const pipeline = findPipeline(id)
+  const { id } = params
 
-  if (pipeline) {
+  if (!id || id.trim() === '') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Pipeline ID is required',
+      },
+      { status: 400 },
+    )
+  }
+
+  // Simulate 90% success rate for realistic testing
+  const isSuccess = Math.random() > 0.1
+
+  if (isSuccess) {
+    const mockPipeline = generateMockPipeline(id)
     return NextResponse.json({
       success: true,
-      pipeline: {
-        id: pipeline.id,
-        name: pipeline.name,
-        status: pipeline.status,
-        created_at: pipeline.created_at,
-        updated_at: pipeline.updated_at,
-        transformationName: pipeline.transformationName,
-        source: pipeline.source,
-        join: pipeline.join,
-        sink: pipeline.sink,
-        stats: pipeline.stats,
-        error: pipeline.error,
-      },
+      pipeline: mockPipeline,
     })
   } else {
-    return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Pipeline with id ${id} does not exist`,
+      },
+      { status: 404 },
+    )
   }
 }
 
-// PATCH /api/mock/pipeline/{id}
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
-    const body = await request.json()
-    const pipeline = findPipeline(id)
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  // Simulate network delay
+  await new Promise((resolve) => setTimeout(resolve, 200))
 
-    if (!pipeline) {
-      return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-    }
+  const { id } = params
+  const updates = await request.json()
 
-    // Update pipeline name if provided
-    if (body.name) {
-      pipeline.name = body.name
-      pipeline.updated_at = new Date().toISOString()
+  if (!id || id.trim() === '') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Pipeline ID is required',
+      },
+      { status: 400 },
+    )
+  }
+
+  // Simulate 90% success rate for realistic testing
+  const isSuccess = Math.random() > 0.1
+
+  if (isSuccess) {
+    const mockPipeline = generateMockPipeline(id)
+    // Apply updates to the mock pipeline
+    if (updates.name) {
+      mockPipeline.name = updates.name
     }
 
     return NextResponse.json({
       success: true,
-      pipeline,
-      message: 'Pipeline updated successfully',
+      pipeline: mockPipeline,
     })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to update pipeline' }, { status: 500 })
+  } else {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Pipeline with id ${id} does not exist`,
+      },
+      { status: 404 },
+    )
   }
 }
 
-// DELETE /api/mock/pipeline/{id}
-// Supports query parameter: ?graceful=true for graceful delete, ?graceful=false for hard delete
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
-    const url = new URL(request.url)
-    const isGraceful = url.searchParams.get('graceful') === 'true'
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  // Simulate network delay
+  await new Promise((resolve) => setTimeout(resolve, 200))
 
-    const pipeline = findPipeline(id)
+  const { id } = params
 
-    if (!pipeline) {
-      return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-    }
+  if (!id || id.trim() === '') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Pipeline ID is required',
+      },
+      { status: 400 },
+    )
+  }
 
-    if (isGraceful) {
-      // Graceful delete: Stop pipeline, process queue, then delete
-      if (pipeline.status === 'active') {
-        pipeline.status = 'deleting'
-        pipeline.updated_at = new Date().toISOString()
+  // Simulate 90% success rate for realistic testing
+  const isSuccess = Math.random() > 0.1
 
-        // Simulate graceful shutdown processing delay (3-4 seconds)
-        await new Promise((resolve) => setTimeout(resolve, 3500))
-
-        // After delay, simulate deletion completion
-        // NOTE: Not actually deleting the pipeline, just simulating the delete operation
-        pipeline.status = 'deleted'
-        pipeline.updated_at = new Date().toISOString()
-
-        return NextResponse.json({
-          success: true,
-          message: 'Pipeline has been gracefully deleted. All events in queue were processed.',
-          pipeline,
-          deleteType: 'graceful',
-        })
-      }
-    } else {
-      // Hard delete: Immediate deletion, discard queue
-      // Add a small delay even for hard delete to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // NOTE: not actually deleting the pipeline, just simulating the delete operation
-      pipeline.status = 'deleted'
-      pipeline.updated_at = new Date().toISOString()
-
-      return NextResponse.json({
-        success: true,
-        message: 'Pipeline deleted successfully (hard delete - events in queue discarded)',
-        pipeline: pipeline,
-        deleteType: 'hard',
-      })
-    }
-
-    return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to delete pipeline' }, { status: 500 })
+  if (isSuccess) {
+    return NextResponse.json({
+      success: true,
+      message: `Pipeline ${id} deleted successfully`,
+    })
+  } else {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Pipeline with id ${id} does not exist`,
+      },
+      { status: 404 },
+    )
   }
 }

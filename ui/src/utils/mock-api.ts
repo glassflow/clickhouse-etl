@@ -1,10 +1,15 @@
+import { getPipelineStatusFromState } from '@/src/types/pipeline'
+import { mockPipelines } from '@/src/app/api/mock/data/pipelines'
+
 // Utility to handle mock vs real API switching
 export const isMockMode = () => {
-  return process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+  const mockMode = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+  console.log('🔍 Mock mode check:', process.env.NEXT_PUBLIC_USE_MOCK_API, 'Result:', mockMode)
+  return mockMode
 }
 
 export const getApiUrl = (endpoint: string) => {
-  const baseUrl = typeof window === 'undefined' ? 'http://localhost:8080' : ''
+  const baseUrl = typeof window === 'undefined' ? 'http://localhost:8080' : 'http://localhost:8080'
 
   if (isMockMode()) {
     return `${baseUrl}/api/mock/${endpoint}`
@@ -13,30 +18,27 @@ export const getApiUrl = (endpoint: string) => {
 }
 
 // Mock data generators for more realistic responses
-export const generateMockPipeline = (id: string = `pipeline-${Date.now()}`) => ({
-  id,
-  name: `Mock Pipeline ${id}`,
-  status: 'active' as const,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  config: {
-    kafka: {
-      topics: ['mock-topic-1', 'mock-topic-2'],
-      consumer_group: 'mock-consumer',
-    },
-    clickhouse: {
-      database: 'mock_database',
-      table: 'mock_table',
-    },
-    operations: ['deduplication'],
-  },
-  stats: {
-    events_processed: Math.floor(Math.random() * 10000),
-    events_failed: Math.floor(Math.random() * 100),
-    throughput_per_second: Math.floor(Math.random() * 200),
-    last_event_processed: new Date().toISOString(),
-  },
-})
+export const generateMockPipeline = (id: string = `pipeline-${Date.now()}`) => {
+  // Use existing realistic mock data as base
+  const basePipelines = mockPipelines
+  const randomPipeline = basePipelines[Math.floor(Math.random() * basePipelines.length)]
+
+  // Generate a realistic state based on random probability
+  const states = ['active', 'paused', 'stopped', 'error']
+  const state = states[Math.floor(Math.random() * states.length)]
+
+  // Convert state to status for UI compatibility
+  const status = getPipelineStatusFromState(state)
+
+  // Create a new pipeline based on the realistic data but with the requested ID
+  return {
+    ...randomPipeline,
+    pipeline_id: id,
+    name: `Mock Pipeline ${id}`,
+    state: state,
+    status: status, // UI status field for compatibility
+  }
+}
 
 export const generateMockSchema = (id: string = `schema-${Date.now()}`) => ({
   id,

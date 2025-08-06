@@ -3,10 +3,10 @@ import { Button } from '@/src/components/ui/button'
 import { MoreVertical, Pause, Play, Edit, FileText, Trash2 } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import { getActionConfig } from '@/src/utils/pipeline-actions'
-import { Pipeline } from '@/src/types/pipeline'
+import { Pipeline, PipelineStatus } from '@/src/types/pipeline'
 
 interface TableContextMenuProps {
-  pipelineStatus: Pipeline['status']
+  pipelineStatus: PipelineStatus
   isLoading?: boolean
   onPause?: () => void
   onResume?: () => void

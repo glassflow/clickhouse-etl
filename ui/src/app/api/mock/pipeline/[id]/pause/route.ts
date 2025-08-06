@@ -1,56 +1,43 @@
 import { NextResponse } from 'next/server'
-import { mockPipelines } from '../../../data/pipelines'
+import { generateMockPipeline } from '@/src/utils/mock-api'
 
-// Utility function to find pipeline by ID
-const findPipeline = (id: string) => {
-  return mockPipelines.find((p) => p.id === id)
-}
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  // Simulate network delay
+  await new Promise((resolve) => setTimeout(resolve, 200))
 
-// POST /api/mock/pipeline/{id}/pause
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params
-    const pipeline = findPipeline(id)
+  const { id } = params
 
-    console.log(`Pause request for pipeline ${id}:`, {
-      found: !!pipeline,
-      status: pipeline?.status,
-      allStatuses: mockPipelines.map((p) => ({ id: p.id, status: p.status })),
-    })
+  if (!id || id.trim() === '') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Pipeline ID is required',
+      },
+      { status: 400 },
+    )
+  }
 
-    if (!pipeline) {
-      return NextResponse.json({ success: false, error: 'Pipeline not found' }, { status: 404 })
-    }
+  // Simulate 90% success rate for realistic testing
+  const isSuccess = Math.random() > 0.1
 
-    if (pipeline.status === 'paused') {
-      return NextResponse.json({ success: false, error: 'Pipeline is already paused' }, { status: 400 })
-    }
-
-    if (pipeline.status !== 'active') {
-      return NextResponse.json({ success: false, error: 'Can only pause active pipelines' }, { status: 400 })
-    }
-
-    // Set to pausing state first
-    pipeline.status = 'pausing'
-    pipeline.updated_at = new Date().toISOString()
-
-    console.log(`Pipeline ${id} pausing. Intermediate status:`, pipeline.status)
-
-    // Simulate API processing delay (2-4 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 4000))
-
-    // After delay, set to paused and return response
-    pipeline.status = 'paused'
-    pipeline.updated_at = new Date().toISOString()
-
-    console.log(`Pipeline ${id} paused successfully. Final status:`, pipeline.status)
+  if (isSuccess) {
+    const mockPipeline = generateMockPipeline(id)
+    // Set state to paused
+    mockPipeline.state = 'paused'
+    // Convert state to status for UI
+    mockPipeline.status = 'paused'
 
     return NextResponse.json({
       success: true,
-      pipeline,
-      message: 'Pipeline has been paused successfully.',
+      pipeline: mockPipeline,
     })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to pause pipeline' }, { status: 500 })
+  } else {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Pipeline with id ${id} does not exist`,
+      },
+      { status: 404 },
+    )
   }
 }

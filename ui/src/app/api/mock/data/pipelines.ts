@@ -1,23 +1,20 @@
 // clickhouse-etl/ui/src/app/api/mock/data/pipelines.ts
 
 import type { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
+import { detectTransformationType } from '@/src/types/pipeline'
 
 // Utility function to find a pipeline by ID
 export const findPipeline = (id: string): Pipeline | undefined => {
-  return mockPipelines.find((p) => p.id === id)
+  return mockPipelines.find((p) => p.pipeline_id === id)
 }
 
 // Utility function to convert Pipeline to ListPipelineConfig
 const pipelineToListConfig = (pipeline: Pipeline): ListPipelineConfig => ({
-  pipeline_id: pipeline.id,
+  pipeline_id: pipeline.pipeline_id,
   name: pipeline.name,
-  transformation_type: (pipeline.transformationName || 'Ingest Only') as
-    | 'Join'
-    | 'Join & Deduplication'
-    | 'Deduplication'
-    | 'Ingest Only',
-  created_at: pipeline.created_at,
-  state: pipeline.status,
+  transformation_type: detectTransformationType(pipeline),
+  created_at: pipeline.created_at || new Date().toISOString(),
+  state: pipeline.state,
 })
 
 // Function to synchronize list data from detailed data
@@ -32,27 +29,27 @@ export const getMockPipelinesList = (): ListPipelineConfig[] => {
 
 export const mockPipelines: Pipeline[] = [
   {
-    id: 'pipeline-001',
+    pipeline_id: 'pipeline-001',
     name: 'Deduplication Pipeline',
+    state: 'active',
     status: 'active',
     created_at: '2024-01-15T10:30:00Z',
-    updated_at: '2024-01-15T14:45:00Z',
-    transformationName: 'Deduplication',
     source: {
       type: 'kafka',
       provider: 'local',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
+        skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
-        // username: 'admin',
-        // password: 'admin',
-        // root_ca: '<base64 encoded ca>',
+        // username: '',
+        // password: '',
+        // root_ca: '',
       },
       topics: [
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'transactions',
+          id: 'transactions',
           schema: {
             type: 'json',
             fields: [
@@ -68,6 +65,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'location', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: true,
             id_field: 'transaction_id',
@@ -78,20 +76,19 @@ export const mockPipelines: Pipeline[] = [
       ],
     },
     join: {
+      type: 'temporal',
       enabled: false,
+      sources: [],
     },
     sink: {
       type: 'clickhouse',
-      provider: 'aiven',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
       port: '12754',
       nativePort: '12753',
       database: 'vlad',
-      username: 'avnadmin',
-      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+      username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
+      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
-      max_batch_size: 1,
-      max_delay_time: '10m',
       table: 'test_table',
       table_mapping: [
         {
@@ -104,45 +101,42 @@ export const mockPipelines: Pipeline[] = [
           source_id: 'transactions',
           field_name: 'transaction_date',
           column_name: 'transaction_date',
-          column_type: 'UUID',
+          column_type: 'DateTime',
         },
         {
           source_id: 'transactions',
           field_name: 'transaction_amount',
           column_name: 'transaction_amount',
-          column_type: 'DateTime',
+          column_type: 'Decimal(10,2)',
         },
       ],
-    },
-    stats: {
-      events_processed: 15420,
-      events_failed: 23,
-      throughput_per_second: 150,
-      last_event_processed: '2024-01-15T14:44:30Z',
+      max_batch_size: 1000,
+      max_delay_time: '60s',
+      skip_certificate_verification: false,
     },
   },
   {
-    id: 'pipeline-002',
+    pipeline_id: 'pipeline-002',
     name: 'Deduplication & Join Pipeline',
+    state: 'paused',
     status: 'paused',
     created_at: '2024-01-12T16:45:00Z',
-    updated_at: '2024-01-15T13:10:00Z',
-    transformationName: 'Deduplication & Join',
     source: {
       type: 'kafka',
-      provider: 'aiven',
+      provider: 'local',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
+        skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
         // username: 'admin',
         // password: 'admin',
-        // root_ca: '<base64 encoded ca>',
+        // root_ca: '',
       },
       topics: [
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'transactions',
+          id: 'transactions',
           schema: {
             type: 'json',
             fields: [
@@ -158,6 +152,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'location', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: true,
             id_field: 'transaction_id',
@@ -166,8 +161,8 @@ export const mockPipelines: Pipeline[] = [
           },
         },
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'other_transactions',
+          id: 'other_transactions',
           schema: {
             type: 'json',
             fields: [
@@ -183,6 +178,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'location', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: true,
             id_field: 'transaction_id',
@@ -193,8 +189,8 @@ export const mockPipelines: Pipeline[] = [
       ],
     },
     join: {
-      enabled: true,
       type: 'temporal',
+      enabled: true,
       sources: [
         {
           source_id: 'transactions',
@@ -212,16 +208,13 @@ export const mockPipelines: Pipeline[] = [
     },
     sink: {
       type: 'clickhouse',
-      provider: 'aiven',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
       port: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',
-      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
-      max_batch_size: 1,
-      max_delay_time: '10m',
       table: 'test_table',
       table_mapping: [
         {
@@ -234,13 +227,13 @@ export const mockPipelines: Pipeline[] = [
           source_id: 'transactions',
           field_name: 'transaction_date',
           column_name: 'transaction_date',
-          column_type: 'UUID',
+          column_type: 'DateTime',
         },
         {
           source_id: 'transactions',
           field_name: 'transaction_amount',
           column_name: 'transaction_amount',
-          column_type: 'UUID',
+          column_type: 'Decimal(10,2)',
         },
         {
           source_id: 'transactions',
@@ -261,37 +254,33 @@ export const mockPipelines: Pipeline[] = [
           column_type: 'UUID',
         },
       ],
+      max_batch_size: 1000,
+      max_delay_time: '60s',
+      skip_certificate_verification: false,
     },
-    stats: {
-      events_processed: 4560,
-      events_failed: 156,
-      throughput_per_second: 0,
-      last_event_processed: '2024-01-15T13:09:20Z',
-    },
-    error: 'Kafka connection timeout',
   },
   {
-    id: 'pipeline-003',
+    pipeline_id: 'pipeline-003',
     name: 'Ingest Only Pipeline',
+    state: 'active',
     status: 'active',
     created_at: '2024-01-10T09:15:00Z',
-    updated_at: '2024-01-15T12:20:00Z',
-    transformationName: 'Ingest Only',
     source: {
       type: 'kafka',
       provider: 'aiven',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
+        skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
-        // username: 'admin',
-        // password: 'admin',
-        // root_ca: '<base64 encoded ca>',
+        username: '',
+        password: '',
+        root_ca: '',
       },
       topics: [
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'transactions',
+          id: 'topic-1',
           schema: {
             type: 'json',
             fields: [
@@ -307,6 +296,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'location', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: false,
             id_field: 'transaction_id',
@@ -317,21 +307,20 @@ export const mockPipelines: Pipeline[] = [
       ],
     },
     join: {
+      type: 'temporal',
       enabled: false,
+      sources: [],
     },
     sink: {
       type: 'clickhouse',
-      provider: 'aiven',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
       port: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',
-      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
-      max_batch_size: 100,
-      max_delay_time: '5m',
-      table: 'orders',
+      table: 'transactions',
       table_mapping: [
         {
           source_id: 'transactions',
@@ -343,7 +332,7 @@ export const mockPipelines: Pipeline[] = [
           source_id: 'transactions',
           field_name: 'transaction_date',
           column_name: 'transaction_date',
-          column_type: 'UUID',
+          column_type: 'DateTime',
         },
         {
           source_id: 'transactions',
@@ -355,39 +344,36 @@ export const mockPipelines: Pipeline[] = [
           source_id: 'transactions',
           field_name: 'transaction_type',
           column_name: 'transaction_type',
-          column_type: 'DateTime',
+          column_type: 'String',
         },
       ],
-    },
-    stats: {
-      events_processed: 8920,
-      events_failed: 5,
-      throughput_per_second: 85,
-      last_event_processed: '2024-01-15T12:19:45Z',
+      max_batch_size: 100,
+      max_delay_time: '5m',
+      skip_certificate_verification: false,
     },
   },
   {
-    id: 'pipeline-004',
+    pipeline_id: 'pipeline-004',
     name: 'Join Pipeline',
+    state: 'paused',
     status: 'paused',
     created_at: '2024-01-12T16:45:00Z',
-    updated_at: '2024-01-15T13:10:00Z',
-    transformationName: 'Join',
     source: {
       type: 'kafka',
-      provider: 'aiven',
+      provider: 'local',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
+        skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
-        // username: 'admin',
-        // password: 'admin',
-        // root_ca: '<base64 encoded ca>',
+        username: '',
+        password: '',
+        root_ca: '',
       },
       topics: [
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'transactions',
+          id: 'transactions',
           schema: {
             type: 'json',
             fields: [
@@ -403,6 +389,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'location', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: false,
             id_field: 'transaction_id',
@@ -411,8 +398,8 @@ export const mockPipelines: Pipeline[] = [
           },
         },
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'test_topic_1',
+          id: 'test_topic_1',
           schema: {
             type: 'json',
             fields: [
@@ -420,6 +407,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'name', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: false,
             id_field: 'id',
@@ -430,8 +418,8 @@ export const mockPipelines: Pipeline[] = [
       ],
     },
     join: {
-      enabled: true,
       type: 'temporal',
+      enabled: true,
       sources: [
         {
           source_id: 'transactions',
@@ -449,17 +437,14 @@ export const mockPipelines: Pipeline[] = [
     },
     sink: {
       type: 'clickhouse',
-      provider: 'aiven',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
       port: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',
-      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
-      secure: true,
-      max_batch_size: 1,
-      max_delay_time: '10m',
+      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       table: 'test_table',
+      secure: false,
       table_mapping: [
         {
           source_id: 'transactions',
@@ -471,64 +456,60 @@ export const mockPipelines: Pipeline[] = [
           source_id: 'transactions',
           field_name: 'transaction_date',
           column_name: 'transaction_date',
-          column_type: 'UUID',
+          column_type: 'DateTime',
         },
         {
           source_id: 'transactions',
           field_name: 'transaction_amount',
           column_name: 'transaction_amount',
-          column_type: 'UUID',
+          column_type: 'Decimal(10,2)',
         },
         {
           source_id: 'transactions',
           field_name: 'transaction_type',
           column_name: 'transaction_type',
-          column_type: 'DateTime',
+          column_type: 'String',
         },
         {
           source_id: 'transactions',
           field_name: 'transaction_description',
           column_name: 'transaction_description',
-          column_type: 'DateTime',
+          column_type: 'String',
         },
         {
           source_id: 'transactions',
           field_name: 'merchant_name',
           column_name: 'merchant_name',
-          column_type: 'UUID',
+          column_type: 'String',
         },
       ],
+      max_batch_size: 1000,
+      max_delay_time: '60s',
+      skip_certificate_verification: false,
     },
-    stats: {
-      events_processed: 4560,
-      events_failed: 156,
-      throughput_per_second: 0,
-      last_event_processed: '2024-01-15T13:09:20Z',
-    },
-    error: 'Kafka connection timeout',
   },
   {
-    id: 'pipeline-005',
+    pipeline_id: 'pipeline-005',
     name: 'Deduplication & Join Pipeline',
+    state: 'active',
     status: 'active',
     created_at: '2024-01-12T16:45:00Z',
-    updated_at: '2024-01-15T13:10:00Z',
-    transformationName: 'Deduplication & Join',
     source: {
       type: 'kafka',
-      provider: 'aiven',
+      provider: 'local',
       connection_params: {
         brokers: ['localhost:9092,localhost:9093,localhost:9094'],
+        skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
-        // username: 'admin',
-        // password: 'admin',
-        // root_ca: '<base64 encoded ca>',
+        username: '',
+        password: '',
+        root_ca: '',
       },
       topics: [
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'test_topic_1',
+          id: 'test_topic_1',
           schema: {
             type: 'json',
             fields: [
@@ -536,6 +517,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'name', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: true,
             id_field: 'id',
@@ -544,8 +526,8 @@ export const mockPipelines: Pipeline[] = [
           },
         },
         {
-          consumer_group_initial_offset: 'earliest',
           name: 'test_topic_2',
+          id: 'test_topic_2',
           schema: {
             type: 'json',
             fields: [
@@ -553,6 +535,7 @@ export const mockPipelines: Pipeline[] = [
               { name: 'name', type: 'string' },
             ],
           },
+          consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: true,
             id_field: 'id',
@@ -563,8 +546,8 @@ export const mockPipelines: Pipeline[] = [
       ],
     },
     join: {
-      enabled: true,
       type: 'temporal',
+      enabled: true,
       sources: [
         {
           source_id: 'test_topic_1',
@@ -582,17 +565,14 @@ export const mockPipelines: Pipeline[] = [
     },
     sink: {
       type: 'clickhouse',
-      provider: 'aiven',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
       port: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',
-      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
-      secure: true,
-      max_batch_size: 1,
-      max_delay_time: '10m',
+      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       table: 'test_table',
+      secure: true,
       table_mapping: [
         {
           source_id: 'test_topic_1',
@@ -604,7 +584,7 @@ export const mockPipelines: Pipeline[] = [
           source_id: 'test_topic_1',
           field_name: 'name',
           column_name: 'name',
-          column_type: 'UUID',
+          column_type: 'String',
         },
         {
           source_id: 'test_topic_2',
@@ -616,16 +596,12 @@ export const mockPipelines: Pipeline[] = [
           source_id: 'test_topic_2',
           field_name: 'name',
           column_name: 'name',
-          column_type: 'DateTime',
+          column_type: 'String',
         },
       ],
+      max_batch_size: 1000,
+      max_delay_time: '60s',
+      skip_certificate_verification: false,
     },
-    stats: {
-      events_processed: 4560,
-      events_failed: 156,
-      throughput_per_second: 0,
-      last_event_processed: '2024-01-15T13:09:20Z',
-    },
-    error: 'Kafka connection timeout',
   },
 ]

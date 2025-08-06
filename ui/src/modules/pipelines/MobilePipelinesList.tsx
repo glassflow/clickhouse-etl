@@ -1,5 +1,5 @@
 import React from 'react'
-import { ListPipelineConfig } from '@/src/types/pipeline'
+import { ListPipelineConfig, getPipelineStatusFromState } from '@/src/types/pipeline'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { cn } from '@/src/utils/common.client'
@@ -98,7 +98,7 @@ export function MobilePipelinesList({
               </div>
               <div className="ml-3 flex-shrink-0">
                 <TableContextMenu
-                  pipelineStatus={pipeline.state as Pipeline['status']}
+                  pipelineStatus={getPipelineStatusFromState(pipeline.state)}
                   isLoading={isLoading}
                   onPause={onPause ? () => onPause(pipeline) : undefined}
                   onResume={onResume ? () => onResume(pipeline) : undefined}
