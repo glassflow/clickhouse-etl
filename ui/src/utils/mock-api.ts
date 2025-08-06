@@ -3,6 +3,11 @@ import { mockPipelines } from '@/src/app/api/mock/data/pipelines'
 
 // Utility to handle mock vs real API switching
 export const isMockMode = () => {
+  // Check runtime environment first (for Docker builds)
+  if (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_USE_MOCK_API) {
+    return window.__ENV__.NEXT_PUBLIC_USE_MOCK_API === 'true'
+  }
+  // Fallback to process.env (for development)
   return process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
 }
 

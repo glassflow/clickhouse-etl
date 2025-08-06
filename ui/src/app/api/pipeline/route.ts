@@ -47,59 +47,24 @@ export async function GET() {
   try {
     const response = await axios.get(`${API_URL}/pipeline`)
 
-    if (response.data.id) {
-      return NextResponse.json({
-        success: true,
-        pipeline_id: response.data.id,
-        status: 'active',
-      })
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'No active pipeline',
-      },
-      { status: 404 },
-    )
-  } catch (error: any) {
-    if (error.response) {
-      const { status, data } = error.response
-      return NextResponse.json(
-        {
-          success: false,
-          error: data.message || 'Failed to get pipeline status',
-        },
-        { status },
-      )
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to get pipeline status',
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function DELETE() {
-  try {
-    await axios.delete(`${API_URL}/pipeline/shutdown`)
-
     return NextResponse.json({
       success: true,
-      message: 'Pipeline shutdown successful',
+      pipelines: response.data,
     })
   } catch (error: any) {
+    console.error('API Route - Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      config: error.config,
+    })
+
     if (error.response) {
       const { status, data } = error.response
-
       return NextResponse.json(
         {
           success: false,
-          error: data.message || 'Failed to shutdown pipeline',
+          error: data.message || 'Failed to get pipelines',
         },
         { status },
       )
@@ -108,9 +73,12 @@ export async function DELETE() {
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to shutdown pipeline',
+        error: 'Failed to get pipelines',
       },
       { status: 500 },
     )
   }
 }
+
+// DELETE method is handled by /api/pipeline/[id]/route.ts for individual pipeline shutdown
+// This route only handles GET (list all pipelines) and POST (create pipeline)

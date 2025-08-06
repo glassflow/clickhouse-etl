@@ -10,6 +10,7 @@ declare global {
       NEXT_PUBLIC_API_URL?: string
       NEXT_PUBLIC_IN_DOCKER?: string
       NEXT_PUBLIC_PREVIEW_MODE?: string
+      NEXT_PUBLIC_USE_MOCK_API?: string
     }
   }
 }
