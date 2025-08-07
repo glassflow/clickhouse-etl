@@ -9,6 +9,7 @@ import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectCo
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import { CacheRefreshButton } from './components/CacheRefreshButton'
 import FormActions from '@/src/components/shared/FormActions'
+import { createPipeline } from '@/src/api/pipeline'
 
 import { StepKeys, OperationKeys } from '@/src/config/constants'
 
@@ -716,6 +717,11 @@ export function ClickhouseMapper({
 
   // Add save configuration logic
   const saveDestinationConfig = useCallback(() => {
+    console.log('saveDestinationConfig: called')
+    console.log('saveDestinationConfig: mappedColumns =', mappedColumns)
+    console.log('saveDestinationConfig: selectedDatabase =', selectedDatabase)
+    console.log('saveDestinationConfig: selectedTable =', selectedTable)
+
     // Set the pending action to 'save' so we know what to do after validation
     setPendingAction('save')
 
@@ -724,9 +730,12 @@ export function ClickhouseMapper({
     })
 
     // Run validation
+    console.log('saveDestinationConfig: running validation...')
     const validationResult = validateMapping()
+    console.log('saveDestinationConfig: validationResult =', validationResult)
 
     if (validationResult) {
+      console.log('saveDestinationConfig: showing validation modal')
       // Show modal with validation result
       setModalProps({
         visible: true,
@@ -737,6 +746,7 @@ export function ClickhouseMapper({
         type: validationResult.type,
       })
     } else {
+      console.log('saveDestinationConfig: no validation issues, proceeding to completeConfigSave')
       // No validation issues, proceed directly
       completeConfigSave()
     }
@@ -755,6 +765,9 @@ export function ClickhouseMapper({
 
   // Complete the save after modal confirmation
   const completeConfigSave = useCallback(() => {
+    console.log('completeConfigSave: called')
+    console.log('completeConfigSave: isPreviewMode =', isPreviewMode)
+
     // Before saving, do a final validation of type compatibility
     const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
 
@@ -820,6 +833,7 @@ export function ClickhouseMapper({
     }
 
     // Generate config with the updated destination
+    console.log('completeConfigSave: generating API config...')
     const apiConfig = generateApiConfig({
       pipelineId,
       setPipelineId,
@@ -840,11 +854,13 @@ export function ClickhouseMapper({
     setTimeout(() => setSuccess(null), 3000)
 
     if (isPreviewMode) {
+      console.log('completeConfigSave: navigating to review mode')
       // Navigate to the review configuration step for preview
       onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
     } else {
-      // Navigate directly to the pipelines page
-      router.push('/pipelines')
+      console.log('completeConfigSave: deploying pipeline in direct mode')
+      // Direct mode: Deploy pipeline immediately and then navigate to pipelines page
+      deployPipelineAndNavigate(apiConfig)
     }
   }, [
     clickhouseDestination,
@@ -869,6 +885,32 @@ export function ClickhouseMapper({
     primaryTopic?.name,
     secondaryTopic?.name,
   ])
+
+  // Add function to deploy pipeline and navigate
+  const deployPipelineAndNavigate = useCallback(
+    async (apiConfig: any) => {
+      console.log('deployPipelineAndNavigate: called with apiConfig =', apiConfig)
+      try {
+        // Deploy the pipeline
+        console.log('deployPipelineAndNavigate: calling createPipeline...')
+        const response = await createPipeline(apiConfig)
+        console.log('deployPipelineAndNavigate: createPipeline response =', response)
+
+        // Set the pipeline ID from the response
+        const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
+        console.log('deployPipelineAndNavigate: setting pipeline ID =', newPipelineId)
+        setPipelineId(newPipelineId)
+
+        // Navigate to pipelines page to show deployment status
+        console.log('deployPipelineAndNavigate: navigating to /pipelines')
+        router.push('/pipelines')
+      } catch (error: any) {
+        console.error('deployPipelineAndNavigate: Failed to deploy pipeline:', error)
+        setError(`Failed to deploy pipeline: ${error.message}`)
+      }
+    },
+    [setPipelineId, router],
+  )
 
   // Add this useEffect to clean up modal state
   useEffect(() => {

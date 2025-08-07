@@ -29,6 +29,10 @@ export const generateApiConfig = ({
   deduplicationStore: any
 }) => {
   try {
+    console.log('generateApiConfig: clicknhoseConnection =', clickhouseConnection)
+    console.log('generateApiConfig: clickhouseConnection.connectionType =', clickhouseConnection?.connectionType)
+    console.log('generateApiConfig: clickhouseConnection.directConnection =', clickhouseConnection?.directConnection)
+
     // Generate a new pipeline ID if one doesn't exist
     let finalPipelineId = pipelineId
     if (!finalPipelineId) {
@@ -197,6 +201,9 @@ export const generateApiConfig = ({
         table_mapping: tableMappings,
       },
     }
+
+    console.log('generateApiConfig: final config =', JSON.stringify(config, null, 2))
+    console.log('generateApiConfig: sink config =', JSON.stringify(config.sink, null, 2))
 
     // Add authentication parameters based on security protocol
     if (kafkaStore?.securityProtocol === 'SASL_PLAINTEXT' || kafkaStore?.securityProtocol === 'SASL_SSL') {

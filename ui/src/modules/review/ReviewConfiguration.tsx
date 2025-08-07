@@ -14,6 +14,7 @@ import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
 import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { createPipeline } from '@/src/api/pipeline'
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
@@ -55,13 +56,25 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     setApiConfigContent(JSON.stringify(apiConfig, null, 2))
   }, [kafkaStore, clickhouseConnection, clickhouseDestination, selectedTopics])
 
-  const handleContinueToPipelines = () => {
+  const handleContinueToPipelines = async () => {
     if (validate && !validate(StepKeys.REVIEW_CONFIGURATION, {})) {
       return
     }
 
-    // Navigate to the pipelines page
-    router.push('/pipelines')
+    try {
+      // Deploy the pipeline immediately
+      const response = await createPipeline(apiConfig)
+
+      // Set the pipeline ID from the response
+      const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
+      setPipelineId(newPipelineId)
+
+      // Navigate to pipelines page to show deployment status
+      router.push('/pipelines')
+    } catch (error: any) {
+      console.error('Failed to deploy pipeline:', error)
+      // You might want to show an error message to the user here
+    }
   }
 
   // Safely render topics

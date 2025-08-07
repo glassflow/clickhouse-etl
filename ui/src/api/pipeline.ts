@@ -103,6 +103,7 @@ export const getPipelineStatus = async (): Promise<PipelineResponse> => {
 export const createPipeline = async (pipelineData: { id: string; name: string; config: any }): Promise<Pipeline> => {
   try {
     const url = getApiUrl('pipeline')
+    console.log('Creating pipeline with URL:', url)
     const response = await axios.post(url, pipelineData, {
       timeout: 10000,
     })
