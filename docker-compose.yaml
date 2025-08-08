@@ -23,7 +23,7 @@ services:
       GLASSFLOW_LOG_FILE_PATH: /tmp/logs/glassflow
       GLASSFLOW_NATS_SERVER: nats:4222
       GLASSFLOW_RUN_LOCAL: true
-      GLASSFLOW_NAMESPACE: glassflow
+      GLASSFLOW_K8S_NAMESPACE: glassflow
     volumes:
       - logs:/tmp/logs/glassflow
 
