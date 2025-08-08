@@ -6,6 +6,19 @@ import { runtimeConfig } from '../config'
 const API_URL = runtimeConfig.apiUrl
 
 export async function GET() {
+  // Check if we should use mock mode
+  const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
+  if (useMockApi) {
+    // Use mock health check
+    return NextResponse.json({
+      success: true,
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      message: 'Mock backend is healthy',
+    })
+  }
+
   try {
     const response = await axios.get(`${API_URL}/healthz`, {
       timeout: 5000, // 5 second timeout for health checks

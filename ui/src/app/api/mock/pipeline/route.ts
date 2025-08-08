@@ -18,9 +18,12 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
+    // Generate a unique pipeline ID
+    const pipelineId = `pipeline-${Date.now()}`
+
     // You may want to validate body.source, body.join, body.sink, etc.
     const newPipeline: Pipeline = {
-      pipeline_id: `pipeline-${Date.now()}`,
+      pipeline_id: pipelineId,
       name: body.name || 'New Pipeline',
       state: 'active',
       source: body.source || {
@@ -60,10 +63,11 @@ export async function POST(request: Request) {
 
     mockPipelinesData.push(newPipeline)
 
+    // Return the same format as the real API route
     return NextResponse.json({
       success: true,
-      pipeline: newPipeline,
-      message: 'Pipeline created successfully',
+      pipeline_id: pipelineId,
+      status: 'active',
     })
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Failed to create pipeline' }, { status: 500 })
