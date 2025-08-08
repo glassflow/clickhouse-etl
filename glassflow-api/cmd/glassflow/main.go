@@ -53,6 +53,7 @@ type config struct {
 	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
 	NATSPipelineKV   string        `default:"glassflow-pipelines" split_words:"true"`
 
+	K8sNamespace       string `default:"glassflow" split_words:"true"`
 	K8sResourceKind    string `default:"Pipeline" split_words:"true"`
 	K8sResourceName    string `default:"pipelines" split_words:"true"`
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
@@ -156,7 +157,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 	if cfg.RunLocal {
 		orch = orchestrator.NewLocalOrchestrator(nc, log)
 	} else {
-		orch, err = orchestrator.NewK8sOrchestrator(log, orchestrator.CustomResourceAPIGroupVersion{
+		orch, err = orchestrator.NewK8sOrchestrator(log, cfg.K8sNamespace, orchestrator.CustomResourceAPIGroupVersion{
 			Kind:     cfg.K8sResourceKind,
 			Resource: cfg.K8sResourceName,
 			APIGroup: cfg.K8sAPIGroup,

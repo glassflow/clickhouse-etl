@@ -21,6 +21,7 @@ type K8sOrchestrator struct {
 	client         *dynamic.DynamicClient
 	log            *slog.Logger
 	customResource CustomResourceAPIGroupVersion
+	namespace      string
 }
 
 type CustomResourceAPIGroupVersion struct {
@@ -32,6 +33,7 @@ type CustomResourceAPIGroupVersion struct {
 
 func NewK8sOrchestrator(
 	log *slog.Logger,
+	namespace string,
 	agv CustomResourceAPIGroupVersion,
 ) (service.Orchestrator, error) {
 	kcfg, err := config.GetConfig()
@@ -49,6 +51,7 @@ func NewK8sOrchestrator(
 	return &K8sOrchestrator{
 		client:         client,
 		log:            log,
+		namespace:      namespace,
 		customResource: agv,
 	}, nil
 }
@@ -115,14 +118,13 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 		Kind:    k.customResource.Kind,
 	})
 
-	//TODO: discuss namespace
 	//nolint: exhaustruct // optional config
 	_, err = k.client.Resource(schema.GroupVersionResource{
 		Group:    k.customResource.APIGroup,
 		Version:  k.customResource.Version,
 		Resource: k.customResource.Resource,
 	}).
-		Namespace("default").
+		Namespace(k.namespace).
 		Create(ctx, obj, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("create custom resource: %w", err)
