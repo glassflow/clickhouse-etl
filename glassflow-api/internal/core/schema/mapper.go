@@ -1,9 +1,9 @@
 package schema
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -158,40 +158,25 @@ func (m *JsonToClickHouseMapper) buildColumnOrder() {
 }
 
 func (m *JsonToClickHouseMapper) getKey(streamSchemaName, keyName string, data []byte) (any, error) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-
-	if _, err := dec.Token(); err != nil {
-		return nil, fmt.Errorf("failed to read JSON token: %w", err)
+	var jsonData map[string]any
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
-	for dec.More() {
-		key, err := dec.Token()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read JSON key: %w", err)
-		}
-
-		if keyStr, ok := key.(string); ok && keyStr == keyName {
-			var rawValue any
-			if err := dec.Decode(&rawValue); err != nil {
-				return nil, fmt.Errorf("failed to decode value for key %s: %w", keyName, err)
-			}
-
-			fieldType := m.Streams[streamSchemaName].Fields[keyName]
-
-			convertedValue, err := ExtractEventValue(fieldType, rawValue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert key value: %w", err)
-			}
-
-			return convertedValue, nil
-		}
-
-		if _, err := dec.Token(); err != nil {
-			return nil, fmt.Errorf("failed to skip value: %w", err)
-		}
+	// Use getNestedValue to support nested JSON fields with dot notation
+	value, exists := getNestedValue(jsonData, keyName)
+	if !exists {
+		return nil, fmt.Errorf("key %s not found in data", keyName)
 	}
 
-	return nil, fmt.Errorf("key %s not found in data", keyName)
+	fieldType := m.Streams[streamSchemaName].Fields[keyName]
+
+	convertedValue, err := ExtractEventValue(fieldType, value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert key value: %w", err)
+	}
+
+	return convertedValue, nil
 }
 
 func (m *JsonToClickHouseMapper) GetJoinKey(streamSchemaName string, data []byte) (any, error) {
@@ -232,7 +217,8 @@ func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]a
 		if len(m.Streams) > 1 {
 			fieldName = column.StreamName + "." + fieldName
 		}
-		value, exists := jsonData[fieldName]
+
+		value, exists := getNestedValue(jsonData, fieldName)
 		if !exists {
 			continue
 		}
@@ -285,9 +271,9 @@ func (m *JsonToClickHouseMapper) GetFieldsMap(streamSchemaName string, data []by
 
 	resultedMap := make(map[string]any)
 
-	for key, value := range jsonData {
-		if _, exists := m.Streams[streamSchemaName].Fields[key]; exists {
-			resultedMap[key] = value
+	for fieldName := range m.Streams[streamSchemaName].Fields {
+		if value, exists := getNestedValue(jsonData, fieldName); exists {
+			resultedMap[fieldName] = value
 		}
 	}
 
@@ -305,7 +291,7 @@ func (m *JsonToClickHouseMapper) ValidateSchema(streamSchemaName string, data []
 	}
 
 	for key := range m.Streams[streamSchemaName].Fields {
-		if _, exists := jsonData[key]; !exists {
+		if _, exists := getNestedValue(jsonData, key); !exists {
 			return fmt.Errorf("field '%s' not found in data for stream '%s'", key, streamSchemaName)
 		}
 	}
@@ -347,4 +333,37 @@ func (m *JsonToClickHouseMapper) JoinData(leftStreamName string, leftData []byte
 	}
 
 	return resultData, nil
+}
+
+// getNestedValue extracts a value from a nested JSON object using dot notation
+// Only supports direct field access, not array indexing.
+func getNestedValue(data map[string]any, path string) (any, bool) {
+	if data == nil || path == "" {
+		return nil, false
+	}
+
+	// First, try to find the path as a flat key (for join operators with . separator)
+	if value, exists := data[path]; exists {
+		return value, true
+	}
+
+	parts := strings.Split(path, ".")
+	current := any(data)
+
+	for _, part := range parts {
+		if current == nil {
+			return nil, false
+		}
+
+		mapValue, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = mapValue[part]
+		if !ok {
+			return nil, false
+		}
+	}
+
+	return current, true
 }
