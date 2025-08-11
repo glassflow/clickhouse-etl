@@ -3,9 +3,10 @@ package schema
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"strings"
 	"time"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type Mapper interface {
