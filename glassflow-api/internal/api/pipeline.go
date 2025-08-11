@@ -225,7 +225,8 @@ type clickhouseSink struct {
 	Kind string `json:"type"`
 	// Add validation for null/empty values
 	Host     string                    `json:"host"`
-	Port     string                    `json:"port"`
+	Port     string                    `json:"port"`      // native port used in BE connection
+	HttpPort string                    `json:"http_port"` // http port used by UI for FE connection
 	Database string                    `json:"database"`
 	Username string                    `json:"username"`
 	Password string                    `json:"password"`
@@ -308,6 +309,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	sc, err = models.NewClickhouseSinkOperator(models.ClickhouseSinkArgs{
 		Host:                 p.Sink.Host,
 		Port:                 p.Sink.Port,
+		HttpPort:             p.Sink.HttpPort,
 		DB:                   p.Sink.Database,
 		User:                 p.Sink.Username,
 		Password:             p.Sink.Password,
@@ -475,6 +477,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Kind:                        models.ClickHouseSinkType,
 			Host:                        p.Sink.ClickHouseConnectionParams.Host,
 			Port:                        p.Sink.ClickHouseConnectionParams.Port,
+			HttpPort:                    p.Sink.ClickHouseConnectionParams.HttpPort,
 			Database:                    p.Sink.ClickHouseConnectionParams.Database,
 			Username:                    p.Sink.ClickHouseConnectionParams.Username,
 			Password:                    p.Sink.ClickHouseConnectionParams.Password,

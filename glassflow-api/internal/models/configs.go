@@ -240,7 +240,8 @@ func NewJoinOperatorConfig(kind string, sources []JoinSourceConfig) (zero JoinOp
 
 type ClickHouseConnectionParamsConfig struct {
 	Host                 string `json:"host"`
-	Port                 string `json:"port"`
+	Port                 string `json:"port"`      // native port used in BE connection
+	HttpPort             string `json:"http_port"` // http port used by UI for FE connection
 	Database             string `json:"database"`
 	Username             string `json:"username"`
 	Password             string `json:"password"`
@@ -264,6 +265,7 @@ type SinkOperatorConfig struct {
 type ClickhouseSinkArgs struct {
 	Host                 string
 	Port                 string
+	HttpPort             string
 	DB                   string
 	User                 string
 	Password             string
@@ -312,6 +314,7 @@ func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig
 		ClickHouseConnectionParams: ClickHouseConnectionParamsConfig{
 			Host:                 args.Host,
 			Port:                 args.Port,
+			HttpPort:             args.HttpPort,
 			Database:             args.DB,
 			Username:             args.User,
 			Password:             args.Password,
