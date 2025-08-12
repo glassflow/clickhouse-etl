@@ -56,6 +56,7 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 
 	go func() {
 		sinkOperator.Start(ctx, s.c)
+		close(s.c)
 		for err := range s.c {
 			s.log.Error("Error in sink operator", slog.Any("error", err))
 		}
