@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server'
 import { mockPipelines as mockPipelinesData, getMockPipelinesList } from '../data/pipelines'
 import { Pipeline } from '@/src/types/pipeline'
 
+// Backend response format (what the API returns)
+type BackendPipeline = Omit<Pipeline, 'sink'> & {
+  sink: Omit<Pipeline['sink'], 'httpPort' | 'nativePort'> & {
+    http_port: string
+    port: string
+  }
+}
+
 // GET /api/mock/pipeline - Returns list of pipelines (matches backend ListPipelineConfig)
 export async function GET() {
   return NextResponse.json({
@@ -22,7 +30,7 @@ export async function POST(request: Request) {
     const pipelineId = `pipeline-${Date.now()}`
 
     // You may want to validate body.source, body.join, body.sink, etc.
-    const newPipeline: Pipeline = {
+    const newPipeline: BackendPipeline = {
       pipeline_id: pipelineId,
       name: body.name || 'New Pipeline',
       state: 'active',
@@ -48,7 +56,8 @@ export async function POST(request: Request) {
       sink: body.sink || {
         type: 'clickhouse',
         host: '',
-        httpPort: '',
+        http_port: '',
+        port: '',
         database: '',
         username: '',
         password: '',

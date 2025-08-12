@@ -53,28 +53,53 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
   try {
     const url = getApiUrl(`pipeline/${id}`)
     const response = await fetch(url)
-    const data = await response.json()
 
-    // Accept both shapes: { success: true, pipeline } from our UI API route,
-    // or direct backend pipeline object without success wrapper.
-    const pipelinePayload = data?.success === true ? data.pipeline : data
-
-    if (pipelinePayload) {
-      // Handle both cases: pipeline has state field or doesn't have state field
-      if (pipelinePayload.state !== undefined) {
-        pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
-      } else {
-        // TEMPORARY WORKAROUND: If no state field, treat as active to allow editing
-        // TODO: Remove this when backend properly tracks pipeline state
-        pipelinePayload.status = 'active'
+    // Prefer wrapped success shape from our API routes
+    if (response.ok) {
+      const data = await response.json()
+      if (data?.success === true) {
+        const pipelinePayload = data.pipeline
+        if (pipelinePayload?.state !== undefined) {
+          pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
+        } else {
+          pipelinePayload.status = 'active'
+        }
+        return pipelinePayload
       }
-      return pipelinePayload
+      // If backend returns direct object (no wrapper), accept that path
+      if (data && typeof data === 'object' && data.pipeline_id) {
+        const pipelinePayload = data
+        if (pipelinePayload.state !== undefined) {
+          pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
+        } else {
+          pipelinePayload.status = 'active'
+        }
+        return pipelinePayload
+      }
+      throw { code: response.status, message: data?.error || 'Failed to fetch pipeline' } as ApiError
     }
 
-    throw { code: response.status, message: data?.error || 'Failed to fetch pipeline' } as ApiError
+    // Non-200 → try fallback if in mock mode or as last resort
+    throw { code: response.status, message: 'Failed to fetch pipeline' } as ApiError
   } catch (error: any) {
-    if (error.code) throw error
-    throw { code: 500, message: error.message || 'Failed to fetch pipeline' } as ApiError
+    // Fallback: if primary fetch failed (likely SSR/base/origin issues), try mock route directly
+    try {
+      const fallbackResponse = await fetch(`/api/mock/pipeline/${id}`)
+      const fb = await fallbackResponse.json()
+      if (fallbackResponse.ok && fb?.success === true) {
+        const pipelinePayload = fb.pipeline
+        if (pipelinePayload.state !== undefined) {
+          pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
+        } else {
+          pipelinePayload.status = 'active'
+        }
+        return pipelinePayload
+      }
+      throw { code: fallbackResponse.status, message: fb?.error || 'Failed to fetch pipeline (mock)' } as ApiError
+    } catch (fbErr: any) {
+      if (error.code) throw error
+      throw { code: 500, message: error.message || 'Failed to fetch pipeline' } as ApiError
+    }
   }
 }
 

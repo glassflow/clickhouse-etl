@@ -22,6 +22,7 @@ import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
 import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline } from '@/src/api/pipeline-api'
+import { cn } from '@/src/utils/common.client'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -150,6 +151,22 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }
 
+  // Section selection highlighting
+  const SOURCE_STEPS = new Set<StepKeys>([StepKeys.KAFKA_CONNECTION])
+  const TRANSFORMATION_STEPS = new Set<StepKeys>([
+    StepKeys.TOPIC_SELECTION_1,
+    StepKeys.TOPIC_SELECTION_2,
+    StepKeys.DEDUPLICATION_CONFIGURATOR,
+    StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1,
+    StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2,
+    StepKeys.JOIN_CONFIGURATOR,
+    StepKeys.CLICKHOUSE_MAPPER,
+  ])
+  const SINK_STEPS = new Set<StepKeys>([StepKeys.CLICKHOUSE_CONNECTION])
+
+  const isSourceSelected = activeStep ? SOURCE_STEPS.has(activeStep) : false
+  const isSinkSelected = activeStep ? SINK_STEPS.has(activeStep) : false
+
   return (
     <div>
       <div className="flex flex-col gap-4">
@@ -173,6 +190,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             title="Kafka"
             onClick={() => handleStepClick(StepKeys.KAFKA_CONNECTION)}
             disabled={isEditingDisabled}
+            selected={isSourceSelected}
           >
             <Image src={KafkaIcon} alt="Kafka" className="w-8 h-8" width={32} height={32} />
           </TitleCardWithIcon>
@@ -196,6 +214,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
               clickhouseConnectionValidation: clickhouseConnectionValidation,
               clickhouseDestinationValidation: clickhouseDestinationValidation,
             }}
+            activeStep={activeStep}
           />
         </div>
         <div className="flex flex-col gap-4 w-1/5">
@@ -208,6 +227,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             title="ClickHouse"
             onClick={() => handleStepClick(StepKeys.CLICKHOUSE_CONNECTION)}
             disabled={isEditingDisabled}
+            selected={isSinkSelected}
           >
             <Image src={ClickHouseIcon} alt="ClickHouse" className="w-8 h-8" width={32} height={32} />
           </TitleCardWithIcon>

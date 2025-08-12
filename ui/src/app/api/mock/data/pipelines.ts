@@ -3,16 +3,34 @@
 import type { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { detectTransformationType } from '@/src/types/pipeline'
 
+// Backend response format (what the API returns)
+type BackendPipeline = Omit<Pipeline, 'sink'> & {
+  sink: Omit<Pipeline['sink'], 'httpPort' | 'nativePort'> & {
+    http_port: string
+    port: string
+  }
+}
+
 // Utility function to find a pipeline by ID
-export const findPipeline = (id: string): Pipeline | undefined => {
+export const findPipeline = (id: string): BackendPipeline | undefined => {
   return mockPipelines.find((p) => p.pipeline_id === id)
 }
 
-// Utility function to convert Pipeline to ListPipelineConfig
-const pipelineToListConfig = (pipeline: Pipeline): ListPipelineConfig => ({
+// Convert BackendPipeline to frontend Pipeline format for transformation detection
+const backendToFrontendPipeline = (backendPipeline: BackendPipeline): Pipeline => ({
+  ...backendPipeline,
+  sink: {
+    ...backendPipeline.sink,
+    httpPort: backendPipeline.sink.http_port,
+    nativePort: backendPipeline.sink.port,
+  },
+})
+
+// Utility function to convert BackendPipeline to ListPipelineConfig
+const pipelineToListConfig = (pipeline: BackendPipeline): ListPipelineConfig => ({
   pipeline_id: pipeline.pipeline_id,
   name: pipeline.name,
-  transformation_type: detectTransformationType(pipeline),
+  transformation_type: detectTransformationType(backendToFrontendPipeline(pipeline)),
   created_at: pipeline.created_at || new Date().toISOString(),
   state: pipeline.state,
 })
@@ -27,7 +45,7 @@ export const getMockPipelinesList = (): ListPipelineConfig[] => {
   return syncPipelinesList()
 }
 
-export const mockPipelines: Pipeline[] = [
+export const mockPipelines: BackendPipeline[] = [
   {
     pipeline_id: 'pipeline-001',
     name: 'Deduplication Pipeline',
@@ -83,8 +101,8 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      httpPort: '12754',
-      nativePort: '12753',
+      http_port: '12754',
+      port: '12753',
       database: 'vlad',
       username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
@@ -209,10 +227,10 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      httpPort: '12754',
-      nativePort: '12753',
+      http_port: '12754',
+      port: '12753',
       database: 'vlad',
-      username: 'avnadmin',
+      username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
       table: 'test_table',
@@ -273,7 +291,7 @@ export const mockPipelines: Pipeline[] = [
         skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
-        username: '',
+        username: 'mock_user',
         password: '',
         root_ca: '',
       },
@@ -314,10 +332,10 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      httpPort: '12754',
-      nativePort: '12753',
+      http_port: '12754',
+      port: '12753',
       database: 'vlad',
-      username: 'avnadmin',
+      username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
       table: 'transactions',
@@ -366,8 +384,8 @@ export const mockPipelines: Pipeline[] = [
         skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
-        username: '',
-        password: '',
+        username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
+        password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
         root_ca: '',
       },
       topics: [
@@ -438,10 +456,10 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      httpPort: '12754',
-      nativePort: '12753',
+      http_port: '12754',
+      port: '12753',
       database: 'vlad',
-      username: 'avnadmin',
+      username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       table: 'test_table',
       secure: false,
@@ -502,7 +520,7 @@ export const mockPipelines: Pipeline[] = [
         skip_auth: true,
         protocol: 'PLAINTEXT',
         mechanism: 'NO_AUTH',
-        username: '',
+        username: 'mock_user',
         password: '',
         root_ca: '',
       },
@@ -566,10 +584,10 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      httpPort: '12754',
-      nativePort: '12753',
+      http_port: '12754',
+      port: '12753',
       database: 'vlad',
-      username: 'avnadmin',
+      username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       table: 'test_table',
       secure: true,

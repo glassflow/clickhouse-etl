@@ -9,6 +9,7 @@ interface TitleCardWithIconProps {
   isClickable?: boolean
   disabled?: boolean
   validation?: ValidationState
+  selected?: boolean
 }
 
 function TitleCardWithIcon({
@@ -18,6 +19,7 @@ function TitleCardWithIcon({
   isClickable = false,
   disabled = false,
   validation,
+  selected = false,
 }: TitleCardWithIconProps) {
   const handleClick = () => {
     if (disabled) return
@@ -32,6 +34,7 @@ function TitleCardWithIcon({
           'cursor-pointer transition-all duration-200 hover:shadow-md hover:border-gray-300 hover:scale-[1.02]',
         disabled && 'opacity-50 cursor-not-allowed',
         validation?.status === 'invalidated' && 'border-red-500',
+        selected && 'border-primary',
       )}
       onClick={handleClick}
     >

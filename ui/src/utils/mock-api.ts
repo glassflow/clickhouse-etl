@@ -4,25 +4,50 @@ import { getRuntimeEnv } from '@/src/utils/common.client'
 
 // Utility to handle mock vs real API switching
 export const isMockMode = () => {
-  // Check runtime environment first (for Docker builds)
-  if (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_USE_MOCK_API) {
-    return window.__ENV__.NEXT_PUBLIC_USE_MOCK_API === 'true'
+  const isServer = typeof window === 'undefined'
+
+  if (isServer) {
+    // For server-side, use process.env directly
+    return process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+  } else {
+    // For client-side, check runtime environment first (for Docker builds)
+    if (window.__ENV__?.NEXT_PUBLIC_USE_MOCK_API) {
+      return window.__ENV__.NEXT_PUBLIC_USE_MOCK_API === 'true'
+    }
+    // Fallback to process.env (for development)
+    return process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
   }
-  // Fallback to process.env (for development)
-  return process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
 }
 
 export const getApiUrl = (endpoint: string) => {
   const isServer = typeof window === 'undefined'
-  const runtimeEnv = getRuntimeEnv()
-  const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
-  const baseOrigin = isServer ? (inDocker ? 'http://ui:8080' : 'http://localhost:3000') : ''
 
-  if (isMockMode()) {
-    return isServer ? `${baseOrigin}/api/mock/${endpoint}` : `/api/mock/${endpoint}`
+  // For server-side, get environment from process.env directly
+  const inDocker = process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
+  const useMockAPI = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
+  // For client-side, try runtime env first, then process.env
+  const runtimeEnv = !isServer ? getRuntimeEnv() : null
+  const clientUseMockAPI = runtimeEnv?.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
+  const shouldUseMock = isServer ? useMockAPI : clientUseMockAPI || useMockAPI
+
+  if (shouldUseMock) {
+    if (isServer) {
+      // For SSR, use localhost with the port Next.js is running on
+      const port = process.env.PORT || '3000'
+      return `http://localhost:${port}/api/mock/${endpoint}`
+    } else {
+      return `/api/mock/${endpoint}`
+    }
   }
 
-  return isServer ? `${baseOrigin}/api/${endpoint}` : `/api/${endpoint}`
+  if (isServer) {
+    const baseOrigin = inDocker ? 'http://ui:8080' : 'http://localhost:3000'
+    return `${baseOrigin}/api/${endpoint}`
+  } else {
+    return `/api/${endpoint}`
+  }
 }
 
 // Mock data generators for more realistic responses

@@ -9,6 +9,7 @@ function SingleColumnCard({
   onClick,
   disabled,
   validation,
+  selected,
 }: {
   label: string[]
   value: string[]
@@ -17,6 +18,7 @@ function SingleColumnCard({
   onClick?: () => void
   disabled?: boolean
   validation?: any
+  selected?: boolean
 }) {
   const widthClass = width === 'full' ? 'w-full' : 'w-1/2'
   const alignmentClass = orientation === 'left' ? 'items-start' : orientation === 'right' ? 'items-end' : 'items-center'
@@ -29,6 +31,7 @@ function SingleColumnCard({
         widthClass,
         disabled ? 'opacity-50 cursor-not-allowed' : '',
         validation?.status === 'invalidated' && 'border-red-500',
+        selected && 'border-primary',
       )}
       onClick={onClick}
     >

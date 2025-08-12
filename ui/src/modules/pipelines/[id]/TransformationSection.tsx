@@ -15,6 +15,7 @@ const DeduplicationCase = ({
   onStepClick: onStepClick,
   disabled,
   validation,
+  activeStep,
 }: {
   topic: any
   hasDedup: boolean
@@ -24,6 +25,7 @@ const DeduplicationCase = ({
   onStepClick: (step: StepKeys) => void
   disabled: boolean
   validation: any
+  activeStep: StepKeys | null
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -36,6 +38,7 @@ const DeduplicationCase = ({
         onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
         disabled={disabled}
         validation={validation}
+        selected={activeStep === StepKeys.TOPIC_SELECTION_1}
       />
 
       {/* Middle card: Deduplication Key (only if dedup is enabled) */}
@@ -51,6 +54,7 @@ const DeduplicationCase = ({
               onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR)}
               disabled={disabled}
               validation={validation.deduplicationValidation}
+              selected={activeStep === StepKeys.DEDUPLICATION_CONFIGURATOR}
             />
           )
         })()}
@@ -63,6 +67,7 @@ const DeduplicationCase = ({
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
         validation={validation}
+        selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1}
       />
     </div>
   )
@@ -79,6 +84,7 @@ const JoinCase = ({
   onStepClick,
   disabled,
   validation,
+  activeStep,
 }: {
   leftTopic: any
   rightTopic: any
@@ -90,6 +96,7 @@ const JoinCase = ({
   onStepClick: (step: StepKeys) => void
   disabled: boolean
   validation: any
+  activeStep: StepKeys | null
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -103,6 +110,7 @@ const JoinCase = ({
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
           disabled={disabled}
           validation={validation.topicsValidation}
+          selected={activeStep === StepKeys.TOPIC_SELECTION_1}
         />
 
         <SingleColumnCard
@@ -113,6 +121,7 @@ const JoinCase = ({
           onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_2)}
           disabled={disabled}
           validation={validation.topicsValidation}
+          selected={activeStep === StepKeys.TOPIC_SELECTION_2}
         />
       </div>
 
@@ -125,6 +134,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
+          selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
 
         <SingleColumnCard
@@ -134,6 +144,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
+          selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
       </div>
 
@@ -145,6 +156,7 @@ const JoinCase = ({
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
         validation={validation}
+        selected={activeStep === StepKeys.CLICKHOUSE_MAPPER}
       />
     </div>
   )
@@ -161,6 +173,7 @@ const JoinDeduplicationCase = ({
   onStepClick,
   disabled,
   validation,
+  activeStep,
 }: {
   leftTopic: any
   rightTopic: any
@@ -172,6 +185,7 @@ const JoinDeduplicationCase = ({
   onStepClick: (step: StepKeys) => void
   disabled: boolean
   validation: any
+  activeStep: StepKeys | null
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -190,6 +204,7 @@ const JoinDeduplicationCase = ({
           onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)}
           disabled={disabled}
           validation={validation.topicsValidation}
+          selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1}
         />
 
         <DoubleColumnCard
@@ -205,6 +220,7 @@ const JoinDeduplicationCase = ({
           onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)}
           disabled={disabled}
           validation={validation.topicsValidation}
+          selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2}
         />
       </div>
 
@@ -218,6 +234,7 @@ const JoinDeduplicationCase = ({
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
           validation={validation.joinValidation}
+          selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
 
         <SingleColumnCard
@@ -228,6 +245,7 @@ const JoinDeduplicationCase = ({
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
           validation={validation.joinValidation}
+          selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
       </div>
 
@@ -239,6 +257,7 @@ const JoinDeduplicationCase = ({
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
         validation={validation.clickhouseDestinationValidation}
+        selected={activeStep === StepKeys.CLICKHOUSE_MAPPER}
       />
     </div>
   )
@@ -249,11 +268,13 @@ function TransformationSection({
   onStepClick,
   disabled,
   validation,
+  activeStep,
 }: {
   pipeline: any
   onStepClick: (step: StepKeys) => void
   disabled: boolean
   validation: any
+  activeStep: StepKeys | null
 }) {
   // Get fresh data from store instead of stale pipeline config
   const { topicsStore, joinStore, clickhouseDestinationStore } = useStore()
@@ -327,6 +348,7 @@ function TransformationSection({
         onStepClick={onStepClick}
         disabled={disabled}
         validation={validation}
+        activeStep={activeStep}
       />
     )
   }
@@ -351,6 +373,7 @@ function TransformationSection({
         onStepClick={onStepClick}
         disabled={disabled}
         validation={validation}
+        activeStep={activeStep}
       />
     )
   }
@@ -369,6 +392,7 @@ function TransformationSection({
         onStepClick={onStepClick}
         disabled={disabled}
         validation={validation}
+        activeStep={activeStep}
       />
     )
   }

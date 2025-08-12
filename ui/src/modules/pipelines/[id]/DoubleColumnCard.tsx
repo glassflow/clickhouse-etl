@@ -8,6 +8,7 @@ function DoubleColumnCard({
   onClick,
   disabled,
   validation,
+  selected,
 }: {
   label: string[]
   value: string[]
@@ -15,6 +16,7 @@ function DoubleColumnCard({
   onClick?: () => void
   disabled?: boolean
   validation?: any
+  selected?: boolean
 }) {
   const widthClass = width === 'full' ? 'w-full' : 'w-1/2'
 
@@ -31,6 +33,7 @@ function DoubleColumnCard({
           validation?.status === 'invalidated'
           ? 'border-red-500'
           : '',
+        selected && 'border-primary',
       )}
       onClick={onClick}
     >

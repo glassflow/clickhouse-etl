@@ -17,23 +17,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     )
   }
 
-  // Simulate 90% success rate for realistic testing
-  const isSuccess = Math.random() > 0.1
+  // Try to find existing pipeline first, fallback to generating a new one
+  const { findPipeline } = await import('@/src/app/api/mock/data/pipelines')
+  const existingPipeline = findPipeline(id)
 
-  if (isSuccess) {
+  if (existingPipeline) {
+    return NextResponse.json({
+      success: true,
+      pipeline: existingPipeline,
+    })
+  } else {
+    // Generate a new pipeline for unknown IDs
     const mockPipeline = generateMockPipeline(id)
     return NextResponse.json({
       success: true,
       pipeline: mockPipeline,
     })
-  } else {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Pipeline with id ${id} does not exist`,
-      },
-      { status: 404 },
-    )
   }
 }
 
@@ -54,29 +53,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     )
   }
 
-  // Simulate 90% success rate for realistic testing
-  const isSuccess = Math.random() > 0.1
+  // Try to find existing pipeline first, fallback to generating a new one
+  const { findPipeline } = await import('@/src/app/api/mock/data/pipelines')
+  const existingPipeline = findPipeline(id)
 
-  if (isSuccess) {
-    const mockPipeline = generateMockPipeline(id)
-    // Apply updates to the mock pipeline
-    if (updates.name) {
-      mockPipeline.name = updates.name
-    }
-
-    return NextResponse.json({
-      success: true,
-      pipeline: mockPipeline,
-    })
-  } else {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Pipeline with id ${id} does not exist`,
-      },
-      { status: 404 },
-    )
+  const mockPipeline = existingPipeline || generateMockPipeline(id)
+  // Apply updates to the mock pipeline
+  if (updates.name) {
+    mockPipeline.name = updates.name
   }
+
+  return NextResponse.json({
+    success: true,
+    pipeline: mockPipeline,
+  })
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -95,21 +85,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     )
   }
 
-  // Simulate 90% success rate for realistic testing
-  const isSuccess = Math.random() > 0.1
-
-  if (isSuccess) {
-    return NextResponse.json({
-      success: true,
-      message: `Pipeline ${id} deleted successfully`,
-    })
-  } else {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Pipeline with id ${id} does not exist`,
-      },
-      { status: 404 },
-    )
-  }
+  return NextResponse.json({
+    success: true,
+    message: `Pipeline ${id} deleted successfully`,
+  })
 }
