@@ -25,7 +25,8 @@ const USER_ID_STORAGE_KEY = 'glassflow-user-id'
 
 export function ConsentLayout({ children }: ConsentLayoutProps) {
   const analytics = useJourneyAnalytics()
-  const { consentAnswered, setAnalyticsConsent, setConsentAnswered } = useStore()
+  const { coreStore } = useStore()
+  const { consentAnswered, setAnalyticsConsent, setConsentAnswered } = coreStore
   const [showConsent, setShowConsent] = useState(false)
 
   // Initialize analytics on component mount and ensure user ID exists
@@ -68,15 +69,14 @@ export function ConsentLayout({ children }: ConsentLayoutProps) {
 
       // Also set the analytics enabled state in our analytics module
       setAnalyticsEnabled(consentValue)
+
+      // Hide consent dialog since consent was already given
+      setShowConsent(false)
     } else {
-      setShowConsent(!consentAnswered)
+      // Show consent dialog since no consent was given yet
+      setShowConsent(true)
     }
   }, [])
-
-  // Update showConsent when consentAnswered changes
-  useEffect(() => {
-    setShowConsent(!consentAnswered)
-  }, [consentAnswered])
 
   const handleConsentClick = (value: boolean) => {
     // Save to store

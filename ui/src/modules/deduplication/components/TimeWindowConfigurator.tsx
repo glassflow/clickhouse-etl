@@ -16,6 +16,7 @@ interface TimeWindowConfiguratorProps {
   setWindowUnit: (value: string) => void
   label?: string
   tooltip?: string
+  readOnly?: boolean
 }
 
 // Constants for time conversion
@@ -35,6 +36,7 @@ export function TimeWindowConfigurator({
   setWindowUnit,
   label = 'Deduplication Time Window',
   tooltip = 'Set a value between 5 minutes to 7 days, with 1M events limit. Longer time windows can process more events but may result in slower performance.',
+  readOnly,
 }: TimeWindowConfiguratorProps) {
   const [error, setError] = useState<string | null>(null)
 
@@ -118,10 +120,11 @@ export function TimeWindowConfigurator({
               onChange={(e) => handleWindowChange(e.target.value)}
               min="1"
               className={`w-full input-regular input-border-regular text-content ${error ? 'border-red-500' : ''}`}
+              disabled={readOnly}
             />
           </div>
           <div className="w-[45%] max-w-[45%]">
-            <Select value={windowUnit} onValueChange={handleUnitChange}>
+            <Select value={windowUnit} onValueChange={handleUnitChange} disabled={readOnly}>
               <SelectTrigger id="window-unit" className="w-full input-regular select-content-custom text-content">
                 <SelectValue placeholder="Select unit" />
               </SelectTrigger>

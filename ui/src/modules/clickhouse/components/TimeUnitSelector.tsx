@@ -3,21 +3,20 @@
 import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { MAX_DELAY_TIME_UNITS } from '@/src/config/constants'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
-export function TimeUnitSelector({
-  value,
-  onChange,
-  className,
-}: {
+type TimeUnitSelectorProps = {
   value: string
   onChange: (value: string) => void
   className?: string
-}) {
+  disabled?: boolean
+}
+
+export function TimeUnitSelector({ value, onChange, className, disabled }: TimeUnitSelectorProps) {
   const [isFocused, setIsFocused] = useState(false)
 
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         className={cn(
           'w-full',

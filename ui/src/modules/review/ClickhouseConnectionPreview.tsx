@@ -28,12 +28,12 @@ export function ClickhouseConnectionPreview({ clickhouseConnection }: { clickhou
   if (connectionType === 'direct') {
     const { directConnection } = clickhouseConnection
     return (
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
         <div className="text-sm text-muted-foreground">Host:</div>
         <div>{directConnection?.host || 'Not configured'}</div>
 
         <div className="text-sm text-muted-foreground">HTTP(S) Port:</div>
-        <div>{directConnection?.port || 'Not configured'}</div>
+        <div>{directConnection?.httpPort || 'Not configured'}</div>
 
         <div className="text-sm text-muted-foreground">Native Port:</div>
         <div>{directConnection?.nativePort || 'Not configured'}</div>
@@ -51,7 +51,7 @@ export function ClickhouseConnectionPreview({ clickhouseConnection }: { clickhou
   } else if (connectionType === 'proxy') {
     const { proxyConnection } = clickhouseConnection
     return (
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
         <div className="text-sm text-muted-foreground">Proxy URL:</div>
         <div>{proxyConnection?.proxyUrl || 'Not configured'}</div>
 
@@ -62,7 +62,7 @@ export function ClickhouseConnectionPreview({ clickhouseConnection }: { clickhou
   } else if (connectionType === 'connectionString') {
     const { connectionString } = clickhouseConnection
     return (
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
         <div className="text-sm text-muted-foreground">Connection String:</div>
         <div>********** (hidden for security)</div>
 

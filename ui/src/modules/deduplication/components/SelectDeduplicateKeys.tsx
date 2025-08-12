@@ -3,7 +3,7 @@ import { Label } from '@/src/components/ui/label'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { JSONDateTypesSelector } from '@/src/components/shared/JSONDateTypesSelector'
 import { useStore } from '@/src/store'
-import { getEventKeys } from '@/src/utils/common.client'
+import { extractEventFields } from '@/src/utils/common.client'
 import { TimeWindowConfigurator } from './TimeWindowConfigurator'
 import { TIME_WINDOW_UNIT_OPTIONS } from '../../../config/constants'
 
@@ -12,9 +12,10 @@ interface SelectDeduplicateKeysProps {
   disabled?: boolean
   onChange: (keyConfig: { key: string; keyType: string }, windowConfig: { window: number; unit: string }) => void
   eventData: Record<string, any>
+  readOnly?: boolean
 }
 
-function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }: SelectDeduplicateKeysProps) {
+function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, readOnly }: SelectDeduplicateKeysProps) {
   const [selectedKey, setSelectedKey] = useState('')
   const [selectedKeyType, setSelectedKeyType] = useState('string')
   const [localWindow, setLocalWindow] = useState(1)
@@ -27,41 +28,16 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
   const { getTopic } = topicsStore
 
   const topic = getTopic(index)
-
-  // Custom function to extract keys from event data
-  const extractKeysFromEvent = (data: any): string[] => {
-    if (!data) return []
-
-    // If it's a string, try to parse it
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data)
-      } catch (e) {
-        // If parsing fails, return empty array
-        return []
-      }
-    }
-
-    // If it's not an object after parsing, return empty array
-    if (typeof data !== 'object' || data === null) {
-      return []
-    }
-
-    // remove _metadata from the event data
-    delete data?._metadata
-
-    // Extract keys from the object
-    return Object.keys(data)
-  }
+  const deduplicationConfig = useStore((state) => state.deduplicationStore.getDeduplication(index))
 
   // Consolidated useEffect for initialization and event data processing
   useEffect(() => {
-    // Initialize from topic
-    if (topic?.deduplication) {
-      setSelectedKey(topic.deduplication.key || '')
-      setSelectedKeyType(topic.deduplication.keyType || 'string')
-      setLocalWindow(topic.deduplication.window || 1)
-      setLocalWindowUnit(topic.deduplication.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
+    // Initialize from deduplication store
+    if (deduplicationConfig) {
+      setSelectedKey(deduplicationConfig.key || '')
+      setSelectedKeyType(deduplicationConfig.keyType || 'string')
+      setLocalWindow(deduplicationConfig.window || 1)
+      setLocalWindowUnit(deduplicationConfig.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
     }
 
     // Process event data
@@ -71,10 +47,10 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
 
       try {
         // Extract the actual event data
-        const actualEventData = eventData.event || eventData
+        const actualEventData = eventData || {}
 
-        // Use our custom function
-        const keys = extractKeysFromEvent(actualEventData)
+        // Use the nested event keys function to get all available fields including nested ones
+        const keys = extractEventFields(actualEventData)
 
         if (keys.length > 0) {
           setAvailableKeys(keys)
@@ -88,7 +64,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
         setIsLoading(false)
       }
     }
-  }, [topic, eventData])
+  }, [deduplicationConfig, eventData])
 
   // Simplified getAvailableKeys - no need to filter out selected keys
   const getAvailableKeys = useCallback(() => {
@@ -159,6 +135,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
                 onSelect={handleKeySelect}
                 placeholder="Enter de-duplicate key"
                 clearable={true}
+                readOnly={readOnly}
               />
             ) : (
               <div className="text-sm text-gray-500 p-2 border rounded">
@@ -167,7 +144,12 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
             )}
           </div>
           <div className="w-[30%]">
-            <JSONDateTypesSelector value={selectedKeyType} onChange={handleKeyTypeSelect} isDeduplicationJoin={true} />
+            <JSONDateTypesSelector
+              value={selectedKeyType}
+              onChange={handleKeyTypeSelect}
+              isDeduplicationJoin={true}
+              readOnly={readOnly}
+            />
           </div>
         </div>
       </div>
@@ -177,6 +159,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData }:
         setWindow={handleWindowChange}
         windowUnit={localWindowUnit}
         setWindowUnit={handleWindowUnitChange}
+        readOnly={readOnly}
       />
     </div>
   )

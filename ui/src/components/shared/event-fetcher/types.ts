@@ -1,4 +1,4 @@
-import { EventFetchState } from '../../../modules/kafka/useFetchEventWithCaching'
+import { EventManagerState } from '../../../modules/kafka/hooks/useEventManagerState'
 
 export type EventFetcherProps = {
   topicName: string
@@ -11,9 +11,10 @@ export type EventFetcherProps = {
   onEventError: (error: any) => void
   onEmptyTopic: () => void
   onManualEventChange?: (event: string) => void
+  readOnly?: boolean
 }
 
 export type EventFetchContextType = {
-  state: EventFetchState
-  setState: React.Dispatch<React.SetStateAction<EventFetchState>>
+  state: EventManagerState
+  setState: React.Dispatch<React.SetStateAction<EventManagerState>>
 }

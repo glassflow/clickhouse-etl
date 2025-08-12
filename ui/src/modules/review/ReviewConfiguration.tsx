@@ -1,45 +1,38 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
 import { StepKeys } from '@/src/config/constants'
 import { Button } from '@/src/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
-import dynamic from 'next/dynamic'
 import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
-import { InputModal, ModalResult } from '@/src/components/shared/InputModal'
-import { saveConfiguration } from '@/src/utils/storage'
-import { generateApiConfig } from '../clickhouse/helpers'
+import { generateApiConfig } from '../clickhouse/utils'
 import { ReviewConfigurationProps } from './types'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
 import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { createPipeline } from '@/src/api/pipeline'
 
-// NOTE: temp hack - disable saving pipelines but leave the logic in place
-const SAVE_PIPELINE_ENABLED = false
-
-export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigurationProps) {
+export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
     kafkaStore,
-    clickhouseStore,
+    clickhouseConnectionStore,
+    clickhouseDestinationStore,
     topicsStore,
     joinStore,
-    setApiConfig,
-    pipelineId,
-    setPipelineId,
-    operationsSelected,
+    coreStore,
+    deduplicationStore,
   } = useStore()
-  const { clickhouseConnection, clickhouseDestination } = clickhouseStore
-  const { bootstrapServers, securityProtocol } = kafkaStore
+  const { apiConfig, pipelineId, setPipelineId, operationsSelected } = coreStore
+  const { clickhouseConnection } = clickhouseConnectionStore
+  const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()
   const selectedTopics = Object.values(topicsStore.topics || {})
   const analytics = useJourneyAnalytics()
 
-  // Add state for the modal
-  const [isDeployModalVisible, setIsDeployModalVisible] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [jsonContent, setJsonContent] = useState('')
   const [yamlContent, setYamlContent] = useState('')
@@ -58,73 +51,29 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
 
   // Update the content when relevant store data changes
   useEffect(() => {
-    const config = generateApiConfig({
-      pipelineId,
-      setPipelineId,
-      clickhouseConnection,
-      clickhouseDestination,
-      selectedTopics,
-      getMappingType,
-      joinStore,
-      kafkaStore,
-    })
-    setJsonContent(JSON.stringify(config, null, 2))
-    setYamlContent(yaml.dump(config, { indent: 2 }))
-    setApiConfigContent(JSON.stringify(config, null, 2))
+    setJsonContent(JSON.stringify(apiConfig, null, 2))
+    setYamlContent(yaml.dump(apiConfig, { indent: 2 }))
+    setApiConfigContent(JSON.stringify(apiConfig, null, 2))
   }, [kafkaStore, clickhouseConnection, clickhouseDestination, selectedTopics])
 
-  const handleFinishDeploymentStep = () => {
-    // Track the deploy button click event
-    analytics.deploy.clicked({
-      kafkaTopicsCount: selectedTopics.length,
-      operationsSelected: operationsSelected,
-    })
-
+  const handleContinueToPipelines = async () => {
     if (validate && !validate(StepKeys.REVIEW_CONFIGURATION, {})) {
       return
     }
 
-    if (SAVE_PIPELINE_ENABLED) {
-      setIsDeployModalVisible(true)
-    } else {
-      handleDeployPipeline(ModalResult.SUBMIT, 'Pipeline', 'deploy')
-    }
-  }
+    try {
+      // Deploy the pipeline immediately
+      const response = await createPipeline(apiConfig)
 
-  const handleDeployPipeline = (result: string, configName: string, operation: string) => {
-    if (SAVE_PIPELINE_ENABLED) {
-      setIsDeployModalVisible(false)
+      // Set the pipeline ID from the response
+      const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
+      setPipelineId(newPipelineId)
 
-      // Save configuration to local storage if name is provided
-      if (configName) {
-        try {
-          const savedConfig = saveConfiguration(
-            configName,
-            `Pipeline configuration saved on ${new Date().toLocaleString()}`,
-          )
-        } catch (error) {
-          console.error('Failed to save configuration:', error)
-          // You might want to show an error message to the user here
-        }
-      }
-    }
-
-    if (result === ModalResult.SUBMIT) {
-      // Generate and set the API config before moving to the next step
-      const config = generateApiConfig({
-        pipelineId,
-        setPipelineId,
-        clickhouseConnection,
-        clickhouseDestination,
-        selectedTopics,
-        getMappingType,
-        joinStore,
-        kafkaStore,
-      })
-      setApiConfig(config)
-
-      // Navigate to the pipelines page
+      // Navigate to pipelines page to show deployment status
       router.push('/pipelines')
+    } catch (error: any) {
+      console.error('Failed to deploy pipeline:', error)
+      // You might want to show an error message to the user here
     }
   }
 
@@ -141,34 +90,33 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
       return (
         <li key={index} className="mb-4">
           <div className="font-medium">{topicName}</div>
-          {topic?.deduplication && (
-            <div className="ml-4 mt-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Deduplication:</span>{' '}
-                {topic.deduplication.enabled ? 'Enabled' : 'Disabled'}
-              </div>
-              {topic.deduplication.enabled && (
-                <>
+          {(() => {
+            const deduplicationConfig = deduplicationStore.getDeduplication(index)
+            return (
+              deduplicationConfig && (
+                <div className="ml-4 mt-2 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Method:</span>{' '}
-                    {topic.deduplication.method === 'key' ? 'Key-based' : 'Hash-based'}
+                    <span className="text-muted-foreground">Deduplication:</span>{' '}
+                    {deduplicationConfig.enabled ? 'Enabled' : 'Disabled'}
                   </div>
-                  {topic.deduplication.method === 'key' && (
-                    <div>
-                      <span className="text-muted-foreground">Key Field:</span>{' '}
-                      {topic.deduplication.keyField || 'Not specified'}
-                    </div>
+                  {deduplicationConfig.enabled && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">Key Field:</span>{' '}
+                        {deduplicationConfig.key || 'Not specified'}
+                      </div>
+                      {deduplicationConfig.window && (
+                        <div>
+                          <span className="text-muted-foreground">Time Window:</span> {deduplicationConfig.window}{' '}
+                          {deduplicationConfig.unit || 'hours'}
+                        </div>
+                      )}
+                    </>
                   )}
-                  {topic.deduplication.window && (
-                    <div>
-                      <span className="text-muted-foreground">Time Window:</span> {topic.deduplication.window}{' '}
-                      {topic.deduplication.windowUnit || 'seconds'}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+                </div>
+              )
+            )
+          })()}
         </li>
       )
     })
@@ -260,34 +208,11 @@ export function ReviewConfiguration({ steps, onNext, validate }: ReviewConfigura
           type="button"
           variant="gradient"
           size="custom"
-          onClick={handleFinishDeploymentStep}
+          onClick={handleContinueToPipelines}
         >
-          Deploy Pipeline
+          Continue
         </Button>
       </div>
-
-      <InputModal
-        visible={isDeployModalVisible}
-        title="Deploy Pipeline"
-        description="You can optionally save this configuration for future use."
-        inputLabel="Configuration Name"
-        inputPlaceholder="e.g., Production Pipeline v1"
-        submitButtonText="Deploy"
-        cancelButtonText="Cancel"
-        onComplete={handleDeployPipeline}
-        pendingOperation="deploy_pipeline"
-        initialValue=""
-        showSaveOption={true}
-        validation={(value) => {
-          if (!value.trim()) {
-            return 'Configuration name is required'
-          }
-          if (value.length < 3) {
-            return 'Configuration name must be at least 3 characters long'
-          }
-          return null
-        }}
-      />
     </div>
   )
 }

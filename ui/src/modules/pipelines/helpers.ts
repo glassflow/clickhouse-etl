@@ -13,7 +13,7 @@ export const isValidApiConfig = (config: any): config is ApiConfig => {
   // Check sink
   if (!config.sink || typeof config.sink !== 'object') return false
   if (config.sink.type !== 'clickhouse') return false
-  if (!config.sink.host || !config.sink.port) return false
+  if (!config.sink.host || !config.sink.httpPort) return false
   if (!config.sink.database || !config.sink.table) return false
   if (!config.sink.table_mapping?.length) return false
 

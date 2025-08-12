@@ -1,74 +1,98 @@
 'use client'
 
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { Button } from '@/src/components/ui/button'
 import { EventEditor } from '@/src/components/shared/EventEditor'
-import { parseForCodeEditor } from '@/src/utils'
+import { parseForCodeEditor } from '@/src/utils/common.client'
 import { StepKeys } from '@/src/config/constants'
-import { cn } from '@/src/utils'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import FormActions from '@/src/components/shared/FormActions'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 
 export function DeduplicationConfigurator({
-  onNext,
+  onCompleteStep,
   index = 0,
+  readOnly,
+  standalone,
+  toggleEditMode,
+  pipelineActionState,
+  onCompleteStandaloneEditing,
 }: {
-  onNext: (stepName: string) => void
+  onCompleteStep: (stepName: string) => void
   index: number
+  readOnly?: boolean
+  standalone?: boolean
+  toggleEditMode?: () => void
+  pipelineActionState?: any
+  onCompleteStandaloneEditing?: () => void
 }) {
   const analytics = useJourneyAnalytics()
+  const validationEngine = useValidationEngine()
+  const { coreStore } = useStore()
 
-  // Access the full topics array directly instead of using getter methods
-  const { topics, updateTopic } = useStore((state) => state.topicsStore)
+  // Use the new separated store structure with proper memoization
+  const deduplicationConfig = useStore((state) => state.deduplicationStore.getDeduplication(index))
+  const updateDeduplication = useStore((state) => state.deduplicationStore.updateDeduplication)
 
-  // Get current topic directly from the array
-  const topic = topics[index]
+  // Get topic data for event information
+  const topic = useStore((state) => state.topicsStore.getTopic(index))
 
   // Get the event directly from the topic's events array
   const topicEvent = topic?.events?.[0] || null
 
   // Extract event data
-  const eventData = topicEvent?.event?.event || topicEvent?.event || '{}'
+  const eventData = topicEvent?.event || '{}'
 
   // Track page view when component loads
   useEffect(() => {
     analytics.page.deduplicationKey({})
   }, [])
 
-  // Directly read the deduplication config from the topic
-  const deduplicationConfig = topic?.deduplication || {
+  // State for tracking save success in edit mode
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false)
+
+  // Reset success state when user starts editing again
+  useEffect(() => {
+    if (!readOnly && isSaveSuccess) {
+      setIsSaveSuccess(false)
+    }
+  }, [readOnly, isSaveSuccess])
+
+  // Use deduplication config from the new store, with fallback
+  const currentDeduplicationConfig = deduplicationConfig || {
     enabled: false,
-    window: '',
-    unit: '',
+    window: 0,
+    unit: 'hours',
     key: '',
     keyType: 'string',
   }
 
   // Determine if we can continue based directly on the store data
-  const canContinue = !!(deduplicationConfig.key && deduplicationConfig.window && deduplicationConfig.unit)
+  const canContinue = !!(
+    currentDeduplicationConfig.key &&
+    currentDeduplicationConfig.window &&
+    currentDeduplicationConfig.unit
+  )
 
-  // Update the topic in the store directly without local state
+  // Update the deduplication config in the new store
   const handleDeduplicationConfigChange = useCallback(
     ({ key, keyType }: { key: string; keyType: string }, { window, unit }: { window: number; unit: string }) => {
-      if (!topic) return
-
       // Create an updated deduplication config
       const updatedConfig = {
         enabled: true,
-        index,
         window,
         unit: unit as 'seconds' | 'minutes' | 'hours' | 'days',
         key,
         keyType,
       }
 
-      // Update the topic directly in the store
-      updateTopic({
-        ...topic,
-        index,
-        deduplication: updatedConfig,
-      })
+      // Update the deduplication config in the new store
+      updateDeduplication(index, updatedConfig)
+
+      // Trigger validation engine to invalidate dependent sections
+      // When deduplication changes, it affects ClickHouse mapping
+      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Deduplication configuration changed')
 
       analytics.key.dedupKey({
         keyType,
@@ -76,14 +100,42 @@ export function DeduplicationConfigurator({
         unit,
       })
     },
-    [topic, index, updateTopic],
+    [index, updateDeduplication, validationEngine],
   )
 
   // Handle continue button click
   const handleSave = useCallback(() => {
     if (!topic?.name) return
-    onNext(StepKeys.DEDUPLICATION_CONFIGURATOR)
-  }, [topic, onNext])
+
+    // Trigger validation engine to mark this section as valid and invalidate dependents
+    validationEngine.onSectionConfigured(StepKeys.DEDUPLICATION_CONFIGURATOR)
+
+    // Check if we're in edit mode (standalone with toggleEditMode)
+    const isEditMode = standalone && toggleEditMode
+
+    if (isEditMode) {
+      // In edit mode, just save changes and stay in the same section
+      // Don't call onCompleteStep as we want to stay in the same section
+      setIsSaveSuccess(true)
+      onCompleteStandaloneEditing?.()
+      // Don't reset success state - let it stay true to keep the form closed
+      // The success state will be reset when the user starts editing again
+    } else {
+      // In creation mode, move to next step
+      onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
+    }
+  }, [topic, onCompleteStep, validationEngine, standalone, toggleEditMode])
+
+  // Handle discard changes for deduplication configuration
+  const handleDiscardChanges = useCallback(() => {
+    console.log('Discarding changes for deduplication section', {
+      lastSavedConfig: coreStore.getLastSavedConfig(),
+      mode: coreStore.mode,
+    })
+
+    // Discard deduplication section
+    coreStore.discardSection('deduplication')
+  }, [coreStore])
 
   if (!topic || !topicEvent) {
     return <div>No topic or event data available for index {index}</div>
@@ -101,6 +153,7 @@ export function DeduplicationConfigurator({
             onChange={handleDeduplicationConfigChange}
             disabled={!topic?.name}
             eventData={eventData}
+            readOnly={readOnly}
           />
         </div>
         <div className="w-[60%] min-h-[400px]">
@@ -112,41 +165,27 @@ export function DeduplicationConfigurator({
             isEmptyTopic={false}
             onManualEventChange={() => {}}
             isEditingEnabled={false}
+            readOnly={readOnly}
           />
         </div>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-start gap-4 mt-4">
-        <Button
-          onClick={handleSave}
-          disabled={!canContinue}
-          variant={canContinue ? 'gradient' : 'outline'}
-          className={cn({
-            'btn-primary': canContinue,
-            'btn-text-disabled': !canContinue,
-            'btn-text': canContinue,
-          })}
-        >
-          Continue
-        </Button>
-      </div>
+      <FormActions
+        standalone={standalone}
+        onSubmit={handleSave}
+        onDiscard={handleDiscardChanges}
+        isLoading={false}
+        isSuccess={isSaveSuccess}
+        disabled={!canContinue}
+        successText="Continue"
+        loadingText="Loading..."
+        regularText="Continue"
+        actionType="primary"
+        showLoadingIcon={false}
+        readOnly={readOnly}
+        toggleEditMode={toggleEditMode}
+        pipelineActionState={pipelineActionState}
+      />
     </div>
   )
 }
-
-// const TrashControl = ({ onRemove, index }: { onRemove: () => void; index: number }) => {
-//   return (
-//     <Button variant="ghost" size="icon" onClick={() => onRemove(index)} className="h-8 w-8">
-//       <TrashIcon className="h-4 w-4" />
-//     </Button>
-//   )
-// }
-
-// const AddKeyControl = ({ onAdd }: { onAdd: () => void }) => {
-//   return (
-//     <Button variant="outline" className="max-w-[150px] mt-2 btn-neutral" onClick={onAdd}>
-//       Add Another Key
-//     </Button>
-//   )
-// }

@@ -1,15 +1,12 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import classnames from 'classnames'
+import { cn } from '@/src/utils/common.client'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
-import EventFetcher from '@/src/components/shared/event-fetcher/EventFetcher'
-import { useFetchEvent } from '@/src/hooks/kafka-mng-hooks'
-import { useStore } from '@/src/store'
-import { EventDataFormat } from '@/src/config/constants'
+import EventManager from '@/src/components/shared/event-fetcher/EventManager'
 
 export type TopicSelectWithEventPreviewProps = {
   index: number
@@ -25,6 +22,24 @@ export type TopicSelectWithEventPreviewProps = {
   onManualEventChange?: (event: string) => void
   additionalContent?: React.ReactNode
   isEditingEnabled: boolean
+  readOnly?: boolean
+  // NEW: Props from the hook
+  topicName?: string
+  offset?: 'earliest' | 'latest'
+  event?: any
+  isLoading?: boolean
+  error?: string | null
+  // NEW: Navigation props from hook
+  currentOffset?: number | null
+  earliestOffset?: number | null
+  latestOffset?: number | null
+  isAtLatest?: boolean
+  isAtEarliest?: boolean
+  fetchNewestEvent?: (topicName: string) => Promise<void>
+  fetchOldestEvent?: (topicName: string) => Promise<void>
+  fetchNextEvent?: (topicName: string, currentOffset: number) => Promise<void>
+  fetchPreviousEvent?: (topicName: string, currentOffset: number) => Promise<void>
+  refreshEvent?: (topicName: string, fetchNext?: boolean) => Promise<void>
 }
 
 export function TopicSelectWithEventPreview({
@@ -37,159 +52,73 @@ export function TopicSelectWithEventPreview({
   initialOffset = INITIAL_OFFSET_OPTIONS.LATEST as 'earliest' | 'latest',
   additionalContent,
   isEditingEnabled,
+  readOnly,
+  // NEW: Props from the hook
+  topicName: hookTopicName,
+  offset: hookOffset,
+  event: hookEvent,
+  isLoading: hookIsLoading,
+  error: hookError,
+  // NEW: Navigation props from hook
+  currentOffset: hookCurrentOffset,
+  earliestOffset: hookEarliestOffset,
+  latestOffset: hookLatestOffset,
+  isAtLatest: hookIsAtLatest,
+  isAtEarliest: hookIsAtEarliest,
+  fetchNewestEvent: hookFetchNewestEvent,
+  fetchOldestEvent: hookFetchOldestEvent,
+  fetchNextEvent: hookFetchNextEvent,
+  fetchPreviousEvent: hookFetchPreviousEvent,
+  refreshEvent: hookRefreshEvent,
 }: TopicSelectWithEventPreviewProps) {
-  const { kafkaStore } = useStore()
-
-  // Local state for topic selection and event
-  const [localState, setLocalState] = useState<{
-    topicName: string
-    offset: 'earliest' | 'latest'
-    isLoading: boolean
-    event: any
-  }>({
-    topicName: existingTopic?.name || '',
-    offset: existingTopic?.initialOffset || initialOffset,
-    isLoading: false,
-    event: existingTopic?.selectedEvent?.event || null,
-  })
-
-  // Event fetching hook
-  const { fetchEvent, isLoadingEvent, event, resetEventState } = useFetchEvent(kafkaStore, EventDataFormat.JSON)
+  // Use hook data if provided, otherwise fall back to local state
+  const topicName = hookTopicName || existingTopic?.name || ''
+  const offset = hookOffset || existingTopic?.initialOffset || initialOffset
+  const event = hookEvent || existingTopic?.selectedEvent?.event || null
+  const isLoading = hookIsLoading || false
+  const error = hookError || null
 
   // Handle topic change
   const handleTopicChange = useCallback(
     async (topic: string) => {
       if (topic === '') return
 
-      // If we already have an event for this topic in the store, use it
-      if (existingTopic?.selectedEvent?.event && topic === existingTopic.name) {
-        setLocalState((prev) => ({
-          ...prev,
-          topicName: topic,
-          event: existingTopic.selectedEvent.event,
-          isLoading: false,
-        }))
-        return
-      }
-
-      // Always set loading state when changing topic
-      setLocalState((prev) => ({
-        ...prev,
-        topicName: topic,
-        isLoading: true,
-        event: null,
-      }))
-
-      // Reset event state when topic changes
-      resetEventState()
-
-      // Fetch event for the selected topic
-      if (localState.offset) {
-        fetchEvent(topic, false, {
-          position: localState.offset,
-        })
-      }
-
-      // Then notify parent of changes
+      // Notify parent of changes
       if (onTopicChange && topic) {
-        onTopicChange(topic, null)
+        onTopicChange(topic, event)
       }
     },
-    [localState.offset, fetchEvent, resetEventState, existingTopic],
+    [onTopicChange, event],
   )
 
   // Handle offset change
   const handleOffsetChange = useCallback(
-    (offset: 'earliest' | 'latest') => {
-      // If we're changing offset for the same topic and we already have an event, use it
-      if (localState.topicName === existingTopic?.name && existingTopic?.selectedEvent?.event) {
-        setLocalState((prev) => ({
-          ...prev,
-          offset,
-          event: existingTopic.selectedEvent.event,
-        }))
-        return
-      }
-
-      // Always set loading state when changing offset
-      setLocalState((prev) => ({
-        ...prev,
-        offset,
-        isLoading: true,
-        event: null,
-      }))
-
-      // Reset event state when offset changes
-      resetEventState()
-
-      // Fetch event with new offset
-      if (localState.topicName) {
-        fetchEvent(localState.topicName, false, {
-          position: offset,
-        })
+    (newOffset: 'earliest' | 'latest') => {
+      // Notify parent of changes
+      if (onOffsetChange) {
+        onOffsetChange(newOffset, event)
       }
     },
-    [localState.topicName, fetchEvent, existingTopic, resetEventState],
+    [onOffsetChange, event],
   )
 
-  // Event handlers
-  const eventHandlers = {
-    onEventLoading: () => {
-      setLocalState((prev) => ({ ...prev, isLoading: true }))
-    },
-
-    onEventLoaded: (eventData: any) => {
-      // Ensure we have a properly formatted event
-      const formattedEvent = eventData?.event ? eventData : { event: eventData }
-
-      // Update local state first
-      setLocalState((prev) => ({
-        ...prev,
-        event: formattedEvent,
-        isLoading: false,
-      }))
-
-      // Then notify parent of changes
-      if (onTopicChange && localState.topicName) {
-        onTopicChange(localState.topicName, formattedEvent.event)
+  // Handle manual event change
+  const handleManualEventChange = useCallback(
+    (manualEvent: string) => {
+      if (onManualEventChange) {
+        onManualEventChange(manualEvent)
       }
     },
-
-    onEventError: (error: any) => {
-      console.error('Event loading error:', error)
-      setLocalState((prev) => ({
-        ...prev,
-        isLoading: false,
-        event: null,
-      }))
-    },
-
-    onEmptyTopic: () => {
-      setLocalState((prev) => ({
-        ...prev,
-        isLoading: false,
-        event: null,
-      }))
-    },
-  }
-
-  // Initialize with existing event if available
-  useEffect(() => {
-    if (existingTopic?.selectedEvent?.event && !localState.event) {
-      setLocalState((prev) => ({
-        ...prev,
-        event: existingTopic.selectedEvent.event,
-      }))
-    }
-  }, [existingTopic?.selectedEvent?.event])
+    [onManualEventChange],
+  )
 
   return (
     <div className="flex flex-row gap-6">
       {/* Form Fields */}
       <div
-        className={classnames(
+        className={cn(
           'w-[40%] space-y-4',
-          localState.isLoading && 'opacity-50 pointer-events-none transition-opacity duration-200',
+          isLoading && 'opacity-50 pointer-events-none transition-opacity duration-200',
         )}
       >
         <h3 className="text-md font-medium step-description">
@@ -198,14 +127,14 @@ export function TopicSelectWithEventPreview({
         <div className="flex flex-col gap-4 pt-8">
           <TopicOffsetSelect
             index={index}
-            topicValue={localState.topicName}
-            isLoadingEvent={localState.isLoading}
-            offsetValue={localState.offset}
+            topicValue={topicName}
+            isLoadingEvent={isLoading}
+            offsetValue={offset}
             onTopicChange={handleTopicChange}
             onOffsetChange={handleOffsetChange}
             onBlur={() => {}}
             onOpenChange={() => {}}
-            topicError={''}
+            topicError={error || ''}
             offsetError={''}
             topicPlaceholder="Select a topic"
             offsetPlaceholder="Select initial offset"
@@ -214,8 +143,9 @@ export function TopicSelectWithEventPreview({
               label: value,
               value: value as 'earliest' | 'latest',
             }))}
+            readOnly={readOnly}
           />
-          {localState.isLoading && (
+          {isLoading && (
             <div className="flex items-center gap-2 text-sm text-content">
               <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
               <span>Fetching the event schema...</span>
@@ -229,17 +159,38 @@ export function TopicSelectWithEventPreview({
 
       {/* Event Preview */}
       <div className="w-[60%] min-h-[450px] h-full">
-        <EventFetcher
-          topicName={localState.topicName}
-          initialOffset={localState.offset}
+        <EventManager
+          topicName={topicName}
+          initialOffset={offset}
           topicIndex={index}
-          initialEvent={localState.event?.event || existingTopic?.selectedEvent?.event}
+          initialEvent={event}
           isEditingEnabled={isEditingEnabled}
-          onEventLoading={eventHandlers.onEventLoading}
-          onEventLoaded={eventHandlers.onEventLoaded}
-          onEventError={eventHandlers.onEventError}
-          onEmptyTopic={eventHandlers.onEmptyTopic}
-          onManualEventChange={onManualEventChange}
+          onEventLoading={() => {
+            // Loading is handled by the hook
+          }}
+          onEventLoaded={(eventData) => {
+            // Event loading is handled by the hook
+          }}
+          onEventError={(error) => {
+            // Error handling is done by the hook
+          }}
+          onEmptyTopic={() => {
+            // Empty topic handling is done by the hook
+          }}
+          onManualEventChange={handleManualEventChange}
+          readOnly={readOnly}
+          // NEW: Pass loading state from hook
+          isLoading={isLoading}
+          currentOffset={hookCurrentOffset}
+          earliestOffset={hookEarliestOffset}
+          latestOffset={hookLatestOffset}
+          isAtLatest={hookIsAtLatest}
+          isAtEarliest={hookIsAtEarliest}
+          fetchNewestEvent={hookFetchNewestEvent}
+          fetchOldestEvent={hookFetchOldestEvent}
+          fetchNextEvent={hookFetchNextEvent}
+          fetchPreviousEvent={hookFetchPreviousEvent}
+          refreshEvent={hookRefreshEvent}
         />
       </div>
     </div>

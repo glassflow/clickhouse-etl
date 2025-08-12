@@ -1,0 +1,135 @@
+/* ================== Title ================== */
+.title-1 {
+  font-size: var(--font-size-title-1);
+  line-height: var(--line-height-title-1);
+  font-family: var(--font-family-title-1);
+  font-weight: var(--font-weight-title-1);
+  letter-spacing: var(--letter-spacing-title-1);
+  color: var(--color-foreground-accent);
+}
+
+.title-2 {
+  font-size: var(--font-size-title-2);
+  line-height: var(--line-height-title-2);
+  font-family: var(--font-family-title-2);
+  font-weight: var(--font-weight-title-2);
+  letter-spacing: var(--letter-spacing-title-2);
+}
+
+.title-3 {
+  font-size: var(--font-size-title-3);
+  line-height: var(--line-height-title-3);
+  font-family: var(--font-family-title-3);
+  font-weight: var(--font-weight-title-3);
+  letter-spacing: var(--letter-spacing-title-3);
+}
+
+.title-4 {
+  font-size: var(--font-size-title-4);
+  line-height: var(--line-height-title-4);
+  font-family: var(--font-family-title-4);
+  font-weight: var(--font-weight-title-4);
+  letter-spacing: var(--letter-spacing-title-4);
+}
+
+.title-5 {
+  font-size: var(--font-size-title-5);
+  line-height: var(--line-height-title-5);
+  font-family: var(--font-family-title-5);
+  font-weight: var(--font-weight-title-5);
+  letter-spacing: var(--letter-spacing-title-5);
+}
+
+.title-6 {
+  font-size: var(--font-size-title-6);
+  line-height: var(--line-height-title-6);
+  font-family: var(--font-family-title-6);
+  font-weight: var(--font-weight-title-6);
+  letter-spacing: var(--letter-spacing-title-6);
+}
+
+/* ================== Body ================== */
+.body-1 {
+  font-size: var(--font-size-body-1);
+  line-height: var(--line-height-body-1);
+  font-family: var(--font-family-body-1);
+  letter-spacing: var(--letter-spacing-body-1);
+}
+
+.body-2 {
+  font-size: var(--font-size-body-2);
+  line-height: var(--line-height-body-2);
+  font-family: var(--font-family-body-2);
+  letter-spacing: var(--letter-spacing-body-2);
+}
+
+.body-3 {
+  font-size: var(--font-size-body-3);
+  line-height: var(--line-height-body-3);
+  font-family: var(--font-family-body-3);
+  letter-spacing: var(--letter-spacing-body-3);
+}
+
+/* ================== Button ================== */
+.btn-text {
+  color: var(--color-black);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-body-3, 14px);
+  font-style: normal;
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-body-3, 20px);
+  letter-spacing: var(--letter-spacing-body-3, 0px);
+}
+
+.btn-text-disabled {
+  color: var(--color-foreground-neutral-faded);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-body-3, 14px);
+  font-style: normal;
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-body-3, 20px);
+  letter-spacing: var(--letter-spacing-body-3, 0px);
+}
+
+/* ================== Utilities ================== */
+.text-brand-gradient {
+  background: linear-gradient(283deg, #ffac5e 21.34%, #a5b9e4 102.9%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-normal {
+  color: var(--color-foreground-neutral);
+}
+
+.text-content {
+  color: var(--color-foreground-neutral-faded);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.text-normal-accent {
+  color: var(--color-foreground-accent);
+}
+
+.subtitle {
+  color: var(--color-foreground-neutral-faded);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-featured-2, 24px);
+  font-style: normal;
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-featured-2, 32px);
+  letter-spacing: var(--letter-spacing-featured-2, 0px);
+}
+
+.subtitle-2 {
+  color: var(--color-foreground-neutral-faded);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-title-6, 16px);
+  font-style: normal;
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-title-6, 24px);
+  letter-spacing: var(--letter-spacing-featured-2, 0px);
+}

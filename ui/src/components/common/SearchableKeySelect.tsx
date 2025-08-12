@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { PlusIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 export function SearchableKeySelect({

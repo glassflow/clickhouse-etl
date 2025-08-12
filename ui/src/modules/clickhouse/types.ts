@@ -1,7 +1,7 @@
 // Define the connection config type
 export type ConnectionConfig = {
   host: string
-  port: string
+  httpPort: string
   username: string
   password: string
   database?: string
@@ -22,7 +22,7 @@ export type TableAccessTestFn = (connectionConfig: ConnectionConfig) => Promise<
 
 export interface TableColumn {
   name: string
-  type: string
+  type?: string
   jsonType?: string
   isNullable?: boolean
   isKey?: boolean

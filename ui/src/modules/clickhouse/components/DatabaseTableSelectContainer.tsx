@@ -13,6 +13,9 @@ interface DatabaseTableSelectContainerProps {
   selectedTable: string
   setSelectedTable: (table: string) => void
   testTableAccess: TableAccessTestFn
+  onRefreshDatabases?: () => Promise<void>
+  onRefreshTables?: () => Promise<void>
+  readOnly?: boolean
 }
 
 export function DatabaseTableSelectContainer({
@@ -26,11 +29,14 @@ export function DatabaseTableSelectContainer({
   selectedTable,
   setSelectedTable,
   testTableAccess,
+  onRefreshDatabases,
+  onRefreshTables,
+  readOnly,
 }: DatabaseTableSelectContainerProps) {
   return (
-    <div className="flex justify-between items-center gap-8 mb-8">
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-8 mb-8">
       {/* Database Selection */}
-      <div className="w-1/2">
+      <div className="w-full lg:w-1/2">
         <DatabaseSelect
           availableDatabases={availableDatabases}
           selectedDatabase={selectedDatabase}
@@ -38,12 +44,14 @@ export function DatabaseTableSelectContainer({
           testDatabaseAccess={testDatabaseAccess as DatabaseAccessTestFn}
           isLoading={isLoading}
           getConnectionConfig={getConnectionConfig}
+          onRefresh={onRefreshDatabases}
+          readOnly={readOnly}
         />
       </div>
 
       {/* Table Selection */}
       {selectedDatabase && (
-        <div className="w-1/2">
+        <div className="w-full lg:w-1/2">
           <TableSelect
             selectedDatabase={selectedDatabase}
             availableTables={availableTables}
@@ -52,6 +60,8 @@ export function DatabaseTableSelectContainer({
             testTableAccess={testTableAccess as TableAccessTestFn}
             isLoading={isLoading}
             getConnectionConfig={getConnectionConfig}
+            onRefresh={onRefreshTables}
+            readOnly={readOnly}
           />
         </div>
       )}

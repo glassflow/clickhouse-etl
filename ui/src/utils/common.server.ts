@@ -3,7 +3,7 @@ import { createMechanism } from '@jm18457/kafkajs-msk-iam-authentication-mechani
 
 interface ClickhouseConnectionConfig {
   host: string
-  port: string
+  httpPort: string
   username: string
   password: string
   useSSL: boolean
@@ -37,9 +37,9 @@ export const generateHost = (connectionConfig: ClickhouseConnectionConfig) => {
   const cleanHost = connectionConfig.host.replace(/^https?:\/\//, '')
 
   if (connectionConfig.useSSL) {
-    return `https://${cleanHost}:${connectionConfig.port}`
+    return `https://${cleanHost}:${connectionConfig.httpPort}`
   } else {
-    return `http://${cleanHost}:${connectionConfig.port}`
+    return `http://${cleanHost}:${connectionConfig.httpPort}`
   }
 }
 

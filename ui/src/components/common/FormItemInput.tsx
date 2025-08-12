@@ -1,6 +1,6 @@
 import { FormItem, FormLabel, FormControl, FormDescription, FormMessage } from '@/src/components/ui/form'
 import { Input } from '@/src/components/ui/input'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { useState } from 'react'
 
 export function FormItemInput({

@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { ConnectionConfig, TableAccessTestFn } from '../types'
+import { CacheRefreshButton } from './CacheRefreshButton'
 
 interface TableSelectProps {
   selectedDatabase: string
@@ -14,10 +15,12 @@ interface TableSelectProps {
   getConnectionConfig: () => Omit<ConnectionConfig, 'connectionType'>
   onOpenChange?: (isOpen: boolean) => void
   open?: boolean
+  onRefresh?: () => Promise<void>
+  readOnly?: boolean
 }
 
 export function TableSelect({
-  // selectedDatabase,
+  selectedDatabase,
   availableTables,
   selectedTable,
   setSelectedTable,
@@ -26,43 +29,67 @@ export function TableSelect({
   // getConnectionConfig,
   onOpenChange,
   open,
+  onRefresh,
+  readOnly,
 }: TableSelectProps) {
   return (
     <div className="space-y-2">
-      <Label
-        htmlFor="table"
-        className="text-content transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
-      >
-        Table
-      </Label>
-      {availableTables.length > 0 ? (
-        <Select value={selectedTable} onValueChange={setSelectedTable} open={open} onOpenChange={onOpenChange}>
-          <SelectTrigger
-            id="table"
-            className="w-full text-content select-content-custom transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
-          >
-            <SelectValue placeholder="Select table" />
-          </SelectTrigger>
-          <SelectContent className="text-content bg-background-neutral-faded select-content-custom">
-            {availableTables.map((table) => (
-              <SelectItem key={table} value={table} className="text-content select-item-custom">
-                {table}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <div className="flex gap-4 items-center transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-          <Input
-            id="table"
-            placeholder="Enter table name"
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="table"
+          className="text-content transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+        >
+          Table
+        </Label>
+      </div>
+      <div className="flex items-center justify-between">
+        {availableTables.length > 0 ? (
+          <Select
             value={selectedTable}
-            onChange={(e) => setSelectedTable(e.target.value)}
-            className="flex-1"
+            onValueChange={setSelectedTable}
+            open={open}
+            onOpenChange={onOpenChange}
+            disabled={readOnly}
+          >
+            <SelectTrigger
+              id="table"
+              className="w-full text-content select-content-custom transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+            >
+              <SelectValue placeholder="Select table" />
+            </SelectTrigger>
+            <SelectContent className="text-content bg-background-neutral-faded select-content-custom">
+              {availableTables.map((table) => (
+                <SelectItem key={table} value={table} className="text-content select-item-custom">
+                  {table}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="flex gap-4 items-center transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+            <Input
+              id="table"
+              placeholder="Enter table name"
+              value={selectedTable}
+              onChange={(e) => setSelectedTable(e.target.value)}
+              className="flex-1"
+              disabled={readOnly}
+            />
+            {/* {renderTestAccessButton()} */}
+          </div>
+        )}
+        {onRefresh && (
+          <CacheRefreshButton
+            disabled={readOnly}
+            type="tables"
+            database={selectedDatabase}
+            onRefresh={onRefresh}
+            size="sm"
+            variant="ghost"
+            className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
           />
-          {/* {renderTestAccessButton()} */}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

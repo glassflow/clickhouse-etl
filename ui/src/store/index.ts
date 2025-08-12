@@ -8,31 +8,26 @@ import {
 } from '@/src/scheme'
 import mockData from './mocks'
 import { createKafkaSlice, KafkaSlice } from './kafka.store'
-import { createClickhouseSlice, ClickhouseSlice } from './clickhouse.store'
+import { createClickhouseConnectionSlice, ClickhouseConnectionSlice } from './clickhouse-connection.store'
+import { createClickhouseDestinationSlice, ClickhouseDestinationSlice } from './clickhouse-destination.store'
 import { createStepsSlice, StepsSlice } from './steps.store'
 import { createTopicsSlice, TopicsSlice } from './topics.store'
+import { createDeduplicationSlice, DeduplicationSlice } from './deduplication.store'
 import { createJoinSlice, JoinSlice } from './join.store'
+import { createCoreSlice, CoreSlice, getTopicCountForOperation } from './core'
 import Cookies from 'js-cookie'
 
-interface Store extends KafkaSlice, ClickhouseSlice, StepsSlice, TopicsSlice, JoinSlice {
-  pipelineId: string
-  operationsSelected: OperationsSelectedType
-  deduplicationConfig: DeduplicationConfigType
-  outboundEventPreview: OutboundEventPreviewType
-  analyticsConsent: boolean
-  consentAnswered: boolean
-  isDirty: boolean
-  apiConfig: any
-  setApiConfig: (config: any) => void
-  setOperationsSelected: (operations: OperationsSelectedType) => void
-  setDeduplicationConfig: (config: DeduplicationConfigType) => void
-  setOutboundEventPreview: (preview: OutboundEventPreviewType) => void
-  setAnalyticsConsent: (consent: boolean) => void
-  setConsentAnswered: (consent: boolean) => void
-  markAsDirty: () => void
-  markAsClean: () => void
-  resetPipelineState: (operation: string, force?: boolean) => void
-  setPipelineId: (id: string) => void
+interface Store
+  extends KafkaSlice,
+    ClickhouseConnectionSlice,
+    ClickhouseDestinationSlice,
+    StepsSlice,
+    TopicsSlice,
+    DeduplicationSlice,
+    JoinSlice,
+    CoreSlice {
+  // Global reset function that can reset all slices
+  resetAllPipelineState: (operation: string, force?: boolean) => void
 }
 
 // Wrap your store with devtools middleware
@@ -40,51 +35,41 @@ const useActualStore = create<Store>()(
   devtools(
     (set, get, store) => ({
       ...createKafkaSlice(set, get, store),
-      ...createClickhouseSlice(set, get, store),
+      ...createClickhouseConnectionSlice(set, get, store),
+      ...createClickhouseDestinationSlice(set, get, store),
       ...createStepsSlice(set, get, store),
       ...createTopicsSlice(set, get, store),
+      ...createDeduplicationSlice(set, get, store),
       ...createJoinSlice(set, get, store),
-      pipelineId: '',
-      setPipelineId: (id: string) => set({ pipelineId: id }, false, 'setPipelineId'),
-      operationsSelected: {
-        operation: '', // we can select only one operation - deduplication, joining, deduplication & joining
-      },
-      setOperationsSelected: (operations: OperationsSelectedType) =>
-        set({ operationsSelected: operations }, false, 'setOperationsSelected'),
-      analyticsConsent: false,
-      consentAnswered: false,
-      setConsentAnswered: (consent: boolean) => set({ consentAnswered: consent }, false, 'setConsentAnswered'),
-      setAnalyticsConsent: (consent: boolean) => set({ analyticsConsent: consent }, false, 'setAnalyticsConsent'),
-      deduplicationConfig: {},
-      setDeduplicationConfig: (config: DeduplicationConfigType) =>
-        set({ deduplicationConfig: config }, false, 'setDeduplicationConfig'),
-      outboundEventPreview: {
-        events: [],
-      },
-      setOutboundEventPreview: (preview: OutboundEventPreviewType) =>
-        set({ outboundEventPreview: preview }, false, 'setOutboundEventPreview'),
-      isDirty: false,
-      markAsDirty: () => {
-        set({ isDirty: true })
-        Cookies.set('isDirty', 'true', { expires: 1 })
-      },
-      markAsClean: () => {
-        set({ isDirty: false })
-        Cookies.set('isDirty', 'false', { expires: 1 })
-      },
-      apiConfig: {},
-      setApiConfig: (config: any) => set({ apiConfig: config }, false, 'setApiConfig'),
-      resetPipelineState: (operation: string, force = false) => {
-        const state = get()
+      ...createCoreSlice(set, get, store),
 
-        if (force || (state.isDirty && operation !== state.operationsSelected.operation)) {
+      // Global reset function that resets all slices
+      resetAllPipelineState: (operation: string, force = false) => {
+        const state = get()
+        const currentConfig = state.coreStore
+        const topicCount = getTopicCountForOperation(operation)
+
+        if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
           set((state) => ({
+            coreStore: {
+              ...state.coreStore,
+              operationsSelected: {
+                operation: operation,
+              },
+              outboundEventPreview: {
+                events: [],
+              },
+              isDirty: false,
+            },
             topicsStore: {
               ...state.topicsStore,
               topics: {},
-              topicCount: 0,
-              eventCache: {},
+              topicCount: topicCount,
               availableTopics: state.topicsStore.availableTopics,
+            },
+            deduplicationStore: {
+              ...state.deduplicationStore,
+              deduplicationConfigs: {},
             },
             joinStore: {
               ...state.joinStore,
@@ -92,7 +77,6 @@ const useActualStore = create<Store>()(
               type: 'temporal',
               streams: [],
             },
-            deduplicationConfig: {},
             clickhouseDestination: {
               scheme: '',
               database: '',
@@ -102,20 +86,20 @@ const useActualStore = create<Store>()(
             },
             activeStep: 'kafka-connection',
             completedSteps: ['kafka-connection'],
-            operationsSelected: {
-              operation: operation,
-            },
-            outboundEventPreview: {
-              events: [],
-            },
-            isDirty: false,
           }))
         } else {
-          set({
-            operationsSelected: {
-              operation: operation,
+          set((state) => ({
+            coreStore: {
+              ...state.coreStore,
+              operationsSelected: {
+                operation: operation,
+              },
             },
-          })
+            topicsStore: {
+              ...state.topicsStore,
+              topicCount: topicCount,
+            },
+          }))
         }
       },
     }),

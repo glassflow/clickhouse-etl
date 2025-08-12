@@ -3,22 +3,24 @@
 import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { JSON_DATA_TYPES, JSON_DATA_TYPES_DEDUPLICATION_JOIN } from '@/src/config/constants'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 
 export function JSONDateTypesSelector({
   value,
   onChange,
   className,
   isDeduplicationJoin,
+  readOnly,
 }: {
   value: string
   onChange: (value: string) => void
   className?: string
   isDeduplicationJoin?: boolean
+  readOnly?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value} onValueChange={onChange} disabled={readOnly}>
       <SelectTrigger
         className={cn(
           'w-full',

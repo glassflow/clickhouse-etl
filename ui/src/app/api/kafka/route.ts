@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { KafkaClient, KafkaConfig } from '@/src/lib/kafka'
+import { KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../utils'
+import { KafkaService } from '@/src/services/kafka-service'
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +12,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: kafkaConfig.error }, { status: 400 })
     }
 
-    const kafkaClient = new KafkaClient(kafkaConfig as KafkaConfig)
-    const isConnected = await kafkaClient.testConnection()
+    const kafkaService = new KafkaService()
+    const isConnected = await kafkaService.testConnection(kafkaConfig as KafkaConfig)
 
     if (isConnected) {
       return NextResponse.json({ success: true })

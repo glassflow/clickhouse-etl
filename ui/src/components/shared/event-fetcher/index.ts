@@ -1,2 +1,1 @@
-export * from './EventFetcher'
-export * from './EventFetchContext'
+export * from './EventManager'

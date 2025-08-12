@@ -14,8 +14,15 @@ import {
   KafkaConnectionFormType,
   NoAuthFormType,
 } from '@/src/scheme/kafka.scheme'
+import {
+  ValidationState,
+  ValidationMethods,
+  createInitialValidation,
+  createValidValidation,
+  createInvalidatedValidation,
+} from '@/src/types/validation'
 
-export interface KafkaStore {
+export interface KafkaStoreProps {
   // status
   isConnected: boolean
 
@@ -34,6 +41,9 @@ export interface KafkaStore {
   saslScram256: SaslScram256FormType
   saslScram512: SaslScram512FormType
 
+  // no auth connection type
+  noAuth: NoAuthFormType
+
   // aws iam connection type
   awsIam: AwsIamFormType
 
@@ -49,13 +59,17 @@ export interface KafkaStore {
   // ssl - truststore connection type
   truststore: TruststoreFormType
 
-  // no auth connection type
-  noAuth: NoAuthFormType
-
+  // validation state
+  validation: ValidationState
+}
+export interface KafkaStore extends KafkaStoreProps, ValidationMethods {
   // base actions
   setKafkaAuthMethod: (authMethod: string) => void
   setKafkaSecurityProtocol: (securityProtocol: string) => void
   setKafkaBootstrapServers: (bootstrapServers: string) => void
+
+  // no auth connection type
+  setKafkaNoAuth: (noAuth: NoAuthFormType) => void
 
   // sasl actions
   setKafkaSaslPlain: (saslPlain: SaslPlainFormType) => void
@@ -64,7 +78,6 @@ export interface KafkaStore {
   setKafkaSaslOauthbearer: (saslOauthbearer: SaslOauthbearerFormType) => void
   setKafkaSaslScram256: (saslScram256: SaslScram256FormType) => void
   setKafkaSaslScram512: (saslScram512: SaslScram512FormType) => void
-  setKafkaNoAuth: (noAuth: NoAuthFormType) => void
 
   // aws iam actions
   setKafkaAwsIam: (awsIam: AwsIamFormType) => void
@@ -90,10 +103,80 @@ export interface KafkaStore {
   setIsConnected: (isConnected: boolean) => void
 
   getIsKafkaConnectionDirty: () => boolean
+
+  // reset kafka store
+  resetKafkaStore: () => void
 }
 
 export interface KafkaSlice {
   kafkaStore: KafkaStore
+}
+
+export const initialKafkaStore: KafkaStoreProps = {
+  skipAuth: false,
+  authMethod: '',
+  securityProtocol: '',
+  bootstrapServers: '',
+  noAuth: {
+    certificate: '',
+  },
+  saslPlain: {
+    username: '',
+    password: '',
+    certificate: '',
+    consumerGroup: '',
+  },
+  isConnected: false,
+  validation: createInitialValidation(),
+  saslJaas: {
+    jaasConfig: '',
+  },
+  saslGssapi: {
+    kerberosPrincipal: '',
+    kerberosKeytab: '',
+  },
+  saslOauthbearer: {
+    oauthBearerToken: '',
+  },
+  saslScram256: {
+    username: '',
+    password: '',
+    consumerGroup: '',
+  },
+  saslScram512: {
+    username: '',
+    password: '',
+    consumerGroup: '',
+  },
+  awsIam: {
+    awsRegion: '',
+    awsIAMRoleArn: '',
+    awsAccessKey: '',
+    awsAccessKeySecret: '',
+  },
+  delegationTokens: {
+    delegationToken: '',
+  },
+  ldap: {
+    ldapServerUrl: '',
+    ldapServerPort: '',
+    ldapBindDn: '',
+    ldapBindPassword: '',
+    ldapUserSearchFilter: '',
+    ldapBaseDn: '',
+  },
+  mtls: {
+    clientCert: '',
+    clientKey: '',
+    password: '',
+  },
+  truststore: {
+    location: '',
+    password: '',
+    type: '',
+    algorithm: '',
+    certificates: '',
+  },
 }
 
 export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
@@ -105,6 +188,8 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     skipAuth: false,
     // status
     isConnected: false,
+    // validation state
+    validation: createInitialValidation(),
 
     // no auth connection type
     noAuth: {
@@ -186,8 +271,10 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     setKafkaBootstrapServers: (bootstrapServers: string) =>
       set((state) => ({ kafkaStore: { ...state.kafkaStore, bootstrapServers } })),
 
-    // sasl actions
+    // no auth actions
     setKafkaNoAuth: (noAuth: NoAuthFormType) => set((state) => ({ kafkaStore: { ...state.kafkaStore, noAuth } })),
+
+    // sasl actions
     setKafkaSaslPlain: (saslPlain: SaslPlainFormType) =>
       set((state) => ({ kafkaStore: { ...state.kafkaStore, saslPlain } })),
     setKafkaSaslJaas: (saslJaas: SaslJaasFormType) =>
@@ -220,7 +307,13 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
 
     // kafka connection actions
     setKafkaConnection: (connection: KafkaConnectionFormType) =>
-      set((state) => ({ kafkaStore: { ...state.kafkaStore, ...connection } })),
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          ...connection,
+          validation: createValidValidation(), // Auto-mark as valid when connection is set
+        },
+      })),
 
     // status actions
     setIsConnected: (isConnected: boolean) => set((state) => ({ kafkaStore: { ...state.kafkaStore, isConnected } })),
@@ -254,5 +347,41 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         bootstrapServers,
       }).some((value) => value !== '')
     },
+
+    // reset kafka store
+    resetKafkaStore: () => set((state) => ({ kafkaStore: { ...state.kafkaStore, ...initialKafkaStore } })),
+
+    // Validation methods
+    markAsValid: () =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createValidValidation(),
+        },
+      })),
+
+    markAsInvalidated: (invalidatedBy: string) =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createInvalidatedValidation(invalidatedBy),
+        },
+      })),
+
+    markAsNotConfigured: () =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createInitialValidation(),
+        },
+      })),
+
+    resetValidation: () =>
+      set((state) => ({
+        kafkaStore: {
+          ...state.kafkaStore,
+          validation: createInitialValidation(),
+        },
+      })),
   },
 })

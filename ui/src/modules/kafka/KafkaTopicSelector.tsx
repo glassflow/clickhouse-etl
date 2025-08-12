@@ -1,97 +1,87 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { Button } from '@/src/components/ui/button'
+import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '@/src/store'
-import { TIME_WINDOW_UNIT_OPTIONS, OperationKeys } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
-import { useFetchTopics } from '../../hooks/kafka-mng-hooks'
-import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
-import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { useFetchTopics } from '@/src/hooks/useFetchKafkaTopics'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
+import FormActions from '@/src/components/shared/FormActions'
+import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
+import { TopicSelectorProps } from '@/src/modules/kafka/types'
+import useGetIndex from '@/src/modules/kafka/useGetIndex'
+import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
 
-export type TopicSelectorProps = {
-  steps: any
-  onNext: (stepName: string) => void
-  validate: (stepName: string, data: any) => boolean
-  index: number
-}
-
-export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSelectorProps) {
-  const { topicsStore, kafkaStore, joinStore, operationsSelected } = useStore()
-  const {
-    topics: topicsFromKafka,
-    isLoading: isLoadingTopics,
-    error,
-    fetchTopics,
-  } = useFetchTopics({ kafka: kafkaStore })
-  const analytics = useJourneyAnalytics()
+export function KafkaTopicSelector({
+  steps,
+  onCompleteStep,
+  validate,
+  currentStep,
+  readOnly,
+  standalone,
+  toggleEditMode,
+  enableDeduplication = false,
+  onDeduplicationChange,
+  initialDeduplicationConfig,
+  pipelineActionState,
+  onCompleteStandaloneEditing,
+}: TopicSelectorProps) {
+  const { topicsStore, kafkaStore, coreStore } = useStore()
+  const validationEngine = useValidationEngine()
+  const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
+  const getIndex = useGetIndex(currentStep || '')
 
   const {
     availableTopics,
     setAvailableTopics,
     topics: topicsFromStore,
     topicCount: topicCountFromStore,
-    setTopicCount,
     updateTopic,
     invalidateTopicDependentState,
   } = topicsStore
 
+  const index = getIndex()
+
   // Get existing topic data if available
   const storedTopic = topicsFromStore[index]
-  const storedTopicName = storedTopic?.name
-  const storedEvent = storedTopic?.selectedEvent?.event
-  const initialOffset = storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
+
   const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
   const [isInitialRender, setIsInitialRender] = useState(true)
-  const [isManualEventValid, setIsManualEventValid] = useState(false)
-  const [manualEvent, setManualEvent] = useState('')
-  const [localTopicName, setLocalTopicName] = useState(storedTopic?.name || '')
-  const [localOffset, setLocalOffset] = useState<'earliest' | 'latest'>(
-    (storedTopic?.initialOffset as 'latest' | 'earliest') || INITIAL_OFFSET_OPTIONS.LATEST,
-  )
 
-  const handleManualEventChange = (event: string) => {
-    setManualEvent(event)
-    try {
-      JSON.parse(event)
-      setIsManualEventValid(true)
-    } catch (error) {
-      setIsManualEventValid(false)
-    }
-  }
-
-  // ================================ EFFECTS ================================
-
-  // Validate manual event - enable continue button only if the manual event is valid
-  useEffect(() => {
-    if (manualEvent) {
-      try {
-        JSON.parse(manualEvent)
-        setIsManualEventValid(true)
-      } catch (error) {
-        setIsManualEventValid(false)
-      }
-    } else {
-      setIsManualEventValid(false)
-    }
-  }, [manualEvent])
-
-  // Track page view when component loads - depending on the operation, we want to track the topic selection differently
-  useEffect(() => {
-    if (
-      operationsSelected?.operation === OperationKeys.JOINING ||
-      operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
-    ) {
-      if (index === 0) {
-        analytics.page.selectLeftTopic({})
-      } else {
-        analytics.page.selectRightTopic({})
-      }
-    } else {
-      analytics.page.selectTopic({})
-    }
-  }, [])
+  const {
+    topicName,
+    offset,
+    event,
+    isLoading,
+    isEmptyTopic,
+    error,
+    deduplicationConfig,
+    deduplicationConfigured,
+    canContinue,
+    manualEvent,
+    isManualEventValid,
+    selectTopic,
+    selectOffset,
+    configureDeduplication,
+    handleManualEventChange,
+    submit,
+    currentOffset,
+    earliestOffset,
+    latestOffset,
+    isAtLatest,
+    isAtEarliest,
+    fetchNewestEvent,
+    fetchOldestEvent,
+    fetchNextEvent,
+    fetchPreviousEvent,
+    refreshEvent,
+  } = useKafkaTopicSelectorState({
+    index,
+    enableDeduplication,
+    onDeduplicationChange,
+    initialDeduplicationConfig,
+    currentStep,
+  })
 
   // Fetch topics on component mount
   useEffect(() => {
@@ -113,166 +103,130 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
     }
   }, [topicsFromKafka, setAvailableTopics])
 
-  // Update local state when topic name changes
+  // State for tracking save success in edit mode
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false)
+
+  // Reset success state when user starts editing again
   useEffect(() => {
-    if (storedTopicName && !isInitialRender) {
-      // Skip if we're just setting the initial value or there's no actual change
-      if (storedTopicName === '' || storedTopicName === localTopicName) return
-
-      // Clear join store whenever topic name changes
-      joinStore.setEnabled(false)
-      joinStore.setType('')
-      joinStore.setStreams([])
-
-      setLocalTopicName(storedTopicName)
-      setManualEvent('')
-      setIsManualEventValid(false)
+    if (!readOnly && isSaveSuccess) {
+      setIsSaveSuccess(false)
     }
-  }, [storedTopicName, localTopicName, isInitialRender, joinStore])
+  }, [readOnly, isSaveSuccess])
 
-  // Update local state when offset changes
-  useEffect(() => {
-    if (initialOffset && !isInitialRender) {
-      // Skip if there's no actual change to avoid loops
-      if (initialOffset === localOffset) return
-
-      setLocalOffset(initialOffset)
-    }
-  }, [initialOffset, isInitialRender, localOffset])
-
-  // ================================ HANDLERS ================================
-
-  // Handle topic change
-  const handleTopicChange = (topicName: string, event: any) => {
-    // If the topic name changed, invalidate dependent state
-    if (topicName !== storedTopic?.name) {
-      invalidateTopicDependentState(index)
-
-      // Clear join store configuration
-      joinStore.setEnabled(false)
-      joinStore.setType('')
-      joinStore.setStreams([])
-    }
-
-    // Update topic in the store
-    updateTopic({
-      index: index,
-      name: topicName,
-      initialOffset: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-      events: [
-        {
-          event,
-          topicIndex: index,
-          position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-        },
-      ],
-      selectedEvent: {
-        event,
-        topicIndex: index,
-        position: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-      },
-      deduplication: storedTopic?.deduplication || {
-        enabled: false,
-        window: 0,
-        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-        key: '',
-        keyType: '',
-      },
-    })
-
-    setLocalTopicName(topicName)
-
-    analytics.topic.selected({
-      offset: storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST,
-    })
-  }
-
-  // Handle offset change
-  const handleOffsetChange = useCallback(
-    (offset: 'earliest' | 'latest', event: any) => {
-      // Update topic with new offset and event
-      updateTopic({
-        index: index,
-        name: storedTopic?.name || '',
-        initialOffset: offset,
-        events: [
-          {
-            event,
-            topicIndex: index,
-            position: offset,
-          },
-        ],
-        selectedEvent: {
-          event,
-          topicIndex: index,
-          position: offset,
-        },
-        deduplication: storedTopic?.deduplication || {
-          enabled: false,
-          window: 0,
-          unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-          key: '',
-          keyType: '',
-        },
-      })
-
-      setLocalOffset(offset)
+  // Handle topic change using the hook
+  const handleTopicChange = useCallback(
+    (topicName: string, event: any) => {
+      // Use the hook's topic selection
+      selectTopic(topicName)
     },
-    [index, storedTopic, updateTopic],
+    [selectTopic],
   )
 
-  // Handle form submission
+  // Handle offset change using the hook
+  const handleOffsetChange = useCallback(
+    (offset: 'earliest' | 'latest', event: any) => {
+      // Use the hook's offset selection
+      selectOffset(offset)
+    },
+    [selectOffset],
+  )
+
+  // Enhanced form submission handler using the hook
   const handleSubmit = useCallback(() => {
-    let event = null
+    // Use the hook's submit function to persist changes
+    submit()
 
-    try {
-      // if there's no event in the store, use the manual event
-      event = (manualEvent ? JSON.parse(manualEvent) : null) || storedEvent
-    } catch (e) {
-      console.error('Error parsing event:', e)
-      return
-    }
+    // Check if we're in edit mode (standalone with toggleEditMode)
+    const isEditMode = standalone && toggleEditMode
 
-    updateTopic({
-      index: index,
-      name: localTopicName,
-      initialOffset: localOffset,
-      events: [{ event: event, topicIndex: index, position: localOffset, isManualEvent: manualEvent !== '' }],
-      selectedEvent: {
-        event: event,
-        topicIndex: index,
-        position: localOffset,
-        isManualEvent: manualEvent !== '',
-      },
-      deduplication: storedTopic?.deduplication || {
-        enabled: false,
-        window: 0,
-        unit: TIME_WINDOW_UNIT_OPTIONS.HOURS.value as 'seconds' | 'minutes' | 'hours' | 'days',
-        key: '',
-        keyType: '',
-      },
-    })
+    if (isEditMode) {
+      // In edit mode, just save changes and trigger validation engine
+      // Don't call onCompleteStep as we want to stay in the same section
+      if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+        console.log('Kafka Topic Selector: In edit mode, step 1')
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
+      } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      } else {
+        // Fallback for any other topic selection step
+        validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
+      }
 
-    setTopicCount(topicCountFromStore + 1)
-
-    // Move to next step
-    if (index === 0) {
-      onNext(StepKeys.TOPIC_SELECTION_1)
+      onCompleteStandaloneEditing?.()
     } else {
-      onNext(StepKeys.TOPIC_SELECTION_2)
+      // In creation mode, just move to next step
+      if (currentStep === StepKeys.TOPIC_SELECTION_1) {
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
+        onCompleteStep(StepKeys.TOPIC_SELECTION_1)
+      } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
+        onCompleteStep(StepKeys.TOPIC_SELECTION_2)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+        onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
+        // validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+        onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      } else {
+        // Fallback for any other topic selection step
+        // validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
+        onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
+      }
     }
-  }, [
-    index,
-    onNext,
-    setTopicCount,
-    topicCountFromStore,
-    manualEvent,
-    localTopicName,
-    localOffset,
-    storedEvent,
-    storedTopic?.deduplication,
-    updateTopic,
-  ])
+  }, [submit, currentStep, validationEngine, onCompleteStep, standalone, toggleEditMode])
+
+  // Enhanced form submission handler with success state
+  const handleSubmitWithSuccess = useCallback(() => {
+    handleSubmit()
+
+    // Set success state for edit mode to trigger UI feedback and form closure
+    if (standalone && toggleEditMode) {
+      setIsSaveSuccess(true)
+      // Don't reset success state - let it stay true to keep the form closed
+      // The success state will be reset when the user starts editing again
+    }
+  }, [handleSubmit, standalone, toggleEditMode])
+
+  // Handle discard changes for this section
+  const handleDiscardChanges = useCallback(() => {
+    // Determine which sections to discard based on the current step
+    let sectionsToDiscard: string[] = ['topics']
+
+    if (
+      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+    ) {
+      // For deduplication configurator steps, discard both topics and deduplication
+      sectionsToDiscard = ['topics', 'deduplication']
+    }
+
+    // Discard all sections at once
+    coreStore.discardSections(sectionsToDiscard)
+  }, [coreStore, currentStep])
+
+  const renderDeduplicationSection = () => {
+    if (!enableDeduplication) return null
+
+    const eventData = event || (manualEvent && isManualEventValid ? JSON.parse(manualEvent) : null)
+
+    if (!eventData) return null
+
+    return (
+      <div className="mt-6">
+        <SelectDeduplicateKeys
+          index={index}
+          onChange={configureDeduplication}
+          disabled={!topicName}
+          eventData={eventData}
+          readOnly={readOnly}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 w-full">
@@ -285,21 +239,48 @@ export function KafkaTopicSelector({ steps, onNext, validate, index }: TopicSele
             onOffsetChange={handleOffsetChange}
             onManualEventChange={handleManualEventChange}
             availableTopics={availableTopics}
+            additionalContent={renderDeduplicationSection()}
             isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
+            readOnly={readOnly}
+            topicName={topicName}
+            offset={offset}
+            event={event}
+            isLoading={isLoading}
+            error={error}
+            currentOffset={currentOffset}
+            earliestOffset={earliestOffset}
+            latestOffset={latestOffset}
+            isAtLatest={isAtLatest}
+            isAtEarliest={isAtEarliest}
+            fetchNewestEvent={fetchNewestEvent}
+            fetchOldestEvent={fetchOldestEvent}
+            fetchNextEvent={fetchNextEvent}
+            fetchPreviousEvent={fetchPreviousEvent}
+            refreshEvent={refreshEvent}
           />
         </div>
 
-        {/* Continue Button */}
-        <div className="flex justify-between mt-6">
-          <Button
-            variant="gradient"
-            className="btn-text btn-primary"
-            onClick={handleSubmit}
-            disabled={!(storedEvent || (manualEvent && isManualEventValid))}
-          >
-            Continue
-          </Button>
-        </div>
+        <FormActions
+          standalone={standalone}
+          onSubmit={handleSubmitWithSuccess}
+          onDiscard={handleDiscardChanges}
+          isLoading={false}
+          isSuccess={isSaveSuccess}
+          disabled={!canContinue}
+          successText="Continue"
+          loadingText="Loading..."
+          regularText="Continue"
+          actionType="primary"
+          showLoadingIcon={false}
+          readOnly={readOnly}
+          toggleEditMode={toggleEditMode}
+          pipelineActionState={pipelineActionState}
+        />
+
+        {/* NEW: Optional debug indicator for deduplication status */}
+        {enableDeduplication && topicName && event && !deduplicationConfigured && (
+          <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
+        )}
       </div>
     </div>
   )

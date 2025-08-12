@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { TYPE_COMPATIBILITY_MAP } from '../helpers'
+import { TYPE_COMPATIBILITY_MAP } from '../utils'
 import { Button } from '@/src/components/ui/button'
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline'
 

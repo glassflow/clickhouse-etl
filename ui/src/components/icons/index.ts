@@ -1,0 +1,6 @@
+export { DeleteIcon } from './DeleteIcon'
+export { RenameIcon } from './RenameIcon'
+export { PauseIcon } from './PauseIcon'
+export { RestartIcon } from './RestartIcon'
+export { CreateIcon } from './CreateIcon'
+export { EditIcon } from './EditIcon'

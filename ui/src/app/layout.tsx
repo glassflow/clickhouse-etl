@@ -2,11 +2,14 @@ import type { Metadata } from 'next'
 import ThemeProvider from '@/src/components/shared/ThemeProvider'
 import { Inter, Archivo } from 'next/font/google'
 import './globals.css'
-import { HeaderStandalone } from '../components/shared/HeaderStandalone'
+import { Header } from '../components/shared/Header'
+import { HeaderWrapper } from '../components/shared/HeaderWrapper'
 import { Button } from '@/src/components/ui/button'
 import GlobalFooter from '@/src/components/shared/GlobalFooter'
 import { ConsentLayout } from '@/src/components/layout/ConsentLayout'
+import { HealthCheckLayout } from '@/src/components/layout/HealthCheckLayout'
 import Script from 'next/script'
+// import { EnvDebug } from '@/src/components/debug/EnvDebug'
 
 // Define the fonts
 const inter = Inter({
@@ -33,25 +36,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="shortcut icon" href="/favicon.svg" />
       </head>
-      <body className="bg-background text-foreground">
+      <body className="background text-foreground">
         <Script src="/env.js" strategy="beforeInteractive" />
         <ThemeProvider>
           <ConsentLayout>
-            <div className="grid grid-rows-[auto_1fr_auto] h-screen max-h-screen w-full overflow-auto">
-              <header className="w-full px-8 sm:px-20 pt-4 shrink-0">
-                <div className="max-w-[var(--main-container-width)] mx-auto w-full">
-                  <HeaderStandalone />
-                </div>
-              </header>
-              <main className="flex flex-col items-center w-full px-8 sm:px-20 py-8 mt-16 overflow-y-auto">
-                <div className="max-w-[1240px] w-full">{children}</div>
+            <HealthCheckLayout>
+              <HeaderWrapper>
+                <Header />
+              </HeaderWrapper>
+              <main className="flex flex-col items-center w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-8 overflow-x-hidden overflow-y-auto">
+                <div className="w-full max-w-[1240px] mx-auto px-4 sm:px-0">{children}</div>
               </main>
-              <footer className="w-full px-8 sm:px-20 py-6 shrink-0">
+              <footer className="w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-6 shrink-0">
                 <div className="max-w-[1240px] mx-auto w-full flex gap-6 flex-wrap items-center justify-center">
-                  <GlobalFooter />
+                  {/* <GlobalFooter /> */}
                 </div>
               </footer>
-            </div>
+            </HealthCheckLayout>
           </ConsentLayout>
         </ThemeProvider>
       </body>

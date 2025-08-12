@@ -19,6 +19,7 @@ export function TopicOffsetSelect({
   topicOptions,
   offsetOptions,
   index,
+  readOnly,
 }: {
   topicValue: string
   isLoadingEvent: boolean
@@ -34,6 +35,7 @@ export function TopicOffsetSelect({
   topicOptions: { label: string; value: string }[]
   offsetOptions: { label: string; value: 'earliest' | 'latest' }[]
   index: number
+  readOnly?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   const { topicsStore, joinStore } = useStore()
@@ -66,13 +68,6 @@ export function TopicOffsetSelect({
             position: offsetValue,
             event: undefined,
           },
-          deduplication: {
-            enabled: false,
-            window: 0,
-            unit: 'hours',
-            key: '',
-            keyType: '',
-          },
         })
       }
     },
@@ -98,17 +93,10 @@ export function TopicOffsetSelect({
             position: value,
             event: undefined,
           },
-          deduplication: {
-            enabled: false,
-            window: 0,
-            unit: 'hours',
-            key: '',
-            keyType: '',
-          },
         })
 
-        // Force a re-render of the EventFetcher by clearing the current event
-        // This will trigger the useEffect in EventFetcher
+        // Force a re-render of the EventManager by clearing the current event
+        // This will trigger the useEffect in EventManager
         if (topicValue) {
           updateTopic({
             index: index,
@@ -119,13 +107,6 @@ export function TopicOffsetSelect({
               topicIndex: index,
               position: value,
               event: undefined,
-            },
-            deduplication: {
-              enabled: false,
-              window: 0,
-              unit: 'hours',
-              key: '',
-              keyType: '',
             },
           })
         }
@@ -144,8 +125,9 @@ export function TopicOffsetSelect({
         error={topicError}
         placeholder={topicPlaceholder}
         options={topicOptions}
+        readOnly={readOnly}
       />
-      {topicValue && !isLoadingEvent && (
+      {topicValue && (
         <OffsetSelect
           value={offsetValue}
           onChange={handleOffsetChange}
@@ -154,6 +136,7 @@ export function TopicOffsetSelect({
           error={offsetError}
           placeholder={offsetPlaceholder}
           options={offsetOptions}
+          readOnly={readOnly || isLoadingEvent}
         />
       )}
     </div>

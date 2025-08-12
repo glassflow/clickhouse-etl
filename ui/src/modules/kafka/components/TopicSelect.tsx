@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { useState } from 'react'
 
 export function TopicSelect({
@@ -10,6 +10,8 @@ export function TopicSelect({
   error,
   placeholder,
   options,
+  readOnly,
+  standalone,
 }: {
   value: string
   onChange: (value: string) => void
@@ -18,11 +20,14 @@ export function TopicSelect({
   error: string
   placeholder: string
   options: { label: string; value: string }[]
+  readOnly?: boolean
+  standalone?: boolean
 }) {
   const [isFocused, setIsFocused] = useState(false)
   return (
     <div className="relative w-full">
       <Select
+        disabled={readOnly}
         value={value}
         defaultValue={value}
         onValueChange={(value) => {

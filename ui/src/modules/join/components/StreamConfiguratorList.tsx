@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { StreamConfigurator } from './StreamConfigurator'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { EventEditor } from '@/src/components/shared/EventEditor'
-import { parseForCodeEditor } from '@/src/utils'
+import { parseForCodeEditor } from '@/src/utils/common.client'
 
 interface StreamConfiguratorListProps {
   streams: {
@@ -28,6 +28,7 @@ interface StreamConfiguratorListProps {
   event2: any
   topic1: any
   topic2: any
+  readOnly?: boolean
 }
 
 export function StreamConfiguratorList({
@@ -39,6 +40,7 @@ export function StreamConfiguratorList({
   event2,
   topic1,
   topic2,
+  readOnly,
 }: StreamConfiguratorListProps) {
   const analytics = useJourneyAnalytics()
 
@@ -61,9 +63,9 @@ export function StreamConfiguratorList({
   return (
     <div className="flex flex-col gap-8">
       {/* First stream configuration */}
-      <div className="flex gap-8 w-full">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 w-full">
         {/* Stream Configuration */}
-        <div className="w-1/2">
+        <div className="w-full lg:w-1/2">
           <StreamConfigurator
             streamIndex={0}
             stream={streams[0]}
@@ -74,11 +76,12 @@ export function StreamConfiguratorList({
               dataType: errors['streams.0.dataType'],
               joinTimeWindowValue: errors['streams.0.joinTimeWindowValue'],
             }}
+            readOnly={readOnly}
           />
         </div>
 
         {/* Event Preview */}
-        <div className="w-1/2">
+        <div className="w-full lg:w-1/2">
           <div className="flex flex-col h-full">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-lg font-medium">Stream 1 Sample Event</h3>
@@ -93,6 +96,7 @@ export function StreamConfiguratorList({
                 isEmptyTopic={false}
                 onManualEventChange={() => {}}
                 isEditingEnabled={false}
+                readOnly={readOnly}
               />
             </div>
           </div>
@@ -100,9 +104,9 @@ export function StreamConfiguratorList({
       </div>
 
       {/* Second stream configuration */}
-      <div className="flex gap-8 w-full">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 w-full">
         {/* Stream Configuration */}
-        <div className="w-1/2">
+        <div className="w-full lg:w-1/2">
           <StreamConfigurator
             streamIndex={1}
             stream={streams[1]}
@@ -113,11 +117,12 @@ export function StreamConfiguratorList({
               dataType: errors['streams.1.dataType'],
               joinTimeWindowValue: errors['streams.1.joinTimeWindowValue'],
             }}
+            readOnly={readOnly}
           />
         </div>
 
         {/* Event Preview */}
-        <div className="w-1/2">
+        <div className="w-full lg:w-1/2">
           <div className="flex flex-col h-full">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-lg font-medium">Stream 2 Sample Event</h3>
@@ -132,6 +137,7 @@ export function StreamConfiguratorList({
                 isEmptyTopic={false}
                 onManualEventChange={() => {}}
                 isEditingEnabled={false}
+                readOnly={readOnly}
               />
             </div>
           </div>

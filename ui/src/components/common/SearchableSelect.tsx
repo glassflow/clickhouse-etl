@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, KeyboardEvent } from 'react'
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
-import { cn } from '@/src/utils'
+import { cn } from '@/src/utils/common.client'
 import { createPortal } from 'react-dom'
 
 export function SearchableSelect({
@@ -17,6 +17,7 @@ export function SearchableSelect({
   clearable = true,
   open: controlledOpen,
   onOpenChange,
+  readOnly,
 }: {
   availableOptions: string[]
   selectedOption?: string
@@ -27,6 +28,7 @@ export function SearchableSelect({
   clearable?: boolean
   open?: boolean
   onOpenChange?: (isOpen: boolean) => void
+  readOnly?: boolean
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -181,13 +183,13 @@ export function SearchableSelect({
             placeholder={placeholder}
             value={search}
             onChange={handleInputChange}
-            onClick={() => !disabled && setOpen(true)}
-            onFocus={() => !disabled && setOpen(true)}
+            onClick={() => !disabled && !readOnly && setOpen(true)}
+            onFocus={() => !disabled && !readOnly && setOpen(true)}
             className={cn(
               'w-full pr-10 input-regular input-border-regular text-content',
               disabled && 'opacity-60 cursor-not-allowed',
             )}
-            disabled={disabled}
+            disabled={disabled || readOnly}
             aria-expanded={open}
             aria-controls="searchable-select-dropdown"
             role="combobox"

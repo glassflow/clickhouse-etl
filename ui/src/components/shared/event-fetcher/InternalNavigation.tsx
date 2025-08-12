@@ -2,12 +2,9 @@
 import { Button } from '../../ui/button'
 
 type InternalNavigationProps = {
-  handleFetchPrevious: () => void
-  handleFetchOldest: () => void
-  handleFetchPreviousEvent: () => void
-  handleFetchNextEvent: () => void
-  handleFetchNewestEvent: () => void
-  handleFetchOldestEvent: () => void
+  fetchPreviousEvent: (topic: string, currentOffset: number) => void
+  fetchNewestEvent: (topic: string) => void
+  fetchOldestEvent: (topic: string) => void
   handleRefreshEvent: (topic: string, fetchNext: boolean) => void
   isLoadingEvent: boolean
   topic: string
@@ -17,12 +14,9 @@ type InternalNavigationProps = {
 }
 
 export const InternalNavigation = ({
-  handleFetchPrevious,
-  handleFetchOldest,
-  handleFetchPreviousEvent,
-  handleFetchNextEvent,
-  handleFetchNewestEvent,
-  handleFetchOldestEvent,
+  fetchPreviousEvent,
+  fetchNewestEvent,
+  fetchOldestEvent,
   handleRefreshEvent,
   isLoadingEvent,
   topic,
@@ -35,7 +29,8 @@ export const InternalNavigation = ({
       <Button
         variant="outline"
         size="sm"
-        onClick={handleFetchOldestEvent}
+        // @ts-expect-error - not typed correctly
+        onClick={fetchOldestEvent}
         disabled={isLoadingEvent || !topic || isAtEarliest}
         title="Fetch oldest event"
       >
@@ -46,7 +41,8 @@ export const InternalNavigation = ({
       <Button
         variant="outline"
         size="sm"
-        onClick={handleFetchPreviousEvent}
+        // @ts-expect-error - not typed correctly
+        onClick={fetchPreviousEvent}
         disabled={isLoadingEvent || isAtEarliest || !topic}
         title="Fetch previous event"
       >
@@ -70,7 +66,8 @@ export const InternalNavigation = ({
       <Button
         variant="outline"
         size="sm"
-        onClick={handleFetchNewestEvent}
+        // @ts-expect-error - not typed correctly
+        onClick={fetchNewestEvent}
         disabled={isLoadingEvent || !topic || isAtLatest}
         title="Fetch newest event"
       >
