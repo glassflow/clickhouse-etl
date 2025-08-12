@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { KafkaConnectionParams } from './types'
-import { extractEventFields } from '@/src/utils/common.client'
+import { extractEventFields, getRuntimeEnv } from '@/src/utils/common.client'
 
 const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
@@ -9,6 +9,7 @@ const encodeBase64 = (password: string) => {
 // Generate API config without updating the store
 export const generateApiConfig = ({
   pipelineId,
+  pipelineName,
   setPipelineId,
   clickhouseConnection,
   clickhouseDestination,
@@ -19,6 +20,7 @@ export const generateApiConfig = ({
   deduplicationStore,
 }: {
   pipelineId: string
+  pipelineName: string
   setPipelineId: (pipelineId: string) => void
   clickhouseConnection: any
   clickhouseDestination: any
@@ -137,14 +139,29 @@ export const generateApiConfig = ({
           })
       : []
 
+    // Normalize Kafka broker hosts when running inside Docker
+    const runtimeEnv = getRuntimeEnv()
+    const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
+
+    const normalizeBroker = (broker: string): string => {
+      if (!broker) return broker
+      const [host, port] = broker.split(':')
+      const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+      if (inDocker && isLocal) {
+        return `host.docker.internal${port ? `:${port}` : ''}`
+      }
+      return broker
+    }
+
     // Build the complete API config
     const config = {
       pipeline_id: finalPipelineId,
+      name: pipelineName,
       source: {
         type: 'kafka',
         provider: 'custom', // Or determine from connection details
         connection_params: {
-          brokers: kafkaStore?.bootstrapServers?.split(',') || [],
+          brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
           protocol: kafkaStore?.securityProtocol || 'PLAINTEXT',
           skip_auth: kafkaStore?.skipAuth || false,
         } as KafkaConnectionParams,
@@ -186,7 +203,10 @@ export const generateApiConfig = ({
         ...(clickhouseConnection?.connectionType === 'direct'
           ? {
               host: clickhouseConnection.directConnection?.host,
-              port: clickhouseConnection.directConnection?.nativePort?.toString() || '8443',
+              // Backend expects native port on sink.port
+              port: clickhouseConnection.directConnection?.nativePort?.toString() || '9000',
+              // Provide http_port so backend echoes it back for UI editing
+              http_port: clickhouseConnection.directConnection?.httpPort?.toString() || undefined,
               database: clickhouseDestination?.database,
               username: clickhouseConnection.directConnection?.username,
               password: encodeBase64(clickhouseConnection.directConnection?.password),

@@ -23,15 +23,19 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination(destination)
 
   // 2. Fetch databases
+  // Ensure we pass required fields and map nativePort/HTTP port correctly
   const dbRes = await fetch('/api/clickhouse/databases', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       host: sink.host,
-      port: sink.port,
+      // Backend stores sink.port as native port; for HTTP driver we pass it as number
+      httpPort: Number(sink.http_port),
+      nativePort: Number(sink.port),
       username: sink.username,
       password: sink.password,
-      secure: sink.secure,
+      useSSL: sink.secure,
+      skipCertificateVerification: sink.skip_certificate_verification,
     }),
   })
   const dbData = await dbRes.json()
@@ -44,10 +48,12 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       host: sink.host,
-      port: sink.port,
+      httpPort: Number(sink.http_port),
+      nativePort: Number(sink.port),
       username: sink.username,
       password: sink.password,
-      secure: sink.secure,
+      useSSL: sink.secure,
+      skipCertificateVerification: sink.skip_certificate_verification,
       database: sink.database,
     }),
   })
@@ -61,10 +67,12 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       host: sink.host,
-      port: sink.port,
+      httpPort: Number(sink.http_port),
+      nativePort: Number(sink.port),
       username: sink.username,
       password: sink.password,
-      secure: sink.secure,
+      useSSL: sink.secure,
+      skipCertificateVerification: sink.skip_certificate_verification,
       database: sink.database,
       table: sink.table,
     }),

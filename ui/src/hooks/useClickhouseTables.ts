@@ -11,7 +11,7 @@ export const useClickhouseTables = (database: string) => {
   const analytics = useJourneyAnalytics()
 
   const fetchTables = useCallback(async () => {
-    if (!clickhouseConnection.directConnection.host || !clickhouseConnection.directConnection.port || !database) {
+    if (!clickhouseConnection.directConnection.host || !clickhouseConnection.directConnection.httpPort || !database) {
       return
     }
 
@@ -21,7 +21,7 @@ export const useClickhouseTables = (database: string) => {
     try {
       const configToSend = {
         host: clickhouseConnection.directConnection.host,
-        port: clickhouseConnection.directConnection.port,
+        httpPort: clickhouseConnection.directConnection.httpPort,
         username: clickhouseConnection.directConnection.username,
         password: clickhouseConnection.directConnection.password,
         database,
@@ -45,7 +45,7 @@ export const useClickhouseTables = (database: string) => {
 
       if (data.success) {
         const tables = data.tables || []
-        const connectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}`
+        const connectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.httpPort}`
         updateTables(database, tables, connectionId)
         analytics.destination.tablesFetched({ database, count: tables.length })
       } else {

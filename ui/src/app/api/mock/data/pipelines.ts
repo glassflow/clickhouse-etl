@@ -83,7 +83,7 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      port: '12754',
+      httpPort: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
@@ -209,7 +209,7 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      port: '12754',
+      httpPort: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',
@@ -314,7 +314,7 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      port: '12754',
+      httpPort: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',
@@ -438,7 +438,7 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      port: '12754',
+      httpPort: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',
@@ -566,7 +566,7 @@ export const mockPipelines: Pipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      port: '12754',
+      httpPort: '12754',
       nativePort: '12753',
       database: 'vlad',
       username: 'avnadmin',

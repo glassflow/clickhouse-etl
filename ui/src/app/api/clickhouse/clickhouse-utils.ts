@@ -12,7 +12,7 @@ interface ClickHouseConnection {
 
 export interface ClickHouseConfig {
   host: string
-  port: number
+  httpPort: number
   nativePort?: number
   username: string
   password: string
@@ -27,7 +27,7 @@ export interface ClickHouseConfig {
 export async function createClickHouseConnection(config: ClickHouseConfig): Promise<ClickHouseConnection> {
   const {
     host,
-    port,
+    httpPort: httpPort,
     nativePort,
     username,
     password,
@@ -38,12 +38,19 @@ export async function createClickHouseConnection(config: ClickHouseConfig): Prom
 
   // Direct connection logic
   const urlObj = new URL(
-    generateHost({ host, port: port.toString(), username, password, useSSL, nativePort: nativePort?.toString() }),
+    generateHost({
+      host,
+      httpPort: httpPort.toString(),
+      username,
+      password,
+      useSSL,
+      nativePort: nativePort?.toString(),
+    }),
   )
   const cleanHost = urlObj.hostname
   const encodedUsername = encodeURIComponent(username)
   const encodedPassword = encodeURIComponent(password)
-  const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${port}`
+  const url = `${useSSL ? 'https' : 'http'}://${encodedUsername}:${encodedPassword}@${cleanHost}:${httpPort}`
 
   if (useSSL) {
     // Always use direct HTTP for SSL connections
@@ -54,7 +61,7 @@ export async function createClickHouseConnection(config: ClickHouseConfig): Prom
     })
 
     const directFetch = async (query: string): Promise<string> => {
-      const testUrl = `${useSSL ? 'https' : 'http'}://${cleanHost}:${port}/?query=${encodeURIComponent(query)}`
+      const testUrl = `${useSSL ? 'https' : 'http'}://${cleanHost}:${httpPort}/?query=${encodeURIComponent(query)}`
       const authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
 
       const response = await fetch(testUrl, {

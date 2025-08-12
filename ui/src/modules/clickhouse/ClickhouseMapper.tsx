@@ -73,7 +73,15 @@ export function ClickhouseMapper({
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
-  const { setApiConfig, setPipelineId, setOperationsSelected, pipelineId, operationsSelected } = coreStore
+  const {
+    setApiConfig,
+    setPipelineId,
+    setOperationsSelected,
+    pipelineId,
+    pipelineName,
+    setPipelineName,
+    operationsSelected,
+  } = coreStore
 
   // Determine operation mode and indices
   const isJoinOperation =
@@ -183,7 +191,7 @@ export function ClickhouseMapper({
   // Reset UI state when the connection changes
   useEffect(() => {
     // Create a connection identifier string to detect changes
-    const currentConnectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}:${clickhouseConnection.directConnection.username}`
+    const currentConnectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.httpPort}:${clickhouseConnection.directConnection.username}`
 
     // Check if connection has changed since we last loaded data
     if (lastConnectionRef.current && lastConnectionRef.current !== currentConnectionId) {
@@ -242,7 +250,7 @@ export function ClickhouseMapper({
     }
     const result = await testDatabaseAccess({
       host: connectionConfig.host,
-      port: connectionConfig.port,
+      httpPort: connectionConfig.httpPort,
       username: connectionConfig.username,
       password: connectionConfig.password,
       database: connectionConfig.database,
@@ -259,7 +267,7 @@ export function ClickhouseMapper({
     }
     const result = await testTableAccess({
       host: connectionConfig.host,
-      port: connectionConfig.port,
+      httpPort: connectionConfig.httpPort,
       username: connectionConfig.username,
       password: connectionConfig.password,
       database: connectionConfig.database,
@@ -836,6 +844,7 @@ export function ClickhouseMapper({
     console.log('completeConfigSave: generating API config...')
     const apiConfig = generateApiConfig({
       pipelineId,
+      pipelineName,
       setPipelineId,
       clickhouseConnection,
       clickhouseDestination: updatedDestination,

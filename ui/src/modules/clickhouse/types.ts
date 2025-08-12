@@ -1,7 +1,7 @@
 // Define the connection config type
 export type ConnectionConfig = {
   host: string
-  port: string
+  httpPort: string
   username: string
   password: string
   database?: string

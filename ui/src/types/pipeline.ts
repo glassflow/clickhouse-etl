@@ -110,7 +110,7 @@ export interface Pipeline {
   sink: {
     type: string
     host: string
-    port: string
+    httpPort: string
     nativePort?: string // Optional native port for ClickHouse
     database: string
     username?: string

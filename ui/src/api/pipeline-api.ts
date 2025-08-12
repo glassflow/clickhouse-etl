@@ -35,16 +35,18 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
     const response = await fetch(url)
     const data = await response.json()
 
-    if (data.success) {
-      // Convert backend state to UI status
-      const pipeline = data.pipeline
-      if (pipeline && pipeline.state) {
-        pipeline.status = getPipelineStatusFromState(pipeline.state)
+    // Accept both shapes: { success: true, pipeline } from our UI API route,
+    // or direct backend pipeline object without success wrapper.
+    const pipelinePayload = data?.success === true ? data.pipeline : data
+
+    if (pipelinePayload) {
+      if (pipelinePayload.state) {
+        pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
       }
-      return pipeline
-    } else {
-      throw { code: response.status, message: data.error || 'Failed to fetch pipeline' } as ApiError
+      return pipelinePayload
     }
+
+    throw { code: response.status, message: data?.error || 'Failed to fetch pipeline' } as ApiError
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to fetch pipeline' } as ApiError

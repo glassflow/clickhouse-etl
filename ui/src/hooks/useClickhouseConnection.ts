@@ -16,7 +16,7 @@ export const useClickhouseConnection = () => {
   const testConnection = useCallback(
     async (connectionConfig: {
       host: string
-      port: string
+      httpPort: string
       username: string
       password: string
       database?: string
@@ -35,7 +35,7 @@ export const useClickhouseConnection = () => {
         // Make sure we're only sending serializable data (replicating original)
         const configToSend = {
           host: connectionConfig.host, // Don't transform host - send raw value
-          port: connectionConfig.port,
+          httpPort: connectionConfig.httpPort,
           username: connectionConfig.username,
           password: connectionConfig.password,
           database: connectionConfig.database || '',
@@ -66,7 +66,7 @@ export const useClickhouseConnection = () => {
             connectionType: 'direct',
             directConnection: {
               host: connectionConfig.host,
-              port: connectionConfig.port,
+              httpPort: connectionConfig.httpPort,
               username: connectionConfig.username,
               password: connectionConfig.password,
               nativePort: connectionConfig.nativePort ?? '',
@@ -79,7 +79,7 @@ export const useClickhouseConnection = () => {
 
           // Update databases if provided
           if (data.databases && data.databases.length > 0) {
-            const connectionId = `${connectionConfig.host}:${connectionConfig.port}`
+            const connectionId = `${connectionConfig.host}:${connectionConfig.httpPort}`
             updateDatabases(data.databases, connectionId)
           }
 
@@ -124,7 +124,7 @@ export const useClickhouseConnection = () => {
   const testDatabaseAccess = useCallback(
     async (connectionConfig: {
       host: string
-      port: string
+      httpPort: string
       username: string
       password: string
       database: string
@@ -148,7 +148,7 @@ export const useClickhouseConnection = () => {
         // Make sure we're only sending serializable data (replicating original)
         const configToSend = {
           host: connectionConfig.host, // Don't transform host - send raw value
-          port: connectionConfig.port,
+          httpPort: connectionConfig.httpPort,
           username: connectionConfig.username,
           password: connectionConfig.password,
           database: connectionConfig.database,
@@ -179,7 +179,7 @@ export const useClickhouseConnection = () => {
             connectionType: 'direct',
             directConnection: {
               host: connectionConfig.host,
-              port: connectionConfig.port,
+              httpPort: connectionConfig.httpPort,
               username: connectionConfig.username,
               password: connectionConfig.password,
               nativePort: connectionConfig.nativePort ?? '',
@@ -231,7 +231,7 @@ export const useClickhouseConnection = () => {
   const testTableAccess = useCallback(
     async (connectionConfig: {
       host: string
-      port: string
+      httpPort: string
       username: string
       password: string
       database: string
@@ -256,7 +256,7 @@ export const useClickhouseConnection = () => {
         // Make sure we're only sending serializable data (replicating original)
         const configToSend = {
           host: connectionConfig.host, // Don't transform host - send raw value
-          port: connectionConfig.port,
+          httpPort: connectionConfig.httpPort,
           username: connectionConfig.username,
           password: connectionConfig.password,
           database: connectionConfig.database,
@@ -288,7 +288,7 @@ export const useClickhouseConnection = () => {
             connectionType: 'direct',
             directConnection: {
               host: connectionConfig.host,
-              port: connectionConfig.port,
+              httpPort: connectionConfig.httpPort,
               username: connectionConfig.username,
               password: connectionConfig.password,
               nativePort: connectionConfig.nativePort ?? '',
@@ -344,7 +344,7 @@ export const useClickhouseConnection = () => {
   const getDatabases = useCallback(
     async (connectionConfig: {
       host: string
-      port: string
+      httpPort: string
       username: string
       password: string
       database?: string
@@ -356,7 +356,7 @@ export const useClickhouseConnection = () => {
     }) => {
       if (
         !connectionConfig.host ||
-        !connectionConfig.port ||
+        !connectionConfig.httpPort ||
         !connectionConfig.username ||
         !connectionConfig.password
       ) {

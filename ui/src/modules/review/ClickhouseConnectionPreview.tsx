@@ -33,7 +33,7 @@ export function ClickhouseConnectionPreview({ clickhouseConnection }: { clickhou
         <div>{directConnection?.host || 'Not configured'}</div>
 
         <div className="text-sm text-muted-foreground">HTTP(S) Port:</div>
-        <div>{directConnection?.port || 'Not configured'}</div>
+        <div>{directConnection?.httpPort || 'Not configured'}</div>
 
         <div className="text-sm text-muted-foreground">Native Port:</div>
         <div>{directConnection?.nativePort || 'Not configured'}</div>

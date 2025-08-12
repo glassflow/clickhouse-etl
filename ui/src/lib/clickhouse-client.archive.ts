@@ -2,7 +2,7 @@ import { ClickHouseClient, createClient } from '@clickhouse/client'
 
 export interface ClickhouseConfig {
   host: string
-  port: string
+  httpPort: string
   username: string
   password: string
   database: string
@@ -25,7 +25,8 @@ export class ClickhouseService {
       return this.client
     }
 
-    const { host, port, username, password, database, useSSL, connectionType, proxyUrl, connectionString } = this.config
+    const { host, httpPort, username, password, database, useSSL, connectionType, proxyUrl, connectionString } =
+      this.config
 
     if (connectionType === 'proxy' && proxyUrl) {
       this.client = createClient({
@@ -37,7 +38,7 @@ export class ClickhouseService {
     } else {
       const protocol = useSSL ? 'https' : 'http'
       this.client = createClient({
-        url: `${protocol}://${host}:${port}`,
+        url: `${protocol}://${host}:${httpPort}`,
         username,
         password,
         database,

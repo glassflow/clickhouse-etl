@@ -22,7 +22,7 @@ type ClickhouseConnectionProps = {
   standalone?: boolean
   initialValues: ClickhouseConnectionFormType
   host: string
-  port: string
+  httpPort: string
   username: string
   password: string
   nativePort: string
@@ -41,7 +41,7 @@ export const ClickhouseConnectionFormManager = ({
   standalone,
   initialValues,
   host,
-  port,
+  httpPort,
   username,
   password,
   nativePort,
@@ -74,7 +74,7 @@ export const ClickhouseConnectionFormManager = ({
 
   // Watch for changes to form fields
   const currentHost = watch('directConnection.host')
-  const currentPort = watch('directConnection.port')
+  const currentPort = watch('directConnection.httpPort')
   const currentUsername = watch('directConnection.username')
   const currentPassword = watch('directConnection.password')
   const currentNativePort = watch('directConnection.nativePort')
@@ -98,7 +98,7 @@ export const ClickhouseConnectionFormManager = ({
     if (isReturningToForm && !formInitialized.current) {
       // Set form values from existing data
       if (host) setValue('directConnection.host', host)
-      if (port) setValue('directConnection.port', port)
+      if (httpPort) setValue('directConnection.httpPort', httpPort)
       if (username) setValue('directConnection.username', username)
       if (password) setValue('directConnection.password', password)
       if (nativePort) setValue('directConnection.nativePort', nativePort)
@@ -117,7 +117,7 @@ export const ClickhouseConnectionFormManager = ({
     }
   }, [
     host,
-    port,
+    httpPort,
     username,
     password,
     nativePort,
@@ -172,7 +172,7 @@ export const ClickhouseConnectionFormManager = ({
 
     // Force re-initialization by setting values manually
     if (host) formMethods.setValue('directConnection.host', host)
-    if (port) formMethods.setValue('directConnection.port', port)
+    if (httpPort) formMethods.setValue('directConnection.httpPort', httpPort)
     if (username) formMethods.setValue('directConnection.username', username)
     if (password) formMethods.setValue('directConnection.password', password)
     if (nativePort) formMethods.setValue('directConnection.nativePort', nativePort)

@@ -6,11 +6,12 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
     connectionType: 'direct',
     directConnection: {
       host: sink.host || '',
-      port: sink.port || '',
+      // Backend returns native port as sink.port; UI uses HTTP port for browsing
+      httpPort: sink.http_port || '',
       username: sink.username || '',
       password: sink.password || '',
-      nativePort: sink.native_port || sink.port || '',
-      useSSL: sink.secure || true,
+      nativePort: sink.port || '',
+      useSSL: sink.secure ?? true,
       skipCertificateVerification: sink.skip_certificate_verification || false,
     },
     connectionStatus: 'idle',
@@ -20,6 +21,7 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
 
 export function hydrateClickhouseConnection(pipelineConfig: any) {
   if (pipelineConfig?.sink) {
+    console.log('hydrateClickhouseConnection', pipelineConfig.sink)
     const clickhouseConnection = mapBackendClickhouseConfigToStore(pipelineConfig.sink)
     useStore.getState().clickhouseConnectionStore.setClickhouseConnection(clickhouseConnection)
   }

@@ -41,7 +41,7 @@ export type ClickhouseSink = {
   type: 'clickhouse'
   provider: string
   host: string
-  port: string
+  httpPort: string
   database: string
   username: string
   password: string

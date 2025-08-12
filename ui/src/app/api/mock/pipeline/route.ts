@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       sink: body.sink || {
         type: 'clickhouse',
         host: '',
-        port: '',
+        httpPort: '',
         database: '',
         username: '',
         password: '',

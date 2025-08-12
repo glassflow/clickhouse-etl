@@ -42,7 +42,7 @@ export function ClickhouseConnectionContainer({
     connectionType: 'direct',
     directConnection: {
       host: directConnection?.host || '',
-      port: directConnection?.port || '',
+      httpPort: directConnection?.httpPort || '',
       username: directConnection?.username || '',
       password: directConnection?.password || '',
       nativePort: directConnection?.nativePort || '',
@@ -85,7 +85,7 @@ export function ClickhouseConnectionContainer({
       ...clickhouseConnection,
       directConnection: {
         host: values.directConnection.host,
-        port: values.directConnection.port,
+        httpPort: values.directConnection.httpPort,
         username: values.directConnection.username,
         password: values.directConnection.password,
         nativePort: values.directConnection.nativePort,
@@ -121,7 +121,7 @@ export function ClickhouseConnectionContainer({
     // Test the connection with the form values FIRST
     const result = await testConnection({
       host: values.directConnection.host,
-      port: values.directConnection.port,
+      httpPort: values.directConnection.httpPort,
       username: values.directConnection.username,
       password: values.directConnection.password,
       nativePort: values.directConnection.nativePort,
@@ -164,7 +164,7 @@ export function ClickhouseConnectionContainer({
         standalone={standalone}
         initialValues={initialValues}
         host={directConnection?.host || ''}
-        port={directConnection?.port || ''}
+        httpPort={directConnection?.httpPort || ''}
         username={directConnection?.username || ''}
         password={directConnection?.password || ''}
         nativePort={directConnection?.nativePort || ''}

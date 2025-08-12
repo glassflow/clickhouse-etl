@@ -55,7 +55,7 @@ export const initialClickhouseConnectionStore: ClickhouseConnectionStoreProps = 
     connectionType: 'direct',
     directConnection: {
       host: '',
-      port: '',
+      httpPort: '',
       username: '',
       password: '',
       nativePort: '',
@@ -76,7 +76,7 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
       connectionType: 'direct',
       directConnection: {
         host: '',
-        port: '',
+        httpPort: '',
         username: '',
         password: '',
         nativePort: '',
@@ -100,7 +100,7 @@ export const createClickhouseConnectionSlice: StateCreator<ClickhouseConnectionS
         const prevConnection = state.clickhouseConnectionStore.clickhouseConnection
         const isDifferentConnection =
           prevConnection.directConnection.host !== connector.directConnection.host ||
-          prevConnection.directConnection.port !== connector.directConnection.port ||
+          prevConnection.directConnection.httpPort !== connector.directConnection.httpPort ||
           prevConnection.directConnection.username !== connector.directConnection.username ||
           prevConnection.directConnection.password !== connector.directConnection.password
 

@@ -13,22 +13,16 @@ export const isMockMode = () => {
 }
 
 export const getApiUrl = (endpoint: string) => {
-  if (isMockMode()) {
-    // In mock mode, hit Next.js mock API routes via same-origin
-    return `/api/mock/${endpoint}`
-  }
-
-  // When running in the browser, always call our own API routes.
-  // The UI server-side API route will talk to the backend (http://app:8080) inside Docker.
-  if (typeof window !== 'undefined') {
-    return `/api/${endpoint}`
-  }
-
-  // On the server (SSR or API route), use the real backend URL from env.
+  const isServer = typeof window === 'undefined'
   const runtimeEnv = getRuntimeEnv()
-  const apiUrl = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
-  const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
-  return `${cleanApiUrl}/${endpoint}`
+  const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
+  const baseOrigin = isServer ? (inDocker ? 'http://ui:8080' : 'http://localhost:3000') : ''
+
+  if (isMockMode()) {
+    return isServer ? `${baseOrigin}/api/mock/${endpoint}` : `/api/mock/${endpoint}`
+  }
+
+  return isServer ? `${baseOrigin}/api/${endpoint}` : `/api/${endpoint}`
 }
 
 // Mock data generators for more realistic responses

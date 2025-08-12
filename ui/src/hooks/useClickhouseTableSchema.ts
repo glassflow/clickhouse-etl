@@ -13,7 +13,7 @@ export const useClickhouseTableSchema = (database: string, table: string) => {
   const fetchTableSchema = useCallback(async () => {
     if (
       !clickhouseConnection.directConnection.host ||
-      !clickhouseConnection.directConnection.port ||
+      !clickhouseConnection.directConnection.httpPort ||
       !database ||
       !table
     ) {
@@ -26,7 +26,7 @@ export const useClickhouseTableSchema = (database: string, table: string) => {
     try {
       const configToSend = {
         host: clickhouseConnection.directConnection.host,
-        port: clickhouseConnection.directConnection.port,
+        httpPort: clickhouseConnection.directConnection.httpPort,
         username: clickhouseConnection.directConnection.username,
         password: clickhouseConnection.directConnection.password,
         database,
@@ -48,7 +48,7 @@ export const useClickhouseTableSchema = (database: string, table: string) => {
 
       if (data.success) {
         const schema = data.columns || []
-        const connectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.port}`
+        const connectionId = `${clickhouseConnection.directConnection.host}:${clickhouseConnection.directConnection.httpPort}`
         updateTableSchema(database, table, schema, connectionId)
         analytics.destination.columnsShowed({ database, table, count: schema.length })
       } else {

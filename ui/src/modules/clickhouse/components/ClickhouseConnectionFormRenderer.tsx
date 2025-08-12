@@ -48,7 +48,7 @@ const ClickhouseDirectConnectionForm = ({
         <div className="space-y-2">
           {renderFormField({
             field: {
-              ...directConnectionForm.fields.port,
+              ...directConnectionForm.fields.httpPort,
               readOnly: isLoading,
             },
             register,

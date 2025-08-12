@@ -8,8 +8,8 @@ export const ClickhouseConnectionFormConfig = {
         required: 'Host is required',
         type: 'text',
       },
-      port: {
-        name: 'directConnection.port',
+      httpPort: {
+        name: 'directConnection.httpPort',
         label: 'HTTP(S) Port',
         placeholder: 'Enter HTTP(S) port, e.g. 8443',
         required: 'HTTP(S) Port is required',

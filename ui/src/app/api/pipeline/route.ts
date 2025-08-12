@@ -8,6 +8,25 @@ const API_URL = runtimeConfig.apiUrl
 export async function POST(request: Request) {
   try {
     const config = await request.json()
+
+    // Normalize Kafka broker hosts for Docker backend: localhost/127.0.0.1 -> host.docker.internal
+    if (config?.source?.connection_params?.brokers && Array.isArray(config.source.connection_params.brokers)) {
+      config.source.connection_params.brokers = config.source.connection_params.brokers.map((b: string) => {
+        if (!b) return b
+        const [host, port] = b.split(':')
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+        return isLocal ? `host.docker.internal${port ? `:${port}` : ''}` : b
+      })
+    }
+
+    // Safety: Backend ClickHouse client uses the native protocol on sink.port.
+    // If a client mistakenly sends HTTP port and a separate native_port, prefer native_port for backend.
+    if (config?.sink?.native_port) {
+      config.sink.port = String(config.sink.native_port)
+      // Do not forward native_port as backend schema does not include it
+      delete config.sink.native_port
+    }
+
     const response = await axios.post(`${API_URL}/pipeline`, config)
 
     return NextResponse.json({

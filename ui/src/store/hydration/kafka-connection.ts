@@ -2,12 +2,36 @@ import { useStore } from '../index'
 
 // Map backend pipeline config to KafkaConnectionFormType (store shape)
 function mapBackendKafkaConfigToStore(connection_params: any): any {
+  const skipAuth = Boolean(connection_params.skip_auth)
+
+  // Map backend mechanism to UI auth method names
+  const mech = (connection_params.mechanism || '').toString().toUpperCase()
+  const authMethod = skipAuth
+    ? 'NO_AUTH'
+    : mech === 'PLAIN'
+      ? 'SASL/PLAIN'
+      : mech === 'SCRAM-SHA-256'
+        ? 'SASL/SCRAM-256'
+        : mech === 'SCRAM-SHA-512'
+          ? 'SASL/SCRAM-512'
+          : mech === 'OAUTHBEARER'
+            ? 'SASL/OAUTHBEARER'
+            : mech === 'GSSAPI'
+              ? 'SASL/GSSAPI'
+              : mech === 'JAAS'
+                ? 'SASL/JAAS'
+                : mech === 'LDAP'
+                  ? 'SASL/LDAP'
+                  : mech === 'MTLS'
+                    ? 'mTLS'
+                    : ''
+
   return {
     // base values
-    authMethod: connection_params.mechanism || '',
+    authMethod,
     securityProtocol: connection_params.protocol || '',
     bootstrapServers: (connection_params.brokers || []).join(', '),
-    skipAuth: connection_params.skip_auth || false,
+    skipAuth,
 
     // sasl connection types
     saslPlain: {

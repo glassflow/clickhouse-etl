@@ -91,7 +91,7 @@ const mockClickhouseConnector = {
     connectionType: 'direct',
     directConnection: {
       host: 'https://t6nh3rt60e.eu-central-1.aws.clickhouse.cloud',
-      port: '8443',
+      httpPort: '8443',
       username: 'default',
       password: 'SYEq_Q2KGWO.u',
       nativePort: '',

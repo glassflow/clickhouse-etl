@@ -7,7 +7,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const requestBody = await request.json()
     const config: ClickHouseConfig = {
       host: requestBody.host,
-      port: requestBody.port,
+      httpPort: requestBody.httpPort,
       nativePort: requestBody.nativePort,
       username: requestBody.username,
       password: requestBody.password,
