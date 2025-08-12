@@ -855,6 +855,8 @@ export function ClickhouseMapper({
       deduplicationStore,
     })
 
+    console.log('completeConfigSave: apiConfig =', apiConfig)
+
     // Update the store with the new destination config
     setClickhouseDestination(updatedDestination)
     setApiConfig(apiConfig)
@@ -868,6 +870,7 @@ export function ClickhouseMapper({
       onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
     } else {
       console.log('completeConfigSave: deploying pipeline in direct mode')
+      console.log('completeConfigSave: apiConfig - deploying pipeline =', apiConfig)
       // Direct mode: Deploy pipeline immediately and then navigate to pipelines page
       deployPipelineAndNavigate(apiConfig)
     }

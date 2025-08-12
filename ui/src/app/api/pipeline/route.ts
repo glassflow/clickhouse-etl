@@ -9,6 +9,8 @@ export async function POST(request: Request) {
   try {
     const config = await request.json()
 
+    console.log('Pipeline API route - received config:', JSON.stringify(config, null, 2))
+
     // Normalize Kafka broker hosts for Docker backend: localhost/127.0.0.1 -> host.docker.internal
     if (config?.source?.connection_params?.brokers && Array.isArray(config.source.connection_params.brokers)) {
       config.source.connection_params.brokers = config.source.connection_params.brokers.map((b: string) => {
@@ -27,7 +29,10 @@ export async function POST(request: Request) {
       delete config.sink.native_port
     }
 
+    console.log('Pipeline API route - sending to backend:', JSON.stringify(config, null, 2))
     const response = await axios.post(`${API_URL}/pipeline`, config)
+
+    console.log('Pipeline API route - backend response:', JSON.stringify(response.data, null, 2))
 
     return NextResponse.json({
       success: true,
@@ -64,7 +69,10 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
+    console.log('Pipeline API route - fetching pipelines from backend')
     const response = await axios.get(`${API_URL}/pipeline`)
+
+    console.log('Pipeline API route - backend returned pipelines:', JSON.stringify(response.data, null, 2))
 
     return NextResponse.json({
       success: true,

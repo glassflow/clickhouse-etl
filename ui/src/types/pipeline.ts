@@ -11,6 +11,12 @@ export type PipelineState = 'active' | 'paused' | 'stopped' | 'error' | ''
 
 // Helper function to convert backend state to UI status
 export const getPipelineStatusFromState = (state: string): PipelineStatus => {
+  // TEMPORARY WORKAROUND: Treat empty states as 'active' to allow editing
+  // TODO: Remove this when backend properly tracks pipeline state
+  if (!state || state.trim() === '') {
+    return 'active'
+  }
+
   switch (state.toLowerCase()) {
     case 'active':
       return 'active'
@@ -21,7 +27,7 @@ export const getPipelineStatusFromState = (state: string): PipelineStatus => {
     case 'error':
       return 'error'
     default:
-      return 'no_configuration' // Default to no_configuration for unknown states
+      return 'active' // Default to active for unknown states (allows editing)
   }
 }
 
@@ -50,6 +56,7 @@ export interface ListPipelineConfig {
   transformation_type: 'Join' | 'Join & Deduplication' | 'Deduplication' | 'Ingest Only'
   created_at: string
   state: string // Pipeline status from backend State field
+  status?: PipelineStatus // UI status field (converted from state)
 }
 
 // Type for DLQ state (matches backend dlqStateResponse)

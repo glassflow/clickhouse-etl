@@ -18,12 +18,44 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const sink = pipelineConfig?.sink
   if (!sink) return
 
+  console.log('hydrateClickhouseDestination - sink config:', JSON.stringify(sink, null, 2))
+
+  // Decode base64 password if it's encoded
+  let decodedPassword = sink.password || ''
+  try {
+    // Check if password is base64 encoded by trying to decode it
+    if (sink.password && typeof sink.password === 'string') {
+      const decoded = atob(sink.password)
+      // If decoding succeeds and doesn't contain control characters, use decoded version
+      if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
+        decodedPassword = decoded
+        console.log('hydrateClickhouseDestination - password decoded from base64:', decoded)
+      } else {
+        console.log(
+          'hydrateClickhouseDestination - password appears to be already decoded or contains control characters',
+        )
+      }
+    }
+  } catch (error) {
+    // If decoding fails, use original password (might not be base64 encoded)
+    decodedPassword = sink.password || ''
+    console.log('hydrateClickhouseDestination - password decoding failed, using original:', error)
+  }
+
   // 1. Set the basic destination config
   const destination = mapBackendClickhouseDestinationToStore(sink)
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination(destination)
 
   // 2. Fetch databases
   // Ensure we pass required fields and map nativePort/HTTP port correctly
+  console.log('hydrateClickhouseDestination - sending config for databases:', {
+    host: sink.host,
+    httpPort: sink.http_port,
+    nativePort: sink.port,
+    username: sink.username,
+    useSSL: sink.secure,
+  })
+
   const dbRes = await fetch('/api/clickhouse/databases', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -33,7 +65,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
       httpPort: Number(sink.http_port),
       nativePort: Number(sink.port),
       username: sink.username,
-      password: sink.password,
+      password: decodedPassword,
       useSSL: sink.secure,
       skipCertificateVerification: sink.skip_certificate_verification,
     }),
@@ -51,7 +83,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
       httpPort: Number(sink.http_port),
       nativePort: Number(sink.port),
       username: sink.username,
-      password: sink.password,
+      password: decodedPassword,
       useSSL: sink.secure,
       skipCertificateVerification: sink.skip_certificate_verification,
       database: sink.database,
@@ -70,7 +102,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
       httpPort: Number(sink.http_port),
       nativePort: Number(sink.port),
       username: sink.username,
-      password: sink.password,
+      password: decodedPassword,
       useSSL: sink.secure,
       skipCertificateVerification: sink.skip_certificate_verification,
       database: sink.database,

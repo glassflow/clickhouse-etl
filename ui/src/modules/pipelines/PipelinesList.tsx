@@ -348,8 +348,8 @@ export function PipelinesList({
         }
 
         return (
-          <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(pipeline.state)}>
-            {getBadgeLabel(pipeline.state as PipelineStatus)}
+          <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(pipeline.status || 'no_configuration')}>
+            {getBadgeLabel(pipeline.status || 'no_configuration')}
           </Badge>
         )
       },
@@ -360,7 +360,7 @@ export function PipelinesList({
       width: '1fr',
       render: (pipeline) => (
         <TableContextMenu
-          pipelineStatus={getPipelineStatusFromState(pipeline.state)}
+          pipelineStatus={pipeline.status || 'no_configuration'}
           isLoading={isPipelineLoading(pipeline.pipeline_id)}
           onPause={() => handlePause(pipeline)}
           onResume={() => handleResume(pipeline)}
@@ -383,7 +383,7 @@ export function PipelinesList({
     setPipelineLoading(pipeline.pipeline_id, 'resume')
 
     // Optimistically update status to show transitional state
-    const currentStatus = getPipelineStatusFromState(pipeline.state)
+    const currentStatus = pipeline.status || 'no_configuration'
     onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deploying') // Use deploying as transitional state for resume
 
     try {
@@ -526,7 +526,7 @@ export function PipelinesList({
 
           try {
             // Check if pipeline is active and needs to be paused first
-            if (editSelectedPipeline.state === 'active') {
+            if (editSelectedPipeline.status === 'active') {
               console.log('Pausing active pipeline before edit:', editSelectedPipeline.pipeline_id)
 
               // Optimistically update status to 'pausing'
@@ -547,7 +547,10 @@ export function PipelinesList({
           } catch (error) {
             console.error('Failed to prepare pipeline for edit:', error)
             // Revert optimistic update on error
-            onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, editSelectedPipeline.state)
+            onUpdatePipelineStatus?.(
+              editSelectedPipeline.pipeline_id,
+              editSelectedPipeline.status || 'no_configuration',
+            )
           } finally {
             clearPipelineLoading(editSelectedPipeline.pipeline_id)
           }
@@ -582,7 +585,10 @@ export function PipelinesList({
           } catch (error) {
             console.error('Failed to delete pipeline:', error)
             // Revert optimistic update on error
-            onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, deleteSelectedPipeline.state)
+            onUpdatePipelineStatus?.(
+              deleteSelectedPipeline.pipeline_id,
+              deleteSelectedPipeline.status || 'no_configuration',
+            )
           } finally {
             clearPipelineLoading(deleteSelectedPipeline.pipeline_id)
           }

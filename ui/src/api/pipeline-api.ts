@@ -19,7 +19,12 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
     const data = await response.json()
 
     if (data.success) {
-      return data.pipelines || []
+      const pipelines = data.pipelines || []
+      // Convert backend state to UI status for each pipeline
+      return pipelines.map((pipeline: ListPipelineConfig) => ({
+        ...pipeline,
+        status: getPipelineStatusFromState(pipeline.state),
+      }))
     } else {
       throw { code: response.status, message: data.error || 'Failed to fetch pipelines' } as ApiError
     }
@@ -40,8 +45,13 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
     const pipelinePayload = data?.success === true ? data.pipeline : data
 
     if (pipelinePayload) {
-      if (pipelinePayload.state) {
+      // Handle both cases: pipeline has state field or doesn't have state field
+      if (pipelinePayload.state !== undefined) {
         pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
+      } else {
+        // TEMPORARY WORKAROUND: If no state field, treat as active to allow editing
+        // TODO: Remove this when backend properly tracks pipeline state
+        pipelinePayload.status = 'active'
       }
       return pipelinePayload
     }

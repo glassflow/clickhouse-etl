@@ -19,7 +19,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       )
     }
 
+    console.log(`Pipeline API route - fetching pipeline ${id} from backend`)
     const response = await axios.get(`${API_URL}/pipeline/${id}`)
+
+    console.log(`Pipeline API route - backend returned pipeline ${id}:`, JSON.stringify(response.data, null, 2))
 
     return NextResponse.json({
       success: true,

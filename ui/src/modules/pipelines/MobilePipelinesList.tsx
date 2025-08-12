@@ -98,7 +98,7 @@ export function MobilePipelinesList({
               </div>
               <div className="ml-3 flex-shrink-0">
                 <TableContextMenu
-                  pipelineStatus={getPipelineStatusFromState(pipeline.state)}
+                  pipelineStatus={pipeline.status || 'no_configuration'}
                   isLoading={isLoading}
                   onPause={onPause ? () => onPause(pipeline) : undefined}
                   onResume={onResume ? () => onResume(pipeline) : undefined}
@@ -117,7 +117,9 @@ export function MobilePipelinesList({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <Badge variant={getStatusVariant(pipeline.state)}>{pipeline.state}</Badge>
+                <Badge variant={getStatusVariant(pipeline.status || 'no_configuration')}>
+                  {pipeline.status || 'No Configuration'}
+                </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Created</span>
