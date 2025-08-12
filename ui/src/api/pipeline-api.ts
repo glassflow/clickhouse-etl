@@ -9,7 +9,7 @@ import type {
   ApiResponse,
   ApiError,
 } from '@/src/types/pipeline'
-import { getPipelineStatusFromState } from '@/src/types/pipeline'
+import { getPipelineStatusFromState, detectTransformationType } from '@/src/types/pipeline'
 
 // Pipeline API functions
 export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
@@ -19,12 +19,27 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
     const data = await response.json()
 
     if (data.success) {
-      const pipelines = data.pipelines || []
+      const pipelines: ListPipelineConfig[] = data.pipelines || []
       // Convert backend state to UI status for each pipeline
-      return pipelines.map((pipeline: ListPipelineConfig) => ({
+      const withStatus = pipelines.map((pipeline: ListPipelineConfig) => ({
         ...pipeline,
         status: getPipelineStatusFromState(pipeline.state),
       }))
+
+      // Recompute transformation_type using full pipeline config to avoid backend misclassification
+      const corrected = await Promise.all(
+        withStatus.map(async (p) => {
+          try {
+            const full = await getPipeline(p.pipeline_id)
+            const transformation = detectTransformationType(full)
+            return { ...p, transformation_type: transformation }
+          } catch {
+            return p
+          }
+        }),
+      )
+
+      return corrected
     } else {
       throw { code: response.status, message: data.error || 'Failed to fetch pipelines' } as ApiError
     }

@@ -157,7 +157,12 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       openEditConfirmationModal(pipeline, stepInfo)
     } else {
       // For paused pipelines or when exiting edit mode, toggle immediately
-      setEditMode(!editMode)
+      const next = !editMode
+      setEditMode(next)
+      if (next) {
+        // Enter edit mode context to hydrate and set operation type
+        enterEditMode(pipeline)
+      }
     }
   }
 

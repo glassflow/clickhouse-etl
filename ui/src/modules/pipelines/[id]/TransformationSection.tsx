@@ -268,12 +268,28 @@ function TransformationSection({
 
   // Fallback to pipeline config if store is empty (e.g., when viewing existing pipeline)
   const topics = storeTopics.length > 0 ? storeTopics : pipeline?.source?.topics || []
-  const hasJoin = joinStore.enabled || pipeline?.join?.enabled || false
 
-  // Get deduplication configs from deduplication store
+  // Robust join detection: require enabled and at least one source/stream
+  const hasJoin = Boolean(
+    (joinStore.enabled && (joinStore.streams?.length || 0) > 0) ||
+      (pipeline?.join?.enabled && (pipeline?.join?.sources?.length || 0) > 0),
+  )
+
+  // Get deduplication configs from store and pipeline for strict checks
   const { deduplicationStore } = useStore()
-  const leftTopicDeduplication = deduplicationStore.getDeduplication(0)?.enabled ?? false
-  const rightTopicDeduplication = deduplicationStore.getDeduplication(1)?.enabled ?? false
+  const dedup0 = deduplicationStore.getDeduplication(0)
+  const dedup1 = deduplicationStore.getDeduplication(1)
+  const topic0 = topics[0]
+  const topic1 = topics[1]
+
+  const isDedup = (d: any, t: any) => {
+    const enabled = d?.enabled === true || t?.deduplication?.enabled === true
+    const key = (d?.key || t?.deduplication?.id_field || '').trim()
+    return enabled && key.length > 0
+  }
+
+  const leftTopicDeduplication = isDedup(dedup0, topic0)
+  const rightTopicDeduplication = isDedup(dedup1, topic1)
 
   // Convert join streams to pipeline config format
   const storeJoinSources =
@@ -299,8 +315,7 @@ function TransformationSection({
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
     const topic = topics[0]
-    const deduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(0)
-    const hasDedup = deduplicationConfig?.enabled || false
+    const hasDedup = isDedup(dedup0, topic)
 
     return (
       <DeduplicationCase

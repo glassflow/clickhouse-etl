@@ -247,14 +247,21 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         const topics = pipeline?.source?.topics || []
         const hasJoin = pipeline?.join?.enabled || false
 
+        const isTopicDedup = (t: any): boolean => {
+          const d = t?.deduplication
+          const enabled = d?.enabled === true
+          const hasKey = typeof d?.id_field === 'string' && d.id_field.trim() !== ''
+          return enabled && hasKey
+        }
+
         if (topics.length === 1 && !hasJoin) {
-          // Check if deduplication is enabled
-          const hasDedup = topics[0]?.deduplication?.enabled || false
+          // Check if deduplication is enabled WITH a valid key
+          const hasDedup = isTopicDedup(topics[0])
           return hasDedup ? 'deduplication' : 'ingest-only'
         } else if (topics.length > 1 && hasJoin) {
-          // Check if both topics have deduplication
-          const leftTopicDedup = topics[0]?.deduplication?.enabled || false
-          const rightTopicDedup = topics[1]?.deduplication?.enabled || false
+          // Check if BOTH topics have deduplication enabled WITH valid keys
+          const leftTopicDedup = isTopicDedup(topics[0])
+          const rightTopicDedup = isTopicDedup(topics[1])
 
           if (leftTopicDedup && rightTopicDedup) {
             return 'deduplication-joining'

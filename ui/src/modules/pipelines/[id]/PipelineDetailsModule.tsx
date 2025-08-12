@@ -116,6 +116,40 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }))
   }
 
+  // Compute transformation label using hydrated store first, fallback to raw pipeline
+  const getTransformationLabel = () => {
+    try {
+      const store = useStore.getState()
+      const joinEnabled = Boolean(
+        (store.joinStore?.enabled && (store.joinStore.streams?.length || 0) > 0) ||
+          (pipeline?.join?.enabled && (pipeline?.join?.sources?.length || 0) > 0),
+      )
+
+      const dedup0 = store.deduplicationStore?.getDeduplication?.(0)
+      const dedup1 = store.deduplicationStore?.getDeduplication?.(1)
+
+      const topic0 = pipeline?.source?.topics?.[0]
+      const topic1 = pipeline?.source?.topics?.[1]
+
+      const isDedup = (d: any, t: any) => {
+        const enabled = d?.enabled === true || t?.deduplication?.enabled === true
+        const key = (d?.key || t?.deduplication?.id_field || '').trim()
+        return enabled && key.length > 0
+      }
+
+      const leftDedup = isDedup(dedup0, topic0)
+      const rightDedup = isDedup(dedup1, topic1)
+
+      if (joinEnabled && leftDedup && rightDedup) return 'Join & Deduplication'
+      if (joinEnabled) return 'Join'
+
+      // Fallback to raw pipeline detection for single topic cases
+      return detectTransformationType(pipeline)
+    } catch {
+      return detectTransformationType(pipeline)
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-col gap-4">
@@ -147,7 +181,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           {/* Transformation */}
           <div className="text-center">
             <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
-              Transformation: {detectTransformationType(pipeline)}
+              Transformation: {getTransformationLabel()}
             </span>
           </div>
           <TransformationSection

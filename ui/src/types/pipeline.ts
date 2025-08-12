@@ -35,18 +35,26 @@ export const getPipelineStatusFromState = (state: string): PipelineStatus => {
 export const detectTransformationType = (
   pipeline: Pipeline,
 ): 'Join' | 'Join & Deduplication' | 'Deduplication' | 'Ingest Only' => {
-  const hasJoin = pipeline.join.enabled && pipeline.join.sources.length > 0
-  const hasDeduplication = pipeline.source.topics.some((topic) => topic.deduplication.enabled)
+  const hasJoin = Boolean(
+    pipeline?.join?.enabled === true && Array.isArray(pipeline?.join?.sources) && pipeline.join.sources.length > 0,
+  )
 
-  if (hasJoin && hasDeduplication) {
-    return 'Join & Deduplication'
-  } else if (hasJoin) {
-    return 'Join'
-  } else if (hasDeduplication) {
-    return 'Deduplication'
-  } else {
-    return 'Ingest Only'
+  const isTopicDedup = (t: any): boolean => {
+    const d = t?.deduplication
+    const enabled = d?.enabled === true || d?.enabled === 'true'
+    const key = typeof d?.id_field === 'string' ? d.id_field.trim() : ''
+    return enabled && key.length > 0
   }
+
+  const topics = Array.isArray(pipeline?.source?.topics) ? pipeline.source.topics : []
+  const dedupCount = topics.filter(isTopicDedup).length
+  const hasAnyDedup = dedupCount > 0
+  const hasBothDedup = topics.length > 1 && dedupCount >= 2
+
+  if (hasJoin && hasBothDedup) return 'Join & Deduplication'
+  if (hasJoin) return 'Join'
+  if (hasAnyDedup) return 'Deduplication'
+  return 'Ingest Only'
 }
 
 // Type for pipeline list endpoint (matches backend ListPipelineConfig)
