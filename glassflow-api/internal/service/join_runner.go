@@ -134,6 +134,8 @@ func (j *JoinRunner) Start(ctx context.Context, joinType string, publisherSubjec
 
 		j.operator = joinOp
 
+		close(j.c)
+
 		for err := range j.c {
 			j.log.Error("Error in join operator", slog.Any("error", err))
 		}

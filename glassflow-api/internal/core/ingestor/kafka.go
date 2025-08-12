@@ -224,6 +224,8 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 		}
 	}
 
+	k.log.Info("Kafka ingestor stopped", slog.String("topic", k.topic.Name))
+
 	return nil
 }
 

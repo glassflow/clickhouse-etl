@@ -348,22 +348,27 @@ func runWithGracefulShutdown(
 		serverErr <- runnerFunc()
 	}()
 
-	select {
-	case err := <-serverErr:
-		if err != nil {
-			return fmt.Errorf("%s runner failed: %w", serviceName, err)
-		}
-	case <-shutdown:
-		log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			shutdownFunc()
-		}()
-	}
+	log.Info("Running service", slog.String("service", serviceName))
 
-	wg.Wait()
-	return nil
+	for {
+		select {
+		case err := <-serverErr:
+			if err != nil {
+				return fmt.Errorf("%s runner failed: %w", serviceName, err)
+			}
+			// If err is nil, the service started successfully and is running
+			// Continue waiting for shutdown signal
+		case <-shutdown:
+			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				shutdownFunc()
+			}()
+			wg.Wait()
+			return nil
+		}
+	}
 }
 
 func configureLogger(cfg *config, logOut io.Writer) *slog.Logger {
