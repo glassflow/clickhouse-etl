@@ -119,6 +119,9 @@ export function ClickhouseMapper({
   const [maxDelayTime, setMaxDelayTime] = useState(clickhouseDestination?.maxDelayTime || 1)
   const [maxDelayTimeUnit, setMaxDelayTimeUnit] = useState(clickhouseDestination?.maxDelayTimeUnit || 'm')
 
+  // Add state to track hydration status
+  const [isHydrated, setIsHydrated] = useState(false)
+
   // Local state for UI-specific concerns only
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -364,21 +367,37 @@ export function ClickhouseMapper({
       }
 
       // Check if we have existing mappings that can be preserved
-      const shouldKeepExistingMapping =
-        mappedColumns.length > 0 &&
-        mappedColumns.length === storeSchema.length &&
-        mappedColumns.every((col, index) => col.name === storeSchema[index]?.name)
+      // For editing existing pipelines, we want to preserve mappings even if the schema changes
+      const hasExistingMappings = mappedColumns.some((col) => col.eventField)
+      const shouldKeepExistingMapping = hasExistingMappings && mappedColumns.length > 0
 
       // Create new mapping - preserve existing mappings where possible
       const newMapping = shouldKeepExistingMapping
-        ? mappedColumns.map((existingCol, index) => ({
-            ...storeSchema[index], // Update with latest schema info
-            jsonType: existingCol.jsonType,
-            isNullable: existingCol.isNullable,
-            isKey: existingCol.isKey,
-            eventField: existingCol.eventField,
-            ...(existingCol.sourceTopic && { sourceTopic: existingCol.sourceTopic }), // Preserve source topic for join mode
-          }))
+        ? storeSchema.map((col, index) => {
+            // Try to find existing mapping for this column
+            const existingCol = mappedColumns.find((mc) => mc.name === col.name)
+
+            if (existingCol) {
+              // Preserve existing mapping data
+              return {
+                ...col,
+                jsonType: existingCol.jsonType || '',
+                isNullable: existingCol.isNullable || false,
+                isKey: existingCol.isKey || false,
+                eventField: existingCol.eventField || '',
+                ...(existingCol.sourceTopic && { sourceTopic: existingCol.sourceTopic }),
+              }
+            } else {
+              // New column, initialize empty
+              return {
+                ...col,
+                jsonType: '',
+                isNullable: false,
+                isKey: false,
+                eventField: '',
+              }
+            }
+          })
         : storeSchema.map((col) => ({
             ...col,
             jsonType: '',
@@ -391,6 +410,33 @@ export function ClickhouseMapper({
       setMappedColumns(newMapping)
     }
   }, [storeSchema, tableSchema.columns, mappedColumns])
+
+  // Sync local state with store when hydration completes
+  useEffect(() => {
+    if (clickhouseDestination && !isHydrated) {
+      console.log('ClickhouseMapper: Hydrating from store data:', {
+        database: clickhouseDestination.database,
+        table: clickhouseDestination.table,
+        destinationColumns: clickhouseDestination.destinationColumns?.length,
+        mapping: clickhouseDestination.mapping?.length,
+        maxBatchSize: clickhouseDestination.maxBatchSize,
+        maxDelayTime: clickhouseDestination.maxDelayTime,
+        maxDelayTimeUnit: clickhouseDestination.maxDelayTimeUnit,
+      })
+
+      // Update local state from store
+      setSelectedDatabase(clickhouseDestination.database || '')
+      setSelectedTable(clickhouseDestination.table || '')
+      setTableSchema({ columns: clickhouseDestination.destinationColumns || [] })
+      setMappedColumns(clickhouseDestination.mapping || [])
+      setMaxBatchSize(clickhouseDestination.maxBatchSize || 1000)
+      setMaxDelayTime(clickhouseDestination.maxDelayTime || 1)
+      setMaxDelayTimeUnit(clickhouseDestination.maxDelayTimeUnit || 'm')
+
+      // Mark as hydrated
+      setIsHydrated(true)
+    }
+  }, [clickhouseDestination, isHydrated])
 
   // Load table schema when database and table are selected
   useEffect(() => {
@@ -965,6 +1011,77 @@ export function ClickhouseMapper({
     // Don't clear mapping - let the sync effect handle updating the schema
     // while preserving existing mappings where possible
   }
+
+  // Infers and fills missing jsonType for already-mapped event fields after hydration
+  useEffect(() => {
+    if (mode === 'single') {
+      if (!eventData || mappedColumns.length === 0) return
+
+      let changed = false
+      const updated = mappedColumns.map((col) => {
+        if (col.eventField && (!col.jsonType || col.jsonType === '')) {
+          const value = getNestedValue(eventData, col.eventField)
+          const inferred = inferJsonType(value)
+          if (inferred) {
+            changed = true
+            return { ...col, jsonType: inferred }
+          }
+        }
+        return col
+      })
+
+      if (changed) {
+        setMappedColumns(updated)
+        setClickhouseDestination({
+          ...clickhouseDestination,
+          mapping: updated,
+        })
+      }
+    } else {
+      // join / dedup+join mode
+      const primaryData = primaryEventData
+      const secondaryData = secondaryTopic?.selectedEvent?.event
+      if ((!primaryData && !secondaryData) || mappedColumns.length === 0) return
+
+      let changed = false
+      const updated = mappedColumns.map((col) => {
+        if (col.eventField && (!col.jsonType || col.jsonType === '')) {
+          // pick source based on sourceTopic if available
+          let sourceData: any | null = null
+          if (col.sourceTopic) {
+            if (primaryTopic?.name && col.sourceTopic === primaryTopic.name) sourceData = primaryData
+            else if (secondaryTopic?.name && col.sourceTopic === secondaryTopic.name) sourceData = secondaryData
+          }
+          // fallback: try primary then secondary
+          if (!sourceData) sourceData = primaryData || secondaryData
+
+          const value = sourceData ? getNestedValue(sourceData, col.eventField) : undefined
+          const inferred = inferJsonType(value)
+          if (inferred) {
+            changed = true
+            return { ...col, jsonType: inferred }
+          }
+        }
+        return col
+      })
+
+      if (changed) {
+        setMappedColumns(updated)
+        setClickhouseDestination({
+          ...clickhouseDestination,
+          mapping: updated,
+        })
+      }
+    }
+  }, [
+    mode,
+    eventData,
+    primaryEventData,
+    secondaryTopic?.selectedEvent?.event,
+    mappedColumns,
+    primaryTopic?.name,
+    secondaryTopic?.name,
+  ])
 
   return (
     <div className="flex flex-col gap-8 mb-4">

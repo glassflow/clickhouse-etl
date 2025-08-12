@@ -242,6 +242,32 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       }))
     },
     enterEditMode: (config: Pipeline) => {
+      // Determine operation type from pipeline configuration
+      const determineOperationType = (pipeline: Pipeline): string => {
+        const topics = pipeline?.source?.topics || []
+        const hasJoin = pipeline?.join?.enabled || false
+
+        if (topics.length === 1 && !hasJoin) {
+          // Check if deduplication is enabled
+          const hasDedup = topics[0]?.deduplication?.enabled || false
+          return hasDedup ? 'deduplication' : 'ingest-only'
+        } else if (topics.length > 1 && hasJoin) {
+          // Check if both topics have deduplication
+          const leftTopicDedup = topics[0]?.deduplication?.enabled || false
+          const rightTopicDedup = topics[1]?.deduplication?.enabled || false
+
+          if (leftTopicDedup && rightTopicDedup) {
+            return 'deduplication-joining'
+          } else {
+            return 'joining'
+          }
+        }
+
+        return 'ingest-only' // Default fallback
+      }
+
+      const operationType = determineOperationType(config)
+
       set((state) => ({
         coreStore: {
           ...state.coreStore,
@@ -249,6 +275,9 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           baseConfig: config,
           lastSavedConfig: config, // Initialize lastSavedConfig with the loaded config
           saveHistory: [config], // Initialize saveHistory with the loaded config
+          operationsSelected: {
+            operation: operationType,
+          },
         },
       }))
       // Hydrate the store with the config

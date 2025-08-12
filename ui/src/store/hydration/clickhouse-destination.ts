@@ -10,8 +10,30 @@ function mapBackendClickhouseDestinationToStore(sink: any) {
     destinationColumns: [], // Will fill after fetching schema
     maxBatchSize: sink.max_batch_size || 1000,
     maxDelayTime: typeof sink.max_delay_time === 'string' ? parseInt(sink.max_delay_time) : sink.max_delay_time || 1,
-    maxDelayTimeUnit: typeof sink.max_delay_time === 'string' ? sink.max_delay_time.replace(/[0-9]/g, '') || 'm' : 'm',
+    maxDelayTimeUnit:
+      typeof sink.max_delay_time === 'string' ? sink.max_delay_time.replace(/[^a-zA-Z]/g, '') || 'm' : 'm',
   }
+}
+
+// Best-effort mapping from ClickHouse type to JSON type used by UI
+function mapClickHouseTypeToJsonType(clickhouseType: string): string {
+  const t = (clickhouseType || '').toLowerCase()
+  if (!t) return ''
+
+  // Remove wrappers like Nullable(...) and LowCardinality(...)
+  const unwrapped = t.replace(/nullable\((.*)\)/, '$1').replace(/lowcardinality\((.*)\)/, '$1')
+
+  if (unwrapped.startsWith('string') || unwrapped.startsWith('fixedstring') || unwrapped.includes('uuid'))
+    return 'string'
+  if (unwrapped.startsWith('bool') || unwrapped === 'boolean') return 'bool'
+  if (unwrapped.startsWith('u')) return 'uint'
+  if (unwrapped.startsWith('int')) return 'int'
+  if (unwrapped.startsWith('float') || unwrapped.startsWith('decimal')) return 'float'
+  if (unwrapped.startsWith('date') || unwrapped.startsWith('datetime')) return 'string'
+  if (unwrapped.startsWith('array')) return 'array'
+  if (unwrapped.startsWith('map')) return 'bytes'
+
+  return 'string'
 }
 
 export async function hydrateClickhouseDestination(pipelineConfig: any) {
@@ -112,9 +134,39 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const schemaData = await schemaRes.json()
   if (!schemaData.success) throw new Error(schemaData.error || 'Failed to fetch schema')
 
-  // 5. Fill destinationColumns in the store with the schema
+  const schemaColumns: Array<{ name: string; type: string; isNullable?: boolean; column_type?: string }> =
+    schemaData.columns || []
+
+  // 5. Transform backend mapping (sink.table_mapping) into UI mapping shape aligned with schema
+  const backendMapping = Array.isArray(sink.table_mapping) ? sink.table_mapping : []
+
+  const uiMapping = schemaColumns.map((col) => {
+    const found = backendMapping.find((m: any) => (m.column_name || m.name) === col.name)
+    const columnType = col.type || (col as any).column_type || ''
+
+    // Derive a best-effort jsonType from ClickHouse type if event-derived inference is unavailable
+    const derivedJsonType = mapClickHouseTypeToJsonType(columnType)
+
+    return {
+      // UI mapping shape expected by ClickhouseMapper / FieldColumnMapper
+      name: col.name,
+      type: columnType,
+      isNullable: col.isNullable === true || (col.type || (col as any).column_type || '').includes('Nullable'),
+      jsonType: found?.jsonType || derivedJsonType,
+      eventField: found?.field_name || found?.eventField || '',
+      // For join journeys preserve source topic if present from backend
+      ...(found?.source_id ? { sourceTopic: found.source_id } : {}),
+    }
+  })
+
+  // 6. Update the destination in store with schema and transformed mapping
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination({
     ...destination,
-    destinationColumns: schemaData.columns || [],
+    destinationColumns: schemaColumns.map((c) => ({
+      name: c.name,
+      type: c.type || (c as any).column_type || '',
+      isNullable: c.isNullable === true || (c.type || (c as any).column_type || '').includes('Nullable'),
+    })),
+    mapping: uiMapping,
   })
 }
