@@ -69,15 +69,14 @@ export function ConsentLayout({ children }: ConsentLayoutProps) {
 
       // Also set the analytics enabled state in our analytics module
       setAnalyticsEnabled(consentValue)
+
+      // Hide consent dialog since consent was already given
+      setShowConsent(false)
     } else {
-      setShowConsent(!consentAnswered)
+      // Show consent dialog since no consent was given yet
+      setShowConsent(true)
     }
   }, [])
-
-  // Update showConsent when consentAnswered changes
-  useEffect(() => {
-    setShowConsent(!consentAnswered)
-  }, [consentAnswered])
 
   const handleConsentClick = (value: boolean) => {
     // Save to store
