@@ -52,10 +52,10 @@ export const generateApiConfig = ({
         id: topic.name, // Using topic name as id for now
         schema: {
           type: 'json',
-          fields: Object.keys(eventData).map((key) => {
-            const mappingType = getMappingType(key, mapping)
+          fields: extractEventFields(eventData).map((fieldPath) => {
+            const mappingType = getMappingType(fieldPath, mapping)
             return {
-              name: key,
+              name: fieldPath,
               type: mappingType,
             }
           }),
@@ -92,8 +92,8 @@ export const generateApiConfig = ({
                 if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
                   const eventData = topic.selectedEvent.event.event || topic.selectedEvent.event
 
-                  // Check if the field exists in this topic's event data
-                  if (mapping.eventField in eventData) {
+                  // Check if the field exists in this topic's event data (including nested fields)
+                  if (mapping.eventField in eventData || getNestedValue(eventData, mapping.eventField) !== undefined) {
                     sourceId = topic.name
                     break
                   }
