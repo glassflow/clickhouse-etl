@@ -118,7 +118,7 @@ func mainErr(cfg *config, role models.Role) error {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	nc, err := client.NewNATSWrapper(cfg.NATSServer, cfg.NATSMaxStreamAge)
+	nc, err := client.NewNATSClient(cfg.NATSServer, cfg.NATSMaxStreamAge)
 	if err != nil {
 		return fmt.Errorf("nats client: %w", err)
 	}

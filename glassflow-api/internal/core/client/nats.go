@@ -14,8 +14,9 @@ import (
 const (
 	GlassflowStreamPrefix = "gf-stream"
 	// TODO: don't define same consts at multiple places
-	GlassflowDLQSuffix = "-DLQ"
-	NATSCleanupTimeout = 5 * time.Second
+	GlassflowDLQSuffix    = "-DLQ"
+	NATSCleanupTimeout    = 5 * time.Second
+	NATSConnectionTimeout = 60 * time.Second
 )
 
 type NATSClient struct {
@@ -25,8 +26,8 @@ type NATSClient struct {
 	maxAge time.Duration
 }
 
-func NewNATSWrapper(url string, streamAge time.Duration) (*NATSClient, error) {
-	nc, err := nats.Connect(url)
+func NewNATSClient(url string, streamAge time.Duration) (*NATSClient, error) {
+	nc, err := nats.Connect(url, nats.Timeout(NATSConnectionTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
