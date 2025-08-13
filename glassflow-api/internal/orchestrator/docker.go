@@ -40,6 +40,11 @@ const ShutdownTimeout = 30 * time.Second
 
 var _ service.Orchestrator = (*LocalOrchestrator)(nil)
 
+// GetType implements Orchestrator.
+func (d *LocalOrchestrator) GetType() string {
+	return "local"
+}
+
 // SetupPipeline implements Orchestrator.
 func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.PipelineConfig) error {
 	d.m.Lock()
@@ -171,6 +176,14 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 	d.id = ""
 
 	return nil
+}
+
+// ShutdownPipeline implements Orchestrator.
+func (d *LocalOrchestrator) TerminatePipeline(_ context.Context, pid string) error {
+	d.log.Info("terminating k8s pipeline", slog.String("pipeline_id", pid))
+
+	// we don't need terminating in a docker version of a pipeline / alternatively we can just call shutdown
+	panic("unimplemented")
 }
 
 func (d *LocalOrchestrator) ActivePipelineID() string {

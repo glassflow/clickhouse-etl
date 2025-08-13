@@ -58,6 +58,11 @@ func NewK8sOrchestrator(
 
 var _ service.Orchestrator = (*K8sOrchestrator)(nil)
 
+// GetType implements Orchestrator.
+func (k *K8sOrchestrator) GetType() string {
+	return "k8s"
+}
+
 // SetupPipeline implements Orchestrator.
 func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error {
 	src := make([]sourceStreams, 0, len(cfg.Ingestor.KafkaTopics))
@@ -138,6 +143,14 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 // ShutdownPipeline implements Orchestrator.
 func (k *K8sOrchestrator) ShutdownPipeline(_ context.Context, _ string) error {
 	panic("unimplemented")
+}
+
+func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID string) error {
+	k.log.Info("terminating k8s pipeline", slog.String("pipeline_id", pipelineID))
+
+	panic("unimplemented")
+
+	return nil
 }
 
 // TODO: include via operator library instead of copy pasting

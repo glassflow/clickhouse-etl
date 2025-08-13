@@ -9,8 +9,10 @@ import (
 )
 
 type Orchestrator interface {
+	GetType() string
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	ShutdownPipeline(ctx context.Context, pid string) error
+	TerminatePipeline(ctx context.Context, pid string) error
 }
 
 type PipelineStore interface {
@@ -94,9 +96,10 @@ func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) er
 // TerminatePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string) error {
 
-	panic("unimplemented")
-
-	// add terminate in both orchestrators
+	err := p.orchestrator.TerminatePipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("shutdown pipeline: %w", err)
+	}
 
 	return nil
 }
