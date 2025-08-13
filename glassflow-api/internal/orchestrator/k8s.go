@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -148,7 +149,41 @@ func (k *K8sOrchestrator) ShutdownPipeline(_ context.Context, _ string) error {
 func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID string) error {
 	k.log.Info("terminating k8s pipeline", slog.String("pipeline_id", pipelineID))
 
-	panic("unimplemented")
+	// finalizer added by the operator prevents direct deletion and allows running deletion reconciler
+	err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Delete(ctx, pipelineID, metav1.DeleteOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		return fmt.Errorf("delete pipeline CRD: %w", err)
+	}
+
+	// get resource to check if marked for deletion
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	if customResource.GetDeletionTimestamp().IsZero() {
+		k.log.Error("error deleting pipeline",
+			slog.String("pipeline_id", pipelineID),
+			slog.Any(" deletion_timestamp", customResource.GetDeletionTimestamp()),
+		)
+		return fmt.Errorf("failed to send pipeline: %s deletion to operator", pipelineID)
+	}
+
+	k.log.Info("requested termination of k8s pipeline",
+		slog.String("pipeline_id", pipelineID),
+		slog.Any(" deletion_timestamp", customResource.GetDeletionTimestamp()),
+	)
 
 	return nil
 }
