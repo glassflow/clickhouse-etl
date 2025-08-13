@@ -101,6 +101,15 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
 
+	// for k8 orchestrator, deletion reconciler of the operator is responsible for delete from DB
+	if p.orchestrator.GetType() == "local" {
+		// delete the pipeline from the database
+		err = p.db.DeletePipeline(ctx, pid)
+		if err != nil {
+			return fmt.Errorf("shutdown pipeline: %w", err)
+		}
+	}
+
 	return nil
 }
 
