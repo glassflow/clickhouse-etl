@@ -78,7 +78,31 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
-	panic("unimplemented")
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+	}
+
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	err := h.pipelineManager.TerminatePipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotFound):
+			jsonError(w, http.StatusNotFound, "no active pipeline with given id to terminate", nil)
+		default:
+			serverError(w)
+		}
+		return
+	}
+
+	h.log.Info("pipeline terminated")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {

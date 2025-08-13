@@ -24,6 +24,7 @@ type PipelineStore interface {
 type PipelineManager interface {
 	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
+	TerminatePipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
@@ -86,6 +87,16 @@ func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) er
 	if err != nil {
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
+
+	return nil
+}
+
+// TerminatePipeline implements PipelineManager.
+func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string) error {
+
+	panic("unimplemented")
+
+	// add terminate in both orchestrators
 
 	return nil
 }
