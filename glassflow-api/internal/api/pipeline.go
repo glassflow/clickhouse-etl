@@ -77,6 +77,10 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
+	panic("unimplemented")
+}
+
 func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
