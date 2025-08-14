@@ -21,7 +21,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	messagequeue "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/message_queue/nats"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
@@ -118,7 +118,7 @@ func mainErr(cfg *config, role models.Role) error {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	nc, err := client.NewNATSClient(cfg.NATSServer, cfg.NATSMaxStreamAge)
+	nc, err := client.NewNATSClient(cfg.NATSServer, client.WithMaxAge(cfg.NATSMaxStreamAge))
 	if err != nil {
 		return fmt.Errorf("nats client: %w", err)
 	}
@@ -147,10 +147,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 		return fmt.Errorf("create nats store for pipelines: %w", err)
 	}
 
-	mq, err := messagequeue.NewClient(cfg.NATSServer)
-	if err != nil {
-		return fmt.Errorf("initialize message queue: %w", err)
-	}
+	dlq := dlq.NewClient(nc)
 
 	var orch service.Orchestrator
 
@@ -169,7 +166,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 	}
 
 	pipelineSvc := service.NewPipelineManager(orch, db)
-	dlqSvc := service.NewDLQImpl(mq)
+	dlqSvc := service.NewDLQImpl(dlq)
 
 	handler := api.NewRouter(log, pipelineSvc, dlqSvc)
 

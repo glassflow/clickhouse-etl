@@ -19,6 +19,14 @@ const (
 	NATSConnectionTimeout = 60 * time.Second
 )
 
+type NATSClientOption func(*NATSClient)
+
+func WithMaxAge(age time.Duration) NATSClientOption {
+	return func(opts *NATSClient) {
+		opts.maxAge = age
+	}
+}
+
 type NATSClient struct {
 	nc *nats.Conn
 	js jetstream.JetStream
@@ -26,7 +34,7 @@ type NATSClient struct {
 	maxAge time.Duration
 }
 
-func NewNATSClient(url string, streamAge time.Duration) (*NATSClient, error) {
+func NewNATSClient(url string, opts ...NATSClientOption) (*NATSClient, error) {
 	nc, err := nats.Connect(url, nats.Timeout(NATSConnectionTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
@@ -37,12 +45,16 @@ func NewNATSClient(url string, streamAge time.Duration) (*NATSClient, error) {
 		return nil, fmt.Errorf("failed to connect to JetStream: %w", err)
 	}
 
-	return &NATSClient{
+	natsClient := NATSClient{ //nolint:exhaustruct // optional config
 		nc: nc,
 		js: js,
+	}
 
-		maxAge: streamAge,
-	}, nil
+	for _, opt := range opts {
+		opt(&natsClient)
+	}
+
+	return &natsClient, nil
 }
 
 func (n *NATSClient) CleanupOldResources(ctx context.Context) error {

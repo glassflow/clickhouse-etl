@@ -14,17 +14,17 @@ type DLQ interface {
 	GetDLQState(ctx context.Context, pid string) (zero models.DLQState, _ error)
 }
 
-type MessageQueue interface {
+type DLQClient interface {
 	FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error)
 	GetDLQState(ctx context.Context, stream string) (models.DLQState, error)
 }
 
 type DLQImpl struct {
-	mq MessageQueue
+	client DLQClient
 }
 
-func NewDLQImpl(mq MessageQueue) *DLQImpl {
-	return &DLQImpl{mq}
+func NewDLQImpl(dlqClient DLQClient) *DLQImpl {
+	return &DLQImpl{dlqClient}
 }
 
 var (
@@ -38,7 +38,7 @@ var (
 func (d *DLQImpl) ConsumeDLQ(ctx context.Context, pid string, batchSize models.DLQBatchSize) ([]models.DLQMessage, error) {
 	dlqStream := fmt.Sprintf("%s-%s", pid, DLQSuffix)
 
-	batch, err := d.mq.FetchDLQMessages(ctx, dlqStream, batchSize.Int)
+	batch, err := d.client.FetchDLQMessages(ctx, dlqStream, batchSize.Int)
 	if err != nil {
 		return nil, fmt.Errorf("consume dlq: %w", err)
 	}
@@ -53,7 +53,7 @@ func (d *DLQImpl) ConsumeDLQ(ctx context.Context, pid string, batchSize models.D
 func (d *DLQImpl) GetDLQState(ctx context.Context, pid string) (zero models.DLQState, _ error) {
 	dlqStream := fmt.Sprintf("%s-%s", pid, DLQSuffix)
 
-	state, err := d.mq.GetDLQState(ctx, dlqStream)
+	state, err := d.client.GetDLQState(ctx, dlqStream)
 	if err != nil {
 		return zero, fmt.Errorf("get dlq state: %w", err)
 	}

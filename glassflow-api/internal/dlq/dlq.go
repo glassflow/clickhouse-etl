@@ -1,4 +1,4 @@
-package nats
+package dlq
 
 import (
 	"context"
@@ -6,37 +6,24 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
-
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
-type JSClient struct {
+type Client struct {
 	js jetstream.JetStream
 }
 
-func NewClient(serverURL string) (*JSClient, error) {
-	nc, err := nats.Connect(serverURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
-	}
-
-	js, err := jetstream.New(nc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to JetStream: %w", err)
-	}
-
-	return &JSClient{
-		js: js,
-	}, nil
+func NewClient(natsClient *client.NATSClient) *Client {
+	return &Client{js: natsClient.JetStream()}
 }
 
 // create common config for a durable consumer per pipeline
 // as consumer to get State info must be the same as the one
 // that actually consumes
-func (c *JSClient) getDurableConsumerConfig(stream string) jetstream.ConsumerConfig {
+func (c *Client) getDurableConsumerConfig(stream string) jetstream.ConsumerConfig {
 	//nolint: exhaustruct // optional config
 	return jetstream.ConsumerConfig{
 		Name:          stream + "-consumer",
@@ -46,7 +33,7 @@ func (c *JSClient) getDurableConsumerConfig(stream string) jetstream.ConsumerCon
 	}
 }
 
-func (c *JSClient) FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error) {
+func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error) {
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
@@ -98,7 +85,7 @@ func (c *JSClient) FetchDLQMessages(ctx context.Context, stream string, batchSiz
 	return dlqMsgs, nil
 }
 
-func (c *JSClient) GetDLQState(ctx context.Context, stream string) (zero models.DLQState, _ error) {
+func (c *Client) GetDLQState(ctx context.Context, stream string) (zero models.DLQState, _ error) {
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {

@@ -248,7 +248,7 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 		return fmt.Errorf("run nats stream: %w", err)
 	}
 
-	nc, err := client.NewNATSClient(s.natsContainer.GetURI(), timeoutDuration)
+	nc, err := client.NewNATSClient(s.natsContainer.GetURI(), client.WithMaxAge(timeoutDuration))
 	if err != nil {
 		return fmt.Errorf("create nats client: %w", err)
 	}
