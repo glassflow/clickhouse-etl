@@ -7,8 +7,6 @@ jobs:
     name: test api
     runs-on: ubuntu-latest
     steps:
-      - name: Start NATS with Jetstream
-        run: docker run -d -p 4222:4222 -p 8222:8222 nats:latest -js -m 8222
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup go
@@ -16,11 +14,6 @@ jobs:
         with:
           go-version-file: './glassflow-api/go.mod'
           cache-dependency-path: './glassflow-api/go.mod'
-      - name: Wait for NATS to be ready
-        run: |
-          while ! curl -fs localhost:8222/varz > /dev/null
-            do sleep 1
-          done
       - name: Run test
         working-directory: './glassflow-api'
         run: make run-test

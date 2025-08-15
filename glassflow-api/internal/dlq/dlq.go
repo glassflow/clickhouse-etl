@@ -13,11 +13,13 @@ import (
 )
 
 type Client struct {
-	js jetstream.JetStream
+	js JetStreamClient
 }
 
 func NewClient(natsClient *client.NATSClient) *Client {
-	return &Client{js: natsClient.JetStream()}
+	return &Client{
+		js: NewJetStreamAdapter(natsClient.JetStream()),
+	}
 }
 
 // create common config for a durable consumer per pipeline
@@ -34,11 +36,22 @@ func (c *Client) getDurableConsumerConfig(stream string) jetstream.ConsumerConfi
 }
 
 func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error) {
+	if stream == "" {
+		return nil, fmt.Errorf("stream name cannot be empty")
+	}
+	if batchSize <= 0 {
+		return nil, fmt.Errorf("batch size must be positive")
+	}
+	if batchSize > models.DLQMaxBatchSize {
+		return nil, models.ErrDLQMaxBatchSize
+	}
+
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return nil, service.ErrDLQNotExists
 		}
+		return nil, fmt.Errorf("get dlq stream: %w", err)
 	}
 
 	dc, err := s.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(stream))
@@ -65,20 +78,18 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 		}
 
 		dlqMsgs = append(dlqMsgs, dlqMsg)
-
 		lastMsg = msg
 	}
 
 	if batch.Error() != nil {
-		return nil, fmt.Errorf("dlq batch: %w", err)
+		return nil, fmt.Errorf("dlq batch: %w", batch.Error())
 	}
 
-	// WARNING: potential data loss in case of http failure
-	// or pod destruction. MUST BE CHANGED in the "real version"!!
+	// WARNING: potential data loss in case of http failure or pod destruction.
 	if lastMsg != nil {
-		err = lastMsg.Ack()
+		err := lastMsg.Ack()
 		if err != nil {
-			return nil, fmt.Errorf("acknowledge all consumed dlq: %w", err)
+			return nil, fmt.Errorf("acknowledge all consumed dlq messages: %w", err)
 		}
 	}
 
@@ -86,11 +97,16 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 }
 
 func (c *Client) GetDLQState(ctx context.Context, stream string) (zero models.DLQState, _ error) {
+	if stream == "" {
+		return zero, fmt.Errorf("stream name cannot be empty")
+	}
+
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return zero, service.ErrDLQNotExists
 		}
+		return zero, fmt.Errorf("get dlq stream: %w", err)
 	}
 
 	sInfo, err := s.Info(ctx, jetstream.WithSubjectFilter(stream+".failed"))
