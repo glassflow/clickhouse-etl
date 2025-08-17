@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	operator "github.com/glassflow/glassflow-etl-k8s-operator/api/v1alpha1"
 )
 
 type K8sOrchestrator struct {
@@ -66,10 +66,10 @@ func (k *K8sOrchestrator) GetType() string {
 
 // SetupPipeline implements Orchestrator.
 func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error {
-	src := make([]sourceStreams, 0, len(cfg.Ingestor.KafkaTopics))
+	src := make([]operator.SourceStream, 0, len(cfg.Ingestor.KafkaTopics))
 
 	for _, s := range cfg.Ingestor.KafkaTopics {
-		src = append(src, sourceStreams{
+		src = append(src, operator.SourceStream{
 			TopicName:    s.Name,
 			OutputStream: s.Name,
 			DedupWindow:  s.Deduplication.Window.Duration(),
@@ -81,14 +81,14 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 		return fmt.Errorf("marshal pipeline config: %w", err)
 	}
 
-	spec := pipelineSpec{
+	spec := operator.PipelineSpec{
 		ID:  cfg.ID,
 		DLQ: models.GetDLQStreamName(cfg.ID),
-		Ingestor: sources{
+		Ingestor: operator.Sources{
 			Type:    cfg.Ingestor.Type,
 			Streams: src,
 		},
-		Join: join{
+		Join: operator.Join{
 			Type:         "temporal",
 			OutputStream: models.GetJoinedStreamName(cfg.ID),
 			Enabled:      cfg.Join.Enabled,
@@ -144,26 +144,56 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 // ShutdownPipeline implements Orchestrator.
 func (k *K8sOrchestrator) ShutdownPipeline(_ context.Context, _ string) error {
 	panic("unimplemented")
+	// annotate deletion-type: shutdown
 }
 
 func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID string) error {
 	k.log.Info("terminating k8s pipeline", slog.String("pipeline_id", pipelineID))
 
-	// finalizer added by the operator prevents direct deletion and allows running deletion reconciler
-	err := k.client.Resource(schema.GroupVersionResource{
+	// add annotation to indicate deletion type (terminate/shutdown)
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// TODO - replace with annotation constant from operator:glassflow-cloud branch
+	annotations["pipeline.etl.glassflow.io/deletion-type"] = "terminate"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the annotation
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update pipeline CRD with termination annotation: %w", err)
+	}
+
+	// Now delete the resource
+	err = k.client.Resource(schema.GroupVersionResource{
 		Group:    k.customResource.APIGroup,
 		Version:  k.customResource.Version,
 		Resource: k.customResource.Resource,
 	}).Namespace(k.namespace).Delete(ctx, pipelineID, metav1.DeleteOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return service.ErrPipelineNotFound
-		}
 		return fmt.Errorf("delete pipeline CRD: %w", err)
 	}
 
 	// get resource to check if marked for deletion
-	customResource, err := k.client.Resource(schema.GroupVersionResource{
+	customResource, err = k.client.Resource(schema.GroupVersionResource{
 		Group:    k.customResource.APIGroup,
 		Version:  k.customResource.Version,
 		Resource: k.customResource.Resource,
@@ -177,7 +207,7 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 			slog.String("pipeline_id", pipelineID),
 			slog.Any(" deletion_timestamp", customResource.GetDeletionTimestamp()),
 		)
-		return fmt.Errorf("failed to send pipeline: %s deletion to operator", pipelineID)
+		return fmt.Errorf("failed to send pipeline: %s termination to operator", pipelineID)
 	}
 
 	k.log.Info("requested termination of k8s pipeline",
@@ -185,33 +215,6 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		slog.Any(" deletion_timestamp", customResource.GetDeletionTimestamp()),
 	)
 
+	k.log.Info("requested termination of k8s pipeline", slog.String("pipeline_id", pipelineID))
 	return nil
-}
-
-// TODO: include via operator library instead of copy pasting
-// pipelineSpec defines the desired custom resource
-type pipelineSpec struct {
-	ID       string  `json:"pipeline_id"`
-	DLQ      string  `json:"dlq"`
-	Ingestor sources `json:"sources"`
-	Join     join    `json:"join"`
-	Sink     string  `json:"sink"`
-	Config   string  `json:"config"`
-}
-
-type sources struct {
-	Type    string          `json:"type"`
-	Streams []sourceStreams `json:"topics"`
-}
-
-type sourceStreams struct {
-	TopicName    string        `json:"topic_name"`
-	OutputStream string        `json:"stream"`
-	DedupWindow  time.Duration `json:"dedup_window"`
-}
-
-type join struct {
-	Type         string `json:"type"`
-	OutputStream string `json:"stream"`
-	Enabled      bool   `json:"enabled"`
 }
