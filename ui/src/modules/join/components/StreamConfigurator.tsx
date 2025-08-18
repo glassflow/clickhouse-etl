@@ -8,6 +8,7 @@ import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { Input } from '@/src/components/ui/input'
 import { TimeWindowConfigurator } from '@/src/modules/deduplication/components/TimeWindowConfigurator'
+import { JSON_DATA_TYPES_DEDUPLICATION_JOIN } from '@/src/config/constants'
 
 // Constants for time conversion
 const MAX_DAYS = 7
@@ -121,15 +122,13 @@ export function StreamConfigurator({
                   <SelectValue placeholder="Select data type" />
                 </SelectTrigger>
                 <SelectContent className="select-content-custom">
-                  {[
-                    { label: 'String', value: 'string' },
-                    { label: 'Number', value: 'number' },
-                    { label: 'Boolean', value: 'boolean' },
-                  ].map((type) => (
-                    <SelectItem key={type.value} value={type.value} className="select-item-custom text-content">
-                      {type.label}
-                    </SelectItem>
-                  ))}
+                  {JSON_DATA_TYPES_DEDUPLICATION_JOIN.map((item: string) => ({ label: item, value: item })).map(
+                    (type) => (
+                      <SelectItem key={type.value} value={type.value} className="select-item-custom text-content">
+                        {type.label}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
               {errors.dataType && <p className="text-sm text-red-500">{errors.dataType}</p>}
