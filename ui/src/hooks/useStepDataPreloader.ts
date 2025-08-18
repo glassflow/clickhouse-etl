@@ -122,8 +122,6 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
           return true
         }
 
-        console.log(`Fetching event for topic: ${topic.name}`)
-
         // Use the kafka API client directly (like hydration functions do)
         // This way we get the actual event data back and can update the store
         const response = await kafkaApiClient.fetchEvent(currentKafkaStore, {
@@ -162,7 +160,6 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
         }
 
         currentTopicsStore.updateTopic(updatedTopic)
-        console.log(`Successfully loaded event for topic: ${topic.name}`)
         return true
       } catch (error) {
         console.error(`Failed to fetch event for topic at index ${topicIndex}:`, error)

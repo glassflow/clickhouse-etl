@@ -221,11 +221,6 @@ export function JoinConfigurator({
 
   // Handle discard changes for join configuration
   const handleDiscardChanges = () => {
-    console.log('Discarding changes for join section', {
-      lastSavedConfig: coreStore.getLastSavedConfig(),
-      mode: coreStore.mode,
-    })
-
     // Discard join section
     coreStore.discardSection('join')
   }

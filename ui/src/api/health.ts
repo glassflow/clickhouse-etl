@@ -47,8 +47,6 @@ export const checkBackendHealth = async (): Promise<HealthCheckResponse> => {
       } as HealthCheckError
     }
   } catch (error: any) {
-    console.error('Health check error:', error)
-
     if (error.code) {
       throw error
     }

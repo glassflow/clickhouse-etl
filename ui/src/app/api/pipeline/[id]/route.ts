@@ -19,23 +19,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       )
     }
 
-    console.log(`Pipeline API route - fetching pipeline ${id} from backend`)
     const response = await axios.get(`${API_URL}/pipeline/${id}`)
-
-    console.log(`Pipeline API route - backend returned pipeline ${id}:`, JSON.stringify(response.data, null, 2))
 
     return NextResponse.json({
       success: true,
       pipeline: response.data,
     })
   } catch (error: any) {
-    console.error('API Route - Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config,
-    })
-
     if (error.response) {
       const { status, data } = error.response
       return NextResponse.json(
@@ -80,13 +70,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       pipeline: response.data,
     })
   } catch (error: any) {
-    console.error('API Route - Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config,
-    })
-
     if (error.response) {
       const { status, data } = error.response
       return NextResponse.json(
@@ -129,13 +112,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       message: `Pipeline ${id} deleted successfully`,
     })
   } catch (error: any) {
-    console.error('API Route - Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config,
-    })
-
     if (error.response) {
       const { status, data } = error.response
       return NextResponse.json(

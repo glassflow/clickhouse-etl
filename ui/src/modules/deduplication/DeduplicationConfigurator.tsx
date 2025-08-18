@@ -128,11 +128,6 @@ export function DeduplicationConfigurator({
 
   // Handle discard changes for deduplication configuration
   const handleDiscardChanges = useCallback(() => {
-    console.log('Discarding changes for deduplication section', {
-      lastSavedConfig: coreStore.getLastSavedConfig(),
-      mode: coreStore.mode,
-    })
-
     // Discard deduplication section
     coreStore.discardSection('deduplication')
   }, [coreStore])

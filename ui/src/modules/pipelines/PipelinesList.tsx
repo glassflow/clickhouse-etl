@@ -572,12 +572,6 @@ export function PipelinesList({
 
           try {
             await deletePipeline(deleteSelectedPipeline.pipeline_id, processEvents)
-            console.log(
-              'Pipeline deleted successfully:',
-              deleteSelectedPipeline.pipeline_id,
-              'graceful:',
-              processEvents,
-            )
 
             // Remove pipeline from list or refetch data
             onRemovePipeline?.(deleteSelectedPipeline.pipeline_id)
@@ -597,7 +591,6 @@ export function PipelinesList({
           closeDeleteModal()
         }}
         callback={(result) => {
-          console.log(result)
           setProcessEvents(result)
         }}
       />

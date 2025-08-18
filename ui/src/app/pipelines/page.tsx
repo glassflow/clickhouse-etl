@@ -16,7 +16,6 @@ export default function PipelinesPage() {
       setIsLoading(true)
       const pipelinesData = await getPipelines()
       setPipelines(pipelinesData)
-      console.log('Pipelines fetched:', pipelinesData)
     } catch (error) {
       console.error('Failed to fetch pipelines:', error)
     } finally {

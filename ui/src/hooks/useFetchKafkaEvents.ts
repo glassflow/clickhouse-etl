@@ -122,8 +122,6 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
           setEventError(null)
         }
       } else {
-        console.error('API returned error:', response.error)
-
         // Handle specific error cases
         if (response.error && (response.error.includes('end of topic') || response.error.includes('no more events'))) {
           setHasMoreEvents(false)

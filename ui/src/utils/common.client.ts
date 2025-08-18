@@ -26,7 +26,6 @@ export function getEventKeys(data: any): string[] {
 
     // If it's not an object after parsing, return empty array
     if (typeof data !== 'object' || data === null) {
-      console.warn('Data is not an object:', data)
       return []
     }
 

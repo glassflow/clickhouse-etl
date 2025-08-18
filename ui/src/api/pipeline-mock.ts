@@ -38,7 +38,6 @@ export const createPipeline = async (config: any): Promise<PipelineResponse> => 
       } as PipelineError
     }
   } catch (error: any) {
-    console.error('Pipeline creation error:', error)
     if (error.code) {
       throw error
     }

@@ -44,13 +44,6 @@ export async function GET() {
       )
     }
   } catch (error: any) {
-    console.error('Health check API Route - Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config,
-    })
-
     if (error.response) {
       const { status, data } = error.response
       return NextResponse.json(
