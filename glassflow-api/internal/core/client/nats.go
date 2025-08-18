@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -14,9 +15,23 @@ import (
 const (
 	GlassflowStreamPrefix = "gf-stream"
 	// TODO: don't define same consts at multiple places
-	GlassflowDLQSuffix = "-DLQ"
-	NATSCleanupTimeout = 5 * time.Second
+	GlassflowDLQSuffix    = "-DLQ"
+	NATSCleanupTimeout    = 5 * time.Second
+	NATSConnectionTimeout = 1 * time.Minute
+
+	NATSConnectionRetries = 12
+	NATSInitialRetryDelay = 1 * time.Second
+	NATSMaxRetryDelay     = 30 * time.Second
+	NATSMaxConnectionWait = 2 * time.Minute
 )
+
+type NATSClientOption func(*NATSClient)
+
+func WithMaxAge(age time.Duration) NATSClientOption {
+	return func(opts *NATSClient) {
+		opts.maxAge = age
+	}
+}
 
 type NATSClient struct {
 	nc *nats.Conn
@@ -25,8 +40,41 @@ type NATSClient struct {
 	maxAge time.Duration
 }
 
-func NewNATSWrapper(url string, streamAge time.Duration) (*NATSClient, error) {
-	nc, err := nats.Connect(url)
+func NewNATSClient(ctx context.Context, url string, opts ...NATSClientOption) (*NATSClient, error) {
+	var (
+		nc  *nats.Conn
+		err error
+	)
+
+	connCtx, cancel := context.WithTimeout(ctx, NATSMaxConnectionWait)
+	defer cancel()
+
+	retryDelay := NATSInitialRetryDelay
+
+	for i := range NATSConnectionRetries {
+		select {
+		case <-connCtx.Done():
+			return nil, fmt.Errorf("timeout after %v waiting to connect to NATS at %s", NATSMaxConnectionWait, url)
+		default:
+		}
+
+		nc, err = nats.Connect(url, nats.Timeout(NATSConnectionTimeout))
+		if err == nil {
+			break
+		}
+
+		if i < NATSConnectionRetries-1 {
+			select {
+			case <-time.After(retryDelay):
+				log.Printf("Retrying connection to NATS to %s in %v...", url, retryDelay)
+				// Continue with retry
+			case <-connCtx.Done():
+				return nil, fmt.Errorf("timeout during retry delay for NATS at %s: %w", url, connCtx.Err())
+			}
+			// Exponential backoff
+			retryDelay = min(time.Duration(float64(retryDelay)*1.5), NATSMaxRetryDelay)
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
 	}
@@ -36,12 +84,16 @@ func NewNATSWrapper(url string, streamAge time.Duration) (*NATSClient, error) {
 		return nil, fmt.Errorf("failed to connect to JetStream: %w", err)
 	}
 
-	return &NATSClient{
+	natsClient := NATSClient{ //nolint:exhaustruct // optional config
 		nc: nc,
 		js: js,
+	}
 
-		maxAge: streamAge,
-	}, nil
+	for _, opt := range opts {
+		opt(&natsClient)
+	}
+
+	return &natsClient, nil
 }
 
 func (n *NATSClient) CleanupOldResources(ctx context.Context) error {

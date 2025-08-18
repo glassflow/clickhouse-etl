@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -27,8 +28,10 @@ type NatsConsumer struct {
 }
 
 const (
-	ConsumerRetries      = 5
-	ConsumerRetryBackoff = 30 * time.Millisecond
+	ConsumerRetries           = 10
+	ConsumerInitialRetryDelay = 1 * time.Second
+	ConsumerMaxRetryDelay     = 10 * time.Second
+	ConsumerMaxWait           = 30 * time.Second
 )
 
 func NewNATSConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*NatsConsumer, error) {
@@ -37,16 +40,38 @@ func NewNATSConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerCo
 		err    error
 	)
 
-	for range ConsumerRetries {
-		stream, err = js.Stream(ctx, cfg.NatsStream)
-		if err != nil {
-			if errors.Is(err, jetstream.ErrStreamNotFound) {
-				time.Sleep(ConsumerRetryBackoff)
-				continue
-			}
-			return nil, fmt.Errorf("get stream %s: %w", cfg.NatsStream, err)
+	retryCtx, cancel := context.WithTimeout(ctx, ConsumerMaxWait)
+	defer cancel()
+
+	retryDelay := ConsumerInitialRetryDelay
+	startTime := time.Now()
+
+	for i := range ConsumerRetries {
+		if time.Since(startTime) > ConsumerMaxWait {
+			return nil, fmt.Errorf("timeout after %v waiting for the NATS stream %s", ConsumerMaxWait, cfg.NatsStream)
 		}
-		break
+
+		stream, err = js.Stream(ctx, cfg.NatsStream)
+		if err == nil {
+			break
+		}
+
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			if i < ConsumerRetries-1 {
+				select {
+				case <-time.After(retryDelay):
+					log.Printf("Retrying connection to NATS to stream %s in %v...", cfg.NatsStream, retryDelay) // DELETEME
+					// Continue with retry
+				case <-retryCtx.Done():
+					return nil, fmt.Errorf("context cancelled during retry delay for stream %s: %w", cfg.NatsStream, retryCtx.Err())
+				}
+
+				retryDelay = min(time.Duration(float64(retryDelay)*1.5), ConsumerMaxRetryDelay)
+			}
+			continue
+		}
+
+		return nil, fmt.Errorf("get stream %s: %w", cfg.NatsStream, err)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get stream %s: %w", cfg.NatsStream, err)

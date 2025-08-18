@@ -1,4 +1,4 @@
-package nats
+package dlq
 
 import (
 	"context"
@@ -6,37 +6,26 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
-
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
-type JSClient struct {
-	js jetstream.JetStream
+type Client struct {
+	js JetStreamClient
 }
 
-func NewClient(serverURL string) (*JSClient, error) {
-	nc, err := nats.Connect(serverURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
+func NewClient(natsClient *client.NATSClient) *Client {
+	return &Client{
+		js: NewJetStreamAdapter(natsClient.JetStream()),
 	}
-
-	js, err := jetstream.New(nc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to JetStream: %w", err)
-	}
-
-	return &JSClient{
-		js: js,
-	}, nil
 }
 
 // create common config for a durable consumer per pipeline
 // as consumer to get State info must be the same as the one
 // that actually consumes
-func (c *JSClient) getDurableConsumerConfig(stream string) jetstream.ConsumerConfig {
+func (c *Client) getDurableConsumerConfig(stream string) jetstream.ConsumerConfig {
 	//nolint: exhaustruct // optional config
 	return jetstream.ConsumerConfig{
 		Name:          stream + "-consumer",
@@ -46,12 +35,23 @@ func (c *JSClient) getDurableConsumerConfig(stream string) jetstream.ConsumerCon
 	}
 }
 
-func (c *JSClient) FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error) {
+func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error) {
+	if stream == "" {
+		return nil, fmt.Errorf("stream name cannot be empty")
+	}
+	if batchSize <= 0 {
+		return nil, fmt.Errorf("batch size must be positive")
+	}
+	if batchSize > models.DLQMaxBatchSize {
+		return nil, models.ErrDLQMaxBatchSize
+	}
+
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return nil, service.ErrDLQNotExists
 		}
+		return nil, fmt.Errorf("get dlq stream: %w", err)
 	}
 
 	dc, err := s.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(stream))
@@ -78,32 +78,35 @@ func (c *JSClient) FetchDLQMessages(ctx context.Context, stream string, batchSiz
 		}
 
 		dlqMsgs = append(dlqMsgs, dlqMsg)
-
 		lastMsg = msg
 	}
 
 	if batch.Error() != nil {
-		return nil, fmt.Errorf("dlq batch: %w", err)
+		return nil, fmt.Errorf("dlq batch: %w", batch.Error())
 	}
 
-	// WARNING: potential data loss in case of http failure
-	// or pod destruction. MUST BE CHANGED in the "real version"!!
+	// WARNING: potential data loss in case of http failure or pod destruction.
 	if lastMsg != nil {
-		err = lastMsg.Ack()
+		err := lastMsg.Ack()
 		if err != nil {
-			return nil, fmt.Errorf("acknowledge all consumed dlq: %w", err)
+			return nil, fmt.Errorf("acknowledge all consumed dlq messages: %w", err)
 		}
 	}
 
 	return dlqMsgs, nil
 }
 
-func (c *JSClient) GetDLQState(ctx context.Context, stream string) (zero models.DLQState, _ error) {
+func (c *Client) GetDLQState(ctx context.Context, stream string) (zero models.DLQState, _ error) {
+	if stream == "" {
+		return zero, fmt.Errorf("stream name cannot be empty")
+	}
+
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return zero, service.ErrDLQNotExists
 		}
+		return zero, fmt.Errorf("get dlq stream: %w", err)
 	}
 
 	sInfo, err := s.Info(ctx, jetstream.WithSubjectFilter(stream+".failed"))

@@ -41,7 +41,7 @@ func (b *BaseTestSuite) setupNATS() error {
 		b.natsContainer = natsContainer
 	}
 	if b.natsClient == nil {
-		client, err := client.NewNATSWrapper(b.natsContainer.GetURI(), time.Hour)
+		client, err := client.NewNATSClient(context.Background(), b.natsContainer.GetURI(), client.WithMaxAge(time.Hour))
 		if err != nil {
 			return fmt.Errorf("create nats wrapper: %w", err)
 		}

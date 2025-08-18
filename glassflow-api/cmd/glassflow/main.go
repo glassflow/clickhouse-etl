@@ -21,7 +21,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	messagequeue "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/message_queue/nats"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
@@ -118,7 +118,20 @@ func mainErr(cfg *config, role models.Role) error {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	nc, err := client.NewNATSWrapper(cfg.NATSServer, cfg.NATSMaxStreamAge)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		<-shutdown
+		log.Info("Shutdown signal received, cancelling context")
+		cancel()
+	}()
+
+	nc, err := client.NewNATSClient(
+		ctx,
+		cfg.NATSServer,
+		client.WithMaxAge(cfg.NATSMaxStreamAge),
+	)
 	if err != nil {
 		return fmt.Errorf("nats client: %w", err)
 	}
@@ -127,30 +140,25 @@ func mainErr(cfg *config, role models.Role) error {
 
 	switch role {
 	case models.RoleSink:
-		return mainSink(nc, cfg, shutdown, log)
+		return mainSink(ctx, nc, cfg, log)
 	case models.RoleJoin:
-		return mainJoin(nc, cfg, shutdown, log)
+		return mainJoin(ctx, nc, cfg, log)
 	case models.RoleIngestor:
-		return mainIngestor(nc, cfg, shutdown, log)
+		return mainIngestor(ctx, nc, cfg, log)
 	case models.RoleETL:
-		return mainEtl(nc, cfg, shutdown, log)
+		return mainEtl(ctx, nc, cfg, log)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}
 }
 
-func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
-	ctx := context.Background()
-
+func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
 	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
 	if err != nil {
 		return fmt.Errorf("create nats store for pipelines: %w", err)
 	}
 
-	mq, err := messagequeue.NewClient(cfg.NATSServer)
-	if err != nil {
-		return fmt.Errorf("initialize message queue: %w", err)
-	}
+	dlq := dlq.NewClient(nc)
 
 	var orch service.Orchestrator
 
@@ -169,7 +177,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 	}
 
 	pipelineSvc := service.NewPipelineManager(orch, db)
-	dlqSvc := service.NewDLQImpl(mq)
+	dlqSvc := service.NewDLQImpl(dlq)
 
 	handler := api.NewRouter(log, pipelineSvc, dlqSvc)
 
@@ -198,12 +206,12 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 			return fmt.Errorf("failed to start server: %w", err)
 		}
 		return nil
-	case <-shutdown:
+	case <-ctx.Done():
 		log.Info("Received termination signal - service will shutdown")
 
 		wg.Add(2)
 		go func() {
-			if err := apiServer.Shutdown(cfg.ServerShutdownTimeout); err != nil {
+			if err := apiServer.Shutdown(ctx, cfg.ServerShutdownTimeout); err != nil {
 				log.Error("failed to shutdown server", slog.Any("error", err))
 			}
 			wg.Done()
@@ -212,7 +220,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 		go func() {
 			switch o := orch.(type) {
 			case *orchestrator.LocalOrchestrator:
-				err := orch.ShutdownPipeline(context.Background(), o.ActivePipelineID())
+				err := orch.ShutdownPipeline(ctx, o.ActivePipelineID())
 				if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
 					log.Error("pipeline shutdown error", slog.Any("error", err))
 				}
@@ -227,7 +235,7 @@ func mainEtl(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), lo
 	return nil
 }
 
-func mainSink(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
 	var streamName, streamSubject string
 
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
@@ -254,9 +262,10 @@ func mainSink(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), l
 	sinkRunner := service.NewSinkRunner(log, nc)
 
 	return runWithGracefulShutdown(
+		ctx,
 		func() error {
 			return sinkRunner.Start(
-				context.Background(),
+				ctx,
 				streamName,
 				streamSubject,
 				pipelineCfg.Sink,
@@ -264,13 +273,12 @@ func mainSink(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), l
 			)
 		},
 		sinkRunner.Shutdown,
-		shutdown,
 		log,
 		models.RoleSink.String(),
 	)
 }
 
-func mainJoin(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
+func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
@@ -284,22 +292,22 @@ func mainJoin(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), l
 	joinRunner := service.NewJoinRunner(log, nc)
 
 	return runWithGracefulShutdown(
+		ctx,
 		func() error {
 			return joinRunner.Start(
-				context.Background(),
+				ctx,
 				cfg.JoinType,
 				models.GFJoinSubject,
 				schemaMapper,
 			)
 		},
 		joinRunner.Shutdown,
-		shutdown,
 		log,
 		models.RoleJoin.String(),
 	)
 }
 
-func mainIngestor(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal), log *slog.Logger) error {
+func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
 	}
@@ -317,25 +325,25 @@ func mainIngestor(nc *client.NATSClient, cfg *config, shutdown <-chan (os.Signal
 	ingestorRunner := service.NewIngestorRunner(log, nc)
 
 	return runWithGracefulShutdown(
+		ctx,
 		func() error {
 			return ingestorRunner.Start(
-				context.Background(),
+				ctx,
 				cfg.IngestorTopic,
 				pipelineCfg,
 				schemaMapper,
 			)
 		},
 		ingestorRunner.Shutdown,
-		shutdown,
 		log,
 		models.RoleIngestor.String(),
 	)
 }
 
 func runWithGracefulShutdown(
+	ctx context.Context,
 	runnerFunc RunnerFunc,
 	shutdownFunc ShutdownFunc,
-	shutdown <-chan os.Signal,
 	log *slog.Logger,
 	serviceName string,
 ) error {
@@ -358,7 +366,7 @@ func runWithGracefulShutdown(
 			}
 			// If err is nil, the service started successfully and is running
 			// Continue waiting for shutdown signal
-		case <-shutdown:
+		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 			wg.Add(1)
 			go func() {

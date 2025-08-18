@@ -40,8 +40,8 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) Shutdown(timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func (s *Server) Shutdown(ctx context.Context, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	err := s.Server.Shutdown(ctx)
