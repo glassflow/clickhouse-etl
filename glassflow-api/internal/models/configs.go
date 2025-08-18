@@ -18,6 +18,26 @@ const (
 	ClickHouseSinkType       = "clickhouse"
 )
 
+// PipelineStatus represents the overall status of a pipeline
+type PipelineStatus string
+
+const (
+	PipelineStatusCreated     PipelineStatus = "Created"
+	PipelineStatusRunning     PipelineStatus = "Running"
+	PipelineStatusTerminating PipelineStatus = "Terminating"
+	PipelineStatusTerminated  PipelineStatus = "Terminated"
+	PipelineStatusFailed      PipelineStatus = "Failed"
+)
+
+// PipelineHealth represents the health status of a pipeline and its components
+type PipelineHealth struct {
+	PipelineID    string         `json:"pipeline_id"`
+	PipelineName  string         `json:"pipeline_name"`
+	OverallStatus PipelineStatus `json:"overall_status"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+}
+
 type StreamDataField struct {
 	FieldName string `json:"field_name"`
 	FieldType string `json:"field_type"`
@@ -333,9 +353,9 @@ type PipelineConfig struct {
 	Join      JoinOperatorConfig     `json:"join"`
 	Sink      SinkOperatorConfig     `json:"sink"`
 	CreatedAt time.Time              `json:"created_at"`
+	Status    PipelineHealth         `json:"status,omitempty"`
 }
 
-// TODO: add name and status to pipeline
 func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
 	transformation := IngestTransformation
 
@@ -353,12 +373,18 @@ func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
 		}
 	}
 
+	status := PipelineStatusCreated
+	if pc.Status.OverallStatus != "" {
+		status = pc.Status.OverallStatus
+	}
+
 	return ListPipelineConfig{
 		ID:             pc.ID,
 		Name:           pc.Name,
 		Transformation: transformation,
 		CreatedAt:      pc.CreatedAt,
 		State:          "",
+		Status:         status,
 	}
 }
 
@@ -368,6 +394,7 @@ type ListPipelineConfig struct {
 	Transformation TransformationType `json:"transformation_type"`
 	CreatedAt      time.Time          `json:"created_at"`
 	State          string             `json:"state"`
+	Status         PipelineStatus     `json:"status"`
 }
 
 type TransformationType string
@@ -396,6 +423,7 @@ func NewPipelineConfig(id, name string, mc MapperConfig, ic IngestorOperatorConf
 		Join:      jc,
 		Sink:      sc,
 		CreatedAt: time.Now().UTC(),
+		Status:    NewPipelineHealth(id, name),
 	}
 }
 
@@ -444,4 +472,16 @@ func (d JSONDuration) Duration() time.Duration {
 
 func GetJoinedStreamName(pipelineID string) string {
 	return fmt.Sprintf("%s-%s", GFJoinStream, pipelineID)
+}
+
+// NewPipelineHealth creates a new pipeline health status
+func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
+	now := time.Now().UTC()
+	return PipelineHealth{
+		PipelineID:    pipelineID,
+		PipelineName:  pipelineName,
+		OverallStatus: PipelineStatusCreated,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
 }
