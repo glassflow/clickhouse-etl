@@ -318,7 +318,7 @@ func (p *PipelineSteps) setupPipelineManager() error {
 		return fmt.Errorf("pipeline manager already initialized")
 	}
 
-	natsClient, err := client.NewNATSClient(p.natsContainer.GetURI(), client.WithMaxAge(time.Hour))
+	natsClient, err := client.NewNATSClient(context.Background(), p.natsContainer.GetURI(), client.WithMaxAge(time.Hour))
 	if err != nil {
 		return fmt.Errorf("create nats client: %w", err)
 	}
