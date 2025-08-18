@@ -5,7 +5,7 @@
 <p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
-      <a href="https://github.com/orgs/glassflow/discussions/categories/ideas"><strong>Feature Request</strong></a> ·
+      <a href="https://glassflow.dev/roadmap"><strong>Roadmap</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
       <a href="https://docs.glassflow.dev/demo"><strong>Watch Demo</strong></a>
 </p>
