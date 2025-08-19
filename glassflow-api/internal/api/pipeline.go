@@ -67,6 +67,8 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotFound):
 			jsonError(w, http.StatusNotFound, "no active pipeline with given id to shutdown", nil)
+		case errors.Is(err, service.ErrNotImplemented):
+			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
 			serverError(w)
 		}
@@ -95,6 +97,8 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotFound):
 			jsonError(w, http.StatusNotFound, "no active pipeline with given id to terminate", nil)
+		case errors.Is(err, service.ErrNotImplemented):
+			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
 			serverError(w)
 		}
