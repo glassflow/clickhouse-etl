@@ -7,7 +7,6 @@ import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { FieldColumnMapper } from './components/FieldColumnMapper'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
-import { CacheRefreshButton } from './components/CacheRefreshButton'
 import FormActions from '@/src/components/shared/FormActions'
 import { createPipeline } from '@/src/api/pipeline'
 
@@ -551,6 +550,49 @@ export function ClickhouseMapper({
     }
   }, [mappedColumns, prevMappedFieldsCount, analytics.destination, topicName, index, clickhouseDestination])
 
+  // Continuously validate mappings to update validation issues in real-time
+  useEffect(() => {
+    if (tableSchema.columns.length === 0 || mappedColumns.length === 0) {
+      return
+    }
+
+    // Reset validation state
+    const issues = {
+      unmappedNullableColumns: [] as string[],
+      unmappedNonNullableColumns: [] as string[],
+      extraEventFields: [] as string[],
+      incompatibleTypeMappings: [] as any[],
+      missingTypeMappings: [] as any[],
+    }
+
+    // Find unmapped columns
+    tableSchema.columns.forEach((column) => {
+      const mappedColumn = mappedColumns.find((mc) => mc.name === column.name)
+      if (!mappedColumn || !mappedColumn.eventField) {
+        // Check if the column is actually nullable by examining its type
+        const isActuallyNullable = column?.type?.includes('Nullable') || column.isNullable === true
+
+        if (isActuallyNullable) {
+          issues.unmappedNullableColumns.push(column.name)
+        } else {
+          issues.unmappedNonNullableColumns.push(column.name)
+        }
+      }
+    })
+
+    // Find extra event fields
+    const allEventFields = mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]
+    const extraFields = allEventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
+    issues.extraEventFields = extraFields
+
+    // Validate type compatibility
+    const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
+    issues.incompatibleTypeMappings = invalidMappings
+    issues.missingTypeMappings = missingTypeMappings
+
+    setValidationIssues(issues)
+  }, [tableSchema.columns, mappedColumns, eventFields, primaryEventFields, secondaryEventFields, mode])
+
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
     if (databases.length > 0) {
@@ -639,45 +681,12 @@ export function ClickhouseMapper({
 
   // Add validation logic
   const validateMapping = useCallback((): ValidationResult | null => {
-    // Reset validation state
-    const issues = {
-      unmappedNullableColumns: [] as string[],
-      unmappedNonNullableColumns: [] as string[],
-      extraEventFields: [] as string[],
-      incompatibleTypeMappings: [] as any[],
-      missingTypeMappings: [] as any[],
-    }
+    // Use the already computed validation issues from the continuous validation useEffect
+    const issues = validationIssues
 
     // Count mapped fields
     const mappedFieldsCount = mappedColumns.filter((col) => col.eventField).length
     const totalColumnsCount = tableSchema.columns.length
-
-    // Find unmapped columns
-    tableSchema.columns.forEach((column) => {
-      const mappedColumn = mappedColumns.find((mc) => mc.name === column.name)
-      if (!mappedColumn || !mappedColumn.eventField) {
-        // Check if the column is actually nullable by examining its type
-        const isActuallyNullable = column?.type?.includes('Nullable') || column.isNullable === true
-
-        if (isActuallyNullable) {
-          issues.unmappedNullableColumns.push(column.name)
-        } else {
-          issues.unmappedNonNullableColumns.push(column.name)
-        }
-      }
-    })
-
-    // Find extra event fields
-    const allEventFields = mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]
-    const extraFields = allEventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
-    issues.extraEventFields = extraFields
-
-    // Validate type compatibility
-    const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
-    issues.incompatibleTypeMappings = invalidMappings
-    issues.missingTypeMappings = missingTypeMappings
-
-    setValidationIssues(issues)
 
     // Check in order of priority:
     // 1. Type compatibility violations (error)
@@ -747,17 +756,7 @@ export function ClickhouseMapper({
     }
 
     return null // No validation issues
-  }, [
-    mappedColumns,
-    tableSchema.columns,
-    eventFields,
-    primaryEventFields,
-    secondaryEventFields,
-    mode,
-    analytics.destination,
-    topicName,
-    index,
-  ])
+  }, [validationIssues, mappedColumns, tableSchema.columns])
 
   // Add save configuration logic
   const saveDestinationConfig = useCallback(() => {
@@ -1067,19 +1066,6 @@ export function ClickhouseMapper({
         {/* Batch Size / Delay Time / Column Mapping */}
         {selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading && (
           <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-            {/* Table Schema Refresh Button */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-content">Table Schema & Mapping</h3>
-              <CacheRefreshButton
-                type="tableSchema"
-                database={selectedDatabase}
-                table={selectedTable}
-                onRefresh={handleRefreshTableSchema}
-                size="sm"
-                variant="outline"
-                disabled={readOnly}
-              />
-            </div>
             <BatchDelaySelector
               maxBatchSize={maxBatchSize}
               maxDelayTime={maxDelayTime}
@@ -1101,6 +1087,10 @@ export function ClickhouseMapper({
               secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
               isJoinMapping={mode !== 'single'}
               readOnly={readOnly}
+              unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
+              onRefreshTableSchema={handleRefreshTableSchema}
+              selectedDatabase={selectedDatabase}
+              selectedTable={selectedTable}
             />
             {/* TypeCompatibilityInfo is temporarily hidden */}
             {/* <TypeCompatibilityInfo /> */}
