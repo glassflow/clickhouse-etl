@@ -9,8 +9,10 @@ import (
 )
 
 type Orchestrator interface {
+	GetType() string
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	ShutdownPipeline(ctx context.Context, pid string) error
+	TerminatePipeline(ctx context.Context, pid string) error
 }
 
 type PipelineStore interface {
@@ -19,14 +21,17 @@ type PipelineStore interface {
 	GetPipeline(ctx context.Context, pid string) (*models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.PipelineConfig, error)
 	PatchPipelineName(ctx context.Context, pid string, name string) error
+	UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error
 }
 
 type PipelineManager interface {
 	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
+	TerminatePipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
+	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
 }
 
 type PipelineManagerImpl struct {
@@ -61,6 +66,9 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 		return fmt.Errorf("create pipeline: %w", ErrIDExists)
 	}
 
+	// Set initial status to Created
+	cfg.Status = models.NewPipelineHealth(cfg.ID, cfg.Name)
+
 	err = p.orchestrator.SetupPipeline(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("create pipeline: %w", err)
@@ -85,6 +93,40 @@ func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) er
 	err = p.db.DeletePipeline(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("shutdown pipeline: %w", err)
+	}
+
+	return nil
+}
+
+// TerminatePipeline implements PipelineManager.
+func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string) error {
+	// Get current pipeline to update status
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("get pipeline for termination: %w", err)
+	}
+
+	// Set status to Terminating
+	pipeline.Status.OverallStatus = models.PipelineStatusTerminating
+
+	// Update status in database
+	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status: %w", err)
+	}
+
+	err = p.orchestrator.TerminatePipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("shutdown pipeline: %w", err)
+	}
+
+	// for k8 orchestrator, deletion reconciler of the operator is responsible for delete from DB
+	if p.orchestrator.GetType() == "local" {
+		// delete the pipeline from the database
+		err = p.db.DeletePipeline(ctx, pid)
+		if err != nil {
+			return fmt.Errorf("shutdown pipeline: %w", err)
+		}
 	}
 
 	return nil
@@ -120,6 +162,29 @@ func (p *PipelineManagerImpl) UpdatePipelineName(ctx context.Context, id string,
 	err := p.db.PatchPipelineName(ctx, id, name)
 	if err != nil {
 		return fmt.Errorf("update pipeline: %w", err)
+	}
+
+	return nil
+}
+
+// GetPipelineHealth implements PipelineManager.
+func (p *PipelineManagerImpl) GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error) {
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return models.PipelineHealth{}, ErrPipelineNotFound
+		}
+		return models.PipelineHealth{}, fmt.Errorf("get pipeline health: %w", err)
+	}
+
+	return pipeline.Status, nil
+}
+
+// UpdatePipelineStatus implements PipelineManager.
+func (p *PipelineManagerImpl) UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error {
+	err := p.db.UpdatePipelineStatus(ctx, pid, status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
 	return nil

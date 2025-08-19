@@ -77,6 +77,34 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+	}
+
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	err := h.pipelineManager.TerminatePipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotFound):
+			jsonError(w, http.StatusNotFound, "no active pipeline with given id to terminate", nil)
+		default:
+			serverError(w)
+		}
+		return
+	}
+
+	h.log.Info("pipeline terminated")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
@@ -103,6 +131,36 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusOK, toPipelineJSON(p))
+}
+
+// getPipelineHealth returns the health status of a specific pipeline
+func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+		return
+	}
+
+	if len(id) == 0 {
+		jsonError(w, http.StatusBadRequest, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	health, err := h.pipelineManager.GetPipelineHealth(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotFound):
+			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
+		default:
+			h.log.Error("failed to get pipeline health", slog.String("pipeline_id", id), slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, health)
 }
 
 // TODO: set up pagination to avoid unsavory memory errors
