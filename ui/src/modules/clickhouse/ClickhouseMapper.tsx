@@ -7,7 +7,6 @@ import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { FieldColumnMapper } from './components/FieldColumnMapper'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
-import { CacheRefreshButton } from './components/CacheRefreshButton'
 import FormActions from '@/src/components/shared/FormActions'
 import { createPipeline } from '@/src/api/pipeline'
 
@@ -414,16 +413,6 @@ export function ClickhouseMapper({
   // Sync local state with store when hydration completes
   useEffect(() => {
     if (clickhouseDestination && !isHydrated) {
-      console.log('ClickhouseMapper: Hydrating from store data:', {
-        database: clickhouseDestination.database,
-        table: clickhouseDestination.table,
-        destinationColumns: clickhouseDestination.destinationColumns?.length,
-        mapping: clickhouseDestination.mapping?.length,
-        maxBatchSize: clickhouseDestination.maxBatchSize,
-        maxDelayTime: clickhouseDestination.maxDelayTime,
-        maxDelayTimeUnit: clickhouseDestination.maxDelayTimeUnit,
-      })
-
       // Update local state from store
       setSelectedDatabase(clickhouseDestination.database || '')
       setSelectedTable(clickhouseDestination.table || '')
@@ -561,6 +550,49 @@ export function ClickhouseMapper({
     }
   }, [mappedColumns, prevMappedFieldsCount, analytics.destination, topicName, index, clickhouseDestination])
 
+  // Continuously validate mappings to update validation issues in real-time
+  useEffect(() => {
+    if (tableSchema.columns.length === 0 || mappedColumns.length === 0) {
+      return
+    }
+
+    // Reset validation state
+    const issues = {
+      unmappedNullableColumns: [] as string[],
+      unmappedNonNullableColumns: [] as string[],
+      extraEventFields: [] as string[],
+      incompatibleTypeMappings: [] as any[],
+      missingTypeMappings: [] as any[],
+    }
+
+    // Find unmapped columns
+    tableSchema.columns.forEach((column) => {
+      const mappedColumn = mappedColumns.find((mc) => mc.name === column.name)
+      if (!mappedColumn || !mappedColumn.eventField) {
+        // Check if the column is actually nullable by examining its type
+        const isActuallyNullable = column?.type?.includes('Nullable') || column.isNullable === true
+
+        if (isActuallyNullable) {
+          issues.unmappedNullableColumns.push(column.name)
+        } else {
+          issues.unmappedNonNullableColumns.push(column.name)
+        }
+      }
+    })
+
+    // Find extra event fields
+    const allEventFields = mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]
+    const extraFields = allEventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
+    issues.extraEventFields = extraFields
+
+    // Validate type compatibility
+    const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
+    issues.incompatibleTypeMappings = invalidMappings
+    issues.missingTypeMappings = missingTypeMappings
+
+    setValidationIssues(issues)
+  }, [tableSchema.columns, mappedColumns, eventFields, primaryEventFields, secondaryEventFields, mode])
+
   // Load databases when component mounts, but only if not already loaded
   useEffect(() => {
     if (databases.length > 0) {
@@ -649,45 +681,12 @@ export function ClickhouseMapper({
 
   // Add validation logic
   const validateMapping = useCallback((): ValidationResult | null => {
-    // Reset validation state
-    const issues = {
-      unmappedNullableColumns: [] as string[],
-      unmappedNonNullableColumns: [] as string[],
-      extraEventFields: [] as string[],
-      incompatibleTypeMappings: [] as any[],
-      missingTypeMappings: [] as any[],
-    }
+    // Use the already computed validation issues from the continuous validation useEffect
+    const issues = validationIssues
 
     // Count mapped fields
     const mappedFieldsCount = mappedColumns.filter((col) => col.eventField).length
     const totalColumnsCount = tableSchema.columns.length
-
-    // Find unmapped columns
-    tableSchema.columns.forEach((column) => {
-      const mappedColumn = mappedColumns.find((mc) => mc.name === column.name)
-      if (!mappedColumn || !mappedColumn.eventField) {
-        // Check if the column is actually nullable by examining its type
-        const isActuallyNullable = column?.type?.includes('Nullable') || column.isNullable === true
-
-        if (isActuallyNullable) {
-          issues.unmappedNullableColumns.push(column.name)
-        } else {
-          issues.unmappedNonNullableColumns.push(column.name)
-        }
-      }
-    })
-
-    // Find extra event fields
-    const allEventFields = mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]
-    const extraFields = allEventFields.filter((field) => !mappedColumns.some((col) => col.eventField === field))
-    issues.extraEventFields = extraFields
-
-    // Validate type compatibility
-    const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
-    issues.incompatibleTypeMappings = invalidMappings
-    issues.missingTypeMappings = missingTypeMappings
-
-    setValidationIssues(issues)
 
     // Check in order of priority:
     // 1. Type compatibility violations (error)
@@ -757,25 +756,10 @@ export function ClickhouseMapper({
     }
 
     return null // No validation issues
-  }, [
-    mappedColumns,
-    tableSchema.columns,
-    eventFields,
-    primaryEventFields,
-    secondaryEventFields,
-    mode,
-    analytics.destination,
-    topicName,
-    index,
-  ])
+  }, [validationIssues, mappedColumns, tableSchema.columns])
 
   // Add save configuration logic
   const saveDestinationConfig = useCallback(() => {
-    console.log('saveDestinationConfig: called')
-    console.log('saveDestinationConfig: mappedColumns =', mappedColumns)
-    console.log('saveDestinationConfig: selectedDatabase =', selectedDatabase)
-    console.log('saveDestinationConfig: selectedTable =', selectedTable)
-
     // Set the pending action to 'save' so we know what to do after validation
     setPendingAction('save')
 
@@ -784,12 +768,9 @@ export function ClickhouseMapper({
     })
 
     // Run validation
-    console.log('saveDestinationConfig: running validation...')
     const validationResult = validateMapping()
-    console.log('saveDestinationConfig: validationResult =', validationResult)
 
     if (validationResult) {
-      console.log('saveDestinationConfig: showing validation modal')
       // Show modal with validation result
       setModalProps({
         visible: true,
@@ -800,7 +781,6 @@ export function ClickhouseMapper({
         type: validationResult.type,
       })
     } else {
-      console.log('saveDestinationConfig: no validation issues, proceeding to completeConfigSave')
       // No validation issues, proceed directly
       completeConfigSave()
     }
@@ -808,20 +788,12 @@ export function ClickhouseMapper({
 
   // Handle discard changes for clickhouse destination configuration
   const handleDiscardChanges = useCallback(() => {
-    console.log('Discarding changes for clickhouse destination section', {
-      lastSavedConfig: coreStore.getLastSavedConfig(),
-      mode: coreStore.mode,
-    })
-
     // Discard clickhouse destination section
     coreStore.discardSection('clickhouse-destination')
   }, [coreStore])
 
   // Complete the save after modal confirmation
   const completeConfigSave = useCallback(() => {
-    console.log('completeConfigSave: called')
-    console.log('completeConfigSave: isPreviewMode =', isPreviewMode)
-
     // Before saving, do a final validation of type compatibility
     const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
 
@@ -887,7 +859,6 @@ export function ClickhouseMapper({
     }
 
     // Generate config with the updated destination
-    console.log('completeConfigSave: generating API config...')
     const apiConfig = generateApiConfig({
       pipelineId,
       pipelineName,
@@ -901,8 +872,6 @@ export function ClickhouseMapper({
       deduplicationStore,
     })
 
-    console.log('completeConfigSave: apiConfig =', apiConfig)
-
     // Update the store with the new destination config
     setClickhouseDestination(updatedDestination)
     setApiConfig(apiConfig)
@@ -911,12 +880,9 @@ export function ClickhouseMapper({
     setTimeout(() => setSuccess(null), 3000)
 
     if (isPreviewMode) {
-      console.log('completeConfigSave: navigating to review mode')
       // Navigate to the review configuration step for preview
       onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
     } else {
-      console.log('completeConfigSave: deploying pipeline in direct mode')
-      console.log('completeConfigSave: apiConfig - deploying pipeline =', apiConfig)
       // Direct mode: Deploy pipeline immediately and then navigate to pipelines page
       deployPipelineAndNavigate(apiConfig)
     }
@@ -947,20 +913,15 @@ export function ClickhouseMapper({
   // Add function to deploy pipeline and navigate
   const deployPipelineAndNavigate = useCallback(
     async (apiConfig: any) => {
-      console.log('deployPipelineAndNavigate: called with apiConfig =', apiConfig)
       try {
         // Deploy the pipeline
-        console.log('deployPipelineAndNavigate: calling createPipeline...')
         const response = await createPipeline(apiConfig)
-        console.log('deployPipelineAndNavigate: createPipeline response =', response)
 
         // Set the pipeline ID from the response
         const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
-        console.log('deployPipelineAndNavigate: setting pipeline ID =', newPipelineId)
         setPipelineId(newPipelineId)
 
         // Navigate to pipelines page to show deployment status
-        console.log('deployPipelineAndNavigate: navigating to /pipelines')
         router.push('/pipelines')
       } catch (error: any) {
         console.error('deployPipelineAndNavigate: Failed to deploy pipeline:', error)
@@ -1105,19 +1066,6 @@ export function ClickhouseMapper({
         {/* Batch Size / Delay Time / Column Mapping */}
         {selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading && (
           <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-            {/* Table Schema Refresh Button */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-content">Table Schema & Mapping</h3>
-              <CacheRefreshButton
-                type="tableSchema"
-                database={selectedDatabase}
-                table={selectedTable}
-                onRefresh={handleRefreshTableSchema}
-                size="sm"
-                variant="outline"
-                disabled={readOnly}
-              />
-            </div>
             <BatchDelaySelector
               maxBatchSize={maxBatchSize}
               maxDelayTime={maxDelayTime}
@@ -1139,6 +1087,10 @@ export function ClickhouseMapper({
               secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
               isJoinMapping={mode !== 'single'}
               readOnly={readOnly}
+              unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
+              onRefreshTableSchema={handleRefreshTableSchema}
+              selectedDatabase={selectedDatabase}
+              selectedTable={selectedTable}
             />
             {/* TypeCompatibilityInfo is temporarily hidden */}
             {/* <TypeCompatibilityInfo /> */}

@@ -143,7 +143,6 @@ export function KafkaTopicSelector({
       // In edit mode, just save changes and trigger validation engine
       // Don't call onCompleteStep as we want to stay in the same section
       if (currentStep === StepKeys.TOPIC_SELECTION_1) {
-        console.log('Kafka Topic Selector: In edit mode, step 1')
         validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
       } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
         validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)

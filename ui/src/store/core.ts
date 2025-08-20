@@ -397,7 +397,6 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       if (lastSavedConfig) {
         // Hydrate only the specific section from lastSavedConfig
         state.coreStore.hydrateSection(section, lastSavedConfig)
-        console.log(`Discarded changes for section: ${section}`)
       } else {
         console.warn('No lastSavedConfig available for section discard')
       }
@@ -411,7 +410,6 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         sections.forEach((section) => {
           state.coreStore.hydrateSection(section, lastSavedConfig)
         })
-        console.log(`Discarded changes for sections: ${sections.join(', ')}`)
       } else {
         console.warn('No lastSavedConfig available for sections discard')
       }

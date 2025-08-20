@@ -11,7 +11,6 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
       // If decoding succeeds and doesn't contain control characters, use decoded version
       if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
         decodedPassword = decoded
-        console.log('hydrateClickhouseConnection - password decoded from base64:', decoded)
       } else {
         console.log(
           'hydrateClickhouseConnection - password appears to be already decoded or contains control characters',
@@ -21,7 +20,6 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
   } catch (error) {
     // If decoding fails, use original password (might not be base64 encoded)
     decodedPassword = sink.password || ''
-    console.log('hydrateClickhouseConnection - password decoding failed, using original:', error)
   }
 
   return {
@@ -43,9 +41,7 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
 
 export function hydrateClickhouseConnection(pipelineConfig: any) {
   if (pipelineConfig?.sink) {
-    console.log('hydrateClickhouseConnection - full sink config:', JSON.stringify(pipelineConfig.sink, null, 2))
     const clickhouseConnection = mapBackendClickhouseConfigToStore(pipelineConfig.sink)
-    console.log('hydrateClickhouseConnection - mapped connection:', JSON.stringify(clickhouseConnection, null, 2))
     useStore.getState().clickhouseConnectionStore.setClickhouseConnection(clickhouseConnection)
   }
 }

@@ -54,7 +54,6 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   useEffect(() => {
     if (stepKey) {
       setCurrentStep(stepKey)
-      console.log('pipeline?.status', pipeline?.status)
       // Reset edit mode whenever step type changes
       setEditMode(pipeline?.status === 'active' ? false : true)
     }
@@ -177,8 +176,6 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       const result = await executeAction('pause')
 
       if (result) {
-        console.log('Pipeline paused successfully for editing:', selectedPipeline.id)
-
         // Update pipeline status locally
         onPipelineStatusUpdate?.('paused')
 

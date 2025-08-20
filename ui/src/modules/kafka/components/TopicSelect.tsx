@@ -1,6 +1,6 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
+import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { cn } from '@/src/utils/common.client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 export function TopicSelect({
   value,
@@ -23,59 +23,62 @@ export function TopicSelect({
   readOnly?: boolean
   standalone?: boolean
 }) {
-  const [isFocused, setIsFocused] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
+
+  // Create a mapping from value to label for display purposes
+  const valueToLabelMap = useMemo(() => {
+    return options.reduce(
+      (map, option) => {
+        map[option.value] = option.label
+        return map
+      },
+      {} as Record<string, string>,
+    )
+  }, [options])
+
+  // Convert options to string array for SearchableSelect
+  // We'll use labels for search but handle value mapping internally
+  const searchableOptions = useMemo(() => {
+    return options.map((option) => option.label)
+  }, [options])
+
+  // Find the current label for the selected value
+  const selectedLabel = value ? valueToLabelMap[value] : ''
+
+  const handleSelect = (selectedLabel: string | null) => {
+    if (!selectedLabel) {
+      onChange('')
+      onBlur()
+      return
+    }
+
+    // Find the option that matches the selected label
+    const selectedOption = options.find((option) => option.label === selectedLabel)
+    if (selectedOption) {
+      onChange(selectedOption.value)
+      onBlur()
+    }
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    onOpenChange(open)
+  }
+
   return (
     <div className="relative w-full">
-      <Select
+      <SearchableSelect
+        availableOptions={searchableOptions}
+        selectedOption={selectedLabel}
+        onSelect={handleSelect}
+        placeholder={placeholder}
         disabled={readOnly}
-        value={value}
-        defaultValue={value}
-        onValueChange={(value) => {
-          onChange(value)
-          onBlur()
-        }}
-        onOpenChange={(open) => {
-          setIsFocused(open)
-        }}
-      >
-        <SelectTrigger
-          className={cn(
-            'w-full',
-            'input-regular',
-            'input-border-regular',
-            'transition-all duration-200 ease-in-out',
-            'text-content',
-            error && 'input-border-error',
-            isFocused && 'input-active scale-[1.01]',
-          )}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => {
-            if (!document.querySelector('[data-state="open"]')) {
-              setIsFocused(false)
-              onBlur()
-            }
-          }}
-        >
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent className="select-content-custom animate-fadeIn">
-          {options.length === 0 ? (
-            <div className="p-2 animate-pulse">No options found</div>
-          ) : (
-            options.map((option) => {
-              return (
-                <SelectItem
-                  key={`${option.value}`}
-                  value={option.value}
-                  className="select-item-custom transition-colors duration-150 hover:scale-[1.02] transition-transform text-content"
-                >
-                  {option.label}
-                </SelectItem>
-              )
-            })
-          )}
-        </SelectContent>
-      </Select>
+        clearable={true}
+        open={isOpen}
+        onOpenChange={handleOpenChange}
+        readOnly={readOnly}
+        className={cn('w-full', error && '[&_input]:border-red-500 [&_input]:border-2')}
+      />
     </div>
   )
 }

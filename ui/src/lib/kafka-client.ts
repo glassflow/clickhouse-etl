@@ -446,7 +446,6 @@ export class KafkaClient {
 
             // Parse the message based on format
             let parsedMessage
-            console.log(`KafkaClient: Parsing message with format: "${format}"`)
 
             if (format === 'JSON' || format === 'json') {
               try {

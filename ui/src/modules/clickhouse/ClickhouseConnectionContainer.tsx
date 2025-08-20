@@ -79,7 +79,6 @@ export function ClickhouseConnectionContainer({
   }, [connectionStatus, connectionError, connectionFormValues, analytics.clickhouse])
 
   const saveConnectionData = (values: ClickhouseConnectionFormType) => {
-    console.log('ClickhouseConnectionContainer - saveConnectionData')
     // Save the connection details to the store only after successful test
     const newConnection = {
       ...clickhouseConnection,
@@ -100,10 +99,8 @@ export function ClickhouseConnectionContainer({
 
     // Proceed to next step
     if (!standalone && onCompleteStep) {
-      console.log('ClickhouseConnectionContainer - onCompleteStep')
       onCompleteStep(StepKeys.CLICKHOUSE_CONNECTION)
     } else if (standalone && onCompleteStandaloneEditing) {
-      console.log('Standalone ClickhouseConnectionContainer - onCompleteStandaloneEditing')
       onCompleteStandaloneEditing()
     }
   }

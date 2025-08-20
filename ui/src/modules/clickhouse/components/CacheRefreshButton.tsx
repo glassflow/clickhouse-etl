@@ -47,10 +47,12 @@ export function CacheRefreshButton({
           'animate-spin': isRefreshing,
         },
         className,
+        'btn-neutral',
       )}
-      title={`Refresh ${type} data`}
+      title={`Refres ${type} data`}
     >
       <ArrowPathIcon className="h-4 w-4" />
+      Reload
     </Button>
   )
 }

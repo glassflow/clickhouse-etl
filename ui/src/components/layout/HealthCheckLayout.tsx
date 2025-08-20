@@ -23,7 +23,6 @@ export function HealthCheckLayout({ children }: HealthCheckLayoutProps) {
         // Only show dialog if connection is failing
         setShowHealthCheck(!result.success)
       } catch (error) {
-        console.error('Health check failed:', error)
         setIsConnected(false)
         setShowHealthCheck(true)
       } finally {
@@ -42,7 +41,6 @@ export function HealthCheckLayout({ children }: HealthCheckLayoutProps) {
       // Hide dialog if connection is now successful
       setShowHealthCheck(!result.success)
     } catch (error) {
-      console.error('Health check failed:', error)
       setIsConnected(false)
       setShowHealthCheck(true)
     } finally {

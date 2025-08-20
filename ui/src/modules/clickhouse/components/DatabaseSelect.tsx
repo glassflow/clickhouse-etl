@@ -67,14 +67,16 @@ export function DatabaseSelect({
           </div>
         )}
         {onRefresh && (
-          <CacheRefreshButton
-            disabled={readOnly}
-            type="databases"
-            onRefresh={onRefresh}
-            size="sm"
-            variant="ghost"
-            className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
-          />
+          <div className="flex items-center justify-end ml-2">
+            <CacheRefreshButton
+              disabled={readOnly}
+              type="databases"
+              onRefresh={onRefresh}
+              size="sm"
+              variant="ghost"
+              className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+            />
+          </div>
         )}
       </div>
     </div>

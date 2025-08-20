@@ -116,8 +116,6 @@ const CreatePipelineModal = ({
   )
 
   const handleComplete = (result: string, value?: string) => {
-    console.log('handleComplete', result, value)
-
     // Handle cancellation
     if (result === 'CANCEL') {
       onComplete(result)
@@ -131,8 +129,6 @@ const CreatePipelineModal = ({
   }
 
   const handleChange = (value: string) => {
-    console.log('handleChange', value)
-
     // Clear validation state while typing
     setValidationError(null)
     setIsValid(false)
