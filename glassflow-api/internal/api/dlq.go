@@ -16,18 +16,11 @@ import (
 )
 
 func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
 
-	var batchSize int
-	batchParam, ok := params["batchSize"]
-	if ok {
-		var err error
-		batchSize, err = strconv.Atoi(batchParam)
-		if err != nil {
-			h.log.Error("cannot convert batchSize to int", slog.Any("error", err))
-			serverError(w)
-			return
-		}
+	batchSize, err := strconv.Atoi(r.URL.Query().Get("batch_size"))
+	if err != nil || batchSize <= 0 {
+		batchSize = service.DLQDefaultBatchSize
+		h.log.Debug("using default: ", slog.Int("batch_size", batchSize))
 	}
 
 	dlqBatch, err := models.NewDLQBatchSize(batchSize)
@@ -35,6 +28,7 @@ func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusUnprocessableEntity, fmt.Sprintf("batch size cannot be greater than %d", models.DLQMaxBatchSize), nil)
 	}
 
+	params := mux.Vars(r)
 	id, ok := params["id"]
 	if !ok {
 		h.log.Error("Cannot extract pipeline id", slog.Any("params", params))

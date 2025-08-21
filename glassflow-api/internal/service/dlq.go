@@ -8,6 +8,7 @@ import (
 )
 
 const DLQSuffix = "DLQ"
+const DLQDefaultBatchSize = 1
 
 type DLQ interface {
 	ConsumeDLQ(ctx context.Context, pid string, batchSize models.DLQBatchSize) ([]models.DLQMessage, error)
