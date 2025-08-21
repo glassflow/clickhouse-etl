@@ -180,10 +180,7 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 
 // ShutdownPipeline implements Orchestrator.
 func (d *LocalOrchestrator) TerminatePipeline(_ context.Context, pid string) error {
-	d.log.Info("terminating k8s pipeline", slog.String("pipeline_id", pid))
-
-	// we don't need terminating in a docker version of a pipeline / alternatively we can just call shutdown
-	panic("unimplemented")
+	return d.ShutdownPipeline(context.Background(), pid)
 }
 
 func (d *LocalOrchestrator) ActivePipelineID() string {

@@ -143,7 +143,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 
 // ShutdownPipeline implements Orchestrator.
 func (k *K8sOrchestrator) ShutdownPipeline(_ context.Context, _ string) error {
-	panic("unimplemented")
+	return service.ErrNotImplemented
 	// annotate deletion-type: shutdown
 }
 

@@ -49,6 +49,7 @@ func NewPipelineManager(orch Orchestrator, db PipelineStore) *PipelineManagerImp
 var (
 	ErrIDExists             = errors.New("pipeline with this ID already exists")
 	ErrPipelineNotFound     = errors.New("no active pipeline found")
+	ErrNotImplemented       = errors.New("feature is not implemented")
 	ErrPipelineNotExists    = errors.New("no pipeline with given id exists")
 	ErrPipelineQuotaReached = errors.New("pipeline quota reached; shutdown active pipeline(s)")
 )
@@ -100,6 +101,10 @@ func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) er
 
 // TerminatePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string) error {
+	if p.orchestrator.GetType() == "local" {
+		return p.DeletePipeline(ctx, pid)
+	}
+
 	// Get current pipeline to update status
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
@@ -118,15 +123,6 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 	err = p.orchestrator.TerminatePipeline(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("shutdown pipeline: %w", err)
-	}
-
-	// for k8 orchestrator, deletion reconciler of the operator is responsible for delete from DB
-	if p.orchestrator.GetType() == "local" {
-		// delete the pipeline from the database
-		err = p.db.DeletePipeline(ctx, pid)
-		if err != nil {
-			return fmt.Errorf("shutdown pipeline: %w", err)
-		}
 	}
 
 	return nil
