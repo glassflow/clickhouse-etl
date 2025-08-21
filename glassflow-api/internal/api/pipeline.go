@@ -93,7 +93,7 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 	err := h.pipelineManager.TerminatePipeline(r.Context(), id)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrPipelineNotFound):
+		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, "no active pipeline with given id to terminate", nil)
 		default:
 			serverError(w)
