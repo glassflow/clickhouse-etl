@@ -256,6 +256,7 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 	ingestor, err := operator.NewIngestorOperator(
 		s.ingestorCfg,
 		s.topicName,
+		s.streamCfg.Stream,
 		s.streamCfg.Subject,
 		s.dlqStreamCfg.Subject,
 		nc,

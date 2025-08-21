@@ -28,6 +28,7 @@ type IngestorOperator struct {
 func NewIngestorOperator(
 	config models.IngestorOperatorConfig,
 	topicName string,
+	streamName string,
 	natsStreamSubject string,
 	dlqStreamSubject string,
 	nc *client.NATSClient,
@@ -60,12 +61,12 @@ func NewIngestorOperator(
 		},
 	)
 
-	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
+	op, err := ingestor.NewKafkaIngestor(config, topicName, streamName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}
 	return &IngestorOperator{
-		ingestor: ingestor,
+		ingestor: op,
 		log:      log,
 		wg:       sync.WaitGroup{},
 	}, nil

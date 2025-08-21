@@ -31,10 +31,12 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 }
 
 func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
+	streamName := models.GetIngestionStreamName(pipelineCfg.ID, topicName)
 	ingestorOperator, err := operator.NewIngestorOperator(
 		pipelineCfg.Ingestor,
 		topicName,
-		topicName+".input",
+		streamName,
+		models.GetIngestionStreamSubjectName(pipelineCfg.ID, topicName),
 		models.GetDLQStreamSubjectName(pipelineCfg.ID),
 		i.nc,
 		schemaMapper,

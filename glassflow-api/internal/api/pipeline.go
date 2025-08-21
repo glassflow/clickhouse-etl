@@ -233,7 +233,8 @@ type pipelineJSON struct {
 
 		Sources []joinSource `json:"sources"`
 	} `json:"join"`
-	Sink clickhouseSink `json:"sink"`
+	Sink   clickhouseSink        `json:"sink"`
+	Status models.PipelineStatus `json:"status"`
 }
 
 type sourceConnectionParams struct {
@@ -401,14 +402,16 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 			fields = append(fields, field)
 		}
 
+		streamName := models.GetIngestionStreamName(p.PipelineID, t.Topic)
+
 		//nolint: exhaustruct // join info will be filled later
-		streamsCfg[t.Topic] = models.StreamSchemaConfig{
+		streamsCfg[streamName] = models.StreamSchemaConfig{
 			Fields: fields,
 		}
 
 		for _, js := range p.Join.Sources {
 			if js.SourceID == t.Topic {
-				streamsCfg[t.Topic] = models.StreamSchemaConfig{
+				streamsCfg[streamName] = models.StreamSchemaConfig{
 					Fields:          fields,
 					JoinKeyField:    js.JoinKey,
 					JoinOrientation: js.Orientation,
@@ -420,9 +423,18 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		sinkCfg = make([]models.SinkMappingConfig, len(p.Sink.Mapping))
 
 		for i, m := range p.Sink.Mapping {
+			// Map the source topic to the new stream name
+			var streamName string
+			for _, topic := range p.Source.Topics {
+				if topic.Topic == m.Source {
+					streamName = models.GetIngestionStreamName(p.PipelineID, topic.Topic)
+					break
+				}
+			}
+
 			mapping := models.SinkMappingConfig{
 				ColumnName: m.ColumnName,
-				StreamName: m.Source,
+				StreamName: streamName,
 				FieldName:  m.FieldName,
 				ColumnType: m.ColumnType,
 			}
@@ -546,5 +558,6 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			MaxDelayTime:                p.Sink.Batch.MaxDelayTime,
 			SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
 		},
+		Status: p.Status.OverallStatus,
 	}
 }

@@ -28,7 +28,8 @@ type KafkaIngestor struct {
 	dlqPublisher stream.Publisher
 	schemaMapper schema.Mapper
 
-	topic models.KafkaTopicsConfig
+	topic      models.KafkaTopicsConfig
+	streamName string
 
 	mu            sync.Mutex
 	isClosed      bool
@@ -37,7 +38,7 @@ type KafkaIngestor struct {
 	log *slog.Logger
 }
 
-func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, natsPub, dlqPub stream.Publisher, schema schema.Mapper, log *slog.Logger) (*KafkaIngestor, error) {
+func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, streamName string, natsPub, dlqPub stream.Publisher, schema schema.Mapper, log *slog.Logger) (*KafkaIngestor, error) {
 	var topic models.KafkaTopicsConfig
 
 	if topicName == "" {
@@ -65,6 +66,7 @@ func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, na
 		schemaMapper:  schema,
 		isClosed:      false,
 		topic:         topic,
+		streamName:    streamName,
 		mu:            sync.Mutex{},
 		log:           log,
 		ctxCancelFunc: nil,
@@ -91,7 +93,7 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 
 	nMsg.Header = k.convertKafkaToNATSHeaders(msg.Headers)
 
-	err := k.schemaMapper.ValidateSchema(k.topic.Name, msg.Value)
+	err := k.schemaMapper.ValidateSchema(k.streamName, msg.Value)
 	if err != nil {
 		k.log.Error("Failed to validate data", slog.Any("error", err), slog.String("topic", k.topic.Name))
 		k.PushMsgToDLQ(ctx, msg.Value, ErrValidateSchema)
@@ -174,7 +176,7 @@ func (k *KafkaIngestor) setupDeduplicationHeader(headers nats.Header, msgData []
 		return nil // No deduplication required
 	}
 
-	keyValue, err := k.schemaMapper.GetKey(k.topic.Name, dedupKey, msgData)
+	keyValue, err := k.schemaMapper.GetKey(k.streamName, dedupKey, msgData)
 	if err != nil {
 		return fmt.Errorf("failed to get deduplication key: %w", err)
 	}

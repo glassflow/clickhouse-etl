@@ -255,8 +255,9 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		if len(pipelineCfg.Ingestor.KafkaTopics) == 0 {
 			return fmt.Errorf("no Kafka topics configured")
 		}
-		streamName = pipelineCfg.Ingestor.KafkaTopics[0].Name
-		streamSubject = streamName + ".input"
+
+		streamName = models.GetIngestionStreamName(pipelineCfg.ID, pipelineCfg.Ingestor.KafkaTopics[0].Name)
+		streamSubject = models.GetIngestionStreamSubjectName(pipelineCfg.ID, pipelineCfg.Ingestor.KafkaTopics[0].Name)
 	}
 
 	sinkRunner := service.NewSinkRunner(log, nc)

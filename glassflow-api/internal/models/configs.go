@@ -474,6 +474,14 @@ func GetJoinedStreamName(pipelineID string) string {
 	return fmt.Sprintf("%s-%s", GFJoinStream, pipelineID)
 }
 
+func GetIngestionStreamName(pipelineID, topicName string) string {
+	return fmt.Sprintf("%s-%s-%s", "gf-ingest", pipelineID, topicName)
+}
+
+func GetIngestionStreamSubjectName(pipelineID, topicName string) string {
+	return GetIngestionStreamName(pipelineID, topicName) + ".input"
+}
+
 // NewPipelineHealth creates a new pipeline health status
 func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 	now := time.Now().UTC()

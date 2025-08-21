@@ -94,7 +94,9 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		err := d.nc.CreateOrUpdateStream(ctx, t.Name, t.Name+".input", t.Deduplication.Window.Duration())
+		streamName := models.GetIngestionStreamName(pi.ID, t.Name)
+		streamSubject := models.GetIngestionStreamSubjectName(pi.ID, t.Name)
+		err := d.nc.CreateOrUpdateStream(ctx, streamName, streamSubject, t.Deduplication.Window.Duration())
 		if err != nil {
 			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
 		}
@@ -104,10 +106,16 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		sinkConsumerStream = t.Name
-		sinkConsumerSubject = t.Name + ".input"
+		streamName := models.GetIngestionStreamName(pi.ID, t.Name)
+		streamSubject := models.GetIngestionStreamSubjectName(pi.ID, t.Name)
 
-		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
+		// Set sink consumer to use the first topic's stream (for non-join pipelines)
+		if sinkConsumerStream == "" {
+			sinkConsumerStream = streamName
+			sinkConsumerSubject = streamSubject
+		}
+
+		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name), slog.String("stream", streamName))
 		err = d.ingestorRunner.Start(
 			ctx, t.Name, *pi,
 			schemaMapper,

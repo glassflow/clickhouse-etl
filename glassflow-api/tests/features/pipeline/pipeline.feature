@@ -22,7 +22,7 @@ Feature: Kafka to CH pipeline
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
-                        "test_topic": {
+                        "gf-ingest-kafka-to-clickhouse-pipeline-b00001-test_topic": {
                             "fields": [
                                 {
                                     "field_name": "id",
@@ -37,13 +37,13 @@ Feature: Kafka to CH pipeline
                     },
                     "sink_mapping": [
                         {
-                            "stream_name": "test_topic",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00001-test_topic",
                             "field_name": "id",
                             "column_name": "id",
                             "column_type": "String"
                         },
                         {
-                            "stream_name": "test_topic",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00001-test_topic",
                             "field_name": "name",
                             "column_name": "name",
                             "column_type": "String"
@@ -116,7 +116,7 @@ Feature: Kafka to CH pipeline
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
-                        "test_users": {
+                        "gf-ingest-kafka-to-clickhouse-pipeline-b00002-test_users": {
                             "fields": [
                                 {
                                     "field_name": "id",
@@ -131,7 +131,7 @@ Feature: Kafka to CH pipeline
                             "join_window": "1h",
                             "join_orientation": "right"
                         },
-                        "test_emails": {
+                        "gf-ingest-kafka-to-clickhouse-pipeline-b00002-test_emails": {
                             "fields": [
                                 {
                                     "field_name": "user_id",
@@ -149,13 +149,13 @@ Feature: Kafka to CH pipeline
                     },
                     "sink_mapping": [
                         {
-                            "stream_name": "test_users",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00002-test_users",
                             "field_name": "name",
                             "column_name": "name",
                             "column_type": "String"
                         },
                         {
-                            "stream_name": "test_emails",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00002-test_emails",
                             "field_name": "email",
                             "column_name": "email",
                             "column_type": "String"
@@ -257,7 +257,7 @@ Feature: Kafka to CH pipeline
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
-                        "test_users": {
+                        "gf-ingest-kafka-to-clickhouse-pipeline-b00003-test_users": {
                             "fields": [
                                 {
                                     "field_name": "id",
@@ -272,7 +272,7 @@ Feature: Kafka to CH pipeline
                             "join_window": "1h",
                             "join_orientation": "right"
                         },
-                        "test_emails": {
+                        "gf-ingest-kafka-to-clickhouse-pipeline-b00003-test_emails": {
                             "fields": [
                                 {
                                     "field_name": "user_id",
@@ -290,13 +290,13 @@ Feature: Kafka to CH pipeline
                     },
                     "sink_mapping": [
                         {
-                            "stream_name": "test_users",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00003-test_users",
                             "field_name": "name",
                             "column_name": "name",
                             "column_type": "String"
                         },
                         {
-                            "stream_name": "test_emails",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00003-test_emails",
                             "field_name": "email",
                             "column_name": "email",
                             "column_type": "String"
@@ -411,7 +411,7 @@ Feature: Kafka to CH pipeline
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
-                        "test_topic": {
+                        "gf-ingest-kafka-to-clickhouse-pipeline-b00004-test_topic": {
                             "fields": [
                                 {
                                     "field_name": "id",
@@ -426,13 +426,13 @@ Feature: Kafka to CH pipeline
                     },
                     "sink_mapping": [
                         {
-                            "stream_name": "test_topic",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00004-test_topic",
                             "field_name": "id",
                             "column_name": "id",
                             "column_type": "String"
                         },
                         {
-                            "stream_name": "test_topic",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00004-test_topic",
                             "field_name": "name",
                             "column_name": "name",
                             "column_type": "String"
@@ -504,7 +504,7 @@ Feature: Kafka to CH pipeline
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
-                        "test_measurments": {
+                        "gf-ingest-kafka-to-clickhouse-pipeline-b00005-test_measurments": {
                             "fields": [
                                 {
                                     "field_name": "id",
@@ -519,13 +519,13 @@ Feature: Kafka to CH pipeline
                     },
                     "sink_mapping": [
                         {
-                            "stream_name": "test_measurments",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00005-test_measurments",
                             "field_name": "id",
                             "column_name": "id",
                             "column_type": "String"
                         },
                         {
-                            "stream_name": "test_measurments",
+                            "stream_name": "gf-ingest-kafka-to-clickhouse-pipeline-b00005-test_measurments",
                             "field_name": "measurment",
                             "column_name": "measurment",
                             "column_type": "String"

@@ -5,8 +5,8 @@ Feature: Kafka Ingestor
         Given the NATS stream config:
             """json
             {
-                "stream": "ingestor_stream",
-                "subject": "ingestor_subject",
+                "stream": "gf-ingest-test-pipeline-test_topic",
+                "subject": "gf-ingest-test-pipeline-test_topic.input",
                 "consumer": "ingestor_consumer"
             }
             """
@@ -18,7 +18,7 @@ Feature: Kafka Ingestor
             {
                 "type": "jsonToClickhouse",
                 "streams": {
-                    "test_topic": {
+                    "gf-ingest-test-pipeline-test_topic": {
                         "fields": [
                             {
                                 "field_name": "id",
@@ -35,13 +35,13 @@ Feature: Kafka Ingestor
                     {
                         "column_name": "id",
                         "field_name": "id",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "string"
                     },
                     {
                         "column_name": "name",
                         "field_name": "name",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "String"
                     }
                 ]
@@ -98,7 +98,7 @@ Feature: Kafka Ingestor
             {
                 "type": "jsonToClickhouse",
                 "streams": {
-                    "test_topic": {
+                    "gf-ingest-test-pipeline-test_topic": {
                         "fields": [
                             {
                                 "field_name": "id",
@@ -115,13 +115,13 @@ Feature: Kafka Ingestor
                     {
                         "column_name": "id",
                         "field_name": "id",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "string"
                     },
                     {
                         "column_name": "name",
                         "field_name": "name",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "String"
                     }
                 ]
@@ -176,7 +176,7 @@ Feature: Kafka Ingestor
             {
                 "type": "jsonToClickhouse",
                 "streams": {
-                    "test_topic": {
+                    "gf-ingest-test-pipeline-test_topic": {
                         "fields": [
                             {
                                 "field_name": "id",
@@ -193,13 +193,13 @@ Feature: Kafka Ingestor
                     {
                         "column_name": "id",
                         "field_name": "id",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "string"
                     },
                     {
                         "column_name": "name",
                         "field_name": "name",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "String"
                     }
                 ]
@@ -256,7 +256,7 @@ Feature: Kafka Ingestor
             {
                 "type": "jsonToClickhouse",
                 "streams": {
-                    "test_topic": {
+                    "gf-ingest-test-pipeline-test_topic": {
                         "fields": [
                             {
                                 "field_name": "id",
@@ -273,13 +273,13 @@ Feature: Kafka Ingestor
                     {
                         "column_name": "id",
                         "field_name": "id",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "string"
                     },
                     {
                         "column_name": "name",
                         "field_name": "name",
-                        "stream_name": "test_topic",
+                        "stream_name": "gf-ingest-test-pipeline-test_topic",
                         "column_type": "String"
                     }
                 ]
