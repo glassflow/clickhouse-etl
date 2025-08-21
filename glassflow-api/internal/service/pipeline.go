@@ -102,7 +102,7 @@ func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) er
 // TerminatePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string) error {
 	if p.orchestrator.GetType() == "local" {
-		return ErrNotImplemented
+		return p.DeletePipeline(ctx, pid)
 	}
 
 	// Get current pipeline to update status
