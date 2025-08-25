@@ -11,6 +11,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 	"github.com/google/uuid"
@@ -253,12 +254,24 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 		return fmt.Errorf("create nats client: %w", err)
 	}
 
+	streamConsumer := stream.NewNATSPublisher(
+		nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: s.streamCfg.Stream + "." + s.streamCfg.Subject,
+		},
+	)
+
+	dlqStreamPublisher := stream.NewNATSPublisher(
+		nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: s.dlqStreamCfg.Subject,
+		},
+	)
 	ingestor, err := operator.NewIngestorOperator(
 		s.ingestorCfg,
 		s.topicName,
-		s.streamCfg.Subject,
-		s.dlqStreamCfg.Subject,
-		nc,
+		streamConsumer,
+		dlqStreamPublisher,
 		s.schemaMapper,
 		logger,
 	)

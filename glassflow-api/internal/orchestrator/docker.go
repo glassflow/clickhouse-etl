@@ -105,11 +105,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	for _, t := range pi.Ingestor.KafkaTopics {
 		sinkConsumerStream = t.Name
-		sinkConsumerSubject = t.Name + ".input"
 
 		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
 		err = d.ingestorRunner.Start(
-			ctx, t.Name, *pi,
+			ctx, t.Name, sinkConsumerStream, *pi,
 			schemaMapper,
 		)
 		if err != nil {

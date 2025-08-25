@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
@@ -28,37 +27,14 @@ type IngestorOperator struct {
 func NewIngestorOperator(
 	config models.IngestorOperatorConfig,
 	topicName string,
-	natsStreamSubject string,
-	dlqStreamSubject string,
-	nc *client.NATSClient,
+	streamPublisher stream.Publisher,
+	dlqStreamPublisher stream.Publisher,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
 ) (*IngestorOperator, error) {
 	if config.Type != models.KafkaIngestorType {
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
-
-	if natsStreamSubject == "" {
-		return nil, fmt.Errorf("NATS stream subject cannot be empty")
-	}
-
-	if nc == nil {
-		return nil, fmt.Errorf("NATS client cannot be nil")
-	}
-
-	streamPublisher := stream.NewNATSPublisher(
-		nc.JetStream(),
-		stream.PublisherConfig{
-			Subject: natsStreamSubject,
-		},
-	)
-
-	dlqStreamPublisher := stream.NewNATSPublisher(
-		nc.JetStream(),
-		stream.PublisherConfig{
-			Subject: dlqStreamSubject,
-		},
-	)
 
 	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
@@ -30,13 +31,30 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 	}
 }
 
-func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
+func (i *IngestorRunner) Start(ctx context.Context, topicName string, natsStreamName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
+	if topicName == "" {
+		return fmt.Errorf("topic name cannot be empty")
+	}
+
+	streamPublisher := stream.NewNATSPublisher(
+		i.nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: natsStreamName + ".input",
+		},
+	)
+
+	dlqStreamPublisher := stream.NewNATSPublisher(
+		i.nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: models.GetDLQStreamSubjectName(pipelineCfg.ID),
+		},
+	)
+
 	ingestorOperator, err := operator.NewIngestorOperator(
 		pipelineCfg.Ingestor,
 		topicName,
-		topicName+".input",
-		models.GetDLQStreamSubjectName(pipelineCfg.ID),
-		i.nc,
+		streamPublisher,
+		dlqStreamPublisher,
 		schemaMapper,
 		i.log,
 	)
