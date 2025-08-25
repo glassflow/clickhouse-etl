@@ -31,7 +31,7 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) Start(ctx context.Context, joinType string, publisherSubject string, schemaMapper schema.Mapper) error {
+func (j *JoinRunner) Start(ctx context.Context, joinType string, leftInputStreamName, rightInputStreamName string, outputStream string, schemaMapper schema.Mapper) error {
 	var mapper schema.JsonToClickHouseMapper
 
 	switch sm := schemaMapper.(type) {
@@ -54,60 +54,65 @@ func (j *JoinRunner) Start(ctx context.Context, joinType string, publisherSubjec
 		rightStreamName string
 		err             error
 	)
-	for n, s := range mapper.Streams {
-		if s.JoinOrientation == "left" {
-			leftStreamName = n
 
-			//nolint: exhaustruct // optional config
-			leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-				NatsStream:   n,
-				NatsConsumer: "leftStreamConsumer",
-				NatsSubject:  n + ".input",
-			})
-			if err != nil {
-				return fmt.Errorf("create left consumer: %w", err)
-			}
+	leftStreamName = mapper.GetLeftStream()
+	rightStreamName = mapper.GetRightStream()
 
-			leftBuffer, err = kv.NewNATSKeyValueStore(
-				ctx,
-				j.nc.JetStream(),
-				kv.KeyValueStoreConfig{
-					StoreName: n,
-					TTL:       s.JoinWindow,
-				})
-			if err != nil {
-				j.log.Error("failed to create left stream buffer: ", slog.Any("error", err))
-				return fmt.Errorf("create left buffer: %w", err)
-			}
-		} else {
-			rightStreamName = n
+	leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
+		NatsStream:   leftInputStreamName,
+		NatsConsumer: "leftStreamConsumer",
+		NatsSubject:  models.GetNATSSubjectName(leftInputStreamName),
+	})
+	if err != nil {
+		return fmt.Errorf("create left consumer: %w", err)
+	}
 
-			//nolint: exhaustruct // optional config
-			rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-				NatsStream:   n,
-				NatsConsumer: "rightStreamConsumer",
-				NatsSubject:  n + ".input",
-			})
-			if err != nil {
-				return fmt.Errorf("create right consumer: %w", err)
-			}
+	rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
+		NatsStream:   rightInputStreamName,
+		NatsConsumer: "rightStreamConsumer",
+		NatsSubject:  models.GetNATSSubjectName(rightInputStreamName),
+	})
+	if err != nil {
+		return fmt.Errorf("create right consumer: %w", err)
+	}
 
-			rightBuffer, err = kv.NewNATSKeyValueStore(
-				ctx,
-				j.nc.JetStream(),
-				kv.KeyValueStoreConfig{
-					StoreName: n,
-					TTL:       s.JoinWindow,
-				})
-			if err != nil {
-				j.log.Error("failed to create right stream buffer: ", slog.Any("error", err))
-				return fmt.Errorf("create right buffer: %w", err)
-			}
-		}
+	leftTTL, err := schemaMapper.GetLeftStreamTTL()
+	if err != nil {
+		return fmt.Errorf("get left stream TTL: %w", err)
+	}
+
+	leftBuffer, err = kv.NewNATSKeyValueStore(
+		ctx,
+		j.nc.JetStream(),
+		kv.KeyValueStoreConfig{
+			StoreName: leftInputStreamName,
+			TTL:       leftTTL,
+		})
+
+	if err != nil {
+		j.log.Error("failed to create left stream buffer: ", slog.Any("error", err))
+		return fmt.Errorf("create left buffer: %w", err)
+	}
+
+	rightTTL, err := schemaMapper.GetRightStreamTTL()
+	if err != nil {
+		return fmt.Errorf("get right stream TTL: %w", err)
+	}
+
+	rightBuffer, err = kv.NewNATSKeyValueStore(
+		ctx,
+		j.nc.JetStream(),
+		kv.KeyValueStoreConfig{
+			StoreName: rightInputStreamName,
+			TTL:       rightTTL,
+		})
+	if err != nil {
+		j.log.Error("failed to create right stream buffer: ", slog.Any("error", err))
+		return fmt.Errorf("create right buffer: %w", err)
 	}
 
 	resultsPublisher := stream.NewNATSPublisher(j.nc.JetStream(), stream.PublisherConfig{
-		Subject: publisherSubject,
+		Subject: models.GetNATSSubjectName(outputStream),
 	})
 
 	joinOp, err := operator.NewJoinOperator(

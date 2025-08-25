@@ -12,6 +12,8 @@ const (
 	GFJoinStream  = "gf-stream-joined"
 	GFJoinSubject = "merged"
 
+	DefaultSubjectName = ".input"
+
 	KafkaIngestorType        = "kafka"
 	TemporalJoinType         = "temporal"
 	SchemaMapperJSONToCHType = "jsonToClickhouse"
@@ -484,4 +486,8 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
+}
+
+func GetNATSSubjectName(streamName string) string {
+	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
 }

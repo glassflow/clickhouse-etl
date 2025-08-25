@@ -47,6 +47,13 @@ type config struct {
 
 	IngestorTopic string `default:"" split_words:"true"`
 
+	InputStreamName string `default:"" split_words:"true"`
+
+	LeftInputStreamName  string `default:"" split_words:"true"`
+	RightInputStreamName string `default:"" split_words:"true"`
+
+	OutputStreamName string `default:"" split_words:"true"`
+
 	JoinType string `default:"temporal" split_words:"true"`
 
 	NATSServer       string        `default:"localhost:4222" split_words:"true"`
@@ -236,8 +243,6 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 }
 
 func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
-	var streamName, streamSubject string
-
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
@@ -248,15 +253,8 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	if pipelineCfg.Join.Enabled {
-		streamName = models.GetJoinedStreamName(pipelineCfg.ID)
-		streamSubject = models.GFJoinSubject
-	} else {
-		if len(pipelineCfg.Ingestor.KafkaTopics) == 0 {
-			return fmt.Errorf("no Kafka topics configured")
-		}
-		streamName = pipelineCfg.Ingestor.KafkaTopics[0].Name
-		streamSubject = streamName + ".input"
+	if cfg.InputStreamName == "" {
+		return fmt.Errorf("input stream name for the sink could not be empty")
 	}
 
 	sinkRunner := service.NewSinkRunner(log, nc)
@@ -266,8 +264,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		func() error {
 			return sinkRunner.Start(
 				ctx,
-				streamName,
-				streamSubject,
+				cfg.InputStreamName,
 				pipelineCfg.Sink,
 				schemaMapper,
 			)
@@ -279,6 +276,22 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 }
 
 func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+	if cfg.LeftInputStreamName == "" {
+		return fmt.Errorf("left input stream name for the join could not be empty")
+	}
+
+	if cfg.RightInputStreamName == "" {
+		return fmt.Errorf("right input stream name for the join could not be empty")
+	}
+
+	if cfg.OutputStreamName == "" {
+		return fmt.Errorf("output stream name for the join could not be empty")
+	}
+
+	if cfg.JoinType == "" {
+		return fmt.Errorf("join type must be specified")
+	}
+
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
@@ -297,7 +310,9 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 			return joinRunner.Start(
 				ctx,
 				cfg.JoinType,
-				models.GFJoinSubject,
+				cfg.LeftInputStreamName,
+				cfg.RightInputStreamName,
+				cfg.OutputStreamName,
 				schemaMapper,
 			)
 		},
@@ -310,6 +325,10 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
+	}
+
+	if cfg.OutputStreamName == "" {
+		return fmt.Errorf("ouput stream name for the ingestor must be specified")
 	}
 
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
@@ -330,6 +349,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 			return ingestorRunner.Start(
 				ctx,
 				cfg.IngestorTopic,
+				cfg.OutputStreamName,
 				pipelineCfg,
 				schemaMapper,
 			)
