@@ -118,7 +118,7 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 		}
 	}
 
-	err = k.publisher.PublishNatsMsg(ctx, nMsg)
+	err = k.publisher.PublishNatsMsg(ctx, nMsg, stream.WithUntilAck())
 	if err != nil {
 		k.log.Error("Failed to publish message to NATS",
 			slog.Any("error", err),
