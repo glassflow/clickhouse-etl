@@ -1,6 +1,7 @@
 package models
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"slices"
 	"strings"
@@ -240,7 +241,12 @@ func NewPipeline(req *PipelineRequest) (*Pipeline, error) {
 			}
 		}
 
-		name := fmt.Sprintf("gf-stream-%s-%s", t.Topic, uuid.New())
+		// Generate full stream name first, then hash it using SHA256
+		fullName := fmt.Sprintf("%s-%s", t.Topic, uuid.New())
+
+		// Hash the full name using SHA256 and take first 8 bytes (16 hex characters)
+		hash := sha256.Sum256([]byte(fullName))
+		name := fmt.Sprintf("gf-stream-%x", hash[:8])
 
 		streamSourceToNameMap[t.Topic] = name
 		initialOffset, err := newConsumerGroupInitialOffset(t.ConsumerGroupInitialOffset)
