@@ -30,6 +30,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
+  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
 
@@ -54,8 +55,10 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   useEffect(() => {
     if (stepKey) {
       setCurrentStep(stepKey)
+      // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
       // Reset edit mode whenever step type changes
-      setEditMode(pipeline?.status === 'active' ? false : true)
+      // setEditMode(pipeline?.status === 'active' ? false : true)
+      setEditMode(false) // Always stay in read-only mode
     }
 
     if (stepKey === StepKeys.KAFKA_CONNECTION) {
@@ -148,8 +151,12 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     onClose()
   }
 
+  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
   // Handle edit mode toggle with confirmation for active pipelines
   const handleToggleEditMode = () => {
+    // Editing disabled for demo - do nothing
+    return
+    /* 
     if (pipeline?.status === 'active' && !editMode) {
       // For active pipelines, show confirmation modal before allowing edit
       const stepInfo = steps[stepKey]
@@ -163,10 +170,15 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
         enterEditMode(pipeline)
       }
     }
+    */
   }
 
+  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
   // Handle edit confirmation using the centralized pipeline actions
   const handleEditConfirmation = async () => {
+    // Editing disabled for demo - do nothing
+    return
+    /*
     if (!selectedPipeline) return
 
     closeEditConfirmationModal()
@@ -187,6 +199,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       console.error('Failed to pause pipeline for editing:', error)
       // Don't enable edit mode if pause failed
     }
+    */
   }
 
   // Show preloader if data is still loading or if there's an error
@@ -236,7 +249,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     validate: async () => true, // You might want to implement proper validation
     standalone: true,
     onCompleteStandaloneEditing: handleComplete,
-    readOnly: !editMode,
+    readOnly: true, // TEMPORARILY FORCED TO TRUE - EDIT FUNCTIONALITY DISABLED FOR DEMO
     toggleEditMode: handleToggleEditMode,
     // Pass pipeline action state for loading indicators
     pipelineActionState: actionState,
@@ -275,13 +288,14 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
         <CurrentStepComponent {...extendedProps} />
       </StepRendererPageComponent>
 
+      {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
       {/* Edit Confirmation Modal */}
-      <EditConfirmationModal
+      {/* <EditConfirmationModal
         visible={isEditConfirmationModalVisible}
         onOk={handleEditConfirmation}
         onCancel={closeEditConfirmationModal}
         stepName={selectedStep?.title}
-      />
+      /> */}
     </>
   )
 }

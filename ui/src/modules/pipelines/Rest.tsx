@@ -8,6 +8,7 @@ import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createPipeline, shutdownPipeline, getPipelineStatus, PipelineError } from '@/src/api/pipeline'
+import { terminatePipeline } from '@/src/api/pipeline-api'
 import { InputModal, ModalResult } from '@/src/components/common/InputModal'
 import { saveConfiguration } from '@/src/utils/local-storage-config'
 import { isValidApiConfig } from '@/src/modules/pipelines/helpers'
@@ -165,7 +166,7 @@ export function PipelineDeployer() {
       try {
         analytics.pipeline.deleteClicked({})
 
-        await shutdownPipeline()
+        await terminatePipeline(pipelineId)
         setStatus('deleted')
         setError(null)
         // Reset pipeline state and ID
@@ -218,7 +219,7 @@ export function PipelineDeployer() {
           status: 'success',
         })
 
-        await shutdownPipeline()
+        await terminatePipeline(pipelineId)
         setStatus('deleted')
         setError(null)
         resetAllPipelineState('', true)

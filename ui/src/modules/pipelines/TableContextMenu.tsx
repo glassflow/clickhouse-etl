@@ -83,7 +83,7 @@ export const TableContextMenu = ({
           {/* Menu dropdown */}
           <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]">
             {/* Pause Button */}
-            {showPause && onPause && (
+            {/* {showPause && onPause && (
               <Button
                 variant="ghost"
                 className={cn(
@@ -99,10 +99,10 @@ export const TableContextMenu = ({
                 <Pause className="h-4 w-4 mr-2 flex-shrink-0" />
                 <span className="truncate">Pause</span>
               </Button>
-            )}
+            )} */}
 
             {/* Resume Button */}
-            {showResume && onResume && (
+            {/* {showResume && onResume && (
               <Button
                 variant="ghost"
                 className={cn(
@@ -118,10 +118,10 @@ export const TableContextMenu = ({
                 <Play className="h-4 w-4 mr-2 flex-shrink-0" />
                 <span className="truncate">Resume</span>
               </Button>
-            )}
+            )} */}
 
             {/* Edit Button */}
-            {onEdit && (
+            {/* {onEdit && (
               <Button
                 variant="ghost"
                 className={cn(
@@ -137,7 +137,7 @@ export const TableContextMenu = ({
                 <Edit className="h-4 w-4 mr-2 flex-shrink-0" />
                 <span className="truncate">Edit</span>
               </Button>
-            )}
+            )} */}
 
             {/* Rename Button */}
             {onRename && (

@@ -43,6 +43,7 @@ interface ClickhouseMapperProps {
   readOnly?: boolean
   toggleEditMode?: () => void
   pipelineActionState?: any
+  onCompleteStandaloneEditing?: () => void
 }
 
 const runtimeEnv = getRuntimeEnv()
@@ -54,6 +55,7 @@ export function ClickhouseMapper({
   readOnly,
   toggleEditMode,
   pipelineActionState,
+  onCompleteStandaloneEditing,
 }: ClickhouseMapperProps) {
   const router = useRouter()
   const {
@@ -599,10 +601,21 @@ export function ClickhouseMapper({
       return
     }
 
-    if (connectionStatus === 'success') {
+    // Fetch databases if connection is successful or if we have connection details but no databases yet
+    const hasConnectionDetails =
+      clickhouseConnection.directConnection.host && clickhouseConnection.directConnection.httpPort
+
+    if (connectionStatus === 'success' || (hasConnectionDetails && !databasesLoading)) {
       fetchDatabases()
     }
-  }, [connectionStatus, fetchDatabases, databases.length])
+  }, [
+    connectionStatus,
+    fetchDatabases,
+    databases.length,
+    clickhouseConnection.directConnection.host,
+    clickhouseConnection.directConnection.httpPort,
+    databasesLoading,
+  ])
 
   // Load tables when database is selected
   useEffect(() => {
@@ -1110,6 +1123,7 @@ export function ClickhouseMapper({
                 readOnly={readOnly}
                 toggleEditMode={toggleEditMode}
                 pipelineActionState={pipelineActionState}
+                onClose={onCompleteStandaloneEditing}
               />
             </div>
           </div>

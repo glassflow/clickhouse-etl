@@ -274,6 +274,7 @@ export function KafkaTopicSelector({
           readOnly={readOnly}
           toggleEditMode={toggleEditMode}
           pipelineActionState={pipelineActionState}
+          onClose={onCompleteStandaloneEditing}
         />
 
         {/* NEW: Optional debug indicator for deduplication status */}

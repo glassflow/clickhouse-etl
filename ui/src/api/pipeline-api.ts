@@ -145,19 +145,25 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   }
 }
 
-export const deletePipeline = async (id: string, graceful: boolean = false): Promise<void> => {
+export const terminatePipeline = async (id: string): Promise<void> => {
   try {
-    const url = getApiUrl(`pipeline/${id}?graceful=${graceful}`)
+    const url = getApiUrl(`pipeline/${id}/terminate`)
     const response = await fetch(url, { method: 'DELETE' })
     const data = await response.json()
 
     if (!data.success) {
-      throw { code: response.status, message: data.error || 'Failed to delete pipeline' } as ApiError
+      throw { code: response.status, message: data.error || 'Failed to terminate pipeline' } as ApiError
     }
   } catch (error: any) {
     if (error.code) throw error
-    throw { code: 500, message: error.message || 'Failed to delete pipeline' } as ApiError
+    throw { code: 500, message: error.message || 'Failed to terminate pipeline' } as ApiError
   }
+}
+
+// DEPRECATED: Use terminatePipeline instead - keeping for backward compatibility
+export const deletePipeline = async (id: string, processEvents: boolean = false): Promise<void> => {
+  // Always use terminate endpoint since shutdown is not implemented
+  return terminatePipeline(id)
 }
 
 export const pausePipeline = async (id: string): Promise<Pipeline> => {

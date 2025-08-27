@@ -8,7 +8,7 @@ function PipelineStatusOverviewSection({ pipeline }: { pipeline: Pipeline }) {
   return (
     <Card className="py-0 px-0 mb-4 border-none">
       <div className="flex flex-row gap-4">
-        <PipelineHealthCard status="stable" />
+        {/* <PipelineHealthCard status="stable" /> */}
         <DeadLetterQueueCard pipelineId={pipeline.pipeline_id} />
       </div>
     </Card>

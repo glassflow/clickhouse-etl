@@ -21,7 +21,7 @@ export function DatabaseSelect({
   selectedDatabase,
   setSelectedDatabase,
   // testDatabaseAccess,
-  // isLoading,
+  isLoading,
   // getConnectionConfig,
   onRefresh,
   readOnly,
@@ -37,13 +37,14 @@ export function DatabaseSelect({
         </Label>
       </div>
       <div className="flex items-center justify-between">
-        {availableDatabases.length > 0 ? (
-          <Select value={selectedDatabase} onValueChange={setSelectedDatabase} disabled={readOnly}>
+        {/* Always render Select component unless explicitly loading without databases */}
+        {availableDatabases.length > 0 || isLoading ? (
+          <Select value={selectedDatabase} onValueChange={setSelectedDatabase} disabled={readOnly || isLoading}>
             <SelectTrigger
               id="database"
               className="w-full text-content select-content-custom transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
             >
-              <SelectValue placeholder="Select database" />
+              <SelectValue placeholder={isLoading ? 'Loading databases...' : 'Select database'} />
             </SelectTrigger>
             <SelectContent className="text-content bg-background-neutral-faded select-content-custom">
               {availableDatabases.map((db) => (

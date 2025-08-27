@@ -7,9 +7,12 @@ import { PIPELINE_STATUS_MAP } from '@/src/config/constants'
 import { Pipeline } from '@/src/types/pipeline'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
+// TEMPORARILY DISABLED: Health monitoring imports
+// import { PipelineHealth, getHealthStatusDisplayText } from '@/src/api/pipeline-health'
 
 interface MobilePipelinesListProps {
   pipelines: ListPipelineConfig[]
+  healthMap: Record<string, any> // Temporarily any since we're not using health data
   onPause?: (pipeline: ListPipelineConfig) => void
   onResume?: (pipeline: ListPipelineConfig) => void
   onEdit?: (pipeline: ListPipelineConfig) => void
@@ -22,6 +25,7 @@ interface MobilePipelinesListProps {
 
 export function MobilePipelinesList({
   pipelines,
+  healthMap,
   onPause,
   onResume,
   onEdit,
@@ -31,7 +35,11 @@ export function MobilePipelinesList({
   isPipelineLoading,
   getPipelineOperation,
 }: MobilePipelinesListProps) {
-  const getStatusVariant = (status: string) => {
+  const getStatusVariant = (status: string, pipelineId?: string) => {
+    // TEMPORARILY DISABLED: Health monitoring - use static status only
+    // const healthData = pipelineId ? healthMap[pipelineId] : null
+    // const effectiveStatus = healthData?.overall_status || status
+
     switch (status) {
       case PIPELINE_STATUS_MAP.active:
         return 'success'
@@ -45,9 +53,28 @@ export function MobilePipelinesList({
         return 'secondary'
       case PIPELINE_STATUS_MAP.error:
         return 'error'
+      case 'deploying':
+        return 'default'
+      case 'deploy_failed':
+        return 'error'
+      case 'delete_failed':
+        return 'error'
+      case 'no_configuration':
+        return 'default'
       default:
         return 'default'
     }
+  }
+
+  const getStatusLabel = (status: string, pipelineId?: string) => {
+    // TEMPORARILY DISABLED: Health monitoring - use static status only
+    // const healthData = pipelineId ? healthMap[pipelineId] : null
+    // if (healthData) {
+    //   return getHealthStatusDisplayText(healthData.overall_status)
+    // }
+
+    // Use static status from initial pipeline data
+    return status || 'No Configuration'
   }
 
   if (pipelines.length === 0) {
@@ -117,8 +144,8 @@ export function MobilePipelinesList({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <Badge variant={getStatusVariant(pipeline.status || 'no_configuration')}>
-                  {pipeline.status || 'No Configuration'}
+                <Badge variant={getStatusVariant(pipeline.status || 'no_configuration', pipeline.pipeline_id)}>
+                  {getStatusLabel(pipeline.status || 'no_configuration', pipeline.pipeline_id)}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">

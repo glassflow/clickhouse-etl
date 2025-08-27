@@ -180,6 +180,7 @@ export function DeduplicationConfigurator({
         readOnly={readOnly}
         toggleEditMode={toggleEditMode}
         pipelineActionState={pipelineActionState}
+        onClose={onCompleteStandaloneEditing}
       />
     </div>
   )

@@ -26,21 +26,22 @@ function DeletePipelineModal({
     <ConfirmationModal
       visible={visible}
       title="Delete Pipeline?"
-      description="You are about to delete this pipeline permanently. Are you sure you want to continue?"
-      content={
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="process-events"
-            className="border-input"
-            bg-primary
-            checked={processEvents}
-            onCheckedChange={handleCheckboxChange}
-          />
-          <span className="text-sm">Process events in the queue (if any) before delete</span>
-        </div>
-      }
+      description={`<div>You are about to permanently delete this pipeline before processing any events in the queue. </div><br/> <div>Are you sure you want to delete the pipeline?</div>`}
+      // NOTE: This is not used for now, but can be used in the future when we return graceful delete
+      // content={
+      //   <div className="flex items-center gap-2">
+      //     <Checkbox
+      //       id="process-events"
+      //       className="border-input"
+      //       bg-primary
+      //       checked={processEvents}
+      //       onCheckedChange={handleCheckboxChange}
+      //     />
+      //     <span className="text-sm">Process events in the queue (if any) before delete</span>
+      //   </div>
+      // }
       okButtonText="Delete Pipeline"
-      cancelButtonText="Cancel"
+      cancelButtonText="Discard"
       onComplete={(result) => {
         if (result === ModalResult.YES) {
           onOk(processEvents)

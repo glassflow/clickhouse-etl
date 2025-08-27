@@ -16,6 +16,7 @@ type FormActionsProps = {
   actionType?: 'primary' | 'secondary' | 'tertiary'
   showLoadingIcon?: boolean
   pipelineActionState?: any
+  onClose?: () => void // Add close function for read-only mode
 }
 
 function FormActions({
@@ -33,6 +34,7 @@ function FormActions({
   actionType,
   showLoadingIcon,
   pipelineActionState,
+  onClose,
 }: FormActionsProps) {
   return (
     <div className="flex gap-4">
@@ -51,6 +53,7 @@ function FormActions({
           actionType={actionType}
           showLoadingIcon={showLoadingIcon}
           pipelineActionState={pipelineActionState}
+          onClose={onClose}
         />
       )}
 

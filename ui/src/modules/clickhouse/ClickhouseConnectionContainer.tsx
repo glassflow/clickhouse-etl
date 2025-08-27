@@ -169,6 +169,7 @@ export function ClickhouseConnectionContainer({
         skipCertificateVerification={directConnection?.skipCertificateVerification ?? true}
         toggleEditMode={toggleEditMode}
         pipelineActionState={pipelineActionState}
+        onClose={onCompleteStandaloneEditing}
       />
 
       {connectionStatus === 'success' && !clearErrorMessage && (
