@@ -349,7 +349,6 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 			return ingestorRunner.Start(
 				ctx,
 				cfg.IngestorTopic,
-				cfg.OutputStreamName,
 				pipelineCfg,
 				schemaMapper,
 			)

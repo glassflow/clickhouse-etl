@@ -31,7 +31,7 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 	}
 }
 
-func (i *IngestorRunner) Start(ctx context.Context, topicName string, natsStreamName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
+func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
 	if topicName == "" {
 		return fmt.Errorf("topic name cannot be empty")
 	}

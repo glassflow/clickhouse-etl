@@ -110,7 +110,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
 		err = d.ingestorRunner.Start(
-			ctx, t.Name, sinkConsumerStream, *pi,
+			ctx, t.Name, *pi,
 			schemaMapper,
 		)
 		if err != nil {

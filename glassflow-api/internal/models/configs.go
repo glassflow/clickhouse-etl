@@ -11,9 +11,6 @@ import (
 )
 
 const (
-	GFJoinStream  = "gf-stream-joined"
-	GFJoinSubject = "merged"
-
 	DefaultSubjectName = "input"
 
 	KafkaIngestorType        = "kafka"
