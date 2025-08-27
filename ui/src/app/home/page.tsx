@@ -14,7 +14,6 @@ import { cn } from '@/src/utils/common.client'
 import { useState, Suspense, useEffect } from 'react'
 import { getPipelineStatus } from '@/src/api/pipeline'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
-import { BackendHealthModal } from '@/src/components/home/BackendHealthModal'
 
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
@@ -97,7 +96,7 @@ function HomePageClient() {
         // If we get here, backend is available, no need to show health modal
       } catch (err) {
         // Check if this is a backend connectivity issue or just no pipeline
-        // We'll let the BackendHealthModal component handle the health check
+        // Health check is handled by HealthCheckLayout at root level
         console.log('Pipeline status check failed:', err)
       }
     }
@@ -181,15 +180,7 @@ function HomePageClient() {
     }
   }
 
-  const handleHealthCheckComplete = (isConnected: boolean) => {
-    if (isConnected) {
-      // Backend is now available, we can proceed
-      console.log('Backend is now available')
-    } else {
-      // Backend is still unavailable, user dismissed the modal
-      console.log('Backend is unavailable, user dismissed modal')
-    }
-  }
+  // Health check is now handled by HealthCheckLayout at root level
 
   return (
     <div className="flex flex-col items-center gap-6 sm:gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 sm:px-6 lg:px-8">
@@ -278,7 +269,7 @@ function HomePageClient() {
 
       <CreatePipelineModal visible={isCreatePipelineModalVisible} onComplete={handleCreatePipelineModalComplete} />
 
-      <BackendHealthModal onHealthCheckComplete={handleHealthCheckComplete} />
+      {/* Health check is now handled by HealthCheckLayout at root level */}
     </div>
   )
 }
