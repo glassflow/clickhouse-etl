@@ -71,7 +71,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 	for _, s := range cfg.Ingestor.KafkaTopics {
 		src = append(src, operator.SourceStream{
 			TopicName:    s.Name,
-			OutputStream: models.GetPipelineStreamName(cfg.ID, s.Name),
+			OutputStream: s.OutputStreamID,
 			DedupWindow:  s.Deduplication.Window.Duration(),
 		})
 	}
@@ -90,7 +90,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 		},
 		Join: operator.Join{
 			Type:         "temporal",
-			OutputStream: models.GetJoinedStreamName(cfg.ID),
+			OutputStream: cfg.Join.OutputStreamID,
 			Enabled:      cfg.Join.Enabled,
 		},
 		Sink:   cfg.Sink.Type,

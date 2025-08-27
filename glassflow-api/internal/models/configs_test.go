@@ -144,24 +144,24 @@ func TestGetPipelineStreamName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := GetPipelineStreamName(pipelineID, tt.topic)
+			result := GetIngestorStreamName(pipelineID, tt.topic)
 
 			// Check that it starts with the expected prefix
 			if !strings.HasPrefix(result, tt.expected) {
-				t.Errorf("GetPipelineStreamName(%q, %q) = %q, should start with %q",
+				t.Errorf("GetIngestorStreamName(%q, %q) = %q, should start with %q",
 					pipelineID, tt.topic, result, tt.expected)
 			}
 
 			// Check that it doesn't exceed max length
 			if len(result) > MaxStreamNameLength {
-				t.Errorf("GetPipelineStreamName(%q, %q) = %q, length %d exceeds max %d",
+				t.Errorf("GetIngestorStreamName(%q, %q) = %q, length %d exceeds max %d",
 					pipelineID, tt.topic, result, len(result), MaxStreamNameLength)
 			}
 
 			// Check that it contains the hash
 			hash := GenerateStreamHash(pipelineID)
 			if !strings.Contains(result, hash) {
-				t.Errorf("GetPipelineStreamName(%q, %q) = %q, should contain hash %q",
+				t.Errorf("GetIngestorStreamName(%q, %q) = %q, should contain hash %q",
 					pipelineID, tt.topic, result, hash)
 			}
 		})
@@ -181,7 +181,7 @@ func TestGetPipelineNATSSubject(t *testing.T) {
 	}
 
 	// Should contain the stream name
-	streamName := GetPipelineStreamName(pipelineID, topic)
+	streamName := GetIngestorStreamName(pipelineID, topic)
 	if !strings.HasPrefix(result, streamName) {
 		t.Errorf("GetPipelineNATSSubject(%q, %q) = %q, should start with stream name %q",
 			pipelineID, topic, result, streamName)

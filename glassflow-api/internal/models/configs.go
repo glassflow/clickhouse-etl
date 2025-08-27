@@ -111,7 +111,9 @@ type KafkaTopicsConfig struct {
 	ID                         string `json:"id"`
 	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
 
-	Deduplication DeduplicationConfig `json:"deduplication"`
+	Deduplication       DeduplicationConfig `json:"deduplication"`
+	OutputStreamID      string              `json:"output_stream_id"`
+	OutputStreamSubject string              `json:"output_stream_subject"`
 }
 
 type IngestorOperatorConfig struct {
@@ -194,15 +196,17 @@ func NewIngestorOperatorConfig(provider string, conn KafkaConnectionParamsConfig
 
 type JoinSourceConfig struct {
 	SourceID    string       `json:"source_id"`
+	StreamID    string       `json:"stream_id"`
 	JoinKey     string       `json:"join_key"`
 	Window      JSONDuration `json:"time_window"`
 	Orientation string       `json:"orientation"`
 }
 
 type JoinOperatorConfig struct {
-	Type    string             `json:"type"`
-	Enabled bool               `json:"enabled"`
-	Sources []JoinSourceConfig `json:"sources"`
+	Type           string             `json:"type"`
+	Enabled        bool               `json:"enabled"`
+	Sources        []JoinSourceConfig `json:"sources"`
+	OutputStreamID string             `json:"output_stream_id"`
 }
 
 type JoinOrder string
@@ -245,6 +249,10 @@ func NewJoinOperatorConfig(kind string, sources []JoinSourceConfig) (zero JoinOp
 			return zero, PipelineConfigError{Msg: "join source cannot be empty"}
 		}
 
+		if len(strings.TrimSpace(so.StreamID)) == 0 {
+			return zero, PipelineConfigError{Msg: "join stream_id cannot be empty"}
+		}
+
 		jo, err := NewJoinOrder(so.Orientation)
 		if err != nil {
 			return zero, PipelineConfigError{Msg: fmt.Sprintf("unsupported value %s for join orientation", so.Orientation)}
@@ -285,8 +293,9 @@ type BatchConfig struct {
 }
 
 type SinkOperatorConfig struct {
-	Type  string      `json:"type"`
-	Batch BatchConfig `json:"batch"`
+	Type     string      `json:"type"`
+	StreamID string      `json:"stream_id"`
+	Batch    BatchConfig `json:"batch"`
 
 	ClickHouseConnectionParams ClickHouseConnectionParamsConfig `json:"clickhouse_connection_params"`
 }
@@ -300,6 +309,7 @@ type ClickhouseSinkArgs struct {
 	Password             string
 	Table                string
 	Secure               bool
+	StreamID             string
 	MaxBatchSize         int
 	MaxDelayTime         JSONDuration
 	SkipCertificateCheck bool
@@ -334,8 +344,13 @@ func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig
 		return zero, PipelineConfigError{Msg: "clickhouse max_batch_size must be greater than 0"}
 	}
 
+	if len(strings.TrimSpace(args.StreamID)) == 0 {
+		return zero, PipelineConfigError{Msg: "stream_id cannot be empty"}
+	}
+
 	return SinkOperatorConfig{
-		Type: ClickHouseSinkType,
+		Type:     ClickHouseSinkType,
+		StreamID: args.StreamID,
 		Batch: BatchConfig{
 			MaxBatchSize: args.MaxBatchSize,
 			MaxDelayTime: args.MaxDelayTime,
@@ -510,7 +525,7 @@ func GenerateStreamHash(pipelineID string) string {
 	return hex.EncodeToString(hash[:])[:8]
 }
 
-func GetPipelineStreamName(pipelineID, topicName string) string {
+func GetIngestorStreamName(pipelineID, topicName string) string {
 	hash := GenerateStreamHash(pipelineID)
 	sanitizedTopic := SanitizeNATSSubject(topicName)
 
@@ -534,6 +549,6 @@ func GetPipelineStreamName(pipelineID, topicName string) string {
 }
 
 func GetPipelineNATSSubject(pipelineID, topicName string) string {
-	streamName := GetPipelineStreamName(pipelineID, topicName)
+	streamName := GetIngestorStreamName(pipelineID, topicName)
 	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
 }

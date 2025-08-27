@@ -344,6 +344,8 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 				Type:    t.Deduplication.Type,
 				Window:  t.Deduplication.Window,
 			},
+			OutputStreamID:      models.GetIngestorStreamName(p.PipelineID, t.Topic),
+			OutputStreamSubject: models.GetPipelineNATSSubject(p.PipelineID, t.Topic),
 		})
 	}
 
@@ -355,8 +357,11 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	if p.Join.Enabled {
 		var sources []models.JoinSourceConfig
 		for _, s := range p.Join.Sources {
+			// Generate OutputStreamID using pipeline ID and source ID (topic name)
+			streamID := models.GetIngestorStreamName(p.PipelineID, s.SourceID)
 			sources = append(sources, models.JoinSourceConfig{
 				SourceID:    s.SourceID,
+				StreamID:    streamID,
 				JoinKey:     s.JoinKey,
 				Window:      s.Window,
 				Orientation: s.Orientation,
@@ -366,6 +371,22 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		jc, err = models.NewJoinOperatorConfig(p.Join.Kind, sources)
 		if err != nil {
 			return zero, fmt.Errorf("join config: %w", err)
+		}
+		jc.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
+
+	}
+
+	// Determine the stream ID for the sink
+	var sinkStreamID string
+	if p.Join.Enabled {
+		// If join is enabled, sink consumes from the joined stream
+		sinkStreamID = models.GetJoinedStreamName(p.PipelineID)
+	} else {
+		// If join is not enabled, sink consumes from the first topic's stream
+		if len(p.Source.Topics) > 0 {
+			sinkStreamID = models.GetIngestorStreamName(p.PipelineID, p.Source.Topics[0].Topic)
+		} else {
+			return zero, fmt.Errorf("no topics defined for sink when join is disabled")
 		}
 	}
 
@@ -378,6 +399,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		Password:             p.Sink.Password,
 		Table:                p.Sink.Table,
 		Secure:               p.Sink.Secure,
+		StreamID:             sinkStreamID,
 		MaxBatchSize:         p.Sink.MaxBatchSize,
 		MaxDelayTime:         p.Sink.MaxDelayTime,
 		SkipCertificateCheck: p.Sink.SkipCertificateVerification,

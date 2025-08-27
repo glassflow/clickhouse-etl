@@ -94,8 +94,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		streamName := models.GetPipelineStreamName(pi.ID, t.Name)
-		subjectName := models.GetPipelineNATSSubject(pi.ID, t.Name)
+		streamName := t.OutputStreamID
+		subjectName := t.OutputStreamSubject
 		err := d.nc.CreateOrUpdateStream(ctx, streamName, subjectName, t.Deduplication.Window.Duration())
 		if err != nil {
 			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
@@ -106,7 +106,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		sinkConsumerStream = models.GetPipelineStreamName(pi.ID, t.Name)
+		sinkConsumerStream = pi.Sink.StreamID
 
 		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
 		err = d.ingestorRunner.Start(
@@ -119,7 +119,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	}
 
 	if pi.Join.Enabled {
-		sinkConsumerStream = models.GetJoinedStreamName(pi.ID)
+		sinkConsumerStream = pi.Sink.StreamID
 		sinkConsumerSubject = models.GetNATSSubjectName(sinkConsumerStream)
 
 		err = d.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
@@ -128,18 +128,15 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		}
 		d.log.Debug("created join stream successfully")
 
-		// Get the actual input stream names from the schema mapper
-		var leftStreamName, rightStreamName string
-		if sm, ok := schemaMapper.(*schema.JsonToClickHouseMapper); ok {
-			leftStreamName = sm.GetLeftStream()
-			rightStreamName = sm.GetRightStream()
-		} else {
-			return fmt.Errorf("unsupported schema mapper for join")
-		}
-
 		// Get the pipeline-specific stream names for the input streams
-		leftInputStreamName := models.GetPipelineStreamName(pi.ID, leftStreamName)
-		rightInputStreamName := models.GetPipelineStreamName(pi.ID, rightStreamName)
+		var leftInputStreamName, rightInputStreamName string
+		if pi.Join.Sources[0].Orientation == "left" {
+			leftInputStreamName = pi.Join.Sources[0].StreamID
+			rightInputStreamName = pi.Join.Sources[1].StreamID
+		} else {
+			leftInputStreamName = pi.Join.Sources[1].StreamID
+			rightInputStreamName = pi.Join.Sources[0].StreamID
+		}
 
 		err = d.joinRunner.Start(ctx, "temporal", leftInputStreamName, rightInputStreamName, sinkConsumerStream, schemaMapper)
 		if err != nil {

@@ -47,13 +47,6 @@ type config struct {
 
 	IngestorTopic string `default:"" split_words:"true"`
 
-	InputStreamName string `default:"" split_words:"true"`
-
-	LeftInputStreamName  string `default:"" split_words:"true"`
-	RightInputStreamName string `default:"" split_words:"true"`
-
-	OutputStreamName string `default:"" split_words:"true"`
-
 	JoinType string `default:"temporal" split_words:"true"`
 
 	NATSServer       string        `default:"localhost:4222" split_words:"true"`
@@ -253,8 +246,8 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	if cfg.InputStreamName == "" {
-		return fmt.Errorf("input stream name for the sink could not be empty")
+	if pipelineCfg.Sink.StreamID == "" {
+		return fmt.Errorf("stream_id in sink config cannot be empty")
 	}
 
 	sinkRunner := service.NewSinkRunner(log, nc)
@@ -264,7 +257,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		func() error {
 			return sinkRunner.Start(
 				ctx,
-				cfg.InputStreamName,
+				pipelineCfg.Sink.StreamID,
 				pipelineCfg.Sink,
 				schemaMapper,
 			)
@@ -276,18 +269,6 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 }
 
 func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
-	if cfg.LeftInputStreamName == "" {
-		return fmt.Errorf("left input stream name for the join could not be empty")
-	}
-
-	if cfg.RightInputStreamName == "" {
-		return fmt.Errorf("right input stream name for the join could not be empty")
-	}
-
-	if cfg.OutputStreamName == "" {
-		return fmt.Errorf("output stream name for the join could not be empty")
-	}
-
 	if cfg.JoinType == "" {
 		return fmt.Errorf("join type must be specified")
 	}
@@ -296,6 +277,31 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
+
+	if !pipelineCfg.Join.Enabled {
+		return fmt.Errorf("join is not enabled in pipeline config")
+	}
+
+	if len(pipelineCfg.Join.Sources) != 2 {
+		return fmt.Errorf("join must have exactly 2 sources")
+	}
+
+	// Determine left and right streams based on orientation
+	var leftStream, rightStream string
+	if pipelineCfg.Join.Sources[0].Orientation == "left" {
+		leftStream = pipelineCfg.Join.Sources[0].StreamID
+		rightStream = pipelineCfg.Join.Sources[1].StreamID
+	} else {
+		leftStream = pipelineCfg.Join.Sources[1].StreamID
+		rightStream = pipelineCfg.Join.Sources[0].StreamID
+	}
+
+	if leftStream == "" || rightStream == "" {
+		return fmt.Errorf("both left and right streams must be specified in join sources")
+	}
+
+	// Generate output stream name for joined data
+	outputStream := pipelineCfg.Join.OutputStreamID
 
 	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
 	if err != nil {
@@ -310,9 +316,9 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 			return joinRunner.Start(
 				ctx,
 				cfg.JoinType,
-				cfg.LeftInputStreamName,
-				cfg.RightInputStreamName,
-				cfg.OutputStreamName,
+				leftStream,
+				rightStream,
+				outputStream,
 				schemaMapper,
 			)
 		},
@@ -325,10 +331,6 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
-	}
-
-	if cfg.OutputStreamName == "" {
-		return fmt.Errorf("ouput stream name for the ingestor must be specified")
 	}
 
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
