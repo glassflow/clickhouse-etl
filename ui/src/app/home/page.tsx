@@ -183,7 +183,7 @@ function HomePageClient() {
   // Health check is now handled by HealthCheckLayout at root level
 
   return (
-    <div className="flex flex-col items-center gap-6 sm:gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col items-center gap-6 sm:gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 py-20 sm:px-6 lg:px-8">
       <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-center">Welcome!</h1>
       <p className="w-full text-center subtitle muted-foreground text-sm sm:text-base">
         Create a new pipeline with ready-to-use data operations
@@ -265,7 +265,7 @@ function HomePageClient() {
         onComplete={handleWarningModalComplete}
       />
 
-      <ConnectionCard />
+      {/* <ConnectionCard /> */}
 
       <CreatePipelineModal visible={isCreatePipelineModalVisible} onComplete={handleCreatePipelineModalComplete} />
 

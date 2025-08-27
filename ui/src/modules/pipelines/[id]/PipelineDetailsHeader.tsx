@@ -254,16 +254,19 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getActionButtons = () => {
+    // TEMPORARILY DISABLED - PAUSE/RESUME/EDIT FUNCTIONALITY DISABLED FOR DEMO
     // Show resume button if paused, pause button if active
     const showPause = pipeline.status === 'active'
     const showResume = pipeline.status === 'paused'
 
     return (
       <>
+        {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
         {/* {showResume && renderActionButton('resume')} */}
         {renderActionButton('rename')}
         {renderActionButton('delete')}
         {/* {showPause && renderActionButton('pause')} */}
+        {/* {renderActionButton('edit')} */}
       </>
     )
   }
@@ -330,8 +333,9 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         onCancel={handleModalCancel}
       />
 
+      {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
       {/* Edit Modal */}
-      <EditPipelineModal
+      {/* <EditPipelineModal
         visible={activeModal === 'edit'}
         onOk={() => {
           // Note: EditPipelineModal needs to be updated to capture edit data
@@ -339,16 +343,16 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
           handleModalConfirm('edit', {})
         }}
         onCancel={handleModalCancel}
-      />
+      /> */}
 
       {/* Pause Modal */}
-      <PausePipelineModal
+      {/* <PausePipelineModal
         visible={activeModal === 'pause'}
         onOk={() => {
           handleModalConfirm('pause')
         }}
         onCancel={handleModalCancel}
-      />
+      /> */}
     </>
   )
 }

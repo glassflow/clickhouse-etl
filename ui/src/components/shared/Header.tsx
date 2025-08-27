@@ -19,10 +19,10 @@ import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 
 const NavButton = ({ href, icon, label }: { href: string; icon: any; label: string }) => {
   return (
-    <li className="text-sm font-medium relative group h-full pt-3">
+    <li className="text-sm font-medium relative group h-full flex items-center pt-3">
       <Link
         href={href}
-        className="flex items-center gap-2 transition-colors whitespace-nowrap min-w-[60px] pb-2 pr-4 w-full h-full"
+        className="flex items-center gap-2 transition-colors whitespace-nowrap min-w-[60px] px-4 pb-2 h-full"
       >
         <Image src={icon} alt={label} width={24} height={24} />
         {label}
@@ -202,49 +202,51 @@ export function Header() {
     <div className="h-16 w-full max-w-[var(--main-container-width)] mx-auto">
       <div className="container h-full px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row justify-between items-center h-full">
-          {/* Mobile: Hamburger Menu (Left) */}
-          <div className="lg:hidden flex items-center">
-            <Button variant="ghost" className="p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-              <Image src={isMobileMenuOpen ? CloseIcon : BurgerIcon} alt="Menu" width={24} height={24} />
-            </Button>
+          {/* Left Section: Mobile Menu + Desktop Logo + Navigation */}
+          <div className="flex items-center h-full">
+            <div className="lg:hidden flex items-center">
+              <Button variant="ghost" className="p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                <Image src={isMobileMenuOpen ? CloseIcon : BurgerIcon} alt="Menu" width={24} height={24} />
+              </Button>
+            </div>
+
+            {/* Desktop: Logo (Left) */}
+            <div className="hidden lg:flex items-center pr-12 border-r border-r-[#3A3A3A]">
+              <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
+                <Image
+                  src={logoFullName}
+                  alt="Glassflow Logo"
+                  width={140}
+                  height={30}
+                  className="cursor-pointer w-auto h-8"
+                />
+              </Button>
+            </div>
+
+            {/* Mobile: Logo (Center) */}
+            <div className="lg:hidden flex items-center justify-center flex-1">
+              <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
+                <Image
+                  src={logoFullName}
+                  alt="Glassflow Logo"
+                  width={140}
+                  height={30}
+                  className="cursor-pointer w-auto h-6 sm:h-8"
+                />
+              </Button>
+            </div>
+
+            {/* Desktop Navigation (after logo) */}
+            <nav className="hidden lg:flex flex-row h-full ml-12">
+              <ul className="flex flex-row h-full">
+                <NavButton href="/home" icon={PlugIcon} label="Create" />
+                <NavButton href="/pipelines" icon={ListIcon} label="Pipelines" />
+                {/* <NavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" /> */}
+              </ul>
+            </nav>
           </div>
 
-          {/* Desktop: Logo (Left) */}
-          <div className="hidden lg:flex items-center">
-            <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
-              <Image
-                src={logoFullName}
-                alt="Glassflow Logo"
-                width={140}
-                height={30}
-                className="cursor-pointer w-auto h-8"
-              />
-            </Button>
-          </div>
-
-          {/* Mobile: Logo (Center) */}
-          <div className="lg:hidden flex items-center justify-center flex-1">
-            <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
-              <Image
-                src={logoFullName}
-                alt="Glassflow Logo"
-                width={140}
-                height={30}
-                className="cursor-pointer w-auto h-6 sm:h-8"
-              />
-            </Button>
-          </div>
-
-          {/* Desktop: Navigation (Center) */}
-          <nav className="hidden lg:flex flex-row items-center gap-4 h-full flex-1 justify-center">
-            <ul className="flex flex-row items-center gap-8 h-full">
-              <NavButton href="/home" icon={PlugIcon} label="Create" />
-              <NavButton href="/pipelines" icon={ListIcon} label="Pipelines" />
-              <NavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" />
-            </ul>
-          </nav>
-
-          {/* Help Menu (Right) */}
+          {/* Right Section: Help Menu */}
           <div className="flex items-center">
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
@@ -266,12 +268,12 @@ export function Header() {
                 label="Pipelines"
                 onClick={() => setIsMobileMenuOpen(false)}
               />
-              <MobileNavButton
+              {/* <MobileNavButton
                 href="/connections"
                 icon={Plug2Icon}
                 label="Source/Sink Connections"
                 onClick={() => setIsMobileMenuOpen(false)}
-              />
+              /> */}
             </ul>
           </nav>
         </div>

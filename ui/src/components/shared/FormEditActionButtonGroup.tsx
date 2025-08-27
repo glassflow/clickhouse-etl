@@ -64,7 +64,8 @@ export const FormEditActionButtonGroup = ({
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
         }`}
       >
-        {editMode ? (
+        {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
+        {/* {editMode ? (
           <>
             <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
               <FormActionButton
@@ -97,7 +98,7 @@ export const FormEditActionButtonGroup = ({
               disabled={isPipelineActionInProgress}
             />
           </div>
-        )}
+        )} */}
       </div>
     </div>
   )
