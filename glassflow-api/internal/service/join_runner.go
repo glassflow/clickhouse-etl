@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/kv"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 type JoinRunner struct {
 	log *slog.Logger
 	nc  *client.NATSClient
 
-	operator operator.Operator
-	c        chan error
+	component component.Component
+	c         chan error
 }
 
 func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
@@ -26,8 +26,8 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 		nc:  nc,
 		log: log,
 
-		operator: nil,
-		c:        make(chan error, 1),
+		component: nil,
+		c:         make(chan error, 1),
 	}
 }
 
@@ -110,8 +110,8 @@ func (j *JoinRunner) Start(ctx context.Context, joinType string, publisherSubjec
 		Subject: publisherSubject,
 	})
 
-	joinOp, err := operator.NewJoinOperator(
-		models.JoinOperatorConfig{
+	joinComp, err := component.NewJoinComponent(
+		models.JoinComponentConfig{
 			Type: joinType,
 		},
 		leftConsumer,
@@ -130,14 +130,14 @@ func (j *JoinRunner) Start(ctx context.Context, joinType string, publisherSubjec
 	}
 
 	go func() {
-		joinOp.Start(ctx, j.c)
+		joinComp.Start(ctx, j.c)
 
-		j.operator = joinOp
+		j.component = joinComp
 
 		close(j.c)
 
 		for err := range j.c {
-			j.log.Error("Error in join operator", slog.Any("error", err))
+			j.log.Error("Error in the join component", slog.Any("error", err))
 		}
 	}()
 
@@ -145,7 +145,7 @@ func (j *JoinRunner) Start(ctx context.Context, joinType string, publisherSubjec
 }
 
 func (j *JoinRunner) Shutdown() {
-	if j.operator != nil {
-		j.operator.Stop()
+	if j.component != nil {
+		j.component.Stop()
 	}
 }

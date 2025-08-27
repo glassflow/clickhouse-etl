@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 type SinkRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	operator operator.Operator
-	c        chan error
+	component component.Component
+	c         chan error
 }
 
 func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
@@ -25,12 +25,12 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
 		nc:  nc,
 		log: log,
 
-		operator: nil,
-		c:        make(chan error, 1),
+		component: nil,
+		c:         make(chan error, 1),
 	}
 }
 
-func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject string, cfg models.SinkOperatorConfig, schemaMapper schema.Mapper) error {
+func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject string, cfg models.SinkComponentConfig, schemaMapper schema.Mapper) error {
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   consumerStream,
@@ -41,7 +41,7 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 
-	sinkOperator, err := operator.NewSinkOperator(
+	SinkComponent, err := component.NewSinkComponent(
 		cfg,
 		consumer,
 		schemaMapper,
@@ -52,13 +52,13 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 		return fmt.Errorf("create sink: %w", err)
 	}
 
-	s.operator = sinkOperator
+	s.component = SinkComponent
 
 	go func() {
-		sinkOperator.Start(ctx, s.c)
+		SinkComponent.Start(ctx, s.c)
 		close(s.c)
 		for err := range s.c {
-			s.log.Error("Error in sink operator", slog.Any("error", err))
+			s.log.Error("Error in the sink component", slog.Any("error", err))
 		}
 	}()
 
@@ -66,7 +66,7 @@ func (s *SinkRunner) Start(ctx context.Context, consumerStream, consumerSubject 
 }
 
 func (s *SinkRunner) Shutdown() {
-	if s.operator != nil {
-		s.operator.Stop()
+	if s.component != nil {
+		s.component.Stop()
 	}
 }

@@ -225,7 +225,7 @@ Feature: Clickhouse ETL sink
         And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
-    Scenario: Exports events after JOIN operator
+    Scenario: Exports events after JOIN component
         Given the ClickHouse table "default.events_test" already exists with schema
             | column_name | data_type |
             | id          | String    |

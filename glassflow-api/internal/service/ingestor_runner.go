@@ -6,17 +6,17 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 )
 
 type IngestorRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	running map[string]operator.Operator
+	running map[string]component.Component
 	wg      sync.WaitGroup
 }
 
@@ -25,13 +25,13 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 		nc:  nc,
 		log: log,
 
-		running: make(map[string]operator.Operator),
+		running: make(map[string]component.Component),
 		wg:      sync.WaitGroup{},
 	}
 }
 
 func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
-	ingestorOperator, err := operator.NewIngestorOperator(
+	IngestorComponent, err := component.NewIngestorComponent(
 		pipelineCfg.Ingestor,
 		topicName,
 		topicName+".input",
@@ -41,11 +41,11 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		i.log,
 	)
 	if err != nil {
-		i.log.Error("failed to create ingestor operator: ", slog.Any("error", err))
+		i.log.Error("failed to create ingestor component: ", slog.Any("error", err))
 		return fmt.Errorf("create ingestor: %w", err)
 	}
 
-	i.running[topicName] = ingestorOperator
+	i.running[topicName] = IngestorComponent
 
 	i.wg.Add(1)
 
@@ -53,10 +53,10 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		defer i.wg.Done()
 
 		errCh := make(chan error, 1)
-		ingestorOperator.Start(ctx, errCh)
+		IngestorComponent.Start(ctx, errCh)
 		close(errCh)
 		for err := range errCh {
-			i.log.Error("error in ingestor operator", slog.Any("error", err), slog.String("topic", topicName))
+			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName))
 		}
 	}()
 
@@ -65,13 +65,13 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 
 func (i *IngestorRunner) Shutdown() {
 	if len(i.running) == 0 {
-		i.log.Info("No ingestor operators running, nothing to shutdown")
+		i.log.Info("No ingestor compoentns running, nothing to shutdown")
 		return
 	}
 
 	for name, op := range i.running {
-		i.log.Info("Shutting down ingestor operator", slog.String("name", name))
-		op.Stop(operator.WithNoWait(true))
+		i.log.Info("Shutting down ingestor component", slog.String("name", name))
+		op.Stop(component.WithNoWait(true))
 		delete(i.running, name)
 	}
 

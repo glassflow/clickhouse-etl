@@ -11,11 +11,11 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/kv"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -31,7 +31,7 @@ type JoinTestSuite struct {
 	rightStreamConfig     *stream.ConsumerConfig
 	resultsConsumerConfig *stream.ConsumerConfig
 	schemaConfig          *models.MapperConfig
-	joinOperator          operator.Operator
+	JoinComponent         component.Component
 }
 
 func NewJoinTestSuite() *JoinTestSuite {
@@ -105,7 +105,7 @@ func (j *JoinTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
 	return nil
 }
 
-func (j *JoinTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error {
+func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 	if j.natsContainer == nil {
 		return fmt.Errorf("nats container is not running")
 	}
@@ -167,8 +167,8 @@ func (j *JoinTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error {
 
 	logger := testutils.NewTestLogger()
 
-	operator, err := operator.NewJoinOperator(
-		models.JoinOperatorConfig{
+	component, err := component.NewJoinComponent(
+		models.JoinComponentConfig{
 			Type: models.TemporalJoinType,
 		},
 		leftStreamConsumer,
@@ -183,42 +183,42 @@ func (j *JoinTestSuite) iRunJoinOperator(leftTTL, rightTTL string) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("create join operator: %w", err)
+		return fmt.Errorf("create join component: %w", err)
 	}
 
-	j.joinOperator = operator
+	j.JoinComponent = component
 
 	j.errCh = make(chan error, 1)
 
 	j.wg.Add(1)
 	go func() {
 		defer j.wg.Done()
-		operator.Start(ctx, j.errCh)
+		component.Start(ctx, j.errCh)
 	}()
 
 	return nil
 }
 
-func (j *JoinTestSuite) iStopJoinOperatorNoWait(delay string) error {
+func (j *JoinTestSuite) iStopJoinComponentNoWait(delay string) error {
 	dur, err := time.ParseDuration(delay)
 	if err != nil {
 		return fmt.Errorf("parse duration: %w", err)
 	}
 
-	j.stopOperator(j.joinOperator.Stop, false, dur)
+	j.stopComponent(j.JoinComponent.Stop, false, dur)
 
-	return j.checkOperatorErrors()
+	return j.checkComponentErrors()
 }
 
-func (j *JoinTestSuite) iStopJoinOperatorGracefullyAfterDelay(delay string) error {
+func (j *JoinTestSuite) iStopJoinComponentGracefullyAfterDelay(delay string) error {
 	dur, err := time.ParseDuration(delay)
 	if err != nil {
 		return fmt.Errorf("parse duration: %w", err)
 	}
 
-	j.stopOperator(j.joinOperator.Stop, true, dur)
+	j.stopComponent(j.JoinComponent.Stop, true, dur)
 
-	return j.checkOperatorErrors()
+	return j.checkComponentErrors()
 }
 
 func (j *JoinTestSuite) iPublishEventsToTheLeftStream(count int, dataTable *godog.Table) error {
@@ -405,9 +405,9 @@ func (j *JoinTestSuite) iCheckResultsWithContent(dataTable *godog.Table) error {
 func (j *JoinTestSuite) fastJoinCleanUp() error {
 	var errs []error
 
-	if j.joinOperator != nil {
-		j.joinOperator.Stop(operator.WithNoWait(true))
-		j.joinOperator = nil
+	if j.JoinComponent != nil {
+		j.JoinComponent.Stop(component.WithNoWait(true))
+		j.JoinComponent = nil
 	}
 
 	for _, streamCfg := range []*stream.ConsumerConfig{j.leftStreamConfig, j.rightStreamConfig, j.resultsConsumerConfig} {
@@ -428,9 +428,9 @@ func (j *JoinTestSuite) fastJoinCleanUp() error {
 }
 
 func (j *JoinTestSuite) CleanupResources() error {
-	if j.joinOperator != nil {
-		j.joinOperator.Stop(operator.WithNoWait(true))
-		j.joinOperator = nil
+	if j.JoinComponent != nil {
+		j.JoinComponent.Stop(component.WithNoWait(true))
+		j.JoinComponent = nil
 	}
 
 	return j.cleanupNATS()
@@ -440,10 +440,10 @@ func (j *JoinTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`a "([^"]*)" stream consumer with config$`, j.aStreamConsumerConfig)
 
 	sc.Step(`^a running "([^"]*)" stream$`, j.aRunningStream)
-	sc.Step(`^an operator schema config with mapping$`, j.aSchemaConfigWithMapping)
-	sc.Step(`^I run join operator with left TTL "([^"]*)" right TTL "([^"]*)"$`, j.iRunJoinOperator)
-	sc.Step(`^I gracefully stop join operator after "([^"]*)"$`, j.iStopJoinOperatorGracefullyAfterDelay)
-	sc.Step(`^I stop join operator after "([^"]*)"$`, j.iStopJoinOperatorNoWait)
+	sc.Step(`^an component schema config with mapping$`, j.aSchemaConfigWithMapping)
+	sc.Step(`^I run join component with left TTL "([^"]*)" right TTL "([^"]*)"$`, j.iRunJoinComponent)
+	sc.Step(`^I gracefully stop join component after "([^"]*)"$`, j.iStopJoinComponentGracefullyAfterDelay)
+	sc.Step(`^I stop join component after "([^"]*)"$`, j.iStopJoinComponentNoWait)
 
 	sc.Step(`^I publish (\d+) events to the left stream$`, j.iPublishEventsToTheLeftStream)
 	sc.Step(`^I publish (\d+) events to the right stream$`, j.iPublishEventsToTheRightStream)

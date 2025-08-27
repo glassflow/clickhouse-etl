@@ -1,4 +1,4 @@
-package operator
+package component
 
 import (
 	"context"
@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/ingestor"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 type Ingestor interface {
@@ -18,22 +18,22 @@ type Ingestor interface {
 	Stop()
 }
 
-type IngestorOperator struct {
+type IngestorComponent struct {
 	ingestor  Ingestor
 	topicName string
 	wg        sync.WaitGroup
 	log       *slog.Logger
 }
 
-func NewIngestorOperator(
-	config models.IngestorOperatorConfig,
+func NewIngestorComponent(
+	config models.IngestorComponentConfig,
 	topicName string,
 	natsStreamSubject string,
 	dlqStreamSubject string,
 	nc *client.NATSClient,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
-) (*IngestorOperator, error) {
+) (*IngestorComponent, error) {
 	if config.Type != models.KafkaIngestorType {
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
@@ -64,18 +64,19 @@ func NewIngestorOperator(
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}
-	return &IngestorOperator{
-		ingestor: ingestor,
-		log:      log,
-		wg:       sync.WaitGroup{},
+	return &IngestorComponent{
+		ingestor:  ingestor,
+		log:       log,
+		topicName: topicName,
+		wg:        sync.WaitGroup{},
 	}, nil
 }
 
-func (i *IngestorOperator) Start(ctx context.Context, errChan chan<- error) {
+func (i *IngestorComponent) Start(ctx context.Context, errChan chan<- error) {
 	i.wg.Add(1)
 	defer i.wg.Done()
 
-	i.log.Info("Ingestor operator is starting...")
+	i.log.Info("Ingestor component is starting...")
 
 	err := i.ingestor.Start(ctx)
 	if err != nil {
@@ -84,12 +85,12 @@ func (i *IngestorOperator) Start(ctx context.Context, errChan chan<- error) {
 		return
 	}
 
-	i.log.Info("Ingestor operator started successfully", slog.String("topic", i.topicName))
+	i.log.Info("Ingestor component started successfully", slog.String("topic", i.topicName))
 }
 
-func (i *IngestorOperator) Stop(_ ...StopOption) {
-	i.log.Info("Stopping ingestor operator")
+func (i *IngestorComponent) Stop(_ ...StopOption) {
+	i.log.Info("Stopping ingestor component...")
 	i.ingestor.Stop()
 	i.wg.Wait()
-	i.log.Info("Ingestor operator stopped")
+	i.log.Info("Ingestor component stopped")
 }

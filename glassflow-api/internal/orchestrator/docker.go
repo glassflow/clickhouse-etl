@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
@@ -129,7 +129,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 		err = d.joinRunner.Start(ctx, "temporal", sinkConsumerSubject, schemaMapper)
 		if err != nil {
-			return fmt.Errorf("setup join operator: %w", err)
+			return fmt.Errorf("setup join component: %w", err)
 		}
 	}
 
@@ -137,7 +137,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		ctx,
 		sinkConsumerStream,
 		sinkConsumerSubject,
-		models.SinkOperatorConfig{
+		models.SinkComponentConfig{
 			Type: models.ClickHouseSinkType,
 			Batch: models.BatchConfig{
 				MaxBatchSize: pi.Sink.Batch.MaxBatchSize,

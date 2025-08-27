@@ -82,7 +82,7 @@ func testSinkFeatures(t *testing.T) {
 	runSingleSuite(t, "sink", sinkSuite, config)
 }
 
-// TestJoinOperatorFeatures tests only join-operator-related features
+// TestJoinComponentFeatures tests only join-related features
 func testJoinFeatures(t *testing.T) {
 	joinSuite := steps.NewJoinTestSuite()
 
@@ -123,7 +123,7 @@ func testIngetorFeatures(t *testing.T) {
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
 	t.Run("SinkFeatures", testSinkFeatures)
-	t.Run("JoinOperatorFeatures", testJoinFeatures)
+	t.Run("JoinComponentFeatures", testJoinFeatures)
 	t.Run("PipelineFeatures", testPipelineFeatures)
 	t.Run("IngestorFeatures", testIngetorFeatures)
 }

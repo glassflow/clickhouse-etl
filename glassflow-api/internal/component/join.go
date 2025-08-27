@@ -1,4 +1,4 @@
-package operator
+package component
 
 import (
 	"context"
@@ -8,14 +8,14 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/join"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/kv"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/join"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
-type JoinOperator struct {
+type JoinComponent struct {
 	leftStreamSubsriber   stream.Subscriber
 	rightStreamSubscriber stream.Subscriber
 	executor              join.Executor
@@ -26,15 +26,15 @@ type JoinOperator struct {
 	log                   *slog.Logger
 }
 
-func NewJoinOperator(
-	cfg models.JoinOperatorConfig,
+func NewJoinComponent(
+	cfg models.JoinComponentConfig,
 	leftStreamConsumer, rightStreamConsumer stream.Consumer,
 	resultsPublisher stream.Publisher,
 	schema schema.Mapper,
 	leftKVStore, rightKVStore kv.KeyValueStore,
 	leftStreamName, rightStreamName string,
 	log *slog.Logger,
-) (Operator, error) {
+) (Component, error) {
 	if cfg.Type != models.TemporalJoinType {
 		return nil, fmt.Errorf("unsupported join type")
 	}
@@ -46,7 +46,7 @@ func NewJoinOperator(
 		leftStreamName, rightStreamName,
 		log,
 	)
-	return &JoinOperator{
+	return &JoinComponent{
 		leftStreamSubsriber:   stream.NewNATSSubscriber(leftStreamConsumer, log),
 		rightStreamSubscriber: stream.NewNATSSubscriber(rightStreamConsumer, log),
 		executor:              executor,
@@ -58,11 +58,11 @@ func NewJoinOperator(
 	}, nil
 }
 
-func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
+func (j *JoinComponent) Start(ctx context.Context, errChan chan<- error) {
 	j.wg.Add(1)
 	defer j.wg.Done()
 
-	j.log.Info("Join operator is starting...")
+	j.log.Info("Join component is starting...")
 
 	err := j.leftStreamSubsriber.Subscribe(func(msg jetstream.Msg) {
 		j.handleMu.Lock()
@@ -102,15 +102,15 @@ func (j *JoinOperator) Start(ctx context.Context, errChan chan<- error) {
 		return
 	}
 
-	j.log.Info("Join operator was started successfully!")
+	j.log.Info("Join component was started successfully!")
 }
 
-func (j *JoinOperator) Stop(opts ...StopOption) {
+func (j *JoinComponent) Stop(opts ...StopOption) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
 	if j.isClosed {
-		j.log.Debug("Join operator is already stopped.")
+		j.log.Debug("Join component is already stopped.")
 		return
 	}
 
@@ -122,7 +122,7 @@ func (j *JoinOperator) Stop(opts ...StopOption) {
 		opt(options)
 	}
 
-	j.log.Info("Stopping Join operator ...")
+	j.log.Info("Stopping Join component ...")
 	if options.NoWait {
 		j.leftStreamSubsriber.Stop()
 		j.rightStreamSubscriber.Stop()
@@ -135,5 +135,5 @@ func (j *JoinOperator) Stop(opts ...StopOption) {
 	<-j.rightStreamSubscriber.Closed()
 
 	j.isClosed = true
-	j.log.Debug("Join operator stopped")
+	j.log.Debug("Join component stopped")
 }

@@ -317,9 +317,9 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	}
 
 	var (
-		ic models.IngestorOperatorConfig
-		jc models.JoinOperatorConfig
-		sc models.SinkOperatorConfig
+		ic models.IngestorComponentConfig
+		jc models.JoinComponentConfig
+		sc models.SinkComponentConfig
 	)
 
 	kcfg := models.KafkaConnectionParamsConfig{
@@ -347,7 +347,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		})
 	}
 
-	ic, err := models.NewIngestorOperatorConfig(p.Source.Provider, kcfg, topics)
+	ic, err := models.NewIngestorComponentConfig(p.Source.Provider, kcfg, topics)
 	if err != nil {
 		return zero, fmt.Errorf("ingestor config: %w", err)
 	}
@@ -363,13 +363,13 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 			})
 		}
 
-		jc, err = models.NewJoinOperatorConfig(p.Join.Kind, sources)
+		jc, err = models.NewJoinComponentConfig(p.Join.Kind, sources)
 		if err != nil {
 			return zero, fmt.Errorf("join config: %w", err)
 		}
 	}
 
-	sc, err = models.NewClickhouseSinkOperator(models.ClickhouseSinkArgs{
+	sc, err = models.NewClickhouseSinkComponent(models.ClickhouseSinkArgs{
 		Host:                 p.Sink.Host,
 		Port:                 p.Sink.Port,
 		HttpPort:             p.Sink.HttpPort,
