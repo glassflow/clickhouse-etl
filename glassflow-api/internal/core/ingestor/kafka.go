@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 
 	"github.com/IBM/sarama"
@@ -19,7 +20,6 @@ import (
 var (
 	ErrValidateSchema  = errors.New("failed to validate data")
 	ErrDeduplicateData = errors.New("failed to deduplicate data")
-	ErrPublishData     = errors.New("failed to publish message")
 )
 
 type KafkaIngestor struct {
@@ -47,7 +47,10 @@ func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, na
 	for _, t := range config.KafkaTopics {
 		if t.Name == topicName {
 			// Topic found, proceed with initialization.
-			log.Debug("Found topic for Kafka ingestor", "topic", t.Name, "id", t.ID)
+			log.Debug("Found topic for Kafka ingestor", slog.String("topic", t.Name), slog.String("id", t.ID))
+			if t.Deduplication.Enabled {
+				log.Info("Deduplication is enabled for topic", slog.String("topic", t.Name), slog.String("dedupKey", t.Deduplication.ID), slog.String("window", t.Deduplication.Window.String()))
+			}
 			topic = t
 			break
 		}
@@ -85,7 +88,7 @@ func (k *KafkaIngestor) PushMsgToDLQ(ctx context.Context, orgMsg []byte, err err
 	}
 }
 
-func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
+func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) error {
 	nMsg := nats.NewMsg(k.publisher.GetSubject())
 	nMsg.Data = msg.Value
 
@@ -96,7 +99,7 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 		k.log.Error("Failed to validate data", slog.Any("error", err), slog.String("topic", k.topic.Name))
 		k.PushMsgToDLQ(ctx, msg.Value, ErrValidateSchema)
 		k.commitMsg(ctx, msg)
-		return
+		return nil
 	}
 
 	if k.topic.Deduplication.Enabled {
@@ -114,28 +117,30 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) {
 			)
 			k.PushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData)
 			k.commitMsg(ctx, msg)
-			return
+			return nil
 		}
 	}
 
-	err = k.publisher.PublishNatsMsg(ctx, nMsg)
+	err = k.publisher.PublishNatsMsg(ctx, nMsg, stream.WithUntilAck())
 	if err != nil {
 		k.log.Error("Failed to publish message to NATS",
 			slog.Any("error", err),
 			slog.String("topic", k.topic.Name),
 			slog.String("subject", k.publisher.GetSubject()),
 		)
-		return
+		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
 	k.commitMsg(ctx, msg)
+
+	return nil
 }
 
 func (k *KafkaIngestor) commitMsg(ctx context.Context, msg kafka.Message) {
 	if msg.Topic == "" || msg.Partition < 0 || msg.Offset < 0 {
 		k.log.Error("Failed to commit messsage: invalid message parameters",
 			slog.String("topic", msg.Topic),
-			slog.String("partition", fmt.Sprint(msg.Partition)),
+			slog.String("partition", strconv.Itoa(int(msg.Partition))),
 			slog.Int64("offset", msg.Offset),
 		)
 
@@ -146,7 +151,7 @@ func (k *KafkaIngestor) commitMsg(ctx context.Context, msg kafka.Message) {
 		k.log.Error("Failed to commit Kafka message",
 			slog.Any("error", err),
 			slog.String("topic", msg.Topic),
-			slog.String("partition", fmt.Sprint(msg.Partition)),
+			slog.String("partition", strconv.Itoa(int(msg.Partition))),
 			slog.Int64("offset", msg.Offset),
 		)
 		return
@@ -207,17 +212,21 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 				return nil
 			}
 
-			return fmt.Errorf("failed to fetch message: %w", err)
+			k.log.Error("Failed to fetch messages from Kafka", slog.Any("error", err), slog.String("topic", k.topic.Name))
+			continue
 		}
 
 		k.log.Debug("Received message from Kafka",
 			slog.String("topic", msg.Topic),
-			slog.String("partition", fmt.Sprint(msg.Partition)),
+			slog.String("partition", strconv.Itoa(int(msg.Partition))),
 			slog.Int64("offset", msg.Offset),
 			slog.String("key", string(msg.Key)),
 		)
 
-		k.processMsg(cancelCtx, msg)
+		err = k.processMsg(cancelCtx, msg)
+		if err != nil {
+			return fmt.Errorf("failed to process messages: %w", err)
+		}
 
 		if k.isClosed {
 			break
