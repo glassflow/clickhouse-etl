@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { createPipeline, shutdownPipeline, getPipelineStatus, PipelineError } from '@/src/api/pipeline'
+import { terminatePipeline } from '@/src/api/pipeline-api'
 import { InputModal, ModalResult } from '@/src/components/common/InputModal'
 import { saveConfiguration } from '@/src/utils/local-storage-config'
 import { isValidApiConfig } from '@/src/modules/pipelines/helpers'
@@ -29,6 +30,9 @@ import { PipelineStatus } from '@/src/types/pipeline'
 import { pausePipeline, resumePipeline, deletePipeline, renamePipeline } from '@/src/api/pipeline-api'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
+// TEMPORARILY DISABLED: Health monitoring imports
+// import { useMultiplePipelineHealth } from '@/src/hooks/usePipelineHealth'
+// import { getHealthStatusDisplayText } from '@/src/api/pipeline-health'
 
 type PipelinesListProps = {
   pipelines: ListPipelineConfig[]
@@ -91,6 +95,25 @@ export function PipelinesList({
   const router = useRouter()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
+  // TEMPORARILY DISABLED: Multiple pipeline health monitoring for real-time status updates
+  // TODO: Re-enable after fixing polling performance issues
+  // const pipelineIds = useMemo(() => pipelines.map((p) => p.pipeline_id), [pipelines])
+  //
+  // const { healthMap } = useMultiplePipelineHealth({
+  //   pipelineIds,
+  //   enabled: true,
+  //   pollingInterval: 15000, // 15 seconds for list view - conservative interval
+  //   onStatusChange: (pipelineId, newStatus, previousStatus) => {
+  //     console.log(`Pipeline list: ${pipelineId} status changed: ${previousStatus} → ${newStatus}`)
+  //   },
+  //   onError: (pipelineId, error) => {
+  //     console.log(`Pipeline list: Health check error for ${pipelineId}:`, error)
+  //   },
+  // })
+
+  // Use empty healthMap for now - fall back to static pipeline status
+  const healthMap = {}
+
   // Helper functions to manage pipeline operation state
   const setPipelineLoading = (pipelineId: string, operation: 'pause' | 'resume' | 'delete' | 'rename' | 'edit') => {
     setPipelineOperations((prev) => ({
@@ -152,7 +175,7 @@ export function PipelinesList({
       try {
         analytics.pipeline.deleteClicked({})
 
-        await shutdownPipeline()
+        await terminatePipeline(pipelineId)
         setStatus('deleted')
         setError(null)
         // Reset pipeline state and ID
@@ -205,7 +228,7 @@ export function PipelinesList({
           status: 'success',
         })
 
-        await shutdownPipeline()
+        await terminatePipeline(pipelineId)
         setStatus('deleted')
         setError(null)
         resetAllPipelineState('', true)
@@ -263,7 +286,14 @@ export function PipelinesList({
     }
   }
 
-  const getBadgeLabel = (status: PipelineStatus) => {
+  const getBadgeLabel = (status: PipelineStatus, pipelineId?: string) => {
+    // TEMPORARILY DISABLED: Health monitoring - use static status only
+    // const healthData = pipelineId ? healthMap[pipelineId] : null
+    // if (healthData) {
+    //   return getHealthStatusDisplayText(healthData.overall_status)
+    // }
+
+    // Use static status from initial pipeline data
     switch (status) {
       case 'active':
         return 'Active'
@@ -328,7 +358,11 @@ export function PipelinesList({
       header: 'Status',
       width: '1fr',
       render: (pipeline) => {
-        const getStatusVariant = (status: string) => {
+        const getStatusVariant = (status: string, pipelineId?: string) => {
+          // TEMPORARILY DISABLED: Health monitoring - use static status only
+          // const healthData = pipelineId ? healthMap[pipelineId] : null
+          // const effectiveStatus = healthData?.overall_status || status
+
           switch (status) {
             case 'active':
               return 'success'
@@ -342,14 +376,25 @@ export function PipelinesList({
               return 'error'
             case 'deleted':
               return 'secondary'
+            case 'deploying':
+              return 'default'
+            case 'deploy_failed':
+              return 'error'
+            case 'delete_failed':
+              return 'error'
+            case 'no_configuration':
+              return 'default'
             default:
               return 'default'
           }
         }
 
         return (
-          <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(pipeline.status || 'no_configuration')}>
-            {getBadgeLabel(pipeline.status || 'no_configuration')}
+          <Badge
+            className="rounded-xl my-2 mx-4"
+            variant={getStatusVariant(pipeline.status || 'no_configuration', pipeline.pipeline_id)}
+          >
+            {getBadgeLabel(pipeline.status || 'no_configuration', pipeline.pipeline_id)}
           </Badge>
         )
       },
@@ -445,6 +490,7 @@ export function PipelinesList({
       <div className="md:hidden">
         <MobilePipelinesList
           pipelines={pipelines}
+          healthMap={healthMap}
           onPause={handlePause}
           onResume={handleResume}
           onEdit={handleEdit}

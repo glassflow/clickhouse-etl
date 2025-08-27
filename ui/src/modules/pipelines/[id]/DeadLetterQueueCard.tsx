@@ -179,7 +179,7 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
   }
 
   return (
-    <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-2/3">
+    <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-full">
       <div className="flex flex-col gap-4">
         <div className="flex flex-row justify-between gap-2 items-center">
           <div className="flex flex-start flex-row gap-2 items-center">

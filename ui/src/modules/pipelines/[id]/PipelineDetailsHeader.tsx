@@ -12,6 +12,7 @@ import PausePipelineModal from '@/src/modules/pipelines/components/PausePipeline
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
+import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import PlayIcon from '@/src/images/play.svg'
@@ -30,6 +31,25 @@ interface PipelineDetailsHeaderProps {
 
 function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, actions }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
+
+  // Use simplified pipeline health monitoring
+  const {
+    health,
+    isLoading: healthLoading,
+    error: healthError,
+  } = usePipelineHealth({
+    pipelineId: pipeline.pipeline_id,
+    enabled: true,
+    pollingInterval: 5000, // 5 seconds - conservative interval
+    stopOnStatuses: ['Running', 'Terminated', 'Failed'], // Stop on stable states
+    maxRetries: 2,
+    onStatusChange: (newStatus, previousStatus) => {
+      console.log(`Pipeline ${pipeline.pipeline_id} health status changed: ${previousStatus} → ${newStatus}`)
+    },
+    onError: (error) => {
+      console.error(`Pipeline ${pipeline.pipeline_id} health check error:`, error)
+    },
+  })
 
   const {
     actionState,
@@ -88,7 +108,20 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getStatusVariant = (status: string) => {
-    switch (status) {
+    // Use health data if available, otherwise fall back to pipeline status
+    const effectiveStatus = health?.overall_status || status
+
+    switch (effectiveStatus) {
+      case 'Running':
+        return 'success'
+      case 'Created':
+        return 'default'
+      case 'Terminating':
+        return 'warning'
+      case 'Terminated':
+        return 'secondary'
+      case 'Failed':
+        return 'error'
       case 'active':
         return 'success'
       case 'paused':
@@ -109,7 +142,20 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getBadgeLabel = (status: PipelineStatus) => {
-    switch (status) {
+    // Use health data if available, otherwise fall back to pipeline status
+    const effectiveStatus = health?.overall_status || status
+
+    switch (effectiveStatus) {
+      case 'Running':
+        return 'Running'
+      case 'Created':
+        return 'Starting...'
+      case 'Terminating':
+        return 'Terminating...'
+      case 'Terminated':
+        return 'Terminated'
+      case 'Failed':
+        return 'Failed'
       case 'active':
         return 'Active'
       case 'deploying':
@@ -128,8 +174,6 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         return 'Paused'
       case 'error':
         return 'Error'
-      case 'no_configuration':
-        return 'No Configuration'
       default:
         return 'Unknown status'
     }
@@ -244,8 +288,15 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
               )}
               <h2 className="text-2xl font-bold">{pipeline.name}</h2>
               <Badge variant={getStatusVariant(pipeline.status || 'no_configuration')} className="rounded-xl my-2 mx-4">
-                {getBadgeLabel((pipeline.status || 'no_configuration') as PipelineStatus)}
+                {healthLoading
+                  ? 'Checking...'
+                  : getBadgeLabel((pipeline.status || 'no_configuration') as PipelineStatus)}
               </Badge>
+              {healthError && (
+                <Badge variant="destructive" className="ml-2">
+                  Health Error
+                </Badge>
+              )}
               {actionState.error && (
                 <Badge variant="destructive" className="ml-2">
                   {actionState.error}

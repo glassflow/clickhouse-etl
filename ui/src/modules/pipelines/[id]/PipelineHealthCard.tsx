@@ -1,28 +1,72 @@
 import { Card } from '@/src/components/ui/card'
-import HealthIcon from '@/src/images/health.svg'
+import { Badge } from '@/src/components/ui/badge'
 import Image from 'next/image'
+import HealthIcon from '@/src/images/health.svg'
+import { PipelineHealth, PipelineHealthStatus } from '@/src/api/pipeline-health'
+import { getHealthStatusDisplayText, getHealthStatusClasses } from '@/src/api/pipeline-health'
 
-const greenDot = () => <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
-const redDot = () => <div className="w-3 h-3 rounded-full bg-red-500 mt-2" />
-const yellowDot = () => <div className="w-3 h-3 rounded-full bg-yellow-500 mt-2" />
-const blueDot = () => <div className="w-3 h-3 rounded-full bg-blue-500 mt-2" />
-
-const StatusMapping = {
-  stable: greenDot,
-  failed: redDot,
-  unstable: yellowDot,
-  info: blueDot,
+interface PipelineHealthCardProps {
+  health: PipelineHealth | null
+  isLoading?: boolean
+  error?: string | null
 }
 
-const statusLabels = {
-  stable: 'Stable',
-  failed: 'Failed',
-  unstable: 'Unstable',
-  info: 'Info',
-}
+function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProps) {
+  // Determine status and styling based on health data
+  const getStatusInfo = () => {
+    if (isLoading) {
+      return {
+        status: 'info' as const,
+        label: 'Checking...',
+        classes: 'text-blue-600 bg-blue-50 border-blue-200',
+        dot: <div className="w-3 h-3 rounded-full bg-blue-500 mt-2 animate-pulse" />,
+      }
+    }
 
-function PipelineHealthCard({ status, label }: { status: 'stable' | 'failed' | 'unstable' | 'info'; label?: string }) {
-  const StatusIcon = StatusMapping[status]
+    if (error) {
+      return {
+        status: 'failed' as const,
+        label: 'Error',
+        classes: 'text-red-600 bg-red-50 border-red-200',
+        dot: <div className="w-3 h-3 rounded-full bg-red-500 mt-2" />,
+      }
+    }
+
+    if (!health) {
+      return {
+        status: 'info' as const,
+        label: 'No Data',
+        classes: 'text-gray-600 bg-gray-50 border-gray-200',
+        dot: <div className="w-3 h-3 rounded-full bg-gray-500 mt-2" />,
+      }
+    }
+
+    // Map backend status to UI status
+    const statusMapping: Record<
+      PipelineHealthStatus,
+      { status: 'stable' | 'failed' | 'unstable' | 'info'; classes: string }
+    > = {
+      Created: { status: 'info', classes: 'text-blue-600 bg-blue-50 border-blue-200' },
+      Running: { status: 'stable', classes: 'text-green-600 bg-green-50 border-green-200' },
+      Terminating: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
+      Terminated: { status: 'info', classes: 'text-gray-600 bg-gray-50 border-gray-200' },
+      Failed: { status: 'failed', classes: 'text-red-600 bg-red-50 border-red-200' },
+    }
+
+    const mappedStatus = statusMapping[health.overall_status]
+    return {
+      status: mappedStatus.status,
+      label: getHealthStatusDisplayText(health.overall_status),
+      classes: mappedStatus.classes,
+      dot: (
+        <div
+          className={`w-3 h-3 rounded-full mt-2 ${mappedStatus.status === 'stable' ? 'bg-green-500' : mappedStatus.status === 'failed' ? 'bg-red-500' : mappedStatus.status === 'unstable' ? 'bg-orange-500' : 'bg-blue-500'}`}
+        />
+      ),
+    }
+  }
+
+  const statusInfo = getStatusInfo()
 
   return (
     <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4 w-1/3">
@@ -33,11 +77,16 @@ function PipelineHealthCard({ status, label }: { status: 'stable' | 'failed' | '
         </div>
         <div className="flex flex-col gap-2">
           <div className="flex flex-row gap-2">
-            <StatusIcon />
-            <span className="text-md font-bold text-[var(--color-foreground-neutral-faded)]">
-              {label || statusLabels[status]}
-            </span>
+            {statusInfo.dot}
+            <span className="text-md font-bold text-[var(--color-foreground-neutral-faded)]">{statusInfo.label}</span>
           </div>
+          {health && (
+            <div className="text-sm text-gray-600">
+              <div>Status: {health.overall_status}</div>
+              <div>Updated: {new Date(health.updated_at).toLocaleString()}</div>
+            </div>
+          )}
+          {error && <div className="text-sm text-red-600">Error: {error}</div>}
         </div>
       </div>
     </Card>
