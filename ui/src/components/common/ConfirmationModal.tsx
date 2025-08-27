@@ -56,7 +56,9 @@ export function ConfirmationModal({
       <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">{title}</DialogTitle>
-          <DialogDescription className="modal-description text-sm mb-4">{description}</DialogDescription>
+          <DialogDescription className="modal-description text-sm mb-4">
+            <div dangerouslySetInnerHTML={{ __html: description }} />
+          </DialogDescription>
         </DialogHeader>
 
         {content && <div className="mb-6">{content}</div>}

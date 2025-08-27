@@ -216,10 +216,10 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
 
     return (
       <>
-        {showResume && renderActionButton('resume')}
+        {/* {showResume && renderActionButton('resume')} */}
         {renderActionButton('rename')}
         {renderActionButton('delete')}
-        {showPause && renderActionButton('pause')}
+        {/* {showPause && renderActionButton('pause')} */}
       </>
     )
   }
