@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -12,12 +14,20 @@ const (
 	GFJoinStream  = "gf-stream-joined"
 	GFJoinSubject = "merged"
 
-	DefaultSubjectName = ".input"
+	DefaultSubjectName = "input"
 
 	KafkaIngestorType        = "kafka"
 	TemporalJoinType         = "temporal"
 	SchemaMapperJSONToCHType = "jsonToClickhouse"
 	ClickHouseSinkType       = "clickhouse"
+)
+
+// Stream naming constants
+const (
+	// Maximum length for NATS stream names (NATS has a limit, typically around 32 chars)
+	MaxStreamNameLength = 32
+	// Prefix for pipeline-specific streams
+	PipelineStreamPrefix = "gf"
 )
 
 // PipelineStatus represents the overall status of a pipeline
@@ -473,7 +483,8 @@ func (d JSONDuration) Duration() time.Duration {
 }
 
 func GetJoinedStreamName(pipelineID string) string {
-	return fmt.Sprintf("%s-%s", GFJoinStream, pipelineID)
+	hash := GenerateStreamHash(pipelineID)
+	return fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, "joined")
 }
 
 // NewPipelineHealth creates a new pipeline health status
@@ -489,5 +500,43 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 }
 
 func GetNATSSubjectName(streamName string) string {
+	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
+}
+
+func SanitizeNATSSubject(topicName string) string {
+	return strings.ReplaceAll(topicName, ".", "_")
+}
+
+func GenerateStreamHash(pipelineID string) string {
+	hash := sha256.Sum256([]byte(pipelineID))
+	// Use first 8 characters of hash for shorter stream names
+	return hex.EncodeToString(hash[:])[:8]
+}
+
+func GetPipelineStreamName(pipelineID, topicName string) string {
+	hash := GenerateStreamHash(pipelineID)
+	sanitizedTopic := SanitizeNATSSubject(topicName)
+
+	// Create stream name: gf-{hash}-{sanitized_topic}
+	streamName := fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, sanitizedTopic)
+
+	// Truncate if too long to respect NATS limits
+	if len(streamName) > MaxStreamNameLength {
+		// Keep prefix and hash, truncate topic name
+		prefix := fmt.Sprintf("%s-%s-", PipelineStreamPrefix, hash)
+		maxTopicLength := MaxStreamNameLength - len(prefix)
+		if maxTopicLength > 0 {
+			streamName = prefix + sanitizedTopic[:maxTopicLength]
+		} else {
+			// Fallback to just prefix if even that's too long
+			streamName = prefix[:MaxStreamNameLength]
+		}
+	}
+
+	return streamName
+}
+
+func GetPipelineNATSSubject(pipelineID, topicName string) string {
+	streamName := GetPipelineStreamName(pipelineID, topicName)
 	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
 }

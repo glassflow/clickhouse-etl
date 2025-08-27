@@ -94,7 +94,9 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		err := d.nc.CreateOrUpdateStream(ctx, t.Name, t.Name+".input", t.Deduplication.Window.Duration())
+		streamName := models.GetPipelineStreamName(pi.ID, t.Name)
+		subjectName := models.GetPipelineNATSSubject(pi.ID, t.Name)
+		err := d.nc.CreateOrUpdateStream(ctx, streamName, subjectName, t.Deduplication.Window.Duration())
 		if err != nil {
 			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
 		}
@@ -104,7 +106,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		sinkConsumerStream = t.Name
+		sinkConsumerStream = models.GetPipelineStreamName(pi.ID, t.Name)
 
 		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
 		err = d.ingestorRunner.Start(
@@ -118,7 +120,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	if pi.Join.Enabled {
 		sinkConsumerStream = models.GetJoinedStreamName(pi.ID)
-		sinkConsumerSubject = models.GFJoinSubject
+		sinkConsumerSubject = models.GetNATSSubjectName(sinkConsumerStream)
 
 		err = d.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
 		if err != nil {
@@ -126,7 +128,20 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		}
 		d.log.Debug("created join stream successfully")
 
-		err = d.joinRunner.Start(ctx, "temporal", sinkConsumerSubject, schemaMapper)
+		// Get the actual input stream names from the schema mapper
+		var leftStreamName, rightStreamName string
+		if sm, ok := schemaMapper.(*schema.JsonToClickHouseMapper); ok {
+			leftStreamName = sm.GetLeftStream()
+			rightStreamName = sm.GetRightStream()
+		} else {
+			return fmt.Errorf("unsupported schema mapper for join")
+		}
+
+		// Get the pipeline-specific stream names for the input streams
+		leftInputStreamName := models.GetPipelineStreamName(pi.ID, leftStreamName)
+		rightInputStreamName := models.GetPipelineStreamName(pi.ID, rightStreamName)
+
+		err = d.joinRunner.Start(ctx, "temporal", leftInputStreamName, rightInputStreamName, sinkConsumerStream, schemaMapper)
 		if err != nil {
 			return fmt.Errorf("setup join operator: %w", err)
 		}
@@ -135,7 +150,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	err = d.sinkRunner.Start(
 		ctx,
 		sinkConsumerStream,
-		sinkConsumerSubject,
 		models.SinkOperatorConfig{
 			Type: models.ClickHouseSinkType,
 			Batch: models.BatchConfig{

@@ -71,7 +71,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 	for _, s := range cfg.Ingestor.KafkaTopics {
 		src = append(src, operator.SourceStream{
 			TopicName:    s.Name,
-			OutputStream: s.Name,
+			OutputStream: models.GetPipelineStreamName(cfg.ID, s.Name),
 			DedupWindow:  s.Deduplication.Window.Duration(),
 		})
 	}

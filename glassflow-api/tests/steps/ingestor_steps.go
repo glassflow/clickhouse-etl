@@ -257,7 +257,7 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 	streamConsumer := stream.NewNATSPublisher(
 		nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: s.streamCfg.Stream + "." + s.streamCfg.Subject,
+			Subject: s.streamCfg.Subject,
 		},
 	)
 

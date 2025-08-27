@@ -39,7 +39,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, natsStream
 	streamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: natsStreamName + ".input",
+			Subject: models.GetPipelineNATSSubject(pipelineCfg.ID, topicName),
 		},
 	)
 
