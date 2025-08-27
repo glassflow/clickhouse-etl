@@ -15,6 +15,7 @@ export const FormEditActionButtonGroup = ({
   actionType,
   showLoadingIcon,
   pipelineActionState,
+  onClose, // Add close function for read-only mode
 }: {
   editMode?: boolean
   toggleEditMode?: () => void
@@ -29,6 +30,7 @@ export const FormEditActionButtonGroup = ({
   actionType?: 'primary' | 'secondary' | 'tertiary'
   showLoadingIcon?: boolean
   pipelineActionState?: any
+  onClose?: () => void // Add close function for read-only mode
 }) => {
   const [isVisible, setIsVisible] = useState(false)
 
@@ -64,7 +66,19 @@ export const FormEditActionButtonGroup = ({
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
         }`}
       >
-        {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
+        {/* Show Close button in read-only mode for demo */}
+        {!editMode && onClose && (
+          <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
+            <FormActionButton
+              actionType="primary"
+              onClick={onClose} // Direct close function for read-only mode
+              regularText="Close"
+              disabled={isPipelineActionInProgress}
+            />
+          </div>
+        )}
+
+        {/* TEMPORARILY COMMENTED OUT - FULL EDIT FUNCTIONALITY DISABLED FOR DEMO */}
         {/* {editMode ? (
           <>
             <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">

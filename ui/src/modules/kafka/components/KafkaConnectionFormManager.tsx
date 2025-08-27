@@ -23,6 +23,7 @@ type KafkaConnectionProps = {
   bootstrapServers: string
   toggleEditMode?: () => void
   pipelineActionState?: any
+  onClose?: () => void
 }
 
 export const KafkaConnectionFormManager = ({
@@ -38,6 +39,7 @@ export const KafkaConnectionFormManager = ({
   bootstrapServers,
   toggleEditMode,
   pipelineActionState,
+  onClose,
 }: KafkaConnectionProps) => {
   // Create a ref to store the original values for discard functionality
   const originalValuesRef = useRef(initialValues)
@@ -202,6 +204,7 @@ export const KafkaConnectionFormManager = ({
           actionType="primary"
           showLoadingIcon={true}
           pipelineActionState={pipelineActionState}
+          onClose={onClose}
         />
       </form>
     </FormProvider>

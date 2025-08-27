@@ -30,6 +30,7 @@ type ClickhouseConnectionProps = {
   skipCertificateVerification: boolean
   toggleEditMode?: () => void
   pipelineActionState?: any
+  onClose?: () => void
 }
 
 export const ClickhouseConnectionFormManager = ({
@@ -49,6 +50,7 @@ export const ClickhouseConnectionFormManager = ({
   skipCertificateVerification,
   toggleEditMode,
   pipelineActionState,
+  onClose,
 }: ClickhouseConnectionProps) => {
   // Create a ref to store the original values for discard functionality
   const originalValuesRef = useRef(initialValues)
@@ -220,6 +222,7 @@ export const ClickhouseConnectionFormManager = ({
           actionType="primary"
           showLoadingIcon={true}
           pipelineActionState={pipelineActionState}
+          onClose={onClose}
         />
       </form>
     </FormProvider>

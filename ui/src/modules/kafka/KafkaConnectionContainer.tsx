@@ -247,6 +247,7 @@ export function KafkaConnectionContainer({
         bootstrapServers={bootstrapServers}
         toggleEditMode={toggleEditMode}
         pipelineActionState={pipelineActionState}
+        onClose={onCompleteStandaloneEditing}
       />
       {connectionResult && !clearErrorMessage && (
         <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />

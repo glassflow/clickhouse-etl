@@ -67,7 +67,7 @@ const DeduplicationCase = ({
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
         validation={validation}
-        selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1}
+        selected={activeStep === StepKeys.CLICKHOUSE_MAPPER}
       />
     </div>
   )

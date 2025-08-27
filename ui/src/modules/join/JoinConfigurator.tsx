@@ -300,6 +300,7 @@ export function JoinConfigurator({
           readOnly={readOnly}
           toggleEditMode={toggleEditMode}
           pipelineActionState={pipelineActionState}
+          onClose={onCompleteStandaloneEditing}
         />
       </div>
     </form>
