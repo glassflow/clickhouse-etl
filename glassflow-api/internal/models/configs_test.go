@@ -168,6 +168,57 @@ func TestGetPipelineStreamName(t *testing.T) {
 	}
 }
 
+func TestGetIngestorStreamName(t *testing.T) {
+	pipelineID := "test-pipeline-123"
+
+	tests := []struct {
+		name     string
+		topic    string
+		expected string
+	}{
+		{
+			name:     "simple topic",
+			topic:    "my-topic",
+			expected: "gf-", // Will be followed by hash and topic
+		},
+		{
+			name:     "topic with dots",
+			topic:    "my.topic.name",
+			expected: "gf-", // Will be followed by hash and sanitized topic
+		},
+		{
+			name:     "very long topic name",
+			topic:    strings.Repeat("a", 50),
+			expected: "gf-", // Should be truncated
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetIngestorStreamName(pipelineID, tt.topic)
+
+			// Check that it starts with the expected prefix
+			if !strings.HasPrefix(result, tt.expected) {
+				t.Errorf("GetIngestorStreamName(%q, %q) = %q, should start with %q",
+					pipelineID, tt.topic, result, tt.expected)
+			}
+
+			// Check that it doesn't exceed max length
+			if len(result) > MaxStreamNameLength {
+				t.Errorf("GetIngestorStreamName(%q, %q) = %q, length %d exceeds max %d",
+					pipelineID, tt.topic, result, len(result), MaxStreamNameLength)
+			}
+
+			// Check that it contains the hash
+			hash := GenerateStreamHash(pipelineID)
+			if !strings.Contains(result, hash) {
+				t.Errorf("GetIngestorStreamName(%q, %q) = %q, should contain hash %q",
+					pipelineID, tt.topic, result, hash)
+			}
+		})
+	}
+}
+
 func TestGetPipelineNATSSubject(t *testing.T) {
 	pipelineID := "test-pipeline-123"
 	topic := "my.topic"

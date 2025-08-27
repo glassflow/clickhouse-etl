@@ -70,7 +70,9 @@ Feature: Kafka to CH pipeline
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
-                            }
+                            },
+                            "output_stream_id": "gf-3e00534f-test_topic",
+                            "output_stream_subject": "gf-3e00534f-test_topic.input"
                         }
                     ]
                 },
@@ -87,7 +89,8 @@ Feature: Kafka to CH pipeline
                         "database": "default",
                         "secure": false,
                         "table": "events_test"
-                    }
+                    },
+                    "stream_id": "gf-3e00534f-test_topic"
                 }
             }
             """
@@ -179,14 +182,18 @@ Feature: Kafka to CH pipeline
                             "consumer_group_initial_offset": "earliest",
                             "deduplication": {
                                 "enabled": false
-                            }
+                            },
+                            "output_stream_id": "gf-609e6e0a-test_emails",
+                            "output_stream_subject": "gf-609e6e0a-test_emails.input"
                         },
                         {
                             "name": "test_users",
                             "consumer_group_initial_offset": "earliest",
                             "deduplication": {
                                 "enabled": false
-                            }
+                            },
+                            "output_stream_id": "gf-609e6e0a-test_users",
+                            "output_stream_subject": "gf-609e6e0a-test_users.input"
                         }
                     ]
                 },
@@ -198,15 +205,18 @@ Feature: Kafka to CH pipeline
                             "source_id": "test_emails",
                             "join_key": "user_id",
                             "time_window": "1h",
-                            "orientation": "left"
+                            "orientation": "left",
+                            "stream_id": "gf-609e6e0a-test_emails"
                         },
                         {
                             "source_id": "test_users",
                             "join_key": "id",
                             "time_window": "1h",
-                            "orientation": "right"
+                            "orientation": "right",
+                            "stream_id": "gf-609e6e0a-test_users"
                         }
-                    ]
+                    ],
+                    "output_stream_id": "gf-609e6e0a-joined"
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -218,7 +228,8 @@ Feature: Kafka to CH pipeline
                         "database": "default",
                         "secure": false,
                         "table": "test_users"
-                    }
+                    },
+                    "stream_id": "gf-609e6e0a-joined"
                 }
             }
             """
@@ -323,7 +334,9 @@ Feature: Kafka to CH pipeline
                                 "id_field": "user_id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
-                            }
+                            },
+                            "output_stream_id": "gf-a75779b0-test_emails",
+                            "output_stream_subject": "gf-a75779b0-test_emails.input"
                         },
                         {
                             "name": "test_users",
@@ -333,7 +346,9 @@ Feature: Kafka to CH pipeline
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
-                            }
+                            },
+                            "output_stream_id": "gf-a75779b0-test_users",
+                            "output_stream_subject": "gf-a75779b0-test_users.input"
                         }
                     ]
                 },
@@ -345,15 +360,18 @@ Feature: Kafka to CH pipeline
                             "source_id": "test_emails",
                             "join_key": "user_id",
                             "time_window": "1h",
-                            "orientation": "left"
+                            "orientation": "left",
+                            "stream_id": "gf-a75779b0-test_emails"
                         },
                         {
                             "source_id": "test_users",
                             "join_key": "id",
                             "time_window": "1h",
-                            "orientation": "right"
+                            "orientation": "right",
+                            "stream_id": "gf-a75779b0-test_users"
                         }
-                    ]
+                    ],
+                    "output_stream_id": "gf-a75779b0-joined"
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -365,7 +383,8 @@ Feature: Kafka to CH pipeline
                         "database": "default",
                         "secure": false,
                         "table": "test_users"
-                    }
+                    },
+                    "stream_id": "gf-a75779b0-joined"
                 }
             }
             """
@@ -456,7 +475,9 @@ Feature: Kafka to CH pipeline
                             "consumer_group_initial_offset": "earliest",
                             "deduplication": {
                                 "enabled": false
-                            }
+                            },
+                            "output_stream_id": "gf-13bea286-test_topic",
+                            "output_stream_subject": "gf-13bea286-test_topic.input"
                         }
                     ]
                 },
@@ -473,7 +494,8 @@ Feature: Kafka to CH pipeline
                         "database": "default",
                         "secure": false,
                         "table": "events_test"
-                    }
+                    },
+                    "stream_id": "gf-13bea286-test_topic"
                 }
             }
             """
@@ -552,7 +574,9 @@ Feature: Kafka to CH pipeline
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
-                            }
+                            },
+                            "output_stream_id": "gf-29bfc94d-test_measurments",
+                            "output_stream_subject": "gf-29bfc94d-test_measurments.input"
                         }
                     ]
                 },
@@ -569,7 +593,8 @@ Feature: Kafka to CH pipeline
                         "database": "default",
                         "secure": false,
                         "table": "test"
-                    }
+                    },
+                    "stream_id": "gf-29bfc94d-test_measurments"
                 }
             }
             """
