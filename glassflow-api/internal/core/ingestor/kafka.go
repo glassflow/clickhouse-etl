@@ -47,7 +47,10 @@ func NewKafkaIngestor(config models.IngestorOperatorConfig, topicName string, na
 	for _, t := range config.KafkaTopics {
 		if t.Name == topicName {
 			// Topic found, proceed with initialization.
-			log.Debug("Found topic for Kafka ingestor", "topic", t.Name, "id", t.ID)
+			log.Debug("Found topic for Kafka ingestor", slog.String("topic", t.Name), slog.String("id", t.ID))
+			if t.Deduplication.Enabled {
+				log.Info("Deduplication is enabled for topic", slog.String("topic", t.Name), slog.String("dedupKey", t.Deduplication.ID), slog.String("window", t.Deduplication.Window.String()))
+			}
 			topic = t
 			break
 		}
