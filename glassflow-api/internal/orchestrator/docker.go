@@ -138,7 +138,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			rightInputStreamName = pi.Join.Sources[0].StreamID
 		}
 
-		err = d.joinRunner.Start(ctx, "temporal", leftInputStreamName, rightInputStreamName, sinkConsumerStream, schemaMapper)
+		err = d.joinRunner.Start(ctx, leftInputStreamName, rightInputStreamName, sinkConsumerStream, pi.Join, schemaMapper)
 		if err != nil {
 			return fmt.Errorf("setup join component: %w", err)
 		}

@@ -315,10 +315,10 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		func() error {
 			return joinRunner.Start(
 				ctx,
-				cfg.JoinType,
 				leftStream,
 				rightStream,
 				outputStream,
+				pipelineCfg.Join,
 				schemaMapper,
 			)
 		},

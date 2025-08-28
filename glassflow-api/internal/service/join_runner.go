@@ -31,7 +31,7 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) Start(ctx context.Context, joinType string, leftInputStreamName, rightInputStreamName string, outputStream string, schemaMapper schema.Mapper) error {
+func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputStreamName string, outputStream string, joinCfg models.JoinComponentConfig, schemaMapper schema.Mapper) error {
 	var mapper schema.JsonToClickHouseMapper
 
 	switch sm := schemaMapper.(type) {
@@ -116,9 +116,7 @@ func (j *JoinRunner) Start(ctx context.Context, joinType string, leftInputStream
 	})
 
 	joinComp, err := component.NewJoinComponent(
-		models.JoinComponentConfig{
-			Type: joinType,
-		},
+		joinCfg,
 		leftConsumer,
 		rightConsumer,
 		resultsPublisher,

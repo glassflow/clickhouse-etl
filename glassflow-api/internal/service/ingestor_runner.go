@@ -36,10 +36,21 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
+	var outputStreamID string
+	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
+		if topic.Name == topicName {
+			outputStreamID = topic.OutputStreamID
+		}
+	}
+
+	if outputStreamID == "" {
+		return fmt.Errorf("output stream name cannot be empty")
+	}
+
 	streamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: models.GetPipelineNATSSubject(pipelineCfg.ID, topicName),
+			Subject: models.GetNATSSubjectName(outputStreamID),
 		},
 	)
 
@@ -63,7 +74,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		return fmt.Errorf("create ingestor: %w", err)
 	}
 
-	i.running[topicName] = IngestorComponent
+	i.running[outputStreamID] = IngestorComponent
 
 	i.wg.Add(1)
 
@@ -74,7 +85,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		IngestorComponent.Start(ctx, errCh)
 		close(errCh)
 		for err := range errCh {
-			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName))
+			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName), slog.String("output stream", outputStreamID))
 		}
 	}()
 

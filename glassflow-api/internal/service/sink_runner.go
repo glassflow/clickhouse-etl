@@ -30,7 +30,7 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
 	}
 }
 
-func (s *SinkRunner) Start(ctx context.Context, inputNatsStream string, cfg models.SinkComponentConfig, schemaMapper schema.Mapper) error {
+func (s *SinkRunner) Start(ctx context.Context, inputNatsStream string, sinkCfg models.SinkComponentConfig, schemaMapper schema.Mapper) error {
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   inputNatsStream,
@@ -42,7 +42,7 @@ func (s *SinkRunner) Start(ctx context.Context, inputNatsStream string, cfg mode
 	}
 
 	SinkComponent, err := component.NewSinkComponent(
-		cfg,
+		sinkCfg,
 		consumer,
 		schemaMapper,
 		s.log,

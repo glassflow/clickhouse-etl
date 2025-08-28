@@ -89,7 +89,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 			Streams: src,
 		},
 		Join: operator.Join{
-			Type:         "temporal",
+			Type:         cfg.Join.Type,
 			OutputStream: cfg.Join.OutputStreamID,
 			Enabled:      cfg.Join.Enabled,
 		},
