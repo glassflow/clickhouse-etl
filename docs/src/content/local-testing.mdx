@@ -77,7 +77,7 @@ ORDER BY event_id"
 # Send multiple JSON events to Kafka
 echo '{"event_id": "49a6fdd6f305428881f3436eb498fc9d", "user": {"id": "8db09a6aa33a46f6bdabe4683a34ac4d", "name": "John Doe", "email": "john@example.com"}, "created_at": "2024-03-20T10:00:00Z", "tags": ["tag1", "tag222"]}
 {"event_id": "49a6fdd6f305428881f3436eb498fc9d", "user": {"id": "8db09a6aa33a46f6bdabe4683a34ac4d", "name": "John Doe", "email": "john@example.com"}, "created_at": "2024-03-20T10:01:00Z", "tags": ["tag1", "tag222"]}
-{"event_id": "f0ed455046a543459d9a51502cdc756d", "user": {"id": "a7f93b87e29c4978848731e204e47e97", "name": "Jane Smith", "email": "jane@example.com"}, "created_at": "2024-03-20T10:03:00Z", "tags": ["tag13", "tag324"]}
+{"event_id": "f0ed455046a543459d9a51502cdc756d", "user": {"id": "a7f93b87e29c4978848731e204e47e97", "name": "Jane Smith", "email": "jane@example.com"}, "created_at": "2024-03-20T10:03:00Z", "tags": ["tag13", "tag324"]}' |
 docker compose exec -T kafka kafka-console-producer \
     --topic users \
     --bootstrap-server localhost:9092
