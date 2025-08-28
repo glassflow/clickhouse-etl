@@ -12,11 +12,11 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/batch"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 type StopOptions struct {
@@ -46,7 +46,7 @@ type ClickHouseSink struct {
 	log            *slog.Logger
 }
 
-func NewClickHouseSink(sinkCfg models.SinkOperatorConfig, streamCon stream.Consumer, schemaMapper schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
+func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Consumer, schemaMapper schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
 	maxDelayTime := time.Duration(60) * time.Second
 	if sinkCfg.Batch.MaxDelayTime.Duration() > 0 {
 		maxDelayTime = sinkCfg.Batch.MaxDelayTime.Duration()

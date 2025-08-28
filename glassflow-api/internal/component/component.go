@@ -1,4 +1,4 @@
-package operator
+package component
 
 import "context"
 
@@ -14,7 +14,7 @@ func WithNoWait(noWait bool) StopOption {
 	}
 }
 
-type Operator interface {
+type Component interface {
 	Start(context.Context, chan<- error)
 	Stop(...StopOption)
 }

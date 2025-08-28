@@ -1,4 +1,4 @@
-package operator
+package component
 
 import (
 	"context"
@@ -6,30 +6,30 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/sink"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 type Sink interface {
-	// Start starts the sink operator.
+	// Start starts the sink component.
 	Start(ctx context.Context) error
 	Stop(noWait bool)
 }
 
-type SinkOperator struct {
+type SinkComponent struct {
 	sink Sink
 	wg   sync.WaitGroup
 	log  *slog.Logger
 }
 
-func NewSinkOperator(
-	sinkConfig models.SinkOperatorConfig,
+func NewSinkComponent(
+	sinkConfig models.SinkComponentConfig,
 	streamCon stream.Consumer,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
-) (Operator, error) {
+) (Component, error) {
 	if sinkConfig.Type != models.ClickHouseSinkType {
 		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
 	}
@@ -39,14 +39,14 @@ func NewSinkOperator(
 		return nil, fmt.Errorf("failed to create sink: %w", err)
 	}
 
-	return &SinkOperator{
+	return &SinkComponent{
 		sink: sink,
 		log:  log,
 		wg:   sync.WaitGroup{},
 	}, nil
 }
 
-func (s *SinkOperator) Start(ctx context.Context, errChan chan<- error) {
+func (s *SinkComponent) Start(ctx context.Context, errChan chan<- error) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 	err := s.sink.Start(ctx)
@@ -56,7 +56,7 @@ func (s *SinkOperator) Start(ctx context.Context, errChan chan<- error) {
 	}
 }
 
-func (s *SinkOperator) Stop(opts ...StopOption) {
+func (s *SinkComponent) Stop(opts ...StopOption) {
 	noWait := false
 	options := &StopOptions{
 		NoWait: false,

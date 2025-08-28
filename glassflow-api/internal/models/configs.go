@@ -105,14 +105,14 @@ type KafkaTopicsConfig struct {
 	Deduplication DeduplicationConfig `json:"deduplication"`
 }
 
-type IngestorOperatorConfig struct {
+type IngestorComponentConfig struct {
 	Type                  string                      `json:"type"`
 	Provider              string                      `json:"provider"`
 	KafkaConnectionParams KafkaConnectionParamsConfig `json:"kafka_connection_params"`
 	KafkaTopics           []KafkaTopicsConfig         `json:"kafka_topics"`
 }
 
-func NewIngestorOperatorConfig(provider string, conn KafkaConnectionParamsConfig, topics []KafkaTopicsConfig) (zero IngestorOperatorConfig, _ error) {
+func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfig, topics []KafkaTopicsConfig) (zero IngestorComponentConfig, _ error) {
 	if len(conn.Brokers) == 0 {
 		return zero, PipelineConfigError{Msg: "must have at least one kafka server"}
 	}
@@ -167,7 +167,7 @@ func NewIngestorOperatorConfig(provider string, conn KafkaConnectionParamsConfig
 		}
 	}
 
-	return IngestorOperatorConfig{
+	return IngestorComponentConfig{
 		Type:     KafkaIngestorType,
 		Provider: provider,
 		KafkaConnectionParams: KafkaConnectionParamsConfig{
@@ -190,7 +190,7 @@ type JoinSourceConfig struct {
 	Orientation string       `json:"orientation"`
 }
 
-type JoinOperatorConfig struct {
+type JoinComponentConfig struct {
 	Type    string             `json:"type"`
 	Enabled bool               `json:"enabled"`
 	Sources []JoinSourceConfig `json:"sources"`
@@ -220,7 +220,7 @@ func NewJoinOrder(s string) (zero JoinOrder, _ error) {
 
 const MaxStreamsSupportedWithJoin = 2
 
-func NewJoinOperatorConfig(kind string, sources []JoinSourceConfig) (zero JoinOperatorConfig, _ error) {
+func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinComponentConfig, _ error) {
 	if kind != strings.ToLower(strings.TrimSpace(TemporalJoinType)) {
 		return zero, PipelineConfigError{Msg: "invalid join type; only temporal joins are supported"}
 	}
@@ -251,7 +251,7 @@ func NewJoinOperatorConfig(kind string, sources []JoinSourceConfig) (zero JoinOp
 		}
 	}
 
-	return JoinOperatorConfig{
+	return JoinComponentConfig{
 		Sources: sources,
 		Type:    TemporalJoinType,
 		Enabled: true,
@@ -275,7 +275,7 @@ type BatchConfig struct {
 	MaxDelayTime JSONDuration `json:"max_delay_time" default:"60s"`
 }
 
-type SinkOperatorConfig struct {
+type SinkComponentConfig struct {
 	Type  string      `json:"type"`
 	Batch BatchConfig `json:"batch"`
 
@@ -296,7 +296,7 @@ type ClickhouseSinkArgs struct {
 	SkipCertificateCheck bool
 }
 
-func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig, _ error) {
+func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConfig, _ error) {
 	if len(strings.TrimSpace(args.Host)) == 0 {
 		return zero, PipelineConfigError{Msg: "clickhouse host cannot be empty"}
 	}
@@ -325,7 +325,7 @@ func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig
 		return zero, PipelineConfigError{Msg: "clickhouse max_batch_size must be greater than 0"}
 	}
 
-	return SinkOperatorConfig{
+	return SinkComponentConfig{
 		Type: ClickHouseSinkType,
 		Batch: BatchConfig{
 			MaxBatchSize: args.MaxBatchSize,
@@ -346,14 +346,14 @@ func NewClickhouseSinkOperator(args ClickhouseSinkArgs) (zero SinkOperatorConfig
 }
 
 type PipelineConfig struct {
-	ID        string                 `json:"pipeline_id"`
-	Name      string                 `json:"name"`
-	Mapper    MapperConfig           `json:"mapper"`
-	Ingestor  IngestorOperatorConfig `json:"ingestor"`
-	Join      JoinOperatorConfig     `json:"join"`
-	Sink      SinkOperatorConfig     `json:"sink"`
-	CreatedAt time.Time              `json:"created_at"`
-	Status    PipelineHealth         `json:"status,omitempty"`
+	ID        string                  `json:"pipeline_id"`
+	Name      string                  `json:"name"`
+	Mapper    MapperConfig            `json:"mapper"`
+	Ingestor  IngestorComponentConfig `json:"ingestor"`
+	Join      JoinComponentConfig     `json:"join"`
+	Sink      SinkComponentConfig     `json:"sink"`
+	CreatedAt time.Time               `json:"created_at"`
+	Status    PipelineHealth          `json:"status,omitempty"`
 }
 
 func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
@@ -414,7 +414,7 @@ func (e PipelineConfigError) Error() string {
 	return "invalid pipeline config: " + e.Msg
 }
 
-func NewPipelineConfig(id, name string, mc MapperConfig, ic IngestorOperatorConfig, jc JoinOperatorConfig, sc SinkOperatorConfig) PipelineConfig {
+func NewPipelineConfig(id, name string, mc MapperConfig, ic IngestorComponentConfig, jc JoinComponentConfig, sc SinkComponentConfig) PipelineConfig {
 	return PipelineConfig{
 		ID:        id,
 		Name:      name,
