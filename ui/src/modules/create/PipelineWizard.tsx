@@ -277,7 +277,7 @@ function PipelineWizard() {
               <div key={stepName} className="w-full">
                 {/* If this step is active, show its content */}
                 {currentActiveStep === stepName ? (
-                  <Card className="card card-elevated p-4">
+                  <Card className="card card-regular p-4">
                     <CardHeader>
                       <CardTitle>
                         <div className="flex items-center justify-between">
@@ -321,7 +321,7 @@ function PipelineWizard() {
 
         {/* Current active step (if not in completed steps) */}
         {!completedStepsArray.includes(currentActiveStep) && currentActiveStep && (
-          <Card className="card card-elevated p-4">
+          <Card className="card card-regular p-4">
             <CardHeader>
               <CardTitle>
                 <div className="flex items-center justify-between">

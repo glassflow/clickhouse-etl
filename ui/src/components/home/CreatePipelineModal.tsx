@@ -11,6 +11,7 @@ type CreatePipelineModalProps = {
   mode?: 'create' | 'rename'
   initialValue?: string
   currentName?: string
+  isNavigating?: boolean
 }
 
 const CreatePipelineModal = ({
@@ -19,6 +20,7 @@ const CreatePipelineModal = ({
   mode = 'create',
   initialValue = '',
   currentName,
+  isNavigating = false,
 }: CreatePipelineModalProps) => {
   const [validationError, setValidationError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -26,6 +28,7 @@ const CreatePipelineModal = ({
   const [generatedId, setGeneratedId] = useState<string>('')
   const [isValid, setIsValid] = useState(false)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [shouldRefocus, setShouldRefocus] = useState(false)
 
   const isRenameMode = mode === 'rename'
 
@@ -106,24 +109,53 @@ const CreatePipelineModal = ({
         clearTimeout(debounceTimeoutRef.current)
       }
 
+      // Check if input is currently focused - if so, we'll want to refocus after validation
+      const inputElement = document.querySelector(
+        'input[placeholder="e.g., Production Pipeline v1"]',
+      ) as HTMLInputElement
+      const isInputFocused = document.activeElement === inputElement
+      if (isInputFocused) {
+        setShouldRefocus(true)
+      }
+
       // Set new timeout for validation
       debounceTimeoutRef.current = setTimeout(async () => {
         const error = await validatePipelineName(value)
         setValidationError(error)
+
+        // Refocus the input if it was focused before validation and validation completed successfully
+        if (isInputFocused && !error && !isRenameMode) {
+          // Use a small delay to ensure the DOM has updated
+          setTimeout(() => {
+            inputElement?.focus()
+            setShouldRefocus(false)
+          }, 50)
+        }
       }, 1000) // 1 second delay
     },
-    [validatePipelineName],
+    [validatePipelineName, isRenameMode],
   )
 
   const handleComplete = (result: string, value?: string) => {
-    // Handle cancellation
+    // Handle cancellation - always allow
     if (result === 'CANCEL') {
       onComplete(result)
       return
     }
 
-    // Only allow completion if validation is complete and successful
-    if (result === 'YES' && !isValidating && (isRenameMode || isValid)) {
+    // For YES result, only proceed if everything is ready
+    if (result === 'YES') {
+      // Don't proceed if still validating or navigating
+      if (isValidating || isNavigating) {
+        return // Silently ignore the click
+      }
+
+      // For create mode, ensure pipeline ID is generated and valid
+      if (!isRenameMode && !isValid) {
+        return // Silently ignore the click
+      }
+
+      // All checks passed - proceed with completion
       onComplete(result, value, generatedId)
     }
   }
@@ -148,24 +180,34 @@ const CreatePipelineModal = ({
           : 'Enter a name for your pipeline. A unique ID will be generated automatically.'
       }
       inputLabel="Name"
-      secondaryLabel={statusMessage || (isRenameMode ? `Current: ${currentName}` : '')}
+      secondaryLabel={
+        isNavigating
+          ? 'Creating pipeline and navigating to wizard...'
+          : statusMessage || (isRenameMode ? `Current: ${currentName}` : '')
+      }
       inputPlaceholder="e.g., Production Pipeline v1"
       submitButtonText={isRenameMode ? 'Rename Pipeline' : 'Create Pipeline'}
       cancelButtonText={isRenameMode ? 'Cancel' : 'Discard'}
       onComplete={handleComplete}
       onChange={handleChange}
       initialValue={initialValue}
-      isLoading={isValidating}
+      isLoading={isValidating || isNavigating}
       validation={async (value) => {
-        // For immediate validation (on submit), use the current validation state
+        // For immediate validation (on submit), check current validation state
         if (isValidating) {
-          return 'Please wait for validation to complete'
+          return 'Generating unique pipeline ID...'
         }
 
+        if (isNavigating) {
+          return 'Creating pipeline and navigating to wizard...'
+        }
+
+        // For create mode, ensure pipeline ID is generated and valid
         if (!isRenameMode && !isValid) {
           return 'Please wait for pipeline ID generation to complete'
         }
 
+        // Return any validation errors from the debounced validation
         return validationError
       }}
     />

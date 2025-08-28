@@ -44,6 +44,7 @@ export interface ClickhouseConnectionStore extends ClickhouseConnectionStoreProp
   getTables: (database: string) => string[]
   getTableSchema: (database: string, table: string) => any[]
   getConnectionId: () => string | null
+  resetClickhouseStore: () => void
 }
 
 export interface ClickhouseConnectionSlice {

@@ -176,7 +176,7 @@ export function PipelineDeployer() {
         // Track successful pipeline deletion
         analytics.pipeline.deleteSuccess({})
 
-        router.push('/home')
+        // router.push('/home')
       } catch (err) {
         const error = err as PipelineError
         setStatus('delete_failed')

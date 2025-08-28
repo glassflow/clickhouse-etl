@@ -111,9 +111,20 @@ export const generateUniquePipelineId = async (
 
   while (attempts < maxAttempts) {
     const id = generatePipelineIdFromName(name)
-    const exists = await checkPipelineExists(id)
 
-    if (!exists) {
+    try {
+      const exists = await checkPipelineExists(id)
+
+      if (!exists) {
+        return id
+      }
+    } catch (error) {
+      // In local development, API might not be available
+      // Treat network errors as "pipeline doesn't exist" and use the generated ID
+      console.warn(
+        `Pipeline existence check failed for "${id}", assuming it doesn't exist for local development:`,
+        error,
+      )
       return id
     }
 

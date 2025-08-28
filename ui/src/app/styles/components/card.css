@@ -9,13 +9,13 @@
   box-shadow: var(--shadow-overlay);
 }
 
-.card-elevated {
+.card-regular {
   background: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
   border: 1px solid transparent;
   background-clip: padding-box;
   position: relative;
   transition: all var(--duration-medium) var(--easing-standard);
-  
+
   &::before {
     content: '';
     position: absolute;
@@ -31,30 +31,67 @@
     pointer-events: none;
     transition: all var(--duration-medium) var(--easing-standard);
   }
-  
+
+  box-shadow: var(--shadow-raised);
+}
+
+.card-regular:hover {
+  /* Slightly lighter background gradient for subtle prominence */
+  {{/* background: linear-gradient(180deg, var(--color-black-200) 0%, var(--color-black-500) 100%); */}}
+
+  /* Enhanced shadow for more depth */
+  box-shadow:
+    0px 2px 8px -2px rgba(0, 0, 0, 0.6),
+    0px 8px 16px 0px rgba(0, 0, 0, 0.1),
+    0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+}
+
+.card-elevated {
+  background: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+  transition: all var(--duration-medium) var(--easing-standard);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: var(--radius-large);
+    background: linear-gradient(180deg, var(--color-orange-950) 0%, var(--color-black-400) 100%);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: all var(--duration-medium) var(--easing-standard);
+  }
+
   box-shadow: var(--shadow-raised);
 }
 
 .card-elevated:hover {
   /* Slightly lighter background gradient for subtle prominence */
   background: linear-gradient(180deg, var(--color-black-200) 0%, var(--color-black-500) 100%);
-  
+
   /* Enhanced shadow for more depth */
   box-shadow: 
     0px 2px 8px -2px rgba(0, 0, 0, 0.6),
     0px 8px 16px 0px rgba(0, 0, 0, 0.1),
     0px 16px 32px 0px rgba(0, 0, 0, 0.08);
-  
+
   /* Subtle scale effect */
   {{/* transform: translateY(-1px); */}}
-  
+
   &::before {
     /* More pronounced border gradient */
     background: linear-gradient(180deg, 
       var(--color-orange-hover-light) 0%, 
       var(--color-orange-hover-light) 100%
     );
-    
+
     /* Slightly thicker border on hover */
     {{/* padding: 1.5px; */}}
   }
@@ -66,7 +103,7 @@
   background-clip: padding-box;
   position: relative;
   transition: all var(--duration-medium) var(--easing-standard);
-  
+
   &::before {
     content: '';
     position: absolute;
@@ -82,20 +119,20 @@
     pointer-events: none;
     transition: all var(--duration-medium) var(--easing-standard);
   }
-  
+
   box-shadow: var(--shadow-raised);
 }
 
 .card-elevated-subtle:hover {
   /* Slightly lighter background for subtle prominence */
   background: var(--color-gray-dark-900);
-  
+
   /* Enhanced shadow for more depth */
   box-shadow: 
     0px 2px 8px -2px rgba(0, 0, 0, 0.6),
     0px 8px 16px 0px rgba(0, 0, 0, 0.1),
     0px 16px 32px 0px rgba(0, 0, 0, 0.08);
-  
+
   &::before {
     /* More pronounced blue border gradient */
     background: linear-gradient(180deg, 
