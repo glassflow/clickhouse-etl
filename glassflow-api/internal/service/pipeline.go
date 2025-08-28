@@ -69,6 +69,10 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 
 	// Set initial status to Created
 	cfg.Status = models.NewPipelineHealth(cfg.ID, cfg.Name)
+	if p.orchestrator.GetType() == "local" {
+		// Since we don't have separate operator to update status
+		cfg.Status.OverallStatus = models.PipelineStatusRunning
+	}
 
 	err = p.orchestrator.SetupPipeline(ctx, cfg)
 	if err != nil {
