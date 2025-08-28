@@ -382,8 +382,7 @@ func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
 		ID:             pc.ID,
 		Name:           pc.Name,
 		Transformation: transformation,
-		CreatedAt:      pc.CreatedAt,
-		State:          "",
+		CreatedAt:      pc.CreatedAt,		
 		Status:         status,
 	}
 }
@@ -392,8 +391,7 @@ type ListPipelineConfig struct {
 	ID             string             `json:"pipeline_id"`
 	Name           string             `json:"name"`
 	Transformation TransformationType `json:"transformation_type"`
-	CreatedAt      time.Time          `json:"created_at"`
-	State          string             `json:"state"`
+	CreatedAt      time.Time          `json:"created_at"`	
 	Status         PipelineStatus     `json:"status"`
 }
 
