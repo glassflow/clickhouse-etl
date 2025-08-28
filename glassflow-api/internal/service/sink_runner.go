@@ -41,7 +41,7 @@ func (s *SinkRunner) Start(ctx context.Context, inputNatsStream string, sinkCfg 
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 
-	SinkComponent, err := component.NewSinkComponent(
+	sinkComponent, err := component.NewSinkComponent(
 		sinkCfg,
 		consumer,
 		schemaMapper,
@@ -52,10 +52,10 @@ func (s *SinkRunner) Start(ctx context.Context, inputNatsStream string, sinkCfg 
 		return fmt.Errorf("create sink: %w", err)
 	}
 
-	s.component = SinkComponent
+	s.component = sinkComponent
 
 	go func() {
-		SinkComponent.Start(ctx, s.c)
+		sinkComponent.Start(ctx, s.c)
 		close(s.c)
 		for err := range s.c {
 			s.log.Error("Error in the sink component", slog.Any("error", err))
