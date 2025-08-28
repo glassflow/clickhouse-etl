@@ -77,6 +77,7 @@ function HomePageClient() {
   const router = useRouter()
   const [pendingOperation, setPendingOperation] = useState<string | null>(null)
   const [isCreatePipelineModalVisible, setIsCreatePipelineModalVisible] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
   const { setOperationsSelected, setPipelineName, setPipelineId, operationsSelected, enterCreateMode } = coreStore
 
   // by default enter create mode as soon as the component loads
@@ -133,6 +134,7 @@ function HomePageClient() {
 
     setPendingOperation(operation)
     setIsCreatePipelineModalVisible(true)
+    setIsNavigating(false) // Reset navigation state when opening modal
   }
 
   const handleWarningModalComplete = (result: string) => {
@@ -147,36 +149,49 @@ function HomePageClient() {
     }
   }
 
-  const completeOperationSelection = (operation: OperationKeys, configName: string, pipelineId?: string) => {
-    resetAllPipelineState(operation, true)
-    setOperationsSelected({
-      operation,
-    })
-    setPipelineName(configName)
+  const completeOperationSelection = async (operation: OperationKeys, configName: string, pipelineId?: string) => {
+    setIsNavigating(true)
 
-    // Use provided pipeline ID or generate one
-    const finalPipelineId = pipelineId || generatePipelineId(configName)
-    setPipelineId(finalPipelineId)
+    try {
+      resetAllPipelineState(operation, true)
+      setOperationsSelected({
+        operation,
+      })
+      setPipelineName(configName)
 
-    router.push('/pipelines/create')
+      // Use provided pipeline ID or generate one
+      const finalPipelineId = pipelineId || generatePipelineId(configName)
+      setPipelineId(finalPipelineId)
+
+      // Use setTimeout to ensure state updates are processed before navigation
+      setTimeout(() => {
+        router.push('/pipelines/create')
+      }, 0)
+    } catch (error) {
+      setIsNavigating(false)
+      console.error('Failed to complete operation selection:', error)
+    }
   }
 
   const handleCreatePipelineModalComplete = async (result: string, configName?: string, pipelineId?: string) => {
-    setIsCreatePipelineModalVisible(false)
+    // Don't close modal immediately if we're proceeding with creation
+    if (result !== ModalResult.YES) {
+      setIsCreatePipelineModalVisible(false)
+      setIsNavigating(false)
+      return
+    }
 
     // Save configuration if the user chose to do so and provided a name
     if (result === ModalResult.YES && configName) {
       try {
-        // Use the generated pipeline ID from the modal
-        completeOperationSelection(pendingOperation as OperationKeys, configName, pipelineId)
+        // Keep modal open while navigating
+        await completeOperationSelection(pendingOperation as OperationKeys, configName, pipelineId)
+        // Modal will be closed when component unmounts due to navigation
       } catch (error) {
         console.error('Failed to save configuration:', error)
+        setIsCreatePipelineModalVisible(false)
+        setIsNavigating(false)
       }
-    }
-
-    // Reset pipeline state and navigate to home regardless of save choice
-    if (result === ModalResult.CANCEL || result === ModalResult.NO) {
-      setIsCreatePipelineModalVisible(false)
     }
   }
 
@@ -267,7 +282,11 @@ function HomePageClient() {
 
       {/* <ConnectionCard /> */}
 
-      <CreatePipelineModal visible={isCreatePipelineModalVisible} onComplete={handleCreatePipelineModalComplete} />
+      <CreatePipelineModal
+        visible={isCreatePipelineModalVisible}
+        onComplete={handleCreatePipelineModalComplete}
+        isNavigating={isNavigating}
+      />
 
       {/* Health check is now handled by HealthCheckLayout at root level */}
     </div>

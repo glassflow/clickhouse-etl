@@ -185,7 +185,7 @@ export function PipelinesList({
         // Track successful pipeline deletion
         analytics.pipeline.deleteSuccess({})
 
-        router.push('/home')
+        // router.push('/home')
       } catch (err) {
         const error = err as PipelineError
         setStatus('delete_failed')
@@ -333,13 +333,13 @@ export function PipelinesList({
             {isLoading && (
               <div className="flex items-center gap-1">
                 <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
-                <span className="text-xs text-blue-600">
+                {/* <span className="text-xs text-blue-600">
                   {operation === 'pause' && 'Pausing...'}
                   {operation === 'resume' && 'Resuming...'}
                   {operation === 'delete' && 'Deleting...'}
                   {operation === 'rename' && 'Renaming...'}
                   {operation === 'edit' && 'Pausing...'}
-                </span>
+                </span> */}
               </div>
             )}
             <span className="font-medium">{pipeline.name}</span>
