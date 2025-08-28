@@ -11,6 +11,7 @@ services:
       context: ../ui
     environment:
       - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
+      - NEXT_PUBLIC_API_URL=http://app:8081/api/v1
 
   app:
     build:
@@ -22,6 +23,8 @@ services:
     environment:
       GLASSFLOW_LOG_FILE_PATH: /tmp/logs/glassflow
       GLASSFLOW_NATS_SERVER: nats:4222
+      GLASSFLOW_SERVER_ADDR: 0.0.0.0:8081
+      GLASSFLOW_RUN_LOCAL: true
     volumes:
       - logs:/tmp/logs/glassflow
 
@@ -29,6 +32,7 @@ services:
     image: nginx:1.27-alpine
     ports:
       - 8080:8080
+      - 8081:8081
     depends_on:
       - ui
       - app
