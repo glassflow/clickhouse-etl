@@ -36,12 +36,12 @@ func NewIngestorComponent(
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
 
-	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
+	ing, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}
 	return &IngestorComponent{
-		ingestor: ingestor,
+		ingestor: ing,
 		log:      log,
 		wg:       sync.WaitGroup{},
 	}, nil
