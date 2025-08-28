@@ -15,8 +15,30 @@ declare global {
   }
 }
 
+/**
+ * Helper function to ensure API URL has the correct /api/v1 suffix
+ * Users should only need to provide the base URL (e.g., http://app:8080)
+ * This function automatically appends /api/v1 if not present
+ */
+const ensureApiV1Suffix = (baseUrl: string): string => {
+  if (!baseUrl) return baseUrl
+
+  // Remove trailing slash if present
+  const cleanUrl = baseUrl.replace(/\/$/, '')
+
+  // Check if it already has /api/v1 suffix
+  if (cleanUrl.endsWith('/api/v1')) {
+    return cleanUrl
+  }
+
+  // Append /api/v1 suffix
+  return `${cleanUrl}/api/v1`
+}
+
 const runtimeEnv = getRuntimeEnv()
-const API_URL = runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1'
+const API_URL = ensureApiV1Suffix(
+  runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080',
+)
 
 export interface PipelineResponse {
   pipeline_id: string

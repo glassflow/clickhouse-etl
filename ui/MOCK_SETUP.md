@@ -84,7 +84,7 @@ src/app/api/mock/
 NEXT_PUBLIC_USE_MOCK_API=true
 
 # Real API URL (used when mock is disabled)
-NEXT_PUBLIC_API_URL=http://app:8080/api/v1
+NEXT_PUBLIC_API_URL=http://app:8080
 
 # Mock data configuration
 MOCK_KAFKA_TOPICS_COUNT=5

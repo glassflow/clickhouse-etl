@@ -2,8 +2,28 @@
 // API routes run on the server, so we can access process.env directly
 // The startup.sh script sets these environment variables at runtime
 
+/**
+ * Helper function to ensure API URL has the correct /api/v1 suffix
+ * Users should only need to provide the base URL (e.g., http://app:8080)
+ * This function automatically appends /api/v1 if not present
+ */
+const ensureApiV1Suffix = (baseUrl: string): string => {
+  if (!baseUrl) return baseUrl
+
+  // Remove trailing slash if present
+  const cleanUrl = baseUrl.replace(/\/$/, '')
+
+  // Check if it already has /api/v1 suffix
+  if (cleanUrl.endsWith('/api/v1')) {
+    return cleanUrl
+  }
+
+  // Append /api/v1 suffix
+  return `${cleanUrl}/api/v1`
+}
+
 export const runtimeConfig = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://app:8080/api/v1',
+  apiUrl: ensureApiV1Suffix(process.env.NEXT_PUBLIC_API_URL || 'http://app:8080'),
   previewMode: process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true' || false,
 }
 
