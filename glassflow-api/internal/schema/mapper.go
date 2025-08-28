@@ -10,6 +10,8 @@ import (
 )
 
 type Mapper interface {
+	GetLeftStreamTTL() (time.Duration, error)
+	GetRightStreamTTL() (time.Duration, error)
 	GetJoinKey(streamSchemaName string, data []byte) (any, error)
 	GetKey(streamSchemaName, keyName string, data []byte) (any, error)
 	GetOrderedColumns() []string
@@ -62,6 +64,9 @@ type JsonToClickHouseMapper struct {
 	fieldColumnMap map[string]*SinkMapping
 	orderedColumns []string
 	columnOrderMap map[string]int
+
+	leftStream  string
+	rightStream string
 }
 
 func convertStreams(streams map[string]models.StreamSchemaConfig) map[string]Stream {
@@ -99,6 +104,15 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 	}
 
 	m.Streams = convertStreams(streamsConfig)
+
+	for name, stream := range m.Streams {
+		switch stream.JoinOrientation {
+		case "left":
+			m.leftStream = name
+		case "right":
+			m.rightStream = name
+		}
+	}
 
 	if err := m.validate(); err != nil {
 		return nil, err
@@ -155,6 +169,28 @@ func (m *JsonToClickHouseMapper) buildColumnOrder() {
 		m.orderedColumns[i] = column.ColumnName
 		m.columnOrderMap[column.ColumnName] = i
 	}
+}
+
+func (m *JsonToClickHouseMapper) GetLeftStreamTTL() (time.Duration, error) {
+	if m.leftStream == "" {
+		return 0, fmt.Errorf("left stream is not defined in the mapper")
+	}
+	return m.Streams[m.leftStream].JoinWindow, nil
+}
+
+func (m *JsonToClickHouseMapper) GetRightStreamTTL() (time.Duration, error) {
+	if m.rightStream == "" {
+		return 0, fmt.Errorf("right stream is not defined in the mapper")
+	}
+	return m.Streams[m.rightStream].JoinWindow, nil
+}
+
+func (m *JsonToClickHouseMapper) GetLeftStream() string {
+	return m.leftStream
+}
+
+func (m *JsonToClickHouseMapper) GetRightStream() string {
+	return m.rightStream
 }
 
 func (m *JsonToClickHouseMapper) getKey(streamSchemaName, keyName string, data []byte) (any, error) {

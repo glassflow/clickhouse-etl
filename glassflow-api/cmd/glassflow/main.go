@@ -236,8 +236,6 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 }
 
 func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
-	var streamName, streamSubject string
-
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
@@ -248,15 +246,8 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	if pipelineCfg.Join.Enabled {
-		streamName = models.GetJoinedStreamName(pipelineCfg.ID)
-		streamSubject = models.GFJoinSubject
-	} else {
-		if len(pipelineCfg.Ingestor.KafkaTopics) == 0 {
-			return fmt.Errorf("no Kafka topics configured")
-		}
-		streamName = pipelineCfg.Ingestor.KafkaTopics[0].Name
-		streamSubject = streamName + ".input"
+	if pipelineCfg.Sink.StreamID == "" {
+		return fmt.Errorf("stream_id in sink config cannot be empty")
 	}
 
 	sinkRunner := service.NewSinkRunner(log, nc)
@@ -266,8 +257,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		func() error {
 			return sinkRunner.Start(
 				ctx,
-				streamName,
-				streamSubject,
+				pipelineCfg.Sink.StreamID,
 				pipelineCfg.Sink,
 				schemaMapper,
 			)
@@ -279,10 +269,39 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 }
 
 func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+	if cfg.JoinType == "" {
+		return fmt.Errorf("join type must be specified")
+	}
+
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
+
+	if !pipelineCfg.Join.Enabled {
+		return fmt.Errorf("join is not enabled in pipeline config")
+	}
+
+	if len(pipelineCfg.Join.Sources) != 2 {
+		return fmt.Errorf("join must have exactly 2 sources")
+	}
+
+	// Determine left and right streams based on orientation
+	var leftStream, rightStream string
+	if pipelineCfg.Join.Sources[0].Orientation == "left" {
+		leftStream = pipelineCfg.Join.Sources[0].StreamID
+		rightStream = pipelineCfg.Join.Sources[1].StreamID
+	} else {
+		leftStream = pipelineCfg.Join.Sources[1].StreamID
+		rightStream = pipelineCfg.Join.Sources[0].StreamID
+	}
+
+	if leftStream == "" || rightStream == "" {
+		return fmt.Errorf("both left and right streams must be specified in join sources")
+	}
+
+	// Generate output stream name for joined data
+	outputStream := pipelineCfg.Join.OutputStreamID
 
 	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
 	if err != nil {
@@ -296,8 +315,10 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		func() error {
 			return joinRunner.Start(
 				ctx,
-				cfg.JoinType,
-				models.GFJoinSubject,
+				leftStream,
+				rightStream,
+				outputStream,
+				pipelineCfg.Join,
 				schemaMapper,
 			)
 		},

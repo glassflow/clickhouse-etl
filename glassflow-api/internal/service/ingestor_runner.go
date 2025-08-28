@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 type IngestorRunner struct {
@@ -31,12 +32,40 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 }
 
 func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
+	if topicName == "" {
+		return fmt.Errorf("topic name cannot be empty")
+	}
+
+	var outputStreamID string
+	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
+		if topic.Name == topicName {
+			outputStreamID = topic.OutputStreamID
+		}
+	}
+
+	if outputStreamID == "" {
+		return fmt.Errorf("output stream name cannot be empty")
+	}
+
+	streamPublisher := stream.NewNATSPublisher(
+		i.nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: models.GetNATSSubjectName(outputStreamID),
+		},
+	)
+
+	dlqStreamPublisher := stream.NewNATSPublisher(
+		i.nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: models.GetDLQStreamSubjectName(pipelineCfg.ID),
+		},
+	)
+
 	IngestorComponent, err := component.NewIngestorComponent(
 		pipelineCfg.Ingestor,
 		topicName,
-		topicName+".input",
-		models.GetDLQStreamSubjectName(pipelineCfg.ID),
-		i.nc,
+		streamPublisher,
+		dlqStreamPublisher,
 		schemaMapper,
 		i.log,
 	)
@@ -45,7 +74,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		return fmt.Errorf("create ingestor: %w", err)
 	}
 
-	i.running[topicName] = IngestorComponent
+	i.running[outputStreamID] = IngestorComponent
 
 	i.wg.Add(1)
 
@@ -56,7 +85,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		IngestorComponent.Start(ctx, errCh)
 		close(errCh)
 		for err := range errCh {
-			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName))
+			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName), slog.String("output stream", outputStreamID))
 		}
 	}()
 
@@ -65,7 +94,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 
 func (i *IngestorRunner) Shutdown() {
 	if len(i.running) == 0 {
-		i.log.Info("No ingestor compoentns running, nothing to shutdown")
+		i.log.Info("No ingestor components running, nothing to shutdown")
 		return
 	}
 

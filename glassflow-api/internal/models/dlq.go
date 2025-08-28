@@ -11,12 +11,16 @@ const (
 	DLQSuffix       = "DLQ"
 )
 
+// GetDLQStreamName generates a unique DLQ stream name for a pipeline
 func GetDLQStreamName(pipelineID string) string {
-	return fmt.Sprintf("%s-%s", pipelineID, DLQSuffix)
+	hash := GenerateStreamHash(pipelineID)
+	return fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, DLQSuffix)
 }
 
+// GetDLQStreamSubjectName generates a NATS subject name for the DLQ stream
 func GetDLQStreamSubjectName(pipelineID string) string {
-	return GetDLQStreamName(pipelineID) + ".failed"
+	streamName := GetDLQStreamName(pipelineID)
+	return streamName + ".failed"
 }
 
 type DLQMessage struct {

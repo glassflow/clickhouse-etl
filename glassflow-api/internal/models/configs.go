@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -9,13 +11,20 @@ import (
 )
 
 const (
-	GFJoinStream  = "gf-stream-joined"
-	GFJoinSubject = "merged"
+	DefaultSubjectName = "input"
 
 	KafkaIngestorType        = "kafka"
 	TemporalJoinType         = "temporal"
 	SchemaMapperJSONToCHType = "jsonToClickhouse"
 	ClickHouseSinkType       = "clickhouse"
+)
+
+// Stream naming constants
+const (
+	// Maximum length for NATS stream names (NATS has a limit, typically around 32 chars)
+	MaxStreamNameLength = 32
+	// Prefix for pipeline-specific streams
+	PipelineStreamPrefix = "gf"
 )
 
 // PipelineStatus represents the overall status of a pipeline
@@ -102,7 +111,9 @@ type KafkaTopicsConfig struct {
 	ID                         string `json:"id"`
 	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
 
-	Deduplication DeduplicationConfig `json:"deduplication"`
+	Deduplication       DeduplicationConfig `json:"deduplication"`
+	OutputStreamID      string              `json:"output_stream_id"`
+	OutputStreamSubject string              `json:"output_stream_subject"`
 }
 
 type IngestorComponentConfig struct {
@@ -185,15 +196,17 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 
 type JoinSourceConfig struct {
 	SourceID    string       `json:"source_id"`
+	StreamID    string       `json:"stream_id"`
 	JoinKey     string       `json:"join_key"`
 	Window      JSONDuration `json:"time_window"`
 	Orientation string       `json:"orientation"`
 }
 
 type JoinComponentConfig struct {
-	Type    string             `json:"type"`
-	Enabled bool               `json:"enabled"`
-	Sources []JoinSourceConfig `json:"sources"`
+	Type           string             `json:"type"`
+	Enabled        bool               `json:"enabled"`
+	Sources        []JoinSourceConfig `json:"sources"`
+	OutputStreamID string             `json:"output_stream_id"`
 }
 
 type JoinOrder string
@@ -236,6 +249,10 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinC
 			return zero, PipelineConfigError{Msg: "join source cannot be empty"}
 		}
 
+		if len(strings.TrimSpace(so.StreamID)) == 0 {
+			return zero, PipelineConfigError{Msg: "join stream_id cannot be empty"}
+		}
+
 		jo, err := NewJoinOrder(so.Orientation)
 		if err != nil {
 			return zero, PipelineConfigError{Msg: fmt.Sprintf("unsupported value %s for join orientation", so.Orientation)}
@@ -276,8 +293,9 @@ type BatchConfig struct {
 }
 
 type SinkComponentConfig struct {
-	Type  string      `json:"type"`
-	Batch BatchConfig `json:"batch"`
+	Type     string      `json:"type"`
+	StreamID string      `json:"stream_id"`
+	Batch    BatchConfig `json:"batch"`
 
 	ClickHouseConnectionParams ClickHouseConnectionParamsConfig `json:"clickhouse_connection_params"`
 }
@@ -291,6 +309,7 @@ type ClickhouseSinkArgs struct {
 	Password             string
 	Table                string
 	Secure               bool
+	StreamID             string
 	MaxBatchSize         int
 	MaxDelayTime         JSONDuration
 	SkipCertificateCheck bool
@@ -325,8 +344,13 @@ func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConf
 		return zero, PipelineConfigError{Msg: "clickhouse max_batch_size must be greater than 0"}
 	}
 
+	if len(strings.TrimSpace(args.StreamID)) == 0 {
+		return zero, PipelineConfigError{Msg: "stream_id cannot be empty"}
+	}
+
 	return SinkComponentConfig{
-		Type: ClickHouseSinkType,
+		Type:     ClickHouseSinkType,
+		StreamID: args.StreamID,
 		Batch: BatchConfig{
 			MaxBatchSize: args.MaxBatchSize,
 			MaxDelayTime: args.MaxDelayTime,
@@ -469,7 +493,8 @@ func (d JSONDuration) Duration() time.Duration {
 }
 
 func GetJoinedStreamName(pipelineID string) string {
-	return fmt.Sprintf("%s-%s", GFJoinStream, pipelineID)
+	hash := GenerateStreamHash(pipelineID)
+	return fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, "joined")
 }
 
 // NewPipelineHealth creates a new pipeline health status
@@ -482,4 +507,46 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
+}
+
+func GetNATSSubjectName(streamName string) string {
+	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
+}
+
+func SanitizeNATSSubject(topicName string) string {
+	return strings.ReplaceAll(topicName, ".", "_")
+}
+
+func GenerateStreamHash(pipelineID string) string {
+	hash := sha256.Sum256([]byte(pipelineID))
+	// Use first 8 characters of hash for shorter stream names
+	return hex.EncodeToString(hash[:])[:8]
+}
+
+func GetIngestorStreamName(pipelineID, topicName string) string {
+	hash := GenerateStreamHash(pipelineID)
+	sanitizedTopic := SanitizeNATSSubject(topicName)
+
+	// Create stream name: gf-{hash}-{sanitized_topic}
+	streamName := fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, sanitizedTopic)
+
+	// Truncate if too long to respect NATS limits
+	if len(streamName) > MaxStreamNameLength {
+		// Keep prefix and hash, truncate topic name
+		prefix := fmt.Sprintf("%s-%s-", PipelineStreamPrefix, hash)
+		maxTopicLength := MaxStreamNameLength - len(prefix)
+		if maxTopicLength > 0 {
+			streamName = prefix + sanitizedTopic[:maxTopicLength]
+		} else {
+			// Fallback to just prefix if even that's too long
+			streamName = prefix[:MaxStreamNameLength]
+		}
+	}
+
+	return streamName
+}
+
+func GetPipelineNATSSubject(pipelineID, topicName string) string {
+	streamName := GetIngestorStreamName(pipelineID, topicName)
+	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
 }
