@@ -273,6 +273,7 @@ func (s *IngestorTestSuite) aRunningIngestorComponent() error {
 		streamConsumer,
 		dlqStreamPublisher,
 		s.schemaMapper,
+		make(chan struct{}),
 		logger,
 	)
 	if err != nil {

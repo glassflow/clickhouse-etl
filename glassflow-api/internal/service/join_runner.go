@@ -19,6 +19,7 @@ type JoinRunner struct {
 
 	component component.Component
 	c         chan error
+	doneCh    chan struct{}
 }
 
 func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
@@ -28,6 +29,7 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 
 		component: nil,
 		c:         make(chan error, 1),
+		doneCh:    make(chan struct{}),
 	}
 }
 
@@ -87,7 +89,8 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 		kv.KeyValueStoreConfig{
 			StoreName: leftInputStreamName,
 			TTL:       leftTTL,
-		})
+		},
+	)
 
 	if err != nil {
 		j.log.Error("failed to create left stream buffer: ", slog.Any("error", err))
@@ -115,7 +118,7 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 		Subject: models.GetNATSSubjectName(outputStream),
 	})
 
-	joinComp, err := component.NewJoinComponent(
+	component, err := component.NewJoinComponent(
 		joinCfg,
 		leftConsumer,
 		rightConsumer,
@@ -125,6 +128,7 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 		rightBuffer,
 		leftStreamName,
 		rightStreamName,
+		j.doneCh,
 		j.log,
 	)
 	if err != nil {
@@ -132,10 +136,10 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 		return fmt.Errorf("create join: %w", err)
 	}
 
-	go func() {
-		joinComp.Start(ctx, j.c)
+	j.component = component
 
-		j.component = joinComp
+	go func() {
+		component.Start(ctx, j.c)
 
 		close(j.c)
 
@@ -148,7 +152,13 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 }
 
 func (j *JoinRunner) Shutdown() {
+	j.log.Info("Shutting down JoinRunner")
 	if j.component != nil {
 		j.component.Stop()
 	}
+}
+
+// Done returns a channel that signals when the component stops by itself
+func (j *JoinRunner) Done() <-chan struct{} {
+	return j.doneCh
 }

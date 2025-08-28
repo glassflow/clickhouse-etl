@@ -17,9 +17,9 @@ type LocalOrchestrator struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	ingestorRunner *service.IngestorRunner
-	joinRunner     *service.JoinRunner
-	sinkRunner     *service.SinkRunner
+	ingestorRunners []*service.IngestorRunner
+	joinRunner      *service.JoinRunner
+	sinkRunner      *service.SinkRunner
 
 	id string
 	m  sync.Mutex
@@ -89,7 +89,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	d.log = d.log.With("pipeline_id", d.id)
 
-	d.ingestorRunner = service.NewIngestorRunner(d.log.With("component", "ingestor"), d.nc)
 	d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc)
 	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
 
@@ -109,13 +108,17 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		sinkConsumerStream = pi.Sink.StreamID
 
 		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
-		err = d.ingestorRunner.Start(
+		ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc)
+
+		err = ingestorRunner.Start(
 			ctx, t.Name, *pi,
 			schemaMapper,
 		)
 		if err != nil {
 			return fmt.Errorf("start ingestor for topic %s: %w", t.Name, err)
 		}
+
+		d.ingestorRunners = append(d.ingestorRunners, ingestorRunner)
 	}
 
 	if pi.Join.Enabled {
@@ -173,8 +176,10 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
-	if d.ingestorRunner != nil {
-		d.ingestorRunner.Shutdown()
+	if d.ingestorRunners != nil {
+		for _, runner := range d.ingestorRunners {
+			runner.Shutdown()
+		}
 	}
 	if d.joinRunner != nil {
 		d.joinRunner.Shutdown()

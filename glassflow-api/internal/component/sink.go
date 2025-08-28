@@ -19,15 +19,17 @@ type Sink interface {
 }
 
 type SinkComponent struct {
-	sink Sink
-	wg   sync.WaitGroup
-	log  *slog.Logger
+	sink   Sink
+	wg     sync.WaitGroup
+	doneCh chan struct{}
+	log    *slog.Logger
 }
 
 func NewSinkComponent(
 	sinkConfig models.SinkComponentConfig,
 	streamCon stream.Consumer,
 	schemaMapper schema.Mapper,
+	doneCh chan struct{},
 	log *slog.Logger,
 ) (Component, error) {
 	if sinkConfig.Type != models.ClickHouseSinkType {
@@ -40,20 +42,26 @@ func NewSinkComponent(
 	}
 
 	return &SinkComponent{
-		sink: sink,
-		log:  log,
-		wg:   sync.WaitGroup{},
+		sink:   sink,
+		log:    log,
+		wg:     sync.WaitGroup{},
+		doneCh: doneCh,
 	}, nil
 }
 
 func (s *SinkComponent) Start(ctx context.Context, errChan chan<- error) {
 	s.wg.Add(1)
 	defer s.wg.Done()
+	defer close(s.doneCh)
+
 	err := s.sink.Start(ctx)
 	if err != nil {
 		s.log.Error("failed to start sink", "error", err)
 		errChan <- err
+		return
 	}
+
+	s.log.Info("Sink component finished successfully")
 }
 
 func (s *SinkComponent) Stop(opts ...StopOption) {
@@ -72,4 +80,9 @@ func (s *SinkComponent) Stop(opts ...StopOption) {
 
 	s.sink.Stop(noWait)
 	s.wg.Wait()
+}
+
+// Done returns a channel that signals when the component stops by itself
+func (s *SinkComponent) Done() <-chan struct{} {
+	return s.doneCh
 }

@@ -224,6 +224,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		s.sinkConfig,
 		streamConsumer,
 		schemaMapper,
+		make(chan struct{}),
 		logger,
 	)
 	if err != nil {

@@ -64,6 +64,8 @@ type RunnerFunc func() error
 
 type ShutdownFunc func()
 
+type DoneFunc func() <-chan struct{}
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("Service failed", slog.Any("error", err))
@@ -262,6 +264,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 				schemaMapper,
 			)
 		},
+		sinkRunner.Done,
 		sinkRunner.Shutdown,
 		log,
 		models.RoleSink.String(),
@@ -322,6 +325,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 				schemaMapper,
 			)
 		},
+		joinRunner.Done,
 		joinRunner.Shutdown,
 		log,
 		models.RoleJoin.String(),
@@ -355,6 +359,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 				schemaMapper,
 			)
 		},
+		ingestorRunner.Done,
 		ingestorRunner.Shutdown,
 		log,
 		models.RoleIngestor.String(),
@@ -364,6 +369,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 func runWithGracefulShutdown(
 	ctx context.Context,
 	runnerFunc RunnerFunc,
+	doneFunc DoneFunc,
 	shutdownFunc ShutdownFunc,
 	log *slog.Logger,
 	serviceName string,
@@ -385,8 +391,10 @@ func runWithGracefulShutdown(
 			if err != nil {
 				return fmt.Errorf("%s runner failed: %w", serviceName, err)
 			}
-			// If err is nil, the service started successfully and is running
-			// Continue waiting for shutdown signal
+		case <-doneFunc():
+			log.Warn("Component has crashed!", slog.String("service", serviceName))
+			wg.Wait()
+			return fmt.Errorf("%s component stopped by itself", serviceName)
 		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 			wg.Add(1)

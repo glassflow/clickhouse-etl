@@ -49,6 +49,7 @@ func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 
 	go func() {
 		defer s.wg.Done()
+		defer close(s.closedCh)
 		for {
 			msg, err := s.consumer.Next()
 			if err != nil {
@@ -84,14 +85,12 @@ func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 }
 
 func (s *NatsSubscriber) Closed() <-chan struct{} {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.closedCh
 }
 
 func (s *NatsSubscriber) Stop() {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.isStopSent || s.isDrainSent {
 		s.log.Warn("stop signal already sent")
 		s.mu.Unlock()
@@ -100,34 +99,16 @@ func (s *NatsSubscriber) Stop() {
 
 	s.log.Info("sending stop signal to subscriber")
 	s.isStopSent = true
-	s.mu.Unlock()
-
-	go func() {
-		s.wg.Wait()
-		s.mu.Lock()
-		close(s.closedCh)
-		s.mu.Unlock()
-		s.log.Info("subscriber stopped")
-	}()
 }
 
 func (s *NatsSubscriber) DrainAndStop() {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.isStopSent || s.isDrainSent {
 		s.log.Warn("stop signal already sent")
-		s.mu.Unlock()
 		return
 	}
 
 	s.log.Info("sending drain signal to subscriber")
 	s.isDrainSent = true
-	s.mu.Unlock()
-
-	go func() {
-		s.wg.Wait()
-		s.mu.Lock()
-		close(s.closedCh)
-		s.mu.Unlock()
-		s.log.Info("subscriber drained and stopped")
-	}()
 }
