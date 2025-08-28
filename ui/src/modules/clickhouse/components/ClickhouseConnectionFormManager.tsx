@@ -132,9 +132,13 @@ export const ClickhouseConnectionFormManager = ({
 
   // Set default values for useSSL and skipCertificateVerification
   useEffect(() => {
-    setValue('directConnection.useSSL', true)
-    setValue('directConnection.skipCertificateVerification', true)
-  }, [setValue])
+    if (!isReturningToForm) {
+      // For new forms, always ensure defaults are true
+      setValue('directConnection.useSSL', true)
+      setValue('directConnection.skipCertificateVerification', true)
+    }
+    // For returning forms, the first effect (lines 99-131) handles value restoration
+  }, [setValue, isReturningToForm])
 
   // Determine if we should show validation errors - only if user has interacted with the form
   // or explicitly returning to a previously valid form
