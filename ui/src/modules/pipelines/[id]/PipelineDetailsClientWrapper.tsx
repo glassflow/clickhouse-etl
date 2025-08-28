@@ -1,8 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { getPipeline } from '@/src/api/pipeline-api'
 import PipelineDetailsModule from './PipelineDetailsModule'
+import PipelineDeploymentProgress from './PipelineDeploymentProgress'
+import { useStore } from '@/src/store'
 import type { Pipeline } from '@/src/types/pipeline'
 
 interface PipelineDetailsClientWrapperProps {
@@ -13,8 +16,24 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
   const [pipeline, setPipeline] = useState<Pipeline | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showDeploymentProgress, setShowDeploymentProgress] = useState(false)
+
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const isDeploymentMode = searchParams?.get('deployment') === 'progress'
+
+  // Get pipeline name from store if available (from recent pipeline creation)
+  const { coreStore } = useStore()
+  const { pipelineName } = coreStore
 
   useEffect(() => {
+    // Set deployment progress mode if URL parameter is present
+    if (isDeploymentMode) {
+      setShowDeploymentProgress(true)
+      setLoading(false) // Don't need to load pipeline data for deployment progress
+      return
+    }
+
     const fetchPipeline = async () => {
       try {
         setLoading(true)
@@ -30,7 +49,7 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     }
 
     fetchPipeline()
-  }, [pipelineId])
+  }, [pipelineId, isDeploymentMode])
 
   if (loading) {
     return (
@@ -56,6 +75,57 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
             Retry
           </button>
         </div>
+      </div>
+    )
+  }
+
+  // Handle deployment progress mode
+  const handleDeploymentComplete = () => {
+    setShowDeploymentProgress(false)
+    // Remove deployment query parameter and refresh pipeline data
+    router.replace(`/pipelines/${pipelineId}`)
+
+    // Fetch the pipeline data now that deployment is complete
+    const fetchPipeline = async () => {
+      try {
+        setLoading(true)
+        const data = await getPipeline(pipelineId)
+        setPipeline(data)
+      } catch (err: any) {
+        console.error('Failed to fetch pipeline after deployment:', err)
+        setError(err.message || 'Failed to fetch pipeline')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPipeline()
+  }
+
+  const handleDeploymentFailed = (error: string) => {
+    console.error('Pipeline deployment failed:', error)
+    // Navigate back to pipelines list on failure
+    router.push('/pipelines')
+  }
+
+  const handleNavigateToList = () => {
+    router.push('/pipelines')
+  }
+
+  // Show deployment progress if in deployment mode
+  if (showDeploymentProgress) {
+    // Use pipeline name from store if available, otherwise fallback to ID
+    const displayName = pipelineName || `Pipeline ${pipelineId.slice(0, 8)}`
+
+    return (
+      <div>
+        <PipelineDeploymentProgress
+          pipelineId={pipelineId}
+          pipelineName={displayName}
+          onDeploymentComplete={handleDeploymentComplete}
+          onDeploymentFailed={handleDeploymentFailed}
+          onNavigateToList={handleNavigateToList}
+        />
       </div>
     )
   }
