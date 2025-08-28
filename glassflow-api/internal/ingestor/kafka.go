@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/nats-io/nats.go"
@@ -15,6 +16,12 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+)
+
+const (
+	initialRetryDelay = 500 * time.Millisecond
+	maxRetryDelay     = 5 * time.Second
+	maxRetryWait      = 10 * time.Minute
 )
 
 var (
@@ -98,7 +105,10 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) error
 	if err != nil {
 		k.log.Error("Failed to validate data", slog.Any("error", err), slog.String("topic", k.topic.Name))
 		k.PushMsgToDLQ(ctx, msg.Value, ErrValidateSchema)
-		k.commitMsg(ctx, msg)
+		err = k.commitMsg(ctx, msg)
+		if err != nil {
+			return fmt.Errorf("failed to commit message to kafka: %w", err)
+		}
 		return nil
 	}
 
@@ -116,7 +126,11 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) error
 				slog.String("subject", string(msg.Value)),
 			)
 			k.PushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData)
-			k.commitMsg(ctx, msg)
+			err := k.commitMsg(ctx, msg)
+			if err != nil {
+				return fmt.Errorf("failed to commit message to kafka: %w", err)
+			}
+
 			return nil
 		}
 	}
@@ -131,12 +145,15 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) error
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
-	k.commitMsg(ctx, msg)
+	err = k.commitMsg(ctx, msg)
+	if err != nil {
+		return fmt.Errorf("failed to commit message to kafka: %w", err)
+	}
 
 	return nil
 }
 
-func (k *KafkaIngestor) commitMsg(ctx context.Context, msg kafka.Message) {
+func (k *KafkaIngestor) commitMsg(ctx context.Context, msg kafka.Message) error {
 	if msg.Topic == "" || msg.Partition < 0 || msg.Offset < 0 {
 		k.log.Error("Failed to commit messsage: invalid message parameters",
 			slog.String("topic", msg.Topic),
@@ -144,7 +161,7 @@ func (k *KafkaIngestor) commitMsg(ctx context.Context, msg kafka.Message) {
 			slog.Int64("offset", msg.Offset),
 		)
 
-		return
+		return nil
 	}
 
 	if err := k.consumer.Commit(ctx, msg); err != nil {
@@ -154,8 +171,10 @@ func (k *KafkaIngestor) commitMsg(ctx context.Context, msg kafka.Message) {
 			slog.String("partition", strconv.Itoa(int(msg.Partition))),
 			slog.Int64("offset", msg.Offset),
 		)
-		return
+		return fmt.Errorf("failed to commit message: %w", err)
 	}
+
+	return nil
 }
 
 func (k *KafkaIngestor) convertKafkaToNATSHeaders(headers []sarama.RecordHeader) nats.Header {
@@ -205,6 +224,9 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 
 	k.log.Info("Starting Kafka ingestor", slog.String("topic", k.topic.Name))
 
+	startTime := time.Now()
+	retryDelay := initialRetryDelay
+
 	for {
 		msg, err := k.consumer.Fetch(cancelCtx)
 		if err != nil {
@@ -213,6 +235,17 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 			}
 
 			k.log.Error("Failed to fetch messages from Kafka", slog.Any("error", err), slog.String("topic", k.topic.Name))
+			select {
+			case <-cancelCtx.Done():
+				return nil
+			case <-time.After(retryDelay):
+			}
+
+			if time.Since(startTime) > maxRetryWait {
+				return fmt.Errorf("max retry wait time exceeded: %w", err)
+			}
+
+			retryDelay = min(time.Duration(float64(retryDelay)*1.5), maxRetryDelay)
 			continue
 		}
 

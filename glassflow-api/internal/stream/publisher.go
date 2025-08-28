@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -11,8 +12,9 @@ import (
 )
 
 const (
-	InitialRetryDelay      = 1 * time.Second
-	PublisherMaxRetryDelay = 10 * time.Second
+	initialRetryDelay = 1 * time.Second
+	maxRetryDelay     = 10 * time.Second
+	maxRetryWait      = 5 * time.Minute
 )
 
 type publishOpts struct {
@@ -79,12 +81,18 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 			return fmt.Errorf("failed to publish message: %w", err)
 		}
 	} else {
-		retryDelay := InitialRetryDelay
+		retryDelay := initialRetryDelay
+		startTime := time.Now()
 		for {
 			_, err := p.js.PublishMsg(ctx, msg)
 			if err == nil {
 				break
 			}
+
+			if errors.Is(err, nats.ErrConnectionClosed) {
+				return fmt.Errorf("connection error: %w", err)
+			}
+
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -92,7 +100,11 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 				log.Printf("Retrying publish to NATS subject %s in %v...", p.Subject, retryDelay)
 			}
 
-			retryDelay = min(time.Duration(float64(retryDelay)*1.5), PublisherMaxRetryDelay)
+			if time.Since(startTime) >= maxRetryWait {
+				return fmt.Errorf("max retry wait exceeded: %w", err)
+			}
+
+			retryDelay = min(time.Duration(float64(retryDelay)*1.5), maxRetryDelay)
 		}
 	}
 
