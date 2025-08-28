@@ -12,6 +12,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
@@ -266,7 +267,7 @@ func (s *IngestorTestSuite) aRunningIngestorComponent() error {
 			Subject: s.dlqStreamCfg.Subject,
 		},
 	)
-	ingestor, err := operator.NewIngestorComponent(
+	ingestor, err := component.NewIngestorComponent(
 		s.ingestorCfg,
 		s.topicName,
 		streamConsumer,

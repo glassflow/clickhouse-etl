@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"

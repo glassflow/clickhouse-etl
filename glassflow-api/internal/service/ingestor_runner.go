@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 type IngestorRunner struct {
@@ -49,7 +50,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		},
 	)
 
-	IngestorComponent, err := operator.NewIngestorComponent(
+	IngestorComponent, err := component.NewIngestorComponent(
 		pipelineCfg.Ingestor,
 		topicName,
 		streamPublisher,
