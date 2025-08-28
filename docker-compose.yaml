@@ -10,7 +10,7 @@ services:
     image: ghcr.io/glassflow/glassflow-etl-fe:glassflow-cloud
     pull_policy: always
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8080/api/v1}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8081/api/v1}
       - NEXT_PUBLIC_IN_DOCKER=${NEXT_PUBLIC_IN_DOCKER:-true}
       - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
       - NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
@@ -26,6 +26,7 @@ services:
       GLASSFLOW_NATS_SERVER: nats:4222
       GLASSFLOW_RUN_LOCAL: true
       GLASSFLOW_K8S_NAMESPACE: glassflow
+      GLASSFLOW_SERVER_ADDR: 0.0.0.0:8081
     volumes:
       - logs:/tmp/logs/glassflow
 
@@ -33,6 +34,7 @@ services:
     image: nginx:1.27-alpine
     ports:
       - 8080:8080
+      - 8081:8081
     depends_on:
       - ui
       - app

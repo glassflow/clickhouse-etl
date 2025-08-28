@@ -5,14 +5,6 @@ server {
     location /logs {
         autoindex on;
         alias   /logs;
-
-    }
-
-    location /api/v1 {
-        resolver ${NGINX_LOCAL_RESOLVERS} valid=1s;
-        set $backend "http://app:8080";
-
-        proxy_pass $backend;
     }
 
     location / {
@@ -20,5 +12,17 @@ server {
         set $frontend "http://ui:8080";
 
         proxy_pass $frontend;
+    }
+}
+
+server {
+    listen       8081;
+    server_name  default_server;
+
+    location / {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=1s;
+        set $backend "http://app:8081";
+
+        proxy_pass $backend;
     }
 }
