@@ -29,9 +29,9 @@ func TestNewPipelineConfig(t *testing.T) {
 	id := "test-pipeline"
 	name := "Test Pipeline"
 	mapper := MapperConfig{Type: SchemaMapperJSONToCHType}
-	ingestor := IngestorOperatorConfig{Type: KafkaIngestorType}
-	join := JoinOperatorConfig{Type: TemporalJoinType}
-	sink := SinkOperatorConfig{Type: ClickHouseSinkType}
+	ingestor := IngestorComponentConfig{Type: KafkaIngestorType}
+	join := JoinComponentConfig{Type: TemporalJoinType}
+	sink := SinkComponentConfig{Type: ClickHouseSinkType}
 
 	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink)
 

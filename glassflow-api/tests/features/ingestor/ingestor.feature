@@ -47,7 +47,7 @@ Feature: Kafka Ingestor
                 ]
             }
             """
-        Given an ingestor operator config:
+        Given an ingestor component config:
             """json
             {
                 "type": "kafka",
@@ -83,7 +83,7 @@ Feature: Kafka Ingestor
             | 3   | {"id": "789", "name": "Bob Johnson"}   |
             | 4   | {"id": "789", "name": "Ulm Petterson"} |
 
-        And a running ingestor operator
+        And a running ingestor component
 
         Then I check results stream with content
             | id  | name        |
@@ -127,7 +127,7 @@ Feature: Kafka Ingestor
                 ]
             }
             """
-        Given an ingestor operator config:
+        Given an ingestor component config:
             """json
             {
                 "type": "kafka",
@@ -160,7 +160,7 @@ Feature: Kafka Ingestor
             | 3   | {"id": "789", "name": "Bob Bishop"}     |
             | 4   | {"id": "789", "name": "Uliana Gromova"} |
 
-        And a running ingestor operator
+        And a running ingestor component
 
         Then I check results stream with content
             | id  | name           |
@@ -205,7 +205,7 @@ Feature: Kafka Ingestor
                 ]
             }
             """
-        Given an ingestor operator config:
+        Given an ingestor component config:
             """json
             {
                 "type": "kafka",
@@ -241,7 +241,7 @@ Feature: Kafka Ingestor
             | 2         | 3   | {"id": "789", "name":"Fedor Smolov"}    |
             | 0         | 4   | {"id": "789", "name":"Victor Thurilla"} |
 
-        And a running ingestor operator
+        And a running ingestor component
 
         Then I check results stream with content
             | id  | name         |
@@ -285,7 +285,7 @@ Feature: Kafka Ingestor
                 ]
             }
             """
-        Given an ingestor operator config:
+        Given an ingestor component config:
             """json
             {
                 "type": "kafka",
@@ -316,7 +316,7 @@ Feature: Kafka Ingestor
             | 2   | {"id": "456", "name": "Bob"}   |
             | 3   | {"key": "value"}               |
 
-        And a running ingestor operator
+        And a running ingestor component
 
         Then I check results stream with content
             | id  | name  |

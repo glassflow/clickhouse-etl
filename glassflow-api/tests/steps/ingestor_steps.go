@@ -8,11 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
@@ -41,9 +40,9 @@ type IngestorTestSuite struct {
 
 	schemaMapper schema.Mapper
 
-	ingestorCfg models.IngestorOperatorConfig
+	ingestorCfg models.IngestorComponentConfig
 
-	ingestor operator.Operator
+	ingestor component.Component
 
 	topicName string
 }
@@ -209,24 +208,24 @@ func (s *IngestorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error
 	return nil
 }
 
-func (s *IngestorTestSuite) anIngestorOperatorConfig(config string) error {
-	var ingCgf models.IngestorOperatorConfig
+func (s *IngestorTestSuite) anIngestorComponentConfig(config string) error {
+	var ingCgf models.IngestorComponentConfig
 	err := json.Unmarshal([]byte(config), &ingCgf)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal ingestor operator config: %w", err)
+		return fmt.Errorf("failed to unmarshal ingestor component config: %w", err)
 	}
 
 	ingCgf.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
 
-	s.ingestorCfg, err = models.NewIngestorOperatorConfig(ingCgf.Provider, ingCgf.KafkaConnectionParams, ingCgf.KafkaTopics)
+	s.ingestorCfg, err = models.NewIngestorComponentConfig(ingCgf.Provider, ingCgf.KafkaConnectionParams, ingCgf.KafkaTopics)
 	if err != nil {
-		return fmt.Errorf("create ingestor operator config: %w", err)
+		return fmt.Errorf("create ingestor component config: %w", err)
 	}
 
 	return nil
 }
 
-func (s *IngestorTestSuite) aRunningIngestorOperator() error {
+func (s *IngestorTestSuite) aRunningIngestorComponent() error {
 	var duration time.Duration
 	logger := testutils.NewTestLogger()
 
@@ -267,7 +266,7 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 			Subject: s.dlqStreamCfg.Subject,
 		},
 	)
-	ingestor, err := operator.NewIngestorOperator(
+	ingestor, err := operator.NewIngestorComponent(
 		s.ingestorCfg,
 		s.topicName,
 		streamConsumer,
@@ -276,7 +275,7 @@ func (s *IngestorTestSuite) aRunningIngestorOperator() error {
 		logger,
 	)
 	if err != nil {
-		return fmt.Errorf("create ingestor operator: %w", err)
+		return fmt.Errorf("create ingestor component: %w", err)
 	}
 	s.ingestor = ingestor
 
@@ -433,7 +432,7 @@ func (s *IngestorTestSuite) fastJoinCleanUp() error {
 	}
 
 	if s.ingestor != nil {
-		s.ingestor.Stop(operator.WithNoWait(true))
+		s.ingestor.Stop(component.WithNoWait(true))
 		s.ingestor = nil
 	}
 
@@ -473,9 +472,9 @@ func (s *IngestorTestSuite) CleanupResources() error {
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
-	sc.Step(`^an ingestor operator config:$`, s.anIngestorOperatorConfig)
+	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)
 	sc.Step(`a Kafka topic "([^"]*)" with (\d+) partition`, s.aKafkaTopicWithPartitions)
-	sc.Step(`^a running ingestor operator$`, s.aRunningIngestorOperator)
+	sc.Step(`^a running ingestor component$`, s.aRunningIngestorComponent)
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, s.iPublishEventsToKafka)
 	sc.Step(`^I check results stream with content$`, s.checkResultsStream)

@@ -60,7 +60,7 @@ func NewNATSConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerCo
 			if i < ConsumerRetries-1 {
 				select {
 				case <-time.After(retryDelay):
-					log.Printf("Retrying connection to NATS to stream %s in %v...", cfg.NatsStream, retryDelay) // DELETEME
+					log.Printf("Retrying connection to NATS to stream %s in %v...", cfg.NatsStream, retryDelay)
 					// Continue with retry
 				case <-retryCtx.Done():
 					return nil, fmt.Errorf("context cancelled during retry delay for stream %s: %w", cfg.NatsStream, retryCtx.Err())

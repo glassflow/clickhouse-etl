@@ -11,10 +11,10 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -26,8 +26,8 @@ type SinkTestSuite struct {
 
 	streamConfig *stream.ConsumerConfig
 	schemaConfig models.MapperConfig
-	sinkConfig   models.SinkOperatorConfig
-	CHSink       operator.Operator
+	sinkConfig   models.SinkComponentConfig
+	CHSink       component.Component
 }
 
 func NewSinkTestSuite() *SinkTestSuite {
@@ -220,7 +220,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 
 	logger := testutils.NewTestLogger()
 
-	sink, err := operator.NewSinkOperator(
+	sink, err := component.NewSinkComponent(
 		s.sinkConfig,
 		streamConsumer,
 		schemaMapper,
@@ -243,8 +243,8 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 }
 
 func (s *SinkTestSuite) iStopClickHouseSinkGracefully() error {
-	s.stopOperator(s.CHSink.Stop, true)
-	err := s.checkOperatorErrors()
+	s.stopComponent(s.CHSink.Stop, true)
+	err := s.checkComponentErrors()
 	if err != nil {
 		return fmt.Errorf("error from sink: %w", err)
 	}
@@ -258,9 +258,9 @@ func (s *SinkTestSuite) iStopClickHouseSinkAfterDelay(delay string) error {
 		return fmt.Errorf("parse duration: %w", err)
 	}
 
-	s.stopOperator(s.CHSink.Stop, false, dur)
+	s.stopComponent(s.CHSink.Stop, false, dur)
 
-	err = s.checkOperatorErrors()
+	err = s.checkComponentErrors()
 	if err != nil {
 		return fmt.Errorf("error from sink: %w", err)
 	}
@@ -309,7 +309,7 @@ func (s *SinkTestSuite) fastCleanUp() error {
 	var errs []error
 
 	if s.CHSink != nil {
-		s.CHSink.Stop(operator.WithNoWait(true))
+		s.CHSink.Stop(component.WithNoWait(true))
 	}
 
 	if s.chContainer != nil && s.tablename != "" {
@@ -338,8 +338,8 @@ func (s *SinkTestSuite) CleanupResources() error {
 
 	// Close ClickHouse sink
 	if s.CHSink != nil {
-		s.stopOperator(s.CHSink.Stop, false)
-		err := s.checkOperatorErrors()
+		s.stopComponent(s.CHSink.Stop, false)
+		err := s.checkComponentErrors()
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error from sink: %w", err))
 		}

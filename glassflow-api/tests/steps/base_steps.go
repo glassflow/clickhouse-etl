@@ -12,8 +12,8 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/operator"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -232,7 +232,7 @@ func (b *BaseTestSuite) deleteAllStreams() error {
 	return nil
 }
 
-func (b *BaseTestSuite) stopOperator(stopFn func(...operator.StopOption), graceful bool, delayDuration ...time.Duration) {
+func (b *BaseTestSuite) stopComponent(stopFn func(...component.StopOption), graceful bool, delayDuration ...time.Duration) {
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
@@ -244,19 +244,19 @@ func (b *BaseTestSuite) stopOperator(stopFn func(...operator.StopOption), gracef
 		if graceful {
 			stopFn()
 		} else {
-			stopFn(operator.WithNoWait(true))
+			stopFn(component.WithNoWait(true))
 		}
 	}()
 
 	b.wg.Wait()
 }
 
-func (b *BaseTestSuite) checkOperatorErrors() error {
+func (b *BaseTestSuite) checkComponentErrors() error {
 	select {
 	case err, ok := <-b.errCh:
 		if ok {
 			close(b.errCh)
-			return fmt.Errorf("error from operator: %w", err)
+			return fmt.Errorf("error from component: %w", err)
 		}
 	default:
 		// No error

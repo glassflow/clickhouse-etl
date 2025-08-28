@@ -11,7 +11,7 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/core/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
@@ -290,13 +290,13 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 	}
 
 	pc.Ingestor.KafkaConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
-	pc.Ingestor, err = models.NewIngestorOperatorConfig(
+	pc.Ingestor, err = models.NewIngestorComponentConfig(
 		pc.Ingestor.Provider,
 		pc.Ingestor.KafkaConnectionParams,
 		pc.Ingestor.KafkaTopics,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create ingestor operator config: %w", err)
+		return nil, fmt.Errorf("create ingestor component config: %w", err)
 	}
 
 	pc.Sink.ClickHouseConnectionParams.Host = "localhost"
