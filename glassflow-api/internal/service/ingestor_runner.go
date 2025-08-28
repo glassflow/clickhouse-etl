@@ -18,6 +18,7 @@ type IngestorRunner struct {
 
 	component component.Component
 	c         chan error
+	doneCh    chan struct{}
 }
 
 func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner {
@@ -27,6 +28,7 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 
 		component: nil,
 		c:         make(chan error, 1),
+		doneCh:    make(chan struct{}),
 	}
 }
 
@@ -66,6 +68,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		streamPublisher,
 		dlqStreamPublisher,
 		schemaMapper,
+		i.doneCh,
 		i.log,
 	)
 	if err != nil {
@@ -90,4 +93,8 @@ func (i *IngestorRunner) Shutdown() {
 	if i.component != nil {
 		i.component.Stop()
 	}
+}
+
+func (i *IngestorRunner) Done() <-chan struct{} {
+	return i.doneCh
 }

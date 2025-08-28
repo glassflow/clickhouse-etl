@@ -179,6 +179,7 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		rightKVStore,
 		j.leftStreamConfig.NatsStream,
 		j.rightStreamConfig.NatsStream,
+		make(chan struct{}),
 		logger,
 	)
 

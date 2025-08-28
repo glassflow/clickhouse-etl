@@ -18,6 +18,7 @@ type SinkRunner struct {
 
 	component component.Component
 	c         chan error
+	doneCh    chan struct{}
 }
 
 func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
@@ -27,6 +28,7 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
 
 		component: nil,
 		c:         make(chan error, 1),
+		doneCh:    make(chan struct{}),
 	}
 }
 
@@ -45,6 +47,7 @@ func (s *SinkRunner) Start(ctx context.Context, inputNatsStream string, sinkCfg 
 		sinkCfg,
 		consumer,
 		schemaMapper,
+		s.doneCh,
 		s.log,
 	)
 	if err != nil {
@@ -69,4 +72,9 @@ func (s *SinkRunner) Shutdown() {
 	if s.component != nil {
 		s.component.Stop()
 	}
+}
+
+// Done returns a channel that signals when the component stops by itself
+func (s *SinkRunner) Done() <-chan struct{} {
+	return s.doneCh
 }

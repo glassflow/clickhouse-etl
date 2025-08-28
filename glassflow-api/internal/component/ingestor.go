@@ -21,6 +21,7 @@ type IngestorComponent struct {
 	ingestor  Ingestor
 	topicName string
 	wg        sync.WaitGroup
+	doneCh    chan struct{}
 	log       *slog.Logger
 }
 
@@ -30,37 +31,41 @@ func NewIngestorComponent(
 	streamPublisher stream.Publisher,
 	dlqStreamPublisher stream.Publisher,
 	schemaMapper schema.Mapper,
+	doneCh chan struct{},
 	log *slog.Logger,
 ) (*IngestorComponent, error) {
 	if config.Type != models.KafkaIngestorType {
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
 
-	ing, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
+	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log)
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}
 	return &IngestorComponent{
-		ingestor: ing,
-		log:      log,
-		wg:       sync.WaitGroup{},
+		ingestor:  ingestor,
+		log:       log,
+		topicName: topicName,
+		wg:        sync.WaitGroup{},
+		doneCh:    doneCh,
 	}, nil
 }
 
 func (i *IngestorComponent) Start(ctx context.Context, errChan chan<- error) {
 	i.wg.Add(1)
 	defer i.wg.Done()
+	defer close(i.doneCh)
 
 	i.log.Info("Ingestor component is starting...")
 
 	err := i.ingestor.Start(ctx)
 	if err != nil {
-		i.log.Error("failed to start ingestor", "error", err)
+		i.log.Error("failed to process ingestor", "error", err)
 		errChan <- err
 		return
 	}
 
-	i.log.Info("Ingestor component started successfully", slog.String("topic", i.topicName))
+	i.log.Info("Ingestor component finished successfully", slog.String("topic", i.topicName))
 }
 
 func (i *IngestorComponent) Stop(_ ...StopOption) {
@@ -68,4 +73,8 @@ func (i *IngestorComponent) Stop(_ ...StopOption) {
 	i.ingestor.Stop()
 	i.wg.Wait()
 	i.log.Info("Ingestor component stopped")
+}
+
+func (i *IngestorComponent) Done() <-chan struct{} {
+	return i.doneCh
 }
