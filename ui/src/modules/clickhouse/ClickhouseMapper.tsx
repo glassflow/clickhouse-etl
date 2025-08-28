@@ -934,8 +934,8 @@ export function ClickhouseMapper({
         const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
         setPipelineId(newPipelineId)
 
-        // Navigate to pipelines page to show deployment status
-        router.push('/pipelines')
+        // Navigate to pipeline details page with deployment progress
+        router.push(`/pipelines/${newPipelineId}?deployment=progress`)
       } catch (error: any) {
         console.error('deployPipelineAndNavigate: Failed to deploy pipeline:', error)
         setError(`Failed to deploy pipeline: ${error.message}`)

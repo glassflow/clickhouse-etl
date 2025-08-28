@@ -33,6 +33,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // active step - determines which step is currently being rendered in the standalone step renderer
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
 
+  // Animation states for sequential appearance
+  const [showHeader, setShowHeader] = useState(false)
+  const [showStatusOverview, setShowStatusOverview] = useState(false)
+  const [showConfigurationSection, setShowConfigurationSection] = useState(false)
+
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
 
@@ -68,6 +73,25 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
       enterViewMode(pipeline)
     }
   }, [pipeline, enterViewMode, mode, actionState.isLoading, actionState.lastAction])
+
+  // Sequential animation effect - show sections one by one
+  useEffect(() => {
+    // Start the animation sequence
+    setShowHeader(true)
+
+    const statusTimer = setTimeout(() => {
+      setShowStatusOverview(true)
+    }, 500) // 300ms delay for status overview
+
+    const configTimer = setTimeout(() => {
+      setShowConfigurationSection(true)
+    }, 1000) // 600ms delay for configuration section
+
+    return () => {
+      clearTimeout(statusTimer)
+      clearTimeout(configTimer)
+    }
+  }, []) // Run once on mount
 
   // Refresh pipeline data after actions complete
   useEffect(() => {
@@ -169,17 +193,37 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   return (
     <div>
-      <div className="flex flex-col gap-4">
+      {/* Header Section - Appears first */}
+      <div
+        className={cn(
+          'flex flex-col gap-4 transition-all duration-750 ease-out',
+          showHeader ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+        )}
+      >
         <PipelineDetailsHeader
           pipeline={pipeline}
           onPipelineUpdate={handlePipelineUpdate}
           onPipelineDeleted={handlePipelineDeleted}
         />
       </div>
-      <div className="flex flex-col gap-4">
+
+      {/* Status Overview Section - Appears second */}
+      <div
+        className={cn(
+          'flex flex-col gap-4 transition-all duration-750 ease-out',
+          showStatusOverview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+        )}
+      >
         <PipelineStatusOverviewSection pipeline={pipeline} />
       </div>
-      <div className="flex flex-row gap-4 items-stretch">
+
+      {/* Configuration Section - Appears third */}
+      <div
+        className={cn(
+          'flex flex-row gap-4 items-stretch transition-all duration-750 ease-out',
+          showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+        )}
+      >
         <div className="flex flex-col gap-4 w-1/5">
           {/* Source */}
           <div className="text-center">
