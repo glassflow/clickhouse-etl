@@ -35,7 +35,7 @@ type config struct {
 	LogAddSource bool       `default:"false" split_words:"true"`
 	LogFilePath  string     `split_words:"true"`
 
-	ServerAddr            string        `default:":8080" split_words:"true"`
+	ServerAddr            string        `default:":8081" split_words:"true"`
 	ServerWriteTimeout    time.Duration `default:"15s" split_words:"true"`
 	ServerReadTimeout     time.Duration `default:"15s" split_words:"true"`
 	ServerIdleTimeout     time.Duration `default:"5m" split_words:"true"`
