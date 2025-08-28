@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
@@ -17,8 +16,8 @@ type IngestorRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	running map[string]component.Component
-	wg      sync.WaitGroup
+	component component.Component
+	c         chan error
 }
 
 func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner {
@@ -26,8 +25,8 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 		nc:  nc,
 		log: log,
 
-		running: make(map[string]component.Component),
-		wg:      sync.WaitGroup{},
+		component: nil,
+		c:         make(chan error, 1),
 	}
 }
 
@@ -61,7 +60,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		},
 	)
 
-	IngestorComponent, err := component.NewIngestorComponent(
+	component, err := component.NewIngestorComponent(
 		pipelineCfg.Ingestor,
 		topicName,
 		streamPublisher,
@@ -74,18 +73,13 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		return fmt.Errorf("create ingestor: %w", err)
 	}
 
-	i.running[outputStreamID] = IngestorComponent
-
-	i.wg.Add(1)
+	i.component = component
 
 	go func() {
-		defer i.wg.Done()
-
-		errCh := make(chan error, 1)
-		IngestorComponent.Start(ctx, errCh)
-		close(errCh)
-		for err := range errCh {
-			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName), slog.String("output stream", outputStreamID))
+		component.Start(ctx, i.c)
+		close(i.c)
+		for err := range i.c {
+			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName))
 		}
 	}()
 
@@ -93,18 +87,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 }
 
 func (i *IngestorRunner) Shutdown() {
-	if len(i.running) == 0 {
-		i.log.Info("No ingestor components running, nothing to shutdown")
-		return
+	if i.component != nil {
+		i.component.Stop()
 	}
-
-	for name, op := range i.running {
-		i.log.Info("Shutting down ingestor component", slog.String("name", name))
-		op.Stop(component.WithNoWait(true))
-		delete(i.running, name)
-	}
-
-	i.wg.Wait()
-
-	i.log.Info("Ingestor runner shutdown complete")
 }
