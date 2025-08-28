@@ -52,6 +52,7 @@ export interface ClickhouseDestinationStore extends ClickhouseDestinationProps, 
   }) => void
   resetDestinationState: () => void
   getIsDestinationMappingDirty: () => boolean
+  resetDestinationStore: () => void
 }
 
 export interface ClickhouseDestinationSlice {

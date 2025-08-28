@@ -28,6 +28,11 @@ interface Store
     CoreSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (operation: string, force?: boolean) => void
+
+  // Convenience methods for specific scenarios
+  resetForNewPipeline: (operation: string) => void
+  resetFormValidationStates: () => void
+  clearAllUserData: () => void
 }
 
 // Wrap your store with devtools middleware
@@ -50,44 +55,32 @@ const useActualStore = create<Store>()(
         const topicCount = getTopicCountForOperation(operation)
 
         if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
+          // Complete reset: Use individual store reset methods for comprehensive cleanup
+          console.log('🧹 Complete state reset for new pipeline creation')
+
+          // Reset individual stores using their dedicated reset methods
+          state.kafkaStore.resetKafkaStore()
+          state.topicsStore.resetTopicsStore()
+          state.deduplicationStore.resetDeduplicationStore()
+          state.joinStore.resetJoinStore()
+          state.clickhouseConnectionStore.resetClickhouseStore()
+          state.clickhouseDestinationStore.resetDestinationStore()
+          state.stepsStore.resetStepsStore()
+
+          // Reset core store with new operation
+          state.coreStore.enterCreateMode()
+          state.coreStore.setOperationsSelected({ operation })
+
+          // Set correct topic count for the operation
           set((state) => ({
-            coreStore: {
-              ...state.coreStore,
-              operationsSelected: {
-                operation: operation,
-              },
-              outboundEventPreview: {
-                events: [],
-              },
-              isDirty: false,
-            },
             topicsStore: {
               ...state.topicsStore,
-              topics: {},
               topicCount: topicCount,
-              availableTopics: state.topicsStore.availableTopics,
             },
-            deduplicationStore: {
-              ...state.deduplicationStore,
-              deduplicationConfigs: {},
-            },
-            joinStore: {
-              ...state.joinStore,
-              enabled: false,
-              type: 'temporal',
-              streams: [],
-            },
-            clickhouseDestination: {
-              scheme: '',
-              database: '',
-              table: '',
-              destinationColumns: [],
-              mapping: [],
-            },
-            activeStep: 'kafka-connection',
-            completedSteps: ['kafka-connection'],
           }))
         } else {
+          // Partial reset: Only change operation type
+          console.log('🔄 Partial state reset - operation change only')
           set((state) => ({
             coreStore: {
               ...state.coreStore,
@@ -101,6 +94,53 @@ const useActualStore = create<Store>()(
             },
           }))
         }
+      },
+
+      // Convenience method: Reset specifically for new pipeline creation
+      resetForNewPipeline: (operation: string) => {
+        console.log('🆕 Resetting state for new pipeline creation')
+        const state = get()
+
+        // Always do a complete reset for new pipelines
+        state.resetAllPipelineState(operation, true)
+
+        // Additional cleanup specific to new pipeline creation
+        Cookies.remove('isDirty')
+        state.coreStore.clearSaveHistory()
+      },
+
+      // Convenience method: Reset only form validation states
+      resetFormValidationStates: () => {
+        console.log('🔄 Resetting form validation states')
+        const state = get()
+
+        // Reset validation states without losing user data
+        state.kafkaStore.resetValidation()
+        state.topicsStore.resetValidation()
+        state.deduplicationStore.resetValidation()
+        state.joinStore.resetValidation()
+        state.clickhouseConnectionStore.resetValidation()
+        state.clickhouseDestinationStore.resetValidation()
+      },
+
+      // Convenience method: Clear all user data (nuclear option)
+      clearAllUserData: () => {
+        console.log('💣 Nuclear reset - clearing ALL user data')
+        const state = get()
+
+        // Reset all stores to initial state
+        state.kafkaStore.resetKafkaStore()
+        state.topicsStore.resetTopicsStore()
+        state.deduplicationStore.resetDeduplicationStore()
+        state.joinStore.resetJoinStore()
+        state.clickhouseConnectionStore.resetClickhouseStore()
+        state.clickhouseDestinationStore.resetDestinationStore()
+        state.stepsStore.resetStepsStore()
+        state.coreStore.enterCreateMode()
+
+        // Clear cookies and local storage
+        Cookies.remove('isDirty')
+        state.coreStore.clearSaveHistory()
       },
     }),
     {

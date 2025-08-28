@@ -68,7 +68,7 @@ const ConnectionCard = () => {
 
 // Client Component for handling searchParams
 function HomePageClient() {
-  const { topicsStore, kafkaStore, joinStore, coreStore, resetAllPipelineState } = useStore()
+  const { topicsStore, kafkaStore, joinStore, coreStore, resetForNewPipeline, resetAllPipelineState } = useStore()
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams?.get('showWarning') === 'true'
@@ -153,10 +153,8 @@ function HomePageClient() {
     setIsNavigating(true)
 
     try {
-      resetAllPipelineState(operation, true)
-      setOperationsSelected({
-        operation,
-      })
+      // Use the optimized reset method for new pipeline creation
+      resetForNewPipeline(operation)
       setPipelineName(configName)
 
       // Use provided pipeline ID or generate one
