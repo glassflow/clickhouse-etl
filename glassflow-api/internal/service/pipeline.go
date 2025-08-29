@@ -115,6 +115,10 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 		return fmt.Errorf("get pipeline for termination: %w", err)
 	}
 
+	if pipeline.Status.OverallStatus == models.PipelineStatusTerminated {
+		return ErrPipelineNotExists
+	}
+
 	// Set status to Terminating
 	pipeline.Status.OverallStatus = models.PipelineStatusTerminating
 
