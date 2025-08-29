@@ -24,14 +24,24 @@ export function HealthCheckDialog({
       </div>
 
       <p className="w-full text-left font-regular font-weight-[400] font-size-[16px] font-color-[var(--color-foreground-neutral-faded)]">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent consequat feugiat velit vel tempor. Sed vel
-        elit ultricies, tristique nisi sed, eleifend ipsum. Donec vitae diam odio. Ut congue lorem odio, in venenatis
-        diam pharetra ut. Proin odio tellus, gravida tristique diam ac, pharetra elementum justo. Nunc ante erat, dictum
-        a erat sed, ultricies mattis turpis. Nullam ut auctor orci. Nunc vitae dapibus elit. Fusce at iaculis erat, sed
-        faucibus nunc. Nunc id est eget quam vehicula cursus. Vestibulum luctus mi non lectus rhoncus fringilla. Integer
-        et ante fringilla, eleifend ligula ut, sodales est. Nulla ultricies ligula ut justo interdum, eget convallis
-        eros suscipit. Cras tincidunt libero vitae felis aliquam, in lobortis nisi tempus. Curabitur sit amet nulla
-        lorem.
+        <span className="text-normal-accent">
+          The GlassFlow UI is unable to connect to the back-end API. Please test the connection by clicking the button
+          below to ensure the back-end service is running and accessible.
+        </span>
+        <br />
+        <br />
+        <span className="text-normal-accent">
+          If the problem persists, please check our{' '}
+          <a
+            href="https://docs.glassflow.dev/getting-started/troubleshooting"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            troubleshooting guide
+          </a>{' '}
+          or contact support for assistance.
+        </span>
       </p>
 
       <div className="w-full flex items-center justify-between">
