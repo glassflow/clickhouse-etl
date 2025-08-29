@@ -151,8 +151,9 @@ export function Header() {
   // Replace individual modal states with a single modal state object
   const [modalProps, setModalProps] = useState({
     visible: false,
-    message: 'Returning to the first step will reset the pipeline! Are you sure you want to perform this action?',
-    title: 'Reset pipeline state',
+    message:
+      'Returning to the home page will discard current pipeline configuration. Are you sure you want to perform this action?',
+    title: 'Discard pipeline configuration',
     okButtonText: 'Yes',
     cancelButtonText: 'No',
     type: 'info' as 'info' | 'warning' | 'error',
@@ -183,7 +184,7 @@ export function Header() {
   }, [isMobileMenuOpen])
 
   const handleLogoClick = () => {
-    if (pathname !== '/home') {
+    if (pathname === '/pipelines/create') {
       setModalProps((prev) => ({ ...prev, visible: true }))
     }
   }

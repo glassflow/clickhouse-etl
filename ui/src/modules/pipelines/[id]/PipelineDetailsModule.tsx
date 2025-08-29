@@ -69,9 +69,18 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Hydrate the pipeline data when the pipeline configuration is loaded - copy pipeline data to stores
   // this does not connect to external services, it just copies the data to the stores
   useEffect(() => {
-    if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
-      enterViewMode(pipeline)
+    const hydrateData = async () => {
+      if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
+        try {
+          await enterViewMode(pipeline)
+        } catch (error) {
+          console.error('Failed to hydrate pipeline data:', error)
+          // The error will be handled by the stores' validation states
+        }
+      }
     }
+
+    hydrateData()
   }, [pipeline, enterViewMode, mode, actionState.isLoading, actionState.lastAction])
 
   // Sequential animation effect - show sections one by one

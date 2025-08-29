@@ -56,12 +56,12 @@ interface CoreStore extends CoreStoreProps {
   // New mode-related actions
   setMode: (mode: StoreMode) => void
   setBaseConfig: (config: Pipeline | undefined) => void
-  hydrateFromConfig: (config: Pipeline) => void
+  hydrateFromConfig: (config: Pipeline) => Promise<void>
   resetToInitial: () => void
   discardChanges: () => void
   enterCreateMode: () => void
   enterEditMode: (config: Pipeline) => void
-  enterViewMode: (config: Pipeline) => void
+  enterViewMode: (config: Pipeline) => Promise<void>
   isDirtyComparedToBase: () => boolean
   // New incremental state management actions
   setLastSavedConfig: (config: Pipeline | undefined) => void
@@ -69,10 +69,10 @@ interface CoreStore extends CoreStoreProps {
   getLastSavedConfig: () => Pipeline | undefined
   getSaveHistory: () => Pipeline[]
   clearSaveHistory: () => void
-  discardToLastSaved: () => void
+  discardToLastSaved: () => Promise<void>
   // New section-based hydration actions
-  hydrateSection: (section: string, config: Pipeline) => void
-  discardSection: (section: string) => void
+  hydrateSection: (section: string, config: Pipeline) => Promise<void>
+  discardSection: (section: string) => Promise<void>
   discardSections: (sections: string[]) => void
 }
 
@@ -181,7 +181,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       set((state) => ({
         coreStore: { ...state.coreStore, baseConfig: config },
       })),
-    hydrateFromConfig: (config: Pipeline) => {
+    hydrateFromConfig: async (config: Pipeline) => {
       set((state) => ({
         coreStore: {
           ...state.coreStore,
@@ -192,7 +192,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       }))
       // Use the new hydrateSection method for consistency
       const currentState = get()
-      currentState.coreStore.hydrateSection('all', config)
+      await currentState.coreStore.hydrateSection('all', config)
     },
     resetToInitial: () => {
       const state = get()
@@ -291,7 +291,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       const newState = get()
       newState.coreStore.hydrateFromConfig(config)
     },
-    enterViewMode: (config: Pipeline) => {
+    enterViewMode: async (config: Pipeline) => {
       set((state) => ({
         coreStore: {
           ...state.coreStore,
@@ -303,7 +303,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       }))
       // Hydrate the store with the config
       const newState = get()
-      newState.coreStore.hydrateFromConfig(config)
+      await newState.coreStore.hydrateFromConfig(config)
     },
     // Utility to compute dirty state by comparing draft vs base
     isDirtyComparedToBase: () => {
@@ -344,59 +344,83 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           lastSavedConfig: undefined,
         },
       })),
-    discardToLastSaved: () => {
+    discardToLastSaved: async () => {
       const state = get()
       const { lastSavedConfig } = state.coreStore
 
       if (lastSavedConfig) {
-        // Re-hydrate all slices from lastSavedConfig instead of baseConfig
-        state.coreStore.hydrateFromConfig(lastSavedConfig)
-        set((state) => ({
-          coreStore: { ...state.coreStore, isDirty: false },
-        }))
+        try {
+          // Re-hydrate all slices from lastSavedConfig instead of baseConfig
+          await state.coreStore.hydrateFromConfig(lastSavedConfig)
+          set((state) => ({
+            coreStore: { ...state.coreStore, isDirty: false },
+          }))
+        } catch (error) {
+          console.error('Failed to discard to last saved config:', error)
+          throw error
+        }
       }
     },
     // New section-based hydration methods
-    hydrateSection: (section: string, config: Pipeline) => {
-      switch (section) {
-        case 'kafka':
-          hydrateKafkaConnection(config)
-          break
-        case 'topics':
-          hydrateKafkaTopics(config)
-          break
-        case 'deduplication':
-          // Topics and deduplication are closely related, so hydrate both
-          hydrateKafkaTopics(config)
-          break
-        case 'join':
-          hydrateJoinConfiguration(config)
-          break
-        case 'clickhouse-connection':
-          hydrateClickhouseConnection(config)
-          break
-        case 'clickhouse-destination':
-          hydrateClickhouseDestination(config)
-          break
-        case 'all':
-          // Hydrate all sections (current behavior)
-          hydrateKafkaConnection(config)
-          hydrateKafkaTopics(config)
-          hydrateClickhouseConnection(config)
-          hydrateClickhouseDestination(config)
-          hydrateJoinConfiguration(config)
-          break
-        default:
-          console.warn(`Unknown section for hydration: ${section}`)
+    hydrateSection: async (section: string, config: Pipeline) => {
+      try {
+        switch (section) {
+          case 'kafka':
+            hydrateKafkaConnection(config)
+            break
+          case 'topics':
+            await hydrateKafkaTopics(config)
+            break
+          case 'deduplication':
+            // Topics and deduplication are closely related, so hydrate both
+            await hydrateKafkaTopics(config)
+            break
+          case 'join':
+            hydrateJoinConfiguration(config)
+            break
+          case 'clickhouse-connection':
+            hydrateClickhouseConnection(config)
+            break
+          case 'clickhouse-destination':
+            await hydrateClickhouseDestination(config)
+            break
+          case 'all':
+            // Hydrate all sections with proper sequencing
+            console.log('🔄 Starting pipeline hydration...')
+            hydrateKafkaConnection(config)
+            await hydrateKafkaTopics(config) // Wait for Kafka topics after connection is set
+            hydrateClickhouseConnection(config)
+            await hydrateClickhouseDestination(config) // This is also async
+            hydrateJoinConfiguration(config)
+            console.log('✅ Pipeline hydration completed successfully')
+            break
+          default:
+            console.warn(`Unknown section for hydration: ${section}`)
+        }
+      } catch (error) {
+        console.error(`❌ Hydration failed for section '${section}':`, error)
+        // Mark relevant stores as invalidated on hydration failure
+        if (error instanceof Error && error.message.includes('Kafka')) {
+          const { useStore } = await import('./index')
+          const fullState = useStore.getState()
+          fullState.kafkaStore.markAsInvalidated('hydration-failed')
+          fullState.topicsStore.markAsInvalidated('hydration-failed')
+        }
+        throw error
       }
     },
-    discardSection: (section: string) => {
+    discardSection: async (section: string) => {
       const state = get()
       const { lastSavedConfig } = state.coreStore
 
       if (lastSavedConfig) {
-        // Hydrate only the specific section from lastSavedConfig
-        state.coreStore.hydrateSection(section, lastSavedConfig)
+        try {
+          // Hydrate only the specific section from lastSavedConfig
+          await state.coreStore.hydrateSection(section, lastSavedConfig)
+        } catch (error) {
+          console.error(`Failed to discard section '${section}':`, error)
+          throw error
+        }
       } else {
         console.warn('No lastSavedConfig available for section discard')
       }

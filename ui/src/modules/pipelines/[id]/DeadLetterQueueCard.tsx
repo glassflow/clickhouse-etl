@@ -163,7 +163,7 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
 
   if (error) {
     return (
-      <Card className="border-[var(--color-border-neutral)] radius-large py-4 px-6 mb-4 w-2/3">
+      <Card className="border-[var(--color-border-neutral)] radius-large py-4 px-6 mb-4 w-full">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2 items-center">
             <div className="flex flex-start flex-row gap-2 items-center">
@@ -172,7 +172,7 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
             </div>
             <div className="w-6 h-6" /> {/* Placeholder for expand button */}
           </div>
-          <div className="text-sm text-red-500 animate-fadeIn">Error: {error}</div>
+          <div className="text-sm text-muted-foreground animate-fadeIn">Missing DLQ data: {error}</div>
         </div>
       </Card>
     )

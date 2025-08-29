@@ -95,6 +95,14 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         onPipelineDeleted?.()
       } else if (result && onPipelineUpdate) {
         onPipelineUpdate(result as Pipeline)
+      } else if (action === 'rename' && onPipelineUpdate) {
+        // For rename action, if no result is returned, create updated pipeline object manually
+        // This ensures the UI is updated immediately with the new name
+        const updatedPipeline = {
+          ...pipeline,
+          name: payload?.name || pipeline.name,
+        }
+        onPipelineUpdate(updatedPipeline)
       }
     } catch (error) {
       console.error(`Failed to ${action} pipeline:`, error)
