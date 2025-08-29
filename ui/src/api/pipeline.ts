@@ -37,7 +37,7 @@ const ensureApiV1Suffix = (baseUrl: string): string => {
 
 const runtimeEnv = getRuntimeEnv()
 const API_URL = ensureApiV1Suffix(
-  runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080',
+  runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8081',
 )
 
 export interface PipelineResponse {
