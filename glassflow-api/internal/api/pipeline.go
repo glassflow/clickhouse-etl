@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -459,7 +460,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	}
 
 	mc := models.MapperConfig{
-		Type:        models.SchemaMapperJSONToCHType,
+		Type:        internal.SchemaMapperJSONToCHType,
 		Streams:     streamsCfg,
 		SinkMapping: sinkCfg,
 	}
@@ -554,12 +555,12 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 
 			Sources []joinSource `json:"sources"`
 		}{
-			Kind:    models.TemporalJoinType,
+			Kind:    internal.TemporalJoinType,
 			Enabled: p.Join.Enabled,
 			Sources: joinSources,
 		},
 		Sink: clickhouseSink{
-			Kind:                        models.ClickHouseSinkType,
+			Kind:                        internal.ClickHouseSinkType,
 			Host:                        p.Sink.ClickHouseConnectionParams.Host,
 			Port:                        p.Sink.ClickHouseConnectionParams.Port,
 			HttpPort:                    p.Sink.ClickHouseConnectionParams.HttpPort,

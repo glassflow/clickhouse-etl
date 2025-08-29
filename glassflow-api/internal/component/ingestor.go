@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -34,7 +35,7 @@ func NewIngestorComponent(
 	doneCh chan struct{},
 	log *slog.Logger,
 ) (*IngestorComponent, error) {
-	if config.Type != models.KafkaIngestorType {
+	if config.Type != internal.KafkaIngestorType {
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
 

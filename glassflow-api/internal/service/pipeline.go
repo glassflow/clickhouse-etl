@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
@@ -71,7 +72,7 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 	cfg.Status = models.NewPipelineHealth(cfg.ID, cfg.Name)
 	if p.orchestrator.GetType() == "local" {
 		// Since we don't have separate operator to update status
-		cfg.Status.OverallStatus = models.PipelineStatusRunning
+		cfg.Status.OverallStatus = models.PipelineStatus(internal.PipelineStatusRunning)
 	}
 
 	err = p.orchestrator.SetupPipeline(ctx, cfg)
@@ -116,7 +117,7 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 	}
 
 	// Set status to Terminating
-	pipeline.Status.OverallStatus = models.PipelineStatusTerminating
+	pipeline.Status.OverallStatus = models.PipelineStatus(internal.PipelineStatusTerminating)
 
 	// Update status in database
 	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)

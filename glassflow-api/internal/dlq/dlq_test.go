@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -235,7 +236,7 @@ func TestFetchDLQMessages_ValidationErrors(t *testing.T) {
 		{
 			name:      "batch size too large",
 			stream:    "test-stream",
-			batchSize: models.DLQMaxBatchSize + 1,
+			batchSize: internal.DLQMaxBatchSize + 1,
 			wantErr:   "DLQ batch size cannot be greater than",
 		},
 	}

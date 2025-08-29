@@ -11,6 +11,7 @@ import (
 
 	"github.com/cucumber/godog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -114,7 +115,7 @@ func (s *SinkTestSuite) aClickHouseClientWithConfig(dbName, tableName string) er
 		Secure:   false,
 	}
 
-	s.sinkConfig.Type = models.ClickHouseSinkType
+	s.sinkConfig.Type = internal.ClickHouseSinkType
 
 	return nil
 }

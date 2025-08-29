@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -19,13 +20,13 @@ func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
 
 	batchSize, err := strconv.Atoi(r.URL.Query().Get("batch_size"))
 	if err != nil || batchSize <= 0 {
-		batchSize = service.DLQDefaultBatchSize
+		batchSize = internal.DLQDefaultBatchSize
 		h.log.Debug("using default: ", slog.Int("batch_size", batchSize))
 	}
 
 	dlqBatch, err := models.NewDLQBatchSize(batchSize)
 	if err != nil {
-		jsonError(w, http.StatusUnprocessableEntity, fmt.Sprintf("batch size cannot be greater than %d", models.DLQMaxBatchSize), nil)
+		jsonError(w, http.StatusUnprocessableEntity, fmt.Sprintf("batch size cannot be greater than %d", internal.DLQMaxBatchSize), nil)
 	}
 
 	params := mux.Vars(r)

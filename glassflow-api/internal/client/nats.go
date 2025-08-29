@@ -8,21 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-)
-
-const (
-	GlassflowStreamPrefix = "gf-stream"
-	// TODO: don't define same consts at multiple places
-	GlassflowDLQSuffix    = "-DLQ"
-	NATSCleanupTimeout    = 5 * time.Second
-	NATSConnectionTimeout = 1 * time.Minute
-
-	NATSConnectionRetries = 12
-	NATSInitialRetryDelay = 1 * time.Second
-	NATSMaxRetryDelay     = 30 * time.Second
-	NATSMaxConnectionWait = 2 * time.Minute
 )
 
 type NATSClientOption func(*NATSClient)
@@ -46,24 +34,24 @@ func NewNATSClient(ctx context.Context, url string, opts ...NATSClientOption) (*
 		err error
 	)
 
-	connCtx, cancel := context.WithTimeout(ctx, NATSMaxConnectionWait)
+	connCtx, cancel := context.WithTimeout(ctx, internal.NATSMaxConnectionWait)
 	defer cancel()
 
-	retryDelay := NATSInitialRetryDelay
+	retryDelay := internal.NATSInitialRetryDelay
 
-	for i := range NATSConnectionRetries {
+	for i := range internal.NATSConnectionRetries {
 		select {
 		case <-connCtx.Done():
-			return nil, fmt.Errorf("timeout after %v waiting to connect to NATS at %s", NATSMaxConnectionWait, url)
+			return nil, fmt.Errorf("timeout after %v waiting to connect to NATS at %s", internal.NATSMaxConnectionWait, url)
 		default:
 		}
 
-		nc, err = nats.Connect(url, nats.Timeout(NATSConnectionTimeout))
+		nc, err = nats.Connect(url, nats.Timeout(internal.NATSConnectionTimeout))
 		if err == nil {
 			break
 		}
 
-		if i < NATSConnectionRetries-1 {
+		if i < internal.NATSConnectionRetries-1 {
 			select {
 			case <-time.After(retryDelay):
 				log.Printf("Retrying connection to NATS to %s in %v...", url, retryDelay)
@@ -72,7 +60,7 @@ func NewNATSClient(ctx context.Context, url string, opts ...NATSClientOption) (*
 				return nil, fmt.Errorf("timeout during retry delay for NATS at %s: %w", url, connCtx.Err())
 			}
 			// Exponential backoff
-			retryDelay = min(time.Duration(float64(retryDelay)*1.5), NATSMaxRetryDelay)
+			retryDelay = min(time.Duration(float64(retryDelay)*1.5), internal.NATSMaxRetryDelay)
 		}
 	}
 	if err != nil {
@@ -97,7 +85,7 @@ func NewNATSClient(ctx context.Context, url string, opts ...NATSClientOption) (*
 }
 
 func (n *NATSClient) CleanupOldResources(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, NATSCleanupTimeout)
+	ctx, cancel := context.WithTimeout(ctx, internal.NATSCleanupTimeout)
 	defer cancel()
 
 	streamIterator := n.js.ListStreams(nats.Context(ctx))
@@ -108,7 +96,7 @@ func (n *NATSClient) CleanupOldResources(ctx context.Context) error {
 	for s := range streamIterator.Info() {
 		name := s.Config.Name
 
-		if !strings.Contains(name, GlassflowStreamPrefix) && !strings.Contains(name, GlassflowDLQSuffix) {
+		if !strings.Contains(name, internal.GlassflowStreamPrefix) && !strings.Contains(name, internal.DLQSuffix) {
 			continue
 		}
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
@@ -42,7 +43,7 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 	if batchSize <= 0 {
 		return nil, fmt.Errorf("batch size must be positive")
 	}
-	if batchSize > models.DLQMaxBatchSize {
+	if batchSize > internal.DLQMaxBatchSize {
 		return nil, models.ErrDLQMaxBatchSize
 	}
 

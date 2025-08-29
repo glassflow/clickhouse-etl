@@ -4,17 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-)
 
-const (
-	DLQMaxBatchSize = 100
-	DLQSuffix       = "DLQ"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
 // GetDLQStreamName generates a unique DLQ stream name for a pipeline
 func GetDLQStreamName(pipelineID string) string {
 	hash := GenerateStreamHash(pipelineID)
-	return fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, DLQSuffix)
+	return fmt.Sprintf("%s-%s-%s", internal.PipelineStreamPrefix, hash, internal.DLQSuffix)
 }
 
 // GetDLQStreamSubjectName generates a NATS subject name for the DLQ stream
@@ -59,13 +56,13 @@ type DLQBatchSize struct {
 	Int int
 }
 
-var ErrDLQMaxBatchSize = fmt.Errorf("DLQ batch size cannot be greater than %d", DLQMaxBatchSize)
+var ErrDLQMaxBatchSize = fmt.Errorf("DLQ batch size cannot be greater than %d", internal.DLQMaxBatchSize)
 
 func NewDLQBatchSize(n int) (zero DLQBatchSize, _ error) {
 	switch {
 	case n == 0:
-		return DLQBatchSize{Int: DLQMaxBatchSize}, nil
-	case n > DLQMaxBatchSize:
+		return DLQBatchSize{Int: internal.DLQMaxBatchSize}, nil
+	case n > internal.DLQMaxBatchSize:
 		return zero, ErrDLQMaxBatchSize
 	default:
 		return DLQBatchSize{

@@ -5,20 +5,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/IBM/sarama"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-)
-
-const (
-	ConsumerGroupName  = "glassflow-consumer-group"
-	ClientID           = "glassflow-consumer"
-	DefaultDialTimeout = 5000 * time.Millisecond
-
-	MechanismSHA256 = "SCRAM-SHA-256"
-	MechanismSHA512 = "SCRAM-SHA-512"
 )
 
 type Message struct {
@@ -39,8 +30,8 @@ type Consumer interface {
 
 func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) *sarama.Config {
 	cfg := sarama.NewConfig()
-	cfg.Net.DialTimeout = DefaultDialTimeout
-	cfg.ClientID = ClientID
+	cfg.Net.DialTimeout = internal.DefaultDialTimeout
+	cfg.ClientID = internal.ClientID
 
 	if conn.SASLUsername != "" {
 		cfg.Net.SASL.Enable = true
@@ -49,11 +40,11 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 		cfg.Net.SASL.Password = conn.SASLPassword
 
 		switch conn.SASLMechanism {
-		case MechanismSHA256:
+		case internal.MechanismSHA256:
 			//nolint: exhaustruct // optional config
 			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
 			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
-		case MechanismSHA512:
+		case internal.MechanismSHA512:
 			//nolint: exhaustruct // optional config
 			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
 			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
@@ -87,7 +78,7 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 		cfg.Net.TLS.Enable = conn.SASLTLSEnable
 	}
 
-	if topic.ConsumerGroupInitialOffset == models.InitialOffsetEarliest.String() {
+	if topic.ConsumerGroupInitialOffset == internal.InitialOffsetEarliest {
 		cfg.Consumer.Offsets.Initial = sarama.OffsetOldest
 	} else {
 		cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
@@ -122,7 +113,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 	cfg := newConnectionConfig(connectionParams, topic)
 	cGroup, err := sarama.NewConsumerGroup(
 		connectionParams.Brokers,
-		ConsumerGroupName,
+		internal.ConsumerGroupName,
 		cfg,
 	)
 	if err != nil {
@@ -196,7 +187,7 @@ func (c *groupConsumer) Commit(ctx context.Context, msg Message) error {
 }
 
 func (c *groupConsumer) Close() error {
-	c.log.Info("Closing Kafka consumer group", slog.String("group", ConsumerGroupName))
+	c.log.Info("Closing Kafka consumer group", slog.String("group", internal.ConsumerGroupName))
 	close(c.fetchCh)
 	close(c.commitCh)
 	close(c.closeCh)

@@ -1,6 +1,10 @@
 package models
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+)
 
 func TestRoleValid(t *testing.T) {
 	tests := []struct {
@@ -28,10 +32,10 @@ func TestRoleString(t *testing.T) {
 		role Role
 		want string
 	}{
-		{RoleSink, "sink"},
-		{RoleJoin, "join"},
-		{RoleIngestor, "ingestor"},
-		{RoleETL, "ETL Pipeline"},
+		{internal.RoleSink, "sink"},
+		{internal.RoleJoin, "join"},
+		{internal.RoleIngestor, "ingestor"},
+		{internal.RoleETL, "ETL Pipeline"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.role.String(), func(t *testing.T) {

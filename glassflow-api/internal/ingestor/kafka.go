@@ -12,16 +12,11 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/nats-io/nats.go"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kafka"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-)
-
-const (
-	initialRetryDelay = 500 * time.Millisecond
-	maxRetryDelay     = 5 * time.Second
-	maxRetryWait      = 10 * time.Minute
 )
 
 var (
@@ -84,7 +79,7 @@ func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, n
 func (k *KafkaIngestor) PushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) {
 	k.log.Error("Pushing message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
 
-	data, err := models.NewDLQMessage(models.RoleIngestor.String(), err.Error(), orgMsg).ToJSON()
+	data, err := models.NewDLQMessage(internal.RoleIngestor, err.Error(), orgMsg).ToJSON()
 	if err != nil {
 		k.log.Error("Failed to convert DLQ message to JSON", slog.Any("error", err), slog.String("topic", k.topic.Name))
 		return
@@ -225,7 +220,7 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 	k.log.Info("Starting Kafka ingestor", slog.String("topic", k.topic.Name))
 
 	startTime := time.Now()
-	retryDelay := initialRetryDelay
+	retryDelay := internal.IngestorInitialRetryDelay
 
 	for {
 		msg, err := k.consumer.Fetch(cancelCtx)
@@ -241,11 +236,11 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 			case <-time.After(retryDelay):
 			}
 
-			if time.Since(startTime) > maxRetryWait {
+			if time.Since(startTime) > internal.IngestorMaxRetryWait {
 				return fmt.Errorf("max retry wait time exceeded: %w", err)
 			}
 
-			retryDelay = min(time.Duration(float64(retryDelay)*1.5), maxRetryDelay)
+			retryDelay = min(time.Duration(float64(retryDelay)*1.5), internal.IngestorMaxRetryDelay)
 			continue
 		}
 

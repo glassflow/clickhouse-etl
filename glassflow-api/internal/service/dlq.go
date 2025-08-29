@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
-
-const DLQSuffix = "DLQ"
-const DLQDefaultBatchSize = 1
 
 type DLQ interface {
 	ConsumeDLQ(ctx context.Context, pid string, batchSize models.DLQBatchSize) ([]models.DLQMessage, error)
@@ -37,7 +35,7 @@ var (
 // acknowledged messages will be lost. Only a dirty solution for now,
 // must be changed to a streaming API in future
 func (d *DLQImpl) ConsumeDLQ(ctx context.Context, pid string, batchSize models.DLQBatchSize) ([]models.DLQMessage, error) {
-	dlqStream := fmt.Sprintf("%s-%s", pid, DLQSuffix)
+	dlqStream := fmt.Sprintf("%s-%s", pid, internal.DLQSuffix)
 
 	batch, err := d.client.FetchDLQMessages(ctx, dlqStream, batchSize.Int)
 	if err != nil {
@@ -52,7 +50,7 @@ func (d *DLQImpl) ConsumeDLQ(ctx context.Context, pid string, batchSize models.D
 }
 
 func (d *DLQImpl) GetDLQState(ctx context.Context, pid string) (zero models.DLQState, _ error) {
-	dlqStream := fmt.Sprintf("%s-%s", pid, DLQSuffix)
+	dlqStream := fmt.Sprintf("%s-%s", pid, internal.DLQSuffix)
 
 	state, err := d.client.GetDLQState(ctx, dlqStream)
 	if err != nil {

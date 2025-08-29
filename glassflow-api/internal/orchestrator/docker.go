@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -35,8 +35,6 @@ func NewLocalOrchestrator(
 		log: log,
 	}
 }
-
-const ShutdownTimeout = 30 * time.Second
 
 var _ service.Orchestrator = (*LocalOrchestrator)(nil)
 
@@ -151,7 +149,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		ctx,
 		sinkConsumerStream,
 		models.SinkComponentConfig{
-			Type: models.ClickHouseSinkType,
+			Type: internal.ClickHouseSinkType,
 			Batch: models.BatchConfig{
 				MaxBatchSize: pi.Sink.Batch.MaxBatchSize,
 				MaxDelayTime: pi.Sink.Batch.MaxDelayTime,
