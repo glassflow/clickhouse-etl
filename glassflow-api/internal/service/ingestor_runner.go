@@ -16,15 +16,23 @@ type IngestorRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
+	topicName    string
+	pipelineCfg  models.PipelineConfig
+	schemaMapper schema.Mapper
+
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner {
+func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) *IngestorRunner {
 	return &IngestorRunner{
 		nc:  nc,
 		log: log,
+
+		topicName:    topicName,
+		pipelineCfg:  pipelineCfg,
+		schemaMapper: schemaMapper,
 
 		component: nil,
 		c:         make(chan error, 1),
@@ -32,14 +40,14 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient) *IngestorRunner 
 	}
 }
 
-func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) error {
-	if topicName == "" {
+func (i *IngestorRunner) Start(ctx context.Context) error {
+	if i.topicName == "" {
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
 	var outputStreamID string
-	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
-		if topic.Name == topicName {
+	for _, topic := range i.pipelineCfg.Ingestor.KafkaTopics {
+		if topic.Name == i.topicName {
 			outputStreamID = topic.OutputStreamID
 		}
 	}
@@ -58,16 +66,16 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 	dlqStreamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: models.GetDLQStreamSubjectName(pipelineCfg.ID),
+			Subject: models.GetDLQStreamSubjectName(i.pipelineCfg.ID),
 		},
 	)
 
 	component, err := component.NewIngestorComponent(
-		pipelineCfg.Ingestor,
-		topicName,
+		i.pipelineCfg.Ingestor,
+		i.topicName,
 		streamPublisher,
 		dlqStreamPublisher,
-		schemaMapper,
+		i.schemaMapper,
 		i.doneCh,
 		i.log,
 	)
@@ -82,7 +90,7 @@ func (i *IngestorRunner) Start(ctx context.Context, topicName string, pipelineCf
 		component.Start(ctx, i.c)
 		close(i.c)
 		for err := range i.c {
-			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", topicName))
+			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", i.topicName))
 		}
 	}()
 

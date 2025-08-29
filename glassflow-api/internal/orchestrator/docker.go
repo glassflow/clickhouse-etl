@@ -17,9 +17,9 @@ type LocalOrchestrator struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	ingestorRunners []*service.IngestorRunner
-	joinRunner      *service.JoinRunner
-	sinkRunner      *service.SinkRunner
+	ingestorRunners []service.Runner
+	joinRunner      service.Runner
+	sinkRunner      service.Runner
 
 	id string
 	m  sync.Mutex
@@ -87,9 +87,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	d.log = d.log.With("pipeline_id", d.id)
 
-	d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc)
-	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
-
 	for _, t := range pi.Ingestor.KafkaTopics {
 		streamName := t.OutputStreamID
 		subjectName := t.OutputStreamSubject
@@ -106,12 +103,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		sinkConsumerStream = pi.Sink.StreamID
 
 		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
-		ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc)
+		ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
+			schemaMapper)
 
-		err = ingestorRunner.Start(
-			ctx, t.Name, *pi,
-			schemaMapper,
-		)
+		err = ingestorRunner.Start(ctx)
 		if err != nil {
 			return fmt.Errorf("start ingestor for topic %s: %w", t.Name, err)
 		}
@@ -138,15 +133,15 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			leftInputStreamName = pi.Join.Sources[1].StreamID
 			rightInputStreamName = pi.Join.Sources[0].StreamID
 		}
-
-		err = d.joinRunner.Start(ctx, leftInputStreamName, rightInputStreamName, sinkConsumerStream, pi.Join, schemaMapper)
+		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, leftInputStreamName, rightInputStreamName, sinkConsumerStream,
+			pi.Join, schemaMapper)
+		err = d.joinRunner.Start(ctx)
 		if err != nil {
 			return fmt.Errorf("setup join component: %w", err)
 		}
 	}
 
-	err = d.sinkRunner.Start(
-		ctx,
+	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc,
 		sinkConsumerStream,
 		models.SinkComponentConfig{
 			Type: internal.ClickHouseSinkType,
@@ -158,6 +153,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		},
 		schemaMapper,
 	)
+
+	err = d.sinkRunner.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("start sink: %w", err)
 	}

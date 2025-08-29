@@ -17,15 +17,27 @@ type JoinRunner struct {
 	log *slog.Logger
 	nc  *client.NATSClient
 
+	leftInputStreamName  string
+	rightInputStreamName string
+	outputStream         string
+	joinCfg              models.JoinComponentConfig
+	schemaMapper         schema.Mapper
+
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
+func NewJoinRunner(log *slog.Logger, nc *client.NATSClient, leftInputStreamName, rightInputStreamName string, outputStream string, joinCfg models.JoinComponentConfig, schemaMapper schema.Mapper) *JoinRunner {
 	return &JoinRunner{
 		nc:  nc,
 		log: log,
+
+		leftInputStreamName:  leftInputStreamName,
+		rightInputStreamName: rightInputStreamName,
+		outputStream:         outputStream,
+		joinCfg:              joinCfg,
+		schemaMapper:         schemaMapper,
 
 		component: nil,
 		c:         make(chan error, 1),
@@ -33,10 +45,10 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient) *JoinRunner {
 	}
 }
 
-func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputStreamName string, outputStream string, joinCfg models.JoinComponentConfig, schemaMapper schema.Mapper) error {
+func (j *JoinRunner) Start(ctx context.Context) error {
 	var mapper schema.JsonToClickHouseMapper
 
-	switch sm := schemaMapper.(type) {
+	switch sm := j.schemaMapper.(type) {
 	case *schema.JsonToClickHouseMapper:
 		mapper = *sm
 	default:
@@ -61,24 +73,24 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 	rightStreamName = mapper.GetRightStream()
 
 	leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-		NatsStream:   leftInputStreamName,
+		NatsStream:   j.leftInputStreamName,
 		NatsConsumer: "leftStreamConsumer",
-		NatsSubject:  models.GetNATSSubjectName(leftInputStreamName),
+		NatsSubject:  models.GetNATSSubjectName(j.leftInputStreamName),
 	})
 	if err != nil {
 		return fmt.Errorf("create left consumer: %w", err)
 	}
 
 	rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-		NatsStream:   rightInputStreamName,
+		NatsStream:   j.rightInputStreamName,
 		NatsConsumer: "rightStreamConsumer",
-		NatsSubject:  models.GetNATSSubjectName(rightInputStreamName),
+		NatsSubject:  models.GetNATSSubjectName(j.rightInputStreamName),
 	})
 	if err != nil {
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 
-	leftTTL, err := schemaMapper.GetLeftStreamTTL()
+	leftTTL, err := j.schemaMapper.GetLeftStreamTTL()
 	if err != nil {
 		return fmt.Errorf("get left stream TTL: %w", err)
 	}
@@ -87,7 +99,7 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 		ctx,
 		j.nc.JetStream(),
 		kv.KeyValueStoreConfig{
-			StoreName: leftInputStreamName,
+			StoreName: j.leftInputStreamName,
 			TTL:       leftTTL,
 		},
 	)
@@ -97,7 +109,7 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 		return fmt.Errorf("create left buffer: %w", err)
 	}
 
-	rightTTL, err := schemaMapper.GetRightStreamTTL()
+	rightTTL, err := j.schemaMapper.GetRightStreamTTL()
 	if err != nil {
 		return fmt.Errorf("get right stream TTL: %w", err)
 	}
@@ -106,7 +118,7 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 		ctx,
 		j.nc.JetStream(),
 		kv.KeyValueStoreConfig{
-			StoreName: rightInputStreamName,
+			StoreName: j.rightInputStreamName,
 			TTL:       rightTTL,
 		})
 	if err != nil {
@@ -115,15 +127,15 @@ func (j *JoinRunner) Start(ctx context.Context, leftInputStreamName, rightInputS
 	}
 
 	resultsPublisher := stream.NewNATSPublisher(j.nc.JetStream(), stream.PublisherConfig{
-		Subject: models.GetNATSSubjectName(outputStream),
+		Subject: models.GetNATSSubjectName(j.outputStream),
 	})
 
 	component, err := component.NewJoinComponent(
-		joinCfg,
+		j.joinCfg,
 		leftConsumer,
 		rightConsumer,
 		resultsPublisher,
-		schemaMapper,
+		j.schemaMapper,
 		leftBuffer,
 		rightBuffer,
 		leftStreamName,
