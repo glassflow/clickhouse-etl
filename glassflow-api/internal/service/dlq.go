@@ -50,7 +50,7 @@ func (d *DLQImpl) ConsumeDLQ(ctx context.Context, pid string, batchSize models.D
 }
 
 func (d *DLQImpl) GetDLQState(ctx context.Context, pid string) (zero models.DLQState, _ error) {
-	dlqStream := fmt.Sprintf("%s-%s", pid, internal.DLQSuffix)
+	dlqStream := models.GetDLQStreamName(pid)
 
 	state, err := d.client.GetDLQState(ctx, dlqStream)
 	if err != nil {
