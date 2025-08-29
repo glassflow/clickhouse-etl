@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
@@ -35,7 +34,7 @@ var (
 // acknowledged messages will be lost. Only a dirty solution for now,
 // must be changed to a streaming API in future
 func (d *DLQImpl) ConsumeDLQ(ctx context.Context, pid string, batchSize models.DLQBatchSize) ([]models.DLQMessage, error) {
-	dlqStream := fmt.Sprintf("%s-%s", pid, internal.DLQSuffix)
+	dlqStream := models.GetDLQStreamName(pid)
 
 	batch, err := d.client.FetchDLQMessages(ctx, dlqStream, batchSize.Int)
 	if err != nil {
