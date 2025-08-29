@@ -8,35 +8,12 @@ import (
 	"slices"
 	"strings"
 	"time"
-)
 
-const (
-	DefaultSubjectName = "input"
-
-	KafkaIngestorType        = "kafka"
-	TemporalJoinType         = "temporal"
-	SchemaMapperJSONToCHType = "jsonToClickhouse"
-	ClickHouseSinkType       = "clickhouse"
-)
-
-// Stream naming constants
-const (
-	// Maximum length for NATS stream names (NATS has a limit, typically around 32 chars)
-	MaxStreamNameLength = 32
-	// Prefix for pipeline-specific streams
-	PipelineStreamPrefix = "gf"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
 // PipelineStatus represents the overall status of a pipeline
 type PipelineStatus string
-
-const (
-	PipelineStatusCreated     PipelineStatus = "Created"
-	PipelineStatusRunning     PipelineStatus = "Running"
-	PipelineStatusTerminating PipelineStatus = "Terminating"
-	PipelineStatusTerminated  PipelineStatus = "Terminated"
-	PipelineStatusFailed      PipelineStatus = "Failed"
-)
 
 // PipelineHealth represents the health status of a pipeline and its components
 type PipelineHealth struct {
@@ -88,11 +65,6 @@ type KafkaConnectionParamsConfig struct {
 }
 
 type ConsumerGroupOffset string
-
-const (
-	InitialOffsetEarliest ConsumerGroupOffset = "earliest"
-	InitialOffsetLatest   ConsumerGroupOffset = "latest"
-)
 
 func (o ConsumerGroupOffset) String() string {
 	return string(o)
@@ -169,17 +141,17 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 	}
 	for i, kt := range topics {
 		switch strings.ToLower(kt.ConsumerGroupInitialOffset) {
-		case InitialOffsetEarliest.String():
-		case InitialOffsetLatest.String():
+		case internal.InitialOffsetEarliest:
+		case internal.InitialOffsetLatest:
 		case "":
-			topics[i].ConsumerGroupInitialOffset = InitialOffsetEarliest.String()
+			topics[i].ConsumerGroupInitialOffset = internal.InitialOffsetEarliest
 		default:
 			return zero, PipelineConfigError{Msg: "invalid consumer_group_initial_offset; allowed values: `earliest` or `latest`"}
 		}
 	}
 
 	return IngestorComponentConfig{
-		Type:     KafkaIngestorType,
+		Type:     internal.KafkaIngestorType,
 		Provider: provider,
 		KafkaConnectionParams: KafkaConnectionParamsConfig{
 			Brokers:       conn.Brokers,
@@ -211,34 +183,27 @@ type JoinComponentConfig struct {
 
 type JoinOrder string
 
-const (
-	JoinLeft  JoinOrder = "left"
-	JoinRight JoinOrder = "right"
-)
-
 func (jo JoinOrder) String() string {
 	return string(jo)
 }
 
 func NewJoinOrder(s string) (zero JoinOrder, _ error) {
 	switch s {
-	case JoinLeft.String():
-		return JoinLeft, nil
-	case JoinRight.String():
-		return JoinRight, nil
+	case internal.JoinLeft:
+		return JoinOrder(internal.JoinLeft), nil
+	case internal.JoinRight:
+		return JoinOrder(internal.JoinRight), nil
 	default:
 		return zero, fmt.Errorf("unsupported join order")
 	}
 }
 
-const MaxStreamsSupportedWithJoin = 2
-
 func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinComponentConfig, _ error) {
-	if kind != strings.ToLower(strings.TrimSpace(TemporalJoinType)) {
+	if kind != strings.ToLower(strings.TrimSpace(internal.TemporalJoinType)) {
 		return zero, PipelineConfigError{Msg: "invalid join type; only temporal joins are supported"}
 	}
 
-	if len(sources) != MaxStreamsSupportedWithJoin {
+	if len(sources) != internal.MaxStreamsSupportedWithJoin {
 		return zero, PipelineConfigError{Msg: "join component must have two distinct sources"}
 	}
 
@@ -270,7 +235,7 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinC
 
 	return JoinComponentConfig{
 		Sources: sources,
-		Type:    TemporalJoinType,
+		Type:    internal.TemporalJoinType,
 		Enabled: true,
 	}, nil
 }
@@ -349,7 +314,7 @@ func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConf
 	}
 
 	return SinkComponentConfig{
-		Type:     ClickHouseSinkType,
+		Type:     internal.ClickHouseSinkType,
 		StreamID: args.StreamID,
 		Batch: BatchConfig{
 			MaxBatchSize: args.MaxBatchSize,
@@ -381,23 +346,23 @@ type PipelineConfig struct {
 }
 
 func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
-	transformation := IngestTransformation
+	transformation := internal.IngestTransformation
 
 	if pc.Join.Enabled {
-		transformation = JoinTransformation
+		transformation = internal.JoinTransformation
 	}
 
 	for _, t := range pc.Ingestor.KafkaTopics {
 		if t.Deduplication.Enabled {
 			if pc.Join.Enabled {
-				transformation = DedupJoinTransformation
+				transformation = internal.DedupJoinTransformation
 			} else {
-				transformation = DedupTransformation
+				transformation = internal.DedupTransformation
 			}
 		}
 	}
 
-	status := PipelineStatusCreated
+	status := PipelineStatus(internal.PipelineStatusCreated)
 	if pc.Status.OverallStatus != "" {
 		status = pc.Status.OverallStatus
 	}
@@ -405,8 +370,8 @@ func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
 	return ListPipelineConfig{
 		ID:             pc.ID,
 		Name:           pc.Name,
-		Transformation: transformation,
-		CreatedAt:      pc.CreatedAt,		
+		Transformation: TransformationType(transformation),
+		CreatedAt:      pc.CreatedAt,
 		Status:         status,
 	}
 }
@@ -415,18 +380,11 @@ type ListPipelineConfig struct {
 	ID             string             `json:"pipeline_id"`
 	Name           string             `json:"name"`
 	Transformation TransformationType `json:"transformation_type"`
-	CreatedAt      time.Time          `json:"created_at"`	
+	CreatedAt      time.Time          `json:"created_at"`
 	Status         PipelineStatus     `json:"status"`
 }
 
 type TransformationType string
-
-const (
-	JoinTransformation      TransformationType = "Join"
-	DedupJoinTransformation TransformationType = "Join & Deduplication"
-	DedupTransformation     TransformationType = "Deduplication"
-	IngestTransformation    TransformationType = "Ingest Only"
-)
 
 type PipelineConfigError struct {
 	Msg string
@@ -494,7 +452,7 @@ func (d JSONDuration) Duration() time.Duration {
 
 func GetJoinedStreamName(pipelineID string) string {
 	hash := GenerateStreamHash(pipelineID)
-	return fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, "joined")
+	return fmt.Sprintf("%s-%s-%s", internal.PipelineStreamPrefix, hash, "joined")
 }
 
 // NewPipelineHealth creates a new pipeline health status
@@ -503,14 +461,14 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 	return PipelineHealth{
 		PipelineID:    pipelineID,
 		PipelineName:  pipelineName,
-		OverallStatus: PipelineStatusCreated,
+		OverallStatus: PipelineStatus(internal.PipelineStatusCreated),
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
 }
 
 func GetNATSSubjectName(streamName string) string {
-	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
+	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
 }
 
 func SanitizeNATSSubject(topicName string) string {
@@ -528,18 +486,18 @@ func GetIngestorStreamName(pipelineID, topicName string) string {
 	sanitizedTopic := SanitizeNATSSubject(topicName)
 
 	// Create stream name: gf-{hash}-{sanitized_topic}
-	streamName := fmt.Sprintf("%s-%s-%s", PipelineStreamPrefix, hash, sanitizedTopic)
+	streamName := fmt.Sprintf("%s-%s-%s", internal.PipelineStreamPrefix, hash, sanitizedTopic)
 
 	// Truncate if too long to respect NATS limits
-	if len(streamName) > MaxStreamNameLength {
+	if len(streamName) > internal.MaxStreamNameLength {
 		// Keep prefix and hash, truncate topic name
-		prefix := fmt.Sprintf("%s-%s-", PipelineStreamPrefix, hash)
-		maxTopicLength := MaxStreamNameLength - len(prefix)
+		prefix := fmt.Sprintf("%s-%s-", internal.PipelineStreamPrefix, hash)
+		maxTopicLength := internal.MaxStreamNameLength - len(prefix)
 		if maxTopicLength > 0 {
 			streamName = prefix + sanitizedTopic[:maxTopicLength]
 		} else {
 			// Fallback to just prefix if even that's too long
-			streamName = prefix[:MaxStreamNameLength]
+			streamName = prefix[:internal.MaxStreamNameLength]
 		}
 	}
 
@@ -548,5 +506,5 @@ func GetIngestorStreamName(pipelineID, topicName string) string {
 
 func GetPipelineNATSSubject(pipelineID, topicName string) string {
 	streamName := GetIngestorStreamName(pipelineID, topicName)
-	return fmt.Sprintf("%s.%s", streamName, DefaultSubjectName)
+	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
 }

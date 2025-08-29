@@ -1,17 +1,12 @@
 package models
 
-type Role string
+import "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 
-const (
-	RoleSink     Role = "sink"
-	RoleJoin     Role = "join"
-	RoleIngestor Role = "ingestor"
-	RoleETL      Role = ""
-)
+type Role string
 
 func (r Role) Valid() bool {
 	switch r {
-	case RoleSink, RoleJoin, RoleIngestor, RoleETL:
+	case internal.RoleSink, internal.RoleJoin, internal.RoleIngestor, internal.RoleETL:
 		return true
 	default:
 		return false
@@ -19,7 +14,7 @@ func (r Role) Valid() bool {
 }
 
 func (r Role) String() string {
-	if r == RoleETL {
+	if r == internal.RoleETL {
 		return "ETL Pipeline"
 	}
 	return string(r)
@@ -27,9 +22,9 @@ func (r Role) String() string {
 
 func AllRoles() []string {
 	return []string{
-		RoleIngestor.String(),
-		RoleJoin.String(),
-		RoleSink.String(),
-		RoleETL.String(),
+		Role(internal.RoleIngestor).String(),
+		Role(internal.RoleJoin).String(),
+		Role(internal.RoleSink).String(),
+		Role(internal.RoleETL).String(),
 	}
 }

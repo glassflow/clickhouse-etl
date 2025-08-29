@@ -18,6 +18,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/lmittmann/tint"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
@@ -141,13 +142,13 @@ func mainErr(cfg *config, role models.Role) error {
 	defer cleanUp(nc, log)
 
 	switch role {
-	case models.RoleSink:
+	case internal.RoleSink:
 		return mainSink(ctx, nc, cfg, log)
-	case models.RoleJoin:
+	case internal.RoleJoin:
 		return mainJoin(ctx, nc, cfg, log)
-	case models.RoleIngestor:
+	case internal.RoleIngestor:
 		return mainIngestor(ctx, nc, cfg, log)
-	case models.RoleETL:
+	case internal.RoleETL:
 		return mainEtl(ctx, nc, cfg, log)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
@@ -267,7 +268,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		sinkRunner.Done,
 		sinkRunner.Shutdown,
 		log,
-		models.RoleSink.String(),
+		internal.RoleSink,
 	)
 }
 
@@ -328,7 +329,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		joinRunner.Done,
 		joinRunner.Shutdown,
 		log,
-		models.RoleJoin.String(),
+		internal.RoleJoin,
 	)
 }
 
@@ -362,7 +363,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		ingestorRunner.Done,
 		ingestorRunner.Shutdown,
 		log,
-		models.RoleIngestor.String(),
+		internal.RoleIngestor,
 	)
 }
 

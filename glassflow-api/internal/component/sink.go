@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
@@ -32,7 +33,7 @@ func NewSinkComponent(
 	doneCh chan struct{},
 	log *slog.Logger,
 ) (Component, error) {
-	if sinkConfig.Type != models.ClickHouseSinkType {
+	if sinkConfig.Type != internal.ClickHouseSinkType {
 		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
 	}
 

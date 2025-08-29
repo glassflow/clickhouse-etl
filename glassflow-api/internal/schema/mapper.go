@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
@@ -36,7 +37,7 @@ type SinkMapping struct {
 }
 
 func NewMapper(cfg models.MapperConfig) (Mapper, error) {
-	if cfg.Type != "jsonToClickhouse" {
+	if cfg.Type != internal.SchemaMapperJSONToCHType {
 		return nil, fmt.Errorf("unsupported mapper type: %s", cfg.Type)
 	}
 

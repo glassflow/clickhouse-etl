@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -778,7 +779,7 @@ func TestWholeArrayMapping(t *testing.T) {
 	}
 
 	mCfg := models.MapperConfig{
-		Type:        "jsonToClickhouse",
+		Type:        internal.SchemaMapperJSONToCHType,
 		Streams:     streamsConfig,
 		SinkMapping: sinkMappingConfig,
 	}
@@ -824,7 +825,7 @@ func TestWholeArrayMapping(t *testing.T) {
 		}
 
 		mCfg := models.MapperConfig{
-			Type:        "jsonToClickhouse",
+			Type:        internal.SchemaMapperJSONToCHType,
 			Streams:     streamsConfig,
 			SinkMapping: sinkMappingConfig,
 		}

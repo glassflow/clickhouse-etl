@@ -11,6 +11,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -169,7 +170,7 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 
 	component, err := component.NewJoinComponent(
 		models.JoinComponentConfig{
-			Type: models.TemporalJoinType,
+			Type: internal.TemporalJoinType,
 		},
 		leftStreamConsumer,
 		rightStreamConsumer,

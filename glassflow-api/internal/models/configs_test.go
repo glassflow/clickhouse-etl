@@ -3,6 +3,8 @@ package models
 import (
 	"strings"
 	"testing"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
 func TestNewPipelineHealth(t *testing.T) {
@@ -19,8 +21,8 @@ func TestNewPipelineHealth(t *testing.T) {
 		t.Errorf("Expected PipelineName %s, got %s", pipelineName, health.PipelineName)
 	}
 
-	if health.OverallStatus != PipelineStatusCreated {
-		t.Errorf("Expected OverallStatus %s, got %s", PipelineStatusCreated, health.OverallStatus)
+	if health.OverallStatus != internal.PipelineStatusCreated {
+		t.Errorf("Expected OverallStatus %s, got %s", internal.PipelineStatusCreated, health.OverallStatus)
 	}
 
 }
@@ -28,10 +30,10 @@ func TestNewPipelineHealth(t *testing.T) {
 func TestNewPipelineConfig(t *testing.T) {
 	id := "test-pipeline"
 	name := "Test Pipeline"
-	mapper := MapperConfig{Type: SchemaMapperJSONToCHType}
-	ingestor := IngestorComponentConfig{Type: KafkaIngestorType}
-	join := JoinComponentConfig{Type: TemporalJoinType}
-	sink := SinkComponentConfig{Type: ClickHouseSinkType}
+	mapper := MapperConfig{Type: internal.SchemaMapperJSONToCHType}
+	ingestor := IngestorComponentConfig{Type: internal.KafkaIngestorType}
+	join := JoinComponentConfig{Type: internal.TemporalJoinType}
+	sink := SinkComponentConfig{Type: internal.ClickHouseSinkType}
 
 	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink)
 
@@ -47,8 +49,8 @@ func TestNewPipelineConfig(t *testing.T) {
 		t.Errorf("Expected Status.PipelineID %s, got %s", id, config.Status.PipelineID)
 	}
 
-	if config.Status.OverallStatus != PipelineStatusCreated {
-		t.Errorf("Expected Status.OverallStatus %s, got %s", PipelineStatusCreated, config.Status.OverallStatus)
+	if config.Status.OverallStatus != internal.PipelineStatusCreated {
+		t.Errorf("Expected Status.OverallStatus %s, got %s", internal.PipelineStatusCreated, config.Status.OverallStatus)
 	}
 }
 
@@ -153,9 +155,9 @@ func TestGetPipelineStreamName(t *testing.T) {
 			}
 
 			// Check that it doesn't exceed max length
-			if len(result) > MaxStreamNameLength {
+			if len(result) > internal.MaxStreamNameLength {
 				t.Errorf("GetIngestorStreamName(%q, %q) = %q, length %d exceeds max %d",
-					pipelineID, tt.topic, result, len(result), MaxStreamNameLength)
+					pipelineID, tt.topic, result, len(result), internal.MaxStreamNameLength)
 			}
 
 			// Check that it contains the hash
@@ -204,9 +206,9 @@ func TestGetIngestorStreamName(t *testing.T) {
 			}
 
 			// Check that it doesn't exceed max length
-			if len(result) > MaxStreamNameLength {
+			if len(result) > internal.MaxStreamNameLength {
 				t.Errorf("GetIngestorStreamName(%q, %q) = %q, length %d exceeds max %d",
-					pipelineID, tt.topic, result, len(result), MaxStreamNameLength)
+					pipelineID, tt.topic, result, len(result), internal.MaxStreamNameLength)
 			}
 
 			// Check that it contains the hash
@@ -226,9 +228,9 @@ func TestGetPipelineNATSSubject(t *testing.T) {
 	result := GetPipelineNATSSubject(pipelineID, topic)
 
 	// Should end with .input
-	if !strings.HasSuffix(result, DefaultSubjectName) {
+	if !strings.HasSuffix(result, internal.DefaultSubjectName) {
 		t.Errorf("GetPipelineNATSSubject(%q, %q) = %q, should end with %q",
-			pipelineID, topic, result, DefaultSubjectName)
+			pipelineID, topic, result, internal.DefaultSubjectName)
 	}
 
 	// Should contain the stream name
@@ -250,8 +252,8 @@ func TestGetDLQStreamName(t *testing.T) {
 	}
 
 	// Should end with DLQ
-	if !strings.HasSuffix(result, DLQSuffix) {
-		t.Errorf("GetDLQStreamName(%q) = %q, should end with %q", pipelineID, result, DLQSuffix)
+	if !strings.HasSuffix(result, internal.DLQSuffix) {
+		t.Errorf("GetDLQStreamName(%q) = %q, should end with %q", pipelineID, result, internal.DLQSuffix)
 	}
 }
 

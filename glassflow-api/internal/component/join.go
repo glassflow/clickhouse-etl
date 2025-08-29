@@ -8,6 +8,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/join"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -39,7 +40,7 @@ func NewJoinComponent(
 	doneCh chan struct{},
 	log *slog.Logger,
 ) (Component, error) {
-	if cfg.Type != models.TemporalJoinType {
+	if cfg.Type != internal.TemporalJoinType {
 		return nil, fmt.Errorf("unsupported join type")
 	}
 

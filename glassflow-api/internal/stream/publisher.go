@@ -9,12 +9,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-)
 
-const (
-	initialRetryDelay = 1 * time.Second
-	maxRetryDelay     = 10 * time.Second
-	maxRetryWait      = 5 * time.Minute
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
 type publishOpts struct {
@@ -81,7 +77,7 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 			return fmt.Errorf("failed to publish message: %w", err)
 		}
 	} else {
-		retryDelay := initialRetryDelay
+		retryDelay := internal.PublisherInitialRetryDelay
 		startTime := time.Now()
 		for {
 			_, err := p.js.PublishMsg(ctx, msg)
@@ -100,11 +96,11 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 				log.Printf("Retrying publish to NATS subject %s in %v...", p.Subject, retryDelay)
 			}
 
-			if time.Since(startTime) >= maxRetryWait {
+			if time.Since(startTime) >= internal.PublisherMaxRetryWait {
 				return fmt.Errorf("max retry wait exceeded: %w", err)
 			}
 
-			retryDelay = min(time.Duration(float64(retryDelay)*1.5), maxRetryDelay)
+			retryDelay = min(time.Duration(float64(retryDelay)*1.5), internal.PublisherMaxRetryDelay)
 		}
 	}
 

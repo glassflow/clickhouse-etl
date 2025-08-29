@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
 type Consumer interface {
@@ -27,28 +29,21 @@ type NatsConsumer struct {
 	expireTimeout time.Duration
 }
 
-const (
-	ConsumerRetries           = 10
-	ConsumerInitialRetryDelay = 1 * time.Second
-	ConsumerMaxRetryDelay     = 10 * time.Second
-	ConsumerMaxWait           = 30 * time.Second
-)
-
 func NewNATSConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerConfig) (*NatsConsumer, error) {
 	var (
 		stream jetstream.Stream
 		err    error
 	)
 
-	retryCtx, cancel := context.WithTimeout(ctx, ConsumerMaxWait)
+	retryCtx, cancel := context.WithTimeout(ctx, internal.ConsumerMaxWait)
 	defer cancel()
 
-	retryDelay := ConsumerInitialRetryDelay
+	retryDelay := internal.ConsumerInitialRetryDelay
 	startTime := time.Now()
 
-	for i := range ConsumerRetries {
-		if time.Since(startTime) > ConsumerMaxWait {
-			return nil, fmt.Errorf("timeout after %v waiting for the NATS stream %s", ConsumerMaxWait, cfg.NatsStream)
+	for i := range internal.ConsumerRetries {
+		if time.Since(startTime) > internal.ConsumerMaxWait {
+			return nil, fmt.Errorf("timeout after %v waiting for the NATS stream %s", internal.ConsumerMaxWait, cfg.NatsStream)
 		}
 
 		stream, err = js.Stream(ctx, cfg.NatsStream)
@@ -57,7 +52,7 @@ func NewNATSConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerCo
 		}
 
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
-			if i < ConsumerRetries-1 {
+			if i < internal.ConsumerRetries-1 {
 				select {
 				case <-time.After(retryDelay):
 					log.Printf("Retrying connection to NATS to stream %s in %v...", cfg.NatsStream, retryDelay)
@@ -66,7 +61,7 @@ func NewNATSConsumer(ctx context.Context, js jetstream.JetStream, cfg ConsumerCo
 					return nil, fmt.Errorf("context cancelled during retry delay for stream %s: %w", cfg.NatsStream, retryCtx.Err())
 				}
 
-				retryDelay = min(time.Duration(float64(retryDelay)*1.5), ConsumerMaxRetryDelay)
+				retryDelay = min(time.Duration(float64(retryDelay)*1.5), internal.ConsumerMaxRetryDelay)
 			}
 			continue
 		}
