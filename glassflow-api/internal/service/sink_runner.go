@@ -16,15 +16,23 @@ type SinkRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
+	inputNatsStream string
+	sinkCfg         models.SinkComponentConfig
+	schemaMapper   schema.Mapper
+
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
+func NewSinkRunner(log *slog.Logger, nc *client.NATSClient, inputNatsStream string, sinkCfg models.SinkComponentConfig, schemaMapper schema.Mapper) *SinkRunner {
 	return &SinkRunner{
 		nc:  nc,
 		log: log,
+
+		inputNatsStream: inputNatsStream,
+		sinkCfg:         sinkCfg,
+		schemaMapper:   schemaMapper,
 
 		component: nil,
 		c:         make(chan error, 1),
@@ -32,21 +40,21 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient) *SinkRunner {
 	}
 }
 
-func (s *SinkRunner) Start(ctx context.Context, inputNatsStream string, sinkCfg models.SinkComponentConfig, schemaMapper schema.Mapper) error {
+func (s *SinkRunner) Start(ctx context.Context) error {
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
-		NatsStream:   inputNatsStream,
+		NatsStream:   s.inputNatsStream,
 		NatsConsumer: "clickhouse-consumer",
-		NatsSubject:  models.GetNATSSubjectName(inputNatsStream),
+		NatsSubject:  models.GetNATSSubjectName(s.inputNatsStream),
 	})
 	if err != nil {
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 
 	sinkComponent, err := component.NewSinkComponent(
-		sinkCfg,
+		s.sinkCfg,
 		consumer,
-		schemaMapper,
+		s.schemaMapper,
 		s.doneCh,
 		s.log,
 	)

@@ -137,4 +137,8 @@ const (
 
 	// Join constants
 	MaxStreamsSupportedWithJoin = 2
+
+	// RunnersWatcher constants
+	RunnerWatcherInterval = 5 * time.Second
+	RunnerRestartDelay   = 2 * time.Second
 )

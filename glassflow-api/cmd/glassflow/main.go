@@ -253,20 +253,11 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("stream_id in sink config cannot be empty")
 	}
 
-	sinkRunner := service.NewSinkRunner(log, nc)
+	sinkRunner := service.NewSinkRunner(log, nc, pipelineCfg.Sink.StreamID, pipelineCfg.Sink, schemaMapper)
 
 	return runWithGracefulShutdown(
 		ctx,
-		func() error {
-			return sinkRunner.Start(
-				ctx,
-				pipelineCfg.Sink.StreamID,
-				pipelineCfg.Sink,
-				schemaMapper,
-			)
-		},
-		sinkRunner.Done,
-		sinkRunner.Shutdown,
+		sinkRunner,
 		log,
 		internal.RoleSink,
 	)
@@ -312,22 +303,11 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	joinRunner := service.NewJoinRunner(log, nc)
+	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
 
 	return runWithGracefulShutdown(
 		ctx,
-		func() error {
-			return joinRunner.Start(
-				ctx,
-				leftStream,
-				rightStream,
-				outputStream,
-				pipelineCfg.Join,
-				schemaMapper,
-			)
-		},
-		joinRunner.Done,
-		joinRunner.Shutdown,
+		joinRunner,
 		log,
 		internal.RoleJoin,
 	)
@@ -348,20 +328,11 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	ingestorRunner := service.NewIngestorRunner(log, nc)
+	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper)
 
 	return runWithGracefulShutdown(
 		ctx,
-		func() error {
-			return ingestorRunner.Start(
-				ctx,
-				cfg.IngestorTopic,
-				pipelineCfg,
-				schemaMapper,
-			)
-		},
-		ingestorRunner.Done,
-		ingestorRunner.Shutdown,
+		ingestorRunner,
 		log,
 		internal.RoleIngestor,
 	)
@@ -369,9 +340,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 
 func runWithGracefulShutdown(
 	ctx context.Context,
-	runnerFunc RunnerFunc,
-	doneFunc DoneFunc,
-	shutdownFunc ShutdownFunc,
+	runner service.Runner,
 	log *slog.Logger,
 	serviceName string,
 ) error {
@@ -381,7 +350,7 @@ func runWithGracefulShutdown(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		serverErr <- runnerFunc()
+		serverErr <- runner.Start(ctx)
 	}()
 
 	log.Info("Running service", slog.String("service", serviceName))
@@ -392,7 +361,7 @@ func runWithGracefulShutdown(
 			if err != nil {
 				return fmt.Errorf("%s runner failed: %w", serviceName, err)
 			}
-		case <-doneFunc():
+		case <-runner.Done():
 			log.Warn("Component has crashed!", slog.String("service", serviceName))
 			wg.Wait()
 			return fmt.Errorf("%s component stopped by itself", serviceName)
@@ -401,7 +370,7 @@ func runWithGracefulShutdown(
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				shutdownFunc()
+				runner.Shutdown()
 			}()
 			wg.Wait()
 			return nil

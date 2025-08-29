@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -17,12 +18,15 @@ type LocalOrchestrator struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	ingestorRunners []*service.IngestorRunner
-	joinRunner      *service.JoinRunner
-	sinkRunner      *service.SinkRunner
+	ingestorRunners []service.Runner
+	joinRunner      service.Runner
+	sinkRunner      service.Runner
 
 	id string
 	m  sync.Mutex
+
+	watcherCancel context.CancelFunc
+	watcherWG     sync.WaitGroup
 }
 
 func NewLocalOrchestrator(
@@ -87,9 +91,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	d.log = d.log.With("pipeline_id", d.id)
 
-	d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc)
-	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc)
-
 	for _, t := range pi.Ingestor.KafkaTopics {
 		streamName := t.OutputStreamID
 		subjectName := t.OutputStreamSubject
@@ -106,12 +107,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		sinkConsumerStream = pi.Sink.StreamID
 
 		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
-		ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc)
+		ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
+			schemaMapper)
 
-		err = ingestorRunner.Start(
-			ctx, t.Name, *pi,
-			schemaMapper,
-		)
+		err = ingestorRunner.Start(ctx)
 		if err != nil {
 			return fmt.Errorf("start ingestor for topic %s: %w", t.Name, err)
 		}
@@ -138,18 +137,19 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			leftInputStreamName = pi.Join.Sources[1].StreamID
 			rightInputStreamName = pi.Join.Sources[0].StreamID
 		}
-
-		err = d.joinRunner.Start(ctx, leftInputStreamName, rightInputStreamName, sinkConsumerStream, pi.Join, schemaMapper)
+		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, leftInputStreamName, rightInputStreamName, sinkConsumerStream,
+			pi.Join, schemaMapper)
+		err = d.joinRunner.Start(ctx)
 		if err != nil {
 			return fmt.Errorf("setup join component: %w", err)
 		}
 	}
 
-	err = d.sinkRunner.Start(
-		ctx,
+	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc,
 		sinkConsumerStream,
 		models.SinkComponentConfig{
-			Type: internal.ClickHouseSinkType,
+			Type:     internal.ClickHouseSinkType,
+			StreamID: sinkConsumerStream,
 			Batch: models.BatchConfig{
 				MaxBatchSize: pi.Sink.Batch.MaxBatchSize,
 				MaxDelayTime: pi.Sink.Batch.MaxDelayTime,
@@ -158,9 +158,13 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		},
 		schemaMapper,
 	)
+
+	err = d.sinkRunner.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("start sink: %w", err)
 	}
+
+	d.startRunnerWatcher(ctx)
 
 	return nil
 }
@@ -172,6 +176,11 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 
 	if d.id != pid {
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
+	}
+
+	if d.watcherCancel != nil {
+		d.watcherCancel()
+		d.watcherWG.Wait()
 	}
 
 	if d.ingestorRunners != nil {
@@ -192,8 +201,8 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 }
 
 // ShutdownPipeline implements Orchestrator.
-func (d *LocalOrchestrator) TerminatePipeline(_ context.Context, pid string) error {
-	return d.ShutdownPipeline(context.Background(), pid)
+func (d *LocalOrchestrator) TerminatePipeline(ctx context.Context, pid string) error {
+	return d.ShutdownPipeline(ctx, pid)
 }
 
 func (d *LocalOrchestrator) ActivePipelineID() string {
@@ -201,4 +210,88 @@ func (d *LocalOrchestrator) ActivePipelineID() string {
 	defer d.m.Unlock()
 
 	return d.id
+}
+
+// startRunnerWatcher starts a goroutine that monitors all runners and restarts them on failure
+func (d *LocalOrchestrator) startRunnerWatcher(ctx context.Context) {
+	watcherCtx, cancel := context.WithCancel(ctx)
+	d.watcherCancel = cancel
+
+	d.watcherWG.Add(1)
+	go func() {
+		defer d.watcherWG.Done()
+		d.watchRunners(watcherCtx)
+	}()
+}
+
+// watchRunners monitors all runners and restarts them if they fail
+func (d *LocalOrchestrator) watchRunners(ctx context.Context) {
+	ticker := time.NewTicker(internal.RunnerWatcherInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			d.log.Debug("component runners watcher is stopping...")
+			return
+		case <-ticker.C:
+			d.checkAndRestartRunners(ctx)
+		}
+	}
+}
+
+// checkAndRestartRunners checks all runners and restarts any that have failed
+func (d *LocalOrchestrator) checkAndRestartRunners(ctx context.Context) {
+	d.m.Lock()
+	defer d.m.Unlock()
+
+	// Skip if pipeline is not active
+	if d.id == "" {
+		return
+	}
+
+	// Check ingestor runners
+	for _, runner := range d.ingestorRunners {
+		select {
+		case <-runner.Done():
+			d.log.Warn("ingestor runner failed, restarting")
+			d.restartRunner(ctx, runner)
+		default:
+		}
+	}
+
+	// Check join runner
+	if d.joinRunner != nil {
+		select {
+		case <-d.joinRunner.Done():
+			d.log.Warn("join runner failed, restarting")
+			d.restartRunner(ctx, d.joinRunner)
+		default:
+		}
+	}
+
+	// Check sink runner
+	if d.sinkRunner != nil {
+		select {
+		case <-d.sinkRunner.Done():
+			d.log.Warn("sink runner failed, restarting")
+			d.restartRunner(ctx, d.sinkRunner)
+		default:
+		}
+	}
+}
+
+// restartRunner restarts any runner with delay
+func (d *LocalOrchestrator) restartRunner(ctx context.Context, runner service.Runner) {
+	if runner == nil {
+		return
+	}
+
+	time.Sleep(internal.RunnerRestartDelay) // Simple restart delay
+
+	if err := runner.Start(ctx); err != nil {
+		d.log.Error("failed to restart runner", slog.Any("error", err))
+	} else {
+		d.log.Info("runner restarted successfully")
+	}
 }
