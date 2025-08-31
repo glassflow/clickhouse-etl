@@ -129,6 +129,16 @@ func (conn *BridgeConnector) jetStreamMessageHandler(msg kafka.Message) error {
 		}
 	}
 
+	if conn.config.Filter.Enabled {
+		shouldFilter, err := checkFilter(msg.Value, conn.config.Filter)
+		if err != nil {
+			return fmt.Errorf("filter check: %w", err)
+		}
+		if shouldFilter {
+			return nil
+		}
+	}
+
 	nMsg.Data = msg.Value
 	_, err := conn.bridge.JetStream().PublishMsg(nMsg)
 	if err != nil {
@@ -295,4 +305,32 @@ func setupDedupHeader(oHdr nats.Header, msg []byte, dedupKey, dedupKeyType strin
 	}
 
 	return nil
+}
+
+// checkFilter evaluates filter conditions against a Kafka message
+func checkFilter(msg []byte, filter conf.FilterConfig) (bool, error) {
+	if !filter.Enabled {
+		return false, nil
+	}
+
+	data := make(map[string]interface{})
+	err := json.Unmarshal(msg, &data)
+	if err != nil {
+		return false, fmt.Errorf("unmarshal kafka message: %w", err)
+	}
+
+	value, exists := getNestedValue(data, filter.Field)
+	if !exists {
+		return false, nil
+	}
+
+	valueStr := fmt.Sprintf("%v", value)
+	switch filter.Operator {
+	case conf.FilterOperatorEquals:
+		return valueStr == filter.Value, nil
+	case conf.FilterOperatorNotEquals:
+		return valueStr != filter.Value, nil
+	default:
+		return false, fmt.Errorf("unsupported filter operator: %s", filter.Operator)
+	}
 }

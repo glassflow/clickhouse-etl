@@ -287,3 +287,124 @@ func TestSetupDedupHeaderWithNestedKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckFilter(t *testing.T) {
+	tests := []struct {
+		name           string
+		msg            map[string]interface{}
+		filter         conf.FilterConfig
+		expectFiltered bool
+		expectError    bool
+	}{
+		{
+			name: "filter disabled - should not filter",
+			msg: map[string]interface{}{
+				"event_type":  "purchase",
+				"environment": "test",
+			},
+			filter: conf.FilterConfig{
+				Enabled:  false,
+				Field:    "event_type",
+				Operator: conf.FilterOperatorEquals,
+				Value:    "purchase",
+			},
+			expectFiltered: false,
+			expectError:    false,
+		},
+		{
+			name: "equals operator - match",
+			msg: map[string]interface{}{
+				"event_type": "purchase",
+				"user_id":    123,
+			},
+			filter: conf.FilterConfig{
+				Enabled:  true,
+				Field:    "event_type",
+				Operator: conf.FilterOperatorEquals,
+				Value:    "purchase",
+			},
+			expectFiltered: true,
+			expectError:    false,
+		},
+		{
+			name: "equals operator - no match",
+			msg: map[string]interface{}{
+				"event_type": "page_view",
+				"user_id":    123,
+			},
+			filter: conf.FilterConfig{
+				Enabled:  true,
+				Field:    "event_type",
+				Operator: conf.FilterOperatorEquals,
+				Value:    "purchase",
+			},
+			expectFiltered: false,
+			expectError:    false,
+		},
+		{
+			name: "not_equals operator - should filter",
+			msg: map[string]interface{}{
+				"environment": "prod",
+			},
+			filter: conf.FilterConfig{
+				Enabled:  true,
+				Field:    "environment",
+				Operator: conf.FilterOperatorNotEquals,
+				Value:    "test",
+			},
+			expectFiltered: true,
+			expectError:    false,
+		},
+		{
+			name: "not_equals operator - should not filter",
+			msg: map[string]interface{}{
+				"environment": "test",
+			},
+			filter: conf.FilterConfig{
+				Enabled:  true,
+				Field:    "environment",
+				Operator: conf.FilterOperatorNotEquals,
+				Value:    "test",
+			},
+			expectFiltered: false,
+			expectError:    false,
+		},
+		{
+			name: "nested field - equals match",
+			msg: map[string]interface{}{
+				"user": map[string]interface{}{
+					"profile": map[string]interface{}{
+						"name": "John Doe",
+						"age":  30,
+					},
+				},
+			},
+			filter: conf.FilterConfig{
+				Enabled:  true,
+				Field:    "user.profile.name",
+				Operator: conf.FilterOperatorEquals,
+				Value:    "John Doe",
+			},
+			expectFiltered: true,
+			expectError:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(
+			tt.name, func(t *testing.T) {
+				msgBytes, err := json.Marshal(tt.msg)
+				require.NoError(t, err)
+
+				shouldFilter, err := checkFilter(msgBytes, tt.filter)
+
+				if tt.expectError {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, tt.expectFiltered, shouldFilter)
+				}
+			},
+		)
+	}
+}
