@@ -91,7 +91,9 @@ func (k *KafkaIngestor) PushMsgToDLQ(ctx context.Context, orgMsg []byte, err err
 }
 
 func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) error {
-	nMsg := nats.NewMsg(k.publisher.GetSubject())
+	// Create partition-specific subject
+	partitionSubject := fmt.Sprintf("%s.partition-%d", k.publisher.GetSubject(), msg.Partition)
+	nMsg := nats.NewMsg(partitionSubject)
 	nMsg.Data = msg.Value
 
 	nMsg.Header = k.convertKafkaToNATSHeaders(msg.Headers)
@@ -135,7 +137,7 @@ func (k *KafkaIngestor) processMsg(ctx context.Context, msg kafka.Message) error
 		k.log.Error("Failed to publish message to NATS",
 			slog.Any("error", err),
 			slog.String("topic", k.topic.Name),
-			slog.String("subject", k.publisher.GetSubject()),
+			slog.String("subject", partitionSubject),
 		)
 		return fmt.Errorf("failed to publish message: %w", err)
 	}

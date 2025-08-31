@@ -94,14 +94,20 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	for _, t := range pi.Ingestor.KafkaTopics {
 		streamName := t.OutputStreamID
 		subjectName := t.OutputStreamSubject
-		err := d.nc.CreateOrUpdateStream(ctx, streamName, subjectName, t.Deduplication.Window.Duration())
+		// Create stream with both base subject and partition wildcard subjects
+		baseSubject := subjectName
+		partitionWildcardSubject := subjectName + ".*"
+		err := d.nc.CreateOrUpdateStreamWithSubjects(ctx, streamName, []string{baseSubject, partitionWildcardSubject}, t.Deduplication.Window.Duration())
 		if err != nil {
 			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
 		}
 	}
 	d.log.Debug("created ingestion streams successfully")
 
-	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
+	// Create DLQ stream with both base subject and partition wildcard subjects
+	dlqBaseSubject := models.GetDLQStreamSubjectName(d.id)
+	dlqPartitionWildcardSubject := dlqBaseSubject + ".*"
+	err = d.nc.CreateOrUpdateStreamWithSubjects(ctx, models.GetDLQStreamName(d.id), []string{dlqBaseSubject, dlqPartitionWildcardSubject}, 0)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
 		sinkConsumerStream = pi.Sink.StreamID
@@ -122,7 +128,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		sinkConsumerStream = pi.Sink.StreamID
 		sinkConsumerSubject = models.GetNATSSubjectName(sinkConsumerStream)
 
-		err = d.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
+		// Create join stream with both base subject and partition wildcard subjects
+		baseSubject := sinkConsumerSubject
+		partitionWildcardSubject := sinkConsumerSubject + ".*"
+		err = d.nc.CreateOrUpdateStreamWithSubjects(ctx, sinkConsumerStream, []string{baseSubject, partitionWildcardSubject}, 0)
 		if err != nil {
 			return fmt.Errorf("setup join stream for pipeline: %w", err)
 		}
@@ -171,38 +180,53 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 // ShutdownPipeline implements Orchestrator.
 func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) error {
+	d.log.Info("ShutdownPipeline called", slog.String("pid", pid), slog.String("current_id", d.id))
+
 	d.m.Lock()
 	defer d.m.Unlock()
 
 	if d.id != pid {
+		d.log.Error("Pipeline ID mismatch", slog.String("requested", pid), slog.String("current", d.id))
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
+	d.log.Info("Starting shutdown process")
+
 	if d.watcherCancel != nil {
+		d.log.Debug("Stopping watcher")
 		d.watcherCancel()
 		d.watcherWG.Wait()
+		d.log.Debug("Watcher stopped")
 	}
 
 	if d.ingestorRunners != nil {
+		d.log.Debug("Shutting down ingestor runners", slog.Int("count", len(d.ingestorRunners)))
 		for _, runner := range d.ingestorRunners {
 			runner.Shutdown()
 		}
 	}
 	if d.joinRunner != nil {
+		d.log.Debug("Shutting down join runner")
 		d.joinRunner.Shutdown()
 	}
 	if d.sinkRunner != nil {
+		d.log.Debug("Shutting down sink runner")
 		d.sinkRunner.Shutdown()
 	}
 
 	d.id = ""
-
+	d.log.Info("Pipeline shutdown completed")
 	return nil
 }
 
-// ShutdownPipeline implements Orchestrator.
+// TerminatePipeline implements Orchestrator.
 func (d *LocalOrchestrator) TerminatePipeline(ctx context.Context, pid string) error {
-	return d.ShutdownPipeline(ctx, pid)
+	d.log.Info("TerminatePipeline called", slog.String("pid", pid))
+	err := d.ShutdownPipeline(ctx, pid)
+	if err != nil {
+		d.log.Error("TerminatePipeline failed", slog.String("pid", pid), slog.Any("error", err))
+	}
+	return err
 }
 
 func (d *LocalOrchestrator) ActivePipelineID() string {

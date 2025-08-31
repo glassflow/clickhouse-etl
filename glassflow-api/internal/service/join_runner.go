@@ -75,7 +75,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   j.leftInputStreamName,
 		NatsConsumer: "leftStreamConsumer",
-		NatsSubject:  models.GetNATSSubjectName(j.leftInputStreamName),
+		NatsSubject:  models.GetNATSSubjectName(j.leftInputStreamName) + ".*",
 	})
 	if err != nil {
 		return fmt.Errorf("create left consumer: %w", err)
@@ -84,7 +84,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   j.rightInputStreamName,
 		NatsConsumer: "rightStreamConsumer",
-		NatsSubject:  models.GetNATSSubjectName(j.rightInputStreamName),
+		NatsSubject:  models.GetNATSSubjectName(j.rightInputStreamName) + ".*",
 	})
 	if err != nil {
 		return fmt.Errorf("create right consumer: %w", err)

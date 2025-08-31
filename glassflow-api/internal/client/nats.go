@@ -113,10 +113,14 @@ func (n *NATSClient) CleanupOldResources(ctx context.Context) error {
 }
 
 func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject string, dedupWindow time.Duration) error {
+	return n.CreateOrUpdateStreamWithSubjects(ctx, name, []string{subject}, dedupWindow)
+}
+
+func (n *NATSClient) CreateOrUpdateStreamWithSubjects(ctx context.Context, name string, subjects []string, dedupWindow time.Duration) error {
 	//nolint:exhaustruct // readability
 	sc := jetstream.StreamConfig{
 		Name:     name,
-		Subjects: []string{subject},
+		Subjects: subjects,
 		Storage:  jetstream.FileStorage,
 
 		Retention: jetstream.LimitsPolicy,
