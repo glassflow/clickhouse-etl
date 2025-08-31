@@ -106,14 +106,21 @@ func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) er
 
 // TerminatePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string) error {
-	if p.orchestrator.GetType() == "local" {
-		return p.DeletePipeline(ctx, pid)
-	}
-
 	// Get current pipeline to update status
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
-		return fmt.Errorf("get pipeline for termination: %w", err)
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline failed for termination: %w", err)
+	}
+
+	if p.orchestrator.GetType() == "local" {
+		err = p.DeletePipeline(ctx, pid)
+		if err != nil {
+			return fmt.Errorf("delete pipeline failed: %w", err)
+		}
+		return nil
 	}
 
 	if pipeline.Status.OverallStatus == internal.PipelineStatusTerminated {
@@ -121,7 +128,7 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 	}
 
 	// Set status to Terminating
-	pipeline.Status.OverallStatus = models.PipelineStatus(internal.PipelineStatusTerminating)
+	pipeline.Status.OverallStatus = internal.PipelineStatusTerminating
 
 	// Update status in database
 	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
