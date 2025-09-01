@@ -7,10 +7,8 @@ services:
     restart: unless-stopped
 
   ui:
-    # image: ghcr.io/glassflow/glassflow-etl-fe:glassflow-cloud
-    build:
-      context: ui
-      dockerfile: Dockerfile
+
+    image: ghcr.io/glassflow/glassflow-etl-fe:stable
     pull_policy: always
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8081}
@@ -19,7 +17,7 @@ services:
       - NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
 
   app:
-    image: ghcr.io/glassflow/glassflow-etl-be:glassflow-cloud
+    image: ghcr.io/glassflow/glassflow-etl-be:stable
     pull_policy: always
     depends_on:
       - nats
