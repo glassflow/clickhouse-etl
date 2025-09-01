@@ -5,7 +5,7 @@
 <p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
-      <a href="https://github.com/orgs/glassflow/discussions/categories/ideas"><strong>Feature Request</strong></a> ·
+      <a href="https://glassflow.dev/roadmap"><strong>Roadmap</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
       <a href="https://docs.glassflow.dev/demo"><strong>Watch Demo</strong></a>
 </p>
@@ -70,6 +70,15 @@ GlassFlow can be installed in a variety of environments depending on your use ca
 
 
 ## 🎥 Demo
+
+### Live Demo
+See a working demo of GlassFlow in action at [demo.glassflow.dev](https://demo.glassflow.dev).
+
+![GlassFlow Pipeline Data Flow](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassflow_demo.png)
+
+*GlassFlow Pipeline showing real-time streaming from Kafka through GlassFlow to ClickHouse*
+
+### Demo Video
 
 [![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/demo)
 
