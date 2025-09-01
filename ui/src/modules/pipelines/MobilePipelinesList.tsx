@@ -1,5 +1,5 @@
 import React from 'react'
-import { ListPipelineConfig, getPipelineStatusFromState } from '@/src/types/pipeline'
+import { ListPipelineConfig, getPipelineStatusFromState, PipelineStatus } from '@/src/types/pipeline'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { cn } from '@/src/utils/common.client'
@@ -125,7 +125,7 @@ export function MobilePipelinesList({
               </div>
               <div className="ml-3 flex-shrink-0">
                 <TableContextMenu
-                  pipelineStatus={pipeline.status || 'no_configuration'}
+                  pipelineStatus={(pipeline.status as PipelineStatus) || 'no_configuration'}
                   isLoading={isLoading}
                   onPause={onPause ? () => onPause(pipeline) : undefined}
                   onResume={onResume ? () => onResume(pipeline) : undefined}
@@ -144,8 +144,13 @@ export function MobilePipelinesList({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <Badge variant={getStatusVariant(pipeline.status || 'no_configuration', pipeline.pipeline_id)}>
-                  {getStatusLabel(pipeline.status || 'no_configuration', pipeline.pipeline_id)}
+                <Badge
+                  variant={getStatusVariant(
+                    (pipeline.status as PipelineStatus) || 'no_configuration',
+                    pipeline.pipeline_id,
+                  )}
+                >
+                  {getStatusLabel((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
