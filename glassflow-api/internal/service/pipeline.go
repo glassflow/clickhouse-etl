@@ -115,14 +115,6 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 		return fmt.Errorf("get pipeline failed for termination: %w", err)
 	}
 
-	if p.orchestrator.GetType() == "local" {
-		err = p.DeletePipeline(ctx, pid)
-		if err != nil {
-			return fmt.Errorf("delete pipeline failed: %w", err)
-		}
-		return nil
-	}
-
 	if pipeline.Status.OverallStatus == internal.PipelineStatusTerminated {
 		return ErrPipelineNotExists
 	}
@@ -139,6 +131,19 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 	err = p.orchestrator.TerminatePipeline(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("shutdown pipeline: %w", err)
+	}
+
+	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
+	if p.orchestrator.GetType() == "local" {
+		// Set status to Terminated
+		pipeline.Status.OverallStatus = internal.PipelineStatusTerminated
+
+		// Update status in database
+		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+		if err != nil {
+			return fmt.Errorf("update pipeline status: %w", err)
+		}
+		return nil
 	}
 
 	return nil
