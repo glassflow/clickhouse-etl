@@ -66,8 +66,6 @@ GlassFlow can be installed in a variety of environments depending on your use ca
 | ☁️ **AWS EC2 with Docker Compose** | Lightweight cloud deployment for testing   | [AWS EC2 Guide](https://docs.glassflow.dev/installation/self-host/aws-ec2)               |
 | ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/self-host/kubernetes-helm) |
 
-> ℹ️ **Note:** The current GlassFlow deployment is not horizontally scalable yet. A new Kubernetes-native, scalable deployment is in development and expected by **end of July**.
-
 
 ## 🎥 Demo
 
