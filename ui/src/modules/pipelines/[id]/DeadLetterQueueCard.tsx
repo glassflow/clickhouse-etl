@@ -30,11 +30,22 @@ const formatNumber = (num: number): string => {
 
 // Helper function to format relative time
 const formatRelativeTime = (timestamp: string | null): string => {
-  if (!timestamp) return '-'
+  // Handle null, undefined, empty string, or zero values
+  if (!timestamp || timestamp === '' || timestamp === '0') return '-'
 
   const now = new Date()
   const eventTime = new Date(timestamp)
+
+  // Check if the date is invalid or unreasonably old (before year 2000)
+  if (isNaN(eventTime.getTime()) || eventTime.getFullYear() < 2000) {
+    return '-'
+  }
+
   const diffMs = now.getTime() - eventTime.getTime()
+
+  // Handle future dates (clock skew or invalid data)
+  if (diffMs < 0) return '-'
+
   const diffMinutes = Math.floor(diffMs / (1000 * 60))
 
   if (diffMinutes < 1) return 'Just now'
@@ -44,6 +55,10 @@ const formatRelativeTime = (timestamp: string | null): string => {
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
 
   const diffDays = Math.floor(diffHours / 24)
+
+  // Cap the maximum display at 365 days to avoid extremely large numbers
+  if (diffDays > 365) return 'Over a year ago'
+
   return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
 }
 
