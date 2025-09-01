@@ -7,7 +7,10 @@ services:
     restart: unless-stopped
 
   ui:
-    image: ghcr.io/glassflow/glassflow-etl-fe:glassflow-cloud
+    # image: ghcr.io/glassflow/glassflow-etl-fe:glassflow-cloud
+    build:
+      context: ui
+      dockerfile: Dockerfile
     pull_policy: always
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8081}
