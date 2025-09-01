@@ -279,6 +279,8 @@ type ConnectorConfig struct {
 	DedupKey        string
 	DedupKeyType    string
 
+	Filter FilterConfig // Filter configuration per topic
+
 	Subject   string // Used for nats and jetstream connections
 	QueueName string // Optional, used for nats connections
 	Stream    string // Uses BindStream option for JetStream to consume from sourced streams
@@ -304,6 +306,26 @@ type ConnectorConfig struct {
 	SubjectName       string // Name of the subject in the schema registry for the value
 	SchemaVersion     int    // Version of the value schema to use. Default is latest.
 	SchemaType        string // Can be avro, json, protobuf. Default is avro.
+}
+
+// FilterConfig holds the configuration for message filtering
+type FilterConfig struct {
+	Enabled  bool           `json:"enabled"`
+	Field    string         `json:"field"`
+	Operator FilterOperator `json:"operator"`
+	Value    string         `json:"value"`
+}
+
+// FilterOperator represents the comparison operator for filtering
+type FilterOperator string
+
+const (
+	FilterOperatorEquals    FilterOperator = "="
+	FilterOperatorNotEquals FilterOperator = "!="
+)
+
+func (f FilterOperator) String() string {
+	return string(f)
 }
 
 type CGInitialOffset string
