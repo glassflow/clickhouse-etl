@@ -40,6 +40,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           }
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.deleting:
+        case PIPELINE_STATUS_MAP.terminating:
           return {
             ...baseConfig,
             isDisabled: true,
@@ -51,6 +52,12 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             ...baseConfig,
             isDisabled: true,
             disabledReason: `Cannot edit a ${pipelineStatus} pipeline`,
+          }
+        case PIPELINE_STATUS_MAP.terminated:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Cannot edit a terminated pipeline - configuration is read-only',
           }
         default:
           return baseConfig
@@ -67,6 +74,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           }
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.deleting:
+        case PIPELINE_STATUS_MAP.terminating:
           return {
             ...baseConfig,
             isDisabled: true,
@@ -78,6 +86,12 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             ...baseConfig,
             isDisabled: true,
             disabledReason: `Cannot rename a ${pipelineStatus} pipeline`,
+          }
+        case PIPELINE_STATUS_MAP.terminated:
+          return {
+            ...baseConfig,
+            showModal: true,
+            requiresConfirmation: false,
           }
         default:
           return baseConfig
@@ -113,6 +127,18 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             ...baseConfig,
             isDisabled: true,
             disabledReason: 'Pipeline is already being deleted',
+          }
+        case PIPELINE_STATUS_MAP.terminating:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Pipeline is currently terminating',
+          }
+        case PIPELINE_STATUS_MAP.terminated:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Pipeline is already terminated',
           }
         case PIPELINE_STATUS_MAP.error:
           return {
@@ -154,6 +180,8 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           }
         case PIPELINE_STATUS_MAP.deleting:
         case PIPELINE_STATUS_MAP.deleted:
+        case PIPELINE_STATUS_MAP.terminating:
+        case PIPELINE_STATUS_MAP.terminated:
         case PIPELINE_STATUS_MAP.error:
           return {
             ...baseConfig,
@@ -181,6 +209,8 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.deleting:
         case PIPELINE_STATUS_MAP.deleted:
+        case PIPELINE_STATUS_MAP.terminating:
+        case PIPELINE_STATUS_MAP.terminated:
         case PIPELINE_STATUS_MAP.error:
           return {
             ...baseConfig,
@@ -227,5 +257,12 @@ export const getActionButtonText = (action: PipelineAction, pipelineStatus: Pipe
 }
 
 export const shouldDisablePipelineOperation = (pipelineStatus: Pipeline['status']): boolean => {
-  return pipelineStatus !== PIPELINE_STATUS_MAP.paused && pipelineStatus !== PIPELINE_STATUS_MAP.active
+  // Only disable operations for truly inaccessible states, allow viewing for terminated pipelines
+  return (
+    pipelineStatus === PIPELINE_STATUS_MAP.deleted ||
+    pipelineStatus === PIPELINE_STATUS_MAP.deleting ||
+    pipelineStatus === PIPELINE_STATUS_MAP.error ||
+    pipelineStatus === PIPELINE_STATUS_MAP.deploy_failed ||
+    pipelineStatus === PIPELINE_STATUS_MAP.delete_failed
+  )
 }

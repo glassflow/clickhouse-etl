@@ -27,7 +27,7 @@ export default function PipelinesPage() {
   const updatePipelineStatus = useCallback((pipelineId: string, status: PipelineStatus) => {
     setPipelines((prevPipelines) =>
       prevPipelines.map((pipeline) =>
-        pipeline.pipeline_id === pipelineId ? { ...pipeline, state: status } : pipeline,
+        pipeline.pipeline_id === pipelineId ? { ...pipeline, status: status, state: status } : pipeline,
       ),
     )
   }, [])

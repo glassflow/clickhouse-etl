@@ -24,8 +24,24 @@ export const getPipelineStatusFromState = (state: string): PipelineStatus => {
       return 'paused'
     case 'stopped':
       return 'deleted' // Map stopped to deleted for UI consistency
+    case 'terminated':
+      return 'terminated'
+    case 'terminating':
+      return 'terminating'
+    case 'deleting':
+      return 'deleting'
+    case 'deleted':
+      return 'deleted'
+    case 'deploying':
+      return 'deploying'
     case 'error':
       return 'error'
+    case 'deploy_failed':
+      return 'deploy_failed'
+    case 'delete_failed':
+      return 'delete_failed'
+    case 'no_configuration':
+      return 'no_configuration'
     default:
       return 'active' // Default to active for unknown states (allows editing)
   }
@@ -63,8 +79,8 @@ export interface ListPipelineConfig {
   name: string
   transformation_type: 'Join' | 'Join & Deduplication' | 'Deduplication' | 'Ingest Only'
   created_at: string
-  state: string // Pipeline status from backend State field
-  status?: PipelineStatus // UI status field (converted from state)
+  state?: string // Pipeline status from backend State field (legacy)
+  status?: string | PipelineStatus // Pipeline status from backend (new format) or UI status field (converted)
 }
 
 // Type for DLQ state (matches backend dlqStateResponse)

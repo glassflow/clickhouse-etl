@@ -299,6 +299,8 @@ export function PipelinesList({
         return 'Active'
       case 'deploying':
         return 'Deploying'
+      case 'deleting':
+        return 'Deleting...'
       case 'deleted':
         return 'Deleted'
       case 'deploy_failed':
@@ -311,6 +313,10 @@ export function PipelinesList({
         return 'Pausing'
       case 'paused':
         return 'Paused'
+      case 'terminating':
+        return 'Terminating...'
+      case 'terminated':
+        return 'Terminated'
       case 'error':
         return 'Error'
       default:
@@ -372,6 +378,10 @@ export function PipelinesList({
               return 'warning'
             case 'deleting':
               return 'secondary'
+            case 'terminating':
+              return 'warning'
+            case 'terminated':
+              return 'secondary'
             case 'error':
               return 'error'
             case 'deleted':
@@ -392,9 +402,9 @@ export function PipelinesList({
         return (
           <Badge
             className="rounded-xl my-2 mx-4"
-            variant={getStatusVariant(pipeline.status || 'no_configuration', pipeline.pipeline_id)}
+            variant={getStatusVariant((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
           >
-            {getBadgeLabel(pipeline.status || 'no_configuration', pipeline.pipeline_id)}
+            {getBadgeLabel((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
           </Badge>
         )
       },
@@ -405,7 +415,7 @@ export function PipelinesList({
       width: '1fr',
       render: (pipeline) => (
         <TableContextMenu
-          pipelineStatus={pipeline.status || 'no_configuration'}
+          pipelineStatus={(pipeline.status as PipelineStatus) || 'no_configuration'}
           isLoading={isPipelineLoading(pipeline.pipeline_id)}
           onPause={() => handlePause(pipeline)}
           onResume={() => handleResume(pipeline)}
@@ -428,7 +438,7 @@ export function PipelinesList({
     setPipelineLoading(pipeline.pipeline_id, 'resume')
 
     // Optimistically update status to show transitional state
-    const currentStatus = pipeline.status || 'no_configuration'
+    const currentStatus = (pipeline.status as PipelineStatus) || 'no_configuration'
     onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deploying') // Use deploying as transitional state for resume
 
     try {
