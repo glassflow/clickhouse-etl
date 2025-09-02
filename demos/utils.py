@@ -227,13 +227,13 @@ def create_pipeline_if_not_exists(
             if pipeline:
                 if not skip_confirmation:
                     log(
-                        message=f"Pipeline [italic u]{config.pipeline_id}[/italic u] is already running.",
+                        message=f"Pipeline [italic u]{pipeline.config.pipeline_id}[/italic u] is already running.",
                         status="Blocked",
                         is_warning=True,
                         component="GlassFlow",
                     )
                     resp = query_yes_no(
-                        question=f"Do you want to delete your active pipeline and create a new one with ID [italic u]{config.pipeline_id}[/italic u]?",
+                        question=f"Do you want to delete your active pipeline and create a new one with ID [italic u]{pipeline.config.pipeline_id}[/italic u]?",
                         default_yes=True,
                     )
                 else:
@@ -242,7 +242,7 @@ def create_pipeline_if_not_exists(
                 if resp:
                     pipeline.delete()
                     log(
-                        message=f"Delete pipeline [italic u]{config.pipeline_id}[/italic u]",
+                        message=f"Delete pipeline [italic u]{pipeline.config.pipeline_id}[/italic u]",
                         status="Success",
                         is_success=True,
                         component="GlassFlow",
@@ -257,7 +257,11 @@ def create_pipeline_if_not_exists(
                     exit(0)
 
         if config.join.enabled:
-            join_key = config.join.sources[0].join_key
+            join_keys = [config.join.sources[0].join_key, config.join.sources[1].join_key]
+            for field in config.sink.table_mapping:
+                if field.field_name in join_keys:
+                    join_key = field.column_name
+                    break
         else:
             join_key = None
         create_table_if_not_exists(config.sink, clickhouse_client, join_key)

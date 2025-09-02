@@ -1,7 +1,10 @@
 {
     "event_id": "$uuid4",
-    "user_id": "$uuid4",
-    "name": "$name",
-    "email": "$email",
-    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)"
+    "user": {
+        "id": "$uuid4",
+        "name": "$name",
+        "email": "$email"
+    },
+    "created_at": "$datetime(%Y-%m-%d %H:%M:%S)",
+    "tags": "$array(choice, 2, 'tag1', 'tag222', 'tag333', 'tag444')"
 }
