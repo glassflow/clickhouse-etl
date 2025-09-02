@@ -35,12 +35,13 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string
 		schemaMapper: schemaMapper,
 
 		component: nil,
-		c:         make(chan error, 1),
-		doneCh:    make(chan struct{}),
 	}
 }
 
 func (i *IngestorRunner) Start(ctx context.Context) error {
+	i.doneCh = make(chan struct{})
+	i.c = make(chan error, 1)
+
 	if i.topicName == "" {
 		return fmt.Errorf("topic name cannot be empty")
 	}

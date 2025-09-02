@@ -40,13 +40,14 @@ func NewJoinRunner(log *slog.Logger, nc *client.NATSClient, leftInputStreamName,
 		schemaMapper:         schemaMapper,
 
 		component: nil,
-		c:         make(chan error, 1),
-		doneCh:    make(chan struct{}),
 	}
 }
 
 func (j *JoinRunner) Start(ctx context.Context) error {
 	var mapper schema.JsonToClickHouseMapper
+
+	j.doneCh = make(chan struct{})
+	j.c = make(chan error, 1)
 
 	switch sm := j.schemaMapper.(type) {
 	case *schema.JsonToClickHouseMapper:
