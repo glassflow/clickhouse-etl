@@ -11,9 +11,9 @@ services:
       context: ../ui
     environment:
       - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
-      - NEXT_PUBLIC_API_URL=http://app:8081
+      - NEXT_PUBLIC_API_URL=http://api:8081
 
-  app:
+  api:
     build:
       context: ../
       dockerfile: glassflow-api/Dockerfile
@@ -35,7 +35,7 @@ services:
       - 8081:8081
     depends_on:
       - ui
-      - app
+      - api
     volumes:
       - logs:/logs:ro
       - ../nginx:/etc/nginx/templates

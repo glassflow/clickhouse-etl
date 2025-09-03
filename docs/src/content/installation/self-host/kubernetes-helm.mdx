@@ -9,10 +9,9 @@ This guide will walk you through the process of installing GlassFlow on Kubernet
 
 
 > ℹ️ **Note:**  
-> - The official Helm chart is available at [github.com/glassflow/charts](https://github.com/glassflow/charts).  
+> - The official Helm chart is available at [github.com/glassflow/charts](https://github.com/glassflow/charts).
 > - The current Helm deployment **does not expose GlassFlow to the internet by default**. You must use `kubectl port-forward` to access the UI or API.  
 > - To expose GlassFlow externally (e.g., via a domain), you must configure ingress in your `values.yaml`. Refer to the default `values.yaml` [here](https://github.com/glassflow/charts/blob/main/charts/glassflow-etl/values.yaml).  
-> - **Scalability Notice:** The current GlassFlow deployment is **not horizontally scalable** and is **not recommended for high-load production use cases**. A new, Kubernetes-native scalable version is under development and is expected to be released by **end of July**.
 
 
 ## Prerequisites
@@ -51,7 +50,21 @@ helm list -n glassflow
 The output should look like this:
 ```bash
 NAME     	NAMESPACE	REVISION	UPDATED                              	STATUS  	CHART              	APP VERSION
-glassflow	glassflow	1       	2025-06-19 09:21:00.010957 +0200 CEST	deployed	glassflow-etl-0.1.1	1.1.12     
+glassflow	glassflow	1       	2025-09-03 15:07:47.125128 +0200 CEST	deployed	glassflow-etl-0.2.0	2.0.0      
+```
+
+To check the services that were deployed:
+```bash
+kubectl get svc -n glassflow
+```
+The output should look like this:
+```bash
+NAME                                           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+glassflow-api                                  ClusterIP   34.118.235.223   <none>        8081/TCP                     2m9s
+glassflow-controller-manager-metrics-service   ClusterIP   34.118.227.29    <none>        8443/TCP                     2m10s
+glassflow-nats                                 ClusterIP   34.118.237.53    <none>        4222/TCP                     2m10s
+glassflow-nats-headless                        ClusterIP   None             <none>        4222/TCP,6222/TCP,8222/TCP   2m10s
+glassflow-ui                                   ClusterIP   34.118.225.1     <none>        8080/TCP                     2m9s
 ```
 
 List the pods that were deployed: 
@@ -60,13 +73,15 @@ kubectl get pods -n glassflow
 ```
 The output should look like this:
 ```bash
-NAME                                 READY   STATUS    RESTARTS      AGE
-glassflow-app-5dbbc96949-bbjx9       1/1     Running   3 (29s ago)   44s
-glassflow-nats-0                     2/2     Running   0             44s
-glassflow-nats-1                     2/2     Running   0             44s
-glassflow-nats-2                     2/2     Running   0             44s
-glassflow-nats-box-8896f8cf6-7qcm9   1/1     Running   0             44s
-glassflow-ui-5798966dd-jzs6v         1/1     Running   0             44s
+kubectl get pods -n glassflow
+NAME                                            READY   STATUS    RESTARTS      AGE
+glassflow-api-7f4bfd94b4-gdw5c                  1/1     Running   0             83s
+glassflow-controller-manager-7d5dd699f9-cgj2c   1/1     Running   0             83s
+glassflow-nats-0                                2/2     Running   0             82s
+glassflow-nats-1                                2/2     Running   0             82s
+glassflow-nats-2                                2/2     Running   0             82s
+glassflow-nats-box-784bcdcf64-gdwwq             1/1     Running   0             83s
+glassflow-ui-76bf46ff6d-lx4ng                   1/1     Running   0             83s
 ```
 
 5. Port forward the UI service to your local machine to access the web interface:
@@ -77,9 +92,9 @@ The GlassFlow UI service runs on port 8080. The command above forwards it to you
 
 6. To access the API, you can port forward the API service to your local machine:
 ```bash
-kubectl port-forward service/glassflow-app 8081:8080 -n glassflow
+kubectl port-forward service/glassflow-api 8081:8081 -n glassflow
 ```
-The GlassFlow API service runs on port 8080. The command above forwards it to port 8081 on your machine. You can modify this port if needed.
+The GlassFlow API service runs on port 8081. The command above forwards it to port 8081 on your machine. You can modify this port if needed.
 
 7. Open http://localhost:8080 in your browser to access the GlassFlow UI. You can now start creating pipelines.
 For help with your first pipeline, see the [Usage Guide](/pipeline/usage).
