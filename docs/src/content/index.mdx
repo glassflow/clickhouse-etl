@@ -3,7 +3,7 @@
 
 GlassFlow for ClickHouse Streaming ETL is a real-time stream processor designed to simplify data pipeline creation and management between Kafka and ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for deduplication and temporal joins.
 
-Built specifically for data engineers, GlassFlow handles late-arriving events, ensures exactly-once correctness, and scales with high-throughput data. It delivers accurate, low-latency results from streaming data without compromising simplicity or performance. The tool's intuitive web interface makes it easy to configure and monitor pipelines, while its robust architecture ensures reliable data processing.
+Its fully open-source and built for data engineers by data engineers. GlassFlow handles late-arriving events, ensures exactly-once correctness, and scales with high-throughput data. It delivers accurate, low-latency results from streaming data without compromising simplicity or performance. The tool's intuitive web interface makes it easy to configure and monitor pipelines, while its robust architecture ensures reliable data processing.
 
 <br />
 <img src="/assets/clickhouse-etl-introduction.jpg" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
@@ -17,7 +17,6 @@ Built specifically for data engineers, GlassFlow handles late-arriving events, e
 - Real-time deduplication of Kafka streams before ingestion into ClickHouse
 - Configurable time windows up to 7 days for deduplication
 - Simple configuration of deduplication keys and time windows
-- One-click setup for deduplicated data pipelines
 - Prevents duplicate data from reaching ClickHouse
 
 ### Temporal Stream Joins
@@ -27,16 +26,18 @@ Built specifically for data engineers, GlassFlow handles late-arriving events, e
 - Simplified join setup process
 - Produce joined streams ready for ClickHouse ingestion
 
-</div>
-<div className="flex flex-col gap-4">
+### Kubernetes Native Architecture
+- Robust and scalable architecture natively built for Kubernetes
+- Easy installation using Helm
+- Custom Kubernetes controller for managing pipelines
+- Horizontal scalability
 
 ### Built-in Kafka Connector
-- Powered by [NATS-Kafka Bridge](https://github.com/nats-io/nats-kafka)
 - Automatic data extraction from Kafka topics
 - Seamless integration with Kafka clusters
 - No manual data pulling required
 - Supports multiple Kafka topics and partitions
-- Native support for JSON data types
+- Native support for JSON data types including nested JSON and arrays
 
 ### Optimized ClickHouse Sink
 - Native ClickHouse connection for maximum performance
@@ -44,22 +45,18 @@ Built specifically for data engineers, GlassFlow handles late-arriving events, e
 - Adjustable wait times for optimal throughput
 - Built-in retry mechanisms
 - Automatic schema detection and management
-- Full support for JSON data types in ClickHouse
+- Full support for JSON data types in ClickHouse including nested JSON and arrays
 
 </div>
 </div>
 
 ### Additional Features
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div>
-
 - **User-Friendly Interface**: Web-based UI for pipeline configuration and management
+- **SDK Support**: Python SDK for programmatic management of pipelines
 - **Local Development**: Includes demo setup with local Kafka and ClickHouse instances
-</div>
-<div>
 - **Docker Support**: Easy deployment using Docker and docker compose
 - **Self-Hosted**: Open-source solution that can be self-hosted in your infrastructure
-</div>
 </div>
 
 ## Getting Started
