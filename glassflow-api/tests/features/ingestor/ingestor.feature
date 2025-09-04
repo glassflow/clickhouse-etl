@@ -84,7 +84,7 @@ Feature: Kafka Ingestor
             | 3   | {"id": "789", "name": "Bob Johnson"}   |
             | 4   | {"id": "789", "name": "Ulm Petterson"} |
 
-        And a running ingestor component
+        And I run the ingestor component
 
         Then I check results stream with content
             | id  | name        |
@@ -244,7 +244,7 @@ Feature: Kafka Ingestor
             | 2         | 3   | {"id": "789", "name":"Fedor Smolov"}    |
             | 0         | 4   | {"id": "789", "name":"Victor Thurilla"} |
 
-        And a running ingestor component
+        And I run the ingestor component
 
         Then I check results stream with content
             | id  | name         |
@@ -320,7 +320,7 @@ Feature: Kafka Ingestor
             | 2   | {"id": "456", "name": "Bob"}   |
             | 3   | {"key": "value"}               |
 
-        And a running ingestor component
+        And I run the ingestor component
 
         Then I check results stream with content
             | id  | name  |
@@ -330,4 +330,125 @@ Feature: Kafka Ingestor
         And I check DLQ stream with content
             | component | error                   | original_message |
             | ingestor  | failed to validate data | {"key": "value"} |
+
+    Scenario: Run 2 ingestor from 2 separate pipelines for the one kafka topic
+        Given a Kafka topic "test_topic" with 1 partition
+        And a schema mapper with config:
+            """json
+            {
+                "type": "jsonToClickhouse",
+                "streams": {
+                    "test_topic": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "test_topic",
+                        "column_type": "string"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "test_topic",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        Given an ingestor component config:
+            """json
+            {
+                "type": "kafka",
+                "kafka_connection_params": {
+                    "brokers": [],
+                    "skip_auth": true,
+                    "protocol": "SASL_PLAINTEXT",
+                    "mechanism": "",
+                    "username": "",
+                    "password": "",
+                    "root_ca": ""
+                },
+                "kafka_topics": [
+                    {
+                        "name": "test_topic",
+                        "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                        "partitions": 1,
+                        "deduplication": {
+                            "enabled": false
+                        }
+                    }
+                ]
+            }
+            """
+        When I write these events to Kafka topic "test_topic":
+            | key | value                                  |
+            | 1   | {"id": "123", "name": "John Doe"}      |
+            | 2   | {"id": "456", "name": "Jane Smith"}    |
+            | 3   | {"id": "789", "name": "Bob Johnson"}   |
+            | 4   | {"id": "789", "name": "Ulm Petterson"} |
+
+        And I run the ingestor component
+
+        Then I check results stream with content
+            | id  | name          |
+            | 123 | John Doe      |
+            | 456 | Jane Smith    |
+            | 789 | Bob Johnson   |
+            | 789 | Ulm Petterson |
+
+        And I stop the ingestor component
+
+        Then I flush all NATS streams
+
+        When an ingestor component config:
+            """json
+            {
+                "type": "kafka",
+                "kafka_connection_params": {
+                    "brokers": [],
+                    "skip_auth": true,
+                    "protocol": "SASL_PLAINTEXT",
+                    "mechanism": "",
+                    "username": "",
+                    "password": "",
+                    "root_ca": ""
+                },
+                "kafka_topics": [
+                    {
+                        "name": "test_topic",
+                        "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-124",
+                        "partitions": 1,
+                        "deduplication": {
+                            "enabled": false
+                        }
+                    }
+                ]
+            }
+            """
+
+        And I run the ingestor component
+
+        Then I check results stream with content
+            | id  | name          |
+            | 123 | John Doe      |
+            | 456 | Jane Smith    |
+            | 789 | Bob Johnson   |
+            | 789 | Ulm Petterson |
+
+
+
 

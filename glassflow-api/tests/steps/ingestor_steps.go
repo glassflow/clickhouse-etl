@@ -226,7 +226,7 @@ func (s *IngestorTestSuite) anIngestorComponentConfig(config string) error {
 	return nil
 }
 
-func (s *IngestorTestSuite) aRunningIngestorComponent() error {
+func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	var duration time.Duration
 	logger := testutils.NewTestLogger()
 
@@ -418,6 +418,13 @@ func (s *IngestorTestSuite) checkDLQStream(dataTable *godog.Table) error {
 	return nil
 }
 
+func (s *IngestorTestSuite) stopIngestor() {
+	if s.ingestor != nil {
+		s.ingestor.Stop(component.WithNoWait(true))
+		s.ingestor = nil
+	}
+}
+
 func (s *IngestorTestSuite) fastJoinCleanUp() error {
 	var errs []error
 
@@ -433,10 +440,7 @@ func (s *IngestorTestSuite) fastJoinCleanUp() error {
 		errs = append(errs, fmt.Errorf("clean nats streams: %w", err))
 	}
 
-	if s.ingestor != nil {
-		s.ingestor.Stop(component.WithNoWait(true))
-		s.ingestor = nil
-	}
+	s.stopIngestor()
 
 	err = testutils.CombineErrors(errs)
 	if err != nil {
@@ -476,11 +480,13 @@ func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
 	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)
 	sc.Step(`a Kafka topic "([^"]*)" with (\d+) partition`, s.aKafkaTopicWithPartitions)
-	sc.Step(`^a running ingestor component$`, s.aRunningIngestorComponent)
 
+	sc.Step(`^I run the ingestor component$`, s.iRunningIngestorComponent)
+	sc.Step(`^I stop the ingestor component$`, s.stopIngestor)
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, s.iPublishEventsToKafka)
 	sc.Step(`^I check results stream with content$`, s.checkResultsStream)
 	sc.Step(`^I check DLQ stream with content$`, s.checkDLQStream)
+	sc.Step(`^I flush all NATS streams$`, s.cleanNatsStreams)
 
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := s.fastJoinCleanUp()
