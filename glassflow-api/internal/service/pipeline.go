@@ -33,6 +33,7 @@ type PipelineManager interface {
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
 	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
+	GetOrchestratorType() string
 }
 
 type PipelineManagerImpl struct {
@@ -205,4 +206,9 @@ func (p *PipelineManagerImpl) UpdatePipelineStatus(ctx context.Context, pid stri
 	}
 
 	return nil
+}
+
+// GetOrchestratorType implements PipelineManager.
+func (p *PipelineManagerImpl) GetOrchestratorType() string {
+	return p.orchestrator.GetType()
 }

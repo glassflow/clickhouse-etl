@@ -26,6 +26,7 @@ func NewRouter(log *slog.Logger, pSvc service.PipelineManager, dlqSvc service.DL
 	}
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
+	r.HandleFunc("/api/v1/platform", h.platform).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline", h.createPipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}", h.getPipeline).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}", h.updatePipelineName).Methods("PATCH")
