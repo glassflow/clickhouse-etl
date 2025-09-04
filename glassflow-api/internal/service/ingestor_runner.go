@@ -53,6 +53,8 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		}
 	}
 
+	i.log.Debug("Starting ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("streamId", models.GetNATSSubjectName(outputStreamID)))
+
 	if outputStreamID == "" {
 		return fmt.Errorf("output stream name cannot be empty")
 	}
@@ -99,6 +101,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 }
 
 func (i *IngestorRunner) Shutdown() {
+	i.log.Debug("Stopping ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("topic", i.topicName))
 	if i.component != nil {
 		i.component.Stop()
 	}
