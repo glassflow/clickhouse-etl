@@ -272,3 +272,97 @@ func TestGetJoinedStreamName(t *testing.T) {
 		t.Errorf("GetJoinedStreamName(%q) = %q, should end with 'joined'", pipelineID, result)
 	}
 }
+
+func TestPipelineHealthCanTransitionTo(t *testing.T) {
+	tests := []struct {
+		name        string
+		current     PipelineStatus
+		target      PipelineStatus
+		shouldAllow bool
+	}{
+		// From Created
+		{"Created to Running", PipelineStatus(internal.PipelineStatusCreated), PipelineStatus(internal.PipelineStatusRunning), true},
+		{"Created to Terminated", PipelineStatus(internal.PipelineStatusCreated), PipelineStatus(internal.PipelineStatusTerminating), true},
+		{"Created to Pausing", PipelineStatus(internal.PipelineStatusCreated), PipelineStatus(internal.PipelineStatusPausing), false},
+
+		// From Running
+		{"Running to Pausing", PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusPausing), true},
+		{"Running to Terminated", PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusTerminating), true},
+		{"Running to Created", PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusCreated), false},
+
+		// From Pausing
+		{"Pausing to Paused", PipelineStatus(internal.PipelineStatusPausing), PipelineStatus(internal.PipelineStatusPaused), true},
+		{"Pausing to Terminated", PipelineStatus(internal.PipelineStatusPausing), PipelineStatus(internal.PipelineStatusTerminating), true},
+		{"Pausing to Running", PipelineStatus(internal.PipelineStatusPausing), PipelineStatus(internal.PipelineStatusRunning), false},
+
+		// From Paused
+		{"Paused to Resuming", PipelineStatus(internal.PipelineStatusPaused), PipelineStatus(internal.PipelineStatusResuming), true},
+		{"Paused to Terminated", PipelineStatus(internal.PipelineStatusPaused), PipelineStatus(internal.PipelineStatusTerminating), true},
+		{"Paused to Running", PipelineStatus(internal.PipelineStatusPaused), PipelineStatus(internal.PipelineStatusRunning), false},
+
+		// From Resuming
+		{"Resuming to Running", PipelineStatus(internal.PipelineStatusResuming), PipelineStatus(internal.PipelineStatusRunning), true},
+		{"Resuming to Terminated", PipelineStatus(internal.PipelineStatusResuming), PipelineStatus(internal.PipelineStatusTerminating), true},
+		{"Resuming to Paused", PipelineStatus(internal.PipelineStatusResuming), PipelineStatus(internal.PipelineStatusPaused), false},
+
+		// From Terminating
+		{"Terminating to Terminated", PipelineStatus(internal.PipelineStatusTerminating), PipelineStatus(internal.PipelineStatusTerminated), true},
+		{"Terminating to Running", PipelineStatus(internal.PipelineStatusTerminating), PipelineStatus(internal.PipelineStatusRunning), false},
+
+		// From Terminated (terminal state)
+		{"Terminated to Running", PipelineStatus(internal.PipelineStatusTerminated), PipelineStatus(internal.PipelineStatusRunning), false},
+		{"Terminated to Paused", PipelineStatus(internal.PipelineStatusTerminated), PipelineStatus(internal.PipelineStatusPaused), false},
+
+		// From Failed
+		{"Failed to Terminated", PipelineStatus(internal.PipelineStatusFailed), PipelineStatus(internal.PipelineStatusTerminated), true},
+		{"Failed to Running", PipelineStatus(internal.PipelineStatusFailed), PipelineStatus(internal.PipelineStatusRunning), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			health := &PipelineHealth{
+				OverallStatus: tt.current,
+			}
+
+			result := health.CanTransitionTo(tt.target)
+			if result != tt.shouldAllow {
+				t.Errorf("CanTransitionTo(%s -> %s) = %v, want %v", tt.current, tt.target, result, tt.shouldAllow)
+			}
+		})
+	}
+}
+
+func TestPipelineHealthTransitionTo(t *testing.T) {
+	tests := []struct {
+		name        string
+		current     PipelineStatus
+		target      PipelineStatus
+		shouldError bool
+	}{
+		{"Valid transition", PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusPausing), false},
+		{"Invalid transition", PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusCreated), true},
+		{"Terminal state transition", PipelineStatus(internal.PipelineStatusTerminated), PipelineStatus(internal.PipelineStatusRunning), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			health := &PipelineHealth{
+				OverallStatus: tt.current,
+			}
+
+			err := health.TransitionTo(tt.target)
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("TransitionTo(%s -> %s) should have returned an error", tt.current, tt.target)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("TransitionTo(%s -> %s) returned unexpected error: %v", tt.current, tt.target, err)
+				}
+				if health.OverallStatus != tt.target {
+					t.Errorf("TransitionTo(%s -> %s) did not update status, got %s", tt.current, tt.target, health.OverallStatus)
+				}
+			}
+		})
+	}
+}

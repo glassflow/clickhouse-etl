@@ -504,6 +504,47 @@ func GetIngestorStreamName(pipelineID, topicName string) string {
 	return streamName
 }
 
+// CanTransitionTo validates if a pipeline can transition from current state to new state
+func (p *PipelineHealth) CanTransitionTo(newState PipelineStatus) bool {
+	currentState := p.OverallStatus
+
+	// Define valid state transitions
+	validTransitions := map[PipelineStatus][]PipelineStatus{
+		PipelineStatus(internal.PipelineStatusCreated):     {PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusTerminating)},
+		PipelineStatus(internal.PipelineStatusRunning):     {PipelineStatus(internal.PipelineStatusPausing), PipelineStatus(internal.PipelineStatusTerminating)},
+		PipelineStatus(internal.PipelineStatusPausing):     {PipelineStatus(internal.PipelineStatusPaused), PipelineStatus(internal.PipelineStatusTerminating)},
+		PipelineStatus(internal.PipelineStatusPaused):      {PipelineStatus(internal.PipelineStatusResuming), PipelineStatus(internal.PipelineStatusTerminating)},
+		PipelineStatus(internal.PipelineStatusResuming):    {PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusTerminating)},
+		PipelineStatus(internal.PipelineStatusTerminating): {PipelineStatus(internal.PipelineStatusTerminated)},
+		PipelineStatus(internal.PipelineStatusTerminated):  {},                                                  // Terminal state
+		PipelineStatus(internal.PipelineStatusFailed):      {PipelineStatus(internal.PipelineStatusTerminated)}, // Can only terminate from failed
+	}
+
+	allowedStates, exists := validTransitions[currentState]
+	if !exists {
+		return false
+	}
+
+	for _, allowedState := range allowedStates {
+		if allowedState == newState {
+			return true
+		}
+	}
+
+	return false
+}
+
+// TransitionTo attempts to transition the pipeline to a new state
+func (p *PipelineHealth) TransitionTo(newState PipelineStatus) error {
+	if !p.CanTransitionTo(newState) {
+		return fmt.Errorf("invalid state transition from %s to %s", p.OverallStatus, newState)
+	}
+
+	p.OverallStatus = newState
+	p.UpdatedAt = time.Now().UTC()
+	return nil
+}
+
 func GetPipelineNATSSubject(pipelineID, topicName string) string {
 	streamName := GetIngestorStreamName(pipelineID, topicName)
 	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
