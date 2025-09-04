@@ -119,6 +119,18 @@ func testIngetorFeatures(t *testing.T) {
 	runSingleSuite(t, "ingestor", ingestorSuite, config)
 }
 
+func testPlatformFeatures(t *testing.T) {
+	platformSuite := steps.NewPlatformSteps()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "platform")},
+		Tags:         "@platform",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "platform", platformSuite, config)
+}
+
 // TestFeatures runs all feature tests but in separate contexts
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
@@ -126,4 +138,5 @@ func TestFeatures(t *testing.T) {
 	t.Run("JoinComponentFeatures", testJoinFeatures)
 	t.Run("PipelineFeatures", testPipelineFeatures)
 	t.Run("IngestorFeatures", testIngetorFeatures)
+	t.Run("PlatformFeatures", testPlatformFeatures)
 }
