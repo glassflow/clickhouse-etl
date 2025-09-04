@@ -12,6 +12,7 @@ import { JoinConfigType } from '@/src/scheme/join.scheme'
 import { extractEventFields } from '@/src/utils/common.client'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
+import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export type JoinConfiguratorProps = {
   steps: any
@@ -38,6 +39,7 @@ export function JoinConfigurator({
 }: JoinConfiguratorProps) {
   const { topicsStore, joinStore, coreStore } = useStore()
   const validationEngine = useValidationEngine()
+  const analytics = useJourneyAnalytics()
   const { getTopic, getEvent } = topicsStore
   const { enabled, type, streams, setEnabled, setType, setStreams } = joinStore
 
@@ -69,13 +71,6 @@ export function JoinConfigurator({
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
-  // Reset success state when user starts editing again
-  useEffect(() => {
-    if (!readOnly && isSaveSuccess) {
-      setIsSaveSuccess(false)
-    }
-  }, [readOnly, isSaveSuccess])
-
   // Get existing topic data if available
   const topic1 = getTopic(index)
   const topic2 = getTopic(index + 1)
@@ -84,6 +79,33 @@ export function JoinConfigurator({
 
   // Check if we're returning to a previously filled form
   const isReturningToForm = topic1 && topic1.name && topic2 && topic2.name
+
+  // Track page view when component loads
+  useEffect(() => {
+    analytics.page.joinKey({
+      mode: standalone ? 'edit' : 'create',
+      readOnly,
+      hasExistingData: isReturningToForm,
+      timestamp: new Date().toISOString(),
+    })
+
+    // Track join configuration started
+    analytics.join.configurationStarted({
+      mode: standalone ? 'edit' : 'create',
+      readOnly,
+      hasExistingData: isReturningToForm,
+      leftTopicName: topic1?.name,
+      rightTopicName: topic2?.name,
+      timestamp: new Date().toISOString(),
+    })
+  }, [analytics.page, analytics.join, standalone, readOnly, isReturningToForm, topic1?.name, topic2?.name])
+
+  // Reset success state when user starts editing again
+  useEffect(() => {
+    if (!readOnly && isSaveSuccess) {
+      setIsSaveSuccess(false)
+    }
+  }, [readOnly, isSaveSuccess])
 
   // Set initial render state
   useEffect(() => {
@@ -182,6 +204,26 @@ export function JoinConfigurator({
       })),
     )
 
+    // Track successful join configuration completion
+    analytics.join.configurationCompleted({
+      joinType: 'temporal',
+      leftStream: {
+        streamId: formData.streams[0].streamId,
+        joinKey: formData.streams[0].joinKey,
+        dataType: formData.streams[0].dataType,
+        timeWindow: `${formData.streams[0].joinTimeWindowValue} ${formData.streams[0].joinTimeWindowUnit}`,
+        topicName: topic1?.name,
+      },
+      rightStream: {
+        streamId: formData.streams[1].streamId,
+        joinKey: formData.streams[1].joinKey,
+        dataType: formData.streams[1].dataType,
+        timeWindow: `${formData.streams[1].joinTimeWindowValue} ${formData.streams[1].joinTimeWindowUnit}`,
+        topicName: topic2?.name,
+      },
+      timestamp: new Date().toISOString(),
+    })
+
     // Trigger validation engine to mark this section as valid and invalidate dependents
     validationEngine.onSectionConfigured(StepKeys.JOIN_CONFIGURATOR)
 
@@ -205,6 +247,36 @@ export function JoinConfigurator({
     setFormData((prev) => ({
       streams: prev.streams.map((stream, index) => (index === streamIndex ? { ...stream, [field]: value } : stream)),
     }))
+
+    // Track user interaction with join configuration
+    analytics.join.fieldChanged({
+      field,
+      value: typeof value === 'string' ? value : JSON.stringify(value),
+      streamIndex,
+      streamId: formData.streams[streamIndex]?.streamId,
+      topicName: streamIndex === 0 ? topic1?.name : topic2?.name,
+      streamOrientation: streamIndex === 0 ? 'left' : 'right',
+      timestamp: new Date().toISOString(),
+    })
+
+    // Track specific join key selection if it's a joinKey field
+    if (field === 'joinKey' && value) {
+      if (streamIndex === 0) {
+        analytics.key.leftJoinKey({
+          joinKey: value,
+          topicName: topic1?.name,
+          streamId: formData.streams[streamIndex]?.streamId,
+          timestamp: new Date().toISOString(),
+        })
+      } else {
+        analytics.key.rightJoinKey({
+          joinKey: value,
+          topicName: topic2?.name,
+          streamId: formData.streams[streamIndex]?.streamId,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    }
 
     // Trigger validation engine to invalidate dependent sections when join configuration changes
     // When join configuration changes, it affects ClickHouse mapping

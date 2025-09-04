@@ -173,9 +173,8 @@ export function ClickhouseMapper({
   // Add a ref to track the last connection we loaded data for
   const lastConnectionRef = useRef<string>('')
 
-  // Add tracking refs to avoid re-renders and prevent infinite loops (for join mode)
+  // Add tracking refs to avoid re-renders and prevent infinite loops
   const viewTrackedRef = useRef(false)
-  const completionTrackedRef = useRef(false)
 
   // Use hooks for data fetching
   const { databases, isLoading: databasesLoading, error: databasesError, fetchDatabases } = useClickhouseDatabases()
@@ -213,31 +212,10 @@ export function ClickhouseMapper({
   // Track initial view based on mode
   useEffect(() => {
     if (!hasTrackedView) {
-      if (mode === 'single') {
-        analytics.page.selectDestination({
-          topicName,
-          topicIndex: index,
-          isReturningVisit: !!clickhouseDestination?.database,
-          existingMappingCount: clickhouseDestination?.mapping?.length || 0,
-        })
-      } else {
-        analytics.page.joinKey({
-          primaryTopicName: primaryTopic?.name,
-          secondaryTopicName: secondaryTopic?.name,
-        })
-      }
+      analytics.page.selectDestination({})
       setHasTrackedView(true)
     }
-  }, [
-    hasTrackedView,
-    analytics.page,
-    topicName,
-    index,
-    clickhouseDestination,
-    mode,
-    primaryTopic?.name,
-    secondaryTopic?.name,
-  ])
+  }, [hasTrackedView, analytics.page])
 
   // Get connection config based on connection type
   const getConnectionConfig = () => ({
@@ -843,21 +821,8 @@ export function ClickhouseMapper({
       delayUnit: maxDelayTimeUnit,
     })
 
-    // Track completion for join mode
-    if (mode !== 'single' && !completionTrackedRef.current) {
-      analytics.key.leftJoinKey({
-        primaryTopicName: primaryTopic?.name,
-        database: selectedDatabase,
-        table: selectedTable,
-      })
-
-      analytics.key.rightJoinKey({
-        secondaryTopicName: secondaryTopic?.name,
-        database: selectedDatabase,
-        table: selectedTable,
-      })
-      completionTrackedRef.current = true
-    }
+    // Join key tracking is handled in JoinConfigurator, not here
+    // This component focuses on destination mapping, not join configuration
 
     // Create the updated destination config first
     const updatedDestination = {

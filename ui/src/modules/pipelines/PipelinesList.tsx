@@ -435,6 +435,14 @@ export function PipelinesList({
 
   const handleResume = async (pipeline: ListPipelineConfig) => {
     console.log('Resume pipeline:', pipeline.pipeline_id)
+
+    // Track resume clicked
+    analytics.pipeline.resumeClicked({
+      pipelineId: pipeline.pipeline_id,
+      pipelineName: pipeline.name,
+      currentStatus: pipeline.status,
+    })
+
     setPipelineLoading(pipeline.pipeline_id, 'resume')
 
     // Optimistically update status to show transitional state
@@ -445,10 +453,24 @@ export function PipelinesList({
       await resumePipeline(pipeline.pipeline_id)
       console.log('Pipeline resumed successfully:', pipeline.pipeline_id)
 
+      // Track resume success
+      analytics.pipeline.resumeSuccess({
+        pipelineId: pipeline.pipeline_id,
+        pipelineName: pipeline.name,
+      })
+
       // Refetch data to get the actual updated status
       await onRefresh?.()
     } catch (error) {
       console.error('Failed to resume pipeline:', error)
+
+      // Track resume failure
+      analytics.pipeline.resumeFailed({
+        pipelineId: pipeline.pipeline_id,
+        pipelineName: pipeline.name,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+
       // Revert optimistic update on error
       onUpdatePipelineStatus?.(pipeline.pipeline_id, currentStatus)
     } finally {
@@ -517,6 +539,13 @@ export function PipelinesList({
         onOk={async () => {
           if (!pauseSelectedPipeline) return
 
+          // Track pause clicked
+          analytics.pipeline.pauseClicked({
+            pipelineId: pauseSelectedPipeline.pipeline_id,
+            pipelineName: pauseSelectedPipeline.name,
+            currentStatus: pauseSelectedPipeline.status,
+          })
+
           closePauseModal() // Close modal immediately
           setPipelineLoading(pauseSelectedPipeline.pipeline_id, 'pause')
 
@@ -527,10 +556,24 @@ export function PipelinesList({
             await pausePipeline(pauseSelectedPipeline.pipeline_id)
             console.log('Pipeline paused successfully:', pauseSelectedPipeline.pipeline_id)
 
+            // Track pause success
+            analytics.pipeline.pauseSuccess({
+              pipelineId: pauseSelectedPipeline.pipeline_id,
+              pipelineName: pauseSelectedPipeline.name,
+            })
+
             // Refetch data to get the actual updated status
             await onRefresh?.()
           } catch (error) {
             console.error('Failed to pause pipeline:', error)
+
+            // Track pause failure
+            analytics.pipeline.pauseFailed({
+              pipelineId: pauseSelectedPipeline.pipeline_id,
+              pipelineName: pauseSelectedPipeline.name,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            })
+
             // Revert optimistic update on error
             onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'active')
           } finally {
@@ -547,6 +590,13 @@ export function PipelinesList({
         onOk={async (newName) => {
           if (!renameSelectedPipeline || !newName) return
 
+          // Track rename clicked
+          analytics.pipeline.renameClicked({
+            pipelineId: renameSelectedPipeline.pipeline_id,
+            pipelineName: renameSelectedPipeline.name,
+            newName: newName,
+          })
+
           closeRenameModal() // Close modal immediately
           setPipelineLoading(renameSelectedPipeline.pipeline_id, 'rename')
 
@@ -558,10 +608,26 @@ export function PipelinesList({
             await renamePipeline(renameSelectedPipeline.pipeline_id, newName)
             console.log('Pipeline renamed successfully:', renameSelectedPipeline.pipeline_id, 'to', newName)
 
+            // Track rename success
+            analytics.pipeline.renameSuccess({
+              pipelineId: renameSelectedPipeline.pipeline_id,
+              oldName: oldName,
+              newName: newName,
+            })
+
             // Refetch data to ensure consistency
             await onRefresh?.()
           } catch (error) {
             console.error('Failed to rename pipeline:', error)
+
+            // Track rename failure
+            analytics.pipeline.renameFailed({
+              pipelineId: renameSelectedPipeline.pipeline_id,
+              pipelineName: oldName,
+              newName: newName,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            })
+
             // Revert optimistic update on error
             onUpdatePipelineName?.(renameSelectedPipeline.pipeline_id, oldName)
           } finally {
@@ -576,6 +642,13 @@ export function PipelinesList({
         visible={isEditModalVisible}
         onOk={async () => {
           if (!editSelectedPipeline) return
+
+          // Track edit clicked
+          analytics.pipeline.editClicked({
+            pipelineId: editSelectedPipeline.pipeline_id,
+            pipelineName: editSelectedPipeline.name,
+            currentStatus: editSelectedPipeline.status,
+          })
 
           closeEditModal() // Close modal immediately
           setPipelineLoading(editSelectedPipeline.pipeline_id, 'edit')
@@ -598,10 +671,26 @@ export function PipelinesList({
               console.log('Pipeline already paused, proceeding to edit:', editSelectedPipeline.pipeline_id)
             }
 
+            // Track edit success (preparation completed)
+            analytics.pipeline.editSuccess({
+              pipelineId: editSelectedPipeline.pipeline_id,
+              pipelineName: editSelectedPipeline.name,
+              wasPausedForEdit: editSelectedPipeline.status === 'active',
+            })
+
             // Navigate to pipeline details page for editing
             router.push(`/pipelines/${editSelectedPipeline.pipeline_id}`)
           } catch (error) {
             console.error('Failed to prepare pipeline for edit:', error)
+
+            // Track edit failure
+            analytics.pipeline.editFailed({
+              pipelineId: editSelectedPipeline.pipeline_id,
+              pipelineName: editSelectedPipeline.name,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              currentStatus: editSelectedPipeline.status,
+            })
+
             // Revert optimistic update on error
             onUpdatePipelineStatus?.(
               editSelectedPipeline.pipeline_id,
@@ -620,6 +709,14 @@ export function PipelinesList({
         onOk={async (processEvents) => {
           if (!deleteSelectedPipeline) return
 
+          // Track delete clicked
+          analytics.pipeline.deleteClicked({
+            pipelineId: deleteSelectedPipeline.pipeline_id,
+            pipelineName: deleteSelectedPipeline.name,
+            currentStatus: deleteSelectedPipeline.status,
+            processEvents: processEvents,
+          })
+
           closeDeleteModal() // Close modal immediately
           setPipelineLoading(deleteSelectedPipeline.pipeline_id, 'delete')
 
@@ -629,11 +726,27 @@ export function PipelinesList({
           try {
             await deletePipeline(deleteSelectedPipeline.pipeline_id, processEvents)
 
+            // Track delete success
+            analytics.pipeline.deleteSuccess({
+              pipelineId: deleteSelectedPipeline.pipeline_id,
+              pipelineName: deleteSelectedPipeline.name,
+              processEvents: processEvents,
+            })
+
             // Remove pipeline from list or refetch data
             onRemovePipeline?.(deleteSelectedPipeline.pipeline_id)
             await onRefresh?.()
           } catch (error) {
             console.error('Failed to delete pipeline:', error)
+
+            // Track delete failure
+            analytics.pipeline.deleteFailed({
+              pipelineId: deleteSelectedPipeline.pipeline_id,
+              pipelineName: deleteSelectedPipeline.name,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              processEvents: processEvents,
+            })
+
             // Revert optimistic update on error
             onUpdatePipelineStatus?.(
               deleteSelectedPipeline.pipeline_id,

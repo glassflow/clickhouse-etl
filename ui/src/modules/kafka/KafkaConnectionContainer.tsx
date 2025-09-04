@@ -101,7 +101,11 @@ export function KafkaConnectionContainer({
 
   // Track when user starts entering connection details
   useEffect(() => {
-    analytics.page.setupKafkaConnection({})
+    if (operationsSelected?.operation) {
+      analytics.page.setupKafkaConnection({})
+    } else {
+      console.log('no operation selected')
+    }
   }, [operationsSelected?.operation, analytics.page])
 
   // runs after successful test connection or failed test connection in the parent
@@ -225,6 +229,16 @@ export function KafkaConnectionContainer({
     // Only save data and complete step if connection was successful
     if (result.success) {
       saveConnectionData(values)
+      analytics.kafka.success({
+        authMethod: values.authMethod,
+        securityProtocol: values.securityProtocol,
+      })
+    } else {
+      analytics.kafka.failed({
+        authMethod: values.authMethod,
+        securityProtocol: values.securityProtocol,
+        error: result.message,
+      })
     }
   }
 

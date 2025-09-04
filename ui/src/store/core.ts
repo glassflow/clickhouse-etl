@@ -238,6 +238,8 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           baseConfig: undefined,
           lastSavedConfig: undefined,
           saveHistory: [],
+          analyticsConsent: state.coreStore.analyticsConsent,
+          consentAnswered: state.coreStore.consentAnswered,
         },
       }))
     },

@@ -12,6 +12,7 @@ export {
   trackKafka,
   trackTopic,
   trackKey,
+  trackJoin,
   trackClickhouse,
   trackDestination,
   trackDeploy,

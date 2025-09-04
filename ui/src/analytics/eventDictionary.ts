@@ -56,6 +56,10 @@ export const dictionary: EventGroup = {
     name: 'P3 Join Key',
     key: 'P3_JoinKey',
   },
+  P3_TopicDeduplication: {
+    name: 'P3 Topic Deduplication',
+    key: 'P3_TopicDeduplication',
+  },
   P4_SetupClickhouseConnection: {
     name: 'P4 Setup Clickhouse Connection',
     key: 'P4_SetupClickhouseConnection',
@@ -134,6 +138,28 @@ export const dictionary: EventGroup = {
     key: 'RightJoinKeySelected',
   },
 
+  // Join Configuration Events
+  JoinConfiguration_Started: {
+    name: 'Join Configuration Started',
+    key: 'JoinConfiguration_Started',
+  },
+  JoinConfiguration_FieldChanged: {
+    name: 'Join Configuration Field Changed',
+    key: 'JoinConfiguration_FieldChanged',
+  },
+  JoinConfiguration_StreamConfigured: {
+    name: 'Join Configuration Stream Configured',
+    key: 'JoinConfiguration_StreamConfigured',
+  },
+  JoinConfiguration_Completed: {
+    name: 'Join Configuration Completed',
+    key: 'JoinConfiguration_Completed',
+  },
+  JoinConfiguration_ValidationFailed: {
+    name: 'Join Configuration Validation Failed',
+    key: 'JoinConfiguration_ValidationFailed',
+  },
+
   // Clickhouse Connection Events
   ClickhouseConnection_Started: {
     name: 'Clickhouse Connection Started',
@@ -199,18 +225,54 @@ export const dictionary: EventGroup = {
     key: 'Deploy_Success',
   },
 
-  // Pipeline Modification Events
-  PipelineModify_Clicked: {
-    name: 'Pipeline Modify Clicked',
-    key: 'PipelineModify_Clicked',
+  // Pipeline Management Events
+  PipelinePause_Clicked: {
+    name: 'Pipeline Pause Clicked',
+    key: 'PipelinePause_Clicked',
   },
-  PipelineModify_Failed: {
-    name: 'Pipeline Modify Failed',
-    key: 'PipelineModify_Failed',
+  PipelinePause_Failed: {
+    name: 'Pipeline Pause Failed',
+    key: 'PipelinePause_Failed',
   },
-  PipelineModify_Success: {
-    name: 'Pipeline Modify Success',
-    key: 'PipelineModify_Success',
+  PipelinePause_Success: {
+    name: 'Pipeline Pause Success',
+    key: 'PipelinePause_Success',
+  },
+  PipelineResume_Clicked: {
+    name: 'Pipeline Resume Clicked',
+    key: 'PipelineResume_Clicked',
+  },
+  PipelineResume_Failed: {
+    name: 'Pipeline Resume Failed',
+    key: 'PipelineResume_Failed',
+  },
+  PipelineResume_Success: {
+    name: 'Pipeline Resume Success',
+    key: 'PipelineResume_Success',
+  },
+  PipelineRename_Clicked: {
+    name: 'Pipeline Rename Clicked',
+    key: 'PipelineRename_Clicked',
+  },
+  PipelineRename_Failed: {
+    name: 'Pipeline Rename Failed',
+    key: 'PipelineRename_Failed',
+  },
+  PipelineRename_Success: {
+    name: 'Pipeline Rename Success',
+    key: 'PipelineRename_Success',
+  },
+  PipelineEdit_Clicked: {
+    name: 'Pipeline Edit Clicked',
+    key: 'PipelineEdit_Clicked',
+  },
+  PipelineEdit_Failed: {
+    name: 'Pipeline Edit Failed',
+    key: 'PipelineEdit_Failed',
+  },
+  PipelineEdit_Success: {
+    name: 'Pipeline Edit Success',
+    key: 'PipelineEdit_Success',
   },
   PipelineDelete_Clicked: {
     name: 'Pipeline Delete Clicked',
@@ -224,6 +286,22 @@ export const dictionary: EventGroup = {
     name: 'Pipeline Delete Success',
     key: 'PipelineDelete_Success',
   },
+
+  // Legacy Pipeline Events (deprecated but kept for compatibility)
+  PipelineModify_Clicked: {
+    name: 'Pipeline Modify Clicked',
+    key: 'PipelineModify_Clicked',
+  },
+  PipelineModify_Failed: {
+    name: 'Pipeline Modify Failed',
+    key: 'PipelineModify_Failed',
+  },
+  PipelineModify_Success: {
+    name: 'Pipeline Modify Success',
+    key: 'PipelineModify_Success',
+  },
+
+  // Pipeline Status Events
   Pipeline_ExistingPipeline: {
     name: 'Pipeline Existing Pipeline',
     key: 'Pipeline_ExistingPipeline',

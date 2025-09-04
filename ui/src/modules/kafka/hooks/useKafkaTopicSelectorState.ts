@@ -179,26 +179,52 @@ export function useKafkaTopicSelectorState({
 
   // Update state when event changes
   useEffect(() => {
-    if (event && !isLoadingEvent) {
+    if (event && !isLoadingEvent && topicName) {
       setState((prev) => ({
         ...prev,
         event,
         isLoading: false,
         error: null,
       }))
+
+      // Track successful event fetch
+      analytics.topic.eventReceived({
+        topicName,
+        offset: 'unknown', // We don't have offset info from useFetchEvent
+        position: offset,
+        eventSize: JSON.stringify(event).length,
+        timestamp: new Date().toISOString(),
+      })
     }
-  }, [event, isLoadingEvent])
+  }, [event, isLoadingEvent, topicName, offset, analytics.topic])
 
   // Update state when error occurs
   useEffect(() => {
-    if (eventError) {
+    if (eventError && topicName) {
       setState((prev) => ({
         ...prev,
         error: eventError,
         isLoading: false,
       }))
+
+      // Track error based on error type
+      if (eventError.includes('No more events') || eventError.includes('No previous events')) {
+        analytics.topic.noEvent({
+          topicName,
+          position: offset,
+          reason: eventError.includes('No more events') ? 'end_of_topic' : 'beginning_of_topic',
+          timestamp: new Date().toISOString(),
+        })
+      } else {
+        analytics.topic.eventError({
+          topicName,
+          position: offset,
+          error: eventError,
+          timestamp: new Date().toISOString(),
+        })
+      }
     }
-  }, [eventError])
+  }, [eventError, topicName, offset, analytics.topic])
 
   // NEW: Navigation functions (from useEventManagerState)
   const fetchNewestEvent = useCallback(
@@ -213,41 +239,28 @@ export function useKafkaTopicSelectorState({
       }))
 
       try {
-        const response = (await fetchEvent(topicName, false, { position: 'latest' })) as unknown as FetchEventResponse
+        // fetchEvent is a void function that updates internal state
+        await fetchEvent(topicName, false, { position: 'latest' })
 
-        if (!response?.metadata) {
-          console.error('Invalid response format:', response)
-          throw new Error('Invalid response format from server')
-        }
-
+        // The actual event data and success/error state will be handled by the useEffect hooks
+        // that monitor the event, isLoadingEvent, and eventError state from useFetchEvent
+      } catch (error) {
         setState((prev) => ({
           ...prev,
-          event: response.event,
-          currentOffset: response.metadata.offset,
-          earliestOffset: response.metadata.earliestOffset,
-          latestOffset: response.metadata.latestOffset,
-          isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+          error: error instanceof Error ? error.message : 'Failed to fetch event',
           isLoading: false,
-          error: null,
         }))
-      } catch (error) {
-        if (error instanceof Error && error.message?.includes('No events found')) {
-          setState((prev) => ({
-            ...prev,
-            isAtLatest: true,
-            error: 'No events found in this topic',
-            isLoading: false,
-          }))
-        } else {
-          setState((prev) => ({
-            ...prev,
-            error: error instanceof Error ? error.message : 'Failed to fetch event',
-            isLoading: false,
-          }))
-        }
+
+        // Track error
+        analytics.topic.eventError({
+          topicName,
+          position: 'latest',
+          error: error instanceof Error ? error.message : 'Failed to fetch event',
+          timestamp: new Date().toISOString(),
+        })
       }
     },
-    [fetchEvent],
+    [fetchEvent, analytics.topic],
   )
 
   const fetchOldestEvent = useCallback(
@@ -262,42 +275,28 @@ export function useKafkaTopicSelectorState({
       }))
 
       try {
-        const response = (await fetchEvent(topicName, false, { position: 'earliest' })) as unknown as FetchEventResponse
+        // fetchEvent is a void function that updates internal state
+        await fetchEvent(topicName, false, { position: 'earliest' })
 
-        if (!response?.metadata) {
-          throw new Error('Invalid response format from server')
-        }
-
+        // The actual event data and success/error state will be handled by the useEffect hooks
+        // that monitor the event, isLoadingEvent, and eventError state from useFetchEvent
+      } catch (error) {
         setState((prev) => ({
           ...prev,
-          event: response.event,
-          currentOffset: response.metadata.offset,
-          earliestOffset: response.metadata.earliestOffset,
-          latestOffset: response.metadata.latestOffset,
-          isAtLatest: false,
-          isAtEarliest: true,
+          error: error instanceof Error ? error.message : 'Failed to fetch event',
           isLoading: false,
-          error: null,
         }))
-      } catch (error) {
-        if (error instanceof Error && error.message?.includes('No events found')) {
-          setState((prev) => ({
-            ...prev,
-            isAtLatest: true,
-            isAtEarliest: true,
-            error: 'No events found in this topic',
-            isLoading: false,
-          }))
-        } else {
-          setState((prev) => ({
-            ...prev,
-            error: error instanceof Error ? error.message : 'Failed to fetch event',
-            isLoading: false,
-          }))
-        }
+
+        // Track error
+        analytics.topic.eventError({
+          topicName,
+          position: 'earliest',
+          error: error instanceof Error ? error.message : 'Failed to fetch event',
+          timestamp: new Date().toISOString(),
+        })
       }
     },
-    [fetchEvent],
+    [fetchEvent, analytics.topic],
   )
 
   const fetchNextEvent = useCallback(
@@ -315,69 +314,28 @@ export function useKafkaTopicSelectorState({
       }))
 
       try {
-        const response = (await fetchEvent(topicName, true, { direction: 'next' })) as unknown as FetchEventResponse
+        // fetchEvent is a void function that updates internal state
+        await fetchEvent(topicName, true, { direction: 'next' })
 
-        if (!response) {
-          throw new Error('Failed to fetch next event')
-        }
-
-        if (!response.success) {
-          if (response.error?.includes('End of topic reached')) {
-            setState((prev) => ({
-              ...prev,
-              error: 'No more events available at this time. New events may arrive later.',
-              isLoading: false,
-            }))
-            return
-          }
-          throw new Error(response.error || 'Failed to fetch next event')
-        }
-
-        if (!response.event) {
-          throw new Error('No event received from server')
-        }
-
+        // The actual event data and success/error state will be handled by the useEffect hooks
+        // that monitor the event, isLoadingEvent, and eventError state from useFetchEvent
+      } catch (error) {
         setState((prev) => ({
           ...prev,
-          event: response.event,
-          currentOffset: response.offset,
-          earliestOffset: response.metadata.earliestOffset,
-          latestOffset: response.metadata.latestOffset,
-          isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+          error: error instanceof Error ? error.message : 'Failed to fetch next event',
           isLoading: false,
-          error: null,
         }))
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message?.includes('End of topic reached') || error.message?.includes('No more events available')) {
-            setState((prev) => ({
-              ...prev,
-              error: 'No more events available at this time. New events may arrive later.',
-              isLoading: false,
-            }))
-          } else if (error.message?.includes('Invalid response format')) {
-            setState((prev) => ({
-              ...prev,
-              error: 'Failed to fetch next event. Please try again.',
-              isLoading: false,
-            }))
-          } else {
-            setState((prev) => ({
-              ...prev,
-              error: error.message,
-              isLoading: false,
-            }))
-          }
-        } else {
-          setState((prev) => ({
-            ...prev,
-            error: 'Failed to fetch next event',
-            isLoading: false,
-          }))
-        }
+
+        // Track error
+        analytics.topic.eventError({
+          topicName,
+          position: 'next',
+          error: error instanceof Error ? error.message : 'Failed to fetch next event',
+          timestamp: new Date().toISOString(),
+        })
       }
     },
-    [fetchEvent],
+    [fetchEvent, analytics.topic],
   )
 
   const fetchPreviousEvent = useCallback(
@@ -395,71 +353,28 @@ export function useKafkaTopicSelectorState({
       }))
 
       try {
-        const response = (await fetchEvent(topicName, false, {
-          direction: 'previous',
-        })) as unknown as FetchEventResponse
+        // fetchEvent is a void function that updates internal state
+        await fetchEvent(topicName, false, { direction: 'previous' })
 
-        if (!response) {
-          throw new Error('Failed to fetch previous event')
-        }
-
-        if (!response.success) {
-          if (response.error?.includes('Beginning of topic reached')) {
-            setState((prev) => ({
-              ...prev,
-              error: 'You have reached the beginning of the topic. No more previous events available.',
-              isLoading: false,
-            }))
-            return
-          }
-          throw new Error(response.error || 'Failed to fetch previous event')
-        }
-
-        if (!response.event) {
-          throw new Error('No event received from server')
-        }
-
+        // The actual event data and success/error state will be handled by the useEffect hooks
+        // that monitor the event, isLoadingEvent, and eventError state from useFetchEvent
+      } catch (error) {
         setState((prev) => ({
           ...prev,
-          event: response.event,
-          currentOffset: response.offset,
-          earliestOffset: response.metadata.earliestOffset,
-          latestOffset: response.metadata.latestOffset,
-          isAtLatest: response.metadata.offset === response.metadata.latestOffset,
+          error: error instanceof Error ? error.message : 'Failed to fetch previous event',
           isLoading: false,
-          error: null,
         }))
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message?.includes('Beginning of topic reached')) {
-            setState((prev) => ({
-              ...prev,
-              error: 'You have reached the beginning of the topic. No more previous events available.',
-              isLoading: false,
-            }))
-          } else if (error.message?.includes('Invalid response format')) {
-            setState((prev) => ({
-              ...prev,
-              error: 'Failed to fetch previous event. Please try again.',
-              isLoading: false,
-            }))
-          } else {
-            setState((prev) => ({
-              ...prev,
-              error: error.message,
-              isLoading: false,
-            }))
-          }
-        } else {
-          setState((prev) => ({
-            ...prev,
-            error: 'Failed to fetch previous event',
-            isLoading: false,
-          }))
-        }
+
+        // Track error
+        analytics.topic.eventError({
+          topicName,
+          position: 'previous',
+          error: error instanceof Error ? error.message : 'Failed to fetch previous event',
+          timestamp: new Date().toISOString(),
+        })
       }
     },
-    [fetchEvent],
+    [fetchEvent, analytics.topic],
   )
 
   const refreshEvent = useCallback(
@@ -482,9 +397,17 @@ export function useKafkaTopicSelectorState({
           error: error instanceof Error ? error.message : 'Failed to refresh event',
           isLoading: false,
         }))
+
+        // Track refresh error
+        analytics.topic.eventError({
+          topicName,
+          position: 'refresh',
+          error: error instanceof Error ? error.message : 'Failed to refresh event',
+          timestamp: new Date().toISOString(),
+        })
       }
     },
-    [fetchEvent],
+    [fetchEvent, analytics.topic],
   )
 
   // Handle manual event change (from KafkaTopicSelector)
