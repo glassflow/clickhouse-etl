@@ -4,11 +4,12 @@ import json
 import base64
 import re
 import time
+import uuid
 
 import clickhouse_connect
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
-from glassflow_clickhouse_etl import errors, models, Pipeline
+from glassflow_clickhouse_etl import errors, models, Pipeline, Client
 from rich import print, box
 from rich.table import Table
 from rich.console import Console
@@ -144,43 +145,9 @@ def create_topics_if_not_exists(source_config: models.SourceConfig):
     admin_client.close()
 
 
-def check_if_pipeline_exists(config: models.PipelineConfig) -> tuple[bool, str | None]:
-    """
-    Check if a pipeline exists
-
-    Returns:
-        bool: True if the pipeline exists, False otherwise
-        str | None: Pipeline ID of existing pipeline, None if it doesn't exist
-    """
-    try:
-        pipeline_id = Pipeline().get_running_pipeline()
-        if pipeline_id == config.pipeline_id:
-            return True, pipeline_id
-        else:
-            return False, pipeline_id
-    except errors.ConnectionError:
-        log(
-            message="Looks like [bold orange3]GlassFlow[/bold orange3] is not running locally!",
-            status="",
-            is_failure=True,
-            component="GlassFlow",
-        )
-        print("\nRun the following command to start it:\n  > `docker compose up -d`\n")
-        exit(1)
-    except errors.PipelineNotFoundError:
-        return False, None
-    except Exception as e:
-        log(
-            message="Error checking if pipeline exists",
-            status=str(e),
-            is_failure=True,
-            component="GlassFlow",
-        )
-        raise e
-
-
 def create_pipeline_if_not_exists(
     config: models.PipelineConfig,
+    gf_client: Client,
     clickhouse_client,
     skip_confirmation: bool,
     cleanup: bool,
@@ -197,10 +164,28 @@ def create_pipeline_if_not_exists(
     Returns:
         Pipeline: GlassFlow pipeline
     """
-    pipeline = Pipeline(config)
-
-    exists, pipeline_id = check_if_pipeline_exists(config)
-    if exists:
+    try:
+        pipeline = gf_client.get_pipeline(config.pipeline_id)
+        is_running = pipeline.health()["overall_status"] == "Running"
+        exists = True
+    except errors.PipelineNotFoundError:
+        pipelines = gf_client.list_pipelines()
+        if len(pipelines) > 0:
+            pipeline = gf_client.get_pipeline(pipelines[0]["pipeline_id"])
+        else:
+            pipeline = None
+        exists = False
+        is_running = False
+    except Exception as e:
+        log(
+            message=f"Error getting pipeline [italic u]{config.pipeline_id}[/italic u]",
+            status=str(e),
+            is_failure=True,
+            component="GlassFlow",
+        )
+        raise e
+    
+    if exists and is_running:
         log(
             message=f"Pipeline [italic u]{config.pipeline_id}[/italic u]",
             status="Already exists",
@@ -216,49 +201,74 @@ def create_pipeline_if_not_exists(
                 component="Clickhouse",
             )
     else:
-        if pipeline_id:
-            if not skip_confirmation:
-                log(
-                    message=f"Pipeline [italic u]{config.pipeline_id}[/italic u] is already running.",
-                    status="Blocked",
-                    is_warning=True,
-                    component="GlassFlow",
-                )
-                resp = query_yes_no(
-                    question=f"Do you want to delete your active pipeline and create a new one with ID [italic u]{config.pipeline_id}[/italic u]?",
-                    default_yes=True,
-                )
-            else:
-                resp = True
-
+        if exists and not is_running:
+            log(
+                message=f"Pipeline [italic u]{config.pipeline_id}[/italic u]",
+                status="Already exists but is terminated",
+                is_warning=True,
+                component="GlassFlow",
+            )
+            new_id = f"{config.pipeline_id}-{uuid.uuid4()}"
+            resp = query_yes_no(
+                question=f"Do you want to create a new pipeline with a different ID: [italic u]{new_id}[/italic u]?",
+                default_yes=True,
+            )
             if resp:
-                pipeline = Pipeline(config)
-
-                pipeline.delete()
-                log(
-                    message=f"Delete pipeline [italic u]{config.pipeline_id}[/italic u]",
-                    status="Success",
-                    is_success=True,
-                    component="GlassFlow",
-                )
+                config.pipeline_id = new_id
             else:
                 log(
-                    message="Delete current pipeline or update config to send events to existing pipeline",
+                    message=f"Exiting... [italic u]{config.pipeline_id}[/italic u] is terminated",
                     status="Exited",
                     is_failure=True,
                     component="GlassFlow",
                 )
                 exit(0)
+        else:
+            if pipeline:
+                if not skip_confirmation:
+                    log(
+                        message=f"Pipeline [italic u]{pipeline.config.pipeline_id}[/italic u] is already running.",
+                        status="Blocked",
+                        is_warning=True,
+                        component="GlassFlow",
+                    )
+                    resp = query_yes_no(
+                        question=f"Do you want to delete your active pipeline and create a new one with ID [italic u]{pipeline.config.pipeline_id}[/italic u]?",
+                        default_yes=True,
+                    )
+                else:
+                    resp = True
+
+                if resp:
+                    pipeline.delete()
+                    log(
+                        message=f"Delete pipeline [italic u]{pipeline.config.pipeline_id}[/italic u]",
+                        status="Success",
+                        is_success=True,
+                        component="GlassFlow",
+                    )
+                else:
+                    log(
+                        message="Delete current pipeline or update config to send events to existing pipeline",
+                        status="Exited",
+                        is_failure=True,
+                        component="GlassFlow",
+                    )
+                    exit(0)
 
         if config.join.enabled:
-            join_key = config.join.sources[0].join_key
+            join_keys = [config.join.sources[0].join_key, config.join.sources[1].join_key]
+            for field in config.sink.table_mapping:
+                if field.field_name in join_keys:
+                    join_key = field.column_name
+                    break
         else:
             join_key = None
         create_table_if_not_exists(config.sink, clickhouse_client, join_key)
         create_topics_if_not_exists(config.source)
 
         try:
-            pipeline.create()
+            pipeline = gf_client.create_pipeline(config)
             with console.status(
                 "[bold green]Waiting for pipeline to start...[/bold green]",
                 spinner="dots",

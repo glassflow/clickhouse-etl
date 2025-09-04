@@ -20,10 +20,11 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
 
     if (data.success) {
       const pipelines: ListPipelineConfig[] = data.pipelines || []
-      // Convert backend state to UI status for each pipeline
+      // Convert backend status to UI status for each pipeline
       const withStatus = pipelines.map((pipeline: ListPipelineConfig) => ({
         ...pipeline,
-        status: getPipelineStatusFromState(pipeline.state),
+        // Handle both old format (state field) and new format (status field)
+        status: getPipelineStatusFromState(pipeline.status || pipeline.state || ''),
       }))
 
       // Recompute transformation_type using full pipeline config to avoid backend misclassification
@@ -59,8 +60,10 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
       const data = await response.json()
       if (data?.success === true) {
         const pipelinePayload = data.pipeline
-        if (pipelinePayload?.state !== undefined) {
-          pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
+        // Handle both old format (state field) and new format (status field)
+        const backendStatus = pipelinePayload?.status || pipelinePayload?.state
+        if (backendStatus !== undefined) {
+          pipelinePayload.status = getPipelineStatusFromState(backendStatus)
         } else {
           pipelinePayload.status = 'active'
         }
@@ -69,8 +72,10 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
       // If backend returns direct object (no wrapper), accept that path
       if (data && typeof data === 'object' && data.pipeline_id) {
         const pipelinePayload = data
-        if (pipelinePayload.state !== undefined) {
-          pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
+        // Handle both old format (state field) and new format (status field)
+        const backendStatus = pipelinePayload?.status || pipelinePayload?.state
+        if (backendStatus !== undefined) {
+          pipelinePayload.status = getPipelineStatusFromState(backendStatus)
         } else {
           pipelinePayload.status = 'active'
         }

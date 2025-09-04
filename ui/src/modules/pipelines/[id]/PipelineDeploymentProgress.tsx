@@ -84,14 +84,14 @@ const PipelineDeploymentProgress = ({
         setShowTransition(true)
         setTimeout(() => {
           onDeploymentComplete()
-        }, 2000) // Fade transition time
+        }, 1000) // Fade transition time
       },
       onDeploymentFailed: (error) => {
         // Show transition effect and navigate
         setShowTransition(true)
         setTimeout(() => {
           onDeploymentFailed?.(error)
-        }, 2000) // Fade transition time
+        }, 1000) // Fade transition time
       },
     })
 

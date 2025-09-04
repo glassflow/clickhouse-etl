@@ -114,6 +114,8 @@ export const PIPELINE_STATUS_MAP = {
   pausing: 'pausing',
   deleted: 'deleted',
   deleting: 'deleting',
+  terminating: 'terminating',
+  terminated: 'terminated',
   error: 'error',
   deploy_failed: 'deploy_failed',
   delete_failed: 'delete_failed',
@@ -145,6 +147,16 @@ export const PIPELINE_STATUS_CONFIG = {
     label: 'Deleting',
     className: 'chip-neutral-faded',
     key: PIPELINE_STATUS_MAP.deleting,
+  },
+  terminating: {
+    label: 'Terminating',
+    className: 'chip-neutral-faded',
+    key: PIPELINE_STATUS_MAP.terminating,
+  },
+  terminated: {
+    label: 'Terminated',
+    className: 'chip-negative',
+    key: PIPELINE_STATUS_MAP.terminated,
   },
   error: {
     label: 'Error',

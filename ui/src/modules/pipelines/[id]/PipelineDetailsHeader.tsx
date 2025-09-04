@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
+import { Copy, Check } from 'lucide-react'
 import PipelineActionButton from '@/src/components/shared/PipelineActionButton'
 import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
@@ -31,6 +32,7 @@ interface PipelineDetailsHeaderProps {
 
 function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, actions }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
+  const [copied, setCopied] = useState(false)
 
   // Use simplified pipeline health monitoring
   const {
@@ -113,6 +115,30 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   const handleModalCancel = () => {
     setActiveModal(null)
     clearError()
+  }
+
+  const handleCopyPipelineId = async () => {
+    try {
+      await navigator.clipboard.writeText(pipeline.pipeline_id)
+      setCopied(true)
+      // Reset the copied state after 2 seconds
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy pipeline ID:', err)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = pipeline.pipeline_id
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr)
+      }
+      document.body.removeChild(textArea)
+    }
   }
 
   const getStatusVariant = (status: string) => {
@@ -315,6 +341,20 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
               )}
             </div>
             <div className="flex flex-row flex-end gap-2">{actions || getActionButtons()}</div>
+          </div>
+          <div className="flex flex-start items-center gap-1 text-sm text-muted-foreground">
+            <span>ID: {pipeline.pipeline_id || 'None'}</span>
+            {pipeline.pipeline_id && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 hover:bg-muted"
+                onClick={handleCopyPipelineId}
+                title={copied ? 'Copied!' : 'Copy pipeline ID'}
+              >
+                {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+              </Button>
+            )}
           </div>
         </div>
       </Card>

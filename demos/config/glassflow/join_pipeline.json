@@ -22,20 +22,24 @@
                 "type": "string"
               },
               {
-                "name": "user_id",
+                "name": "user.id",
                 "type": "string"
               },
               {
-                "name": "name",
+                "name": "user.name",
                 "type": "string"
               },
               {
-                "name": "email",
+                "name": "user.email",
                 "type": "string"
               },
               {
                 "name": "created_at",
                 "type": "string"
+              },
+              {
+                "name": "tags",
+                "type": "array"
               }
             ]
           },
@@ -83,7 +87,7 @@
       "sources": [
         {
           "source_id": "user_events",
-          "join_key": "user_id",
+          "join_key": "user.id",
           "join_key_type": "string",
           "time_window": "1h",
           "orientation": "right"
@@ -124,13 +128,13 @@
         },
         {
           "source_id": "user_events",
-          "field_name": "name",
+          "field_name": "user.name",
           "column_name": "name",
           "column_type": "String"
         },
         {
           "source_id": "user_events",
-          "field_name": "email",
+          "field_name": "user.email",
           "column_name": "email",
           "column_type": "String"
         },
@@ -151,6 +155,12 @@
           "field_name": "created_at",
           "column_name": "created_at",
           "column_type": "DateTime"
+        },
+        {
+          "source_id": "user_events",
+          "field_name": "tags",
+          "column_name": "tags",
+          "column_type": "Array(String)"
         }
       ]
     }

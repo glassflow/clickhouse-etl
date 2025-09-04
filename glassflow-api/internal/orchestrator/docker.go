@@ -190,7 +190,8 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
-	d.log.Info("Starting shutdown process")
+	// Clear pipeline ID first to stop any pending restart attempts
+	d.id = ""
 
 	if d.watcherCancel != nil {
 		d.log.Debug("Stopping watcher")
@@ -214,8 +215,6 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 		d.sinkRunner.Shutdown()
 	}
 
-	d.id = ""
-	d.log.Info("Pipeline shutdown completed")
 	return nil
 }
 
@@ -307,11 +306,15 @@ func (d *LocalOrchestrator) checkAndRestartRunners(ctx context.Context) {
 
 // restartRunner restarts any runner with delay
 func (d *LocalOrchestrator) restartRunner(ctx context.Context, runner service.Runner) {
-	if runner == nil {
+	select {
+	case <-ctx.Done():
 		return
+	case <-time.After(internal.RunnerRestartDelay):
 	}
 
-	time.Sleep(internal.RunnerRestartDelay) // Simple restart delay
+	if d.id == "" || runner == nil {
+		return
+	}
 
 	if err := runner.Start(ctx); err != nil {
 		d.log.Error("failed to restart runner", slog.Any("error", err))

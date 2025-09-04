@@ -4,6 +4,7 @@ import json
 import uuid
 from typing import Dict, Any
 import glassgen
+from glassflow_clickhouse_etl import Client
 from glassflow_clickhouse_etl.models import TopicConfig, KafkaConnectionParams
 from rich.console import Console
 import itertools
@@ -103,6 +104,7 @@ def generate_events(
 
 
 def main(
+    glassflow_host: str,
     config_path: str,
     left_num_records: int,
     right_num_records: int,
@@ -116,6 +118,7 @@ def main(
     """Run join pipeline with configurable parameters
 
     Args:
+        glassflow_host (str): GlassFlow host
         config_path (str): Path to pipeline configuration JSON file
         left_num_records (int): Number of records to generate for left events
         right_num_records (int): Number of records to generate for right events
@@ -127,6 +130,7 @@ def main(
         print_n_rows (int): Number of records to print from Clickhouse table
     """
     pipeline_config = utils.load_conf(config_path)
+    gf_client = Client(host=glassflow_host)
 
     join_sources = {}
     for source in pipeline_config.join.sources:
@@ -146,7 +150,7 @@ def main(
     clickhouse_client = utils.create_clickhouse_client(pipeline_config.sink)
 
     utils.create_pipeline_if_not_exists(
-        pipeline_config, clickhouse_client, skip_confirmation, cleanup
+        pipeline_config, gf_client, clickhouse_client, skip_confirmation, cleanup
     )
 
     n_records_before = utils.read_clickhouse_table_size(
@@ -254,6 +258,12 @@ if __name__ == "__main__":
         description="Run join pipeline with configurable parameters"
     )
     parser.add_argument(
+        "--glassflow-host",
+        type=str,
+        default="http://localhost:8081",
+        help="GlassFlow host (default: http://localhost:8081)",
+    )
+    parser.add_argument(
         "--left-num-records",
         type=int,
         default=10000,
@@ -305,6 +315,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(
+        glassflow_host=args.glassflow_host,
         left_num_records=args.left_num_records,
         right_num_records=args.right_num_records,
         rps=args.rps,

@@ -43,11 +43,11 @@ docker compose ps
 The output should look like this:
 
 ```bash
-NAME                     IMAGE                                COMMAND                  SERVICE   CREATED         STATUS         PORTS
-clickhouse-etl-app-1     glassflow/clickhouse-etl-be:stable   "/sbin/tini -- /usr/…"   app       3 minutes ago   Up 3 minutes   
-clickhouse-etl-nats-1    nats:alpine                          "docker-entrypoint.s…"   nats      3 weeks ago     Up 3 minutes   6222/tcp, 0.0.0.0:4222->4222/tcp, 8222/tcp
-clickhouse-etl-nginx-1   nginx:1.27-alpine                    "/docker-entrypoint.…"   nginx     3 weeks ago     Up 3 minutes   80/tcp, 0.0.0.0:8080->8080/tcp
-clickhouse-etl-ui-1      glassflow/clickhouse-etl-fe:stable   "docker-entrypoint.s…"   ui        3 minutes ago   Up 3 minutes   8080/tcp
+NAME                     IMAGE                                       COMMAND                  SERVICE   CREATED              STATUS          PORTS
+clickhouse-etl-api-1     ghcr.io/glassflow/glassflow-etl-be:stable   "/sbin/tini -- /usr/…"   api       About a minute ago   Up 20 seconds   
+clickhouse-etl-nats-1    nats:alpine                                 "docker-entrypoint.s…"   nats      About a minute ago   Up 20 seconds   6222/tcp, 0.0.0.0:4222->4222/tcp, 8222/tcp
+clickhouse-etl-nginx-1   nginx:1.27-alpine                           "/docker-entrypoint.…"   nginx     About a minute ago   Up 20 seconds   80/tcp, 0.0.0.0:8080-8081->8080-8081/tcp
+clickhouse-etl-ui-1      ghcr.io/glassflow/glassflow-etl-fe:stable   "docker-entrypoint.s…"   ui        About a minute ago   Up 20 seconds   8080/tcp
 ```
 
 For details about the Docker components that are running, see the [System Components](/architecture/system-components) page.

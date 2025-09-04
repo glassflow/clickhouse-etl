@@ -44,3 +44,7 @@ bin/
 
 # IDE
 .vscode
+
+#demos 
+demos/example_event.py
+demos/generate_events.py

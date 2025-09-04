@@ -81,7 +81,10 @@ export const TableContextMenu = ({
           <div className="fixed inset-0 z-10" onClick={handleBackdropClick} />
 
           {/* Menu dropdown */}
-          <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]">
+          <div
+            className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+            onClick={(e) => e.stopPropagation()} // Prevent any clicks in the menu from bubbling to parent
+          >
             {/* Pause Button */}
             {/* {showPause && onPause && (
               <Button
@@ -149,7 +152,10 @@ export const TableContextMenu = ({
                     ? 'text-muted-foreground cursor-not-allowed opacity-50'
                     : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
                 )}
-                onClick={(e) => handleMenuClick(e, onRename, renameConfig.isDisabled || isLoading)}
+                onClick={(e) => {
+                  e.stopPropagation() // Always stop propagation first
+                  handleMenuClick(e, onRename, renameConfig.isDisabled || isLoading)
+                }}
                 disabled={renameConfig.isDisabled || isLoading}
                 title={renameConfig.disabledReason}
               >
@@ -168,7 +174,10 @@ export const TableContextMenu = ({
                     ? 'text-muted-foreground cursor-not-allowed opacity-50'
                     : 'text-destructive hover:bg-[var(--color-background-neutral-faded)]',
                 )}
-                onClick={(e) => handleMenuClick(e, onDelete, deleteConfig.isDisabled || isLoading)}
+                onClick={(e) => {
+                  e.stopPropagation() // Always stop propagation first
+                  handleMenuClick(e, onDelete, deleteConfig.isDisabled || isLoading)
+                }}
                 disabled={deleteConfig.isDisabled || isLoading}
                 title={deleteConfig.disabledReason}
               >

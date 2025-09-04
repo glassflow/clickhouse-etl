@@ -20,11 +20,11 @@ For a detailed description of each component, see the [System Components](./syst
    The user creates a pipeline via the frontend, which is handled by the HTTP server and validated by the Pipeline Manager.
 
 2. **Ingestion:**  
-   The NATS-Kafka Bridge ingests data from Kafka, optionally deduplicating events.
+   The Ingestor component ingests data from Kafka, optionally deduplicating events.
 
 3. **Processing:**  
-   If enabled, the Join Component merges streams from two Kafka topics.
-
+   If enabled, the Join component merges streams from two Kafka topics.
+   
 4. **Sink:**  
    The Sink Component writes processed data to ClickHouse in batches.
 

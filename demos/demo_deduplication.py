@@ -2,7 +2,7 @@ import argparse
 import time
 import json
 import glassgen
-from glassflow_clickhouse_etl import SourceConfig
+from glassflow_clickhouse_etl import Client, SourceConfig
 from rich.console import Console
 import utils
 
@@ -69,6 +69,7 @@ def generate_events_with_duplicates(
 
 
 def main(
+    glassflow_host: str,
     num_records: int,
     duplication_rate: float,
     rps: int,
@@ -81,6 +82,7 @@ def main(
     """Run deduplication pipeline with configurable parameters
 
     Args:
+        glassflow_host (str): GlassFlow host
         num_records (int): Number of records to generate
         duplication_rate (float): Duplication rate
         rps (int): Records per second
@@ -92,9 +94,10 @@ def main(
     """
     pipeline_config = utils.load_conf(config_path)
     clickhouse_client = utils.create_clickhouse_client(pipeline_config.sink)
-
+    gf_client = Client(host=glassflow_host)
+    
     utils.create_pipeline_if_not_exists(
-        pipeline_config, clickhouse_client, skip_confirmation, cleanup
+        pipeline_config, gf_client, clickhouse_client, skip_confirmation, cleanup
     )
 
     n_records_before = utils.read_clickhouse_table_size(
@@ -174,6 +177,12 @@ if __name__ == "__main__":
         description="Run deduplication pipeline with configurable parameters"
     )
     parser.add_argument(
+        "--glassflow-host",
+        type=str,
+        default="http://localhost:8081",
+        help="GlassFlow host (default: http://localhost:8081)",
+    )
+    parser.add_argument(
         "--num-records",
         type=int,
         default=10000,
@@ -220,6 +229,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(
+        args.glassflow_host,
         args.num_records,
         args.duplication_rate,
         args.rps,

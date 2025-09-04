@@ -7,16 +7,16 @@ services:
     restart: unless-stopped
 
   ui:
-    image: ghcr.io/glassflow/glassflow-etl-fe:glassflow-cloud
+    image: ghcr.io/glassflow/glassflow-etl-fe:stable
     pull_policy: always
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://app:8081}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api:8081}
       - NEXT_PUBLIC_IN_DOCKER=${NEXT_PUBLIC_IN_DOCKER:-true}
       - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
       - NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
 
-  app:
-    image: ghcr.io/glassflow/glassflow-etl-be:glassflow-cloud
+  api:
+    image: ghcr.io/glassflow/glassflow-etl-be:stable
     pull_policy: always
     depends_on:
       - nats
@@ -37,7 +37,7 @@ services:
       - 8081:8081
     depends_on:
       - ui
-      - app
+      - api
     volumes:
       - logs:/logs:ro
       - ./nginx:/etc/nginx/templates

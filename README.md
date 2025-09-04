@@ -5,7 +5,7 @@
 <p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
-      <a href="https://github.com/orgs/glassflow/discussions/categories/ideas"><strong>Feature Request</strong></a> ·
+      <a href="https://glassflow.dev/roadmap"><strong>Roadmap</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
       <a href="https://docs.glassflow.dev/demo"><strong>Watch Demo</strong></a>
 </p>
@@ -49,8 +49,8 @@ docker compose up
 # Follow logs in real-time for all containers
 docker compose logs -f
 
-# logs for the backend app
-docker compose logs app -f
+# logs for the backend api
+docker compose logs api -f
 
 # logs for the UI
 docker compose logs ui -f
@@ -58,18 +58,26 @@ docker compose logs ui -f
 
 ## 🧭 Installation Options
 
-GlassFlow can be installed in a variety of environments depending on your use case. Below is a quick overview:
+GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works with any managed Kubernetes services like AWS EKS, GKE, AKS, and more.
+For local testing or a small POC, you can also use Docker and Docker Compose to run GlassFlow on your local machine.
 
 | Method                         | Use Case                                | Docs Link                                                                 |
 |-------------------------------|------------------------------------------|---------------------------------------------------------------------------|
+| ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/self-host/kubernetes-helm) |
 | 🐳 **Local with Docker Compose**    | Quick evaluation and local testing         | [Local Docker Guide](https://docs.glassflow.dev/installation/self-host/local-docker)     |
 | ☁️ **AWS EC2 with Docker Compose** | Lightweight cloud deployment for testing   | [AWS EC2 Guide](https://docs.glassflow.dev/installation/self-host/aws-ec2)               |
-| ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/self-host/kubernetes-helm) |
-
-> ℹ️ **Note:** The current GlassFlow deployment is not horizontally scalable yet. A new Kubernetes-native, scalable deployment is in development and expected by **end of July**.
 
 
 ## 🎥 Demo
+
+### Live Demo
+See a working demo of GlassFlow in action at [demo.glassflow.dev](https://demo.glassflow.dev).
+
+![GlassFlow Pipeline Data Flow](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassflow_demo.png)
+
+*GlassFlow Pipeline showing real-time streaming from Kafka through GlassFlow to ClickHouse*
+
+### Demo Video
 
 [![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/demo)
 
@@ -83,7 +91,6 @@ For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.de
 - [Pipeline Configuration](https://docs.glassflow.dev/pipeline/pipeline-configuration)
 - [Local Testing](https://docs.glassflow.dev/local-testing)
 - [Architecture](https://docs.glassflow.dev/architecture)
-- [Load Test Results](https://docs.glassflow.dev/load-test/results) - Performance benchmarks and test results
 
 ## 🗺️ Roadmap
 
@@ -97,9 +104,9 @@ Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's comi
 - Real-time data processing from Kafka to ClickHouse
 - Deduplication with configurable time windows
 - Temporal joins between multiple Kafka topics
+- Scalable and robust architecture built for Kubernetes
 - Web-based UI for pipeline management
-- Docker-based deployment
-- Local development environment
+- Docker version for local testing and evaluation
 
 ## 🆘 Support
 
