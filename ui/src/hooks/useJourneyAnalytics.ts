@@ -6,6 +6,7 @@ import {
   trackKafka,
   trackTopic,
   trackKey,
+  trackJoin,
   trackClickhouse,
   trackDestination,
   trackDeploy,
@@ -31,7 +32,14 @@ export function useJourneyAnalytics() {
     (eventName: string, trackingFunction: () => void, properties?: Record<string, unknown>) => {
       // Only track if user has consented or override is set
       const { overrideTrackingConsent } = properties || {}
-      if (!analyticsConsent && !overrideTrackingConsent) return
+
+      if (!analyticsConsent && !overrideTrackingConsent) {
+        console.log('Analytics disabled, not tracking:', {
+          eventName,
+          properties,
+        })
+        return
+      }
 
       // Create a cache key based on event and properties
       const cacheKey = `${eventName}:${JSON.stringify(properties || {})}`
@@ -77,15 +85,12 @@ export function useJourneyAnalytics() {
   // NOTE: Page tracking - all events tracked
   const page = useMemo(
     () => ({
-      // implemented
       homepage: (properties?: Record<string, unknown>) =>
         trackWithCache('P0_Homepage', () => trackPage.homepage(properties), properties),
 
-      // implemented
       setupKafkaConnection: (properties?: Record<string, unknown>) =>
         trackWithCache('P1_SetupKafkaConnection', () => trackPage.setupKafkaConnection(properties), properties),
 
-      // TODO: missing
       selectTopic: (properties?: Record<string, unknown>) =>
         trackWithCache('P2_SelectTopic', () => trackPage.selectTopic(properties), properties),
 
@@ -98,6 +103,7 @@ export function useJourneyAnalytics() {
       deduplicationKey: (properties?: Record<string, unknown>) =>
         trackWithCache('P3_DeduplicationKey', () => trackPage.deduplicationKey(properties), properties),
 
+      // this was legacy deduplication page view, now we have a new deduplication page view
       topicDeduplication: (properties?: Record<string, unknown>) =>
         trackWithCache('P3_TopicDeduplication', () => trackPage.topicDeduplication(properties), properties),
 
@@ -186,6 +192,27 @@ export function useJourneyAnalytics() {
     [trackWithCache],
   )
 
+  // NOTE: Join configuration tracking - all events tracked
+  const join = useMemo(
+    () => ({
+      configurationStarted: (properties?: Record<string, unknown>) =>
+        trackWithCache('JoinConfiguration_Started', () => trackJoin.configurationStarted(properties), properties),
+
+      fieldChanged: (properties?: Record<string, unknown>) =>
+        trackWithCache('JoinConfiguration_FieldChanged', () => trackJoin.fieldChanged(properties), properties),
+
+      streamConfigured: (properties?: Record<string, unknown>) =>
+        trackWithCache('JoinConfiguration_StreamConfigured', () => trackJoin.streamConfigured(properties), properties),
+
+      configurationCompleted: (properties?: Record<string, unknown>) =>
+        trackWithCache('JoinConfiguration_Completed', () => trackJoin.configurationCompleted(properties), properties),
+
+      validationFailed: (properties?: Record<string, unknown>) =>
+        trackWithCache('JoinConfiguration_ValidationFailed', () => trackJoin.validationFailed(properties), properties),
+    }),
+    [trackWithCache],
+  )
+
   // NOTE: Clickhouse connection tracking - all events tracked
   const clickhouse = useMemo(
     () => ({
@@ -260,15 +287,47 @@ export function useJourneyAnalytics() {
   // NOTE: Pipeline modification tracking - all events tracked
   const pipeline = useMemo(
     () => ({
-      modifyClicked: (properties?: Record<string, unknown>) =>
-        trackWithCache('PipelineModify_Clicked', () => trackPipeline.modifyClicked(properties), properties),
+      // Pause Operations
+      pauseClicked: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelinePause_Clicked', () => trackPipeline.pauseClicked(properties), properties),
 
-      modifyFailed: (properties?: Record<string, unknown>) =>
-        trackWithCache('PipelineModify_Failed', () => trackPipeline.modifyFailed(properties), properties),
+      pauseFailed: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelinePause_Failed', () => trackPipeline.pauseFailed(properties), properties),
 
-      modifySuccess: (properties?: Record<string, unknown>) =>
-        trackWithCache('PipelineModify_Success', () => trackPipeline.modifySuccess(properties), properties),
+      pauseSuccess: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelinePause_Success', () => trackPipeline.pauseSuccess(properties), properties),
 
+      // Resume Operations
+      resumeClicked: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineResume_Clicked', () => trackPipeline.resumeClicked(properties), properties),
+
+      resumeFailed: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineResume_Failed', () => trackPipeline.resumeFailed(properties), properties),
+
+      resumeSuccess: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineResume_Success', () => trackPipeline.resumeSuccess(properties), properties),
+
+      // Rename Operations
+      renameClicked: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineRename_Clicked', () => trackPipeline.renameClicked(properties), properties),
+
+      renameFailed: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineRename_Failed', () => trackPipeline.renameFailed(properties), properties),
+
+      renameSuccess: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineRename_Success', () => trackPipeline.renameSuccess(properties), properties),
+
+      // Edit Operations
+      editClicked: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineEdit_Clicked', () => trackPipeline.editClicked(properties), properties),
+
+      editFailed: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineEdit_Failed', () => trackPipeline.editFailed(properties), properties),
+
+      editSuccess: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineEdit_Success', () => trackPipeline.editSuccess(properties), properties),
+
+      // Delete Operations
       deleteClicked: (properties?: Record<string, unknown>) =>
         trackWithCache('PipelineDelete_Clicked', () => trackPipeline.deleteClicked(properties), properties),
 
@@ -278,6 +337,17 @@ export function useJourneyAnalytics() {
       deleteSuccess: (properties?: Record<string, unknown>) =>
         trackWithCache('PipelineDelete_Success', () => trackPipeline.deleteSuccess(properties), properties),
 
+      // Legacy Operations (deprecated but kept for compatibility)
+      modifyClicked: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineModify_Clicked', () => trackPipeline.modifyClicked(properties), properties),
+
+      modifyFailed: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineModify_Failed', () => trackPipeline.modifyFailed(properties), properties),
+
+      modifySuccess: (properties?: Record<string, unknown>) =>
+        trackWithCache('PipelineModify_Success', () => trackPipeline.modifySuccess(properties), properties),
+
+      // Pipeline Status Events
       existingPipeline: (properties?: Record<string, unknown>) =>
         trackWithCache('Pipeline_ExistingPipeline', () => trackPipeline.existingPipeline(properties), properties),
 
@@ -299,6 +369,7 @@ export function useJourneyAnalytics() {
       kafka,
       topic,
       key,
+      join,
       clickhouse,
       destination,
       deploy,
@@ -306,6 +377,6 @@ export function useJourneyAnalytics() {
       isEnabled: analyticsConsent,
       general,
     }),
-    [page, operation, kafka, topic, key, clickhouse, destination, deploy, pipeline, analyticsConsent],
+    [page, operation, kafka, topic, key, join, clickhouse, destination, deploy, pipeline, analyticsConsent, general],
   )
 }

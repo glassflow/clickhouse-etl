@@ -82,6 +82,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
     }
   }
 
+  // We're not tracking this for now, maybe we will in the future
   const handleFeedbackSubmit = () => {
     // Store feedback submission in localStorage
     localStorage.setItem(FEEDBACK_SUBMITTED_KEY, 'true')

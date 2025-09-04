@@ -14,6 +14,7 @@ const eventCatalog: Record<string, boolean> = {
   [dictionary.P2_1_SelectRightTopic.name]: true,
   [dictionary.P3_DeduplicationKey.name]: true,
   [dictionary.P3_JoinKey.name]: true,
+  [dictionary.P3_TopicDeduplication.name]: true,
   [dictionary.P4_SetupClickhouseConnection.name]: true,
   [dictionary.P5_SelectDestination.name]: true,
   [dictionary.P6_Pipelines.name]: true,
@@ -33,11 +34,19 @@ const eventCatalog: Record<string, boolean> = {
   [dictionary.TopicSelected.name]: true,
   [dictionary.TopicSelected_EventReceived.name]: true,
   [dictionary.TopicSelected_NoEvent.name]: true,
+  [dictionary.TopicSelected_EventError.name]: true,
 
   // Key Selection Events
   [dictionary.DedupKeySelected.name]: true,
   [dictionary.LeftJoinKeySelected.name]: true,
   [dictionary.RightJoinKeySelected.name]: true,
+
+  // Join Configuration Events
+  [dictionary.JoinConfiguration_Started.name]: true,
+  [dictionary.JoinConfiguration_FieldChanged.name]: true,
+  [dictionary.JoinConfiguration_StreamConfigured.name]: true,
+  [dictionary.JoinConfiguration_Completed.name]: true,
+  [dictionary.JoinConfiguration_ValidationFailed.name]: true,
 
   // Clickhouse Connection Events
   [dictionary.ClickhouseConnection_Started.name]: true,
@@ -60,13 +69,27 @@ const eventCatalog: Record<string, boolean> = {
   [dictionary.Deploy_Failed.name]: true,
   [dictionary.Deploy_Success.name]: true,
 
-  // Pipeline Modification Events
-  [dictionary.PipelineModify_Clicked.name]: true,
-  [dictionary.PipelineModify_Failed.name]: true,
-  [dictionary.PipelineModify_Success.name]: true,
+  // Pipeline Management Events
+  [dictionary.PipelinePause_Clicked.name]: true,
+  [dictionary.PipelinePause_Failed.name]: true,
+  [dictionary.PipelinePause_Success.name]: true,
+  [dictionary.PipelineResume_Clicked.name]: true,
+  [dictionary.PipelineResume_Failed.name]: true,
+  [dictionary.PipelineResume_Success.name]: true,
+  [dictionary.PipelineRename_Clicked.name]: true,
+  [dictionary.PipelineRename_Failed.name]: true,
+  [dictionary.PipelineRename_Success.name]: true,
+  [dictionary.PipelineEdit_Clicked.name]: true,
+  [dictionary.PipelineEdit_Failed.name]: true,
+  [dictionary.PipelineEdit_Success.name]: true,
   [dictionary.PipelineDelete_Clicked.name]: true,
   [dictionary.PipelineDelete_Failed.name]: true,
   [dictionary.PipelineDelete_Success.name]: true,
+
+  // Legacy Pipeline Events (deprecated but kept for compatibility)
+  [dictionary.PipelineModify_Clicked.name]: true,
+  [dictionary.PipelineModify_Failed.name]: true,
+  [dictionary.PipelineModify_Success.name]: true,
 
   // Pipeline Status Events
   [dictionary.Pipeline_ExistingPipeline.name]: true,
