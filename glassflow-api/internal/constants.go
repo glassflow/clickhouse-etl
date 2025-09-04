@@ -121,11 +121,11 @@ const (
 	NATSMaxConnectionWait = 2 * time.Minute
 
 	// Kafka consumer constants
-	ConsumerGroupName  = "glassflow-consumer-group"
-	ClientID           = "glassflow-consumer"
-	DefaultDialTimeout = 5000 * time.Millisecond
-	MechanismSHA256    = "SCRAM-SHA-256"
-	MechanismSHA512    = "SCRAM-SHA-512"
+	ConsumerGroupNamePrefix = "glassflow-consumer-group"
+	ClientID                = "glassflow-consumer"
+	DefaultDialTimeout      = 5000 * time.Millisecond
+	MechanismSHA256         = "SCRAM-SHA-256"
+	MechanismSHA512         = "SCRAM-SHA-512"
 
 	// Ingestor constants
 	IngestorInitialRetryDelay = 500 * time.Millisecond
@@ -140,5 +140,5 @@ const (
 
 	// RunnersWatcher constants
 	RunnerWatcherInterval = 5 * time.Second
-	RunnerRestartDelay   = 2 * time.Second
+	RunnerRestartDelay    = 2 * time.Second
 )

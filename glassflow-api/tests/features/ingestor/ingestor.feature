@@ -64,6 +64,7 @@ Feature: Kafka Ingestor
                     {
                         "name": "test_topic",
                         "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                         "partitions": 1,
                         "deduplication": {
                             "enabled": true,
@@ -144,6 +145,7 @@ Feature: Kafka Ingestor
                     {
                         "name": "test_topic",
                         "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                         "partitions": 1,
                         "deduplication": {
                             "enabled": false
@@ -160,7 +162,7 @@ Feature: Kafka Ingestor
             | 3   | {"id": "789", "name": "Bob Bishop"}     |
             | 4   | {"id": "789", "name": "Uliana Gromova"} |
 
-        And a running ingestor component
+        And I run the ingestor component
 
         Then I check results stream with content
             | id  | name           |
@@ -222,6 +224,7 @@ Feature: Kafka Ingestor
                     {
                         "name": "test_topic",
                         "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                         "partitions": 1,
                         "deduplication": {
                             "enabled": true,
@@ -302,6 +305,7 @@ Feature: Kafka Ingestor
                     {
                         "name": "test_topic",
                         "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                         "partitions": 1,
                         "deduplication": {
                             "enabled": false
