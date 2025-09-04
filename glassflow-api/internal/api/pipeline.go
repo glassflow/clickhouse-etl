@@ -110,6 +110,70 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+		return
+	}
+
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	err := h.pipelineManager.PausePipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, "no active pipeline with given id to pause", nil)
+		case errors.Is(err, service.ErrNotImplemented):
+			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
+		default:
+			h.log.Error("failed to pause pipeline", slog.Any("error", err))
+			jsonError(w, http.StatusInternalServerError, "failed to pause pipeline", nil)
+		}
+		return
+	}
+
+	h.log.Info("pipeline pause requested", slog.String("pipeline_id", id))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+		return
+	}
+
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	err := h.pipelineManager.ResumePipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, "no active pipeline with given id to resume", nil)
+		case errors.Is(err, service.ErrNotImplemented):
+			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
+		default:
+			h.log.Error("failed to resume pipeline", slog.Any("error", err))
+			jsonError(w, http.StatusInternalServerError, "failed to resume pipeline", nil)
+		}
+		return
+	}
+
+	h.log.Info("pipeline resume requested", slog.String("pipeline_id", id))
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]

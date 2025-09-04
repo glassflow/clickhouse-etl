@@ -34,6 +34,16 @@ func (m *MockPipelineManager) TerminatePipeline(ctx context.Context, pid string)
 	return args.Error(0)
 }
 
+func (m *MockPipelineManager) PausePipeline(ctx context.Context, pid string) error {
+	args := m.Called(ctx, pid)
+	return args.Error(0)
+}
+
+func (m *MockPipelineManager) ResumePipeline(ctx context.Context, pid string) error {
+	args := m.Called(ctx, pid)
+	return args.Error(0)
+}
+
 func (m *MockPipelineManager) GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error) {
 	args := m.Called(ctx, pid)
 	return args.Get(0).(models.PipelineConfig), args.Error(1)

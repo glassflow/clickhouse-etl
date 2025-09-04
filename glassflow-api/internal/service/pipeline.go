@@ -29,6 +29,8 @@ type PipelineManager interface {
 	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
+	PausePipeline(ctx context.Context, pid string) error
+	ResumePipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
@@ -146,6 +148,82 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 		}
 		return nil
 	}
+
+	return nil
+}
+
+// PausePipeline implements PipelineManager.
+func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) error {
+	// Get current pipeline to validate state and update status
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline failed for pause: %w", err)
+	}
+
+	// Validate that pipeline can transition to pausing state
+	if !pipeline.Status.CanTransitionTo(models.PipelineStatus(internal.PipelineStatusPausing)) {
+		return fmt.Errorf("pipeline cannot be paused from current state: %s", pipeline.Status.OverallStatus)
+	}
+
+	// Set status to Pausing
+	err = pipeline.Status.TransitionTo(models.PipelineStatus(internal.PipelineStatusPausing))
+	if err != nil {
+		return fmt.Errorf("transition to pausing state: %w", err)
+	}
+
+	// Update status in database
+	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status: %w", err)
+	}
+
+	// TODO: Call orchestrator to handle pause logic
+	// This will be implemented in the next step when we add orchestrator methods
+	// err = p.orchestrator.PausePipeline(ctx, pid)
+	// if err != nil {
+	//     return fmt.Errorf("pause pipeline: %w", err)
+	// }
+
+	return nil
+}
+
+// ResumePipeline implements PipelineManager.
+func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) error {
+	// Get current pipeline to validate state and update status
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline failed for resume: %w", err)
+	}
+
+	// Validate that pipeline can transition to resuming state
+	if !pipeline.Status.CanTransitionTo(models.PipelineStatus(internal.PipelineStatusResuming)) {
+		return fmt.Errorf("pipeline cannot be resumed from current state: %s", pipeline.Status.OverallStatus)
+	}
+
+	// Set status to Resuming
+	err = pipeline.Status.TransitionTo(models.PipelineStatus(internal.PipelineStatusResuming))
+	if err != nil {
+		return fmt.Errorf("transition to resuming state: %w", err)
+	}
+
+	// Update status in database
+	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status: %w", err)
+	}
+
+	// TODO: Call orchestrator to handle resume logic
+	// This will be implemented in the next step when we add orchestrator methods
+	// err = p.orchestrator.ResumePipeline(ctx, pid)
+	// if err != nil {
+	//     return fmt.Errorf("resume pipeline: %w", err)
+	// }
 
 	return nil
 }
