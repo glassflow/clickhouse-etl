@@ -207,6 +207,17 @@ export const trackPipeline = {
 }
 
 // Convenient helper to track all journey events
+/**
+ * Mode Entry Events
+ */
+export const trackMode = {
+  createEntered: (properties?: Record<string, unknown>) => trackEvent('Mode_CreateEntered', properties),
+
+  editEntered: (properties?: Record<string, unknown>) => trackEvent('Mode_EditEntered', properties),
+
+  viewEntered: (properties?: Record<string, unknown>) => trackEvent('Mode_ViewEntered', properties),
+}
+
 export const trackJourney = {
   page: trackPage,
   general: trackGeneral,
@@ -219,4 +230,5 @@ export const trackJourney = {
   destination: trackDestination,
   deploy: trackDeploy,
   pipeline: trackPipeline,
+  mode: trackMode,
 }
