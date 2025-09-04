@@ -310,4 +310,18 @@ export const dictionary: EventGroup = {
     name: 'Pipeline Existing Same Pipeline',
     key: 'Pipeline_ExistingSamePipeline',
   },
+
+  // Mode Entry Events
+  Mode_CreateEntered: {
+    name: 'Create Mode Entered',
+    key: 'Mode_CreateEntered',
+  },
+  Mode_EditEntered: {
+    name: 'Edit Mode Entered',
+    key: 'Mode_EditEntered',
+  },
+  Mode_ViewEntered: {
+    name: 'View Mode Entered',
+    key: 'Mode_ViewEntered',
+  },
 }

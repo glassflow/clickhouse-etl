@@ -94,6 +94,11 @@ const eventCatalog: Record<string, boolean> = {
   // Pipeline Status Events
   [dictionary.Pipeline_ExistingPipeline.name]: true,
   [dictionary.Pipeline_ExistingSamePipeline.name]: true,
+
+  // Mode Entry Events
+  [dictionary.Mode_CreateEntered.name]: true,
+  [dictionary.Mode_EditEntered.name]: true,
+  [dictionary.Mode_ViewEntered.name]: true,
 }
 
 export default eventCatalog

@@ -17,6 +17,7 @@ export {
   trackDestination,
   trackDeploy,
   trackPipeline,
+  trackMode,
 } from './journeyTracker'
 
 // Export type definitions
