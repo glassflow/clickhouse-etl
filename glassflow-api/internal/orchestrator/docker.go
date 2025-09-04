@@ -206,6 +206,65 @@ func (d *LocalOrchestrator) TerminatePipeline(ctx context.Context, pid string) e
 	return d.ShutdownPipeline(ctx, pid)
 }
 
+// PausePipeline implements Orchestrator.
+func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+
+	if d.id != pid {
+		return service.ErrPipelineNotFound
+	}
+
+	d.log.Info("pausing local pipeline", slog.String("pipeline_id", pid))
+
+	// For local orchestrator, we need to gracefully stop the ingestor
+	// but keep the sink running to finish processing the queue
+	for _, runner := range d.ingestorRunners {
+		if runner != nil {
+			// Stop ingestor gracefully - it will finish current batch but not consume new messages
+			runner.Shutdown()
+		}
+	}
+
+	// Note: Sink will continue running and will stop automatically when queue is empty
+	// For local orchestrator, we need to start a background process to monitor sink queue
+	// and update the pipeline status when the queue is empty
+	// This will be implemented in a future step when we add sink queue monitoring
+
+	d.log.Info("requested pause of local pipeline", slog.String("pipeline_id", pid))
+	return nil
+}
+
+// ResumePipeline implements Orchestrator.
+func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+
+	if d.id != pid {
+		return service.ErrPipelineNotFound
+	}
+
+	d.log.Info("resuming local pipeline", slog.String("pipeline_id", pid))
+
+	// For local orchestrator, we need to restart the ingestor
+	// The sink should already be running and will continue processing
+	for i, runner := range d.ingestorRunners {
+		if runner != nil {
+			// Restart the ingestor
+			err := runner.Start(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to restart ingestor %d: %w", i, err)
+			}
+		}
+	}
+
+	// Note: For local orchestrator, the service layer will update the status to "running"
+	// after this method returns successfully
+
+	d.log.Info("requested resume of local pipeline", slog.String("pipeline_id", pid))
+	return nil
+}
+
 func (d *LocalOrchestrator) ActivePipelineID() string {
 	d.m.Lock()
 	defer d.m.Unlock()

@@ -14,6 +14,8 @@ type Orchestrator interface {
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	ShutdownPipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
+	PausePipeline(ctx context.Context, pid string) error
+	ResumePipeline(ctx context.Context, pid string) error
 }
 
 type PipelineStore interface {
@@ -180,12 +182,20 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
-	// TODO: Call orchestrator to handle pause logic
-	// This will be implemented in the next step when we add orchestrator methods
-	// err = p.orchestrator.PausePipeline(ctx, pid)
-	// if err != nil {
-	//     return fmt.Errorf("pause pipeline: %w", err)
-	// }
+	// Call orchestrator to handle pause logic
+	err = p.orchestrator.PausePipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("pause pipeline: %w", err)
+	}
+
+	// For local orchestrator, we need to handle the status transition from "pausing" to "paused"
+	// For K8s orchestrator, the operator will handle this transition
+	if p.orchestrator.GetType() == "local" {
+		// TODO: For local orchestrator, we need to monitor sink queue and update status when empty
+		// This will be implemented when we add sink queue monitoring
+		// For now, we'll leave the status as "pausing" and it will be updated manually
+		// or through a separate monitoring mechanism
+	}
 
 	return nil
 }
@@ -218,12 +228,24 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
-	// TODO: Call orchestrator to handle resume logic
-	// This will be implemented in the next step when we add orchestrator methods
-	// err = p.orchestrator.ResumePipeline(ctx, pid)
-	// if err != nil {
-	//     return fmt.Errorf("resume pipeline: %w", err)
-	// }
+	// Call orchestrator to handle resume logic
+	err = p.orchestrator.ResumePipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("resume pipeline: %w", err)
+	}
+
+	// For local orchestrator, we need to handle the status transition from "resuming" to "running"
+	// For K8s orchestrator, the operator will handle this transition
+	if p.orchestrator.GetType() == "local" {
+		// Set status to Running
+		pipeline.Status.OverallStatus = internal.PipelineStatusRunning
+
+		// Update status in database
+		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+		if err != nil {
+			return fmt.Errorf("update pipeline status: %w", err)
+		}
+	}
 
 	return nil
 }

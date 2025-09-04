@@ -218,3 +218,83 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	k.log.Info("requested termination of k8s pipeline", slog.String("pipeline_id", pipelineID))
 	return nil
 }
+
+// PausePipeline implements Orchestrator.
+func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) error {
+	k.log.Info("pausing k8s pipeline", slog.String("pipeline_id", pipelineID))
+
+	// Get the existing pipeline resource
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	// Add pause annotation
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations["pipeline.etl.glassflow.io/pause-requested"] = "true"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the pause annotation
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update pipeline CRD with pause annotation: %w", err)
+	}
+
+	k.log.Info("requested pause of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	return nil
+}
+
+// ResumePipeline implements Orchestrator.
+func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string) error {
+	k.log.Info("resuming k8s pipeline", slog.String("pipeline_id", pipelineID))
+
+	// Get the existing pipeline resource
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	// Add resume annotation
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations["pipeline.etl.glassflow.io/resume-requested"] = "true"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the resume annotation
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update pipeline CRD with resume annotation: %w", err)
+	}
+
+	k.log.Info("requested resume of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	return nil
+}
