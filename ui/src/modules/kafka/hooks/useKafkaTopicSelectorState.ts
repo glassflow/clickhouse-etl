@@ -198,6 +198,14 @@ export function useKafkaTopicSelectorState({
     }
   }, [event, isLoadingEvent, topicName, offset, analytics.topic])
 
+  // Update loading state when isLoadingEvent changes
+  useEffect(() => {
+    setState((prev) => ({
+      ...prev,
+      isLoading: isLoadingEvent,
+    }))
+  }, [isLoadingEvent])
+
   // Update state when error occurs
   useEffect(() => {
     if (eventError && topicName) {
@@ -231,9 +239,9 @@ export function useKafkaTopicSelectorState({
     async (topicName: string) => {
       if (!topicName) return
 
+      // Clear previous event and error, but let useFetchEvent manage loading state
       setState((prev) => ({
         ...prev,
-        isLoading: true,
         error: null,
         event: null,
       }))
@@ -248,7 +256,6 @@ export function useKafkaTopicSelectorState({
         setState((prev) => ({
           ...prev,
           error: error instanceof Error ? error.message : 'Failed to fetch event',
-          isLoading: false,
         }))
 
         // Track error
@@ -267,9 +274,9 @@ export function useKafkaTopicSelectorState({
     async (topicName: string) => {
       if (!topicName) return
 
+      // Clear previous event and error, but let useFetchEvent manage loading state
       setState((prev) => ({
         ...prev,
-        isLoading: true,
         error: null,
         event: null,
       }))
@@ -284,7 +291,6 @@ export function useKafkaTopicSelectorState({
         setState((prev) => ({
           ...prev,
           error: error instanceof Error ? error.message : 'Failed to fetch event',
-          isLoading: false,
         }))
 
         // Track error
@@ -306,9 +312,9 @@ export function useKafkaTopicSelectorState({
         return
       }
 
+      // Clear previous event and error, but let useFetchEvent manage loading state
       setState((prev) => ({
         ...prev,
-        isLoading: true,
         error: null,
         event: null,
       }))
@@ -323,7 +329,6 @@ export function useKafkaTopicSelectorState({
         setState((prev) => ({
           ...prev,
           error: error instanceof Error ? error.message : 'Failed to fetch next event',
-          isLoading: false,
         }))
 
         // Track error
@@ -345,9 +350,9 @@ export function useKafkaTopicSelectorState({
         return
       }
 
+      // Clear previous event and error, but let useFetchEvent manage loading state
       setState((prev) => ({
         ...prev,
-        isLoading: true,
         error: null,
         event: null,
       }))
@@ -362,7 +367,6 @@ export function useKafkaTopicSelectorState({
         setState((prev) => ({
           ...prev,
           error: error instanceof Error ? error.message : 'Failed to fetch previous event',
-          isLoading: false,
         }))
 
         // Track error
@@ -381,9 +385,9 @@ export function useKafkaTopicSelectorState({
     async (topicName: string, fetchNext: boolean = false) => {
       if (!topicName) return
 
+      // Clear previous event and error, but let useFetchEvent manage loading state
       setState((prev) => ({
         ...prev,
-        isLoading: true,
         error: null,
         event: null,
       }))
@@ -395,7 +399,6 @@ export function useKafkaTopicSelectorState({
         setState((prev) => ({
           ...prev,
           error: error instanceof Error ? error.message : 'Failed to refresh event',
-          isLoading: false,
         }))
 
         // Track refresh error
