@@ -338,6 +338,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		topics = append(topics, models.KafkaTopicsConfig{
 			Name:                       t.Topic,
 			ID:                         t.ID,
+			ConsumerGroupName:          models.GetKafkaConsumerGroupName(p.PipelineID),
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Deduplication: models.DeduplicationConfig{
 				Enabled: t.Deduplication.Enabled,

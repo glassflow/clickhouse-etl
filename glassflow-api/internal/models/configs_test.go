@@ -272,3 +272,25 @@ func TestGetJoinedStreamName(t *testing.T) {
 		t.Errorf("GetJoinedStreamName(%q) = %q, should end with 'joined'", pipelineID, result)
 	}
 }
+
+func TestGetKafkaConsumerGroupName(t *testing.T) {
+	pipelineID := "test-pipeline-123"
+	result := GetKafkaConsumerGroupName(pipelineID)
+
+	// Should contain the hash
+	hash := GenerateStreamHash(pipelineID)
+	if !strings.Contains(result, hash) {
+		t.Errorf("GetKafkaConsumerGroupName(%q) = %q, should contain hash %q", pipelineID, result, hash)
+	}
+
+	// Should start with the prefix
+	if !strings.HasPrefix(result, internal.ConsumerGroupNamePrefix) {
+		t.Errorf("GetKafkaConsumerGroupName(%q) = %q, should start with %q", pipelineID, result, internal.ConsumerGroupNamePrefix)
+	}
+
+	// Should be equal to expected full name
+	expected := internal.ConsumerGroupNamePrefix + "-" + hash
+	if result != expected {
+		t.Errorf("GetKafkaConsumerGroupName(%q) = %q, want %q", pipelineID, result, expected)
+	}
+}

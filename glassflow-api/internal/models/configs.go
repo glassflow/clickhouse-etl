@@ -82,6 +82,7 @@ type KafkaTopicsConfig struct {
 	Name                       string `json:"name"`
 	ID                         string `json:"id"`
 	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
+	ConsumerGroupName          string `json:"consumer_group_name"`
 
 	Deduplication       DeduplicationConfig `json:"deduplication"`
 	OutputStreamID      string              `json:"output_stream_id"`
@@ -507,4 +508,8 @@ func GetIngestorStreamName(pipelineID, topicName string) string {
 func GetPipelineNATSSubject(pipelineID, topicName string) string {
 	streamName := GetIngestorStreamName(pipelineID, topicName)
 	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
+}
+
+func GetKafkaConsumerGroupName(pipelineID string) string {
+	return fmt.Sprintf("%s-%s", internal.ConsumerGroupNamePrefix, GenerateStreamHash(pipelineID))
 }
