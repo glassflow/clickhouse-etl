@@ -7,9 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	"github.com/cucumber/godog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
@@ -88,7 +90,7 @@ func (p *PlatformSteps) setupServices() error {
 	}
 
 	// Create pipeline manager
-	p.pipelineManager = service.NewPipelineManager(p.orchestrator, db)
+	p.pipelineManager = service.NewPipelineManager(p.orchestrator, p.storage)
 	return nil
 }
 
@@ -196,4 +198,29 @@ func (m *MockK8sOrchestrator) ShutdownPipeline(_ context.Context, _ string) erro
 
 func (m *MockK8sOrchestrator) TerminatePipeline(_ context.Context, _ string) error {
 	return fmt.Errorf("not implemented for testing")
+}
+
+func (m *MockK8sOrchestrator) CheckComponentHealth(_ context.Context, _ string) (*models.PipelineHealth, error) {
+	now := time.Now().UTC()
+	return &models.PipelineHealth{
+		PipelineID:    "test-pipeline",
+		PipelineName:  "Test Pipeline",
+		OverallStatus: models.PipelineStatus(internal.PipelineStatusRunning),
+		IngestorHealth: models.ComponentHealth{
+			Status:    "healthy",
+			Message:   "Mock ingestor healthy",
+			UpdatedAt: now,
+		},
+		JoinHealth: models.ComponentHealth{
+			Status:    "healthy",
+			Message:   "Mock join healthy",
+			UpdatedAt: now,
+		},
+		SinkHealth: models.ComponentHealth{
+			Status:    "healthy",
+			Message:   "Mock sink healthy",
+			UpdatedAt: now,
+		},
+		UpdatedAt: now,
+	}, nil
 }

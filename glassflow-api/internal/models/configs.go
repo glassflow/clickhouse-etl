@@ -15,13 +15,23 @@ import (
 // PipelineStatus represents the overall status of a pipeline
 type PipelineStatus string
 
+// ComponentHealth represents the health status of a pipeline component
+type ComponentHealth struct {
+	Status    string    `json:"status"`  // "healthy", "unhealthy", "unknown"
+	Message   string    `json:"message"` // Optional status message
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // PipelineHealth represents the health status of a pipeline and its components
 type PipelineHealth struct {
-	PipelineID    string         `json:"pipeline_id"`
-	PipelineName  string         `json:"pipeline_name"`
-	OverallStatus PipelineStatus `json:"overall_status"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	PipelineID     string          `json:"pipeline_id"`
+	PipelineName   string          `json:"pipeline_name"`
+	OverallStatus  PipelineStatus  `json:"overall_status"`
+	IngestorHealth ComponentHealth `json:"ingestor_health"`
+	JoinHealth     ComponentHealth `json:"join_health"`
+	SinkHealth     ComponentHealth `json:"sink_health"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
 type StreamDataField struct {
@@ -462,8 +472,23 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 		PipelineID:    pipelineID,
 		PipelineName:  pipelineName,
 		OverallStatus: PipelineStatus(internal.PipelineStatusCreated),
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		IngestorHealth: ComponentHealth{
+			Status:    "unknown",
+			Message:   "Component not yet initialized",
+			UpdatedAt: now,
+		},
+		JoinHealth: ComponentHealth{
+			Status:    "unknown",
+			Message:   "Component not yet initialized",
+			UpdatedAt: now,
+		},
+		SinkHealth: ComponentHealth{
+			Status:    "unknown",
+			Message:   "Component not yet initialized",
+			UpdatedAt: now,
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 }
 

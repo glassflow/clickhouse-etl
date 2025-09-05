@@ -16,6 +16,7 @@ type Orchestrator interface {
 	TerminatePipeline(ctx context.Context, pid string) error
 	PausePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
+	CheckComponentHealth(ctx context.Context, pid string) (*models.PipelineHealth, error)
 }
 
 type PipelineStore interface {
@@ -215,6 +216,28 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 	if !pipeline.Status.CanTransitionTo(models.PipelineStatus(internal.PipelineStatusResuming)) {
 		return fmt.Errorf("pipeline cannot be resumed from current state: %s", pipeline.Status.OverallStatus)
 	}
+
+	// Check component health before resuming
+	health, err := p.orchestrator.CheckComponentHealth(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("health check failed: %w", err)
+	}
+
+	// Validate that all components are healthy
+	if health.IngestorHealth.Status != "healthy" {
+		return fmt.Errorf("ingestor component is not healthy: %s - %s", health.IngestorHealth.Status, health.IngestorHealth.Message)
+	}
+	if health.JoinHealth.Status != "healthy" && health.JoinHealth.Status != "unknown" {
+		return fmt.Errorf("join component is not healthy: %s - %s", health.JoinHealth.Status, health.JoinHealth.Message)
+	}
+	if health.SinkHealth.Status != "healthy" {
+		return fmt.Errorf("sink component is not healthy: %s - %s", health.SinkHealth.Status, health.SinkHealth.Message)
+	}
+
+	// Update pipeline health with latest component status
+	pipeline.Status.IngestorHealth = health.IngestorHealth
+	pipeline.Status.JoinHealth = health.JoinHealth
+	pipeline.Status.SinkHealth = health.SinkHealth
 
 	// Set status to Resuming
 	err = pipeline.Status.TransitionTo(models.PipelineStatus(internal.PipelineStatusResuming))

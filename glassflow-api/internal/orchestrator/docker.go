@@ -455,3 +455,78 @@ func (d *LocalOrchestrator) checkSinkQueueStatus(ctx context.Context, pid string
 	// All streams are empty
 	return true, nil
 }
+
+// CheckComponentHealth implements Orchestrator.
+func (d *LocalOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID string) (*models.PipelineHealth, error) {
+	d.log.Info("checking component health for local pipeline", slog.String("pipeline_id", pipelineID))
+
+	// Get pipeline configuration
+	pipelineConfig, err := d.db.GetPipeline(ctx, pipelineID)
+	if err != nil {
+		return nil, fmt.Errorf("get pipeline config: %w", err)
+	}
+
+	now := time.Now().UTC()
+	health := &models.PipelineHealth{
+		PipelineID:    pipelineID,
+		PipelineName:  pipelineConfig.Name,
+		OverallStatus: pipelineConfig.Status.OverallStatus,
+		IngestorHealth: models.ComponentHealth{
+			Status:    "unknown",
+			Message:   "Component status not available",
+			UpdatedAt: now,
+		},
+		JoinHealth: models.ComponentHealth{
+			Status:    "unknown",
+			Message:   "Component status not available",
+			UpdatedAt: now,
+		},
+		SinkHealth: models.ComponentHealth{
+			Status:    "unknown",
+			Message:   "Component status not available",
+			UpdatedAt: now,
+		},
+		UpdatedAt: now,
+	}
+
+	// Check ingestor health - for local orchestrator, we assume healthy if runners are active
+	if len(d.ingestorRunners) > 0 {
+		health.IngestorHealth.Status = "healthy"
+		health.IngestorHealth.Message = fmt.Sprintf("Ingestor runners active: %d", len(d.ingestorRunners))
+	} else {
+		health.IngestorHealth.Status = "unhealthy"
+		health.IngestorHealth.Message = "No ingestor runners active"
+	}
+
+	// Check join health - if join is enabled, check if it's properly configured
+	if pipelineConfig.Join.Enabled {
+		if pipelineConfig.Join.OutputStreamID != "" {
+			health.JoinHealth.Status = "healthy"
+			health.JoinHealth.Message = "Join component properly configured"
+		} else {
+			health.JoinHealth.Status = "unhealthy"
+			health.JoinHealth.Message = "Join enabled but output stream not configured"
+		}
+	} else {
+		health.JoinHealth.Status = "healthy"
+		health.JoinHealth.Message = "Join component disabled"
+	}
+
+	// Check sink health - for local orchestrator, we assume healthy if sink is configured
+	if pipelineConfig.Sink.Type != "" {
+		health.SinkHealth.Status = "healthy"
+		health.SinkHealth.Message = fmt.Sprintf("Sink component configured: %s", pipelineConfig.Sink.Type)
+	} else {
+		health.SinkHealth.Status = "unhealthy"
+		health.SinkHealth.Message = "Sink component not configured"
+	}
+
+	d.log.Info("component health check completed",
+		slog.String("pipeline_id", pipelineID),
+		slog.String("ingestor_status", health.IngestorHealth.Status),
+		slog.String("join_status", health.JoinHealth.Status),
+		slog.String("sink_status", health.SinkHealth.Status),
+	)
+
+	return health, nil
+}
