@@ -12,6 +12,7 @@ services:
     environment:
       - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
       - NEXT_PUBLIC_API_URL=http://api:8081
+      - NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
 
   api:
     build:

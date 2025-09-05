@@ -60,6 +60,25 @@ export const getRuntimeEnv = () => {
   return {}
 }
 
+// Helper function to check if analytics is enabled based on environment variable
+export const isAnalyticsEnabled = (): boolean => {
+  const isServer = typeof window === 'undefined'
+
+  if (isServer) {
+    // For server-side, use process.env directly
+    return process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === 'true'
+  } else {
+    // For client-side, check runtime environment first (for Docker builds)
+    const runtimeEnv = getRuntimeEnv()
+    if (runtimeEnv.NEXT_PUBLIC_ANALYTICS_ENABLED !== undefined) {
+      return runtimeEnv.NEXT_PUBLIC_ANALYTICS_ENABLED === 'true'
+    }
+
+    // Fallback to process.env
+    return process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === 'true'
+  }
+}
+
 // Helper function to extract fields from event data with support for nested objects and arrays
 export const extractEventFields = (data: any, prefix = ''): string[] => {
   if (!data || typeof data !== 'object') {

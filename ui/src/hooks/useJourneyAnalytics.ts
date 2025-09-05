@@ -1,5 +1,6 @@
 import { useStore } from '@/src/store'
 import { useCallback, useMemo } from 'react'
+import { isAnalyticsEnabled } from '@/src/utils/common.client'
 import {
   trackPage,
   trackOperation,
@@ -24,7 +25,7 @@ const TRACKING_CACHE_TTL = 2000 // 2 seconds
  */
 export function useJourneyAnalytics() {
   const { coreStore } = useStore()
-  const { analyticsConsent, mode: currentMode, pipelineId, pipelineName } = coreStore
+  const { mode: currentMode, pipelineId, pipelineName } = coreStore
 
   /**
    * Helper function to get base context for all analytics events
@@ -51,14 +52,15 @@ export function useJourneyAnalytics() {
       trackingFunction: (enhancedProperties: Record<string, unknown>) => void,
       properties?: Record<string, unknown>,
     ) => {
-      // Only track if user has consented or override is set
+      // Only track if analytics is enabled via environment variable or override is set
       const { overrideTrackingConsent } = properties || {}
 
-      if (!analyticsConsent && !overrideTrackingConsent) {
-        console.log('Analytics disabled, not tracking:', {
-          eventName,
-          properties,
-        })
+      if (!isAnalyticsEnabled() && !overrideTrackingConsent) {
+        // NOTE: uncomment this if you want to see the analytics disabled logs
+        // console.log('Analytics disabled via environment variable, not tracking:', {
+        //   eventName,
+        //   properties,
+        // })
         return
       }
 
@@ -93,7 +95,7 @@ export function useJourneyAnalytics() {
         trackingFunction(enhancedProperties)
       }
     },
-    [analyticsConsent, getBaseContext],
+    [getBaseContext],
   )
 
   const general = useMemo(
@@ -570,23 +572,9 @@ export function useJourneyAnalytics() {
       deploy,
       pipeline,
       mode,
-      isEnabled: analyticsConsent,
+      isEnabled: isAnalyticsEnabled(),
       general,
     }),
-    [
-      page,
-      operation,
-      kafka,
-      topic,
-      key,
-      join,
-      clickhouse,
-      destination,
-      deploy,
-      pipeline,
-      mode,
-      analyticsConsent,
-      general,
-    ],
+    [page, operation, kafka, topic, key, join, clickhouse, destination, deploy, pipeline, mode, general],
   )
 }
