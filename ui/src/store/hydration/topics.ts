@@ -151,7 +151,7 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
     }
 
     // 4. Fetch topics from the API
-    const response = await fetch('/api/kafka/topics', {
+    const response = await fetch('/ui-api/kafka/topics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),

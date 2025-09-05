@@ -4,7 +4,7 @@
 
 /**
  * Helper function to ensure API URL has the correct /api/v1 suffix
- * Users should only need to provide the base URL (e.g., http://app:8081)
+ * Users should only need to provide the base URL (e.g., http://api:8081)
  * This function automatically appends /api/v1 if not present
  */
 const ensureApiV1Suffix = (baseUrl: string): string => {
@@ -23,8 +23,8 @@ const ensureApiV1Suffix = (baseUrl: string): string => {
 }
 
 export const runtimeConfig = {
-  // apiUrl: 'http://app:8081/api/v1', // Direct URL for Docker environment
-  apiUrl: ensureApiV1Suffix(process.env.NEXT_PUBLIC_API_URL || 'http://app:8081'),
+  // apiUrl: 'http://api:8081/api/v1', // Direct URL for Docker environment
+  apiUrl: ensureApiV1Suffix(process.env.NEXT_PUBLIC_API_URL || 'http://api:8081'),
   previewMode: process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true' || false,
 }
 
