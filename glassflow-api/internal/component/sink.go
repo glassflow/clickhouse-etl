@@ -87,3 +87,15 @@ func (s *SinkComponent) Stop(opts ...StopOption) {
 func (s *SinkComponent) Done() <-chan struct{} {
 	return s.doneCh
 }
+
+func (s *SinkComponent) Pause() error {
+	s.log.Info("sink component pause not needed - data flow stops when ingestor is paused")
+	// Sink component doesn't need explicit pause since data flow stops when ingestor is paused
+	return nil
+}
+
+func (s *SinkComponent) Resume() error {
+	s.log.Info("sink component resume not needed - data flow resumes when ingestor resumes")
+	// Sink component doesn't need explicit resume since data flow resumes when ingestor resumes
+	return nil
+}

@@ -176,3 +176,15 @@ func (j *JoinComponent) Stop(opts ...StopOption) {
 func (j *JoinComponent) Done() <-chan struct{} {
 	return j.doneCh
 }
+
+func (j *JoinComponent) Pause() error {
+	j.log.Info("join component pause not needed - data flow stops when ingestor is paused")
+	// Join component doesn't need explicit pause since data flow stops when ingestor is paused
+	return nil
+}
+
+func (j *JoinComponent) Resume() error {
+	j.log.Info("join component resume not needed - data flow resumes when ingestor resumes")
+	// Join component doesn't need explicit resume since data flow resumes when ingestor resumes
+	return nil
+}

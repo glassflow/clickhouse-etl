@@ -16,6 +16,8 @@ import (
 type Ingestor interface {
 	Start(ctx context.Context) error
 	Stop()
+	Pause() error
+	Resume() error
 }
 
 type IngestorComponent struct {
@@ -78,4 +80,22 @@ func (i *IngestorComponent) Stop(_ ...StopOption) {
 
 func (i *IngestorComponent) Done() <-chan struct{} {
 	return i.doneCh
+}
+
+func (i *IngestorComponent) Pause() error {
+	if i.ingestor == nil {
+		return fmt.Errorf("ingestor not initialized")
+	}
+
+	i.log.Info("pausing ingestor component", slog.String("topic", i.topicName))
+	return i.ingestor.Pause()
+}
+
+func (i *IngestorComponent) Resume() error {
+	if i.ingestor == nil {
+		return fmt.Errorf("ingestor not initialized")
+	}
+
+	i.log.Info("resuming ingestor component", slog.String("topic", i.topicName))
+	return i.ingestor.Resume()
 }

@@ -26,6 +26,8 @@ type Consumer interface {
 	Fetch(context.Context) (Message, error)
 	Commit(context.Context, Message) error
 	Close() error
+	Pause() error
+	Resume() error
 }
 
 func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) *sarama.Config {
@@ -105,6 +107,7 @@ type groupConsumer struct {
 	cancel context.CancelFunc
 
 	closeCh chan struct{}
+	topic   string // Store the topic name for resume functionality
 
 	log *slog.Logger
 }
@@ -126,6 +129,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		commitCh:     make(chan *sarama.ConsumerMessage),
 		consumeErrCh: make(chan error),
 		closeCh:      make(chan struct{}),
+		topic:        topic.Name,
 		log:          log,
 	}
 
@@ -242,4 +246,32 @@ func convertToMessageHeaders(consumerHeaders []*sarama.RecordHeader) []sarama.Re
 		}
 	}
 	return msgHeaders
+}
+
+func (c *groupConsumer) Pause() error {
+	c.log.Info("pausing kafka consumer")
+	// For Kafka consumer, pause means stopping the consumption loop
+	// The consumer will finish processing current messages but won't fetch new ones
+	c.cancel()
+	return nil
+}
+
+func (c *groupConsumer) Resume() error {
+	c.log.Info("resuming kafka consumer", slog.String("topic", c.topic))
+	// For Kafka consumer, resume means restarting the consumption loop
+	// Create a new context and restart the consumer
+	ctx := context.Background()
+	ctx, c.cancel = context.WithCancel(ctx)
+
+	// Restart the consumer loop with the stored topic
+	go func() {
+		topics := []string{c.topic}
+		for {
+			if err := c.cGroup.Consume(ctx, topics, c); err != nil {
+				c.consumeErrCh <- err
+			}
+		}
+	}()
+
+	return nil
 }

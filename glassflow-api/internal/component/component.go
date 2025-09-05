@@ -18,4 +18,6 @@ type Component interface {
 	Start(context.Context, chan<- error)
 	Stop(...StopOption)
 	Done() <-chan struct{} // Signals when component stops by itself
+	Pause() error
+	Resume() error
 }

@@ -289,3 +289,45 @@ func (k *KafkaIngestor) Stop() {
 
 	k.log.Info("Kafka ingestor stopped")
 }
+
+// Pause pauses the Kafka ingestor by stopping message consumption
+// The consumer will finish processing the current batch but stop consuming new messages
+func (k *KafkaIngestor) Pause() error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	if k.isClosed {
+		return fmt.Errorf("kafka ingestor is already closed")
+	}
+
+	k.log.Info("pausing Kafka ingestor", slog.String("topic", k.topic.Name))
+
+	// Pause the consumer to stop consuming new messages
+	// The consumer will finish processing current messages but won't fetch new ones
+	if err := k.consumer.Pause(); err != nil {
+		return fmt.Errorf("failed to pause kafka consumer: %w", err)
+	}
+
+	k.log.Info("Kafka ingestor paused successfully", slog.String("topic", k.topic.Name))
+	return nil
+}
+
+// Resume resumes the Kafka ingestor by starting message consumption again
+func (k *KafkaIngestor) Resume() error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	if k.isClosed {
+		return fmt.Errorf("kafka ingestor is already closed")
+	}
+
+	k.log.Info("resuming Kafka ingestor", slog.String("topic", k.topic.Name))
+
+	// Resume the consumer to start consuming messages again
+	if err := k.consumer.Resume(); err != nil {
+		return fmt.Errorf("failed to resume kafka consumer: %w", err)
+	}
+
+	k.log.Info("Kafka ingestor resumed successfully", slog.String("topic", k.topic.Name))
+	return nil
+}

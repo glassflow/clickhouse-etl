@@ -18,7 +18,7 @@ type SinkRunner struct {
 
 	inputNatsStream string
 	sinkCfg         models.SinkComponentConfig
-	schemaMapper   schema.Mapper
+	schemaMapper    schema.Mapper
 
 	component component.Component
 	c         chan error
@@ -32,7 +32,7 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient, inputNatsStream stri
 
 		inputNatsStream: inputNatsStream,
 		sinkCfg:         sinkCfg,
-		schemaMapper:   schemaMapper,
+		schemaMapper:    schemaMapper,
 
 		component: nil,
 		c:         make(chan error, 1),
@@ -85,4 +85,20 @@ func (s *SinkRunner) Shutdown() {
 // Done returns a channel that signals when the component stops by itself
 func (s *SinkRunner) Done() <-chan struct{} {
 	return s.doneCh
+}
+
+func (s *SinkRunner) Pause() error {
+	if s.component != nil {
+		s.log.Info("pausing sink runner")
+		return s.component.Pause()
+	}
+	return fmt.Errorf("sink component not initialized")
+}
+
+func (s *SinkRunner) Resume() error {
+	if s.component != nil {
+		s.log.Info("resuming sink runner")
+		return s.component.Resume()
+	}
+	return fmt.Errorf("sink component not initialized")
 }

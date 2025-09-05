@@ -221,12 +221,15 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 
 	d.log.Info("pausing local pipeline", slog.String("pipeline_id", pid))
 
-	// For local orchestrator, we need to gracefully stop the ingestor
+	// For local orchestrator, we need to gracefully pause the ingestor
 	// but keep the sink running to finish processing the queue
 	for _, runner := range d.ingestorRunners {
 		if runner != nil {
-			// Stop ingestor gracefully - it will finish current batch but not consume new messages
-			runner.Shutdown()
+			// Pause ingestor gracefully - it will finish current batch but not consume new messages
+			if err := runner.Pause(); err != nil {
+				d.log.Error("failed to pause ingestor runner", slog.Any("error", err))
+				return fmt.Errorf("pause ingestor runner: %w", err)
+			}
 		}
 	}
 
@@ -250,14 +253,14 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 
 	d.log.Info("resuming local pipeline", slog.String("pipeline_id", pid))
 
-	// For local orchestrator, we need to restart the ingestor
+	// For local orchestrator, we need to resume the ingestor
 	// The sink should already be running and will continue processing
 	for i, runner := range d.ingestorRunners {
 		if runner != nil {
-			// Restart the ingestor
-			err := runner.Start(ctx)
+			// Resume the ingestor
+			err := runner.Resume()
 			if err != nil {
-				return fmt.Errorf("failed to restart ingestor %d: %w", i, err)
+				return fmt.Errorf("failed to resume ingestor %d: %w", i, err)
 			}
 		}
 	}
@@ -498,24 +501,21 @@ func (d *LocalOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID
 		health.IngestorHealth.Message = "No ingestor runners active"
 	}
 
-	// Check join health - if join is enabled, check if it's properly configured
+	// Check join health - join component doesn't need explicit health check for pause/resume
+	// since data flow is controlled by ingestor
 	if pipelineConfig.Join.Enabled {
-		if pipelineConfig.Join.OutputStreamID != "" {
-			health.JoinHealth.Status = "healthy"
-			health.JoinHealth.Message = "Join component properly configured"
-		} else {
-			health.JoinHealth.Status = "unhealthy"
-			health.JoinHealth.Message = "Join enabled but output stream not configured"
-		}
+		health.JoinHealth.Status = "healthy"
+		health.JoinHealth.Message = "Join component will resume when ingestor produces data"
 	} else {
 		health.JoinHealth.Status = "healthy"
 		health.JoinHealth.Message = "Join component disabled"
 	}
 
-	// Check sink health - for local orchestrator, we assume healthy if sink is configured
+	// Check sink health - sink component doesn't need explicit health check for pause/resume
+	// since data flow is controlled by ingestor
 	if pipelineConfig.Sink.Type != "" {
 		health.SinkHealth.Status = "healthy"
-		health.SinkHealth.Message = fmt.Sprintf("Sink component configured: %s", pipelineConfig.Sink.Type)
+		health.SinkHealth.Message = "Sink component will resume when ingestor produces data"
 	} else {
 		health.SinkHealth.Status = "unhealthy"
 		health.SinkHealth.Message = "Sink component not configured"

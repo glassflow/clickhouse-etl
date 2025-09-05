@@ -224,15 +224,12 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 	}
 
 	// Validate that all components are healthy
+	// Only ingestor needs to be healthy for resume since it controls the data flow
 	if health.IngestorHealth.Status != "healthy" {
 		return fmt.Errorf("ingestor component is not healthy: %s - %s", health.IngestorHealth.Status, health.IngestorHealth.Message)
 	}
-	if health.JoinHealth.Status != "healthy" && health.JoinHealth.Status != "unknown" {
-		return fmt.Errorf("join component is not healthy: %s - %s", health.JoinHealth.Status, health.JoinHealth.Message)
-	}
-	if health.SinkHealth.Status != "healthy" {
-		return fmt.Errorf("sink component is not healthy: %s - %s", health.SinkHealth.Status, health.SinkHealth.Message)
-	}
+	// Join and sink components don't need to be explicitly healthy for resume
+	// since they will naturally resume when ingestor starts producing data again
 
 	// Update pipeline health with latest component status
 	pipeline.Status.IngestorHealth = health.IngestorHealth

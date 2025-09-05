@@ -106,3 +106,23 @@ func (i *IngestorRunner) Shutdown() {
 func (i *IngestorRunner) Done() <-chan struct{} {
 	return i.doneCh
 }
+
+func (i *IngestorRunner) Pause() error {
+	if i.component != nil {
+		// Signal the component to pause processing
+		// The component should stop consuming new messages but finish current batch
+		i.log.Info("pausing ingestor runner", slog.String("topic", i.topicName))
+		return i.component.Pause()
+	}
+	return fmt.Errorf("ingestor component not initialized")
+}
+
+func (i *IngestorRunner) Resume() error {
+	if i.component != nil {
+		// Signal the component to resume processing
+		// The component should start consuming messages again
+		i.log.Info("resuming ingestor runner", slog.String("topic", i.topicName))
+		return i.component.Resume()
+	}
+	return fmt.Errorf("ingestor component not initialized")
+}

@@ -174,3 +174,19 @@ func (j *JoinRunner) Shutdown() {
 func (j *JoinRunner) Done() <-chan struct{} {
 	return j.doneCh
 }
+
+func (j *JoinRunner) Pause() error {
+	if j.component != nil {
+		j.log.Info("pausing join runner")
+		return j.component.Pause()
+	}
+	return fmt.Errorf("join component not initialized")
+}
+
+func (j *JoinRunner) Resume() error {
+	if j.component != nil {
+		j.log.Info("resuming join runner")
+		return j.component.Resume()
+	}
+	return fmt.Errorf("join component not initialized")
+}
