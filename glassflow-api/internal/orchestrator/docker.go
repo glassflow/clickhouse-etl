@@ -190,12 +190,15 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 		for _, runner := range d.ingestorRunners {
 			runner.Shutdown()
 		}
+		d.ingestorRunners = nil
 	}
 	if d.joinRunner != nil {
 		d.joinRunner.Shutdown()
+		d.joinRunner = nil
 	}
 	if d.sinkRunner != nil {
 		d.sinkRunner.Shutdown()
+		d.sinkRunner = nil
 	}
 
 	return nil

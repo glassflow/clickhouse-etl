@@ -226,17 +226,20 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 		msg, err := k.consumer.Fetch(cancelCtx)
 		if err != nil {
 			if errors.Is(err, cancelCtx.Err()) {
+				k.log.Debug("Parent context cancelled, stopping Kafka ingestor", slog.String("publisher", k.publisher.GetSubject()))
 				return nil
 			}
 
-			k.log.Error("Failed to fetch messages from Kafka", slog.Any("error", err), slog.String("topic", k.topic.Name))
+			k.log.Error("Failed to fetch messages from Kafka", slog.Any("error", err), slog.String("publisher", k.publisher.GetSubject()))
 			select {
 			case <-cancelCtx.Done():
+				k.log.Debug("Wait context cancelled during retry, stopping Kafka ingestor", slog.String("publisher", k.publisher.GetSubject()))
 				return nil
 			case <-time.After(retryDelay):
 			}
 
 			if time.Since(startTime) > internal.IngestorMaxRetryWait {
+				k.log.Error("Max retry wait time exceeded, stopping Kafka ingestor", slog.String("publisher", k.publisher.GetSubject()))
 				return fmt.Errorf("max retry wait time exceeded: %w", err)
 			}
 
@@ -253,6 +256,7 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 
 		err = k.processMsg(cancelCtx, msg)
 		if err != nil {
+			k.log.Debug("Failed to process messages", slog.Any("error", err), slog.String("publisher", k.publisher.GetSubject()))
 			return fmt.Errorf("failed to process messages: %w", err)
 		}
 
@@ -261,7 +265,7 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 		}
 	}
 
-	k.log.Info("Kafka ingestor stopped", slog.String("topic", k.topic.Name))
+	k.log.Info("Kafka ingestor stopped", slog.String("publisher", k.publisher.GetSubject()))
 
 	return nil
 }
