@@ -35,12 +35,13 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient, inputNatsStream stri
 		schemaMapper:    schemaMapper,
 
 		component: nil,
-		c:         make(chan error, 1),
-		doneCh:    make(chan struct{}),
 	}
 }
 
 func (s *SinkRunner) Start(ctx context.Context) error {
+	s.doneCh = make(chan struct{})
+	s.c = make(chan error, 1)
+
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   s.inputNatsStream,

@@ -99,6 +99,7 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 
 type groupConsumer struct {
 	cGroup sarama.ConsumerGroup
+	name   string
 
 	fetchCh      chan *sarama.ConsumerMessage
 	commitCh     chan *sarama.ConsumerMessage
@@ -116,7 +117,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 	cfg := newConnectionConfig(connectionParams, topic)
 	cGroup, err := sarama.NewConsumerGroup(
 		connectionParams.Brokers,
-		internal.ConsumerGroupName,
+		topic.ConsumerGroupName,
 		cfg,
 	)
 	if err != nil {
@@ -125,6 +126,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 
 	consumer := &groupConsumer{
 		cGroup:       cGroup,
+		name:         topic.ConsumerGroupName,
 		fetchCh:      make(chan *sarama.ConsumerMessage),
 		commitCh:     make(chan *sarama.ConsumerMessage),
 		consumeErrCh: make(chan error),
@@ -191,7 +193,7 @@ func (c *groupConsumer) Commit(ctx context.Context, msg Message) error {
 }
 
 func (c *groupConsumer) Close() error {
-	c.log.Info("Closing Kafka consumer group", slog.String("group", internal.ConsumerGroupName))
+	c.log.Info("Closing Kafka consumer group", slog.String("group", c.name))
 	close(c.fetchCh)
 	close(c.commitCh)
 	close(c.closeCh)

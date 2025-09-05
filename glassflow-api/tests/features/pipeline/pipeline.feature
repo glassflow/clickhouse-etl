@@ -65,6 +65,7 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00001",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",
@@ -180,6 +181,7 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_emails",
                             "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00002",
                             "deduplication": {
                                 "enabled": false
                             },
@@ -189,6 +191,7 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_users",
                             "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00002",
                             "deduplication": {
                                 "enabled": false
                             },
@@ -329,6 +332,7 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_emails",
                             "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00003",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "user_id",
@@ -341,6 +345,7 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_users",
                             "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00003",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",
@@ -473,6 +478,7 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00004",
                             "deduplication": {
                                 "enabled": false
                             },
@@ -569,6 +575,7 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_measurments",
                             "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00005",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",

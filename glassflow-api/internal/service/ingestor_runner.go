@@ -35,12 +35,13 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string
 		schemaMapper: schemaMapper,
 
 		component: nil,
-		c:         make(chan error, 1),
-		doneCh:    make(chan struct{}),
 	}
 }
 
 func (i *IngestorRunner) Start(ctx context.Context) error {
+	i.doneCh = make(chan struct{})
+	i.c = make(chan error, 1)
+
 	if i.topicName == "" {
 		return fmt.Errorf("topic name cannot be empty")
 	}
@@ -51,6 +52,8 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 			outputStreamID = topic.OutputStreamID
 		}
 	}
+
+	i.log.Debug("Starting ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("streamId", models.GetNATSSubjectName(outputStreamID)))
 
 	if outputStreamID == "" {
 		return fmt.Errorf("output stream name cannot be empty")
@@ -98,6 +101,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 }
 
 func (i *IngestorRunner) Shutdown() {
+	i.log.Debug("Stopping ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("topic", i.topicName))
 	if i.component != nil {
 		i.component.Stop()
 	}
