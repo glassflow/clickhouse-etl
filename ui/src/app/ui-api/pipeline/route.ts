@@ -85,5 +85,5 @@ export async function GET() {
   }
 }
 
-// DELETE method is handled by /api/pipeline/[id]/route.ts for individual pipeline shutdown
+// DELETE method is handled by /ui-api/pipeline/[id]/route.ts for individual pipeline shutdown
 // This route only handles GET (list all pipelines) and POST (create pipeline)

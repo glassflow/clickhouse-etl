@@ -1,4 +1,4 @@
-// clickhouse-etl/ui/src/app/api/mock/data/pipelines.ts
+// clickhouse-etl/ui/src/app/ui-api/mock/data/pipelines.ts
 
 import type { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { detectTransformationType } from '@/src/types/pipeline'

@@ -36,7 +36,7 @@ export const useClickhouseTableSchema = (database: string, table: string) => {
         connectionType: 'direct' as const,
       }
 
-      const response = await fetch('/api/clickhouse/schema', {
+      const response = await fetch('/ui-api/clickhouse/schema', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

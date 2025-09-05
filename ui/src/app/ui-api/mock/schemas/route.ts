@@ -73,7 +73,7 @@ const mockSchemas: Schema[] = [
   },
 ]
 
-// GET /api/mock/schemas
+// GET /ui-api/mock/schemas
 export async function GET() {
   return NextResponse.json({
     success: true,
@@ -82,7 +82,7 @@ export async function GET() {
   })
 }
 
-// POST /api/mock/schemas
+// POST /ui-api/mock/schemas
 export async function POST(request: Request) {
   try {
     const body = await request.json()

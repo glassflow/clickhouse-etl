@@ -47,7 +47,7 @@ export const useClickhouseConnection = () => {
           testType: 'connection',
         }
 
-        const response = await fetch('/api/clickhouse/test-connection', {
+        const response = await fetch('/ui-api/clickhouse/test-connection', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -160,7 +160,7 @@ export const useClickhouseConnection = () => {
           testType: 'database',
         }
 
-        const response = await fetch('/api/clickhouse/test-connection', {
+        const response = await fetch('/ui-api/clickhouse/test-connection', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -269,7 +269,7 @@ export const useClickhouseConnection = () => {
           testType: 'table',
         }
 
-        const response = await fetch('/api/clickhouse/test-connection', {
+        const response = await fetch('/ui-api/clickhouse/test-connection', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -365,7 +365,7 @@ export const useClickhouseConnection = () => {
       }
 
       // Don't modify the host here - send the original host value (replicating original)
-      const response = await fetch('/api/clickhouse/databases', {
+      const response = await fetch('/ui-api/clickhouse/databases', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

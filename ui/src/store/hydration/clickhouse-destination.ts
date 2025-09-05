@@ -66,7 +66,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
 
   // 2. Fetch databases
 
-  const dbRes = await fetch('/api/clickhouse/databases', {
+  const dbRes = await fetch('/ui-api/clickhouse/databases', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -85,7 +85,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   // Optionally: useStore.getState().clickhouseConnectionStore.updateDatabases(dbData.databases, ...)
 
   // 3. Fetch tables for the selected database
-  const tablesRes = await fetch('/api/clickhouse/tables', {
+  const tablesRes = await fetch('/ui-api/clickhouse/tables', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -104,7 +104,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   // Optionally: useStore.getState().clickhouseConnectionStore.updateTables(sink.database, tablesData.tables, ...)
 
   // 4. Fetch schema for the selected table
-  const schemaRes = await fetch('/api/clickhouse/schema', {
+  const schemaRes = await fetch('/ui-api/clickhouse/schema', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
