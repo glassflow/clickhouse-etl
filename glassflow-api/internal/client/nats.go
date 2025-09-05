@@ -144,3 +144,18 @@ func (n *NATSClient) Close() error {
 	n.nc.Close()
 	return nil
 }
+
+// CheckStreamMessageCount checks the message count for a specific NATS stream
+func (n *NATSClient) CheckStreamMessageCount(ctx context.Context, streamName string) (uint64, error) {
+	stream, err := n.JetStream().Stream(ctx, streamName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get stream %s: %w", streamName, err)
+	}
+
+	info, err := stream.Info(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get stream info for %s: %w", streamName, err)
+	}
+
+	return info.State.Msgs, nil
+}

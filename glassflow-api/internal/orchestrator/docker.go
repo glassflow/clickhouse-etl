@@ -12,10 +12,12 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 )
 
 type LocalOrchestrator struct {
 	nc  *client.NATSClient
+	db  *storage.Storage
 	log *slog.Logger
 
 	ingestorRunners []service.Runner
@@ -31,11 +33,13 @@ type LocalOrchestrator struct {
 
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
+	db *storage.Storage,
 	log *slog.Logger,
 ) service.Orchestrator {
 	//nolint: exhaustruct // runners will be created on setup
 	return &LocalOrchestrator{
 		nc:  nc,
+		db:  db,
 		log: log,
 	}
 }
@@ -229,7 +233,7 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 	// Note: Sink will continue running and will stop automatically when queue is empty
 	// For local orchestrator, we need to start a background process to monitor sink queue
 	// and update the pipeline status when the queue is empty
-	// This will be implemented in a future step when we add sink queue monitoring
+	d.startSinkQueueMonitoring(ctx, pid)
 
 	d.log.Info("requested pause of local pipeline", slog.String("pipeline_id", pid))
 	return nil
@@ -358,4 +362,96 @@ func (d *LocalOrchestrator) restartRunner(ctx context.Context, runner service.Ru
 	} else {
 		d.log.Info("runner restarted successfully")
 	}
+}
+
+// startSinkQueueMonitoring starts a background goroutine to monitor sink queue status
+// and update pipeline status when the queue is empty
+func (d *LocalOrchestrator) startSinkQueueMonitoring(ctx context.Context, pid string) {
+	d.watcherWG.Add(1)
+	go func() {
+		defer d.watcherWG.Done()
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		d.log.Info("started sink queue monitoring", slog.String("pipeline_id", pid))
+
+		for {
+			select {
+			case <-ctx.Done():
+				d.log.Info("sink queue monitoring stopped due to context cancellation", slog.String("pipeline_id", pid))
+				return
+			case <-ticker.C:
+				// Check if sink queue is empty
+				sinkQueueEmpty, err := d.checkSinkQueueStatus(ctx, pid)
+				if err != nil {
+					d.log.Error("failed to check sink queue status", slog.String("pipeline_id", pid), slog.Any("error", err))
+					continue
+				}
+
+				if sinkQueueEmpty {
+					// Update pipeline status to "Paused" in NATS
+					status := models.PipelineHealth{
+						OverallStatus: models.PipelineStatus(internal.PipelineStatusPaused),
+						UpdatedAt:     time.Now().UTC(),
+					}
+					err = d.db.UpdatePipelineStatus(ctx, pid, status)
+					if err != nil {
+						d.log.Error("failed to update pipeline status to Paused", slog.String("pipeline_id", pid), slog.Any("error", err))
+					} else {
+						d.log.Info("pipeline status updated to Paused", slog.String("pipeline_id", pid))
+					}
+					return // Stop monitoring once paused
+				}
+			}
+		}
+	}()
+}
+
+// checkSinkQueueStatus checks if the sink queue is empty for the local orchestrator
+func (d *LocalOrchestrator) checkSinkQueueStatus(ctx context.Context, pid string) (bool, error) {
+	// For local orchestrator, we need to check the NATS streams that the sink consumes from
+	// This is similar to the operator implementation but adapted for local use
+
+	// Get pipeline configuration to determine which streams the sink consumes from
+	pipelineConfig, err := d.db.GetPipeline(ctx, pid)
+	if err != nil {
+		return false, fmt.Errorf("failed to get pipeline config: %w", err)
+	}
+
+	// Determine sink input streams based on pipeline configuration
+	var streamsToCheck []string
+
+	// Add join output stream if join is enabled
+	if pipelineConfig.Join.Enabled && pipelineConfig.Join.OutputStreamID != "" {
+		streamsToCheck = append(streamsToCheck, pipelineConfig.Join.OutputStreamID)
+	}
+
+	// Add ingestor output streams
+	for _, topic := range pipelineConfig.Ingestor.KafkaTopics {
+		if topic.OutputStreamID != "" {
+			streamsToCheck = append(streamsToCheck, topic.OutputStreamID)
+		}
+	}
+
+	// If no streams to check, assume queue is empty
+	if len(streamsToCheck) == 0 {
+		return true, nil
+	}
+
+	// Check each stream for messages using NATS client
+	for _, streamName := range streamsToCheck {
+		messageCount, err := d.nc.CheckStreamMessageCount(ctx, streamName)
+		if err != nil {
+			return false, fmt.Errorf("failed to check message count for stream %s: %w", streamName, err)
+		}
+
+		// If any stream has messages, sink queue is not empty
+		if messageCount > 0 {
+			return false, nil
+		}
+	}
+
+	// All streams are empty
+	return true, nil
 }

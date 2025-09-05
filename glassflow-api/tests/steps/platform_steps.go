@@ -25,6 +25,7 @@ type PlatformSteps struct {
 	orchestrator     service.Orchestrator
 	orchestratorType string
 	lastResponse     *http.Response
+	storage          *storage.Storage
 }
 
 func NewPlatformSteps() *PlatformSteps {
@@ -71,17 +72,19 @@ func (p *PlatformSteps) aRunningGlassflowAPIServerWithK8sOrchestrator() error {
 
 func (p *PlatformSteps) setupServices() error {
 	// Create storage
-	db, err := storage.New(context.Background(), "test-pipelines", p.natsClient.JetStream())
+	var err error
+	p.storage, err = storage.New(context.Background(), "test-pipelines", p.natsClient.JetStream())
 	if err != nil {
 		return fmt.Errorf("create storage: %w", err)
 	}
 
 	// Create orchestrator based on type
 	if p.orchestratorType == "local" {
-		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, p.log)
+		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, p.storage, p.log)
 	} else {
 		// For k8s orchestrator, we'll create a mock one for testing
 		p.orchestrator = &MockK8sOrchestrator{log: p.log}
+
 	}
 
 	// Create pipeline manager
@@ -167,6 +170,16 @@ func (p *PlatformSteps) theResponseShouldHaveContentType(expectedContentType str
 // MockK8sOrchestrator is a mock implementation for testing
 type MockK8sOrchestrator struct {
 	log *slog.Logger
+}
+
+func (m *MockK8sOrchestrator) PausePipeline(ctx context.Context, pid string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockK8sOrchestrator) ResumePipeline(ctx context.Context, pid string) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m *MockK8sOrchestrator) GetType() string {
