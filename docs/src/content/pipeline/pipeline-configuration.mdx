@@ -94,7 +94,7 @@ The sink configuration defines how to connect to and write to ClickHouse.
 | `type` | string | Yes | Must be "clickhouse". |
 | `host` | string | Yes | ClickHouse server hostname. |
 | `port` | string | Yes | ClickHouse server port. |
-| `http_port` | string | Yes | ClickHouse server http port (only used for UI connection) |
+| `http_port` | string | No | ClickHouse server http port (only used for UI connection) |
 | `database` | string | Yes | ClickHouse database name. |
 | `username` | string | Yes | ClickHouse username. |
 | `password` | string | Yes | ClickHouse password. It must be base64 encoded. |
