@@ -47,6 +47,24 @@ pipeline = client.create_pipeline(pipeline_config_json_path="pipeline_config.jso
 pipeline = client.get_pipeline(pipeline_id="<my-pipeline-id>")
 ```
 
+### Get Pipeline Health
+
+```python
+pipeline_health = pipeline.health()
+print(pipeline_health)
+```
+
+Output:
+```json
+{
+    "pipeline_id": "<pipeline-id>", 
+    "pipeline_name": "<pipeline-name>", 
+    "overall_status": "Running", 
+    "created_at": "2025-09-05T10:21:57.945135078Z", 
+    "updated_at": "2025-09-05T10:21:58.192448618Z"
+}
+```
+
 ### List Pipelines
 
 You can list all pipelines available in your GlassFlow deployment:
