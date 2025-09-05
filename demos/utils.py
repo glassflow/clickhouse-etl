@@ -9,7 +9,7 @@ import uuid
 import clickhouse_connect
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
-from glassflow_clickhouse_etl import errors, models, Pipeline, Client
+from glassflow.etl import errors, models, Pipeline, Client
 from rich import print, box
 from rich.table import Table
 from rich.console import Console
