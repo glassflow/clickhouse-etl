@@ -22,6 +22,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/k8s"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -260,6 +261,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		sinkRunner,
 		log,
 		internal.RoleSink,
+		cfg,
 	)
 }
 
@@ -310,6 +312,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		joinRunner,
 		log,
 		internal.RoleJoin,
+		cfg,
 	)
 }
 
@@ -335,6 +338,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		ingestorRunner,
 		log,
 		internal.RoleIngestor,
+		cfg,
 	)
 }
 
@@ -343,6 +347,7 @@ func runWithGracefulShutdown(
 	runner service.Runner,
 	log *slog.Logger,
 	serviceName string,
+	cfg *config,
 ) error {
 	serverErr := make(chan error, 1)
 	wg := sync.WaitGroup{}
@@ -352,6 +357,32 @@ func runWithGracefulShutdown(
 		defer wg.Done()
 		serverErr <- runner.Start(ctx)
 	}()
+
+	// Start K8s pipeline status monitoring if running in K8s (not locally)
+	var statusMonitor *k8s.PipelineStatusMonitor
+	if !cfg.RunLocal {
+		monitor := k8s.NewPipelineStatusMonitor(
+			cfg.PipelineConfig,
+			log,
+			func() error {
+				log.Info("pause signal received from pipeline status")
+				return runner.Pause()
+			},
+			func() error {
+				log.Info("resume signal received from pipeline status")
+				return runner.Resume()
+			},
+		)
+
+		statusMonitor = monitor
+		if err := monitor.Start(ctx); err != nil {
+			log.Warn("failed to start K8s pipeline status monitor, continuing without it", slog.Any("error", err))
+			statusMonitor = nil
+		} else {
+			log.Info("K8s pipeline status monitoring started",
+				slog.String("config_path", cfg.PipelineConfig))
+		}
+	}
 
 	log.Info("Running service", slog.String("service", serviceName))
 
@@ -372,6 +403,9 @@ func runWithGracefulShutdown(
 				defer wg.Done()
 				runner.Shutdown()
 			}()
+			if statusMonitor != nil {
+				statusMonitor.Stop()
+			}
 			wg.Wait()
 			return nil
 		}
