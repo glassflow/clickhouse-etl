@@ -13,6 +13,7 @@ services:
       - HOST=0.0.0.0
       - NEXT_PUBLIC_IS_DOCKER=true
       - NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
+      - NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
     restart: unless-stopped
     extra_hosts:
       - 'host.docker.internal:host-gateway'

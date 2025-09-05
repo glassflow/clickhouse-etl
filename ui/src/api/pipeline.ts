@@ -11,6 +11,7 @@ declare global {
       NEXT_PUBLIC_IN_DOCKER?: string
       NEXT_PUBLIC_PREVIEW_MODE?: string
       NEXT_PUBLIC_USE_MOCK_API?: string
+      NEXT_PUBLIC_ANALYTICS_ENABLED?: string
     }
   }
 }

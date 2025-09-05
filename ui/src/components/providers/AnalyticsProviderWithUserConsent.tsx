@@ -15,7 +15,8 @@ import {
 // Dynamically import only on the client side to avoid SSR issues
 import { v4 as uuidv4 } from 'uuid'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-interface ConsentLayoutProps {
+
+interface AnalyticsProviderWithUserConsentProps {
   children: React.ReactNode
 }
 
@@ -23,7 +24,7 @@ const CONSENT_STORAGE_KEY = 'glassflow-analytics-consent'
 const CONSENT_ANSWERED_KEY = 'glassflow-consent-answered'
 const USER_ID_STORAGE_KEY = 'glassflow-user-id'
 
-export function ConsentLayout({ children }: ConsentLayoutProps) {
+export function AnalyticsProviderWithUserConsent({ children }: AnalyticsProviderWithUserConsentProps) {
   const analytics = useJourneyAnalytics()
   const { coreStore } = useStore()
   const { consentAnswered, setAnalyticsConsent, setConsentAnswered } = coreStore
