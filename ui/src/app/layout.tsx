@@ -6,8 +6,8 @@ import { Header } from '../components/shared/Header'
 import { HeaderWrapper } from '../components/shared/HeaderWrapper'
 import { Button } from '@/src/components/ui/button'
 import GlobalFooter from '@/src/components/shared/GlobalFooter'
-import { ConsentLayout } from '@/src/components/layout/ConsentLayout'
-import { HealthCheckLayout } from '@/src/components/layout/HealthCheckLayout'
+import { AnalyticsProvider } from '@/src/components/providers/AnalyticsProvider'
+import { HealthCheckProvider } from '@/src/components/providers/HealthCheckProvider'
 import Script from 'next/script'
 // import { EnvDebug } from '@/src/components/debug/EnvDebug'
 
@@ -39,8 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="background text-foreground">
         <Script src="/env.js" strategy="beforeInteractive" />
         <ThemeProvider>
-          <ConsentLayout>
-            <HealthCheckLayout>
+          <AnalyticsProvider>
+            <HealthCheckProvider>
               <HeaderWrapper>
                 <Header />
               </HeaderWrapper>
@@ -52,8 +52,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   {/* <GlobalFooter /> */}
                 </div>
               </footer>
-            </HealthCheckLayout>
-          </ConsentLayout>
+            </HealthCheckProvider>
+          </AnalyticsProvider>
         </ThemeProvider>
       </body>
     </html>
