@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/IBM/sarama"
 
@@ -27,7 +28,7 @@ type Consumer interface {
 	Commit(context.Context, Message) error
 	Close() error
 	Pause() error
-	Resume() error
+	Resume(topic string) error
 }
 
 func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) *sarama.Config {
@@ -108,9 +109,10 @@ type groupConsumer struct {
 	cancel context.CancelFunc
 
 	closeCh chan struct{}
-	topic   string // Store the topic name for resume functionality
 
-	log *slog.Logger
+	log    *slog.Logger
+	paused bool
+	mu     sync.RWMutex
 }
 
 func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
@@ -131,7 +133,6 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		commitCh:     make(chan *sarama.ConsumerMessage),
 		consumeErrCh: make(chan error),
 		closeCh:      make(chan struct{}),
-		topic:        topic.Name,
 		log:          log,
 	}
 
@@ -251,29 +252,38 @@ func convertToMessageHeaders(consumerHeaders []*sarama.RecordHeader) []sarama.Re
 }
 
 func (c *groupConsumer) Pause() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.log.Info("pausing kafka consumer")
-	// For Kafka consumer, pause means stopping the consumption loop
-	// The consumer will finish processing current messages but won't fetch new ones
-	c.cancel()
+	// Cancel the context to stop the consumer group
+	// This will gracefully stop the consumer group and preserve offsets
+	if c.cancel != nil {
+		c.cancel()
+	}
+	c.paused = true
 	return nil
 }
 
-func (c *groupConsumer) Resume() error {
-	c.log.Info("resuming kafka consumer", slog.String("topic", c.topic))
-	// For Kafka consumer, resume means restarting the consumption loop
-	// Create a new context and restart the consumer
+func (c *groupConsumer) Resume(topic string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.log.Info("resuming kafka consumer", slog.String("topic", topic))
+	// Create a new context and restart the consumer group
 	ctx := context.Background()
 	ctx, c.cancel = context.WithCancel(ctx)
 
-	// Restart the consumer loop with the stored topic
-	go func() {
-		topics := []string{c.topic}
+	// Restart the consumer group with the provided topic
+	go func(kTopic string) {
+		topics := []string{kTopic}
 		for {
 			if err := c.cGroup.Consume(ctx, topics, c); err != nil {
 				c.consumeErrCh <- err
 			}
 		}
-	}()
+	}(topic)
 
+	c.paused = false
 	return nil
 }
