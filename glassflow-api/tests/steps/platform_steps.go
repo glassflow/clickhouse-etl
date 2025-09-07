@@ -7,11 +7,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"time"
 
 	"github.com/cucumber/godog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
@@ -200,15 +198,4 @@ func (m *MockK8sOrchestrator) ShutdownPipeline(_ context.Context, _ string) erro
 
 func (m *MockK8sOrchestrator) TerminatePipeline(_ context.Context, _ string) error {
 	return fmt.Errorf("not implemented for testing")
-}
-
-func (m *MockK8sOrchestrator) CheckPipelineHealth(_ context.Context, _ string) (*models.PipelineHealth, error) {
-	now := time.Now().UTC()
-	return &models.PipelineHealth{
-		PipelineID:    "test-pipeline",
-		PipelineName:  "Test Pipeline",
-		OverallStatus: models.PipelineStatus(internal.PipelineStatusRunning),
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	}, nil
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -298,53 +297,4 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 
 	k.log.Info("requested resume of k8s pipeline", slog.String("pipeline_id", pipelineID))
 	return nil
-}
-
-// CheckPipelineHealth implements Orchestrator.
-func (k *K8sOrchestrator) CheckPipelineHealth(ctx context.Context, pipelineID string) (*models.PipelineHealth, error) {
-	k.log.Info("checking pipeline health for k8s pipeline", slog.String("pipeline_id", pipelineID))
-
-	// Get the pipeline resource to check component status
-	customResource, err := k.client.Resource(schema.GroupVersionResource{
-		Group:    k.customResource.APIGroup,
-		Version:  k.customResource.Version,
-		Resource: k.customResource.Resource,
-	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, service.ErrPipelineNotFound
-		}
-		return nil, fmt.Errorf("get pipeline CRD: %w", err)
-	}
-
-	// Extract status from the custom resource
-	statusObj, found, err := unstructured.NestedMap(customResource.Object, "status")
-	if err != nil {
-		return nil, fmt.Errorf("extract status from CRD: %w", err)
-	}
-	if !found {
-		return nil, fmt.Errorf("status not found in pipeline CRD")
-	}
-
-	// Create simplified health status
-	health := &models.PipelineHealth{
-		PipelineID:   pipelineID,
-		PipelineName: customResource.GetName(),
-		CreatedAt:    customResource.GetCreationTimestamp().Time,
-		UpdatedAt:    time.Now().UTC(),
-	}
-
-	// Set overall status from phase
-	if phase, found := statusObj["phase"]; found {
-		if phaseStr, ok := phase.(string); ok {
-			health.OverallStatus = models.PipelineStatus(phaseStr)
-		}
-	}
-
-	k.log.Info("pipeline health check completed",
-		slog.String("pipeline_id", pipelineID),
-		slog.String("overall_status", string(health.OverallStatus)),
-	)
-
-	return health, nil
 }
