@@ -145,17 +145,22 @@ func (n *NATSClient) Close() error {
 	return nil
 }
 
-// CheckStreamMessageCount checks the message count for a specific NATS stream
-func (n *NATSClient) CheckStreamMessageCount(ctx context.Context, streamName string) (uint64, error) {
+// CheckConsumerPendingMessages checks the pending/unacknowledged messages for a specific consumer
+func (n *NATSClient) CheckConsumerPendingMessages(ctx context.Context, streamName, consumerName string) (uint64, error) {
 	stream, err := n.JetStream().Stream(ctx, streamName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get stream %s: %w", streamName, err)
 	}
 
-	info, err := stream.Info(ctx)
+	consumer, err := stream.Consumer(ctx, consumerName)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get stream info for %s: %w", streamName, err)
+		return 0, fmt.Errorf("failed to get consumer %s for stream %s: %w", consumerName, streamName, err)
 	}
 
-	return info.State.Msgs, nil
+	info, err := consumer.Info(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get consumer info for %s in stream %s: %w", consumerName, streamName, err)
+	}
+
+	return info.NumPending, nil
 }

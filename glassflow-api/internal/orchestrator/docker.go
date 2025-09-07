@@ -27,8 +27,9 @@ type LocalOrchestrator struct {
 	id string
 	m  sync.Mutex
 
-	watcherCancel context.CancelFunc
-	watcherWG     sync.WaitGroup
+	watcherCancel     context.CancelFunc
+	watcherWG         sync.WaitGroup
+	sinkMonitorCancel context.CancelFunc
 }
 
 func NewLocalOrchestrator(
@@ -185,6 +186,12 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 	// Clear pipeline ID first to stop any pending restart attempts
 	d.id = ""
 
+	// Cancel sink queue monitoring
+	if d.sinkMonitorCancel != nil {
+		d.sinkMonitorCancel()
+		d.sinkMonitorCancel = nil
+	}
+
 	if d.watcherCancel != nil {
 		d.watcherCancel()
 		d.watcherWG.Wait()
@@ -239,7 +246,7 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 	// Note: Sink will continue running and will stop automatically when queue is empty
 	// For local orchestrator, we need to start a background process to monitor sink queue
 	// and update the pipeline status when the queue is empty
-	d.startSinkQueueMonitoring(ctx, pid)
+	d.startSinkQueueMonitoring(pid)
 
 	d.log.Info("requested pause of local pipeline", slog.String("pipeline_id", pid))
 	return nil
@@ -255,6 +262,12 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 	}
 
 	d.log.Info("resuming local pipeline", slog.String("pipeline_id", pid))
+
+	// Cancel any existing sink queue monitoring since we're resuming
+	if d.sinkMonitorCancel != nil {
+		d.sinkMonitorCancel()
+		d.sinkMonitorCancel = nil
+	}
 
 	// For local orchestrator, we need to resume the ingestor
 	// The sink should already be running and will continue processing
@@ -372,7 +385,17 @@ func (d *LocalOrchestrator) restartRunner(ctx context.Context, runner service.Ru
 
 // startSinkQueueMonitoring starts a background goroutine to monitor sink queue status
 // and update pipeline status when the queue is empty
-func (d *LocalOrchestrator) startSinkQueueMonitoring(ctx context.Context, pid string) {
+func (d *LocalOrchestrator) startSinkQueueMonitoring(pid string) {
+	// Cancel any existing sink monitoring
+	if d.sinkMonitorCancel != nil {
+		d.sinkMonitorCancel()
+	}
+
+	// Create a background context for the monitoring goroutine
+	// This context will persist beyond the HTTP request lifecycle
+	monitorCtx, cancel := context.WithCancel(context.Background())
+	d.sinkMonitorCancel = cancel
+
 	d.watcherWG.Add(1)
 	go func() {
 		defer d.watcherWG.Done()
@@ -384,24 +407,25 @@ func (d *LocalOrchestrator) startSinkQueueMonitoring(ctx context.Context, pid st
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-monitorCtx.Done():
 				d.log.Info("sink queue monitoring stopped due to context cancellation", slog.String("pipeline_id", pid))
 				return
 			case <-ticker.C:
 				// Check if sink queue is empty
-				sinkQueueEmpty, err := d.checkSinkQueueStatus(ctx, pid)
+				sinkQueueEmpty, err := d.checkSinkQueueStatus(monitorCtx, pid)
 				if err != nil {
 					d.log.Error("failed to check sink queue status", slog.String("pipeline_id", pid), slog.Any("error", err))
 					continue
 				}
 
 				if sinkQueueEmpty {
+					d.log.Info("sink queue is empty, updating pipeline status to Paused", slog.String("pipeline_id", pid))
 					// Update pipeline status to "Paused" in NATS
 					status := models.PipelineHealth{
 						OverallStatus: models.PipelineStatus(internal.PipelineStatusPaused),
 						UpdatedAt:     time.Now().UTC(),
 					}
-					err = d.db.UpdatePipelineStatus(ctx, pid, status)
+					err = d.db.UpdatePipelineStatus(monitorCtx, pid, status)
 					if err != nil {
 						d.log.Error("failed to update pipeline status to Paused", slog.String("pipeline_id", pid), slog.Any("error", err))
 					} else {
@@ -442,18 +466,21 @@ func (d *LocalOrchestrator) checkSinkQueueStatus(ctx context.Context, pid string
 
 	// If no streams to check, assume queue is empty
 	if len(streamsToCheck) == 0 {
+		d.log.Debug("no streams to check, assuming sink queue is empty", slog.String("pipeline_id", pid))
 		return true, nil
 	}
 
-	// Check each stream for messages using NATS client
+	// Check each stream for pending messages in the sink consumer
+	consumerName := "clickhouse-consumer"
 	for _, streamName := range streamsToCheck {
-		messageCount, err := d.nc.CheckStreamMessageCount(ctx, streamName)
+		pendingCount, err := d.nc.CheckConsumerPendingMessages(ctx, streamName, consumerName)
 		if err != nil {
-			return false, fmt.Errorf("failed to check message count for stream %s: %w", streamName, err)
+			return false, fmt.Errorf("failed to check pending messages for consumer %s in stream %s: %w", consumerName, streamName, err)
 		}
 
-		// If any stream has messages, sink queue is not empty
-		if messageCount > 0 {
+		// If any consumer has pending messages, sink queue is not empty
+		if pendingCount > 0 {
+			d.log.Debug("consumer has pending messages, sink queue is not empty", slog.String("pipeline_id", pid), slog.String("stream", streamName), slog.String("consumer", consumerName), slog.Uint64("pending_count", pendingCount))
 			return false, nil
 		}
 	}
@@ -472,63 +499,17 @@ func (d *LocalOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID
 		return nil, fmt.Errorf("get pipeline config: %w", err)
 	}
 
-	now := time.Now().UTC()
 	health := &models.PipelineHealth{
 		PipelineID:    pipelineID,
 		PipelineName:  pipelineConfig.Name,
 		OverallStatus: pipelineConfig.Status.OverallStatus,
-		IngestorHealth: models.ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component status not available",
-			UpdatedAt: now,
-		},
-		JoinHealth: models.ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component status not available",
-			UpdatedAt: now,
-		},
-		SinkHealth: models.ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component status not available",
-			UpdatedAt: now,
-		},
-		UpdatedAt: now,
-	}
-
-	// Check ingestor health - for local orchestrator, we assume healthy if runners are active
-	if len(d.ingestorRunners) > 0 {
-		health.IngestorHealth.Status = "healthy"
-		health.IngestorHealth.Message = fmt.Sprintf("Ingestor runners active: %d", len(d.ingestorRunners))
-	} else {
-		health.IngestorHealth.Status = "unhealthy"
-		health.IngestorHealth.Message = "No ingestor runners active"
-	}
-
-	// Check join health - join component doesn't need explicit health check for pause/resume
-	// since data flow is controlled by ingestor
-	if pipelineConfig.Join.Enabled {
-		health.JoinHealth.Status = "healthy"
-		health.JoinHealth.Message = "Join component will resume when ingestor produces data"
-	} else {
-		health.JoinHealth.Status = "healthy"
-		health.JoinHealth.Message = "Join component disabled"
-	}
-
-	// Check sink health - sink component doesn't need explicit health check for pause/resume
-	// since data flow is controlled by ingestor
-	if pipelineConfig.Sink.Type != "" {
-		health.SinkHealth.Status = "healthy"
-		health.SinkHealth.Message = "Sink component will resume when ingestor produces data"
-	} else {
-		health.SinkHealth.Status = "unhealthy"
-		health.SinkHealth.Message = "Sink component not configured"
+		CreatedAt:     pipelineConfig.CreatedAt,
+		UpdatedAt:     pipelineConfig.Status.UpdatedAt,
 	}
 
 	d.log.Info("component health check completed",
 		slog.String("pipeline_id", pipelineID),
-		slog.String("ingestor_status", health.IngestorHealth.Status),
-		slog.String("join_status", health.JoinHealth.Status),
-		slog.String("sink_status", health.SinkHealth.Status),
+		slog.String("overall_status", string(health.OverallStatus)),
 	)
 
 	return health, nil
