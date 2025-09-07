@@ -415,16 +415,101 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 	return nil
 }
 
+func (p *PipelineSteps) iProduceTheseMessagesToKafkaTopic(topic string, table *godog.Table) error {
+	return p.iPublishEventsToKafka(topic, table)
+}
+
+func (p *PipelineSteps) iWaitForForMessagesToBeProcessed(duration string) error {
+	dur, err := time.ParseDuration(duration)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	time.Sleep(dur)
+	return nil
+}
+
+func (p *PipelineSteps) iWaitForForAnyProcessingToComplete(duration string) error {
+	return p.iWaitForForMessagesToBeProcessed(duration)
+}
+
+func (p *PipelineSteps) iPauseThePipeline(pipelineID string) error {
+	if p.pipelineManager == nil {
+		return fmt.Errorf("pipeline manager not initialized")
+	}
+
+	ctx := context.Background()
+	err := p.pipelineManager.PausePipeline(ctx, pipelineID)
+	if err != nil {
+		return fmt.Errorf("pause pipeline: %w", err)
+	}
+
+	p.log.Info("Pipeline paused", slog.String("pipeline_id", pipelineID))
+	return nil
+}
+
+func (p *PipelineSteps) iResumeThePipeline(pipelineID string) error {
+	if p.pipelineManager == nil {
+		return fmt.Errorf("pipeline manager not initialized")
+	}
+
+	ctx := context.Background()
+	err := p.pipelineManager.ResumePipeline(ctx, pipelineID)
+	if err != nil {
+		return fmt.Errorf("resume pipeline: %w", err)
+	}
+
+	p.log.Info("Pipeline resumed", slog.String("pipeline_id", pipelineID))
+	return nil
+}
+
+func (p *PipelineSteps) iWaitForForThePipelineToTransitionToState(duration, state string) error {
+	dur, err := time.ParseDuration(duration)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	time.Sleep(dur)
+	return nil
+}
+
+func (p *PipelineSteps) thePipelineHealthStatusShouldBe(pipelineID, expectedStatus string) error {
+	if p.pipelineManager == nil {
+		return fmt.Errorf("pipeline manager not initialized")
+	}
+
+	ctx := context.Background()
+	health, err := p.pipelineManager.GetPipelineHealth(ctx, pipelineID)
+	if err != nil {
+		return fmt.Errorf("get pipeline health: %w", err)
+	}
+
+	if string(health.OverallStatus) != expectedStatus {
+		return fmt.Errorf("expected pipeline status %s, got %s", expectedStatus, string(health.OverallStatus))
+	}
+
+	p.log.Info("Pipeline health status verified", slog.String("pipeline_id", pipelineID), slog.String("status", string(health.OverallStatus)))
+	return nil
+}
+
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition$`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
 	sc.Step(`^the ClickHouse table "([^"]*)" on database "([^"]*)" already exists with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, p.iPublishEventsToKafka)
+	sc.Step(`^I produce these messages to Kafka topic "([^"]*)":$`, p.iProduceTheseMessagesToKafkaTopic)
 
 	sc.Step(`^a glassflow pipeline with next configuration:$`, p.aGlassflowPipelineWithNextConfiguration)
 	sc.Step(`^I shutdown the glassflow pipeline$`, p.shutdownPipeline)
 	sc.Step(`^I shutdown the glassflow pipeline after "([^"]*)"$`, p.shutdownPipelineWithDelay)
+
+	sc.Step(`^I wait for "([^"]*)" for messages to be processed$`, p.iWaitForForMessagesToBeProcessed)
+	sc.Step(`^I wait for "([^"]*)" for any processing to complete$`, p.iWaitForForAnyProcessingToComplete)
+	sc.Step(`^I pause the pipeline "([^"]*)"$`, p.iPauseThePipeline)
+	sc.Step(`^I resume the pipeline "([^"]*)"$`, p.iResumeThePipeline)
+	sc.Step(`^I wait for "([^"]*)" for the pipeline to transition to (\w+) state$`, p.iWaitForForThePipelineToTransitionToState)
+	sc.Step(`^the pipeline "([^"]*)" health status should be "([^"]*)"$`, p.thePipelineHealthStatusShouldBe)
 
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, p.theClickHouseTableShouldContainRows)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain:`, p.theClickHouseTableShouldContain)

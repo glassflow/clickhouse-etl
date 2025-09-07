@@ -107,6 +107,18 @@ func testPipelineFeatures(t *testing.T) {
 	runSingleSuite(t, "pipeline", pipelineSuite, config)
 }
 
+func testPauseResumeFeatures(t *testing.T) {
+	pipelineSuite := steps.NewPipelineSteps()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "pipeline", "pause_resume.feature")},
+		Tags:         "@pause_resume",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "pause_resume", pipelineSuite, config)
+}
+
 func testIngetorFeatures(t *testing.T) {
 	ingestorSuite := steps.NewIngestorTestSuite()
 
@@ -137,6 +149,7 @@ func TestFeatures(t *testing.T) {
 	t.Run("SinkFeatures", testSinkFeatures)
 	t.Run("JoinComponentFeatures", testJoinFeatures)
 	t.Run("PipelineFeatures", testPipelineFeatures)
+	t.Run("PauseResumeFeatures", testPauseResumeFeatures)
 	t.Run("IngestorFeatures", testIngetorFeatures)
 	t.Run("PlatformFeatures", testPlatformFeatures)
 }

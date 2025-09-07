@@ -175,13 +175,15 @@ type MockK8sOrchestrator struct {
 }
 
 func (m *MockK8sOrchestrator) PausePipeline(ctx context.Context, pid string) error {
-	//TODO implement me
-	panic("implement me")
+	// Mock implementation for testing - just log the action
+	fmt.Printf("Mock K8s orchestrator: pausing pipeline %s\n", pid)
+	return nil
 }
 
 func (m *MockK8sOrchestrator) ResumePipeline(ctx context.Context, pid string) error {
-	//TODO implement me
-	panic("implement me")
+	// Mock implementation for testing - just log the action
+	fmt.Printf("Mock K8s orchestrator: resuming pipeline %s\n", pid)
+	return nil
 }
 
 func (m *MockK8sOrchestrator) GetType() string {
@@ -206,21 +208,7 @@ func (m *MockK8sOrchestrator) CheckComponentHealth(_ context.Context, _ string) 
 		PipelineID:    "test-pipeline",
 		PipelineName:  "Test Pipeline",
 		OverallStatus: models.PipelineStatus(internal.PipelineStatusRunning),
-		IngestorHealth: models.ComponentHealth{
-			Status:    "healthy",
-			Message:   "Mock ingestor healthy",
-			UpdatedAt: now,
-		},
-		JoinHealth: models.ComponentHealth{
-			Status:    "healthy",
-			Message:   "Mock join healthy",
-			UpdatedAt: now,
-		},
-		SinkHealth: models.ComponentHealth{
-			Status:    "healthy",
-			Message:   "Mock sink healthy",
-			UpdatedAt: now,
-		},
-		UpdatedAt: now,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}, nil
 }
