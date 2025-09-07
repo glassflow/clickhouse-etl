@@ -328,7 +328,7 @@ func (k *KafkaIngestor) Resume() error {
 	k.log.Info("resuming Kafka ingestor", slog.String("topic", k.topic.Name))
 
 	// Resume the consumer to start consuming messages again
-	if err := k.consumer.Resume(); err != nil {
+	if err := k.consumer.Resume(k.topic.Name); err != nil {
 		return fmt.Errorf("failed to resume kafka consumer: %w", err)
 	}
 
