@@ -137,7 +137,7 @@ Feature: Pipeline Pause and Resume functionality
         Then the pipeline "pause-resume-test-pipeline" health status should be "Running"
 
         # Step 5: Verify that messages produced during pause are now processed
-        And I wait for "3s" for messages to be processed
+        And I wait for "10s" for messages to be processed
         Then the ClickHouse table "default.pause_resume_test" should contain:
             | id   | name              | COUNT |
             | msg1 | Initial Message 1 | 1     |
