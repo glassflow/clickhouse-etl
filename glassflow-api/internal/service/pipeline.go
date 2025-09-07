@@ -16,7 +16,7 @@ type Orchestrator interface {
 	TerminatePipeline(ctx context.Context, pid string) error
 	PausePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
-	CheckComponentHealth(ctx context.Context, pid string) (*models.PipelineHealth, error)
+	CheckPipelineHealth(ctx context.Context, pid string) (*models.PipelineHealth, error)
 }
 
 type PipelineStore interface {
@@ -208,8 +208,8 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 		return fmt.Errorf("pipeline cannot be resumed from current state: %s", pipeline.Status.OverallStatus)
 	}
 
-	// Check component health before resuming
-	health, err := p.orchestrator.CheckComponentHealth(ctx, pid)
+	// Check pipeline health before resuming
+	health, err := p.orchestrator.CheckPipelineHealth(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
 	}

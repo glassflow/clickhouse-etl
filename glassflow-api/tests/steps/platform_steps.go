@@ -202,7 +202,7 @@ func (m *MockK8sOrchestrator) TerminatePipeline(_ context.Context, _ string) err
 	return fmt.Errorf("not implemented for testing")
 }
 
-func (m *MockK8sOrchestrator) CheckComponentHealth(_ context.Context, _ string) (*models.PipelineHealth, error) {
+func (m *MockK8sOrchestrator) CheckPipelineHealth(_ context.Context, _ string) (*models.PipelineHealth, error) {
 	now := time.Now().UTC()
 	return &models.PipelineHealth{
 		PipelineID:    "test-pipeline",

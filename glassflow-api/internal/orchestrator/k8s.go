@@ -300,9 +300,9 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 	return nil
 }
 
-// CheckComponentHealth implements Orchestrator.
-func (k *K8sOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID string) (*models.PipelineHealth, error) {
-	k.log.Info("checking component health for k8s pipeline", slog.String("pipeline_id", pipelineID))
+// CheckPipelineHealth implements Orchestrator.
+func (k *K8sOrchestrator) CheckPipelineHealth(ctx context.Context, pipelineID string) (*models.PipelineHealth, error) {
+	k.log.Info("checking pipeline health for k8s pipeline", slog.String("pipeline_id", pipelineID))
 
 	// Get the pipeline resource to check component status
 	customResource, err := k.client.Resource(schema.GroupVersionResource{
@@ -341,7 +341,7 @@ func (k *K8sOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID s
 		}
 	}
 
-	k.log.Info("component health check completed",
+	k.log.Info("pipeline health check completed",
 		slog.String("pipeline_id", pipelineID),
 		slog.String("overall_status", string(health.OverallStatus)),
 	)

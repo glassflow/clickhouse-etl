@@ -489,9 +489,9 @@ func (d *LocalOrchestrator) checkSinkQueueStatus(ctx context.Context, pid string
 	return true, nil
 }
 
-// CheckComponentHealth implements Orchestrator.
-func (d *LocalOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID string) (*models.PipelineHealth, error) {
-	d.log.Info("checking component health for local pipeline", slog.String("pipeline_id", pipelineID))
+// CheckPipelineHealth implements Orchestrator.
+func (d *LocalOrchestrator) CheckPipelineHealth(ctx context.Context, pipelineID string) (*models.PipelineHealth, error) {
+	d.log.Info("checking pipeline health for local pipeline", slog.String("pipeline_id", pipelineID))
 
 	// Get pipeline configuration
 	pipelineConfig, err := d.db.GetPipeline(ctx, pipelineID)
@@ -507,7 +507,7 @@ func (d *LocalOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID
 		UpdatedAt:     pipelineConfig.Status.UpdatedAt,
 	}
 
-	d.log.Info("component health check completed",
+	d.log.Info("pipeline health check completed",
 		slog.String("pipeline_id", pipelineID),
 		slog.String("overall_status", string(health.OverallStatus)),
 	)
