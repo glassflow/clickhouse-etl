@@ -113,6 +113,7 @@ type groupConsumer struct {
 	log    *slog.Logger
 	paused bool
 	mu     sync.RWMutex
+	stopWg sync.WaitGroup
 }
 
 func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
@@ -139,11 +140,18 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 	ctx := context.Background()
 	ctx, consumer.cancel = context.WithCancel(ctx)
 
+	consumer.stopWg.Add(1)
 	go func(kTopic string) {
+		defer consumer.stopWg.Done()
 		topics := []string{kTopic}
 		for {
-			if err := consumer.cGroup.Consume(ctx, topics, consumer); err != nil {
-				consumer.consumeErrCh <- err
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if err := consumer.cGroup.Consume(ctx, topics, consumer); err != nil {
+					consumer.consumeErrCh <- err
+				}
 			}
 		}
 	}(topic.Name)
@@ -260,6 +268,8 @@ func (c *groupConsumer) Pause() error {
 	// This will gracefully stop the consumer group and preserve offsets
 	if c.cancel != nil {
 		c.cancel()
+		// Wait for the consumer group to fully stop
+		c.stopWg.Wait()
 	}
 	c.paused = true
 	return nil
@@ -270,16 +280,24 @@ func (c *groupConsumer) Resume(topic string) error {
 	defer c.mu.Unlock()
 
 	c.log.Info("resuming kafka consumer", slog.String("topic", topic))
+
 	// Create a new context and restart the consumer group
 	ctx := context.Background()
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	// Restart the consumer group with the provided topic
+	c.stopWg.Add(1)
 	go func(kTopic string) {
+		defer c.stopWg.Done()
 		topics := []string{kTopic}
 		for {
-			if err := c.cGroup.Consume(ctx, topics, c); err != nil {
-				c.consumeErrCh <- err
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if err := c.cGroup.Consume(ctx, topics, c); err != nil {
+					c.consumeErrCh <- err
+				}
 			}
 		}
 	}(topic)
