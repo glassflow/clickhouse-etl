@@ -2,7 +2,7 @@ import argparse
 import time
 import json
 import glassgen
-from glassflow_clickhouse_etl import Client, SourceConfig
+from glassflow.etl import Client, SourceConfig
 from rich.console import Console
 import utils
 

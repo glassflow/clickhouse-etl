@@ -6,7 +6,7 @@ import { getRuntimeEnv } from '@/src/utils/common.client'
 
 /**
  * Helper function to ensure API URL has the correct /api/v1 suffix
- * Users should only need to provide the base URL (e.g., http://app:8081)
+ * Users should only need to provide the base URL (e.g., http://api:8081)
  * This function automatically appends /api/v1 if not present
  */
 const ensureApiV1Suffix = (baseUrl: string): string => {
@@ -26,7 +26,7 @@ const ensureApiV1Suffix = (baseUrl: string): string => {
 
 const runtimeEnv = getRuntimeEnv()
 const API_URL = ensureApiV1Suffix(
-  runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8081',
+  runtimeEnv.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://api:8081',
 )
 
 export function LogViewer() {

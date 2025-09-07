@@ -97,7 +97,7 @@ export const useKafkaConnection = () => {
       //   }
       // }
 
-      const response = await fetch('/api/kafka/', {
+      const response = await fetch('/ui-api/kafka/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

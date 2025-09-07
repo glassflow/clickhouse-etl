@@ -8,7 +8,7 @@ import {
   buildSchemaQuery,
   buildFallbackSchemaQuery,
   type ClickHouseConfig,
-} from '@/src/app/api/clickhouse/clickhouse-utils'
+} from '@/src/app/ui-api/clickhouse/clickhouse-utils'
 
 export class ClickhouseService {
   async testConnection({

@@ -42,7 +42,7 @@ const mockDLQState: Record<string, DLQState> = {
   },
 }
 
-// GET /api/mock/pipeline/{id}/dlq/state - matches backend route name
+// GET /ui-api/mock/pipeline/{id}/dlq/state - matches backend route name
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const state = mockDLQState[id]

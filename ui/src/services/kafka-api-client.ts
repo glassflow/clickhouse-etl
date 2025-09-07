@@ -135,7 +135,7 @@ export class KafkaApiClient {
     try {
       const requestBody = this.buildAuthHeaders(kafka)
 
-      const response = await fetch('/api/kafka/topics', {
+      const response = await fetch('/ui-api/kafka/topics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -193,7 +193,7 @@ export class KafkaApiClient {
     }
 
     try {
-      const response = await fetch('/api/kafka/events', {
+      const response = await fetch('/ui-api/kafka/events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

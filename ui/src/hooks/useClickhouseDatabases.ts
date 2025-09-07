@@ -30,7 +30,7 @@ export const useClickhouseDatabases = () => {
         connectionType: 'direct' as const,
       }
 
-      const response = await fetch('/api/clickhouse/databases', {
+      const response = await fetch('/ui-api/clickhouse/databases', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

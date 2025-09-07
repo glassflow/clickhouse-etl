@@ -89,7 +89,7 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
   } catch (error: any) {
     // Fallback: if primary fetch failed (likely SSR/base/origin issues), try mock route directly
     try {
-      const fallbackResponse = await fetch(`/api/mock/pipeline/${id}`)
+      const fallbackResponse = await fetch(`/ui-api/mock/pipeline/${id}`)
       const fb = await fallbackResponse.json()
       if (fallbackResponse.ok && fb?.success === true) {
         const pipelinePayload = fb.pipeline

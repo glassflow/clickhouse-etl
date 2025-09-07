@@ -21,7 +21,7 @@ server {
 
     location / {
         resolver ${NGINX_LOCAL_RESOLVERS} valid=1s;
-        set $backend "http://app:8081";
+        set $backend "http://api:8081";
 
         proxy_pass $backend;
     }

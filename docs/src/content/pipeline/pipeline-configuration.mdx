@@ -73,6 +73,7 @@ The `type` parameter accepts the following Kafka data types:
 - `'float32'`, `'float64'` - For floating-point numbers
 - `'bool'` - For boolean values
 - `'bytes'` - For binary data
+- `'array'` - For array data
 
 ### Deduplication Configuration
 
@@ -81,7 +82,7 @@ The `type` parameter accepts the following Kafka data types:
 | `enabled` | boolean | Yes | Whether deduplication is enabled. |
 | `id_field` | string | Yes | Field name used for message deduplication. |
 | `id_field_type` | string | Yes | Type of the ID field (e.g., "string"). |
-| `time_window` | string | Yes | Time window for deduplication (e.g., "1h" for one hour). |
+| `time_window` | string | Yes | Time window for deduplication (e.g., "1h" for one hour). See [Time windows](#time-windows). |
 
 
 ## Sink Configuration
@@ -92,12 +93,13 @@ The sink configuration defines how to connect to and write to ClickHouse.
 |-------|------|----------|-------------|
 | `type` | string | Yes | Must be "clickhouse". |
 | `host` | string | Yes | ClickHouse server hostname. |
-| `port` | integer | Yes | ClickHouse server port. |
+| `port` | string | Yes | ClickHouse server port. |
+| `http_port` | string | No | ClickHouse server http port (only used for UI connection) |
 | `database` | string | Yes | ClickHouse database name. |
 | `username` | string | Yes | ClickHouse username. |
-| `password` | string | Yes | ClickHouse password. |
+| `password` | string | Yes | ClickHouse password. It must be base64 encoded. |
 | `table` | string | Yes | Target table name. |
-| `secure` | boolean | No | Whether to use secure connection. Defaults to false. |
+| `secure` | boolean | No | Whether to use secure connection (TLS). Defaults to false. |
 | `skip_certificate_verification` | boolean | No | Whether to skip certificate verification. Defaults to false. |
 | `max_batch_size` | integer | No | Maximum number of records to batch before writing. Defaults to 1000. |
 | `max_delay_time` | string | No | Maximum delay time before the messages are flushed into the sink. Defaults to "10m". |
@@ -114,6 +116,24 @@ Each mapping in the `table_mapping` array has the following configuration:
 | `column_name` | string | Yes | Target column name. |
 | `column_type` | string | Yes | Target column type. |
 
+The `column_type` parameter accepts the following ClickHouse data types:
+
+- `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
+- `'float32'`, `'float64'` - For float values
+- `'string'` - For string values
+- `'fixedstring'` - For fixedstring values
+- `'datetime'`, `'datetime64'` - For datetime values
+- `'bool'` - For bool values
+- `'uuid'` - For uuid values
+- `'enum8'`, `'enum16'` - For enum values
+- `'lc_int8'`, `'lc_int16'`, `'lc_int32'`, `'lc_int64'` - For low cardinality int values
+- `'lc_uint8'`, `'lc_uint16'`, `'lc_uint32'`, `'lc_uint64'` - For low cardinality uint values
+- `'lc_float32'`, `'lc_float64'` - For low cardinality float values
+- `'lc_string'` - For low cardinality string values
+- `'lc_fixedstring'` - For low cardinality fixedstring values
+- `'lc_datetime'` - For low cardinality datetime values
+- `'array_string'` - For array of string values
+- `'array_int8'`, `'array_int16'`, `'array_int32'`, `'array_int64'` - For array of int values
 
 ## Join Configuration
 
@@ -133,8 +153,19 @@ Each source in the `sources` array has the following configuration:
 |-------|------|----------|-------------|
 | `source_id` | string | Yes | Name of the Kafka topic to join. |
 | `join_key` | string | Yes | Field name used for joining records. |
-| `time_window` | string | Yes | Time window for joining records (e.g., "1h" for one hour). |
+| `time_window` | string | Yes | Time window for joining records (e.g., "1h" for one hour). See [Time windows](#time-windows). |
 | `orientation` | string | Yes | Join orientation ("left" or "right"). |
+
+## Other configuration notes
+
+### Time windows
+
+Time windows use string format, for example:
+- `"30s"` - 30 seconds
+- `"1m"` - 1 minute
+- `"1h"` - 1 hour
+- `"12h"` - 12 hours
+- `"24h"` - 24 hours
 
 ## Example Configuration
 

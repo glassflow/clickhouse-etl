@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ClickhouseService } from '@/src/services/clickhouse-service'
-import { type ClickHouseConfig } from '@/src/app/api/clickhouse/clickhouse-utils'
+import { type ClickHouseConfig } from '@/src/app/ui-api/clickhouse/clickhouse-utils'
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {

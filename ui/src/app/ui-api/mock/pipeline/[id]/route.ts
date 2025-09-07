@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   // Try to find existing pipeline first, fallback to generating a new one
-  const { findPipeline } = await import('@/src/app/api/mock/data/pipelines')
+  const { findPipeline } = await import('@/src/app/ui-api/mock/data/pipelines')
   const existingPipeline = findPipeline(id)
 
   if (existingPipeline) {
@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   // Try to find existing pipeline first, fallback to generating a new one
-  const { findPipeline } = await import('@/src/app/api/mock/data/pipelines')
+  const { findPipeline } = await import('@/src/app/ui-api/mock/data/pipelines')
   const existingPipeline = findPipeline(id)
 
   const mockPipeline = existingPipeline || generateMockPipeline(id)

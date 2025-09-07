@@ -4,8 +4,8 @@ import json
 import uuid
 from typing import Dict, Any
 import glassgen
-from glassflow_clickhouse_etl import Client
-from glassflow_clickhouse_etl.models import TopicConfig, KafkaConnectionParams
+from glassflow.etl import Client
+from glassflow.etl.models import TopicConfig, KafkaConnectionParams
 from rich.console import Console
 import itertools
 import utils

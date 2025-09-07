@@ -33,7 +33,7 @@ export const useClickhouseTables = (database: string) => {
           : undefined,
       }
 
-      const response = await fetch('/api/clickhouse/tables', {
+      const response = await fetch('/ui-api/clickhouse/tables', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

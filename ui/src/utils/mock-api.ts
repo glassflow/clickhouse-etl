@@ -1,5 +1,5 @@
 import { getPipelineStatusFromState } from '@/src/types/pipeline'
-import { mockPipelines } from '@/src/app/api/mock/data/pipelines'
+import { mockPipelines } from '@/src/app/ui-api/mock/data/pipelines'
 import { getRuntimeEnv } from '@/src/utils/common.client'
 
 // Utility to handle mock vs real API switching
@@ -36,17 +36,17 @@ export const getApiUrl = (endpoint: string) => {
     if (isServer) {
       // For SSR, use localhost with the port Next.js is running on
       const port = process.env.PORT || '3000'
-      return `http://localhost:${port}/api/mock/${endpoint}`
+      return `http://localhost:${port}/ui-api/mock/${endpoint}`
     } else {
-      return `/api/mock/${endpoint}`
+      return `/ui-api/mock/${endpoint}`
     }
   }
 
   if (isServer) {
     const baseOrigin = inDocker ? 'http://ui:8080' : 'http://localhost:3000'
-    return `${baseOrigin}/api/${endpoint}`
+    return `${baseOrigin}/ui-api/${endpoint}`
   } else {
-    return `/api/${endpoint}`
+    return `/ui-api/${endpoint}`
   }
 }
 

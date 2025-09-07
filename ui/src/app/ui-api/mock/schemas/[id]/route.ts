@@ -78,7 +78,7 @@ const findSchema = (id: string): Schema | undefined => {
   return mockSchemas.find((s) => s.id === id)
 }
 
-// GET /api/mock/schemas/{id}
+// GET ui-mock/schemas/{id}
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const schema = findSchema(id)
@@ -90,7 +90,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return NextResponse.json({ success: true, schema })
 }
 
-// PATCH /api/mock/schemas/{id}
+// PATCH /ui-api/mock/schemas/{id}
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -117,7 +117,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 }
 
-// DELETE /api/mock/schemas/{id}
+// DELETE /ui-api/mock/schemas/{id}
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const schemaIndex = mockSchemas.findIndex((s) => s.id === id)

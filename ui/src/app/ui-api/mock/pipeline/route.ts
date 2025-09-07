@@ -10,7 +10,7 @@ type BackendPipeline = Omit<Pipeline, 'sink'> & {
   }
 }
 
-// GET /api/mock/pipeline - Returns list of pipelines (matches backend ListPipelineConfig)
+// GET /ui-api/mock/pipeline - Returns list of pipelines (matches backend ListPipelineConfig)
 export async function GET() {
   return NextResponse.json({
     success: true,
@@ -21,7 +21,7 @@ export async function GET() {
   })
 }
 
-// POST /api/mock/pipeline
+// POST /ui-api/mock/pipeline
 export async function POST(request: Request) {
   try {
     const body = await request.json()

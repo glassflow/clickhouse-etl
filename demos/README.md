@@ -12,6 +12,6 @@ This demo showcases the capabilities of GlassFlow ClickHouse ETL using a local d
 ## Additional Resources
 
 - [GlassGen Documentation](https://github.com/glassflow/glassgen)
-- [GlassFlow ClickHouse ETL Python SDK](https://github.com/glassflow/clickhouse-etl-py-sdk)
+- [GlassFlow Python SDK](https://github.com/glassflow/glassflow-python-sdk)
 - [Kafka Documentation](https://kafka.apache.org/documentation/)
 - [ClickHouse Documentation](https://clickhouse.com/docs/en/) 
