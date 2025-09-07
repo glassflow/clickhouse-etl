@@ -167,12 +167,12 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 	}
 
 	// Validate that pipeline can transition to pausing state
-	if !pipeline.Status.CanTransitionTo(models.PipelineStatus(internal.PipelineStatusPausing)) {
+	if !pipeline.Status.CanTransitionTo(internal.PipelineStatusPausing) {
 		return fmt.Errorf("pipeline cannot be paused from current state: %s", pipeline.Status.OverallStatus)
 	}
 
 	// Set status to Pausing
-	err = pipeline.Status.TransitionTo(models.PipelineStatus(internal.PipelineStatusPausing))
+	err = pipeline.Status.TransitionTo(internal.PipelineStatusPausing)
 	if err != nil {
 		return fmt.Errorf("transition to pausing state: %w", err)
 	}
@@ -187,15 +187,6 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 	err = p.orchestrator.PausePipeline(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("pause pipeline: %w", err)
-	}
-
-	// For local orchestrator, we need to handle the status transition from "pausing" to "paused"
-	// For K8s orchestrator, the operator will handle this transition
-	if p.orchestrator.GetType() == "local" {
-		// TODO: For local orchestrator, we need to monitor sink queue and update status when empty
-		// This will be implemented when we add sink queue monitoring
-		// For now, we'll leave the status as "pausing" and it will be updated manually
-		// or through a separate monitoring mechanism
 	}
 
 	return nil
@@ -213,7 +204,7 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 	}
 
 	// Validate that pipeline can transition to resuming state
-	if !pipeline.Status.CanTransitionTo(models.PipelineStatus(internal.PipelineStatusResuming)) {
+	if !pipeline.Status.CanTransitionTo(internal.PipelineStatusResuming) {
 		return fmt.Errorf("pipeline cannot be resumed from current state: %s", pipeline.Status.OverallStatus)
 	}
 
@@ -223,21 +214,12 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 		return fmt.Errorf("health check failed: %w", err)
 	}
 
-	// Validate that all components are healthy
-	// Only ingestor needs to be healthy for resume since it controls the data flow
-	if health.IngestorHealth.Status != "healthy" {
-		return fmt.Errorf("ingestor component is not healthy: %s - %s", health.IngestorHealth.Status, health.IngestorHealth.Message)
-	}
-	// Join and sink components don't need to be explicitly healthy for resume
-	// since they will naturally resume when ingestor starts producing data again
-
-	// Update pipeline health with latest component status
-	pipeline.Status.IngestorHealth = health.IngestorHealth
-	pipeline.Status.JoinHealth = health.JoinHealth
-	pipeline.Status.SinkHealth = health.SinkHealth
+	// Update pipeline health with latest status
+	pipeline.Status.OverallStatus = health.OverallStatus
+	pipeline.Status.UpdatedAt = health.UpdatedAt
 
 	// Set status to Resuming
-	err = pipeline.Status.TransitionTo(models.PipelineStatus(internal.PipelineStatusResuming))
+	err = pipeline.Status.TransitionTo(internal.PipelineStatusResuming)
 	if err != nil {
 		return fmt.Errorf("transition to resuming state: %w", err)
 	}

@@ -326,65 +326,15 @@ func (k *K8sOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID s
 		return nil, fmt.Errorf("status not found in pipeline CRD")
 	}
 
-	// Create health status based on component statuses
+	// Create simplified health status
 	health := &models.PipelineHealth{
 		PipelineID:   pipelineID,
 		PipelineName: customResource.GetName(),
-		IngestorHealth: models.ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component status not available",
-			UpdatedAt: time.Now().UTC(),
-		},
-		JoinHealth: models.ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component status not available",
-			UpdatedAt: time.Now().UTC(),
-		},
-		SinkHealth: models.ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component status not available",
-			UpdatedAt: time.Now().UTC(),
-		},
-		UpdatedAt: time.Now().UTC(),
+		CreatedAt:    customResource.GetCreationTimestamp().Time,
+		UpdatedAt:    time.Now().UTC(),
 	}
 
-	// Check ingestor status
-	if ingestorStatus, found := statusObj["ingestor_operator_status"]; found {
-		if statusMap, ok := ingestorStatus.(map[string]interface{}); ok {
-			if status, ok := statusMap["status"].(string); ok {
-				health.IngestorHealth.Status = status
-				if message, ok := statusMap["message"].(string); ok {
-					health.IngestorHealth.Message = message
-				}
-			}
-		}
-	}
-
-	// Check join status
-	if joinStatus, found := statusObj["join_operator_status"]; found {
-		if statusMap, ok := joinStatus.(map[string]interface{}); ok {
-			if status, ok := statusMap["status"].(string); ok {
-				health.JoinHealth.Status = status
-				if message, ok := statusMap["message"].(string); ok {
-					health.JoinHealth.Message = message
-				}
-			}
-		}
-	}
-
-	// Check sink status
-	if sinkStatus, found := statusObj["sink_operator_status"]; found {
-		if statusMap, ok := sinkStatus.(map[string]interface{}); ok {
-			if status, ok := statusMap["status"].(string); ok {
-				health.SinkHealth.Status = status
-				if message, ok := statusMap["message"].(string); ok {
-					health.SinkHealth.Message = message
-				}
-			}
-		}
-	}
-
-	// Set overall status
+	// Set overall status from phase
 	if phase, found := statusObj["phase"]; found {
 		if phaseStr, ok := phase.(string); ok {
 			health.OverallStatus = models.PipelineStatus(phaseStr)
@@ -393,9 +343,7 @@ func (k *K8sOrchestrator) CheckComponentHealth(ctx context.Context, pipelineID s
 
 	k.log.Info("component health check completed",
 		slog.String("pipeline_id", pipelineID),
-		slog.String("ingestor_status", health.IngestorHealth.Status),
-		slog.String("join_status", health.JoinHealth.Status),
-		slog.String("sink_status", health.SinkHealth.Status),
+		slog.String("overall_status", string(health.OverallStatus)),
 	)
 
 	return health, nil

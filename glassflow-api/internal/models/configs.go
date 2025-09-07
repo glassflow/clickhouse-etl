@@ -15,23 +15,13 @@ import (
 // PipelineStatus represents the overall status of a pipeline
 type PipelineStatus string
 
-// ComponentHealth represents the health status of a pipeline component
-type ComponentHealth struct {
-	Status    string    `json:"status"`  // "healthy", "unhealthy", "unknown"
-	Message   string    `json:"message"` // Optional status message
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// PipelineHealth represents the health status of a pipeline and its components
+// PipelineHealth represents the health status of a pipeline
 type PipelineHealth struct {
-	PipelineID     string          `json:"pipeline_id"`
-	PipelineName   string          `json:"pipeline_name"`
-	OverallStatus  PipelineStatus  `json:"overall_status"`
-	IngestorHealth ComponentHealth `json:"ingestor_health"`
-	JoinHealth     ComponentHealth `json:"join_health"`
-	SinkHealth     ComponentHealth `json:"sink_health"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	PipelineID    string         `json:"pipeline_id"`
+	PipelineName  string         `json:"pipeline_name"`
+	OverallStatus PipelineStatus `json:"overall_status"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
 type StreamDataField struct {
@@ -473,23 +463,8 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 		PipelineID:    pipelineID,
 		PipelineName:  pipelineName,
 		OverallStatus: PipelineStatus(internal.PipelineStatusCreated),
-		IngestorHealth: ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component not yet initialized",
-			UpdatedAt: now,
-		},
-		JoinHealth: ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component not yet initialized",
-			UpdatedAt: now,
-		},
-		SinkHealth: ComponentHealth{
-			Status:    "unknown",
-			Message:   "Component not yet initialized",
-			UpdatedAt: now,
-		},
-		CreatedAt: now,
-		UpdatedAt: now,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 }
 
@@ -535,7 +510,7 @@ func (p *PipelineHealth) CanTransitionTo(newState PipelineStatus) bool {
 	currentState := p.OverallStatus
 
 	// Define valid state transitions
-	validTransitions := map[PipelineStatus][]PipelineStatus{
+	validTransitionsMatrix := map[PipelineStatus][]PipelineStatus{
 		PipelineStatus(internal.PipelineStatusCreated):     {PipelineStatus(internal.PipelineStatusRunning), PipelineStatus(internal.PipelineStatusTerminating)},
 		PipelineStatus(internal.PipelineStatusRunning):     {PipelineStatus(internal.PipelineStatusPausing), PipelineStatus(internal.PipelineStatusTerminating)},
 		PipelineStatus(internal.PipelineStatusPausing):     {PipelineStatus(internal.PipelineStatusPaused), PipelineStatus(internal.PipelineStatusTerminating)},
@@ -546,7 +521,7 @@ func (p *PipelineHealth) CanTransitionTo(newState PipelineStatus) bool {
 		PipelineStatus(internal.PipelineStatusFailed):      {PipelineStatus(internal.PipelineStatusTerminated)}, // Can only terminate from failed
 	}
 
-	allowedStates, exists := validTransitions[currentState]
+	allowedStates, exists := validTransitionsMatrix[currentState]
 	if !exists {
 		return false
 	}
