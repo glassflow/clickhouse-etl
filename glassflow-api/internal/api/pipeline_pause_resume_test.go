@@ -59,7 +59,7 @@ func TestPausePipelineHandler(t *testing.T) {
 
 			// Create request
 			url := "/api/v1/pipeline/" + tt.pipelineID + "/pause"
-			req := httptest.NewRequest("POST", url, nil)
+			req := httptest.NewRequest("PUT", url, nil)
 			w := httptest.NewRecorder()
 
 			// Call router
@@ -130,7 +130,7 @@ func TestResumePipelineHandler(t *testing.T) {
 
 			// Create request
 			url := "/api/v1/pipeline/" + tt.pipelineID + "/resume"
-			req := httptest.NewRequest("POST", url, nil)
+			req := httptest.NewRequest("PUT", url, nil)
 			w := httptest.NewRecorder()
 
 			// Call router
