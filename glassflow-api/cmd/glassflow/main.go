@@ -358,32 +358,65 @@ func runWithGracefulShutdown(
 		serverErr <- runner.Start(ctx)
 	}()
 
-	// Start K8s pipeline status monitoring if running in K8s (not locally)
-	var statusMonitor *k8s.PipelineStatusMonitor
+	// Start K8s pipeline event monitoring if running in K8s (not locally)
+	var eventWatcher *k8s.PipelineEventWatcher
 	if !cfg.RunLocal {
-		monitor := k8s.NewPipelineStatusMonitor(
-			cfg.PipelineConfig,
-			log,
+		// Get pipeline config once for both startup state and event watcher
+		pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
+		if err != nil {
+			log.Warn("failed to read pipeline config, using defaults", slog.Any("error", err))
+			pipelineCfg.Name = "unknown-pipeline"
+		}
+
+		// First, read the current state from the mounted secret on startup
+		startupState := k8s.NewPipelineStartupState(cfg.PipelineConfig, log)
+		currentStatus, err := startupState.ReadCurrentState()
+		if err != nil {
+			log.Warn("failed to read current pipeline state from secret, defaulting to running", slog.Any("error", err))
+			currentStatus = "Running"
+		}
+
+		// Apply the current state to the component
+		if err := startupState.ApplyState(currentStatus,
 			func() error {
-				log.Info("pause signal received from pipeline status")
+				log.Info("applying pause state on startup")
 				return runner.Pause()
 			},
 			func() error {
-				log.Info("resume signal received from pipeline status")
+				log.Info("applying resume state on startup")
+				return runner.Resume()
+			},
+		); err != nil {
+			log.Warn("failed to apply startup state, continuing with default", slog.Any("error", err))
+		}
+
+		// Now start the event watcher for future state changes
+
+		watcher, err := k8s.NewPipelineEventWatcher(
+			pipelineCfg.Name,
+			log,
+			func() error {
+				log.Info("pause signal received from operator event")
+				return runner.Pause()
+			},
+			func() error {
+				log.Info("resume signal received from operator event")
 				return runner.Resume()
 			},
 		)
-
-		statusMonitor = monitor
-		if err := monitor.Start(ctx); err != nil {
-			log.Warn("failed to start K8s pipeline status monitor, continuing without it", slog.Any("error", err))
-			statusMonitor = nil
+		if err != nil {
+			log.Warn("failed to create pipeline event watcher, continuing without it", slog.Any("error", err))
 		} else {
-			log.Info("K8s pipeline status monitoring started",
-				slog.String("config_path", cfg.PipelineConfig))
+			eventWatcher = watcher
+			if err := watcher.Start(ctx); err != nil {
+				log.Warn("failed to start pipeline event watcher, continuing without it", slog.Any("error", err))
+				eventWatcher = nil
+			} else {
+				log.Info("K8s pipeline event monitoring started",
+					slog.String("pipeline_name", pipelineCfg.Name))
+			}
 		}
 	}
-
 	log.Info("Running service", slog.String("service", serviceName))
 
 	for {
@@ -403,8 +436,8 @@ func runWithGracefulShutdown(
 				defer wg.Done()
 				runner.Shutdown()
 			}()
-			if statusMonitor != nil {
-				statusMonitor.Stop()
+			if eventWatcher != nil {
+				eventWatcher.Stop()
 			}
 			wg.Wait()
 			return nil
