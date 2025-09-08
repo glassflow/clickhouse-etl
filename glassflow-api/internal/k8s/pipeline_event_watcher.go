@@ -40,11 +40,9 @@ func NewPipelineEventWatcher(pipelineName string, log *slog.Logger, onPause, onR
 		return nil, fmt.Errorf("failed to create kubernetes clientset: %w", err)
 	}
 
-	// Get namespace from environment or default
-	namespace := os.Getenv("POD_NAMESPACE")
-	if namespace == "" {
-		namespace = "default"
-	}
+	// Events are associated with the Pipeline resource, which is in the default namespace
+	// regardless of where the component pods are running
+	namespace := "default"
 
 	return &PipelineEventWatcher{
 		clientset:    clientset,
