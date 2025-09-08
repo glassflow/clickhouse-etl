@@ -17,17 +17,17 @@ import (
 
 // PipelineEventWatcher watches Kubernetes events for pipeline pause/resume signals
 type PipelineEventWatcher struct {
-	clientset    *kubernetes.Clientset
-	namespace    string
-	pipelineName string
-	log          *slog.Logger
-	onPause      func() error
-	onResume     func() error
-	stopCh       chan struct{}
+	clientset *kubernetes.Clientset
+	namespace string
+	Id        string
+	log       *slog.Logger
+	onPause   func() error
+	onResume  func() error
+	stopCh    chan struct{}
 }
 
 // NewPipelineEventWatcher creates a new pipeline event watcher
-func NewPipelineEventWatcher(pipelineName string, log *slog.Logger, onPause, onResume func() error) (*PipelineEventWatcher, error) {
+func NewPipelineEventWatcher(pipelineId string, log *slog.Logger, onPause, onResume func() error) (*PipelineEventWatcher, error) {
 	// Get Kubernetes config
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -45,25 +45,25 @@ func NewPipelineEventWatcher(pipelineName string, log *slog.Logger, onPause, onR
 	namespace := "default"
 
 	return &PipelineEventWatcher{
-		clientset:    clientset,
-		namespace:    namespace,
-		pipelineName: pipelineName,
-		log:          log,
-		onPause:      onPause,
-		onResume:     onResume,
-		stopCh:       make(chan struct{}),
+		clientset: clientset,
+		namespace: namespace,
+		Id:        pipelineId,
+		log:       log,
+		onPause:   onPause,
+		onResume:  onResume,
+		stopCh:    make(chan struct{}),
 	}, nil
 }
 
 // Start starts watching for pipeline events
 func (w *PipelineEventWatcher) Start(ctx context.Context) error {
 	w.log.Info("starting pipeline event watcher",
-		slog.String("pipeline_name", w.pipelineName),
+		slog.String("pipeline_name", w.Id),
 		slog.String("namespace", w.namespace))
 
 	// Watch events for our specific pipeline
 	watcher, err := w.clientset.CoreV1().Events(w.namespace).Watch(ctx, metav1.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("involvedObject.name", w.pipelineName).String(),
+		FieldSelector: fields.OneTermEqualSelector("involvedObject.name", w.Id).String(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create event watcher: %w", err)

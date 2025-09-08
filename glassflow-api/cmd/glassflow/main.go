@@ -396,7 +396,7 @@ func runWithGracefulShutdown(
 		// Now start the event watcher for future state changes
 
 		watcher, err := k8s.NewPipelineEventWatcher(
-			pipelineCfg.Name,
+			pipelineCfg.ID,
 			log,
 			func() error {
 				log.Info("pause signal received from operator event")
@@ -416,7 +416,7 @@ func runWithGracefulShutdown(
 				eventWatcher = nil
 			} else {
 				log.Info("K8s pipeline event monitoring started",
-					slog.String("pipeline_name", pipelineCfg.Name))
+					slog.String("pipeline_id", pipelineCfg.ID))
 			}
 		}
 	}
