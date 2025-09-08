@@ -368,6 +368,9 @@ func runWithGracefulShutdown(
 			pipelineCfg.Name = "unknown-pipeline"
 		}
 
+		// Wait a moment for the runner to initialize before applying startup state
+		time.Sleep(5 * time.Second)
+
 		// First, read the current state from the mounted secret on startup
 		startupState := k8s.NewPipelineStartupState(cfg.PipelineConfig, log)
 		currentStatus, err := startupState.ReadCurrentState()
