@@ -103,6 +103,24 @@ export const trackKey = {
 }
 
 /**
+ * Join Configuration
+ */
+export const trackJoin = {
+  configurationStarted: (properties?: Record<string, unknown>) => trackEvent('JoinConfiguration_Started', properties),
+
+  fieldChanged: (properties?: Record<string, unknown>) => trackEvent('JoinConfiguration_FieldChanged', properties),
+
+  streamConfigured: (properties?: Record<string, unknown>) =>
+    trackEvent('JoinConfiguration_StreamConfigured', properties),
+
+  configurationCompleted: (properties?: Record<string, unknown>) =>
+    trackEvent('JoinConfiguration_Completed', properties),
+
+  validationFailed: (properties?: Record<string, unknown>) =>
+    trackEvent('JoinConfiguration_ValidationFailed', properties),
+}
+
+/**
  * Clickhouse Connection
  */
 export const trackClickhouse = {
@@ -149,28 +167,57 @@ export const trackDeploy = {
 }
 
 /**
- * Pipeline Modification
+ * Pipeline Management
  */
 export const trackPipeline = {
-  modifyClicked: (properties?: Record<string, unknown>) => trackEvent('PipelineModify_Clicked', properties),
+  // Pause Operations
+  pauseClicked: (properties?: Record<string, unknown>) => trackEvent('PipelinePause_Clicked', properties),
+  pauseFailed: (properties?: Record<string, unknown>) => trackEvent('PipelinePause_Failed', properties),
+  pauseSuccess: (properties?: Record<string, unknown>) => trackEvent('PipelinePause_Success', properties),
 
-  modifyFailed: (properties?: Record<string, unknown>) => trackEvent('PipelineModify_Failed', properties),
+  // Resume Operations
+  resumeClicked: (properties?: Record<string, unknown>) => trackEvent('PipelineResume_Clicked', properties),
+  resumeFailed: (properties?: Record<string, unknown>) => trackEvent('PipelineResume_Failed', properties),
+  resumeSuccess: (properties?: Record<string, unknown>) => trackEvent('PipelineResume_Success', properties),
 
-  modifySuccess: (properties?: Record<string, unknown>) => trackEvent('PipelineModify_Success', properties),
+  // Rename Operations
+  renameClicked: (properties?: Record<string, unknown>) => trackEvent('PipelineRename_Clicked', properties),
+  renameFailed: (properties?: Record<string, unknown>) => trackEvent('PipelineRename_Failed', properties),
+  renameSuccess: (properties?: Record<string, unknown>) => trackEvent('PipelineRename_Success', properties),
 
+  // Edit Operations
+  editClicked: (properties?: Record<string, unknown>) => trackEvent('PipelineEdit_Clicked', properties),
+  editFailed: (properties?: Record<string, unknown>) => trackEvent('PipelineEdit_Failed', properties),
+  editSuccess: (properties?: Record<string, unknown>) => trackEvent('PipelineEdit_Success', properties),
+
+  // Delete Operations
   deleteClicked: (properties?: Record<string, unknown>) => trackEvent('PipelineDelete_Clicked', properties),
-
   deleteFailed: (properties?: Record<string, unknown>) => trackEvent('PipelineDelete_Failed', properties),
-
   deleteSuccess: (properties?: Record<string, unknown>) => trackEvent('PipelineDelete_Success', properties),
 
-  existingPipeline: (properties?: Record<string, unknown>) => trackEvent('Pipeline_ExistingPipeline', properties),
+  // Legacy Operations (deprecated but kept for compatibility)
+  modifyClicked: (properties?: Record<string, unknown>) => trackEvent('PipelineModify_Clicked', properties),
+  modifyFailed: (properties?: Record<string, unknown>) => trackEvent('PipelineModify_Failed', properties),
+  modifySuccess: (properties?: Record<string, unknown>) => trackEvent('PipelineModify_Success', properties),
 
+  // Pipeline Status Events
+  existingPipeline: (properties?: Record<string, unknown>) => trackEvent('Pipeline_ExistingPipeline', properties),
   existingSamePipeline: (properties?: Record<string, unknown>) =>
     trackEvent('Pipeline_ExistingSamePipeline', properties),
 }
 
 // Convenient helper to track all journey events
+/**
+ * Mode Entry Events
+ */
+export const trackMode = {
+  createEntered: (properties?: Record<string, unknown>) => trackEvent('Mode_CreateEntered', properties),
+
+  editEntered: (properties?: Record<string, unknown>) => trackEvent('Mode_EditEntered', properties),
+
+  viewEntered: (properties?: Record<string, unknown>) => trackEvent('Mode_ViewEntered', properties),
+}
+
 export const trackJourney = {
   page: trackPage,
   general: trackGeneral,
@@ -178,8 +225,10 @@ export const trackJourney = {
   kafka: trackKafka,
   topic: trackTopic,
   key: trackKey,
+  join: trackJoin,
   clickhouse: trackClickhouse,
   destination: trackDestination,
   deploy: trackDeploy,
   pipeline: trackPipeline,
+  mode: trackMode,
 }

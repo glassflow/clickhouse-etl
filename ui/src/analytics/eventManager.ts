@@ -2,6 +2,7 @@ import { useStore } from '@/src/store'
 import eventCatalog from './eventCatalog'
 import { type Contexts, type EventGroup, dictionary } from './eventDictionary'
 import type { Event } from './eventDictionary'
+import { isAnalyticsEnabled } from '@/src/utils/common.client'
 import mixpanel from 'mixpanel-browser'
 
 export type { EventGroup, Contexts }
@@ -123,15 +124,16 @@ export const track = ({
     // Guard: exit early if window is not defined (SSR)
     if (typeof window === 'undefined') return
 
-    // Only track if analytics is enabled and the event is in the catalog
-    if (!analyticsEnabled && !overrideTrackingConsent) {
-      if (isDev) {
-        console.log('Analytics disabled, not tracking:', {
-          event: event.name,
-          context,
-          ...properties,
-        })
-      }
+    // Only track if analytics is enabled via environment variable and the event is in the catalog
+    if (!isAnalyticsEnabled() && !overrideTrackingConsent) {
+      // NOTE: uncomment this if you want to see the analytics disabled logs
+      // if (isDev) {
+      //   console.log('Analytics disabled via environment variable, not tracking:', {
+      //     event: event.name,
+      //     context,
+      //     ...properties,
+      //   })
+      // }
       return
     }
 

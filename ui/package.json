@@ -3,6 +3,7 @@
   "version": "0.1.6",
   "private": true,
   "scripts": {
+    "predev": "node generate-env.mjs",
     "dev": "node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",

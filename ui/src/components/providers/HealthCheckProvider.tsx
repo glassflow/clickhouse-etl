@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react'
 import { HealthCheckDialog } from '../shared/HealthCheckDialog'
 import { checkBackendHealth } from '@/src/api/health'
 
-interface HealthCheckLayoutProps {
+interface HealthCheckProviderProps {
   children: React.ReactNode
 }
 
-export function HealthCheckLayout({ children }: HealthCheckLayoutProps) {
+export function HealthCheckProvider({ children }: HealthCheckProviderProps) {
   const [showHealthCheck, setShowHealthCheck] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)

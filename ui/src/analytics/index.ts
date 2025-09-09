@@ -12,10 +12,12 @@ export {
   trackKafka,
   trackTopic,
   trackKey,
+  trackJoin,
   trackClickhouse,
   trackDestination,
   trackDeploy,
   trackPipeline,
+  trackMode,
 } from './journeyTracker'
 
 // Export type definitions

@@ -2,6 +2,7 @@ import { OperationsSelectedType, OutboundEventPreviewType } from '@/src/scheme'
 import { Pipeline } from '@/src/types/pipeline'
 import Cookies from 'js-cookie'
 import { StateCreator } from 'zustand'
+import { trackMode } from '@/src/analytics'
 import { hydrateKafkaConnection } from './hydration/kafka-connection'
 import { hydrateKafkaTopics } from './hydration/topics'
 import { hydrateClickhouseConnection } from './hydration/clickhouse-connection'
@@ -19,6 +20,37 @@ export const getTopicCountForOperation = (operation: string): number => {
     default:
       return 1 // Simple operations need 1 topic
   }
+}
+
+// Helper function to determine operation type from pipeline configuration
+const determineOperationType = (pipeline: Pipeline): string => {
+  const topics = pipeline?.source?.topics || []
+  const hasJoin = pipeline?.join?.enabled || false
+
+  const isTopicDedup = (t: any): boolean => {
+    const d = t?.deduplication
+    const enabled = d?.enabled === true
+    const hasKey = typeof d?.id_field === 'string' && d.id_field.trim() !== ''
+    return enabled && hasKey
+  }
+
+  if (topics.length === 1 && !hasJoin) {
+    // Check if deduplication is enabled WITH a valid key
+    const hasDedup = isTopicDedup(topics[0])
+    return hasDedup ? 'deduplication' : 'ingest-only'
+  } else if (topics.length > 1 && hasJoin) {
+    // Check if BOTH topics have deduplication enabled WITH valid keys
+    const leftTopicDedup = isTopicDedup(topics[0])
+    const rightTopicDedup = isTopicDedup(topics[1])
+
+    if (leftTopicDedup && rightTopicDedup) {
+      return 'deduplication-joining'
+    } else {
+      return 'joining'
+    }
+  }
+
+  return 'ingest-only' // Default fallback
 }
 
 // Mode type for the store
@@ -230,6 +262,9 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       }
     },
     enterCreateMode: () => {
+      const currentState = get()
+      const previousMode = currentState.coreStore.mode
+
       set((state) => ({
         coreStore: {
           ...state.coreStore,
@@ -238,42 +273,22 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           baseConfig: undefined,
           lastSavedConfig: undefined,
           saveHistory: [],
+          analyticsConsent: state.coreStore.analyticsConsent,
+          consentAnswered: state.coreStore.consentAnswered,
         },
       }))
+
+      // Track mode entry
+      trackMode.createEntered({
+        fromMode: previousMode,
+        trigger: 'enterCreateMode',
+        resetState: true,
+      })
     },
     enterEditMode: (config: Pipeline) => {
-      // Determine operation type from pipeline configuration
-      const determineOperationType = (pipeline: Pipeline): string => {
-        const topics = pipeline?.source?.topics || []
-        const hasJoin = pipeline?.join?.enabled || false
-
-        const isTopicDedup = (t: any): boolean => {
-          const d = t?.deduplication
-          const enabled = d?.enabled === true
-          const hasKey = typeof d?.id_field === 'string' && d.id_field.trim() !== ''
-          return enabled && hasKey
-        }
-
-        if (topics.length === 1 && !hasJoin) {
-          // Check if deduplication is enabled WITH a valid key
-          const hasDedup = isTopicDedup(topics[0])
-          return hasDedup ? 'deduplication' : 'ingest-only'
-        } else if (topics.length > 1 && hasJoin) {
-          // Check if BOTH topics have deduplication enabled WITH valid keys
-          const leftTopicDedup = isTopicDedup(topics[0])
-          const rightTopicDedup = isTopicDedup(topics[1])
-
-          if (leftTopicDedup && rightTopicDedup) {
-            return 'deduplication-joining'
-          } else {
-            return 'joining'
-          }
-        }
-
-        return 'ingest-only' // Default fallback
-      }
-
       const operationType = determineOperationType(config)
+      const currentState = get()
+      const previousMode = currentState.coreStore.mode
 
       set((state) => ({
         coreStore: {
@@ -287,11 +302,26 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           },
         },
       }))
+
       // Hydrate the store with the config
       const newState = get()
       newState.coreStore.hydrateFromConfig(config)
+
+      // Track mode entry
+      trackMode.editEntered({
+        fromMode: previousMode,
+        trigger: 'enterEditMode',
+        pipelineId: config.pipeline_id,
+        pipelineName: config.name,
+        operationType,
+        hasBaseConfig: true,
+      })
     },
     enterViewMode: async (config: Pipeline) => {
+      const operationType = determineOperationType(config)
+      const currentState = get()
+      const previousMode = currentState.coreStore.mode
+
       set((state) => ({
         coreStore: {
           ...state.coreStore,
@@ -299,11 +329,26 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           baseConfig: config,
           lastSavedConfig: config, // Initialize lastSavedConfig with the loaded config
           saveHistory: [config], // Initialize saveHistory with the loaded config
+          operationsSelected: {
+            operation: operationType,
+          },
         },
       }))
+
       // Hydrate the store with the config
       const newState = get()
       await newState.coreStore.hydrateFromConfig(config)
+
+      // Track mode entry
+      trackMode.viewEntered({
+        fromMode: previousMode,
+        trigger: 'enterViewMode',
+        pipelineId: config.pipeline_id,
+        pipelineName: config.name,
+        hasBaseConfig: true,
+        isReadOnly: true,
+        operationType,
+      })
     },
     // Utility to compute dirty state by comparing draft vs base
     isDirtyComparedToBase: () => {

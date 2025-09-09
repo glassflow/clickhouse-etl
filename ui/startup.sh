@@ -7,6 +7,7 @@ echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
 echo "NEXT_PUBLIC_IN_DOCKER: $NEXT_PUBLIC_IN_DOCKER"
 echo "NEXT_PUBLIC_PREVIEW_MODE: $NEXT_PUBLIC_PREVIEW_MODE"
 echo "NEXT_PUBLIC_USE_MOCK_API: $NEXT_PUBLIC_USE_MOCK_API"
+echo "NEXT_PUBLIC_ANALYTICS_ENABLED: $NEXT_PUBLIC_ANALYTICS_ENABLED"
 echo "=================================="
 
 # Set default values for environment variables
@@ -15,13 +16,15 @@ export NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
 export NEXT_PUBLIC_IN_DOCKER=${NEXT_PUBLIC_IN_DOCKER:-true}
 export NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
 export NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
+export NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
 
 # Generate runtime configuration for client-side
 echo "window.__ENV__ = {" > /app/public/env.js
 echo "  NEXT_PUBLIC_API_URL: \"$NEXT_PUBLIC_API_URL\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_IN_DOCKER: \"$NEXT_PUBLIC_IN_DOCKER\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_PREVIEW_MODE: \"$NEXT_PUBLIC_PREVIEW_MODE\"," >> /app/public/env.js
-echo "  NEXT_PUBLIC_USE_MOCK_API: \"$NEXT_PUBLIC_USE_MOCK_API\"" >> /app/public/env.js
+echo "  NEXT_PUBLIC_USE_MOCK_API: \"$NEXT_PUBLIC_USE_MOCK_API\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_ANALYTICS_ENABLED: \"$NEXT_PUBLIC_ANALYTICS_ENABLED\"" >> /app/public/env.js
 echo "};" >> /app/public/env.js
 
 # Generate runtime configuration for server-side
@@ -52,7 +55,8 @@ PROCESSED_API_URL=$(ensure_api_v1_suffix "$NEXT_PUBLIC_API_URL")
 
 echo "export const runtimeConfig = {" > /app/.next/server/app/api/config.js
 echo "  apiUrl: \"$PROCESSED_API_URL\"," >> /app/.next/server/app/api/config.js
-echo "  previewMode: \"$NEXT_PUBLIC_PREVIEW_MODE\"" >> /app/.next/server/app/api/config.js
+echo "  previewMode: \"$NEXT_PUBLIC_PREVIEW_MODE\"," >> /app/.next/server/app/api/config.js
+echo "  analyticsEnabled: \"$NEXT_PUBLIC_ANALYTICS_ENABLED\"" >> /app/.next/server/app/api/config.js
 echo "};" >> /app/.next/server/app/api/config.js
 
 echo "🔧 Processed API URL: $NEXT_PUBLIC_API_URL -> $PROCESSED_API_URL"
@@ -63,6 +67,7 @@ echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
 echo "NEXT_PUBLIC_IN_DOCKER: $NEXT_PUBLIC_IN_DOCKER"
 echo "NEXT_PUBLIC_PREVIEW_MODE: $NEXT_PUBLIC_PREVIEW_MODE"
 echo "NEXT_PUBLIC_USE_MOCK_API: $NEXT_PUBLIC_USE_MOCK_API"
+echo "NEXT_PUBLIC_ANALYTICS_ENABLED: $NEXT_PUBLIC_ANALYTICS_ENABLED"
 
 # Print the contents of the generated files for verification
 echo "Contents of /app/public/env.js:"
