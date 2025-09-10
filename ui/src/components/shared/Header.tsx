@@ -16,6 +16,7 @@ import HelpIcon from '../../images/help-questionmark.svg'
 import { Button } from '@/src/components/ui/button'
 import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
+import { PlatformBadge } from './PlatformBadge'
 
 const NavButton = ({
   href,
@@ -333,8 +334,9 @@ export function Header() {
             </nav>
           </div>
 
-          {/* Right Section: Help Menu */}
-          <div className="flex items-center">
+          {/* Right Section: Platform Badge + Help Menu */}
+          <div className="flex items-center gap-3">
+            <PlatformBadge />
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>

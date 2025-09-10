@@ -18,6 +18,8 @@ import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { generatePipelineId } from '@/src/utils/common.client'
+import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
+import { getPipelines } from '@/src/api/pipeline-api'
 
 const ConnectionCard = () => {
   return (
@@ -78,12 +80,34 @@ function HomePageClient() {
   const [pendingOperation, setPendingOperation] = useState<string | null>(null)
   const [isCreatePipelineModalVisible, setIsCreatePipelineModalVisible] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
+  const [activePipelinesCount, setActivePipelinesCount] = useState(0)
+  const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
   const { setOperationsSelected, setPipelineName, setPipelineId, operationsSelected, enterCreateMode } = coreStore
+  const { isDocker, isLocal } = usePlatformDetection()
 
   // by default enter create mode as soon as the component loads
   useEffect(() => {
     enterCreateMode()
   }, [enterCreateMode])
+
+  // Fetch active pipelines count for platform limitation check
+  useEffect(() => {
+    const fetchActivePipelines = async () => {
+      try {
+        const pipelines = await getPipelines()
+        const activeCount = pipelines.filter((pipeline) => pipeline.status === 'active').length
+        setActivePipelinesCount(activeCount)
+      } catch (error) {
+        console.error('Failed to fetch pipelines:', error)
+        setActivePipelinesCount(0)
+      }
+    }
+
+    // Only fetch if we're on a platform that has limitations
+    if (isDocker || isLocal) {
+      fetchActivePipelines()
+    }
+  }, [isDocker, isLocal])
 
   // Check for running pipeline and backend health
   useEffect(() => {
@@ -114,6 +138,12 @@ function HomePageClient() {
   }, [analytics.page, fromPath])
 
   const handleOperationClick = (operation: OperationKeys) => {
+    // Check if we're on a platform with limitations and there are active pipelines
+    if ((isDocker || isLocal) && activePipelinesCount > 0) {
+      setShowPipelineLimitModal(true)
+      return
+    }
+
     if (operation === OperationKeys.DEDUPLICATION) {
       analytics.operation.deduplication({
         operationType: operation,
@@ -146,6 +176,15 @@ function HomePageClient() {
     } else {
       // Go back to previous page
       router.push(fromPath || '/')
+    }
+  }
+
+  const handlePipelineLimitModalComplete = (result: string) => {
+    setShowPipelineLimitModal(false)
+
+    if (result === ModalResult.YES) {
+      // Navigate to pipelines page to manage active pipelines
+      router.push('/pipelines')
     }
   }
 
@@ -276,6 +315,15 @@ function HomePageClient() {
         okButtonText="Yes"
         cancelButtonText="No"
         onComplete={handleWarningModalComplete}
+      />
+
+      <InfoModal
+        visible={showPipelineLimitModal}
+        title="Pipeline Limit Reached"
+        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first terminate or delete the currently active pipeline.`}
+        okButtonText="Manage Pipelines"
+        cancelButtonText="Cancel"
+        onComplete={handlePipelineLimitModalComplete}
       />
 
       {/* <ConnectionCard /> */}
