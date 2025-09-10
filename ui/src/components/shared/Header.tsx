@@ -98,7 +98,7 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
         </div>
 
         {/* Desktop: Show text with chevron */}
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-2 cursor-pointer">
           Help
           <Image src={isOpen ? ChevronUpIcon : ChevronDownIcon} alt="Toggle" width={16} height={16} />
         </div>
