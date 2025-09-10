@@ -104,23 +104,25 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		sinkConsumerStream = pi.Sink.StreamID
+		for i := range t.Replicas {
+			sinkConsumerStream = pi.Sink.StreamID
 
-		d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name))
-		ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
-			schemaMapper)
+			d.log.Debug("create ingestor for the topic", slog.String("topic", t.Name), slog.Int("replica", i))
+			ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
+				schemaMapper)
 
-		err = ingestorRunner.Start(ctx)
-		if err != nil {
-			return fmt.Errorf("start ingestor for topic %s: %w", t.Name, err)
+			err = ingestorRunner.Start(ctx)
+			if err != nil {
+				return fmt.Errorf("start ingestor for topic %s: %w", t.Name, err)
+			}
+
+			d.ingestorRunners = append(d.ingestorRunners, ingestorRunner)
 		}
-
-		d.ingestorRunners = append(d.ingestorRunners, ingestorRunner)
 	}
 
 	if pi.Join.Enabled {
 		sinkConsumerStream = pi.Sink.StreamID
-		sinkConsumerSubject = models.GetNATSSubjectName(sinkConsumerStream)
+		sinkConsumerSubject = models.GetNATSSubjectNameDefault(sinkConsumerStream)
 
 		err = d.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
 		if err != nil {

@@ -341,6 +341,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 			ID:                         t.ID,
 			ConsumerGroupName:          models.GetKafkaConsumerGroupName(p.PipelineID),
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
+			Replicas:                   t.Replicas,
 			Deduplication: models.DeduplicationConfig{
 				Enabled: t.Deduplication.Enabled,
 				ID:      t.Deduplication.ID,
@@ -478,6 +479,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Topic:                      t.Name,
 			ID:                         t.ID,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
+			Replicas:                   t.Replicas,
 			Deduplication: topicDedupConfig{
 				Enabled: t.Deduplication.Enabled,
 				ID:      t.Deduplication.ID,

@@ -5,6 +5,7 @@ import "time"
 // Default values
 const (
 	DefaultSubjectName = "input"
+	WildcardSubject    = "*"
 
 	// Component types
 	KafkaIngestorType        = "kafka"
@@ -46,6 +47,7 @@ const (
 	// DLQ constants
 	DLQMaxBatchSize     = 100
 	DLQSuffix           = "DLQ"
+	DLQSubjectName      = "failed"
 	DLQDefaultBatchSize = 1
 
 	// Kafka data type constants

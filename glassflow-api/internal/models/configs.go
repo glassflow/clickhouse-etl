@@ -474,8 +474,16 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 	}
 }
 
-func GetNATSSubjectName(streamName string) string {
-	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
+func GetNATSSubjectName(streamName, subjectName string) string {
+	return fmt.Sprintf("%s.%s", streamName, subjectName)
+}
+
+func GetNATSSubjectNameDefault(streamName string) string {
+	return GetNATSSubjectName(streamName, internal.DefaultSubjectName)
+}
+
+func GetWildcardNATSSubjectName(streamName string) string {
+	return GetNATSSubjectName(streamName, "*")
 }
 
 func SanitizeNATSSubject(topicName string) string {
@@ -513,7 +521,7 @@ func GetIngestorStreamName(pipelineID, topicName string) string {
 
 func GetPipelineNATSSubject(pipelineID, topicName string) string {
 	streamName := GetIngestorStreamName(pipelineID, topicName)
-	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
+	return GetWildcardNATSSubjectName(streamName)
 }
 
 func GetKafkaConsumerGroupName(pipelineID string) string {
