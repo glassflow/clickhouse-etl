@@ -24,7 +24,7 @@ type Message struct {
 }
 
 type MessageProcessor interface {
-	ProcessMessage(ctx context.Context, msg *sarama.ConsumerMessage) error
+	ProcessMessage(ctx context.Context, msg Message) error
 }
 
 type Consumer interface {
@@ -180,7 +180,14 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 			}
 
 			// Process message directly using the processor
-			if err := c.processor.ProcessMessage(session.Context(), message); err != nil {
+			if err := c.processor.ProcessMessage(session.Context(), Message{
+				Topic:     message.Topic,
+				Partition: message.Partition,
+				Offset:    message.Offset,
+				Key:       message.Key,
+				Value:     message.Value,
+				Headers:   convertSaramaToRecordHeaders(message.Headers),
+			}); err != nil {
 				c.log.Error("Message processing failed", slog.Any("error", err))
 				return fmt.Errorf("message processing failed: %w", err) // Exit consumer loop - this will cause restart
 			}
@@ -192,4 +199,14 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 			return nil
 		}
 	}
+}
+
+func convertSaramaToRecordHeaders(headers []*sarama.RecordHeader) []sarama.RecordHeader {
+	result := make([]sarama.RecordHeader, 0, len(headers))
+	for _, h := range headers {
+		if h != nil {
+			result = append(result, *h)
+		}
+	}
+	return result
 }
