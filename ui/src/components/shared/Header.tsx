@@ -282,7 +282,7 @@ export function Header() {
                   alt="Glassflow Logo"
                   width={140}
                   height={30}
-                  className="cursor-pointer w-auto h-8"
+                  className="cursor-pointer w-auto h-[18px]"
                 />
               </Button>
             </div>
@@ -295,7 +295,7 @@ export function Header() {
                   alt="Glassflow Logo"
                   width={140}
                   height={30}
-                  className="cursor-pointer w-auto h-6 sm:h-8"
+                  className="cursor-pointer w-auto h-[18px]"
                 />
               </Button>
             </div>
