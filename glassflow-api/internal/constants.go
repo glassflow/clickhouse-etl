@@ -141,4 +141,6 @@ const (
 	// RunnersWatcher constants
 	RunnerWatcherInterval = 5 * time.Second
 	RunnerRestartDelay    = 2 * time.Second
+
+	DefaultReplicasCount = 1
 )

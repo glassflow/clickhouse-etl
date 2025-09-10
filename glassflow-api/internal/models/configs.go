@@ -83,6 +83,7 @@ type KafkaTopicsConfig struct {
 	ID                         string `json:"id"`
 	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
 	ConsumerGroupName          string `json:"consumer_group_name"`
+	Replicas                   int    `json:"replicas" default:"1"`
 
 	Deduplication       DeduplicationConfig `json:"deduplication"`
 	OutputStreamID      string              `json:"output_stream_id"`
@@ -148,6 +149,11 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 			topics[i].ConsumerGroupInitialOffset = internal.InitialOffsetEarliest
 		default:
 			return zero, PipelineConfigError{Msg: "invalid consumer_group_initial_offset; allowed values: `earliest` or `latest`"}
+		}
+
+		// Validate and set default for replicas
+		if kt.Replicas <= 0 {
+			topics[i].Replicas = 1 // Default to 1 replica
 		}
 	}
 

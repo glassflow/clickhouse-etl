@@ -257,6 +257,7 @@ type kafkaTopic struct {
 	ID                         string           `json:"id"`
 	Schema                     topicSchema      `json:"schema"`
 	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset" default:"earliest"`
+	Replicas                   int              `json:"replicas" default:"1"`
 	Deduplication              topicDedupConfig `json:"deduplication"`
 }
 
