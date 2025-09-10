@@ -35,7 +35,7 @@ export function StepDataPreloader({ isLoading, error, progress, onRetry, stepTit
       <div className="flex flex-col items-center justify-center py-8 px-4">
         <div className="flex items-center gap-2 mb-2">
           <Image src={Loader} alt="Loading" width={20} height={20} className="animate-spin" />
-          <span className="text-sm text-blue-600 font-medium">Loading latest data...</span>
+          <span className="text-sm text-primary font-medium">Loading...</span>
         </div>
         {/* <p className="text-xs text-gray-500 text-center">Fetching event data to enable editing</p> */}
       </div>
