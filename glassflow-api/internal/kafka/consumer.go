@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -22,9 +23,12 @@ type Message struct {
 	Headers []sarama.RecordHeader
 }
 
+type MessageProcessor interface {
+	ProcessMessage(ctx context.Context, msg *sarama.ConsumerMessage) error
+}
+
 type Consumer interface {
-	Fetch(context.Context) (Message, error)
-	Commit(context.Context, Message) error
+	Start(ctx context.Context, processor MessageProcessor) error
 	Close() error
 }
 
@@ -96,18 +100,12 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 }
 
 type groupConsumer struct {
-	cGroup sarama.ConsumerGroup
-	name   string
-
-	fetchCh      chan *sarama.ConsumerMessage
-	commitCh     chan *sarama.ConsumerMessage
-	consumeErrCh chan error
-
-	cancel context.CancelFunc
-
-	closeCh chan struct{}
-
-	log *slog.Logger
+	cGroup    sarama.ConsumerGroup
+	name      string
+	topicName string
+	cancel    context.CancelFunc
+	processor MessageProcessor
+	log       *slog.Logger
 }
 
 func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
@@ -121,78 +119,38 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		return nil, fmt.Errorf("failed to create consumer group: %w", err)
 	}
 
-	consumer := &groupConsumer{
-		cGroup:       cGroup,
-		name:         topic.ConsumerGroupName,
-		fetchCh:      make(chan *sarama.ConsumerMessage),
-		commitCh:     make(chan *sarama.ConsumerMessage),
-		consumeErrCh: make(chan error),
-		closeCh:      make(chan struct{}),
-		log:          log,
+	consumer := &groupConsumer{ //nolint: exhaustruct // fields will be set later
+		cGroup:    cGroup,
+		name:      topic.ConsumerGroupName,
+		topicName: topic.Name,
+		log:       log,
 	}
-
-	ctx := context.Background()
-	ctx, consumer.cancel = context.WithCancel(ctx)
-
-	go func(kTopic string) {
-		topics := []string{kTopic}
-		for {
-			if err := consumer.cGroup.Consume(ctx, topics, consumer); err != nil {
-				consumer.consumeErrCh <- err
-			}
-		}
-	}(topic.Name)
 
 	return consumer, nil
 }
 
-func (c *groupConsumer) Fetch(ctx context.Context) (Message, error) {
-	select {
-	case msg := <-c.fetchCh:
-		return Message{
-			Topic:     msg.Topic,
-			Partition: msg.Partition,
-			Offset:    msg.Offset,
+func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) error {
+	ctx, c.cancel = context.WithCancel(ctx)
+	c.processor = processor
 
-			Key:     msg.Key,
-			Value:   msg.Value,
-			Headers: convertToMessageHeaders(msg.Headers),
-		}, nil
-	case err := <-c.consumeErrCh:
-		return Message{}, fmt.Errorf("failed to fetch message: %w", err)
-	case <-ctx.Done():
-		return Message{}, ctx.Err()
+	topics := []string{c.topicName}
+
+	for {
+		if err := c.cGroup.Consume(ctx, topics, c); err != nil {
+			if errors.Is(err, sarama.ErrClosedConsumerGroup) {
+				return nil
+			}
+			return fmt.Errorf("failed to consume from kafka: %w", err)
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 	}
-}
-
-func (c *groupConsumer) Commit(ctx context.Context, msg Message) error {
-	m := &sarama.ConsumerMessage{ //nolint: exhaustruct // optional struct definition
-		Topic:     msg.Topic,
-		Partition: msg.Partition,
-		Offset:    msg.Offset,
-
-		Key:   msg.Key,
-		Value: msg.Value,
-	}
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case c.commitCh <- m:
-	case err := <-c.consumeErrCh:
-		return fmt.Errorf("failed to commit message: %w", err)
-	case <-c.closeCh:
-		return fmt.Errorf("consumer closed, cannot commit message")
-	}
-
-	return nil
 }
 
 func (c *groupConsumer) Close() error {
 	c.log.Info("Closing Kafka consumer group", slog.String("group", c.name))
-	close(c.fetchCh)
-	close(c.commitCh)
-	close(c.closeCh)
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -215,33 +173,23 @@ func (c *groupConsumer) Cleanup(sarama.ConsumerGroupSession) error {
 func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for {
 		select {
-		case msg := <-claim.Messages():
-			if msg == nil {
+		case message := <-claim.Messages():
+			if message == nil {
 				// Channel closed, exit gracefully
 				return nil
 			}
-			c.fetchCh <- msg
 
-			msg = <-c.commitCh
-			if msg != nil {
-				session.MarkMessage(msg, "")
+			// Process message directly using the processor
+			if err := c.processor.ProcessMessage(session.Context(), message); err != nil {
+				c.log.Error("Message processing failed", slog.Any("error", err))
+				return fmt.Errorf("message processing failed: %w", err) // Exit consumer loop - this will cause restart
 			}
 
-		case <-c.closeCh:
-			return nil
+			// Auto-commit on success
+			session.MarkMessage(message, "")
 
 		case <-session.Context().Done():
 			return nil
 		}
 	}
-}
-
-func convertToMessageHeaders(consumerHeaders []*sarama.RecordHeader) []sarama.RecordHeader {
-	msgHeaders := make([]sarama.RecordHeader, 0, len(consumerHeaders))
-	for _, element := range consumerHeaders {
-		if element != nil {
-			msgHeaders = append(msgHeaders, *element)
-		}
-	}
-	return msgHeaders
 }
