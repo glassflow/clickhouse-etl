@@ -218,3 +218,15 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	k.log.Info("requested termination of k8s pipeline", slog.String("pipeline_id", pipelineID))
 	return nil
 }
+
+// PausePipeline implements Orchestrator.
+func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) error {
+	return service.ErrNotImplemented
+	// TODO: implement in operator repository
+}
+
+// ResumePipeline implements Orchestrator.
+func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string) error {
+	return service.ErrNotImplemented
+	// TODO: implement in operator repository
+}

@@ -204,6 +204,118 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 	return nil
 }
 
+// PausePipeline implements Orchestrator.
+func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+
+	if d.id != pid {
+		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
+	}
+
+	d.log.Info("pausing pipeline", slog.String("pipeline_id", pid))
+
+	// Stop the watcher to prevent restarts during pause
+	if d.watcherCancel != nil {
+		d.watcherCancel()
+		d.watcherWG.Wait()
+		d.watcherCancel = nil
+	}
+
+	// Shutdown components sequentially: Ingestor -> Join -> Sink
+	// This ensures no data loss by processing all messages in order
+
+	// 1. Shutdown ingestor runners first
+	if d.ingestorRunners != nil {
+		for _, runner := range d.ingestorRunners {
+			d.log.Debug("shutting down ingestor runner")
+			runner.Shutdown()
+			// Wait for the component to fully stop
+			<-runner.Done()
+		}
+		d.log.Debug("all ingestor runners stopped")
+	}
+
+	// 2. Shutdown join runner
+	if d.joinRunner != nil {
+		d.log.Debug("shutting down join runner")
+		d.joinRunner.Shutdown()
+		// Wait for the component to fully stop
+		<-d.joinRunner.Done()
+		d.log.Debug("join runner stopped")
+	}
+
+	// 3. Shutdown sink runner last
+	if d.sinkRunner != nil {
+		d.log.Debug("shutting down sink runner")
+		d.sinkRunner.Shutdown()
+		// Wait for the component to fully stop
+		<-d.sinkRunner.Done()
+		d.log.Debug("sink runner stopped")
+	}
+
+	d.log.Info("pipeline paused successfully", slog.String("pipeline_id", pid))
+	return nil
+}
+
+// ResumePipeline implements Orchestrator.
+func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+
+	if d.id != pid {
+		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
+	}
+
+	d.log.Info("resuming pipeline", slog.String("pipeline_id", pid))
+
+	// Create a new background context for the components to run in
+	// This prevents the components from inheriting any cancellation from the request context
+	//nolint: contextcheck // new context for long running processes
+	componentCtx := context.Background()
+
+	// Start components sequentially: Sink -> Join -> Ingestor
+	// This ensures proper data flow when resuming
+
+	// 1. Start sink runner first
+	if d.sinkRunner != nil {
+		d.log.Debug("starting sink runner")
+		err := d.sinkRunner.Start(componentCtx)
+		if err != nil {
+			return fmt.Errorf("start sink runner: %w", err)
+		}
+		d.log.Debug("sink runner started")
+	}
+
+	// 2. Start join runner
+	if d.joinRunner != nil {
+		d.log.Debug("starting join runner")
+		err := d.joinRunner.Start(componentCtx)
+		if err != nil {
+			return fmt.Errorf("start join runner: %w", err)
+		}
+		d.log.Debug("join runner started")
+	}
+
+	// 3. Start ingestor runners last
+	if d.ingestorRunners != nil {
+		for _, runner := range d.ingestorRunners {
+			d.log.Debug("starting ingestor runner")
+			err := runner.Start(componentCtx)
+			if err != nil {
+				return fmt.Errorf("start ingestor runner: %w", err)
+			}
+		}
+		d.log.Debug("all ingestor runners started")
+	}
+
+	// Restart the watcher
+	d.startRunnerWatcher(componentCtx)
+
+	d.log.Info("pipeline resumed successfully", slog.String("pipeline_id", pid))
+	return nil
+}
+
 // ShutdownPipeline implements Orchestrator.
 func (d *LocalOrchestrator) TerminatePipeline(ctx context.Context, pid string) error {
 	return d.ShutdownPipeline(ctx, pid)
