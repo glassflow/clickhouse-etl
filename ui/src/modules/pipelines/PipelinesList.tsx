@@ -6,7 +6,7 @@ import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { createPipeline, shutdownPipeline, getPipelineStatus, PipelineError } from '@/src/api/pipeline'
 import { terminatePipeline } from '@/src/api/pipeline-api'
-import { InputModal, ModalResult } from '@/src/components/common/InputModal'
+import { InputModal, ModalResult as InputModalResult } from '@/src/components/common/InputModal'
 import { saveConfiguration } from '@/src/utils/local-storage-config'
 import { isValidApiConfig } from '@/src/modules/pipelines/helpers'
 import TrashIcon from '../../images/trash.svg'
@@ -19,7 +19,7 @@ import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { CreateIcon } from '@/src/components/icons'
-import { InfoModal } from '@/src/components/common/InfoModal'
+import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import PausePipelineModal from './components/PausePipelineModal'
 import DeletePipelineModal from './components/DeletePipelineModal'
@@ -30,6 +30,7 @@ import { PipelineStatus } from '@/src/types/pipeline'
 import { pausePipeline, resumePipeline, deletePipeline, renamePipeline } from '@/src/api/pipeline-api'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
+import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 // TEMPORARILY DISABLED: Health monitoring imports
 // import { useMultiplePipelineHealth } from '@/src/hooks/usePipelineHealth'
 // import { getHealthStatusDisplayText } from '@/src/api/pipeline-health'
@@ -78,8 +79,10 @@ export function PipelinesList({
     openEditModal,
     closeEditModal,
   } = useEditPipelineModal()
+  const { isFeatureDisabled, isDocker, isLocal } = usePlatformDetection()
   const [processEvents, setProcessEvents] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
 
   // Track loading operations for individual pipelines
   const [pipelineOperations, setPipelineOperations] = useState<
@@ -137,6 +140,22 @@ export function PipelinesList({
     return pipelineOperations[pipelineId]?.operation || null
   }
 
+  // Count active pipelines
+  const activePipelinesCount = useMemo(() => {
+    return pipelines.filter((pipeline) => pipeline.status === 'active').length
+  }, [pipelines])
+
+  // Check if new pipeline creation should show limitation modal
+  const shouldShowPipelineLimitModal = useMemo(() => {
+    // Only show modal for local and docker platforms
+    if (!isDocker && !isLocal) {
+      return false
+    }
+
+    // Show modal if there's already an active pipeline
+    return activePipelinesCount > 0
+  }, [isDocker, isLocal, activePipelinesCount])
+
   // Check if feedback was already submitted
   useEffect(() => {
     // Track page view when component loads
@@ -162,7 +181,7 @@ export function PipelinesList({
     closeDeleteModal()
 
     // Save configuration if the user chose to do so and provided a name
-    if (result === ModalResult.SUBMIT && configName) {
+    if (result === InputModalResult.SUBMIT && configName) {
       try {
         saveConfiguration(configName, `Pipeline configuration saved before deletion on ${new Date().toLocaleString()}`)
       } catch (error) {
@@ -171,7 +190,7 @@ export function PipelinesList({
     }
 
     // Proceed with pipeline deletion
-    if (result === ModalResult.SUBMIT) {
+    if (result === InputModalResult.SUBMIT) {
       try {
         analytics.pipeline.deleteClicked({})
 
@@ -207,7 +226,7 @@ export function PipelinesList({
     closeRenameModal()
 
     // Save configuration if the user chose to do so and provided a name
-    if (result === ModalResult.SUBMIT && configName) {
+    if (result === InputModalResult.SUBMIT && configName) {
       try {
         saveConfiguration(
           configName,
@@ -219,7 +238,7 @@ export function PipelinesList({
     }
 
     // Reset pipeline state and navigate to home regardless of save choice
-    if (result === ModalResult.SUBMIT) {
+    if (result === InputModalResult.SUBMIT) {
       try {
         // Track successful pipeline modification
         analytics.pipeline.modifyClicked({
@@ -494,7 +513,22 @@ export function PipelinesList({
   }
 
   const handleCreate = () => {
+    // Check if we're on a platform with limitations and there are active pipelines
+    if (shouldShowPipelineLimitModal) {
+      setShowPipelineLimitModal(true)
+      return
+    }
+
     router.push('/home')
+  }
+
+  const handlePipelineLimitModalComplete = (result: string) => {
+    setShowPipelineLimitModal(false)
+
+    if (result === ModalResult.YES) {
+      // Stay on pipelines page to manage active pipelines
+      // The user can pause/delete the active pipeline from here
+    }
   }
 
   return (
@@ -762,6 +796,15 @@ export function PipelinesList({
         callback={(result) => {
           setProcessEvents(result)
         }}
+      />
+
+      <InfoModal
+        visible={showPipelineLimitModal}
+        title="Pipeline Limit Reached"
+        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first pause or delete the currently active pipeline.`}
+        okButtonText="Manage Pipelines"
+        cancelButtonText="Cancel"
+        onComplete={handlePipelineLimitModalComplete}
       />
     </div>
   )
