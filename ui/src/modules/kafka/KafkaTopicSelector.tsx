@@ -107,7 +107,7 @@ export function KafkaTopicSelector({
     }
   }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender, topicFetchAttempts])
 
-  // Update partition count when topic details are fetched
+  // Update partition count and replica count when topic details are fetched
   useEffect(() => {
     if (topicName && topicDetails.length > 0) {
       const fetchedPartitionCount = getPartitionCount(topicName)

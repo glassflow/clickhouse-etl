@@ -24,13 +24,11 @@ export type TopicSelectWithEventPreviewProps = {
   additionalContent?: React.ReactNode
   isEditingEnabled: boolean
   readOnly?: boolean
-  // NEW: Props from the hook
   topicName?: string
   offset?: 'earliest' | 'latest'
   event?: any
   isLoading?: boolean
   error?: string | null
-  // NEW: Navigation props from hook
   currentOffset?: number | null
   earliestOffset?: number | null
   latestOffset?: number | null
@@ -41,7 +39,6 @@ export type TopicSelectWithEventPreviewProps = {
   fetchNextEvent?: (topicName: string, currentOffset: number) => Promise<void>
   fetchPreviousEvent?: (topicName: string, currentOffset: number) => Promise<void>
   refreshEvent?: (topicName: string, fetchNext?: boolean) => Promise<void>
-  // NEW: Partition props
   partitionCount?: number
   replicaCount?: number
   onReplicaCountChange?: (replicaCount: number) => void
@@ -58,13 +55,11 @@ export function TopicSelectWithEventPreview({
   additionalContent,
   isEditingEnabled,
   readOnly,
-  // NEW: Props from the hook
   topicName: hookTopicName,
   offset: hookOffset,
   event: hookEvent,
   isLoading: hookIsLoading,
   error: hookError,
-  // NEW: Navigation props from hook
   currentOffset: hookCurrentOffset,
   earliestOffset: hookEarliestOffset,
   latestOffset: hookLatestOffset,
@@ -75,7 +70,6 @@ export function TopicSelectWithEventPreview({
   fetchNextEvent: hookFetchNextEvent,
   fetchPreviousEvent: hookFetchPreviousEvent,
   refreshEvent: hookRefreshEvent,
-  // NEW: Partition props
   partitionCount = 1,
   replicaCount = 1,
   onReplicaCountChange,
@@ -121,7 +115,7 @@ export function TopicSelectWithEventPreview({
     [onManualEventChange],
   )
 
-  // Handle partition change
+  // Handle replica count change
   const handleReplicaCountChange = useCallback(
     (replicaCount: number) => {
       if (onReplicaCountChange) {
@@ -165,7 +159,7 @@ export function TopicSelectWithEventPreview({
             readOnly={readOnly}
           />
 
-          {/* Partition Selection */}
+          {/* Replica Count Selection */}
           {topicName && (
             <ReplicaCount
               partitionCount={partitionCount}
@@ -211,7 +205,6 @@ export function TopicSelectWithEventPreview({
           }}
           onManualEventChange={handleManualEventChange}
           readOnly={readOnly}
-          // NEW: Pass loading state from hook
           isLoading={isLoading}
           currentOffset={hookCurrentOffset}
           earliestOffset={hookEarliestOffset}
