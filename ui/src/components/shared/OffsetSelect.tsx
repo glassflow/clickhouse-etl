@@ -12,6 +12,7 @@ export function OffsetSelect({
   options,
   readOnly,
   standalone,
+  label,
 }: {
   value: 'earliest' | 'latest'
   onChange: (value: 'earliest' | 'latest') => void
@@ -22,10 +23,14 @@ export function OffsetSelect({
   options: { label: string; value: 'earliest' | 'latest' }[]
   readOnly?: boolean
   standalone?: boolean
+  label?: string
 }) {
   const [isFocused, setIsFocused] = useState(false)
   return (
     <div className="relative w-full">
+      <div className="flex items-center gap-2 mb-2">
+        {label && <span className="text-sm text-content">{label}</span>}
+      </div>
       <Select
         disabled={readOnly}
         value={value}

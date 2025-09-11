@@ -62,6 +62,7 @@ export const generateApiConfig = ({
         consumer_group_initial_offset: topic.initialOffset,
         name: topic.name,
         id: topic.name, // Using topic name as id for now
+        replica_count: topic.replicaCount,
         schema: {
           type: 'json',
           fields: extractEventFields(eventData).map((fieldPath) => {

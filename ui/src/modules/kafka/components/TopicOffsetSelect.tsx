@@ -126,6 +126,7 @@ export function TopicOffsetSelect({
         placeholder={topicPlaceholder}
         options={topicOptions}
         readOnly={readOnly}
+        label="Source Topic"
       />
       {topicValue && (
         <OffsetSelect
@@ -137,6 +138,7 @@ export function TopicOffsetSelect({
           placeholder={offsetPlaceholder}
           options={offsetOptions}
           readOnly={readOnly || isLoadingEvent}
+          label="Initial Offset"
         />
       )}
     </div>

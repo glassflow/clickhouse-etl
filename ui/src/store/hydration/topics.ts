@@ -13,6 +13,8 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
       position: initialOffset,
       event: undefined,
     },
+    replicaCount: topicConfig.replica_count || 1,
+    partitionCount: topicConfig.partition_count || 1,
   }
 }
 

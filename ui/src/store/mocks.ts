@@ -320,6 +320,8 @@ const mockTopicsStore = {
       index: 0,
       name: 'credit_card_1_transactions',
       initialOffset: 'latest',
+      replicaCount: 3,
+      partitionCount: 3,
       events: [
         {
           event: {

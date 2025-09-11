@@ -58,18 +58,23 @@ export function useKafkaTopicSelectorState({
   // Topic selection state
   const [topicName, setTopicName] = useState('')
   const [offset, setOffset] = useState<'earliest' | 'latest'>('latest')
+  const [replicaCount, setReplicaCount] = useState<number>(1)
 
   // Get existing topic data
   const storedTopic = topicsStore.topics[index]
   const storedTopicName = storedTopic?.name
   const storedEvent = storedTopic?.selectedEvent?.event
   const storedOffset = storedTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
+  const storedReplicaCount = storedTopic?.replicaCount || 1
+  const storedPartitionCount = storedTopic?.partitionCount || 0
 
   // Draft mode handling
   const effectiveTopic = storedTopic
   const effectiveTopicName = effectiveTopic?.name
   const effectiveEvent = effectiveTopic?.selectedEvent?.event
   const effectiveOffset = effectiveTopic?.initialOffset || INITIAL_OFFSET_OPTIONS.LATEST
+  const effectiveReplicaCount = effectiveTopic?.replicaCount || 1
+  const effectivePartitionCount = effectiveTopic?.partitionCount || 0
 
   // Deduplication state
   const storedDeduplicationConfig = deduplicationStore.getDeduplication(index)
@@ -113,7 +118,10 @@ export function useKafkaTopicSelectorState({
     if (effectiveOffset && effectiveOffset !== offset) {
       setOffset(effectiveOffset as 'earliest' | 'latest')
     }
-  }, [effectiveTopicName, effectiveOffset, topicName, offset])
+    if (effectiveReplicaCount && effectiveReplicaCount !== replicaCount) {
+      setReplicaCount(effectiveReplicaCount)
+    }
+  }, [effectiveTopicName, effectiveOffset, effectiveReplicaCount, topicName, offset, replicaCount])
 
   // Validate manual event - enable continue button only if the manual event is valid
   useEffect(() => {
@@ -445,6 +453,8 @@ export function useKafkaTopicSelectorState({
           topicIndex: index,
           position: offset,
         },
+        replicaCount,
+        partitionCount: 0, // Will be updated when partition details are fetched
       }
 
       // Update store (draft or real)
@@ -487,12 +497,73 @@ export function useKafkaTopicSelectorState({
           topicIndex: index,
           position: newOffset,
         },
+        replicaCount,
+        partitionCount: effectivePartitionCount,
       }
 
       // Update store (draft or real)
       topicsStore.updateTopic(topicData)
     },
-    [index, topicName, topicsStore, offset],
+    [index, topicName, topicsStore, offset, replicaCount],
+  )
+
+  // Handle replica count change
+  const handleReplicaCountChange = useCallback(
+    (newReplicaCount: number) => {
+      // Only update if the replica count actually changed
+      if (newReplicaCount === replicaCount) {
+        return
+      }
+
+      setReplicaCount(newReplicaCount)
+
+      // Create topic data
+      const topicData = {
+        index,
+        name: topicName,
+        initialOffset: offset,
+        events: [],
+        selectedEvent: {
+          event: undefined,
+          topicIndex: index,
+          position: offset,
+        },
+        replicaCount: newReplicaCount,
+        partitionCount: effectivePartitionCount,
+      }
+
+      // Update store (draft or real)
+      topicsStore.updateTopic(topicData)
+    },
+    [index, topicName, topicsStore, offset, replicaCount, effectivePartitionCount],
+  )
+
+  // Update partition count when topic details are fetched
+  const updatePartitionCount = useCallback(
+    (newPartitionCount: number) => {
+      if (newPartitionCount === effectivePartitionCount) {
+        return
+      }
+
+      // Create topic data with updated partition count
+      const topicData = {
+        index,
+        name: topicName,
+        initialOffset: offset,
+        events: [],
+        selectedEvent: {
+          event: undefined,
+          topicIndex: index,
+          position: offset,
+        },
+        replicaCount,
+        partitionCount: newPartitionCount,
+      }
+
+      // Update store (draft or real)
+      topicsStore.updateTopic(topicData)
+    },
+    [index, topicName, topicsStore, offset, replicaCount, effectivePartitionCount],
   )
 
   // Handle deduplication config change
@@ -576,6 +647,8 @@ export function useKafkaTopicSelectorState({
         position: offset,
         isManualEvent: manualEvent !== '',
       },
+      replicaCount,
+      partitionCount: effectivePartitionCount,
     }
 
     // Check if deduplication is actually configured by looking at the config values
@@ -673,6 +746,8 @@ export function useKafkaTopicSelectorState({
     canContinue,
     manualEvent,
     isManualEventValid,
+    replicaCount,
+    partitionCount: effectivePartitionCount,
     // NEW: Navigation state
     currentOffset: state.currentOffset,
     earliestOffset: state.earliestOffset,
@@ -683,6 +758,8 @@ export function useKafkaTopicSelectorState({
     // Actions
     selectTopic: selectTopic,
     selectOffset: handleOffsetChange,
+    selectReplicaCount: handleReplicaCountChange,
+    updatePartitionCount,
     configureDeduplication: handleDeduplicationConfigChange,
     handleManualEventChange,
     submit: handleSubmit,

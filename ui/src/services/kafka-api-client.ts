@@ -25,6 +25,7 @@ export interface KafkaApiResponse<T = any> {
   error?: string
   data?: T
   topics?: string[]
+  topicDetails?: Array<{ name: string; partitionCount: number }>
   event?: any
   offset?: string
   position?: any
@@ -152,6 +153,44 @@ export class KafkaApiClient {
         return {
           success: false,
           error: data.error || 'Failed to fetch topics',
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Error connecting to Kafka',
+      }
+    }
+  }
+
+  async fetchTopicDetails(kafka: KafkaStore): Promise<KafkaApiResponse> {
+    if (!kafka.bootstrapServers) {
+      return {
+        success: false,
+        error: 'Kafka connection details are missing',
+      }
+    }
+
+    try {
+      const requestBody = this.buildAuthHeaders(kafka)
+
+      const response = await fetch('/ui-api/kafka/topic-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        return {
+          success: true,
+          topicDetails: data.topicDetails,
+        }
+      } else {
+        return {
+          success: false,
+          error: data.error || 'Failed to fetch topic details',
         }
       }
     } catch (error) {

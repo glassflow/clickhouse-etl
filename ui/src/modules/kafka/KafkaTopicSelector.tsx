@@ -28,7 +28,14 @@ export function KafkaTopicSelector({
 }: TopicSelectorProps) {
   const { topicsStore, kafkaStore, coreStore } = useStore()
   const validationEngine = useValidationEngine()
-  const { topics: topicsFromKafka, isLoadingTopics, topicsError, fetchTopics } = useFetchTopics({ kafka: kafkaStore })
+  const {
+    topics: topicsFromKafka,
+    topicDetails,
+    isLoadingTopics,
+    topicsError,
+    fetchTopics,
+    getPartitionCount,
+  } = useFetchTopics({ kafka: kafkaStore })
   const getIndex = useGetIndex(currentStep || '')
 
   const {
@@ -60,8 +67,12 @@ export function KafkaTopicSelector({
     canContinue,
     manualEvent,
     isManualEventValid,
+    replicaCount,
+    partitionCount,
     selectTopic,
     selectOffset,
+    selectReplicaCount,
+    updatePartitionCount,
     configureDeduplication,
     handleManualEventChange,
     submit,
@@ -96,6 +107,28 @@ export function KafkaTopicSelector({
     }
   }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender, topicFetchAttempts])
 
+  // Update partition count when topic details are fetched
+  useEffect(() => {
+    if (topicName && topicDetails.length > 0) {
+      const fetchedPartitionCount = getPartitionCount(topicName)
+      if (fetchedPartitionCount > 0 && fetchedPartitionCount !== partitionCount) {
+        updatePartitionCount(fetchedPartitionCount)
+        // Also update replica count to match partition count if it's not set
+        if (replicaCount === 1 && fetchedPartitionCount > 1) {
+          selectReplicaCount(fetchedPartitionCount)
+        }
+      }
+    }
+  }, [
+    topicName,
+    topicDetails,
+    getPartitionCount,
+    partitionCount,
+    updatePartitionCount,
+    replicaCount,
+    selectReplicaCount,
+  ])
+
   // Update available topics when topics are fetched
   useEffect(() => {
     if (topicsFromKafka.length > 0) {
@@ -118,8 +151,13 @@ export function KafkaTopicSelector({
     (topicName: string, event: any) => {
       // Use the hook's topic selection
       selectTopic(topicName)
+      // Set replica count to partition count when topic changes
+      const partitionCount = getPartitionCount(topicName)
+      if (partitionCount > 0) {
+        selectReplicaCount(partitionCount)
+      }
     },
-    [selectTopic],
+    [selectTopic, selectReplicaCount, getPartitionCount],
   )
 
   // Handle offset change using the hook
@@ -256,6 +294,9 @@ export function KafkaTopicSelector({
             fetchNextEvent={fetchNextEvent}
             fetchPreviousEvent={fetchPreviousEvent}
             refreshEvent={refreshEvent}
+            partitionCount={partitionCount}
+            replicaCount={replicaCount}
+            onReplicaCountChange={selectReplicaCount}
           />
         </div>
 
