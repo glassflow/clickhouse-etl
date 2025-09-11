@@ -14,6 +14,8 @@ type Orchestrator interface {
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	ShutdownPipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
+	PausePipeline(ctx context.Context, pid string) error
+	ResumePipeline(ctx context.Context, pid string) error
 }
 
 type PipelineStore interface {
@@ -29,6 +31,8 @@ type PipelineManager interface {
 	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
+	PausePipeline(ctx context.Context, pid string) error
+	ResumePipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
@@ -203,6 +207,113 @@ func (p *PipelineManagerImpl) UpdatePipelineStatus(ctx context.Context, pid stri
 	err := p.db.UpdatePipelineStatus(ctx, pid, status)
 	if err != nil {
 		return fmt.Errorf("update pipeline status: %w", err)
+	}
+
+	return nil
+}
+
+// PausePipeline implements PipelineManager.
+func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) error {
+	// Get current pipeline to update status
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline failed for pause: %w", err)
+	}
+
+	// Check if pipeline can be paused
+	if pipeline.Status.OverallStatus == internal.PipelineStatusPaused {
+		return fmt.Errorf("pipeline is already paused")
+	}
+	if pipeline.Status.OverallStatus == internal.PipelineStatusTerminated {
+		return ErrPipelineNotExists
+	}
+	if pipeline.Status.OverallStatus == internal.PipelineStatusPausing {
+		return fmt.Errorf("pipeline is already being paused")
+	}
+
+	// Set status to Pausing
+	pipeline.Status.OverallStatus = internal.PipelineStatusPausing
+
+	// Update status in database
+	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status: %w", err)
+	}
+
+	err = p.orchestrator.PausePipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("pause pipeline: %w", err)
+	}
+
+	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
+	if p.orchestrator.GetType() == "local" {
+		// Set status to Paused
+		pipeline.Status.OverallStatus = internal.PipelineStatusPaused
+
+		// Update status in database
+		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+		if err != nil {
+			return fmt.Errorf("update pipeline status: %w", err)
+		}
+		return nil
+	}
+
+	return nil
+}
+
+// ResumePipeline implements PipelineManager.
+func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) error {
+	// Get current pipeline to update status
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline failed for resume: %w", err)
+	}
+
+	// Check if pipeline can be resumed
+	if pipeline.Status.OverallStatus == internal.PipelineStatusRunning {
+		return fmt.Errorf("pipeline is already running")
+	}
+	if pipeline.Status.OverallStatus == internal.PipelineStatusTerminated {
+		return ErrPipelineNotExists
+	}
+	if pipeline.Status.OverallStatus == internal.PipelineStatusResuming {
+		return fmt.Errorf("pipeline is already being resumed")
+	}
+	if pipeline.Status.OverallStatus != internal.PipelineStatusPaused {
+		return fmt.Errorf("pipeline must be paused to resume, current status: %s", pipeline.Status.OverallStatus)
+	}
+
+	// Set status to Resuming
+	pipeline.Status.OverallStatus = internal.PipelineStatusResuming
+
+	// Update status in database
+	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status: %w", err)
+	}
+
+	err = p.orchestrator.ResumePipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("resume pipeline: %w", err)
+	}
+
+	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
+	if p.orchestrator.GetType() == "local" {
+		// Set status to Running
+		pipeline.Status.OverallStatus = internal.PipelineStatusRunning
+
+		// Update status in database
+		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+		if err != nil {
+			return fmt.Errorf("update pipeline status: %w", err)
+		}
+		return nil
 	}
 
 	return nil

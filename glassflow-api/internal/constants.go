@@ -19,6 +19,9 @@ const (
 	// Pipeline status constants
 	PipelineStatusCreated     = "Created"
 	PipelineStatusRunning     = "Running"
+	PipelineStatusPausing     = "Pausing"
+	PipelineStatusPaused      = "Paused"
+	PipelineStatusResuming    = "Resuming"
 	PipelineStatusTerminating = "Terminating"
 	PipelineStatusTerminated  = "Terminated"
 	PipelineStatusFailed      = "Failed"
