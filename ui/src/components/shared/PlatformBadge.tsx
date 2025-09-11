@@ -29,6 +29,10 @@ export const PlatformBadge: React.FC = () => {
   if (error || !platform) {
     return null // Don't show anything if there's an error or no platform info
   }
+  // Only show the badge for 'docker' or 'local' orchestrators
+  if (platform.orchestrator === 'k8s') {
+    return null
+  }
 
   return (
     <span className="text-xs" style={{ color: '#A8ADB8' }}>
