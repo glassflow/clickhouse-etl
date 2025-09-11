@@ -46,7 +46,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   s.inputNatsStream,
 		NatsConsumer: "clickhouse-consumer",
-		NatsSubject:  models.GetNATSSubjectName(s.inputNatsStream),
+		NatsSubject:  models.GetWildcardNATSSubjectName(s.inputNatsStream),
 	})
 	if err != nil {
 		return fmt.Errorf("create clickhouse consumer: %w", err)

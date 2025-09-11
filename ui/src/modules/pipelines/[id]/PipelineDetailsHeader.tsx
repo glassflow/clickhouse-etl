@@ -343,17 +343,24 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
             <div className="flex flex-row flex-end gap-2">{actions || getActionButtons()}</div>
           </div>
           <div className="flex flex-start items-center gap-1 text-sm text-muted-foreground">
-            <span>ID: {pipeline.pipeline_id || 'None'}</span>
-            {pipeline.pipeline_id && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 hover:bg-muted"
-                onClick={handleCopyPipelineId}
-                title={copied ? 'Copied!' : 'Copy pipeline ID'}
-              >
-                {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
-              </Button>
+            {pipeline.pipeline_id ? (
+              <div className="group flex items-center gap-1">
+                <span
+                  className="cursor-pointer hover:text-foreground transition-colors"
+                  onClick={handleCopyPipelineId}
+                  title="Click to copy pipeline ID"
+                >
+                  Pipeline ID: {pipeline.pipeline_id}
+                </span>
+                <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {copied && (
+                  <Badge variant="secondary" className="ml-2 h-6 w-18 text-sm">
+                    Copied
+                  </Badge>
+                )}
+              </div>
+            ) : (
+              <span>Pipeline ID: None</span>
             )}
           </div>
         </div>

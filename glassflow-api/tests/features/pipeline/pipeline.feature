@@ -613,3 +613,206 @@ Feature: Kafka to CH pipeline
             | 123 | red        | 1     |
             | 124 | blue       | 1     |
             | 125 | green      | 1     |
+
+    Scenario: Kafka topic with 3 partitions to ClickHouse with 3 replicas
+        Given a Kafka topic "test_topic" with 3 partitions
+        And the ClickHouse table "events_test" on database "default" already exists with schema
+            | column_name | data_type |
+            | id          | String    |
+            | name        | String    |
+
+        And I write these events to Kafka topic "test_topic":
+            | partition | key | value                                   |
+            | 0         | 1   | {"id": "123", "name": "John Doe"}       |
+            | 1         | 2   | {"id": "123", "name": "Jane Smith"}     |
+            | 2         | 3   | {"id": "123", "name": "Bob Johnson"}    |
+            | 0         | 4   | {"id": "123", "name": "Ulm Petterson"}  |
+            | 1         | 5   | {"id": "123", "name": "Richard Miller"} |
+            | 2         | 6   | {"id": "890", "name": "Alice Cooper"}   |
+
+        And a glassflow pipeline with next configuration:
+            """json
+            {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00006",
+                "mapper": {
+                    "type": "jsonToClickhouse",
+                    "streams": {
+                        "test_topic": {
+                            "fields": [
+                                {
+                                    "field_name": "id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "name",
+                                    "field_type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "sink_mapping": [
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "id",
+                            "column_name": "id",
+                            "column_type": "String"
+                        },
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "name",
+                            "column_name": "name",
+                            "column_type": "String"
+                        }
+                    ]
+                },
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "skip_auth": true,
+                        "protocol": "SASL_PLAINTEXT",
+                        "mechanism": "",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
+                    },
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00004",
+                            "deduplication": {
+                                "enabled": false
+                            },
+                            "output_stream_id": "gf-13bea286-test_topic",
+                            "output_stream_subject": "gf-13bea286-test_topic.*",
+                            "replicas": 3
+                        }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "events_test"
+                    },
+                    "stream_id": "gf-13bea286-test_topic"
+                }
+            }
+            """
+        And I shutdown the glassflow pipeline after "3s"
+        Then the ClickHouse table "default.events_test" should contain 6 rows
+        And the ClickHouse table "default.events_test" should contain:
+            | id  | COUNT |
+            | 123 | 5     |
+            | 890 | 1     |
+
+    Scenario: Kafka topic with 3 partitions to ClickHouse with 1 replica
+        Given a Kafka topic "test_topic" with 3 partitions
+        And the ClickHouse table "events_test" on database "default" already exists with schema
+            | column_name | data_type |
+            | id          | String    |
+            | name        | String    |
+
+        And I write these events to Kafka topic "test_topic":
+            | partition | key | value                                   |
+            | 0         | 1   | {"id": "123", "name": "John Doe"}       |
+            | 1         | 2   | {"id": "123", "name": "Jane Smith"}     |
+            | 2         | 3   | {"id": "123", "name": "Bob Johnson"}    |
+            | 0         | 4   | {"id": "123", "name": "Ulm Petterson"}  |
+            | 1         | 5   | {"id": "123", "name": "Richard Miller"} |
+            | 2         | 6   | {"id": "890", "name": "Alice Cooper"}   |
+
+        And a glassflow pipeline with next configuration:
+            """json
+            {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00006",
+                "mapper": {
+                    "type": "jsonToClickhouse",
+                    "streams": {
+                        "test_topic": {
+                            "fields": [
+                                {
+                                    "field_name": "id",
+                                    "field_type": "string"
+                                },
+                                {
+                                    "field_name": "name",
+                                    "field_type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "sink_mapping": [
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "id",
+                            "column_name": "id",
+                            "column_type": "String"
+                        },
+                        {
+                            "stream_name": "test_topic",
+                            "field_name": "name",
+                            "column_name": "name",
+                            "column_type": "String"
+                        }
+                    ]
+                },
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "skip_auth": true,
+                        "protocol": "SASL_PLAINTEXT",
+                        "mechanism": "",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
+                    },
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00004",
+                            "deduplication": {
+                                "enabled": false
+                            },
+                            "output_stream_id": "gf-13bea286-test_topic",
+                            "output_stream_subject": "gf-13bea286-test_topic.*",
+                            "replicas": 1
+                        }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "events_test"
+                    },
+                    "stream_id": "gf-13bea286-test_topic"
+                }
+            }
+            """
+        And I shutdown the glassflow pipeline after "1s"
+        Then the ClickHouse table "default.events_test" should contain 6 rows
+        And the ClickHouse table "default.events_test" should contain:
+            | id  | COUNT |
+            | 123 | 5     |
+            | 890 | 1     |
+

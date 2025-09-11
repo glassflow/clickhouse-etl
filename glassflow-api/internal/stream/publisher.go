@@ -93,7 +93,7 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-time.After(retryDelay):
-				log.Printf("Retrying publish to NATS subject %s in %v...", p.Subject, retryDelay)
+				log.Printf("Retrying publish to NATS subject %s in %v...", msg.Subject, retryDelay)
 			}
 
 			if time.Since(startTime) >= internal.PublisherMaxRetryWait {

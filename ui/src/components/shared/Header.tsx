@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import logoFullName from '../../images/logo-full-name.svg'
 import ListIcon from '../../images/list.svg'
@@ -16,10 +16,32 @@ import HelpIcon from '../../images/help-questionmark.svg'
 import { Button } from '@/src/components/ui/button'
 import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
+import { PlatformBadge } from './PlatformBadge'
 
-const NavButton = ({ href, icon, label }: { href: string; icon: any; label: string }) => {
+const NavButton = ({
+  href,
+  icon,
+  label,
+  isActive,
+  onMouseEnter,
+  onMouseLeave,
+  navRef,
+}: {
+  href: string
+  icon: any
+  label: string
+  isActive: boolean
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
+  navRef?: (el: HTMLLIElement | null) => void
+}) => {
   return (
-    <li className="text-sm font-medium relative group h-full flex items-center pt-3">
+    <li
+      ref={navRef}
+      className="text-sm font-medium relative group h-full flex items-center pt-3"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <Link
         href={href}
         className="flex items-center gap-2 transition-colors whitespace-nowrap min-w-[60px] px-4 pb-2 h-full"
@@ -27,7 +49,6 @@ const NavButton = ({ href, icon, label }: { href: string; icon: any; label: stri
         <Image src={icon} alt={label} width={24} height={24} />
         {label}
       </Link>
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-orange-300/30 via-orange-400 to-orange-300/30 rounded-full opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity"></div>
     </li>
   )
 }
@@ -98,7 +119,7 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
         </div>
 
         {/* Desktop: Show text with chevron */}
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-2 cursor-pointer">
           Help
           <Image src={isOpen ? ChevronUpIcon : ChevronDownIcon} alt="Toggle" width={16} height={16} />
         </div>
@@ -147,6 +168,49 @@ export function Header() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
+
+  // Navigation items configuration
+  const navItems = [
+    { href: '/home', icon: PlugIcon, label: 'Create' },
+    { href: '/pipelines', icon: ListIcon, label: 'Pipelines' },
+  ]
+
+  // Determine which navigation item is currently active
+  const getActiveIndex = () => {
+    if (pathname === '/home' || pathname === '/pipelines/create') return 0
+    if (pathname.startsWith('/pipelines')) return 1
+    return -1
+  }
+
+  const activeIndex = getActiveIndex()
+  const currentHoveredIndex = hoveredIndex !== null ? hoveredIndex : activeIndex
+
+  // Refs for navigation items
+  const navRefs = useRef<(HTMLLIElement | null)[]>([])
+
+  // Update indicator position
+  const updateIndicatorPosition = useCallback((index: number) => {
+    const navElement = navRefs.current[index]
+    if (navElement) {
+      const navContainer = navElement.parentElement
+      if (navContainer) {
+        const containerRect = navContainer.getBoundingClientRect()
+        const elementRect = navElement.getBoundingClientRect()
+        const left = elementRect.left - containerRect.left
+        const width = elementRect.width
+        setIndicatorStyle({ left, width })
+      }
+    }
+  }, [])
+
+  // Update indicator position when active index or hovered index changes
+  useEffect(() => {
+    if (currentHoveredIndex >= 0) {
+      updateIndicatorPosition(currentHoveredIndex)
+    }
+  }, [currentHoveredIndex, updateIndicatorPosition])
 
   // Replace individual modal states with a single modal state object
   const [modalProps, setModalProps] = useState({
@@ -219,7 +283,7 @@ export function Header() {
                   alt="Glassflow Logo"
                   width={140}
                   height={30}
-                  className="cursor-pointer w-auto h-8"
+                  className="cursor-pointer w-auto h-[18px]"
                 />
               </Button>
             </div>
@@ -232,23 +296,47 @@ export function Header() {
                   alt="Glassflow Logo"
                   width={140}
                   height={30}
-                  className="cursor-pointer w-auto h-6 sm:h-8"
+                  className="cursor-pointer w-auto h-[18px]"
                 />
               </Button>
             </div>
 
             {/* Desktop Navigation (after logo) */}
-            <nav className="hidden lg:flex flex-row h-full ml-12">
+            <nav className="hidden lg:flex flex-row h-full ml-12 relative">
               <ul className="flex flex-row h-full">
-                <NavButton href="/home" icon={PlugIcon} label="Create" />
-                <NavButton href="/pipelines" icon={ListIcon} label="Pipelines" />
+                {navItems.map((item, index) => (
+                  <NavButton
+                    key={index}
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    isActive={activeIndex === index}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    navRef={(el) => {
+                      navRefs.current[index] = el
+                    }}
+                  />
+                ))}
                 {/* <NavButton href="/connections" icon={Plug2Icon} label="Source/Sink Connections" /> */}
               </ul>
+
+              {/* Sliding indicator */}
+              {currentHoveredIndex >= 0 && (
+                <div
+                  className="absolute bottom-0 h-0.5 bg-gradient-to-r from-orange-300/30 via-orange-400 to-orange-300/30 rounded-full transition-all duration-300 ease-in-out"
+                  style={{
+                    left: `${indicatorStyle.left}px`,
+                    width: `${indicatorStyle.width}px`,
+                  }}
+                />
+              )}
             </nav>
           </div>
 
-          {/* Right Section: Help Menu */}
-          <div className="flex items-center">
+          {/* Right Section: Platform Badge + Help Menu */}
+          <div className="flex items-center gap-3">
+            <PlatformBadge />
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>

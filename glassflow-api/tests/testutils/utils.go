@@ -143,8 +143,7 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 	}
 	defer producer.Close()
 
-	deliveryChan := make(chan kafka.Event)
-	defer close(deliveryChan)
+	deliveryChan := make(chan kafka.Event, len(events)) // Buffered channel to prevent blocking
 
 	for _, event := range events {
 		partition := kafka.PartitionAny
@@ -184,6 +183,9 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 	if remaining > 0 {
 		return fmt.Errorf("%d messages remain unflushed", remaining)
 	}
+
+	// Close delivery channel only after all operations are complete
+	close(deliveryChan)
 
 	return nil
 }

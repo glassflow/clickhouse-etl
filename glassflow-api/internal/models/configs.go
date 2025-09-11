@@ -83,6 +83,7 @@ type KafkaTopicsConfig struct {
 	ID                         string `json:"id"`
 	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
 	ConsumerGroupName          string `json:"consumer_group_name"`
+	Replicas                   int    `json:"replicas" default:"1"`
 
 	Deduplication       DeduplicationConfig `json:"deduplication"`
 	OutputStreamID      string              `json:"output_stream_id"`
@@ -148,6 +149,11 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 			topics[i].ConsumerGroupInitialOffset = internal.InitialOffsetEarliest
 		default:
 			return zero, PipelineConfigError{Msg: "invalid consumer_group_initial_offset; allowed values: `earliest` or `latest`"}
+		}
+
+		// Validate and set default for replicas
+		if kt.Replicas <= 0 {
+			topics[i].Replicas = 1 // Default to 1 replica
 		}
 	}
 
@@ -468,8 +474,16 @@ func NewPipelineHealth(pipelineID, pipelineName string) PipelineHealth {
 	}
 }
 
-func GetNATSSubjectName(streamName string) string {
-	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
+func GetNATSSubjectName(streamName, subjectName string) string {
+	return fmt.Sprintf("%s.%s", streamName, subjectName)
+}
+
+func GetNATSSubjectNameDefault(streamName string) string {
+	return GetNATSSubjectName(streamName, internal.DefaultSubjectName)
+}
+
+func GetWildcardNATSSubjectName(streamName string) string {
+	return GetNATSSubjectName(streamName, "*")
 }
 
 func SanitizeNATSSubject(topicName string) string {
@@ -507,7 +521,7 @@ func GetIngestorStreamName(pipelineID, topicName string) string {
 
 func GetPipelineNATSSubject(pipelineID, topicName string) string {
 	streamName := GetIngestorStreamName(pipelineID, topicName)
-	return fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
+	return GetWildcardNATSSubjectName(streamName)
 }
 
 func GetKafkaConsumerGroupName(pipelineID string) string {

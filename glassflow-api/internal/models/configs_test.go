@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -228,9 +229,9 @@ func TestGetPipelineNATSSubject(t *testing.T) {
 	result := GetPipelineNATSSubject(pipelineID, topic)
 
 	// Should end with .input
-	if !strings.HasSuffix(result, internal.DefaultSubjectName) {
+	if !strings.HasSuffix(result, internal.WildcardSubject) {
 		t.Errorf("GetPipelineNATSSubject(%q, %q) = %q, should end with %q",
-			pipelineID, topic, result, internal.DefaultSubjectName)
+			pipelineID, topic, result, internal.WildcardSubject)
 	}
 
 	// Should contain the stream name
@@ -292,5 +293,36 @@ func TestGetKafkaConsumerGroupName(t *testing.T) {
 	expected := internal.ConsumerGroupNamePrefix + "-" + hash
 	if result != expected {
 		t.Errorf("GetKafkaConsumerGroupName(%q) = %q, want %q", pipelineID, result, expected)
+	}
+}
+
+func TestGetNATSSubjectName(t *testing.T) {
+	streamName := "gf-abc12345-my_topic"
+	subjectName := "input"
+
+	result := GetNATSSubjectName(streamName, subjectName)
+	expected := fmt.Sprintf("%s.%s", streamName, subjectName)
+	if result != expected {
+		t.Errorf("GetNATSSubjectName(%q, %q) = %q, want %q", streamName, subjectName, result, expected)
+	}
+}
+
+func TestGetNATSSubjectNameDefault(t *testing.T) {
+	streamName := "gf-abc12345-my_topic"
+
+	result := GetNATSSubjectNameDefault(streamName)
+	expected := fmt.Sprintf("%s.%s", streamName, internal.DefaultSubjectName)
+	if result != expected {
+		t.Errorf("GetNATSSubjectNameDefault(%q) = %q, want %q", streamName, result, expected)
+	}
+}
+
+func TestGetWildcardNATSSubjectName(t *testing.T) {
+	streamName := "gf-abc12345-my_topic"
+
+	result := GetWildcardNATSSubjectName(streamName)
+	expected := fmt.Sprintf("%s.%s", streamName, internal.WildcardSubject)
+	if result != expected {
+		t.Errorf("GetWildcardNATSSubjectName(%q) = %q, want %q", streamName, result, expected)
 	}
 }
