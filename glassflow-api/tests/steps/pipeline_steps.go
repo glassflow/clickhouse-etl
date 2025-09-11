@@ -244,39 +244,12 @@ func (p *PipelineSteps) theClickHouseTableAlreadyExistsWithSchema(tableName stri
 
 func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) error {
 	p.log.Info("Publishing events to Kafka topic", slog.String("topic", topic))
-	if len(table.Rows) < 2 {
-		return fmt.Errorf("invalid table format, expected at least 2 rows")
-	}
-
-	events := make([]testutils.KafkaEvent, 0, len(table.Rows)-1)
-
-	// Skip the header row
-	for i := 1; i < len(table.Rows); i++ {
-		row := table.Rows[i]
-		if len(row.Cells) < 2 {
-			return fmt.Errorf("invalid event row format, expected at least key and value columns")
-		}
-
-		key := row.Cells[0].Value
-		jsonData := row.Cells[1].Value
-
-		events = append(events, testutils.KafkaEvent{
-			Key:   key,
-			Value: []byte(jsonData),
-		})
-	}
-
-	err := p.createKafkaWriter()
+	err := p.publishEventsToKafka(topic, table)
 	if err != nil {
-		return fmt.Errorf("create kafka writer: %w", err)
+		return fmt.Errorf("publish events to kafka: %w", err)
 	}
 
-	err = p.kWriter.WriteJSONEvents(topic, events)
-	if err != nil {
-		return fmt.Errorf("write events to kafka: %w", err)
-	}
-
-	p.log.Info("Published events to Kafka topic", slog.String("topic", topic), slog.Int("events_count", len(events)))
+	p.log.Info("Published events to Kafka topic", slog.String("topic", topic), slog.Int("events_count", len(table.Rows)-1))
 
 	return nil
 }
@@ -416,7 +389,7 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 }
 
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
-	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition$`, p.theKafkaTopic)
+	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
 	sc.Step(`^the ClickHouse table "([^"]*)" on database "([^"]*)" already exists with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
 

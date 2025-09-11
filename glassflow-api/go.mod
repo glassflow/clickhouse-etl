@@ -9,6 +9,7 @@ require (
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/cucumber/godog v0.15.0
 	github.com/docker/go-connections v0.5.0
+	github.com/glassflow/glassflow-etl-k8s-operator v0.0.0-20250910155114-a1963edde89c
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -58,7 +59,6 @@ require (
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/glassflow/glassflow-etl-k8s-operator v0.0.0-20250817192025-55d8c6e4db14 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect

@@ -351,3 +351,55 @@ func (b *BaseTestSuite) clickhouseShouldContainData(table string, expectedData *
 
 	return nil
 }
+
+func (b *BaseTestSuite) publishEventsToKafka(topicName string, table *godog.Table) error {
+	if len(table.Rows) < 2 {
+		return fmt.Errorf("invalid table format, expected at least 2 rows")
+	}
+
+	events := make([]testutils.KafkaEvent, 0, len(table.Rows)-1)
+
+	headers := make([]string, len(table.Rows[0].Cells))
+	for i, cell := range table.Rows[0].Cells {
+		headers[i] = cell.Value
+	}
+
+	// Skip the header row
+	for i := 1; i < len(table.Rows); i++ {
+		row := table.Rows[i]
+		if len(row.Cells) < 2 {
+			return fmt.Errorf("invalid event row format, expected at least key and value columns")
+		}
+
+		event := testutils.KafkaEvent{}
+
+		for i, cell := range row.Cells {
+			if i < len(headers) {
+				switch headers[i] {
+				case "partition":
+					event.Partition = cell.Value
+				case "key":
+					event.Key = cell.Value
+				case "value":
+					event.Value = []byte(cell.Value)
+				default:
+					return fmt.Errorf("unknown field %s", headers[i])
+				}
+			}
+		}
+
+		events = append(events, event)
+	}
+
+	err := b.createKafkaWriter()
+	if err != nil {
+		return fmt.Errorf("create kafka writer: %w", err)
+	}
+
+	err = b.kWriter.WriteJSONEvents(topicName, events)
+	if err != nil {
+		return fmt.Errorf("write events to kafka: %w", err)
+	}
+
+	return nil
+}

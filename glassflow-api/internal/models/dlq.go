@@ -17,7 +17,7 @@ func GetDLQStreamName(pipelineID string) string {
 // GetDLQStreamSubjectName generates a NATS subject name for the DLQ stream
 func GetDLQStreamSubjectName(pipelineID string) string {
 	streamName := GetDLQStreamName(pipelineID)
-	return streamName + ".failed"
+	return GetNATSSubjectName(streamName, internal.DLQSubjectName)
 }
 
 type DLQMessage struct {

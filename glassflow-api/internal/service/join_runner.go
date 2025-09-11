@@ -76,7 +76,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   j.leftInputStreamName,
 		NatsConsumer: "leftStreamConsumer",
-		NatsSubject:  models.GetNATSSubjectName(j.leftInputStreamName),
+		NatsSubject:  models.GetWildcardNATSSubjectName(j.leftInputStreamName),
 	})
 	if err != nil {
 		return fmt.Errorf("create left consumer: %w", err)
@@ -85,7 +85,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   j.rightInputStreamName,
 		NatsConsumer: "rightStreamConsumer",
-		NatsSubject:  models.GetNATSSubjectName(j.rightInputStreamName),
+		NatsSubject:  models.GetWildcardNATSSubjectName(j.rightInputStreamName),
 	})
 	if err != nil {
 		return fmt.Errorf("create right consumer: %w", err)
@@ -128,7 +128,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	}
 
 	resultsPublisher := stream.NewNATSPublisher(j.nc.JetStream(), stream.PublisherConfig{
-		Subject: models.GetNATSSubjectName(j.outputStream),
+		Subject: models.GetNATSSubjectNameDefault(j.outputStream),
 	})
 
 	component, err := component.NewJoinComponent(

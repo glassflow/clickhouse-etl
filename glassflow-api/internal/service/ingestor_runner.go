@@ -53,7 +53,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		}
 	}
 
-	i.log.Debug("Starting ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("streamId", models.GetNATSSubjectName(outputStreamID)))
+	i.log.Debug("Starting ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("streamId", outputStreamID))
 
 	if outputStreamID == "" {
 		return fmt.Errorf("output stream name cannot be empty")
@@ -62,7 +62,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	streamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: models.GetNATSSubjectName(outputStreamID),
+			Subject: models.GetNATSSubjectNameDefault(outputStreamID),
 		},
 	)
 

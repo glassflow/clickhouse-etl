@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	operator "github.com/glassflow/glassflow-etl-k8s-operator/api/v1alpha1"
@@ -73,6 +74,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 			TopicName:    s.Name,
 			OutputStream: s.OutputStreamID,
 			DedupWindow:  s.Deduplication.Window.Duration(),
+			Replicas:     s.Replicas,
 		})
 	}
 
@@ -92,8 +94,12 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 			Type:         cfg.Join.Type,
 			OutputStream: cfg.Join.OutputStreamID,
 			Enabled:      cfg.Join.Enabled,
+			Replicas:     internal.DefaultReplicasCount,
 		},
-		Sink:   cfg.Sink.Type,
+		Sink: operator.Sink{
+			Type:     cfg.Sink.Type,
+			Replicas: internal.DefaultReplicasCount,
+		},
 		Config: string(pcfg),
 	}
 

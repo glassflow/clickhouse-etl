@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/IBM/sarama"
 	"github.com/nats-io/nats.go"
@@ -48,15 +49,16 @@ func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper
 func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) error {
 	k.log.Error("Pushing message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
 
-	data, jsonErr := models.NewDLQMessage(internal.RoleIngestor, err.Error(), orgMsg).ToJSON()
-	if jsonErr != nil {
-		k.log.Error("Failed to convert DLQ message to JSON", slog.Any("error", jsonErr), slog.String("topic", k.topic.Name))
-		return fmt.Errorf("failed to convert DLQ message to JSON: %w", jsonErr)
+	data, err := models.NewDLQMessage(internal.RoleIngestor, err.Error(), orgMsg).ToJSON()
+	if err != nil {
+		k.log.Error("Failed to convert DLQ message to JSON", slog.Any("error", err), slog.String("topic", k.topic.Name))
+		return fmt.Errorf("failed to convert DLQ message to JSON: %w", err)
 	}
 
-	if dlqErr := k.dlqPublisher.Publish(ctx, data); dlqErr != nil {
-		k.log.Error("Failed to publish message to DLQ", slog.Any("error", dlqErr), slog.String("topic", k.topic.Name))
-		return fmt.Errorf("failed to publish to DLQ: %w", dlqErr)
+	err = k.dlqPublisher.Publish(ctx, data)
+	if err != nil {
+		k.log.Error("Failed to publish message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
+		return fmt.Errorf("failed to publish to DLQ: %w", err)
 	}
 
 	return nil
@@ -103,8 +105,16 @@ func (k *KafkaMsgProcessor) setupDeduplicationHeader(headers nats.Header, msgDat
 	return nil
 }
 
+func (k *KafkaMsgProcessor) setSubject(partitionID int32) string {
+	if k.topic.Replicas > 1 {
+		return models.GetNATSSubjectName(k.topic.OutputStreamID, strconv.Itoa(int(partitionID)))
+	}
+
+	return k.publisher.GetSubject()
+}
+
 func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
-	nMsg := nats.NewMsg(k.publisher.GetSubject())
+	nMsg := nats.NewMsg(k.setSubject(msg.Partition))
 	nMsg.Data = msg.Value
 
 	nMsg.Header = k.convertKafkaToNATSHeaders(msg.Headers)
