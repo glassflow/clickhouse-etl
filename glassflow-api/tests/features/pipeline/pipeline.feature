@@ -614,7 +614,7 @@ Feature: Kafka to CH pipeline
             | 124 | blue       | 1     |
             | 125 | green      | 1     |
 
-    Scenario: afka topic with 3 partitions to ClickHouse with 3 replicas
+    Scenario: Kafka topic with 3 partitions to ClickHouse with 3 replicas
         Given a Kafka topic "test_topic" with 3 partitions
         And the ClickHouse table "events_test" on database "default" already exists with schema
             | column_name | data_type |
