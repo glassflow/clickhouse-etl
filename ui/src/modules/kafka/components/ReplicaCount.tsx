@@ -97,9 +97,7 @@ export default function ReplicaCount({
           placeholder="1"
         />
         <span className="text-sm text-content">
-          {partitionCount > 0
-            ? `(${partitionCount} partition${partitionCount !== 1 ? 's' : ''} available)`
-            : '(Loading partition details...)'}
+          {partitionCount > 0 ? `(Must be between 1 and ${partitionCount})` : '(Loading partition details...)'}
         </span>
       </div>
     </div>
