@@ -178,16 +178,16 @@ Feature: Pipeline Pause and Resume
         }
       }
       """
-    And I produce messages to the Kafka topic "test_topic":
-      | id  | name       |
-      | 123 | John Doe   |
-      | 456 | Jane Smith |
+    And I write these events to Kafka topic "test_topic":
+      | key | value                        |
+      | 1   | {"id": "123", "name": "John Doe"}    |
+      | 2   | {"id": "456", "name": "Jane Smith"}  |
     And I wait for "2s"
     When I pause the glassflow pipeline after "1s"
     Then the pipeline status should be "Paused"
-    And I produce messages to the Kafka topic "test_topic":
-      | id  | name        |
-      | 789 | Bob Johnson |
+    And I write these events to Kafka topic "test_topic":
+      | key | value                           |
+      | 3   | {"id": "789", "name": "Bob Johnson"} |
     When I resume the glassflow pipeline after "1s"
     Then the pipeline status should be "Running"
     And I wait for "3s"

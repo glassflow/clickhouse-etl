@@ -255,62 +255,6 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 	return nil
 }
 
-func (p *PipelineSteps) iProduceMessagesToKafkaTopic(topic string, table *godog.Table) error {
-	p.log.Info("Producing messages to Kafka topic", slog.String("topic", topic))
-	if len(table.Rows) < 2 {
-		return fmt.Errorf("invalid table format, expected at least 2 rows")
-	}
-
-	events := make([]testutils.KafkaEvent, 0, len(table.Rows)-1)
-
-	// Skip the header row
-	for i := 1; i < len(table.Rows); i++ {
-		row := table.Rows[i]
-		if len(row.Cells) < 2 {
-			return fmt.Errorf("invalid message row format, expected at least 2 columns")
-		}
-
-		// Create JSON object from table row
-		// First column is typically the key/id, rest are fields
-		key := row.Cells[0].Value
-
-		// Create JSON object from the row data
-		jsonObj := make(map[string]interface{})
-		for j, cell := range row.Cells {
-			// Use header row to get field names
-			if j < len(table.Rows[0].Cells) {
-				fieldName := table.Rows[0].Cells[j].Value
-				jsonObj[fieldName] = cell.Value
-			}
-		}
-
-		// Convert to JSON bytes
-		jsonBytes, err := json.Marshal(jsonObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal JSON for row %d: %w", i, err)
-		}
-
-		events = append(events, testutils.KafkaEvent{
-			Key:   key,
-			Value: jsonBytes,
-		})
-	}
-
-	err := p.createKafkaWriter()
-	if err != nil {
-		return fmt.Errorf("create kafka writer: %w", err)
-	}
-
-	err = p.kWriter.WriteJSONEvents(topic, events)
-	if err != nil {
-		return fmt.Errorf("write messages to kafka: %w", err)
-	}
-
-	p.log.Info("Produced messages to Kafka topic", slog.String("topic", topic), slog.Int("messages_count", len(events)))
-
-	return nil
-}
-
 func (p *PipelineSteps) thePipelineStatusShouldBe(expectedStatus string) error {
 	p.log.Info("Checking pipeline status", slog.String("expected_status", expectedStatus))
 
@@ -554,7 +498,6 @@ func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a ClickHouse table "([^"]*)" on database "([^"]*)" with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, p.iPublishEventsToKafka)
-	sc.Step(`^I produce messages to the Kafka topic "([^"]*)":$`, p.iProduceMessagesToKafkaTopic)
 	sc.Step(`^I wait for "([^"]*)"$`, p.waitFor)
 
 	sc.Step(`^a glassflow pipeline with next configuration:$`, p.aGlassflowPipelineWithNextConfiguration)
