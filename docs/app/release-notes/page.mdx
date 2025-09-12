@@ -4,13 +4,12 @@ description: Release notes for the GlassFlow ClickHouse ETL, featuring new featu
 ---
 
 import { FileIcon } from 'nextra/icons'
-import { OverviewPage } from '../_components/overview-page'
+import { Cards } from 'nextra/components'
 
 # Release Notes
 
 Release notes for the GlassFlow ClickHouse ETL, featuring new features, improvements, and bug fixes across all versions.
 
-<OverviewPage
-  filePath={metadata.filePath}
-  icons={{ FileIcon }}
-/>
+<Cards>
+    <Cards.Card icon={<FileIcon />} title="Release Notes v2.0.0" href="/release-notes/v2.0.0" />
+</Cards>
