@@ -40,8 +40,8 @@ export type TopicSelectWithEventPreviewProps = {
   fetchPreviousEvent?: (topicName: string, currentOffset: number) => Promise<void>
   refreshEvent?: (topicName: string, fetchNext?: boolean) => Promise<void>
   partitionCount?: number
-  replicaCount?: number
-  onReplicaCountChange?: (replicaCount: number) => void
+  replicas?: number
+  onReplicaCountChange?: (replicas: number) => void
 }
 
 export function TopicSelectWithEventPreview({
@@ -71,7 +71,7 @@ export function TopicSelectWithEventPreview({
   fetchPreviousEvent: hookFetchPreviousEvent,
   refreshEvent: hookRefreshEvent,
   partitionCount = 1,
-  replicaCount = 1,
+  replicas = 1,
   onReplicaCountChange,
 }: TopicSelectWithEventPreviewProps) {
   // Use hook data if provided, otherwise fall back to local state
@@ -117,9 +117,9 @@ export function TopicSelectWithEventPreview({
 
   // Handle replica count change
   const handleReplicaCountChange = useCallback(
-    (replicaCount: number) => {
+    (replicas: number) => {
       if (onReplicaCountChange) {
-        onReplicaCountChange(replicaCount)
+        onReplicaCountChange(replicas)
       }
     },
     [onReplicaCountChange],
@@ -163,7 +163,7 @@ export function TopicSelectWithEventPreview({
           {topicName && (
             <ReplicaCount
               partitionCount={partitionCount}
-              replicaCount={replicaCount}
+              replicas={replicas}
               onReplicaCountChange={handleReplicaCountChange}
               index={index}
               readOnly={readOnly}

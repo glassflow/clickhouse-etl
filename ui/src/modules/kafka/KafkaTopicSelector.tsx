@@ -67,7 +67,7 @@ export function KafkaTopicSelector({
     canContinue,
     manualEvent,
     isManualEventValid,
-    replicaCount,
+    replicas,
     partitionCount,
     selectTopic,
     selectOffset,
@@ -114,20 +114,12 @@ export function KafkaTopicSelector({
       if (fetchedPartitionCount > 0 && fetchedPartitionCount !== partitionCount) {
         updatePartitionCount(fetchedPartitionCount)
         // Also update replica count to match partition count if it's not set
-        if (replicaCount === 1 && fetchedPartitionCount > 1) {
+        if (replicas === 1 && fetchedPartitionCount > 1) {
           selectReplicaCount(fetchedPartitionCount)
         }
       }
     }
-  }, [
-    topicName,
-    topicDetails,
-    getPartitionCount,
-    partitionCount,
-    updatePartitionCount,
-    replicaCount,
-    selectReplicaCount,
-  ])
+  }, [topicName, topicDetails, getPartitionCount, partitionCount, updatePartitionCount, replicas, selectReplicaCount])
 
   // Update available topics when topics are fetched
   useEffect(() => {
@@ -295,7 +287,7 @@ export function KafkaTopicSelector({
             fetchPreviousEvent={fetchPreviousEvent}
             refreshEvent={refreshEvent}
             partitionCount={partitionCount}
-            replicaCount={replicaCount}
+            replicas={replicas}
             onReplicaCountChange={selectReplicaCount}
           />
         </div>

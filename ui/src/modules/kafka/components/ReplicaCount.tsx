@@ -7,8 +7,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/src/
 
 export type ReplicaCountProps = {
   partitionCount: number
-  replicaCount: number
-  onReplicaCountChange?: (replicaCount: number) => void
+  replicas: number
+  onReplicaCountChange?: (replicas: number) => void
   index: number
   readOnly?: boolean
   isLoading?: boolean
@@ -16,30 +16,30 @@ export type ReplicaCountProps = {
 
 export default function ReplicaCount({
   partitionCount,
-  replicaCount,
+  replicas,
   onReplicaCountChange,
   index,
   readOnly,
   isLoading,
 }: ReplicaCountProps) {
-  const [selectedReplicaCount, setSelectedReplicaCount] = useState(replicaCount)
+  const [selectedReplicaCount, setSelectedReplicaCount] = useState(replicas)
 
   // Sync local state with prop changes and set default to max partition when partition count changes
   useEffect(() => {
     if (partitionCount > 0) {
       // If replica count is not set or is 0, default to partition count
-      const newReplicaCount = replicaCount > 0 ? replicaCount : partitionCount
+      const newReplicaCount = replicas > 0 ? replicas : partitionCount
       setSelectedReplicaCount(newReplicaCount)
       // Notify parent of the default value if it wasn't set
-      if (replicaCount === 0 && onReplicaCountChange) {
+      if (replicas === 0 && onReplicaCountChange) {
         onReplicaCountChange(partitionCount)
       }
     }
-  }, [partitionCount, replicaCount, onReplicaCountChange])
+  }, [partitionCount, replicas, onReplicaCountChange])
 
-  const handleReplicaCountChange = (replicaCount: number) => {
-    setSelectedReplicaCount(replicaCount)
-    onReplicaCountChange?.(replicaCount)
+  const handleReplicaCountChange = (replicas: number) => {
+    setSelectedReplicaCount(replicas)
+    onReplicaCountChange?.(replicas)
   }
 
   return (
