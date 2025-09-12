@@ -13,6 +13,8 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
       position: initialOffset,
       event: undefined,
     },
+    replicas: topicConfig.replicas || 1,
+    partitionCount: topicConfig.partition_count || 1,
   }
 }
 
@@ -150,23 +152,39 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
       // Add other auth methods as needed
     }
 
-    // 4. Fetch topics from the API
-    const response = await fetch('/ui-api/kafka/topics', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    })
-    const data = await response.json()
-    if (!data.success) throw new Error(data.error || 'Failed to fetch topics')
+    // 4. Fetch topics and topic details from the API in parallel
+    const [topicsResponse, detailsResponse] = await Promise.all([
+      fetch('/ui-api/kafka/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      }),
+      fetch('/ui-api/kafka/topic-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      }),
+    ])
+
+    const topicsData = await topicsResponse.json()
+    if (!topicsData.success) throw new Error(topicsData.error || 'Failed to fetch topics')
+
+    const detailsData = await detailsResponse.json()
+    if (!detailsData.success) throw new Error(detailsData.error || 'Failed to fetch topic details')
 
     // 5. Set available topics in the store
-    useStore.getState().topicsStore.setAvailableTopics(data.topics)
+    useStore.getState().topicsStore.setAvailableTopics(topicsData.topics)
 
-    // 6. Set selected topics from backend config
+    // 6. Set selected topics from backend config with current partition counts
     if (pipelineConfig?.source?.topics) {
       pipelineConfig.source.topics.forEach((topicConfig: any, idx: number) => {
-        // Map topic data (without deduplication)
+        // Find current partition count from Kafka for this topic
+        const currentTopicDetails = detailsData.topicDetails?.find((detail: any) => detail.name === topicConfig.name)
+        const currentPartitionCount = currentTopicDetails?.partitionCount || 1
+
+        // Map topic data with current partition count from Kafka
         const topicState = mapBackendTopicToStore(topicConfig, idx)
+        topicState.partitionCount = currentPartitionCount
         useStore.getState().topicsStore.updateTopic(topicState)
 
         // Map deduplication data to the new separated store

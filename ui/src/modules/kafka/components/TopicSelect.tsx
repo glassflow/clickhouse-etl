@@ -12,6 +12,7 @@ export function TopicSelect({
   options,
   readOnly,
   standalone,
+  label,
 }: {
   value: string
   onChange: (value: string) => void
@@ -22,6 +23,7 @@ export function TopicSelect({
   options: { label: string; value: string }[]
   readOnly?: boolean
   standalone?: boolean
+  label?: string
 }) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -77,6 +79,7 @@ export function TopicSelect({
         open={isOpen}
         onOpenChange={handleOpenChange}
         readOnly={readOnly}
+        label={label}
         className={cn('w-full', error && '[&_input]:border-red-500 [&_input]:border-2')}
       />
     </div>

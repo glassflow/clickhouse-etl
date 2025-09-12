@@ -18,6 +18,7 @@ export function SearchableSelect({
   open: controlledOpen,
   onOpenChange,
   readOnly,
+  label,
 }: {
   availableOptions: string[]
   selectedOption?: string
@@ -29,6 +30,7 @@ export function SearchableSelect({
   open?: boolean
   onOpenChange?: (isOpen: boolean) => void
   readOnly?: boolean
+  label?: string
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -176,56 +178,59 @@ export function SearchableSelect({
   return (
     <div ref={containerRef} className={cn('relative w-full', className)} onKeyDown={handleKeyDown}>
       <div className="flex items-center">
-        <div className="relative w-full">
-          <Input
-            ref={inputRef}
-            type="text"
-            placeholder={placeholder}
-            value={search}
-            onChange={handleInputChange}
-            onClick={() => !disabled && !readOnly && setOpen(true)}
-            onFocus={() => !disabled && !readOnly && setOpen(true)}
-            className={cn(
-              'w-full pr-10 input-regular input-border-regular text-content',
-              disabled && 'opacity-60 cursor-not-allowed',
-            )}
-            disabled={disabled || readOnly}
-            aria-expanded={open}
-            aria-controls="searchable-select-dropdown"
-            role="combobox"
-          />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-            {clearable && selectedOption && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 opacity-70 hover:opacity-100"
-                onClick={handleClear}
-                disabled={disabled}
-                aria-label="Clear selection"
-              >
-                <span className="sr-only">Clear</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </Button>
-            )}
-            <ChevronDownIcon
-              className={cn('h-4 w-4 opacity-50 cursor-pointer', disabled && 'cursor-not-allowed')}
-              onClick={() => !disabled && setOpen(!open)}
-              aria-hidden="true"
+        <div className="flex flex-col items-left gap-2 w-full">
+          {label && <span className="text-sm text-content">{label}</span>}
+          <div className="relative w-full">
+            <Input
+              ref={inputRef}
+              type="text"
+              placeholder={placeholder}
+              value={search}
+              onChange={handleInputChange}
+              onClick={() => !disabled && !readOnly && setOpen(true)}
+              onFocus={() => !disabled && !readOnly && setOpen(true)}
+              className={cn(
+                'w-full pr-10 input-regular input-border-regular text-content',
+                disabled && 'opacity-60 cursor-not-allowed',
+              )}
+              disabled={disabled || readOnly}
+              aria-expanded={open}
+              aria-controls="searchable-select-dropdown"
+              role="combobox"
             />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+              {clearable && selectedOption && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-70 hover:opacity-100"
+                  onClick={handleClear}
+                  disabled={disabled}
+                  aria-label="Clear selection"
+                >
+                  <span className="sr-only">Clear</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </Button>
+              )}
+              <ChevronDownIcon
+                className={cn('h-4 w-4 opacity-50 cursor-pointer', disabled && 'cursor-not-allowed')}
+                onClick={() => !disabled && setOpen(!open)}
+                aria-hidden="true"
+              />
+            </div>
           </div>
         </div>
       </div>
