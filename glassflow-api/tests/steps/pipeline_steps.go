@@ -27,8 +27,9 @@ type PipelineSteps struct {
 	chTable    string
 	log        *slog.Logger
 
-	pipelineManager *service.PipelineManagerImpl
-	orchestrator    *orchestrator.LocalOrchestrator
+	pipelineManager   *service.PipelineManagerImpl
+	orchestrator      *orchestrator.LocalOrchestrator
+	currentPipelineID string
 }
 
 func NewPipelineSteps() *PipelineSteps {
@@ -254,6 +255,27 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 	return nil
 }
 
+func (p *PipelineSteps) thePipelineStatusShouldBe(expectedStatus string) error {
+	p.log.Info("Checking pipeline status", slog.String("expected_status", expectedStatus))
+
+	// Get the current pipeline status
+	pipeline, err := p.pipelineManager.GetPipeline(context.Background(), p.currentPipelineID)
+	if err != nil {
+		return fmt.Errorf("failed to get pipeline: %w", err)
+	}
+
+	actualStatus := string(pipeline.Status.OverallStatus)
+	p.log.Info("Pipeline status check",
+		slog.String("expected", expectedStatus),
+		slog.String("actual", actualStatus))
+
+	if actualStatus != expectedStatus {
+		return fmt.Errorf("pipeline status mismatch: expected %s, got %s", expectedStatus, actualStatus)
+	}
+
+	return nil
+}
+
 func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfig, error) {
 	var pc models.PipelineConfig
 
@@ -317,6 +339,9 @@ func (p *PipelineSteps) aGlassflowPipelineWithNextConfiguration(config *godog.Do
 	if err != nil {
 		return fmt.Errorf("prepare pipeline config: %w", err)
 	}
+
+	// Store the current pipeline ID for later use
+	p.currentPipelineID = pipelineConfig.ID
 
 	err = p.setupPipelineManager()
 	if err != nil {
@@ -388,19 +413,105 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 	return nil
 }
 
+func (p *PipelineSteps) pausePipeline() error {
+	p.log.Info("Pausing pipeline")
+	if p.pipelineManager == nil {
+		return fmt.Errorf("pipeline manager not initialized")
+	}
+
+	err := p.pipelineManager.PausePipeline(context.Background(), p.orchestrator.ActivePipelineID())
+	if err != nil {
+		return fmt.Errorf("pause pipeline: %w", err)
+	}
+
+	p.log.Info("Pipeline paused successfully")
+	return nil
+}
+
+func (p *PipelineSteps) resumePipeline() error {
+	p.log.Info("Resuming pipeline")
+	if p.pipelineManager == nil {
+		return fmt.Errorf("pipeline manager not initialized")
+	}
+
+	err := p.pipelineManager.ResumePipeline(context.Background(), p.orchestrator.ActivePipelineID())
+	if err != nil {
+		return fmt.Errorf("resume pipeline: %w", err)
+	}
+
+	p.log.Info("Pipeline resumed successfully")
+	return nil
+}
+
+func (p *PipelineSteps) pausePipelineWithDelay(delay string) error {
+	p.log.Info("Pausing pipeline with delay", slog.String("delay", delay))
+	dur, err := time.ParseDuration(delay)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	time.Sleep(dur)
+
+	err = p.pausePipeline()
+	if err != nil {
+		return fmt.Errorf("pause pipeline: %w", err)
+	}
+
+	p.log.Info("Pipeline paused after delay")
+	return nil
+}
+
+func (p *PipelineSteps) resumePipelineWithDelay(delay string) error {
+	p.log.Info("Resuming pipeline with delay", slog.String("delay", delay))
+	dur, err := time.ParseDuration(delay)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	time.Sleep(dur)
+
+	err = p.resumePipeline()
+	if err != nil {
+		return fmt.Errorf("resume pipeline: %w", err)
+	}
+
+	p.log.Info("Pipeline resumed after delay")
+	return nil
+}
+
+func (p *PipelineSteps) waitFor(duration string) error {
+	p.log.Info("Waiting", slog.String("duration", duration))
+	dur, err := time.ParseDuration(duration)
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+
+	time.Sleep(dur)
+	p.log.Info("Wait completed")
+	return nil
+}
+
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
 	sc.Step(`^the ClickHouse table "([^"]*)" on database "([^"]*)" already exists with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
+	sc.Step(`^a ClickHouse table "([^"]*)" on database "([^"]*)" with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, p.iPublishEventsToKafka)
+	sc.Step(`^I wait for "([^"]*)"$`, p.waitFor)
 
 	sc.Step(`^a glassflow pipeline with next configuration:$`, p.aGlassflowPipelineWithNextConfiguration)
 	sc.Step(`^I shutdown the glassflow pipeline$`, p.shutdownPipeline)
 	sc.Step(`^I shutdown the glassflow pipeline after "([^"]*)"$`, p.shutdownPipelineWithDelay)
+	sc.Step(`^I pause the glassflow pipeline$`, p.pausePipeline)
+	sc.Step(`^I pause the glassflow pipeline after "([^"]*)"$`, p.pausePipelineWithDelay)
+	sc.Step(`^I resume the glassflow pipeline$`, p.resumePipeline)
+	sc.Step(`^I resume the glassflow pipeline after "([^"]*)"$`, p.resumePipelineWithDelay)
 
+	sc.Step(`^the pipeline status should be "([^"]*)"$`, p.thePipelineStatusShouldBe)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, p.theClickHouseTableShouldContainRows)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain:`, p.theClickHouseTableShouldContain)
+	sc.Step(`^the ClickHouse table "([^"]*)" should contain row with values$`, p.theClickHouseTableShouldContain)
 
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := p.fastCleanup()

@@ -19,6 +19,16 @@ type MockPipelineManager struct {
 	mock.Mock
 }
 
+func (m *MockPipelineManager) PausePipeline(ctx context.Context, pid string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineManager) ResumePipeline(ctx context.Context, pid string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *MockPipelineManager) CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error {
 	args := m.Called(ctx, cfg)
 	return args.Error(0)
