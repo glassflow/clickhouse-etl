@@ -329,9 +329,11 @@ export function PipelinesList({
       case 'no_configuration':
         return 'No Configuration'
       case 'pausing':
-        return 'Pausing'
+        return 'Pausing...'
       case 'paused':
         return 'Paused'
+      case 'resuming':
+        return 'Resuming...'
       case 'terminating':
         return 'Terminating...'
       case 'terminated':
@@ -394,6 +396,8 @@ export function PipelinesList({
             case 'paused':
               return 'warning'
             case 'pausing':
+              return 'warning'
+            case 'resuming':
               return 'warning'
             case 'deleting':
               return 'secondary'
@@ -466,7 +470,7 @@ export function PipelinesList({
 
     // Optimistically update status to show transitional state
     const currentStatus = (pipeline.status as PipelineStatus) || 'no_configuration'
-    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deploying') // Use deploying as transitional state for resume
+    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'resuming') // Use resuming as transitional state for resume
 
     try {
       await resumePipeline(pipeline.pipeline_id)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
@@ -33,6 +33,7 @@ interface PipelineDetailsHeaderProps {
 function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, actions }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
+  const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
 
   // Use simplified pipeline health monitoring
   const {
@@ -75,22 +76,77 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     } else {
       // Execute action directly (like resume)
       try {
+        // Optimistic status update for immediate UI feedback
+        if (action === 'pause' && onPipelineUpdate) {
+          const updatedPipeline = {
+            ...pipeline,
+            status: 'pausing' as Pipeline['status'],
+          }
+          onPipelineUpdate(updatedPipeline)
+        } else if (action === 'resume' && onPipelineUpdate) {
+          const updatedPipeline = {
+            ...pipeline,
+            status: 'resuming' as Pipeline['status'],
+          }
+          onPipelineUpdate(updatedPipeline)
+        }
+
         const result = await executeAction(action)
 
         if (result && onPipelineUpdate) {
           onPipelineUpdate(result as Pipeline)
+        } else if (action === 'pause' && onPipelineUpdate) {
+          // For pause action, update status to paused after successful API call
+
+          recentActionRef.current = { action: 'pause', timestamp: Date.now() }
+          const updatedPipeline = {
+            ...pipeline,
+            status: 'paused' as Pipeline['status'],
+          }
+          onPipelineUpdate(updatedPipeline)
+        } else if (action === 'resume' && onPipelineUpdate) {
+          // For resume action, update status to active after successful API call
+
+          recentActionRef.current = { action: 'resume', timestamp: Date.now() }
+          const updatedPipeline = {
+            ...pipeline,
+            status: 'active' as Pipeline['status'],
+          }
+          onPipelineUpdate(updatedPipeline)
         }
       } catch (error) {
-        console.error(`Failed to ${action} pipeline:`, error)
+        // Revert optimistic update on error
+        if (action === 'pause' && onPipelineUpdate) {
+          const revertedPipeline = {
+            ...pipeline,
+            status: 'active' as Pipeline['status'],
+          }
+          onPipelineUpdate(revertedPipeline)
+        } else if (action === 'resume' && onPipelineUpdate) {
+          const revertedPipeline = {
+            ...pipeline,
+            status: 'paused' as Pipeline['status'],
+          }
+          onPipelineUpdate(revertedPipeline)
+        }
       }
     }
   }
 
   const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
-    // Close modal immediately after user confirms
-    setActiveModal(null)
-
     try {
+      // Optimistic status update for immediate UI feedback BEFORE closing modal
+      if (action === 'pause' && onPipelineUpdate) {
+        const updatedPipeline = {
+          ...pipeline,
+          status: 'pausing' as Pipeline['status'],
+        }
+        onPipelineUpdate(updatedPipeline)
+      }
+
+      // Close modal after optimistic update
+      setActiveModal(null)
+
       const result = await executeAction(action, payload)
 
       if (action === 'delete') {
@@ -105,9 +161,34 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
           name: payload?.name || pipeline.name,
         }
         onPipelineUpdate(updatedPipeline)
+      } else if (action === 'pause' && onPipelineUpdate) {
+        // For pause action, update status to paused after successful API call
+
+        recentActionRef.current = { action: 'pause', timestamp: Date.now() }
+        const updatedPipeline = {
+          ...pipeline,
+          status: 'paused' as Pipeline['status'],
+        }
+        onPipelineUpdate(updatedPipeline)
+      } else if (action === 'resume' && onPipelineUpdate) {
+        // For resume action, update status to active after successful API call
+
+        recentActionRef.current = { action: 'resume', timestamp: Date.now() }
+        const updatedPipeline = {
+          ...pipeline,
+          status: 'active' as Pipeline['status'],
+        }
+        onPipelineUpdate(updatedPipeline)
       }
     } catch (error) {
-      console.error(`Failed to ${action} pipeline:`, error)
+      // Revert optimistic update on error
+      if (action === 'pause' && onPipelineUpdate) {
+        const revertedPipeline = {
+          ...pipeline,
+          status: 'active' as Pipeline['status'],
+        }
+        onPipelineUpdate(revertedPipeline)
+      }
       // Error will be shown in the header via actionState.error
     }
   }
@@ -124,7 +205,6 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       // Reset the copied state after 2 seconds
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy pipeline ID:', err)
       // Fallback for older browsers
       const textArea = document.createElement('textarea')
       textArea.value = pipeline.pipeline_id
@@ -142,26 +222,51 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getStatusVariant = (status: string) => {
-    // Use health data if available, otherwise fall back to pipeline status
-    const effectiveStatus = health?.overall_status || status
+    // Prioritize pipeline status during active actions, otherwise use health data
+    let effectiveStatus = status
+
+    // If there's an active action (loading) or recent action completed, use pipeline status instead of health
+    const recentAction = recentActionRef.current
+    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 3000 // 3 seconds
+
+    if (health?.overall_status && !actionState.isLoading && !isRecentAction) {
+      // Convert backend health status to UI status
+      switch (health.overall_status) {
+        case 'Running':
+          effectiveStatus = 'active'
+          break
+        case 'Created':
+          effectiveStatus = 'deploying'
+          break
+        case 'Terminating':
+          effectiveStatus = 'terminating'
+          break
+        case 'Terminated':
+          effectiveStatus = 'terminated'
+          break
+        case 'Failed':
+          effectiveStatus = 'error'
+          break
+        default:
+          effectiveStatus = status
+      }
+    }
 
     switch (effectiveStatus) {
-      case 'Running':
-        return 'success'
-      case 'Created':
-        return 'default'
-      case 'Terminating':
-        return 'warning'
-      case 'Terminated':
-        return 'secondary'
-      case 'Failed':
-        return 'error'
       case 'active':
         return 'success'
+      case 'deploying':
+        return 'default'
       case 'paused':
         return 'warning'
       case 'pausing':
         return 'warning'
+      case 'resuming':
+        return 'warning'
+      case 'terminating':
+        return 'warning'
+      case 'terminated':
+        return 'secondary'
       case 'deleting':
         return 'secondary'
       case 'error':
@@ -176,20 +281,37 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getBadgeLabel = (status: PipelineStatus) => {
-    // Use health data if available, otherwise fall back to pipeline status
-    const effectiveStatus = health?.overall_status || status
+    // Prioritize pipeline status during active actions, otherwise use health data
+    let effectiveStatus = status
+
+    // If there's an active action (loading) or recent action completed, use pipeline status instead of health
+    const recentAction = recentActionRef.current
+    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 3000 // 3 seconds
+
+    if (health?.overall_status && !actionState.isLoading && !isRecentAction) {
+      // Convert backend health status to UI status
+      switch (health.overall_status) {
+        case 'Running':
+          effectiveStatus = 'active'
+          break
+        case 'Created':
+          effectiveStatus = 'deploying'
+          break
+        case 'Terminating':
+          effectiveStatus = 'terminating'
+          break
+        case 'Terminated':
+          effectiveStatus = 'terminated'
+          break
+        case 'Failed':
+          effectiveStatus = 'error'
+          break
+        default:
+          effectiveStatus = status
+      }
+    }
 
     switch (effectiveStatus) {
-      case 'Running':
-        return 'Running'
-      case 'Created':
-        return 'Starting...'
-      case 'Terminating':
-        return 'Terminating...'
-      case 'Terminated':
-        return 'Terminated'
-      case 'Failed':
-        return 'Failed'
       case 'active':
         return 'Active'
       case 'deploying':
@@ -203,9 +325,15 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       case 'no_configuration':
         return 'No Configuration'
       case 'pausing':
-        return 'Pausing'
+        return 'Pausing...'
       case 'paused':
         return 'Paused'
+      case 'resuming':
+        return 'Resuming...'
+      case 'terminating':
+        return 'Terminating...'
+      case 'terminated':
+        return 'Terminated'
       case 'error':
         return 'Error'
       default:
@@ -288,18 +416,17 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getActionButtons = () => {
-    // TEMPORARILY DISABLED - PAUSE/RESUME/EDIT FUNCTIONALITY DISABLED FOR DEMO
-    // Show resume button if paused, pause button if active
-    const showPause = pipeline.status === 'active'
-    const showResume = pipeline.status === 'paused'
+    // Show resume button if paused or resuming, pause button if active or pausing
+    const showPause = pipeline.status === 'active' || pipeline.status === 'pausing'
+    const showResume = pipeline.status === 'paused' || pipeline.status === 'resuming'
 
     return (
       <>
-        {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
-        {/* {showResume && renderActionButton('resume')} */}
+        {showResume && renderActionButton('resume')}
         {renderActionButton('rename')}
         {renderActionButton('delete')}
-        {/* {showPause && renderActionButton('pause')} */}
+        {showPause && renderActionButton('pause')}
+        {/* Edit button disabled - functionality not implemented yet */}
         {/* {renderActionButton('edit')} */}
       </>
     )
@@ -329,6 +456,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                   ? 'Checking...'
                   : getBadgeLabel((pipeline.status || 'no_configuration') as PipelineStatus)}
               </Badge>
+              {/* Debug info */}
+              {/* <div className="text-xs text-gray-500">
+                Debug: status={pipeline.status}, actionState.isLoading={actionState.isLoading ? 'true' : 'false'},
+                lastAction={actionState.lastAction}, health={health?.overall_status || 'none'}, recentAction=
+                {recentActionRef.current?.action || 'none'}
+              </div> */}
               {healthError && (
                 <Badge variant="destructive" className="ml-2">
                   Health Error
@@ -401,13 +534,13 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       /> */}
 
       {/* Pause Modal */}
-      {/* <PausePipelineModal
+      <PausePipelineModal
         visible={activeModal === 'pause'}
         onOk={() => {
           handleModalConfirm('pause')
         }}
         onCancel={handleModalCancel}
-      /> */}
+      />
     </>
   )
 }

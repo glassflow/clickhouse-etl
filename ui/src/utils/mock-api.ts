@@ -32,22 +32,26 @@ export const getApiUrl = (endpoint: string) => {
 
   const shouldUseMock = isServer ? useMockAPI : clientUseMockAPI || useMockAPI
 
+  let url: string
+
   if (shouldUseMock) {
     if (isServer) {
       // For SSR, use localhost with the port Next.js is running on
       const port = process.env.PORT || '3000'
-      return `http://localhost:${port}/ui-api/mock/${endpoint}`
+      url = `http://localhost:${port}/ui-api/mock/${endpoint}`
     } else {
-      return `/ui-api/mock/${endpoint}`
+      url = `/ui-api/mock/${endpoint}`
+    }
+  } else {
+    if (isServer) {
+      const baseOrigin = inDocker ? 'http://ui:8080' : 'http://localhost:3000'
+      url = `${baseOrigin}/ui-api/${endpoint}`
+    } else {
+      url = `/ui-api/${endpoint}`
     }
   }
 
-  if (isServer) {
-    const baseOrigin = inDocker ? 'http://ui:8080' : 'http://localhost:3000'
-    return `${baseOrigin}/ui-api/${endpoint}`
-  } else {
-    return `/ui-api/${endpoint}`
-  }
+  return url
 }
 
 // Mock data generators for more realistic responses

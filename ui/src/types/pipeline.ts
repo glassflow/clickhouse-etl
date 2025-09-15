@@ -18,10 +18,15 @@ export const getPipelineStatusFromState = (state: string): PipelineStatus => {
   }
 
   switch (state.toLowerCase()) {
+    case 'running':
     case 'active':
       return 'active'
     case 'paused':
       return 'paused'
+    case 'pausing':
+      return 'pausing'
+    case 'resuming':
+      return 'resuming'
     case 'stopped':
       return 'deleted' // Map stopped to deleted for UI consistency
     case 'terminated':
