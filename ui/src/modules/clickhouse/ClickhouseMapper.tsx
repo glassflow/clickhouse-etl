@@ -524,6 +524,84 @@ export function ClickhouseMapper({
     }
   }, [secondaryTopic?.selectedEvent?.event?.event, mode])
 
+  // Auto-map fields for join/dedup mode (similar to single mode logic)
+  useEffect(() => {
+    if (mode === 'single') return
+
+    // Only proceed if we have both primary and secondary fields, and mapped columns
+    if (primaryEventFields.length === 0 || secondaryEventFields.length === 0 || mappedColumns.length === 0) {
+      return
+    }
+
+    // Skip if mapping already exists
+    if (clickhouseDestination?.mapping?.length > 0) {
+      return
+    }
+
+    // Try to auto-map based on field names with left topic preference
+    const updatedColumns = [...mappedColumns]
+    let hasChanges = false
+
+    updatedColumns.forEach((col, index) => {
+      if (col.eventField) {
+        // Column is already mapped, skip
+        return
+      }
+
+      // First try to find matching field in primary (left) topic
+      let matchingField = findBestMatchingField(col.name, primaryEventFields)
+      let source: 'primary' | 'secondary' = 'primary'
+      let sourceData = primaryEventData
+
+      // If no match in primary, try secondary (right) topic
+      if (!matchingField) {
+        matchingField = findBestMatchingField(col.name, secondaryEventFields)
+        source = 'secondary'
+        sourceData = secondaryTopic?.selectedEvent?.event
+      }
+
+      if (matchingField && sourceData) {
+        const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+
+        updatedColumns[index] = {
+          ...col,
+          eventField: matchingField,
+          jsonType: inferJsonType(getNestedValue(sourceData, matchingField)),
+          sourceTopic: sourceTopic,
+        }
+        hasChanges = true
+        console.log(
+          `Auto-mapped column "${col.name}" to field "${matchingField}" from ${source} topic (${sourceTopic})`,
+        )
+      } else {
+        console.log(`No match found for column "${col.name}" in either topic`)
+      }
+    })
+
+    if (hasChanges) {
+      setMappedColumns(updatedColumns)
+      setClickhouseDestination({
+        ...clickhouseDestination,
+        mapping: updatedColumns,
+      })
+
+      // Track auto-mapping success
+      const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
+      console.log(`Auto-mapped ${autoMappedCount} fields in join mode with left topic preference`)
+    }
+  }, [
+    primaryEventFields,
+    secondaryEventFields,
+    mappedColumns,
+    clickhouseDestination,
+    primaryEventData,
+    secondaryTopic?.selectedEvent?.event,
+    primaryTopic?.name,
+    secondaryTopic?.name,
+    setClickhouseDestination,
+    mode,
+  ])
+
   // Update effect for handling event data changes to handle nested structure (join/dedup mode)
   useEffect(() => {
     if (mode === 'single') return
@@ -636,6 +714,79 @@ export function ClickhouseMapper({
       mapping: updatedColumns,
     })
   }
+
+  // Helper function to perform automatic mapping for join mode (can be called manually)
+  const performAutoMappingJoinMode = useCallback(() => {
+    if (
+      mode === 'single' ||
+      primaryEventFields.length === 0 ||
+      secondaryEventFields.length === 0 ||
+      mappedColumns.length === 0
+    ) {
+      return false
+    }
+
+    const updatedColumns = [...mappedColumns]
+    let hasChanges = false
+
+    updatedColumns.forEach((col, index) => {
+      if (col.eventField) {
+        // Column is already mapped, skip
+        return
+      }
+
+      // First try to find matching field in primary (left) topic
+      let matchingField = findBestMatchingField(col.name, primaryEventFields)
+      let source: 'primary' | 'secondary' = 'primary'
+      let sourceData = primaryEventData
+
+      // If no match in primary, try secondary (right) topic
+      if (!matchingField) {
+        matchingField = findBestMatchingField(col.name, secondaryEventFields)
+        source = 'secondary'
+        sourceData = secondaryTopic?.selectedEvent?.event
+      }
+
+      if (matchingField && sourceData) {
+        const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+
+        updatedColumns[index] = {
+          ...col,
+          eventField: matchingField,
+          jsonType: inferJsonType(getNestedValue(sourceData, matchingField)),
+          sourceTopic: sourceTopic,
+        }
+        hasChanges = true
+        console.log(
+          `Auto-mapped column "${col.name}" to field "${matchingField}" from ${source} topic (${sourceTopic})`,
+        )
+      }
+    })
+
+    if (hasChanges) {
+      setMappedColumns(updatedColumns)
+      setClickhouseDestination({
+        ...clickhouseDestination,
+        mapping: updatedColumns,
+      })
+
+      const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
+      console.log(`Auto-mapped ${autoMappedCount} fields in join mode with left topic preference`)
+    }
+
+    return hasChanges
+  }, [
+    mode,
+    primaryEventFields,
+    secondaryEventFields,
+    mappedColumns,
+    primaryEventData,
+    secondaryTopic?.selectedEvent?.event,
+    primaryTopic?.name,
+    secondaryTopic?.name,
+    clickhouseDestination,
+    setClickhouseDestination,
+  ])
 
   // Map event field to column
   const mapEventFieldToColumn = (index: number, eventField: string, source?: 'primary' | 'secondary') => {
