@@ -123,6 +123,24 @@ export function ClickhouseMapper({
   // Add state to track hydration status
   const [isHydrated, setIsHydrated] = useState(false)
 
+  // Add refs to track current values (as a workaround for potential closure issues)
+  const maxDelayTimeRef = useRef(maxDelayTime)
+  const maxDelayTimeUnitRef = useRef(maxDelayTimeUnit)
+  const maxBatchSizeRef = useRef(maxBatchSize)
+
+  // Update refs when state changes
+  useEffect(() => {
+    maxDelayTimeRef.current = maxDelayTime
+  }, [maxDelayTime])
+
+  useEffect(() => {
+    maxDelayTimeUnitRef.current = maxDelayTimeUnit
+  }, [maxDelayTimeUnit])
+
+  useEffect(() => {
+    maxBatchSizeRef.current = maxBatchSize
+  }, [maxBatchSize])
+
   // Local state for UI-specific concerns only
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -390,7 +408,7 @@ export function ClickhouseMapper({
     }
   }, [storeSchema, tableSchema.columns, mappedColumns])
 
-  // Sync local state with store when hydration completes
+  // Sync local state with store when hydration completes (run only once)
   useEffect(() => {
     if (clickhouseDestination && !isHydrated) {
       // Update local state from store
@@ -405,7 +423,7 @@ export function ClickhouseMapper({
       // Mark as hydrated
       setIsHydrated(true)
     }
-  }, [clickhouseDestination, isHydrated])
+  }, [isHydrated]) // Removed clickhouseDestination from dependencies to prevent resetting user changes
 
   // Load table schema when database and table are selected
   useEffect(() => {
@@ -824,6 +842,11 @@ export function ClickhouseMapper({
     // Join key tracking is handled in JoinConfigurator, not here
     // This component focuses on destination mapping, not join configuration
 
+    // Use ref values as they represent the absolute current state
+    const currentMaxDelayTime = maxDelayTimeRef.current
+    const currentMaxDelayTimeUnit = maxDelayTimeUnitRef.current
+    const currentMaxBatchSize = maxBatchSizeRef.current
+
     // Create the updated destination config first
     const updatedDestination = {
       ...clickhouseDestination,
@@ -831,9 +854,9 @@ export function ClickhouseMapper({
       table: selectedTable,
       mapping: mappedColumns,
       destinationColumns: tableSchema.columns,
-      maxBatchSize: maxBatchSize,
-      maxDelayTime: maxDelayTime,
-      maxDelayTimeUnit: maxDelayTimeUnit,
+      maxBatchSize: currentMaxBatchSize,
+      maxDelayTime: currentMaxDelayTime,
+      maxDelayTimeUnit: currentMaxDelayTimeUnit,
     }
 
     // Generate config with the updated destination
