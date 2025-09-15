@@ -139,6 +139,20 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			leftInputStreamName = pi.Join.Sources[1].StreamID
 			rightInputStreamName = pi.Join.Sources[0].StreamID
 		}
+
+		// Create join KV stores for left and right buffers
+		err = d.nc.CreateOrUpdateJoinKeyValueStore(ctx, leftInputStreamName, pi.Join.LeftBufferTTL.Duration())
+		if err != nil {
+			return fmt.Errorf("setup join left buffer KV store for pipeline: %w", err)
+		}
+		d.log.Debug("created join left buffer KV store successfully")
+
+		err = d.nc.CreateOrUpdateJoinKeyValueStore(ctx, rightInputStreamName, pi.Join.RightBufferTTL.Duration())
+		if err != nil {
+			return fmt.Errorf("setup join right buffer KV store for pipeline: %w", err)
+		}
+		d.log.Debug("created join right buffer KV store successfully")
+
 		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, leftInputStreamName, rightInputStreamName, sinkConsumerStream,
 			pi.Join, schemaMapper)
 		err = d.joinRunner.Start(ctx)

@@ -186,6 +186,9 @@ type JoinComponentConfig struct {
 	Enabled        bool               `json:"enabled"`
 	Sources        []JoinSourceConfig `json:"sources"`
 	OutputStreamID string             `json:"output_stream_id"`
+	// KV configuration for join buffers
+	LeftBufferTTL  JSONDuration `json:"left_buffer_ttl"`
+	RightBufferTTL JSONDuration `json:"right_buffer_ttl"`
 }
 
 type JoinOrder string
@@ -240,10 +243,22 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinC
 		}
 	}
 
+	// Compute TTL values from sources' time_window
+	var leftBufferTTL, rightBufferTTL JSONDuration
+	for _, source := range sources {
+		if source.Orientation == internal.JoinLeft {
+			leftBufferTTL = source.Window
+		} else if source.Orientation == internal.JoinRight {
+			rightBufferTTL = source.Window
+		}
+	}
+
 	return JoinComponentConfig{
-		Sources: sources,
-		Type:    internal.TemporalJoinType,
-		Enabled: true,
+		Sources:        sources,
+		Type:           internal.TemporalJoinType,
+		Enabled:        true,
+		LeftBufferTTL:  leftBufferTTL,
+		RightBufferTTL: rightBufferTTL,
 	}, nil
 }
 
