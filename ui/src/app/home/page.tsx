@@ -20,6 +20,7 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { generatePipelineId } from '@/src/utils/common.client'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { getPipelines } from '@/src/api/pipeline-api'
+import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
 
 const ConnectionCard = () => {
   return (
@@ -95,8 +96,10 @@ function HomePageClient() {
     const fetchActivePipelines = async () => {
       try {
         const pipelines = await getPipelines()
-        const activeCount = pipelines.filter((pipeline) => pipeline.status === 'active').length
-        setActivePipelinesCount(activeCount)
+        // Count pipelines that are active or paused as blocking new pipeline creation
+        // Only terminated or deleted pipelines allow new pipeline creation
+        const blockingCount = countPipelinesBlockingCreation(pipelines)
+        setActivePipelinesCount(blockingCount)
       } catch (error) {
         console.error('Failed to fetch pipelines:', error)
         setActivePipelinesCount(0)
@@ -320,7 +323,7 @@ function HomePageClient() {
       <InfoModal
         visible={showPipelineLimitModal}
         title="Pipeline Limit Reached"
-        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first terminate or delete the currently active pipeline.`}
+        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first terminate or delete any currently active or paused pipelines.`}
         okButtonText="Manage Pipelines"
         cancelButtonText="Cancel"
         onComplete={handlePipelineLimitModalComplete}

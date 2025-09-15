@@ -271,3 +271,20 @@ export const shouldDisablePipelineOperation = (pipelineStatus: Pipeline['status'
     pipelineStatus === PIPELINE_STATUS_MAP.delete_failed
   )
 }
+
+/**
+ * Determines if a pipeline blocks new pipeline creation based on its status.
+ * Only active and paused pipelines block new pipeline creation.
+ * Terminated, deleted, or failed pipelines allow new pipeline creation.
+ */
+export const isPipelineBlockingNewCreation = (pipelineStatus: Pipeline['status']): boolean => {
+  return pipelineStatus === PIPELINE_STATUS_MAP.active || pipelineStatus === PIPELINE_STATUS_MAP.paused
+}
+
+/**
+ * Counts how many pipelines in the list are blocking new pipeline creation.
+ * Used for platform limitation checks on Docker and Local versions.
+ */
+export const countPipelinesBlockingCreation = (pipelines: { status?: string }[]): number => {
+  return pipelines.filter((pipeline) => pipeline.status === 'active' || pipeline.status === 'paused').length
+}

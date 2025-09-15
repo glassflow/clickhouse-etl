@@ -48,7 +48,7 @@ export function PipelineDeployer() {
             if (response.pipeline_id !== pipelineId) {
               analytics.pipeline.existingPipeline({})
               setStatus('deploy_failed')
-              setError('There is already a running pipeline. Please shut it down before deploying a new one.')
+              setError('There is already a running pipeline. Please terminate or delete it before deploying a new one.')
             } else {
               // Same pipeline is running
               analytics.pipeline.existingSamePipeline({})

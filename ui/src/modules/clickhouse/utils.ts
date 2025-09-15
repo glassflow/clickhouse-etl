@@ -76,7 +76,10 @@ export const generateApiConfig = ({
           }),
         },
         deduplication:
-          deduplicationConfig && deduplicationConfig.enabled
+          // Enable deduplication if:
+          // 1. Deduplication is properly configured (enabled and has a key), AND
+          // 2. Either we're NOT in a join journey, OR we're in a deduplication-joining journey
+          deduplicationConfig && deduplicationConfig.enabled && deduplicationConfig.key
             ? {
                 enabled: true,
                 id_field: deduplicationConfig.key,
@@ -211,7 +214,19 @@ export const generateApiConfig = ({
               skip_certificate_verification:
                 clickhouseConnection.directConnection?.skipCertificateVerification || false,
               max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
-              max_delay_time: `${clickhouseDestination?.maxDelayTime}${clickhouseDestination?.maxDelayTimeUnit}`,
+              max_delay_time: (() => {
+                const time = clickhouseDestination?.maxDelayTime || 1
+                const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+
+                // Convert full unit names to single letters if needed
+                let singleLetterUnit = unit
+                if (unit === 'seconds') singleLetterUnit = 's'
+                else if (unit === 'minutes') singleLetterUnit = 'm'
+                else if (unit === 'hours') singleLetterUnit = 'h'
+                else if (unit === 'days') singleLetterUnit = 'd'
+
+                return `${time}${singleLetterUnit}`
+              })(),
             }
           : {}),
         table: clickhouseDestination?.table,
