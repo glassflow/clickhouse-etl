@@ -29,11 +29,13 @@ export const usePipelineActions = (pipeline: Pipeline) => {
 
       switch (action) {
         case 'pause':
-          result = await pausePipeline(pipeline.pipeline_id)
+          await pausePipeline(pipeline.pipeline_id)
+          result = undefined
           break
 
         case 'resume':
-          result = await resumePipeline(pipeline.pipeline_id)
+          await resumePipeline(pipeline.pipeline_id)
+          result = undefined
           break
 
         case 'delete':

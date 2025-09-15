@@ -49,6 +49,8 @@ export function MobilePipelinesList({
         return 'secondary'
       case PIPELINE_STATUS_MAP.pausing:
         return 'warning'
+      case PIPELINE_STATUS_MAP.resuming:
+        return 'warning'
       case PIPELINE_STATUS_MAP.deleting:
         return 'secondary'
       case PIPELINE_STATUS_MAP.error:

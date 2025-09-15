@@ -69,6 +69,7 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
         }
         return pipelinePayload
       }
+
       // If backend returns direct object (no wrapper), accept that path
       if (data && typeof data === 'object' && data.pipeline_id) {
         const pipelinePayload = data
@@ -81,6 +82,7 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
         }
         return pipelinePayload
       }
+
       throw { code: response.status, message: data?.error || 'Failed to fetch pipeline' } as ApiError
     }
 
@@ -91,6 +93,7 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
     try {
       const fallbackResponse = await fetch(`/ui-api/mock/pipeline/${id}`)
       const fb = await fallbackResponse.json()
+
       if (fallbackResponse.ok && fb?.success === true) {
         const pipelinePayload = fb.pipeline
         if (pipelinePayload.state !== undefined) {
@@ -100,6 +103,7 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
         }
         return pipelinePayload
       }
+
       throw { code: fallbackResponse.status, message: fb?.error || 'Failed to fetch pipeline (mock)' } as ApiError
     } catch (fbErr: any) {
       if (error.code) throw error
@@ -171,34 +175,42 @@ export const deletePipeline = async (id: string, processEvents: boolean = false)
   return terminatePipeline(id)
 }
 
-export const pausePipeline = async (id: string): Promise<Pipeline> => {
+export const pausePipeline = async (id: string): Promise<void> => {
   try {
     const url = getApiUrl(`pipeline/${id}/pause`)
     const response = await fetch(url, { method: 'POST' })
     const data = await response.json()
 
-    if (data.success) {
-      return data.pipeline
-    } else {
+    if (!response.ok) {
       throw { code: response.status, message: data.error || 'Failed to pause pipeline' } as ApiError
     }
+
+    if (!data.success) {
+      throw { code: response.status, message: data.error || 'Failed to pause pipeline' } as ApiError
+    }
+
+    return
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to pause pipeline' } as ApiError
   }
 }
 
-export const resumePipeline = async (id: string): Promise<Pipeline> => {
+export const resumePipeline = async (id: string): Promise<void> => {
   try {
     const url = getApiUrl(`pipeline/${id}/resume`)
     const response = await fetch(url, { method: 'POST' })
     const data = await response.json()
 
-    if (data.success) {
-      return data.pipeline
-    } else {
+    if (!response.ok) {
       throw { code: response.status, message: data.error || 'Failed to resume pipeline' } as ApiError
     }
+
+    if (!data.success) {
+      throw { code: response.status, message: data.error || 'Failed to resume pipeline' } as ApiError
+    }
+
+    return
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to resume pipeline' } as ApiError
@@ -237,6 +249,7 @@ export const getDLQState = async (pipelineId: string): Promise<DLQState> => {
     }
 
     const data = await response.json()
+
     return data
   } catch (error: any) {
     if (error.code) throw error
