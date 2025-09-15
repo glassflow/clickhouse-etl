@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -27,7 +28,7 @@ type PipelineStore interface {
 	UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error
 }
 
-type PipelineManager interface {
+type PipelineManager interface { //nolint:interfacebloat //important interface
 	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
@@ -38,17 +39,20 @@ type PipelineManager interface {
 	UpdatePipelineName(ctx context.Context, id string, name string) error
 	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
 	GetOrchestratorType() string
+	CleanUpPipelines(ctx context.Context) error
 }
 
 type PipelineManagerImpl struct {
 	orchestrator Orchestrator
 	db           PipelineStore
+	log          *slog.Logger
 }
 
-func NewPipelineManager(orch Orchestrator, db PipelineStore) *PipelineManagerImpl {
+func NewPipelineManager(orch Orchestrator, db PipelineStore, log *slog.Logger) *PipelineManagerImpl {
 	return &PipelineManagerImpl{
 		orchestrator: orch,
 		db:           db,
+		log:          log,
 	}
 }
 
@@ -322,4 +326,37 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 // GetOrchestratorType implements PipelineManager.
 func (p *PipelineManagerImpl) GetOrchestratorType() string {
 	return p.orchestrator.GetType()
+}
+
+// CleanUpPipelines implements PipelineManager.
+func (p *PipelineManagerImpl) CleanUpPipelines(ctx context.Context) error {
+	p.log.Info("cleaning up pipelines", slog.String("orchestrator", p.GetOrchestratorType()))
+
+	if p.GetOrchestratorType() != "local" {
+		return nil
+	}
+
+	pipelines, err := p.db.GetPipelines(ctx)
+	if err != nil {
+		return fmt.Errorf("load pipelines: %w", err)
+	}
+
+	for _, pi := range pipelines {
+		if pi.Status.OverallStatus == internal.PipelineStatusCreated ||
+			pi.Status.OverallStatus == internal.PipelineStatusRunning ||
+			pi.Status.OverallStatus == internal.PipelineStatusPausing ||
+			pi.Status.OverallStatus == internal.PipelineStatusPaused ||
+			pi.Status.OverallStatus == internal.PipelineStatusResuming ||
+			pi.Status.OverallStatus == internal.PipelineStatusTerminating {
+			// Set status to Terminated
+			p.log.Debug("cleaning pipeline...", slog.String("pipelineID", pi.ID), slog.Any("status", pi.Status.OverallStatus))
+			pi.Status.OverallStatus = internal.PipelineStatusTerminated
+			err := p.db.UpdatePipelineStatus(ctx, pi.ID, pi.Status)
+			if err != nil {
+				return fmt.Errorf("update pipeline with %s failed: %w", pi.ID, err)
+			}
+		}
+	}
+
+	return nil
 }

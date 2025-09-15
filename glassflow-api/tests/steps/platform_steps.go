@@ -85,7 +85,7 @@ func (p *PlatformSteps) setupServices() error {
 	}
 
 	// Create pipeline manager
-	p.pipelineManager = service.NewPipelineManager(p.orchestrator, db)
+	p.pipelineManager = service.NewPipelineManager(p.orchestrator, db, p.log)
 	return nil
 }
 
