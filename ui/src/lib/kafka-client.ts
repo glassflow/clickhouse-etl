@@ -20,6 +20,10 @@ export interface KafkaConfig {
   kerberosKeytab?: string
   kerberosRealm?: string
   kdc?: string
+  serviceName?: string
+  krb5Config?: string
+  useTicketCache?: boolean
+  ticketCachePath?: string
 
   // SASL/OAUTHBEARER
   oauthBearerToken?: string
@@ -123,6 +127,10 @@ export class KafkaClient {
             kerberosKeytab: config.kerberosKeytab,
             kerberosRealm: config.kerberosRealm,
             kdc: config.kdc,
+            serviceName: config.serviceName,
+            krb5Config: config.krb5Config,
+            useTicketCache: config.useTicketCache,
+            ticketCachePath: config.ticketCachePath,
           }
           break
 

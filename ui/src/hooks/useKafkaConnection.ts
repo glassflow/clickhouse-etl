@@ -43,6 +43,10 @@ export const useKafkaConnection = () => {
           requestBody.kerberosKeytab = values.saslGssapi.kerberosKeytab
           requestBody.kerberosRealm = values.saslGssapi.kerberosRealm
           requestBody.kdc = values.saslGssapi.kdc
+          requestBody.serviceName = values.saslGssapi.serviceName
+          requestBody.krb5Config = values.saslGssapi.krb5Config
+          requestBody.useTicketCache = values.saslGssapi.useTicketCache
+          requestBody.ticketCachePath = values.saslGssapi.ticketCachePath
           break
 
         case 'SASL/OAUTHBEARER':
