@@ -2,6 +2,56 @@ import { useStore } from '../index'
 
 // Helper: Map backend config to your store's destination shape
 function mapBackendClickhouseDestinationToStore(sink: any) {
+  // Parse max_delay_time from Go duration format (e.g., "1m", "30s", "2h", "55h0m0s")
+  let maxDelayTime = 1
+  let maxDelayTimeUnit = 'm'
+
+  if (sink.max_delay_time) {
+    if (typeof sink.max_delay_time === 'string') {
+      const timeWindow = sink.max_delay_time
+
+      // Parse complex Go duration format like "55h0m0s", "1h30m", "2d12h", etc.
+      // Go duration format can have multiple units like "72h30m45s"
+      const matches = timeWindow.match(/(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/)
+
+      if (matches) {
+        const days = parseInt(matches[1] || '0')
+        const hours = parseInt(matches[2] || '0')
+        const minutes = parseInt(matches[3] || '0')
+        const seconds = parseInt(matches[4] || '0')
+
+        // Convert to total seconds for easier calculation
+        const totalSeconds = days * 86400 + hours * 3600 + minutes * 60 + seconds
+
+        // Normalize to the largest appropriate unit for UI display
+        if (totalSeconds >= 86400 && totalSeconds % 86400 === 0) {
+          // Exact days
+          maxDelayTime = Math.round(totalSeconds / 86400)
+          maxDelayTimeUnit = 'd'
+        } else if (totalSeconds >= 3600 && totalSeconds % 3600 === 0) {
+          // Exact hours
+          maxDelayTime = Math.round(totalSeconds / 3600)
+          maxDelayTimeUnit = 'h'
+        } else if (totalSeconds >= 3600) {
+          // More than an hour but not exact hours - convert to hours anyway
+          maxDelayTime = Math.round(totalSeconds / 3600)
+          maxDelayTimeUnit = 'h'
+        } else if (totalSeconds >= 60) {
+          // 1 minute or more - use minutes
+          maxDelayTime = Math.round(totalSeconds / 60)
+          maxDelayTimeUnit = 'm'
+        } else {
+          // Less than 1 minute - use seconds
+          maxDelayTime = totalSeconds
+          maxDelayTimeUnit = 's'
+        }
+      }
+    } else if (typeof sink.max_delay_time === 'number') {
+      maxDelayTime = sink.max_delay_time
+      maxDelayTimeUnit = 'm' // Default unit for numeric values
+    }
+  }
+
   return {
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
@@ -9,9 +59,8 @@ function mapBackendClickhouseDestinationToStore(sink: any) {
     mapping: sink.table_mapping || [],
     destinationColumns: [], // Will fill after fetching schema
     maxBatchSize: sink.max_batch_size || 1000,
-    maxDelayTime: typeof sink.max_delay_time === 'string' ? parseInt(sink.max_delay_time) : sink.max_delay_time || 1,
-    maxDelayTimeUnit:
-      typeof sink.max_delay_time === 'string' ? sink.max_delay_time.replace(/[^a-zA-Z]/g, '') || 'm' : 'm',
+    maxDelayTime,
+    maxDelayTimeUnit,
   }
 }
 
