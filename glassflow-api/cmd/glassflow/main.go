@@ -223,9 +223,9 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 		go func() {
 			switch o := orch.(type) {
 			case *orchestrator.LocalOrchestrator:
-				err := orch.ShutdownPipeline(ctx, o.ActivePipelineID())
+				err := orch.StopPipeline(ctx, o.ActivePipelineID())
 				if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
-					log.Error("pipeline shutdown error", slog.Any("error", err))
+					log.Error("pipeline stop error", slog.Any("error", err))
 				}
 				wg.Done()
 			default:

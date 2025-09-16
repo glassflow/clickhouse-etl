@@ -57,8 +57,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	defer func() {
 		if err != nil {
 			d.log.Info("pipeline setup failed; cleaning up pipeline")
-			//nolint: errcheck // ignore error on failed pipeline shutdown
-			go d.ShutdownPipeline(ctx, pi.ID)
+			//nolint: errcheck // ignore error on failed pipeline stop
+			go d.StopPipeline(ctx, pi.ID)
 		}
 	}()
 
@@ -185,8 +185,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	return nil
 }
 
-// ShutdownPipeline implements Orchestrator.
-func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) error {
+// StopPipeline implements Orchestrator.
+func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error {
 	d.m.Lock()
 	defer d.m.Unlock()
 
@@ -194,29 +194,31 @@ func (d *LocalOrchestrator) ShutdownPipeline(_ context.Context, pid string) erro
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
-	// Clear pipeline ID first to stop any pending restart attempts
-	d.id = ""
+	d.log.Info("starting pipeline stop", slog.String("pipeline_id", pid))
 
-	if d.watcherCancel != nil {
-		d.watcherCancel()
-		d.watcherWG.Wait()
-	}
+	// First pause the pipeline if it's running
+	// Check if pipeline is active (has runners)
+	if d.ingestorRunners != nil || d.joinRunner != nil || d.sinkRunner != nil {
+		d.log.Info("pausing pipeline before stop", slog.String("pipeline_id", pid))
 
-	if d.ingestorRunners != nil {
-		for _, runner := range d.ingestorRunners {
-			runner.Shutdown()
+		// Pause the pipeline (graceful shutdown of components)
+		err := d.pausePipelineComponents(ctx, pid)
+		if err != nil {
+			d.log.Error("failed to pause pipeline during stop", slog.Any("error", err))
+			return fmt.Errorf("pause pipeline during stop: %w", err)
 		}
-		d.ingestorRunners = nil
-	}
-	if d.joinRunner != nil {
-		d.joinRunner.Shutdown()
-		d.joinRunner = nil
-	}
-	if d.sinkRunner != nil {
-		d.sinkRunner.Shutdown()
-		d.sinkRunner = nil
+
+		d.log.Info("pipeline paused successfully, proceeding with termination", slog.String("pipeline_id", pid))
 	}
 
+	// Now terminate the pipeline (cleanup resources)
+	err := d.terminatePipelineComponents(ctx, pid)
+	if err != nil {
+		d.log.Error("failed to terminate pipeline during stop", slog.Any("error", err))
+		return fmt.Errorf("terminate pipeline during stop: %w", err)
+	}
+
+	d.log.Info("pipeline stop completed successfully", slog.String("pipeline_id", pid))
 	return nil
 }
 
@@ -238,6 +240,17 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 		d.watcherCancel = nil
 	}
 
+	err := d.pausePipelineComponents(ctx, pid)
+	if err != nil {
+		return err
+	}
+
+	d.log.Info("pipeline paused successfully", slog.String("pipeline_id", pid))
+	return nil
+}
+
+// pausePipelineComponents gracefully shuts down pipeline components in order
+func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context, pid string) error {
 	// Shutdown components sequentially: Ingestor -> Join -> Sink
 	// This ensures no data loss by processing all messages in order
 
@@ -270,7 +283,20 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 		d.log.Debug("sink runner stopped")
 	}
 
-	d.log.Info("pipeline paused successfully", slog.String("pipeline_id", pid))
+	return nil
+}
+
+// terminatePipelineComponents cleans up pipeline resources
+func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid string) error {
+	// Clear pipeline ID first to stop any pending restart attempts
+	d.id = ""
+
+	// Clean up runner references (components are already shut down from pause)
+	// We don't need to call Shutdown() again since pausePipelineComponents already did that
+	d.ingestorRunners = nil
+	d.joinRunner = nil
+	d.sinkRunner = nil
+
 	return nil
 }
 
@@ -332,9 +358,25 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 	return nil
 }
 
-// ShutdownPipeline implements Orchestrator.
+// TerminatePipeline implements Orchestrator.
 func (d *LocalOrchestrator) TerminatePipeline(ctx context.Context, pid string) error {
-	return d.ShutdownPipeline(ctx, pid)
+	d.m.Lock()
+	defer d.m.Unlock()
+
+	if d.id != pid {
+		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
+	}
+
+	d.log.Info("terminating pipeline", slog.String("pipeline_id", pid))
+
+	// Use the helper method to terminate components
+	err := d.terminatePipelineComponents(ctx, pid)
+	if err != nil {
+		return err
+	}
+
+	d.log.Info("pipeline terminated successfully", slog.String("pipeline_id", pid))
+	return nil
 }
 
 func (d *LocalOrchestrator) ActivePipelineID() string {

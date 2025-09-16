@@ -29,7 +29,7 @@ func (m *mockOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipeli
 	return nil
 }
 
-func (m *mockOrchestrator) ShutdownPipeline(ctx context.Context, pid string) error {
+func (m *mockOrchestrator) StopPipeline(ctx context.Context, pid string) error {
 	return nil
 }
 

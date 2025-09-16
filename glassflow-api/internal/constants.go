@@ -26,6 +26,8 @@ const (
 	PipelineStatusTerminating = "Terminating"
 	PipelineStatusTerminated  = "Terminated"
 	PipelineStatusFailed      = "Failed"
+	PipelineStatusStopping    = "Stopping"
+	PipelineStatusStopped     = "Stopped"
 
 	// Consumer group offset constants
 	InitialOffsetEarliest = "earliest"

@@ -39,6 +39,11 @@ func (m *MockPipelineManager) DeletePipeline(ctx context.Context, pid string) er
 	return args.Error(0)
 }
 
+func (m *MockPipelineManager) StopPipeline(ctx context.Context, pid string) error {
+	args := m.Called(ctx, pid)
+	return args.Error(0)
+}
+
 func (m *MockPipelineManager) TerminatePipeline(ctx context.Context, pid string) error {
 	args := m.Called(ctx, pid)
 	return args.Error(0)

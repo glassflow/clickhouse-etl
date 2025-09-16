@@ -147,10 +147,10 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 	return nil
 }
 
-// ShutdownPipeline implements Orchestrator.
-func (k *K8sOrchestrator) ShutdownPipeline(_ context.Context, _ string) error {
+// StopPipeline implements Orchestrator.
+func (k *K8sOrchestrator) StopPipeline(_ context.Context, _ string) error {
 	return service.ErrNotImplemented
-	// annotate deletion-type: shutdown
+	// annotate deletion-type: stop
 }
 
 func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID string) error {

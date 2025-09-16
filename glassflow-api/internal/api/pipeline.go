@@ -50,7 +50,7 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
+func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
@@ -63,11 +63,11 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.pipelineManager.DeletePipeline(r.Context(), id)
+	err := h.pipelineManager.StopPipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotFound):
-			jsonError(w, http.StatusNotFound, "no active pipeline with given id to shutdown", nil)
+			jsonError(w, http.StatusNotFound, "no active pipeline with given id to stop", nil)
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
@@ -76,7 +76,7 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("pipeline shutdown")
+	h.log.Info("pipeline stop")
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -12,7 +12,7 @@ import (
 type Orchestrator interface {
 	GetType() string
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
-	ShutdownPipeline(ctx context.Context, pid string) error
+	StopPipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
 	PausePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
@@ -33,6 +33,7 @@ type PipelineManager interface {
 	TerminatePipeline(ctx context.Context, pid string) error
 	PausePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
+	StopPipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
@@ -95,15 +96,16 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 
 // DeletePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) error {
-	// TODO: change this to match with implementation for k8s orchestrator
-	err := p.orchestrator.ShutdownPipeline(ctx, pid)
+	// TODO: delete pipeline will remove it from NATS, seperate PR will be created for this
+
+	err := p.orchestrator.StopPipeline(ctx, pid)
 	if err != nil {
-		return fmt.Errorf("shutdown pipeline: %w", err)
+		return fmt.Errorf("stop pipeline: %w", err)
 	}
 
 	err = p.db.DeletePipeline(ctx, pid)
 	if err != nil {
-		return fmt.Errorf("shutdown pipeline: %w", err)
+		return fmt.Errorf("delete pipeline: %w", err)
 	}
 
 	return nil
@@ -314,6 +316,60 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 			return fmt.Errorf("update pipeline status: %w", err)
 		}
 		return nil
+	}
+
+	return nil
+}
+
+// StopPipeline implements PipelineManager.
+func (p *PipelineManagerImpl) StopPipeline(ctx context.Context, pid string) error {
+	// Get current pipeline to update status
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline failed for stop: %w", err)
+	}
+
+	// Check if pipeline can be stopped - only allow from Running state
+	if pipeline.Status.OverallStatus == internal.PipelineStatusStopped {
+		return fmt.Errorf("pipeline is already stopped")
+	}
+	if pipeline.Status.OverallStatus != internal.PipelineStatusRunning {
+		return fmt.Errorf("pipeline can only be stopped from Running state, current state: %s", pipeline.Status.OverallStatus)
+	}
+
+	// Set status to Stopping
+	pipeline.Status.OverallStatus = internal.PipelineStatusStopping
+
+	// Update status in database
+	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status to stopping: %w", err)
+	}
+
+	// Stop the pipeline (pause + terminate)
+	err = p.orchestrator.StopPipeline(ctx, pid)
+	if err != nil {
+		// For Docker orchestrator, mark as failed if stop fails
+		if p.orchestrator.GetType() == "local" {
+			pipeline.Status.OverallStatus = internal.PipelineStatusFailed
+			updateErr := p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+			if updateErr != nil {
+				return fmt.Errorf("stop pipeline failed and status update failed: %w, %w", err, updateErr)
+			}
+		}
+		return fmt.Errorf("stop pipeline: %w", err)
+	}
+
+	// Set status to Stopped
+	pipeline.Status.OverallStatus = internal.PipelineStatusStopped
+
+	// Update status in database
+	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	if err != nil {
+		return fmt.Errorf("update pipeline status to stopped: %w", err)
 	}
 
 	return nil
