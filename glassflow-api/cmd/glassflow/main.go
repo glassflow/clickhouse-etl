@@ -32,7 +32,7 @@ import (
 
 type config struct {
 	LogFormat    string     `default:"json" split_words:"true"`
-	LogLevel     slog.Level `default:"debug" split_words:"true"`
+	LogLevel     slog.Level `default:"info" split_words:"true"`
 	LogAddSource bool       `default:"false" split_words:"true"`
 	LogFilePath  string     `split_words:"true"`
 
