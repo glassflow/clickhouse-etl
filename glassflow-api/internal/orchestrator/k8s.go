@@ -119,6 +119,9 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 		Object: map[string]any{
 			"metadata": map[string]any{
 				"name": cfg.ID,
+				"annotations": map[string]any{
+					"pipeline.etl.glassflow.io/create": "true",
+				},
 			},
 			"spec": specMap,
 		},
@@ -223,8 +226,8 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		annotations = make(map[string]string)
 	}
 
-	// TODO - replace with annotation constant from operator:glassflow-cloud branch
-	annotations["pipeline.etl.glassflow.io/deletion-type"] = "terminate"
+	// Add terminate annotation
+	annotations["pipeline.etl.glassflow.io/terminate"] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the annotation
