@@ -298,6 +298,21 @@ export const generateApiConfig = ({
       }
     }
 
+    if (kafkaStore?.authMethod === 'SASL/GSSAPI') {
+      config.source.connection_params = {
+        ...config.source.connection_params,
+        mechanism: 'GSSAPI',
+        principal: kafkaStore.saslGssapi.kerberosPrincipal,
+        kerberosKeytab: kafkaStore.saslGssapi.kerberosKeytab,
+        kerberosRealm: kafkaStore.saslGssapi.kerberosRealm,
+        kdc: kafkaStore.saslGssapi.kdc,
+        serviceName: kafkaStore.saslGssapi.serviceName,
+        krb5Config: kafkaStore.saslGssapi.krb5Config,
+        useTicketCache: kafkaStore.saslGssapi.useTicketCache,
+        ticketCachePath: kafkaStore.saslGssapi.ticketCachePath,
+      }
+    }
+
     return config
   } catch (error) {
     console.error('Error generating API config:', error)

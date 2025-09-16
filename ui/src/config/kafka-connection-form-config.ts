@@ -107,6 +107,14 @@ export const KafkaFormConfig = {
         required: 'Kerberos Keytab is required',
         type: 'textarea',
       },
+      serviceName: {
+        name: 'saslGssapi.serviceName',
+        label: 'Kerberos Service Name',
+        placeholder: 'Enter kerberos service name',
+        optional: 'Kerberos Service Name is optional',
+        type: 'text',
+        defaultValue: 'kafka',
+      },
       kerberosRealm: {
         name: 'saslGssapi.kerberosRealm',
         label: 'Kerberos Realm',
@@ -120,14 +128,6 @@ export const KafkaFormConfig = {
         placeholder: 'Enter kerberos kdc',
         optional: 'Kerberos KDC is optional',
         type: 'text',
-      },
-      serviceName: {
-        name: 'saslGssapi.serviceName',
-        label: 'Kerberos Service Name',
-        placeholder: 'Enter kerberos service name',
-        optional: 'Kerberos Service Name is optional',
-        type: 'text',
-        defaultValue: 'kafka',
       },
       krb5Config: {
         name: 'saslGssapi.krb5Config',
@@ -450,6 +450,12 @@ export const KafkaFormDefaultValues = {
   saslGssapi: {
     kerberosPrincipal: '',
     kerberosKeytab: '',
+    kerberosRealm: '',
+    kdc: '',
+    serviceName: 'kafka',
+    krb5Config: '',
+    useTicketCache: false,
+    ticketCachePath: '',
   },
   saslOauthbearer: {
     oauthBearerToken: '',
