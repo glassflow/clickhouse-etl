@@ -148,9 +148,58 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 }
 
 // StopPipeline implements Orchestrator.
-func (k *K8sOrchestrator) StopPipeline(_ context.Context, _ string) error {
-	return service.ErrNotImplemented
-	// annotate deletion-type: stop
+func (k *K8sOrchestrator) StopPipeline(ctx context.Context, pipelineID string) error {
+	k.log.Info("stopping k8s pipeline", slog.String("pipeline_id", pipelineID))
+
+	// Get the pipeline CRD
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	// Check current status - only running pipelines can be stopped
+	status, exists, err := unstructured.NestedString(customResource.Object, "status")
+	if err != nil {
+		return fmt.Errorf("get pipeline status: %w", err)
+	}
+	if exists {
+		if status == "Stopped" {
+			k.log.Info("pipeline already stopped", slog.String("pipeline_id", pipelineID))
+			return nil
+		}
+		if status != "Running" {
+			return fmt.Errorf("only running pipelines can be stopped, current status: %s", status)
+		}
+	}
+
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// Add stop annotation
+	annotations["pipeline.etl.glassflow.io/stop"] = "true"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the stop annotation
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update pipeline CRD with stop annotation: %w", err)
+	}
+
+	k.log.Info("requested stop of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	return nil
 }
 
 func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID string) error {
