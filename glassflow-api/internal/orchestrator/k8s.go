@@ -240,34 +240,6 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		return fmt.Errorf("update pipeline CRD with termination annotation: %w", err)
 	}
 
-	// Now delete the resource
-	err = k.client.Resource(schema.GroupVersionResource{
-		Group:    k.customResource.APIGroup,
-		Version:  k.customResource.Version,
-		Resource: k.customResource.Resource,
-	}).Namespace(k.namespace).Delete(ctx, pipelineID, metav1.DeleteOptions{})
-	if err != nil {
-		return fmt.Errorf("delete pipeline CRD: %w", err)
-	}
-
-	// get resource to check if marked for deletion
-	customResource, err = k.client.Resource(schema.GroupVersionResource{
-		Group:    k.customResource.APIGroup,
-		Version:  k.customResource.Version,
-		Resource: k.customResource.Resource,
-	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("get pipeline CRD: %w", err)
-	}
-
-	if customResource.GetDeletionTimestamp().IsZero() {
-		k.log.Error("error deleting pipeline",
-			slog.String("pipeline_id", pipelineID),
-			slog.Any(" deletion_timestamp", customResource.GetDeletionTimestamp()),
-		)
-		return fmt.Errorf("failed to send pipeline: %s termination to operator", pipelineID)
-	}
-
 	k.log.Info("requested termination of k8s pipeline",
 		slog.String("pipeline_id", pipelineID),
 		slog.Any(" deletion_timestamp", customResource.GetDeletionTimestamp()),
