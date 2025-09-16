@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -163,8 +165,60 @@ func (n *NATSClient) GetKeyValueStore(ctx context.Context, storeName string) (je
 	return kv, nil
 }
 
+// GetPipelineConfig retrieves a pipeline configuration from NATS KV store
+func (n *NATSClient) GetPipelineConfig(ctx context.Context, pipelineID string, kvStoreName string) (*models.PipelineConfig, error) {
+	// Get the pipeline KV store
+	kv, err := n.GetKeyValueStore(ctx, kvStoreName)
+	if err != nil {
+		return nil, fmt.Errorf("get pipeline kv store: %w", err)
+	}
+
+	// Get the pipeline config entry
+	entry, err := kv.Get(ctx, pipelineID)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return nil, fmt.Errorf("pipeline %s not found", pipelineID)
+		}
+		return nil, fmt.Errorf("get pipeline config from kv: %w", err)
+	}
+
+	// Unmarshal the pipeline config
+	var config models.PipelineConfig
+	err = json.Unmarshal(entry.Value(), &config)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
+	}
+
+	return &config, nil
+}
+
 func (n *NATSClient) JetStream() jetstream.JetStream {
 	return n.js
+}
+
+func (n *NATSClient) DeleteStream(ctx context.Context, streamName string) error {
+	err := n.js.DeleteStream(ctx, streamName)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			// Stream already deleted, this is not an error
+			return nil
+		}
+		return fmt.Errorf("delete stream %s: %w", streamName, err)
+	}
+	return nil
+}
+
+func (n *NATSClient) DeleteKeyValueStore(ctx context.Context, storeName string) error {
+	err := n.js.DeleteKeyValue(ctx, storeName)
+	if err != nil {
+		// Check if it's a "not found" error (store already deleted)
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
+			// KV store already deleted, this is not an error
+			return nil
+		}
+		return fmt.Errorf("delete key value store %s: %w", storeName, err)
+	}
+	return nil
 }
 
 func (n *NATSClient) Close() error {

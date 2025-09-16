@@ -323,7 +323,7 @@ func (p *PipelineSteps) setupPipelineManager() error {
 		return fmt.Errorf("create nats pipeline storage: %w", err)
 	}
 
-	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
+	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log, "glassflow-pipelines")
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
 	p.pipelineManager = service.NewPipelineManager(

@@ -27,16 +27,21 @@ type LocalOrchestrator struct {
 
 	watcherCancel context.CancelFunc
 	watcherWG     sync.WaitGroup
+
+	// Environment configuration
+	pipelineKVStoreName string
 }
 
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
 	log *slog.Logger,
+	pipelineKVStoreName string,
 ) service.Orchestrator {
 	//nolint: exhaustruct // runners will be created on setup
 	return &LocalOrchestrator{
-		nc:  nc,
-		log: log,
+		nc:                  nc,
+		log:                 log,
+		pipelineKVStoreName: pipelineKVStoreName,
 	}
 }
 
@@ -202,7 +207,7 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 		d.log.Info("pausing pipeline before stop", slog.String("pipeline_id", pid))
 
 		// Pause the pipeline (graceful shutdown of components)
-		err := d.pausePipelineComponents(ctx, pid)
+		err := d.pausePipelineComponents()
 		if err != nil {
 			d.log.Error("failed to pause pipeline during stop", slog.Any("error", err))
 			return fmt.Errorf("pause pipeline during stop: %w", err)
@@ -240,7 +245,7 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 		d.watcherCancel = nil
 	}
 
-	err := d.pausePipelineComponents(ctx, pid)
+	err := d.pausePipelineComponents()
 	if err != nil {
 		return err
 	}
@@ -250,7 +255,7 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 }
 
 // pausePipelineComponents gracefully shuts down pipeline components in order
-func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context, pid string) error {
+func (d *LocalOrchestrator) pausePipelineComponents() error {
 	// Shutdown components sequentially: Ingestor -> Join -> Sink
 	// This ensures no data loss by processing all messages in order
 
@@ -297,6 +302,77 @@ func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid
 	d.joinRunner = nil
 	d.sinkRunner = nil
 
+	// Retrieve pipeline config from NATS KV store for cleanup
+	cfg, err := d.nc.GetPipelineConfig(ctx, pid, d.pipelineKVStoreName)
+	if err != nil {
+		d.log.Error("failed to get pipeline config for cleanup", slog.Any("error", err))
+		// Don't return error here as components are already stopped
+		// Just log the error and continue without NATS cleanup
+		return nil
+	}
+
+	// Clean up NATS streams and KV stores
+	err = d.cleanupNATSResources(ctx, cfg)
+	if err != nil {
+		d.log.Error("failed to cleanup NATS resources", slog.Any("error", err))
+		// Don't return error here as components are already stopped
+		// Just log the error and continue
+	}
+
+	return nil
+}
+
+// cleanupNATSResources cleans up NATS streams and KV stores for a pipeline
+func (d *LocalOrchestrator) cleanupNATSResources(ctx context.Context, pipeline *models.PipelineConfig) error {
+	d.log.Info("cleaning up NATS resources for pipeline", slog.String("pipeline_id", pipeline.ID))
+
+	// Clean up DLQ stream
+	dlqStreamName := models.GetDLQStreamName(pipeline.ID)
+	d.log.Debug("deleting DLQ stream", slog.String("stream", dlqStreamName))
+	err := d.nc.DeleteStream(ctx, dlqStreamName)
+	if err != nil {
+		d.log.Error("failed to delete DLQ stream", slog.Any("error", err), slog.String("stream", dlqStreamName))
+		// Continue with other cleanup even if this fails
+	}
+
+	// Clean up ingestion streams
+	for _, topic := range pipeline.Ingestor.KafkaTopics {
+		if topic.OutputStreamID != "" {
+			d.log.Debug("deleting ingestion stream", slog.String("stream", topic.OutputStreamID))
+			err := d.nc.DeleteStream(ctx, topic.OutputStreamID)
+			if err != nil {
+				d.log.Error("failed to delete ingestion stream", slog.Any("error", err), slog.String("stream", topic.OutputStreamID))
+				// Continue with other cleanup even if this fails
+			}
+		}
+	}
+
+	// Clean up join resources if join is enabled
+	if pipeline.Join.Enabled {
+		// Clean up join output stream
+		if pipeline.Join.OutputStreamID != "" {
+			d.log.Debug("deleting join output stream", slog.String("stream", pipeline.Join.OutputStreamID))
+			err := d.nc.DeleteStream(ctx, pipeline.Join.OutputStreamID)
+			if err != nil {
+				d.log.Error("failed to delete join output stream", slog.Any("error", err), slog.String("stream", pipeline.Join.OutputStreamID))
+				// Continue with other cleanup even if this fails
+			}
+		}
+
+		// Clean up join KV stores
+		for _, source := range pipeline.Join.Sources {
+			if source.StreamID != "" {
+				d.log.Debug("deleting join KV store", slog.String("store", source.StreamID))
+				err := d.nc.DeleteKeyValueStore(ctx, source.StreamID)
+				if err != nil {
+					d.log.Error("failed to delete join KV store", slog.Any("error", err), slog.String("store", source.StreamID))
+					// Continue with other cleanup even if this fails
+				}
+			}
+		}
+	}
+
+	d.log.Info("NATS resources cleanup completed", slog.String("pipeline_id", pipeline.ID))
 	return nil
 }
 
