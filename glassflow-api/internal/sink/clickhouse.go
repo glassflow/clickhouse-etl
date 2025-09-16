@@ -40,9 +40,10 @@ type ClickHouseSink struct {
 	isInputDrained bool
 	mu             sync.Mutex
 	timer          *time.Timer
-	lastMsg        jetstream.Msg
+	pendingMsgs    []jetstream.Msg // Store messages for batch acknowledgment
 	maxDelayTime   time.Duration
 	maxBatchSize   int
+	batchTimeout   time.Duration // Timeout for batch reading
 	log            *slog.Logger
 }
 
@@ -79,38 +80,46 @@ func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Cons
 		isInputDrained: false,
 		mu:             sync.Mutex{},
 		timer:          nil,
-		lastMsg:        nil,
+		pendingMsgs:    make([]jetstream.Msg, 0, sinkCfg.Batch.MaxBatchSize),
 		maxDelayTime:   maxDelayTime,
 		maxBatchSize:   sinkCfg.Batch.MaxBatchSize,
+		batchTimeout:   maxDelayTime, // Use same timeout as ClickHouse batch delay
 		log:            log,
 	}, nil
 }
 
 func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
-	if ch.lastMsg == nil || ch.batch.Size() == 0 {
+	if len(ch.pendingMsgs) == 0 || ch.batch.Size() == 0 {
 		ch.log.Debug("No messages to send")
 		return nil
 	}
 
+	// Send batch to ClickHouse
 	err := ch.batch.Send(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to send the batch: %w", err)
 	}
-	ch.log.Debug("Batch sent to clickhouse")
+	ch.log.Debug("Batch sent to clickhouse", slog.Int("message_count", len(ch.pendingMsgs)))
 
-	err = ch.lastMsg.Ack()
-	if err != nil {
-		return fmt.Errorf("failed to ack message: %w", err)
+	// Acknowledge all messages in the batch
+	ackCount := 0
+	for _, msg := range ch.pendingMsgs {
+		if err := msg.Ack(); err != nil {
+			ch.log.Error("Failed to ack message", slog.Any("error", err))
+			// Continue with other messages even if one fails
+		} else {
+			ackCount++
+		}
 	}
 
-	mdata, err := ch.lastMsg.Metadata()
-	if err != nil {
-		ch.log.Error("failed to get message metadata", slog.Any("error", err))
-	} else {
-		ch.log.Info("Message acked by JetStream", slog.Any("stream", mdata.Sequence.Stream))
-	}
+	ch.log.Info("Batch processing completed successfully",
+		slog.Int("total_messages", len(ch.pendingMsgs)),
+		slog.Int("acked_messages", ackCount),
+		slog.Int("clickhouse_batch_size", ch.batch.Size()),
+		slog.String("status", "success"))
 
-	ch.lastMsg = nil
+	// Clear pending messages
+	ch.pendingMsgs = ch.pendingMsgs[:0]
 
 	return nil
 }
@@ -131,9 +140,86 @@ func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) erro
 		return fmt.Errorf("failed to append values to the batch: %w", err)
 	}
 
-	ch.lastMsg = msg
+	// Add message to pending list for batch acknowledgment
+	ch.pendingMsgs = append(ch.pendingMsgs, msg)
 
-	if ch.batch.Size() >= ch.maxBatchSize {
+	return nil
+}
+
+func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
+	// Fetch a batch of messages from NATS
+	ch.log.Debug("Fetching batch from NATS",
+		slog.Int("max_batch_size", ch.maxBatchSize),
+		slog.Duration("timeout", ch.batchTimeout))
+
+	msgBatch, err := ch.streamCon.Fetch(ch.maxBatchSize, ch.batchTimeout)
+	if err != nil {
+		if errors.Is(err, nats.ErrTimeout) {
+			ch.log.Debug("NATS fetch timeout - no messages available",
+				slog.Duration("timeout", ch.batchTimeout))
+			if ch.isClosed {
+				ch.isInputDrained = true
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to fetch messages: %w", err)
+	}
+
+	// Check if we got any messages
+	if msgBatch == nil {
+		ch.log.Debug("No messages available in batch")
+		return nil
+	}
+
+	// Process each message in the batch
+	processedCount := 0
+	duplicateCount := 0
+	totalMessages := 0
+
+	for msg := range msgBatch.Messages() {
+		if msg == nil {
+			break
+		}
+		totalMessages++
+
+		err = ch.handleMsg(ctx, msg)
+		if err != nil {
+			if errors.Is(err, batch.ErrAlreadyExists) {
+				duplicateCount++
+				ch.log.Debug("Skipping duplicate message")
+				continue // Skip duplicate messages
+			}
+			return fmt.Errorf("failed to handle message: %w", err)
+		}
+		processedCount++
+	}
+
+	// Check for errors in the message batch
+	if err := msgBatch.Error(); err != nil {
+		return fmt.Errorf("error in message batch: %w", err)
+	}
+
+	// Only log success if we actually got messages
+	if totalMessages > 0 {
+		ch.log.Info("Successfully fetched batch from NATS",
+			slog.Int("message_count", totalMessages),
+			slog.Int("max_batch_size", ch.maxBatchSize),
+			slog.Duration("timeout", ch.batchTimeout))
+	}
+
+	ch.log.Debug("Batch processing completed",
+		slog.Int("total_messages", totalMessages),
+		slog.Int("processed_messages", processedCount),
+		slog.Int("duplicate_messages", duplicateCount),
+		slog.Int("current_batch_size", ch.batch.Size()),
+		slog.Int("pending_messages", len(ch.pendingMsgs)))
+
+	// If we have messages and batch is full, send it
+	if len(ch.pendingMsgs) > 0 && ch.batch.Size() >= ch.maxBatchSize {
+		ch.log.Info("Batch size reached, sending to ClickHouse",
+			slog.Int("batch_size", ch.batch.Size()),
+			slog.Int("max_batch_size", ch.maxBatchSize))
+
 		err := ch.sendBatchAndAck(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to send the batch and ack: %w", err)
@@ -143,57 +229,55 @@ func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) erro
 	return nil
 }
 
-func (ch *ClickHouseSink) getMsg(ctx context.Context) error {
-	msg, err := ch.streamCon.Next()
-	switch {
-	case errors.Is(err, nats.ErrTimeout):
-		if ch.isClosed {
-			ch.isInputDrained = true
-		}
-		return nil
-	case err != nil:
-		return fmt.Errorf("failed to get next message: %w", err)
-	}
-
-	err = ch.handleMsg(ctx, msg)
-	if err != nil {
-		if errors.Is(err, batch.ErrAlreadyExists) {
-			return nil
-		}
-		return fmt.Errorf("failed to handle message: %w", err)
-	}
-
-	return nil
-}
-
 func (ch *ClickHouseSink) Start(ctx context.Context) error {
-	ch.log.Info("ClickHouse sink started")
+	ch.log.Info("ClickHouse sink started with batch processing",
+		slog.Int("max_batch_size", ch.maxBatchSize),
+		slog.Duration("nats_batch_timeout", ch.batchTimeout),
+		slog.Duration("clickhouse_timer_interval", ch.maxDelayTime),
+		slog.String("mode", "batched_nats_reading"),
+		slog.String("note", "NATS and ClickHouse use same batch size and timeout values"))
 	defer ch.log.Info("ClickHouse sink stopped")
 	defer ch.clearConn()
 
 	ch.timer = time.NewTimer(ch.maxDelayTime)
 
 	for {
+		// Primary mechanism: Fetch messages from NATS with timeout
+		// This will wait for up to batchTimeout (same as maxDelayTime)
+		err := ch.getMsgBatch(ctx)
+		if err != nil {
+			ch.log.Error("error on exporting data", slog.Any("error", err))
+			// Add a small delay to prevent tight loop on errors
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		// Check if we should shutdown
+		if ch.isClosed && ch.isInputDrained {
+			// Send any remaining messages before shutdown
+			err := ch.sendBatchAndAck(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to send the batch and ack: %w", err)
+			}
+			return nil
+		}
+
+		// Check if timer has expired (backup mechanism)
 		select {
 		case <-ch.timer.C:
+			// Timer-based batch flush (backup)
+			ch.log.Info("Timer-based batch flush triggered",
+				slog.Int("pending_messages", len(ch.pendingMsgs)),
+				slog.Int("current_batch_size", ch.batch.Size()),
+				slog.Duration("timer_interval", ch.maxDelayTime))
+
 			err := ch.sendBatchAndAck(ctx)
 			if err != nil {
 				ch.log.Error("error on exporting data", slog.Any("error", err))
 			}
 			ch.timer.Reset(ch.maxDelayTime)
 		default:
-			err := ch.getMsg(ctx)
-			if err != nil {
-				ch.log.Error("error on exporting data", slog.Any("error", err))
-				continue
-			}
-			if ch.isClosed && ch.isInputDrained {
-				err := ch.sendBatchAndAck(ctx)
-				if err != nil {
-					return fmt.Errorf("failed to send the batch and ack: %w", err)
-				}
-				return nil
-			}
+			// Timer hasn't expired, continue with next NATS fetch
 		}
 	}
 }
