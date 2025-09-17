@@ -114,14 +114,11 @@ func (c *NatsConsumer) Next() (jetstream.Msg, error) {
 
 func (c *NatsConsumer) Fetch(maxMsgs int, maxWait time.Duration) (jetstream.MessageBatch, error) {
 	// Use the consumer's built-in Fetch method for batch retrieval
-	// Set the max wait time, use the shorter of the two timeouts
-	waitTime := maxWait
-	if c.expireTimeout < maxWait {
-		waitTime = c.expireTimeout
-	}
+	// For batch fetching, use the requested timeout directly (don't limit to expireTimeout)
+	// The expireTimeout is for individual message fetching, not batch fetching
 
 	// Use NATS JetStream's built-in Fetch method for efficient batch retrieval
-	msgs, err := c.Consumer.Fetch(maxMsgs, jetstream.FetchMaxWait(waitTime))
+	msgs, err := c.Consumer.Fetch(maxMsgs, jetstream.FetchMaxWait(maxWait))
 	if err != nil {
 		if errors.Is(err, jetstream.ErrNoMessages) {
 			// No more messages available, return nil
