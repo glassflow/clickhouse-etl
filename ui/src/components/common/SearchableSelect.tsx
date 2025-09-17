@@ -40,6 +40,7 @@ export function SearchableSelect({
   const listRef = useRef<HTMLDivElement>(null)
   const [filteredOptions, setFilteredOptions] = useState<string[]>([])
   const [availableKeys, setAvailableKeys] = useState<string[]>([])
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null)
 
   const isControlled = controlledOpen !== undefined
   const open = isControlled ? controlledOpen : uncontrolledOpen
@@ -74,6 +75,34 @@ export function SearchableSelect({
       setHighlightedIndex(0)
     }
   }, [search, availableOptions.length])
+
+  // Update dropdown position when container position changes
+  useEffect(() => {
+    if (!open || !containerRef.current) return
+
+    const updatePosition = () => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      setDropdownPosition({
+        top: rect.bottom,
+        left: rect.left,
+        width: rect.width,
+      })
+    }
+
+    // Initial position
+    updatePosition()
+
+    // Update position on scroll and resize
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [open])
 
   // Handle clicks outside to close the dropdown
   useEffect(() => {
@@ -238,14 +267,15 @@ export function SearchableSelect({
       {open &&
         !disabled &&
         typeof window !== 'undefined' &&
+        dropdownPosition &&
         createPortal(
           <div
             id="searchable-select-dropdown"
             className="fixed z-50 shadow-md rounded-md mt-1 border border-border overflow-hidden select-content-custom bg-[#1e1e1f]"
             style={{
-              width: containerRef.current?.getBoundingClientRect().width + 'px',
-              top: (containerRef.current?.getBoundingClientRect().bottom || 0) + 'px',
-              left: (containerRef.current?.getBoundingClientRect().left || 0) + 'px',
+              width: dropdownPosition.width + 'px',
+              top: dropdownPosition.top + 'px',
+              left: dropdownPosition.left + 'px',
             }}
             role="listbox"
           >

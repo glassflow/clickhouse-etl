@@ -61,6 +61,9 @@ export function DualSearchableSelect({
   const [filteredPrimaryOptions, setFilteredPrimaryOptions] = useState<string[]>([])
   const [filteredSecondaryOptions, setFilteredSecondaryOptions] = useState<string[]>([])
   const [dropdownPosition, setDropdownPosition] = useState<'above' | 'below'>('below')
+  const [dropdownCoordinates, setDropdownCoordinates] = useState<{ top: number; left: number; width: number } | null>(
+    null,
+  )
 
   // Update search when selectedOption changes
   useEffect(() => {
@@ -101,7 +104,15 @@ export function DualSearchableSelect({
       const spaceNeeded = dropdownHeight + 20 // Add some padding
 
       // Position above if there's not enough space below
-      setDropdownPosition(spaceBelow < spaceNeeded ? 'above' : 'below')
+      const position = spaceBelow < spaceNeeded ? 'above' : 'below'
+      setDropdownPosition(position)
+
+      // Update coordinates for proper positioning
+      setDropdownCoordinates({
+        top: rect.bottom,
+        left: rect.left,
+        width: rect.width,
+      })
     }
 
     // Initial position
@@ -224,80 +235,86 @@ export function DualSearchableSelect({
         </div>
       </div>
 
-      {open && !disabled && (
+      {open && !disabled && dropdownCoordinates && (
         <div
-          className={cn('absolute z-50 w-full', dropdownPosition === 'above' ? 'bottom-full mb-1' : 'top-full mt-1')}
+          className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex"
+          style={{
+            top:
+              dropdownPosition === 'above'
+                ? dropdownCoordinates.top - 300 - 4 + 'px' // 300px dropdown height + 4px margin
+                : dropdownCoordinates.top + 4 + 'px', // 4px margin
+            left: dropdownCoordinates.left + 'px',
+            width: Math.max(500, dropdownCoordinates.width) + 'px',
+          }}
         >
-          <div className="min-w-[500px] shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex">
-            {/* Primary Options */}
-            <div className="flex-1 p-4">
-              <div>Left Topic</div>
-              {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
+          {/* Primary Options */}
+          <div className="flex-1 p-4">
+            <div>Left Topic</div>
+            {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
                 {primaryLabel}
               </div> */}
-              <div className="max-h-[300px] overflow-auto p-1" ref={primaryListRef}>
-                {filteredPrimaryOptions.length === 0 ? (
-                  <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredPrimaryOptions.map((option, index) => (
-                      <div
-                        key={option}
-                        className={cn(
-                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
-                          'hover:bg-accent hover:text-accent-foreground',
-                          selectedOption === option && 'bg-accent/50',
-                          highlightedIndex.list === 'primary' && highlightedIndex.index === index && 'bg-primary/20',
-                        )}
-                        onClick={() => {
-                          onSelect(option, 'primary')
-                          setOpen(false)
-                        }}
-                        onMouseEnter={() => setHighlightedIndex({ list: 'primary', index })}
-                      >
-                        <span className="flex-1">{option}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div className="max-h-[300px] overflow-auto p-1" ref={primaryListRef}>
+              {filteredPrimaryOptions.length === 0 ? (
+                <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredPrimaryOptions.map((option, index) => (
+                    <div
+                      key={option}
+                      className={cn(
+                        'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        selectedOption === option && 'bg-accent/50',
+                        highlightedIndex.list === 'primary' && highlightedIndex.index === index && 'bg-primary/20',
+                      )}
+                      onClick={() => {
+                        onSelect(option, 'primary')
+                        setOpen(false)
+                      }}
+                      onMouseEnter={() => setHighlightedIndex({ list: 'primary', index })}
+                    >
+                      <span className="flex-1">{option}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          </div>
 
-            {/* Vertical Separator */}
-            <div className="w-px bg-white/10 my-4" />
+          {/* Vertical Separator */}
+          <div className="w-px bg-white/10 my-4" />
 
-            {/* Secondary Options */}
-            <div className="flex-1 p-4">
-              <div>Right Topic</div>
-              {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
+          {/* Secondary Options */}
+          <div className="flex-1 p-4">
+            <div>Right Topic</div>
+            {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
                 {secondaryLabel}:
               </div> */}
-              <div className="max-h-[300px] overflow-auto p-1" ref={secondaryListRef}>
-                {filteredSecondaryOptions.length === 0 ? (
-                  <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredSecondaryOptions.map((option, index) => (
-                      <div
-                        key={option}
-                        className={cn(
-                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
-                          'hover:bg-accent hover:text-accent-foreground',
-                          selectedOption === option && 'bg-accent/50',
-                          highlightedIndex.list === 'secondary' && highlightedIndex.index === index && 'bg-primary/20',
-                        )}
-                        onClick={() => {
-                          onSelect(option, 'secondary')
-                          setOpen(false)
-                        }}
-                        onMouseEnter={() => setHighlightedIndex({ list: 'secondary', index })}
-                      >
-                        <span className="flex-1">{option}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div className="max-h-[300px] overflow-auto p-1" ref={secondaryListRef}>
+              {filteredSecondaryOptions.length === 0 ? (
+                <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredSecondaryOptions.map((option, index) => (
+                    <div
+                      key={option}
+                      className={cn(
+                        'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        selectedOption === option && 'bg-accent/50',
+                        highlightedIndex.list === 'secondary' && highlightedIndex.index === index && 'bg-primary/20',
+                      )}
+                      onClick={() => {
+                        onSelect(option, 'secondary')
+                        setOpen(false)
+                      }}
+                      onMouseEnter={() => setHighlightedIndex({ list: 'secondary', index })}
+                    >
+                      <span className="flex-1">{option}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
