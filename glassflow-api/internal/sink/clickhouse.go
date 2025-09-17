@@ -146,7 +146,7 @@ func (ch *ClickHouseSink) handleMsg(_ context.Context, msg jetstream.Msg) error 
 }
 
 func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
-	msgBatch, err := ch.streamCon.FetchAwait(ch.maxBatchSize)
+	msgBatch, err := ch.streamCon.FetchNoAwait(ch.maxBatchSize)
 	if err != nil {
 		// error can be ErrNoHeartbeat
 		// TODO: handle this error

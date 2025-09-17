@@ -15,7 +15,7 @@ import (
 type Consumer interface {
 	Next() (jetstream.Msg, error)
 	Fetch(maxMsgs int, maxWait time.Duration) (jetstream.MessageBatch, error)
-	FetchAwait(maxMsgs int) (jetstream.MessageBatch, error)
+	FetchNoAwait(maxMsgs int) (jetstream.MessageBatch, error)
 }
 
 type ConsumerConfig struct {
@@ -127,7 +127,7 @@ func (c *NatsConsumer) Fetch(maxMsgs int, maxWait time.Duration) (jetstream.Mess
 	return msgBatch, nil
 }
 
-func (c *NatsConsumer) FetchAwait(maxMsgs int) (jetstream.MessageBatch, error) {
+func (c *NatsConsumer) FetchNoAwait(maxMsgs int) (jetstream.MessageBatch, error) {
 	msgBatch, err := c.Consumer.FetchNoWait(maxMsgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch NATS messages: %w", err)
