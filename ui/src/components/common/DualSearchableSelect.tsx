@@ -56,6 +56,11 @@ export function DualSearchableSelect({
     } else {
       setUncontrolledOpen(value)
     }
+
+    // Reset placement lock when dropdown closes
+    if (!value) {
+      setInitialPlacement(null)
+    }
   }
 
   const [filteredPrimaryOptions, setFilteredPrimaryOptions] = useState<string[]>([])
@@ -64,6 +69,7 @@ export function DualSearchableSelect({
   const [dropdownCoordinates, setDropdownCoordinates] = useState<{ top: number; left: number; width: number } | null>(
     null,
   )
+  const [initialPlacement, setInitialPlacement] = useState<'above' | 'below' | null>(null)
 
   // Update search when selectedOption changes
   useEffect(() => {
@@ -98,18 +104,50 @@ export function DualSearchableSelect({
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
 
+      // Calculate actual dropdown height based on filtered options
+      const itemHeight = 32 // Approximate height per item (py-1.5 + text + margins)
+      const headerHeight = 40 // Height of "Left Topic" and "Right Topic" headers
+      const padding = 16 // p-4 padding on each side
+      const separatorHeight = 32 // Height of vertical separator with my-4
+
+      const maxPrimaryItems = Math.min(filteredPrimaryOptions.length, 9) // Roughly 300px / 32px
+      const maxSecondaryItems = Math.min(filteredSecondaryOptions.length, 9)
+
+      const primaryHeight = Math.min(
+        filteredPrimaryOptions.length * itemHeight + padding * 2,
+        300, // max-h-[300px] from CSS
+      )
+      const secondaryHeight = Math.min(
+        filteredSecondaryOptions.length * itemHeight + padding * 2,
+        300, // max-h-[300px] from CSS
+      )
+
+      const actualDropdownHeight = Math.max(primaryHeight, secondaryHeight) + headerHeight + padding
+
       const viewportHeight = window.innerHeight
       const spaceBelow = viewportHeight - rect.bottom
-      const dropdownHeight = 300 // Approximate height of the dropdown
-      const spaceNeeded = dropdownHeight + 20 // Add some padding
+      const spaceAbove = rect.top
 
-      // Position above if there's not enough space below
-      const position = spaceBelow < spaceNeeded ? 'above' : 'below'
+      // For initial placement decision, use max possible height to avoid placement changes during filtering
+      const maxPossibleDropdownHeight = 300 + headerHeight + padding // max-h-[300px] + headers + padding
+      const spaceNeeded = maxPossibleDropdownHeight + 20 // Add some padding
+      const margin = 8 // Margin between dropdown and input
+
+      // Determine placement: lock it on first calculation, only recalculate on position changes (not content changes)
+      let position: 'above' | 'below'
+      if (initialPlacement === null) {
+        // First time opening - determine optimal placement using max height
+        position = spaceBelow < spaceNeeded && spaceAbove >= spaceNeeded ? 'above' : 'below'
+        setInitialPlacement(position)
+      } else {
+        // Use locked placement during filtering
+        position = initialPlacement
+      }
       setDropdownPosition(position)
 
       // Update coordinates for proper positioning
       setDropdownCoordinates({
-        top: rect.bottom,
+        top: position === 'above' ? rect.top - actualDropdownHeight - margin : rect.bottom + 4,
         left: rect.left,
         width: rect.width,
       })
@@ -126,7 +164,7 @@ export function DualSearchableSelect({
       window.removeEventListener('scroll', updatePosition, true)
       window.removeEventListener('resize', updatePosition)
     }
-  }, [open])
+  }, [open, filteredPrimaryOptions.length, filteredSecondaryOptions.length])
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -189,8 +227,14 @@ export function DualSearchableSelect({
           placeholder={placeholder}
           value={search}
           onChange={(e) => {
-            setSearch(e.target.value)
+            const value = e.target.value
+            setSearch(value)
             setOpen(true)
+
+            // Reset placement lock when search is cleared to allow repositioning
+            if (value === '') {
+              setInitialPlacement(null)
+            }
           }}
           onClick={() => !disabled && setOpen(true)}
           className={cn(
@@ -235,90 +279,92 @@ export function DualSearchableSelect({
         </div>
       </div>
 
-      {open && !disabled && dropdownCoordinates && (
-        <div
-          className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex"
-          style={{
-            top:
-              dropdownPosition === 'above'
-                ? dropdownCoordinates.top - 300 - 4 + 'px' // 300px dropdown height + 4px margin
-                : dropdownCoordinates.top + 4 + 'px', // 4px margin
-            left: dropdownCoordinates.left + 'px',
-            width: Math.max(500, dropdownCoordinates.width) + 'px',
-          }}
-        >
-          {/* Primary Options */}
-          <div className="flex-1 p-4">
-            <div>Left Topic</div>
-            {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
+      {open &&
+        !disabled &&
+        dropdownCoordinates &&
+        typeof window !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex"
+            style={{
+              top: dropdownCoordinates.top + 'px',
+              left: dropdownCoordinates.left + 'px',
+              width: Math.max(500, dropdownCoordinates.width) + 'px',
+            }}
+          >
+            {/* Primary Options */}
+            <div className="flex-1 p-4">
+              <div>Left Topic</div>
+              {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
                 {primaryLabel}
               </div> */}
-            <div className="max-h-[300px] overflow-auto p-1" ref={primaryListRef}>
-              {filteredPrimaryOptions.length === 0 ? (
-                <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredPrimaryOptions.map((option, index) => (
-                    <div
-                      key={option}
-                      className={cn(
-                        'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
-                        'hover:bg-accent hover:text-accent-foreground',
-                        selectedOption === option && 'bg-accent/50',
-                        highlightedIndex.list === 'primary' && highlightedIndex.index === index && 'bg-primary/20',
-                      )}
-                      onClick={() => {
-                        onSelect(option, 'primary')
-                        setOpen(false)
-                      }}
-                      onMouseEnter={() => setHighlightedIndex({ list: 'primary', index })}
-                    >
-                      <span className="flex-1">{option}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="max-h-[300px] overflow-auto p-1" ref={primaryListRef}>
+                {filteredPrimaryOptions.length === 0 ? (
+                  <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredPrimaryOptions.map((option, index) => (
+                      <div
+                        key={option}
+                        className={cn(
+                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
+                          'hover:bg-accent hover:text-accent-foreground',
+                          selectedOption === option && 'bg-accent/50',
+                          highlightedIndex.list === 'primary' && highlightedIndex.index === index && 'bg-primary/20',
+                        )}
+                        onClick={() => {
+                          onSelect(option, 'primary')
+                          setOpen(false)
+                        }}
+                        onMouseEnter={() => setHighlightedIndex({ list: 'primary', index })}
+                      >
+                        <span className="flex-1">{option}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Vertical Separator */}
-          <div className="w-px bg-white/10 my-4" />
+            {/* Vertical Separator */}
+            <div className="w-px bg-white/10 my-4" />
 
-          {/* Secondary Options */}
-          <div className="flex-1 p-4">
-            <div>Right Topic</div>
-            {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
+            {/* Secondary Options */}
+            <div className="flex-1 p-4">
+              <div>Right Topic</div>
+              {/* <div className="p-2 text-sm font-medium text-muted-foreground border-b border-white/10">
                 {secondaryLabel}:
               </div> */}
-            <div className="max-h-[300px] overflow-auto p-1" ref={secondaryListRef}>
-              {filteredSecondaryOptions.length === 0 ? (
-                <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredSecondaryOptions.map((option, index) => (
-                    <div
-                      key={option}
-                      className={cn(
-                        'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
-                        'hover:bg-accent hover:text-accent-foreground',
-                        selectedOption === option && 'bg-accent/50',
-                        highlightedIndex.list === 'secondary' && highlightedIndex.index === index && 'bg-primary/20',
-                      )}
-                      onClick={() => {
-                        onSelect(option, 'secondary')
-                        setOpen(false)
-                      }}
-                      onMouseEnter={() => setHighlightedIndex({ list: 'secondary', index })}
-                    >
-                      <span className="flex-1">{option}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="max-h-[300px] overflow-auto p-1" ref={secondaryListRef}>
+                {filteredSecondaryOptions.length === 0 ? (
+                  <div className="py-2 px-2 text-sm text-muted-foreground">No options found.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredSecondaryOptions.map((option, index) => (
+                      <div
+                        key={option}
+                        className={cn(
+                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
+                          'hover:bg-accent hover:text-accent-foreground',
+                          selectedOption === option && 'bg-accent/50',
+                          highlightedIndex.list === 'secondary' && highlightedIndex.index === index && 'bg-primary/20',
+                        )}
+                        onClick={() => {
+                          onSelect(option, 'secondary')
+                          setOpen(false)
+                        }}
+                        onMouseEnter={() => setHighlightedIndex({ list: 'secondary', index })}
+                      >
+                        <span className="flex-1">{option}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

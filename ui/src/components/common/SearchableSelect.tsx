@@ -41,6 +41,8 @@ export function SearchableSelect({
   const [filteredOptions, setFilteredOptions] = useState<string[]>([])
   const [availableKeys, setAvailableKeys] = useState<string[]>([])
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [dropdownPlacement, setDropdownPlacement] = useState<'above' | 'below'>('below')
+  const [initialPlacement, setInitialPlacement] = useState<'above' | 'below' | null>(null)
 
   const isControlled = controlledOpen !== undefined
   const open = isControlled ? controlledOpen : uncontrolledOpen
@@ -50,6 +52,11 @@ export function SearchableSelect({
       onOpenChange?.(value)
     } else {
       setUncontrolledOpen(value)
+    }
+
+    // Reset placement lock when dropdown closes
+    if (!value) {
+      setInitialPlacement(null)
     }
   }
 
@@ -84,8 +91,36 @@ export function SearchableSelect({
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
 
+      // Calculate actual dropdown height based on filtered options
+      const itemHeight = 32 // Approximate height per item (py-1.5 + text + margins)
+      const padding = 8 // p-1 padding
+      const actualDropdownHeight = Math.min(
+        filteredOptions.length * itemHeight + padding * 2,
+        200, // max-h-[200px] from CSS
+      )
+
+      const viewportHeight = window.innerHeight
+      const spaceBelow = viewportHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      // For initial placement decision, use max height to avoid placement changes during filtering
+      const maxDropdownHeight = 200
+      const spaceNeeded = maxDropdownHeight + 20 // Add some padding
+
+      // Determine placement: lock it on first calculation, only recalculate on position changes (not content changes)
+      let placement: 'above' | 'below'
+      if (initialPlacement === null) {
+        // First time opening - determine optimal placement using max height
+        placement = spaceBelow < spaceNeeded && spaceAbove >= spaceNeeded ? 'above' : 'below'
+        setInitialPlacement(placement)
+      } else {
+        // Use locked placement during filtering
+        placement = initialPlacement
+      }
+      setDropdownPlacement(placement)
+
       setDropdownPosition({
-        top: rect.bottom,
+        top: placement === 'above' ? rect.top - actualDropdownHeight - 8 : rect.bottom + 4,
         left: rect.left,
         width: rect.width,
       })
@@ -102,7 +137,7 @@ export function SearchableSelect({
       window.removeEventListener('scroll', updatePosition, true)
       window.removeEventListener('resize', updatePosition)
     }
-  }, [open])
+  }, [open, filteredOptions.length])
 
   // Handle clicks outside to close the dropdown
   useEffect(() => {
@@ -199,6 +234,11 @@ export function SearchableSelect({
     setSearch(value)
     setOpen(true)
 
+    // Reset placement lock when search is cleared to allow repositioning
+    if (value === '') {
+      setInitialPlacement(null)
+    }
+
     if (value === '' && selectedOption) {
       onSelect(null)
     }
@@ -271,7 +311,7 @@ export function SearchableSelect({
         createPortal(
           <div
             id="searchable-select-dropdown"
-            className="fixed z-50 shadow-md rounded-md mt-1 border border-border overflow-hidden select-content-custom bg-[#1e1e1f]"
+            className="fixed z-50 shadow-md rounded-md border border-border overflow-hidden select-content-custom bg-[#1e1e1f]"
             style={{
               width: dropdownPosition.width + 'px',
               top: dropdownPosition.top + 'px',
