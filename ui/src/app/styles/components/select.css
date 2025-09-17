@@ -2,14 +2,14 @@
   background-color: #1e1e1f;
   border: 1px solid var(--color-border-regular);
   overflow: hidden;
-  z-index: 50;
+  z-index: 40;
 }
 
 .select-content-custom:active {
   background-color: #1e1e1f;
   border: 1px solid var(--color-background-primary);
   overflow: hidden;
-  z-index: 50;
+  z-index: 40;
 }
 
 .select-item-custom {

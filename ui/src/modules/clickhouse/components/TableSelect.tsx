@@ -25,7 +25,7 @@ export function TableSelect({
   selectedTable,
   setSelectedTable,
   // testTableAccess,
-  // isLoading,
+  isLoading,
   // getConnectionConfig,
   onOpenChange,
   open,
@@ -43,19 +43,19 @@ export function TableSelect({
         </Label>
       </div>
       <div className="flex items-center justify-between">
-        {availableTables.length > 0 ? (
+        {availableTables.length > 0 || isLoading ? (
           <Select
             value={selectedTable}
             onValueChange={setSelectedTable}
             open={open}
             onOpenChange={onOpenChange}
-            disabled={readOnly}
+            disabled={readOnly || isLoading}
           >
             <SelectTrigger
               id="table"
               className="w-full text-content select-content-custom transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
             >
-              <SelectValue placeholder="Select table" />
+              <SelectValue placeholder={isLoading ? 'Loading tables...' : 'Select table'} />
             </SelectTrigger>
             <SelectContent className="text-content bg-background-neutral-faded select-content-custom">
               {availableTables.map((table) => (
@@ -72,7 +72,7 @@ export function TableSelect({
               placeholder="Enter table name"
               value={selectedTable}
               onChange={(e) => setSelectedTable(e.target.value)}
-              className="flex-1"
+              className="flex-1 text-content"
               disabled={readOnly}
             />
             {/* {renderTestAccessButton()} */}
