@@ -175,7 +175,7 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 
 	if totalMessages == 0 {
 		ch.isInputDrained = true
-		return nil
+		return models.ErrNoNewMessages
 	}
 
 	if msgBatch.Error() != nil {
@@ -226,7 +226,9 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	for {
 		err := ch.getMsgBatch(ctx)
 		if err != nil {
-			ch.log.Error("error on exporting data", slog.Any("error", err))
+			if !errors.Is(err, models.ErrNoNewMessages) {
+				ch.log.Error("error on exporting data", slog.Any("error", err))
+			}
 			// Add a small delay to prevent tight loop on errors
 			time.Sleep(100 * time.Millisecond)
 			continue
