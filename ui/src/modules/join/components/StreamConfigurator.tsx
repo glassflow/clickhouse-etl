@@ -144,7 +144,7 @@ export function StreamConfigurator({
             windowUnit={stream.joinTimeWindowUnit}
             setWindowUnit={(value) => onChange(streamIndex, 'joinTimeWindowUnit', value)}
             label="Join Time Window"
-            tooltip="Set a value between 5 minutes to 7 days, with 1M events limit. Longer time windows can process more events but may result in slower performance."
+            tooltip="Maximum time window is 7 days. Longer time windows can process more events but may result in slower performance."
             readOnly={readOnly}
           />
           {errors.joinTimeWindowValue && <p className="text-sm text-red-500">{errors.joinTimeWindowValue}</p>}
