@@ -6,7 +6,7 @@ import { Input } from '@/src/components/ui/input'
 import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import Image from 'next/image'
 import InfoIcon from '@/src/images/info.svg'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/src/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
 import { useState, useEffect } from 'react'
 
 interface TimeWindowConfiguratorProps {
@@ -35,7 +35,7 @@ export function TimeWindowConfigurator({
   windowUnit,
   setWindowUnit,
   label = 'Deduplication Time Window',
-  tooltip = 'Set a value between 5 minutes to 7 days, with 1M events limit. Longer time windows can process more events but may result in slower performance.',
+  tooltip = 'Maximum time window is 7 days. Longer time windows can process more events but may result in slower performance.',
   readOnly,
 }: TimeWindowConfiguratorProps) {
   const [error, setError] = useState<string | null>(null)
@@ -95,20 +95,18 @@ export function TimeWindowConfigurator({
         <Label htmlFor="window-unit" className="label-regular text-content">
           {label}
         </Label>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Image src={InfoIcon} alt="Info" className="w-4 h-4" />
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              align="start"
-              className="max-w-[300px] bg-gray-800 text-gray-100 border border-gray-700 rounded-lg p-3 shadow-lg"
-            >
-              <p className="text-sm leading-relaxed">{tooltip}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Image src={InfoIcon} alt="Info" className="w-4 h-4" />
+          </TooltipTrigger>
+          <TooltipContent
+            side="right"
+            align="start"
+            className="max-w-[300px] bg-gray-800 text-gray-100 border border-gray-700 rounded-lg p-3 shadow-lg"
+          >
+            <p className="text-sm leading-relaxed">{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex gap-4">

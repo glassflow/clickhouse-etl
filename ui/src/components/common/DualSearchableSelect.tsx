@@ -56,11 +56,20 @@ export function DualSearchableSelect({
     } else {
       setUncontrolledOpen(value)
     }
+
+    // Reset placement lock when dropdown closes
+    if (!value) {
+      setInitialPlacement(null)
+    }
   }
 
   const [filteredPrimaryOptions, setFilteredPrimaryOptions] = useState<string[]>([])
   const [filteredSecondaryOptions, setFilteredSecondaryOptions] = useState<string[]>([])
   const [dropdownPosition, setDropdownPosition] = useState<'above' | 'below'>('below')
+  const [dropdownCoordinates, setDropdownCoordinates] = useState<{ top: number; left: number; width: number } | null>(
+    null,
+  )
+  const [initialPlacement, setInitialPlacement] = useState<'above' | 'below' | null>(null)
 
   // Update search when selectedOption changes
   useEffect(() => {
@@ -95,13 +104,53 @@ export function DualSearchableSelect({
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
 
+      // Calculate actual dropdown height based on filtered options
+      const itemHeight = 32 // Approximate height per item (py-1.5 + text + margins)
+      const headerHeight = 40 // Height of "Left Topic" and "Right Topic" headers
+      const padding = 16 // p-4 padding on each side
+      const separatorHeight = 32 // Height of vertical separator with my-4
+
+      const maxPrimaryItems = Math.min(filteredPrimaryOptions.length, 9) // Roughly 300px / 32px
+      const maxSecondaryItems = Math.min(filteredSecondaryOptions.length, 9)
+
+      const primaryHeight = Math.min(
+        filteredPrimaryOptions.length * itemHeight + padding * 2,
+        300, // max-h-[300px] from CSS
+      )
+      const secondaryHeight = Math.min(
+        filteredSecondaryOptions.length * itemHeight + padding * 2,
+        300, // max-h-[300px] from CSS
+      )
+
+      const actualDropdownHeight = Math.max(primaryHeight, secondaryHeight) + headerHeight + padding
+
       const viewportHeight = window.innerHeight
       const spaceBelow = viewportHeight - rect.bottom
-      const dropdownHeight = 300 // Approximate height of the dropdown
-      const spaceNeeded = dropdownHeight + 20 // Add some padding
+      const spaceAbove = rect.top
 
-      // Position above if there's not enough space below
-      setDropdownPosition(spaceBelow < spaceNeeded ? 'above' : 'below')
+      // For initial placement decision, use max possible height to avoid placement changes during filtering
+      const maxPossibleDropdownHeight = 300 + headerHeight + padding // max-h-[300px] + headers + padding
+      const spaceNeeded = maxPossibleDropdownHeight + 20 // Add some padding
+      const margin = 8 // Margin between dropdown and input
+
+      // Determine placement: lock it on first calculation, only recalculate on position changes (not content changes)
+      let position: 'above' | 'below'
+      if (initialPlacement === null) {
+        // First time opening - determine optimal placement using max height
+        position = spaceBelow < spaceNeeded && spaceAbove >= spaceNeeded ? 'above' : 'below'
+        setInitialPlacement(position)
+      } else {
+        // Use locked placement during filtering
+        position = initialPlacement
+      }
+      setDropdownPosition(position)
+
+      // Update coordinates for proper positioning
+      setDropdownCoordinates({
+        top: position === 'above' ? rect.top - actualDropdownHeight - margin : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      })
     }
 
     // Initial position
@@ -115,7 +164,7 @@ export function DualSearchableSelect({
       window.removeEventListener('scroll', updatePosition, true)
       window.removeEventListener('resize', updatePosition)
     }
-  }, [open])
+  }, [open, filteredPrimaryOptions.length, filteredSecondaryOptions.length])
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -178,8 +227,14 @@ export function DualSearchableSelect({
           placeholder={placeholder}
           value={search}
           onChange={(e) => {
-            setSearch(e.target.value)
+            const value = e.target.value
+            setSearch(value)
             setOpen(true)
+
+            // Reset placement lock when search is cleared to allow repositioning
+            if (value === '') {
+              setInitialPlacement(null)
+            }
           }}
           onClick={() => !disabled && setOpen(true)}
           className={cn(
@@ -224,11 +279,19 @@ export function DualSearchableSelect({
         </div>
       </div>
 
-      {open && !disabled && (
-        <div
-          className={cn('absolute z-50 w-full', dropdownPosition === 'above' ? 'bottom-full mb-1' : 'top-full mt-1')}
-        >
-          <div className="min-w-[500px] shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex">
+      {open &&
+        !disabled &&
+        dropdownCoordinates &&
+        typeof window !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex"
+            style={{
+              top: dropdownCoordinates.top + 'px',
+              left: dropdownCoordinates.left + 'px',
+              width: Math.max(500, dropdownCoordinates.width) + 'px',
+            }}
+          >
             {/* Primary Options */}
             <div className="flex-1 p-4">
               <div>Left Topic</div>
@@ -299,9 +362,9 @@ export function DualSearchableSelect({
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

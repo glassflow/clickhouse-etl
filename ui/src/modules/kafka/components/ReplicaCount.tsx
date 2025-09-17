@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import InfoIcon from '@/src/images/info.svg'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/src/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip'
 
 export type ReplicaCountProps = {
   partitionCount: number
@@ -48,22 +48,20 @@ export default function ReplicaCount({
         <label htmlFor={`partition-input-${index}`} className="block text-sm font-medium text-content">
           Replica Count
         </label>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Image src={InfoIcon} alt="Info" className="w-4 h-4" />
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              align="start"
-              className="max-w-[300px] bg-gray-800 text-gray-100 border border-gray-700 rounded-lg p-3 shadow-lg"
-            >
-              <p className="text-sm leading-relaxed">
-                Decreasing the number of replicas will result in slower performance, but it will reduce resource usage
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Image src={InfoIcon} alt="Info" className="w-4 h-4" />
+          </TooltipTrigger>
+          <TooltipContent
+            side="right"
+            align="start"
+            className="max-w-[300px] bg-gray-800 text-gray-100 border border-gray-700 rounded-lg p-3 shadow-lg"
+          >
+            <p className="text-sm leading-relaxed">
+              Decreasing the number of replicas will result in slower performance, but it will reduce resource usage
+            </p>
+          </TooltipContent>
+        </Tooltip>
       </div>
       <div className="flex items-center space-x-2">
         <input
