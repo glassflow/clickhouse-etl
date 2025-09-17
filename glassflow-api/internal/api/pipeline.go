@@ -645,3 +645,55 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		Status: p.Status.OverallStatus,
 	}
 }
+
+func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+		return
+	}
+
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusBadRequest, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	// Get the pipeline to check its status
+	pipeline, err := h.pipelineManager.GetPipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
+		default:
+			h.log.Error("failed to get pipeline for deletion", slog.String("pipeline_id", id), slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
+
+	// Check if pipeline is in a deletable state (stopped or terminated)
+	currentStatus := string(pipeline.Status.OverallStatus)
+	if currentStatus != internal.PipelineStatusStopped && currentStatus != internal.PipelineStatusTerminated {
+		jsonError(w, http.StatusBadRequest,
+			fmt.Sprintf("pipeline can only be deleted if it's stopped or terminated, current status: %s", currentStatus),
+			map[string]string{"current_status": currentStatus})
+		return
+	}
+
+	// Delete the pipeline from NATS storage
+	err = h.pipelineManager.DeletePipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
+		default:
+			h.log.Error("failed to delete pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
