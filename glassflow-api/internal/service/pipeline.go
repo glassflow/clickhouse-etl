@@ -342,12 +342,8 @@ func (p *PipelineManagerImpl) CleanUpPipelines(ctx context.Context) error {
 	}
 
 	for _, pi := range pipelines {
-		if pi.Status.OverallStatus == internal.PipelineStatusCreated ||
-			pi.Status.OverallStatus == internal.PipelineStatusRunning ||
-			pi.Status.OverallStatus == internal.PipelineStatusPausing ||
-			pi.Status.OverallStatus == internal.PipelineStatusPaused ||
-			pi.Status.OverallStatus == internal.PipelineStatusResuming ||
-			pi.Status.OverallStatus == internal.PipelineStatusTerminating {
+		if pi.Status.OverallStatus != internal.PipelineStatusTerminated &&
+			pi.Status.OverallStatus != internal.PipelineStatusFailed {
 			// Set status to Terminated
 			p.log.Debug("cleaning pipeline...", slog.String("pipelineID", pi.ID), slog.Any("status", pi.Status.OverallStatus))
 			pi.Status.OverallStatus = internal.PipelineStatusTerminated
