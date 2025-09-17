@@ -118,19 +118,5 @@ func (c *NatsConsumer) Fetch(maxMsgs int, maxWait time.Duration) (jetstream.Mess
 	// The expireTimeout is for individual message fetching, not batch fetching
 
 	// Use NATS JetStream's built-in Fetch method for efficient batch retrieval
-	msgs, err := c.Consumer.Fetch(maxMsgs, jetstream.FetchMaxWait(maxWait))
-	if err != nil {
-		if errors.Is(err, jetstream.ErrNoMessages) {
-			// No more messages available, return nil
-			return nil, nil
-		}
-		// Check for timeout error by string comparison
-		if err.Error() == "timeout" {
-			// Timeout occurred, return nil
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to fetch batch of messages: %w", err)
-	}
-
-	return msgs, nil
+	return c.Consumer.Fetch(maxMsgs, jetstream.FetchMaxWait(maxWait))
 }

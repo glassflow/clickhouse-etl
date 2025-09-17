@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
@@ -154,26 +153,13 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 
 	msgBatch, err := ch.streamCon.Fetch(ch.maxBatchSize, ch.batchTimeout)
 	if err != nil {
-		if errors.Is(err, nats.ErrTimeout) {
-			ch.log.Debug("NATS fetch timeout - no messages available",
-				slog.Duration("timeout", ch.batchTimeout))
-			if ch.isClosed {
-				ch.isInputDrained = true
-			}
-			return nil
-		}
+		// error can be ErrNoHeartbeat
+		// TODO: handle this error
+		ch.log.Error("failed to fetch messages", slog.Any("error", err))
 		return fmt.Errorf("failed to fetch messages: %w", err)
 	}
-
-	// Check if we got any messages
-	if msgBatch == nil {
-		ch.log.Debug("No messages available in batch")
-		return nil
-	}
-
 	// Process each message in the batch
 	processedCount := 0
-	duplicateCount := 0
 	totalMessages := 0
 
 	for msg := range msgBatch.Messages() {
@@ -185,18 +171,17 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 		err = ch.handleMsg(ctx, msg)
 		if err != nil {
 			if errors.Is(err, batch.ErrAlreadyExists) {
-				duplicateCount++
-				ch.log.Debug("Skipping duplicate message")
-				continue // Skip duplicate messages
+				continue
 			}
 			return fmt.Errorf("failed to handle message: %w", err)
 		}
 		processedCount++
 	}
 
-	// Check for errors in the message batch
-	if err := msgBatch.Error(); err != nil {
-		return fmt.Errorf("error in message batch: %w", err)
+	if msgBatch.Error() != nil {
+		// TODO: handle error
+		ch.log.Error("failed to fetch messages", slog.Any("error", msgBatch.Error()))
+		return fmt.Errorf("failed to fetch messages: %w", msgBatch.Error())
 	}
 
 	// Only log success if we actually got messages
@@ -210,7 +195,6 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 	ch.log.Debug("Batch processing completed",
 		slog.Int("total_messages", totalMessages),
 		slog.Int("processed_messages", processedCount),
-		slog.Int("duplicate_messages", duplicateCount),
 		slog.Int("current_batch_size", ch.batch.Size()),
 		slog.Int("pending_messages", len(ch.pendingMsgs)))
 
