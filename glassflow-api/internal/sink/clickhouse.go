@@ -39,10 +39,9 @@ type ClickHouseSink struct {
 	isInputDrained bool
 	mu             sync.Mutex
 	timer          *time.Timer
-	pendingMsgs    []jetstream.Msg // Store messages for batch acknowledgment
+	lastMsg        jetstream.Msg
 	maxDelayTime   time.Duration
 	maxBatchSize   int
-	batchTimeout   time.Duration // Timeout for batch reading
 	log            *slog.Logger
 }
 
@@ -79,51 +78,53 @@ func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Cons
 		isInputDrained: false,
 		mu:             sync.Mutex{},
 		timer:          nil,
-		pendingMsgs:    make([]jetstream.Msg, 0, sinkCfg.Batch.MaxBatchSize),
+		lastMsg:        nil,
 		maxDelayTime:   maxDelayTime,
 		maxBatchSize:   sinkCfg.Batch.MaxBatchSize,
-		batchTimeout:   maxDelayTime, // Use same timeout as ClickHouse batch delay
 		log:            log,
 	}, nil
 }
 
 func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
-	if len(ch.pendingMsgs) == 0 || ch.batch.Size() == 0 {
+	if ch.batch.Size() == 0 {
 		ch.log.Debug("No messages to send")
 		return nil
 	}
+
+	size := ch.batch.Size()
 
 	// Send batch to ClickHouse
 	err := ch.batch.Send(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to send the batch: %w", err)
 	}
-	ch.log.Debug("Batch sent to clickhouse", slog.Int("message_count", len(ch.pendingMsgs)))
+	ch.log.Debug("Batch sent to clickhouse", slog.Int("message_count", size))
 
-	// Acknowledge all messages in the batch
-	ackCount := 0
-	for _, msg := range ch.pendingMsgs {
-		if err := msg.Ack(); err != nil {
-			ch.log.Error("Failed to ack message", slog.Any("error", err))
-			// Continue with other messages even if one fails
-		} else {
-			ackCount++
-		}
+	// Acknowledge all using last message from the batch
+	err = ch.lastMsg.Ack()
+	if err != nil {
+		return fmt.Errorf("failed to acknowledge messages: %w", err)
 	}
 
-	ch.log.Info("Batch processing completed successfully",
-		slog.Int("total_messages", len(ch.pendingMsgs)),
-		slog.Int("acked_messages", ackCount),
-		slog.Int("clickhouse_batch_size", ch.batch.Size()),
-		slog.String("status", "success"))
+	mdata, err := ch.lastMsg.Metadata()
+	if err != nil {
+		ch.log.Error("failed to get message metadata", slog.Any("error", err))
+	} else {
+		ch.log.Debug("Message acked by JetStream", slog.Any("stream", mdata.Sequence.Stream))
+	}
 
-	// Clear pending messages
-	ch.pendingMsgs = ch.pendingMsgs[:0]
+	ch.lastMsg = nil
+
+	ch.log.Info("Batch processing completed successfully",
+		slog.Int("clickhouse_batch_size", ch.batch.Size()),
+		slog.String("status", "success"),
+		slog.Int("sent_messages", size),
+	)
 
 	return nil
 }
 
-func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) error {
+func (ch *ClickHouseSink) handleMsg(_ context.Context, msg jetstream.Msg) error {
 	mdata, err := msg.Metadata()
 	if err != nil {
 		return fmt.Errorf("failed to get message metadata: %w", err)
@@ -139,19 +140,13 @@ func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) erro
 		return fmt.Errorf("failed to append values to the batch: %w", err)
 	}
 
-	// Add message to pending list for batch acknowledgment
-	ch.pendingMsgs = append(ch.pendingMsgs, msg)
+	ch.lastMsg = msg
 
 	return nil
 }
 
 func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
-	// Fetch a batch of messages from NATS
-	ch.log.Debug("Fetching batch from NATS",
-		slog.Int("max_batch_size", ch.maxBatchSize),
-		slog.Duration("timeout", ch.batchTimeout))
-
-	msgBatch, err := ch.streamCon.Fetch(ch.maxBatchSize, ch.batchTimeout)
+	msgBatch, err := ch.streamCon.FetchAwait(ch.maxBatchSize)
 	if err != nil {
 		// error can be ErrNoHeartbeat
 		// TODO: handle this error
@@ -178,6 +173,11 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 		processedCount++
 	}
 
+	if totalMessages == 0 {
+		ch.isInputDrained = true
+		return nil
+	}
+
 	if msgBatch.Error() != nil {
 		// TODO: handle error
 		ch.log.Error("failed to fetch messages", slog.Any("error", msgBatch.Error()))
@@ -188,18 +188,16 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 	if totalMessages > 0 {
 		ch.log.Info("Successfully fetched batch from NATS",
 			slog.Int("message_count", totalMessages),
-			slog.Int("max_batch_size", ch.maxBatchSize),
-			slog.Duration("timeout", ch.batchTimeout))
+			slog.Int("max_batch_size", ch.maxBatchSize))
 	}
 
 	ch.log.Debug("Batch processing completed",
 		slog.Int("total_messages", totalMessages),
 		slog.Int("processed_messages", processedCount),
-		slog.Int("current_batch_size", ch.batch.Size()),
-		slog.Int("pending_messages", len(ch.pendingMsgs)))
+		slog.Int("current_batch_size", ch.batch.Size()))
 
 	// If we have messages and batch is full, send it
-	if len(ch.pendingMsgs) > 0 && ch.batch.Size() >= ch.maxBatchSize {
+	if ch.lastMsg != nil && ch.batch.Size() >= ch.maxBatchSize {
 		ch.log.Info("Batch size reached, sending to ClickHouse",
 			slog.Int("batch_size", ch.batch.Size()),
 			slog.Int("max_batch_size", ch.maxBatchSize))
@@ -216,18 +214,16 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	ch.log.Info("ClickHouse sink started with batch processing",
 		slog.Int("max_batch_size", ch.maxBatchSize),
-		slog.Duration("nats_batch_timeout", ch.batchTimeout),
 		slog.Duration("clickhouse_timer_interval", ch.maxDelayTime),
 		slog.String("mode", "batched_nats_reading"),
 		slog.String("note", "NATS and ClickHouse use same batch size and timeout values"))
+
 	defer ch.log.Info("ClickHouse sink stopped")
 	defer ch.clearConn()
 
 	ch.timer = time.NewTimer(ch.maxDelayTime)
 
 	for {
-		// Primary mechanism: Fetch messages from NATS with timeout
-		// This will wait for up to batchTimeout (same as maxDelayTime)
 		err := ch.getMsgBatch(ctx)
 		if err != nil {
 			ch.log.Error("error on exporting data", slog.Any("error", err))
@@ -251,7 +247,6 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 		case <-ch.timer.C:
 			// Timer-based batch flush (backup)
 			ch.log.Info("Timer-based batch flush triggered",
-				slog.Int("pending_messages", len(ch.pendingMsgs)),
 				slog.Int("current_batch_size", ch.batch.Size()),
 				slog.Duration("timer_interval", ch.maxDelayTime))
 

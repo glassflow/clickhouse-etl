@@ -15,6 +15,7 @@ import (
 type Consumer interface {
 	Next() (jetstream.Msg, error)
 	Fetch(maxMsgs int, maxWait time.Duration) (jetstream.MessageBatch, error)
+	FetchAwait(maxMsgs int) (jetstream.MessageBatch, error)
 }
 
 type ConsumerConfig struct {
@@ -118,5 +119,19 @@ func (c *NatsConsumer) Fetch(maxMsgs int, maxWait time.Duration) (jetstream.Mess
 	// The expireTimeout is for individual message fetching, not batch fetching
 
 	// Use NATS JetStream's built-in Fetch method for efficient batch retrieval
-	return c.Consumer.Fetch(maxMsgs, jetstream.FetchMaxWait(maxWait))
+	msgBatch, err := c.Consumer.Fetch(maxMsgs, jetstream.FetchMaxWait(maxWait))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch NATS messages: %w", err)
+	}
+
+	return msgBatch, nil
+}
+
+func (c *NatsConsumer) FetchAwait(maxMsgs int) (jetstream.MessageBatch, error) {
+	msgBatch, err := c.Consumer.FetchNoWait(maxMsgs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch NATS messages: %w", err)
+	}
+
+	return msgBatch, nil
 }
