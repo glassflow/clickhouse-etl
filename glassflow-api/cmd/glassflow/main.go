@@ -179,7 +179,13 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 		}
 	}
 
-	pipelineSvc := service.NewPipelineManager(orch, db)
+	pipelineSvc := service.NewPipelineManager(orch, db, log)
+
+	err = pipelineSvc.CleanUpPipelines(ctx)
+	if err != nil {
+		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
+	}
+
 	dlqSvc := service.NewDLQImpl(dlq)
 
 	handler := api.NewRouter(log, pipelineSvc, dlqSvc)
