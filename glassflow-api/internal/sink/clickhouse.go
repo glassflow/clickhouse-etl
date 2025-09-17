@@ -11,6 +11,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -230,8 +231,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 				ch.log.Error("error on exporting data", slog.Any("error", err))
 			}
 			// Add a small delay to prevent tight loop on errors
-			time.Sleep(100 * time.Millisecond)
-			continue
+			time.Sleep(internal.FetchRetryDelay)
 		}
 
 		// Check if we should shutdown
