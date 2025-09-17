@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
 
   ui:
-    image: ghcr.io/glassflow/glassflow-etl-fe:stable
+    image: ghcr.io/glassflow/glassflow-etl-fe:main
     pull_policy: always
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api:8081}
@@ -17,7 +17,7 @@ services:
       - NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
 
   api:
-    image: ghcr.io/glassflow/glassflow-etl-be:stable
+    image: ghcr.io/glassflow/glassflow-etl-be:main
     pull_policy: always
     depends_on:
       - nats
