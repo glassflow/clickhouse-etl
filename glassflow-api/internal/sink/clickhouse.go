@@ -186,7 +186,7 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 
 	// Only log success if we actually got messages
 	if totalMessages > 0 {
-		ch.log.Info("Successfully fetched batch from NATS",
+		ch.log.Debug("Successfully fetched batch from NATS",
 			slog.Int("message_count", totalMessages),
 			slog.Int("max_batch_size", ch.maxBatchSize))
 	}
@@ -246,7 +246,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 		select {
 		case <-ch.timer.C:
 			// Timer-based batch flush (backup)
-			ch.log.Info("Timer-based batch flush triggered",
+			ch.log.Debug("Timer-based batch flush triggered",
 				slog.Int("current_batch_size", ch.batch.Size()),
 				slog.Duration("timer_interval", ch.maxDelayTime))
 
