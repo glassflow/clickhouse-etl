@@ -203,3 +203,14 @@ export interface ApiError {
   code: number
   message: string
 }
+
+export interface PipelineError {
+  code: number
+  message: string
+}
+
+export interface PipelineResponse {
+  pipeline_id: string
+  status: PipelineStatus // UI status (converted from backend state)
+  error?: string
+}

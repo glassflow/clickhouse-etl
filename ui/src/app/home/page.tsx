@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { OperationKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
 import { useState, Suspense, useEffect } from 'react'
-import { getPipelineStatus } from '@/src/api/pipeline'
+import { getPipelineStatus } from '@/src/api/pipeline-api'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'

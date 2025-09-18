@@ -7,7 +7,8 @@ import { cn } from '@/src/utils/common.client'
 import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { createPipeline, shutdownPipeline, getPipelineStatus, PipelineError } from '@/src/api/pipeline'
+import { createPipeline } from '@/src/api/pipeline-api'
+import { getPipelineStatus } from '@/src/api/pipeline-api'
 import { terminatePipeline } from '@/src/api/pipeline-api'
 import { InputModal, ModalResult } from '@/src/components/common/InputModal'
 import { saveConfiguration } from '@/src/utils/local-storage-config'
@@ -16,7 +17,7 @@ import TrashIcon from '../../images/trash.svg'
 import ModifyIcon from '../../images/modify.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { Feedback } from './Feedback'
-import { PipelineStatus } from '@/src/types/pipeline'
+import { PipelineStatus, PipelineError } from '@/src/types/pipeline'
 
 export function PipelineDeployer() {
   const analytics = useJourneyAnalytics()
