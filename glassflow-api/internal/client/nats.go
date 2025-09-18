@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -165,31 +163,22 @@ func (n *NATSClient) GetKeyValueStore(ctx context.Context, storeName string) (je
 	return kv, nil
 }
 
-// GetPipelineConfig retrieves a pipeline configuration from NATS KV store
-func (n *NATSClient) GetPipelineConfig(ctx context.Context, pipelineID string, kvStoreName string) (*models.PipelineConfig, error) {
-	// Get the pipeline KV store
-	kv, err := n.GetKeyValueStore(ctx, kvStoreName)
+// GetKeyValue retrieves a value from a NATS KV store by key
+func (n *NATSClient) GetKeyValue(ctx context.Context, storeName, key string) ([]byte, error) {
+	kv, err := n.GetKeyValueStore(ctx, storeName)
 	if err != nil {
-		return nil, fmt.Errorf("get pipeline kv store: %w", err)
+		return nil, fmt.Errorf("get kv store: %w", err)
 	}
 
-	// Get the pipeline config entry
-	entry, err := kv.Get(ctx, pipelineID)
+	entry, err := kv.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrKeyNotFound) {
-			return nil, fmt.Errorf("pipeline %s not found", pipelineID)
+			return nil, fmt.Errorf("key %s not found in store %s", key, storeName)
 		}
-		return nil, fmt.Errorf("get pipeline config from kv: %w", err)
+		return nil, fmt.Errorf("get key from kv: %w", err)
 	}
 
-	// Unmarshal the pipeline config
-	var config models.PipelineConfig
-	err = json.Unmarshal(entry.Value(), &config)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
-	}
-
-	return &config, nil
+	return entry.Value(), nil
 }
 
 func (n *NATSClient) JetStream() jetstream.JetStream {
