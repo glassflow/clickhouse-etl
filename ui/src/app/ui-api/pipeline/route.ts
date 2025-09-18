@@ -9,6 +9,8 @@ export async function POST(request: Request) {
   try {
     const config = await request.json()
 
+    console.log('config', config)
+
     // Normalize Kafka broker hosts for Docker backend: localhost/127.0.0.1 -> host.docker.internal
     if (config?.source?.connection_params?.brokers && Array.isArray(config.source.connection_params.brokers)) {
       config.source.connection_params.brokers = config.source.connection_params.brokers.map((b: string) => {

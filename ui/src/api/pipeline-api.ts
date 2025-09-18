@@ -9,7 +9,13 @@ import type {
   ApiResponse,
   ApiError,
 } from '@/src/types/pipeline'
-import { getPipelineStatusFromState, detectTransformationType } from '@/src/types/pipeline'
+import {
+  getPipelineStatusFromState,
+  detectTransformationType,
+  PipelineStatus,
+  PipelineResponse,
+  PipelineError,
+} from '@/src/types/pipeline'
 
 // Pipeline API functions
 export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
@@ -112,6 +118,70 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
   }
 }
 
+/**
+ * Check if a pipeline exists by ID
+ */
+export const checkPipelineExists = async (pipelineId: string): Promise<boolean> => {
+  try {
+    const url = getApiUrl(`pipeline/${pipelineId}`)
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    // If we get a successful response, the pipeline exists
+    return response.status === 200
+  } catch (error: any) {
+    // If we get a 404, the pipeline doesn't exist
+    if (error.status === 404) {
+      return false
+    }
+
+    // For other errors, we'll assume it doesn't exist to be safe
+    return false
+  }
+}
+
+/**
+ * Get pipeline status (converts backend state to UI status)
+ */
+export const getPipelineStatus = async (): Promise<PipelineResponse> => {
+  try {
+    const url = getApiUrl('pipeline')
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    // Convert backend state to UI status
+    const responseData = await response.json()
+    const backendState = responseData?.state || ''
+    const uiStatus = getPipelineStatusFromState(backendState)
+
+    return {
+      pipeline_id: responseData?.pipeline_id || '',
+      status: uiStatus,
+      error: responseData?.error,
+    }
+  } catch (error: any) {
+    if (error.status === 404) {
+      // No running pipeline
+      return {
+        pipeline_id: '',
+        status: 'no_configuration' as PipelineStatus,
+      }
+    }
+
+    throw {
+      code: error.response?.status || 500,
+      message: error.response?.data?.message || error.message || 'Failed to get pipeline status',
+    } as PipelineError
+  }
+}
+
+/**
+ * Create a new pipeline
+ */
 export const createPipeline = async (pipelineData: Partial<Pipeline>): Promise<Pipeline> => {
   try {
     const url = getApiUrl('pipeline')
