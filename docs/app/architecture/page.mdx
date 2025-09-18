@@ -1,0 +1,33 @@
+---
+title: Architecture
+asIndexPage: true
+---
+
+import Image from 'next/image'
+
+# Architecture Overview
+
+This page provides an overview of the current architecture for the GlassFlow ClickHouse ETL. The system is designed to orchestrate data pipelines that ingest, deduplicate, join, and sink data from Kafka into ClickHouse, leveraging a modular and scalable event-driven approach.
+
+![GlassFlow Architecture](/assets/glassflow_architecture.png)
+
+## Architecture Components
+
+For a detailed description of each component, see the [System Components](/architecture/system-components) page.
+
+## Data Flow Summary
+
+1. **Pipeline Creation:**  
+   The user creates a pipeline via the frontend, which is handled by the HTTP server and validated by the Pipeline Manager.
+
+2. **Ingestion:**  
+   The Ingestor component ingests data from Kafka, optionally deduplicating events.
+
+3. **Processing:**  
+   If enabled, the Join component merges streams from two Kafka topics.
+   
+4. **Sink:**  
+   The Sink Component writes processed data to ClickHouse in batches.
+
+5. **Monitoring:**  
+   The user can monitor pipeline status via the frontend.
