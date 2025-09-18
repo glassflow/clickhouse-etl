@@ -49,6 +49,19 @@ pipeline = client.get_pipeline(pipeline_id="<my-pipeline-id>")
 
 ### Get Pipeline Health
 
+Access the pipeline health status:
+```python
+pipeline = client.get_pipeline(pipeline_id="<my-pipeline-id>")
+print(pipeline.status)
+```
+
+Output:
+```
+<PipelineStatus.RUNNING: 'Running'>
+```
+
+or query the latest health status:
+
 ```python
 pipeline_health = pipeline.health()
 print(pipeline_health)
@@ -132,6 +145,20 @@ or
 
 ```python
 client.delete_pipeline(pipeline_id="<my-pipeline-id>")
+```
+
+## Pipeline Pausing and Resuming
+
+### Pause a Pipeline
+
+```python
+pipeline.pause()
+```
+
+### Resume a Pipeline
+
+```python
+pipeline.resume()
 ```
 
 ## Import / Export Pipeline Configurations

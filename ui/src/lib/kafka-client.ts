@@ -219,6 +219,25 @@ export class KafkaClient {
     }
   }
 
+  async getTopicDetails(): Promise<Array<{ name: string; partitionCount: number }>> {
+    try {
+      const admin = this.kafka.admin()
+      await admin.connect()
+
+      const metadata = await admin.fetchTopicMetadata()
+      const topicDetails = metadata.topics.map((topic) => ({
+        name: topic.name,
+        partitionCount: topic.partitions.length,
+      }))
+
+      await admin.disconnect()
+      return topicDetails
+    } catch (error) {
+      console.error('Error fetching topic details:', error)
+      throw error
+    }
+  }
+
   async initializeConsumer(): Promise<void> {
     if (!this.consumer) {
       this.consumer = this.kafka.consumer({ groupId: this.config.groupId || 'default-group' })

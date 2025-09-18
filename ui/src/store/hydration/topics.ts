@@ -13,6 +13,8 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
       position: initialOffset,
       event: undefined,
     },
+    replicas: topicConfig.replicas || 1,
+    partitionCount: topicConfig.partition_count || 1,
   }
 }
 
@@ -22,9 +24,72 @@ function mapBackendDeduplicationToStore(topicConfig: any, index: number) {
     return {
       enabled: false,
       window: 0,
-      unit: 'hours',
+      unit: 'hours' as const,
       key: '',
       keyType: 'string',
+    }
+  }
+
+  // Parse Go duration format (e.g., "3m0s", "12h", "1d") to extract value and unit
+  const timeWindow = topicConfig.deduplication.time_window || '1h'
+
+  let window = 1
+  let unit: 'seconds' | 'minutes' | 'hours' | 'days' = 'hours'
+
+  // Parse Go duration format - it can be complex like "3m0s", "1h30m", "2d12h", etc.
+  // We'll normalize to the largest unit that makes sense for the UI
+  const durationMatch = timeWindow.match(/^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$/)
+
+  if (durationMatch) {
+    const days = parseInt(durationMatch[1]?.replace('d', '') || '0') || 0
+    const hours = parseInt(durationMatch[2]?.replace('h', '') || '0') || 0
+    const minutes = parseInt(durationMatch[3]?.replace('m', '') || '0') || 0
+    const seconds = parseInt(durationMatch[4]?.replace('s', '') || '0') || 0
+
+    // Convert to total seconds for easier calculation
+    const totalSeconds = days * 86400 + hours * 3600 + minutes * 60 + seconds
+
+    // Normalize to the largest appropriate unit for UI display
+    if (totalSeconds >= 86400) {
+      // 1 day or more - use days
+      window = Math.round(totalSeconds / 86400)
+      unit = 'days'
+    } else if (totalSeconds >= 3600) {
+      // 1 hour or more - use hours
+      window = Math.round(totalSeconds / 3600)
+      unit = 'hours'
+    } else if (totalSeconds >= 60) {
+      // 1 minute or more - use minutes
+      window = Math.round(totalSeconds / 60)
+      unit = 'minutes'
+    } else {
+      // Less than 1 minute - use seconds
+      window = totalSeconds
+      unit = 'seconds'
+    }
+  } else {
+    // Fallback: try to parse as simple format (e.g., "12h", "30m")
+    const simpleMatch = timeWindow.match(/^(\d+)([smhd])$/)
+    if (simpleMatch) {
+      window = parseInt(simpleMatch[1]) || 1
+      const unitLetter = simpleMatch[2]
+
+      switch (unitLetter) {
+        case 's':
+          unit = 'seconds'
+          break
+        case 'm':
+          unit = 'minutes'
+          break
+        case 'h':
+          unit = 'hours'
+          break
+        case 'd':
+          unit = 'days'
+          break
+        default:
+          unit = 'hours'
+      }
     }
   }
 
@@ -32,8 +97,8 @@ function mapBackendDeduplicationToStore(topicConfig: any, index: number) {
     enabled: topicConfig.deduplication.enabled,
     key: topicConfig.deduplication.id_field,
     keyType: topicConfig.deduplication.id_field_type,
-    window: parseInt(topicConfig.deduplication.time_window) || 0,
-    unit: topicConfig.deduplication.time_window?.replace(/[0-9]/g, '') || 'hours',
+    window,
+    unit,
   }
 }
 
@@ -150,23 +215,39 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
       // Add other auth methods as needed
     }
 
-    // 4. Fetch topics from the API
-    const response = await fetch('/ui-api/kafka/topics', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    })
-    const data = await response.json()
-    if (!data.success) throw new Error(data.error || 'Failed to fetch topics')
+    // 4. Fetch topics and topic details from the API in parallel
+    const [topicsResponse, detailsResponse] = await Promise.all([
+      fetch('/ui-api/kafka/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      }),
+      fetch('/ui-api/kafka/topic-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      }),
+    ])
+
+    const topicsData = await topicsResponse.json()
+    if (!topicsData.success) throw new Error(topicsData.error || 'Failed to fetch topics')
+
+    const detailsData = await detailsResponse.json()
+    if (!detailsData.success) throw new Error(detailsData.error || 'Failed to fetch topic details')
 
     // 5. Set available topics in the store
-    useStore.getState().topicsStore.setAvailableTopics(data.topics)
+    useStore.getState().topicsStore.setAvailableTopics(topicsData.topics)
 
-    // 6. Set selected topics from backend config
+    // 6. Set selected topics from backend config with current partition counts
     if (pipelineConfig?.source?.topics) {
       pipelineConfig.source.topics.forEach((topicConfig: any, idx: number) => {
-        // Map topic data (without deduplication)
+        // Find current partition count from Kafka for this topic
+        const currentTopicDetails = detailsData.topicDetails?.find((detail: any) => detail.name === topicConfig.name)
+        const currentPartitionCount = currentTopicDetails?.partitionCount || 1
+
+        // Map topic data with current partition count from Kafka
         const topicState = mapBackendTopicToStore(topicConfig, idx)
+        topicState.partitionCount = currentPartitionCount
         useStore.getState().topicsStore.updateTopic(topicState)
 
         // Map deduplication data to the new separated store

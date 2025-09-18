@@ -33,13 +33,24 @@ The source configuration defines how to connect to and consume from Kafka topics
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `brokers` | array | Yes | List of Kafka broker addresses (e.g., ["localhost:9092"]). |
-| `protocol` | string | Yes | Security protocol for Kafka connection (e.g., "SASL_SSL"). |
-| `mechanism` | string | Yes | Authentication mechanism (e.g., "SCRAM-SHA-256"). |
+| `brokers` | array | Yes | List of Kafka broker addresses (e.g., `["localhost:9092"]`). |
+| `protocol` | string | Yes | Security protocol for Kafka connection (e.g., `SASL_SSL`). |
+| `mechanism` | string | Yes | Authentication mechanism (e.g., `SCRAM-SHA-256`). |
 | `username` | string | Yes | Username for Kafka authentication. |
 | `password` | string | Yes | Password for Kafka authentication. |
 | `root_ca` | string | No | Cert. file for Kafka authentication. |
 | `skip_auth` | boolean | No | Skip Kafka authentication. |
+
+Supported Protocol:
+- `PLAINTEXT` - Plaintext protocol.
+- `SSL` - SSL protocol.
+- `SASL_SSL` - SASL over SSL protocol.
+- `SASL_PLAINTEXT` - SASL over plaintext protocol.
+
+Supported Mechanism:
+- `SCRAM-SHA-256` - SCRAM-SHA-256 authentication.
+- `SCRAM-SHA-512` - SCRAM-SHA-512 authentication.
+- `PLAIN` - Plaintext authentication.
 
 ### Topic Configuration
 
@@ -48,7 +59,8 @@ Each topic in the `topics` array has the following configuration:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Name of the Kafka topic. |
-| `consumer_group_initial_offset` | string | Yes | Initial offset for the consumer group ("earliest" or "newest"). |
+| `consumer_group_initial_offset` | string | No | Initial offset for the consumer group (`earliest` or `latest`). Defaults to `latest`. |
+| `replicas` | integer | No | Number of replicas for the Kafka topic. Defaults to 1. |
 | `schema` | object | Yes | Event schema definition. See [Schema Configuration](#schema-configuration). |
 | `deduplication` | object | Yes | Deduplication settings. See [Deduplication Configuration](#deduplication-configuration). |
 
@@ -69,8 +81,9 @@ Each topic in the `topics` array has the following configuration:
 The `type` parameter accepts the following Kafka data types:
 
 - `'string'` - For text data, including datetime strings
-- `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
-- `'float32'`, `'float64'` - For floating-point numbers
+- `'int'`, `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
+- `'uint'`, `'uint8'`, `'uint16'`, `'uint32'`, `'uint64'` - For unsigned integer values
+- `'float'`, `'float32'`, `'float64'` - For floating-point numbers
 - `'bool'` - For boolean values
 - `'bytes'` - For binary data
 - `'array'` - For array data
@@ -118,22 +131,23 @@ Each mapping in the `table_mapping` array has the following configuration:
 
 The `column_type` parameter accepts the following ClickHouse data types:
 
-- `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
-- `'float32'`, `'float64'` - For float values
-- `'string'` - For string values
-- `'fixedstring'` - For fixedstring values
-- `'datetime'`, `'datetime64'` - For datetime values
-- `'bool'` - For bool values
-- `'uuid'` - For uuid values
-- `'enum8'`, `'enum16'` - For enum values
-- `'lc_int8'`, `'lc_int16'`, `'lc_int32'`, `'lc_int64'` - For low cardinality int values
-- `'lc_uint8'`, `'lc_uint16'`, `'lc_uint32'`, `'lc_uint64'` - For low cardinality uint values
-- `'lc_float32'`, `'lc_float64'` - For low cardinality float values
-- `'lc_string'` - For low cardinality string values
-- `'lc_fixedstring'` - For low cardinality fixedstring values
-- `'lc_datetime'` - For low cardinality datetime values
-- `'array_string'` - For array of string values
-- `'array_int8'`, `'array_int16'`, `'array_int32'`, `'array_int64'` - For array of int values
+- `'Int8'`, `'Int16'`, `'Int32'`, `'Int64'` - For integer values
+- `'UInt8'`, `'UInt16'`, `'UInt32'`, `'UInt64'` - For unsigned integer values
+- `'Float32'`, `'Float64'` - For float values
+- `'String'` - For string values
+- `'FixedString'` - For fixedstring values
+- `'DateTime'`, `'DateTime64'` - For datetime values
+- `'Bool'` - For bool values
+- `'UUID'` - For uuid values
+- `'Enum8'`, `'Enum16'` - For enum values
+- `'LowCardinality(Int8)'`, `'LowCardinality(Int16)'`, `'LowCardinality(Int32)'`, `'LowCardinality(Int64)'` - For low cardinality int values
+- `'LowCardinality(UInt8)'`, `'LowCardinality(UInt16)'`, `'LowCardinality(UInt32)'`, `'LowCardinality(UInt64)'` - For low cardinality uint values
+- `'LowCardinality(Float32)'`, `'LowCardinality(Float64)'` - For low cardinality float values
+- `'LowCardinality(String)'` - For low cardinality string values
+- `'LowCardinality(FixedString)'` - For low cardinality fixedstring values
+- `'LowCardinality(DateTime)'` - For low cardinality datetime values
+- `'Array(String)'` - For array of string values
+- `'Array(Int8)'`, `'Array(Int16)'`, `'Array(Int32)'`, `'Array(Int64)'` - For array of int values
 
 ## Join Configuration
 

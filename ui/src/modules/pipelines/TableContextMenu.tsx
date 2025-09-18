@@ -86,7 +86,7 @@ export const TableContextMenu = ({
             onClick={(e) => e.stopPropagation()} // Prevent any clicks in the menu from bubbling to parent
           >
             {/* Pause Button */}
-            {/* {showPause && onPause && (
+            {showPause && onPause && (
               <Button
                 variant="ghost"
                 className={cn(
@@ -102,10 +102,10 @@ export const TableContextMenu = ({
                 <Pause className="h-4 w-4 mr-2 flex-shrink-0" />
                 <span className="truncate">Pause</span>
               </Button>
-            )} */}
+            )}
 
             {/* Resume Button */}
-            {/* {showResume && onResume && (
+            {showResume && onResume && (
               <Button
                 variant="ghost"
                 className={cn(
@@ -121,7 +121,7 @@ export const TableContextMenu = ({
                 <Play className="h-4 w-4 mr-2 flex-shrink-0" />
                 <span className="truncate">Resume</span>
               </Button>
-            )} */}
+            )}
 
             {/* Edit Button */}
             {/* {onEdit && (

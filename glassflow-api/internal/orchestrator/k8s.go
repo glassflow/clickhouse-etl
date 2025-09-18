@@ -224,3 +224,113 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	k.log.Info("requested termination of k8s pipeline", slog.String("pipeline_id", pipelineID))
 	return nil
 }
+
+// PausePipeline implements Orchestrator.
+func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) error {
+	k.log.Info("pausing k8s pipeline", slog.String("pipeline_id", pipelineID))
+
+	// Get the pipeline CRD
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	// Check current status - only running pipelines can be paused
+	status, exists, err := unstructured.NestedString(customResource.Object, "status")
+	if err != nil {
+		return fmt.Errorf("get pipeline status: %w", err)
+	}
+	if exists {
+		if status == "Paused" {
+			k.log.Info("pipeline already paused", slog.String("pipeline_id", pipelineID))
+			return nil
+		}
+		if status != "Running" {
+			return fmt.Errorf("only running pipelines can be paused, current status: %s", status)
+		}
+	}
+
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// Add pause annotation
+	annotations["pipeline.etl.glassflow.io/pause"] = "true"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the pause annotation
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update pipeline CRD with pause annotation: %w", err)
+	}
+
+	k.log.Info("requested pause of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	return nil
+}
+
+// ResumePipeline implements Orchestrator.
+func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string) error {
+	k.log.Info("resuming k8s pipeline", slog.String("pipeline_id", pipelineID))
+
+	// Get the pipeline CRD
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	// Check current status - only paused pipelines can be resumed
+	status, exists, err := unstructured.NestedString(customResource.Object, "status")
+	if err != nil {
+		return fmt.Errorf("get pipeline status: %w", err)
+	}
+	if exists {
+		if status == "Running" {
+			k.log.Info("pipeline already running", slog.String("pipeline_id", pipelineID))
+			return nil
+		}
+		if status != "Paused" {
+			return fmt.Errorf("only paused pipelines can be resumed, current status: %s", status)
+		}
+	}
+
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// Add resume annotation
+	annotations["pipeline.etl.glassflow.io/resume"] = "true"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the resume annotation
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update pipeline CRD with resume annotation: %w", err)
+	}
+
+	k.log.Info("requested resume of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	return nil
+}

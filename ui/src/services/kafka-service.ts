@@ -22,6 +22,20 @@ export class KafkaService {
     return topics
   }
 
+  async getTopicDetails(config: KafkaConfig): Promise<Array<{ name: string; partitionCount: number }>> {
+    const kafkaClient = new KafkaClient(config)
+
+    // First test the connection
+    const isConnected = await kafkaClient.testConnection()
+    if (!isConnected) {
+      throw new Error('Failed to connect to Kafka cluster')
+    }
+
+    // Fetch topic details with partition information
+    const topicDetails = await kafkaClient.getTopicDetails()
+    return topicDetails
+  }
+
   async fetchEvent({
     kafkaConfig,
     topic,

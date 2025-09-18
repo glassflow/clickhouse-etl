@@ -31,6 +31,7 @@ import { pausePipeline, resumePipeline, deletePipeline, renamePipeline } from '@
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
+import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
 // TEMPORARILY DISABLED: Health monitoring imports
 // import { useMultiplePipelineHealth } from '@/src/hooks/usePipelineHealth'
 // import { getHealthStatusDisplayText } from '@/src/api/pipeline-health'
@@ -140,9 +141,11 @@ export function PipelinesList({
     return pipelineOperations[pipelineId]?.operation || null
   }
 
-  // Count active pipelines
+  // Count pipelines that block new pipeline creation (active or paused)
   const activePipelinesCount = useMemo(() => {
-    return pipelines.filter((pipeline) => pipeline.status === 'active').length
+    // Count pipelines that are active or paused as blocking new pipeline creation
+    // Only terminated or deleted pipelines allow new pipeline creation
+    return countPipelinesBlockingCreation(pipelines)
   }, [pipelines])
 
   // Check if new pipeline creation should show limitation modal
@@ -152,7 +155,7 @@ export function PipelinesList({
       return false
     }
 
-    // Show modal if there's already an active pipeline
+    // Show modal if there are active or paused pipelines blocking new creation
     return activePipelinesCount > 0
   }, [isDocker, isLocal, activePipelinesCount])
 
@@ -329,9 +332,11 @@ export function PipelinesList({
       case 'no_configuration':
         return 'No Configuration'
       case 'pausing':
-        return 'Pausing'
+        return 'Pausing...'
       case 'paused':
         return 'Paused'
+      case 'resuming':
+        return 'Resuming...'
       case 'terminating':
         return 'Terminating...'
       case 'terminated':
@@ -394,6 +399,8 @@ export function PipelinesList({
             case 'paused':
               return 'warning'
             case 'pausing':
+              return 'warning'
+            case 'resuming':
               return 'warning'
             case 'deleting':
               return 'secondary'
@@ -466,7 +473,7 @@ export function PipelinesList({
 
     // Optimistically update status to show transitional state
     const currentStatus = (pipeline.status as PipelineStatus) || 'no_configuration'
-    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deploying') // Use deploying as transitional state for resume
+    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'resuming') // Use resuming as transitional state for resume
 
     try {
       await resumePipeline(pipeline.pipeline_id)
@@ -801,7 +808,7 @@ export function PipelinesList({
       <InfoModal
         visible={showPipelineLimitModal}
         title="Pipeline Limit Reached"
-        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first pause or delete the currently active pipeline.`}
+        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first terminate or delete any currently active or paused pipelines.`}
         okButtonText="Manage Pipelines"
         cancelButtonText="Cancel"
         onComplete={handlePipelineLimitModalComplete}

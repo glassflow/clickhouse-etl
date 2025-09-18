@@ -16,6 +16,8 @@ const KafkaTopicSchema = z.object({
   events: z.array(KafkaEventSchema), // all events fetched previously including current event
   selectedEvent: KafkaEventSchema, // current event
   initialOffset: z.enum(['earliest', 'latest']), // current offset
+  replicas: z.number().optional(), // number of replicas for this topic
+  partitionCount: z.number().optional(), // number of partitions for this topic
 })
 
 const KafkaTopicsSchema = z.record(z.number(), KafkaTopicSchema)

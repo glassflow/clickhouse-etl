@@ -19,6 +19,16 @@ type MockPipelineManager struct {
 	mock.Mock
 }
 
+func (m *MockPipelineManager) PausePipeline(ctx context.Context, pid string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineManager) ResumePipeline(ctx context.Context, pid string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *MockPipelineManager) CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error {
 	args := m.Called(ctx, cfg)
 	return args.Error(0)
@@ -57,6 +67,11 @@ func (m *MockPipelineManager) GetPipelineHealth(ctx context.Context, pid string)
 func (m *MockPipelineManager) GetOrchestratorType() string {
 	args := m.Called()
 	return args.String(0)
+}
+
+func (m *MockPipelineManager) CleanUpPipelines(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 // MockDLQ is a mock implementation of service.DLQ

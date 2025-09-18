@@ -28,17 +28,30 @@ export function BatchDelaySelector({
   const [maxDelayTimeLocal, setMaxDelayTimeLocal] = useState<number | null>(maxDelayTime)
   const [maxDelayTimeUnitLocal, setMaxDelayTimeUnitLocal] = useState(maxDelayTimeUnit)
 
+  // Sync local state with props when they change
+  useEffect(() => {
+    setMaxBatchSizeLocal(maxBatchSize)
+  }, [maxBatchSize])
+
+  useEffect(() => {
+    setMaxDelayTimeLocal(maxDelayTime)
+  }, [maxDelayTime])
+
+  useEffect(() => {
+    setMaxDelayTimeUnitLocal(maxDelayTimeUnit)
+  }, [maxDelayTimeUnit])
+
   useEffect(() => {
     onMaxBatchSizeChange(maxBatchSizeLocal || 0)
-  }, [maxBatchSizeLocal])
+  }, [maxBatchSizeLocal, onMaxBatchSizeChange])
 
   useEffect(() => {
     onMaxDelayTimeChange(maxDelayTimeLocal || 0)
-  }, [maxDelayTimeLocal])
+  }, [maxDelayTimeLocal, onMaxDelayTimeChange])
 
   useEffect(() => {
     onMaxDelayTimeUnitChange(maxDelayTimeUnitLocal)
-  }, [maxDelayTimeUnitLocal])
+  }, [maxDelayTimeUnitLocal, onMaxDelayTimeUnitChange])
 
   // Ensure we have default values if they're undefined
   return (
