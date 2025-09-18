@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { Pipeline } from '@/src/types/pipeline'
-import { pausePipeline, resumePipeline, deletePipeline, renamePipeline, updatePipeline } from '@/src/api/pipeline-api'
+import {
+  pausePipeline,
+  resumePipeline,
+  stopPipeline,
+  terminatePipeline,
+  deletePipeline,
+  renamePipeline,
+  updatePipeline,
+} from '@/src/api/pipeline-api'
 import { getActionConfig, getActionButtonText, getAvailableActions } from '@/src/utils/pipeline-actions'
 import { PipelineAction } from '@/src/types/pipeline'
 
@@ -38,9 +46,18 @@ export const usePipelineActions = (pipeline: Pipeline) => {
           result = undefined
           break
 
-        case 'delete':
+        case 'stop':
           const isGraceful = payload?.graceful || false
-          await deletePipeline(pipeline.pipeline_id, isGraceful)
+          if (isGraceful) {
+            await stopPipeline(pipeline.pipeline_id)
+          } else {
+            await terminatePipeline(pipeline.pipeline_id)
+          }
+          result = undefined
+          break
+
+        case 'delete':
+          await deletePipeline(pipeline.pipeline_id)
           result = undefined
           break
 

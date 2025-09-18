@@ -99,7 +99,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           return baseConfig
       }
 
-    case 'delete':
+    case 'stop':
       switch (pipelineStatus) {
         case PIPELINE_STATUS_MAP.active:
           return {
@@ -107,14 +107,15 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             showModal: true,
             requiresConfirmation: true,
             warningMessage:
-              'This action will permanently delete the pipeline and all its configuration. Choose how to handle events currently in the queue.',
+              'This action will stop the pipeline. Choose whether to process remaining events in the queue (graceful) or stop immediately (ungraceful).',
           }
         case PIPELINE_STATUS_MAP.paused:
           return {
             ...baseConfig,
             showModal: true,
             requiresConfirmation: true,
-            warningMessage: 'This action will permanently delete the pipeline and all its configuration.',
+            warningMessage:
+              'This action will stop the pipeline. Choose whether to process remaining events in the queue (graceful) or stop immediately (ungraceful).',
           }
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.resuming:
@@ -123,13 +124,13 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             showModal: true,
             requiresConfirmation: true,
             warningMessage:
-              'The pipeline is currently pausing/resuming. This action will permanently delete the pipeline and all its configuration.',
+              'The pipeline is currently pausing/resuming. This action will stop the pipeline. Choose whether to process remaining events in the queue (graceful) or stop immediately (ungraceful).',
           }
         case PIPELINE_STATUS_MAP.deleting:
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already being deleted',
+            disabledReason: 'Pipeline is already being stopped',
           }
         case PIPELINE_STATUS_MAP.terminating:
           return {
@@ -153,7 +154,40 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already deleted',
+            disabledReason: 'Pipeline is already stopped',
+          }
+        default:
+          return baseConfig
+      }
+
+    case 'delete':
+      switch (pipelineStatus) {
+        case PIPELINE_STATUS_MAP.terminated:
+        case PIPELINE_STATUS_MAP.deleted:
+          return {
+            ...baseConfig,
+            showModal: false,
+            requiresConfirmation: false,
+          }
+        case PIPELINE_STATUS_MAP.active:
+        case PIPELINE_STATUS_MAP.paused:
+        case PIPELINE_STATUS_MAP.pausing:
+        case PIPELINE_STATUS_MAP.resuming:
+        case PIPELINE_STATUS_MAP.deleting:
+        case PIPELINE_STATUS_MAP.terminating:
+        case PIPELINE_STATUS_MAP.deploying:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: `Cannot delete pipeline while it's ${pipelineStatus}. Stop the pipeline first.`,
+          }
+        case PIPELINE_STATUS_MAP.error:
+        case PIPELINE_STATUS_MAP.deploy_failed:
+        case PIPELINE_STATUS_MAP.delete_failed:
+          return {
+            ...baseConfig,
+            showModal: false,
+            requiresConfirmation: false,
           }
         default:
           return baseConfig
@@ -235,7 +269,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
  * Determines which actions are available for a given pipeline status
  */
 export const getAvailableActions = (pipelineStatus: Pipeline['status']): PipelineAction[] => {
-  const allActions: PipelineAction[] = ['edit', 'rename', 'delete', 'pause', 'resume']
+  const allActions: PipelineAction[] = ['edit', 'rename', 'stop', 'delete', 'pause', 'resume']
 
   return allActions.filter((action) => {
     const config = getActionConfig(action, pipelineStatus)
@@ -252,8 +286,12 @@ export const getActionButtonText = (action: PipelineAction, pipelineStatus: Pipe
       return pipelineStatus === PIPELINE_STATUS_MAP.pausing ? 'Pausing...' : 'Pause'
     case 'resume':
       return pipelineStatus === PIPELINE_STATUS_MAP.resuming ? 'Resuming...' : 'Resume'
+    case 'stop':
+      return pipelineStatus === PIPELINE_STATUS_MAP.deleting || pipelineStatus === PIPELINE_STATUS_MAP.terminating
+        ? 'Stopping...'
+        : 'Stop'
     case 'delete':
-      return pipelineStatus === PIPELINE_STATUS_MAP.deleting ? 'Deleting...' : 'Delete'
+      return 'Delete'
     case 'edit':
       return 'Edit'
     case 'rename':

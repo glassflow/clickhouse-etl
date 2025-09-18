@@ -12,6 +12,7 @@ interface TableContextMenuProps {
   onResume?: () => void
   onEdit?: () => void
   onRename?: () => void
+  onStop?: () => void
   onDelete?: () => void
   disabled?: boolean
   onOpen?: (e: React.MouseEvent) => void
@@ -24,6 +25,7 @@ export const TableContextMenu = ({
   onResume,
   onEdit,
   onRename,
+  onStop,
   onDelete,
   disabled = false,
   onOpen,
@@ -35,8 +37,8 @@ export const TableContextMenu = ({
   const resumeConfig = getActionConfig('resume', pipelineStatus)
   const editConfig = getActionConfig('edit', pipelineStatus)
   const renameConfig = getActionConfig('rename', pipelineStatus)
+  const stopConfig = getActionConfig('stop', pipelineStatus)
   const deleteConfig = getActionConfig('delete', pipelineStatus)
-
   // Determine which pause/resume action to show
   const showPause = pipelineStatus === 'active' && !pauseConfig.isDisabled
   const showResume = pipelineStatus === 'paused' && !resumeConfig.isDisabled
@@ -161,6 +163,28 @@ export const TableContextMenu = ({
               >
                 <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
                 <span className="truncate">Rename</span>
+              </Button>
+            )}
+
+            {/* Stop Button */}
+            {onStop && (
+              <Button
+                variant="ghost"
+                className={cn(
+                  'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
+                  stopConfig.isDisabled || isLoading
+                    ? 'text-muted-foreground cursor-not-allowed opacity-50'
+                    : 'text-destructive hover:bg-[var(--color-background-neutral-faded)]',
+                )}
+                onClick={(e) => {
+                  e.stopPropagation() // Always stop propagation first
+                  handleMenuClick(e, onStop, stopConfig.isDisabled || isLoading)
+                }}
+                disabled={stopConfig.isDisabled || isLoading}
+                title={stopConfig.disabledReason}
+              >
+                <Trash2 className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Stop</span>
               </Button>
             )}
 
