@@ -156,6 +156,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 				MaxBatchSize: pi.Sink.Batch.MaxBatchSize,
 				MaxDelayTime: pi.Sink.Batch.MaxDelayTime,
 			},
+			NATSConsumerName:           pi.Sink.NATSConsumerName,
 			ClickHouseConnectionParams: pi.Sink.ClickHouseConnectionParams,
 		},
 		schemaMapper,

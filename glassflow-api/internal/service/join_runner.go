@@ -75,7 +75,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 
 	leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   j.leftInputStreamName,
-		NatsConsumer: "leftStreamConsumer",
+		NatsConsumer: j.joinCfg.NATSLeftConsumerName,
 		NatsSubject:  models.GetWildcardNATSSubjectName(j.leftInputStreamName),
 	})
 	if err != nil {
@@ -84,7 +84,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 
 	rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   j.rightInputStreamName,
-		NatsConsumer: "rightStreamConsumer",
+		NatsConsumer: j.joinCfg.NATSRightConsumerName,
 		NatsSubject:  models.GetWildcardNATSSubjectName(j.rightInputStreamName),
 	})
 	if err != nil {

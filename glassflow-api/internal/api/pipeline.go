@@ -441,6 +441,8 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 			return zero, fmt.Errorf("join config: %w", err)
 		}
 		jc.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
+		jc.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(p.PipelineID)
+		jc.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(p.PipelineID)
 
 	}
 
@@ -475,6 +477,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	if err != nil {
 		return zero, fmt.Errorf("sink config: %w", err)
 	}
+	sc.NATSConsumerName = models.GetNATSSinkConsumerName(p.PipelineID)
 
 	// NOTE: optimized for speed - dirty implementation mixing infra
 	// with domain logic and must be changed when schema mapper doesn't mix
