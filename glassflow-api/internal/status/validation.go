@@ -64,20 +64,6 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 	models.PipelineStatus(internal.PipelineStatusFailed): {},
 }
 
-// StatusTransitionDescriptions provides human-readable descriptions for transitions
-var StatusTransitionDescriptions = map[string]string{
-	"Created->Running":        "Start pipeline execution",
-	"Running->Pausing":        "Pause pipeline",
-	"Running->Stopping":       "Stop pipeline",
-	"Running->Terminating":    "Terminate pipeline",
-	"Pausing->Paused":         "Complete pause operation",
-	"Paused->Resuming":        "Resume pipeline",
-	"Paused->Stopping":        "Stop paused pipeline",
-	"Resuming->Running":       "Complete resume operation",
-	"Stopping->Stopped":       "Complete stop operation",
-	"Terminating->Terminated": "Complete termination operation",
-}
-
 // ValidateStatusTransition checks if a transition from one status to another is valid
 func ValidateStatusTransition(from, to models.PipelineStatus) error {
 	// Check if the transition is valid according to the matrix
