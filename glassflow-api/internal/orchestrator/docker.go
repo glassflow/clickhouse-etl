@@ -310,25 +310,26 @@ func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid
 	d.joinRunner = nil
 	d.sinkRunner = nil
 
-	// Get pipeline config
+	// Get pipeline config for NATS cleanup
 	var pipeline *models.PipelineConfig
 	configData, err := d.nc.GetKeyValue(ctx, d.pipelineKVStoreName, pid)
-	if err != nil {
-		d.log.Warn("could not retrieve pipeline config for cleanup", slog.Any("error", err))
-		return err
-	}
+	if err == nil {
+		err = json.Unmarshal(configData, &pipeline)
+		if err != nil {
+			d.log.Error("failed to unmarshal pipeline config - proceeding with basic cleanup", slog.Any("error", err))
+			return err
+		}
 
-	err = json.Unmarshal(configData, &pipeline)
-	if err != nil {
-		d.log.Error("failed to unmarshal pipeline config", slog.Any("error", err))
-		return err
-	}
-
-	// Clean up NATS resources
-	err = d.cleanupNATSResources(ctx, pipeline)
-	if err != nil {
-		d.log.Error("failed to cleanup NATS resources", slog.Any("error", err))
-		// Continue anyway
+		// Clean up NATS resources
+		err = d.cleanupNATSResources(ctx, pipeline)
+		if err != nil {
+			d.log.Error("failed to cleanup NATS resources", slog.Any("error", err))
+			// Continue anyway
+		}
+	} else {
+		// this should never happen, except in tests
+		d.log.Error("failed to get pipeline config for cleanup", slog.Any("error", err))
+		return nil
 	}
 
 	return nil
