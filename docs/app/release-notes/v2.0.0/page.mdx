@@ -7,10 +7,87 @@ description: Release notes for the GlassFlow ClickHouse ETL v2.0.0.
 
 # Release Notes v2.0.0
 
-Release notes for the GlassFlow ClickHouse ETL v2.0.0.
+Version 2 is the biggest release in GlassFlow’s history. With **282 commits**, this release takes GlassFlow from an early adopter tool to a **production-ready Streaming ETL**.
 
-## Features
+Our focus has been on making GlassFlow robust, secure, and more scalable for real-world data pipelines while delivering new functionalities.
 
-- Added support for deduplication and stream joins
-- Added support for temporal joins between multiple Kafka topics
-- Added support for Kubernetes native architecture
+## What are the changes?
+
+### Kafka Connectivity
+
+GlassFlow now connects to **enterprise Kafka clusters** with **TLS and SASL_SSL support**. This means you can finally run GlassFlow in the same secure environments your company already trusts. In addition, you have the option to **skip certificate checks** for fast dev/test setups.
+
+### Full Kubernetes Support:
+
+We now provide **Helm charts** for deploying GlassFlow on Kubernetes. This makes running in production straightforward and with **multi-architecture images (AMD64 + ARM64)** you can run the same setup in the cloud and on-prem.
+
+Our **Kubernetes Operator** monitors your cluster for events and automatically creates the resources required for GlassFlow. It keeps your pipelines running by handling updates and scaling.
+
+```bash
+helm repo add glassflow https://glassflow.github.io/charts
+helm repo update
+helm install glassflow glassflow/glassflow-etl
+```
+
+### Cloud-native Architecture:
+
+GlassFlow has been redesigned to be **horizontally scalable**. As your data grows, you can scale pipelines without rethinking your architecture and the microservices-based design fits naturally into modern distributed environments.
+
+### Better Observability:
+
+We have embedded **pipeline metrics and improved logging,** so you can gain deeper insights into pipeline health and performance, making debugging and monitoring much easier.
+
+With the **Dead-Letter Queue (DLQ):** Fault events at ingestion will be logged to the [DL](https://docs.glassflow.dev/pipeline/usage/python-sdk#read-messages-from-pipelines-dead-letter-queue-dlq)Q without blocking your current pipeline. Giving you the chance to re-run those events and have your ClickHouse complete.
+
+![DLQ metrics panel](/assets/dlq-metrics.png)
+
+### Real-World Data Handling:
+
+Glasflow is now supporting **Nested JSON.** It allows you to seamlessly ingest, flatten and process complex Kafka event payloads that mirror messy real-world data. Feel free to check out our example [here](https://docs.glassflow.dev/pipeline/data-format#nested-json-support).
+
+**Supporting Low-cardinality data types** is crucial for storing and querying data more efficiently, improving performance and reducing costs on your ClickHouse. That's why we wanted to include this functionality in our release.
+
+### Better Usability:
+
+Our teams made several improvements to make it easier for you to manage your pipelines. Those improvements start with the ability to **pause and resume** pipelines via our UI and our SDK.
+
+![Pipeline panel](/assets/pipeline-panel.png)
+
+With this version we enabled to run multiple pipelines within GlassFlow.
+
+![Pipelines page](/assets/pipelines-page.png)
+
+## Now, it is demo time!
+
+To give you a better understanding of the GlassFlows version 2 power, we have prepared a demo.
+
+In this demo, you will see:
+
+- A setup of GlassFlow via Kubernetes helm-charts running on GCP
+- Ingesting messages via a SASL Kafka setup
+- Deduplication of a Kafka stream within a 1-minute time window
+- Mapping of events data to ClickHouse fields
+- Quick overview of dead-letter-queue
+
+<iframe
+  src="https://www.youtube.com/embed/tbrWqYHCCpI"
+  title="GlassFlow Demo"
+  width="100%"
+  height="500"
+  style={{
+    aspectRatio: '16/9',
+    maxWidth: '100%',
+    margin: '2rem 0',
+    border: 'none',
+    borderRadius: '8px'
+  }}
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+/>
+
+## Try yourself
+
+If you want to try GlassFlow yourself, we suggest you take a look at our instructions:
+https://docs.glassflow.dev/installation/self-host/kubernetes-helm
+
+### An overview of all released changes is available [here](https://github.com/glassflow/clickhouse-etl/compare/v0.1.17...v2.0.0).
