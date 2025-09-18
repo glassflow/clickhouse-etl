@@ -329,6 +329,7 @@ func (p *PipelineSteps) setupPipelineManager() error {
 	p.pipelineManager = service.NewPipelineManager(
 		orch,
 		db,
+		p.log,
 	)
 
 	return nil

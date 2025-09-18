@@ -1,0 +1,195 @@
+---
+title: 'Python SDK'
+description: 'Learn how to use the GlassFlow Python SDK to create and manage data pipelines programmatically'
+---
+
+# Python SDK
+
+The GlassFlow Python SDK provides a programmatic way to create and manage data pipelines. This approach is ideal for developers who prefer code-based configuration, automated deployment, and integration with existing Python workflows.
+
+## Installation
+
+Install the GlassFlow Python SDK using pip:
+
+```bash
+pip install glassflow>=3.0.0
+```
+
+
+## Basic Usage
+
+1. **Import Required Modules**
+
+```python
+from glassflow.etl import Client
+```
+
+2. **Create a Client**
+
+```python
+client = Client(host="http://localhost:8081")
+```
+
+**Note**: The `host` parameter specifies the GlassFlow API host (if GlassFlow is running locally with docker compose, it is `http://localhost:8081`).
+
+3. **Create a Pipeline from JSON Config**
+
+Create a pipeline from a JSON pipeline configuration file:
+```python
+pipeline = client.create_pipeline(pipeline_config_json_path="pipeline_config.json")
+```
+
+## Pipeline Management
+
+### Get a Pipeline
+
+```python
+pipeline = client.get_pipeline(pipeline_id="<my-pipeline-id>")
+```
+
+### Get Pipeline Health
+
+Access the pipeline health status:
+```python
+pipeline = client.get_pipeline(pipeline_id="<my-pipeline-id>")
+print(pipeline.status)
+```
+
+Output:
+```
+<PipelineStatus.RUNNING: 'Running'>
+```
+
+or query the latest health status:
+
+```python
+pipeline_health = pipeline.health()
+print(pipeline_health)
+```
+
+Output:
+```json
+{
+    "pipeline_id": "<pipeline-id>", 
+    "pipeline_name": "<pipeline-name>", 
+    "overall_status": "Running", 
+    "created_at": "2025-09-05T10:21:57.945135078Z", 
+    "updated_at": "2025-09-05T10:21:58.192448618Z"
+}
+```
+
+### List Pipelines
+
+You can list all pipelines available in your GlassFlow deployment:
+```python
+pipelines = client.list_pipelines()
+print(pipelines)
+```
+
+Output:
+```json
+[
+    {
+        "pipeline_id": "<my-pipeline-id>", 
+        "name": "<my-pipeline-name>", 
+        "transformation_type": "Deduplication", 
+        "created_at": "2025-09-04T15:20:24.327977208Z", 
+        "status": "Running"
+    }
+]
+```
+
+### Read messages from Pipeline's Dead-Letter Queue (DLQ)
+
+Get DQL state summary:
+```python
+dlq_state = pipeline.dlq.state()
+print(dlq_state)
+```
+
+Output:
+```json
+{
+    "last_consumed_at": "2025-09-05T10:32:38.113427621Z",
+    "last_received_at": "2025-09-05T10:23:26.530466989Z",
+    "total_messages": 2,
+    "unconsumed_messages": 1
+}
+```
+
+and read messages from DLQ:
+
+```python
+messages = pipeline.dlq.consume(batch_size=1)
+print(messages)
+```
+
+Output:
+```json
+[
+    {
+        "component": "ingestor",
+        "error": "failed to validate data",
+        "original_message": "<original kafka message>"
+    }
+]
+```
+
+### Delete a Pipeline
+
+```python
+pipeline.delete()
+```
+
+or 
+
+```python
+client.delete_pipeline(pipeline_id="<my-pipeline-id>")
+```
+
+## Pipeline Pausing and Resuming
+
+### Pause a Pipeline
+
+```python
+pipeline.pause()
+```
+
+### Resume a Pipeline
+
+```python
+pipeline.resume()
+```
+
+## Import / Export Pipeline Configurations
+
+### Import
+
+Import a pipeline configuration from a JSON file:
+```python
+pipeline_config = client.create_pipeline(pipeline_config_json_path="<my-pipeline-config.json>")
+```
+
+Import a pipeline configuration from a YAML file:
+```python
+pipeline_config = client.create_pipeline(pipeline_config_yaml_path="<my-pipeline-config.yaml>")
+```
+
+### Export
+
+Export a pipeline configuration to a JSON file:
+```python
+pipeline.to_json(json_path="<my-pipeline-config.json>")
+```
+
+Export a pipeline configuration to a YAML file:
+
+```python
+pipeline.to_yaml(yaml_path="<my-pipeline-config.yaml>")
+```
+
+## Next Steps
+
+- Explore the [Pipeline Configuration](/pipeline/pipeline-configuration) documentation for detailed configuration options
+- Check out the [demo scripts](/local-testing) for more examples
+- Learn about [monitoring and observability](/pipeline/usage#verifying-data-flow) for your pipelines

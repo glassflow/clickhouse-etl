@@ -179,7 +179,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
 			ctx := context.Background()
-			manager := NewPipelineManager(tt.orchestrator, tt.store)
+			manager := NewPipelineManager(tt.orchestrator, tt.store, nil)
 
 			// Create test pipeline if needed
 			if tt.initialStatus != "" {
@@ -321,7 +321,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
 			ctx := context.Background()
-			manager := NewPipelineManager(tt.orchestrator, tt.store)
+			manager := NewPipelineManager(tt.orchestrator, tt.store, nil)
 
 			// Create test pipeline if needed
 			if tt.initialStatus != "" {

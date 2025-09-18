@@ -1,0 +1,30 @@
+---
+title: 'FAQ'
+description: 'Frequently asked questions about GlassFlow'
+---
+
+# FAQ
+
+## Q: How is GlassFlow's deduplication different from ClickHouse's ReplacingMergeTree?
+
+[ReplacingMergeTree (RMT)](https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/replacingmergetree) performs deduplication via background merges, which can delay accurate query results unless you force merges with `FINAL`—which can significantly impact read performance. GlassFlow moves deduplication upstream, before data is written to ClickHouse, ensuring real-time correctness and reducing load on ClickHouse.
+
+## Q: How does GlassFlow's deduplication work?
+
+GlassFlow's deduplication is powered by [NATS JetStream](https://docs.nats.io/nats-concepts/jetstream) and is based on a **user-defined key** (e.g. `user_id`) and a **time window** (e.g. 1 hour) to identify duplicates. When multiple events with the same key arrive within the configured time window, only the **first event** is written to ClickHouse. Any subsequent events with the same key during that window are discarded. This mechanism ensures that only unique events are persisted, avoiding duplicates caused by retries or upstream noise.
+
+## Q: Why do duplicates happen in Kafka pipelines at all?
+
+Duplicate events in Kafka can occur for several reasons, including **producer retries**, **network issues**, or **consumer reprocessing** after failures. For example, if a producer doesn't receive an acknowledgment, it may retry sending the same event—even if Kafka already received and stored it. Similarly, consumers might reprocess events after a crash or restart if offsets weren't committed properly.
+
+These duplicates become a problem when writing to systems like ClickHouse, which are optimized for fast analytical queries but don't handle event deduplication natively. Without a deduplication layer, the same event could be stored multiple times, inflating metrics, skewing analysis, and consuming unnecessary storage.
+
+## Q: What happens during failures? Can you lose or duplicate data?
+
+GlassFlow uses NATS JetStream as a buffer. Kafka offsets are only committed after successful ingestion into NATS, and then data is deduplicated and written to ClickHouse. We batch inserts using the ClickHouse native protocol. If the system crashes after acknowledging Kafka but before inserting into ClickHouse, that batch is lost. We're actively improving recovery guarantees to address this gap.
+
+## Q: Why does GlassFlow only support Kafka and ClickHouse?
+
+GlassFlow focuses on Kafka and ClickHouse because that's the stack our early users were already using and where we saw the most urgent need for reliable, high-throughput deduplication. By narrowing our scope, we've been able to build a fast, robust tool tailored to real-world production pipelines.
+
+That said, GlassFlow is designed with extensibility in mind. Its architecture makes it straightforward to add support for other sources and sinks in the future, and we're actively considering community feedback to guide what integrations come next.

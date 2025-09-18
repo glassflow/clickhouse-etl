@@ -1,0 +1,154 @@
+---
+title: 'Supported Data Formats'
+description: 'Learn about supported data formats and nested JSON handling in GlassFlow'
+---
+
+# Supported Data Formats
+
+GlassFlow currently supports **JSON** as the primary data format for Kafka topics.
+
+## JSON Format
+
+GlassFlow exclusively supports JSON data format for Kafka topics. This means all messages consumed from Kafka topics must be valid JSON objects.
+
+**Example JSON Message:**
+```json
+{
+  "event_id": "evt_12345",
+  "user_id": "user_789",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "event_type": "purchase",
+  "amount": 99.99
+}
+```
+
+### Nested JSON Support
+
+GlassFlow provides comprehensive support for nested JSON structures through **dot notation** field access. This allows you to extract data from deeply nested objects.
+
+Example event with nested fields:
+
+```json
+{
+  "user": {
+    "id": "user_123",
+    "profile": {
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**Field Configuration:**
+```json
+{
+  "name": "user.profile.name",
+  "type": "string"
+}
+```
+
+<details>
+<summary>Full pipeline configuration example</summary>
+```json
+{
+  "pipeline_id": "kafka-to-clickhouse-pipeline",
+  "source": {
+    "type": "kafka",
+    "connection_params": {
+      "brokers": ["kafka-broker-0:9092"],
+      "protocol": "SASL_SSL",
+      "mechanism": "PLAINTEXT",
+      "username": "<user>",
+      "password": "<password>",
+    },
+    "topics": [
+      {
+        "name": "users",
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "user.id",
+              "type": "string"
+            },
+            {
+              "name": "user.profile.name",
+              "type": "string"
+            },
+            {
+              "name": "user.profile.email",
+              "type": "string"
+            },
+            {
+              "name": "created_at",
+              "type": "datetime"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "host": "clickhouse-server",
+    "port": "9000",
+    "database": "default",
+    "username": "default",
+    "password": "c2VjcmV0",
+    "table": "users",
+    "table_mapping": [
+      {
+        "source_id": "users",
+        "field_name": "user.id",
+        "column_name": "user_id",
+        "column_type": "UUID"
+      },
+      {
+        "source_id": "users",
+        "field_name": "user.profile.name",
+        "column_name": "user_name",
+        "column_type": "string"
+      },
+      {
+        "source_id": "users",
+        "field_name": "user.profile.email",
+        "column_name": "user_email",
+        "column_type": "string"
+      },
+      {
+        "source_id": "users",
+        "field_name": "created_at",
+        "column_name": "created_at",
+        "column_type": "DateTime"
+      }
+    ]
+  }
+}
+```
+</details>
+
+### Supported Data Type mappings
+
+GlassFlow supports the following data type mappings to ClickHouse:
+
+| Kafka Type | Supported ClickHouse Type Mappings |
+|------------|-----------------|
+| string     | String, FixedString, DataTime, DataTime64, UUID, Enum8, Enum16, LowCardinality(String), LowCardinality(FixedString), LowCardinality(DateTime)        |
+| int        | Int8, Int16, Int32, Int64          |
+| int8       | Int8, LowCardinality(Int8)            |
+| int16      | Int16, LowCardinality(Int16)           |
+| int32      | Int32, LowCardinality(Int32)           |
+| int64      | Int64, DateTime, DateTime64, LowCardinality(Int64)           |
+| uint       | UInt8, UInt16, UInt32, UInt64          |
+| uint8      | UInt8        |
+| uint16     | UInt16         |
+| uint32     | UInt32           |
+| uint64     | UInt64          |
+| float      | Float64          |
+| float32    | Float32, LowCardinality(Float32)           |
+| float64    | Float64, DateTime, DateTime64, LowCardinality(Float64), LowCardinality(DateTime)           |
+| bool       | Bool           |
+| bytes      | String           |
+| array      | Array(String), Array(Int8), Array(Int16), Array(Int32), Array(Int64), String           |

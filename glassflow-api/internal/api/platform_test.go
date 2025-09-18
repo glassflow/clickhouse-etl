@@ -74,6 +74,11 @@ func (m *MockPipelineManager) GetOrchestratorType() string {
 	return args.String(0)
 }
 
+func (m *MockPipelineManager) CleanUpPipelines(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 // MockDLQ is a mock implementation of service.DLQ
 type MockDLQ struct {
 	mock.Mock
