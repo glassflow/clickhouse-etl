@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -201,6 +202,14 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 
 	d.log.Info("starting pipeline stop", slog.String("pipeline_id", pid))
 
+	// Clear pipeline ID first to stop any pending restart attempts
+	d.id = ""
+
+	if d.watcherCancel != nil {
+		d.watcherCancel()
+		d.watcherWG.Wait()
+	}
+
 	// First pause the pipeline if it's running
 	// Check if pipeline is active (has runners)
 	if d.ingestorRunners != nil || d.joinRunner != nil || d.sinkRunner != nil {
@@ -296,27 +305,30 @@ func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid
 	// Clear pipeline ID first to stop any pending restart attempts
 	d.id = ""
 
-	// Clean up runner references (components are already shut down from pause)
-	// We don't need to call Shutdown() again since pausePipelineComponents already did that
+	// Clean up runner references
 	d.ingestorRunners = nil
 	d.joinRunner = nil
 	d.sinkRunner = nil
 
-	// Retrieve pipeline config from NATS KV store for cleanup
-	cfg, err := d.nc.GetPipelineConfig(ctx, pid, d.pipelineKVStoreName)
+	// Get pipeline config
+	var pipeline *models.PipelineConfig
+	configData, err := d.nc.GetKeyValue(ctx, d.pipelineKVStoreName, pid)
 	if err != nil {
-		d.log.Error("failed to get pipeline config for cleanup", slog.Any("error", err))
-		// Don't return error here as components are already stopped
-		// Just log the error and continue without NATS cleanup
-		return nil
+		d.log.Warn("could not retrieve pipeline config for cleanup", slog.Any("error", err))
+		return err
 	}
 
-	// Clean up NATS streams and KV stores
-	err = d.cleanupNATSResources(ctx, cfg)
+	err = json.Unmarshal(configData, &pipeline)
+	if err != nil {
+		d.log.Error("failed to unmarshal pipeline config", slog.Any("error", err))
+		return err
+	}
+
+	// Clean up NATS resources
+	err = d.cleanupNATSResources(ctx, pipeline)
 	if err != nil {
 		d.log.Error("failed to cleanup NATS resources", slog.Any("error", err))
-		// Don't return error here as components are already stopped
-		// Just log the error and continue
+		// Continue anyway
 	}
 
 	return nil
@@ -436,23 +448,7 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 
 // TerminatePipeline implements Orchestrator.
 func (d *LocalOrchestrator) TerminatePipeline(ctx context.Context, pid string) error {
-	d.m.Lock()
-	defer d.m.Unlock()
-
-	if d.id != pid {
-		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
-	}
-
-	d.log.Info("terminating pipeline", slog.String("pipeline_id", pid))
-
-	// Use the helper method to terminate components
-	err := d.terminatePipelineComponents(ctx, pid)
-	if err != nil {
-		return err
-	}
-
-	d.log.Info("pipeline terminated successfully", slog.String("pipeline_id", pid))
-	return nil
+	return d.StopPipeline(ctx, pid)
 }
 
 func (d *LocalOrchestrator) ActivePipelineID() string {
