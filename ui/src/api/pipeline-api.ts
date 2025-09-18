@@ -224,10 +224,32 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   }
 }
 
+export const stopPipeline = async (id: string, isGraceful: boolean = true): Promise<void> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/stop`)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ graceful: isGraceful }),
+    })
+    const data = await response.json()
+
+    if (!data.success) {
+      throw { code: response.status, message: data.error || 'Failed to stop pipeline' } as ApiError
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to stop pipeline' } as ApiError
+  }
+}
+
 export const terminatePipeline = async (id: string): Promise<void> => {
   try {
     const url = getApiUrl(`pipeline/${id}/terminate`)
-    const response = await fetch(url, { method: 'DELETE' })
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
     const data = await response.json()
 
     if (!data.success) {
@@ -239,10 +261,22 @@ export const terminatePipeline = async (id: string): Promise<void> => {
   }
 }
 
-// DEPRECATED: Use terminatePipeline instead - keeping for backward compatibility
-export const deletePipeline = async (id: string, processEvents: boolean = false): Promise<void> => {
-  // Always use terminate endpoint since shutdown is not implemented
-  return terminatePipeline(id)
+export const deletePipeline = async (id: string): Promise<void> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}`)
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = await response.json()
+
+    if (!data.success) {
+      throw { code: response.status, message: data.error || 'Failed to delete pipeline' } as ApiError
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to delete pipeline' } as ApiError
+  }
 }
 
 export const pausePipeline = async (id: string): Promise<void> => {

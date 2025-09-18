@@ -6,7 +6,7 @@ import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
 import { Copy, Check } from 'lucide-react'
 import PipelineActionButton from '@/src/components/shared/PipelineActionButton'
-import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipelineModal'
+import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import EditPipelineModal from '@/src/modules/pipelines/components/EditPipelineModal'
 import PausePipelineModal from '@/src/modules/pipelines/components/PausePipelineModal'
@@ -19,7 +19,8 @@ import Loader from '@/src/images/loader-small.svg'
 import PlayIcon from '@/src/images/play.svg'
 import EditIcon from '@/src/images/edit.svg'
 import RenameIcon from '@/src/images/rename.svg'
-import DeleteIcon from '@/src/images/delete.svg'
+import DeleteIcon from '@/src/images/trash.svg'
+import StopIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
 import { PipelineStatus } from '@/src/types/pipeline'
 
@@ -89,6 +90,9 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
             status: 'resuming' as Pipeline['status'],
           }
           onPipelineUpdate(updatedPipeline)
+        } else if (action === 'delete') {
+          // For delete action, handle navigation in the parent component
+          onPipelineDeleted?.()
         }
 
         const result = await executeAction(action)
@@ -151,6 +155,13 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
 
       if (action === 'delete') {
         onPipelineDeleted?.()
+      } else if (action === 'stop' && onPipelineUpdate) {
+        // For stop action, update status to terminated after successful API call
+        const updatedPipeline = {
+          ...pipeline,
+          status: 'terminated' as Pipeline['status'],
+        }
+        onPipelineUpdate(updatedPipeline)
       } else if (result && onPipelineUpdate) {
         onPipelineUpdate(result as Pipeline)
       } else if (action === 'rename' && onPipelineUpdate) {
@@ -390,6 +401,15 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
+            {action === 'stop' && (
+              <Image
+                src={StopIcon}
+                alt="Stop"
+                width={16}
+                height={16}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+            )}
             {action === 'delete' && (
               <Image
                 src={DeleteIcon}
@@ -420,11 +440,21 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     const showPause = pipeline.status === 'active' || pipeline.status === 'pausing'
     const showResume = pipeline.status === 'paused' || pipeline.status === 'resuming'
 
+    // Show stop button for active/paused pipelines, delete for terminated/stopped pipelines
+    const showStop = pipeline.status === 'active' || pipeline.status === 'paused'
+    const showDelete =
+      pipeline.status === 'terminated' ||
+      pipeline.status === 'deleted' ||
+      pipeline.status === 'error' ||
+      pipeline.status === 'deploy_failed' ||
+      pipeline.status === 'delete_failed'
+
     return (
       <>
         {showResume && renderActionButton('resume')}
         {renderActionButton('rename')}
-        {renderActionButton('delete')}
+        {showStop && renderActionButton('stop')}
+        {showDelete && renderActionButton('delete')}
         {showPause && renderActionButton('pause')}
         {/* Edit button disabled - functionality not implemented yet */}
         {/* {renderActionButton('edit')} */}
@@ -444,6 +474,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                   <span className="text-sm text-blue-600 font-medium">
                     {actionState.lastAction === 'pause' && 'Pausing pipeline...'}
                     {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
+                    {actionState.lastAction === 'stop' && 'Stopping pipeline...'}
                     {actionState.lastAction === 'delete' && 'Deleting pipeline...'}
                     {actionState.lastAction === 'rename' && 'Renaming pipeline...'}
                     {actionState.lastAction === 'edit' && 'Updating pipeline...'}
@@ -499,15 +530,15 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         </div>
       </Card>
 
-      {/* Delete Modal */}
-      <DeletePipelineModal
-        visible={activeModal === 'delete'}
-        onOk={(processEvents) => {
-          handleModalConfirm('delete', { graceful: processEvents })
+      {/* Stop Pipeline Modal */}
+      <StopPipelineModal
+        visible={activeModal === 'stop'}
+        onOk={(isGraceful) => {
+          handleModalConfirm('stop', { graceful: isGraceful })
         }}
         onCancel={handleModalCancel}
         callback={(result) => {
-          console.log('Process events gracefully:', result)
+          console.log('Stop pipeline gracefully:', result)
         }}
       />
 

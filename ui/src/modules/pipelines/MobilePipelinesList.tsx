@@ -17,6 +17,7 @@ interface MobilePipelinesListProps {
   onResume?: (pipeline: ListPipelineConfig) => void
   onEdit?: (pipeline: ListPipelineConfig) => void
   onRename?: (pipeline: ListPipelineConfig) => void
+  onStop?: (pipeline: ListPipelineConfig) => void
   onDelete?: (pipeline: ListPipelineConfig) => void
   onRowClick?: (pipeline: ListPipelineConfig) => void
   isPipelineLoading?: (pipelineId: string) => boolean
@@ -30,6 +31,7 @@ export function MobilePipelinesList({
   onResume,
   onEdit,
   onRename,
+  onStop,
   onDelete,
   onRowClick,
   isPipelineLoading,
@@ -133,6 +135,7 @@ export function MobilePipelinesList({
                   onResume={onResume ? () => onResume(pipeline) : undefined}
                   onEdit={onEdit ? () => onEdit(pipeline) : undefined}
                   onRename={onRename ? () => onRename(pipeline) : undefined}
+                  onStop={onStop ? () => onStop(pipeline) : undefined}
                   onDelete={onDelete ? () => onDelete(pipeline) : undefined}
                 />
               </div>

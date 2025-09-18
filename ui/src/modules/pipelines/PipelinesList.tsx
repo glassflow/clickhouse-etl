@@ -4,7 +4,6 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
-import { terminatePipeline } from '@/src/api/pipeline-api'
 import { InputModal, ModalResult as InputModalResult } from '@/src/components/common/InputModal'
 import { saveConfiguration } from '@/src/utils/local-storage-config'
 import { isValidApiConfig } from '@/src/modules/pipelines/helpers'
@@ -21,12 +20,19 @@ import { CreateIcon } from '@/src/components/icons'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import PausePipelineModal from './components/PausePipelineModal'
-import DeletePipelineModal from './components/DeletePipelineModal'
+import StopPipelineModal from './components/StopPipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
-import { usePausePipelineModal, useDeletePipelineModal, useRenamePipelineModal, useEditPipelineModal } from './hooks'
+import { usePausePipelineModal, useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal } from './hooks'
 import { PipelineStatus } from '@/src/types/pipeline'
-import { pausePipeline, resumePipeline, deletePipeline, renamePipeline } from '@/src/api/pipeline-api'
+import {
+  pausePipeline,
+  resumePipeline,
+  renamePipeline,
+  stopPipeline,
+  terminatePipeline,
+  deletePipeline,
+} from '@/src/api/pipeline-api'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
@@ -62,11 +68,11 @@ export function PipelinesList({
     closeRenameModal,
   } = useRenamePipelineModal()
   const {
-    isDeleteModalVisible,
+    isStopModalVisible,
     selectedPipeline: deleteSelectedPipeline,
-    openDeleteModal,
-    closeDeleteModal,
-  } = useDeletePipelineModal()
+    openStopModal,
+    closeStopModal,
+  } = useStopPipelineModal()
   const {
     isPauseModalVisible,
     selectedPipeline: pauseSelectedPipeline,
@@ -80,7 +86,7 @@ export function PipelinesList({
     closeEditModal,
   } = useEditPipelineModal()
   const { isFeatureDisabled, isDocker, isLocal } = usePlatformDetection()
-  const [processEvents, setProcessEvents] = useState(true)
+  const [isGracefulStop, setIsGracefulStop] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
 
@@ -90,7 +96,7 @@ export function PipelinesList({
       string,
       {
         isLoading: boolean
-        operation: 'pause' | 'resume' | 'delete' | 'rename' | 'edit' | null
+        operation: 'pause' | 'resume' | 'stop' | 'delete' | 'rename' | 'edit' | null
       }
     >
   >({})
@@ -118,7 +124,10 @@ export function PipelinesList({
   const healthMap = {}
 
   // Helper functions to manage pipeline operation state
-  const setPipelineLoading = (pipelineId: string, operation: 'pause' | 'resume' | 'delete' | 'rename' | 'edit') => {
+  const setPipelineLoading = (
+    pipelineId: string,
+    operation: 'pause' | 'resume' | 'stop' | 'delete' | 'rename' | 'edit',
+  ) => {
     setPipelineOperations((prev) => ({
       ...prev,
       [pipelineId]: { isLoading: true, operation },
@@ -174,51 +183,6 @@ export function PipelinesList({
     window.addEventListener('resize', checkScreenSize)
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
-
-  const handleDeleteClick = () => {
-    openDeleteModal()
-  }
-
-  const handleDeleteModalComplete = async (result: string, configName: string, operation: string) => {
-    closeDeleteModal()
-
-    // Save configuration if the user chose to do so and provided a name
-    if (result === InputModalResult.SUBMIT && configName) {
-      try {
-        saveConfiguration(configName, `Pipeline configuration saved before deletion on ${new Date().toLocaleString()}`)
-      } catch (error) {
-        console.error('Failed to save configuration:', error)
-      }
-    }
-
-    // Proceed with pipeline deletion
-    if (result === InputModalResult.SUBMIT) {
-      try {
-        analytics.pipeline.deleteClicked({})
-
-        await terminatePipeline(pipelineId)
-        setStatus('deleted')
-        setError(null)
-        // Reset pipeline state and ID
-        resetAllPipelineState('', true)
-        setPipelineId('')
-
-        // Track successful pipeline deletion
-        analytics.pipeline.deleteSuccess({})
-
-        // router.push('/home')
-      } catch (err) {
-        const error = err as PipelineError
-        setStatus('delete_failed')
-        setError(error.message)
-
-        // Track failed pipeline deletion
-        analytics.pipeline.deleteFailed({
-          error: error.message,
-        })
-      }
-    }
-  }
 
   const handleModifyAndRestart = () => {
     openRenameModal()
@@ -446,6 +410,7 @@ export function PipelinesList({
           onResume={() => handleResume(pipeline)}
           onEdit={() => handleEdit(pipeline)}
           onRename={() => handleRename(pipeline)}
+          onStop={() => handleStop(pipeline)}
           onDelete={() => handleDelete(pipeline)}
         />
       ),
@@ -513,9 +478,57 @@ export function PipelinesList({
     openRenameModal(pipeline)
   }
 
-  const handleDelete = (pipeline: ListPipelineConfig) => {
+  const handleStop = (pipeline: ListPipelineConfig) => {
+    console.log('Stop pipeline:', pipeline.pipeline_id)
+    openStopModal(pipeline)
+  }
+
+  const handleDelete = async (pipeline: ListPipelineConfig) => {
     console.log('Delete pipeline:', pipeline.pipeline_id)
-    openDeleteModal(pipeline)
+
+    // Track delete clicked
+    analytics.pipeline.deleteClicked({
+      pipelineId: pipeline.pipeline_id,
+      pipelineName: pipeline.name,
+      currentStatus: pipeline.status,
+      processEvents: false, // Delete doesn't process events
+    })
+
+    setPipelineLoading(pipeline.pipeline_id, 'delete')
+
+    // Optimistically update status to 'deleted'
+    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deleted')
+
+    try {
+      await deletePipeline(pipeline.pipeline_id)
+      console.log('Pipeline deleted successfully:', pipeline.pipeline_id)
+
+      // Track delete success
+      analytics.pipeline.deleteSuccess({
+        pipelineId: pipeline.pipeline_id,
+        pipelineName: pipeline.name,
+        processEvents: false,
+      })
+
+      // Remove pipeline from list or refetch data
+      onRemovePipeline?.(pipeline.pipeline_id)
+      await onRefresh?.()
+    } catch (error) {
+      console.error('Failed to delete pipeline:', error)
+
+      // Track delete failure
+      analytics.pipeline.deleteFailed({
+        pipelineId: pipeline.pipeline_id,
+        pipelineName: pipeline.name,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processEvents: false,
+      })
+
+      // Revert optimistic update on error
+      onUpdatePipelineStatus?.(pipeline.pipeline_id, (pipeline.status as PipelineStatus) || 'no_configuration')
+    } finally {
+      clearPipelineLoading(pipeline.pipeline_id)
+    }
   }
 
   const handleCreate = () => {
@@ -567,6 +580,7 @@ export function PipelinesList({
           onResume={handleResume}
           onEdit={handleEdit}
           onRename={handleRename}
+          onStop={handleStop}
           onDelete={handleDelete}
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
           isPipelineLoading={isPipelineLoading}
@@ -744,47 +758,53 @@ export function PipelinesList({
           closeEditModal()
         }}
       />
-      <DeletePipelineModal
-        visible={isDeleteModalVisible}
-        onOk={async (processEvents) => {
+      <StopPipelineModal
+        visible={isStopModalVisible}
+        onOk={async (isGraceful) => {
           if (!deleteSelectedPipeline) return
 
-          // Track delete clicked
+          // Track stop clicked
           analytics.pipeline.deleteClicked({
             pipelineId: deleteSelectedPipeline.pipeline_id,
             pipelineName: deleteSelectedPipeline.name,
             currentStatus: deleteSelectedPipeline.status,
-            processEvents: processEvents,
+            processEvents: isGraceful, // Keep for backward compatibility with analytics
           })
 
-          closeDeleteModal() // Close modal immediately
+          closeStopModal() // Close modal immediately
           setPipelineLoading(deleteSelectedPipeline.pipeline_id, 'delete')
 
-          // Optimistically update status to 'deleting'
-          onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, 'deleting')
+          // Optimistically update status to 'deleting' (or 'terminating' for ungraceful)
+          onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, isGraceful ? 'deleting' : 'terminating')
 
           try {
-            await deletePipeline(deleteSelectedPipeline.pipeline_id, processEvents)
+            if (isGraceful) {
+              // Graceful stop - process remaining events
+              await stopPipeline(deleteSelectedPipeline.pipeline_id, true)
+            } else {
+              // Ungraceful stop - terminate immediately
+              await terminatePipeline(deleteSelectedPipeline.pipeline_id)
+            }
 
-            // Track delete success
+            // Track stop success
             analytics.pipeline.deleteSuccess({
               pipelineId: deleteSelectedPipeline.pipeline_id,
               pipelineName: deleteSelectedPipeline.name,
-              processEvents: processEvents,
+              processEvents: isGraceful, // Keep for backward compatibility with analytics
             })
 
             // Remove pipeline from list or refetch data
             onRemovePipeline?.(deleteSelectedPipeline.pipeline_id)
             await onRefresh?.()
           } catch (error) {
-            console.error('Failed to delete pipeline:', error)
+            console.error('Failed to stop pipeline:', error)
 
-            // Track delete failure
+            // Track stop failure
             analytics.pipeline.deleteFailed({
               pipelineId: deleteSelectedPipeline.pipeline_id,
               pipelineName: deleteSelectedPipeline.name,
               error: error instanceof Error ? error.message : 'Unknown error',
-              processEvents: processEvents,
+              processEvents: isGraceful, // Keep for backward compatibility with analytics
             })
 
             // Revert optimistic update on error
@@ -797,10 +817,10 @@ export function PipelinesList({
           }
         }}
         onCancel={() => {
-          closeDeleteModal()
+          closeStopModal()
         }}
         callback={(result) => {
-          setProcessEvents(result)
+          setIsGracefulStop(result)
         }}
       />
 
