@@ -4,7 +4,7 @@ import { PIPELINE_STATUS_MAP } from '../config/constants'
 
 export type PipelineStatus = keyof typeof PIPELINE_STATUS_MAP
 
-export type PipelineAction = 'edit' | 'rename' | 'delete' | 'pause' | 'resume'
+export type PipelineAction = 'edit' | 'rename' | 'stop' | 'delete' | 'pause' | 'resume'
 
 // Pipeline state values that can come from the backend
 export type PipelineState = 'active' | 'paused' | 'stopped' | 'error' | ''
