@@ -12,6 +12,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
 
 func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +72,11 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			serverError(w)
 		}
 		return
@@ -101,6 +107,11 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			serverError(w)
 		}
 		return
@@ -132,6 +143,11 @@ func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			h.log.Error("failed to pause pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
 			serverError(w)
 		}
@@ -164,6 +180,11 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			h.log.Error("failed to resume pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
 			serverError(w)
 		}

@@ -139,7 +139,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusPaused,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already paused",
+			expectedError: "Invalid status transition from Paused to Pausing",
 		},
 		{
 			name:          "pipeline already pausing",
@@ -147,7 +147,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusPausing,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already being paused",
+			expectedError: "Pipeline is already in Pausing state",
 		},
 		{
 			name:          "pipeline terminated",
@@ -155,7 +155,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusTerminated,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "no pipeline with given id exists",
+			expectedError: "Cannot transition from terminal state Terminated to Pausing",
 		},
 		{
 			name:          "orchestrator pause error",
@@ -273,7 +273,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusRunning,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already running",
+			expectedError: "Invalid status transition from Running to Resuming",
 		},
 		{
 			name:          "pipeline already resuming",
@@ -281,7 +281,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusResuming,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already being resumed",
+			expectedError: "Pipeline is already in Resuming state",
 		},
 		{
 			name:          "pipeline terminated",
@@ -289,7 +289,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusTerminated,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "no pipeline with given id exists",
+			expectedError: "Cannot transition from terminal state Terminated to Resuming",
 		},
 		{
 			name:          "pipeline not paused",
@@ -297,7 +297,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusCreated,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline must be paused to resume",
+			expectedError: "Invalid status transition from Created to Resuming",
 		},
 		{
 			name:          "orchestrator resume error",

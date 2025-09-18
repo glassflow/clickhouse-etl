@@ -8,6 +8,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
 
 type Orchestrator interface {
@@ -126,8 +127,9 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 		return fmt.Errorf("get pipeline failed for termination: %w", err)
 	}
 
-	if pipeline.Status.OverallStatus == internal.PipelineStatusTerminated {
-		return ErrPipelineNotExists
+	err = status.ValidatePipelineOperation(pipeline, internal.PipelineStatusTerminating)
+	if err != nil {
+		return err
 	}
 
 	// Set status to Terminating
@@ -229,15 +231,9 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 		return fmt.Errorf("get pipeline failed for pause: %w", err)
 	}
 
-	// Check if pipeline can be paused
-	if pipeline.Status.OverallStatus == internal.PipelineStatusPaused {
-		return fmt.Errorf("pipeline is already paused")
-	}
-	if pipeline.Status.OverallStatus == internal.PipelineStatusTerminated {
-		return ErrPipelineNotExists
-	}
-	if pipeline.Status.OverallStatus == internal.PipelineStatusPausing {
-		return fmt.Errorf("pipeline is already being paused")
+	err = status.ValidatePipelineOperation(pipeline, internal.PipelineStatusPausing)
+	if err != nil {
+		return err
 	}
 
 	// Set status to Pausing
@@ -281,18 +277,9 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 		return fmt.Errorf("get pipeline failed for resume: %w", err)
 	}
 
-	// Check if pipeline can be resumed
-	if pipeline.Status.OverallStatus == internal.PipelineStatusRunning {
-		return fmt.Errorf("pipeline is already running")
-	}
-	if pipeline.Status.OverallStatus == internal.PipelineStatusTerminated {
-		return ErrPipelineNotExists
-	}
-	if pipeline.Status.OverallStatus == internal.PipelineStatusResuming {
-		return fmt.Errorf("pipeline is already being resumed")
-	}
-	if pipeline.Status.OverallStatus != internal.PipelineStatusPaused {
-		return fmt.Errorf("pipeline must be paused to resume, current status: %s", pipeline.Status.OverallStatus)
+	err = status.ValidatePipelineOperation(pipeline, internal.PipelineStatusResuming)
+	if err != nil {
+		return err
 	}
 
 	// Set status to Resuming
@@ -336,12 +323,9 @@ func (p *PipelineManagerImpl) StopPipeline(ctx context.Context, pid string) erro
 		return fmt.Errorf("get pipeline failed for stop: %w", err)
 	}
 
-	// Check if pipeline can be stopped - only allow from Running state
-	if pipeline.Status.OverallStatus == internal.PipelineStatusStopped {
-		return fmt.Errorf("pipeline is already stopped")
-	}
-	if pipeline.Status.OverallStatus != internal.PipelineStatusRunning {
-		return fmt.Errorf("pipeline can only be stopped from Running state, current state: %s", pipeline.Status.OverallStatus)
+	err = status.ValidatePipelineOperation(pipeline, internal.PipelineStatusStopping)
+	if err != nil {
+		return err
 	}
 
 	// Set status to Stopping
