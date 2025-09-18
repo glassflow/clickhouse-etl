@@ -64,7 +64,7 @@ interface CoreStoreProps {
   analyticsConsent: boolean
   consentAnswered: boolean
   isDirty: boolean
-  apiConfig: any
+  apiConfig: Partial<Pipeline> // FIXME: improve type
   // New mode-related fields
   mode: StoreMode
   baseConfig: Pipeline | undefined
@@ -75,7 +75,7 @@ interface CoreStoreProps {
 
 interface CoreStore extends CoreStoreProps {
   // actions
-  setApiConfig: (config: any) => void
+  setApiConfig: (config: Partial<Pipeline>) => void
   setOperationsSelected: (operations: OperationsSelectedType) => void
   setOutboundEventPreview: (preview: OutboundEventPreviewType) => void
   setAnalyticsConsent: (consent: boolean) => void

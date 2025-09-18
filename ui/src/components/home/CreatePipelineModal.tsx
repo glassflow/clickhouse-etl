@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FormModal } from '@/src/components/common/FormModal'
 import { validateAndGeneratePipelineId } from '@/src/utils/pipeline-id'
-import { checkPipelineExists } from '@/src/api/pipeline'
+// import { checkPipelineExists } from '@/src/api/pipeline'
+import { checkPipelineExists } from '@/src/api/pipeline-api'
 
 type CreatePipelineModalProps = {
   visible: boolean

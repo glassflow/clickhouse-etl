@@ -14,7 +14,8 @@ import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
 import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { createPipeline } from '@/src/api/pipeline'
+import { createPipeline } from '@/src/api/pipeline-api'
+import { Pipeline } from '@/src/types/pipeline'
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
@@ -63,11 +64,11 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
 
     try {
       // Deploy the pipeline immediately
-      const response = await createPipeline(apiConfig)
+      const response = await createPipeline(apiConfig as Partial<Pipeline>)
 
       // Set the pipeline ID from the response
-      const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
-      setPipelineId(newPipelineId)
+      const newPipelineId = response?.pipeline_id || apiConfig?.pipeline_id
+      setPipelineId(newPipelineId || '')
 
       // Navigate to pipelines page to show deployment status
       router.push('/pipelines')
