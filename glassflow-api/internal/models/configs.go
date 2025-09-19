@@ -189,6 +189,8 @@ type JoinComponentConfig struct {
 
 	NATSLeftConsumerName  string `json:"nats_left_consumer_name"`
 	NATSRightConsumerName string `json:"nats_right_consumer_name"`
+	LeftBufferTTL  JSONDuration `json:"left_buffer_ttl"`
+	RightBufferTTL JSONDuration `json:"right_buffer_ttl"`
 }
 
 type JoinOrder string
@@ -243,10 +245,22 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinC
 		}
 	}
 
+	// Compute TTL values from sources' time_window
+	var leftBufferTTL, rightBufferTTL JSONDuration
+	for _, source := range sources {
+		if source.Orientation == internal.JoinLeft {
+			leftBufferTTL = source.Window
+		} else if source.Orientation == internal.JoinRight {
+			rightBufferTTL = source.Window
+		}
+	}
+
 	return JoinComponentConfig{
-		Sources: sources,
-		Type:    internal.TemporalJoinType,
-		Enabled: true,
+		Sources:        sources,
+		Type:           internal.TemporalJoinType,
+		Enabled:        true,
+		LeftBufferTTL:  leftBufferTTL,
+		RightBufferTTL: rightBufferTTL,
 	}, nil
 }
 

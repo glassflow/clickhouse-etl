@@ -26,6 +26,8 @@ const (
 	PipelineStatusTerminating = "Terminating"
 	PipelineStatusTerminated  = "Terminated"
 	PipelineStatusFailed      = "Failed"
+	PipelineStatusStopping    = "Stopping"
+	PipelineStatusStopped     = "Stopped"
 
 	// Consumer group offset constants
 	InitialOffsetEarliest = "earliest"
@@ -149,6 +151,10 @@ const (
 	// RunnersWatcher constants
 	RunnerWatcherInterval = 5 * time.Second
 	RunnerRestartDelay    = 2 * time.Second
-
+	
+	// DefaultReplicasCount is the default number of replicas for the component
 	DefaultReplicasCount = 1
+
+	// FetchRetryDelay is the delay between retries when fetching messages from NATS stream
+	FetchRetryDelay = 100 * time.Millisecond
 )

@@ -91,41 +91,22 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 
-	leftTTL, err := j.schemaMapper.GetLeftStreamTTL()
+	// Get existing KV stores (created by orchestrator)
+	leftKVStore, err := j.nc.GetKeyValueStore(ctx, j.leftInputStreamName)
 	if err != nil {
-		return fmt.Errorf("get left stream TTL: %w", err)
+		j.log.Error("failed to get left stream buffer: ", slog.Any("error", err))
+		return fmt.Errorf("get left buffer: %w", err)
 	}
 
-	leftBuffer, err = kv.NewNATSKeyValueStore(
-		ctx,
-		j.nc.JetStream(),
-		kv.KeyValueStoreConfig{
-			StoreName: j.leftInputStreamName,
-			TTL:       leftTTL,
-		},
-	)
-
+	rightKVStore, err := j.nc.GetKeyValueStore(ctx, j.rightInputStreamName)
 	if err != nil {
-		j.log.Error("failed to create left stream buffer: ", slog.Any("error", err))
-		return fmt.Errorf("create left buffer: %w", err)
+		j.log.Error("failed to get right stream buffer: ", slog.Any("error", err))
+		return fmt.Errorf("get right buffer: %w", err)
 	}
 
-	rightTTL, err := j.schemaMapper.GetRightStreamTTL()
-	if err != nil {
-		return fmt.Errorf("get right stream TTL: %w", err)
-	}
-
-	rightBuffer, err = kv.NewNATSKeyValueStore(
-		ctx,
-		j.nc.JetStream(),
-		kv.KeyValueStoreConfig{
-			StoreName: j.rightInputStreamName,
-			TTL:       rightTTL,
-		})
-	if err != nil {
-		j.log.Error("failed to create right stream buffer: ", slog.Any("error", err))
-		return fmt.Errorf("create right buffer: %w", err)
-	}
+	// Wrap the NATS KeyValue stores in our interface
+	leftBuffer = &kv.NATSKeyValueStore{KVstore: leftKVStore}
+	rightBuffer = &kv.NATSKeyValueStore{KVstore: rightKVStore}
 
 	resultsPublisher := stream.NewNATSPublisher(j.nc.JetStream(), stream.PublisherConfig{
 		Subject: models.GetNATSSubjectNameDefault(j.outputStream),

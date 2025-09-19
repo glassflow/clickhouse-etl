@@ -5,7 +5,7 @@ icon: FileIcon
 description: Release notes for the GlassFlow ClickHouse ETL v2.0.0.
 ---
 
-# Release Notes v2.0.0
+# Release Notes Highlights v2.0.0
 
 Version 2 is the biggest release in GlassFlow’s history. With **282 commits**, this release takes GlassFlow from an early adopter tool to a **production-ready Streaming ETL**.
 
@@ -37,7 +37,7 @@ GlassFlow has been redesigned to be **horizontally scalable**. As your data grow
 
 We have embedded **pipeline metrics and improved logging,** so you can gain deeper insights into pipeline health and performance, making debugging and monitoring much easier.
 
-With the **Dead-Letter Queue (DLQ):** Fault events at ingestion will be logged to the [DL](https://docs.glassflow.dev/pipeline/usage/python-sdk#read-messages-from-pipelines-dead-letter-queue-dlq)Q without blocking your current pipeline. Giving you the chance to re-run those events and have your ClickHouse complete.
+With the **Dead-Letter Queue (DLQ):** Fault events at ingestion will be logged to the [DLQ](https://docs.glassflow.dev/pipeline/usage/python-sdk#read-messages-from-pipelines-dead-letter-queue-dlq) without blocking your current pipeline. Giving you the chance to re-run those events and have your ClickHouse complete.
 
 ![DLQ metrics panel](/assets/dlq-metrics.png)
 
@@ -88,6 +88,6 @@ In this demo, you will see:
 ## Try yourself
 
 If you want to try GlassFlow yourself, we suggest you take a look at our instructions:
-https://docs.glassflow.dev/installation/self-host/kubernetes-helm
+https://docs.glassflow.dev/installation/kubernetes-helm
 
 ### An overview of all released changes is available [here](https://github.com/glassflow/clickhouse-etl/compare/v0.1.17...v2.0.0).
