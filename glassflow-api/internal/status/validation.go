@@ -33,10 +33,11 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 		models.PipelineStatus(internal.PipelineStatusPaused),
 	},
 
-	// Paused status can transition to Resuming or Stopping
+	// Paused status can transition to Resuming, Stopping, or Terminating
 	models.PipelineStatus(internal.PipelineStatusPaused): {
 		models.PipelineStatus(internal.PipelineStatusResuming),
 		models.PipelineStatus(internal.PipelineStatusStopping),
+		models.PipelineStatus(internal.PipelineStatusTerminating),
 	},
 
 	// Resuming status can only transition to Running

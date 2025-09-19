@@ -59,6 +59,12 @@ func TestValidateStatusTransition(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "Paused to Terminating",
+			from:        models.PipelineStatus(internal.PipelineStatusPaused),
+			to:          models.PipelineStatus(internal.PipelineStatusTerminating),
+			expectError: false,
+		},
+		{
 			name:        "Resuming to Running",
 			from:        models.PipelineStatus(internal.PipelineStatusResuming),
 			to:          models.PipelineStatus(internal.PipelineStatusRunning),
@@ -176,10 +182,11 @@ func TestGetValidTransitions(t *testing.T) {
 		{
 			name:          "Paused status transitions",
 			from:          models.PipelineStatus(internal.PipelineStatusPaused),
-			expectedCount: 2,
+			expectedCount: 3,
 			expectedStatus: []models.PipelineStatus{
 				models.PipelineStatus(internal.PipelineStatusResuming),
 				models.PipelineStatus(internal.PipelineStatusStopping),
+				models.PipelineStatus(internal.PipelineStatusTerminating),
 			},
 			expectError: false,
 		},
