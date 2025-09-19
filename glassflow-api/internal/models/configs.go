@@ -186,7 +186,9 @@ type JoinComponentConfig struct {
 	Enabled        bool               `json:"enabled"`
 	Sources        []JoinSourceConfig `json:"sources"`
 	OutputStreamID string             `json:"output_stream_id"`
-	// KV configuration for join buffers
+
+	NATSLeftConsumerName  string `json:"nats_left_consumer_name"`
+	NATSRightConsumerName string `json:"nats_right_consumer_name"`
 	LeftBufferTTL  JSONDuration `json:"left_buffer_ttl"`
 	RightBufferTTL JSONDuration `json:"right_buffer_ttl"`
 }
@@ -283,6 +285,8 @@ type SinkComponentConfig struct {
 	Type     string      `json:"type"`
 	StreamID string      `json:"stream_id"`
 	Batch    BatchConfig `json:"batch"`
+
+	NATSConsumerName string `json:"nats_consumer_name"`
 
 	ClickHouseConnectionParams ClickHouseConnectionParamsConfig `json:"clickhouse_connection_params"`
 }
@@ -541,4 +545,33 @@ func GetPipelineNATSSubject(pipelineID, topicName string) string {
 
 func GetKafkaConsumerGroupName(pipelineID string) string {
 	return fmt.Sprintf("%s-%s", internal.ConsumerGroupNamePrefix, GenerateStreamHash(pipelineID))
+}
+
+func GetNATSConsumerName(pipelineID string, componentType string, streamType string) string {
+	componentAbbr := map[string]string{
+		"sink": "s",
+		"join": "j",
+	}
+	streamAbbr := map[string]string{
+		"input": "i",
+		"left":  "l",
+		"right": "r",
+	}
+	return fmt.Sprintf("%s-%s%s-%s",
+		internal.NATSConsumerNamePrefix,
+		componentAbbr[componentType],
+		streamAbbr[streamType],
+		GenerateStreamHash(pipelineID))
+}
+
+func GetNATSSinkConsumerName(pipelineID string) string {
+	return GetNATSConsumerName(pipelineID, "sink", "input")
+}
+
+func GetNATSJoinLeftConsumerName(pipelineID string) string {
+	return GetNATSConsumerName(pipelineID, "join", "left")
+}
+
+func GetNATSJoinRightConsumerName(pipelineID string) string {
+	return GetNATSConsumerName(pipelineID, "join", "right")
 }
