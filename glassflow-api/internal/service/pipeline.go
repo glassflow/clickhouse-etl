@@ -101,14 +101,8 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 
 // DeletePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) error {
-	// TODO: delete pipeline will remove it from NATS, seperate PR will be created for this
-
-	err := p.orchestrator.StopPipeline(ctx, pid)
-	if err != nil {
-		return fmt.Errorf("stop pipeline: %w", err)
-	}
-
-	err = p.db.DeletePipeline(ctx, pid)
+	// The pipeline should already be stopped / terminated
+	err := p.db.DeletePipeline(ctx, pid)
 	if err != nil {
 		return fmt.Errorf("delete pipeline: %w", err)
 	}

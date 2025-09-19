@@ -51,9 +51,12 @@ func (m *mockOrchestrator) ResumePipeline(ctx context.Context, pid string) error
 
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
-	pipelines   map[string]models.PipelineConfig
-	getError    error
-	updateError error
+	pipelines        map[string]models.PipelineConfig
+	getError         error
+	updateError      error
+	deleteError      error
+	deleteCalled     bool
+	deletePipelineID string
 }
 
 func (m *mockPipelineStore) InsertPipeline(ctx context.Context, pi models.PipelineConfig) error {
@@ -65,6 +68,13 @@ func (m *mockPipelineStore) InsertPipeline(ctx context.Context, pi models.Pipeli
 }
 
 func (m *mockPipelineStore) DeletePipeline(ctx context.Context, pid string) error {
+	m.deleteCalled = true
+	m.deletePipelineID = pid
+
+	if m.deleteError != nil {
+		return m.deleteError
+	}
+
 	delete(m.pipelines, pid)
 	return nil
 }
@@ -396,4 +406,114 @@ func containsSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestPipelineManager_DeletePipeline(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name          string
+		pipelineID    string
+		store         *mockPipelineStore
+		expectedError string
+		shouldDelete  bool
+	}{
+		{
+			name:       "successful deletion of stopped pipeline",
+			pipelineID: "test-pipeline-1",
+			store: &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					"test-pipeline-1": {
+						ID: "test-pipeline-1",
+						Status: models.PipelineHealth{
+							OverallStatus: internal.PipelineStatusStopped,
+						},
+					},
+				},
+			},
+			shouldDelete: true,
+		},
+		{
+			name:       "successful deletion of terminated pipeline",
+			pipelineID: "test-pipeline-2",
+			store: &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					"test-pipeline-2": {
+						ID: "test-pipeline-2",
+						Status: models.PipelineHealth{
+							OverallStatus: internal.PipelineStatusTerminated,
+						},
+					},
+				},
+			},
+			shouldDelete: true,
+		},
+		{
+			name:       "pipeline not found",
+			pipelineID: "non-existent-pipeline",
+			store: &mockPipelineStore{
+				pipelines:   map[string]models.PipelineConfig{},
+				deleteError: ErrPipelineNotExists,
+			},
+			expectedError: "delete pipeline: no pipeline with given id exists",
+		},
+		{
+			name:       "delete error from store",
+			pipelineID: "test-pipeline-3",
+			store: &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					"test-pipeline-3": {
+						ID: "test-pipeline-3",
+						Status: models.PipelineHealth{
+							OverallStatus: internal.PipelineStatusStopped,
+						},
+					},
+				},
+				deleteError: errors.New("store deletion failed"),
+			},
+			expectedError: "delete pipeline: store deletion failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Initialize the store's pipelines map if it's nil
+			if tt.store.pipelines == nil {
+				tt.store.pipelines = make(map[string]models.PipelineConfig)
+			}
+
+			manager := &PipelineManagerImpl{
+				db: tt.store,
+			}
+
+			err := manager.DeletePipeline(ctx, tt.pipelineID)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.expectedError)
+					return
+				}
+				if !containsString(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			// Verify pipeline was deleted from store
+			if tt.shouldDelete {
+				if tt.store.deleteCalled {
+					if tt.store.deletePipelineID != tt.pipelineID {
+						t.Errorf("store.DeletePipeline called with %q, expected %q", tt.store.deletePipelineID, tt.pipelineID)
+					}
+				} else {
+					t.Error("store.DeletePipeline was not called")
+				}
+			}
+		})
+	}
 }
