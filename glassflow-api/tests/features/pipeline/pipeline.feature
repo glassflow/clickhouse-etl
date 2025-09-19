@@ -91,7 +91,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-3e00534f-test_topic"
+                    "stream_id": "gf-3e00534f-test_topic",
+                    "nats_consumer_name": "gf-3e00534f-test_topic"
                 }
             }
             """
@@ -219,7 +220,10 @@ Feature: Kafka to CH pipeline
                             "stream_id": "gf-609e6e0a-test_users"
                         }
                     ],
-                    "output_stream_id": "gf-609e6e0a-joined"
+                    "output_stream_id": "gf-609e6e0a-joined",
+                    "nats_left_consumer_name": "gf-609e6e0a-test_emails",
+                    "nats_right_consumer_name": "gf-609e6e0a-test_users"
+
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -232,7 +236,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gf-609e6e0a-joined"
+                    "stream_id": "gf-609e6e0a-joined",
+                    "nats_consumer_name": "gf-609e6e0a-joined"
                 }
             }
             """
@@ -376,7 +381,9 @@ Feature: Kafka to CH pipeline
                             "stream_id": "gf-a75779b0-test_users"
                         }
                     ],
-                    "output_stream_id": "gf-a75779b0-joined"
+                    "output_stream_id": "gf-a75779b0-joined",
+                    "nats_left_consumer_name": "gf-a75779b0-test_emails",
+                    "nats_right_consumer_name": "gf-a75779b0-test_users"
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -389,7 +396,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gf-a75779b0-joined"
+                    "stream_id": "gf-a75779b0-joined",
+                    "nats_consumer_name": "gf-a75779b0-joined"
                 }
             }
             """
@@ -501,7 +509,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-13bea286-test_topic"
+                    "stream_id": "gf-13bea286-test_topic",
+                    "nats_consumer_name": "gf-13bea286-test_topic"
                 }
             }
             """
@@ -601,7 +610,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test"
                     },
-                    "stream_id": "gf-29bfc94d-test_measurments"
+                    "stream_id": "gf-29bfc94d-test_measurments",
+                    "nats_consumer_name": "gf-29bfc94d-test_measurments"
                 }
             }
             """
@@ -704,7 +714,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-13bea286-test_topic"
+                    "stream_id": "gf-13bea286-test_topic",
+                    "nats_consumer_name": "gf-13bea286-test_topic"
                 }
             }
             """
@@ -805,7 +816,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-13bea286-test_topic"
+                    "stream_id": "gf-13bea286-test_topic",
+                    "nats_consumer_name": "gf-13bea286-test_topic"
                 }
             }
             """

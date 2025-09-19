@@ -164,10 +164,22 @@ func (p *PipelineSteps) fastCleanup() error {
 	}
 
 	if p.pipelineManager != nil {
-		err = p.pipelineManager.DeletePipeline(context.Background(), p.orchestrator.ActivePipelineID())
+		pipelineID := p.orchestrator.ActivePipelineID()
+
+		// Try to stop the pipeline first
+		err = p.pipelineManager.StopPipeline(context.Background(), pipelineID)
 		if err != nil {
-			errs = append(errs, err)
+			// Log the error but continue - pipeline might already be stopped or not exist
+			p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
 		}
+
+		// Always try to delete the pipeline from KV store to ensure cleanup
+		err = p.pipelineManager.DeletePipeline(context.Background(), pipelineID)
+		if err != nil {
+			// Log the error but continue - pipeline might already be deleted
+			p.log.Info("delete pipeline failed (might already be deleted)", slog.Any("error", err))
+		}
+
 		p.pipelineManager = nil
 	}
 
@@ -323,7 +335,7 @@ func (p *PipelineSteps) setupPipelineManager() error {
 		return fmt.Errorf("create nats pipeline storage: %w", err)
 	}
 
-	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
+	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log, "glassflow-pipelines")
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
 	p.pipelineManager = service.NewPipelineManager(
@@ -381,9 +393,20 @@ func (p *PipelineSteps) shutdownPipeline() error {
 		return fmt.Errorf("pipeline manager not initialized")
 	}
 
-	err := p.pipelineManager.DeletePipeline(context.Background(), p.orchestrator.ActivePipelineID())
+	pipelineID := p.orchestrator.ActivePipelineID()
+
+	// Try to stop the pipeline first
+	err := p.pipelineManager.StopPipeline(context.Background(), pipelineID)
 	if err != nil {
-		return fmt.Errorf("shutdown pipeline: %w", err)
+		// Log the error but continue - pipeline might already be stopped or not exist
+		p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
+	}
+
+	// Always try to delete the pipeline from KV store to ensure cleanup
+	err = p.pipelineManager.DeletePipeline(context.Background(), pipelineID)
+	if err != nil {
+		// Log the error but continue - pipeline might already be deleted
+		p.log.Info("delete pipeline failed (might already be deleted)", slog.Any("error", err))
 	}
 
 	p.pipelineManager = nil

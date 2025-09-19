@@ -45,7 +45,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
 		NatsStream:   s.inputNatsStream,
-		NatsConsumer: "clickhouse-consumer",
+		NatsConsumer: s.sinkCfg.NATSConsumerName,
 		NatsSubject:  models.GetWildcardNATSSubjectName(s.inputNatsStream),
 	})
 	if err != nil {
