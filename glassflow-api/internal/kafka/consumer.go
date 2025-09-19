@@ -144,6 +144,9 @@ func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) e
 		}
 
 		if ctx.Err() != nil {
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return nil
+			}
 			return ctx.Err()
 		}
 	}
