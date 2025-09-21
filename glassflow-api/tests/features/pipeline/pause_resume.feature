@@ -87,7 +87,7 @@ Feature: Pipeline Pause and Resume
             "table": "test_table"
           },
           "stream_id": "gf-pause-test-test_topic",
-          "nats_consumer_name":"gf-pause-test-test_topic"
+          "nats_consumer_name":"gf-nats-si-b7cffde7"
         }
       }
       """
@@ -176,7 +176,7 @@ Feature: Pipeline Pause and Resume
             "table": "test_table"
           },
           "stream_id": "gf-delay-test-test_topic",
-          "nats_consumer_name":"gf-delay-test-test_topic"
+          "nats_consumer_name":"gf-nats-si-f62ac10c"
         }
       }
       """
@@ -316,8 +316,8 @@ Feature: Pipeline Pause and Resume
             }
           ],
           "output_stream_id": "gf-join-test-joined",
-          "nats_left_consumer_name": "gf-join-test-users_topic",
-          "nats_right_consumer_name": "gf-join-test-emails_topic"
+          "nats_left_consumer_name": "gf-nats-jl-3a37a8c8",
+          "nats_right_consumer_name": "gf-nats-jr-3a37a8c8"
         },
         "sink": {
           "type": "clickhouse",
@@ -331,7 +331,7 @@ Feature: Pipeline Pause and Resume
             "table": "users_joined"
           },
           "stream_id": "gf-join-test-joined",
-          "nats_consumer_name":"gf-join-test-joined"
+          "nats_consumer_name":"gf-nats-si-3a37a8c8"
         }
       }
       """
