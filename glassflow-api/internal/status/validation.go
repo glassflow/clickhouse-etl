@@ -61,9 +61,7 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 	},
 
 	// Stopped status has no valid transitions except Terminating in case of failure
-	models.PipelineStatus(internal.PipelineStatusStopped): {
-		models.PipelineStatus(internal.PipelineStatusTerminating),
-	},
+	models.PipelineStatus(internal.PipelineStatusStopped): {},
 
 	// Terminating status can only transition to Terminated
 	models.PipelineStatus(internal.PipelineStatusTerminating): {

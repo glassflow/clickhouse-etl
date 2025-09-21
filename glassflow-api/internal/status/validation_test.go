@@ -162,31 +162,35 @@ func TestGetValidTransitions(t *testing.T) {
 		{
 			name:          "Created status transitions",
 			from:          models.PipelineStatus(internal.PipelineStatusCreated),
-			expectedCount: 1,
+			expectedCount: 3,
 			expectedStatus: []models.PipelineStatus{
 				models.PipelineStatus(internal.PipelineStatusRunning),
+				models.PipelineStatus(internal.PipelineStatusTerminating),
+				models.PipelineStatus(internal.PipelineStatusFailed),
 			},
 			expectError: false,
 		},
 		{
 			name:          "Running status transitions",
 			from:          models.PipelineStatus(internal.PipelineStatusRunning),
-			expectedCount: 3,
+			expectedCount: 4,
 			expectedStatus: []models.PipelineStatus{
 				models.PipelineStatus(internal.PipelineStatusPausing),
 				models.PipelineStatus(internal.PipelineStatusStopping),
 				models.PipelineStatus(internal.PipelineStatusTerminating),
+				models.PipelineStatus(internal.PipelineStatusFailed),
 			},
 			expectError: false,
 		},
 		{
 			name:          "Paused status transitions",
 			from:          models.PipelineStatus(internal.PipelineStatusPaused),
-			expectedCount: 3,
+			expectedCount: 4,
 			expectedStatus: []models.PipelineStatus{
 				models.PipelineStatus(internal.PipelineStatusResuming),
 				models.PipelineStatus(internal.PipelineStatusStopping),
 				models.PipelineStatus(internal.PipelineStatusTerminating),
+				models.PipelineStatus(internal.PipelineStatusFailed),
 			},
 			expectError: false,
 		},
