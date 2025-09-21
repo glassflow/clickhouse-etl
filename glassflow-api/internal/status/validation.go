@@ -16,9 +16,11 @@ type StatusTransition struct {
 
 // StatusValidationMatrix defines all valid pipeline status transitions
 var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
-	// Created status can only transition to Running
+	// Created status can only transition to Running or Terminating
 	models.PipelineStatus(internal.PipelineStatusCreated): {
 		models.PipelineStatus(internal.PipelineStatusRunning),
+		models.PipelineStatus(internal.PipelineStatusTerminating),
+		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
 	// Running status can transition to Pausing, Stopping, or Terminating
@@ -26,11 +28,14 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 		models.PipelineStatus(internal.PipelineStatusPausing),
 		models.PipelineStatus(internal.PipelineStatusStopping),
 		models.PipelineStatus(internal.PipelineStatusTerminating),
+		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Pausing status can only transition to Paused
+	// Pausing status can only transition to Paused or Terminating
 	models.PipelineStatus(internal.PipelineStatusPausing): {
 		models.PipelineStatus(internal.PipelineStatusPaused),
+		models.PipelineStatus(internal.PipelineStatusTerminating),
+		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
 	// Paused status can transition to Resuming, Stopping, or Terminating
@@ -38,24 +43,32 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 		models.PipelineStatus(internal.PipelineStatusResuming),
 		models.PipelineStatus(internal.PipelineStatusStopping),
 		models.PipelineStatus(internal.PipelineStatusTerminating),
+		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Resuming status can only transition to Running
+	// Resuming status can only transition to Running or Terminating
 	models.PipelineStatus(internal.PipelineStatusResuming): {
 		models.PipelineStatus(internal.PipelineStatusRunning),
+		models.PipelineStatus(internal.PipelineStatusTerminating),
+		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Stopping status can only transition to Stopped
+	// Stopping status can only transition to Stopped or Terminating
 	models.PipelineStatus(internal.PipelineStatusStopping): {
 		models.PipelineStatus(internal.PipelineStatusStopped),
+		models.PipelineStatus(internal.PipelineStatusTerminating),
+		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Stopped status has no valid transitions (terminal state)
-	models.PipelineStatus(internal.PipelineStatusStopped): {},
+	// Stopped status has no valid transitions except Terminating in case of failure
+	models.PipelineStatus(internal.PipelineStatusStopped): {
+		models.PipelineStatus(internal.PipelineStatusTerminating),
+	},
 
 	// Terminating status can only transition to Terminated
 	models.PipelineStatus(internal.PipelineStatusTerminating): {
 		models.PipelineStatus(internal.PipelineStatusTerminated),
+		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
 	// Terminated status has no valid transitions (terminal state)
@@ -159,8 +172,8 @@ func ValidatePipelineOperation(pipeline *models.PipelineConfig, operation models
 		return NewPipelineAlreadyInStateError(currentStatus, operation)
 	}
 
-	// Check if pipeline is in a transitional state
-	if IsTransitionalStatus(currentStatus) {
+	// Check if pipeline is in a transitional state (but allow terminating in case of failures)
+	if IsTransitionalStatus(currentStatus) && operation != internal.PipelineStatusTerminating {
 		return NewPipelineInTransitionError(currentStatus, operation)
 	}
 
