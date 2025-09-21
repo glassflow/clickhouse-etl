@@ -9,7 +9,7 @@ require (
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/cucumber/godog v0.15.0
 	github.com/docker/go-connections v0.5.0
-	github.com/glassflow/glassflow-etl-k8s-operator v0.0.0-20250910155114-a1963edde89c
+	github.com/glassflow/glassflow-etl-k8s-operator v0.0.4-0.20250919232944-170fd73388c9
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/kelseyhightower/envconfig v1.4.0
