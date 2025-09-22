@@ -6,31 +6,43 @@ on:
 jobs:
   build-api-binary:
     name: Build API binaries
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       matrix:
         module: [glassflow-api]
         platform:
           - os: linux
             arch: amd64
+            runner: ubuntu-latest
           - os: linux
             arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.platform.runner }}
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup go
+
+      - name: Install librdkafka
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librdkafka-dev
+
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version-file: './${{ matrix.module }}/go.mod'
           cache-dependency-path: './${{ matrix.module }}/go.mod'
+
       - name: Build binary
         working-directory: ${{ matrix.module }}
-        run: make build
         env:
           GOOS: ${{ matrix.platform.os }}
           GOARCH: ${{ matrix.platform.arch }}
+          CGO_ENABLED: 1
+        run: make build-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
