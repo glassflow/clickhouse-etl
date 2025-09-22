@@ -67,7 +67,7 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 	err := h.pipelineManager.StopPipeline(r.Context(), id)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrPipelineNotFound):
+		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, "no active pipeline with given id to stop", nil)
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
@@ -241,7 +241,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 	health, err := h.pipelineManager.GetPipelineHealth(r.Context(), id)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrPipelineNotFound):
+		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
 			h.log.Error("failed to get pipeline health", slog.String("pipeline_id", id), slog.Any("error", err))

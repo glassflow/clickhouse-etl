@@ -196,7 +196,7 @@ func (p *PipelineManagerImpl) GetPipelineHealth(ctx context.Context, pid string)
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
 		if errors.Is(err, ErrPipelineNotExists) {
-			return models.PipelineHealth{}, ErrPipelineNotFound
+			return models.PipelineHealth{}, ErrPipelineNotExists
 		}
 		return models.PipelineHealth{}, fmt.Errorf("get pipeline health: %w", err)
 	}
