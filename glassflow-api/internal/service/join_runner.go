@@ -148,7 +148,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 func (j *JoinRunner) Shutdown() {
 	j.log.Info("Shutting down JoinRunner")
 	if j.component != nil {
-		j.component.Stop()
+		j.component.Stop(component.WithNoWait(true))
 	}
 }
 

@@ -96,7 +96,8 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "5s"
+      And I wait for "2s"
+      And I shutdown the glassflow pipeline after "1s"
 
         Then the ClickHouse table "default.events_test" should contain:
             | id  | name          | COUNT |
@@ -254,7 +255,8 @@ Feature: Kafka to CH pipeline
             | 2   | {"id": "456", "name": "Jane Smith"}  |
             | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "4s"
+      And I wait for "2s"
+      And I shutdown the glassflow pipeline after "2s"
         Then the ClickHouse table "default.test_users" should contain:
             | name        | email                | COUNT |
             | John Doe    | john.doe@mailbox.com | 1     |
@@ -414,7 +416,8 @@ Feature: Kafka to CH pipeline
             | 2   | {"id": "456", "name": "Jane Smith"}  |
             | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "4s"
+      And I wait for "2s"
+      And I shutdown the glassflow pipeline after "2s"
         Then the ClickHouse table "default.test_users" should contain:
             | name        | email                | COUNT |
             | John Doe    | john.doe@mailbox.com | 1     |
@@ -514,7 +517,8 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "5s"
+      And I wait for "2s"
+      And I shutdown the glassflow pipeline after "1s"
         Then the ClickHouse table "default.events_test" should contain 5 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |
@@ -615,7 +619,8 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "5s"
+      And I wait for "2s"
+      And I shutdown the glassflow pipeline after "1s"
 
         Then the ClickHouse table "default.test" should contain 3 rows
         And the ClickHouse table "default.test" should contain:
@@ -719,7 +724,8 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "5s"
+      And I wait for "2s"
+      And I shutdown the glassflow pipeline after "3s"
         Then the ClickHouse table "default.events_test" should contain 6 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |
@@ -745,7 +751,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00006",
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00007",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -792,12 +798,12 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00006",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00007",
                             "deduplication": {
                                 "enabled": false
                             },
                             "output_stream_id": "gf-859867ac-test_topic",
-                            "output_stream_subject": "gf-859867ac-test_topic.input",
+                            "output_stream_subject": "gf-859867ac-test_topic.*",
                             "replicas": 1
                         }
                     ]
@@ -821,7 +827,8 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "7s"
+      And I wait for "2s"
+      And I shutdown the glassflow pipeline after "2s"
         Then the ClickHouse table "default.events_test" should contain 6 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |

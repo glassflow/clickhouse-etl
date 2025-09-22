@@ -79,7 +79,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 
 func (s *SinkRunner) Shutdown() {
 	if s.component != nil {
-		s.component.Stop()
+		s.component.Stop(component.WithNoWait(true))
 	}
 }
 

@@ -96,7 +96,7 @@ Feature: Pipeline Pause and Resume
     Then the pipeline status should be "Paused"
     When I resume the glassflow pipeline
     Then the pipeline status should be "Running"
-    And I shutdown the glassflow pipeline
+    And I shutdown the glassflow pipeline after "2s"
 
   Scenario: Pause pipeline with delay and verify no data loss
     Given a Kafka topic "test_topic" with 1 partition
