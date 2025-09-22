@@ -85,11 +85,11 @@ const MtlsFormSchema = z.object({
 })
 
 const TruststoreFormSchema = z.object({
-  location: z.string().min(1, 'Location is required'),
-  password: z.string().min(1, 'Password is required'),
-  type: z.string().min(1, 'Type is required'),
-  algorithm: z.string().min(1, 'Algorithm is required'),
-  certificates: z.string().min(1, 'Certificates are required'),
+  location: z.string().min(1, 'Truststore location is required'),
+  password: z.string().min(1, 'Truststore password is required'),
+  type: z.string().min(1, 'Truststore type is required'),
+  algorithm: z.string().optional(), // Optional for self-signed certificates
+  certificates: z.string().optional(), // Optional when using truststore file
 })
 
 // First, define a base schema with the common fields

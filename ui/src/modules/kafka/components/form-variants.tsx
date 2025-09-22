@@ -85,14 +85,22 @@ export const NoAuthForm = ({
   const { watch } = useFormContext()
   const authMethodSelected = watch('authMethod')
   const securityProtocolSelected = watch('securityProtocol')
-  const showCertificateField =
+  const showSSLFields =
     authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name &&
     (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL')
+
   return (
     <FormGroup className="space-y-4">
-      <div className="flex flex-col lg:flex-row gap-4">
-        {showCertificateField && (
+      {showSSLFields && (
+        <div className="space-y-4">
+          {/* Show truststore fields for proper SSL configuration */}
+          <TruststoreForm errors={errors} readOnly={readOnly} />
+
+          {/* Keep the original certificate field as fallback/additional option */}
           <div className="space-y-2 w-full">
+            <label className="text-sm font-medium text-gray-700">
+              Certificate (PEM format - optional if truststore is provided)
+            </label>
             {renderFormField({
               field: KafkaFormConfig[AUTH_OPTIONS['NO_AUTH'].name].fields.certificate as any,
               register,
@@ -100,8 +108,8 @@ export const NoAuthForm = ({
               readOnly,
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </FormGroup>
   )
 }
@@ -327,7 +335,7 @@ export const TruststoreForm = ({
     <FormGroup className="space-y-4">
       {useRenderFormFields({
         formConfig: KafkaFormConfig,
-        formGroupName: 'trustStore',
+        formGroupName: 'truststore', // Use lowercase to match config definition
         register,
         errors,
         readOnly,

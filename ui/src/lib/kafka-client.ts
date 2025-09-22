@@ -94,6 +94,21 @@ export class KafkaClient {
         ca: config.certificate ? [config.certificate] : undefined,
         checkServerIdentity: () => undefined, // Disable hostname verification
       }
+
+      // Handle truststore configuration for SSL
+      if (config.truststore) {
+        // For Node.js/KafkaJS, we need to handle truststore differently
+        // Since KafkaJS doesn't directly support JKS files, we use certificates
+        if (config.truststore.certificates) {
+          kafkaConfig.ssl.ca = [config.truststore.certificates]
+        }
+
+        // Handle self-signed certificates by disabling certificate verification
+        // when algorithm is empty (which indicates self-signed certs)
+        if (config.truststore.algorithm === '' || !config.truststore.algorithm) {
+          kafkaConfig.ssl.rejectUnauthorized = false
+        }
+      }
     } else {
       kafkaConfig.ssl = false
     }
