@@ -90,16 +90,18 @@ export const useKafkaConnection = () => {
       }
 
       // Add SSL-specific properties if using SSL
-      // NOTE: This is not used in the current implementation
-      // if (values.securityProtocol === 'SASL_SSL' || values.securityProtocol === 'SSL') {
-      //   requestBody.truststore = {
-      //     location: values.truststore?.location,
-      //     password: values.truststore?.password,
-      //     type: values.truststore?.type,
-      //     algorithm: values.truststore?.algorithm,
-      //     certificates: values.truststore?.certificates,
-      //   }
-      // }
+      // TODO: check is this valid for SASL_SSL
+      if (values.securityProtocol === 'SASL_SSL' || values.securityProtocol === 'SSL') {
+        if (values.trustStore) {
+          requestBody.truststore = {
+            location: values.trustStore.location,
+            password: values.trustStore.password,
+            type: values.trustStore.type,
+            algorithm: values.trustStore.algorithm,
+            certificates: values.trustStore.certificates,
+          }
+        }
+      }
 
       const response = await fetch('/ui-api/kafka/', {
         method: 'POST',
