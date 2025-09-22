@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useStore } from '@/src/store'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
+import { getPipelines } from '@/src/api/pipeline-api'
 import HelpIcon from '../../images/help-questionmark.svg'
 import { Button } from '@/src/components/ui/button'
 import CloseIcon from '../../images/close.svg'
@@ -216,7 +217,7 @@ export function Header() {
   const [modalProps, setModalProps] = useState({
     visible: false,
     message:
-      'Returning to the home page will discard current pipeline configuration. Are you sure you want to perform this action?',
+      'Leaving the create journey will discard current pipeline configuration. Are you sure you want to perform this action?',
     title: 'Discard pipeline configuration',
     okButtonText: 'Yes',
     cancelButtonText: 'No',
@@ -253,13 +254,29 @@ export function Header() {
     }
   }
 
-  const handleModalComplete = (result: string) => {
+  const handleModalComplete = async (result: string) => {
     setModalProps((prev) => ({ ...prev, visible: false }))
 
     if (result === ModalResult.YES) {
       // Clear the pipeline state
       resetPipelineState('', true)
-      router.push('/home')
+
+      try {
+        // Check if there are any existing pipelines
+        const pipelines = await getPipelines()
+
+        if (pipelines && pipelines.length > 0) {
+          // If there are existing pipelines, redirect to pipelines page
+          router.push('/pipelines')
+        } else {
+          // If no existing pipelines, redirect to home page
+          router.push('/home')
+        }
+      } catch (error) {
+        console.error('Error checking existing pipelines:', error)
+        // On error, default to home page
+        router.push('/home')
+      }
     }
   }
 
