@@ -11,6 +11,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type publishOpts struct {
@@ -23,12 +24,34 @@ type Publisher interface {
 	Publish(ctx context.Context, msg []byte) error
 	GetSubject() string
 	PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts ...PublishOpt) error
+	PublishNatsMsgsAsync(ctx context.Context, msgs []*nats.Msg) ([]FailedMessage, error)
 }
 
 func WithUntilAck() PublishOpt {
 	return func(opts *publishOpts) {
 		opts.UntilAck = true
 	}
+}
+
+type FailedMessage interface {
+	GetData() []byte
+	GetError() error
+}
+
+type NatsFailedMessage struct {
+	Msg *nats.Msg
+	Err error
+}
+
+func (fm *NatsFailedMessage) GetData() []byte {
+	if fm.Msg != nil {
+		return fm.Msg.Data
+	}
+	return nil
+}
+
+func (fm *NatsFailedMessage) GetError() error {
+	return fm.Err
 }
 
 type PublisherConfig struct {
@@ -105,6 +128,65 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 	}
 
 	return nil
+}
+
+func (p *NatsPublisher) terminatePendingMessages(futures []jetstream.PubAckFuture) error {
+	for _, future := range futures {
+		msg := future.Msg()
+		err := msg.Term()
+		if err != nil {
+			return fmt.Errorf("failed to terminate message: %w", err)
+		}
+	}
+	return nil
+}
+
+func (p *NatsPublisher) PublishNatsMsgsAsync(ctx context.Context, msgs []*nats.Msg) ([]FailedMessage, error) {
+	if msgs == nil {
+		return nil, fmt.Errorf("messages cannot be nil")
+	}
+
+	futures := make([]jetstream.PubAckFuture, 0, len(msgs))
+	failedMsgs := make([]FailedMessage, 0)
+
+	for _, msg := range msgs {
+		future, err := p.js.PublishMsgAsync(msg)
+		if err != nil {
+			failedMsgs = append(failedMsgs, &NatsFailedMessage{Msg: msg, Err: err})
+			continue
+		}
+		futures = append(futures, future)
+	}
+
+	select {
+	case <-ctx.Done():
+		// TODO: review and try to find more graceful way to handle that
+		err := p.terminatePendingMessages(futures)
+		if err != nil {
+			return nil, fmt.Errorf("failed to terminate pending messages: %w", err)
+		}
+		return nil, ctx.Err()
+	case <-p.js.PublishAsyncComplete():
+		// All messages have been processed
+	}
+
+	for _, future := range futures {
+		select {
+		case <-future.Ok():
+			// Message published successfully
+			continue
+		case err := <-future.Err():
+			failedMsgs = append(failedMsgs, &NatsFailedMessage{Msg: future.Msg(), Err: err})
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	if len(failedMsgs) > 0 {
+		return failedMsgs, models.ErrAsyncBatchFailed
+	}
+
+	return failedMsgs, nil
 }
 
 func (p *NatsPublisher) GetSubject() string {

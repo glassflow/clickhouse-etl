@@ -25,6 +25,7 @@ type Message struct {
 
 type MessageProcessor interface {
 	ProcessMessage(ctx context.Context, msg Message) error
+	ProcessBatch(ctx context.Context, batch MessageBatch) error
 }
 
 type Consumer interface {
@@ -88,6 +89,10 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 		cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
 	}
 
+	cfg.Consumer.Fetch.Min = 1024 * 100       // 100KB min fetch
+	cfg.Consumer.Fetch.Default = 1024 * 1024  // 1MB default fetch
+	cfg.Consumer.Fetch.Max = 10 * 1024 * 1024 // 10MB max fetch
+
 	return cfg
 }
 
@@ -95,6 +100,15 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 	consumer, err := newGroupConsumer(conn, topic, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create group consumer: %w", err)
+	}
+	return consumer, nil
+}
+
+// NewConfluentBatchConsumer creates a new Confluent Kafka consumer with batching support
+func NewConfluentBatchConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (BatchedConsumer, error) {
+	consumer, err := NewConfluentConsumer(conn, topic, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create confluent batch consumer: %w", err)
 	}
 	return consumer, nil
 }

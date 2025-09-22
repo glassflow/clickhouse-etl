@@ -24,6 +24,7 @@ var (
 
 type MessageProcessor interface {
 	ProcessMessage(ctx context.Context, msg kafka.Message) error
+	ProcessBatch(ctx context.Context, batch kafka.MessageBatch) error
 }
 
 type KafkaMsgProcessor struct {
@@ -113,7 +114,7 @@ func (k *KafkaMsgProcessor) setSubject(partitionID int32) string {
 	return k.publisher.GetSubject()
 }
 
-func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg kafka.Message) (*nats.Msg, error) {
 	nMsg := nats.NewMsg(k.setSubject(msg.Partition))
 	nMsg.Data = msg.Value
 
@@ -123,9 +124,9 @@ func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Messag
 	if err != nil {
 		k.log.Error("Failed to validate data", slog.Any("error", err), slog.String("topic", k.topic.Name))
 		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrValidateSchema); dlqErr != nil {
-			return fmt.Errorf("failed to push to DLQ: %w", dlqErr)
+			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
-		return nil // Continue processing (message will be auto-committed)
+		return nil, nil
 	}
 
 	if k.topic.Deduplication.Enabled {
@@ -142,10 +143,23 @@ func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Messag
 				slog.String("subject", string(msg.Value)),
 			)
 			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData); dlqErr != nil {
-				return fmt.Errorf("failed to push to DLQ: %w", dlqErr)
+				return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 			}
-			return nil
+			return nil, nil
 		}
+	}
+
+	return nMsg, nil
+}
+
+func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+	nMsg, err := k.prepareMesssage(ctx, msg)
+	if err != nil {
+		return fmt.Errorf("failed to prepare NATS message: %w", err)
+	}
+	if nMsg == nil {
+		// Message was pushed to DLQ, nothing more to do
+		return nil
 	}
 
 	err = k.publisher.PublishNatsMsg(ctx, nMsg, stream.WithUntilAck())
@@ -156,6 +170,56 @@ func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Messag
 			slog.String("subject", k.publisher.GetSubject()),
 		)
 		return fmt.Errorf("failed to publish to NATS: %w", err)
+	}
+
+	return nil
+}
+
+func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context, batch kafka.MessageBatch) error {
+	natsBatch := make([]*nats.Msg, 0, len(batch))
+	for i, msg := range batch {
+		natsMsg, err := k.prepareMesssage(ctx, msg)
+		if err != nil {
+			k.log.Error("Failed to process message in batch",
+				slog.Any("error", err),
+				slog.Int("messageIndex", i),
+				slog.Int("batchSize", len(batch)),
+				slog.String("topic", msg.Topic),
+				slog.Int("partition", int(msg.Partition)),
+				slog.Int64("offset", msg.Offset))
+			return fmt.Errorf("failed to process message %d in batch: %w", i, err)
+		}
+		if natsMsg == nil {
+			// Message was pushed to DLQ, nothing more to do
+			continue
+		}
+
+		natsBatch = append(natsBatch, natsMsg)
+	}
+
+	k.log.Debug("Publishing NATS message batch", slog.Int("batchSize", len(natsBatch)))
+
+	falied, err := k.publisher.PublishNatsMsgsAsync(ctx, natsBatch)
+	if err != nil {
+		switch {
+		case models.IsAsyncBatchFailedErr(err):
+			for _, f := range falied {
+				err := k.pushMsgToDLQ(ctx, f.GetData(), f.GetError())
+				if err != nil {
+					k.log.Error("Failed to push failed async batch message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
+					return fmt.Errorf("failed to push failed async batch message to DLQ: %w", err)
+				}
+			}
+		case models.IsFailedToTerminateBatchMsgsErr(err):
+			k.log.Error("Failed to terminate batch messages after context cancel, but error had occuered:", slog.Any("error", err), slog.String("topic", k.topic.Name))
+			return fmt.Errorf("failed to terminate batch messages: %w", err)
+		case errors.Is(err, context.Canceled):
+			k.log.Info("Context was canceled while publishing batch messages", slog.String("topic", k.topic.Name))
+			return fmt.Errorf("context canceled, batch was not sent: %w", err)
+		default:
+			k.log.Error("Failed to publish batch messages to NATS", slog.Any("error", err), slog.String("topic", k.topic.Name))
+			return fmt.Errorf("failed to publish batch to NATS: %w", err)
+		}
 	}
 
 	return nil
