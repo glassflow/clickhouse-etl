@@ -63,9 +63,9 @@ For local testing or a small POC, you can also use Docker and Docker Compose to 
 
 | Method                         | Use Case                                | Docs Link                                                                 |
 |-------------------------------|------------------------------------------|---------------------------------------------------------------------------|
-| ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/self-host/kubernetes-helm) |
-| 🐳 **Local with Docker Compose**    | Quick evaluation and local testing         | [Local Docker Guide](https://docs.glassflow.dev/installation/self-host/local-docker)     |
-| ☁️ **AWS EC2 with Docker Compose** | Lightweight cloud deployment for testing   | [AWS EC2 Guide](https://docs.glassflow.dev/installation/self-host/aws-ec2)               |
+| ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/kubernetes-helm) |
+| 🐳 **Local with Docker Compose**    | Quick evaluation and local testing         | [Local Docker Guide](https://docs.glassflow.dev/installation/local-docker)     |
+| ☁️ **AWS EC2 with Docker Compose** | Lightweight cloud deployment for testing   | [AWS EC2 Guide](https://docs.glassflow.dev/installation/aws-ec2)               |
 
 
 ## 🎥 Demo
