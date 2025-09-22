@@ -8,7 +8,6 @@ import { FieldColumnMapper } from './components/FieldColumnMapper'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import FormActions from '@/src/components/shared/FormActions'
-// import { createPipeline } from '@/src/api/pipeline'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 
