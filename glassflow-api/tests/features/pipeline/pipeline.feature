@@ -797,7 +797,7 @@ Feature: Kafka to CH pipeline
                                 "enabled": false
                             },
                             "output_stream_id": "gf-859867ac-test_topic",
-                            "output_stream_subject": "gf-859867ac-test_topic.*",
+                            "output_stream_subject": "gf-859867ac-test_topic.input",
                             "replicas": 1
                         }
                     ]
