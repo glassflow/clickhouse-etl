@@ -92,6 +92,7 @@ Feature: Pipeline Pause and Resume
       }
       """
     When I pause the glassflow pipeline
+    And I wait for "2s" to let pause operation complete
     Then the pipeline status should be "Paused"
     When I resume the glassflow pipeline
     Then the pipeline status should be "Running"
@@ -186,6 +187,7 @@ Feature: Pipeline Pause and Resume
       | 2   | {"id": "456", "name": "Jane Smith"}  |
     And I wait for "2s"
     When I pause the glassflow pipeline after "1s"
+    And I wait for "2s" to let pause operation complete
     Then the pipeline status should be "Paused"
     And I write these events to Kafka topic "test_topic":
       | key | value                           |
@@ -345,6 +347,7 @@ Feature: Pipeline Pause and Resume
       | 2   | {"user_id": "456", "email": "jane@example.com"} |
     And I wait for "3s"
     When I pause the glassflow pipeline
+    And I wait for "2s" to let pause operation complete
     Then the pipeline status should be "Paused"
     And I write these events to Kafka topic "users_topic":
       | key | value                           |

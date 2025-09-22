@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 // mockOrchestrator is a mock implementation of the Orchestrator interface
 type mockOrchestrator struct {
+	mu               sync.RWMutex
 	orchestratorType string
 	pauseError       error
 	resumeError      error
@@ -38,6 +40,8 @@ func (m *mockOrchestrator) TerminatePipeline(ctx context.Context, pid string) er
 }
 
 func (m *mockOrchestrator) PausePipeline(ctx context.Context, pid string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.pauseCalled = true
 	m.pausePipelineID = pid
 	return m.pauseError
@@ -51,6 +55,7 @@ func (m *mockOrchestrator) ResumePipeline(ctx context.Context, pid string) error
 
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
+	mu               sync.RWMutex
 	pipelines        map[string]models.PipelineConfig
 	getError         error
 	updateError      error
@@ -60,6 +65,8 @@ type mockPipelineStore struct {
 }
 
 func (m *mockPipelineStore) InsertPipeline(ctx context.Context, pi models.PipelineConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.pipelines == nil {
 		m.pipelines = make(map[string]models.PipelineConfig)
 	}
@@ -80,6 +87,8 @@ func (m *mockPipelineStore) DeletePipeline(ctx context.Context, pid string) erro
 }
 
 func (m *mockPipelineStore) GetPipeline(ctx context.Context, pid string) (*models.PipelineConfig, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.getError != nil {
 		return nil, m.getError
 	}
@@ -106,6 +115,8 @@ func (m *mockPipelineStore) PatchPipelineName(ctx context.Context, pid string, n
 }
 
 func (m *mockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.updateError != nil {
 		return m.updateError
 	}
@@ -168,12 +179,13 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			expectedError: "Cannot transition from terminal state Terminated to Pausing",
 		},
 		{
-			name:          "orchestrator pause error",
-			pipelineID:    "test-pipeline",
-			initialStatus: internal.PipelineStatusRunning,
-			orchestrator:  &mockOrchestrator{orchestratorType: "local", pauseError: errors.New("pause failed")},
-			store:         &mockPipelineStore{},
-			expectedError: "pause pipeline: pause failed",
+			name:           "orchestrator pause error",
+			pipelineID:     "test-pipeline",
+			initialStatus:  internal.PipelineStatusRunning,
+			orchestrator:   &mockOrchestrator{orchestratorType: "local", pauseError: errors.New("pause failed")},
+			store:          &mockPipelineStore{},
+			expectedError:  "",
+			expectedStatus: internal.PipelineStatusFailed,
 		},
 		{
 			name:          "k8s orchestrator not implemented",
@@ -181,7 +193,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusRunning,
 			orchestrator:  &mockOrchestrator{orchestratorType: "k8s", pauseError: ErrNotImplemented},
 			store:         &mockPipelineStore{},
-			expectedError: "pause pipeline: feature is not implemented",
+			expectedError: "failed to pause k8 pipeline: feature is not implemented",
 		},
 	}
 
@@ -225,17 +237,71 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 				return
 			}
 
+			// For local orchestrator, wait for async operation to complete
+			if tt.orchestrator.orchestratorType == "local" {
+				// Wait for orchestrator to be called (with timeout)
+				timeout := time.After(100 * time.Millisecond)
+				ticker := time.NewTicker(10 * time.Millisecond)
+				defer ticker.Stop()
+
+				for {
+					select {
+					case <-timeout:
+						t.Error("timeout waiting for orchestrator.PausePipeline to be called")
+						return
+					case <-ticker.C:
+						tt.orchestrator.mu.RLock()
+						called := tt.orchestrator.pauseCalled
+						tt.orchestrator.mu.RUnlock()
+						if called {
+							goto orchestratorCalled
+						}
+					}
+				}
+			orchestratorCalled:
+			}
+
 			// Verify orchestrator was called
-			if !tt.orchestrator.pauseCalled {
+			tt.orchestrator.mu.RLock()
+			called := tt.orchestrator.pauseCalled
+			pipelineID := tt.orchestrator.pausePipelineID
+			tt.orchestrator.mu.RUnlock()
+
+			if !called {
 				t.Error("orchestrator.PausePipeline was not called")
 			}
 
-			if tt.orchestrator.pausePipelineID != tt.pipelineID {
-				t.Errorf("orchestrator.PausePipeline called with %q, expected %q", tt.orchestrator.pausePipelineID, tt.pipelineID)
+			if pipelineID != tt.pipelineID {
+				t.Errorf("orchestrator.PausePipeline called with %q, expected %q", pipelineID, tt.pipelineID)
 			}
 
-			// Verify status update
-			if tt.expectedStatus != "" {
+			// For local orchestrator, wait for status update
+			if tt.orchestrator.orchestratorType == "local" && tt.expectedStatus != "" {
+				// Wait for status to be updated (with timeout)
+				timeout := time.After(100 * time.Millisecond)
+				ticker := time.NewTicker(10 * time.Millisecond)
+				defer ticker.Stop()
+
+				for {
+					select {
+					case <-timeout:
+						t.Error("timeout waiting for status update")
+						return
+					case <-ticker.C:
+						pipeline, err := tt.store.GetPipeline(ctx, tt.pipelineID)
+						if err != nil {
+							t.Errorf("failed to get pipeline: %v", err)
+							return
+						}
+						if pipeline.Status.OverallStatus == tt.expectedStatus {
+							return // Success
+						}
+					}
+				}
+			}
+
+			// Verify status update for non-local orchestrators
+			if tt.orchestrator.orchestratorType != "local" && tt.expectedStatus != "" {
 				pipeline, err := tt.store.GetPipeline(ctx, tt.pipelineID)
 				if err != nil {
 					t.Errorf("failed to get pipeline: %v", err)

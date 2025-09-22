@@ -239,22 +239,35 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
-	err = p.orchestrator.PausePipeline(ctx, pid)
-	if err != nil {
-		return fmt.Errorf("pause pipeline: %w", err)
+	// For Docker orchestrator, mark as failed if pause fails
+	if p.orchestrator.GetType() == "local" {
+		// create a new context for the pause pipeline operation
+		ctxAsync := context.Background()
+
+		go func() {
+			err := p.orchestrator.PausePipeline(ctxAsync, pid)
+			if err != nil {
+				pipeline.Status.OverallStatus = internal.PipelineStatusFailed
+				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
+				if err != nil {
+					p.log.Error("failed to update pipeline status to failed", slog.Any("error", err))
+				}
+			} else {
+				pipeline.Status.OverallStatus = internal.PipelineStatusPaused
+				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
+				if err != nil {
+					p.log.Error("failed to update pipeline status to paused", slog.Any("error", err))
+				}
+			}
+		}()
+
+		return nil
 	}
 
-	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
-	if p.orchestrator.GetType() == "local" {
-		// Set status to Paused
-		pipeline.Status.OverallStatus = internal.PipelineStatusPaused
-
-		// Update status in database
-		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
-		if err != nil {
-			return fmt.Errorf("update pipeline status: %w", err)
-		}
-		return nil
+	// For k8 orchestrator, the operator controller-manager takes care of updating this status
+	err = p.orchestrator.PausePipeline(ctx, pid)
+	if err != nil {
+		return fmt.Errorf("failed to pause k8 pipeline: %w", err)
 	}
 
 	return nil
@@ -331,27 +344,35 @@ func (p *PipelineManagerImpl) StopPipeline(ctx context.Context, pid string) erro
 		return fmt.Errorf("update pipeline status to stopping: %w", err)
 	}
 
-	// Stop the pipeline (pause + terminate)
-	err = p.orchestrator.StopPipeline(ctx, pid)
-	if err != nil {
-		// For Docker orchestrator, mark as failed if stop fails
-		if p.orchestrator.GetType() == "local" {
-			pipeline.Status.OverallStatus = internal.PipelineStatusFailed
-			updateErr := p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
-			if updateErr != nil {
-				return fmt.Errorf("stop pipeline failed and status update failed: %w, %w", err, updateErr)
+	// For Docker orchestrator, mark as failed if stop fails
+	if p.orchestrator.GetType() == "local" {
+		// create a new context for the stop pipeline operation
+		ctxAsync := context.Background()
+
+		go func() {
+			err := p.orchestrator.StopPipeline(ctxAsync, pid)
+			if err != nil {
+				pipeline.Status.OverallStatus = internal.PipelineStatusFailed
+				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
+				if err != nil {
+					p.log.Error("failed to update pipeline status to failed", slog.Any("error", err))
+				}
+			} else {
+				pipeline.Status.OverallStatus = internal.PipelineStatusStopped
+				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
+				if err != nil {
+					p.log.Error("failed to update pipeline status to stopped", slog.Any("error", err))
+				}
 			}
-		}
-		return fmt.Errorf("stop pipeline: %w", err)
+		}()
+
+		return nil
 	}
 
-	// Set status to Stopped
-	pipeline.Status.OverallStatus = internal.PipelineStatusStopped
-
-	// Update status in database
-	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
+	// For k8 orchestrator, the operator controller-manager takes care of updating this status
+	err = p.orchestrator.StopPipeline(ctx, pid)
 	if err != nil {
-		return fmt.Errorf("update pipeline status to stopped: %w", err)
+		return fmt.Errorf("failed to stop k8 pipeline: %w", err)
 	}
 
 	return nil

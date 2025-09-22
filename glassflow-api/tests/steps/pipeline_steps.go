@@ -515,6 +515,12 @@ func (p *PipelineSteps) waitFor(duration string) error {
 	return nil
 }
 
+// waitForPauseOperationComplete waits for the pause operation to complete
+func (p *PipelineSteps) waitForPauseOperationComplete(duration string) error {
+	p.log.Info("Waiting for pause operation to complete", slog.String("duration", duration))
+	return p.waitFor(duration)
+}
+
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
@@ -523,6 +529,7 @@ func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, p.iPublishEventsToKafka)
 	sc.Step(`^I wait for "([^"]*)"$`, p.waitFor)
+	sc.Step(`^I wait for "([^"]*)" to let pause operation complete$`, p.waitForPauseOperationComplete)
 
 	sc.Step(`^a glassflow pipeline with next configuration:$`, p.aGlassflowPipelineWithNextConfiguration)
 	sc.Step(`^I shutdown the glassflow pipeline$`, p.shutdownPipeline)
