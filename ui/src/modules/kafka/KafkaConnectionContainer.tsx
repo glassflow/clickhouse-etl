@@ -44,6 +44,7 @@ export function KafkaConnectionContainer({
     setKafkaSaslScram256,
     setKafkaSaslScram512,
     setKafkaDelegationTokens,
+    setKafkaTruststore,
     setKafkaConnection,
     setKafkaSkipAuth,
     isConnected,
@@ -58,6 +59,7 @@ export function KafkaConnectionContainer({
     saslScram512,
     delegationTokens,
     noAuth,
+    truststore,
   } = kafkaStore
   const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
@@ -80,6 +82,7 @@ export function KafkaConnectionContainer({
     bootstrapServers: bootstrapServers || KafkaFormDefaultValues.bootstrapServers,
     saslPlain: saslPlain || KafkaFormDefaultValues.saslPlain,
     noAuth: noAuth || KafkaFormDefaultValues.noAuth,
+    trustStore: truststore || KafkaFormDefaultValues.trustStore,
     // saslJaas: saslJaas || KafkaFormDefaultValues.saslJaas,
     // saslGssapi: saslGssapi || KafkaFormDefaultValues.saslGssapi,
     // saslOauthbearer: saslOauthbearer || KafkaFormDefaultValues.saslOauthbearer,
@@ -204,6 +207,16 @@ export function KafkaConnectionContainer({
         // @ts-expect-error - FIXME: fix this later
         ...values.delegationTokens,
       })
+    }
+
+    // Handle truststore for SSL connections
+    if (securityProtocol === 'SSL' || securityProtocol === 'SASL_SSL') {
+      if (values.trustStore) {
+        setKafkaTruststore({
+          // @ts-expect-error - FIXME: fix this later
+          ...values.trustStore,
+        })
+      }
     }
 
     // Proceed to next step or close standalone component
