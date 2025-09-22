@@ -291,7 +291,35 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 		}
 
 		// Wait for join pending messages to clear
-		err = d.waitForJoinPendingMessagesToClear(context.Background(), pipeline)
+		checkJoinFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
+			if !pipeline.Join.Enabled {
+				return nil // No join, nothing to check
+			}
+
+			leftConsumerName := models.GetNATSJoinLeftConsumerName(pipeline.ID)
+			rightConsumerName := models.GetNATSJoinRightConsumerName(pipeline.ID)
+			leftStreamName := pipeline.Join.Sources[0].StreamID
+			rightStreamName := pipeline.Join.Sources[1].StreamID
+
+			// Check left stream
+			err := d.checkConsumerPendingMessages(ctx, leftStreamName, leftConsumerName)
+			if err != nil {
+				return fmt.Errorf("left join consumer: %w", err)
+			}
+
+			// Check right stream
+			err = d.checkConsumerPendingMessages(ctx, rightStreamName, rightConsumerName)
+			if err != nil {
+				return fmt.Errorf("right join consumer: %w", err)
+			}
+
+			d.log.Info("join consumers are clear of pending messages",
+				slog.String("left_consumer", leftConsumerName),
+				slog.String("right_consumer", rightConsumerName))
+
+			return nil
+		}
+		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkJoinFunc, "join")
 		if err != nil {
 			return fmt.Errorf("waiting for join pending messages to clear failed: %w", err)
 		}
@@ -312,7 +340,18 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 		}
 
 		// Wait for sink pending messages to clear
-		err = d.waitForSinkPendingMessagesToClear(context.Background(), pipeline)
+		checkSinkFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
+			sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
+			sinkStreamName := pipeline.Sink.StreamID
+
+			err := d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
+			if err != nil {
+				return fmt.Errorf("sink consumer: %w", err)
+			}
+
+			return nil
+		}
+		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkSinkFunc, "sink")
 		if err != nil {
 			return fmt.Errorf("waiting for sink pending messages to clear failed: %w", err)
 		}
@@ -327,15 +366,15 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 	return nil
 }
 
-// waitForJoinPendingMessagesToClear waits for join consumers to clear pending messages
-func (d *LocalOrchestrator) waitForJoinPendingMessagesToClear(ctx context.Context, pipeline *models.PipelineConfig) error {
+// waitForPendingMessagesToClear waits for consumers to clear pending messages using a provided check function
+func (d *LocalOrchestrator) waitForPendingMessagesToClear(ctx context.Context, pipeline *models.PipelineConfig, checkFunc func(context.Context, *models.PipelineConfig) error, componentName string) error {
 	maxRetries := 30 // 1 minute with 2-second intervals
 	retryInterval := 2 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
-		err := d.checkJoinPendingMessages(ctx, pipeline)
+		err := checkFunc(ctx, pipeline)
 		if err != nil {
-			d.log.Info("join has pending messages, waiting...",
+			d.log.Info(fmt.Sprintf("%s has pending messages, waiting...", componentName),
 				slog.String("pipeline_id", pipeline.ID),
 				slog.Int("retry", i+1),
 				slog.String("error", err.Error()))
@@ -348,43 +387,13 @@ func (d *LocalOrchestrator) waitForJoinPendingMessagesToClear(ctx context.Contex
 			}
 		}
 
-		// Join checks passed
-		d.log.Info("join consumers are clear of pending messages",
+		// Checks passed
+		d.log.Info(fmt.Sprintf("%s consumers are clear of pending messages", componentName),
 			slog.String("pipeline_id", pipeline.ID))
 		return nil
 	}
 
-	return fmt.Errorf("timeout waiting for join pending messages to clear after %d retries", maxRetries)
-}
-
-// waitForSinkPendingMessagesToClear waits for sink consumer to clear pending messages
-func (d *LocalOrchestrator) waitForSinkPendingMessagesToClear(ctx context.Context, pipeline *models.PipelineConfig) error {
-	maxRetries := 30 // 1 minute with 2-second intervals
-	retryInterval := 2 * time.Second
-
-	for i := 0; i < maxRetries; i++ {
-		err := d.checkSinkPendingMessages(ctx, pipeline)
-		if err != nil {
-			d.log.Info("sink has pending messages, waiting...",
-				slog.String("pipeline_id", pipeline.ID),
-				slog.Int("retry", i+1),
-				slog.String("error", err.Error()))
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(retryInterval):
-				continue
-			}
-		}
-
-		// Sink checks passed
-		d.log.Info("sink consumer is clear of pending messages",
-			slog.String("pipeline_id", pipeline.ID))
-		return nil
-	}
-
-	return fmt.Errorf("timeout waiting for sink pending messages to clear after %d retries", maxRetries)
+	return fmt.Errorf("timeout waiting for %s pending messages to clear after %d retries", componentName, maxRetries)
 }
 
 // getPipelineConfig retrieves pipeline config from memory
@@ -396,70 +405,24 @@ func (d *LocalOrchestrator) getPipelineConfig() (*models.PipelineConfig, error) 
 	return d.pipelineConfig, nil
 }
 
-// checkJoinPendingMessages checks if join consumers have pending messages
-func (d *LocalOrchestrator) checkJoinPendingMessages(ctx context.Context, pipeline *models.PipelineConfig) error {
-	if !pipeline.Join.Enabled {
-		return nil // No join, nothing to check
-	}
-
-	leftConsumerName := models.GetNATSJoinLeftConsumerName(pipeline.ID)
-	rightConsumerName := models.GetNATSJoinRightConsumerName(pipeline.ID)
-
-	leftStreamName := pipeline.Join.Sources[0].StreamID
-	rightStreamName := pipeline.Join.Sources[1].StreamID
-
-	// Check left stream
-	hasPending, pending, unack, err := d.nc.CheckConsumerPendingMessages(ctx, leftStreamName, leftConsumerName)
+// checkConsumerPendingMessages checks if a specific consumer has pending messages
+func (d *LocalOrchestrator) checkConsumerPendingMessages(ctx context.Context, streamName, consumerName string) error {
+	hasPending, pending, unack, err := d.nc.CheckConsumerPendingMessages(ctx, streamName, consumerName)
 	if err != nil {
-		return fmt.Errorf("check left join consumer: %w", err)
+		return fmt.Errorf("check consumer %s: %w", consumerName, err)
 	}
 	if hasPending {
-		d.log.Warn("left join consumer has pending messages",
-			slog.String("consumer", leftConsumerName),
+		d.log.Warn("consumer has pending messages",
+			slog.String("consumer", consumerName),
+			slog.String("stream", streamName),
 			slog.Int("pending", pending),
 			slog.Int("unacknowledged", unack))
-		return fmt.Errorf("left join consumer has %d pending and %d unacknowledged messages", pending, unack)
+		return fmt.Errorf("consumer %s has %d pending and %d unacknowledged messages", consumerName, pending, unack)
 	}
 
-	// Check right stream
-	hasPending, pending, unack, err = d.nc.CheckConsumerPendingMessages(ctx, rightStreamName, rightConsumerName)
-	if err != nil {
-		return fmt.Errorf("check right join consumer: %w", err)
-	}
-	if hasPending {
-		d.log.Warn("right join consumer has pending messages",
-			slog.String("consumer", rightConsumerName),
-			slog.Int("pending", pending),
-			slog.Int("unacknowledged", unack))
-		return fmt.Errorf("right join consumer has %d pending and %d unacknowledged messages", pending, unack)
-	}
-
-	d.log.Info("join consumers are clear of pending messages",
-		slog.String("left_consumer", leftConsumerName),
-		slog.String("right_consumer", rightConsumerName))
-
-	return nil
-}
-
-// checkSinkPendingMessages checks if sink consumer has pending messages
-func (d *LocalOrchestrator) checkSinkPendingMessages(ctx context.Context, pipeline *models.PipelineConfig) error {
-	sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
-	sinkStreamName := pipeline.Sink.StreamID
-
-	hasPending, pending, unack, err := d.nc.CheckConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
-	if err != nil {
-		return fmt.Errorf("check sink consumer: %w", err)
-	}
-	if hasPending {
-		d.log.Warn("sink consumer has pending messages",
-			slog.String("consumer", sinkConsumerName),
-			slog.Int("pending", pending),
-			slog.Int("unacknowledged", unack))
-		return fmt.Errorf("sink consumer has %d pending and %d unacknowledged messages", pending, unack)
-	}
-
-	d.log.Info("sink consumer is clear of pending messages",
-		slog.String("consumer", sinkConsumerName))
+	d.log.Info("consumer is clear of pending messages",
+		slog.String("consumer", consumerName),
+		slog.String("stream", streamName))
 
 	return nil
 }
