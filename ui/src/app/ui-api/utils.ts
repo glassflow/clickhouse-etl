@@ -41,7 +41,7 @@ export function getKafkaConfig(requestBody: any) {
   }
 
   // Add certificate if using SSL
-  if (securityProtocol === 'SASL_SSL' && certificate) {
+  if ((securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL') && certificate) {
     kafkaConfig.certificate = certificate
   }
 

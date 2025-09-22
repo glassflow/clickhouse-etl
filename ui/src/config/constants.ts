@@ -350,7 +350,11 @@ export const AUTH_OPTIONS = {
   NO_AUTH: {
     name: 'NO_AUTH',
     label: 'No authentication',
-    securityProtocols: [SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT],
+    securityProtocols: [
+      SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT,
+      SECURITY_PROTOCOL_OPTIONS.SSL,
+      SECURITY_PROTOCOL_OPTIONS.PLAINTEXT,
+    ],
     active: true,
   },
 }
