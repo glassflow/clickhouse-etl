@@ -8,7 +8,8 @@ import { FieldColumnMapper } from './components/FieldColumnMapper'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
 import { BatchDelaySelector } from './components/BatchDelaySelector'
 import FormActions from '@/src/components/shared/FormActions'
-import { createPipeline } from '@/src/api/pipeline'
+import { createPipeline } from '@/src/api/pipeline-api'
+import { Pipeline } from '@/src/types/pipeline'
 
 import { StepKeys, OperationKeys } from '@/src/config/constants'
 
@@ -1026,7 +1027,7 @@ export function ClickhouseMapper({
 
     // Update the store with the new destination config
     setClickhouseDestination(updatedDestination)
-    setApiConfig(apiConfig)
+    setApiConfig(apiConfig as Partial<Pipeline>)
 
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
