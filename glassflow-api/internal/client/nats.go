@@ -210,6 +210,37 @@ func (n *NATSClient) DeleteKeyValueStore(ctx context.Context, storeName string) 
 	return nil
 }
 
+// CheckConsumerPendingMessages checks if a consumer has any pending or unacknowledged messages
+// Returns: hasPending (bool), pendingCount (int), unacknowledgedCount (int), error
+func (n *NATSClient) CheckConsumerPendingMessages(ctx context.Context, streamName, consumerName string) (bool, int, int, error) {
+	// Add timeout for consumer info retrieval
+	infoCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stream, err := n.js.Stream(infoCtx, streamName)
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("get stream %s: %w", streamName, err)
+	}
+
+	consumer, err := stream.Consumer(infoCtx, consumerName)
+	if err != nil {
+		// Consumer doesn't exist - fail with error as requested
+		return false, 0, 0, fmt.Errorf("consumer %s does not exist in stream %s: %w", consumerName, streamName, err)
+	}
+
+	info, err := consumer.Info(infoCtx)
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("get consumer info for %s: %w", consumerName, err)
+	}
+
+	pending := int(info.NumPending)
+	unacknowledged := int(info.NumAckPending)
+	totalPending := pending + unacknowledged
+	hasPending := totalPending > 0
+
+	return hasPending, pending, unacknowledged, nil
+}
+
 func (n *NATSClient) Close() error {
 	n.nc.Close()
 	return nil

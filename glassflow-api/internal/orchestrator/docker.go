@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -31,6 +30,9 @@ type LocalOrchestrator struct {
 
 	// Environment configuration
 	pipelineKVStoreName string
+
+	// Store pipeline config in memory for cleanup
+	pipelineConfig *models.PipelineConfig
 }
 
 func NewLocalOrchestrator(
@@ -94,6 +96,9 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	}
 
 	d.id = pi.ID
+
+	// Store pipeline config in memory for cleanup
+	d.pipelineConfig = pi
 
 	d.log = d.log.With("pipeline_id", d.id)
 
@@ -203,9 +208,6 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 
 	d.log.Info("starting pipeline stop", slog.String("pipeline_id", pid))
 
-	// Clear pipeline ID first to stop any pending restart attempts
-	d.id = ""
-
 	if d.watcherCancel != nil {
 		d.watcherCancel()
 		d.watcherWG.Wait()
@@ -280,8 +282,48 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 		d.log.Debug("all ingestor runners stopped")
 	}
 
-	// 2. Shutdown join runner
+	// 2. Check join and shutdown join runner
 	if d.joinRunner != nil {
+
+		pipeline, err := d.getPipelineConfig()
+		if err != nil {
+			return fmt.Errorf("get pipeline config for join safety check: %w", err)
+		}
+
+		// Wait for join pending messages to clear
+		checkJoinFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
+			if !pipeline.Join.Enabled {
+				return nil // No join, nothing to check
+			}
+
+			leftConsumerName := models.GetNATSJoinLeftConsumerName(pipeline.ID)
+			rightConsumerName := models.GetNATSJoinRightConsumerName(pipeline.ID)
+			leftStreamName := pipeline.Join.Sources[0].StreamID
+			rightStreamName := pipeline.Join.Sources[1].StreamID
+
+			// Check left stream
+			err := d.checkConsumerPendingMessages(ctx, leftStreamName, leftConsumerName)
+			if err != nil {
+				return fmt.Errorf("left join consumer: %w", err)
+			}
+
+			// Check right stream
+			err = d.checkConsumerPendingMessages(ctx, rightStreamName, rightConsumerName)
+			if err != nil {
+				return fmt.Errorf("right join consumer: %w", err)
+			}
+
+			d.log.Info("join consumers are clear of pending messages",
+				slog.String("left_consumer", leftConsumerName),
+				slog.String("right_consumer", rightConsumerName))
+
+			return nil
+		}
+		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkJoinFunc, "join")
+		if err != nil {
+			return fmt.Errorf("waiting for join pending messages to clear failed: %w", err)
+		}
+
 		d.log.Debug("shutting down join runner")
 		d.joinRunner.Shutdown()
 		// Wait for the component to fully stop
@@ -289,14 +331,98 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 		d.log.Debug("join runner stopped")
 	}
 
-	// 3. Shutdown sink runner last
+	// 3. Check sink and shutdown sink runner
 	if d.sinkRunner != nil {
+
+		pipeline, err := d.getPipelineConfig()
+		if err != nil {
+			return fmt.Errorf("get pipeline config for sink safety check: %w", err)
+		}
+
+		// Wait for sink pending messages to clear
+		checkSinkFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
+			sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
+			sinkStreamName := pipeline.Sink.StreamID
+
+			err := d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
+			if err != nil {
+				return fmt.Errorf("sink consumer: %w", err)
+			}
+
+			return nil
+		}
+		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkSinkFunc, "sink")
+		if err != nil {
+			return fmt.Errorf("waiting for sink pending messages to clear failed: %w", err)
+		}
+
 		d.log.Debug("shutting down sink runner")
 		d.sinkRunner.Shutdown()
 		// Wait for the component to fully stop
 		<-d.sinkRunner.Done()
 		d.log.Debug("sink runner stopped")
 	}
+
+	return nil
+}
+
+// waitForPendingMessagesToClear waits for consumers to clear pending messages using a provided check function
+func (d *LocalOrchestrator) waitForPendingMessagesToClear(ctx context.Context, pipeline *models.PipelineConfig, checkFunc func(context.Context, *models.PipelineConfig) error, componentName string) error {
+	maxRetries := 30 // 1 minute with 2-second intervals
+	retryInterval := 2 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		err := checkFunc(ctx, pipeline)
+		if err != nil {
+			d.log.Info(fmt.Sprintf("%s has pending messages, waiting...", componentName),
+				slog.String("pipeline_id", pipeline.ID),
+				slog.Int("retry", i+1),
+				slog.String("error", err.Error()))
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(retryInterval):
+				continue
+			}
+		}
+
+		// Checks passed
+		d.log.Info(fmt.Sprintf("%s consumers are clear of pending messages", componentName),
+			slog.String("pipeline_id", pipeline.ID))
+		return nil
+	}
+
+	return fmt.Errorf("timeout waiting for %s pending messages to clear after %d retries", componentName, maxRetries)
+}
+
+// getPipelineConfig retrieves pipeline config from memory
+func (d *LocalOrchestrator) getPipelineConfig() (*models.PipelineConfig, error) {
+	if d.pipelineConfig == nil {
+		return nil, fmt.Errorf("pipeline config not available in memory")
+	}
+
+	return d.pipelineConfig, nil
+}
+
+// checkConsumerPendingMessages checks if a specific consumer has pending messages
+func (d *LocalOrchestrator) checkConsumerPendingMessages(ctx context.Context, streamName, consumerName string) error {
+	hasPending, pending, unack, err := d.nc.CheckConsumerPendingMessages(ctx, streamName, consumerName)
+	if err != nil {
+		return fmt.Errorf("check consumer %s: %w", consumerName, err)
+	}
+	if hasPending {
+		d.log.Warn("consumer has pending messages",
+			slog.String("consumer", consumerName),
+			slog.String("stream", streamName),
+			slog.Int("pending", pending),
+			slog.Int("unacknowledged", unack))
+		return fmt.Errorf("consumer %s has %d pending and %d unacknowledged messages", consumerName, pending, unack)
+	}
+
+	d.log.Info("consumer is clear of pending messages",
+		slog.String("consumer", consumerName),
+		slog.String("stream", streamName))
 
 	return nil
 }
@@ -311,27 +437,19 @@ func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid
 	d.joinRunner = nil
 	d.sinkRunner = nil
 
-	// Get pipeline config for NATS cleanup
-	var pipeline *models.PipelineConfig
-	configData, err := d.nc.GetKeyValue(ctx, d.pipelineKVStoreName, pid)
-	if err == nil {
-		err = json.Unmarshal(configData, &pipeline)
-		if err != nil {
-			d.log.Error("failed to unmarshal pipeline config - proceeding with basic cleanup", slog.Any("error", err))
-			return err
-		}
-
-		// Clean up NATS resources
-		err = d.cleanupNATSResources(ctx, pipeline)
+	// Clean up NATS resources using stored config
+	if d.pipelineConfig != nil {
+		err := d.cleanupNATSResources(ctx, d.pipelineConfig)
 		if err != nil {
 			d.log.Error("failed to cleanup NATS resources", slog.Any("error", err))
 			// Continue anyway
 		}
 	} else {
-		// this should never happen, except in tests
-		d.log.Error("failed to get pipeline config for cleanup", slog.Any("error", err))
-		return nil
+		d.log.Warn("no pipeline config available for cleanup")
 	}
+
+	// Clear pipeline config at the end (similar to cleaning d.id)
+	d.pipelineConfig = nil
 
 	return nil
 }
