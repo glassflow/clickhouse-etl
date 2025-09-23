@@ -16,7 +16,9 @@ type StatusTransition struct {
 
 // StatusValidationMatrix defines all valid pipeline status transitions
 var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
-	// Created status can only transition to Running or Terminating
+	// All non terminal states can transition to Terminating / Failed
+
+	// Created status can only transition to Running
 	models.PipelineStatus(internal.PipelineStatusCreated): {
 		models.PipelineStatus(internal.PipelineStatusRunning),
 		models.PipelineStatus(internal.PipelineStatusTerminating),
