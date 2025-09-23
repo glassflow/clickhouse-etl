@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -422,6 +424,27 @@ func NewJSONDuration(d time.Duration) *JSONDuration {
 	return &JSONDuration{t: d}
 }
 
+// convertDaysToHours converts day units to hours in duration strings
+// since Go's time.ParseDuration doesn't support 'd' unit
+func convertDaysToHours(duration string) string {
+	// Use regex to find day patterns and convert them to hours
+	// This handles patterns like "1d", "2d", "1d12h", "1d30m", etc.
+	dayPattern := `(\d+)d`
+	re := regexp.MustCompile(dayPattern)
+
+	return re.ReplaceAllStringFunc(duration, func(match string) string {
+		// Extract the number of days
+		dayStr := strings.TrimSuffix(match, "d")
+		days, err := strconv.Atoi(dayStr)
+		if err != nil {
+			return match // Return original if parsing fails
+		}
+		// Convert days to hours (1 day = 24 hours)
+		hours := days * 24
+		return fmt.Sprintf("%dh", hours)
+	})
+}
+
 func (d *JSONDuration) UnmarshalJSON(b []byte) error {
 	var rawValue any
 
@@ -433,7 +456,9 @@ func (d *JSONDuration) UnmarshalJSON(b []byte) error {
 	switch val := rawValue.(type) {
 	case string:
 		var err error
-		d.t, err = time.ParseDuration(val)
+		// Convert day units to hours since Go's time.ParseDuration doesn't support 'd'
+		convertedVal := convertDaysToHours(val)
+		d.t, err = time.ParseDuration(convertedVal)
 		if err != nil {
 			return fmt.Errorf("unable to parse as duration: %w", err)
 		}
