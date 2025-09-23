@@ -39,7 +39,7 @@ func NewIngestorComponent(
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
 
-	ingestor, err := ingestor.NewConfluentKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log, true) // useBatchMode = true
+	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log, true) // useBatchMode = true
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}

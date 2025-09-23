@@ -1,6 +1,3 @@
-//go:build cgo
-// +build cgo
-
 package kafka
 
 import (
@@ -28,7 +25,7 @@ func TestConfluentConsumerCreation(t *testing.T) {
 		BatchTimeout:      models.JSONDuration{}, // Will use default
 	}
 
-	consumer, err := NewConfluentConsumer(conn, topic, logger)
+	consumer, err := NewConsumer(conn, topic, logger)
 	if err != nil {
 		t.Fatalf("Failed to create confluent consumer: %v", err)
 	}
@@ -68,7 +65,7 @@ func TestBatchProcessor(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	err := mockProcessor.ProcessBatch(ctx, batch)
+	err := mockProcessor.ProccessBatch(ctx, batch)
 	if err != nil {
 		t.Fatalf("Failed to process batch: %v", err)
 	}
@@ -83,12 +80,12 @@ type mockMessageProcessor struct {
 	callCount int
 }
 
-func (m *mockMessageProcessor) ProcessMessage(ctx context.Context, msg Message) error {
+func (m *mockMessageProcessor) ProcessMessage(_ context.Context, _ Message) error {
 	m.callCount++
 	return nil
 }
 
-func (m *mockMessageProcessor) ProcessBatch(ctx context.Context, batch MessageBatch) error {
+func (m *mockMessageProcessor) ProccessBatch(_ context.Context, batch MessageBatch) error {
 	for range batch {
 		m.callCount++
 	}

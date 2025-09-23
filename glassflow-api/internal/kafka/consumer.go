@@ -1,13 +1,16 @@
+//go:build cgo
+// +build cgo
+
 package kafka
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
-	"github.com/IBM/sarama"
+	cKafka "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -20,7 +23,7 @@ type Message struct {
 
 	Key     []byte
 	Value   []byte
-	Headers []sarama.RecordHeader
+	Headers []cKafka.Header
 }
 
 type MessageProcessor interface {
@@ -33,197 +36,343 @@ type Consumer interface {
 	Close() error
 }
 
-func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) *sarama.Config {
-	cfg := sarama.NewConfig()
-	cfg.Net.DialTimeout = internal.DefaultDialTimeout
-	cfg.ClientID = internal.ClientID
+type MessageBatch []Message
 
-	if conn.SASLUsername != "" {
-		cfg.Net.SASL.Enable = true
-		cfg.Net.SASL.Handshake = true
-		cfg.Net.SASL.User = conn.SASLUsername
-		cfg.Net.SASL.Password = conn.SASLPassword
+type BatchedConsumer interface {
+	Consumer
+	StartBatch(ctx context.Context, processor MessageProcessor, batchSize int, timeout time.Duration) error
+}
 
-		switch conn.SASLMechanism {
-		case internal.MechanismSHA256:
-			//nolint: exhaustruct // optional config
-			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
-			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
-		case internal.MechanismSHA512:
-			//nolint: exhaustruct // optional config
-			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
-			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
-		default:
-			cfg.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-		}
-	} else if conn.IAMEnable && conn.IAMRegion != "" {
-		cfg.Net.SASL.Enable = true
-		cfg.Net.SASL.Mechanism = sarama.SASLTypeOAuth
-		cfg.Net.SASL.TokenProvider = &MSKAccessTokenProvider{Region: conn.IAMRegion}
+// BatchConsumer implements BatchedConsumer using confluent-kafka-go
+type BatchConsumer struct {
+	consumer    *cKafka.Consumer
+	topic       string
+	groupID     string
+	batchSize   int
+	timeout     time.Duration
+	processor   MessageProcessor
+	log         *slog.Logger
+	cancel      context.CancelFunc
+	isBatchMode bool
+}
+
+func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (BatchedConsumer, error) {
+	config := buildConfluentConfig(conn, topic)
+
+	consumer, err := cKafka.NewConsumer(&config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create consumer: %w", err)
 	}
 
-	if cfg.Net.SASL.Enable && conn.SkipAuth {
-		cfg.Net.TLS.Enable = true
-		//nolint: exhaustruct, gosec // optional config, local testing
-		cfg.Net.TLS.Config = &tls.Config{
-			InsecureSkipVerify: conn.SkipAuth,
-		}
-	} else if tlsC, err := MakeTLSConfigFromStrings(conn.TLSCert, conn.TLSKey, conn.TLSRoot); tlsC != nil && err == nil {
-		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = tlsC
-	} else if conn.IAMEnable {
-		//nolint: exhaustruct // placeholder config
-		tlsConfig := tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = &tlsConfig
+	return &BatchConsumer{
+		consumer:    consumer,
+		topic:       topic.Name,
+		groupID:     topic.ConsumerGroupName,
+		log:         log,
+		batchSize:   0,
+		timeout:     0,
+		processor:   nil,
+		cancel:      nil,
+		isBatchMode: false,
+	}, nil
+}
+
+// NewBatchConsumer creates a new Kafka consumer with batching support
+func NewBatchConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (BatchedConsumer, error) {
+	consumer, err := NewConsumer(conn, topic, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch consumer: %w", err)
 	}
-	if conn.SASLTLSEnable {
-		cfg.Net.TLS.Enable = conn.SASLTLSEnable
+	return consumer, nil
+}
+
+// buildConfluentConfig creates Confluent Kafka configuration from connection params
+func buildConfluentConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) cKafka.ConfigMap {
+	config := cKafka.ConfigMap{
+		"bootstrap.servers":          joinBrokers(conn.Brokers),
+		"group.id":                   topic.ConsumerGroupName,
+		"client.id":                  internal.ClientID,
+		"session.timeout.ms":         30000,
+		"heartbeat.interval.ms":      3000,
+		"enable.auto.commit":         false,
+		"auto.commit.interval.ms":    1000,
+		"fetch.min.bytes":            102400,  // 100KB min fetch
+		"fetch.message.max.bytes":    1048576, // 1MB max message size
+		"queued.min.messages":        100000,
+		"queued.max.messages.kbytes": 1048576, // 1GB
 	}
 
+	// Set initial offset
 	if topic.ConsumerGroupInitialOffset == internal.InitialOffsetEarliest {
-		cfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+		config["auto.offset.reset"] = "earliest"
 	} else {
-		cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
+		config["auto.offset.reset"] = "latest"
 	}
 
-	cfg.Consumer.Fetch.Min = 1024 * 100       // 100KB min fetch
-	cfg.Consumer.Fetch.Default = 1024 * 1024  // 1MB default fetch
-	cfg.Consumer.Fetch.Max = 10 * 1024 * 1024 // 10MB max fetch
+	// Configure security
+	configureSecurity(config, conn)
 
-	return cfg
+	return config
 }
 
-func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
-	consumer, err := newGroupConsumer(conn, topic, log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create group consumer: %w", err)
-	}
-	return consumer, nil
-}
+// configureSecurity adds security configuration to the Confluent config
+func configureSecurity(config cKafka.ConfigMap, conn models.KafkaConnectionParamsConfig) {
+	switch {
+	case conn.SASLUsername != "":
+		config["security.protocol"] = "SASL_SSL"
+		config["sasl.mechanism"] = mapSASLMechanism(conn.SASLMechanism)
+		config["sasl.username"] = conn.SASLUsername
+		config["sasl.password"] = conn.SASLPassword
 
-// NewConfluentBatchConsumer creates a new Confluent Kafka consumer with batching support
-func NewConfluentBatchConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (BatchedConsumer, error) {
-	consumer, err := NewConfluentConsumer(conn, topic, log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create confluent batch consumer: %w", err)
-	}
-	return consumer, nil
-}
-
-type groupConsumer struct {
-	cGroup    sarama.ConsumerGroup
-	name      string
-	topicName string
-	cancel    context.CancelFunc
-	processor MessageProcessor
-	log       *slog.Logger
-}
-
-func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
-	cfg := newConnectionConfig(connectionParams, topic)
-	cGroup, err := sarama.NewConsumerGroup(
-		connectionParams.Brokers,
-		topic.ConsumerGroupName,
-		cfg,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create consumer group: %w", err)
+		if conn.SkipAuth {
+			config["ssl.certificate.verification"] = "none"
+		}
+	case conn.IAMEnable && conn.IAMRegion != "":
+		// AWS MSK IAM
+		config["security.protocol"] = "SASL_SSL"
+		config["sasl.mechanism"] = "OAUTHBEARER"
+		// Note: For full IAM support, you'd need to implement OAUTHBEARER callback
+	case conn.SASLTLSEnable:
+		config["security.protocol"] = "SSL"
 	}
 
-	consumer := &groupConsumer{ //nolint: exhaustruct // fields will be set later
-		cGroup:    cGroup,
-		name:      topic.ConsumerGroupName,
-		topicName: topic.Name,
-		log:       log,
+	// TLS Configuration
+	if conn.TLSCert != "" && conn.TLSKey != "" {
+		config["ssl.certificate.pem"] = conn.TLSCert
+		config["ssl.key.pem"] = conn.TLSKey
 	}
-
-	return consumer, nil
+	if conn.TLSRoot != "" {
+		config["ssl.ca.pem"] = conn.TLSRoot
+	}
 }
 
-func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) error {
+// mapSASLMechanism maps internal mechanism names to Confluent names
+func mapSASLMechanism(mechanism string) string {
+	switch mechanism {
+	case internal.MechanismSHA256:
+		return "SCRAM-SHA-256"
+	case internal.MechanismSHA512:
+		return "SCRAM-SHA-512"
+	default:
+		return "PLAIN"
+	}
+}
+
+// joinBrokers converts broker slice to comma-separated string
+func joinBrokers(brokers []string) string {
+	if len(brokers) == 0 {
+		return "localhost:9092"
+	}
+	result := brokers[0]
+	for i := 1; i < len(brokers); i++ {
+		result += "," + brokers[i]
+	}
+	return result
+}
+
+// Start implements the Consumer interface for single message processing
+func (c *BatchConsumer) Start(ctx context.Context, processor MessageProcessor) error {
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.processor = processor
+	c.isBatchMode = false
 
-	topics := []string{c.topicName}
+	err := c.consumer.Subscribe(c.topic, nil)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to topic %s: %w", c.topic, err)
+	}
 
+	c.log.Info("Starting Kafka consumer",
+		slog.String("topic", c.topic),
+		slog.String("group", c.groupID))
+
+	return c.consumeLoop(ctx)
+}
+
+// StartBatch implements the BatchedConsumer interface for batch processing
+func (c *BatchConsumer) StartBatch(ctx context.Context, processor MessageProcessor, batchSize int, timeout time.Duration) error {
+	ctx, c.cancel = context.WithCancel(ctx)
+	c.batchSize = batchSize
+	c.timeout = timeout
+	c.processor = processor
+	c.isBatchMode = true
+
+	err := c.consumer.Subscribe(c.topic, nil)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to topic %s: %w", c.topic, err)
+	}
+
+	c.log.Info("Starting Kafka batch consumer",
+		slog.String("topic", c.topic),
+		slog.String("group", c.groupID),
+		slog.Int("batchSize", batchSize),
+		slog.Duration("timeout", timeout))
+
+	return c.consumeLoop(ctx)
+}
+
+// consumeLoop handles the main consumption logic
+func (c *BatchConsumer) consumeLoop(ctx context.Context) error {
+	if c.isBatchMode {
+		return c.consumeBatches(ctx)
+	}
+	return c.consumeSingle(ctx)
+}
+
+// consumeSingle processes messages one by one
+func (c *BatchConsumer) consumeSingle(ctx context.Context) error {
 	for {
-		if err := c.cGroup.Consume(ctx, topics, c); err != nil {
-			if errors.Is(err, sarama.ErrClosedConsumerGroup) {
-				return nil
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			msg, err := c.consumer.ReadMessage(1000) // 1 second timeout
+			if err != nil {
+				var kafkaErr cKafka.Error
+				if errors.As(err, &kafkaErr) && kafkaErr.Code() == cKafka.ErrTimedOut {
+					continue // Timeout is expected, continue polling
+				}
+				c.log.Error("Error reading message", slog.Any("error", err))
+				continue
 			}
-			return fmt.Errorf("failed to consume from kafka: %w", err)
-		}
 
-		if ctx.Err() != nil {
-			if errors.Is(ctx.Err(), context.Canceled) {
-				return nil
+			message := c.convertMessage(msg)
+			if err := c.processor.ProcessMessage(ctx, message); err != nil {
+				c.log.Error("Message processing failed", slog.Any("error", err))
+				return fmt.Errorf("message processing failed: %w", err)
 			}
-			return ctx.Err()
+
+			// Commit manually if needed (auto-commit is enabled by default)
 		}
 	}
 }
 
-func (c *groupConsumer) Close() error {
-	c.log.Info("Closing Kafka consumer group", slog.String("group", c.name))
+// consumeBatches processes messages in batches
+func (c *BatchConsumer) consumeBatches(ctx context.Context) error {
+	c.log.Debug("Consuming messages in batch mode",
+		slog.String("topic", c.topic),
+		slog.String("group", c.groupID),
+		slog.Int("batchSize", c.batchSize),
+		slog.Duration("timeout", c.timeout))
+
+	batch := make(MessageBatch, 0, c.batchSize)
+	batchTimer := time.NewTimer(c.timeout)
+	defer batchTimer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return c.processRemainingBatch(ctx, batch)
+
+		case <-batchTimer.C:
+			if err := c.processTimerBatch(ctx, &batch, batchTimer); err != nil {
+				return err
+			}
+
+		default:
+			if err := c.handleBatchMessage(ctx, &batch, batchTimer); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// processRemainingBatch processes any remaining messages in the batch during shutdown
+func (c *BatchConsumer) processRemainingBatch(ctx context.Context, batch MessageBatch) error {
+	if len(batch) > 0 {
+		return c.processBatch(ctx, batch)
+	}
+	return nil
+}
+
+// processTimerBatch handles batch processing when timer expires
+func (c *BatchConsumer) processTimerBatch(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
+	if len(*batch) > 0 {
+		if err := c.processBatch(ctx, *batch); err != nil {
+			return err
+		}
+		*batch = (*batch)[:0] // Reset batch
+	}
+	timer.Reset(c.timeout)
+	return nil
+}
+
+// handleBatchMessage handles reading and processing a single message in batch mode
+func (c *BatchConsumer) handleBatchMessage(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
+	msg, err := c.consumer.ReadMessage(c.timeout)
+	if err != nil {
+		var kafkaErr cKafka.Error
+		if errors.As(err, &kafkaErr) && kafkaErr.Code() == cKafka.ErrTimedOut {
+			return nil // Continue to check timer and context
+		}
+		c.log.Error("Error reading message", slog.Any("error", err))
+		return nil
+	}
+
+	message := c.convertMessage(msg)
+	*batch = append(*batch, message)
+
+	// Process batch if it's full
+	if len(*batch) >= c.batchSize {
+		if err := c.processBatch(ctx, *batch); err != nil {
+			return err
+		}
+		_, err := c.consumer.Commit()
+		if err != nil {
+			c.log.Error("Failed to commit offsets", slog.Any("error", err))
+			return fmt.Errorf("failed to commit offsets: %w", err)
+		}
+
+		*batch = (*batch)[:0] // Reset batch
+		timer.Reset(c.timeout)
+	}
+	return nil
+}
+
+// processBatch processes a batch of messages
+func (c *BatchConsumer) processBatch(ctx context.Context, batch MessageBatch) error {
+	if len(batch) == 0 {
+		return nil
+	}
+
+	if err := c.processor.ProcessBatch(ctx, batch); err != nil {
+		c.log.Error("Batch processing failed",
+			slog.Any("error", err),
+			slog.Int("batchSize", len(batch)))
+		return fmt.Errorf("batch processing failed: %w", err)
+	}
+
+	_, err := c.consumer.Commit()
+	if err != nil {
+		c.log.Error("Failed to commit offsets", slog.Any("error", err))
+		return fmt.Errorf("failed to commit offsets: %w", err)
+	}
+
+	return nil
+}
+
+// convertMessage converts Kafka message to internal Message format
+func (c *BatchConsumer) convertMessage(msg *cKafka.Message) Message {
+	return Message{
+		Topic:     *msg.TopicPartition.Topic,
+		Partition: msg.TopicPartition.Partition,
+		Offset:    int64(msg.TopicPartition.Offset),
+		Key:       msg.Key,
+		Value:     msg.Value,
+		Headers:   msg.Headers,
+	}
+}
+
+// Close implements the Consumer interface
+func (c *BatchConsumer) Close() error {
+	c.log.Info("Closing Kafka consumer", slog.String("group", c.groupID))
+
 	if c.cancel != nil {
 		c.cancel()
 	}
-	if err := c.cGroup.Close(); err != nil {
-		return fmt.Errorf("failed to close consumer group: %w", err)
+
+	if err := c.consumer.Close(); err != nil {
+		return fmt.Errorf("failed to close consumer: %w", err)
 	}
+
 	return nil
-}
-
-func (c *groupConsumer) Setup(sarama.ConsumerGroupSession) error {
-	// This method is need for the compartibility with sarama.ConsumerGroupHandler interface.
-	return nil
-}
-
-func (c *groupConsumer) Cleanup(sarama.ConsumerGroupSession) error {
-	// This method is need for the compartibility with sarama.ConsumerGroupHandler interface.
-	return nil
-}
-
-func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	for {
-		select {
-		case message := <-claim.Messages():
-			if message == nil {
-				// Channel closed, exit gracefully
-				return nil
-			}
-
-			// Process message directly using the processor
-			if err := c.processor.ProcessMessage(session.Context(), Message{
-				Topic:     message.Topic,
-				Partition: message.Partition,
-				Offset:    message.Offset,
-				Key:       message.Key,
-				Value:     message.Value,
-				Headers:   convertSaramaToRecordHeaders(message.Headers),
-			}); err != nil {
-				c.log.Error("Message processing failed", slog.Any("error", err))
-				return fmt.Errorf("message processing failed: %w", err) // Exit consumer loop - this will cause restart
-			}
-
-			// Auto-commit on success
-			session.MarkMessage(message, "")
-
-		case <-session.Context().Done():
-			return nil
-		}
-	}
-}
-
-func convertSaramaToRecordHeaders(headers []*sarama.RecordHeader) []sarama.RecordHeader {
-	result := make([]sarama.RecordHeader, 0, len(headers))
-	for _, h := range headers {
-		if h != nil {
-			result = append(result, *h)
-		}
-	}
-	return result
 }
