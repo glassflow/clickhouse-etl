@@ -49,14 +49,14 @@ export function JoinConfigurator({
       {
         streamId: streams?.[0]?.streamId || '',
         joinKey: streams?.[0]?.joinKey || '',
-        dataType: streams?.[0]?.dataType || JSON_DATA_TYPES_DEDUPLICATION_JOIN[0],
+
         joinTimeWindowValue: streams?.[0]?.joinTimeWindowValue || 1,
         joinTimeWindowUnit: streams?.[0]?.joinTimeWindowUnit || TIME_WINDOW_UNIT_OPTIONS.MINUTES.value,
       },
       {
         streamId: streams?.[1]?.streamId || '',
         joinKey: streams?.[1]?.joinKey || '',
-        dataType: streams?.[1]?.dataType || JSON_DATA_TYPES_DEDUPLICATION_JOIN[0],
+
         joinTimeWindowValue: streams?.[1]?.joinTimeWindowValue || 1,
         joinTimeWindowUnit: streams?.[1]?.joinTimeWindowUnit || TIME_WINDOW_UNIT_OPTIONS.MINUTES.value,
       },
@@ -133,12 +133,7 @@ export function JoinConfigurator({
   useEffect(() => {
     if (isReturningToForm && streams?.length === 2 && !userInteracted) {
       const hasCompleteData = streams.every(
-        (stream) =>
-          stream?.streamId &&
-          stream?.joinKey &&
-          stream?.dataType &&
-          stream?.joinTimeWindowValue &&
-          stream?.joinTimeWindowUnit,
+        (stream) => stream?.streamId && stream?.joinKey && stream?.joinTimeWindowValue && stream?.joinTimeWindowUnit,
       )
 
       if (hasCompleteData) {
@@ -146,7 +141,6 @@ export function JoinConfigurator({
           streams: streams.map((stream) => ({
             streamId: stream.streamId,
             joinKey: stream.joinKey,
-            dataType: stream.dataType,
             joinTimeWindowValue: stream.joinTimeWindowValue,
             joinTimeWindowUnit: stream.joinTimeWindowUnit,
           })),
@@ -164,10 +158,6 @@ export function JoinConfigurator({
     formData.streams.forEach((stream, index) => {
       if (!stream.joinKey) {
         newErrors[`streams.${index}.joinKey`] = 'Join key is required'
-        isValid = false
-      }
-      if (!stream.dataType) {
-        newErrors[`streams.${index}.dataType`] = 'Data type is required'
         isValid = false
       }
       if (!stream.joinTimeWindowValue || stream.joinTimeWindowValue < 1) {
@@ -210,14 +200,14 @@ export function JoinConfigurator({
       leftStream: {
         streamId: formData.streams[0].streamId,
         joinKey: formData.streams[0].joinKey,
-        dataType: formData.streams[0].dataType,
+
         timeWindow: `${formData.streams[0].joinTimeWindowValue} ${formData.streams[0].joinTimeWindowUnit}`,
         topicName: topic1?.name,
       },
       rightStream: {
         streamId: formData.streams[1].streamId,
         joinKey: formData.streams[1].joinKey,
-        dataType: formData.streams[1].dataType,
+
         timeWindow: `${formData.streams[1].joinTimeWindowValue} ${formData.streams[1].joinTimeWindowUnit}`,
         topicName: topic2?.name,
       },
@@ -287,8 +277,7 @@ export function JoinConfigurator({
   const canContinue =
     (userInteracted || (isReturningToForm && formIsValid)) &&
     formData.streams.every(
-      (stream) =>
-        stream.streamId && stream.joinKey && stream.dataType && stream.joinTimeWindowValue && stream.joinTimeWindowUnit,
+      (stream) => stream.streamId && stream.joinKey && stream.joinTimeWindowValue && stream.joinTimeWindowUnit,
     )
 
   // Handle discard changes for join configuration
@@ -306,10 +295,6 @@ export function JoinConfigurator({
             label: key,
             value: key,
           })) || [],
-        dataType: JSON_DATA_TYPES_DEDUPLICATION_JOIN.map((type) => ({
-          label: type,
-          value: type,
-        })),
         joinTimeWindowUnit: Object.values(TIME_WINDOW_UNIT_OPTIONS).map((option) => ({
           label: option.label,
           value: option.value,
@@ -321,10 +306,6 @@ export function JoinConfigurator({
             label: key,
             value: key,
           })) || [],
-        dataType: JSON_DATA_TYPES_DEDUPLICATION_JOIN.map((type) => ({
-          label: type,
-          value: type,
-        })),
         joinTimeWindowUnit: Object.values(TIME_WINDOW_UNIT_OPTIONS).map((option) => ({
           label: option.label,
           value: option.value,

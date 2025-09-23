@@ -74,7 +74,6 @@ function mapBackendJoinSourcesToStreams(sources: any[]): any[] {
       streamId: src.source_id,
       topicName: src.source_id, // If you want to display topic name, adjust as needed
       joinKey: src.join_key,
-      dataType: '', // Could be filled if you have schema info
       joinTimeWindowValue: value,
       joinTimeWindowUnit: unit,
       orientation: src.orientation,

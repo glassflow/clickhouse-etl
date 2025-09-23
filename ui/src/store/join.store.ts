@@ -11,7 +11,6 @@ export interface JoinStream {
   streamId: string
   topicName: string
   joinKey: string
-  dataType: string
   joinTimeWindowValue: number
   joinTimeWindowUnit: string
   orientation: 'left' | 'right'
@@ -65,7 +64,6 @@ export const createJoinSlice: StateCreator<JoinSlice> = (set, get) => ({
             topicName: stream.topicName,
             streamId: stream.streamId,
             joinKey: stream.joinKey,
-            dataType: stream.dataType,
             joinTimeWindowValue: stream.joinTimeWindowValue,
             joinTimeWindowUnit: stream.joinTimeWindowUnit,
             orientation: stream.orientation,

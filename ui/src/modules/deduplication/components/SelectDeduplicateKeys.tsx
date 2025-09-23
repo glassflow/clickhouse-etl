@@ -79,7 +79,8 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
   const handleKeySelect = useCallback(
     (key: string | null) => {
       setSelectedKey(key || '')
-      onChange({ key: key || '', keyType: selectedKeyType }, { window: localWindow, unit: localWindowUnit })
+      setSelectedKeyType('string')
+      onChange({ key: key || '', keyType: key ? 'string' : '' }, { window: localWindow, unit: localWindowUnit })
     },
     [selectedKeyType, localWindow, localWindowUnit, onChange],
   )
@@ -144,12 +145,12 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
             )}
           </div>
           <div className="w-[30%]">
-            <JSONDateTypesSelector
+            {/* <JSONDateTypesSelector
               value={selectedKeyType}
               onChange={handleKeyTypeSelect}
               isDeduplicationJoin={true}
               readOnly={readOnly}
-            />
+            /> */}
           </div>
         </div>
       </div>

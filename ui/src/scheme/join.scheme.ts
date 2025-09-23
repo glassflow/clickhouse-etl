@@ -14,11 +14,6 @@ export const JoinConfigSchema = z.object({
             required_error: 'Join key is required',
           })
           .min(1, 'Join key cannot be empty'),
-        dataType: z
-          .string({
-            required_error: 'Data type is required',
-          })
-          .min(1, 'Type cannot be empty'),
         joinTimeWindowValue: z.coerce
           .number({
             required_error: 'Value is required',
@@ -36,12 +31,7 @@ export const JoinConfigSchema = z.object({
     .refine(
       (streams) => {
         return streams.every(
-          (stream) =>
-            stream.streamId &&
-            stream.joinKey &&
-            stream.dataType &&
-            stream.joinTimeWindowValue &&
-            stream.joinTimeWindowUnit,
+          (stream) => stream.streamId && stream.joinKey && stream.joinTimeWindowValue && stream.joinTimeWindowUnit,
         )
       },
       {
