@@ -346,14 +346,14 @@ export const KafkaFormConfig = {
     },
   },
   [AUTH_OPTIONS['NO_AUTH'].name]: {
-    securityProtocol: SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT,
+    securityProtocol: SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT, // Default, but supports SSL too
     authMethod: AUTH_OPTIONS['NO_AUTH'],
     fields: {
       certificate: {
         name: 'noAuth.certificate',
-        label: 'Certificate',
-        placeholder: 'Enter certificate',
-        required: 'Certificate is required',
+        label: 'Certificate (for SSL)',
+        placeholder: 'Enter certificate (required for SSL protocol)',
+        required: false, // Not required for PLAINTEXT
         type: 'textarea',
       },
     },

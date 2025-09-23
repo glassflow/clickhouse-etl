@@ -86,8 +86,9 @@ export class KafkaClient {
     // Configure SSL
     if (config.securityProtocol === 'SASL_SSL' || config.securityProtocol === 'SSL') {
       kafkaConfig.ssl = {
-        rejectUnauthorized: true,
+        rejectUnauthorized: false, // Allow self-signed certificates
         ca: config.certificate ? [config.certificate] : undefined,
+        checkServerIdentity: () => undefined, // Disable hostname verification
       }
     } else {
       kafkaConfig.ssl = false
