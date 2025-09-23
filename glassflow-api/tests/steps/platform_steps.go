@@ -78,7 +78,7 @@ func (p *PlatformSteps) setupServices() error {
 
 	// Create orchestrator based on type
 	if p.orchestratorType == "local" {
-		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, p.log, "glassflow-pipelines")
+		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, p.log)
 	} else {
 		// For k8s orchestrator, we'll create a mock one for testing
 		p.orchestrator = &MockK8sOrchestrator{log: p.log}

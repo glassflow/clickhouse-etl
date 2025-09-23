@@ -166,7 +166,7 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 	var orch service.Orchestrator
 
 	if cfg.RunLocal {
-		orch = orchestrator.NewLocalOrchestrator(nc, log, cfg.NATSPipelineKV)
+		orch = orchestrator.NewLocalOrchestrator(nc, log)
 	} else {
 		orch, err = orchestrator.NewK8sOrchestrator(log, cfg.K8sNamespace, orchestrator.CustomResourceAPIGroupVersion{
 			Kind:     cfg.K8sResourceKind,

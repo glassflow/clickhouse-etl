@@ -28,9 +28,6 @@ type LocalOrchestrator struct {
 	watcherCancel context.CancelFunc
 	watcherWG     sync.WaitGroup
 
-	// Environment configuration
-	pipelineKVStoreName string
-
 	// Store pipeline config in memory for cleanup
 	pipelineConfig *models.PipelineConfig
 }
@@ -38,13 +35,11 @@ type LocalOrchestrator struct {
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
 	log *slog.Logger,
-	pipelineKVStoreName string,
 ) service.Orchestrator {
 	//nolint: exhaustruct // runners will be created on setup
 	return &LocalOrchestrator{
-		nc:                  nc,
-		log:                 log,
-		pipelineKVStoreName: pipelineKVStoreName,
+		nc:  nc,
+		log: log,
 	}
 }
 
