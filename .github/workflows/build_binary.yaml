@@ -24,10 +24,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install librdkafka
+      - name: Install latest librdkafka from Confluent (both archs)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y librdkafka-dev
+          if [[ "$(dpkg --print-architecture)" == "arm64" ]]; then
+            echo "Building librdkafka v2.11.1 from source for ARM64..."
+            sudo apt-get update
+            sudo apt-get install -y build-essential pkg-config libssl-dev zlib1g-dev wget
+            wget https://github.com/confluentinc/librdkafka/archive/refs/tags/v2.11.1.tar.gz -O librdkafka.tar.gz
+            tar -xzf librdkafka.tar.gz
+            cd librdkafka-2.11.1
+            ./configure --prefix=/usr
+            make -j$(nproc)
+            sudo make install
+            cd ..
+          else
+            echo "Installing librdkafka from Confluent APT repo (amd64)..."
+            wget -qO - https://packages.confluent.io/deb/7.7/archive.key | sudo apt-key add -
+            echo "deb [arch=$(dpkg --print-architecture)] https://packages.confluent.io/deb/7.7 stable main" | sudo tee /etc/apt/sources.list.d/confluent.list
+            sudo apt-get update && sudo apt-get install -y librdkafka-dev
+          fi
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -37,11 +52,11 @@ jobs:
 
       - name: Build binary
         working-directory: ${{ matrix.module }}
+        run: make build-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
         env:
           GOOS: ${{ matrix.platform.os }}
           GOARCH: ${{ matrix.platform.arch }}
-          CGO_ENABLED: 1
-        run: make build-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          CGO_LDFLAGS: "-static"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

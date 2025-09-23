@@ -40,4 +40,4 @@ run-short-test:
 
 .PHONY: run-e2e-test
 run-e2e-test:
-	TESTCONTAINERS_RYUK_DISABLED=true go test -v ./tests
+	TESTCONTAINERS_RYUK_DISABLED=true go test -v -failfast ./tests
