@@ -220,6 +220,11 @@ export function KafkaTopicSelector({
     }
   }, [handleSubmit, standalone, toggleEditMode])
 
+  // Handle refresh topics
+  const handleRefreshTopics = useCallback(async () => {
+    await fetchTopics()
+  }, [fetchTopics])
+
   // Handle discard changes for this section
   const handleDiscardChanges = useCallback(() => {
     // Determine which sections to discard based on the current step
@@ -289,6 +294,7 @@ export function KafkaTopicSelector({
             partitionCount={partitionCount}
             replicas={replicas}
             onReplicaCountChange={selectReplicaCount}
+            onRefreshTopics={handleRefreshTopics}
           />
         </div>
 

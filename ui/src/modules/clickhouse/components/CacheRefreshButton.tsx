@@ -4,7 +4,7 @@ import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { cn } from '@/src/utils/common.client'
 
 interface CacheRefreshButtonProps {
-  type: 'databases' | 'tables' | 'tableSchema'
+  type: 'databases' | 'tables' | 'tableSchema' | 'topics'
   database?: string
   table?: string
   onRefresh: () => Promise<void>

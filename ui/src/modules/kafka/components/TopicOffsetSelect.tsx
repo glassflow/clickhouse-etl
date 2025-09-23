@@ -20,6 +20,7 @@ export function TopicOffsetSelect({
   offsetOptions,
   index,
   readOnly,
+  onRefreshTopics,
 }: {
   topicValue: string
   isLoadingEvent: boolean
@@ -36,6 +37,7 @@ export function TopicOffsetSelect({
   offsetOptions: { label: string; value: 'earliest' | 'latest' }[]
   index: number
   readOnly?: boolean
+  onRefreshTopics?: () => Promise<void>
 }) {
   const [isFocused, setIsFocused] = useState(false)
   const { topicsStore, joinStore } = useStore()
@@ -127,6 +129,7 @@ export function TopicOffsetSelect({
         options={topicOptions}
         readOnly={readOnly}
         label="Source Topic"
+        onRefresh={onRefreshTopics}
       />
       {topicValue && (
         <OffsetSelect

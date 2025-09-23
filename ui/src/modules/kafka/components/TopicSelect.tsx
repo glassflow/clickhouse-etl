@@ -1,6 +1,7 @@
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { cn } from '@/src/utils/common.client'
 import { useState, useMemo } from 'react'
+import { CacheRefreshButton } from '@/src/modules/clickhouse/components/CacheRefreshButton'
 
 export function TopicSelect({
   value,
@@ -13,6 +14,7 @@ export function TopicSelect({
   readOnly,
   standalone,
   label,
+  onRefresh,
 }: {
   value: string
   onChange: (value: string) => void
@@ -24,6 +26,7 @@ export function TopicSelect({
   readOnly?: boolean
   standalone?: boolean
   label?: string
+  onRefresh?: () => Promise<void>
 }) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -68,20 +71,35 @@ export function TopicSelect({
   }
 
   return (
-    <div className="relative w-full">
-      <SearchableSelect
-        availableOptions={searchableOptions}
-        selectedOption={selectedLabel}
-        onSelect={handleSelect}
-        placeholder={placeholder}
-        disabled={readOnly}
-        clearable={true}
-        open={isOpen}
-        onOpenChange={handleOpenChange}
-        readOnly={readOnly}
-        label={label}
-        className={cn('w-full', error && '[&_input]:border-red-500 [&_input]:border-2')}
-      />
+    <div className="flex items-center justify-between gap-2">
+      <div className="relative w-full">
+        <SearchableSelect
+          availableOptions={searchableOptions}
+          selectedOption={selectedLabel}
+          onSelect={handleSelect}
+          placeholder={placeholder}
+          disabled={readOnly}
+          clearable={true}
+          open={isOpen}
+          onOpenChange={handleOpenChange}
+          readOnly={readOnly}
+          className={cn('w-full', error && '[&_input]:border-red-500 [&_input]:border-2')}
+          label={label}
+        />
+      </div>
+
+      {onRefresh && (
+        <div className="flex-shrink-0 mb-1.5">
+          <CacheRefreshButton
+            disabled={readOnly}
+            type="topics"
+            onRefresh={onRefresh}
+            size="sm"
+            variant="ghost"
+            className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+          />
+        </div>
+      )}
     </div>
   )
 }
