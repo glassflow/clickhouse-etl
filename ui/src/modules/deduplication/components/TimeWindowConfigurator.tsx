@@ -90,7 +90,7 @@ export function TimeWindowConfigurator({
   }, [window, windowUnit])
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 w-full">
       <div className="flex items-center gap-2">
         <Label htmlFor="window-unit" className="label-regular text-content">
           {label}
@@ -108,9 +108,9 @@ export function TimeWindowConfigurator({
           </TooltipContent>
         </Tooltip>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 w-full">
         <div className="flex gap-4">
-          <div className="w-[20%] max-w-[20%]">
+          <div className="w-[35%] max-w-[35%]">
             <Input
               id="window-size"
               type="number"
@@ -121,7 +121,7 @@ export function TimeWindowConfigurator({
               disabled={readOnly}
             />
           </div>
-          <div className="w-[45%] max-w-[45%]">
+          <div className="w-[65%] max-w-[65%]">
             <Select value={windowUnit} onValueChange={handleUnitChange} disabled={readOnly}>
               <SelectTrigger id="window-unit" className="w-full input-regular select-content-custom text-content">
                 <SelectValue placeholder="Select unit" />

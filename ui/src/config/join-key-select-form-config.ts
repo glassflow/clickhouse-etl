@@ -20,14 +20,6 @@ export const JoinKeySelectFormConfig = {
         type: 'select',
         required: 'Join key is required',
       },
-      'streams.0.dataType': {
-        name: 'streams.0.dataType',
-        label: 'Data Type',
-        placeholder: 'Select...',
-        type: 'select',
-        required: 'Data type is required',
-        defaultValue: JSON_DATA_TYPES_DEDUPLICATION_JOIN[0],
-      },
       'streams.0.joinTimeWindowValue': {
         name: 'streams.0.joinTimeWindowValue',
         label: '',
@@ -62,14 +54,6 @@ export const JoinKeySelectFormConfig = {
         placeholder: 'Select...',
         type: 'select',
         required: 'Join key is required',
-      },
-      'streams.1.dataType': {
-        name: 'streams.1.dataType',
-        label: 'Data Type',
-        placeholder: 'Select...',
-        type: 'select',
-        required: 'Data type is required',
-        defaultValue: JSON_DATA_TYPES_DEDUPLICATION_JOIN[0],
       },
       'streams.1.joinTimeWindowValue': {
         name: 'streams.1.joinTimeWindowValue',

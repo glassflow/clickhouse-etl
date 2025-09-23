@@ -9,14 +9,12 @@ import { parseForCodeEditor } from '@/src/utils/common.client'
 interface StreamConfiguratorListProps {
   streams: {
     joinKey: string
-    dataType: string
     joinTimeWindowValue: number
     joinTimeWindowUnit: string
   }[]
   dynamicOptions: {
     streams: {
       joinKey: { label: string; value: string }[]
-      dataType: { label: string; value: string }[]
       joinTimeWindowUnit: { label: string; value: string }[]
     }[]
   }
@@ -73,7 +71,6 @@ export function StreamConfiguratorList({
             onChange={onChange}
             errors={{
               joinKey: errors['streams.0.joinKey'],
-              dataType: errors['streams.0.dataType'],
               joinTimeWindowValue: errors['streams.0.joinTimeWindowValue'],
             }}
             readOnly={readOnly}
@@ -114,7 +111,6 @@ export function StreamConfiguratorList({
             onChange={onChange}
             errors={{
               joinKey: errors['streams.1.joinKey'],
-              dataType: errors['streams.1.dataType'],
               joinTimeWindowValue: errors['streams.1.joinTimeWindowValue'],
             }}
             readOnly={readOnly}

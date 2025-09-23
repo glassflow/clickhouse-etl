@@ -24,7 +24,6 @@ interface StreamConfiguratorProps {
   streamIndex: number
   stream: {
     joinKey: string
-    dataType: string
     joinTimeWindowValue: number
     joinTimeWindowUnit: string
   }
@@ -32,7 +31,6 @@ interface StreamConfiguratorProps {
   onChange: (streamIndex: number, field: string, value: any) => void
   errors?: {
     joinKey?: string
-    dataType?: string
     joinTimeWindowValue?: string
   }
   readOnly?: boolean
@@ -71,10 +69,10 @@ export function StreamConfigurator({
   return (
     <div className="space-y-4">
       <h4 className="font-medium">Stream {streamIndex + 1}</h4>
-      <div className="flex flex-col space-y-8">
+      <div className="flex flex-col gap-3">
         {/* Join Key and Data Type fields - split row (2/3 + 1/3) */}
-        <div className="w-[90%] flex gap-3">
-          <div className="w-2/3">
+        <div className="w-full">
+          <div className="w-[65%]">
             <div className="space-y-2">
               <Label htmlFor={`join-key-${streamIndex}`} className="label-regular text-content">
                 Join Key
@@ -103,50 +101,21 @@ export function StreamConfigurator({
               {errors.joinKey && <p className="text-sm text-red-500">{errors.joinKey}</p>}
             </div>
           </div>
-          <div className="w-1/3">
-            <div className="space-y-2">
-              <Label htmlFor={`data-type-${streamIndex}`} className="label-regular text-content">
-                Data Type
-              </Label>
-              <Select
-                value={stream.dataType}
-                onValueChange={(value) => onChange(streamIndex, 'dataType', value)}
-                disabled={readOnly}
-              >
-                <SelectTrigger
-                  id={`data-type-${streamIndex}`}
-                  className={`w-full input-regular select-content-custom text-content ${
-                    errors.dataType ? 'border-red-500' : ''
-                  }`}
-                >
-                  <SelectValue placeholder="Select data type" />
-                </SelectTrigger>
-                <SelectContent className="select-content-custom">
-                  {JSON_DATA_TYPES_DEDUPLICATION_JOIN.map((item: string) => ({ label: item, value: item })).map(
-                    (type) => (
-                      <SelectItem key={type.value} value={type.value} className="select-item-custom text-content">
-                        {type.label}
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-              {errors.dataType && <p className="text-sm text-red-500">{errors.dataType}</p>}
-            </div>
-          </div>
         </div>
 
         {/* Time Window Configuration */}
-        <div className="w-[90%]">
-          <TimeWindowConfigurator
-            window={stream.joinTimeWindowValue}
-            setWindow={(value) => onChange(streamIndex, 'joinTimeWindowValue', value)}
-            windowUnit={stream.joinTimeWindowUnit}
-            setWindowUnit={(value) => onChange(streamIndex, 'joinTimeWindowUnit', value)}
-            label="Join Time Window"
-            tooltip="Maximum time window is 7 days. Longer time windows can process more events but may result in slower performance."
-            readOnly={readOnly}
-          />
+        <div className="w-full">
+          <div className="w-[65%]">
+            <TimeWindowConfigurator
+              window={stream.joinTimeWindowValue}
+              setWindow={(value) => onChange(streamIndex, 'joinTimeWindowValue', value)}
+              windowUnit={stream.joinTimeWindowUnit}
+              setWindowUnit={(value) => onChange(streamIndex, 'joinTimeWindowUnit', value)}
+              label="Join Time Window"
+              tooltip="Maximum time window is 7 days. Longer time windows can process more events but may result in slower performance."
+              readOnly={readOnly}
+            />
+          </div>
           {errors.joinTimeWindowValue && <p className="text-sm text-red-500">{errors.joinTimeWindowValue}</p>}
         </div>
       </div>
