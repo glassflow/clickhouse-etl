@@ -4,7 +4,7 @@ import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { cn } from '@/src/utils/common.client'
 
 interface CacheRefreshButtonProps {
-  type: 'databases' | 'tables' | 'tableSchema'
+  type: 'databases' | 'tables' | 'tableSchema' | 'topics'
   database?: string
   table?: string
   onRefresh: () => Promise<void>
@@ -45,14 +45,26 @@ export function CacheRefreshButton({
         'transition-all duration-200',
         {
           'animate-spin': isRefreshing,
+          'opacity-50 cursor-not-allowed': disabled && !isRefreshing,
+          'text-muted-foreground': disabled && !isRefreshing,
         },
         className,
         'btn-neutral',
       )}
-      title={`Refres ${type} data`}
+      title={`Refresh ${type} data`}
     >
-      <ArrowPathIcon className="h-4 w-4" />
-      Reload
+      <ArrowPathIcon
+        className={cn('h-4 w-4', {
+          'text-muted-foreground opacity-50': disabled && !isRefreshing,
+        })}
+      />
+      <span
+        className={cn({
+          'text-muted-foreground opacity-50': disabled && !isRefreshing,
+        })}
+      >
+        Reload
+      </span>
     </Button>
   )
 }

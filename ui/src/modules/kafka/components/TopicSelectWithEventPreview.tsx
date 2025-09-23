@@ -42,6 +42,7 @@ export type TopicSelectWithEventPreviewProps = {
   partitionCount?: number
   replicas?: number
   onReplicaCountChange?: (replicas: number) => void
+  onRefreshTopics?: () => Promise<void>
 }
 
 export function TopicSelectWithEventPreview({
@@ -73,6 +74,7 @@ export function TopicSelectWithEventPreview({
   partitionCount = 1,
   replicas = 1,
   onReplicaCountChange,
+  onRefreshTopics,
 }: TopicSelectWithEventPreviewProps) {
   // Use hook data if provided, otherwise fall back to local state
   const topicName = hookTopicName || existingTopic?.name || ''
@@ -157,6 +159,7 @@ export function TopicSelectWithEventPreview({
               value: value as 'earliest' | 'latest',
             }))}
             readOnly={readOnly}
+            onRefreshTopics={onRefreshTopics}
           />
 
           {/* Replica Count Selection */}
