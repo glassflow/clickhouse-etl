@@ -56,7 +56,6 @@ jobs:
         env:
           GOOS: ${{ matrix.platform.os }}
           GOARCH: ${{ matrix.platform.arch }}
-          CGO_LDFLAGS: "-static"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
