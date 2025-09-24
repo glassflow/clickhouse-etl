@@ -382,8 +382,8 @@ github.com/frankban/quicktest v1.14.0/go.mod h1:NeW+ay9A/U67EYXNFA1nPE8e/tnQv/09
 github.com/fxamacker/cbor/v2 v2.7.0 h1:iM5WgngdRBanHcxugY4JySA0nk1wZorNOpTgCMedv5E=
 github.com/fxamacker/cbor/v2 v2.7.0/go.mod h1:pxXPTn3joSm21Gbwsv0w9OSA2y1HFR9qXEeXQVeNoDQ=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
-github.com/glassflow/glassflow-etl-k8s-operator v0.0.0-20250910155114-a1963edde89c h1:O2kzwn96kJR5t55j2IKiQlnRsoQi4sDJ1fcZXPt6dCQ=
-github.com/glassflow/glassflow-etl-k8s-operator v0.0.0-20250910155114-a1963edde89c/go.mod h1:VOHjOwJh7f8GohBkAygzOtJquW0YrKMsyVL8q5lc1vQ=
+github.com/glassflow/glassflow-etl-k8s-operator v0.0.4-0.20250919232944-170fd73388c9 h1:TGULlqZLPfALnmPrMuutp/qYpPYrqbyvpImnSBfC9lM=
+github.com/glassflow/glassflow-etl-k8s-operator v0.0.4-0.20250919232944-170fd73388c9/go.mod h1:VOHjOwJh7f8GohBkAygzOtJquW0YrKMsyVL8q5lc1vQ=
 github.com/go-faster/city v1.0.1 h1:4WAxSZ3V2Ws4QRDrscLEDcibJY8uf41H6AhXDrNDcGw=
 github.com/go-faster/city v1.0.1/go.mod h1:jKcUJId49qdW3L1qKHH/3wPeUstCVpVSXTM6vO3VcTw=
 github.com/go-faster/errors v0.7.1 h1:MkJTnDoEdi9pDabt1dpWf7AA8/BaSYZqibYyhZ20AYg=

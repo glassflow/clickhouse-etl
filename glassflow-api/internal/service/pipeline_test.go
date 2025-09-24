@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 // mockOrchestrator is a mock implementation of the Orchestrator interface
 type mockOrchestrator struct {
+	mu               sync.RWMutex
 	orchestratorType string
 	pauseError       error
 	resumeError      error
@@ -29,7 +31,7 @@ func (m *mockOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipeli
 	return nil
 }
 
-func (m *mockOrchestrator) ShutdownPipeline(ctx context.Context, pid string) error {
+func (m *mockOrchestrator) StopPipeline(ctx context.Context, pid string) error {
 	return nil
 }
 
@@ -38,6 +40,8 @@ func (m *mockOrchestrator) TerminatePipeline(ctx context.Context, pid string) er
 }
 
 func (m *mockOrchestrator) PausePipeline(ctx context.Context, pid string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.pauseCalled = true
 	m.pausePipelineID = pid
 	return m.pauseError
@@ -51,12 +55,18 @@ func (m *mockOrchestrator) ResumePipeline(ctx context.Context, pid string) error
 
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
-	pipelines   map[string]models.PipelineConfig
-	getError    error
-	updateError error
+	mu               sync.RWMutex
+	pipelines        map[string]models.PipelineConfig
+	getError         error
+	updateError      error
+	deleteError      error
+	deleteCalled     bool
+	deletePipelineID string
 }
 
 func (m *mockPipelineStore) InsertPipeline(ctx context.Context, pi models.PipelineConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.pipelines == nil {
 		m.pipelines = make(map[string]models.PipelineConfig)
 	}
@@ -65,11 +75,20 @@ func (m *mockPipelineStore) InsertPipeline(ctx context.Context, pi models.Pipeli
 }
 
 func (m *mockPipelineStore) DeletePipeline(ctx context.Context, pid string) error {
+	m.deleteCalled = true
+	m.deletePipelineID = pid
+
+	if m.deleteError != nil {
+		return m.deleteError
+	}
+
 	delete(m.pipelines, pid)
 	return nil
 }
 
 func (m *mockPipelineStore) GetPipeline(ctx context.Context, pid string) (*models.PipelineConfig, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if m.getError != nil {
 		return nil, m.getError
 	}
@@ -96,6 +115,8 @@ func (m *mockPipelineStore) PatchPipelineName(ctx context.Context, pid string, n
 }
 
 func (m *mockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.updateError != nil {
 		return m.updateError
 	}
@@ -139,7 +160,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusPaused,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already paused",
+			expectedError: "Invalid status transition from Paused to Pausing",
 		},
 		{
 			name:          "pipeline already pausing",
@@ -147,7 +168,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusPausing,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already being paused",
+			expectedError: "Pipeline is already in Pausing state",
 		},
 		{
 			name:          "pipeline terminated",
@@ -155,15 +176,16 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusTerminated,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "no pipeline with given id exists",
+			expectedError: "Cannot transition from terminal state Terminated to Pausing",
 		},
 		{
-			name:          "orchestrator pause error",
-			pipelineID:    "test-pipeline",
-			initialStatus: internal.PipelineStatusRunning,
-			orchestrator:  &mockOrchestrator{orchestratorType: "local", pauseError: errors.New("pause failed")},
-			store:         &mockPipelineStore{},
-			expectedError: "pause pipeline: pause failed",
+			name:           "orchestrator pause error",
+			pipelineID:     "test-pipeline",
+			initialStatus:  internal.PipelineStatusRunning,
+			orchestrator:   &mockOrchestrator{orchestratorType: "local", pauseError: errors.New("pause failed")},
+			store:          &mockPipelineStore{},
+			expectedError:  "",
+			expectedStatus: internal.PipelineStatusFailed,
 		},
 		{
 			name:          "k8s orchestrator not implemented",
@@ -171,7 +193,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusRunning,
 			orchestrator:  &mockOrchestrator{orchestratorType: "k8s", pauseError: ErrNotImplemented},
 			store:         &mockPipelineStore{},
-			expectedError: "pause pipeline: feature is not implemented",
+			expectedError: "failed to pause k8 pipeline: feature is not implemented",
 		},
 	}
 
@@ -215,17 +237,71 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 				return
 			}
 
+			// For local orchestrator, wait for async operation to complete
+			if tt.orchestrator.orchestratorType == "local" {
+				// Wait for orchestrator to be called (with timeout)
+				timeout := time.After(100 * time.Millisecond)
+				ticker := time.NewTicker(10 * time.Millisecond)
+				defer ticker.Stop()
+
+				for {
+					select {
+					case <-timeout:
+						t.Error("timeout waiting for orchestrator.PausePipeline to be called")
+						return
+					case <-ticker.C:
+						tt.orchestrator.mu.RLock()
+						called := tt.orchestrator.pauseCalled
+						tt.orchestrator.mu.RUnlock()
+						if called {
+							goto orchestratorCalled
+						}
+					}
+				}
+			orchestratorCalled:
+			}
+
 			// Verify orchestrator was called
-			if !tt.orchestrator.pauseCalled {
+			tt.orchestrator.mu.RLock()
+			called := tt.orchestrator.pauseCalled
+			pipelineID := tt.orchestrator.pausePipelineID
+			tt.orchestrator.mu.RUnlock()
+
+			if !called {
 				t.Error("orchestrator.PausePipeline was not called")
 			}
 
-			if tt.orchestrator.pausePipelineID != tt.pipelineID {
-				t.Errorf("orchestrator.PausePipeline called with %q, expected %q", tt.orchestrator.pausePipelineID, tt.pipelineID)
+			if pipelineID != tt.pipelineID {
+				t.Errorf("orchestrator.PausePipeline called with %q, expected %q", pipelineID, tt.pipelineID)
 			}
 
-			// Verify status update
-			if tt.expectedStatus != "" {
+			// For local orchestrator, wait for status update
+			if tt.orchestrator.orchestratorType == "local" && tt.expectedStatus != "" {
+				// Wait for status to be updated (with timeout)
+				timeout := time.After(100 * time.Millisecond)
+				ticker := time.NewTicker(10 * time.Millisecond)
+				defer ticker.Stop()
+
+				for {
+					select {
+					case <-timeout:
+						t.Error("timeout waiting for status update")
+						return
+					case <-ticker.C:
+						pipeline, err := tt.store.GetPipeline(ctx, tt.pipelineID)
+						if err != nil {
+							t.Errorf("failed to get pipeline: %v", err)
+							return
+						}
+						if pipeline.Status.OverallStatus == tt.expectedStatus {
+							return // Success
+						}
+					}
+				}
+			}
+
+			// Verify status update for non-local orchestrators
+			if tt.orchestrator.orchestratorType != "local" && tt.expectedStatus != "" {
 				pipeline, err := tt.store.GetPipeline(ctx, tt.pipelineID)
 				if err != nil {
 					t.Errorf("failed to get pipeline: %v", err)
@@ -273,7 +349,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusRunning,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already running",
+			expectedError: "Invalid status transition from Running to Resuming",
 		},
 		{
 			name:          "pipeline already resuming",
@@ -281,7 +357,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusResuming,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline is already being resumed",
+			expectedError: "Pipeline is already in Resuming state",
 		},
 		{
 			name:          "pipeline terminated",
@@ -289,7 +365,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusTerminated,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "no pipeline with given id exists",
+			expectedError: "Cannot transition from terminal state Terminated to Resuming",
 		},
 		{
 			name:          "pipeline not paused",
@@ -297,7 +373,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 			initialStatus: internal.PipelineStatusCreated,
 			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
 			store:         &mockPipelineStore{},
-			expectedError: "pipeline must be paused to resume",
+			expectedError: "Invalid status transition from Created to Resuming",
 		},
 		{
 			name:          "orchestrator resume error",
@@ -396,4 +472,114 @@ func containsSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestPipelineManager_DeletePipeline(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name          string
+		pipelineID    string
+		store         *mockPipelineStore
+		expectedError string
+		shouldDelete  bool
+	}{
+		{
+			name:       "successful deletion of stopped pipeline",
+			pipelineID: "test-pipeline-1",
+			store: &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					"test-pipeline-1": {
+						ID: "test-pipeline-1",
+						Status: models.PipelineHealth{
+							OverallStatus: internal.PipelineStatusStopped,
+						},
+					},
+				},
+			},
+			shouldDelete: true,
+		},
+		{
+			name:       "successful deletion of terminated pipeline",
+			pipelineID: "test-pipeline-2",
+			store: &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					"test-pipeline-2": {
+						ID: "test-pipeline-2",
+						Status: models.PipelineHealth{
+							OverallStatus: internal.PipelineStatusTerminated,
+						},
+					},
+				},
+			},
+			shouldDelete: true,
+		},
+		{
+			name:       "pipeline not found",
+			pipelineID: "non-existent-pipeline",
+			store: &mockPipelineStore{
+				pipelines:   map[string]models.PipelineConfig{},
+				deleteError: ErrPipelineNotExists,
+			},
+			expectedError: "delete pipeline: no pipeline with given id exists",
+		},
+		{
+			name:       "delete error from store",
+			pipelineID: "test-pipeline-3",
+			store: &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					"test-pipeline-3": {
+						ID: "test-pipeline-3",
+						Status: models.PipelineHealth{
+							OverallStatus: internal.PipelineStatusStopped,
+						},
+					},
+				},
+				deleteError: errors.New("store deletion failed"),
+			},
+			expectedError: "delete pipeline: store deletion failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Initialize the store's pipelines map if it's nil
+			if tt.store.pipelines == nil {
+				tt.store.pipelines = make(map[string]models.PipelineConfig)
+			}
+
+			manager := &PipelineManagerImpl{
+				db: tt.store,
+			}
+
+			err := manager.DeletePipeline(ctx, tt.pipelineID)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.expectedError)
+					return
+				}
+				if !containsString(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			// Verify pipeline was deleted from store
+			if tt.shouldDelete {
+				if tt.store.deleteCalled {
+					if tt.store.deletePipelineID != tt.pipelineID {
+						t.Errorf("store.DeletePipeline called with %q, expected %q", tt.store.deletePipelineID, tt.pipelineID)
+					}
+				} else {
+					t.Error("store.DeletePipeline was not called")
+				}
+			}
+		})
+	}
 }

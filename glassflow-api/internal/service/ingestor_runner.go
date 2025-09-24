@@ -103,7 +103,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 func (i *IngestorRunner) Shutdown() {
 	i.log.Debug("Stopping ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("topic", i.topicName))
 	if i.component != nil {
-		i.component.Stop()
+		i.component.Stop(component.WithNoWait(true))
 	}
 }
 

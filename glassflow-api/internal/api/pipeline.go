@@ -12,6 +12,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
 
 func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +51,7 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
+func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
@@ -63,20 +64,25 @@ func (h *handler) shutdownPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.pipelineManager.DeletePipeline(r.Context(), id)
+	err := h.pipelineManager.StopPipeline(r.Context(), id)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrPipelineNotFound):
-			jsonError(w, http.StatusNotFound, "no active pipeline with given id to shutdown", nil)
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, "no active pipeline with given id to stop", nil)
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			serverError(w)
 		}
 		return
 	}
 
-	h.log.Info("pipeline shutdown")
+	h.log.Info("pipeline stop")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -101,6 +107,11 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			serverError(w)
 		}
 		return
@@ -132,6 +143,11 @@ func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			h.log.Error("failed to pause pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
 			serverError(w)
 		}
@@ -164,6 +180,11 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrNotImplemented):
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			h.log.Error("failed to resume pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
 			serverError(w)
 		}
@@ -220,7 +241,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 	health, err := h.pipelineManager.GetPipelineHealth(r.Context(), id)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrPipelineNotFound):
+		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
 			h.log.Error("failed to get pipeline health", slog.String("pipeline_id", id), slog.Any("error", err))
@@ -441,6 +462,8 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 			return zero, fmt.Errorf("join config: %w", err)
 		}
 		jc.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
+		jc.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(p.PipelineID)
+		jc.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(p.PipelineID)
 
 	}
 
@@ -475,6 +498,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	if err != nil {
 		return zero, fmt.Errorf("sink config: %w", err)
 	}
+	sc.NATSConsumerName = models.GetNATSSinkConsumerName(p.PipelineID)
 
 	// NOTE: optimized for speed - dirty implementation mixing infra
 	// with domain logic and must be changed when schema mapper doesn't mix
@@ -644,4 +668,56 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		},
 		Status: p.Status.OverallStatus,
 	}
+}
+
+func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		h.log.Error("Cannot get id param")
+		serverError(w)
+		return
+	}
+
+	if len(strings.TrimSpace(id)) == 0 {
+		jsonError(w, http.StatusBadRequest, "pipeline id cannot be empty", nil)
+		return
+	}
+
+	// Get the pipeline to check its status
+	pipeline, err := h.pipelineManager.GetPipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
+		default:
+			h.log.Error("failed to get pipeline for deletion", slog.String("pipeline_id", id), slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
+
+	// Check if pipeline is in a deletable state (stopped or terminated)
+	currentStatus := string(pipeline.Status.OverallStatus)
+	if currentStatus != internal.PipelineStatusStopped && currentStatus != internal.PipelineStatusTerminated {
+		jsonError(w, http.StatusBadRequest,
+			fmt.Sprintf("pipeline can only be deleted if it's stopped or terminated, current status: %s", currentStatus),
+			map[string]string{"current_status": currentStatus})
+		return
+	}
+
+	// Delete the pipeline from NATS storage
+	err = h.pipelineManager.DeletePipeline(r.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
+		default:
+			h.log.Error("failed to delete pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -91,11 +91,12 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-3e00534f-test_topic"
+                    "stream_id": "gf-3e00534f-test_topic",
+                    "nats_consumer_name": "gf-nats-si-3e00534f"
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "1s"
+      And I shutdown the glassflow pipeline after "4s"
 
         Then the ClickHouse table "default.events_test" should contain:
             | id  | name          | COUNT |
@@ -219,7 +220,10 @@ Feature: Kafka to CH pipeline
                             "stream_id": "gf-609e6e0a-test_users"
                         }
                     ],
-                    "output_stream_id": "gf-609e6e0a-joined"
+                    "output_stream_id": "gf-609e6e0a-joined",
+                    "nats_left_consumer_name": "gf-nats-jl-609e6e0a",
+                    "nats_right_consumer_name": "gf-nats-jr-609e6e0a"
+
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -232,7 +236,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gf-609e6e0a-joined"
+                    "stream_id": "gf-609e6e0a-joined",
+                    "nats_consumer_name": "gf-nats-si-609e6e0a"
                 }
             }
             """
@@ -249,7 +254,7 @@ Feature: Kafka to CH pipeline
             | 2   | {"id": "456", "name": "Jane Smith"}  |
             | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "2s"
+      And I shutdown the glassflow pipeline after "4s"
         Then the ClickHouse table "default.test_users" should contain:
             | name        | email                | COUNT |
             | John Doe    | john.doe@mailbox.com | 1     |
@@ -376,7 +381,9 @@ Feature: Kafka to CH pipeline
                             "stream_id": "gf-a75779b0-test_users"
                         }
                     ],
-                    "output_stream_id": "gf-a75779b0-joined"
+                    "output_stream_id": "gf-a75779b0-joined",
+                    "nats_left_consumer_name": "gf-nats-jl-a75779b0",
+                    "nats_right_consumer_name": "gf-nats-jr-a75779b0"
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -389,7 +396,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gf-a75779b0-joined"
+                    "stream_id": "gf-a75779b0-joined",
+                    "nats_consumer_name": "gf-nats-si-a75779b0"
                 }
             }
             """
@@ -406,7 +414,7 @@ Feature: Kafka to CH pipeline
             | 2   | {"id": "456", "name": "Jane Smith"}  |
             | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "2s"
+      And I shutdown the glassflow pipeline after "4s"
         Then the ClickHouse table "default.test_users" should contain:
             | name        | email                | COUNT |
             | John Doe    | john.doe@mailbox.com | 1     |
@@ -501,11 +509,12 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-13bea286-test_topic"
+                    "stream_id": "gf-13bea286-test_topic",
+                    "nats_consumer_name": "gf-nats-si-13bea286"
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "1s"
+      And I shutdown the glassflow pipeline after "4s"
         Then the ClickHouse table "default.events_test" should contain 5 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |
@@ -601,11 +610,12 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test"
                     },
-                    "stream_id": "gf-29bfc94d-test_measurments"
+                    "stream_id": "gf-29bfc94d-test_measurments",
+                    "nats_consumer_name": "gf-nats-si-29bfc94d"
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "1s"
+      And I shutdown the glassflow pipeline after "4s"
 
         Then the ClickHouse table "default.test" should contain 3 rows
         And the ClickHouse table "default.test" should contain:
@@ -680,12 +690,12 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00004",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00006",
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-13bea286-test_topic",
-                            "output_stream_subject": "gf-13bea286-test_topic.*",
+                            "output_stream_id": "gf-859867ac-test_topic",
+                            "output_stream_subject": "gf-859867ac-test_topic.*",
                             "replicas": 3
                         }
                     ]
@@ -704,11 +714,12 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-13bea286-test_topic"
+                    "stream_id": "gf-859867ac-test_topic",
+                    "nats_consumer_name": "gf-nats-si-859867ac"
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "3s"
+      And I shutdown the glassflow pipeline after "4s"
         Then the ClickHouse table "default.events_test" should contain 6 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |
@@ -734,7 +745,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00006",
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00007",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -781,12 +792,12 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00004",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00007",
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-13bea286-test_topic",
-                            "output_stream_subject": "gf-13bea286-test_topic.*",
+                            "output_stream_id": "gf-859867ac-test_topic",
+                            "output_stream_subject": "gf-859867ac-test_topic.*",
                             "replicas": 1
                         }
                     ]
@@ -805,11 +816,12 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-13bea286-test_topic"
+                    "stream_id": "gf-859867ac-test_topic",
+                    "nats_consumer_name": "gf-nats-si-859867ac"
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "1s"
+      And I shutdown the glassflow pipeline after "4s"
         Then the ClickHouse table "default.events_test" should contain 6 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |

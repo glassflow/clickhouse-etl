@@ -86,15 +86,17 @@ Feature: Pipeline Pause and Resume
             "secure": false,
             "table": "test_table"
           },
-          "stream_id": "gf-pause-test-test_topic"
+          "stream_id": "gf-pause-test-test_topic",
+          "nats_consumer_name":"gf-nats-si-b7cffde7"
         }
       }
       """
     When I pause the glassflow pipeline
+    And I wait for "2s" to let pause operation complete
     Then the pipeline status should be "Paused"
     When I resume the glassflow pipeline
     Then the pipeline status should be "Running"
-    And I shutdown the glassflow pipeline
+    And I shutdown the glassflow pipeline after "2s"
 
   Scenario: Pause pipeline with delay and verify no data loss
     Given a Kafka topic "test_topic" with 1 partition
@@ -174,7 +176,8 @@ Feature: Pipeline Pause and Resume
             "secure": false,
             "table": "test_table"
           },
-          "stream_id": "gf-delay-test-test_topic"
+          "stream_id": "gf-delay-test-test_topic",
+          "nats_consumer_name":"gf-nats-si-f62ac10c"
         }
       }
       """
@@ -184,6 +187,7 @@ Feature: Pipeline Pause and Resume
       | 2   | {"id": "456", "name": "Jane Smith"}  |
     And I wait for "2s"
     When I pause the glassflow pipeline after "1s"
+    And I wait for "2s" to let pause operation complete
     Then the pipeline status should be "Paused"
     And I write these events to Kafka topic "test_topic":
       | key | value                           |
@@ -313,7 +317,9 @@ Feature: Pipeline Pause and Resume
               "stream_id": "gf-join-test-emails_topic"
             }
           ],
-          "output_stream_id": "gf-join-test-joined"
+          "output_stream_id": "gf-join-test-joined",
+          "nats_left_consumer_name": "gf-nats-jl-3a37a8c8",
+          "nats_right_consumer_name": "gf-nats-jr-3a37a8c8"
         },
         "sink": {
           "type": "clickhouse",
@@ -326,7 +332,8 @@ Feature: Pipeline Pause and Resume
             "secure": false,
             "table": "users_joined"
           },
-          "stream_id": "gf-join-test-joined"
+          "stream_id": "gf-join-test-joined",
+          "nats_consumer_name":"gf-nats-si-3a37a8c8"
         }
       }
       """
@@ -340,6 +347,7 @@ Feature: Pipeline Pause and Resume
       | 2   | {"user_id": "456", "email": "jane@example.com"} |
     And I wait for "3s"
     When I pause the glassflow pipeline
+    And I wait for "2s" to let pause operation complete
     Then the pipeline status should be "Paused"
     And I write these events to Kafka topic "users_topic":
       | key | value                           |

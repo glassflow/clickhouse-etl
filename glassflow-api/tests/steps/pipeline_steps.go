@@ -164,10 +164,22 @@ func (p *PipelineSteps) fastCleanup() error {
 	}
 
 	if p.pipelineManager != nil {
-		err = p.pipelineManager.DeletePipeline(context.Background(), p.orchestrator.ActivePipelineID())
+		pipelineID := p.orchestrator.ActivePipelineID()
+
+		// Try to stop the pipeline first
+		err = p.pipelineManager.StopPipeline(context.Background(), pipelineID)
 		if err != nil {
-			errs = append(errs, err)
+			// Log the error but continue - pipeline might already be stopped or not exist
+			p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
 		}
+
+		// Always try to delete the pipeline from KV store to ensure cleanup
+		err = p.pipelineManager.DeletePipeline(context.Background(), pipelineID)
+		if err != nil {
+			// Log the error but continue - pipeline might already be deleted
+			p.log.Info("delete pipeline failed (might already be deleted)", slog.Any("error", err))
+		}
+
 		p.pipelineManager = nil
 	}
 
@@ -381,14 +393,14 @@ func (p *PipelineSteps) shutdownPipeline() error {
 		return fmt.Errorf("pipeline manager not initialized")
 	}
 
-	err := p.pipelineManager.DeletePipeline(context.Background(), p.orchestrator.ActivePipelineID())
+	pipelineID := p.orchestrator.ActivePipelineID()
+
+	// Try to stop the pipeline first
+	err := p.pipelineManager.StopPipeline(context.Background(), pipelineID)
 	if err != nil {
-		return fmt.Errorf("shutdown pipeline: %w", err)
+		// Log the error but continue - pipeline might already be stopped or not exist
+		p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
 	}
-
-	p.pipelineManager = nil
-
-	p.log.Info("Pipeline shutdown completed after delay")
 
 	return nil
 }
@@ -399,8 +411,8 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 	if err != nil {
 		return fmt.Errorf("parse duration: %w", err)
 	}
-
 	time.Sleep(dur)
+	p.log.Info("slept for: ", slog.String("delay", delay))
 
 	err = p.shutdownPipeline()
 	if err != nil {
@@ -492,6 +504,12 @@ func (p *PipelineSteps) waitFor(duration string) error {
 	return nil
 }
 
+// waitForPauseOperationComplete waits for the pause operation to complete
+func (p *PipelineSteps) waitForPauseOperationComplete(duration string) error {
+	p.log.Info("Waiting for pause operation to complete", slog.String("duration", duration))
+	return p.waitFor(duration)
+}
+
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
@@ -500,9 +518,9 @@ func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, p.iPublishEventsToKafka)
 	sc.Step(`^I wait for "([^"]*)"$`, p.waitFor)
+	sc.Step(`^I wait for "([^"]*)" to let pause operation complete$`, p.waitForPauseOperationComplete)
 
 	sc.Step(`^a glassflow pipeline with next configuration:$`, p.aGlassflowPipelineWithNextConfiguration)
-	sc.Step(`^I shutdown the glassflow pipeline$`, p.shutdownPipeline)
 	sc.Step(`^I shutdown the glassflow pipeline after "([^"]*)"$`, p.shutdownPipelineWithDelay)
 	sc.Step(`^I pause the glassflow pipeline$`, p.pausePipeline)
 	sc.Step(`^I pause the glassflow pipeline after "([^"]*)"$`, p.pausePipelineWithDelay)

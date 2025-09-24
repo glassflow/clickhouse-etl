@@ -136,8 +136,109 @@ func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject str
 	return nil
 }
 
+// CreateOrUpdateJoinKeyValueStore creates or updates a NATS KeyValue store
+func (n *NATSClient) CreateOrUpdateJoinKeyValueStore(ctx context.Context, storeName string, ttl time.Duration) error {
+	//nolint:exhaustruct // optional config
+	cfg := jetstream.KeyValueConfig{
+		Bucket:      storeName,
+		TTL:         ttl,
+		Description: "Store for Join component KV",
+	}
+
+	_, err := n.JetStream().CreateOrUpdateKeyValue(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("cannot create nats key value store %s: %w", storeName, err)
+	}
+
+	return nil
+}
+
+// GetKeyValueStore gets an existing NATS KeyValue store
+func (n *NATSClient) GetKeyValueStore(ctx context.Context, storeName string) (jetstream.KeyValue, error) {
+	kv, err := n.JetStream().KeyValue(ctx, storeName)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get nats key value store %s: %w", storeName, err)
+	}
+
+	return kv, nil
+}
+
+// GetKeyValue retrieves a value from a NATS KV store by key
+func (n *NATSClient) GetKeyValue(ctx context.Context, storeName, key string) ([]byte, error) {
+	kv, err := n.GetKeyValueStore(ctx, storeName)
+	if err != nil {
+		return nil, fmt.Errorf("get kv store: %w", err)
+	}
+
+	entry, err := kv.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return nil, fmt.Errorf("key %s not found in store %s", key, storeName)
+		}
+		return nil, fmt.Errorf("get key from kv: %w", err)
+	}
+
+	return entry.Value(), nil
+}
+
 func (n *NATSClient) JetStream() jetstream.JetStream {
 	return n.js
+}
+
+func (n *NATSClient) DeleteStream(ctx context.Context, streamName string) error {
+	err := n.js.DeleteStream(ctx, streamName)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			// Stream already deleted, this is not an error
+			return nil
+		}
+		return fmt.Errorf("delete stream %s: %w", streamName, err)
+	}
+	return nil
+}
+
+func (n *NATSClient) DeleteKeyValueStore(ctx context.Context, storeName string) error {
+	err := n.js.DeleteKeyValue(ctx, storeName)
+	if err != nil {
+		// Check if it's a "not found" error (store already deleted)
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
+			// KV store already deleted, this is not an error
+			return nil
+		}
+		return fmt.Errorf("delete key value store %s: %w", storeName, err)
+	}
+	return nil
+}
+
+// CheckConsumerPendingMessages checks if a consumer has any pending or unacknowledged messages
+// Returns: hasPending (bool), pendingCount (int), unacknowledgedCount (int), error
+func (n *NATSClient) CheckConsumerPendingMessages(ctx context.Context, streamName, consumerName string) (bool, int, int, error) {
+	// Add timeout for consumer info retrieval
+	infoCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stream, err := n.js.Stream(infoCtx, streamName)
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("get stream %s: %w", streamName, err)
+	}
+
+	consumer, err := stream.Consumer(infoCtx, consumerName)
+	if err != nil {
+		// Consumer doesn't exist - fail with error as requested
+		return false, 0, 0, fmt.Errorf("consumer %s does not exist in stream %s: %w", consumerName, streamName, err)
+	}
+
+	info, err := consumer.Info(infoCtx)
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("get consumer info for %s: %w", consumerName, err)
+	}
+
+	pending := int(info.NumPending)
+	unacknowledged := int(info.NumAckPending)
+	totalPending := pending + unacknowledged
+	hasPending := totalPending > 0
+
+	return hasPending, pending, unacknowledged, nil
 }
 
 func (n *NATSClient) Close() error {
