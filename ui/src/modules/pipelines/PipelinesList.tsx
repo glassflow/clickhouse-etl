@@ -37,6 +37,7 @@ import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
+import { startPauseStatusPolling } from './utils/progressiveStatusPolling'
 // TEMPORARILY DISABLED: Health monitoring imports
 // import { useMultiplePipelineHealth } from '@/src/hooks/usePipelineHealth'
 // import { getHealthStatusDisplayText } from '@/src/api/pipeline-health'
@@ -579,13 +580,23 @@ export function PipelinesList({
               pipelineName: pauseSelectedPipeline.name,
             })
 
-            // Update status to final 'paused' state after successful pause
-            onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'paused')
-
-            // Skip immediate refresh for pause - backend status transitions can be slow
+            // Don't update to 'paused' immediately - pause request submitted but actual pause may take time
+            // Keep showing 'pausing' status until backend confirms the pipeline is actually paused
+            // Start progressive polling to detect when pause actually completes
+            const pollingController = startPauseStatusPolling(
+              pauseSelectedPipeline.pipeline_id,
+              async () => {
+                try {
+                  await onRefresh?.()
+                } catch (error) {
+                  console.error('Failed to refresh pipeline status:', error)
+                }
+              },
+              () => {
+                console.log('Pause polling timed out - pipeline may still be processing messages')
+              },
+            )
           } catch (error) {
-            console.error('Failed to pause pipeline:', error)
-
             // Track pause failure
             analytics.pipeline.pauseFailed({
               pipelineId: pauseSelectedPipeline.pipeline_id,

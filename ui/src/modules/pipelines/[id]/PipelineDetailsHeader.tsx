@@ -23,6 +23,8 @@ import DeleteIcon from '@/src/images/trash.svg'
 import StopIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
 import { PipelineStatus, getPipelineStatusFromState } from '@/src/types/pipeline'
+import { startPauseStatusPolling } from '../utils/progressiveStatusPolling'
+import { getPipeline } from '@/src/api/pipeline-api'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -36,6 +38,9 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   const [copied, setCopied] = useState(false)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
 
+  // Disable health monitoring during transitional states to avoid conflicts with progressive polling
+  const isInTransitionalState = pipeline.status === 'pausing' || pipeline.status === 'stopping'
+
   // Use simplified pipeline health monitoring
   const {
     health,
@@ -43,7 +48,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     error: healthError,
   } = usePipelineHealth({
     pipelineId: pipeline.pipeline_id,
-    enabled: true,
+    enabled: !isInTransitionalState, // Disable during transitional states
     pollingInterval: 5000, // 5 seconds - conservative interval
     stopOnStatuses: ['Running', 'Terminated', 'Failed'], // Stop on stable states
     maxRetries: 2,
@@ -155,6 +160,23 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
 
       if (action === 'delete') {
         onPipelineDeleted?.()
+      } else if (action === 'pause' && onPipelineUpdate) {
+        // Start progressive polling to detect when pause is complete
+        startPauseStatusPolling(
+          pipeline.pipeline_id,
+          async () => {
+            // Refresh pipeline data to get latest status using proper API function
+            try {
+              const updatedPipeline = await getPipeline(pipeline.pipeline_id)
+              onPipelineUpdate(updatedPipeline)
+            } catch (error) {
+              console.error('Failed to refresh pipeline data:', error)
+            }
+          },
+          () => {
+            console.log('Pause polling timed out - pipeline may still be processing messages')
+          },
+        )
       } else if (action === 'stop' && onPipelineUpdate) {
         // For stop action, always result in 'stopped' status (both graceful and ungraceful)
         recentActionRef.current = { action: 'stop', timestamp: Date.now() }
@@ -174,12 +196,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         }
         onPipelineUpdate(updatedPipeline)
       } else if (action === 'pause' && onPipelineUpdate) {
-        // For pause action, update status to paused after successful API call
-
+        // For pause action, keep 'pausing' status - don't immediately update to 'paused'
+        // Start progressive polling to detect when pause actually completes
         recentActionRef.current = { action: 'pause', timestamp: Date.now() }
         const updatedPipeline = {
           ...pipeline,
-          status: 'paused' as Pipeline['status'],
+          status: 'pausing' as Pipeline['status'],
         }
         onPipelineUpdate(updatedPipeline)
       } else if (action === 'resume' && onPipelineUpdate) {
