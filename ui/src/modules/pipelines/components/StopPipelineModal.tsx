@@ -27,9 +27,9 @@ function StopPipelineModal({
       visible={visible}
       title="Stop Pipeline?"
       description={`<div>
-                      <div className="mb-4">Stopping this pipeline will permanently end its execution. You won't be able to restart it later.</div> \
-                      <div>Are you sure you want to stop the pipeline?</div> \
-                    </div>`}
+        <div style="margin-bottom: 16px;">Stopping this pipeline will permanently end its execution. You won't be able to restart it later.</div>
+        <div>Are you sure you want to stop the pipeline?</div>
+      </div>`}
       content={
         <div className="flex items-center gap-2 mt-4">
           <Checkbox
