@@ -23,7 +23,7 @@ export function PipelineDeployer() {
   const analytics = useJourneyAnalytics()
   const { coreStore, resetAllPipelineState } = useStore()
   const { apiConfig, pipelineId, setPipelineId } = coreStore
-  const [status, setStatus] = useState<PipelineStatus>('deploying')
+  const [status, setStatus] = useState<PipelineStatus>('active')
   const [error, setError] = useState<string | null>(null)
   const [isModifyModalVisible, setIsModifyModalVisible] = useState(false)
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false)
@@ -48,7 +48,7 @@ export function PipelineDeployer() {
             // We have a config, but there's already a running pipeline
             if (response.pipeline_id !== pipelineId) {
               analytics.pipeline.existingPipeline({})
-              setStatus('deploy_failed')
+              setStatus('failed')
               setError('There is already a running pipeline. Please terminate or delete it before deploying a new one.')
             } else {
               // Same pipeline is running
@@ -66,7 +66,7 @@ export function PipelineDeployer() {
           if (isValidApiConfig(apiConfig)) {
             // We have a valid config but no running pipeline
             // Only deploy if we're not just checking status
-            if (status === 'deploying') {
+            if (status === 'active') {
               deployPipeline()
             } else {
               // If we're just checking status, redirect to home
@@ -82,7 +82,7 @@ export function PipelineDeployer() {
           // No pipeline exists
           if (isValidApiConfig(apiConfig)) {
             // Only deploy if we're not just checking status
-            if (status === 'deploying') {
+            if (status === 'active') {
               deployPipeline()
             } else {
               // If we're just checking status, redirect to home
@@ -93,7 +93,7 @@ export function PipelineDeployer() {
             router.push('/home')
           }
         } else {
-          setStatus('deploy_failed')
+          setStatus('failed')
           setError(err.message)
         }
       }
@@ -131,7 +131,7 @@ export function PipelineDeployer() {
         }
       } catch (err: any) {
         console.error('Pipeline deployment failed:', err)
-        setStatus('deploy_failed')
+        setStatus('failed')
         setError(err.message)
 
         // Track failed pipeline deployment
@@ -168,7 +168,7 @@ export function PipelineDeployer() {
         analytics.pipeline.deleteClicked({})
 
         await terminatePipeline(pipelineId)
-        setStatus('deleted')
+        setStatus('stopped')
         setError(null)
         // Reset pipeline state and ID
         resetAllPipelineState('', true)
@@ -180,7 +180,7 @@ export function PipelineDeployer() {
         // router.push('/home')
       } catch (err) {
         const error = err as PipelineError
-        setStatus('delete_failed')
+        setStatus('failed')
         setError(error.message)
 
         // Track failed pipeline deletion
@@ -221,7 +221,7 @@ export function PipelineDeployer() {
         })
 
         await terminatePipeline(pipelineId)
-        setStatus('deleted')
+        setStatus('stopped')
         setError(null)
         resetAllPipelineState('', true)
 
@@ -231,7 +231,7 @@ export function PipelineDeployer() {
         router.push('/home')
       } catch (err) {
         const error = err as PipelineError
-        setStatus('delete_failed')
+        setStatus('failed')
         setError(error.message)
 
         // Track failed pipeline modification
@@ -246,14 +246,13 @@ export function PipelineDeployer() {
     switch (status) {
       case 'active':
         return 'text-[var(--color-foreground-success)]'
-      case 'deploying':
-        return 'text-[var(--color-foreground-info)]'
-      case 'deleted':
-      case 'deploy_failed':
-      case 'delete_failed':
-        return 'text-[var(--color-foreground-error)]'
-      case 'no_configuration':
+      case 'paused':
+      case 'pausing':
         return 'text-[var(--color-foreground-warning)]'
+      case 'stopped':
+      case 'stopping':
+      case 'failed':
+        return 'text-[var(--color-foreground-error)]'
       default:
         return ''
     }
@@ -263,31 +262,30 @@ export function PipelineDeployer() {
     switch (status) {
       case 'active':
         return 'Pipeline is active'
-      case 'deploying':
-        return 'Pipeline is deploying'
-      case 'deleted':
-        return 'Pipeline deleted'
-      case 'deploy_failed':
-        return 'Pipeline deployment failed'
-      case 'delete_failed':
-        return 'Pipeline delete failed'
-      case 'no_configuration':
-        return 'No valid configuration - Deployment not possible'
+      case 'pausing':
+        return 'Pipeline is pausing'
+      case 'paused':
+        return 'Pipeline is paused'
+      case 'stopping':
+        return 'Pipeline is stopping'
+      case 'stopped':
+        return 'Pipeline is stopped'
+      case 'failed':
+        return 'Pipeline has failed'
       default:
         return 'Unknown status'
     }
   }
 
   // const canShowButtons = status === 'active' || status === 'deploy_failed' || status === 'delete_failed'
-  const canShowButtons =
-    status === 'active' || (status === 'deploy_failed' && error?.includes('already a running pipeline'))
+  const canShowButtons = status === 'active' || (status === 'failed' && error?.includes('already a running pipeline'))
 
   return (
     <div className="flex flex-col items-center justify-center gap-4">
       <div className="flex items-center gap-2">
         {status === 'active' && <div className="w-[10px] h-[10px] bg-[#009D3F] rounded-full" />}
         <h1 className={cn('text-2xl font-semibold', getStatusClass(status))}>{getStatusText(status)}</h1>
-        {(status === 'deploying' || isRedirecting) && <Loader2 className="h-6 w-6 animate-spin" />}
+        {isRedirecting && <Loader2 className="h-6 w-6 animate-spin" />}
       </div>
 
       {error && (

@@ -22,7 +22,7 @@ import RenameIcon from '@/src/images/rename.svg'
 import DeleteIcon from '@/src/images/trash.svg'
 import StopIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
-import { PipelineStatus } from '@/src/types/pipeline'
+import { PipelineStatus, getPipelineStatusFromState } from '@/src/types/pipeline'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -156,10 +156,11 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       if (action === 'delete') {
         onPipelineDeleted?.()
       } else if (action === 'stop' && onPipelineUpdate) {
-        // For stop action, update status to terminated after successful API call
+        // For stop action, always result in 'stopped' status (both graceful and ungraceful)
+        recentActionRef.current = { action: 'stop', timestamp: Date.now() }
         const updatedPipeline = {
           ...pipeline,
-          status: 'terminated' as Pipeline['status'],
+          status: 'stopped' as Pipeline['status'],
         }
         onPipelineUpdate(updatedPipeline)
       } else if (result && onPipelineUpdate) {
@@ -233,120 +234,90 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getStatusVariant = (status: string) => {
-    // Prioritize pipeline status during active actions, otherwise use health data
+    // Always prioritize pipeline status over health data for immediate UI updates
     let effectiveStatus = status
 
-    // If there's an active action (loading) or recent action completed, use pipeline status instead of health
+    // Only use health data if pipeline status is clearly outdated or missing
     const recentAction = recentActionRef.current
-    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 3000 // 3 seconds
+    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 5000 // 5 seconds
 
-    if (health?.overall_status && !actionState.isLoading && !isRecentAction) {
-      // Convert backend health status to UI status
-      switch (health.overall_status) {
-        case 'Running':
-          effectiveStatus = 'active'
-          break
-        case 'Created':
-          effectiveStatus = 'deploying'
-          break
-        case 'Terminating':
-          effectiveStatus = 'terminating'
-          break
-        case 'Terminated':
-          effectiveStatus = 'terminated'
-          break
-        case 'Failed':
-          effectiveStatus = 'error'
-          break
-        default:
-          effectiveStatus = status
+    // Use health data only if:
+    // 1. No active loading state
+    // 2. No recent action in the last 5 seconds
+    // 3. Pipeline status is generic/default
+    if (
+      health?.overall_status &&
+      !actionState.isLoading &&
+      !isRecentAction &&
+      (status === 'active' || !status || status === 'no_configuration')
+    ) {
+      // Convert backend health status to UI status using the mapping function
+      const healthStatus = getPipelineStatusFromState(health.overall_status)
+      // Only override if health status is different and more specific
+      if (healthStatus !== 'active' || status === 'no_configuration') {
+        effectiveStatus = healthStatus
       }
     }
 
     switch (effectiveStatus) {
       case 'active':
         return 'success'
-      case 'deploying':
-        return 'default'
       case 'paused':
         return 'warning'
       case 'pausing':
         return 'warning'
-      case 'resuming':
+      case 'stopping':
         return 'warning'
-      case 'terminating':
-        return 'warning'
-      case 'terminated':
+      case 'stopped':
         return 'secondary'
-      case 'deleting':
-        return 'secondary'
-      case 'error':
+      case 'failed':
         return 'error'
-      case 'deleted':
-        return 'secondary'
-      case 'no_configuration':
-        return 'default'
       default:
         return 'default'
     }
   }
 
-  const getBadgeLabel = (status: PipelineStatus) => {
-    // Prioritize pipeline status during active actions, otherwise use health data
+  const getBadgeLabel = (status: PipelineStatus | string) => {
+    // Always prioritize pipeline status over health data for immediate UI updates
+    // Health data is used only when pipeline status is not available or outdated
     let effectiveStatus = status
 
-    // If there's an active action (loading) or recent action completed, use pipeline status instead of health
+    // Only use health data if pipeline status is clearly outdated or missing
+    // and there's no active action or recent action
     const recentAction = recentActionRef.current
-    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 3000 // 3 seconds
+    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 5000 // 5 seconds
 
-    if (health?.overall_status && !actionState.isLoading && !isRecentAction) {
-      // Convert backend health status to UI status
-      switch (health.overall_status) {
-        case 'Running':
-          effectiveStatus = 'active'
-          break
-        case 'Created':
-          effectiveStatus = 'deploying'
-          break
-        case 'Terminating':
-          effectiveStatus = 'terminating'
-          break
-        case 'Terminated':
-          effectiveStatus = 'terminated'
-          break
-        case 'Failed':
-          effectiveStatus = 'error'
-          break
-        default:
-          effectiveStatus = status
+    // Use health data only if:
+    // 1. No active loading state
+    // 2. No recent action in the last 5 seconds
+    // 3. Pipeline status is generic/default
+    if (
+      health?.overall_status &&
+      !actionState.isLoading &&
+      !isRecentAction &&
+      (status === 'active' || !status || status === 'no_configuration')
+    ) {
+      // Convert backend health status to UI status using the mapping function
+      const healthStatus = getPipelineStatusFromState(health.overall_status)
+      // Only override if health status is different and more specific
+      if (healthStatus !== 'active' || status === 'no_configuration') {
+        effectiveStatus = healthStatus
       }
     }
 
     switch (effectiveStatus) {
       case 'active':
         return 'Active'
-      case 'deploying':
-        return 'Deploying'
-      case 'deleted':
-        return 'Deleted'
-      case 'deploy_failed':
-        return 'Deploy Failed'
-      case 'delete_failed':
-        return 'Delete Failed'
-      case 'no_configuration':
-        return 'No Configuration'
       case 'pausing':
         return 'Pausing...'
       case 'paused':
         return 'Paused'
-      case 'resuming':
-        return 'Resuming...'
-      case 'terminating':
-        return 'Terminating...'
-      case 'terminated':
-        return 'Terminated'
-      case 'error':
-        return 'Error'
+      case 'stopping':
+        return 'Stopping...'
+      case 'stopped':
+        return 'Stopped'
+      case 'failed':
+        return 'Failed'
       default:
         return 'Unknown status'
     }
@@ -438,16 +409,11 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   const getActionButtons = () => {
     // Show resume button if paused or resuming, pause button if active or pausing
     const showPause = pipeline.status === 'active' || pipeline.status === 'pausing'
-    const showResume = pipeline.status === 'paused' || pipeline.status === 'resuming'
+    const showResume = pipeline.status === 'paused'
 
     // Show stop button for active/paused pipelines, delete for terminated/stopped pipelines
     const showStop = pipeline.status === 'active' || pipeline.status === 'paused'
-    const showDelete =
-      pipeline.status === 'terminated' ||
-      pipeline.status === 'deleted' ||
-      pipeline.status === 'error' ||
-      pipeline.status === 'deploy_failed' ||
-      pipeline.status === 'delete_failed'
+    const showDelete = pipeline.status === 'stopped'
 
     return (
       <>

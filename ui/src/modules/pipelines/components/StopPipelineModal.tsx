@@ -26,7 +26,10 @@ function StopPipelineModal({
     <ConfirmationModal
       visible={visible}
       title="Stop Pipeline?"
-      description={`<div>You are about to stop this pipeline. Choose how to handle events currently in the queue:</div>`}
+      description={`<div>
+                      <div className="mb-4">Stopping this pipeline will permanently end its execution. You won't be able to restart it later.</div> \
+                      <div>Are you sure you want to stop the pipeline?</div> \
+                    </div>`}
       content={
         <div className="flex items-center gap-2 mt-4">
           <Checkbox
@@ -35,7 +38,7 @@ function StopPipelineModal({
             checked={isGraceful}
             onCheckedChange={handleCheckboxChange}
           />
-          <span className="text-sm">Process remaining events in queue before stopping (graceful stop)</span>
+          <span className="text-sm">Process events in the queue (if any) before stopping</span>
         </div>
       }
       okButtonText="Stop Pipeline"

@@ -47,24 +47,14 @@ export function MobilePipelinesList({
         return 'success'
       case PIPELINE_STATUS_MAP.paused:
         return 'warning'
-      case PIPELINE_STATUS_MAP.deleted:
-        return 'secondary'
       case PIPELINE_STATUS_MAP.pausing:
         return 'warning'
-      case PIPELINE_STATUS_MAP.resuming:
+      case PIPELINE_STATUS_MAP.stopping:
         return 'warning'
-      case PIPELINE_STATUS_MAP.deleting:
+      case PIPELINE_STATUS_MAP.stopped:
         return 'secondary'
-      case PIPELINE_STATUS_MAP.error:
+      case PIPELINE_STATUS_MAP.failed:
         return 'error'
-      case 'deploying':
-        return 'default'
-      case 'deploy_failed':
-        return 'error'
-      case 'delete_failed':
-        return 'error'
-      case 'no_configuration':
-        return 'default'
       default:
         return 'default'
     }

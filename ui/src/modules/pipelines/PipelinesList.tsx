@@ -59,7 +59,7 @@ export function PipelinesList({
   const analytics = useJourneyAnalytics()
   const { coreStore, resetAllPipelineState } = useStore()
   const { pipelineId, setPipelineId } = coreStore
-  const [status, setStatus] = useState<PipelineStatus>('deploying')
+  const [status, setStatus] = useState<PipelineStatus>('active')
   const [error, setError] = useState<string | null>(null)
   const {
     isRenameModalVisible,
@@ -214,7 +214,7 @@ export function PipelinesList({
         })
 
         await terminatePipeline(pipelineId)
-        setStatus('deleted')
+        setStatus('stopped')
         setError(null)
         resetAllPipelineState('', true)
 
@@ -224,7 +224,7 @@ export function PipelinesList({
         router.push('/home')
       } catch (err) {
         const error = err as PipelineError
-        setStatus('delete_failed')
+        setStatus('failed')
         setError(error.message)
 
         // Track failed pipeline modification
@@ -239,14 +239,13 @@ export function PipelinesList({
     switch (status) {
       case 'active':
         return 'text-[var(--color-foreground-success)]'
-      case 'deploying':
-        return 'text-[var(--color-foreground-info)]'
-      case 'deleted':
-      case 'deploy_failed':
-      case 'delete_failed':
-        return 'text-[var(--color-foreground-error)]'
-      case 'no_configuration':
+      case 'paused':
+      case 'pausing':
         return 'text-[var(--color-foreground-warning)]'
+      case 'stopped':
+      case 'stopping':
+      case 'failed':
+        return 'text-[var(--color-foreground-error)]'
       default:
         return ''
     }
@@ -256,16 +255,16 @@ export function PipelinesList({
     switch (status) {
       case 'active':
         return 'Pipeline is active'
-      case 'deploying':
-        return 'Pipeline is deploying'
-      case 'deleted':
-        return 'Pipeline deleted'
-      case 'deploy_failed':
-        return 'Pipeline deployment failed'
-      case 'delete_failed':
-        return 'Pipeline delete failed'
-      case 'no_configuration':
-        return 'No valid configuration - Deployment not possible'
+      case 'pausing':
+        return 'Pipeline is pausing'
+      case 'paused':
+        return 'Pipeline is paused'
+      case 'stopping':
+        return 'Pipeline is stopping'
+      case 'stopped':
+        return 'Pipeline is stopped'
+      case 'failed':
+        return 'Pipeline has failed'
       default:
         return 'Unknown status'
     }
@@ -282,30 +281,16 @@ export function PipelinesList({
     switch (status) {
       case 'active':
         return 'Active'
-      case 'deploying':
-        return 'Deploying'
-      case 'deleting':
-        return 'Deleting...'
-      case 'deleted':
-        return 'Deleted'
-      case 'deploy_failed':
-        return 'Deploy Failed'
-      case 'delete_failed':
-        return 'Delete Failed'
-      case 'no_configuration':
-        return 'No Configuration'
       case 'pausing':
         return 'Pausing...'
       case 'paused':
         return 'Paused'
-      case 'resuming':
-        return 'Resuming...'
-      case 'terminating':
-        return 'Terminating...'
-      case 'terminated':
-        return 'Terminated'
-      case 'error':
-        return 'Error'
+      case 'stopping':
+        return 'Stopping...'
+      case 'stopped':
+        return 'Stopped'
+      case 'failed':
+        return 'Failed'
       default:
         return 'Unknown status'
     }
@@ -363,26 +348,12 @@ export function PipelinesList({
               return 'warning'
             case 'pausing':
               return 'warning'
-            case 'resuming':
+            case 'stopping':
               return 'warning'
-            case 'deleting':
+            case 'stopped':
               return 'secondary'
-            case 'terminating':
-              return 'warning'
-            case 'terminated':
-              return 'secondary'
-            case 'error':
+            case 'failed':
               return 'error'
-            case 'deleted':
-              return 'secondary'
-            case 'deploying':
-              return 'default'
-            case 'deploy_failed':
-              return 'error'
-            case 'delete_failed':
-              return 'error'
-            case 'no_configuration':
-              return 'default'
             default:
               return 'default'
           }
@@ -419,13 +390,10 @@ export function PipelinesList({
 
   // Context menu handlers
   const handlePause = (pipeline: ListPipelineConfig) => {
-    console.log('Pause pipeline:', pipeline.pipeline_id)
     openPauseModal(pipeline)
   }
 
   const handleResume = async (pipeline: ListPipelineConfig) => {
-    console.log('Resume pipeline:', pipeline.pipeline_id)
-
     // Track resume clicked
     analytics.pipeline.resumeClicked({
       pipelineId: pipeline.pipeline_id,
@@ -435,13 +403,12 @@ export function PipelinesList({
 
     setPipelineLoading(pipeline.pipeline_id, 'resume')
 
-    // Optimistically update status to show transitional state
+    // Keep current status during resume operation - loading spinner will show progress
     const currentStatus = (pipeline.status as PipelineStatus) || 'no_configuration'
-    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'resuming') // Use resuming as transitional state for resume
+    // Don't change status optimistically for resume - wait for completion
 
     try {
       await resumePipeline(pipeline.pipeline_id)
-      console.log('Pipeline resumed successfully:', pipeline.pipeline_id)
 
       // Track resume success
       analytics.pipeline.resumeSuccess({
@@ -449,8 +416,10 @@ export function PipelinesList({
         pipelineName: pipeline.name,
       })
 
-      // Refetch data to get the actual updated status
-      await onRefresh?.()
+      // Update status to final 'active' state after successful resume
+      onUpdatePipelineStatus?.(pipeline.pipeline_id, 'active')
+
+      // Skip immediate refresh for resume - backend status transitions can be slow
     } catch (error) {
       console.error('Failed to resume pipeline:', error)
 
@@ -469,23 +438,18 @@ export function PipelinesList({
   }
 
   const handleEdit = (pipeline: ListPipelineConfig) => {
-    console.log('Edit pipeline:', pipeline.pipeline_id)
     openEditModal(pipeline)
   }
 
   const handleRename = (pipeline: ListPipelineConfig) => {
-    console.log('Rename pipeline:', pipeline.pipeline_id)
     openRenameModal(pipeline)
   }
 
   const handleStop = (pipeline: ListPipelineConfig) => {
-    console.log('Stop pipeline:', pipeline.pipeline_id)
     openStopModal(pipeline)
   }
 
   const handleDelete = async (pipeline: ListPipelineConfig) => {
-    console.log('Delete pipeline:', pipeline.pipeline_id)
-
     // Track delete clicked
     analytics.pipeline.deleteClicked({
       pipelineId: pipeline.pipeline_id,
@@ -496,13 +460,11 @@ export function PipelinesList({
 
     setPipelineLoading(pipeline.pipeline_id, 'delete')
 
-    // Optimistically update status to 'deleted'
-    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'deleted')
+    // Optimistically update status to 'stopped'
+    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'stopped')
 
     try {
       await deletePipeline(pipeline.pipeline_id)
-      console.log('Pipeline deleted successfully:', pipeline.pipeline_id)
-
       // Track delete success
       analytics.pipeline.deleteSuccess({
         pipelineId: pipeline.pipeline_id,
@@ -510,9 +472,12 @@ export function PipelinesList({
         processEvents: false,
       })
 
-      // Remove pipeline from list or refetch data
+      // Remove pipeline from list and refresh to ensure it's gone from backend
       onRemovePipeline?.(pipeline.pipeline_id)
-      await onRefresh?.()
+      // For delete, we do want to refresh to ensure pipeline is actually removed
+      setTimeout(async () => {
+        await onRefresh?.()
+      }, 1000)
     } catch (error) {
       console.error('Failed to delete pipeline:', error)
 
@@ -608,16 +573,16 @@ export function PipelinesList({
 
           try {
             await pausePipeline(pauseSelectedPipeline.pipeline_id)
-            console.log('Pipeline paused successfully:', pauseSelectedPipeline.pipeline_id)
-
             // Track pause success
             analytics.pipeline.pauseSuccess({
               pipelineId: pauseSelectedPipeline.pipeline_id,
               pipelineName: pauseSelectedPipeline.name,
             })
 
-            // Refetch data to get the actual updated status
-            await onRefresh?.()
+            // Update status to final 'paused' state after successful pause
+            onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'paused')
+
+            // Skip immediate refresh for pause - backend status transitions can be slow
           } catch (error) {
             console.error('Failed to pause pipeline:', error)
 
@@ -660,8 +625,6 @@ export function PipelinesList({
 
           try {
             await renamePipeline(renameSelectedPipeline.pipeline_id, newName)
-            console.log('Pipeline renamed successfully:', renameSelectedPipeline.pipeline_id, 'to', newName)
-
             // Track rename success
             analytics.pipeline.renameSuccess({
               pipelineId: renameSelectedPipeline.pipeline_id,
@@ -669,8 +632,7 @@ export function PipelinesList({
               newName: newName,
             })
 
-            // Refetch data to ensure consistency
-            await onRefresh?.()
+            // Skip immediate refresh for rename - optimistic update is sufficient
           } catch (error) {
             console.error('Failed to rename pipeline:', error)
 
@@ -710,17 +672,16 @@ export function PipelinesList({
           try {
             // Check if pipeline is active and needs to be paused first
             if (editSelectedPipeline.status === 'active') {
-              console.log('Pausing active pipeline before edit:', editSelectedPipeline.pipeline_id)
-
               // Optimistically update status to 'pausing'
               onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'pausing')
 
               // Pause the pipeline first
               await pausePipeline(editSelectedPipeline.pipeline_id)
-              console.log('Pipeline paused successfully for edit:', editSelectedPipeline.pipeline_id)
 
-              // Refetch data to get the actual updated status
-              await onRefresh?.()
+              // Update status to final 'paused' state after successful pause for edit
+              onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'paused')
+
+              // Skip refresh since we're navigating to edit page immediately
             } else {
               console.log('Pipeline already paused, proceeding to edit:', editSelectedPipeline.pipeline_id)
             }
@@ -774,13 +735,13 @@ export function PipelinesList({
           closeStopModal() // Close modal immediately
           setPipelineLoading(deleteSelectedPipeline.pipeline_id, 'delete')
 
-          // Optimistically update status to 'deleting' (or 'terminating' for ungraceful)
-          onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, isGraceful ? 'deleting' : 'terminating')
+          // Optimistically update status to transitional state
+          onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, 'stopping')
 
           try {
             if (isGraceful) {
               // Graceful stop - process remaining events
-              await stopPipeline(deleteSelectedPipeline.pipeline_id, true)
+              await stopPipeline(deleteSelectedPipeline.pipeline_id)
             } else {
               // Ungraceful stop - terminate immediately
               await terminatePipeline(deleteSelectedPipeline.pipeline_id)
@@ -793,9 +754,10 @@ export function PipelinesList({
               processEvents: isGraceful, // Keep for backward compatibility with analytics
             })
 
-            // Remove pipeline from list or refetch data
-            onRemovePipeline?.(deleteSelectedPipeline.pipeline_id)
-            await onRefresh?.()
+            onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, 'stopped')
+
+            // Skip refresh for successful stop operations to avoid overwriting correct status
+            // The optimistic update is reliable since the API call succeeded
           } catch (error) {
             console.error('Failed to stop pipeline:', error)
 

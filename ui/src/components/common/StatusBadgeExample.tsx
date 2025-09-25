@@ -3,7 +3,7 @@ import { StatusBadge } from './StatusBadge'
 import { StatusType } from '../../config/constants'
 
 export const StatusBadgeExample: React.FC = () => {
-  const statuses: StatusType[] = ['active', 'paused', 'pausing', 'deleting']
+  const statuses: StatusType[] = ['active', 'paused', 'pausing', 'stopping', 'stopped', 'failed']
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -18,8 +18,8 @@ export const StatusBadgeExample: React.FC = () => {
       <div className="flex flex-wrap gap-2">
         <StatusBadge status="active" className="text-sm" />
         <StatusBadge status="paused" className="text-lg" />
-        <StatusBadge status="pausing" className="font-bold" />
-        <StatusBadge status="deleting" className="uppercase" />
+        <StatusBadge status="stopping" className="font-bold" />
+        <StatusBadge status="stopped" className="uppercase" />
       </div>
     </div>
   )

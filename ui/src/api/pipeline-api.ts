@@ -224,19 +224,19 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   }
 }
 
-export const stopPipeline = async (id: string, isGraceful: boolean = true): Promise<void> => {
+export const stopPipeline = async (id: string): Promise<void> => {
   try {
     const url = getApiUrl(`pipeline/${id}/stop`)
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ graceful: isGraceful }),
     })
-    const data = await response.json()
 
-    if (!data.success) {
-      throw { code: response.status, message: data.error || 'Failed to stop pipeline' } as ApiError
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw { code: response.status, message: errorText || 'Failed to stop pipeline' } as ApiError
     }
+    // Success: 204 No Content, no body to parse
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to stop pipeline' } as ApiError
@@ -250,11 +250,12 @@ export const terminatePipeline = async (id: string): Promise<void> => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
-    const data = await response.json()
 
-    if (!data.success) {
-      throw { code: response.status, message: data.error || 'Failed to terminate pipeline' } as ApiError
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw { code: response.status, message: errorText || 'Failed to terminate pipeline' } as ApiError
     }
+    // Success: 204 No Content, no body to parse
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to terminate pipeline' } as ApiError
@@ -268,11 +269,12 @@ export const deletePipeline = async (id: string): Promise<void> => {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     })
-    const data = await response.json()
 
-    if (!data.success) {
-      throw { code: response.status, message: data.error || 'Failed to delete pipeline' } as ApiError
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw { code: response.status, message: errorText || 'Failed to delete pipeline' } as ApiError
     }
+    // Success: 204 No Content, no body to parse
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to delete pipeline' } as ApiError
