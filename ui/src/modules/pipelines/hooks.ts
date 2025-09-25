@@ -100,26 +100,26 @@ export function useEditConfirmationModal() {
   }
 }
 
-export function useDeletePipelineModal() {
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false)
+export function useStopPipelineModal() {
+  const [isStopModalVisible, setIsStopModalVisible] = useState(false)
   const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
 
-  const openDeleteModal = (pipeline?: any) => {
+  const openStopModal = (pipeline?: any) => {
     setSelectedPipeline(pipeline)
-    setIsDeleteModalVisible(true)
+    setIsStopModalVisible(true)
   }
 
-  const closeDeleteModal = () => {
-    setIsDeleteModalVisible(false)
+  const closeStopModal = () => {
+    setIsStopModalVisible(false)
     setSelectedPipeline(null)
   }
 
   return {
-    isDeleteModalVisible,
+    isStopModalVisible,
     selectedPipeline,
-    openDeleteModal,
-    closeDeleteModal,
-    onOk: closeDeleteModal,
-    onCancel: closeDeleteModal,
+    openStopModal,
+    closeStopModal,
+    onOk: closeStopModal,
+    onCancel: closeStopModal,
   }
 }

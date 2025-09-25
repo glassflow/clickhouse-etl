@@ -19,17 +19,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    // Call the backend terminate endpoint (ungraceful termination)
-    await axios.post(`${API_URL}/pipeline/${id}/terminate`, {
-      timeout: 30000, // 30 seconds timeout for termination
+    // Call the backend stop endpoint
+    await axios.post(`${API_URL}/pipeline/${id}/stop`, {
+      timeout: 30000, // 30 seconds timeout for stop operation
     })
 
     return NextResponse.json({
       success: true,
-      message: `Pipeline ${id} terminated successfully`,
+      message: `Pipeline ${id} stopped successfully`,
     })
   } catch (error: any) {
-    console.error('Terminate Pipeline API Route - Error details:', {
+    console.error('Stop Pipeline API Route - Error details:', {
       message: error.message,
       response: error.response?.data,
       status: error.response?.status,
@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json(
         {
           success: false,
-          error: data?.message || `Failed to terminate pipeline ${id}`,
+          error: data?.message || `Failed to stop pipeline ${id}`,
         },
         { status },
       )
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json(
       {
         success: false,
-        error: `Failed to terminate pipeline ${id}`,
+        error: `Failed to stop pipeline ${id}`,
       },
       { status: 500 },
     )

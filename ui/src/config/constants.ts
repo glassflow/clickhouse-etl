@@ -108,19 +108,12 @@ export const CLICKHOUSE_DATA_TYPES = [
 ]
 
 export const PIPELINE_STATUS_MAP = {
-  deploying: 'deploying',
   active: 'active',
-  paused: 'paused',
   pausing: 'pausing',
-  resuming: 'resuming',
-  deleted: 'deleted',
-  deleting: 'deleting',
-  terminating: 'terminating',
-  terminated: 'terminated',
-  error: 'error',
-  deploy_failed: 'deploy_failed',
-  delete_failed: 'delete_failed',
-  no_configuration: 'no_configuration',
+  paused: 'paused',
+  stopping: 'stopping',
+  stopped: 'stopped',
+  failed: 'failed',
 }
 
 export const PIPELINE_STATUS_CONFIG = {
@@ -129,60 +122,30 @@ export const PIPELINE_STATUS_CONFIG = {
     className: 'chip-positive',
     key: PIPELINE_STATUS_MAP.active,
   },
+  pausing: {
+    label: 'Pausing...',
+    className: 'chip-neutral-faded',
+    key: PIPELINE_STATUS_MAP.pausing,
+  },
   paused: {
     label: 'Paused',
     className: 'chip-neutral',
     key: PIPELINE_STATUS_MAP.paused,
   },
-  pausing: {
-    label: 'Pausing',
+  stopping: {
+    label: 'Stopping...',
     className: 'chip-neutral-faded',
-    key: PIPELINE_STATUS_MAP.pausing,
+    key: PIPELINE_STATUS_MAP.stopping,
   },
-  resuming: {
-    label: 'Resuming',
-    className: 'chip-neutral-faded',
-    key: PIPELINE_STATUS_MAP.resuming,
-  },
-  deleted: {
-    label: 'Deleted',
+  stopped: {
+    label: 'Stopped',
     className: 'chip-negative',
-    key: PIPELINE_STATUS_MAP.deleted,
+    key: PIPELINE_STATUS_MAP.stopped,
   },
-  deleting: {
-    label: 'Deleting',
-    className: 'chip-neutral-faded',
-    key: PIPELINE_STATUS_MAP.deleting,
-  },
-  terminating: {
-    label: 'Terminating',
-    className: 'chip-neutral-faded',
-    key: PIPELINE_STATUS_MAP.terminating,
-  },
-  terminated: {
-    label: 'Terminated',
+  failed: {
+    label: 'Failed',
     className: 'chip-negative',
-    key: PIPELINE_STATUS_MAP.terminated,
-  },
-  error: {
-    label: 'Error',
-    className: 'chip-negative',
-    key: PIPELINE_STATUS_MAP.error,
-  },
-  deploy_failed: {
-    label: 'Deploy Failed',
-    className: 'chip-negative',
-    key: PIPELINE_STATUS_MAP.deploy_failed,
-  },
-  delete_failed: {
-    label: 'Delete Failed',
-    className: 'chip-negative',
-    key: PIPELINE_STATUS_MAP.delete_failed,
-  },
-  no_configuration: {
-    label: 'No Configuration',
-    className: 'chip-neutral',
-    key: PIPELINE_STATUS_MAP.no_configuration,
+    key: PIPELINE_STATUS_MAP.failed,
   },
 } as const
 
