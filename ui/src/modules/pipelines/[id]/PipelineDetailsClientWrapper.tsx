@@ -5,8 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { getPipeline } from '@/src/api/pipeline-api'
 import PipelineDetailsModule from './PipelineDetailsModule'
 import PipelineDeploymentProgress from './PipelineDeploymentProgress'
+import { PipelineNotFound } from '../PipelineNotFound'
 import { useStore } from '@/src/store'
-import type { Pipeline } from '@/src/types/pipeline'
+import type { Pipeline, ApiError } from '@/src/types/pipeline'
 
 interface PipelineDetailsClientWrapperProps {
   pipelineId: string
@@ -16,6 +17,7 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
   const [pipeline, setPipeline] = useState<Pipeline | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isPipelineNotFound, setIsPipelineNotFound] = useState(false)
   const [showDeploymentProgress, setShowDeploymentProgress] = useState(false)
 
   const searchParams = useSearchParams()
@@ -38,11 +40,19 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
       try {
         setLoading(true)
         setError(null)
+        setIsPipelineNotFound(false)
         const data = await getPipeline(pipelineId)
         setPipeline(data)
       } catch (err: any) {
         console.error('Failed to fetch pipeline:', err)
-        setError(err.message || 'Failed to fetch pipeline')
+
+        // Check if this is a 404 error (pipeline not found)
+        const apiError = err as ApiError
+        if (apiError?.code === 404) {
+          setIsPipelineNotFound(true)
+        } else {
+          setError(err.message || 'Failed to fetch pipeline')
+        }
       } finally {
         setLoading(false)
       }
@@ -60,6 +70,10 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
         </div>
       </div>
     )
+  }
+
+  if (isPipelineNotFound) {
+    return <PipelineNotFound pipelineId={pipelineId} />
   }
 
   if (error) {
@@ -89,11 +103,20 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     const fetchPipeline = async () => {
       try {
         setLoading(true)
+        setError(null)
+        setIsPipelineNotFound(false)
         const data = await getPipeline(pipelineId)
         setPipeline(data)
       } catch (err: any) {
         console.error('Failed to fetch pipeline after deployment:', err)
-        setError(err.message || 'Failed to fetch pipeline')
+
+        // Check if this is a 404 error (pipeline not found)
+        const apiError = err as ApiError
+        if (apiError?.code === 404) {
+          setIsPipelineNotFound(true)
+        } else {
+          setError(err.message || 'Failed to fetch pipeline')
+        }
       } finally {
         setLoading(false)
       }

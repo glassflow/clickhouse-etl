@@ -2,6 +2,8 @@ import PipelineDetailsModule from '@/src/modules/pipelines/[id]/PipelineDetailsM
 import { getPipeline } from '@/src/api/pipeline-api'
 import { isMockMode } from '@/src/utils/mock-api'
 import PipelineDetailsClientWrapper from '@/src/modules/pipelines/[id]/PipelineDetailsClientWrapper'
+import { PipelineNotFound } from '@/src/modules/pipelines/PipelineNotFound'
+import type { ApiError } from '@/src/types/pipeline'
 
 async function PipelinePage({
   params,
@@ -26,7 +28,14 @@ async function PipelinePage({
     return <PipelineDetailsModule pipeline={pipeline} />
   } catch (error) {
     console.error('Failed to fetch pipeline during SSR:', error)
-    // Fallback to client-side fetching if SSR fails
+
+    // Check if this is a 404 error (pipeline not found)
+    const apiError = error as ApiError
+    if (apiError?.code === 404) {
+      return <PipelineNotFound pipelineId={id} />
+    }
+
+    // For other errors, fallback to client-side fetching
     return <PipelineDetailsClientWrapper pipelineId={id} />
   }
 }
