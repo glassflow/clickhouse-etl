@@ -19,5 +19,6 @@ jobs:
     uses: ./.github/workflows/build_image.yaml
     with:
       push: true
+      rc_tag: "rc-PR-${{ github.event.number }}"
     secrets: inherit
 
