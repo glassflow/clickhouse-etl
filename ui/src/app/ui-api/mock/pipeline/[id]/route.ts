@@ -27,7 +27,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       pipeline: existingPipeline,
     })
   } else {
-    // Generate a new pipeline for unknown IDs
+    // For testing 404 scenarios, return 404 for specific test IDs
+    const testNotFoundIds = ['non-existent-pipeline', 'deleted-pipeline-123', 'test-404-pipeline']
+    if (testNotFoundIds.includes(id)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Pipeline with id ${id} not found`,
+        },
+        { status: 404 },
+      )
+    }
+
+    // Generate a new pipeline for other unknown IDs
     const mockPipeline = generateMockPipeline(id)
     return NextResponse.json({
       success: true,
