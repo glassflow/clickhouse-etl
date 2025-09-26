@@ -38,7 +38,7 @@ func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, n
 				log.Info("Deduplication is enabled for topic", slog.String("topic", t.Name), slog.String("dedupKey", t.Deduplication.ID), slog.String("window", t.Deduplication.Window.String()))
 			}
 			if useBatchMode {
-				log.Info("Batch mode enabled", slog.String("topic", t.Name), slog.Int("batchSize", t.BatchSize), slog.String("batchTimeout", t.BatchTimeout.String()))
+				log.Info("Batch mode enabled", slog.String("topic", t.Name), slog.Int("batchSize", internal.DefaultKafkaBatchSize))
 			}
 			topic = t
 			break
@@ -66,17 +66,7 @@ func (k *KafkaIngestor) Start(ctx context.Context) error {
 	k.log.Info("Starting Kafka ingestor", slog.String("topic", k.topic.Name), slog.Bool("batchMode", k.useBatchMode))
 
 	if k.useBatchMode {
-		batchSize := k.topic.BatchSize
-		if batchSize <= 0 {
-			batchSize = internal.DefaultKafkaBatchSize
-		}
-
-		batchTimeout := k.topic.BatchTimeout.Duration()
-		if batchTimeout <= 0 {
-			batchTimeout = internal.DefaultKafkaBatchTimeout
-		}
-
-		err := k.consumer.StartBatch(ctx, k.processor, batchSize, batchTimeout)
+		err := k.consumer.StartBatch(ctx, k.processor, internal.DefaultKafkaBatchSize, internal.DefaultKafkaBatchTimeout)
 		if err != nil {
 			return fmt.Errorf("failed to start Kafka consumer in batch mode: %w", err)
 		}

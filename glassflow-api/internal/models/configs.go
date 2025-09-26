@@ -90,10 +90,6 @@ type KafkaTopicsConfig struct {
 	Deduplication       DeduplicationConfig `json:"deduplication"`
 	OutputStreamID      string              `json:"output_stream_id"`
 	OutputStreamSubject string              `json:"output_stream_subject"`
-
-	// Batch configuration for confluent consumer
-	BatchSize    int          `json:"batch_size" default:"1000"`
-	BatchTimeout JSONDuration `json:"batch_timeout" default:"250ms"`
 }
 
 type IngestorComponentConfig struct {

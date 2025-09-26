@@ -21,8 +21,6 @@ func TestConfluentConsumerCreation(t *testing.T) {
 	topic := models.KafkaTopicsConfig{
 		Name:              "test-topic",
 		ConsumerGroupName: "test-group",
-		BatchSize:         50,
-		BatchTimeout:      models.JSONDuration{}, // Will use default
 	}
 
 	consumer, err := NewConsumer(conn, topic, logger)

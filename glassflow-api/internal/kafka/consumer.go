@@ -89,17 +89,19 @@ func NewBatchConsumer(conn models.KafkaConnectionParamsConfig, topic models.Kafk
 // buildConfluentConfig creates Confluent Kafka configuration from connection params
 func buildConfluentConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) cKafka.ConfigMap {
 	config := cKafka.ConfigMap{
-		"bootstrap.servers":          joinBrokers(conn.Brokers),
-		"group.id":                   topic.ConsumerGroupName,
-		"client.id":                  internal.ClientID,
-		"session.timeout.ms":         30000,
-		"heartbeat.interval.ms":      3000,
-		"enable.auto.commit":         false,
-		"auto.commit.interval.ms":    1000,
-		"fetch.min.bytes":            102400,  // 100KB min fetch
-		"fetch.message.max.bytes":    1048576, // 1MB max message size
-		"queued.min.messages":        100000,
-		"queued.max.messages.kbytes": 1048576, // 1GB
+		"bootstrap.servers": joinBrokers(conn.Brokers),
+		"group.id":          topic.ConsumerGroupName,
+		"client.id":         internal.ClientID,
+
+		"session.timeout.ms":    internal.KafkaSessionTimeoutMs,
+		"heartbeat.interval.ms": internal.KafkaHeartbeatInterval,
+
+		"enable.auto.commit": false,
+
+		"fetch.min.bytes":         internal.KafkaMinFetchBytes,
+		"fetch.message.max.bytes": internal.KafkaMaxFetchBytes,
+
+		"queued.max.messages.kbytes": internal.KafkaMaxMessagesInQueueSize,
 	}
 
 	// Set initial offset
@@ -225,11 +227,11 @@ func (c *BatchConsumer) consumeSingle(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		default:
-			msg, err := c.consumer.ReadMessage(1000) // 1 second timeout
+			msg, err := c.consumer.ReadMessage(internal.KafkaMaxWait)
 			if err != nil {
 				var kafkaErr cKafka.Error
 				if errors.As(err, &kafkaErr) && kafkaErr.Code() == cKafka.ErrTimedOut {
-					continue // Timeout is expected, continue polling
+					continue
 				}
 				c.log.Error("Error reading message", slog.Any("error", err))
 				continue
@@ -241,7 +243,11 @@ func (c *BatchConsumer) consumeSingle(ctx context.Context) error {
 				return fmt.Errorf("message processing failed: %w", err)
 			}
 
-			// Commit manually if needed (auto-commit is enabled by default)
+			_, err = c.consumer.CommitMessage(msg)
+			if err != nil {
+				c.log.Error("Failed to commit offset", slog.Any("error", err))
+				return fmt.Errorf("failed to commit offset: %w", err)
+			}
 		}
 	}
 }
@@ -269,7 +275,7 @@ func (c *BatchConsumer) consumeBatches(ctx context.Context) error {
 			}
 
 		default:
-			if err := c.handleBatchMessage(ctx, &batch, batchTimer); err != nil {
+			if err := c.handleBatchMessages(ctx, &batch, batchTimer); err != nil {
 				return err
 			}
 		}
@@ -296,35 +302,48 @@ func (c *BatchConsumer) processTimerBatch(ctx context.Context, batch *MessageBat
 	return nil
 }
 
-// handleBatchMessage handles reading and processing a single message in batch mode
-func (c *BatchConsumer) handleBatchMessage(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
-	msg, err := c.consumer.ReadMessage(c.timeout)
-	if err != nil {
-		var kafkaErr cKafka.Error
-		if errors.As(err, &kafkaErr) && kafkaErr.Code() == cKafka.ErrTimedOut {
-			return nil // Continue to check timer and context
-		}
-		c.log.Error("Error reading message", slog.Any("error", err))
+// batch message handling
+func (c *BatchConsumer) handleBatchMessages(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
+	remainingCapacity := c.batchSize - len(*batch)
+	if remainingCapacity <= 0 {
 		return nil
 	}
 
-	message := c.convertMessage(msg)
-	*batch = append(*batch, message)
+	// Poll for messages with a reasonable timeout
+	for range remainingCapacity {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		msg, err := c.consumer.ReadMessage(internal.KafkaMaxWait)
+		if err != nil {
+			var kafkaErr cKafka.Error
+			if errors.As(err, &kafkaErr) && kafkaErr.Code() == cKafka.ErrTimedOut {
+				break // No more messages available, break the inner loop
+			}
+			c.log.Error("Error reading message", slog.Any("error", err))
+			continue
+		}
+
+		message := c.convertMessage(msg)
+		*batch = append(*batch, message)
+
+		// If batch is full
+		if len(*batch) >= c.batchSize {
+			break
+		}
+	}
 
 	// Process batch if it's full
 	if len(*batch) >= c.batchSize {
 		if err := c.processBatch(ctx, *batch); err != nil {
 			return err
 		}
-		_, err := c.consumer.Commit()
-		if err != nil {
-			c.log.Error("Failed to commit offsets", slog.Any("error", err))
-			return fmt.Errorf("failed to commit offsets: %w", err)
-		}
-
-		*batch = (*batch)[:0] // Reset batch
+		*batch = (*batch)[:0]
 		timer.Reset(c.timeout)
 	}
+
 	return nil
 }
 
@@ -341,12 +360,19 @@ func (c *BatchConsumer) processBatch(ctx context.Context, batch MessageBatch) er
 		return fmt.Errorf("batch processing failed: %w", err)
 	}
 
-	_, err := c.consumer.Commit()
-	if err != nil {
+	// Only commit if processing was successful
+	if err := c.commitBatch(); err != nil {
+		return fmt.Errorf("batch processing failed on commit offsets: %w", err)
+	}
+
+	return nil
+}
+
+func (c *BatchConsumer) commitBatch() error {
+	if _, err := c.consumer.Commit(); err != nil {
 		c.log.Error("Failed to commit offsets", slog.Any("error", err))
 		return fmt.Errorf("failed to commit offsets: %w", err)
 	}
-
 	return nil
 }
 
@@ -369,6 +395,8 @@ func (c *BatchConsumer) Close() error {
 	if c.cancel != nil {
 		c.cancel()
 	}
+
+	time.Sleep(internal.KafkaMaxWait) // Give some time for graceful shutdown
 
 	if err := c.consumer.Close(); err != nil {
 		return fmt.Errorf("failed to close consumer: %w", err)
