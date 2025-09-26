@@ -12,6 +12,8 @@ func ParseString(data any) (zero string, _ error) {
 	switch value := data.(type) {
 	case string:
 		return value, nil
+	case nil:
+		return "", nil // Handle null values by returning empty string
 	default:
 		return zero, fmt.Errorf("failed to parse string: %v, type is: %v", data, reflect.TypeOf(data))
 	}
@@ -21,6 +23,8 @@ func ParseBool(data any) (zero bool, _ error) {
 	switch value := data.(type) {
 	case bool:
 		return value, nil
+	case nil:
+		return false, nil // Handle null values by returning false
 	default:
 		return zero, fmt.Errorf("failed to parse bool: %v, type is: %v", data, reflect.TypeOf(data))
 	}
@@ -78,6 +82,8 @@ func ParseInt32(data any) (zero int32, _ error) {
 			return zero, fmt.Errorf("value out of range of int32: %f", value)
 		}
 		return int32(value), nil
+	case nil:
+		return 0, nil // Handle null values by returning 0
 	default:
 		return zero, fmt.Errorf("failed to parse int32: %v, type is: %v", data, reflect.TypeOf(data))
 	}
@@ -214,6 +220,8 @@ func ParseFloat32(data any) (zero float32, _ error) {
 		return float32(value), nil
 	case float32:
 		return value, nil
+	case nil:
+		return 0, nil // Handle null values by returning 0
 	default:
 		return zero, fmt.Errorf("failed to parse float32: %v, type is: %v", data, reflect.TypeOf(data))
 	}
@@ -232,6 +240,8 @@ func ParseFloat64(data any) (zero float64, _ error) {
 		return f, nil
 	case float64:
 		return value, nil
+	case nil:
+		return 0, nil // Handle null values by returning 0
 	default:
 		return zero, fmt.Errorf("failed to parse float64: %v, type is: %v", data, reflect.TypeOf(data))
 	}
