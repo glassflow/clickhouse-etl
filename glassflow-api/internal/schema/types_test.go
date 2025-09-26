@@ -464,7 +464,7 @@ func TestParsers(t *testing.T) {
 			{"int input", 42, "42", true},
 			{"float input", 3.14, "3.14", true},
 			{"bool input", true, "true", true},
-			{"nil input", nil, "", true},
+			{"nil input", nil, "", false},
 		}
 
 		for _, tt := range tests {
@@ -492,7 +492,7 @@ func TestParsers(t *testing.T) {
 			{"bool input: false", false, false, false},
 			{"string input", "true", false, true},
 			{"int input", 1, false, true},
-			{"nil input", nil, false, true},
+			{"nil input", nil, false, false},
 		}
 
 		for _, tt := range tests {
@@ -547,7 +547,7 @@ func TestParsers(t *testing.T) {
 			{"int input", 42, 42.0, true},
 			{"string input", "3.14", 0, true},
 			{"invalid string", "invalid", 0, true},
-			{"nil input", nil, 0, true},
+			{"nil input", nil, 0, false},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
