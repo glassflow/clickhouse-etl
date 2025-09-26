@@ -16,17 +16,17 @@ run:
 
 .PHONY: build
 build:
-	CGO_ENABLED=0 go build -mod=readonly -o bin/glassflow \
+	CGO_ENABLED=1 go build -mod=readonly -o bin/glassflow \
 	cmd/glassflow/main.go
 
 .PHONY: build-linux-amd64
 build-linux-amd64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -o bin/clickhouse-etl \
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -mod=readonly -o bin/glassflow \
 	cmd/glassflow/main.go
 
 .PHONY: build-linux-arm64
 build-linux-arm64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -o bin/glassflow \
+	CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -mod=readonly -tags=dynamic -o bin/glassflow \
 	cmd/glassflow/main.go
 
 .PHONY: run-test
@@ -40,4 +40,4 @@ run-short-test:
 
 .PHONY: run-e2e-test
 run-e2e-test:
-	TESTCONTAINERS_RYUK_DISABLED=true go test -v ./tests
+	TESTCONTAINERS_RYUK_DISABLED=true go test -v -failfast ./tests

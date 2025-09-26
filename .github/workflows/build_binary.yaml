@@ -6,31 +6,57 @@ on:
 jobs:
   build-api-binary:
     name: Build API binaries
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       matrix:
         module: [glassflow-api]
         platform:
           - os: linux
             arch: amd64
+            runner: ubuntu-latest
           - os: linux
             arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.platform.runner }}
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup go
+
+      - name: Install latest librdkafka from Confluent (both archs)
+        run: |
+          if [[ "$(dpkg --print-architecture)" == "arm64" ]]; then
+            echo "Building librdkafka v2.11.1 from source for ARM64..."
+            sudo apt-get update
+            sudo apt-get install -y build-essential pkg-config libssl-dev zlib1g-dev wget
+            wget https://github.com/confluentinc/librdkafka/archive/refs/tags/v2.11.1.tar.gz -O librdkafka.tar.gz
+            tar -xzf librdkafka.tar.gz
+            cd librdkafka-2.11.1
+            ./configure --prefix=/usr
+            make -j$(nproc)
+            sudo make install
+            cd ..
+          else
+            echo "Installing librdkafka from Confluent APT repo (amd64)..."
+            wget -qO - https://packages.confluent.io/deb/7.7/archive.key | sudo apt-key add -
+            echo "deb [arch=$(dpkg --print-architecture)] https://packages.confluent.io/deb/7.7 stable main" | sudo tee /etc/apt/sources.list.d/confluent.list
+            sudo apt-get update && sudo apt-get install -y librdkafka-dev
+          fi
+
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version-file: './${{ matrix.module }}/go.mod'
           cache-dependency-path: './${{ matrix.module }}/go.mod'
+
       - name: Build binary
         working-directory: ${{ matrix.module }}
-        run: make build
+        run: make build-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
         env:
           GOOS: ${{ matrix.platform.os }}
           GOARCH: ${{ matrix.platform.arch }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
