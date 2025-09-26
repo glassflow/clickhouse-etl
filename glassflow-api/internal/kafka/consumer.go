@@ -119,13 +119,13 @@ func buildConfluentConfig(conn models.KafkaConnectionParamsConfig, topic models.
 func configureSecurity(config cKafka.ConfigMap, conn models.KafkaConnectionParamsConfig) {
 	switch {
 	case conn.SASLUsername != "":
-		config["security.protocol"] = "SASL_SSL"
+		config["security.protocol"] = conn.SASLProtocol
 		config["sasl.mechanism"] = mapSASLMechanism(conn.SASLMechanism)
 		config["sasl.username"] = conn.SASLUsername
 		config["sasl.password"] = conn.SASLPassword
 
 		if conn.SkipAuth {
-			config["ssl.certificate.verification"] = "none"
+			config["enable.ssl.certificate.verification"] = false
 		}
 	case conn.IAMEnable && conn.IAMRegion != "":
 		// AWS MSK IAM
