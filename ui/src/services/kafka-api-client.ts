@@ -80,6 +80,10 @@ export class KafkaApiClient {
         headers.kerberosKeytab = kafka.saslGssapi.kerberosKeytab
         headers.kerberosRealm = kafka.saslGssapi.kerberosRealm
         headers.kdc = kafka.saslGssapi.kdc
+        headers.serviceName = kafka.saslGssapi.serviceName
+        headers.krb5Config = kafka.saslGssapi.krb5Config
+        headers.useTicketCache = kafka.saslGssapi.useTicketCache
+        headers.ticketCachePath = kafka.saslGssapi.ticketCachePath
         break
 
       case 'SASL/OAUTHBEARER':

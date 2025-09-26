@@ -134,6 +134,12 @@ export const initialKafkaStore: KafkaStoreProps = {
   saslGssapi: {
     kerberosPrincipal: '',
     kerberosKeytab: '',
+    serviceName: '',
+    kerberosRealm: '',
+    kdc: '',
+    krb5Config: '',
+    useTicketCache: false,
+    ticketCachePath: '',
   },
   saslOauthbearer: {
     oauthBearerToken: '',

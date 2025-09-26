@@ -29,6 +29,10 @@ const SaslGssapiFormSchema = z.object({
   kerberosKeytab: z.string().min(1, 'Kerberos keytab is required'),
   kerberosRealm: z.optional(z.string().min(1, 'Kerberos realm is optional')),
   kdc: z.optional(z.string().min(1, 'Kerberos KDC is optional')),
+  serviceName: z.optional(z.string()),
+  krb5Config: z.optional(z.string()),
+  useTicketCache: z.optional(z.boolean()),
+  ticketCachePath: z.optional(z.string()),
 })
 
 const SaslOauthbearerFormSchema = z.object({
