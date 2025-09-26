@@ -19,7 +19,7 @@ import { hydrateKafkaTopics } from '@/src/store/hydration/topics'
 import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
-import { startPauseStatusPolling } from '../utils/progressiveStatusPolling'
+import { usePipelineOperations } from '@/src/hooks/usePipelineState'
 import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline } from '@/src/api/pipeline-api'
@@ -41,6 +41,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
+  const operations = usePipelineOperations()
 
   // Get validation states from stores to display in the UI - these are used to disable the UI when the pipeline is not valid
   const kafkaValidation = useStore((state) => state.kafkaStore.validation)
@@ -108,14 +109,16 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }, []) // Run once on mount
 
-  // Handle action completion - use progressive polling for pause operations
+  // Handle action completion - use centralized system for status tracking
   useEffect(() => {
     if (!actionState.isLoading && actionState.lastAction) {
       if (actionState.lastAction === 'pause') {
-        // For pause operations, start progressive polling instead of single refresh
-        const pollingController = startPauseStatusPolling(pipeline.pipeline_id, refreshPipelineData, () => {
-          console.log('Pause polling timed out - pipeline may still be processing messages')
-        })
+        // For pause operations, report to centralized system
+        operations.reportPause(pipeline.pipeline_id)
+      } else if (actionState.lastAction === 'resume') {
+        operations.reportResume(pipeline.pipeline_id)
+      } else if (actionState.lastAction === 'stop') {
+        operations.reportStop(pipeline.pipeline_id)
       } else {
         // For other actions, use the regular refresh with delay
         const timer = setTimeout(() => {
@@ -125,7 +128,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         return () => clearTimeout(timer)
       }
     }
-  }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id, refreshPipelineData])
+  }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id, refreshPipelineData, operations])
 
   // set active step so that the standalone step renderer can be rendered
   const handleStepClick = (step: StepKeys) => {

@@ -28,19 +28,19 @@ export const getPipelineStatusFromState = (state: string): PipelineStatus => {
     case 'resuming':
       return 'pausing' // Map resuming to pausing (transitional state)
     case 'stopped':
-    case 'terminated':
+    case 'terminated': // Legacy support
     case 'deleted': // Legacy support
       return 'stopped' // Both graceful and ungraceful stops result in 'stopped'
     case 'stopping':
-    case 'terminating':
+    case 'terminating': // Legacy support
     case 'deleting': // Legacy support
       return 'stopping' // All stop operations show as 'stopping' during transition
     case 'failed':
     case 'error':
-    case 'deploy_failed':
-    case 'delete_failed':
+    case 'deploy_failed': // Legacy support
+    case 'delete_failed': // Legacy support
       return 'failed' // All error states map to 'failed'
-    case 'deploying':
+    case 'deploying': // Legacy support
     case 'no_configuration':
       return 'active' // Treat as active to allow configuration
     default:
