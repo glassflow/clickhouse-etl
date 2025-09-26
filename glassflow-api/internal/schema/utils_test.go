@@ -131,7 +131,8 @@ func TestParseFloat32(t *testing.T) {
 		{
 			name:        "Nil value",
 			input:       nil,
-			expectError: true,
+			expected:    0,
+			expectError: false,
 		},
 	}
 
@@ -200,7 +201,8 @@ func TestParseFloat64(t *testing.T) {
 		{
 			name:        "Nil value",
 			input:       nil,
-			expectError: true,
+			expected:    0,
+			expectError: false,
 		},
 	}
 
@@ -309,7 +311,8 @@ func TestParseString(t *testing.T) {
 		{
 			name:        "Nil value",
 			input:       nil,
-			expectError: true,
+			expected:    "",
+			expectError: false,
 		},
 	}
 
@@ -366,7 +369,8 @@ func TestParseBool(t *testing.T) {
 		{
 			name:        "Nil value",
 			input:       nil,
-			expectError: true,
+			expected:    false,
+			expectError: false,
 		},
 	}
 
@@ -618,6 +622,12 @@ func TestParseInt32(t *testing.T) {
 			name:        "Float too large",
 			input:       float64(2147483648),
 			expectError: true,
+		},
+		{
+			name:        "Nil value",
+			input:       nil,
+			expected:    0,
+			expectError: false,
 		},
 	}
 
