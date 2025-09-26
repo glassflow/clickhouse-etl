@@ -22,7 +22,9 @@ import RenameIcon from '@/src/images/rename.svg'
 import DeleteIcon from '@/src/images/trash.svg'
 import StopIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
+import ShutdownIcon from '@/src/images/shutdown.svg'
 import { PipelineStatus, getPipelineStatusFromState } from '@/src/types/pipeline'
+import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -36,6 +38,20 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   const [copied, setCopied] = useState(false)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
 
+  // Get centralized pipeline status and operations
+  const centralizedStatus = usePipelineState(pipeline.pipeline_id)
+  const operations = usePipelineOperations()
+
+  // Start monitoring this pipeline for status updates from other tabs
+  usePipelineMonitoring([pipeline.pipeline_id])
+
+  // Use centralized status if available, otherwise fall back to pipeline prop
+  const effectiveStatus = centralizedStatus || (pipeline.status as PipelineStatus) || 'active'
+
+  // Disable health monitoring during transitional states to avoid conflicts with centralized tracking
+  const isInTransitionalState =
+    effectiveStatus === 'pausing' || effectiveStatus === 'stopping' || effectiveStatus === 'resuming'
+
   // Use simplified pipeline health monitoring
   const {
     health,
@@ -43,7 +59,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     error: healthError,
   } = usePipelineHealth({
     pipelineId: pipeline.pipeline_id,
-    enabled: true,
+    enabled: !isInTransitionalState, // Disable during transitional states
     pollingInterval: 5000, // 5 seconds - conservative interval
     stopOnStatuses: ['Running', 'Terminated', 'Failed'], // Stop on stable states
     maxRetries: 2,
@@ -55,6 +71,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     },
   })
 
+  // Create a pipeline object with effective status for action configuration
+  const pipelineWithEffectiveStatus = {
+    ...pipeline,
+    status: effectiveStatus as Pipeline['status'],
+  }
+
   const {
     actionState,
     executeAction,
@@ -63,7 +85,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     isActionDisabled,
     shouldShowModal,
     clearError,
-  } = usePipelineActions(pipeline)
+  } = usePipelineActions(pipelineWithEffectiveStatus)
 
   const handleActionClick = async (action: PipelineAction) => {
     const config = getActionConfiguration(action)
@@ -77,21 +99,14 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     } else {
       // Execute action directly (like resume)
       try {
-        // Optimistic status update for immediate UI feedback
-        if (action === 'pause' && onPipelineUpdate) {
-          const updatedPipeline = {
-            ...pipeline,
-            status: 'pausing' as Pipeline['status'],
-          }
-          onPipelineUpdate(updatedPipeline)
-        } else if (action === 'resume' && onPipelineUpdate) {
-          const updatedPipeline = {
-            ...pipeline,
-            status: 'resuming' as Pipeline['status'],
-          }
-          onPipelineUpdate(updatedPipeline)
+        // NEW: Report operations to centralized system for status tracking
+        if (action === 'pause') {
+          operations.reportPause(pipeline.pipeline_id)
+        } else if (action === 'resume') {
+          operations.reportResume(pipeline.pipeline_id)
         } else if (action === 'delete') {
-          // For delete action, handle navigation in the parent component
+          operations.reportDelete(pipeline.pipeline_id)
+          // Handle navigation in the parent component
           onPipelineDeleted?.()
         }
 
@@ -99,39 +114,19 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
 
         if (result && onPipelineUpdate) {
           onPipelineUpdate(result as Pipeline)
-        } else if (action === 'pause' && onPipelineUpdate) {
-          // For pause action, update status to paused after successful API call
-
-          recentActionRef.current = { action: 'pause', timestamp: Date.now() }
-          const updatedPipeline = {
-            ...pipeline,
-            status: 'paused' as Pipeline['status'],
-          }
-          onPipelineUpdate(updatedPipeline)
-        } else if (action === 'resume' && onPipelineUpdate) {
-          // For resume action, update status to active after successful API call
-
-          recentActionRef.current = { action: 'resume', timestamp: Date.now() }
-          const updatedPipeline = {
-            ...pipeline,
-            status: 'active' as Pipeline['status'],
-          }
-          onPipelineUpdate(updatedPipeline)
         }
+
+        // Mark recent action for health monitoring coordination
+        recentActionRef.current = { action, timestamp: Date.now() }
       } catch (error) {
-        // Revert optimistic update on error
-        if (action === 'pause' && onPipelineUpdate) {
-          const revertedPipeline = {
-            ...pipeline,
-            status: 'active' as Pipeline['status'],
-          }
-          onPipelineUpdate(revertedPipeline)
-        } else if (action === 'resume' && onPipelineUpdate) {
-          const revertedPipeline = {
-            ...pipeline,
-            status: 'paused' as Pipeline['status'],
-          }
-          onPipelineUpdate(revertedPipeline)
+        // NEW: Revert optimistic updates using centralized system
+        if (action === 'pause') {
+          operations.revertOptimisticUpdate(pipeline.pipeline_id, 'active')
+        } else if (action === 'resume') {
+          operations.revertOptimisticUpdate(pipeline.pipeline_id, 'paused')
+        } else if (action === 'delete') {
+          const currentStatus = (pipeline.status as PipelineStatus) || 'active'
+          operations.revertOptimisticUpdate(pipeline.pipeline_id, currentStatus)
         }
       }
     }
@@ -139,67 +134,46 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
 
   const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
     try {
-      // Optimistic status update for immediate UI feedback BEFORE closing modal
-      if (action === 'pause' && onPipelineUpdate) {
-        const updatedPipeline = {
-          ...pipeline,
-          status: 'pausing' as Pipeline['status'],
-        }
-        onPipelineUpdate(updatedPipeline)
+      // NEW: Report operations to centralized system for status tracking
+      if (action === 'pause') {
+        operations.reportPause(pipeline.pipeline_id)
+      } else if (action === 'resume') {
+        operations.reportResume(pipeline.pipeline_id)
+      } else if (action === 'stop') {
+        operations.reportStop(pipeline.pipeline_id)
+      } else if (action === 'delete') {
+        operations.reportDelete(pipeline.pipeline_id)
       }
 
-      // Close modal after optimistic update
+      // Close modal after reporting operation
       setActiveModal(null)
 
       const result = await executeAction(action, payload)
 
       if (action === 'delete') {
         onPipelineDeleted?.()
-      } else if (action === 'stop' && onPipelineUpdate) {
-        // For stop action, always result in 'stopped' status (both graceful and ungraceful)
-        recentActionRef.current = { action: 'stop', timestamp: Date.now() }
-        const updatedPipeline = {
-          ...pipeline,
-          status: 'stopped' as Pipeline['status'],
-        }
-        onPipelineUpdate(updatedPipeline)
       } else if (result && onPipelineUpdate) {
         onPipelineUpdate(result as Pipeline)
       } else if (action === 'rename' && onPipelineUpdate) {
-        // For rename action, if no result is returned, create updated pipeline object manually
-        // This ensures the UI is updated immediately with the new name
+        // For rename action, update pipeline name
         const updatedPipeline = {
           ...pipeline,
           name: payload?.name || pipeline.name,
         }
         onPipelineUpdate(updatedPipeline)
-      } else if (action === 'pause' && onPipelineUpdate) {
-        // For pause action, update status to paused after successful API call
-
-        recentActionRef.current = { action: 'pause', timestamp: Date.now() }
-        const updatedPipeline = {
-          ...pipeline,
-          status: 'paused' as Pipeline['status'],
-        }
-        onPipelineUpdate(updatedPipeline)
-      } else if (action === 'resume' && onPipelineUpdate) {
-        // For resume action, update status to active after successful API call
-
-        recentActionRef.current = { action: 'resume', timestamp: Date.now() }
-        const updatedPipeline = {
-          ...pipeline,
-          status: 'active' as Pipeline['status'],
-        }
-        onPipelineUpdate(updatedPipeline)
       }
+
+      // Mark recent action for health monitoring coordination
+      recentActionRef.current = { action, timestamp: Date.now() }
     } catch (error) {
-      // Revert optimistic update on error
-      if (action === 'pause' && onPipelineUpdate) {
-        const revertedPipeline = {
-          ...pipeline,
-          status: 'active' as Pipeline['status'],
-        }
-        onPipelineUpdate(revertedPipeline)
+      // NEW: Revert optimistic updates using centralized system
+      if (action === 'pause') {
+        operations.revertOptimisticUpdate(pipeline.pipeline_id, 'active')
+      } else if (action === 'resume') {
+        operations.revertOptimisticUpdate(pipeline.pipeline_id, 'paused')
+      } else if (action === 'stop') {
+        const currentStatus = (pipeline.status as PipelineStatus) || 'active'
+        operations.revertOptimisticUpdate(pipeline.pipeline_id, currentStatus)
       }
       // Error will be shown in the header via actionState.error
     }
@@ -234,18 +208,15 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getStatusVariant = (status: string) => {
-    // Always prioritize pipeline status over health data for immediate UI updates
-    let effectiveStatus = status
+    // NEW: Use centralized status as primary source, with health data as fallback
+    let displayStatus = effectiveStatus
 
-    // Only use health data if pipeline status is clearly outdated or missing
+    // Only use health data if centralized status is not available and pipeline status is generic
     const recentAction = recentActionRef.current
     const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 5000 // 5 seconds
 
-    // Use health data only if:
-    // 1. No active loading state
-    // 2. No recent action in the last 5 seconds
-    // 3. Pipeline status is generic/default
     if (
+      !centralizedStatus && // No centralized status available
       health?.overall_status &&
       !actionState.isLoading &&
       !isRecentAction &&
@@ -253,18 +224,19 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     ) {
       // Convert backend health status to UI status using the mapping function
       const healthStatus = getPipelineStatusFromState(health.overall_status)
-      // Only override if health status is different and more specific
       if (healthStatus !== 'active' || status === 'no_configuration') {
-        effectiveStatus = healthStatus
+        displayStatus = healthStatus
       }
     }
 
-    switch (effectiveStatus) {
+    switch (displayStatus) {
       case 'active':
         return 'success'
       case 'paused':
         return 'warning'
       case 'pausing':
+        return 'warning'
+      case 'resuming':
         return 'warning'
       case 'stopping':
         return 'warning'
@@ -278,20 +250,15 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getBadgeLabel = (status: PipelineStatus | string) => {
-    // Always prioritize pipeline status over health data for immediate UI updates
-    // Health data is used only when pipeline status is not available or outdated
-    let effectiveStatus = status
+    // NEW: Use centralized status as primary source, with health data as fallback
+    let displayStatus = effectiveStatus
 
-    // Only use health data if pipeline status is clearly outdated or missing
-    // and there's no active action or recent action
+    // Only use health data if centralized status is not available and pipeline status is generic
     const recentAction = recentActionRef.current
     const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 5000 // 5 seconds
 
-    // Use health data only if:
-    // 1. No active loading state
-    // 2. No recent action in the last 5 seconds
-    // 3. Pipeline status is generic/default
     if (
+      !centralizedStatus && // No centralized status available
       health?.overall_status &&
       !actionState.isLoading &&
       !isRecentAction &&
@@ -299,19 +266,20 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     ) {
       // Convert backend health status to UI status using the mapping function
       const healthStatus = getPipelineStatusFromState(health.overall_status)
-      // Only override if health status is different and more specific
       if (healthStatus !== 'active' || status === 'no_configuration') {
-        effectiveStatus = healthStatus
+        displayStatus = healthStatus
       }
     }
 
-    switch (effectiveStatus) {
+    switch (displayStatus) {
       case 'active':
         return 'Active'
       case 'pausing':
         return 'Pausing...'
       case 'paused':
         return 'Paused'
+      case 'resuming':
+        return 'Resuming...'
       case 'stopping':
         return 'Stopping...'
       case 'stopped':
@@ -374,7 +342,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
             )}
             {action === 'stop' && (
               <Image
-                src={StopIcon}
+                src={ShutdownIcon}
                 alt="Stop"
                 width={16}
                 height={16}
@@ -407,18 +375,22 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const getActionButtons = () => {
-    // Show resume button if paused or resuming, pause button if active or pausing
-    const showPause = pipeline.status === 'active' || pipeline.status === 'pausing'
-    const showResume = pipeline.status === 'paused'
+    // Use effective status (centralized status takes priority)
+    const showPause = effectiveStatus === 'active' || effectiveStatus === 'pausing'
+    const showResume = effectiveStatus === 'paused' || effectiveStatus === 'resuming'
 
     // Show stop button for active/paused pipelines, delete for terminated/stopped pipelines
-    const showStop = pipeline.status === 'active' || pipeline.status === 'paused'
-    const showDelete = pipeline.status === 'stopped'
+    const showStop = effectiveStatus === 'active' || effectiveStatus === 'paused'
+    const showDelete = effectiveStatus === 'stopped'
+
+    // Check if rename should be shown (not disabled)
+    const renameConfig = getActionConfiguration('rename')
+    const showRename = !renameConfig.isDisabled
 
     return (
       <>
         {showResume && renderActionButton('resume')}
-        {renderActionButton('rename')}
+        {showRename && renderActionButton('rename')}
         {showStop && renderActionButton('stop')}
         {showDelete && renderActionButton('delete')}
         {showPause && renderActionButton('pause')}
@@ -448,10 +420,8 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                 </div>
               )}
               <h2 className="text-2xl font-bold">{pipeline.name}</h2>
-              <Badge variant={getStatusVariant(pipeline.status || 'no_configuration')} className="rounded-xl my-2 mx-4">
-                {healthLoading
-                  ? 'Checking...'
-                  : getBadgeLabel((pipeline.status || 'no_configuration') as PipelineStatus)}
+              <Badge variant={getStatusVariant(effectiveStatus)} className="rounded-xl my-2 mx-4">
+                {healthLoading && !centralizedStatus ? 'Checking...' : getBadgeLabel(effectiveStatus)}
               </Badge>
               {/* Debug info */}
               {/* <div className="text-xs text-gray-500">
