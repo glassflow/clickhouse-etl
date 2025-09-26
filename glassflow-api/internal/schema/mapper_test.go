@@ -857,3 +857,420 @@ func TestWholeArrayMapping(t *testing.T) {
 		assert.Equal(t, "laptops", arrayVal[2])
 	})
 }
+
+func TestArrayElementExtraction(t *testing.T) {
+	streamsConfig := map[string]models.StreamSchemaConfig{
+		"stream1": {
+			Fields: []models.StreamDataField{
+				{FieldName: "tags", FieldType: "array"},
+				{FieldName: "user", FieldType: "string"},
+				{FieldName: "addresses", FieldType: "array"},
+			},
+			JoinKeyField: "user",
+		},
+	}
+
+	sinkMappingConfig := []models.SinkMappingConfig{
+		{ColumnName: "primary_tag", StreamName: "stream1", FieldName: "tags[0]", ColumnType: "String"},
+		{ColumnName: "secondary_tag", StreamName: "stream1", FieldName: "tags[1]", ColumnType: "String"},
+		{ColumnName: "third_tag", StreamName: "stream1", FieldName: "tags[2]", ColumnType: "String"},
+		{ColumnName: "all_tags", StreamName: "stream1", FieldName: "tags", ColumnType: "Array(String)"},
+		{ColumnName: "primary_address", StreamName: "stream1", FieldName: "addresses[0]", ColumnType: "String"},
+		{ColumnName: "secondary_address", StreamName: "stream1", FieldName: "addresses[1]", ColumnType: "String"},
+	}
+
+	mCfg := models.MapperConfig{
+		Type:        internal.SchemaMapperJSONToCHType,
+		Streams:     streamsConfig,
+		SinkMapping: sinkMappingConfig,
+	}
+
+	mapper, err := NewMapper(mCfg)
+	require.NoError(t, err)
+
+	t.Run("extract individual array elements", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": "john_doe",
+			"tags": ["urgent", "important", "follow-up"],
+			"addresses": ["123 Main St", "456 Oak Ave"]
+		}`)
+
+		values, err := mapper.PrepareValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 6)
+
+		// Check individual array elements
+		assert.Equal(t, "urgent", values[0])      // primary_tag
+		assert.Equal(t, "important", values[1])   // secondary_tag
+		assert.Equal(t, "follow-up", values[2])   // third_tag
+		assert.Equal(t, "123 Main St", values[4]) // primary_address
+		assert.Equal(t, "456 Oak Ave", values[5]) // secondary_address
+
+		// Check full array
+		arrayVal, ok := values[3].([]any)
+		if !ok {
+			arrayValIface, okIface := values[3].([]interface{})
+			if !okIface {
+				t.Fatalf("expected []any or []interface{} for array value, got %T", values[3])
+			}
+			arrayVal = arrayValIface
+		}
+		assert.Equal(t, 3, len(arrayVal))
+		assert.Equal(t, "urgent", arrayVal[0])
+		assert.Equal(t, "important", arrayVal[1])
+		assert.Equal(t, "follow-up", arrayVal[2])
+	})
+
+	t.Run("handle out of bounds array access", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": "john_doe",
+			"tags": ["urgent", "important"]
+		}`)
+
+		_, err := mapper.PrepareValues(jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "array index out of bounds")
+	})
+
+	t.Run("handle missing array field", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": "john_doe"
+		}`)
+
+		_, err := mapper.PrepareValues(jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "array index out of bounds")
+	})
+
+	t.Run("handle empty array", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": "john_doe",
+			"tags": []
+		}`)
+
+		_, err := mapper.PrepareValues(jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "array index out of bounds")
+	})
+}
+
+func TestNestedArrayElementExtraction(t *testing.T) {
+	streamsConfig := map[string]models.StreamSchemaConfig{
+		"stream1": {
+			Fields: []models.StreamDataField{
+				{FieldName: "user", FieldType: "string"},
+				{FieldName: "profile", FieldType: "string"},
+			},
+			JoinKeyField: "user",
+		},
+	}
+
+	sinkMappingConfig := []models.SinkMappingConfig{
+		{ColumnName: "user_name", StreamName: "stream1", FieldName: "user", ColumnType: "String"},
+		{ColumnName: "first_skill", StreamName: "stream1", FieldName: "profile.skills[0]", ColumnType: "String"},
+		{ColumnName: "second_skill", StreamName: "stream1", FieldName: "profile.skills[1]", ColumnType: "String"},
+		{ColumnName: "first_hobby", StreamName: "stream1", FieldName: "profile.hobbies[0]", ColumnType: "String"},
+	}
+
+	mCfg := models.MapperConfig{
+		Type:        internal.SchemaMapperJSONToCHType,
+		Streams:     streamsConfig,
+		SinkMapping: sinkMappingConfig,
+	}
+
+	mapper, err := NewMapper(mCfg)
+	require.NoError(t, err)
+
+	t.Run("extract from nested arrays", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": "john_doe",
+			"profile": {
+				"skills": ["Go", "Python", "JavaScript"],
+				"hobbies": ["reading", "gaming"]
+			}
+		}`)
+
+		values, err := mapper.PrepareValues(jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 4)
+
+		assert.Equal(t, "john_doe", values[0]) // user_name
+		assert.Equal(t, "Go", values[1])       // first_skill
+		assert.Equal(t, "Python", values[2])   // second_skill
+		assert.Equal(t, "reading", values[3])  // first_hobby
+	})
+
+	t.Run("handle missing nested array", func(t *testing.T) {
+		jsonData := []byte(`{
+			"user": "john_doe",
+			"profile": {
+				"skills": ["Go"]
+			}
+		}`)
+
+		_, err := mapper.PrepareValues(jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "array index out of bounds")
+	})
+}
+
+func TestArrayIndexingEdgeCases(t *testing.T) {
+	streamsConfig := map[string]models.StreamSchemaConfig{
+		"stream1": {
+			Fields: []models.StreamDataField{
+				{FieldName: "data", FieldType: "array"},
+			},
+			JoinKeyField: "data",
+		},
+	}
+
+	t.Run("invalid array index syntax", func(t *testing.T) {
+		// Test that invalid syntax is caught during data processing, not mapper creation
+		sinkMappingConfig := []models.SinkMappingConfig{
+			{ColumnName: "invalid", StreamName: "stream1", FieldName: "data[abc]", ColumnType: "String"},
+		}
+
+		mCfg := models.MapperConfig{
+			Type:        internal.SchemaMapperJSONToCHType,
+			Streams:     streamsConfig,
+			SinkMapping: sinkMappingConfig,
+		}
+
+		mapper, err := NewMapper(mCfg)
+		require.NoError(t, err) // Mapper creation should succeed
+
+		// The error should occur during data processing
+		jsonData := []byte(`{"data": ["a", "b", "c"]}`)
+		_, err = mapper.PrepareValues(jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "array index out of bounds")
+	})
+
+	t.Run("missing closing bracket", func(t *testing.T) {
+		// Test that invalid syntax is caught during data processing, not mapper creation
+		sinkMappingConfig := []models.SinkMappingConfig{
+			{ColumnName: "invalid", StreamName: "stream1", FieldName: "data[0", ColumnType: "String"},
+		}
+
+		mCfg := models.MapperConfig{
+			Type:        internal.SchemaMapperJSONToCHType,
+			Streams:     streamsConfig,
+			SinkMapping: sinkMappingConfig,
+		}
+
+		mapper, err := NewMapper(mCfg)
+		require.NoError(t, err) // Mapper creation should succeed
+
+		// The error should occur during data processing
+		jsonData := []byte(`{"data": ["a", "b", "c"]}`)
+		_, err = mapper.PrepareValues(jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "array index out of bounds")
+	})
+
+	t.Run("negative array index", func(t *testing.T) {
+		sinkMappingConfig := []models.SinkMappingConfig{
+			{ColumnName: "invalid", StreamName: "stream1", FieldName: "data[-1]", ColumnType: "String"},
+		}
+
+		mCfg := models.MapperConfig{
+			Type:        internal.SchemaMapperJSONToCHType,
+			Streams:     streamsConfig,
+			SinkMapping: sinkMappingConfig,
+		}
+
+		mapper, err := NewMapper(mCfg)
+		require.NoError(t, err)
+
+		jsonData := []byte(`{"data": ["a", "b", "c"]}`)
+		_, err = mapper.PrepareValues(jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "array index out of bounds")
+	})
+}
+
+func TestParsePathWithArrayIndex(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected []PathPart
+		valid    bool
+	}{
+		{
+			name:     "simple field",
+			path:     "field",
+			expected: []PathPart{{Name: "field"}},
+			valid:    true,
+		},
+		{
+			name:     "nested field",
+			path:     "user.name",
+			expected: []PathPart{{Name: "user"}, {Name: "name"}},
+			valid:    true,
+		},
+		{
+			name:     "array element",
+			path:     "tags[0]",
+			expected: []PathPart{{Name: "tags"}, {Index: 0, IsArrayIndex: true}},
+			valid:    true,
+		},
+		{
+			name:     "nested array element",
+			path:     "user.addresses[1]",
+			expected: []PathPart{{Name: "user"}, {Name: "addresses"}, {Index: 1, IsArrayIndex: true}},
+			valid:    true,
+		},
+		{
+			name:     "multiple array elements",
+			path:     "data[0][1]",
+			expected: []PathPart{{Name: "data"}, {Index: 0, IsArrayIndex: true}, {Index: 1, IsArrayIndex: true}},
+			valid:    true,
+		},
+		{
+			name:     "empty path",
+			path:     "",
+			expected: nil,
+			valid:    false,
+		},
+		{
+			name:     "invalid syntax - missing closing bracket",
+			path:     "tags[0",
+			expected: nil,
+			valid:    false,
+		},
+		{
+			name:     "invalid syntax - non-numeric index",
+			path:     "tags[abc]",
+			expected: nil,
+			valid:    false,
+		},
+		{
+			name:     "invalid syntax - empty index",
+			path:     "tags[]",
+			expected: nil,
+			valid:    false,
+		},
+		{
+			name:     "invalid syntax - negative index",
+			path:     "tags[-1]",
+			expected: []PathPart{{Name: "tags"}, {Index: -1, IsArrayIndex: true}},
+			valid:    true, // Parsing succeeds, but validation happens later
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parsePathWithArrayIndex(tt.path)
+			if tt.valid {
+				require.NotNil(t, result)
+				assert.Equal(t, tt.expected, result)
+			} else {
+				assert.Nil(t, result)
+			}
+		})
+	}
+}
+
+func TestGetNestedValueWithArrayIndex(t *testing.T) {
+	data := map[string]any{
+		"user": map[string]any{
+			"name": "john",
+			"addresses": []any{
+				"123 Main St",
+				"456 Oak Ave",
+			},
+		},
+		"tags":   []any{"urgent", "important", "follow-up"},
+		"simple": "value",
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		expected any
+		exists   bool
+	}{
+		{
+			name:     "simple field",
+			path:     "simple",
+			expected: "value",
+			exists:   true,
+		},
+		{
+			name:     "nested field",
+			path:     "user.name",
+			expected: "john",
+			exists:   true,
+		},
+		{
+			name:     "array element",
+			path:     "tags[0]",
+			expected: "urgent",
+			exists:   true,
+		},
+		{
+			name:     "array element second",
+			path:     "tags[1]",
+			expected: "important",
+			exists:   true,
+		},
+		{
+			name:     "nested array element",
+			path:     "user.addresses[0]",
+			expected: "123 Main St",
+			exists:   true,
+		},
+		{
+			name:     "nested array element second",
+			path:     "user.addresses[1]",
+			expected: "456 Oak Ave",
+			exists:   true,
+		},
+		{
+			name:     "out of bounds array access",
+			path:     "tags[5]",
+			expected: nil,
+			exists:   false,
+		},
+		{
+			name:     "negative array index",
+			path:     "tags[-1]",
+			expected: nil,
+			exists:   false,
+		},
+		{
+			name:     "non-existent field",
+			path:     "nonexistent",
+			expected: nil,
+			exists:   false,
+		},
+		{
+			name:     "non-existent nested field",
+			path:     "user.nonexistent",
+			expected: nil,
+			exists:   false,
+		},
+		{
+			name:     "array access on non-array",
+			path:     "simple[0]",
+			expected: nil,
+			exists:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parts := parsePathWithArrayIndex(tt.path)
+			if parts == nil {
+				assert.False(t, tt.exists)
+				return
+			}
+
+			result, exists := getNestedValueWithArrayIndex(data, parts)
+			assert.Equal(t, tt.exists, exists)
+			if tt.exists {
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}

@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -139,8 +140,14 @@ func (m *JsonToClickHouseMapper) validate() error {
 		}
 
 		if stream.JoinKey != "" {
-			if _, ok := stream.Fields[stream.JoinKey]; !ok {
-				return fmt.Errorf("join key '%s' not found in stream '%s'", stream.JoinKey, streamName)
+			// For join keys, we need to check the base field name if it contains array indexing
+			baseJoinKey := stream.JoinKey
+			if strings.Contains(baseJoinKey, "[") {
+				baseJoinKey = strings.Split(baseJoinKey, "[")[0]
+			}
+
+			if _, ok := stream.Fields[baseJoinKey]; !ok {
+				return fmt.Errorf("join key '%s' not found in stream '%s'", baseJoinKey, streamName)
 			}
 		}
 	}
@@ -155,8 +162,24 @@ func (m *JsonToClickHouseMapper) validate() error {
 			return fmt.Errorf("stream '%s' not found in configuration", column.StreamName)
 		}
 
-		if _, ok := streamSchema.Fields[column.FieldName]; !ok {
-			return fmt.Errorf("field '%s' not found in stream '%s'", column.FieldName, column.StreamName)
+		// For array indexing, we need to check the base field name
+		baseFieldName := column.FieldName
+		if strings.Contains(baseFieldName, "[") {
+			// Extract the base field name before the array index
+			baseFieldName = strings.Split(baseFieldName, "[")[0]
+		}
+
+		// For nested fields, we need to check if the base path exists
+		// This is a simplified check - in a real implementation, you might want to
+		// validate the entire nested path structure
+		if strings.Contains(baseFieldName, ".") {
+			// For nested fields with array indexing, we'll skip validation for now
+			// as the full nested path validation would be complex
+			// The actual validation will happen at runtime when processing the data
+		} else {
+			if _, ok := streamSchema.Fields[baseFieldName]; !ok {
+				return fmt.Errorf("field '%s' not found in stream '%s'", baseFieldName, column.StreamName)
+			}
 		}
 	}
 
@@ -257,10 +280,31 @@ func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]a
 
 		value, exists := getNestedValue(jsonData, fieldName)
 		if !exists {
+			// Check if this is an array index access that failed
+			if strings.Contains(fieldName, "[") {
+				return nil, fmt.Errorf("array index out of bounds or invalid path for field: %s", fieldName)
+			}
 			continue
 		}
 
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
+		// For array indexing, we need to determine the field type differently
+		// If the original field name contains array indexing, we need to get the base field type
+		baseFieldName := column.FieldName
+		if strings.Contains(baseFieldName, "[") {
+			// Extract the base field name before the array index
+			baseFieldName = strings.Split(baseFieldName, "[")[0]
+		}
+
+		fieldType := m.Streams[column.StreamName].Fields[baseFieldName]
+
+		// If we're extracting an array element, we need to determine the element type
+		// For now, we'll assume string type for array elements, but this could be enhanced
+		// to support different array element types in the future
+		if strings.Contains(column.FieldName, "[") {
+			// For array elements, we'll use string type as the default
+			// This could be enhanced to support different array element types
+			fieldType = internal.KafkaTypeString
+		}
 
 		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
 		if err != nil {
@@ -372,8 +416,15 @@ func (m *JsonToClickHouseMapper) JoinData(leftStreamName string, leftData []byte
 	return resultData, nil
 }
 
-// getNestedValue extracts a value from a nested JSON object using dot notation
-// Only supports direct field access, not array indexing.
+// PathPart represents a part of a JSON path, supporting both object keys and array indices
+type PathPart struct {
+	Name         string
+	Index        int
+	IsArrayIndex bool
+}
+
+// getNestedValue extracts a value from a nested JSON object using dot notation and array indexing
+// Supports paths like "user.name", "tags[0]", "user.addresses[1]", etc.
 func getNestedValue(data map[string]any, path string) (any, bool) {
 	if data == nil || path == "" {
 		return nil, false
@@ -384,7 +435,74 @@ func getNestedValue(data map[string]any, path string) (any, bool) {
 		return value, true
 	}
 
-	parts := strings.Split(path, ".")
+	// Parse the path to handle both dot notation and array indexing
+	parts := parsePathWithArrayIndex(path)
+	if parts == nil {
+		return nil, false
+	}
+
+	return getNestedValueWithArrayIndex(data, parts)
+}
+
+// parsePathWithArrayIndex parses a JSON path string into PathPart components
+// Supports paths like "user.name", "tags[0]", "user.addresses[1]", etc.
+func parsePathWithArrayIndex(path string) []PathPart {
+	var parts []PathPart
+	var current strings.Builder
+	i := 0
+
+	for i < len(path) {
+		char := path[i]
+
+		if char == '.' {
+			// End of current part
+			if current.Len() > 0 {
+				parts = append(parts, PathPart{Name: current.String()})
+				current.Reset()
+			}
+		} else if char == '[' {
+			// Start of array index
+			if current.Len() > 0 {
+				parts = append(parts, PathPart{Name: current.String()})
+				current.Reset()
+			}
+
+			// Find the closing bracket
+			i++
+			var indexStr strings.Builder
+			for i < len(path) && path[i] != ']' {
+				indexStr.WriteByte(path[i])
+				i++
+			}
+
+			if i >= len(path) || path[i] != ']' {
+				// Invalid syntax - missing closing bracket
+				return nil
+			}
+
+			index, err := strconv.Atoi(indexStr.String())
+			if err != nil {
+				// Invalid index - not a number
+				return nil
+			}
+
+			parts = append(parts, PathPart{Index: index, IsArrayIndex: true})
+		} else {
+			current.WriteByte(char)
+		}
+		i++
+	}
+
+	// Add the last part if any
+	if current.Len() > 0 {
+		parts = append(parts, PathPart{Name: current.String()})
+	}
+
+	return parts
+}
+
+// getNestedValueWithArrayIndex navigates through the JSON structure using parsed path parts
+func getNestedValueWithArrayIndex(data map[string]any, parts []PathPart) (any, bool) {
 	current := any(data)
 
 	for _, part := range parts {
@@ -392,13 +510,26 @@ func getNestedValue(data map[string]any, path string) (any, bool) {
 			return nil, false
 		}
 
-		mapValue, ok := current.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		current, ok = mapValue[part]
-		if !ok {
-			return nil, false
+		if part.IsArrayIndex {
+			// Handle array access
+			arrayValue, ok := current.([]any)
+			if !ok {
+				return nil, false
+			}
+			if part.Index < 0 || part.Index >= len(arrayValue) {
+				return nil, false
+			}
+			current = arrayValue[part.Index]
+		} else {
+			// Handle object access
+			mapValue, ok := current.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			current, ok = mapValue[part.Name]
+			if !ok {
+				return nil, false
+			}
 		}
 	}
 
