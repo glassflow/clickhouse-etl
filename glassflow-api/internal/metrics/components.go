@@ -66,6 +66,15 @@ var (
 		},
 		[]string{"table"},
 	)
+	SinkBatchesFailedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "glassflow",
+			Subsystem: "sink",
+			Name:      "batches_failed_total",
+			Help:      "Total batches that failed to flush to ClickHouse.",
+		},
+		[]string{"table"},
+	)
 	SinkBatchRecords = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "glassflow",
@@ -73,6 +82,15 @@ var (
 			Name:      "batch_records",
 			Help:      "Records per batch.",
 			Buckets:   []float64{1, 10, 50, 100, 250, 500, 1000, 5000},
+		},
+		[]string{"table"},
+	)
+	SinkRecordsFailedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "glassflow",
+			Subsystem: "sink",
+			Name:      "records_failed_total",
+			Help:      "Total individual records that failed during mapping or batch flush.",
 		},
 		[]string{"table"},
 	)
@@ -87,6 +105,8 @@ func init() {
 		JoinLeftEventsTotal,
 		JoinRightEventsTotal,
 		SinkBatchesTotal,
+		SinkBatchesFailedTotal,
 		SinkBatchRecords,
+		SinkRecordsFailedTotal,
 	)
 }
