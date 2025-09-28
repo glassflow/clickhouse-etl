@@ -14,6 +14,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/metrics"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
@@ -121,6 +122,11 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 		slog.String("status", "success"),
 		slog.Int("sent_messages", size),
 	)
+
+	// metrics instrumentation (use table name as label)
+	table := ch.client.GetTableName()
+	metrics.SinkBatchesTotal.WithLabelValues(table).Inc()
+	metrics.SinkBatchRecords.WithLabelValues(table).Observe(float64(size))
 
 	return nil
 }
