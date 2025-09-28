@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -19,7 +20,7 @@ var (
 			Name:      "http_requests_total",
 			Help:      "Total number of HTTP requests received",
 		},
-		[]string{"method", "path", "status"},
+		[]string{"method", "route", "status"},
 	)
 	HTTPRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -29,7 +30,7 @@ var (
 			Help:      "Duration of HTTP requests in seconds",
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{"method", "path"},
+		[]string{"method", "route"},
 	)
 )
 
@@ -37,21 +38,27 @@ func init() {
 	Registry.MustRegister(HTTPRequestsTotal, HTTPRequestDuration)
 }
 
-// MetricsHandler returns a standard promhttp handler bound to the custom registry.
+// MetricsHandler returns an HTTP handler that serves Prometheus metrics.
 func MetricsHandler() http.Handler {
 	return promhttp.HandlerFor(Registry, promhttp.HandlerOpts{})
 }
 
-// InstrumentHTTP wraps an http.Handler and records metrics.
-func InstrumentHTTP(next http.Handler) http.Handler {
+// HTTPMetricsMiddleware is a middleware that records HTTP metrics for each request in a normalized form.
+func HTTPMetricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		ww := &statusWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(ww, r)
 
-		path := r.URL.Path
-		HTTPRequestsTotal.WithLabelValues(r.Method, path, http.StatusText(ww.status)).Inc()
-		HTTPRequestDuration.WithLabelValues(r.Method, path).Observe(time.Since(start).Seconds())
+		route := r.URL.Path
+		if cr := mux.CurrentRoute(r); cr != nil {
+			if tmpl, err := cr.GetPathTemplate(); err == nil && tmpl != "" {
+				route = tmpl
+			}
+		}
+
+		HTTPRequestsTotal.WithLabelValues(r.Method, route, http.StatusText(ww.status)).Inc()
+		HTTPRequestDuration.WithLabelValues(r.Method, route).Observe(time.Since(start).Seconds())
 	})
 }
 
