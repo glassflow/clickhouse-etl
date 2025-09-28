@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/metrics"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
@@ -25,6 +26,8 @@ func NewRouter(log *slog.Logger, pSvc service.PipelineManager, dlqSvc service.DL
 		dlqSvc:          dlqSvc,
 	}
 
+	r.Handle("/metrics", metrics.MetricsHandler()).Methods("GET")
+
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
 	r.HandleFunc("/api/v1/platform", h.platform).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline", h.createPipeline).Methods("POST")
@@ -42,5 +45,5 @@ func NewRouter(log *slog.Logger, pSvc service.PipelineManager, dlqSvc service.DL
 
 	r.Use(Recovery(log), RequestLogging(log))
 
-	return r
+	return metrics.InstrumentHTTP(r)
 }
