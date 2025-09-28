@@ -150,7 +150,7 @@ func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) e
 }
 
 func (c *groupConsumer) Close() error {
-	c.log.Info("Closing Kafka consumer group", slog.String("group", c.name))
+	c.log.Info("Closing Kafka consumer group", "group", c.name)
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -188,7 +188,7 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 				Value:     message.Value,
 				Headers:   convertSaramaToRecordHeaders(message.Headers),
 			}); err != nil {
-				c.log.Error("Message processing failed", slog.Any("error", err))
+				c.log.ErrorContext(session.Context(), "Message processing failed", "error", err)
 				return fmt.Errorf("message processing failed: %w", err) // Exit consumer loop - this will cause restart
 			}
 

@@ -60,7 +60,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		s.log,
 	)
 	if err != nil {
-		s.log.Error("failed to create ClickHouse sink: ", slog.Any("error", err))
+		s.log.ErrorContext(ctx, "failed to create ClickHouse sink: ", "error", err)
 		return fmt.Errorf("create sink: %w", err)
 	}
 
@@ -70,7 +70,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		sinkComponent.Start(ctx, s.c)
 		close(s.c)
 		for err := range s.c {
-			s.log.Error("Error in the sink component", slog.Any("error", err))
+			s.log.ErrorContext(ctx, "Error in the sink component", "error", err)
 		}
 	}()
 

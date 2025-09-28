@@ -83,7 +83,7 @@ func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key 
 
 	uuids := strings.Split(string(rawUUIDs), " ")
 	if len(uuids) == 0 {
-		t.log.Debug("no left stream data found for the key", slog.String("key", fmt.Sprintf("%v", key)))
+		t.log.DebugContext(ctx, "no left stream data found for the key", "key", fmt.Sprintf("%v", key))
 		return nil
 	}
 
@@ -118,7 +118,7 @@ func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key 
 
 	err = t.leftKVStore.Delete(ctx, key)
 	if err != nil {
-		t.log.Error("failed to delete key data from left KV store", slog.Any("error", err), slog.String("key", fmt.Sprintf("%v", key)))
+		t.log.ErrorContext(ctx, "failed to delete key data from left KV store", "error", err, "key", fmt.Sprintf("%v", key))
 	}
 
 	return nil
@@ -153,7 +153,7 @@ func (t *TemporalJoinExecutor) HandleLeftStreamEvents(ctx context.Context, msg j
 
 	err = t.resultsPublisher.Publish(ctx, joinedData)
 	if err != nil {
-		t.log.Error("failed to publish joined data", slog.Any("error", err))
+		t.log.ErrorContext(ctx, "failed to publish joined data", "error", err)
 	}
 
 	return nil

@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -23,7 +22,7 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.As(err, &jsonErr):
 			jsonError(w, http.StatusBadRequest, err.Error(), nil)
 		default:
-			h.log.Error("failed to read create pipeline request", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to read create pipeline request", "error", err)
 			serverError(w)
 		}
 		return
@@ -45,7 +44,7 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
 
 		default:
-			h.log.Error("failed to setup pipeline", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to setup pipeline", "error", err)
 			serverError(w)
 		}
 	}
@@ -55,7 +54,7 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
@@ -82,7 +81,7 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("pipeline stop")
+	h.log.InfoContext(r.Context(), "pipeline stop")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -90,7 +89,7 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
@@ -117,7 +116,7 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("pipeline terminated")
+	h.log.InfoContext(r.Context(), "pipeline terminated")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -125,7 +124,7 @@ func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
@@ -148,13 +147,13 @@ func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
 				jsonStatusValidationError(w, statusErr)
 				return
 			}
-			h.log.Error("failed to pause pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to pause pipeline", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
 	}
 
-	h.log.Info("pipeline paused", slog.String("pipeline_id", id))
+	h.log.InfoContext(r.Context(), "pipeline paused", "pipeline_id", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -162,7 +161,7 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
@@ -185,13 +184,13 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 				jsonStatusValidationError(w, statusErr)
 				return
 			}
-			h.log.Error("failed to resume pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to resume pipeline", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
 	}
 
-	h.log.Info("pipeline resumed", slog.String("pipeline_id", id))
+	h.log.InfoContext(r.Context(), "pipeline resumed", "pipeline_id", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -199,7 +198,7 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
@@ -214,7 +213,7 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("Unable to load pipeline", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "Unable to load pipeline", "error", err)
 			serverError(w)
 		}
 		return
@@ -228,7 +227,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
@@ -244,7 +243,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to get pipeline health", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to get pipeline health", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
@@ -257,7 +256,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 func (h *handler) getPipelines(w http.ResponseWriter, r *http.Request) {
 	pipelines, err := h.pipelineManager.GetPipelines(r.Context())
 	if err != nil {
-		h.log.Error("Unable to list pipelines", slog.Any("error", err))
+		h.log.ErrorContext(r.Context(), "Unable to list pipelines", "error", err)
 		serverError(w)
 		return
 	}
@@ -273,7 +272,7 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
@@ -289,7 +288,7 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 		case errors.As(err, &jsonErr):
 			jsonError(w, http.StatusBadRequest, err.Error(), nil)
 		default:
-			h.log.Error("failed to read update pipeline request", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to read update pipeline request", "error", err)
 			serverError(w)
 		}
 		return
@@ -301,7 +300,7 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to update pipeline name", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to update pipeline name", "error", err)
 			serverError(w)
 		}
 		return
@@ -674,7 +673,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
@@ -691,7 +690,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to get pipeline for deletion", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to get pipeline for deletion", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
@@ -713,7 +712,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to delete pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to delete pipeline", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return

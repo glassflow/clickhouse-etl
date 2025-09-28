@@ -94,13 +94,13 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	// Get existing KV stores (created by orchestrator)
 	leftKVStore, err := j.nc.GetKeyValueStore(ctx, j.leftInputStreamName)
 	if err != nil {
-		j.log.Error("failed to get left stream buffer: ", slog.Any("error", err))
+		j.log.ErrorContext(ctx, "failed to get left stream buffer: ", "error", err)
 		return fmt.Errorf("get left buffer: %w", err)
 	}
 
 	rightKVStore, err := j.nc.GetKeyValueStore(ctx, j.rightInputStreamName)
 	if err != nil {
-		j.log.Error("failed to get right stream buffer: ", slog.Any("error", err))
+		j.log.ErrorContext(ctx, "failed to get right stream buffer: ", "error", err)
 		return fmt.Errorf("get right buffer: %w", err)
 	}
 
@@ -126,7 +126,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		j.log,
 	)
 	if err != nil {
-		j.log.Error("failed to join: ", slog.Any("error", err))
+		j.log.ErrorContext(ctx, "failed to join: ", "error", err)
 		return fmt.Errorf("create join: %w", err)
 	}
 
@@ -138,7 +138,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		close(j.c)
 
 		for err := range j.c {
-			j.log.Error("Error in the join component", slog.Any("error", err))
+			j.log.ErrorContext(ctx, "Error in the join component", "error", err)
 		}
 	}()
 

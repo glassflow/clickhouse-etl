@@ -198,14 +198,14 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 		return fmt.Errorf("create custom resource: %w", err)
 	}
 
-	k.log.Info("created k8s pipeline", slog.String("pipeline_id", cfg.ID))
+	k.log.InfoContext(ctx, "created k8s pipeline", "pipeline_id", cfg.ID)
 
 	return nil
 }
 
 // StopPipeline implements Orchestrator.
 func (k *K8sOrchestrator) StopPipeline(ctx context.Context, pipelineID string) error {
-	k.log.Info("stopping k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "stopping k8s pipeline", "pipeline_id", pipelineID)
 
 	// Get the pipeline CRD
 	customResource, err := k.client.Resource(schema.GroupVersionResource{
@@ -248,12 +248,12 @@ func (k *K8sOrchestrator) StopPipeline(ctx context.Context, pipelineID string) e
 		return fmt.Errorf("update pipeline CRD with stop annotation: %w", err)
 	}
 
-	k.log.Info("requested stop of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "requested stop of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
 }
 
 func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID string) error {
-	k.log.Info("terminating k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "terminating k8s pipeline", "pipeline_id", pipelineID)
 
 	// add annotation to indicate deletion type (terminate/shutdown)
 	customResource, err := k.client.Resource(schema.GroupVersionResource{
@@ -296,18 +296,18 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		return fmt.Errorf("update pipeline CRD with termination annotation: %w", err)
 	}
 
-	k.log.Info("requested termination of k8s pipeline",
-		slog.String("pipeline_id", pipelineID),
-		slog.Any(" deletion_timestamp", customResource.GetDeletionTimestamp()),
+	k.log.InfoContext(ctx, "requested termination of k8s pipeline",
+		"pipeline_id", pipelineID,
+		"deletion_timestamp", customResource.GetDeletionTimestamp(),
 	)
 
-	k.log.Info("requested termination of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "requested termination of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
 }
 
 // PausePipeline implements Orchestrator.
 func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) error {
-	k.log.Info("pausing k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "pausing k8s pipeline", "pipeline_id", pipelineID)
 
 	// Get the pipeline CRD
 	customResource, err := k.client.Resource(schema.GroupVersionResource{
@@ -350,13 +350,13 @@ func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) 
 		return fmt.Errorf("update pipeline CRD with pause annotation: %w", err)
 	}
 
-	k.log.Info("requested pause of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "requested pause of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
 }
 
 // ResumePipeline implements Orchestrator.
 func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string) error {
-	k.log.Info("resuming k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "resuming k8s pipeline", "pipeline_id", pipelineID)
 
 	// Get the pipeline CRD
 	customResource, err := k.client.Resource(schema.GroupVersionResource{
@@ -399,6 +399,6 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 		return fmt.Errorf("update pipeline CRD with resume annotation: %w", err)
 	}
 
-	k.log.Info("requested resume of k8s pipeline", slog.String("pipeline_id", pipelineID))
+	k.log.InfoContext(ctx, "requested resume of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
 }

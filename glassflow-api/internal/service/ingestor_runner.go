@@ -53,7 +53,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		}
 	}
 
-	i.log.Debug("Starting ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("streamId", outputStreamID))
+	i.log.DebugContext(ctx, "Starting ingestor", "pipelineId", i.pipelineCfg.Status.PipelineID, "streamId", outputStreamID)
 
 	if outputStreamID == "" {
 		return fmt.Errorf("output stream name cannot be empty")
@@ -83,7 +83,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		i.log,
 	)
 	if err != nil {
-		i.log.Error("failed to create ingestor component: ", slog.Any("error", err))
+		i.log.ErrorContext(ctx, "failed to create ingestor component: ", "error", err)
 		return fmt.Errorf("create ingestor: %w", err)
 	}
 
@@ -93,7 +93,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		component.Start(ctx, i.c)
 		close(i.c)
 		for err := range i.c {
-			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", i.topicName))
+			i.log.ErrorContext(ctx, "error in ingestor component", "error", err, "topic", i.topicName)
 		}
 	}()
 

@@ -12,7 +12,7 @@ func Recovery(log *slog.Logger) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if err := recover(); err != nil {
-					log.Error("panic", slog.Any("error", err), slog.String("stacktrace", string(debug.Stack())))
+					log.ErrorContext(r.Context(), "panic", "error", err, "stacktrace", string(debug.Stack()))
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 			}()
