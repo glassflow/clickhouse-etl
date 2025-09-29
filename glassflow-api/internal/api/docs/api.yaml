@@ -156,6 +156,31 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+    delete:
+      summary: Delete a pipeline
+      description: Delete a pipeline. Pipeline must be in 'Stopped' or 'Terminated' status to be deleted.
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '204':
+          description: Pipeline deleted successfully
+        '400':
+          description: Bad request - Pipeline ID cannot be empty or pipeline is not in deletable state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
 
 components:
   parameters:
