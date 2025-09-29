@@ -4,9 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gorilla/mux"
-
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/gorilla/mux"
 )
 
 type handler struct {
@@ -39,6 +38,8 @@ func NewRouter(log *slog.Logger, pSvc service.PipelineManager, dlqSvc service.DL
 	r.HandleFunc("/api/v1/pipeline/{id}/resume", h.resumePipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/stop", h.stopPipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/terminate", h.terminatePipeline).Methods("POST")
+	r.HandleFunc("/api/v1/docs.yaml", h.docsYAML).Methods("GET")
+	r.HandleFunc("/api/v1/docs", h.swaggerUI).Methods("GET")
 
 	r.Use(Recovery(log), RequestLogging(log))
 
