@@ -368,6 +368,49 @@ paths:
                 type: string
                 example: "Internal Server Error"
 
+  /pipeline/{id}/stop:
+    post:
+      summary: Stop a pipeline
+      description: Stop a running or paused pipeline
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '204':
+          description: Pipeline stopped successfully
+        '404':
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Pipeline cannot be stopped in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusValidationError'
+        '422':
+          description: Unprocessable entity - Pipeline ID cannot be empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '501':
+          description: Not implemented - Feature not available for this version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Internal Server Error"
+
 components:
   parameters:
     PipelineId:
