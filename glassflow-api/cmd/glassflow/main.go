@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/lmittmann/tint"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
@@ -28,6 +27,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type config struct {
@@ -35,6 +35,9 @@ type config struct {
 	LogLevel     slog.Level `default:"info" split_words:"true"`
 	LogAddSource bool       `default:"false" split_words:"true"`
 	LogFilePath  string     `split_words:"true"`
+
+	// OpenTelemetry observability configuration
+	OtelObservability bool `default:"false" split_words:"true"`
 
 	ServerAddr            string        `default:":8081" split_words:"true"`
 	ServerWriteTimeout    time.Duration `default:"15s" split_words:"true"`
@@ -116,7 +119,16 @@ func mainErr(cfg *config, role models.Role) error {
 		logOut = io.MultiWriter(os.Stdout, logFile)
 	}
 
-	log := configureLogger(cfg, logOut)
+	// Configure observability
+	obsConfig := &observability.Config{
+		LogFormat:         cfg.LogFormat,
+		LogLevel:          cfg.LogLevel,
+		LogAddSource:      cfg.LogAddSource,
+		OtelObservability: cfg.OtelObservability,
+		ServiceName:       "glassflow-api",
+		ServiceVersion:    "1.0.0",
+	}
+	log := observability.ConfigureLogger(obsConfig, logOut)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -382,28 +394,6 @@ func runWithGracefulShutdown(
 			return nil
 		}
 	}
-}
-
-func configureLogger(cfg *config, logOut io.Writer) *slog.Logger {
-	//nolint: exhaustruct // optional config
-	logOpts := &slog.HandlerOptions{
-		Level:     cfg.LogLevel,
-		AddSource: cfg.LogAddSource,
-	}
-
-	var logHandler slog.Handler
-	switch cfg.LogFormat {
-	case "json":
-		logHandler = slog.NewJSONHandler(logOut, logOpts)
-	default:
-		//nolint:exhaustruct // optional config
-		logHandler = tint.NewHandler(logOut, &tint.Options{
-			AddSource:  true,
-			TimeFormat: time.Kitchen,
-		})
-	}
-
-	return slog.New(logHandler)
 }
 
 func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ error) {
