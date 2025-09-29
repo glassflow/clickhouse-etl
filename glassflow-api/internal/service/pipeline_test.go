@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -201,7 +202,7 @@ func TestPipelineManager_PausePipeline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
 			ctx := context.Background()
-			manager := NewPipelineManager(tt.orchestrator, tt.store, nil)
+			manager := NewPipelineManager(tt.orchestrator, tt.store, slog.Default())
 
 			// Create test pipeline if needed
 			if tt.initialStatus != "" {
@@ -397,7 +398,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
 			ctx := context.Background()
-			manager := NewPipelineManager(tt.orchestrator, tt.store, nil)
+			manager := NewPipelineManager(tt.orchestrator, tt.store, slog.Default())
 
 			// Create test pipeline if needed
 			if tt.initialStatus != "" {
@@ -549,7 +550,8 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 			}
 
 			manager := &PipelineManagerImpl{
-				db: tt.store,
+				db:  tt.store,
+				log: slog.Default(),
 			}
 
 			err := manager.DeletePipeline(ctx, tt.pipelineID)
