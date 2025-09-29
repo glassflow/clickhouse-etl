@@ -143,7 +143,7 @@ func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) e
 			return fmt.Errorf("failed to consume from kafka: %w", err)
 		}
 
-		if ctx.Err() != nil {
+		if ctx.Err() != nil && !errors.Is(ctx.Err(), context.Canceled) {
 			return ctx.Err()
 		}
 	}

@@ -117,7 +117,6 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	ch.lastMsg = nil
 
 	ch.log.Info("Batch processing completed successfully",
-		slog.Int("clickhouse_batch_size", ch.batch.Size()),
 		slog.String("status", "success"),
 		slog.Int("sent_messages", size),
 	)
