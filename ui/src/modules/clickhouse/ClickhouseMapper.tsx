@@ -1071,7 +1071,7 @@ export function ClickhouseMapper({
         const response = await createPipeline(apiConfig)
 
         // Set the pipeline ID from the response
-        const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
+        const newPipelineId = apiConfig?.pipeline_id || ''
         setPipelineId(newPipelineId)
 
         // Navigate to pipeline details page with deployment progress

@@ -109,7 +109,7 @@ export function PipelineDeployer() {
         const response = await createPipeline(apiConfig)
 
         // Set the pipeline ID from the response if available, otherwise use the one from config
-        const newPipelineId = response.pipeline_id || apiConfig.pipeline_id
+        const newPipelineId = apiConfig?.pipeline_id || ''
         setPipelineId(newPipelineId)
 
         // Wait a short moment for the pipeline to initialize
