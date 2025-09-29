@@ -938,3 +938,9 @@ components:
             type: string
           description: List of valid status transitions from current state
           example: ["Running", "Stopping"]
+
+tags:
+  - name: System
+    description: System health and platform information endpoints
+  - name: Pipeline
+    description: Pipeline management
