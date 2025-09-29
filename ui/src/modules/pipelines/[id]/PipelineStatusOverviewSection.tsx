@@ -1,6 +1,7 @@
 import { Card } from '@/src/components/ui/card'
 import { Badge } from '@/src/components/ui/badge'
 import DeadLetterQueueCard from './DeadLetterQueueCard'
+import ClickHouseTableMetricsCard from './ClickHouseTableMetricsCard'
 import PipelineHealthCard from './PipelineHealthCard'
 import { Pipeline } from '@/src/types/pipeline'
 
@@ -10,6 +11,7 @@ function PipelineStatusOverviewSection({ pipeline }: { pipeline: Pipeline }) {
       <div className="flex flex-row gap-4">
         {/* <PipelineHealthCard status="stable" /> */}
         <DeadLetterQueueCard pipelineId={pipeline.pipeline_id} />
+        <ClickHouseTableMetricsCard pipeline={pipeline} />
       </div>
     </Card>
   )
