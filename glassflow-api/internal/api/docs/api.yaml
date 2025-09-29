@@ -89,7 +89,84 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /pipeline/{id}:
+    get:
+      summary: Get a pipeline by ID
+      description: Retrieve a pipeline configuration by its ID
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: Pipeline retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '404':
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable entity - Invalid pipeline ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    patch:
+      summary: Update pipeline name
+      description: Update the name of an existing pipeline
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePipelineNameRequest'
+      responses:
+        '200':
+          description: Pipeline name updated successfully
+        '400':
+          description: Bad request - Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable entity - Pipeline ID cannot be empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+
 components:
+  parameters:
+    PipelineId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Pipeline identifier
+
   responses:
     ServerError:
       description: Internal server error
@@ -441,3 +518,13 @@ components:
           type: string
           description: Duration string for deduplication window (ms, s, m, h, d units)
           example: "5m"
+
+    UpdatePipelineNameRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: New name for the pipeline
+          example: "Updated Pipeline Name"
