@@ -282,6 +282,49 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /pipeline/{id}/pause:
+    post:
+      summary: Pause a pipeline
+      description: Pause a running pipeline
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '204':
+          description: Pipeline paused successfully
+        '404':
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Pipeline cannot be paused in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusValidationError'
+        '422':
+          description: Unprocessable entity - Pipeline ID cannot be empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '501':
+          description: Not implemented - Feature not available for this version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Internal Server Error"
+
 
 components:
   parameters:
@@ -735,3 +778,34 @@ components:
           minimum: 0
           description: Number of messages currently available for consumption
           example: 25
+
+    StatusValidationError:
+      type: object
+      required:
+        - message
+        - code
+        - current_status
+        - requested_status
+      properties:
+        message:
+          type: string
+          description: Error message describing the status validation failure
+          example: "Cannot pause pipeline in current state"
+        code:
+          type: string
+          description: Error code for the validation failure
+          example: "INVALID_STATUS_TRANSITION"
+        current_status:
+          type: string
+          description: Current status of the pipeline
+          example: "Created"
+        requested_status:
+          type: string
+          description: The status that was requested
+          example: "Pausing"
+        valid_transitions:
+          type: array
+          items:
+            type: string
+          description: List of valid status transitions from current state
+          example: ["Running", "Stopping"]
