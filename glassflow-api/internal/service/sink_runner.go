@@ -49,6 +49,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		NatsSubject:  models.GetWildcardNATSSubjectName(s.inputNatsStream),
 	})
 	if err != nil {
+		s.log.ErrorContext(ctx, "failed to create clickhouse consumer", "error", err)
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 

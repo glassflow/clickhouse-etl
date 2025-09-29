@@ -42,6 +42,7 @@ func NewNATSSubscriber(consumer Consumer, log *slog.Logger) *NatsSubscriber {
 
 func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 	if s.consumer == nil {
+		s.log.Error("consumer is nil")
 		return fmt.Errorf("consumer is nil")
 	}
 

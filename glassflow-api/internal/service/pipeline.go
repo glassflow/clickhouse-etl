@@ -72,10 +72,12 @@ var _ PipelineManager = (*PipelineManagerImpl)(nil)
 func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error {
 	existing, err := p.db.GetPipeline(ctx, cfg.ID)
 	if err != nil && !errors.Is(err, ErrPipelineNotExists) {
+		p.log.ErrorContext(ctx, "failed to check existing pipeline ID", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("check existing pipeline ID: %w", err)
 	}
 
 	if existing != nil {
+		p.log.ErrorContext(ctx, "pipeline ID already exists", "pipeline_id", cfg.ID)
 		return fmt.Errorf("create pipeline: %w", ErrIDExists)
 	}
 
@@ -88,11 +90,13 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 
 	err = p.orchestrator.SetupPipeline(ctx, cfg)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to setup pipeline in orchestrator", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("create pipeline: %w", err)
 	}
 
 	err = p.db.InsertPipeline(ctx, *cfg)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to insert pipeline to database", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
 
@@ -104,6 +108,7 @@ func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) er
 	// The pipeline should already be stopped / terminated
 	err := p.db.DeletePipeline(ctx, pid)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to delete pipeline from database", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("delete pipeline: %w", err)
 	}
 
@@ -118,6 +123,7 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 		if errors.Is(err, ErrPipelineNotExists) {
 			return ErrPipelineNotExists
 		}
+		p.log.ErrorContext(ctx, "failed to get pipeline for termination", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("get pipeline failed for termination: %w", err)
 	}
 
@@ -132,11 +138,13 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 	// Update status in database
 	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to update pipeline status to terminating", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
 	err = p.orchestrator.TerminatePipeline(ctx, pid)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to terminate pipeline in orchestrator", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
 
@@ -148,6 +156,7 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 		// Update status in database
 		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
 		if err != nil {
+			p.log.ErrorContext(ctx, "failed to update pipeline status to terminated", "pipeline_id", pid, "error", err)
 			return fmt.Errorf("update pipeline status: %w", err)
 		}
 		return nil
@@ -160,6 +169,7 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 func (p *PipelineManagerImpl) GetPipeline(ctx context.Context, pid string) (zero models.PipelineConfig, _ error) {
 	pi, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to load pipeline from database", "pipeline_id", pid, "error", err)
 		return zero, fmt.Errorf("load pipeline: %w", err)
 	}
 
@@ -170,6 +180,7 @@ func (p *PipelineManagerImpl) GetPipeline(ctx context.Context, pid string) (zero
 func (p *PipelineManagerImpl) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
 	pipelines, err := p.db.GetPipelines(ctx)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to load pipelines from database", "error", err)
 		return nil, fmt.Errorf("load pipelines: %w", err)
 	}
 
@@ -185,6 +196,7 @@ func (p *PipelineManagerImpl) GetPipelines(ctx context.Context) ([]models.ListPi
 func (p *PipelineManagerImpl) UpdatePipelineName(ctx context.Context, id string, name string) error {
 	err := p.db.PatchPipelineName(ctx, id, name)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to update pipeline name", "pipeline_id", id, "new_name", name, "error", err)
 		return fmt.Errorf("update pipeline: %w", err)
 	}
 
@@ -198,6 +210,7 @@ func (p *PipelineManagerImpl) GetPipelineHealth(ctx context.Context, pid string)
 		if errors.Is(err, ErrPipelineNotExists) {
 			return models.PipelineHealth{}, ErrPipelineNotExists
 		}
+		p.log.ErrorContext(ctx, "failed to get pipeline health", "pipeline_id", pid, "error", err)
 		return models.PipelineHealth{}, fmt.Errorf("get pipeline health: %w", err)
 	}
 
@@ -208,6 +221,7 @@ func (p *PipelineManagerImpl) GetPipelineHealth(ctx context.Context, pid string)
 func (p *PipelineManagerImpl) UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error {
 	err := p.db.UpdatePipelineStatus(ctx, pid, status)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to update pipeline status", "pipeline_id", pid, "status", status.OverallStatus, "error", err)
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
@@ -222,6 +236,7 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 		if errors.Is(err, ErrPipelineNotExists) {
 			return ErrPipelineNotExists
 		}
+		p.log.ErrorContext(ctx, "failed to get pipeline for pause", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("get pipeline failed for pause: %w", err)
 	}
 
@@ -236,6 +251,7 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 	// Update status in database
 	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to update pipeline status to pausing", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
@@ -267,6 +283,7 @@ func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) err
 	// For k8 orchestrator, the operator controller-manager takes care of updating this status
 	err = p.orchestrator.PausePipeline(ctx, pid)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to pause pipeline in orchestrator", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("failed to pause k8 pipeline: %w", err)
 	}
 
@@ -281,6 +298,7 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 		if errors.Is(err, ErrPipelineNotExists) {
 			return ErrPipelineNotExists
 		}
+		p.log.ErrorContext(ctx, "failed to get pipeline for resume", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("get pipeline failed for resume: %w", err)
 	}
 
@@ -295,11 +313,13 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 	// Update status in database
 	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to update pipeline status to resuming", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
 	err = p.orchestrator.ResumePipeline(ctx, pid)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to resume pipeline in orchestrator", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("resume pipeline: %w", err)
 	}
 
@@ -311,6 +331,7 @@ func (p *PipelineManagerImpl) ResumePipeline(ctx context.Context, pid string) er
 		// Update status in database
 		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
 		if err != nil {
+			p.log.ErrorContext(ctx, "failed to update pipeline status to running", "pipeline_id", pid, "error", err)
 			return fmt.Errorf("update pipeline status: %w", err)
 		}
 		return nil
@@ -327,6 +348,7 @@ func (p *PipelineManagerImpl) StopPipeline(ctx context.Context, pid string) erro
 		if errors.Is(err, ErrPipelineNotExists) {
 			return ErrPipelineNotExists
 		}
+		p.log.ErrorContext(ctx, "failed to get pipeline for stop", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("get pipeline failed for stop: %w", err)
 	}
 
@@ -341,6 +363,7 @@ func (p *PipelineManagerImpl) StopPipeline(ctx context.Context, pid string) erro
 	// Update status in database
 	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to update pipeline status to stopping", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("update pipeline status to stopping: %w", err)
 	}
 
@@ -372,6 +395,7 @@ func (p *PipelineManagerImpl) StopPipeline(ctx context.Context, pid string) erro
 	// For k8 orchestrator, the operator controller-manager takes care of updating this status
 	err = p.orchestrator.StopPipeline(ctx, pid)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to stop pipeline in orchestrator", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("failed to stop k8 pipeline: %w", err)
 	}
 
@@ -393,6 +417,7 @@ func (p *PipelineManagerImpl) CleanUpPipelines(ctx context.Context) error {
 
 	pipelines, err := p.db.GetPipelines(ctx)
 	if err != nil {
+		p.log.ErrorContext(ctx, "failed to load pipelines for cleanup", "error", err)
 		return fmt.Errorf("load pipelines: %w", err)
 	}
 
@@ -404,6 +429,7 @@ func (p *PipelineManagerImpl) CleanUpPipelines(ctx context.Context) error {
 			pi.Status.OverallStatus = internal.PipelineStatusTerminated
 			err := p.db.UpdatePipelineStatus(ctx, pi.ID, pi.Status)
 			if err != nil {
+				p.log.ErrorContext(ctx, "failed to update pipeline status during cleanup", "pipeline_id", pi.ID, "error", err)
 				return fmt.Errorf("update pipeline with %s failed: %w", pi.ID, err)
 			}
 		}

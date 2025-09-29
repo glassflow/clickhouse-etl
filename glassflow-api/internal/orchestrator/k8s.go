@@ -41,6 +41,7 @@ func NewK8sOrchestrator(
 ) (service.Orchestrator, error) {
 	kcfg, err := config.GetConfig()
 	if err != nil {
+		log.Error("unable to get kubeconfig", "error", err)
 		return nil, fmt.Errorf("unable to get kubeconfig: %w", err)
 	}
 
@@ -48,6 +49,7 @@ func NewK8sOrchestrator(
 
 	client, err := dynamic.NewForConfig(kcfg)
 	if err != nil {
+		log.Error("failed to create k8s client", "error", err)
 		return nil, fmt.Errorf("new k8s client: %w", err)
 	}
 
@@ -128,6 +130,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 
 	pcfg, err := json.Marshal(*cfg)
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to marshal pipeline config", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("marshal pipeline config: %w", err)
 	}
 
@@ -160,11 +163,13 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 
 	jsonSpec, err := json.Marshal(spec)
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to marshal k8s pipeline spec", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("marshal k8s pipeline spec: %w", err)
 	}
 
 	err = json.Unmarshal(jsonSpec, &specMap)
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to unmarshal k8s pipeline spec to spec map", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("unmarshal k8s pipeline spec to spec map: %w", err)
 	}
 
@@ -195,6 +200,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 		Namespace(k.namespace).
 		Create(ctx, obj, metav1.CreateOptions{})
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to create custom resource", "pipeline_id", cfg.ID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("create custom resource: %w", err)
 	}
 
@@ -217,6 +223,7 @@ func (k *K8sOrchestrator) StopPipeline(ctx context.Context, pipelineID string) e
 		if errors.IsNotFound(err) {
 			return service.ErrPipelineNotFound
 		}
+		k.log.ErrorContext(ctx, "failed to get pipeline CRD for stop", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("get pipeline CRD: %w", err)
 	}
 
@@ -245,6 +252,7 @@ func (k *K8sOrchestrator) StopPipeline(ctx context.Context, pipelineID string) e
 		Resource: k.customResource.Resource,
 	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to update pipeline CRD with stop annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("update pipeline CRD with stop annotation: %w", err)
 	}
 
@@ -265,6 +273,7 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		if errors.IsNotFound(err) {
 			return service.ErrPipelineNotFound
 		}
+		k.log.ErrorContext(ctx, "failed to get pipeline CRD for terminate", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("get pipeline CRD: %w", err)
 	}
 
@@ -274,6 +283,7 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	// Validate status transition using the centralized validation system
 	err = status.ValidatePipelineOperation(pipelineConfig, internal.PipelineStatusTerminating)
 	if err != nil {
+		k.log.ErrorContext(ctx, "pipeline status validation failed for terminate", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus, "error", err)
 		return err
 	}
 
@@ -293,6 +303,7 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		Resource: k.customResource.Resource,
 	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to update pipeline CRD with termination annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("update pipeline CRD with termination annotation: %w", err)
 	}
 
@@ -319,6 +330,7 @@ func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) 
 		if errors.IsNotFound(err) {
 			return service.ErrPipelineNotFound
 		}
+		k.log.ErrorContext(ctx, "failed to get pipeline CRD for pause", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("get pipeline CRD: %w", err)
 	}
 
@@ -328,6 +340,7 @@ func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) 
 	// Validate status transition using the centralized validation system
 	err = status.ValidatePipelineOperation(pipelineConfig, internal.PipelineStatusPausing)
 	if err != nil {
+		k.log.ErrorContext(ctx, "pipeline status validation failed for pause", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus, "error", err)
 		return err
 	}
 
@@ -347,6 +360,7 @@ func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) 
 		Resource: k.customResource.Resource,
 	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to update pipeline CRD with pause annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("update pipeline CRD with pause annotation: %w", err)
 	}
 
@@ -368,6 +382,7 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 		if errors.IsNotFound(err) {
 			return service.ErrPipelineNotFound
 		}
+		k.log.ErrorContext(ctx, "failed to get pipeline CRD for resume", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("get pipeline CRD: %w", err)
 	}
 
@@ -377,6 +392,7 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 	// Validate status transition using the centralized validation system
 	err = status.ValidatePipelineOperation(pipelineConfig, internal.PipelineStatusResuming)
 	if err != nil {
+		k.log.ErrorContext(ctx, "pipeline status validation failed for resume", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus, "error", err)
 		return err
 	}
 
@@ -396,6 +412,7 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 		Resource: k.customResource.Resource,
 	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
 	if err != nil {
+		k.log.ErrorContext(ctx, "failed to update pipeline CRD with resume annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("update pipeline CRD with resume annotation: %w", err)
 	}
 

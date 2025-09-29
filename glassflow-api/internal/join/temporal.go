@@ -48,6 +48,7 @@ func (t *TemporalJoinExecutor) storeToLeftStreamBuffer(ctx context.Context, key 
 	byteKeys, err := t.leftKVStore.Get(ctx, key)
 	if err != nil {
 		if !errors.Is(err, jetstream.ErrKeyNotFound) {
+			t.log.ErrorContext(ctx, "failed to get left stream data", "key", key, "error", err)
 			return fmt.Errorf("failed to get left stream data: %w", err)
 		}
 	} else {
@@ -57,6 +58,7 @@ func (t *TemporalJoinExecutor) storeToLeftStreamBuffer(ctx context.Context, key 
 	uuidKey := uuid.New().String()
 	err = t.leftKVStore.Put(ctx, uuidKey, value)
 	if err != nil {
+		t.log.ErrorContext(ctx, "failed to store left stream data", "uuid_key", uuidKey, "error", err)
 		return fmt.Errorf("failed to store left stream data: %w", err)
 	}
 
@@ -66,6 +68,7 @@ func (t *TemporalJoinExecutor) storeToLeftStreamBuffer(ctx context.Context, key 
 
 	err = t.leftKVStore.PutString(ctx, key, keys+uuidKey)
 	if err != nil {
+		t.log.ErrorContext(ctx, "failed to put left stream data in KV store", "key", key, "keys", keys+uuidKey, "error", err)
 		return fmt.Errorf("failed to put left stream data in KV store: %w", err)
 	}
 
@@ -76,6 +79,7 @@ func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key 
 	rawUUIDs, err := t.leftKVStore.Get(ctx, key)
 	if err != nil {
 		if !errors.Is(err, jetstream.ErrKeyNotFound) {
+			t.log.ErrorContext(ctx, "failed to get left stream data", "key", key, "error", err)
 			return fmt.Errorf("failed to get left stream data: %w", err)
 		}
 		return nil
@@ -95,6 +99,7 @@ func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key 
 		leftStreamData, err := t.leftKVStore.Get(ctx, uuidKey)
 		if err != nil {
 			if !errors.Is(err, jetstream.ErrKeyNotFound) {
+				t.log.ErrorContext(ctx, "failed to get left stream data with key", "uuid_key", uuidKey, "error", err)
 				return fmt.Errorf("failed to get left stream data with key %s: %w", uuidKey, err)
 			}
 			continue
@@ -102,16 +107,19 @@ func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key 
 
 		joinedData, err := t.schema.JoinData(t.leftStreamName, leftStreamData, t.rightStreamName, rightStreamData)
 		if err != nil {
+			t.log.ErrorContext(ctx, "failed to join data", "left_stream", t.leftStreamName, "right_stream", t.rightStreamName, "error", err)
 			return fmt.Errorf("failed to join data: %w", err)
 		}
 
 		err = t.resultsPublisher.Publish(ctx, joinedData)
 		if err != nil {
+			t.log.ErrorContext(ctx, "failed to publish joined data", "left_stream", t.leftStreamName, "right_stream", t.rightStreamName, "error", err)
 			return fmt.Errorf("failed to publish joined data: %w", err)
 		}
 
 		err = t.leftKVStore.Delete(ctx, uuidKey)
 		if err != nil {
+			t.log.ErrorContext(ctx, "failed to delete left stream data with key", "uuid_key", uuidKey, "error", err)
 			return fmt.Errorf("failed to delete left stream data with key %s: %w", uuidKey, err)
 		}
 	}
@@ -128,18 +136,21 @@ func (t *TemporalJoinExecutor) HandleLeftStreamEvents(ctx context.Context, msg j
 	data := msg.Data()
 	key, err := t.schema.GetJoinKey(t.leftStreamName, data)
 	if err != nil {
+		t.log.ErrorContext(ctx, "failed to get join key from left stream message", "left_stream", t.leftStreamName, "error", err)
 		return fmt.Errorf("failed to get join key from left stream message: %w", err)
 	}
 
 	rightData, err := t.rightKVStore.Get(ctx, key)
 	if err != nil {
 		if !errors.Is(err, jetstream.ErrKeyNotFound) {
+			t.log.ErrorContext(ctx, "failed to get right stream message from KV store", "key", key, "error", err)
 			return fmt.Errorf("failed to get right stream message from KV store: %w", err)
 		}
 
 		// key not yet found in the right stream, store the left data
 		err = t.storeToLeftStreamBuffer(ctx, key, data)
 		if err != nil {
+			t.log.ErrorContext(ctx, "failed to put left stream message in KV store", "key", key, "error", err)
 			return fmt.Errorf("failed to put left stream message in KV store: %w", err)
 		}
 
@@ -148,6 +159,7 @@ func (t *TemporalJoinExecutor) HandleLeftStreamEvents(ctx context.Context, msg j
 
 	joinedData, err := t.schema.JoinData(t.leftStreamName, data, t.rightStreamName, rightData)
 	if err != nil {
+		t.log.ErrorContext(ctx, "failed to join data", "left_stream", t.leftStreamName, "right_stream", t.rightStreamName, "error", err)
 		return fmt.Errorf("failed to join data: %w", err)
 	}
 
@@ -164,16 +176,19 @@ func (t *TemporalJoinExecutor) HandleRightStreamEvents(ctx context.Context, msg 
 
 	key, err := t.schema.GetJoinKey(t.rightStreamName, data)
 	if err != nil {
+		t.log.ErrorContext(ctx, "failed to get join key from right stream message", "right_stream", t.rightStreamName, "error", err)
 		return fmt.Errorf("failed to get join key from right stream message: %w", err)
 	}
 
 	err = t.rightKVStore.Put(ctx, key, data)
 	if err != nil {
+		t.log.ErrorContext(ctx, "failed to put right stream message in KV store", "key", key, "error", err)
 		return fmt.Errorf("failed to put right stream message in KV store: %w", err)
 	}
 
 	err = t.getFromleftStreamBuffer(ctx, key, data)
 	if err != nil {
+		t.log.ErrorContext(ctx, "failed to get left stream data from buffer", "key", key, "error", err)
 		return fmt.Errorf("failed to get left stream data from buffer: %w", err)
 	}
 

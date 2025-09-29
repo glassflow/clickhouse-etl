@@ -43,6 +43,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	i.c = make(chan error, 1)
 
 	if i.topicName == "" {
+		i.log.ErrorContext(ctx, "topic name cannot be empty")
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
@@ -56,6 +57,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	i.log.DebugContext(ctx, "Starting ingestor", "pipelineId", i.pipelineCfg.Status.PipelineID, "streamId", outputStreamID)
 
 	if outputStreamID == "" {
+		i.log.ErrorContext(ctx, "output stream name cannot be empty", "topic_name", i.topicName)
 		return fmt.Errorf("output stream name cannot be empty")
 	}
 

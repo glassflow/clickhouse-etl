@@ -53,10 +53,12 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	case *schema.JsonToClickHouseMapper:
 		mapper = *sm
 	default:
+		j.log.ErrorContext(ctx, "unsupported schema mapper")
 		return fmt.Errorf("unsupported schema mapper")
 	}
 
 	if len(mapper.Streams) == 0 {
+		j.log.ErrorContext(ctx, "setup joiner: length of streams must not be 0")
 		return fmt.Errorf("setup joiner: length of streams must not be 0")
 	}
 
@@ -79,6 +81,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		NatsSubject:  models.GetWildcardNATSSubjectName(j.leftInputStreamName),
 	})
 	if err != nil {
+		j.log.ErrorContext(ctx, "failed to create left consumer", "left_stream", j.leftInputStreamName, "error", err)
 		return fmt.Errorf("create left consumer: %w", err)
 	}
 
@@ -88,6 +91,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		NatsSubject:  models.GetWildcardNATSSubjectName(j.rightInputStreamName),
 	})
 	if err != nil {
+		j.log.ErrorContext(ctx, "failed to create right consumer", "right_stream", j.rightInputStreamName, "error", err)
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 

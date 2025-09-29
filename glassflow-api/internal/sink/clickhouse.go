@@ -54,10 +54,12 @@ func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Cons
 
 	client, err := client.NewClickHouseClient(context.Background(), sinkCfg.ClickHouseConnectionParams)
 	if err != nil {
+		log.Error("failed to create clickhouse client", "error", err)
 		return nil, fmt.Errorf("failed to create clickhouse client: %w", err)
 	}
 
 	if sinkCfg.Batch.MaxBatchSize <= 0 {
+		log.Error("invalid max batch size", "max_batch_size", sinkCfg.Batch.MaxBatchSize)
 		return nil, fmt.Errorf("max batch size must be greater than 0")
 	}
 
@@ -67,6 +69,7 @@ func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Cons
 
 	batch, err := batch.NewClickHouseBatch(context.Background(), client, query)
 	if err != nil {
+		log.Error("failed to create batch with query", "query", query, "error", err)
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
 
@@ -97,6 +100,7 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	// Send batch to ClickHouse
 	err := ch.batch.Send(ctx)
 	if err != nil {
+		ch.log.ErrorContext(ctx, "failed to send batch to ClickHouse", "batch_size", size, "error", err)
 		return fmt.Errorf("failed to send the batch: %w", err)
 	}
 	ch.log.DebugContext(ctx, "Batch sent to clickhouse", "message_count", size)
@@ -104,6 +108,7 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	// Acknowledge all using last message from the batch
 	err = ch.lastMsg.Ack()
 	if err != nil {
+		ch.log.ErrorContext(ctx, "failed to acknowledge messages", "batch_size", size, "error", err)
 		return fmt.Errorf("failed to acknowledge messages: %w", err)
 	}
 
@@ -128,16 +133,19 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 func (ch *ClickHouseSink) handleMsg(_ context.Context, msg jetstream.Msg) error {
 	mdata, err := msg.Metadata()
 	if err != nil {
+		ch.log.Error("failed to get message metadata", "error", err)
 		return fmt.Errorf("failed to get message metadata: %w", err)
 	}
 
 	values, err := ch.schemaMapper.PrepareValues(msg.Data())
 	if err != nil {
+		ch.log.Error("failed to map data for ClickHouse", "error", err)
 		return fmt.Errorf("failed to map data for ClickHouse: %w", err)
 	}
 
 	err = ch.batch.Append(mdata.Sequence.Stream, values...)
 	if err != nil {
+		ch.log.Error("failed to append values to the batch", "stream_sequence", mdata.Sequence.Stream, "error", err)
 		return fmt.Errorf("failed to append values to the batch: %w", err)
 	}
 
@@ -169,6 +177,7 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 			if errors.Is(err, batch.ErrAlreadyExists) {
 				continue
 			}
+			ch.log.ErrorContext(ctx, "failed to handle message", "error", err)
 			return fmt.Errorf("failed to handle message: %w", err)
 		}
 		processedCount++
@@ -205,6 +214,7 @@ func (ch *ClickHouseSink) getMsgBatch(ctx context.Context) error {
 
 		err := ch.sendBatchAndAck(ctx)
 		if err != nil {
+			ch.log.ErrorContext(ctx, "failed to send the batch and ack", "error", err)
 			return fmt.Errorf("failed to send the batch and ack: %w", err)
 		}
 	}
@@ -239,6 +249,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 			// Send any remaining messages before shutdown
 			err := ch.sendBatchAndAck(ctx)
 			if err != nil {
+				ch.log.ErrorContext(ctx, "failed to send the batch and ack during shutdown", "error", err)
 				return fmt.Errorf("failed to send the batch and ack: %w", err)
 			}
 			return nil

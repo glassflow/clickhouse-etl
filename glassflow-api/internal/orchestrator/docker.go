@@ -66,6 +66,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	}()
 
 	if d.id != "" {
+		d.log.ErrorContext(ctx, "pipeline quota reached - only one local pipeline allowed", "existing_pipeline_id", d.id)
 		return fmt.Errorf("setup local pipeline: %w", service.ErrPipelineQuotaReached)
 	}
 
@@ -102,6 +103,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		subjectName := t.OutputStreamSubject
 		err := d.nc.CreateOrUpdateStream(ctx, streamName, subjectName, t.Deduplication.Window.Duration())
 		if err != nil {
+			d.log.ErrorContext(ctx, "failed to create ingestion stream", "stream_name", streamName, "subject_name", subjectName, "error", err)
 			return fmt.Errorf("setup ingestion streams for pipeline: %w", err)
 		}
 	}
@@ -119,6 +121,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 			err = ingestorRunner.Start(ctx)
 			if err != nil {
+				d.log.ErrorContext(ctx, "failed to start ingestor runner", "topic", t.Name, "replica", i, "error", err)
 				return fmt.Errorf("start ingestor for topic %s: %w", t.Name, err)
 			}
 
@@ -132,6 +135,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 		err = d.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
 		if err != nil {
+			d.log.ErrorContext(ctx, "failed to create join stream", "stream_name", sinkConsumerStream, "subject_name", sinkConsumerSubject, "error", err)
 			return fmt.Errorf("setup join stream for pipeline: %w", err)
 		}
 		d.log.DebugContext(ctx, "created join stream successfully")
@@ -149,12 +153,14 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		// Create join KV stores for left and right buffers
 		err = d.nc.CreateOrUpdateJoinKeyValueStore(ctx, leftInputStreamName, pi.Join.LeftBufferTTL.Duration())
 		if err != nil {
+			d.log.ErrorContext(ctx, "failed to create join left buffer KV store", "stream_name", leftInputStreamName, "ttl", pi.Join.LeftBufferTTL.Duration(), "error", err)
 			return fmt.Errorf("setup join left buffer KV store for pipeline: %w", err)
 		}
 		d.log.DebugContext(ctx, "created join left buffer KV store successfully")
 
 		err = d.nc.CreateOrUpdateJoinKeyValueStore(ctx, rightInputStreamName, pi.Join.RightBufferTTL.Duration())
 		if err != nil {
+			d.log.ErrorContext(ctx, "failed to create join right buffer KV store", "stream_name", rightInputStreamName, "ttl", pi.Join.RightBufferTTL.Duration(), "error", err)
 			return fmt.Errorf("setup join right buffer KV store for pipeline: %w", err)
 		}
 		d.log.DebugContext(ctx, "created join right buffer KV store successfully")
@@ -163,6 +169,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			pi.Join, schemaMapper)
 		err = d.joinRunner.Start(ctx)
 		if err != nil {
+			d.log.ErrorContext(ctx, "failed to start join runner", "left_stream", leftInputStreamName, "right_stream", rightInputStreamName, "error", err)
 			return fmt.Errorf("setup join component: %w", err)
 		}
 	}
@@ -184,6 +191,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	err = d.sinkRunner.Start(ctx)
 	if err != nil {
+		d.log.ErrorContext(ctx, "failed to start sink runner", "error", err)
 		return fmt.Errorf("start sink: %w", err)
 	}
 
@@ -198,6 +206,7 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 	defer d.m.Unlock()
 
 	if d.id != pid {
+		d.log.ErrorContext(ctx, "mismatched pipeline id for stop", "expected_id", d.id, "requested_id", pid)
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
@@ -214,7 +223,7 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 		d.log.InfoContext(ctx, "pausing pipeline before stop", "pipeline_id", pid)
 
 		// Pause the pipeline (graceful shutdown of components)
-		err := d.pausePipelineComponents()
+		err := d.pausePipelineComponents(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to pause pipeline during stop", "error", err)
 			return fmt.Errorf("pause pipeline during stop: %w", err)
@@ -240,6 +249,7 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 	defer d.m.Unlock()
 
 	if d.id != pid {
+		d.log.ErrorContext(ctx, "mismatched pipeline id for pause", "expected_id", d.id, "requested_id", pid)
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
@@ -252,7 +262,7 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 		d.watcherCancel = nil
 	}
 
-	err := d.pausePipelineComponents()
+	err := d.pausePipelineComponents(ctx)
 	if err != nil {
 		return err
 	}
@@ -262,7 +272,7 @@ func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error
 }
 
 // pausePipelineComponents gracefully shuts down pipeline components in order
-func (d *LocalOrchestrator) pausePipelineComponents() error {
+func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context) error {
 	// Shutdown components sequentially: Ingestor -> Join -> Sink
 	// This ensures no data loss by processing all messages in order
 
@@ -280,8 +290,9 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 	// 2. Check join and shutdown join runner
 	if d.joinRunner != nil {
 
-		pipeline, err := d.getPipelineConfig()
+		pipeline, err := d.getPipelineConfig(ctx)
 		if err != nil {
+			d.log.ErrorContext(ctx, "failed to get pipeline config for join safety check", "error", err)
 			return fmt.Errorf("get pipeline config for join safety check: %w", err)
 		}
 
@@ -299,12 +310,14 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 			// Check left stream
 			err := d.checkConsumerPendingMessages(ctx, leftStreamName, leftConsumerName)
 			if err != nil {
+				d.log.ErrorContext(ctx, "left join consumer has pending messages", "left_consumer", leftConsumerName, "left_stream", leftStreamName, "error", err)
 				return fmt.Errorf("left join consumer: %w", err)
 			}
 
 			// Check right stream
 			err = d.checkConsumerPendingMessages(ctx, rightStreamName, rightConsumerName)
 			if err != nil {
+				d.log.ErrorContext(ctx, "right join consumer has pending messages", "right_consumer", rightConsumerName, "right_stream", rightStreamName, "error", err)
 				return fmt.Errorf("right join consumer: %w", err)
 			}
 
@@ -316,6 +329,7 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 		}
 		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkJoinFunc, "join")
 		if err != nil {
+			d.log.ErrorContext(ctx, "waiting for join pending messages to clear failed", "error", err)
 			return fmt.Errorf("waiting for join pending messages to clear failed: %w", err)
 		}
 
@@ -329,8 +343,9 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 	// 3. Check sink and shutdown sink runner
 	if d.sinkRunner != nil {
 
-		pipeline, err := d.getPipelineConfig()
+		pipeline, err := d.getPipelineConfig(ctx)
 		if err != nil {
+			d.log.ErrorContext(ctx, "failed to get pipeline config for sink safety check", "error", err)
 			return fmt.Errorf("get pipeline config for sink safety check: %w", err)
 		}
 
@@ -341,6 +356,7 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 
 			err := d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
 			if err != nil {
+				d.log.ErrorContext(ctx, "sink consumer has pending messages", "sink_consumer", sinkConsumerName, "sink_stream", sinkStreamName, "error", err)
 				return fmt.Errorf("sink consumer: %w", err)
 			}
 
@@ -348,6 +364,7 @@ func (d *LocalOrchestrator) pausePipelineComponents() error {
 		}
 		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkSinkFunc, "sink")
 		if err != nil {
+			d.log.ErrorContext(ctx, "waiting for sink pending messages to clear failed", "error", err)
 			return fmt.Errorf("waiting for sink pending messages to clear failed: %w", err)
 		}
 
@@ -388,12 +405,14 @@ func (d *LocalOrchestrator) waitForPendingMessagesToClear(ctx context.Context, p
 		return nil
 	}
 
+	d.log.ErrorContext(ctx, "timeout waiting for pending messages to clear", "component", componentName, "pipeline_id", pipeline.ID, "max_retries", maxRetries)
 	return fmt.Errorf("timeout waiting for %s pending messages to clear after %d retries", componentName, maxRetries)
 }
 
 // getPipelineConfig retrieves pipeline config from memory
-func (d *LocalOrchestrator) getPipelineConfig() (*models.PipelineConfig, error) {
+func (d *LocalOrchestrator) getPipelineConfig(ctx context.Context) (*models.PipelineConfig, error) {
 	if d.pipelineConfig == nil {
+		d.log.ErrorContext(ctx, "pipeline config not available in memory")
 		return nil, fmt.Errorf("pipeline config not available in memory")
 	}
 
@@ -404,6 +423,7 @@ func (d *LocalOrchestrator) getPipelineConfig() (*models.PipelineConfig, error) 
 func (d *LocalOrchestrator) checkConsumerPendingMessages(ctx context.Context, streamName, consumerName string) error {
 	hasPending, pending, unack, err := d.nc.CheckConsumerPendingMessages(ctx, streamName, consumerName)
 	if err != nil {
+		d.log.ErrorContext(ctx, "failed to check consumer pending messages", "consumer", consumerName, "stream", streamName, "error", err)
 		return fmt.Errorf("check consumer %s: %w", consumerName, err)
 	}
 	if hasPending {
@@ -509,6 +529,7 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 	defer d.m.Unlock()
 
 	if d.id != pid {
+		d.log.ErrorContext(ctx, "mismatched pipeline id for resume", "expected_id", d.id, "requested_id", pid)
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
@@ -527,6 +548,7 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 		d.log.DebugContext(componentCtx, "starting sink runner")
 		err := d.sinkRunner.Start(componentCtx)
 		if err != nil {
+			d.log.ErrorContext(componentCtx, "failed to start sink runner during resume", "error", err)
 			return fmt.Errorf("start sink runner: %w", err)
 		}
 		d.log.DebugContext(componentCtx, "sink runner started")
@@ -537,6 +559,7 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 		d.log.DebugContext(componentCtx, "starting join runner")
 		err := d.joinRunner.Start(componentCtx)
 		if err != nil {
+			d.log.ErrorContext(componentCtx, "failed to start join runner during resume", "error", err)
 			return fmt.Errorf("start join runner: %w", err)
 		}
 		d.log.DebugContext(componentCtx, "join runner started")
@@ -548,6 +571,7 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 			d.log.DebugContext(componentCtx, "starting ingestor runner")
 			err := runner.Start(componentCtx)
 			if err != nil {
+				d.log.ErrorContext(componentCtx, "failed to start ingestor runner during resume", "error", err)
 				return fmt.Errorf("start ingestor runner: %w", err)
 			}
 		}

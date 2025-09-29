@@ -94,6 +94,7 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
 	consumer, err := newGroupConsumer(conn, topic, log)
 	if err != nil {
+		log.Error("failed to create group consumer", "topic", topic, "error", err)
 		return nil, fmt.Errorf("failed to create group consumer: %w", err)
 	}
 	return consumer, nil
@@ -116,6 +117,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		cfg,
 	)
 	if err != nil {
+		log.Error("failed to create consumer group", "brokers", connectionParams.Brokers, "consumer_group", topic.ConsumerGroupName, "error", err)
 		return nil, fmt.Errorf("failed to create consumer group: %w", err)
 	}
 
@@ -140,6 +142,7 @@ func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) e
 			if errors.Is(err, sarama.ErrClosedConsumerGroup) {
 				return nil
 			}
+			c.log.ErrorContext(ctx, "failed to consume from kafka", "topics", topics, "error", err)
 			return fmt.Errorf("failed to consume from kafka: %w", err)
 		}
 
@@ -155,6 +158,7 @@ func (c *groupConsumer) Close() error {
 		c.cancel()
 	}
 	if err := c.cGroup.Close(); err != nil {
+		c.log.Error("failed to close consumer group", "group", c.name, "error", err)
 		return fmt.Errorf("failed to close consumer group: %w", err)
 	}
 	return nil
