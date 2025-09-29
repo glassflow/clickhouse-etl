@@ -211,6 +211,47 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /pipeline/{id}/dlq/consume:
+    get:
+      summary: Consume DLQ messages
+      description: Retrieve messages from the Dead Letter Queue for pipeline
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+        - name: batch_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: Number of messages to retrieve (uses default if not specified or invalid)
+      responses:
+        '200':
+          description: DLQ messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DLQMessage'
+        '204':
+          description: No messages in DLQ
+        '404':
+          description: DLQ for pipeline does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable entity - Invalid batch size or pipeline ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
 
 components:
   parameters:
@@ -613,3 +654,23 @@ components:
           format: date-time
           description: When the pipeline was last updated
           example: "2023-11-20T11:30:00Z"
+
+    DLQMessage:
+      type: object
+      required:
+        - component
+        - error
+        - original_message
+      properties:
+        component:
+          type: string
+          description: Component that generated the error
+          example: "kafka-consumer"
+        error:
+          type: string
+          description: Error message describing what went wrong
+          example: "Failed to parse JSON: invalid character"
+        original_message:
+          type: string
+          description: Original message that failed processing
+          example: '{"order_id": "12345", "invalid": json}'
