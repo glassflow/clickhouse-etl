@@ -37,7 +37,57 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-
+  /pipeline:
+    post:
+      summary: Create a new pipeline
+      description: Create a new data pipeline with source, sink, and optional join configuration
+      tags:
+        - Pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pipeline'
+      responses:
+        '200':
+          description: Pipeline created successfully
+        '400':
+          description: Bad request - Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Pipeline quota reached or ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable entity - Invalid pipeline configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    get:
+      summary: Get all pipelines
+      description: Retrieve a list of all pipelines
+      tags:
+        - Pipeline
+      responses:
+        '200':
+          description: Pipelines retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListPipelineConfig'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
 components:
   responses:
@@ -56,10 +106,338 @@ components:
         orchestrator:
           type: string
           description: The type of orchestrator being used
-          enum: [local, k8s, unknown]
+          enum: [ local, k8s, unknown ]
           example: "k8s"
         api_version:
           type: string
           description: API version (optional)
       required:
         - orchestrator
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: "Invalid pipeline configuration"
+        field:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            pipeline_id: "pipeline-id"
+    ListPipelineConfig:
+      type: object
+      required:
+        - pipeline_id
+        - name
+        - transformation_type
+        - created_at
+        - status
+      properties:
+        pipeline_id:
+          type: string
+          description: Unique identifier for the pipeline
+          example: "etl-pipeline"
+        name:
+          type: string
+          description: Human-readable name for the pipeline
+          example: "ETL Pipeline"
+        transformation_type:
+          type: string
+          description: Type of transformation applied
+          example: "Ingest Only"
+        created_at:
+          type: string
+          format: date-time
+          description: When the pipeline was created
+          example: "2023-11-20T10:00:00Z"
+        status:
+          $ref: '#/components/schemas/PipelineStatus'
+
+    PipelineStatus:
+      type: string
+      enum: [Created, Running, Pausing, Paused, Stopping, Stopped, Terminating, Terminated, Failed]
+
+    Pipeline:
+      type: object
+      required:
+        - pipeline_id
+        - source
+        - sink
+      properties:
+        pipeline_id:
+          type: string
+          description: Unique identifier for the pipeline
+          example: "etl-pipeline"
+        name:
+          type: string
+          description: Human-readable name for the pipeline
+          example: "ETL Pipeline"
+        source:
+          type: object
+          required:
+            - type
+            - provider
+            - connection_params
+            - topics
+          properties:
+            type:
+              type: string
+              description: Source type
+              example: "kafka"
+            provider:
+              type: string
+              description: Source provider
+              example: "aiven"
+            connection_params:
+              $ref: '#/components/schemas/SourceConnectionParams'
+            topics:
+              type: array
+              items:
+                $ref: '#/components/schemas/KafkaTopic'
+        join:
+          type: object
+          description: Optional join configuration for temporal joins between data sources
+          required:
+            - enabled
+            - type
+            - sources
+          properties:
+            type:
+              type: string
+              description: Join type
+              example: "temporal"
+            enabled:
+              type: boolean
+              description: Whether join is enabled for this pipeline
+              example: false
+            sources:
+              type: array
+              description: Join source configurations
+              items:
+                $ref: '#/components/schemas/JoinSource'
+        sink:
+          $ref: '#/components/schemas/Sink'
+        status:
+          $ref: '#/components/schemas/PipelineStatus'
+
+    SourceConnectionParams:
+      type: object
+      required:
+        - brokers
+        - protocol
+      properties:
+        brokers:
+          type: array
+          items:
+            type: string
+          example: ["localhost:9092"]
+          description: "List of Kafka broker addresses"
+        skip_auth:
+          type: boolean
+          example: false
+          description: "Skip authentication"
+        protocol:
+          type: string
+          enum: ["SASL_PLAINTEXT", "PLAINTEXT", "SASL_SSL", "SSL"]
+          example: "SASL_SSL"
+          description: "SASL protocol"
+        mechanism:
+          type: string
+          example: "PLAIN"
+          description: "SASL mechanism"
+        username:
+          type: string
+          example: "user"
+          description: "SASL username"
+        password:
+          type: string
+          example: "password"
+          description: "SASL password"
+        root_ca:
+          type: string
+          description: "Root CA certificate for TLS"
+
+    JoinSource:
+      type: object
+      required:
+        - source_id
+        - join_key
+        - time_window
+        - orientation
+      properties:
+        source_id:
+          type: string
+          example: "customers"
+        join_key:
+          type: string
+          example: "customer_id"
+        time_window:
+          type: string
+          description: Duration string (ms, s, m, h, d units)
+          example: "10m"
+        orientation:
+          type: string
+          example: "left"
+
+    Sink:
+      type: object
+      required:
+        - host
+        - port
+        - database
+        - username
+        - password
+        - table
+        - max_batch_size
+      properties:
+        type:
+          type: string
+          default: "clickhouse"
+          example: "clickhouse"
+        host:
+          type: string
+          example: "localhost"
+        port:
+          type: string
+          example: "9000"
+          description: "Native port used for backend connection"
+        http_port:
+          type: string
+          example: "8123"
+          description: "HTTP port used for UI frontend connection"
+        database:
+          type: string
+          example: "analytics"
+        username:
+          type: string
+          example: "username"
+        password:
+          type: string
+          example: "password"
+        table:
+          type: string
+          example: "orders"
+        secure:
+          type: boolean
+          example: false
+        table_mapping:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnMapping'
+        max_batch_size:
+          type: integer
+          example: 10000
+        max_delay_time:
+          type: string
+          description: Maximum delay time as duration string (ms, s, m, h, d units)
+          example: "60s"
+        skip_certificate_verification:
+          type: boolean
+          example: false
+
+    ColumnMapping:
+      type: object
+      required:
+        - source_id
+        - field_name
+        - column_name
+        - column_type
+      properties:
+        source_id:
+          type: string
+          example: "orders"
+          description: "Source stream identifier"
+        field_name:
+          type: string
+          example: "order_id"
+          description: "Field name from the source"
+        column_name:
+          type: string
+          example: "id"
+          description: "Target column name in ClickHouse table"
+        column_type:
+          type: string
+          example: "UInt64"
+          description: "ClickHouse column type"
+
+    KafkaTopic:
+      type: object
+      required:
+        - name
+        - id
+        - schema
+      properties:
+        name:
+          type: string
+          description: Kafka topic name
+          example: "orders"
+        id:
+          type: string
+          description: Topic ID
+          example: "orders-topic-1"
+        schema:
+          $ref: '#/components/schemas/TopicSchema'
+        consumer_group_initial_offset:
+          type: string
+          enum: [earliest, latest]
+          default: "earliest"
+        replicas:
+          type: integer
+          default: 1
+          example: 1
+        deduplication:
+          $ref: '#/components/schemas/DeduplicationConfig'
+
+    TopicSchema:
+      type: object
+      required:
+        - fields
+      properties:
+        type:
+          type: string
+          default: "json"
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaField'
+
+    SchemaField:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          example: "order_id"
+        type:
+          type: string
+          example: "string"
+
+    DeduplicationConfig:
+      type: object
+      required:
+        - enabled
+        - id_field
+        - id_field_type
+        - time_window
+      properties:
+        enabled:
+          type: boolean
+          example: true
+          description: Whether deduplication is enabled for this topic
+        id_field:
+          type: string
+          example: "order_id"
+          description: Field name to use for deduplication
+        id_field_type:
+          type: string
+          example: "string"
+          description: Data type of the deduplication field
+        time_window:
+          type: string
+          description: Duration string for deduplication window (ms, s, m, h, d units)
+          example: "5m"
