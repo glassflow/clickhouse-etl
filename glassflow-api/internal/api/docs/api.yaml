@@ -10,3 +10,56 @@ servers:
   - url: /api/v1
     description: Glassflow API v1
 
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      description: Returns the health status of the API service
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+
+  /platform:
+    get:
+      summary: Get platform information
+      description: Returns information about the platform and orchestrator
+      tags:
+        - System
+      responses:
+        '200':
+          description: Platform information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+
+
+components:
+  responses:
+    ServerError:
+      description: Internal server error
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: "Internal Server Error"
+
+  schemas:
+    PlatformResponse:
+      type: object
+      properties:
+        orchestrator:
+          type: string
+          description: The type of orchestrator being used
+          enum: [local, k8s, unknown]
+          example: "k8s"
+        api_version:
+          type: string
+          description: API version (optional)
+      required:
+        - orchestrator
