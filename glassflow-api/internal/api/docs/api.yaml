@@ -1,0 +1,12 @@
+openapi: 3.0.0
+info:
+  title: Glassflow API
+  description: API for managing data pipelines in Glassflow
+  version: 1.0.0
+  contact:
+    email: help@glassflow.dev
+
+servers:
+  - url: /api/v1
+    description: Glassflow API v1
+
