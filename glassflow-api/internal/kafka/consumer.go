@@ -53,6 +53,26 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 			//nolint: exhaustruct // optional config
 			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
 			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+		case internal.MechanismKerberos:
+			// Kerberos/GSSAPI configuration
+			cfg.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
+			cfg.Net.SASL.GSSAPI.ServiceName = conn.KerberosServiceName
+			cfg.Net.SASL.GSSAPI.Realm = conn.KerberosRealm
+			cfg.Net.SASL.GSSAPI.Username = conn.SASLUsername
+
+			if conn.KerberosKeytabPath != "" {
+				// Use keytab authentication
+				cfg.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
+				cfg.Net.SASL.GSSAPI.KeyTabPath = conn.KerberosKeytabPath
+			} else if conn.SASLPassword != "" {
+				// Use password authentication
+				cfg.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
+				cfg.Net.SASL.GSSAPI.Password = conn.SASLPassword
+			}
+
+			if conn.KerberosConfigPath != "" {
+				cfg.Net.SASL.GSSAPI.KerberosConfigPath = conn.KerberosConfigPath
+			}
 		default:
 			cfg.Net.SASL.Mechanism = sarama.SASLTypePlaintext
 		}

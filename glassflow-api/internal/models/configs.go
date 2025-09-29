@@ -64,6 +64,11 @@ type KafkaConnectionParamsConfig struct {
 	TLSKey        string   `json:"tls_key"`
 	IAMEnable     bool     `json:"iam_enable"`
 	IAMRegion     string   `json:"iam_region"`
+
+	KerberosServiceName string `json:"kerberos_service_name,omitempty"`
+	KerberosRealm       string `json:"kerberos_realm,omitempty"`
+	KerberosKeytabPath  string `json:"kerberos_keytab_path,omitempty"`
+	KerberosConfigPath  string `json:"kerberos_config_path,omitempty"`
 }
 
 type ConsumerGroupOffset string
