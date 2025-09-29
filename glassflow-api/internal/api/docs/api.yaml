@@ -252,6 +252,36 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /pipeline/{id}/dlq/state:
+    get:
+      summary: Get DLQ state
+      description: Retrieve the current state and statistics of the Dead Letter Queue for a specific pipeline
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: DLQ state retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DLQState'
+        '404':
+          description: DLQ for pipeline does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable entity - Pipeline ID cannot be empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
 
 components:
   parameters:
@@ -674,3 +704,34 @@ components:
           type: string
           description: Original message that failed processing
           example: '{"order_id": "12345", "invalid": json}'
+
+    DLQState:
+      type: object
+      required:
+        - total_messages
+        - unconsumed_messages
+      properties:
+        last_received_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the last message was received in the DLQ
+          example: "2023-11-20T10:30:00Z"
+        last_consumed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when messages were last consumed from the DLQ
+          example: "2023-11-20T10:35:00Z"
+        total_messages:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total number of messages ever received in the DLQ
+          example: 150
+        unconsumed_messages:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of messages currently available for consumption
+          example: 25
