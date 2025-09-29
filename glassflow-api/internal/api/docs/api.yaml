@@ -181,6 +181,36 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /pipeline/{id}/health:
+    get:
+      summary: Get pipeline health
+      description: Retrieve health status and basic information for a specific pipeline
+      tags:
+        - Pipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: Pipeline health retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineHealth'
+        '400':
+          description: Bad request - Pipeline ID cannot be empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pipeline not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
 
 components:
   parameters:
@@ -553,3 +583,33 @@ components:
           type: string
           description: New name for the pipeline
           example: "Updated Pipeline Name"
+
+    PipelineHealth:
+      type: object
+      required:
+        - pipeline_id
+        - pipeline_name
+        - overall_status
+        - created_at
+        - updated_at
+      properties:
+        pipeline_id:
+          type: string
+          description: Unique identifier for the pipeline
+          example: "etl-pipeline"
+        pipeline_name:
+          type: string
+          description: Human-readable name for the pipeline
+          example: "ETL Pipeline"
+        overall_status:
+          $ref: '#/components/schemas/PipelineStatus'
+        created_at:
+          type: string
+          format: date-time
+          description: When the pipeline was created
+          example: "2023-11-20T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: When the pipeline was last updated
+          example: "2023-11-20T11:30:00Z"
