@@ -42,7 +42,7 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 		var pErr models.PipelineConfigError
 		switch {
 		case errors.Is(err, service.ErrPipelineQuotaReached), errors.Is(err, service.ErrIDExists):
-			h.log.ErrorContext(r.Context(), "pipeline creation failed due to business rule violation", "pipeline_id", pipeline.ID, "error", err)
+			h.log.ErrorContext(r.Context(), "pipeline creation failed, only single pipeline in docker allowed", "pipeline_id", pipeline.ID, "error", err)
 			jsonError(w, http.StatusForbidden, err.Error(), map[string]string{"pipeline_id": pipeline.ID})
 		case errors.As(err, &pErr):
 			h.log.ErrorContext(r.Context(), "pipeline creation failed due to configuration error", "pipeline_id", pipeline.ID, "error", err)
