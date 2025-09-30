@@ -37,7 +37,9 @@ type config struct {
 	LogFilePath  string     `split_words:"true"`
 
 	// OpenTelemetry observability configuration
-	OtelObservability bool `default:"false" split_words:"true"`
+	OtelObservability  bool   `default:"false" split_words:"true"`
+	OtelServiceName    string `default:"glassflow" split_words:"true"`
+	OtelServiceVersion string `default:"dev" split_words:"true"`
 
 	ServerAddr            string        `default:":8081" split_words:"true"`
 	ServerWriteTimeout    time.Duration `default:"15s" split_words:"true"`
@@ -125,8 +127,8 @@ func mainErr(cfg *config, role models.Role) error {
 		LogLevel:          cfg.LogLevel,
 		LogAddSource:      cfg.LogAddSource,
 		OtelObservability: cfg.OtelObservability,
-		ServiceName:       "glassflow-api",
-		ServiceVersion:    "1.0.0",
+		ServiceName:       cfg.OtelServiceName,
+		ServiceVersion:    cfg.OtelServiceVersion,
 	}
 	log := observability.ConfigureLogger(obsConfig, logOut)
 

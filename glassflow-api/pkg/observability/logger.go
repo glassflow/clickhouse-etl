@@ -34,8 +34,6 @@ func DefaultConfig() *Config {
 		LogLevel:          slog.LevelInfo,
 		LogAddSource:      false,
 		OtelObservability: false,
-		ServiceName:       "glassflow-api",
-		ServiceVersion:    "1.0.0",
 	}
 }
 
