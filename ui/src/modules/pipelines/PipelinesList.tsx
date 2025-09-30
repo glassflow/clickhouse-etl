@@ -1,24 +1,20 @@
 'use client'
 
 import React, { useEffect, useState, useMemo } from 'react'
+import Image from 'next/image'
 import { useStore } from '@/src/store'
-import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
-import { InputModal, ModalResult as InputModalResult } from '@/src/components/common/InputModal'
+import { Badge } from '@/src/components/ui/badge'
+import { Button } from '@/src/components/ui/button'
+import { ModalResult as InputModalResult } from '@/src/components/common/InputModal'
 import { saveConfiguration } from '@/src/utils/local-storage-config'
-import { isValidApiConfig } from '@/src/modules/pipelines/helpers'
-import TrashIcon from '../../images/trash.svg'
-import ModifyIcon from '../../images/modify.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { Feedback } from './Feedback'
-import { Pipeline, ListPipelineConfig, PipelineError, getPipelineStatusFromState } from '@/src/types/pipeline'
+import { Pipeline, ListPipelineConfig, PipelineError } from '@/src/types/pipeline'
 import { PipelinesTable, TableColumn } from '@/src/modules/pipelines/PipelinesTable'
 import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
-import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { CreateIcon } from '@/src/components/icons'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
-import { Checkbox } from '@/src/components/ui/checkbox'
 import PausePipelineModal from './components/PausePipelineModal'
 import StopPipelineModal from './components/StopPipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
@@ -32,14 +28,12 @@ import {
   stopPipeline,
   terminatePipeline,
   deletePipeline,
+  getPipeline,
 } from '@/src/api/pipeline-api'
-import Image from 'next/image'
-import Loader from '@/src/images/loader-small.svg'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
-// TEMPORARILY DISABLED: Health monitoring imports
-// import { useMultiplePipelineHealth } from '@/src/hooks/usePipelineHealth'
-// import { getHealthStatusDisplayText } from '@/src/api/pipeline-health'
+import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
+import Loader from '@/src/images/loader-small.svg'
 
 type PipelinesListProps = {
   pipelines: ListPipelineConfig[]
@@ -104,24 +98,17 @@ export function PipelinesList({
   const router = useRouter()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  // TEMPORARILY DISABLED: Multiple pipeline health monitoring for real-time status updates
-  // TODO: Re-enable after fixing polling performance issues
-  // const pipelineIds = useMemo(() => pipelines.map((p) => p.pipeline_id), [pipelines])
-  //
-  // const { healthMap } = useMultiplePipelineHealth({
-  //   pipelineIds,
-  //   enabled: true,
-  //   pollingInterval: 15000, // 15 seconds for list view - conservative interval
-  //   onStatusChange: (pipelineId, newStatus, previousStatus) => {
-  //     console.log(`Pipeline list: ${pipelineId} status changed: ${previousStatus} → ${newStatus}`)
-  //   },
-  //   onError: (pipelineId, error) => {
-  //     console.log(`Pipeline list: Health check error for ${pipelineId}:`, error)
-  //   },
-  // })
+  // NEW: Simple centralized state management
+  const pipelineIds = useMemo(() => pipelines.map((p) => p.pipeline_id), [pipelines])
 
-  // Use empty healthMap for now - fall back to static pipeline status
-  const healthMap = {}
+  // NEW: Get pipeline statuses from centralized state
+  const pipelineStatuses = useMultiplePipelineState(pipelineIds)
+
+  // NEW: Get operations interface
+  const operations = usePipelineOperations()
+
+  // NEW: Start monitoring these pipelines
+  usePipelineMonitoring(pipelineIds)
 
   // Helper functions to manage pipeline operation state
   const setPipelineLoading = (
@@ -147,6 +134,11 @@ export function PipelinesList({
 
   const getPipelineOperation = (pipelineId: string) => {
     return pipelineOperations[pipelineId]?.operation || null
+  }
+
+  // Get effective status (from centralized state or fallback to pipeline data)
+  const getEffectiveStatus = (pipeline: ListPipelineConfig): PipelineStatus => {
+    return pipelineStatuses[pipeline.pipeline_id] || (pipeline.status as PipelineStatus) || 'active'
   }
 
   // Count pipelines that block new pipeline creation (active or paused)
@@ -270,14 +262,7 @@ export function PipelinesList({
     }
   }
 
-  const getBadgeLabel = (status: PipelineStatus, pipelineId?: string) => {
-    // TEMPORARILY DISABLED: Health monitoring - use static status only
-    // const healthData = pipelineId ? healthMap[pipelineId] : null
-    // if (healthData) {
-    //   return getHealthStatusDisplayText(healthData.overall_status)
-    // }
-
-    // Use static status from initial pipeline data
+  const getBadgeLabel = (status: PipelineStatus) => {
     switch (status) {
       case 'active':
         return 'Active'
@@ -285,6 +270,8 @@ export function PipelinesList({
         return 'Pausing...'
       case 'paused':
         return 'Paused'
+      case 'resuming':
+        return 'Resuming...'
       case 'stopping':
         return 'Stopping...'
       case 'stopped':
@@ -293,6 +280,27 @@ export function PipelinesList({
         return 'Failed'
       default:
         return 'Unknown status'
+    }
+  }
+
+  const getStatusVariant = (status: PipelineStatus) => {
+    switch (status) {
+      case 'active':
+        return 'success'
+      case 'paused':
+        return 'warning'
+      case 'pausing':
+        return 'warning'
+      case 'resuming':
+        return 'warning'
+      case 'stopping':
+        return 'warning'
+      case 'stopped':
+        return 'secondary'
+      case 'failed':
+        return 'error'
+      default:
+        return 'default'
     }
   }
 
@@ -336,35 +344,10 @@ export function PipelinesList({
       header: 'Status',
       width: '1fr',
       render: (pipeline) => {
-        const getStatusVariant = (status: string, pipelineId?: string) => {
-          // TEMPORARILY DISABLED: Health monitoring - use static status only
-          // const healthData = pipelineId ? healthMap[pipelineId] : null
-          // const effectiveStatus = healthData?.overall_status || status
-
-          switch (status) {
-            case 'active':
-              return 'success'
-            case 'paused':
-              return 'warning'
-            case 'pausing':
-              return 'warning'
-            case 'stopping':
-              return 'warning'
-            case 'stopped':
-              return 'secondary'
-            case 'failed':
-              return 'error'
-            default:
-              return 'default'
-          }
-        }
-
+        const effectiveStatus = getEffectiveStatus(pipeline)
         return (
-          <Badge
-            className="rounded-xl my-2 mx-4"
-            variant={getStatusVariant((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
-          >
-            {getBadgeLabel((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
+          <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(effectiveStatus)}>
+            {getBadgeLabel(effectiveStatus)}
           </Badge>
         )
       },
@@ -373,18 +356,21 @@ export function PipelinesList({
       key: 'actions',
       header: 'Actions',
       width: '1fr',
-      render: (pipeline) => (
-        <TableContextMenu
-          pipelineStatus={(pipeline.status as PipelineStatus) || 'no_configuration'}
-          isLoading={isPipelineLoading(pipeline.pipeline_id)}
-          onPause={() => handlePause(pipeline)}
-          onResume={() => handleResume(pipeline)}
-          onEdit={() => handleEdit(pipeline)}
-          onRename={() => handleRename(pipeline)}
-          onStop={() => handleStop(pipeline)}
-          onDelete={() => handleDelete(pipeline)}
-        />
-      ),
+      render: (pipeline) => {
+        const effectiveStatus = getEffectiveStatus(pipeline)
+        return (
+          <TableContextMenu
+            pipelineStatus={effectiveStatus}
+            isLoading={isPipelineLoading(pipeline.pipeline_id)}
+            onPause={() => handlePause(pipeline)}
+            onResume={() => handleResume(pipeline)}
+            onEdit={() => handleEdit(pipeline)}
+            onRename={() => handleRename(pipeline)}
+            onStop={() => handleStop(pipeline)}
+            onDelete={() => handleDelete(pipeline)}
+          />
+        )
+      },
     },
   ]
 
@@ -403,11 +389,11 @@ export function PipelinesList({
 
     setPipelineLoading(pipeline.pipeline_id, 'resume')
 
-    // Keep current status during resume operation - loading spinner will show progress
-    const currentStatus = (pipeline.status as PipelineStatus) || 'no_configuration'
-    // Don't change status optimistically for resume - wait for completion
-
     try {
+      // Report operation to central system
+      operations.reportResume(pipeline.pipeline_id)
+
+      // Make API call
       await resumePipeline(pipeline.pipeline_id)
 
       // Track resume success
@@ -416,10 +402,7 @@ export function PipelinesList({
         pipelineName: pipeline.name,
       })
 
-      // Update status to final 'active' state after successful resume
-      onUpdatePipelineStatus?.(pipeline.pipeline_id, 'active')
-
-      // Skip immediate refresh for resume - backend status transitions can be slow
+      // Central system handles tracking and state updates
     } catch (error) {
       console.error('Failed to resume pipeline:', error)
 
@@ -430,8 +413,8 @@ export function PipelinesList({
         error: error instanceof Error ? error.message : 'Unknown error',
       })
 
-      // Revert optimistic update on error
-      onUpdatePipelineStatus?.(pipeline.pipeline_id, currentStatus)
+      // Revert optimistic update
+      operations.revertOptimisticUpdate(pipeline.pipeline_id, 'paused')
     } finally {
       clearPipelineLoading(pipeline.pipeline_id)
     }
@@ -460,11 +443,13 @@ export function PipelinesList({
 
     setPipelineLoading(pipeline.pipeline_id, 'delete')
 
-    // Optimistically update status to 'stopped'
-    onUpdatePipelineStatus?.(pipeline.pipeline_id, 'stopped')
-
     try {
+      // Report operation to central system
+      operations.reportDelete(pipeline.pipeline_id)
+
+      // Make API call
       await deletePipeline(pipeline.pipeline_id)
+
       // Track delete success
       analytics.pipeline.deleteSuccess({
         pipelineId: pipeline.pipeline_id,
@@ -474,10 +459,7 @@ export function PipelinesList({
 
       // Remove pipeline from list and refresh to ensure it's gone from backend
       onRemovePipeline?.(pipeline.pipeline_id)
-      // For delete, we do want to refresh to ensure pipeline is actually removed
-      setTimeout(async () => {
-        await onRefresh?.()
-      }, 1000)
+      setTimeout(() => onRefresh?.(), 1000)
     } catch (error) {
       console.error('Failed to delete pipeline:', error)
 
@@ -489,8 +471,9 @@ export function PipelinesList({
         processEvents: false,
       })
 
-      // Revert optimistic update on error
-      onUpdatePipelineStatus?.(pipeline.pipeline_id, (pipeline.status as PipelineStatus) || 'no_configuration')
+      // Revert optimistic update
+      const currentStatus = (pipeline.status as PipelineStatus) || 'active'
+      operations.revertOptimisticUpdate(pipeline.pipeline_id, currentStatus)
     } finally {
       clearPipelineLoading(pipeline.pipeline_id)
     }
@@ -540,7 +523,7 @@ export function PipelinesList({
       <div className="md:hidden">
         <MobilePipelinesList
           pipelines={pipelines}
-          healthMap={healthMap}
+          healthMap={pipelineStatuses} // NEW: Use centralized statuses
           onPause={handlePause}
           onResume={handleResume}
           onEdit={handleEdit}
@@ -568,21 +551,20 @@ export function PipelinesList({
           closePauseModal() // Close modal immediately
           setPipelineLoading(pauseSelectedPipeline.pipeline_id, 'pause')
 
-          // Optimistically update status to 'pausing'
-          onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'pausing')
-
           try {
+            // Report operation to central system
+            operations.reportPause(pauseSelectedPipeline.pipeline_id)
+
+            // Make API call
             await pausePipeline(pauseSelectedPipeline.pipeline_id)
+
             // Track pause success
             analytics.pipeline.pauseSuccess({
               pipelineId: pauseSelectedPipeline.pipeline_id,
               pipelineName: pauseSelectedPipeline.name,
             })
 
-            // Update status to final 'paused' state after successful pause
-            onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'paused')
-
-            // Skip immediate refresh for pause - backend status transitions can be slow
+            // Central system handles tracking and state updates
           } catch (error) {
             console.error('Failed to pause pipeline:', error)
 
@@ -593,8 +575,8 @@ export function PipelinesList({
               error: error instanceof Error ? error.message : 'Unknown error',
             })
 
-            // Revert optimistic update on error
-            onUpdatePipelineStatus?.(pauseSelectedPipeline.pipeline_id, 'active')
+            // Revert optimistic update
+            operations.revertOptimisticUpdate(pauseSelectedPipeline.pipeline_id, 'active')
           } finally {
             clearPipelineLoading(pauseSelectedPipeline.pipeline_id)
           }
@@ -735,15 +717,14 @@ export function PipelinesList({
           closeStopModal() // Close modal immediately
           setPipelineLoading(deleteSelectedPipeline.pipeline_id, 'delete')
 
-          // Optimistically update status to transitional state
-          onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, 'stopping')
-
           try {
+            // Report operation to central system
+            operations.reportStop(deleteSelectedPipeline.pipeline_id)
+
+            // Make API call
             if (isGraceful) {
-              // Graceful stop - process remaining events
               await stopPipeline(deleteSelectedPipeline.pipeline_id)
             } else {
-              // Ungraceful stop - terminate immediately
               await terminatePipeline(deleteSelectedPipeline.pipeline_id)
             }
 
@@ -751,13 +732,10 @@ export function PipelinesList({
             analytics.pipeline.deleteSuccess({
               pipelineId: deleteSelectedPipeline.pipeline_id,
               pipelineName: deleteSelectedPipeline.name,
-              processEvents: isGraceful, // Keep for backward compatibility with analytics
+              processEvents: isGraceful,
             })
 
-            onUpdatePipelineStatus?.(deleteSelectedPipeline.pipeline_id, 'stopped')
-
-            // Skip refresh for successful stop operations to avoid overwriting correct status
-            // The optimistic update is reliable since the API call succeeded
+            // Central system handles tracking and state updates
           } catch (error) {
             console.error('Failed to stop pipeline:', error)
 
@@ -766,14 +744,12 @@ export function PipelinesList({
               pipelineId: deleteSelectedPipeline.pipeline_id,
               pipelineName: deleteSelectedPipeline.name,
               error: error instanceof Error ? error.message : 'Unknown error',
-              processEvents: isGraceful, // Keep for backward compatibility with analytics
+              processEvents: isGraceful,
             })
 
-            // Revert optimistic update on error
-            onUpdatePipelineStatus?.(
-              deleteSelectedPipeline.pipeline_id,
-              deleteSelectedPipeline.status || 'no_configuration',
-            )
+            // Revert optimistic update
+            const currentStatus = (deleteSelectedPipeline.status as PipelineStatus) || 'active'
+            operations.revertOptimisticUpdate(deleteSelectedPipeline.pipeline_id, currentStatus)
           } finally {
             clearPipelineLoading(deleteSelectedPipeline.pipeline_id)
           }

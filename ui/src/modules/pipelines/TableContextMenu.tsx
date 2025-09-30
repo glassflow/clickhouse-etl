@@ -4,6 +4,14 @@ import { MoreVertical, Pause, Play, Edit, FileText, Trash2 } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import { getActionConfig } from '@/src/utils/pipeline-actions'
 import { Pipeline, PipelineStatus } from '@/src/types/pipeline'
+import PlayIcon from '@/src/images/play-white.svg'
+import EditIcon from '@/src/images/edit.svg'
+import RenameIcon from '@/src/images/rename.svg'
+import DeleteIcon from '@/src/images/trash.svg'
+import StopIcon from '@/src/images/close.svg'
+import PauseIcon from '@/src/images/pause.svg'
+import ShutdownIcon from '@/src/images/shutdown.svg'
+import Image from 'next/image'
 
 interface TableContextMenuProps {
   pipelineStatus: PipelineStatus
@@ -101,7 +109,13 @@ export const TableContextMenu = ({
                 disabled={pauseConfig.isDisabled || isLoading}
                 title={pauseConfig.disabledReason}
               >
-                <Pause className="h-4 w-4 mr-2 flex-shrink-0" />
+                <Image
+                  src={PauseIcon}
+                  alt="Pause"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-0"
+                />
                 <span className="truncate">Pause</span>
               </Button>
             )}
@@ -120,7 +134,7 @@ export const TableContextMenu = ({
                 disabled={resumeConfig.isDisabled || isLoading}
                 title={resumeConfig.disabledReason}
               >
-                <Play className="h-4 w-4 mr-2 flex-shrink-0" />
+                <Image src={PlayIcon} alt="Resume" width={16} height={16} />
                 <span className="truncate">Resume</span>
               </Button>
             )}
@@ -161,7 +175,13 @@ export const TableContextMenu = ({
                 disabled={renameConfig.isDisabled || isLoading}
                 title={renameConfig.disabledReason}
               >
-                <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                <Image
+                  src={RenameIcon}
+                  alt="Rename"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-0"
+                />
                 <span className="truncate">Rename</span>
               </Button>
             )}
@@ -183,7 +203,13 @@ export const TableContextMenu = ({
                 disabled={stopConfig.isDisabled || isLoading}
                 title={stopConfig.disabledReason}
               >
-                <Trash2 className="h-4 w-4 mr-2 flex-shrink-0" />
+                <Image
+                  src={ShutdownIcon}
+                  alt="Stop"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-0"
+                />
                 <span className="truncate">Stop</span>
               </Button>
             )}
@@ -205,7 +231,13 @@ export const TableContextMenu = ({
                 disabled={deleteConfig.isDisabled || isLoading}
                 title={deleteConfig.disabledReason}
               >
-                <Trash2 className="h-4 w-4 mr-2 flex-shrink-0" />
+                <Image
+                  src={DeleteIcon}
+                  alt="Delete"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-0"
+                />
                 <span className="truncate">Delete</span>
               </Button>
             )}

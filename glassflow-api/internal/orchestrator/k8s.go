@@ -292,6 +292,24 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		annotations = make(map[string]string)
 	}
 
+	// Clear any conflicting operation annotations to ensure terminate takes precedence
+	// This prevents stuck pipelines from ignoring terminate requests
+	conflictingAnnotations := []string{
+		"pipeline.etl.glassflow.io/create",
+		"pipeline.etl.glassflow.io/pause",
+		"pipeline.etl.glassflow.io/resume",
+		"pipeline.etl.glassflow.io/stop",
+	}
+
+	for _, annotation := range conflictingAnnotations {
+		if _, exists := annotations[annotation]; exists {
+			k.log.Info("clearing conflicting annotation for terminate",
+				slog.String("pipeline_id", pipelineID),
+				slog.String("annotation", annotation))
+			delete(annotations, annotation)
+		}
+	}
+
 	// Add terminate annotation
 	annotations["pipeline.etl.glassflow.io/terminate"] = "true"
 	customResource.SetAnnotations(annotations)

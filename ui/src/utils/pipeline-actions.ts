@@ -63,7 +63,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
         case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
-            showModal: false,
+            showModal: true,
             requiresConfirmation: false,
           }
         case PIPELINE_STATUS_MAP.pausing:
@@ -166,6 +166,12 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             disabledReason: 'Pipeline is already paused',
           }
         case PIPELINE_STATUS_MAP.pausing:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Pipeline is already being paused',
+          }
+        case PIPELINE_STATUS_MAP.resuming:
         case PIPELINE_STATUS_MAP.stopping:
         case PIPELINE_STATUS_MAP.stopped:
         case PIPELINE_STATUS_MAP.failed:
@@ -191,6 +197,12 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             ...baseConfig,
             isDisabled: true,
             disabledReason: 'Pipeline is already active',
+          }
+        case PIPELINE_STATUS_MAP.resuming:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Pipeline is already being resumed',
           }
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.stopping:
@@ -230,7 +242,7 @@ export const getActionButtonText = (action: PipelineAction, pipelineStatus: Pipe
     case 'pause':
       return pipelineStatus === PIPELINE_STATUS_MAP.pausing ? 'Pausing...' : 'Pause'
     case 'resume':
-      return 'Resume'
+      return pipelineStatus === PIPELINE_STATUS_MAP.resuming ? 'Resuming...' : 'Resume'
     case 'stop':
       return pipelineStatus === PIPELINE_STATUS_MAP.stopping ? 'Stopping...' : 'Stop'
     case 'delete':

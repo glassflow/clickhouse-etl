@@ -67,8 +67,8 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       const response = await createPipeline(apiConfig as Partial<Pipeline>)
 
       // Set the pipeline ID from the response
-      const newPipelineId = response?.pipeline_id || apiConfig?.pipeline_id
-      setPipelineId(newPipelineId || '')
+      const newPipelineId = apiConfig?.pipeline_id || ''
+      setPipelineId(newPipelineId)
 
       // Navigate to pipelines page to show deployment status
       router.push('/pipelines')

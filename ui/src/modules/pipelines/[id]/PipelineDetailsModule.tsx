@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import PipelineDetailsHeader from './PipelineDetailsHeader'
 import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
 import TitleCardWithIcon from './TitleCardWithIcon'
@@ -19,6 +19,7 @@ import { hydrateKafkaTopics } from '@/src/store/hydration/topics'
 import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
+import { usePipelineOperations } from '@/src/hooks/usePipelineState'
 import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline } from '@/src/api/pipeline-api'
@@ -40,6 +41,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
+  const operations = usePipelineOperations()
 
   // Get validation states from stores to display in the UI - these are used to disable the UI when the pipeline is not valid
   const kafkaValidation = useStore((state) => state.kafkaStore.validation)
@@ -56,15 +58,20 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Consider both pipeline status AND if any action is currently loading
   const isEditingDisabled = shouldDisablePipelineOperation(pipeline.status) || actionState.isLoading
 
+  // update the local copy of the pipeline data when the pipeline is updated
+  const handlePipelineUpdate = (updatedPipeline: Pipeline) => {
+    setPipeline(updatedPipeline)
+  }
+
   // Function to refresh pipeline data from the server
-  const refreshPipelineData = async () => {
+  const refreshPipelineData = useCallback(async () => {
     try {
       const updatedPipeline = await getPipeline(pipeline.pipeline_id)
       setPipeline(updatedPipeline)
     } catch (error) {
       console.error('Failed to refresh pipeline data:', error)
     }
-  }
+  }, [pipeline.pipeline_id, pipeline.status])
 
   // Hydrate the pipeline data when the pipeline configuration is loaded - copy pipeline data to stores
   // this does not connect to external services, it just copies the data to the stores
@@ -102,17 +109,26 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }, []) // Run once on mount
 
-  // Refresh pipeline data after actions complete
+  // Handle action completion - use centralized system for status tracking
   useEffect(() => {
     if (!actionState.isLoading && actionState.lastAction) {
-      // Add a small delay to ensure the server has processed the action
-      const timer = setTimeout(() => {
-        refreshPipelineData()
-      }, 500)
+      if (actionState.lastAction === 'pause') {
+        // For pause operations, report to centralized system
+        operations.reportPause(pipeline.pipeline_id)
+      } else if (actionState.lastAction === 'resume') {
+        operations.reportResume(pipeline.pipeline_id)
+      } else if (actionState.lastAction === 'stop') {
+        operations.reportStop(pipeline.pipeline_id)
+      } else {
+        // For other actions, use the regular refresh with delay
+        const timer = setTimeout(() => {
+          refreshPipelineData()
+        }, 500)
 
-      return () => clearTimeout(timer)
+        return () => clearTimeout(timer)
+      }
     }
-  }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id])
+  }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id, refreshPipelineData, operations])
 
   // set active step so that the standalone step renderer can be rendered
   const handleStepClick = (step: StepKeys) => {
@@ -127,11 +143,6 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // close the standalone step renderer
   const handleCloseStep = () => {
     setActiveStep(null)
-  }
-
-  // update the local copy of the pipeline data when the pipeline is updated
-  const handlePipelineUpdate = (updatedPipeline: Pipeline) => {
-    setPipeline(updatedPipeline)
   }
 
   // redirect to pipelines list after deletion
