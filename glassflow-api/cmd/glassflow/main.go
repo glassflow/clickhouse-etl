@@ -129,6 +129,7 @@ func mainErr(cfg *config, role models.Role) error {
 		PipelineID:        cfg.OtelPipelineID,
 	}
 	log := observability.ConfigureLogger(obsConfig, logOut)
+	meter := observability.ConfigureMeter(obsConfig)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -155,19 +156,19 @@ func mainErr(cfg *config, role models.Role) error {
 
 	switch role {
 	case internal.RoleSink:
-		return mainSink(ctx, nc, cfg, log)
+		return mainSink(ctx, nc, cfg, log, meter)
 	case internal.RoleJoin:
-		return mainJoin(ctx, nc, cfg, log)
+		return mainJoin(ctx, nc, cfg, log, meter)
 	case internal.RoleIngestor:
-		return mainIngestor(ctx, nc, cfg, log)
+		return mainIngestor(ctx, nc, cfg, log, meter)
 	case internal.RoleETL:
-		return mainEtl(ctx, nc, cfg, log)
+		return mainEtl(ctx, nc, cfg, log, meter)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}
 }
 
-func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
 	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
 	if err != nil {
 		return fmt.Errorf("create nats store for pipelines: %w", err)
@@ -256,7 +257,7 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 	return nil
 }
 
-func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
@@ -271,7 +272,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("stream_id in sink config cannot be empty")
 	}
 
-	sinkRunner := service.NewSinkRunner(log, nc, pipelineCfg.Sink.StreamID, pipelineCfg.Sink, schemaMapper)
+	sinkRunner := service.NewSinkRunner(log, nc, pipelineCfg.Sink.StreamID, pipelineCfg.Sink, schemaMapper, meter)
 
 	return runWithGracefulShutdown(
 		ctx,
@@ -281,7 +282,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	)
 }
 
-func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
 	if cfg.JoinType == "" {
 		return fmt.Errorf("join type must be specified")
 	}
@@ -331,7 +332,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	)
 }
 
-func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
 	}
@@ -346,7 +347,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper)
+	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
 
 	return runWithGracefulShutdown(
 		ctx,

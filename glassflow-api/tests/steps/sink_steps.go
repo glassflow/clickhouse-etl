@@ -227,6 +227,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		schemaMapper,
 		make(chan struct{}),
 		logger,
+		nil, // nil meter for e2e tests
 	)
 	if err != nil {
 		return fmt.Errorf("create ClickHouse sink: %w", err)

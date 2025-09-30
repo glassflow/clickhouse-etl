@@ -15,21 +15,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-// Config holds the configuration for observability
-type Config struct {
-	// Logging configuration
-	LogFormat    string
-	LogLevel     slog.Level
-	LogAddSource bool
-
-	// OpenTelemetry configuration
-	OtelObservability bool
-	ServiceName       string
-	ServiceVersion    string
-	ServiceNamespace  string
-	PipelineID        string
-}
-
 // ConfigureLogger creates and configures a logger based on the provided configuration
 func ConfigureLogger(cfg *Config, logOut io.Writer) *slog.Logger {
 	if cfg.OtelObservability {

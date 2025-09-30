@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/nats-io/nats.go"
@@ -15,6 +16,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 var (
@@ -33,16 +35,18 @@ type KafkaMsgProcessor struct {
 
 	topic models.KafkaTopicsConfig
 
-	log *slog.Logger
+	log   *slog.Logger
+	meter *observability.Meter
 }
 
-func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper schema.Mapper, topic models.KafkaTopicsConfig, log *slog.Logger) *KafkaMsgProcessor {
+func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper schema.Mapper, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) *KafkaMsgProcessor {
 	return &KafkaMsgProcessor{
 		publisher:    publisher,
 		dlqPublisher: dlqPublisher,
 		schemaMapper: schemaMapper,
 		topic:        topic,
 		log:          log,
+		meter:        meter,
 	}
 }
 
@@ -59,6 +63,11 @@ func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err
 	if err != nil {
 		k.log.Error("Failed to publish message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
 		return fmt.Errorf("failed to publish to DLQ: %w", err)
+	}
+
+	// Record DLQ write metric
+	if k.meter != nil {
+		k.meter.RecordDLQWrite(ctx, 1)
 	}
 
 	return nil
@@ -114,6 +123,8 @@ func (k *KafkaMsgProcessor) setSubject(partitionID int32) string {
 }
 
 func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+	start := time.Now()
+
 	nMsg := nats.NewMsg(k.setSubject(msg.Partition))
 	nMsg.Data = msg.Value
 
@@ -158,6 +169,12 @@ func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Messag
 		return fmt.Errorf("failed to publish to NATS: %w", err)
 	}
 
+	// Record processing duration
+	if k.meter != nil {
+		duration := time.Since(start).Seconds()
+		k.meter.RecordProcessingDuration(ctx, duration)
+	}
+
 	return nil
 }
 
@@ -166,9 +183,10 @@ type KafkaIngestor struct {
 	processor MessageProcessor
 	topic     models.KafkaTopicsConfig
 	log       *slog.Logger
+	meter     *observability.Meter
 }
 
-func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, natsPub, dlqPub stream.Publisher, schema schema.Mapper, log *slog.Logger) (*KafkaIngestor, error) {
+func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, natsPub, dlqPub stream.Publisher, schema schema.Mapper, log *slog.Logger, meter *observability.Meter) (*KafkaIngestor, error) {
 	var topic models.KafkaTopicsConfig
 
 	if topicName == "" {
@@ -187,16 +205,17 @@ func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, n
 		}
 	}
 
-	consumer, err := kafka.NewConsumer(config.KafkaConnectionParams, topic, log)
+	consumer, err := kafka.NewConsumer(config.KafkaConnectionParams, topic, log, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
 
 	return &KafkaIngestor{
 		consumer:  consumer,
-		processor: NewKafkaMsgProcessor(natsPub, dlqPub, schema, topic, log),
+		processor: NewKafkaMsgProcessor(natsPub, dlqPub, schema, topic, log, meter),
 		topic:     topic,
 		log:       log,
+		meter:     meter,
 	}, nil
 }
 

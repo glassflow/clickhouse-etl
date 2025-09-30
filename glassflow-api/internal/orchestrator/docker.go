@@ -117,7 +117,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 			d.log.DebugContext(ctx, "create ingestor for the topic", "topic", t.Name, "replica", i)
 			ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
-				schemaMapper)
+				schemaMapper, nil) // nil meter for docker orchestrator
 
 			err = ingestorRunner.Start(ctx)
 			if err != nil {
@@ -187,6 +187,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			ClickHouseConnectionParams: pi.Sink.ClickHouseConnectionParams,
 		},
 		schemaMapper,
+		nil, // nil meter for docker orchestrator
 	)
 
 	err = d.sinkRunner.Start(ctx)

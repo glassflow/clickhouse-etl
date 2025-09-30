@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type SinkRunner struct {
@@ -19,13 +20,14 @@ type SinkRunner struct {
 	inputNatsStream string
 	sinkCfg         models.SinkComponentConfig
 	schemaMapper    schema.Mapper
+	meter           *observability.Meter
 
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewSinkRunner(log *slog.Logger, nc *client.NATSClient, inputNatsStream string, sinkCfg models.SinkComponentConfig, schemaMapper schema.Mapper) *SinkRunner {
+func NewSinkRunner(log *slog.Logger, nc *client.NATSClient, inputNatsStream string, sinkCfg models.SinkComponentConfig, schemaMapper schema.Mapper, meter *observability.Meter) *SinkRunner {
 	return &SinkRunner{
 		nc:  nc,
 		log: log,
@@ -33,6 +35,7 @@ func NewSinkRunner(log *slog.Logger, nc *client.NATSClient, inputNatsStream stri
 		inputNatsStream: inputNatsStream,
 		sinkCfg:         sinkCfg,
 		schemaMapper:    schemaMapper,
+		meter:           meter,
 
 		component: nil,
 	}
@@ -59,6 +62,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		s.schemaMapper,
 		s.doneCh,
 		s.log,
+		s.meter,
 	)
 	if err != nil {
 		s.log.ErrorContext(ctx, "failed to create ClickHouse sink: ", "error", err)

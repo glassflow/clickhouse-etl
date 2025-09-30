@@ -17,6 +17,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type StopOptions struct {
@@ -44,9 +45,10 @@ type ClickHouseSink struct {
 	maxDelayTime   time.Duration
 	maxBatchSize   int
 	log            *slog.Logger
+	meter          *observability.Meter
 }
 
-func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Consumer, schemaMapper schema.Mapper, log *slog.Logger) (*ClickHouseSink, error) {
+func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Consumer, schemaMapper schema.Mapper, log *slog.Logger, meter *observability.Meter) (*ClickHouseSink, error) {
 	maxDelayTime := time.Duration(60) * time.Second
 	if sinkCfg.Batch.MaxDelayTime.Duration() > 0 {
 		maxDelayTime = sinkCfg.Batch.MaxDelayTime.Duration()
@@ -86,6 +88,7 @@ func NewClickHouseSink(sinkCfg models.SinkComponentConfig, streamCon stream.Cons
 		maxDelayTime:   maxDelayTime,
 		maxBatchSize:   sinkCfg.Batch.MaxBatchSize,
 		log:            log,
+		meter:          meter,
 	}, nil
 }
 
@@ -96,6 +99,7 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	}
 
 	size := ch.batch.Size()
+	start := time.Now()
 
 	// Send batch to ClickHouse
 	err := ch.batch.Send(ctx)
@@ -104,6 +108,18 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 		return fmt.Errorf("failed to send the batch: %w", err)
 	}
 	ch.log.DebugContext(ctx, "Batch sent to clickhouse", "message_count", size)
+
+	// Record ClickHouse write metrics
+	if ch.meter != nil {
+		ch.meter.RecordClickHouseWrite(ctx, int64(size))
+
+		// Calculate and record write rate
+		duration := time.Since(start).Seconds()
+		if duration > 0 {
+			rate := float64(size) / duration
+			ch.meter.RecordSinkRate(ctx, rate)
+		}
+	}
 
 	// Acknowledge all using last message from the batch
 	err = ch.lastMsg.Ack()
@@ -130,7 +146,9 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	return nil
 }
 
-func (ch *ClickHouseSink) handleMsg(_ context.Context, msg jetstream.Msg) error {
+func (ch *ClickHouseSink) handleMsg(ctx context.Context, msg jetstream.Msg) error {
+	start := time.Now()
+
 	mdata, err := msg.Metadata()
 	if err != nil {
 		ch.log.Error("failed to get message metadata", "error", err)
@@ -150,6 +168,12 @@ func (ch *ClickHouseSink) handleMsg(_ context.Context, msg jetstream.Msg) error 
 	}
 
 	ch.lastMsg = msg
+
+	// Record processing duration
+	if ch.meter != nil {
+		duration := time.Since(start).Seconds()
+		ch.meter.RecordProcessingDuration(ctx, duration)
+	}
 
 	return nil
 }
