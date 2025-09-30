@@ -30,20 +30,6 @@ type Config struct {
 	PipelineID        string
 }
 
-// DefaultConfig returns a default configuration
-func DefaultConfig() *Config {
-	return &Config{
-		LogFormat:         "json",
-		LogLevel:          slog.LevelInfo,
-		LogAddSource:      false,
-		OtelObservability: false,
-		ServiceName:       "glassflow",
-		ServiceVersion:    "dev",
-		ServiceNamespace:  "glassflow",
-		PipelineID:        "glassflow-pipeline",
-	}
-}
-
 // ConfigureLogger creates and configures a logger based on the provided configuration
 func ConfigureLogger(cfg *Config, logOut io.Writer) *slog.Logger {
 	if cfg.OtelObservability {

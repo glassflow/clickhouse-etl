@@ -68,12 +68,6 @@ type config struct {
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
 }
 
-type RunnerFunc func() error
-
-type ShutdownFunc func()
-
-type DoneFunc func() <-chan struct{}
-
 func main() {
 	if err := run(); err != nil {
 		slog.Error("Service failed", slog.Any("error", err))
