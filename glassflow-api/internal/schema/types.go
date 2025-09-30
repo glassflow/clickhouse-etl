@@ -57,6 +57,12 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 }
 
 func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data any) (zero any, _ error) {
+	// If data is nil, pass it through to let ClickHouse handle null validation
+	// HOTFIX: This is a temporary, will be moved up and sent to DLQ as a proper solution.
+	if data == nil {
+		return nil, nil
+	}
+
 	switch columnType {
 	case internal.CHTypeBool:
 		if fieldType != internal.KafkaTypeBool {
