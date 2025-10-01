@@ -11,18 +11,26 @@ import { Pipeline } from '@/src/types/pipeline'
 
 interface ClickHouseMetricsDisplay {
   rowCount: string
-  insertRate: string
-  latency: string
-  memoryUsed: string
+  insertRateRows: string
+  insertRateBytes: string
+  latencyP50: string
+  latencyP95: string
+  tableSize: string
+  queryMemory: string
+  activeQueries: string
   failedInserts: string
   lastUpdated: string
 }
 
 const defaultMetrics: ClickHouseMetricsDisplay = {
   rowCount: '0',
-  insertRate: '0 rows/sec',
-  latency: '0ms',
-  memoryUsed: '0B',
+  insertRateRows: '0 rows/sec',
+  insertRateBytes: '0 B/sec',
+  latencyP50: '0ms',
+  latencyP95: '0ms',
+  tableSize: '0B',
+  queryMemory: '0B',
+  activeQueries: '0',
   failedInserts: '0',
   lastUpdated: '-',
 }
@@ -45,11 +53,11 @@ const formatBytes = (bytes: number): string => {
   return `${bytes}B`
 }
 
-// Helper function to format relative time
-const formatRelativeTime = (timestamp: string | null): string => {
+// Helper function to format relative time with live seconds for recent updates
+const formatRelativeTime = (timestamp: string | null, currentTime?: Date): string => {
   if (!timestamp || timestamp === '' || timestamp === '0') return '-'
 
-  const now = new Date()
+  const now = currentTime || new Date()
   const eventTime = new Date(timestamp)
 
   if (isNaN(eventTime.getTime()) || eventTime.getFullYear() < 2000) {
@@ -59,8 +67,12 @@ const formatRelativeTime = (timestamp: string | null): string => {
   const diffMs = now.getTime() - eventTime.getTime()
   if (diffMs < 0) return '-'
 
-  const diffMinutes = Math.floor(diffMs / (1000 * 60))
-  if (diffMinutes < 1) return 'Just now'
+  const diffSeconds = Math.floor(diffMs / 1000)
+  const diffMinutes = Math.floor(diffSeconds / 60)
+
+  // Show live seconds for updates within the last minute
+  if (diffSeconds < 5) return 'Just now'
+  if (diffSeconds < 60) return `${diffSeconds} sec. ago`
   if (diffMinutes < 60) return `${diffMinutes} min. ago`
 
   const diffHours = Math.floor(diffMinutes / 60)
@@ -76,25 +88,29 @@ const formatRelativeTime = (timestamp: string | null): string => {
 const convertToDisplayMetrics = (metrics: ClickHouseTableMetrics): ClickHouseMetricsDisplay => {
   return {
     rowCount: formatNumber(metrics.rowCount),
-    insertRate: `${formatNumber(Math.round(metrics.insertRateRowsPerSec))} rows/sec`,
-    latency: `${Math.round(metrics.insertLatencyP50Ms)}ms`,
-    memoryUsed: formatBytes(metrics.memoryUsageBytes),
+    insertRateRows: `${formatNumber(Math.round(metrics.insertRateRowsPerSec))} rows/sec`,
+    insertRateBytes: `${formatBytes(Math.round(metrics.insertRateBytesPerSec))}/sec`,
+    latencyP50: `${Math.round(metrics.insertLatencyP50Ms)}ms`,
+    latencyP95: `${Math.round(metrics.insertLatencyP95Ms)}ms`,
+    tableSize: formatBytes(metrics.compressedSizeBytes),
+    queryMemory: formatBytes(metrics.memoryUsageBytes),
+    activeQueries: formatNumber(metrics.activeQueries),
     failedInserts: formatNumber(metrics.failedInsertsLast5Min),
     lastUpdated: formatRelativeTime(metrics.lastUpdated),
   }
 }
 
-const renderMinimizedView = ({ rowCount, insertRate }: { rowCount: string; insertRate: string }) => {
+const renderMinimizedView = ({ rowCount, insertRateRows }: { rowCount: string; insertRateRows: string }) => {
   return (
-    <div className="flex flex-row gap-2">
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-blue-500 mt-2" />
+    <div className="flex flex-row gap-2 items-center">
+      <div className="flex flex-row gap-2 items-center">
+        <div className="w-3 h-3 rounded-full bg-blue-500" />
         <span className="text-md font-bold">{rowCount}</span>
         <span className="text-sm font-normal">rows</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
-        <span className="text-md font-bold">{insertRate}</span>
+      <div className="flex flex-row gap-2 items-center">
+        <div className="w-3 h-3 rounded-full bg-green-500" />
+        <span className="text-md font-bold">{insertRateRows}</span>
       </div>
     </div>
   )
@@ -102,41 +118,55 @@ const renderMinimizedView = ({ rowCount, insertRate }: { rowCount: string; inser
 
 const renderExpandedView = ({
   rowCount,
-  insertRate,
-  latency,
-  memoryUsed,
+  insertRateRows,
+  insertRateBytes,
+  latencyP50,
+  latencyP95,
+  tableSize,
+  queryMemory,
+  activeQueries,
   failedInserts,
   lastUpdated,
 }: ClickHouseMetricsDisplay) => {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-blue-500 mt-2" />
+      <div className="flex flex-row gap-2 items-center">
         <span className="text-md font-bold">{rowCount}</span>
         <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Total rows</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
-        <span className="text-md font-bold">{insertRate}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Insert rate</span>
+      <div className="flex flex-row gap-2 items-center">
+        <span className="text-md font-bold">{insertRateRows}</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Insert rate (rows)</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-yellow-500 mt-2" />
-        <span className="text-md font-bold">{latency}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Latency (P50)</span>
+      <div className="flex flex-row gap-2 items-center">
+        <span className="text-md font-bold">{insertRateBytes}</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Insert rate (bytes)</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-purple-500 mt-2" />
-        <span className="text-md font-bold">{memoryUsed}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Memory used</span>
+      <div className="flex flex-row gap-2 items-center">
+        <span className="text-md font-bold">{latencyP50}</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Latency P50</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-red-500 mt-2" />
+      <div className="flex flex-row gap-2 items-center">
+        <span className="text-md font-bold">{latencyP95}</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Latency P95</span>
+      </div>
+      <div className="flex flex-row gap-2 items-center">
+        <span className="text-md font-bold">{tableSize}</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Table size (disk)</span>
+      </div>
+      <div className="flex flex-row gap-2 items-center">
+        <span className="text-md font-bold">{queryMemory}</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Query memory</span>
+      </div>
+      <div className="flex flex-row gap-2 items-center">
+        <span className="text-md font-bold">{activeQueries}</span>
+        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Active queries</span>
+      </div>
+      <div className="flex flex-row gap-2 items-center">
         <span className="text-md font-bold">{failedInserts}</span>
         <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Failed inserts (5min)</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-gray-500 mt-2" />
+      <div className="flex flex-row gap-2 items-center">
         <span className="text-md font-bold">{lastUpdated}</span>
         <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Last updated</span>
       </div>
@@ -147,19 +177,49 @@ const renderExpandedView = ({
 function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [metrics, setMetrics] = useState<ClickHouseMetricsDisplay>(defaultMetrics)
+  const [rawMetrics, setRawMetrics] = useState<ClickHouseTableMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Live timer for "Last updated" - updates every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  // Update display metrics when currentTime changes (for live "Last updated")
+  useEffect(() => {
+    if (rawMetrics) {
+      setMetrics({
+        rowCount: formatNumber(rawMetrics.rowCount),
+        insertRateRows: `${formatNumber(Math.round(rawMetrics.insertRateRowsPerSec))} rows/sec`,
+        insertRateBytes: `${formatBytes(Math.round(rawMetrics.insertRateBytesPerSec))}/sec`,
+        latencyP50: `${Math.round(rawMetrics.insertLatencyP50Ms)}ms`,
+        latencyP95: `${Math.round(rawMetrics.insertLatencyP95Ms)}ms`,
+        tableSize: formatBytes(rawMetrics.compressedSizeBytes),
+        queryMemory: formatBytes(rawMetrics.memoryUsageBytes),
+        activeQueries: formatNumber(rawMetrics.activeQueries),
+        failedInserts: formatNumber(rawMetrics.failedInsertsLast5Min),
+        lastUpdated: formatRelativeTime(rawMetrics.lastUpdated, currentTime),
+      })
+    }
+  }, [currentTime, rawMetrics])
 
   useEffect(() => {
     const fetchClickHouseMetrics = async () => {
       try {
         setLoading(true)
         setError(null)
-        const rawMetrics = await getClickHouseMetricsFromConfig(pipeline)
-        setMetrics(convertToDisplayMetrics(rawMetrics))
+        const fetchedMetrics = await getClickHouseMetricsFromConfig(pipeline)
+        setRawMetrics(fetchedMetrics)
+        setMetrics(convertToDisplayMetrics(fetchedMetrics))
       } catch (err: any) {
         console.error('Failed to fetch ClickHouse metrics:', err)
 
@@ -173,6 +233,7 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
         }
 
         setMetrics(defaultMetrics)
+        setRawMetrics(null)
       } finally {
         setLoading(false)
       }
@@ -187,11 +248,17 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
     }
   }, [pipeline])
 
-  // Calculate height when content changes
+  // Calculate height when content changes - use requestAnimationFrame to ensure DOM has updated
   useEffect(() => {
     if (contentRef.current) {
-      const height = contentRef.current.scrollHeight
-      setContentHeight(height)
+      // Use requestAnimationFrame to wait for DOM to fully render
+      requestAnimationFrame(() => {
+        if (contentRef.current) {
+          const height = contentRef.current.scrollHeight
+          // Add small buffer to prevent cut-off
+          setContentHeight(height + 4)
+        }
+      })
     }
   }, [metrics, isExpanded])
 
@@ -261,18 +328,19 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
 
         {/* Animated content container */}
         <div
-          className="transition-all duration-300 ease-out overflow-hidden"
+          className="transition-all duration-300 ease-out"
           style={{
             maxHeight: isExpanded ? `${contentHeight}px` : '40px', // 40px for minimized view
             opacity: loading ? 0.7 : 1,
+            overflow: 'hidden',
           }}
         >
-          <div ref={contentRef}>
+          <div ref={contentRef} className="pb-1">
             {isExpanded ? (
               <div className="animate-fadeIn">{renderExpandedView(metrics)}</div>
             ) : (
               <div className="animate-fadeIn">
-                {renderMinimizedView({ rowCount: metrics.rowCount, insertRate: metrics.insertRate })}
+                {renderMinimizedView({ rowCount: metrics.rowCount, insertRateRows: metrics.insertRateRows })}
               </div>
             )}
           </div>

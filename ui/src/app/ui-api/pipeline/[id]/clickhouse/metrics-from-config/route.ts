@@ -142,47 +142,71 @@ async function fetchClickHouseTableMetrics(
   table: string,
 ): Promise<ClickHouseTableMetrics> {
   const queries = {
-    // Basic table info and row count
+    // Basic table info and row count - try multiple approaches
     tableInfo: `
-      SELECT 
+      SELECT
         count() as row_count,
         sum(data_compressed_bytes) as compressed_size_bytes,
         sum(data_uncompressed_bytes) as table_size_bytes
-      FROM system.parts 
+      FROM system.parts
       WHERE database = '${database}' AND table = '${table}' AND active = 1
+    `,
+
+    // Fallback: Direct table count if system.parts is empty
+    tableInfoDirect: `
+      SELECT
+        count() as row_count,
+        0 as compressed_size_bytes,
+        0 as table_size_bytes
+      FROM ${database}.${table}
+    `,
+
+    // Table size from system.tables (most reliable for actual disk usage)
+    tableSize: `
+      SELECT
+        total_rows as row_count,
+        total_bytes as compressed_size_bytes,
+        0 as table_size_bytes
+      FROM system.tables
+      WHERE database = '${database}' AND name = '${table}'
     `,
 
     // Insert rate from query_log (last minute) - using written_rows instead of read_rows
     insertRate: `
-      SELECT 
+      SELECT
         count() as insert_count,
         sum(written_rows) as total_rows,
-        sum(written_bytes) as total_bytes
-      FROM system.query_log 
-      WHERE event_date >= today() - 1 
-        AND event_time >= now() - INTERVAL 1 MINUTE
+        sum(written_bytes) as total_bytes,
+        min(event_time) as earliest_insert,
+        max(event_time) as latest_insert
+      FROM system.query_log
+      WHERE event_date >= today() - 5
+        AND event_time >= now() - INTERVAL 5 MINUTE
         AND query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query NOT LIKE '%system.%'
         AND type = 'QueryFinish'
         AND written_rows > 0
     `,
 
     // Insert latency from query_log
     insertLatency: `
-      SELECT 
+      SELECT
         quantile(0.5)(query_duration_ms) as p50_latency,
         quantile(0.95)(query_duration_ms) as p95_latency
-      FROM system.query_log 
-      WHERE event_date >= today() - 1 
+      FROM system.query_log
+      WHERE event_date >= today() - 1
         AND event_time >= now() - INTERVAL 1 HOUR
         AND query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query NOT LIKE '%system.%'
         AND type = 'QueryFinish'
+        AND written_rows > 0
     `,
 
     // Failed inserts
     failedInserts: `
       SELECT count() as failed_count
-      FROM system.query_log 
-      WHERE event_date >= today() - 1 
+      FROM system.query_log
+      WHERE event_date >= today() - 5
         AND event_time >= now() - INTERVAL 5 MINUTE
         AND query LIKE '%INSERT INTO ${database}.${table}%'
         AND type = 'ExceptionWhileProcessing'
@@ -190,10 +214,10 @@ async function fetchClickHouseTableMetrics(
 
     // Table growth (delta over last hour)
     tableGrowth: `
-      SELECT 
+      SELECT
         count() as current_rows,
         sum(data_compressed_bytes) as current_size
-      FROM system.parts 
+      FROM system.parts
       WHERE database = '${database}' AND table = '${table}' AND active = 1
     `,
 
@@ -206,18 +230,32 @@ async function fetchClickHouseTableMetrics(
       WHERE database = '${database}' AND table = '${table}'
     `,
 
-    // Memory usage
+    // Memory usage - only from currently running queries (real-time)
     memoryUsage: `
-      SELECT 
+      SELECT
         sum(memory_usage) as memory_usage_bytes
-      FROM system.processes 
-      WHERE query LIKE '%${database}.${table}%'
+      FROM system.processes
+      WHERE query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query NOT LIKE '%system.%'
+    `,
+
+    // Peak memory from recent inserts (not sum, but max to avoid accumulation)
+    memoryUsageFromLog: `
+      SELECT
+        max(memory_usage) as memory_usage_bytes
+      FROM system.query_log
+      WHERE event_date >= today() - 1
+        AND event_time >= now() - INTERVAL 5 MINUTE
+        AND query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query NOT LIKE '%system.%'
+        AND type = 'QueryFinish'
+        AND memory_usage > 0
     `,
 
     // Active queries
     activeQueries: `
       SELECT count() as active_queries
-      FROM system.processes 
+      FROM system.processes
       WHERE query LIKE '%${database}.${table}%'
     `,
   }
@@ -250,46 +288,121 @@ async function fetchClickHouseTableMetrics(
   // Debug: Log query results to understand what data we're getting
   console.log('ClickHouse Metrics Query Results:', {
     tableInfo: results.tableInfo,
+    tableInfoDirect: results.tableInfoDirect,
+    tableSize: results.tableSize,
     insertRate: results.insertRate,
     insertLatency: results.insertLatency,
     failedInserts: results.failedInserts,
     mergePressure: results.mergePressure,
     memoryUsage: results.memoryUsage,
+    memoryUsageFromLog: results.memoryUsageFromLog,
     activeQueries: results.activeQueries,
   })
 
-  // Calculate insert rate (rows per second over last minute)
-  const insertRateData = results.insertRate || {}
-  const insertRateRowsPerSec = insertRateData.insert_count ? insertRateData.total_rows / 60 : 0
-  const insertRateBytesPerSec = insertRateData.insert_count ? insertRateData.total_bytes / 60 : 0
+  // Helper function to safely convert to number
+  const toNumber = (value: any): number => {
+    if (value === null || value === undefined || value === '') return 0
+    const num = Number(value)
+    return isNaN(num) ? 0 : num
+  }
 
-  // Get table info
+  // Calculate insert rate (rows per second) - use actual time range, not fixed 60 seconds
+  const insertRateData = results.insertRate || {}
+  const insertCount = toNumber(insertRateData.insert_count)
+
+  let insertRateRowsPerSec = 0
+  let insertRateBytesPerSec = 0
+
+  if (insertCount > 0 && insertRateData.earliest_insert && insertRateData.latest_insert) {
+    // Calculate actual time span in seconds
+    const earliestTime = new Date(insertRateData.earliest_insert).getTime()
+    const latestTime = new Date(insertRateData.latest_insert).getTime()
+    const timeSpanSeconds = Math.max(1, (latestTime - earliestTime) / 1000) // Minimum 1 second
+
+    insertRateRowsPerSec = toNumber(insertRateData.total_rows) / timeSpanSeconds
+    insertRateBytesPerSec = toNumber(insertRateData.total_bytes) / timeSpanSeconds
+  }
+
+  // Get table info - use multiple fallbacks for reliability
   const tableInfo = results.tableInfo || {}
-  const rowCount = tableInfo.row_count || 0
-  const tableSizeBytes = tableInfo.table_size_bytes || 0
-  const compressedSizeBytes = tableInfo.compressed_size_bytes || 0
+  const tableInfoDirect = results.tableInfoDirect || {}
+  const tableSizeInfo = results.tableSize || {}
+
+  // Convert to numbers and use fallback logic (priority: system.tables > system.parts > direct count)
+  const rowCountFromTables = toNumber(tableSizeInfo.row_count)
+  const rowCountFromParts = toNumber(tableInfo.row_count)
+  const rowCountFromDirect = toNumber(tableInfoDirect.row_count)
+  const rowCount =
+    rowCountFromTables > 0 ? rowCountFromTables : rowCountFromParts > 0 ? rowCountFromParts : rowCountFromDirect
+
+  const tableSizeBytesFromParts = toNumber(tableInfo.table_size_bytes)
+  const tableSizeBytesFromDirect = toNumber(tableInfoDirect.table_size_bytes)
+  const tableSizeBytes = tableSizeBytesFromParts > 0 ? tableSizeBytesFromParts : tableSizeBytesFromDirect
+
+  // For compressed size, prefer system.tables (total_bytes) over system.parts
+  const compressedSizeBytesFromTables = toNumber(tableSizeInfo.compressed_size_bytes)
+  const compressedSizeBytesFromParts = toNumber(tableInfo.compressed_size_bytes)
+  const compressedSizeBytesFromDirect = toNumber(tableInfoDirect.compressed_size_bytes)
+  const compressedSizeBytes =
+    compressedSizeBytesFromTables > 0
+      ? compressedSizeBytesFromTables
+      : compressedSizeBytesFromParts > 0
+        ? compressedSizeBytesFromParts
+        : compressedSizeBytesFromDirect
 
   // Get latency data
   const latencyData = results.insertLatency || {}
-  const insertLatencyP50Ms = latencyData.p50_latency || 0
-  const insertLatencyP95Ms = latencyData.p95_latency || 0
+  const insertLatencyP50Ms = toNumber(latencyData.p50_latency)
+  const insertLatencyP95Ms = toNumber(latencyData.p95_latency)
 
   // Get failed inserts
   const failedData = results.failedInserts || {}
-  const failedInserts = failedData.failed_count || 0
+  const failedInserts = toNumber(failedData.failed_count)
 
   // Get merge pressure
   const mergeData = results.mergePressure || {}
-  const mergesInProgress = mergeData.merges_in_progress || 0
-  const mutationsInProgress = mergeData.mutations_in_progress || 0
+  const mergesInProgress = toNumber(mergeData.merges_in_progress)
+  const mutationsInProgress = toNumber(mergeData.mutations_in_progress)
 
-  // Get memory usage
+  // Get memory usage - try both sources
   const memoryData = results.memoryUsage || {}
-  const memoryUsageBytes = memoryData.memory_usage_bytes || 0
+  const memoryDataFromLog = results.memoryUsageFromLog || {}
+  const memoryUsageBytesFromProc = toNumber(memoryData.memory_usage_bytes)
+  const memoryUsageBytesFromLog = toNumber(memoryDataFromLog.memory_usage_bytes)
+  const memoryUsageBytes = memoryUsageBytesFromProc > 0 ? memoryUsageBytesFromProc : memoryUsageBytesFromLog
 
   // Get active queries
   const activeQueriesData = results.activeQueries || {}
-  const activeQueries = activeQueriesData.active_queries || 0
+  const activeQueries = toNumber(activeQueriesData.active_queries)
+
+  // Debug: Log final computed values
+  console.log('ClickHouse Metrics Final Computed Values:', {
+    rowCount,
+    tableSizeBytes,
+    compressedSizeBytes,
+    compressedSizeDebug: {
+      fromTables: compressedSizeBytesFromTables,
+      fromParts: compressedSizeBytesFromParts,
+      fromDirect: compressedSizeBytesFromDirect,
+    },
+    insertRateRowsPerSec,
+    insertRateBytesPerSec,
+    insertRateDebug: {
+      insertCount,
+      totalRows: toNumber(insertRateData.total_rows),
+      earliestInsert: insertRateData.earliest_insert,
+      latestInsert: insertRateData.latest_insert,
+    },
+    insertLatencyP50Ms,
+    insertLatencyP95Ms,
+    failedInserts,
+    memoryUsageBytes,
+    memoryDebug: {
+      fromProcesses: memoryUsageBytesFromProc,
+      fromLog: memoryUsageBytesFromLog,
+    },
+    activeQueries,
+  })
 
   return {
     database,

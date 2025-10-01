@@ -8,7 +8,7 @@ import { Pipeline } from '@/src/types/pipeline'
 function PipelineStatusOverviewSection({ pipeline }: { pipeline: Pipeline }) {
   return (
     <Card className="py-0 px-0 mb-4 border-none">
-      <div className="flex flex-row gap-4">
+      <div className="flex flex-row gap-4 items-start">
         {/* <PipelineHealthCard status="stable" /> */}
         <DeadLetterQueueCard pipelineId={pipeline.pipeline_id} />
         <ClickHouseTableMetricsCard pipeline={pipeline} />
