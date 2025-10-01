@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type IngestorRunner struct {
@@ -19,13 +20,14 @@ type IngestorRunner struct {
 	topicName    string
 	pipelineCfg  models.PipelineConfig
 	schemaMapper schema.Mapper
+	meter        *observability.Meter
 
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) *IngestorRunner {
+func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper, meter *observability.Meter) *IngestorRunner {
 	return &IngestorRunner{
 		nc:  nc,
 		log: log,
@@ -33,6 +35,7 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string
 		topicName:    topicName,
 		pipelineCfg:  pipelineCfg,
 		schemaMapper: schemaMapper,
+		meter:        meter,
 
 		component: nil,
 	}
@@ -83,6 +86,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		i.schemaMapper,
 		i.doneCh,
 		i.log,
+		i.meter,
 	)
 	if err != nil {
 		i.log.ErrorContext(ctx, "failed to create ingestor component: ", "error", err)

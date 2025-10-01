@@ -11,6 +11,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type Message struct {
@@ -91,8 +92,8 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 	return cfg
 }
 
-func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
-	consumer, err := newGroupConsumer(conn, topic, log)
+func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (Consumer, error) {
+	consumer, err := newGroupConsumer(conn, topic, log, meter)
 	if err != nil {
 		log.Error("failed to create group consumer", "topic", topic, "error", err)
 		return nil, fmt.Errorf("failed to create group consumer: %w", err)
@@ -107,9 +108,10 @@ type groupConsumer struct {
 	cancel    context.CancelFunc
 	processor MessageProcessor
 	log       *slog.Logger
+	meter     *observability.Meter
 }
 
-func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
+func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (Consumer, error) {
 	cfg := newConnectionConfig(connectionParams, topic)
 	cGroup, err := sarama.NewConsumerGroup(
 		connectionParams.Brokers,
@@ -126,6 +128,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		name:      topic.ConsumerGroupName,
 		topicName: topic.Name,
 		log:       log,
+		meter:     meter,
 	}
 
 	return consumer, nil
@@ -181,6 +184,11 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 			if message == nil {
 				// Channel closed, exit gracefully
 				return nil
+			}
+
+			// Record Kafka read metric
+			if c.meter != nil {
+				c.meter.RecordKafkaRead(session.Context(), 1)
 			}
 
 			// Process message directly using the processor

@@ -11,6 +11,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type Sink interface {
@@ -32,12 +33,13 @@ func NewSinkComponent(
 	schemaMapper schema.Mapper,
 	doneCh chan struct{},
 	log *slog.Logger,
+	meter *observability.Meter,
 ) (Component, error) {
 	if sinkConfig.Type != internal.ClickHouseSinkType {
 		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
 	}
 
-	sink, err := sink.NewClickHouseSink(sinkConfig, streamCon, schemaMapper, log)
+	sink, err := sink.NewClickHouseSink(sinkConfig, streamCon, schemaMapper, log, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sink: %w", err)
 	}
