@@ -4,10 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 // Meter holds all the metrics for glassflow components
@@ -35,6 +40,42 @@ func ConfigureMeter(cfg *Config) *Meter {
 		// Return nil meter when OTel is disabled
 		return nil
 	}
+
+	// Set up OTLP metrics exporter
+	ctx := context.Background()
+
+	// Create OTLP metrics exporter with default configuration
+	// This will automatically read OTEL_EXPORTER_OTLP_ENDPOINT from environment
+	exporter, err := otlpmetrichttp.New(ctx)
+	if err != nil {
+		slog.Error("Failed to create OTLP metrics exporter", "error", err)
+		return nil
+	}
+
+	// Create resource with service information
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceName(cfg.ServiceName),
+			semconv.ServiceVersion(cfg.ServiceVersion),
+			semconv.ServiceNamespace(cfg.ServiceNamespace),
+			attribute.String("pipeline_id", cfg.PipelineID),
+		),
+	)
+	if err != nil {
+		slog.Error("Failed to create resource", "error", err)
+		return nil
+	}
+
+	// Create MeterProvider with OTLP exporter
+	meterProvider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
+			sdkmetric.WithInterval(10*time.Second),
+		)),
+	)
+
+	// Set the global MeterProvider
+	otel.SetMeterProvider(meterProvider)
 
 	return NewMeter(cfg.ServiceName, cfg.PipelineID)
 }
