@@ -7,12 +7,10 @@ import (
 
 	"github.com/lmittmann/tint"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
 // ConfigureLogger creates and configures a logger based on the provided configuration
@@ -28,20 +26,7 @@ func ConfigureLogger(cfg *Config, logOut io.Writer) *slog.Logger {
 // configureOTelLogger sets up OpenTelemetry logging with fallback to standard logging
 func configureOTelLogger(cfg *Config, logOut io.Writer) *slog.Logger {
 	// Create resource with service information
-	attributes := []attribute.KeyValue{
-		semconv.ServiceNameKey.String(cfg.ServiceName),
-		semconv.ServiceVersionKey.String(cfg.ServiceVersion),
-	}
-
-	// Add service namespace if provided
-	if cfg.ServiceNamespace != "" {
-		attributes = append(attributes, semconv.ServiceNamespaceKey.String(cfg.ServiceNamespace))
-	}
-
-	// Add pipeline ID as custom attribute if provided
-	if cfg.PipelineID != "" {
-		attributes = append(attributes, attribute.String("pipeline_id", cfg.PipelineID))
-	}
+	attributes := buildResourceAttributes(cfg)
 
 	res, err := resource.New(context.Background(),
 		resource.WithAttributes(attributes...),

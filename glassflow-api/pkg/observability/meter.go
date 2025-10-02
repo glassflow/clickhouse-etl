@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 // Meter holds all the metrics for glassflow components
@@ -53,17 +52,7 @@ func ConfigureMeter(cfg *Config) *Meter {
 	}
 
 	// Create resource with service information
-	attrs := []attribute.KeyValue{
-		semconv.ServiceName(cfg.ServiceName),
-		semconv.ServiceVersion(cfg.ServiceVersion),
-		semconv.ServiceNamespace(cfg.ServiceNamespace),
-		attribute.String("pipeline_id", cfg.PipelineID),
-	}
-
-	// Add service instance ID if provided
-	if cfg.ServiceInstanceID != "" {
-		attrs = append(attrs, semconv.ServiceInstanceID(cfg.ServiceInstanceID))
-	}
+	attrs := buildResourceAttributes(cfg)
 
 	res, err := resource.New(ctx, resource.WithAttributes(attrs...))
 	if err != nil {
