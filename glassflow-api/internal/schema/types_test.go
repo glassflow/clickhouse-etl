@@ -468,7 +468,7 @@ func TestConvertValue(t *testing.T) {
 			columnType: "Map(String, String)",
 			fieldType:  internal.KafkaTypeMap,
 			input:      map[string]any{"key1": "value1", "key2": "value2"},
-			want:       map[string]any{"key1": "value1", "key2": "value2"},
+			want:       map[string]string{"key1": "value1", "key2": "value2"},
 			wantErr:    false,
 		},
 		{
@@ -476,7 +476,7 @@ func TestConvertValue(t *testing.T) {
 			columnType: "Map(LowCardinality(String), String)",
 			fieldType:  internal.KafkaTypeMap,
 			input:      map[string]any{"service": "trino", "version": "477"},
-			want:       map[string]any{"service": "trino", "version": "477"},
+			want:       map[string]string{"service": "trino", "version": "477"},
 			wantErr:    false,
 		},
 		{
@@ -484,7 +484,7 @@ func TestConvertValue(t *testing.T) {
 			columnType: "Map(String, String)",
 			fieldType:  internal.KafkaTypeMap,
 			input:      map[string]interface{}{"key1": "value1", "key2": "value2"},
-			want:       map[string]any{"key1": "value1", "key2": "value2"},
+			want:       map[string]string{"key1": "value1", "key2": "value2"},
 			wantErr:    false,
 		},
 		{
@@ -500,7 +500,7 @@ func TestConvertValue(t *testing.T) {
 			columnType: "Array(Map(String, String))",
 			fieldType:  internal.KafkaTypeArray,
 			input:      []any{map[string]any{"key1": "value1"}, map[string]any{"key2": "value2"}},
-			want:       []any{map[string]any{"key1": "value1"}, map[string]any{"key2": "value2"}},
+			want:       []map[string]string{{"key1": "value1"}, {"key2": "value2"}},
 			wantErr:    false,
 		},
 		{
@@ -508,7 +508,7 @@ func TestConvertValue(t *testing.T) {
 			columnType: "Array(Map(LowCardinality(String), String))",
 			fieldType:  internal.KafkaTypeArray,
 			input:      []any{map[string]any{"service": "trino"}, map[string]any{"version": "477"}},
-			want:       []any{map[string]any{"service": "trino"}, map[string]any{"version": "477"}},
+			want:       []map[string]string{{"service": "trino"}, {"version": "477"}},
 			wantErr:    false,
 		},
 		{
@@ -516,15 +516,15 @@ func TestConvertValue(t *testing.T) {
 			columnType: "Array(Map(String, String))",
 			fieldType:  internal.KafkaTypeArray,
 			input:      []any{map[string]any{"key1": "value1"}, "not a map"},
-			want:       []any{map[string]any{"key1": "value1"}, "not a map"},
-			wantErr:    false,
+			want:       nil,
+			wantErr:    true,
 		},
 		{
 			name:       "Array(Map(String, String)) with empty array",
 			columnType: "Array(Map(String, String))",
 			fieldType:  internal.KafkaTypeArray,
 			input:      []any{},
-			want:       []any{},
+			want:       []map[string]string{},
 			wantErr:    false,
 		},
 	}

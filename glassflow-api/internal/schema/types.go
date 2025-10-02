@@ -148,26 +148,28 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		// Handle any ClickHouse Map type
 		if strings.HasPrefix(string(columnType), "Map(") {
 			if fieldType == internal.KafkaTypeMap {
-				return data, nil
+				// Convert map[string]any to map[string]string for ClickHouse compatibility
+				return convertMapToStringMap(data)
 			}
 			if mapData, ok := data.(map[string]any); ok {
-				return mapData, nil
+				// Convert map[string]any to map[string]string for ClickHouse compatibility
+				return convertMapToStringMap(mapData)
 			}
 			return zero, fmt.Errorf("expected map data for Map type, got %T", data)
 		}
 		// Handle any ClickHouse Array type
 		if strings.HasPrefix(string(columnType), "Array(") {
-			if fieldType == internal.KafkaTypeArray {
-				return data, nil
-			}
-			// Handle Array(Map(...)) case
+			// Handle Array(Map(...)) case first
 			if strings.Contains(string(columnType), "Map(") {
 				if mapArrayData, ok := data.([]any); ok {
-					// For Array(Map) types, we return the data as-is since it's already in the correct format
-					// The actual validation will be done by ClickHouse
-					return mapArrayData, nil
+					// Convert array of maps to array of map[string]string for ClickHouse compatibility
+					return convertMapArrayToStringMapArray(mapArrayData)
 				}
 				return zero, fmt.Errorf("expected array of maps for Array(Map) type, got %T", data)
+			}
+			// Handle other Array types
+			if fieldType == internal.KafkaTypeArray {
+				return data, nil
 			}
 			if arrayData, ok := data.([]any); ok {
 				jsonBytes, err := json.Marshal(arrayData)
@@ -180,4 +182,74 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		}
 		return zero, fmt.Errorf("unsupported ClickHouse data type: %s", columnType)
 	}
+}
+
+// convertMapToStringMap converts map[string]any to map[string]string for ClickHouse compatibility
+func convertMapToStringMap(data any) (map[string]string, error) {
+	if data == nil {
+		return nil, nil
+	}
+
+	mapData, ok := data.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("expected map[string]any, got %T", data)
+	}
+
+	result := make(map[string]string)
+	for key, value := range mapData {
+		if value == nil {
+			result[key] = ""
+			continue
+		}
+
+		// Convert value to string
+		switch v := value.(type) {
+		case string:
+			result[key] = v
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			result[key] = fmt.Sprintf("%d", v)
+		case float32, float64:
+			result[key] = fmt.Sprintf("%g", v)
+		case bool:
+			result[key] = fmt.Sprintf("%t", v)
+		default:
+			// For complex types, convert to JSON string
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal value %v to JSON: %w", v, err)
+			}
+			result[key] = string(jsonBytes)
+		}
+	}
+
+	return result, nil
+}
+
+// convertMapArrayToStringMapArray converts []any containing maps to []map[string]string for ClickHouse compatibility
+func convertMapArrayToStringMapArray(data []any) ([]map[string]string, error) {
+	if data == nil {
+		return nil, nil
+	}
+
+	result := make([]map[string]string, 0, len(data))
+	for i, item := range data {
+		if item == nil {
+			result = append(result, nil)
+			continue
+		}
+
+		mapItem, ok := item.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("array element at index %d is not a map, got %T", i, item)
+		}
+
+		convertedMap, err := convertMapToStringMap(mapItem)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert map at index %d: %w", i, err)
+		}
+
+		result = append(result, convertedMap)
+	}
+
+	return result, nil
 }
