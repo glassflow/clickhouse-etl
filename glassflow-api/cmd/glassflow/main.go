@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -119,18 +118,6 @@ func mainErr(cfg *config, role models.Role) error {
 		logOut = io.MultiWriter(os.Stdout, logFile)
 	}
 
-	// Parse pod name to extract stable instance ID
-	// Format: "ingestor-0-7568447b5-5wcsp" -> "ingestor-0-7568447b5"
-	serviceInstanceID := cfg.OtelServiceInstanceID
-	if serviceInstanceID != "" {
-		parts := strings.Split(serviceInstanceID, "-")
-		if len(parts) >= 3 {
-			// Remove the last part (pod hash) to get stable replica set identifier
-			serviceInstanceID = strings.Join(parts[:len(parts)-1], "-")
-		}
-		// If parsing fails, use the original pod name as fallback
-	}
-
 	// Configure observability
 	obsConfig := &observability.Config{
 		LogFormat:         cfg.LogFormat,
@@ -141,7 +128,7 @@ func mainErr(cfg *config, role models.Role) error {
 		ServiceVersion:    cfg.OtelServiceVersion,
 		ServiceNamespace:  cfg.OtelServiceNamespace,
 		PipelineID:        cfg.OtelPipelineID,
-		ServiceInstanceID: serviceInstanceID,
+		ServiceInstanceID: cfg.OtelServiceInstanceID,
 	}
 	log := observability.ConfigureLogger(obsConfig, logOut)
 	meter := observability.ConfigureMeter(obsConfig)
