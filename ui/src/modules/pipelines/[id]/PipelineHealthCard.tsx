@@ -48,6 +48,11 @@ function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProp
     > = {
       Created: { status: 'info', classes: 'text-blue-600 bg-blue-50 border-blue-200' },
       Running: { status: 'stable', classes: 'text-green-600 bg-green-50 border-green-200' },
+      Paused: { status: 'unstable', classes: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
+      Pausing: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
+      Resuming: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
+      Stopping: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
+      Stopped: { status: 'info', classes: 'text-gray-600 bg-gray-50 border-gray-200' },
       Terminating: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
       Terminated: { status: 'info', classes: 'text-gray-600 bg-gray-50 border-gray-200' },
       Failed: { status: 'failed', classes: 'text-red-600 bg-red-50 border-red-200' },
