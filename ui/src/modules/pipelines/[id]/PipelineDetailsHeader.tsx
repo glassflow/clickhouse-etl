@@ -24,7 +24,7 @@ import StopIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
 import ShutdownIcon from '@/src/images/shutdown.svg'
 import DownloadIcon from '@/src/images/download-white.svg'
-import { PipelineStatus, getPipelineStatusFromState } from '@/src/types/pipeline'
+import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
 
@@ -233,8 +233,8 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       !isRecentAction &&
       (status === 'active' || !status || status === 'no_configuration')
     ) {
-      // Convert backend health status to UI status using the mapping function
-      const healthStatus = getPipelineStatusFromState(health.overall_status)
+      // Parse backend health status to UI status using the mapping function
+      const healthStatus = parsePipelineStatus(health.overall_status)
       if (healthStatus !== 'active' || status === 'no_configuration') {
         displayStatus = healthStatus
       }
@@ -275,8 +275,8 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       !isRecentAction &&
       (status === 'active' || !status || status === 'no_configuration')
     ) {
-      // Convert backend health status to UI status using the mapping function
-      const healthStatus = getPipelineStatusFromState(health.overall_status)
+      // Parse backend health status to UI status using the mapping function
+      const healthStatus = parsePipelineStatus(health.overall_status)
       if (healthStatus !== 'active' || status === 'no_configuration') {
         displayStatus = healthStatus
       }
