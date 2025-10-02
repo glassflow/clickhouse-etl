@@ -12,7 +12,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { OperationKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
 import { useState, Suspense, useEffect } from 'react'
-import { getPipelineStatus } from '@/src/api/pipeline-api'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
@@ -111,26 +110,6 @@ function HomePageClient() {
       fetchActivePipelines()
     }
   }, [isDocker, isLocal])
-
-  // Check for running pipeline and backend health
-  useEffect(() => {
-    const checkRunningPipeline = async () => {
-      try {
-        const response = await getPipelineStatus()
-        if (response.pipeline_id) {
-          // There is a running pipeline, redirect to pipeline page
-          router.push('/pipelines')
-        }
-        // If we get here, backend is available, no need to show health modal
-      } catch (err) {
-        // Check if this is a backend connectivity issue or just no pipeline
-        // Health check is handled by HealthCheckLayout at root level
-        console.log('Pipeline status check failed:', err)
-      }
-    }
-
-    checkRunningPipeline()
-  }, [router])
 
   // Track page view when component loads
   useEffect(() => {
