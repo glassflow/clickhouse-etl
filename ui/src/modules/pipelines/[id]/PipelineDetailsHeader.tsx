@@ -23,8 +23,10 @@ import DeleteIcon from '@/src/images/trash.svg'
 import StopIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
 import ShutdownIcon from '@/src/images/shutdown.svg'
+import DownloadIcon from '@/src/images/download-white.svg'
 import { PipelineStatus, getPipelineStatusFromState } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
+import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -129,6 +131,15 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
           operations.revertOptimisticUpdate(pipeline.pipeline_id, currentStatus)
         }
       }
+    }
+  }
+
+  const handleDownloadClick = async () => {
+    try {
+      await downloadPipelineConfig(pipeline)
+    } catch (error) {
+      console.error('Failed to download pipeline configuration:', error)
+      // You could add a toast notification here to show the error to the user
     }
   }
 
@@ -396,6 +407,25 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         {showPause && renderActionButton('pause')}
         {/* Edit button disabled - functionality not implemented yet */}
         {/* {renderActionButton('edit')} */}
+        <Button
+          key="download"
+          variant="outline"
+          onClick={() => handleDownloadClick()}
+          disabled={false}
+          className={`group btn-action`}
+          title={`Download configuration`}
+        >
+          <div className="flex items-center gap-3">
+            <Image
+              src={DownloadIcon}
+              alt="Download"
+              width={16}
+              height={16}
+              className="filter brightness-100 group-hover:brightness-0"
+            />
+          </div>
+          Download config
+        </Button>
       </>
     )
   }
