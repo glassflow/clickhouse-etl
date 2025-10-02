@@ -53,14 +53,19 @@ func ConfigureMeter(cfg *Config) *Meter {
 	}
 
 	// Create resource with service information
-	res, err := resource.New(ctx,
-		resource.WithAttributes(
-			semconv.ServiceName(cfg.ServiceName),
-			semconv.ServiceVersion(cfg.ServiceVersion),
-			semconv.ServiceNamespace(cfg.ServiceNamespace),
-			attribute.String("pipeline_id", cfg.PipelineID),
-		),
-	)
+	attrs := []attribute.KeyValue{
+		semconv.ServiceName(cfg.ServiceName),
+		semconv.ServiceVersion(cfg.ServiceVersion),
+		semconv.ServiceNamespace(cfg.ServiceNamespace),
+		attribute.String("pipeline_id", cfg.PipelineID),
+	}
+
+	// Add service instance ID if provided
+	if cfg.ServiceInstanceID != "" {
+		attrs = append(attrs, semconv.ServiceInstanceID(cfg.ServiceInstanceID))
+	}
+
+	res, err := resource.New(ctx, resource.WithAttributes(attrs...))
 	if err != nil {
 		slog.Error("Failed to create resource", "error", err)
 		return nil

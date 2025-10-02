@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -37,11 +38,12 @@ type config struct {
 	LogFilePath  string     `split_words:"true"`
 
 	// OpenTelemetry observability configuration
-	OtelObservability    bool   `default:"false" split_words:"true"`
-	OtelServiceName      string `default:"glassflow" split_words:"true"`
-	OtelServiceVersion   string `default:"dev" split_words:"true"`
-	OtelServiceNamespace string `default:"" split_words:"true"`
-	OtelPipelineID       string `default:"" split_words:"true"`
+	OtelObservability     bool   `default:"false" split_words:"true"`
+	OtelServiceName       string `default:"glassflow" split_words:"true"`
+	OtelServiceVersion    string `default:"dev" split_words:"true"`
+	OtelServiceNamespace  string `default:"" split_words:"true"`
+	OtelPipelineID        string `default:"" split_words:"true"`
+	OtelServiceInstanceID string `default:"" split_words:"true"`
 
 	ServerAddr            string        `default:":8081" split_words:"true"`
 	ServerWriteTimeout    time.Duration `default:"15s" split_words:"true"`
@@ -117,6 +119,18 @@ func mainErr(cfg *config, role models.Role) error {
 		logOut = io.MultiWriter(os.Stdout, logFile)
 	}
 
+	// Parse pod name to extract stable instance ID
+	// Format: "ingestor-0-7568447b5-5wcsp" -> "ingestor-0-7568447b5"
+	serviceInstanceID := cfg.OtelServiceInstanceID
+	if serviceInstanceID != "" {
+		parts := strings.Split(serviceInstanceID, "-")
+		if len(parts) >= 3 {
+			// Remove the last part (pod hash) to get stable replica set identifier
+			serviceInstanceID = strings.Join(parts[:len(parts)-1], "-")
+		}
+		// If parsing fails, use the original pod name as fallback
+	}
+
 	// Configure observability
 	obsConfig := &observability.Config{
 		LogFormat:         cfg.LogFormat,
@@ -127,6 +141,7 @@ func mainErr(cfg *config, role models.Role) error {
 		ServiceVersion:    cfg.OtelServiceVersion,
 		ServiceNamespace:  cfg.OtelServiceNamespace,
 		PipelineID:        cfg.OtelPipelineID,
+		ServiceInstanceID: serviceInstanceID,
 	}
 	log := observability.ConfigureLogger(obsConfig, logOut)
 	meter := observability.ConfigureMeter(obsConfig)
@@ -162,13 +177,13 @@ func mainErr(cfg *config, role models.Role) error {
 	case internal.RoleIngestor:
 		return mainIngestor(ctx, nc, cfg, log, meter)
 	case internal.RoleETL:
-		return mainEtl(ctx, nc, cfg, log, meter)
+		return mainEtl(ctx, nc, cfg, log)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}
 }
 
-func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
 	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
 	if err != nil {
 		return fmt.Errorf("create nats store for pipelines: %w", err)

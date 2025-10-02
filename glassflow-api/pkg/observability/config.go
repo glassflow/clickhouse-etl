@@ -15,4 +15,5 @@ type Config struct {
 	ServiceVersion    string
 	ServiceNamespace  string
 	PipelineID        string
+	ServiceInstanceID string
 }
