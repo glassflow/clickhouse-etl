@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
-import { MoreVertical, Pause, Play, Edit, FileText, Trash2 } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import { getActionConfig } from '@/src/utils/pipeline-actions'
-import { Pipeline, PipelineStatus } from '@/src/types/pipeline'
+import { PipelineStatus } from '@/src/types/pipeline'
 import PlayIcon from '@/src/images/play-white.svg'
 import EditIcon from '@/src/images/edit.svg'
 import RenameIcon from '@/src/images/rename.svg'
@@ -11,6 +11,7 @@ import DeleteIcon from '@/src/images/trash.svg'
 import StopIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
 import ShutdownIcon from '@/src/images/shutdown.svg'
+import DownloadIcon from '@/src/images/download-white.svg'
 import Image from 'next/image'
 
 interface TableContextMenuProps {
@@ -22,6 +23,7 @@ interface TableContextMenuProps {
   onRename?: () => void
   onStop?: () => void
   onDelete?: () => void
+  onDownload?: () => void
   disabled?: boolean
   onOpen?: (e: React.MouseEvent) => void
 }
@@ -35,6 +37,7 @@ export const TableContextMenu = ({
   onRename,
   onStop,
   onDelete,
+  onDownload,
   disabled = false,
   onOpen,
 }: TableContextMenuProps) => {
@@ -239,6 +242,32 @@ export const TableContextMenu = ({
                   className="filter brightness-100 group-hover:brightness-0"
                 />
                 <span className="truncate">Delete</span>
+              </Button>
+            )}
+
+            {/* Download Button */}
+            {onDownload && (
+              <Button
+                variant="ghost"
+                className={cn(
+                  'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
+                  'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                )}
+                onClick={(e) => {
+                  e.stopPropagation() // Always stop propagation first
+                  handleMenuClick(e, onDownload, false)
+                }}
+                disabled={false}
+                title={`Download configuration`}
+              >
+                <Image
+                  src={DownloadIcon}
+                  alt="Download"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-0"
+                />
+                <span className="truncate">Download</span>
               </Button>
             )}
           </div>

@@ -33,6 +33,7 @@ import {
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
 import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
+import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
 import Loader from '@/src/images/loader-small.svg'
 
 type PipelinesListProps = {
@@ -368,6 +369,7 @@ export function PipelinesList({
             onRename={() => handleRename(pipeline)}
             onStop={() => handleStop(pipeline)}
             onDelete={() => handleDelete(pipeline)}
+            onDownload={() => handleDownload(pipeline)}
           />
         )
       },
@@ -487,6 +489,15 @@ export function PipelinesList({
     }
 
     router.push('/home')
+  }
+
+  const handleDownload = async (pipeline: ListPipelineConfig) => {
+    try {
+      await downloadPipelineConfig(pipeline)
+    } catch (error) {
+      console.error('Failed to download pipeline configuration:', error)
+      // TODO: Add a toast notification to show the error to the user
+    }
   }
 
   const handlePipelineLimitModalComplete = (result: string) => {
