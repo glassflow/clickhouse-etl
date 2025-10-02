@@ -10,7 +10,8 @@ type Config struct {
 	LogAddSource bool
 
 	// OpenTelemetry configuration
-	OtelObservability bool
+	LogsEnabled       bool
+	MetricsEnabled    bool
 	ServiceName       string
 	ServiceVersion    string
 	ServiceNamespace  string

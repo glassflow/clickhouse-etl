@@ -15,7 +15,7 @@ import (
 
 // ConfigureLogger creates and configures a logger based on the provided configuration
 func ConfigureLogger(cfg *Config, logOut io.Writer) *slog.Logger {
-	if cfg.OtelObservability {
+	if cfg.LogsEnabled {
 		return configureOTelLogger(cfg, logOut)
 	}
 

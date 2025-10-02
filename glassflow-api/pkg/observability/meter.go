@@ -35,8 +35,8 @@ type Meter struct {
 
 // ConfigureMeter creates and configures metrics based on the provided configuration
 func ConfigureMeter(cfg *Config) *Meter {
-	if !cfg.OtelObservability {
-		// Return nil meter when OTel is disabled
+	if !cfg.MetricsEnabled {
+		// Return nil meter when metrics are disabled
 		return nil
 	}
 

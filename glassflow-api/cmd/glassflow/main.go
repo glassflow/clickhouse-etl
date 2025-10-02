@@ -37,7 +37,8 @@ type config struct {
 	LogFilePath  string     `split_words:"true"`
 
 	// OpenTelemetry observability configuration
-	OtelObservability     bool   `default:"false" split_words:"true"`
+	OtelLogsEnabled       bool   `default:"true" split_words:"true"`
+	OtelMetricsEnabled    bool   `default:"true" split_words:"true"`
 	OtelServiceName       string `default:"glassflow" split_words:"true"`
 	OtelServiceVersion    string `default:"dev" split_words:"true"`
 	OtelServiceNamespace  string `default:"" split_words:"true"`
@@ -123,7 +124,8 @@ func mainErr(cfg *config, role models.Role) error {
 		LogFormat:         cfg.LogFormat,
 		LogLevel:          cfg.LogLevel,
 		LogAddSource:      cfg.LogAddSource,
-		OtelObservability: cfg.OtelObservability,
+		LogsEnabled:       cfg.OtelLogsEnabled,
+		MetricsEnabled:    cfg.OtelMetricsEnabled,
 		ServiceName:       cfg.OtelServiceName,
 		ServiceVersion:    cfg.OtelServiceVersion,
 		ServiceNamespace:  cfg.OtelServiceNamespace,
