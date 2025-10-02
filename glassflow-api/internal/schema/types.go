@@ -51,6 +51,10 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 		// For arrays, we return the array as-is since it's already in the correct format
 		// The actual processing will be done by the ConvertValue function
 		return data, nil
+	case internal.KafkaTypeMap:
+		// For maps, we return the map as-is since it's already in the correct format
+		// The actual processing will be done by the ConvertValue function
+		return data, nil
 	default:
 		return zero, nil
 	}
@@ -141,10 +145,29 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s, %s or %s, got %s", internal.KafkaTypeInt64, internal.KafkaTypeFloat64, internal.KafkaTypeString, fieldType)
 	default:
+		// Handle any ClickHouse Map type
+		if strings.HasPrefix(string(columnType), "Map(") {
+			if fieldType == internal.KafkaTypeMap {
+				return data, nil
+			}
+			if mapData, ok := data.(map[string]any); ok {
+				return mapData, nil
+			}
+			return zero, fmt.Errorf("expected map data for Map type, got %T", data)
+		}
 		// Handle any ClickHouse Array type
 		if strings.HasPrefix(string(columnType), "Array(") {
 			if fieldType == internal.KafkaTypeArray {
 				return data, nil
+			}
+			// Handle Array(Map(...)) case
+			if strings.Contains(string(columnType), "Map(") {
+				if mapArrayData, ok := data.([]any); ok {
+					// For Array(Map) types, we return the data as-is since it's already in the correct format
+					// The actual validation will be done by ClickHouse
+					return mapArrayData, nil
+				}
+				return zero, fmt.Errorf("expected array of maps for Array(Map) type, got %T", data)
 			}
 			if arrayData, ok := data.([]any); ok {
 				jsonBytes, err := json.Marshal(arrayData)
