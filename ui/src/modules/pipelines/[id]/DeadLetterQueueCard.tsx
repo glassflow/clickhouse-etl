@@ -74,9 +74,9 @@ const convertToMetrics = (state: DLQState): DLQMetrics => {
 
 const renderMinimizedView = ({ unconsumedEvents }: { unconsumedEvents: string }) => {
   return (
-    <div className="flex flex-row gap-2">
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
+    <div className="flex flex-row gap-2 items-center">
+      <div className="flex flex-row gap-2 items-center">
+        <div className="w-3 h-3 rounded-full bg-green-500" />
         <span className="text-md font-bold">{unconsumedEvents}</span>
         <span className="text-sm font-normal">Unconsumed events</span>
       </div>
@@ -87,23 +87,19 @@ const renderMinimizedView = ({ unconsumedEvents }: { unconsumedEvents: string })
 const renderExpandedView = ({ totalDlq, lastEventReceived, unconsumedEvents, lastConsumedAt }: DLQMetrics) => {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-green-500 mt-2 items-center" />
+      <div className="flex flex-row gap-2 items-center">
         <span className="text-md font-bold">{totalDlq}</span>
         <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Total events in DLQ</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-green-500 mt-2 items-center" />
+      <div className="flex flex-row gap-2 items-center">
         <span className="text-md font-bold">{lastEventReceived}</span>
         <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Last event received</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
+      <div className="flex flex-row gap-2 items-center">
         <span className="text-md font-bold">{unconsumedEvents}</span>
         <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Unconsumed events</span>
       </div>
-      <div className="flex flex-row gap-2">
-        <div className="w-3 h-3 rounded-full bg-green-500 mt-2" />
+      <div className="flex flex-row gap-2 items-center">
         <span className="text-md font-bold">{lastConsumedAt}</span>
         <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Last consumed at</span>
       </div>
@@ -141,11 +137,17 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
     }
   }, [pipelineId])
 
-  // Calculate height when content changes
+  // Calculate height when content changes - use requestAnimationFrame to ensure DOM has updated
   useEffect(() => {
     if (contentRef.current) {
-      const height = contentRef.current.scrollHeight
-      setContentHeight(height)
+      // Use requestAnimationFrame to wait for DOM to fully render
+      requestAnimationFrame(() => {
+        if (contentRef.current) {
+          const height = contentRef.current.scrollHeight
+          // Add small buffer to prevent cut-off
+          setContentHeight(height + 4)
+        }
+      })
     }
   }, [metrics, isExpanded])
 
@@ -215,13 +217,14 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
 
         {/* Animated content container */}
         <div
-          className="transition-all duration-300 ease-out overflow-hidden"
+          className="transition-all duration-300 ease-out"
           style={{
             maxHeight: isExpanded ? `${contentHeight}px` : '40px', // 40px for minimized view
             opacity: loading ? 0.7 : 1,
+            overflow: 'hidden',
           }}
         >
-          <div ref={contentRef}>
+          <div ref={contentRef} className="pb-1">
             {isExpanded ? (
               <div className="animate-fadeIn">{renderExpandedView(metrics)}</div>
             ) : (

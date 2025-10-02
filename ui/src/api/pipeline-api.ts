@@ -363,6 +363,78 @@ export const getDLQState = async (pipelineId: string): Promise<DLQState> => {
   }
 }
 
+// ClickHouse Metrics API functions
+export interface ClickHouseTableMetrics {
+  database: string
+  table: string
+  lastUpdated: string
+  rowCount: number
+  tableSizeBytes: number
+  compressedSizeBytes: number
+  insertRateRowsPerSec: number
+  insertRateBytesPerSec: number
+  insertLatencyP50Ms: number
+  insertLatencyP95Ms: number
+  failedInserts: number
+  failedInsertsLast5Min: number
+  rowCountDelta1H: number
+  tableSizeDelta1H: number
+  mergesInProgress: number
+  mutationsInProgress: number
+  memoryUsageBytes: number
+  activeQueries: number
+}
+
+export const getClickHouseMetrics = async (pipelineId: string): Promise<ClickHouseTableMetrics> => {
+  try {
+    const url = getApiUrl(`pipeline/${pipelineId}/clickhouse/metrics`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw { code: response.status, message: 'Failed to fetch ClickHouse metrics' } as ApiError
+    }
+
+    const data = await response.json()
+
+    if (!data.success) {
+      throw { code: 500, message: data.error || 'Failed to fetch ClickHouse metrics' } as ApiError
+    }
+
+    return data.metrics
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch ClickHouse metrics' } as ApiError
+  }
+}
+
+export const getClickHouseMetricsFromConfig = async (pipeline: Pipeline): Promise<ClickHouseTableMetrics> => {
+  try {
+    const url = getApiUrl(`pipeline/${pipeline.pipeline_id}/clickhouse/metrics-from-config`)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pipeline }),
+    })
+
+    if (!response.ok) {
+      throw { code: response.status, message: 'Failed to fetch ClickHouse metrics' } as ApiError
+    }
+
+    const data = await response.json()
+
+    if (!data.success) {
+      throw { code: 500, message: data.error || 'Failed to fetch ClickHouse metrics' } as ApiError
+    }
+
+    return data.metrics
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch ClickHouse metrics' } as ApiError
+  }
+}
+
 export const getDLQEvents = async (pipelineId: string): Promise<DLQEvent[]> => {
   try {
     const url = getApiUrl(`pipeline/${pipelineId}/dlq`)
