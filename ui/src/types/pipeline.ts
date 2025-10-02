@@ -28,7 +28,7 @@ export const parsePipelineStatus = (status: string): PipelineStatus => {
     case 'pausing':
       return 'pausing'
     case 'resuming':
-      return 'pausing' // Map resuming to pausing (transitional state)
+      return 'resuming' // Map resuming to resuming (transitional state)
     case 'stopped':
     case 'terminated':
     case 'deleted':
