@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,14 +24,15 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.As(err, &jsonErr):
 			jsonError(w, http.StatusBadRequest, err.Error(), nil)
 		default:
-			h.log.Error("failed to read create pipeline request", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to read create pipeline request", "error", err)
 			serverError(w)
 		}
 		return
 	}
 
-	pipeline, err := req.toModel()
+	pipeline, err := req.toModel(r.Context(), h.log)
 	if err != nil {
+		h.log.ErrorContext(r.Context(), "failed to convert request to pipeline model", "error", err)
 		jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
 		return
 	}
@@ -40,12 +42,14 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 		var pErr models.PipelineConfigError
 		switch {
 		case errors.Is(err, service.ErrPipelineQuotaReached), errors.Is(err, service.ErrIDExists):
+			h.log.ErrorContext(r.Context(), "pipeline creation failed, only single pipeline in docker allowed", "pipeline_id", pipeline.ID, "error", err)
 			jsonError(w, http.StatusForbidden, err.Error(), map[string]string{"pipeline_id": pipeline.ID})
 		case errors.As(err, &pErr):
+			h.log.ErrorContext(r.Context(), "pipeline creation failed due to configuration error", "pipeline_id", pipeline.ID, "error", err)
 			jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
 
 		default:
-			h.log.Error("failed to setup pipeline", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to setup pipeline", "error", err)
 			serverError(w)
 		}
 	}
@@ -55,11 +59,12 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
 	if len(strings.TrimSpace(id)) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -68,8 +73,10 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found for stop", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotFound, "no active pipeline with given id to stop", nil)
 		case errors.Is(err, service.ErrNotImplemented):
+			h.log.ErrorContext(r.Context(), "stop pipeline feature not implemented", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
 			// Check if it's a status validation error
@@ -82,7 +89,7 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("pipeline stop")
+	h.log.InfoContext(r.Context(), "pipeline stop")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -90,11 +97,12 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
 	if len(strings.TrimSpace(id)) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -117,7 +125,7 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("pipeline terminated")
+	h.log.InfoContext(r.Context(), "pipeline terminated")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -125,12 +133,13 @@ func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
 
 	if len(strings.TrimSpace(id)) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -139,8 +148,10 @@ func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found for pause", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotFound, "no pipeline with given id to pause", nil)
 		case errors.Is(err, service.ErrNotImplemented):
+			h.log.ErrorContext(r.Context(), "pause pipeline feature not implemented", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
 			// Check if it's a status validation error
@@ -148,13 +159,13 @@ func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
 				jsonStatusValidationError(w, statusErr)
 				return
 			}
-			h.log.Error("failed to pause pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to pause pipeline", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
 	}
 
-	h.log.Info("pipeline paused", slog.String("pipeline_id", id))
+	h.log.InfoContext(r.Context(), "pipeline paused", "pipeline_id", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -162,12 +173,13 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
 
 	if len(strings.TrimSpace(id)) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -176,8 +188,10 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found for resume", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotFound, "no pipeline with given id to resume", nil)
 		case errors.Is(err, service.ErrNotImplemented):
+			h.log.ErrorContext(r.Context(), "resume pipeline feature not implemented", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
 			// Check if it's a status validation error
@@ -185,13 +199,13 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 				jsonStatusValidationError(w, statusErr)
 				return
 			}
-			h.log.Error("failed to resume pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to resume pipeline", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
 	}
 
-	h.log.Info("pipeline resumed", slog.String("pipeline_id", id))
+	h.log.InfoContext(r.Context(), "pipeline resumed", "pipeline_id", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -199,11 +213,12 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
 	if len(strings.TrimSpace(id)) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -212,9 +227,10 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("Unable to load pipeline", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "Unable to load pipeline", "error", err)
 			serverError(w)
 		}
 		return
@@ -228,12 +244,13 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
 
 	if len(id) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusBadRequest, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -242,9 +259,10 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found for health check", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to get pipeline health", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to get pipeline health", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
@@ -257,7 +275,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 func (h *handler) getPipelines(w http.ResponseWriter, r *http.Request) {
 	pipelines, err := h.pipelineManager.GetPipelines(r.Context())
 	if err != nil {
-		h.log.Error("Unable to list pipelines", slog.Any("error", err))
+		h.log.ErrorContext(r.Context(), "Unable to list pipelines", "error", err)
 		serverError(w)
 		return
 	}
@@ -273,11 +291,12 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 	}
 
 	if len(strings.TrimSpace(id)) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -289,7 +308,7 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 		case errors.As(err, &jsonErr):
 			jsonError(w, http.StatusBadRequest, err.Error(), nil)
 		default:
-			h.log.Error("failed to read update pipeline request", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to read update pipeline request", "error", err)
 			serverError(w)
 		}
 		return
@@ -299,9 +318,10 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found for name update", "pipeline_id", id, "new_name", req.Name, "error", err)
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to update pipeline name", slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to update pipeline name", "error", err)
 			serverError(w)
 		}
 		return
@@ -398,8 +418,9 @@ type clickhouseColumnMapping struct {
 	ColumnType string `json:"column_type"`
 }
 
-func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
+func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero models.PipelineConfig, _ error) {
 	if len(strings.TrimSpace(p.PipelineID)) == 0 {
+		log.ErrorContext(ctx, "pipeline ID cannot be empty")
 		return zero, fmt.Errorf("pipeline ID cannot be empty")
 	}
 
@@ -440,6 +461,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 
 	ic, err := models.NewIngestorComponentConfig(p.Source.Provider, kcfg, topics)
 	if err != nil {
+		log.ErrorContext(ctx, "failed to create ingestor config", "provider", p.Source.Provider, "error", err)
 		return zero, fmt.Errorf("ingestor config: %w", err)
 	}
 
@@ -459,6 +481,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 
 		jc, err = models.NewJoinComponentConfig(p.Join.Kind, sources)
 		if err != nil {
+			log.ErrorContext(ctx, "failed to create join config", "join_kind", p.Join.Kind, "error", err)
 			return zero, fmt.Errorf("join config: %w", err)
 		}
 		jc.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
@@ -496,6 +519,7 @@ func (p pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		SkipCertificateCheck: p.Sink.SkipCertificateVerification,
 	})
 	if err != nil {
+		log.ErrorContext(ctx, "failed to create sink config", "error", err)
 		return zero, fmt.Errorf("sink config: %w", err)
 	}
 	sc.NATSConsumerName = models.GetNATSSinkConsumerName(p.PipelineID)
@@ -674,12 +698,13 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		h.log.Error("Cannot get id param")
+		h.log.ErrorContext(r.Context(), "Cannot get id param")
 		serverError(w)
 		return
 	}
 
 	if len(strings.TrimSpace(id)) == 0 {
+		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
 		jsonError(w, http.StatusBadRequest, "pipeline id cannot be empty", nil)
 		return
 	}
@@ -689,9 +714,10 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found for deletion", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to get pipeline for deletion", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to get pipeline for deletion", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
@@ -700,6 +726,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	// Check if pipeline is in a deletable state (stopped or terminated)
 	currentStatus := string(pipeline.Status.OverallStatus)
 	if currentStatus != internal.PipelineStatusStopped && currentStatus != internal.PipelineStatusTerminated {
+		h.log.ErrorContext(r.Context(), "pipeline cannot be deleted due to invalid status", "pipeline_id", id, "current_status", currentStatus)
 		jsonError(w, http.StatusBadRequest,
 			fmt.Sprintf("pipeline can only be deleted if it's stopped or terminated, current status: %s", currentStatus),
 			map[string]string{"current_status": currentStatus})
@@ -713,7 +740,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrPipelineNotExists):
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
 		default:
-			h.log.Error("failed to delete pipeline", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.ErrorContext(r.Context(), "failed to delete pipeline", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return

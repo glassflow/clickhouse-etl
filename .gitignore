@@ -48,3 +48,15 @@ bin/
 #demos 
 demos/example_event.py
 demos/generate_events.py
+
+# vendor
+vendor
+
+# test
+dev/k8s-observability
+dev/docker-observability
+dev/automation-scripts
+
+
+#ide 
+.idea

@@ -53,10 +53,12 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	case *schema.JsonToClickHouseMapper:
 		mapper = *sm
 	default:
+		j.log.ErrorContext(ctx, "unsupported schema mapper")
 		return fmt.Errorf("unsupported schema mapper")
 	}
 
 	if len(mapper.Streams) == 0 {
+		j.log.ErrorContext(ctx, "setup joiner: length of streams must not be 0")
 		return fmt.Errorf("setup joiner: length of streams must not be 0")
 	}
 
@@ -79,6 +81,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		NatsSubject:  models.GetWildcardNATSSubjectName(j.leftInputStreamName),
 	})
 	if err != nil {
+		j.log.ErrorContext(ctx, "failed to create left consumer", "left_stream", j.leftInputStreamName, "error", err)
 		return fmt.Errorf("create left consumer: %w", err)
 	}
 
@@ -88,19 +91,20 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		NatsSubject:  models.GetWildcardNATSSubjectName(j.rightInputStreamName),
 	})
 	if err != nil {
+		j.log.ErrorContext(ctx, "failed to create right consumer", "right_stream", j.rightInputStreamName, "error", err)
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 
 	// Get existing KV stores (created by orchestrator)
 	leftKVStore, err := j.nc.GetKeyValueStore(ctx, j.leftInputStreamName)
 	if err != nil {
-		j.log.Error("failed to get left stream buffer: ", slog.Any("error", err))
+		j.log.ErrorContext(ctx, "failed to get left stream buffer: ", "error", err)
 		return fmt.Errorf("get left buffer: %w", err)
 	}
 
 	rightKVStore, err := j.nc.GetKeyValueStore(ctx, j.rightInputStreamName)
 	if err != nil {
-		j.log.Error("failed to get right stream buffer: ", slog.Any("error", err))
+		j.log.ErrorContext(ctx, "failed to get right stream buffer: ", "error", err)
 		return fmt.Errorf("get right buffer: %w", err)
 	}
 
@@ -126,7 +130,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		j.log,
 	)
 	if err != nil {
-		j.log.Error("failed to join: ", slog.Any("error", err))
+		j.log.ErrorContext(ctx, "failed to join: ", "error", err)
 		return fmt.Errorf("create join: %w", err)
 	}
 
@@ -138,7 +142,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		close(j.c)
 
 		for err := range j.c {
-			j.log.Error("Error in the join component", slog.Any("error", err))
+			j.log.ErrorContext(ctx, "Error in the join component", "error", err)
 		}
 	}()
 

@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type IngestorRunner struct {
@@ -19,13 +20,14 @@ type IngestorRunner struct {
 	topicName    string
 	pipelineCfg  models.PipelineConfig
 	schemaMapper schema.Mapper
+	meter        *observability.Meter
 
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper) *IngestorRunner {
+func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper, meter *observability.Meter) *IngestorRunner {
 	return &IngestorRunner{
 		nc:  nc,
 		log: log,
@@ -33,6 +35,7 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string
 		topicName:    topicName,
 		pipelineCfg:  pipelineCfg,
 		schemaMapper: schemaMapper,
+		meter:        meter,
 
 		component: nil,
 	}
@@ -43,6 +46,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	i.c = make(chan error, 1)
 
 	if i.topicName == "" {
+		i.log.ErrorContext(ctx, "topic name cannot be empty")
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
@@ -53,9 +57,10 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		}
 	}
 
-	i.log.Debug("Starting ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("streamId", outputStreamID))
+	i.log.DebugContext(ctx, "Starting ingestor", "pipelineId", i.pipelineCfg.Status.PipelineID, "streamId", outputStreamID)
 
 	if outputStreamID == "" {
+		i.log.ErrorContext(ctx, "output stream name cannot be empty", "topic_name", i.topicName)
 		return fmt.Errorf("output stream name cannot be empty")
 	}
 
@@ -81,9 +86,10 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		i.schemaMapper,
 		i.doneCh,
 		i.log,
+		i.meter,
 	)
 	if err != nil {
-		i.log.Error("failed to create ingestor component: ", slog.Any("error", err))
+		i.log.ErrorContext(ctx, "failed to create ingestor component: ", "error", err)
 		return fmt.Errorf("create ingestor: %w", err)
 	}
 
@@ -93,7 +99,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		component.Start(ctx, i.c)
 		close(i.c)
 		for err := range i.c {
-			i.log.Error("error in ingestor component", slog.Any("error", err), slog.String("topic", i.topicName))
+			i.log.ErrorContext(ctx, "error in ingestor component", "error", err, "topic", i.topicName)
 		}
 	}()
 

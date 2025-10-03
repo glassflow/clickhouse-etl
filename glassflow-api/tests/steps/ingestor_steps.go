@@ -232,6 +232,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		s.schemaMapper,
 		make(chan struct{}),
 		logger,
+		nil, // nil meter for e2e tests
 	)
 	if err != nil {
 		return fmt.Errorf("create ingestor component: %w", err)

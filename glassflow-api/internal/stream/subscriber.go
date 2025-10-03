@@ -42,6 +42,7 @@ func NewNATSSubscriber(consumer Consumer, log *slog.Logger) *NatsSubscriber {
 
 func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 	if s.consumer == nil {
+		s.log.Error("consumer is nil")
 		return fmt.Errorf("consumer is nil")
 	}
 
@@ -63,7 +64,7 @@ func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 				}
 
 				if !(errors.Is(err, jetstream.ErrNoMessages) || errors.Is(err, nats.ErrTimeout)) {
-					s.log.Error("error on getting message", slog.Any("error", err))
+					s.log.Error("error on getting message", "error", err)
 				}
 				time.Sleep(100 * time.Millisecond)
 				continue

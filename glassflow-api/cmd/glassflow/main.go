@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/lmittmann/tint"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
@@ -28,6 +27,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type config struct {
@@ -35,6 +35,15 @@ type config struct {
 	LogLevel     slog.Level `default:"info" split_words:"true"`
 	LogAddSource bool       `default:"false" split_words:"true"`
 	LogFilePath  string     `split_words:"true"`
+
+	// OpenTelemetry observability configuration
+	OtelLogsEnabled       bool   `default:"true" split_words:"true"`
+	OtelMetricsEnabled    bool   `default:"true" split_words:"true"`
+	OtelServiceName       string `default:"glassflow" split_words:"true"`
+	OtelServiceVersion    string `default:"dev" split_words:"true"`
+	OtelServiceNamespace  string `default:"" split_words:"true"`
+	OtelPipelineID        string `default:"" split_words:"true"`
+	OtelServiceInstanceID string `default:"" split_words:"true"`
 
 	ServerAddr            string        `default:":8081" split_words:"true"`
 	ServerWriteTimeout    time.Duration `default:"15s" split_words:"true"`
@@ -60,12 +69,6 @@ type config struct {
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
 }
-
-type RunnerFunc func() error
-
-type ShutdownFunc func()
-
-type DoneFunc func() <-chan struct{}
 
 func main() {
 	if err := run(); err != nil {
@@ -116,7 +119,21 @@ func mainErr(cfg *config, role models.Role) error {
 		logOut = io.MultiWriter(os.Stdout, logFile)
 	}
 
-	log := configureLogger(cfg, logOut)
+	// Configure observability
+	obsConfig := &observability.Config{
+		LogFormat:         cfg.LogFormat,
+		LogLevel:          cfg.LogLevel,
+		LogAddSource:      cfg.LogAddSource,
+		LogsEnabled:       cfg.OtelLogsEnabled,
+		MetricsEnabled:    cfg.OtelMetricsEnabled,
+		ServiceName:       cfg.OtelServiceName,
+		ServiceVersion:    cfg.OtelServiceVersion,
+		ServiceNamespace:  cfg.OtelServiceNamespace,
+		PipelineID:        cfg.OtelPipelineID,
+		ServiceInstanceID: cfg.OtelServiceInstanceID,
+	}
+	log := observability.ConfigureLogger(obsConfig, logOut)
+	meter := observability.ConfigureMeter(obsConfig)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -143,11 +160,11 @@ func mainErr(cfg *config, role models.Role) error {
 
 	switch role {
 	case internal.RoleSink:
-		return mainSink(ctx, nc, cfg, log)
+		return mainSink(ctx, nc, cfg, log, meter)
 	case internal.RoleJoin:
-		return mainJoin(ctx, nc, cfg, log)
+		return mainJoin(ctx, nc, cfg, log, meter)
 	case internal.RoleIngestor:
-		return mainIngestor(ctx, nc, cfg, log)
+		return mainIngestor(ctx, nc, cfg, log, meter)
 	case internal.RoleETL:
 		return mainEtl(ctx, nc, cfg, log)
 	default:
@@ -244,7 +261,7 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 	return nil
 }
 
-func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
@@ -259,7 +276,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("stream_id in sink config cannot be empty")
 	}
 
-	sinkRunner := service.NewSinkRunner(log, nc, pipelineCfg.Sink.StreamID, pipelineCfg.Sink, schemaMapper)
+	sinkRunner := service.NewSinkRunner(log, nc, pipelineCfg.Sink.StreamID, pipelineCfg.Sink, schemaMapper, meter)
 
 	return runWithGracefulShutdown(
 		ctx,
@@ -269,7 +286,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	)
 }
 
-func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
 	if cfg.JoinType == "" {
 		return fmt.Errorf("join type must be specified")
 	}
@@ -319,7 +336,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	)
 }
 
-func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
 	}
@@ -334,7 +351,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper)
+	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
 
 	return runWithGracefulShutdown(
 		ctx,
@@ -382,28 +399,6 @@ func runWithGracefulShutdown(
 			return nil
 		}
 	}
-}
-
-func configureLogger(cfg *config, logOut io.Writer) *slog.Logger {
-	//nolint: exhaustruct // optional config
-	logOpts := &slog.HandlerOptions{
-		Level:     cfg.LogLevel,
-		AddSource: cfg.LogAddSource,
-	}
-
-	var logHandler slog.Handler
-	switch cfg.LogFormat {
-	case "json":
-		logHandler = slog.NewJSONHandler(logOut, logOpts)
-	default:
-		//nolint:exhaustruct // optional config
-		logHandler = tint.NewHandler(logOut, &tint.Options{
-			AddSource:  true,
-			TimeFormat: time.Kitchen,
-		})
-	}
-
-	return slog.New(logHandler)
 }
 
 func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ error) {

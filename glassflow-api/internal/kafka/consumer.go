@@ -11,6 +11,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type Message struct {
@@ -91,9 +92,10 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 	return cfg
 }
 
-func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
-	consumer, err := newGroupConsumer(conn, topic, log)
+func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (Consumer, error) {
+	consumer, err := newGroupConsumer(conn, topic, log, meter)
 	if err != nil {
+		log.Error("failed to create group consumer", "topic", topic, "error", err)
 		return nil, fmt.Errorf("failed to create group consumer: %w", err)
 	}
 	return consumer, nil
@@ -106,9 +108,10 @@ type groupConsumer struct {
 	cancel    context.CancelFunc
 	processor MessageProcessor
 	log       *slog.Logger
+	meter     *observability.Meter
 }
 
-func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (Consumer, error) {
+func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (Consumer, error) {
 	cfg := newConnectionConfig(connectionParams, topic)
 	cGroup, err := sarama.NewConsumerGroup(
 		connectionParams.Brokers,
@@ -116,6 +119,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		cfg,
 	)
 	if err != nil {
+		log.Error("failed to create consumer group", "brokers", connectionParams.Brokers, "consumer_group", topic.ConsumerGroupName, "error", err)
 		return nil, fmt.Errorf("failed to create consumer group: %w", err)
 	}
 
@@ -124,6 +128,7 @@ func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic
 		name:      topic.ConsumerGroupName,
 		topicName: topic.Name,
 		log:       log,
+		meter:     meter,
 	}
 
 	return consumer, nil
@@ -140,6 +145,7 @@ func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) e
 			if errors.Is(err, sarama.ErrClosedConsumerGroup) {
 				return nil
 			}
+			c.log.ErrorContext(ctx, "failed to consume from kafka", "topics", topics, "error", err)
 			return fmt.Errorf("failed to consume from kafka: %w", err)
 		}
 
@@ -150,11 +156,12 @@ func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) e
 }
 
 func (c *groupConsumer) Close() error {
-	c.log.Info("Closing Kafka consumer group", slog.String("group", c.name))
+	c.log.Info("Closing Kafka consumer group", "group", c.name)
 	if c.cancel != nil {
 		c.cancel()
 	}
 	if err := c.cGroup.Close(); err != nil {
+		c.log.Error("failed to close consumer group", "group", c.name, "error", err)
 		return fmt.Errorf("failed to close consumer group: %w", err)
 	}
 	return nil
@@ -179,6 +186,11 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 				return nil
 			}
 
+			// Record Kafka read metric
+			if c.meter != nil {
+				c.meter.RecordKafkaRead(session.Context(), 1)
+			}
+
 			// Process message directly using the processor
 			if err := c.processor.ProcessMessage(session.Context(), Message{
 				Topic:     message.Topic,
@@ -188,7 +200,7 @@ func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 				Value:     message.Value,
 				Headers:   convertSaramaToRecordHeaders(message.Headers),
 			}); err != nil {
-				c.log.Error("Message processing failed", slog.Any("error", err))
+				c.log.ErrorContext(session.Context(), "Message processing failed", "error", err)
 				return fmt.Errorf("message processing failed: %w", err) // Exit consumer loop - this will cause restart
 			}
 
