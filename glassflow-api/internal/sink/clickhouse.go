@@ -14,6 +14,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/metrics"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
@@ -97,6 +98,11 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 	// Send batch to ClickHouse
 	err := ch.batch.Send(ctx)
 	if err != nil {
+		// record failed batch metric
+		table := ch.client.GetTableName()
+		metrics.SinkBatchesFailedTotal.WithLabelValues(table).Inc()
+		// All records in this batch failed to persist
+		metrics.SinkRecordsFailedTotal.WithLabelValues(table).Add(float64(size))
 		return fmt.Errorf("failed to send the batch: %w", err)
 	}
 	ch.log.Debug("Batch sent to clickhouse", slog.Int("message_count", size))
@@ -121,6 +127,11 @@ func (ch *ClickHouseSink) sendBatchAndAck(ctx context.Context) error {
 		slog.Int("sent_messages", size),
 	)
 
+	// metrics instrumentation (use table name as label)
+	table := ch.client.GetTableName()
+	metrics.SinkBatchesTotal.WithLabelValues(table).Inc()
+	metrics.SinkBatchRecords.WithLabelValues(table).Observe(float64(size))
+
 	return nil
 }
 
@@ -132,11 +143,16 @@ func (ch *ClickHouseSink) handleMsg(_ context.Context, msg jetstream.Msg) error 
 
 	values, err := ch.schemaMapper.PrepareValues(msg.Data())
 	if err != nil {
+		// mapping failure counts as record failure
+		metrics.SinkRecordsFailedTotal.WithLabelValues(ch.client.GetTableName()).Inc()
 		return fmt.Errorf("failed to map data for ClickHouse: %w", err)
 	}
 
 	err = ch.batch.Append(mdata.Sequence.Stream, values...)
 	if err != nil {
+		if !errors.Is(err, batch.ErrAlreadyExists) { // duplicate is not a mapping failure we'll return upstream
+			metrics.SinkRecordsFailedTotal.WithLabelValues(ch.client.GetTableName()).Inc()
+		}
 		return fmt.Errorf("failed to append values to the batch: %w", err)
 	}
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kafka"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/metrics"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
@@ -119,9 +120,13 @@ func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Messag
 
 	nMsg.Header = k.convertKafkaToNATSHeaders(msg.Headers)
 
+	// Increment total records seen
+	metrics.IngestorRecordsTotal.WithLabelValues(k.topic.Name).Inc()
+
 	err := k.schemaMapper.ValidateSchema(k.topic.Name, msg.Value)
 	if err != nil {
 		k.log.Error("Failed to validate data", slog.Any("error", err), slog.String("topic", k.topic.Name))
+		metrics.IngestorDLQTotal.WithLabelValues(k.topic.Name).Inc()
 		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrValidateSchema); dlqErr != nil {
 			return fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
@@ -141,6 +146,7 @@ func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Messag
 				slog.String("dedupKey", k.topic.Deduplication.ID),
 				slog.String("subject", string(msg.Value)),
 			)
+			metrics.IngestorDeduplicatedTotal.WithLabelValues(k.topic.Name).Inc()
 			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData); dlqErr != nil {
 				return fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 			}

@@ -11,6 +11,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/metrics"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
@@ -109,6 +110,8 @@ func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key 
 		if err != nil {
 			return fmt.Errorf("failed to publish joined data: %w", err)
 		}
+		// successful match output
+		metrics.JoinMatchesTotal.WithLabelValues(t.resultsPublisher.GetSubject()).Inc()
 
 		err = t.leftKVStore.Delete(ctx, uuidKey)
 		if err != nil {
@@ -154,6 +157,8 @@ func (t *TemporalJoinExecutor) HandleLeftStreamEvents(ctx context.Context, msg j
 	err = t.resultsPublisher.Publish(ctx, joinedData)
 	if err != nil {
 		t.log.Error("failed to publish joined data", slog.Any("error", err))
+	} else {
+		metrics.JoinMatchesTotal.WithLabelValues(t.resultsPublisher.GetSubject()).Inc()
 	}
 
 	return nil

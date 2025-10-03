@@ -22,6 +22,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/metrics"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -60,6 +61,13 @@ type config struct {
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
 }
+
+// These variables can be overridden at build time with -ldflags "-X main.version=... -X main.commit=... -X main.buildDate=..."
+var (
+	version   = "dev"
+	commit    = ""
+	buildDate = ""
+)
 
 type RunnerFunc func() error
 
@@ -117,6 +125,9 @@ func mainErr(cfg *config, role models.Role) error {
 	}
 
 	log := configureLogger(cfg, logOut)
+
+	// Register build info metrics once logging is set up
+	metrics.RegisterBuildInfo(version, commit, buildDate)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)

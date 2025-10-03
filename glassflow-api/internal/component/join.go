@@ -11,6 +11,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/join"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/metrics"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
@@ -20,6 +21,8 @@ type JoinComponent struct {
 	leftStreamSubsriber   stream.Subscriber
 	rightStreamSubscriber stream.Subscriber
 	executor              join.Executor
+	leftStreamName        string
+	rightStreamName       string
 	handleMu              sync.Mutex
 	wg                    sync.WaitGroup
 	once                  sync.Once
@@ -59,6 +62,8 @@ func NewJoinComponent(
 		leftStreamSubsriber:   stream.NewNATSSubscriber(leftStreamConsumer, log),
 		rightStreamSubscriber: stream.NewNATSSubscriber(rightStreamConsumer, log),
 		executor:              executor,
+		leftStreamName:        leftStreamName,
+		rightStreamName:       rightStreamName,
 		handleMu:              sync.Mutex{},
 		wg:                    sync.WaitGroup{},
 		ctx:                   ctx,
@@ -85,6 +90,7 @@ func (j *JoinComponent) Start(ctx context.Context, errChan chan<- error) {
 			j.log.Error("failed to handle left stream event", slog.Any("error", err))
 			return
 		}
+		metrics.JoinLeftEventsTotal.WithLabelValues(j.leftStreamName).Inc()
 		err = msg.Ack()
 		if err != nil {
 			j.log.Error("failed to ack left stream message", slog.Any("error", err))
@@ -104,6 +110,7 @@ func (j *JoinComponent) Start(ctx context.Context, errChan chan<- error) {
 			j.log.Error("failed to handle right stream event", slog.Any("error", err))
 			return
 		}
+		metrics.JoinRightEventsTotal.WithLabelValues(j.rightStreamName).Inc()
 		err = msg.Ack()
 		if err != nil {
 			j.log.Error("failed to ack right stream message", slog.Any("error", err))
