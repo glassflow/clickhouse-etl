@@ -21,11 +21,18 @@ func WithMaxAge(age time.Duration) NATSClientOption {
 	}
 }
 
+func WithMaxBytes(bytes int64) NATSClientOption {
+	return func(opts *NATSClient) {
+		opts.maxBytes = bytes
+	}
+}
+
 type NATSClient struct {
 	nc *nats.Conn
 	js jetstream.JetStream
 
-	maxAge time.Duration
+	maxAge   time.Duration
+	maxBytes int64
 }
 
 func NewNATSClient(ctx context.Context, url string, opts ...NATSClientOption) (*NATSClient, error) {
@@ -121,6 +128,7 @@ func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject str
 
 		Retention: jetstream.LimitsPolicy,
 		MaxAge:    n.maxAge,
+		MaxBytes:  n.maxBytes,
 		Discard:   jetstream.DiscardOld,
 	}
 

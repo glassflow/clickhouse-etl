@@ -59,9 +59,10 @@ type config struct {
 
 	JoinType string `default:"temporal" split_words:"true"`
 
-	NATSServer       string        `default:"localhost:4222" split_words:"true"`
-	NATSMaxStreamAge time.Duration `default:"24h" split_words:"true"`
-	NATSPipelineKV   string        `default:"glassflow-pipelines" split_words:"true"`
+	NATSServer         string        `default:"localhost:4222" split_words:"true"`
+	NATSMaxStreamAge   time.Duration `default:"168h" split_words:"true"`
+	NATSMaxStreamBytes int64         `default:"107374182400" split_words:"true"` // 100GB in bytes
+	NATSPipelineKV     string        `default:"glassflow-pipelines" split_words:"true"`
 
 	K8sNamespace       string `default:"glassflow" split_words:"true"`
 	K8sResourceKind    string `default:"Pipeline" split_words:"true"`
@@ -151,6 +152,7 @@ func mainErr(cfg *config, role models.Role) error {
 		ctx,
 		cfg.NATSServer,
 		client.WithMaxAge(cfg.NATSMaxStreamAge),
+		client.WithMaxBytes(cfg.NATSMaxStreamBytes),
 	)
 	if err != nil {
 		return fmt.Errorf("nats client: %w", err)
