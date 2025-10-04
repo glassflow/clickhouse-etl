@@ -59,7 +59,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   // Generate mock health data with the provided pipeline ID
   // Use a consistent status based on the pipeline ID to avoid constant polling loops
-  const statuses = ['Created', 'Running', 'Terminating', 'Terminated', 'Failed']
+  // These statuses match what the real backend returns (uppercase first letter)
+  const statuses = [
+    'Created',
+    'Running',
+    'Paused',
+    'Pausing',
+    'Resuming',
+    'Stopping',
+    'Stopped',
+    'Terminating',
+    'Terminated',
+    'Failed',
+  ]
   const statusIndex = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % statuses.length
   const consistentStatus = statuses[statusIndex]
 

@@ -7,6 +7,7 @@ export interface TableColumn<T> {
   key: string
   header: string
   width?: string
+  align?: 'left' | 'center' | 'right'
   render?: (item: T) => React.ReactNode
 }
 
@@ -62,7 +63,7 @@ export function PipelinesTable({
       <div className="table-header">
         <div className="table-header-row" style={{ gridTemplateColumns }}>
           {columns.map((column) => (
-            <div key={column.key} className="table-header-cell">
+            <div key={column.key} className={cn('table-header-cell', column.align && `text-${column.align}`)}>
               {column.header}
             </div>
           ))}
@@ -79,7 +80,11 @@ export function PipelinesTable({
             style={{ gridTemplateColumns }}
           >
             {columns.map((column) => (
-              <div key={column.key} className="table-cell" data-label={column.header}>
+              <div
+                key={column.key}
+                className={cn('table-cell', column.align && `text-${column.align}`)}
+                data-label={column.header}
+              >
                 {column.render ? column.render(item) : (item as any)[column.key]}
               </div>
             ))}

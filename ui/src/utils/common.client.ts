@@ -172,3 +172,52 @@ export function parseForCodeEditor(data: any): string {
     return typeof data === 'string' ? data : String(data)
   }
 }
+
+// Helper function to format numbers with appropriate units
+export const formatNumber = (num: number): string => {
+  if (num >= 1e12) return `${(num / 1e12).toFixed(1)}T`
+  if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`
+  return num.toString()
+}
+
+// Helper function to format bytes
+export const formatBytes = (bytes: number): string => {
+  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(1)}TB`
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)}GB`
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)}MB`
+  if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(1)}KB`
+  return `${bytes}B`
+}
+
+// Helper function to format relative time with live seconds for recent updates
+export const formatRelativeTime = (timestamp: string | null, currentTime?: Date): string => {
+  if (!timestamp || timestamp === '' || timestamp === '0') return '-'
+
+  const now = currentTime || new Date()
+  const eventTime = new Date(timestamp)
+
+  if (isNaN(eventTime.getTime()) || eventTime.getFullYear() < 2000) {
+    return '-'
+  }
+
+  const diffMs = now.getTime() - eventTime.getTime()
+  if (diffMs < 0) return '-'
+
+  const diffSeconds = Math.floor(diffMs / 1000)
+  const diffMinutes = Math.floor(diffSeconds / 60)
+
+  // Show live seconds for updates within the last minute
+  if (diffSeconds < 5) return 'Just now'
+  if (diffSeconds < 60) return `${diffSeconds} sec. ago`
+  if (diffMinutes < 60) return `${diffMinutes} min. ago`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays > 365) return 'Over a year ago'
+
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+}

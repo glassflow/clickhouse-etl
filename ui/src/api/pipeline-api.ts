@@ -10,7 +10,7 @@ import type {
   ApiError,
 } from '@/src/types/pipeline'
 import {
-  getPipelineStatusFromState,
+  parsePipelineStatus,
   detectTransformationType,
   PipelineStatus,
   PipelineResponse,
@@ -26,22 +26,53 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
 
     if (data.success) {
       const pipelines: ListPipelineConfig[] = data.pipelines || []
-      // Convert backend status to UI status for each pipeline
+      // Parse backend status to UI status for each pipeline
       const withStatus = pipelines.map((pipeline: ListPipelineConfig) => ({
         ...pipeline,
-        // Handle both old format (state field) and new format (status field)
-        status: getPipelineStatusFromState(pipeline.status || pipeline.state || ''),
+        // Parse backend status to UI status - backend return Uppercase first letter of the status
+        status: parsePipelineStatus(pipeline.status || ''),
       }))
 
+      // Get pipeline IDs for DLQ stats fetching
+      const pipelineIds = withStatus.map((p) => p.pipeline_id)
+
+      // Fetch DLQ stats for all pipelines in parallel
+      const dlqStatsMap = await getBulkDLQStats(pipelineIds)
+
       // Recompute transformation_type using full pipeline config to avoid backend misclassification
+      // and add DLQ stats and stability status
       const corrected = await Promise.all(
         withStatus.map(async (p) => {
           try {
             const full = await getPipeline(p.pipeline_id)
             const transformation = detectTransformationType(full)
-            return { ...p, transformation_type: transformation }
+
+            // Get DLQ stats for this pipeline
+            const dlqStats = dlqStatsMap[p.pipeline_id]
+
+            // Determine stability status based on DLQ stats
+            const healthStatus: 'stable' | 'unstable' =
+              dlqStats && dlqStats.unconsumed_messages > 0 ? 'unstable' : 'stable'
+
+            return {
+              ...p,
+              transformation_type: transformation,
+              dlq_stats: dlqStats
+                ? {
+                    total_messages: dlqStats.total_messages,
+                    unconsumed_messages: dlqStats.unconsumed_messages,
+                    last_received_at: dlqStats.last_received_at,
+                    last_consumed_at: dlqStats.last_consumed_at,
+                  }
+                : undefined,
+              health_status: healthStatus,
+            }
           } catch {
-            return p
+            return {
+              ...p,
+              dlq_stats: undefined,
+              health_status: 'stable' as const, // Default to stable if we can't determine
+            }
           }
         }),
       )
@@ -59,33 +90,54 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
 export const getPipeline = async (id: string): Promise<Pipeline> => {
   try {
     const url = getApiUrl(`pipeline/${id}`)
-    const response = await fetch(url)
+    const urlHealth = getApiUrl(`pipeline/${id}/health`)
+
+    // Fetch both pipeline data and health status in parallel
+    const [response, responseHealth] = await Promise.all([fetch(url), fetch(urlHealth)])
 
     // Prefer wrapped success shape from our API routes
     if (response.ok) {
       const data = await response.json()
       if (data?.success === true) {
         const pipelinePayload = data.pipeline
-        // Handle both old format (state field) and new format (status field)
-        const backendStatus = pipelinePayload?.status || pipelinePayload?.state
-        if (backendStatus !== undefined) {
-          pipelinePayload.status = getPipelineStatusFromState(backendStatus)
-        } else {
-          pipelinePayload.status = 'active'
+
+        // Get status from health endpoint
+        let status = 'active' // default fallback
+        if (responseHealth.ok) {
+          try {
+            const healthData = await responseHealth.json()
+            if (healthData?.overall_status) {
+              status = parsePipelineStatus(healthData.overall_status)
+            }
+          } catch (healthError) {
+            console.warn('Failed to parse health data:', healthError)
+          }
         }
+
+        // Set the status from health endpoint
+        pipelinePayload.status = status
         return pipelinePayload
       }
 
       // If backend returns direct object (no wrapper), accept that path
       if (data && typeof data === 'object' && data.pipeline_id) {
         const pipelinePayload = data
-        // Handle both old format (state field) and new format (status field)
-        const backendStatus = pipelinePayload?.status || pipelinePayload?.state
-        if (backendStatus !== undefined) {
-          pipelinePayload.status = getPipelineStatusFromState(backendStatus)
-        } else {
-          pipelinePayload.status = 'active'
+
+        // Get status from health endpoint
+        let status = 'active' // default fallback
+        if (responseHealth.ok) {
+          try {
+            const healthData = await responseHealth.json()
+            if (healthData?.overall_status) {
+              status = parsePipelineStatus(healthData.overall_status)
+            }
+          } catch (healthError) {
+            console.warn('Failed to parse health data:', healthError)
+          }
         }
+
+        // Set the status from health endpoint
+        pipelinePayload.status = status
         return pipelinePayload
       }
 
@@ -97,16 +149,30 @@ export const getPipeline = async (id: string): Promise<Pipeline> => {
   } catch (error: any) {
     // Fallback: if primary fetch failed (likely SSR/base/origin issues), try mock route directly
     try {
-      const fallbackResponse = await fetch(`/ui-api/mock/pipeline/${id}`)
+      const [fallbackResponse, fallbackHealthResponse] = await Promise.all([
+        fetch(`/ui-api/mock/pipeline/${id}`),
+        fetch(`/ui-api/mock/pipeline/${id}/health`),
+      ])
       const fb = await fallbackResponse.json()
 
       if (fallbackResponse.ok && fb?.success === true) {
         const pipelinePayload = fb.pipeline
-        if (pipelinePayload.state !== undefined) {
-          pipelinePayload.status = getPipelineStatusFromState(pipelinePayload.state)
-        } else {
-          pipelinePayload.status = 'active'
+
+        // Get status from mock health endpoint
+        let status = 'active' // default fallback
+        if (fallbackHealthResponse.ok) {
+          try {
+            const healthData = await fallbackHealthResponse.json()
+            if (healthData?.health?.overall_status) {
+              status = parsePipelineStatus(healthData.health.overall_status)
+            }
+          } catch (healthError) {
+            console.warn('Failed to parse mock health data:', healthError)
+          }
         }
+
+        // Set the status from health endpoint
+        pipelinePayload.status = status
         return pipelinePayload
       }
 
@@ -139,43 +205,6 @@ export const checkPipelineExists = async (pipelineId: string): Promise<boolean> 
 
     // For other errors, we'll assume it doesn't exist to be safe
     return false
-  }
-}
-
-/**
- * Get pipeline status (converts backend state to UI status)
- */
-export const getPipelineStatus = async (): Promise<PipelineResponse> => {
-  try {
-    const url = getApiUrl('pipeline')
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    // Convert backend state to UI status
-    const responseData = await response.json()
-    const backendState = responseData?.state || ''
-    const uiStatus = getPipelineStatusFromState(backendState)
-
-    return {
-      pipeline_id: responseData?.pipeline_id || '',
-      status: uiStatus,
-      error: responseData?.error,
-    }
-  } catch (error: any) {
-    if (error.status === 404) {
-      // No running pipeline
-      return {
-        pipeline_id: '',
-        status: 'no_configuration' as PipelineStatus,
-      }
-    }
-
-    throw {
-      code: error.response?.status || 500,
-      message: error.response?.data?.message || error.message || 'Failed to get pipeline status',
-    } as PipelineError
   }
 }
 
@@ -360,6 +389,37 @@ export const getDLQState = async (pipelineId: string): Promise<DLQState> => {
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to fetch DLQ state' } as ApiError
+  }
+}
+
+// Bulk DLQ stats fetcher for multiple pipelines
+export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<string, DLQState | null>> => {
+  try {
+    // Fetch DLQ stats for all pipelines in parallel
+    const dlqPromises = pipelineIds.map(async (pipelineId) => {
+      try {
+        const dlqState = await getDLQState(pipelineId)
+        return { pipelineId, dlqState }
+      } catch (error) {
+        // If DLQ fetch fails for a pipeline, return null for that pipeline
+        console.warn(`Failed to fetch DLQ stats for pipeline ${pipelineId}:`, error)
+        return { pipelineId, dlqState: null }
+      }
+    })
+
+    const results = await Promise.all(dlqPromises)
+
+    // Convert array to object for easy lookup
+    const dlqStatsMap: Record<string, DLQState | null> = {}
+    results.forEach(({ pipelineId, dlqState }) => {
+      dlqStatsMap[pipelineId] = dlqState
+    })
+
+    return dlqStatsMap
+  } catch (error: any) {
+    console.error('Failed to fetch bulk DLQ stats:', error)
+    // Return empty map if bulk fetch fails
+    return {}
   }
 }
 
