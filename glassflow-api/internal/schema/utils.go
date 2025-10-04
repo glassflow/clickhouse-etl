@@ -314,3 +314,34 @@ func ParseDateTimeFromFloat64(data any) (zero time.Time, _ error) {
 	sec, dec := math.Modf(timestamp)
 	return time.Unix(int64(sec), int64(dec*1e9)), nil
 }
+
+// ParseMap parses a map from various input types
+func ParseMap(data any) (zero map[string]any, _ error) {
+	switch value := data.(type) {
+	case map[string]any:
+		return value, nil
+	default:
+		return zero, fmt.Errorf("failed to parse map: %v, type is: %v", data, reflect.TypeOf(data))
+	}
+}
+
+// ParseMapArray parses an array of maps from various input types
+func ParseMapArray(data any) (zero []map[string]any, _ error) {
+	switch value := data.(type) {
+	case []map[string]any:
+		return value, nil
+	case []any:
+		// Handle array of any that contains maps
+		result := make([]map[string]any, 0, len(value))
+		for _, item := range value {
+			if mapItem, ok := item.(map[string]any); ok {
+				result = append(result, mapItem)
+			} else {
+				return zero, fmt.Errorf("array element is not a map: %v, type is: %v", item, reflect.TypeOf(item))
+			}
+		}
+		return result, nil
+	default:
+		return zero, fmt.Errorf("failed to parse map array: %v, type is: %v", data, reflect.TypeOf(data))
+	}
+}

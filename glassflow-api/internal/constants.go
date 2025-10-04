@@ -73,6 +73,7 @@ const (
 	KafkaTypeFloat64 = "float64"
 	KafkaTypeBytes   = "bytes"
 	KafkaTypeArray   = "array"
+	KafkaTypeMap     = "map"
 
 	// ClickHouse data type constants
 	CHTypeString     = "String"
@@ -151,7 +152,7 @@ const (
 	// RunnersWatcher constants
 	RunnerWatcherInterval = 5 * time.Second
 	RunnerRestartDelay    = 2 * time.Second
-	
+
 	// DefaultReplicasCount is the default number of replicas for the component
 	DefaultReplicasCount = 1
 
