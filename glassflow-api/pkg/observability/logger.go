@@ -66,6 +66,7 @@ func configureOTelLogger(cfg *Config, logOut io.Writer) *slog.Logger {
 	multiHandler := &multiSlogHandler{
 		otelHandler:     otelHandler,
 		fallbackHandler: fallbackHandler,
+		logLevel:        cfg.LogLevel,
 	}
 
 	return slog.New(multiHandler)
@@ -100,9 +101,14 @@ func createStandardHandler(cfg *Config, logOut io.Writer) slog.Handler {
 type multiSlogHandler struct {
 	otelHandler     slog.Handler
 	fallbackHandler slog.Handler
+	logLevel        slog.Level
 }
 
 func (h *multiSlogHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	// Only process logs that meet the configured log level threshold
+	if level < h.logLevel {
+		return false
+	}
 	return h.otelHandler.Enabled(ctx, level) || h.fallbackHandler.Enabled(ctx, level)
 }
 
@@ -124,6 +130,7 @@ func (h *multiSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &multiSlogHandler{
 		otelHandler:     h.otelHandler.WithAttrs(attrs),
 		fallbackHandler: h.fallbackHandler.WithAttrs(attrs),
+		logLevel:        h.logLevel,
 	}
 }
 
@@ -131,5 +138,6 @@ func (h *multiSlogHandler) WithGroup(name string) slog.Handler {
 	return &multiSlogHandler{
 		otelHandler:     h.otelHandler.WithGroup(name),
 		fallbackHandler: h.fallbackHandler.WithGroup(name),
+		logLevel:        h.logLevel,
 	}
 }
