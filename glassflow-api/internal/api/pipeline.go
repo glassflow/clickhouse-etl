@@ -343,8 +343,7 @@ type pipelineJSON struct {
 
 		Sources []joinSource `json:"sources"`
 	} `json:"join"`
-	Sink   clickhouseSink        `json:"sink"`
-	Status models.PipelineStatus `json:"status"`
+	Sink clickhouseSink `json:"sink"`
 }
 
 type sourceConnectionParams struct {
@@ -690,7 +689,6 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			MaxDelayTime:                p.Sink.Batch.MaxDelayTime,
 			SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
 		},
-		Status: p.Status.OverallStatus,
 	}
 }
 
