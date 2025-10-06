@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
@@ -137,6 +138,8 @@ func (s *Storage) UpdatePipelineStatus(ctx context.Context, id string, status mo
 		return fmt.Errorf("unmarshal loaded entry: %w", err)
 	}
 
+	// Update the status and ensure UpdatedAt timestamp is set to current time
+	status.UpdatedAt = time.Now().UTC()
 	p.Status = status
 
 	pc, err := json.Marshal(p)
