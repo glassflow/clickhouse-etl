@@ -34,6 +34,7 @@ import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
 import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { formatNumber } from '@/src/utils/common.client'
 import Loader from '@/src/images/loader-small.svg'
 
 type PipelinesListProps = {
@@ -341,21 +342,80 @@ export function PipelinesList({
       render: (pipeline) => pipeline.transformation_type || 'None',
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: 'health',
+      header: 'Health',
       width: '1fr',
+      align: 'left',
       render: (pipeline) => {
-        const effectiveStatus = getEffectiveStatus(pipeline)
+        const healthStatus = pipeline.health_status || 'stable'
+        const dlqStats = pipeline.dlq_stats
+        // const unconsumedEvents = dlqStats?.unconsumed_messages || 0
+
+        const getStabilityVariant = (status: string) => {
+          return status === 'stable' ? 'success' : 'error'
+        }
+
+        const getStabilityLabel = (status: string) => {
+          return status === 'stable' ? 'Stable' : 'Unstable'
+        }
+
         return (
-          <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(effectiveStatus)}>
-            {getBadgeLabel(effectiveStatus)}
-          </Badge>
+          <div className="flex flex-row items-center justify-start gap-2 text-content">
+            {healthStatus === 'stable' ? (
+              <div className="w-3 h-3 rounded-full bg-green-500 items-center" />
+            ) : (
+              <div className="w-3 h-3 rounded-full bg-red-500 items-center" />
+            )}
+            {getStabilityLabel(healthStatus)}
+          </div>
         )
       },
     },
     {
+      key: 'dlqStats',
+      header: 'Events in DLQ',
+      width: '1fr',
+      align: 'left',
+      render: (pipeline) => {
+        const dlqStats = pipeline.dlq_stats
+        const unconsumedEvents = dlqStats?.unconsumed_messages || 0
+        // const totalEvents = dlqStats?.total_messages || 0
+
+        // // Determine variant based on unconsumed events
+        // const getDLQVariant = (unconsumed: number) => {
+        //   if (unconsumed === 0) return 'success'
+        //   if (unconsumed < 10) return 'warning'
+        //   return 'error'
+        // }
+
+        return (
+          <div className="flex flex-row items-center justify-start gap-1 text-content">
+            {formatNumber(unconsumedEvents)}
+          </div>
+        )
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '1fr',
+      align: 'center',
+      render: (pipeline) => {
+        const effectiveStatus = getEffectiveStatus(pipeline)
+        return (
+          <div className="flex flex-row items-center justify-center gap-2 text-content w-full">
+            <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(effectiveStatus)}>
+              {getBadgeLabel(effectiveStatus)}
+            </Badge>
+          </div>
+        )
+      },
+    },
+
+    {
       key: 'actions',
       header: 'Actions',
+      align: 'center',
       width: '1fr',
       render: (pipeline) => {
         const effectiveStatus = getEffectiveStatus(pipeline)

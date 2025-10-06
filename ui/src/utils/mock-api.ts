@@ -1,4 +1,4 @@
-import { getPipelineStatusFromState } from '@/src/types/pipeline'
+import { parsePipelineStatus } from '@/src/types/pipeline'
 import { mockPipelines } from '@/src/app/ui-api/mock/data/pipelines'
 import { getRuntimeEnv } from '@/src/utils/common.client'
 
@@ -64,16 +64,13 @@ export const generateMockPipeline = (id: string = `pipeline-${Date.now()}`) => {
   const states = ['active', 'paused', 'stopped', 'error']
   const state = states[Math.floor(Math.random() * states.length)]
 
-  // Convert state to status for UI compatibility
-  const status = getPipelineStatusFromState(state)
-
   // Create a new pipeline based on the realistic data but with the requested ID
+  // Note: Status is now fetched from the health endpoint, not included in pipeline data
   return {
     ...randomPipeline,
     pipeline_id: id,
     name: `Mock Pipeline ${id}`,
     state: state,
-    status: status, // UI status field for compatibility
   }
 }
 

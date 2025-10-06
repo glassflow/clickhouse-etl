@@ -1,5 +1,5 @@
 import React from 'react'
-import { ListPipelineConfig, getPipelineStatusFromState, PipelineStatus } from '@/src/types/pipeline'
+import { ListPipelineConfig, parsePipelineStatus, PipelineStatus } from '@/src/types/pipeline'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { cn } from '@/src/utils/common.client'
@@ -146,6 +146,33 @@ export function MobilePipelinesList({
                   )}
                 >
                   {getStatusLabel((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Events in DLQ</span>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      (pipeline.dlq_stats?.unconsumed_messages || 0) === 0
+                        ? 'success'
+                        : (pipeline.dlq_stats?.unconsumed_messages || 0) < 10
+                          ? 'warning'
+                          : 'error'
+                    }
+                  >
+                    {(pipeline.dlq_stats?.unconsumed_messages || 0).toLocaleString()}
+                  </Badge>
+                  {(pipeline.dlq_stats?.total_messages || 0) > 0 && (
+                    <span className="text-xs text-gray-500">
+                      of {(pipeline.dlq_stats?.total_messages || 0).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Stability</span>
+                <Badge variant={(pipeline.health_status || 'stable') === 'stable' ? 'success' : 'error'}>
+                  {(pipeline.health_status || 'stable') === 'stable' ? 'Stable' : 'Unstable'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">

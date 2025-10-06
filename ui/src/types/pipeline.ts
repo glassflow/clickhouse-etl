@@ -9,15 +9,17 @@ export type PipelineAction = 'edit' | 'rename' | 'stop' | 'delete' | 'pause' | '
 // Pipeline state values that can come from the backend
 export type PipelineState = 'active' | 'paused' | 'stopped' | 'error' | ''
 
-// Helper function to convert backend state to UI status
-export const getPipelineStatusFromState = (state: string): PipelineStatus => {
-  // TEMPORARY WORKAROUND: Treat empty states as 'active' to allow editing
-  // TODO: Remove this when backend properly tracks pipeline state
-  if (!state || state.trim() === '') {
+// Helper function to parse backend status to UI status
+export const parsePipelineStatus = (status: string): PipelineStatus => {
+  // Handle empty status as 'active' to allow editing
+  if (!status || status.trim() === '') {
     return 'active'
   }
 
-  switch (state.toLowerCase()) {
+  // Convert first letter to lowercase to match UI status format
+  const normalizedStatus = status.charAt(0).toLowerCase() + status.slice(1)
+
+  switch (normalizedStatus) {
     case 'running':
     case 'active':
       return 'active'
@@ -26,21 +28,21 @@ export const getPipelineStatusFromState = (state: string): PipelineStatus => {
     case 'pausing':
       return 'pausing'
     case 'resuming':
-      return 'pausing' // Map resuming to pausing (transitional state)
+      return 'resuming' // Map resuming to resuming (transitional state)
     case 'stopped':
-    case 'terminated': // Legacy support
-    case 'deleted': // Legacy support
-      return 'stopped' // Both graceful and ungraceful stops result in 'stopped'
+    case 'terminated':
+    case 'deleted':
+      return 'stopped'
     case 'stopping':
-    case 'terminating': // Legacy support
-    case 'deleting': // Legacy support
-      return 'stopping' // All stop operations show as 'stopping' during transition
+    case 'terminating':
+    case 'deleting':
+      return 'stopping'
     case 'failed':
     case 'error':
-    case 'deploy_failed': // Legacy support
-    case 'delete_failed': // Legacy support
-      return 'failed' // All error states map to 'failed'
-    case 'deploying': // Legacy support
+    case 'deploy_failed':
+    case 'delete_failed':
+      return 'failed'
+    case 'deploying':
     case 'no_configuration':
       return 'active' // Treat as active to allow configuration
     default:
@@ -82,6 +84,13 @@ export interface ListPipelineConfig {
   created_at: string
   state?: string // Pipeline status from backend State field (legacy)
   status?: string | PipelineStatus // Pipeline status from backend (new format) or UI status field (converted)
+  dlq_stats?: {
+    total_messages: number
+    unconsumed_messages: number
+    last_received_at: string | null
+    last_consumed_at: string | null
+  }
+  health_status?: 'stable' | 'unstable' // Based on DLQ stats: stable if unconsumed_messages = 0, unstable otherwise
 }
 
 // Type for DLQ state (matches backend dlqStateResponse)

@@ -50,7 +50,6 @@ export const mockPipelines: BackendPipeline[] = [
     pipeline_id: 'pipeline-001',
     name: 'Deduplication Pipeline',
     state: 'active',
-    status: 'active',
     created_at: '2024-01-15T10:30:00Z',
     source: {
       type: 'kafka',
@@ -137,7 +136,6 @@ export const mockPipelines: BackendPipeline[] = [
     pipeline_id: 'pipeline-002',
     name: 'Deduplication & Join Pipeline',
     state: 'paused',
-    status: 'paused',
     created_at: '2024-01-12T16:45:00Z',
     source: {
       type: 'kafka',
@@ -281,7 +279,6 @@ export const mockPipelines: BackendPipeline[] = [
     pipeline_id: 'pipeline-003',
     name: 'Ingest Only Pipeline',
     state: 'active',
-    status: 'active',
     created_at: '2024-01-10T09:15:00Z',
     source: {
       type: 'kafka',
@@ -374,7 +371,6 @@ export const mockPipelines: BackendPipeline[] = [
     pipeline_id: 'pipeline-004',
     name: 'Join Pipeline',
     state: 'paused',
-    status: 'paused',
     created_at: '2024-01-12T16:45:00Z',
     source: {
       type: 'kafka',
@@ -510,7 +506,6 @@ export const mockPipelines: BackendPipeline[] = [
     pipeline_id: 'pipeline-005',
     name: 'Deduplication & Join Pipeline',
     state: 'active',
-    status: 'active',
     created_at: '2024-01-12T16:45:00Z',
     source: {
       type: 'kafka',

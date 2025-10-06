@@ -81,16 +81,24 @@ export const getPipelineStatus = async (): Promise<PipelineResponse> => {
 
     const data = await response.json()
 
-    if (data.success) {
-      return {
-        pipeline_id: data.pipeline_id,
-        status: 'active',
+    if (data.success && data.pipelines && Array.isArray(data.pipelines)) {
+      // Find the first active pipeline
+      const activePipeline = data.pipelines.find(
+        (pipeline: any) => pipeline.status && ['Running', 'Active', 'Paused'].includes(pipeline.status),
+      )
+
+      if (activePipeline) {
+        return {
+          pipeline_id: activePipeline.pipeline_id || '',
+          status: 'active' as PipelineStatus,
+        }
       }
-    } else {
-      throw {
-        code: response.status,
-        message: data.error || 'Failed to get pipeline status',
-      } as PipelineError
+    }
+
+    // No active pipeline found
+    return {
+      pipeline_id: '',
+      status: 'no_configuration' as PipelineStatus,
     }
   } catch (error: any) {
     if (error.code) {

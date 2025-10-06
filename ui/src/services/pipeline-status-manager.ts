@@ -8,10 +8,12 @@
  * - Global cleanup and kill switches
  * - Memory leak prevention
  * - Comprehensive error handling and retry logic
+ * - Uses health endpoint for accurate pipeline status tracking
  */
 
-import { getPipeline, getPipelines } from '@/src/api/pipeline-api'
-import { PipelineStatus } from '@/src/types/pipeline'
+import { getPipelines } from '@/src/api/pipeline-api'
+import { getPipelineHealth } from '@/src/api/pipeline-health'
+import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 
 // Types
 export interface PipelineStatusCallbacks {
@@ -278,12 +280,15 @@ export class PipelineStatusManager {
     this.stats.totalPollingOperations++
 
     try {
-      const pipeline = await getPipeline(tracker.pipelineId)
-      // getPipeline already converts backend status to UI status and puts it in pipeline.status
-      const newStatus = pipeline.status as PipelineStatus
+      // Use health endpoint to get pipeline status
+      const health = await getPipelineHealth(tracker.pipelineId)
+      // Parse backend health status (e.g., 'Running', 'Paused') to UI status (e.g., 'active', 'paused')
+      const newStatus = parsePipelineStatus(health.overall_status)
       const previousStatus = tracker.currentStatus
 
-      console.log(`[PipelineStatusManager] Status check for ${tracker.pipelineId}: ${previousStatus} → ${newStatus}`)
+      console.log(
+        `[PipelineStatusManager] Status check for ${tracker.pipelineId}: ${previousStatus} → ${newStatus} (health: ${health.overall_status})`,
+      )
 
       // Update tracker state
       tracker.currentStatus = newStatus
