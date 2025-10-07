@@ -114,6 +114,8 @@ export const PIPELINE_STATUS_MAP = {
   resuming: 'resuming',
   stopping: 'stopping',
   stopped: 'stopped',
+  terminating: 'terminating',
+  terminated: 'terminated',
   failed: 'failed',
 }
 
@@ -147,6 +149,16 @@ export const PIPELINE_STATUS_CONFIG = {
     label: 'Stopped',
     className: 'chip-negative',
     key: PIPELINE_STATUS_MAP.stopped,
+  },
+  terminating: {
+    label: 'Terminating...',
+    className: 'chip-neutral-faded',
+    key: PIPELINE_STATUS_MAP.terminating,
+  },
+  terminated: {
+    label: 'Terminated',
+    className: 'chip-negative',
+    key: PIPELINE_STATUS_MAP.terminated,
   },
   failed: {
     label: 'Failed',

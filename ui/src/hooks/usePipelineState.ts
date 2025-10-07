@@ -71,9 +71,9 @@ export function useMultiplePipelineState(pipelineIds: string[]): Record<string, 
 export function usePipelineOperations() {
   return {
     // Report operations to central system
-    reportPause: (pipelineId: string) => {
-      pipelineStateManager.reportOptimisticUpdate(pipelineId, 'pausing')
-      pipelineStateManager.reportOperation(pipelineId, 'pause')
+    reportStop: (pipelineId: string) => {
+      pipelineStateManager.reportOptimisticUpdate(pipelineId, 'stopping')
+      pipelineStateManager.reportOperation(pipelineId, 'stop')
     },
 
     reportResume: (pipelineId: string) => {
@@ -81,9 +81,9 @@ export function usePipelineOperations() {
       pipelineStateManager.reportOperation(pipelineId, 'resume')
     },
 
-    reportStop: (pipelineId: string) => {
-      pipelineStateManager.reportOptimisticUpdate(pipelineId, 'stopping')
-      pipelineStateManager.reportOperation(pipelineId, 'stop')
+    reportTerminate: (pipelineId: string) => {
+      pipelineStateManager.reportOptimisticUpdate(pipelineId, 'terminating')
+      pipelineStateManager.reportOperation(pipelineId, 'terminate')
     },
 
     reportDeploy: (pipelineId: string) => {

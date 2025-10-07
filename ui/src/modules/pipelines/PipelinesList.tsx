@@ -15,16 +15,15 @@ import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList
 import { TableContextMenu } from './TableContextMenu'
 import { CreateIcon, FilterIcon } from '@/src/components/icons'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
-import PausePipelineModal from './components/PausePipelineModal'
 import StopPipelineModal from './components/StopPipelineModal'
+import TerminatePipelineModal from './components/TerminatePipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
 import { PipelineFilterMenu, FilterState } from './PipelineFilterMenu'
 import { FilterChip } from './FilterChip'
-import { usePausePipelineModal, useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal } from './hooks'
+import { useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal, useTerminatePipelineModal } from './hooks'
 import { PipelineStatus } from '@/src/types/pipeline'
 import {
-  pausePipeline,
   resumePipeline,
   renamePipeline,
   stopPipeline,
@@ -66,17 +65,17 @@ export function PipelinesList({
     closeRenameModal,
   } = useRenamePipelineModal()
   const {
-    isStopModalVisible,
+    isTerminateModalVisible,
     selectedPipeline: deleteSelectedPipeline,
+    openTerminateModal,
+    closeTerminateModal,
+  } = useTerminatePipelineModal()
+  const {
+    isStopModalVisible,
+    selectedPipeline: stopSelectedPipeline,
     openStopModal,
     closeStopModal,
   } = useStopPipelineModal()
-  const {
-    isPauseModalVisible,
-    selectedPipeline: pauseSelectedPipeline,
-    openPauseModal,
-    closePauseModal,
-  } = usePausePipelineModal()
   const {
     isEditModalVisible,
     selectedPipeline: editSelectedPipeline,
@@ -84,7 +83,6 @@ export function PipelinesList({
     closeEditModal,
   } = useEditPipelineModal()
   const { isFeatureDisabled, isDocker, isLocal } = usePlatformDetection()
-  const [isGracefulStop, setIsGracefulStop] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
 
@@ -102,7 +100,7 @@ export function PipelinesList({
       string,
       {
         isLoading: boolean
-        operation: 'pause' | 'resume' | 'stop' | 'delete' | 'rename' | 'edit' | null
+        operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'rename' | 'edit' | null
       }
     >
   >({})
@@ -125,7 +123,7 @@ export function PipelinesList({
   // Helper functions to manage pipeline operation state
   const setPipelineLoading = (
     pipelineId: string,
-    operation: 'pause' | 'resume' | 'stop' | 'delete' | 'rename' | 'edit',
+    operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'rename' | 'edit',
   ) => {
     setPipelineOperations((prev) => ({
       ...prev,
@@ -311,6 +309,10 @@ export function PipelinesList({
         return 'Stopping...'
       case 'stopped':
         return 'Stopped'
+      case 'terminating':
+        return 'Terminating...'
+      case 'terminated':
+        return 'Terminated'
       case 'failed':
         return 'Failed'
       default:
@@ -331,6 +333,10 @@ export function PipelinesList({
       case 'stopping':
         return 'warning'
       case 'stopped':
+        return 'secondary'
+      case 'terminating':
+        return 'warning'
+      case 'terminated':
         return 'secondary'
       case 'failed':
         return 'error'
@@ -356,11 +362,11 @@ export function PipelinesList({
               <div className="flex items-center gap-1">
                 <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
                 {/* <span className="text-xs text-blue-600">
-                  {operation === 'pause' && 'Pausing...'}
+                  {operation === 'stop' && 'Stopping...'}
                   {operation === 'resume' && 'Resuming...'}
                   {operation === 'delete' && 'Deleting...'}
                   {operation === 'rename' && 'Renaming...'}
-                  {operation === 'edit' && 'Pausing...'}
+                  {operation === 'edit' && 'Stopping...'}
                 </span> */}
               </div>
             )}
@@ -478,11 +484,11 @@ export function PipelinesList({
           <TableContextMenu
             pipelineStatus={effectiveStatus}
             isLoading={isPipelineLoading(pipeline.pipeline_id)}
-            onPause={() => handlePause(pipeline)}
+            onStop={() => handleStop(pipeline)}
             onResume={() => handleResume(pipeline)}
             onEdit={() => handleEdit(pipeline)}
             onRename={() => handleRename(pipeline)}
-            onStop={() => handleStop(pipeline)}
+            onTerminate={() => handleTerminate(pipeline)}
             onDelete={() => handleDelete(pipeline)}
             onDownload={() => handleDownload(pipeline)}
           />
@@ -492,8 +498,8 @@ export function PipelinesList({
   ]
 
   // Context menu handlers
-  const handlePause = (pipeline: ListPipelineConfig) => {
-    openPauseModal(pipeline)
+  const handleStop = (pipeline: ListPipelineConfig) => {
+    openStopModal(pipeline)
   }
 
   const handleResume = async (pipeline: ListPipelineConfig) => {
@@ -531,7 +537,7 @@ export function PipelinesList({
       })
 
       // Revert optimistic update
-      operations.revertOptimisticUpdate(pipeline.pipeline_id, 'paused')
+      operations.revertOptimisticUpdate(pipeline.pipeline_id, 'stopped')
     } finally {
       clearPipelineLoading(pipeline.pipeline_id)
     }
@@ -545,8 +551,8 @@ export function PipelinesList({
     openRenameModal(pipeline)
   }
 
-  const handleStop = (pipeline: ListPipelineConfig) => {
-    openStopModal(pipeline)
+  const handleTerminate = (pipeline: ListPipelineConfig) => {
+    openTerminateModal(pipeline)
   }
 
   const handleDelete = async (pipeline: ListPipelineConfig) => {
@@ -711,11 +717,11 @@ export function PipelinesList({
         <MobilePipelinesList
           pipelines={filteredPipelines}
           healthMap={pipelineStatuses} // NEW: Use centralized statuses
-          onPause={handlePause}
+          onStop={handleStop}
           onResume={handleResume}
           onEdit={handleEdit}
           onRename={handleRename}
-          onStop={handleStop}
+          onTerminate={handleTerminate}
           onDelete={handleDelete}
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
           isPipelineLoading={isPipelineLoading}
@@ -723,53 +729,53 @@ export function PipelinesList({
         />
       </div>
 
-      <PausePipelineModal
-        visible={isPauseModalVisible}
+      <StopPipelineModal
+        visible={isStopModalVisible}
         onOk={async () => {
-          if (!pauseSelectedPipeline) return
+          if (!stopSelectedPipeline) return
 
-          // Track pause clicked
+          // Track stop clicked
           analytics.pipeline.pauseClicked({
-            pipelineId: pauseSelectedPipeline.pipeline_id,
-            pipelineName: pauseSelectedPipeline.name,
-            currentStatus: pauseSelectedPipeline.status,
+            pipelineId: stopSelectedPipeline.pipeline_id,
+            pipelineName: stopSelectedPipeline.name,
+            currentStatus: stopSelectedPipeline.status,
           })
 
-          closePauseModal() // Close modal immediately
-          setPipelineLoading(pauseSelectedPipeline.pipeline_id, 'pause')
+          closeStopModal() // Close modal immediately
+          setPipelineLoading(stopSelectedPipeline.pipeline_id, 'stop')
 
           try {
             // Report operation to central system
-            operations.reportPause(pauseSelectedPipeline.pipeline_id)
+            operations.reportStop(stopSelectedPipeline.pipeline_id)
 
-            // Make API call
-            await pausePipeline(pauseSelectedPipeline.pipeline_id)
+            // Make API call - stop is graceful
+            await stopPipeline(stopSelectedPipeline.pipeline_id)
 
-            // Track pause success
+            // Track stop success
             analytics.pipeline.pauseSuccess({
-              pipelineId: pauseSelectedPipeline.pipeline_id,
-              pipelineName: pauseSelectedPipeline.name,
+              pipelineId: stopSelectedPipeline.pipeline_id,
+              pipelineName: stopSelectedPipeline.name,
             })
 
             // Central system handles tracking and state updates
           } catch (error) {
-            console.error('Failed to pause pipeline:', error)
+            console.error('Failed to stop pipeline:', error)
 
-            // Track pause failure
+            // Track stop failure
             analytics.pipeline.pauseFailed({
-              pipelineId: pauseSelectedPipeline.pipeline_id,
-              pipelineName: pauseSelectedPipeline.name,
+              pipelineId: stopSelectedPipeline.pipeline_id,
+              pipelineName: stopSelectedPipeline.name,
               error: error instanceof Error ? error.message : 'Unknown error',
             })
 
             // Revert optimistic update
-            operations.revertOptimisticUpdate(pauseSelectedPipeline.pipeline_id, 'active')
+            operations.revertOptimisticUpdate(stopSelectedPipeline.pipeline_id, 'active')
           } finally {
-            clearPipelineLoading(pauseSelectedPipeline.pipeline_id)
+            clearPipelineLoading(stopSelectedPipeline.pipeline_id)
           }
         }}
         onCancel={() => {
-          closePauseModal()
+          closeStopModal()
         }}
       />
       <RenamePipelineModal
@@ -839,27 +845,27 @@ export function PipelinesList({
           setPipelineLoading(editSelectedPipeline.pipeline_id, 'edit')
 
           try {
-            // Check if pipeline is active and needs to be paused first
+            // Check if pipeline is active and needs to be stopped first
             if (editSelectedPipeline.status === 'active') {
-              // Optimistically update status to 'pausing'
-              onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'pausing')
+              // Optimistically update status to 'stopping'
+              onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'stopping')
 
-              // Pause the pipeline first
-              await pausePipeline(editSelectedPipeline.pipeline_id)
+              // Stop the pipeline first
+              await stopPipeline(editSelectedPipeline.pipeline_id)
 
-              // Update status to final 'paused' state after successful pause for edit
-              onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'paused')
+              // Update status to final 'stopped' state after successful stop for edit
+              onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'stopped')
 
               // Skip refresh since we're navigating to edit page immediately
             } else {
-              console.log('Pipeline already paused, proceeding to edit:', editSelectedPipeline.pipeline_id)
+              console.log('Pipeline already stopped, proceeding to edit:', editSelectedPipeline.pipeline_id)
             }
 
             // Track edit success (preparation completed)
             analytics.pipeline.editSuccess({
               pipelineId: editSelectedPipeline.pipeline_id,
               pipelineName: editSelectedPipeline.name,
-              wasPausedForEdit: editSelectedPipeline.status === 'active',
+              wasPausedForEdit: editSelectedPipeline.status === 'active', // Keep analytics name for backward compatibility
             })
 
             // Navigate to pipeline details page for editing
@@ -888,50 +894,46 @@ export function PipelinesList({
           closeEditModal()
         }}
       />
-      <StopPipelineModal
-        visible={isStopModalVisible}
-        onOk={async (isGraceful) => {
+      <TerminatePipelineModal
+        visible={isTerminateModalVisible}
+        onOk={async () => {
           if (!deleteSelectedPipeline) return
 
-          // Track stop clicked
+          // Track terminate clicked
           analytics.pipeline.deleteClicked({
             pipelineId: deleteSelectedPipeline.pipeline_id,
             pipelineName: deleteSelectedPipeline.name,
             currentStatus: deleteSelectedPipeline.status,
-            processEvents: isGraceful, // Keep for backward compatibility with analytics
+            processEvents: false, // Terminate is always ungraceful
           })
 
-          closeStopModal() // Close modal immediately
+          closeTerminateModal() // Close modal immediately
           setPipelineLoading(deleteSelectedPipeline.pipeline_id, 'delete')
 
           try {
             // Report operation to central system
-            operations.reportStop(deleteSelectedPipeline.pipeline_id)
+            operations.reportTerminate(deleteSelectedPipeline.pipeline_id)
 
-            // Make API call
-            if (isGraceful) {
-              await stopPipeline(deleteSelectedPipeline.pipeline_id)
-            } else {
-              await terminatePipeline(deleteSelectedPipeline.pipeline_id)
-            }
+            // Make API call - terminate is always ungraceful
+            await terminatePipeline(deleteSelectedPipeline.pipeline_id)
 
-            // Track stop success
+            // Track terminate success
             analytics.pipeline.deleteSuccess({
               pipelineId: deleteSelectedPipeline.pipeline_id,
               pipelineName: deleteSelectedPipeline.name,
-              processEvents: isGraceful,
+              processEvents: false,
             })
 
             // Central system handles tracking and state updates
           } catch (error) {
-            console.error('Failed to stop pipeline:', error)
+            console.error('Failed to terminate pipeline:', error)
 
-            // Track stop failure
+            // Track terminate failure
             analytics.pipeline.deleteFailed({
               pipelineId: deleteSelectedPipeline.pipeline_id,
               pipelineName: deleteSelectedPipeline.name,
               error: error instanceof Error ? error.message : 'Unknown error',
-              processEvents: isGraceful,
+              processEvents: false,
             })
 
             // Revert optimistic update
@@ -942,17 +944,14 @@ export function PipelinesList({
           }
         }}
         onCancel={() => {
-          closeStopModal()
-        }}
-        callback={(result) => {
-          setIsGracefulStop(result)
+          closeTerminateModal()
         }}
       />
 
       <InfoModal
         visible={showPipelineLimitModal}
         title="Pipeline Limit Reached"
-        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first terminate or delete any currently active or paused pipelines.`}
+        description={`Only one active pipeline is allowed on ${isDocker ? 'Docker' : 'Local'} version. To create a new pipeline, you must first terminate or delete any currently active pipelines.`}
         okButtonText="Manage Pipelines"
         cancelButtonText="Cancel"
         onComplete={handlePipelineLimitModalComplete}
