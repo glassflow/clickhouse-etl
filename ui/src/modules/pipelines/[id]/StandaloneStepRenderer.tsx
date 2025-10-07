@@ -162,7 +162,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       const stepInfo = steps[stepKey]
       openEditConfirmationModal(pipeline, stepInfo)
     } else {
-      // For paused pipelines or when exiting edit mode, toggle immediately
+      // For stopped pipelines or when exiting edit mode, toggle immediately
       const next = !editMode
       setEditMode(next)
       if (next) {
@@ -184,20 +184,20 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     closeEditConfirmationModal()
 
     try {
-      // Use the centralized pipeline actions to pause the pipeline
-      const result = await executeAction('pause')
+      // Use the centralized pipeline actions to stop the pipeline
+      const result = await executeAction('stop')
 
       if (result) {
         // Update pipeline status locally
-        onPipelineStatusUpdate?.('paused')
+        onPipelineStatusUpdate?.('stopped')
 
         // Now enable edit mode
         setEditMode(true)
         enterEditMode(pipeline)
       }
     } catch (error) {
-      console.error('Failed to pause pipeline for editing:', error)
-      // Don't enable edit mode if pause failed
+      console.error('Failed to stop pipeline for editing:', error)
+      // Don't enable edit mode if stop failed
     }
     */
   }
@@ -272,8 +272,8 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
         onClose={onClose}
         isLoading={actionState.isLoading}
         loadingText={
-          actionState.lastAction === 'pause'
-            ? 'Pausing pipeline for editing...'
+          actionState.lastAction === 'stop'
+            ? 'Stopping pipeline for editing...'
             : actionState.lastAction === 'resume'
               ? 'Resuming pipeline...'
               : actionState.lastAction === 'delete'
