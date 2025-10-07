@@ -33,6 +33,8 @@ type Meter struct {
 	pipelineID string
 }
 
+const GfMetricPrefix = "gfm"
+
 // ConfigureMeter creates and configures metrics based on the provided configuration
 func ConfigureMeter(cfg *Config) *Meter {
 	if !cfg.MetricsEnabled {
@@ -79,17 +81,17 @@ func NewMeter(component, pipelineID string) *Meter {
 	meter := otel.Meter("glassflow-etl")
 
 	return &Meter{
-		KafkaRecordsRead: mustCreateCounter(meter, "kafka_records_read_total",
+		KafkaRecordsRead: mustCreateCounter(meter, GfMetricPrefix+"_"+"kafka_records_read_total",
 			"Total number of records read from Kafka"),
-		RecordsProcessedPerSec: mustCreateGauge(meter, "records_processed_per_second",
+		RecordsProcessedPerSec: mustCreateGauge(meter, GfMetricPrefix+"_"+"records_processed_per_second",
 			"Number of records processed per second"),
-		DLQRecordsWritten: mustCreateCounter(meter, "dlq_records_written_total",
+		DLQRecordsWritten: mustCreateCounter(meter, GfMetricPrefix+"_"+"dlq_records_written_total",
 			"Total number of records written to dead letter queue"),
-		ClickHouseRecordsWritten: mustCreateCounter(meter, "clickhouse_records_written_total",
+		ClickHouseRecordsWritten: mustCreateCounter(meter, GfMetricPrefix+"_"+"clickhouse_records_written_total",
 			"Total number of records written to ClickHouse"),
-		SinkRecordsPerSec: mustCreateGauge(meter, "clickhouse_records_written_per_second",
+		SinkRecordsPerSec: mustCreateGauge(meter, GfMetricPrefix+"_"+"clickhouse_records_written_per_second",
 			"Number of records written to ClickHouse per second"),
-		ProcessingDuration: mustCreateHistogram(meter, "processing_duration_seconds",
+		ProcessingDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"processing_duration_seconds",
 			"Processing duration in seconds"),
 		component:  component,
 		pipelineID: pipelineID,
