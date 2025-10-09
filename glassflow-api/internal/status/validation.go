@@ -25,24 +25,8 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Running status can transition to Pausing, Stopping, or Terminating
+	// Running status can transition to Stopping or Terminating (NO MORE PAUSING)
 	models.PipelineStatus(internal.PipelineStatusRunning): {
-		models.PipelineStatus(internal.PipelineStatusPausing),
-		models.PipelineStatus(internal.PipelineStatusStopping),
-		models.PipelineStatus(internal.PipelineStatusTerminating),
-		models.PipelineStatus(internal.PipelineStatusFailed),
-	},
-
-	// Pausing status can only transition to Paused or Terminating
-	models.PipelineStatus(internal.PipelineStatusPausing): {
-		models.PipelineStatus(internal.PipelineStatusPaused),
-		models.PipelineStatus(internal.PipelineStatusTerminating),
-		models.PipelineStatus(internal.PipelineStatusFailed),
-	},
-
-	// Paused status can transition to Resuming, Stopping, or Terminating
-	models.PipelineStatus(internal.PipelineStatusPaused): {
-		models.PipelineStatus(internal.PipelineStatusResuming),
 		models.PipelineStatus(internal.PipelineStatusStopping),
 		models.PipelineStatus(internal.PipelineStatusTerminating),
 		models.PipelineStatus(internal.PipelineStatusFailed),
@@ -62,17 +46,17 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Stopped status has no valid transitions except Terminating in case of failure
-	models.PipelineStatus(internal.PipelineStatusStopped): {},
-
-	// Terminating status can only transition to Terminated
-	models.PipelineStatus(internal.PipelineStatusTerminating): {
-		models.PipelineStatus(internal.PipelineStatusTerminated),
+	// Stopped status allows resume and can transition to failed
+	models.PipelineStatus(internal.PipelineStatusStopped): {
+		models.PipelineStatus(internal.PipelineStatusResuming),
 		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Terminated status has no valid transitions (terminal state)
-	models.PipelineStatus(internal.PipelineStatusTerminated): {},
+	// Terminating status can only transition to Stopped
+	models.PipelineStatus(internal.PipelineStatusTerminating): {
+		models.PipelineStatus(internal.PipelineStatusStopped),
+		models.PipelineStatus(internal.PipelineStatusFailed),
+	},
 
 	// Failed status has no valid transitions (terminal state)
 	models.PipelineStatus(internal.PipelineStatusFailed): {},
@@ -93,11 +77,6 @@ func ValidateStatusTransition(from, to models.PipelineStatus) error {
 		}
 	}
 
-	// Check if this is a terminal state violation
-	if IsTerminalStatus(from) {
-		return NewTerminalStateError(from, to)
-	}
-
 	// If we get here, the transition is invalid
 	return NewInvalidTransitionError(from, to)
 }
@@ -115,16 +94,9 @@ func GetValidTransitions(from models.PipelineStatus) ([]models.PipelineStatus, e
 	return result, nil
 }
 
-// IsTerminalStatus checks if a status is a terminal state (no further transitions allowed)
-func IsTerminalStatus(status models.PipelineStatus) bool {
-	validTransitions, exists := StatusValidationMatrix[status]
-	return exists && len(validTransitions) == 0
-}
-
 // IsTransitionalStatus checks if a status is transitional (temporary state during operations)
 func IsTransitionalStatus(status models.PipelineStatus) bool {
 	transitionalStatuses := []models.PipelineStatus{
-		models.PipelineStatus(internal.PipelineStatusPausing),
 		models.PipelineStatus(internal.PipelineStatusResuming),
 		models.PipelineStatus(internal.PipelineStatusStopping),
 		models.PipelineStatus(internal.PipelineStatusTerminating),
@@ -143,13 +115,10 @@ func GetStatusDescription(status models.PipelineStatus) string {
 	descriptions := map[models.PipelineStatus]string{
 		models.PipelineStatus(internal.PipelineStatusCreated):     "Pipeline created and ready to start",
 		models.PipelineStatus(internal.PipelineStatusRunning):     "Pipeline is actively processing data",
-		models.PipelineStatus(internal.PipelineStatusPausing):     "Pipeline is being paused",
-		models.PipelineStatus(internal.PipelineStatusPaused):      "Pipeline is paused and not processing data",
 		models.PipelineStatus(internal.PipelineStatusResuming):    "Pipeline is being resumed",
 		models.PipelineStatus(internal.PipelineStatusStopping):    "Pipeline is being stopped",
 		models.PipelineStatus(internal.PipelineStatusStopped):     "Pipeline has been stopped",
 		models.PipelineStatus(internal.PipelineStatusTerminating): "Pipeline is being terminated",
-		models.PipelineStatus(internal.PipelineStatusTerminated):  "Pipeline has been terminated",
 		models.PipelineStatus(internal.PipelineStatusFailed):      "Pipeline has failed",
 	}
 
