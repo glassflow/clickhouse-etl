@@ -96,7 +96,7 @@ func (p *PlatformSteps) iSendAGETRequestTo(endpoint string) error {
 
 	// Create handler
 	dlqSvc := service.NewDLQImpl(nil) // No DLQ client needed for platform tests
-	handler := api.NewRouter(p.log, p.pipelineManager, dlqSvc)
+	handler := api.NewRouter(p.log, p.pipelineManager, dlqSvc, nil)
 
 	// Create request
 	req := httptest.NewRequest("GET", endpoint, nil)
