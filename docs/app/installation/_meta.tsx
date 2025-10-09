@@ -1,4 +1,4 @@
 export default {
     'kubernetes': '',
-    'docker': '',
+    'docker': ''
 }
