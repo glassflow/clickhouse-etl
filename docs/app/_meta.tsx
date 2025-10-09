@@ -8,5 +8,4 @@ export default {
     'faq': '',
     'support': '',
     'blog': ''
-
 }
