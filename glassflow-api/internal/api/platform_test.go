@@ -19,11 +19,6 @@ type MockPipelineManager struct {
 	mock.Mock
 }
 
-func (m *MockPipelineManager) PausePipeline(ctx context.Context, pid string) error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (m *MockPipelineManager) ResumePipeline(ctx context.Context, pid string) error {
 	//TODO implement me
 	panic("implement me")
