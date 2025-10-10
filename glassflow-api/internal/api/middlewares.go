@@ -5,6 +5,12 @@ import (
 	"net/http"
 	"runtime/debug"
 	"time"
+
+	"github.com/gorilla/mux"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 func Recovery(log *slog.Logger) func(http.Handler) http.Handler {
@@ -66,4 +72,66 @@ func RequestLogging(log *slog.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(lw, r)
 		})
 	}
+}
+
+type metricsResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *metricsResponseWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func newMetricsResponseWriter(w http.ResponseWriter) *metricsResponseWriter {
+	return &metricsResponseWriter{
+		ResponseWriter: w,
+		status:         http.StatusOK,
+	}
+}
+
+func RequestMetrics(meter *observability.Meter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if meter == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			start := time.Now()
+
+			route := extractRoute(r)
+			if route == "" {
+				route = "unknown"
+			}
+
+			mw := newMetricsResponseWriter(w)
+
+			next.ServeHTTP(mw, r)
+
+			attrs := []attribute.KeyValue{
+				attribute.String("method", r.Method),
+				attribute.String("path", route),
+				attribute.Int("status", mw.status),
+			}
+
+			ctx := r.Context()
+
+			meter.HTTPRequestCount.Add(ctx, 1, metric.WithAttributes(attrs...))
+			meter.HTTPRequestDuration.Record(ctx, time.Since(start).Seconds(), metric.WithAttributes(attrs...))
+		})
+	}
+}
+
+func extractRoute(r *http.Request) string {
+	routeStr := r.Pattern
+
+	if routeStr == "" {
+		route := mux.CurrentRoute(r)
+		if route != nil {
+			routeStr, _ = route.GetPathTemplate()
+		}
+	}
+	return routeStr
 }

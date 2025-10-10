@@ -28,6 +28,9 @@ type Meter struct {
 	// Common metrics
 	ProcessingDuration metric.Float64Histogram
 
+	HTTPRequestCount    metric.Int64Counter
+	HTTPRequestDuration metric.Float64Histogram
+
 	// Component and pipeline info for labeling
 	component  string
 	pipelineID string
@@ -36,7 +39,7 @@ type Meter struct {
 const GfMetricPrefix = "gfm"
 
 // ConfigureMeter creates and configures metrics based on the provided configuration
-func ConfigureMeter(cfg *Config) *Meter {
+func ConfigureMeter(cfg *Config, log *slog.Logger) *Meter {
 	if !cfg.MetricsEnabled {
 		// Return nil meter when metrics are disabled
 		return nil
@@ -49,7 +52,7 @@ func ConfigureMeter(cfg *Config) *Meter {
 	// This will automatically read OTEL_EXPORTER_OTLP_ENDPOINT from environment
 	exporter, err := otlpmetrichttp.New(ctx)
 	if err != nil {
-		slog.Error("Failed to create OTLP metrics exporter", "error", err)
+		log.Error("Failed to create OTLP metrics exporter", "error", err)
 		return nil
 	}
 
@@ -58,7 +61,7 @@ func ConfigureMeter(cfg *Config) *Meter {
 
 	res, err := resource.New(ctx, resource.WithAttributes(attrs...))
 	if err != nil {
-		slog.Error("Failed to create resource", "error", err)
+		log.Error("Failed to create resource", "error", err)
 		return nil
 	}
 
@@ -93,6 +96,10 @@ func NewMeter(component, pipelineID string) *Meter {
 			"Number of records written to ClickHouse per second"),
 		ProcessingDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"processing_duration_seconds",
 			"Processing duration in seconds"),
+		HTTPRequestCount: mustCreateCounter(meter, GfMetricPrefix+"_"+"http_server_request_count",
+			"Total number of HTTP requests"),
+		HTTPRequestDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"http_server_request_duration_seconds",
+			"Duration of HTTP requests"),
 		component:  component,
 		pipelineID: pipelineID,
 	}
@@ -179,6 +186,20 @@ func mustCreateHistogram(meter metric.Meter, name, description string) metric.Fl
 		name,
 		metric.WithDescription(description),
 		metric.WithUnit("s"), // seconds
+		metric.WithExplicitBucketBoundaries(
+			0.001, // 1ms
+			0.005, // 5ms
+			0.01,  // 10ms
+			0.025, // 25ms
+			0.05,  // 50ms
+			0.1,   // 100ms
+			0.25,  // 250ms
+			0.5,   // 500ms
+			1.0,   // 1s
+			2.5,   // 2.5s
+			5.0,   // 5s
+			10.0,  // 10s
+		),
 	)
 	if err != nil {
 		slog.Error("Failed to create histogram", "name", name, "error", err)
