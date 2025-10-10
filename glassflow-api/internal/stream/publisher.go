@@ -9,9 +9,9 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/synadia-io/orbit.go/jetstreamext"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type publishOpts struct {
@@ -130,63 +130,41 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 	return nil
 }
 
-func (p *NatsPublisher) terminatePendingMessages(futures []jetstream.PubAckFuture) error {
-	for _, future := range futures {
-		msg := future.Msg()
-		err := msg.Term()
-		if err != nil {
-			return fmt.Errorf("failed to terminate message: %w", err)
-		}
-	}
-	return nil
-}
-
 func (p *NatsPublisher) PublishNatsMsgsAsync(ctx context.Context, msgs []*nats.Msg) ([]FailedMessage, error) {
 	if msgs == nil {
 		return nil, fmt.Errorf("messages cannot be nil")
 	}
 
-	futures := make([]jetstream.PubAckFuture, 0, len(msgs))
-	failedMsgs := make([]FailedMessage, 0)
+	if len(msgs) == 0 {
+		return nil, nil
+	}
 
+	// Ensure all messages have the correct subject
 	for _, msg := range msgs {
-		future, err := p.js.PublishMsgAsync(msg)
-		if err != nil {
-			failedMsgs = append(failedMsgs, &NatsFailedMessage{Msg: msg, Err: err})
-			continue
-		}
-		futures = append(futures, future)
-	}
-
-	select {
-	case <-ctx.Done():
-		// TODO: review and try to find more graceful way to handle that
-		err := p.terminatePendingMessages(futures)
-		if err != nil {
-			return nil, fmt.Errorf("failed to terminate pending messages: %w", err)
-		}
-		return nil, ctx.Err()
-	case <-p.js.PublishAsyncComplete():
-		// All messages have been processed
-	}
-
-	for _, future := range futures {
-		select {
-		case <-future.Ok():
-			// Message published successfully
-			continue
-		case err := <-future.Err():
-			failedMsgs = append(failedMsgs, &NatsFailedMessage{Msg: future.Msg(), Err: err})
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		if msg.Subject == "" {
+			msg.Subject = p.Subject
 		}
 	}
 
-	if len(failedMsgs) > 0 {
-		return failedMsgs, models.ErrAsyncBatchFailed
+	// Use atomic batch publishing
+	ack, err := jetstreamext.PublishMsgBatch(ctx, p.js, msgs)
+	if err != nil {
+		// If batch publish fails, return all messages as failed
+		failedMsgs := make([]FailedMessage, len(msgs))
+		for i, msg := range msgs {
+			failedMsgs[i] = &NatsFailedMessage{Msg: msg, Err: err}
+		}
+		return failedMsgs, fmt.Errorf("batch publish failed: %w", err)
 	}
 
-	return failedMsgs, nil
+	// Batch publishing is atomic - either all messages succeed or none do
+	// If we get here, all messages were published successfully
+	if ack != nil {
+		log.Printf("Batch published successfully: stream=%s, sequence=%d, batch_size=%d",
+			ack.Stream, ack.Sequence, ack.BatchSize)
+	}
+
+	return nil, nil
 }
 
 func (p *NatsPublisher) GetSubject() string {
