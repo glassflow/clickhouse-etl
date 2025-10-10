@@ -77,10 +77,6 @@ func (k *K8sOrchestrator) getPipelineConfigFromK8sResource(customResource *unstr
 			currentStatus = internal.PipelineStatusCreated
 		case "Running":
 			currentStatus = internal.PipelineStatusRunning
-		case "Pausing":
-			currentStatus = internal.PipelineStatusPausing
-		case "Paused":
-			currentStatus = internal.PipelineStatusPaused
 		case "Resuming":
 			currentStatus = internal.PipelineStatusResuming
 		case "Stopping":
@@ -89,8 +85,6 @@ func (k *K8sOrchestrator) getPipelineConfigFromK8sResource(customResource *unstr
 			currentStatus = internal.PipelineStatusStopped
 		case "Terminating":
 			currentStatus = internal.PipelineStatusTerminating
-		case "Terminated":
-			currentStatus = internal.PipelineStatusTerminated
 		case "Failed":
 			currentStatus = internal.PipelineStatusFailed
 		default:
@@ -331,58 +325,6 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	)
 
 	k.log.InfoContext(ctx, "requested termination of k8s pipeline", "pipeline_id", pipelineID)
-	return nil
-}
-
-// PausePipeline implements Orchestrator.
-func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) error {
-	k.log.InfoContext(ctx, "pausing k8s pipeline", "pipeline_id", pipelineID)
-
-	// Get the pipeline CRD
-	customResource, err := k.client.Resource(schema.GroupVersionResource{
-		Group:    k.customResource.APIGroup,
-		Version:  k.customResource.Version,
-		Resource: k.customResource.Resource,
-	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return service.ErrPipelineNotFound
-		}
-		k.log.ErrorContext(ctx, "failed to get pipeline CRD for pause", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
-		return fmt.Errorf("get pipeline CRD: %w", err)
-	}
-
-	// Create pipeline config for status validation
-	pipelineConfig := k.getPipelineConfigFromK8sResource(customResource)
-
-	// Validate status transition using the centralized validation system
-	err = status.ValidatePipelineOperation(pipelineConfig, internal.PipelineStatusPausing)
-	if err != nil {
-		k.log.ErrorContext(ctx, "pipeline status validation failed for pause", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus, "error", err)
-		return err
-	}
-
-	annotations := customResource.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
-	// Add pause annotation
-	annotations["pipeline.etl.glassflow.io/pause"] = "true"
-	customResource.SetAnnotations(annotations)
-
-	// Update the resource with the pause annotation
-	_, err = k.client.Resource(schema.GroupVersionResource{
-		Group:    k.customResource.APIGroup,
-		Version:  k.customResource.Version,
-		Resource: k.customResource.Resource,
-	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
-	if err != nil {
-		k.log.ErrorContext(ctx, "failed to update pipeline CRD with pause annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
-		return fmt.Errorf("update pipeline CRD with pause annotation: %w", err)
-	}
-
-	k.log.InfoContext(ctx, "requested pause of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
 }
 

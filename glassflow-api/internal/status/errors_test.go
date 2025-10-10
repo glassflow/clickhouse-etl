@@ -20,21 +20,11 @@ func TestStatusValidationError(t *testing.T) {
 			name: "Invalid transition error",
 			error: NewInvalidTransitionError(
 				models.PipelineStatus(internal.PipelineStatusRunning),
-				models.PipelineStatus(internal.PipelineStatusPaused),
+				models.PipelineStatus(internal.PipelineStatusStopped),
 			),
 			expectedCode:   ErrorCodeInvalidTransition,
 			expectedStatus: 400,
-			expectedMsg:    "Invalid status transition from Running to Paused",
-		},
-		{
-			name: "Terminal state error",
-			error: NewTerminalStateError(
-				models.PipelineStatus(internal.PipelineStatusTerminated),
-				models.PipelineStatus(internal.PipelineStatusRunning),
-			),
-			expectedCode:   ErrorCodeTerminalStateViolation,
-			expectedStatus: 400,
-			expectedMsg:    "Cannot transition from terminal state Terminated to Running",
+			expectedMsg:    "Invalid status transition from Running to Stopped",
 		},
 		{
 			name: "Unknown status error",
@@ -65,12 +55,12 @@ func TestStatusValidationError(t *testing.T) {
 		{
 			name: "Pipeline in transition error",
 			error: NewPipelineInTransitionError(
-				models.PipelineStatus(internal.PipelineStatusPausing),
-				models.PipelineStatus(internal.PipelineStatusPaused),
+				models.PipelineStatus(internal.PipelineStatusStopping),
+				models.PipelineStatus(internal.PipelineStatusStopped),
 			),
 			expectedCode:   ErrorCodePipelineInTransition,
 			expectedStatus: 400,
-			expectedMsg:    "Pipeline is currently transitioning from Pausing state, cannot perform Paused operation",
+			expectedMsg:    "Pipeline is currently transitioning from Stopping state, cannot perform Stopped operation",
 		},
 	}
 
@@ -102,7 +92,7 @@ func TestIsStatusValidationError(t *testing.T) {
 	}{
 		{
 			name:     "StatusValidationError",
-			err:      NewInvalidTransitionError(models.PipelineStatus(internal.PipelineStatusRunning), models.PipelineStatus(internal.PipelineStatusPaused)),
+			err:      NewInvalidTransitionError(models.PipelineStatus(internal.PipelineStatusRunning), models.PipelineStatus(internal.PipelineStatusStopped)),
 			expected: true,
 		},
 		{
@@ -136,8 +126,8 @@ func TestGetStatusValidationError(t *testing.T) {
 	}{
 		{
 			name:           "StatusValidationError",
-			err:            NewInvalidTransitionError(models.PipelineStatus(internal.PipelineStatusRunning), models.PipelineStatus(internal.PipelineStatusPaused)),
-			expectedError:  NewInvalidTransitionError(models.PipelineStatus(internal.PipelineStatusRunning), models.PipelineStatus(internal.PipelineStatusPaused)),
+			err:            NewInvalidTransitionError(models.PipelineStatus(internal.PipelineStatusRunning), models.PipelineStatus(internal.PipelineStatusStopped)),
+			expectedError:  NewInvalidTransitionError(models.PipelineStatus(internal.PipelineStatusRunning), models.PipelineStatus(internal.PipelineStatusStopped)),
 			expectedExists: true,
 		},
 		{
@@ -182,7 +172,7 @@ func TestValidatePipelineOperation(t *testing.T) {
 					OverallStatus: models.PipelineStatus(internal.PipelineStatusRunning),
 				},
 			},
-			operation:   models.PipelineStatus(internal.PipelineStatusPausing),
+			operation:   models.PipelineStatus(internal.PipelineStatusStopping),
 			expectError: false,
 		},
 		{
@@ -200,10 +190,10 @@ func TestValidatePipelineOperation(t *testing.T) {
 			name: "Pipeline in transitional state",
 			pipeline: &models.PipelineConfig{
 				Status: models.PipelineHealth{
-					OverallStatus: models.PipelineStatus(internal.PipelineStatusPausing),
+					OverallStatus: models.PipelineStatus(internal.PipelineStatusStopping),
 				},
 			},
-			operation:   models.PipelineStatus(internal.PipelineStatusPaused),
+			operation:   models.PipelineStatus(internal.PipelineStatusStopped),
 			expectError: true,
 			errorCode:   ErrorCodePipelineInTransition,
 		},
@@ -221,7 +211,7 @@ func TestValidatePipelineOperation(t *testing.T) {
 					OverallStatus: models.PipelineStatus(internal.PipelineStatusRunning),
 				},
 			},
-			operation:   models.PipelineStatus(internal.PipelineStatusPaused),
+			operation:   models.PipelineStatus(internal.PipelineStatusStopped),
 			expectError: true,
 			errorCode:   ErrorCodeInvalidTransition,
 		},

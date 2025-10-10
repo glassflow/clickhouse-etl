@@ -125,47 +125,7 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.InfoContext(r.Context(), "pipeline terminated")
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *handler) pausePipeline(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-	if !ok {
-		h.log.ErrorContext(r.Context(), "Cannot get id param")
-		serverError(w)
-		return
-	}
-
-	if len(strings.TrimSpace(id)) == 0 {
-		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
-		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
-		return
-	}
-
-	err := h.pipelineManager.PausePipeline(r.Context(), id)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			h.log.ErrorContext(r.Context(), "pipeline not found for pause", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotFound, "no pipeline with given id to pause", nil)
-		case errors.Is(err, service.ErrNotImplemented):
-			h.log.ErrorContext(r.Context(), "pause pipeline feature not implemented", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
-		default:
-			// Check if it's a status validation error
-			if statusErr, ok := status.GetStatusValidationError(err); ok {
-				jsonStatusValidationError(w, statusErr)
-				return
-			}
-			h.log.ErrorContext(r.Context(), "failed to pause pipeline", "pipeline_id", id, "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	h.log.InfoContext(r.Context(), "pipeline paused", "pipeline_id", id)
+	h.log.InfoContext(r.Context(), "pipeline stopped")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -721,12 +681,12 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if pipeline is in a deletable state (stopped or terminated)
+	// Check if pipeline is in a deletable state (stopped )
 	currentStatus := string(pipeline.Status.OverallStatus)
-	if currentStatus != internal.PipelineStatusStopped && currentStatus != internal.PipelineStatusTerminated {
+	if currentStatus != internal.PipelineStatusStopped {
 		h.log.ErrorContext(r.Context(), "pipeline cannot be deleted due to invalid status", "pipeline_id", id, "current_status", currentStatus)
 		jsonError(w, http.StatusBadRequest,
-			fmt.Sprintf("pipeline can only be deleted if it's stopped or terminated, current status: %s", currentStatus),
+			fmt.Sprintf("pipeline can only be deleted if it's stopped, current status: %s", currentStatus),
 			map[string]string{"current_status": currentStatus})
 		return
 	}

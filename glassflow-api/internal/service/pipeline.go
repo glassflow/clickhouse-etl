@@ -16,7 +16,6 @@ type Orchestrator interface {
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	StopPipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
-	PausePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
 }
 
@@ -33,7 +32,6 @@ type PipelineManager interface { //nolint:interfacebloat //important interface
 	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
-	PausePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
 	StopPipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
@@ -105,7 +103,7 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 
 // DeletePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) error {
-	// The pipeline should already be stopped / terminated
+	// The pipeline should already be stopped
 	err := p.db.DeletePipeline(ctx, pid)
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to delete pipeline from database", "pipeline_id", pid, "error", err)
@@ -150,13 +148,12 @@ func (p *PipelineManagerImpl) TerminatePipeline(ctx context.Context, pid string)
 
 	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
 	if p.orchestrator.GetType() == "local" {
-		// Set status to Terminated
-		pipeline.Status.OverallStatus = internal.PipelineStatusTerminated
+		pipeline.Status.OverallStatus = internal.PipelineStatusStopped
 
 		// Update status in database
 		err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
 		if err != nil {
-			p.log.ErrorContext(ctx, "failed to update pipeline status to terminated", "pipeline_id", pid, "error", err)
+			p.log.ErrorContext(ctx, "failed to update pipeline status to stopped", "pipeline_id", pid, "error", err)
 			return fmt.Errorf("update pipeline status: %w", err)
 		}
 		return nil
@@ -223,68 +220,6 @@ func (p *PipelineManagerImpl) UpdatePipelineStatus(ctx context.Context, pid stri
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to update pipeline status", "pipeline_id", pid, "status", status.OverallStatus, "error", err)
 		return fmt.Errorf("update pipeline status: %w", err)
-	}
-
-	return nil
-}
-
-// PausePipeline implements PipelineManager.
-func (p *PipelineManagerImpl) PausePipeline(ctx context.Context, pid string) error {
-	// Get current pipeline to update status
-	pipeline, err := p.db.GetPipeline(ctx, pid)
-	if err != nil {
-		if errors.Is(err, ErrPipelineNotExists) {
-			return ErrPipelineNotExists
-		}
-		p.log.ErrorContext(ctx, "failed to get pipeline for pause", "pipeline_id", pid, "error", err)
-		return fmt.Errorf("get pipeline failed for pause: %w", err)
-	}
-
-	err = status.ValidatePipelineOperation(pipeline, internal.PipelineStatusPausing)
-	if err != nil {
-		return err
-	}
-
-	// Set status to Pausing
-	pipeline.Status.OverallStatus = internal.PipelineStatusPausing
-
-	// Update status in database
-	err = p.db.UpdatePipelineStatus(ctx, pid, pipeline.Status)
-	if err != nil {
-		p.log.ErrorContext(ctx, "failed to update pipeline status to pausing", "pipeline_id", pid, "error", err)
-		return fmt.Errorf("update pipeline status: %w", err)
-	}
-
-	// For Docker orchestrator, mark as failed if pause fails
-	if p.orchestrator.GetType() == "local" {
-		// create a new context for the pause pipeline operation
-		ctxAsync := context.Background()
-
-		go func() {
-			err := p.orchestrator.PausePipeline(ctxAsync, pid)
-			if err != nil {
-				pipeline.Status.OverallStatus = internal.PipelineStatusFailed
-				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
-				if err != nil {
-					p.log.Error("failed to update pipeline status to failed", slog.Any("error", err))
-				}
-			} else {
-				pipeline.Status.OverallStatus = internal.PipelineStatusPaused
-				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
-				if err != nil {
-					p.log.Error("failed to update pipeline status to paused", slog.Any("error", err))
-				}
-			}
-		}()
-
-		return nil
-	}
-
-	// For k8 orchestrator, the operator controller-manager takes care of updating this status
-	err = p.orchestrator.PausePipeline(ctx, pid)
-	if err != nil {
-		p.log.ErrorContext(ctx, "failed to pause pipeline in orchestrator", "pipeline_id", pid, "error", err)
-		return fmt.Errorf("failed to pause k8 pipeline: %w", err)
 	}
 
 	return nil
@@ -422,11 +357,10 @@ func (p *PipelineManagerImpl) CleanUpPipelines(ctx context.Context) error {
 	}
 
 	for _, pi := range pipelines {
-		if pi.Status.OverallStatus != internal.PipelineStatusTerminated &&
+		if pi.Status.OverallStatus != internal.PipelineStatusStopped &&
 			pi.Status.OverallStatus != internal.PipelineStatusFailed {
-			// Set status to Terminated
 			p.log.Debug("cleaning pipeline...", slog.String("pipelineID", pi.ID), slog.Any("status", pi.Status.OverallStatus))
-			pi.Status.OverallStatus = internal.PipelineStatusTerminated
+			pi.Status.OverallStatus = internal.PipelineStatusStopped
 			err := p.db.UpdatePipelineStatus(ctx, pi.ID, pi.Status)
 			if err != nil {
 				p.log.ErrorContext(ctx, "failed to update pipeline status during cleanup", "pipeline_id", pi.ID, "error", err)
