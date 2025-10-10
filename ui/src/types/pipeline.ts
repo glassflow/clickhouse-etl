@@ -4,7 +4,7 @@ import { PIPELINE_STATUS_MAP } from '../config/constants'
 
 export type PipelineStatus = keyof typeof PIPELINE_STATUS_MAP
 
-export type PipelineAction = 'edit' | 'rename' | 'stop' | 'delete' | 'pause' | 'resume'
+export type PipelineAction = 'edit' | 'rename' | 'terminate' | 'delete' | 'stop' | 'resume'
 
 // Pipeline state values that can come from the backend
 export type PipelineState = 'active' | 'paused' | 'stopped' | 'error' | ''
@@ -28,15 +28,16 @@ export const parsePipelineStatus = (status: string): PipelineStatus => {
     case 'pausing':
       return 'pausing'
     case 'resuming':
-      return 'resuming' // Map resuming to resuming (transitional state)
+      return 'resuming'
     case 'stopped':
     case 'terminated':
     case 'deleted':
       return 'stopped'
     case 'stopping':
+      return 'stopping'
     case 'terminating':
     case 'deleting':
-      return 'stopping'
+      return 'terminating'
     case 'failed':
     case 'error':
     case 'deploy_failed':

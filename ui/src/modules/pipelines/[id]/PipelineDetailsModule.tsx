@@ -112,13 +112,13 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Handle action completion - use centralized system for status tracking
   useEffect(() => {
     if (!actionState.isLoading && actionState.lastAction) {
-      if (actionState.lastAction === 'pause') {
-        // For pause operations, report to centralized system
-        operations.reportPause(pipeline.pipeline_id)
+      if (actionState.lastAction === 'stop') {
+        // For stop operations, report to centralized system
+        operations.reportStop(pipeline.pipeline_id)
       } else if (actionState.lastAction === 'resume') {
         operations.reportResume(pipeline.pipeline_id)
-      } else if (actionState.lastAction === 'stop') {
-        operations.reportStop(pipeline.pipeline_id)
+      } else if (actionState.lastAction === 'terminate') {
+        operations.reportTerminate(pipeline.pipeline_id)
       } else {
         // For other actions, use the regular refresh with delay
         const timer = setTimeout(() => {
@@ -151,7 +151,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     router.push('/pipelines')
   }
 
-  // NOTE: this is used to update the pipeline status in the UI when the pipeline is paused or resumed
+  // NOTE: this is used to update the pipeline status in the UI when the pipeline is stopped or resumed
   // it happens when pp is active and we want to edit one of the sections - for that we need to update the status
   // in the UI so that the pipeline actions hook can determine if the pipeline is valid
   const handlePipelineStatusUpdate = (status: string) => {

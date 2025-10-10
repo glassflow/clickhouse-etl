@@ -36,8 +36,8 @@ export const usePipelineActions = (pipeline: Pipeline) => {
       let result: Pipeline | void
 
       switch (action) {
-        case 'pause':
-          await pausePipeline(pipeline.pipeline_id)
+        case 'stop':
+          await stopPipeline(pipeline.pipeline_id)
           result = undefined
           break
 
@@ -46,7 +46,7 @@ export const usePipelineActions = (pipeline: Pipeline) => {
           result = undefined
           break
 
-        case 'stop':
+        case 'terminate':
           const isGraceful = payload?.graceful || false
           if (isGraceful) {
             await stopPipeline(pipeline.pipeline_id)
