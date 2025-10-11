@@ -218,14 +218,136 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 		d.watcherWG.Wait()
 	}
 
-	// Stop the pipeline gracefully (wait for pending messages, then cleanup resources)
-	err := d.pausePipelineComponents(ctx, pid)
+	// First pause the pipeline if it's running
+	// Check if pipeline is active (has runners)
+	if d.ingestorRunners != nil || d.joinRunner != nil || d.sinkRunner != nil {
+		d.log.InfoContext(ctx, "pausing pipeline before stop", "pipeline_id", pid)
+
+		// Pause the pipeline (graceful shutdown of components)
+		err := d.pausePipelineComponents(ctx)
+		if err != nil {
+			d.log.ErrorContext(ctx, "failed to pause pipeline during stop", "error", err)
+			return fmt.Errorf("pause pipeline during stop: %w", err)
+		}
+
+		d.log.InfoContext(ctx, "pipeline paused successfully, proceeding with termination", "pipeline_id", pid)
+	}
+
+	// Now terminate the pipeline (cleanup resources)
+	err := d.terminatePipelineComponents(ctx, pid)
 	if err != nil {
-		d.log.ErrorContext(ctx, "failed to pause pipeline during stop", "error", err)
-		return fmt.Errorf("pause pipeline during stop: %w", err)
+		d.log.ErrorContext(ctx, "failed to terminate pipeline during stop", "error", err)
+		return fmt.Errorf("terminate pipeline during stop: %w", err)
 	}
 
 	d.log.InfoContext(ctx, "pipeline stop completed successfully", "pipeline_id", pid)
+	return nil
+}
+
+// pausePipelineComponents gracefully shuts down pipeline components in order
+func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context) error {
+	// Shutdown components sequentially: Ingestor -> Join -> Sink
+	// This ensures no data loss by processing all messages in order
+
+	// 1. Shutdown ingestor runners first
+	if d.ingestorRunners != nil {
+		for _, runner := range d.ingestorRunners {
+			d.log.Debug("shutting down ingestor runner")
+			runner.Shutdown()
+			// Wait for the component to fully stop
+			<-runner.Done()
+		}
+		d.log.Debug("all ingestor runners stopped")
+	}
+
+	// 2. Check join and shutdown join runner
+	if d.joinRunner != nil {
+
+		pipeline, err := d.getPipelineConfig(ctx)
+		if err != nil {
+			d.log.ErrorContext(ctx, "failed to get pipeline config for join safety check", "error", err)
+			return fmt.Errorf("get pipeline config for join safety check: %w", err)
+		}
+
+		// Wait for join pending messages to clear
+		checkJoinFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
+			if !pipeline.Join.Enabled {
+				return nil // No join, nothing to check
+			}
+
+			leftConsumerName := models.GetNATSJoinLeftConsumerName(pipeline.ID)
+			rightConsumerName := models.GetNATSJoinRightConsumerName(pipeline.ID)
+			leftStreamName := pipeline.Join.Sources[0].StreamID
+			rightStreamName := pipeline.Join.Sources[1].StreamID
+
+			// Check left stream
+			err := d.checkConsumerPendingMessages(ctx, leftStreamName, leftConsumerName)
+			if err != nil {
+				d.log.ErrorContext(ctx, "left join consumer has pending messages", "left_consumer", leftConsumerName, "left_stream", leftStreamName, "error", err)
+				return fmt.Errorf("left join consumer: %w", err)
+			}
+
+			// Check right stream
+			err = d.checkConsumerPendingMessages(ctx, rightStreamName, rightConsumerName)
+			if err != nil {
+				d.log.ErrorContext(ctx, "right join consumer has pending messages", "right_consumer", rightConsumerName, "right_stream", rightStreamName, "error", err)
+				return fmt.Errorf("right join consumer: %w", err)
+			}
+
+			d.log.InfoContext(ctx, "join consumers are clear of pending messages",
+				"left_consumer", leftConsumerName,
+				"right_consumer", rightConsumerName)
+
+			return nil
+		}
+		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkJoinFunc, "join")
+		if err != nil {
+			d.log.ErrorContext(ctx, "waiting for join pending messages to clear failed", "error", err)
+			return fmt.Errorf("waiting for join pending messages to clear failed: %w", err)
+		}
+
+		d.log.Debug("shutting down join runner")
+		d.joinRunner.Shutdown()
+		// Wait for the component to fully stop
+		<-d.joinRunner.Done()
+		d.log.Debug("join runner stopped")
+	}
+
+	// 3. Check sink and shutdown sink runner
+	if d.sinkRunner != nil {
+
+		pipeline, err := d.getPipelineConfig(ctx)
+		if err != nil {
+			d.log.ErrorContext(ctx, "failed to get pipeline config for sink safety check", "error", err)
+			return fmt.Errorf("get pipeline config for sink safety check: %w", err)
+		}
+
+		// Wait for sink pending messages to clear
+		checkSinkFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
+			sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
+			sinkStreamName := pipeline.Sink.StreamID
+
+			err := d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
+			if err != nil {
+				d.log.ErrorContext(ctx, "sink consumer has pending messages", "sink_consumer", sinkConsumerName, "sink_stream", sinkStreamName, "error", err)
+				return fmt.Errorf("sink consumer: %w", err)
+			}
+
+			return nil
+		}
+		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkSinkFunc, "sink")
+		if err != nil {
+			d.log.ErrorContext(ctx, "waiting for sink pending messages to clear failed", "error", err)
+			return fmt.Errorf("waiting for sink pending messages to clear failed: %w", err)
+		}
+
+		d.log.Debug("shutting down sink runner")
+		d.sinkRunner.Shutdown()
+		// Wait for the component to fully stop
+		<-d.sinkRunner.Done()
+		d.log.Debug("sink runner stopped")
+	}
+
 	return nil
 }
 
@@ -318,70 +440,6 @@ func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid
 	d.pipelineConfig = nil
 
 	return nil
-}
-
-// pausePipelineComponents gracefully stops pipeline components by waiting for pending messages to clear
-func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context, pid string) error {
-	// Get pipeline config to check for pending messages
-	pipeline, err := d.getPipelineConfig(ctx)
-	if err != nil {
-		d.log.ErrorContext(ctx, "failed to get pipeline config for graceful stop", "error", err)
-		return fmt.Errorf("get pipeline config: %w", err)
-	}
-
-	// Wait for all consumers to clear pending messages (graceful shutdown)
-	d.log.InfoContext(ctx, "waiting for pending messages to clear before stopping pipeline", "pipeline_id", pid)
-
-	// Wait for sink consumer to clear pending messages
-	if pipeline.Sink.StreamID != "" {
-		sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
-		err := d.waitForPendingMessagesToClear(ctx, pipeline, func(ctx context.Context, p *models.PipelineConfig) error {
-			return d.checkConsumerPendingMessages(ctx, p.Sink.StreamID, sinkConsumerName)
-		}, "sink")
-		if err != nil {
-			d.log.WarnContext(ctx, "timeout waiting for sink pending messages, proceeding with stop", "error", err)
-		}
-	}
-
-	// Wait for join consumers to clear pending messages
-	if pipeline.Join.Enabled && pipeline.Join.OutputStreamID != "" {
-		// Check left consumer
-		leftConsumerName := models.GetNATSJoinLeftConsumerName(pipeline.ID)
-		err := d.waitForPendingMessagesToClear(ctx, pipeline, func(ctx context.Context, p *models.PipelineConfig) error {
-			return d.checkConsumerPendingMessages(ctx, p.Join.OutputStreamID, leftConsumerName)
-		}, "join-left")
-		if err != nil {
-			d.log.WarnContext(ctx, "timeout waiting for join left pending messages, proceeding with stop", "error", err)
-		}
-
-		// Check right consumer
-		rightConsumerName := models.GetNATSJoinRightConsumerName(pipeline.ID)
-		err = d.waitForPendingMessagesToClear(ctx, pipeline, func(ctx context.Context, p *models.PipelineConfig) error {
-			return d.checkConsumerPendingMessages(ctx, p.Join.OutputStreamID, rightConsumerName)
-		}, "join-right")
-		if err != nil {
-			d.log.WarnContext(ctx, "timeout waiting for join right pending messages, proceeding with stop", "error", err)
-		}
-	}
-
-	// Wait for ingestor consumers to clear pending messages
-	for _, topic := range pipeline.Ingestor.KafkaTopics {
-		if topic.OutputStreamID != "" {
-			streamName := models.GetIngestorStreamName(pipeline.ID, topic.Name)
-			ingestorConsumerName := fmt.Sprintf("%s-ingestor-%s", pipeline.ID, topic.Name)
-			err := d.waitForPendingMessagesToClear(ctx, pipeline, func(ctx context.Context, p *models.PipelineConfig) error {
-				return d.checkConsumerPendingMessages(ctx, streamName, ingestorConsumerName)
-			}, fmt.Sprintf("ingestor-%s", topic.Name))
-			if err != nil {
-				d.log.WarnContext(ctx, "timeout waiting for ingestor pending messages, proceeding with stop", "ingestor", topic.Name, "error", err)
-			}
-		}
-	}
-
-	d.log.InfoContext(ctx, "all pending messages cleared, proceeding with component cleanup", "pipeline_id", pid)
-
-	// Now clean up the components (same as terminate but after graceful waiting)
-	return d.terminatePipelineComponents(ctx, pid)
 }
 
 // cleanupNATSResources cleans up NATS streams and KV stores for a pipeline

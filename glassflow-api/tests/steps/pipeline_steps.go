@@ -426,21 +426,6 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 	return nil
 }
 
-func (p *PipelineSteps) pausePipeline() error {
-	p.log.Info("Pausing pipeline")
-	if p.pipelineManager == nil {
-		return fmt.Errorf("pipeline manager not initialized")
-	}
-
-	err := p.pipelineManager.PausePipeline(context.Background(), p.orchestrator.ActivePipelineID())
-	if err != nil {
-		return fmt.Errorf("pause pipeline: %w", err)
-	}
-
-	p.log.Info("Pipeline paused successfully")
-	return nil
-}
-
 func (p *PipelineSteps) resumePipeline() error {
 	p.log.Info("Resuming pipeline")
 	if p.pipelineManager == nil {
@@ -453,24 +438,6 @@ func (p *PipelineSteps) resumePipeline() error {
 	}
 
 	p.log.Info("Pipeline resumed successfully")
-	return nil
-}
-
-func (p *PipelineSteps) pausePipelineWithDelay(delay string) error {
-	p.log.Info("Pausing pipeline with delay", slog.String("delay", delay))
-	dur, err := time.ParseDuration(delay)
-	if err != nil {
-		return fmt.Errorf("parse duration: %w", err)
-	}
-
-	time.Sleep(dur)
-
-	err = p.pausePipeline()
-	if err != nil {
-		return fmt.Errorf("pause pipeline: %w", err)
-	}
-
-	p.log.Info("Pipeline paused after delay")
 	return nil
 }
 
@@ -522,8 +489,6 @@ func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^a glassflow pipeline with next configuration:$`, p.aGlassflowPipelineWithNextConfiguration)
 	sc.Step(`^I shutdown the glassflow pipeline after "([^"]*)"$`, p.shutdownPipelineWithDelay)
-	sc.Step(`^I pause the glassflow pipeline$`, p.pausePipeline)
-	sc.Step(`^I pause the glassflow pipeline after "([^"]*)"$`, p.pausePipelineWithDelay)
 	sc.Step(`^I resume the glassflow pipeline$`, p.resumePipeline)
 	sc.Step(`^I resume the glassflow pipeline after "([^"]*)"$`, p.resumePipelineWithDelay)
 

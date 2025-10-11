@@ -25,7 +25,7 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Running status can transition to Stopping or Terminating (NO MORE PAUSING)
+	// Running status can transition to Stopping or Terminating
 	models.PipelineStatus(internal.PipelineStatusRunning): {
 		models.PipelineStatus(internal.PipelineStatusStopping),
 		models.PipelineStatus(internal.PipelineStatusTerminating),
