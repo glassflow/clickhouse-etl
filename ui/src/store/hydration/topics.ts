@@ -194,22 +194,33 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         requestBody.username = kafkaStore.saslPlain.username
         requestBody.password = kafkaStore.saslPlain.password
         requestBody.consumerGroup = kafkaStore.saslPlain.consumerGroup
-        if (kafkaStore.saslPlain.certificate) {
-          requestBody.certificate = kafkaStore.saslPlain.certificate
+        if (kafkaStore.saslPlain?.truststore?.certificates) {
+          requestBody.certificate = kafkaStore.saslPlain.truststore.certificates
         }
         break
       case 'SASL/SCRAM-256':
         requestBody.username = kafkaStore.saslScram256.username
         requestBody.password = kafkaStore.saslScram256.password
         requestBody.consumerGroup = kafkaStore.saslScram256.consumerGroup
+        if (kafkaStore.saslScram256?.truststore?.certificates) {
+          requestBody.certificate = kafkaStore.saslScram256.truststore.certificates
+        }
         break
       case 'SASL/SCRAM-512':
         requestBody.username = kafkaStore.saslScram512.username
         requestBody.password = kafkaStore.saslScram512.password
+        if (kafkaStore.saslScram512?.truststore?.certificates) {
+          requestBody.certificate = kafkaStore.saslScram512.truststore.certificates
+        }
+        break
+      case 'SASL/GSSAPI':
+        if (kafkaStore.saslGssapi?.truststore?.certificates) {
+          requestBody.certificate = kafkaStore.saslGssapi.truststore.certificates
+        }
         break
       case 'NO_AUTH':
-        if (kafkaStore.noAuth.certificate) {
-          requestBody.certificate = kafkaStore.noAuth.certificate
+        if (kafkaStore.noAuth?.truststore?.certificates) {
+          requestBody.certificate = kafkaStore.noAuth.truststore.certificates
         }
         break
       // Add other auth methods as needed
