@@ -1,3 +1,4 @@
 export default {
-    'system-components': ''
+    'kubernetes-components': '',
+    'docker-components': ''
 }

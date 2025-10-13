@@ -1,0 +1,163 @@
+---
+title: 'Kubernetes Components'
+description: 'Understanding the core components that make up GlassFlow in Kubernetes'
+---
+
+# Kubernetes Components
+
+GlassFlow consists of the following components running as Kubernetes pods in the `glassflow` namespace:
+
+## Core Application Pods
+
+### 1. GlassFlow API
+- **Pod Name**: `glassflow-api-*`
+- **Purpose**: Core ETL engine that provides an API and orchestrates the pipeline
+- **Features**:
+  - Interface to the UI and python client for pipeline management  
+  - Provides CRUD operations and REST API for Pipeline    
+
+### 2. GlassFlow UI
+- **Pod Name**: `glassflow-ui-*`
+- **Purpose**: Web-based user interface for pipeline management
+- **Features**:
+  - Intuitive pipeline configuration
+  - Real-time monitoring
+  - User-friendly interface for managing data operations
+  - Responsive web interface
+
+### 3. GlassFlow Controller Manager
+- **Pod Name**: `glassflow-controller-manager-*`
+- **Purpose**: Kubernetes operator that manages GlassFlow custom resources
+- **Features**:
+  - Watches for pipeline custom resources
+  - Manages pipeline lifecycle
+  - Handles scaling and updates
+  - Integrates with Kubernetes API server
+
+## NATS Cluster
+
+### 4. NATS Server Cluster
+- **Pod Names**: `glassflow-nats-0`, `glassflow-nats-1`, `glassflow-nats-2`, `glassflow-nats-3`, `glassflow-nats-4`
+- **Purpose**: Distributed message broker and key-value store
+- **Features**:
+  - JetStream enabled for persistent messaging
+  - High-performance message delivery
+  - Clustering for high availability
+  - Automatic failover capabilities
+  - 5-node cluster for redundancy
+
+### 5. NATS Box
+- **Pod Name**: `glassflow-nats-box-*`
+- **Purpose**: NATS utility container for debugging and management
+- **Features**:
+  - NATS CLI tools
+  - Debugging capabilities
+  - Cluster monitoring utilities
+  - Administrative functions
+
+## Monitoring and Observability
+
+### 6. OpenTelemetry Collector
+- **Pod Name**: `glassflow-otel-collector-*`
+- **Purpose**: Collects, processes, and exports telemetry data
+- **Features**:
+  - Metrics collection  
+  - Log aggregation
+  - Export to monitoring backends
+  - Provides promentheus metrics on `/metrics` endpoint at port `9090`
+
+### 7. Prometheus NATS Exporter
+- **Pod Name**: `glassflow-prometheus-nats-exporter-*`
+- **Purpose**: Exports NATS metrics for Prometheus monitoring
+- **Features**:
+  - NATS server metrics
+  - JetStream statistics
+  - Connection monitoring
+  - Performance metrics
+
+## Custom Resources
+
+### 8. Pipeline Custom Resource Definition (CRD)
+- **CRD Name**: `pipelines.etl.glassflow.io`
+- **Purpose**: Defines the schema for pipeline resources in Kubernetes
+- **Features**:
+  - Declarative pipeline configuration
+  - Kubernetes-native pipeline management
+  - Integration with controller manager
+  - Version-controlled pipeline definitions
+
+## Per-Pipeline Resources
+
+### 9. Pipeline-Specific Namespaces
+- **Namespace Pattern**: `pipeline-{pipeline-name}-{unique-id}`
+- **Example**: `pipeline-load-pipeline-1-7c8e`
+- **Purpose**: Isolates each pipeline's resources for better management and security
+
+### 10. Ingestor Deployment
+- **Deployment Name**: `ingestor-{partition-id}`
+- **Purpose**: Consumes data from external sources (Kafka, etc.)
+- **Features**:
+  - Horizontal scaling (5 replicas in example)
+  - Partition-based processing
+  - Fault tolerance with multiple replicas
+
+### 11. Sink Deployment
+- **Deployment Name**: `sink`
+- **Purpose**: Writes processed data to ClickHouse
+- **Features**:
+  - Single replica for consistency
+  - Handles final data persistence
+  - Error handling and retry logic
+  - Connection pooling for efficiency
+
+### 12. ReplicaSets
+- **Purpose**: Manages the desired number of pod replicas
+- **Features**:
+  - Automatic pod replacement on failure
+  - Rolling updates for deployments
+  - Resource management per pipeline
+
+## Namespace and Resources
+
+### GlassFlow Namespace
+- **Namespace**: `glassflow`
+- **Purpose**: Isolates GlassFlow components from other Kubernetes workloads
+- **Features**:
+  - Resource isolation
+  - Network policies
+  - RBAC configuration
+  - Resource quotas
+
+## High Availability Features
+
+### NATS Clustering
+- **Cluster Size**: 3/5 nodes
+- **Benefits**:
+  - Fault tolerance
+  - Load distribution
+  - Automatic failover
+  - Data replication
+
+## Resource Management
+
+### Resource Requests and Limits
+- Each pod has defined CPU and memory requests/limits
+- NATS cluster uses persistent volumes for data storage
+- Monitoring components have minimal resource requirements
+
+### Storage
+- **NATS Data**: Persistent volumes for JetStream storage
+- **Logs**: Persistent volumes for application logs
+- **Configuration**: ConfigMaps and Secrets for configuration management
+
+## Networking
+
+### Service Discovery
+- Internal service communication via Kubernetes DNS
+- NATS cluster communication via headless services
+- External access via LoadBalancer or Ingress
+
+### Security
+- RBAC policies for component access
+- Network policies for traffic isolation
+- TLS encryption for NATS cluster communication
