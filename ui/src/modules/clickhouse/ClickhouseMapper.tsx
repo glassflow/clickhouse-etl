@@ -22,6 +22,8 @@ import {
   isTypeCompatible,
   getMappingType,
   generateApiConfig,
+  filterUserMappableColumns,
+  hasDefaultExpression,
 } from './utils'
 import { extractEventFields } from '@/src/utils/common.client'
 
@@ -157,12 +159,14 @@ export function ClickhouseMapper({
   const [validationIssues, setValidationIssues] = useState<{
     unmappedNullableColumns: string[]
     unmappedNonNullableColumns: string[]
+    unmappedDefaultColumns: string[] // NEW: columns with DEFAULT that are unmapped (warning only)
     extraEventFields: string[]
     incompatibleTypeMappings: any[]
     missingTypeMappings: any[]
   }>({
     unmappedNullableColumns: [],
     unmappedNonNullableColumns: [],
+    unmappedDefaultColumns: [], // NEW
     extraEventFields: [],
     incompatibleTypeMappings: [],
     missingTypeMappings: [],
@@ -350,14 +354,17 @@ export function ClickhouseMapper({
   // Sync table schema from store when it's updated
   useEffect(() => {
     if (storeSchema && storeSchema.length > 0) {
+      // Filter out ALIAS and MATERIALIZED columns
+      const filteredSchema = filterUserMappableColumns(storeSchema)
+
       // Only update if the schema has actually changed
       const schemaChanged =
-        tableSchema.columns.length !== storeSchema.length ||
+        tableSchema.columns.length !== filteredSchema.length ||
         !tableSchema.columns.every(
           (col, index) =>
-            col.name === storeSchema[index]?.name &&
-            (col.type === storeSchema[index]?.type || col.type === storeSchema[index]?.column_type) &&
-            col.isNullable === storeSchema[index]?.isNullable,
+            col.name === filteredSchema[index]?.name &&
+            (col.type === filteredSchema[index]?.type || col.type === filteredSchema[index]?.column_type) &&
+            col.isNullable === filteredSchema[index]?.isNullable,
         )
 
       if (!schemaChanged) {
@@ -371,7 +378,7 @@ export function ClickhouseMapper({
 
       // Create new mapping - preserve existing mappings where possible
       const newMapping = shouldKeepExistingMapping
-        ? storeSchema.map((col, index) => {
+        ? filteredSchema.map((col, index) => {
             // Try to find existing mapping for this column
             const existingCol = mappedColumns.find((mc) => mc.name === col.name)
 
@@ -396,7 +403,7 @@ export function ClickhouseMapper({
               }
             }
           })
-        : storeSchema.map((col) => ({
+        : filteredSchema.map((col) => ({
             ...col,
             jsonType: '',
             isNullable: false,
@@ -404,7 +411,7 @@ export function ClickhouseMapper({
             eventField: '',
           }))
 
-      setTableSchema({ columns: storeSchema })
+      setTableSchema({ columns: filteredSchema })
       setMappedColumns(newMapping)
     }
   }, [storeSchema, tableSchema.columns, mappedColumns])
@@ -637,6 +644,7 @@ export function ClickhouseMapper({
     const issues = {
       unmappedNullableColumns: [] as string[],
       unmappedNonNullableColumns: [] as string[],
+      unmappedDefaultColumns: [] as string[], // NEW
       extraEventFields: [] as string[],
       incompatibleTypeMappings: [] as any[],
       missingTypeMappings: [] as any[],
@@ -649,9 +657,17 @@ export function ClickhouseMapper({
         // Check if the column is actually nullable by examining its type
         const isActuallyNullable = column?.type?.includes('Nullable') || column.isNullable === true
 
-        if (isActuallyNullable) {
+        // Check if the column has a DEFAULT expression
+        const columnHasDefault = hasDefaultExpression(column)
+
+        if (columnHasDefault) {
+          // Column has DEFAULT - this is just a warning, not an error
+          issues.unmappedDefaultColumns.push(column.name)
+        } else if (isActuallyNullable) {
+          // Column is nullable - safe to omit
           issues.unmappedNullableColumns.push(column.name)
         } else {
+          // Column is non-nullable and has no default - this is an error
           issues.unmappedNonNullableColumns.push(column.name)
         }
       }
@@ -853,8 +869,9 @@ export function ClickhouseMapper({
     // 1. Type compatibility violations (error)
     // 2. Missing type mappings (error)
     // 3. Non-nullable column violations (error)
-    // 4. Unmapped nullable columns (warning)
-    // 5. Extra event fields (warning)
+    // 4. Unmapped DEFAULT columns (warning) - NEW
+    // 5. Unmapped nullable columns (warning)
+    // 6. Extra event fields (warning)
 
     if (issues.incompatibleTypeMappings.length > 0) {
       const incompatibleFields = issues.incompatibleTypeMappings
@@ -892,6 +909,19 @@ export function ClickhouseMapper({
         message: `Target table has NOT NULL constraints. Either modify table to allow nulls, provide values for all required fields, or set database defaults.
         Required columns: ${issues.unmappedNonNullableColumns.join(', ')}`,
         okButtonText: 'OK',
+        cancelButtonText: 'Cancel',
+      }
+    } else if (issues.unmappedDefaultColumns.length > 0) {
+      // NEW: Warning for DEFAULT columns - allow to proceed
+      return {
+        type: 'warning',
+        canProceed: true,
+        title: 'Default Values Will Be Used',
+        message: `The following columns have DEFAULT expressions and are not mapped. They will be automatically populated by ClickHouse during insert:
+        ${issues.unmappedDefaultColumns.join(', ')}
+        
+        Do you want to continue?`,
+        okButtonText: 'Continue',
         cancelButtonText: 'Cancel',
       }
     } else if (mappedFieldsCount < totalColumnsCount && issues.unmappedNullableColumns.length > 0) {
@@ -1241,6 +1271,7 @@ export function ClickhouseMapper({
               isJoinMapping={mode !== 'single'}
               readOnly={readOnly}
               unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
+              unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
               onRefreshTableSchema={handleRefreshTableSchema}
               selectedDatabase={selectedDatabase}
               selectedTable={selectedTable}

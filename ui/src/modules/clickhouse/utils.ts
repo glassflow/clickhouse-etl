@@ -1,9 +1,32 @@
 import { v4 as uuidv4 } from 'uuid'
-import { KafkaConnectionParams } from './types'
+import { KafkaConnectionParams, TableColumn } from './types'
 import { extractEventFields, getRuntimeEnv } from '@/src/utils/common.client'
 
 const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
+}
+
+/**
+ * Check if a column is ALIAS or MATERIALIZED (should be hidden from UI)
+ */
+export const shouldExcludeColumn = (column: TableColumn): boolean => {
+  const defaultType = column.default_type || column.default_kind || ''
+  return defaultType === 'ALIAS' || defaultType === 'MATERIALIZED'
+}
+
+/**
+ * Check if a column has a DEFAULT expression
+ */
+export const hasDefaultExpression = (column: TableColumn): boolean => {
+  const defaultType = column.default_type || column.default_kind || ''
+  return !!(column.default_expression || defaultType === 'DEFAULT')
+}
+
+/**
+ * Filter out ALIAS and MATERIALIZED columns from schema
+ */
+export const filterUserMappableColumns = (columns: TableColumn[]): TableColumn[] => {
+  return columns.filter((col) => !shouldExcludeColumn(col))
 }
 
 // Generate API config without updating the store
