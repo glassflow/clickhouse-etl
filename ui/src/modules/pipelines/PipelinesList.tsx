@@ -13,12 +13,14 @@ import { Pipeline, ListPipelineConfig, PipelineError } from '@/src/types/pipelin
 import { PipelinesTable, TableColumn } from '@/src/modules/pipelines/PipelinesTable'
 import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
 import { TableContextMenu } from './TableContextMenu'
-import { CreateIcon } from '@/src/components/icons'
+import { CreateIcon, FilterIcon } from '@/src/components/icons'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import PausePipelineModal from './components/PausePipelineModal'
 import StopPipelineModal from './components/StopPipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
+import { PipelineFilterMenu, FilterState } from './PipelineFilterMenu'
+import { FilterChip } from './FilterChip'
 import { usePausePipelineModal, useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal } from './hooks'
 import { PipelineStatus } from '@/src/types/pipeline'
 import {
@@ -86,6 +88,14 @@ export function PipelinesList({
   const [isMobile, setIsMobile] = useState(false)
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
 
+  // Filter state
+  const [filters, setFilters] = useState<FilterState>({
+    status: [],
+    health: [],
+  })
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
+  const filterButtonRef = React.useRef<HTMLButtonElement>(null)
+
   // Track loading operations for individual pipelines
   const [pipelineOperations, setPipelineOperations] = useState<
     Record<
@@ -142,6 +152,29 @@ export function PipelinesList({
   const getEffectiveStatus = (pipeline: ListPipelineConfig): PipelineStatus => {
     return pipelineStatuses[pipeline.pipeline_id] || (pipeline.status as PipelineStatus) || 'active'
   }
+
+  // Filter pipelines based on active filters
+  const filteredPipelines = useMemo(() => {
+    return pipelines.filter((pipeline) => {
+      // Apply status filter
+      if (filters.status.length > 0) {
+        const effectiveStatus = getEffectiveStatus(pipeline)
+        if (!filters.status.includes(effectiveStatus)) {
+          return false
+        }
+      }
+
+      // Apply health filter
+      if (filters.health.length > 0) {
+        const healthStatus = pipeline.health_status || 'stable'
+        if (!filters.health.includes(healthStatus)) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [pipelines, filters, pipelineStatuses])
 
   // Count pipelines that block new pipeline creation (active or paused)
   const activePipelinesCount = useMemo(() => {
@@ -591,21 +624,82 @@ export function PipelinesList({
     }
   }
 
+  // Filter handlers
+  const handleClearStatusFilters = () => {
+    setFilters({ ...filters, status: [] })
+  }
+
+  const handleClearHealthFilters = () => {
+    setFilters({ ...filters, health: [] })
+  }
+
+  const getStatusLabels = () => {
+    return filters.status.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+  }
+
+  const getHealthLabels = () => {
+    return filters.health.map((h) => h.charAt(0).toUpperCase() + h.slice(1))
+  }
+
   return (
     <div className="flex flex-col w-full gap-6">
-      {/* Header with title and button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
-        <h1 className="text-xl sm:text-2xl font-semibold">Pipelines</h1>
+      {/* Header with title, filter button, chips, and new pipeline button */}
+      <div className="flex items-center justify-between w-full flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-semibold">Pipelines</h1>
+          <button
+            ref={filterButtonRef}
+            onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+            className="p-2 hover:opacity-70 rounded-lg transition-opacity duration-200 relative"
+            aria-label="Filter pipelines"
+          >
+            <FilterIcon size={20} className="text-gray-600" />
+            {(filters.status.length > 0 || filters.health.length > 0) && (
+              <span
+                className="absolute top-1 right-1 w-2 h-2 rounded-full"
+                style={{ background: 'linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%)' }}
+              />
+            )}
+          </button>
+
+          {/* Filter chips - inline with title and button */}
+          {filters.status.length > 0 && (
+            <FilterChip
+              label="Status"
+              values={getStatusLabels()}
+              onRemove={handleClearStatusFilters}
+              onClick={() => setIsFilterMenuOpen(true)}
+            />
+          )}
+          {filters.health.length > 0 && (
+            <FilterChip
+              label="Health"
+              values={getHealthLabels()}
+              onRemove={handleClearHealthFilters}
+              onClick={() => setIsFilterMenuOpen(true)}
+            />
+          )}
+        </div>
+
         <Button variant="default" className="btn-primary btn-text" onClick={handleCreate}>
           <CreateIcon className="action-icon" size={16} />
           New Pipeline
         </Button>
       </div>
 
+      {/* Filter Menu */}
+      <PipelineFilterMenu
+        isOpen={isFilterMenuOpen}
+        onClose={() => setIsFilterMenuOpen(false)}
+        filters={filters}
+        onFiltersChange={setFilters}
+        anchorEl={filterButtonRef.current}
+      />
+
       {/* Desktop/Tablet Table */}
       <div className="hidden md:block">
         <PipelinesTable
-          data={pipelines}
+          data={filteredPipelines}
           columns={columns}
           emptyMessage="No pipelines found. Create your first pipeline to get started."
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
@@ -615,7 +709,7 @@ export function PipelinesList({
       {/* Mobile List */}
       <div className="md:hidden">
         <MobilePipelinesList
-          pipelines={pipelines}
+          pipelines={filteredPipelines}
           healthMap={pipelineStatuses} // NEW: Use centralized statuses
           onPause={handlePause}
           onResume={handleResume}
