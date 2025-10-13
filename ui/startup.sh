@@ -80,4 +80,4 @@ export NODE_ENV=production
 export PORT=8080
 
 # Start the application using standard Next.js output
-exec pnpm start 
+exec npm start 

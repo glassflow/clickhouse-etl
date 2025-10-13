@@ -47,7 +47,6 @@ export function KafkaConnectionContainer({
     setKafkaSaslScram256,
     setKafkaSaslScram512,
     setKafkaDelegationTokens,
-    setKafkaTruststore,
     setKafkaConnection,
     setKafkaSkipAuth,
     isConnected,
@@ -62,7 +61,6 @@ export function KafkaConnectionContainer({
     saslScram512,
     delegationTokens,
     noAuth,
-    truststore,
   } = kafkaStore
   const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
@@ -87,14 +85,10 @@ export function KafkaConnectionContainer({
     securityProtocol: securityProtocol || KafkaFormDefaultValues.securityProtocol,
     bootstrapServers: bootstrapServers || KafkaFormDefaultValues.bootstrapServers,
     saslPlain: saslPlain || KafkaFormDefaultValues.saslPlain,
+    saslGssapi: saslGssapi || KafkaFormDefaultValues.saslGssapi,
     noAuth: noAuth || KafkaFormDefaultValues.noAuth,
-    trustStore: truststore || KafkaFormDefaultValues.trustStore,
-    // saslJaas: saslJaas || KafkaFormDefaultValues.saslJaas,
-    // saslGssapi: saslGssapi || KafkaFormDefaultValues.saslGssapi,
-    // saslOauthbearer: saslOauthbearer || KafkaFormDefaultValues.saslOauthbearer,
     saslScram256: saslScram256 || KafkaFormDefaultValues.saslScram256,
     saslScram512: saslScram512 || KafkaFormDefaultValues.saslScram512,
-    // delegationTokens: delegationTokens || KafkaFormDefaultValues.delegationToken,
   } as KafkaConnectionFormType
 
   // Monitor changes to bootstrapServers
@@ -160,9 +154,6 @@ export function KafkaConnectionContainer({
       })
     } else {
       setKafkaSkipAuth(false)
-      setKafkaNoAuth({
-        certificate: '',
-      })
     }
 
     // Set the appropriate auth form based on auth method
@@ -221,16 +212,6 @@ export function KafkaConnectionContainer({
       coreStore.markAsDirty()
       console.log('[KafkaConnection] Configuration marked as dirty - changes will be saved on Resume')
     }
-
-    // Handle truststore for SSL connections
-    // if (securityProtocol === 'SSL' || securityProtocol === 'SASL_SSL') {
-    //   if (values.truststore) {
-    //     setKafkaTruststore({
-    //       // @ts-expect-error - FIXME: fix this later
-    //       ...values.truststore,
-    //     })
-    //   }
-    // }
 
     // Proceed to next step or close standalone component
     if (!standalone && onCompleteStep) {

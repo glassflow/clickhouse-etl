@@ -1,15 +1,16 @@
-import { KafkaClient, KafkaConfig } from '@/src/lib/kafka-client'
+import { KafkaConfig } from '@/src/lib/kafka-client-interface'
+import { createKafkaClient } from '@/src/lib/kafka-client-factory'
 
 const API_TIMEOUT = 30000 // 30 seconds
 
 export class KafkaService {
   async testConnection(config: KafkaConfig): Promise<boolean> {
-    const kafkaClient = new KafkaClient(config)
+    const kafkaClient = await createKafkaClient(config)
     return kafkaClient.testConnection()
   }
 
   async getTopics(config: KafkaConfig): Promise<string[]> {
-    const kafkaClient = new KafkaClient(config)
+    const kafkaClient = await createKafkaClient(config)
 
     // First test the connection
     const isConnected = await kafkaClient.testConnection()
@@ -23,7 +24,7 @@ export class KafkaService {
   }
 
   async getTopicDetails(config: KafkaConfig): Promise<Array<{ name: string; partitionCount: number }>> {
-    const kafkaClient = new KafkaClient(config)
+    const kafkaClient = await createKafkaClient(config)
 
     // First test the connection
     const isConnected = await kafkaClient.testConnection()
@@ -32,6 +33,9 @@ export class KafkaService {
     }
 
     // Fetch topic details with partition information
+    if (!kafkaClient.getTopicDetails) {
+      throw new Error('getTopicDetails is not supported by this Kafka client')
+    }
     const topicDetails = await kafkaClient.getTopicDetails()
     return topicDetails
   }
@@ -63,7 +67,7 @@ export class KafkaService {
       }
     }
 
-    const kafkaClient = new KafkaClient(kafkaConfig)
+    const kafkaClient = await createKafkaClient(kafkaConfig)
     const fetchTimeout = API_TIMEOUT
     let event
     try {
@@ -78,6 +82,10 @@ export class KafkaService {
       else if (position === 'earliest') options.position = 'earliest'
       else if (direction === 'previous') options.direction = 'previous'
       if (currentPosition !== undefined) options.currentPosition = currentPosition
+
+      if (!kafkaClient.fetchSampleEvent) {
+        throw new Error('fetchSampleEvent is not supported by this Kafka client')
+      }
 
       event = await Promise.race([
         kafkaClient.fetchSampleEvent(topic, format, getNext, currentOffset, options),

@@ -1,45 +1,106 @@
 # Dependencies
 node_modules
-.pnpm-store
-
-# Next.js
-out
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Testing
 coverage
 .nyc_output
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+__mocks__
+
+# Next.js
+.next/
+out/
+
+# Production
+build
+dist
+
+# Misc
+.DS_Store
+*.pem
+*.log
 
 # Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
 # Local env files
 .env*.local
-.env
+.env.development
+.env.test
 
 # Vercel
 .vercel
 
 # TypeScript
 *.tsbuildinfo
-next-env.d.ts
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Documentation (don't copy into build context)
+*.md
+!README.md
+docs/
+KERBEROS_*.md
+DOCKER_*.md
+IMPLEMENTATION_*.md
+QUICK_START.md
+CHANGES_SUMMARY.md
+CERTIFICATE_*.md
+TRUSTSTORE_*.md
 
 # Git
 .git
 .gitignore
+.gitattributes
 
-# IDE
-.idea
-.vscode
-*.swp
-*.swo
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+
+# Certificates and keys (should be mounted at runtime)
+*.key
+*.cert
+*.crt
+*.pem
+*.keytab
+*.jks
+*.p12
+*.pfx
+
+# Temporary files
+tmp/
+temp/
+*.tmp
 
 # OS
-.DS_Store
 Thumbs.db
 
-# Build
-dist
-build
+# Scripts (don't need in image)
+*.sh
+!startup.sh
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Lock files (copied separately)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

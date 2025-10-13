@@ -136,7 +136,7 @@ export const mockPipelines: BackendPipeline[] = [
   {
     pipeline_id: 'pipeline-002',
     name: 'Deduplication & Join Pipeline',
-    state: 'paused',
+    state: 'active',
     created_at: '2024-01-12T16:45:00Z',
     source: {
       type: 'kafka',

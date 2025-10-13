@@ -55,13 +55,6 @@ const mockKafkaConnection = {
     clientKey: '',
     password: '',
   },
-  truststore: {
-    location: '',
-    password: '',
-    type: '',
-    algorithm: '',
-    certificates: '',
-  },
   // Mock actions
   setKafkaAuthMethod: () => {},
   setKafkaSecurityProtocol: () => {},
@@ -77,7 +70,6 @@ const mockKafkaConnection = {
   setKafkaDelegationTokens: () => {},
   setKafkaLdap: () => {},
   setKafkaMtls: () => {},
-  setKafkaTruststore: () => {},
   setKafkaConnection: () => {},
   setKafkaSkipAuth: () => {},
   setIsConnected: () => {},
