@@ -17,25 +17,30 @@ type SinkRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	inputNatsStream string
-	sinkCfg         models.SinkComponentConfig
-	schemaMapper    schema.Mapper
-	meter           *observability.Meter
+	pipelineCfg  models.PipelineConfig
+	schemaMapper schema.Mapper
+	meter        *observability.Meter
+	dlqPublisher stream.Publisher
 
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewSinkRunner(log *slog.Logger, nc *client.NATSClient, inputNatsStream string, sinkCfg models.SinkComponentConfig, schemaMapper schema.Mapper, meter *observability.Meter) *SinkRunner {
+func NewSinkRunner(
+	log *slog.Logger,
+	nc *client.NATSClient,
+	pipelineCfg models.PipelineConfig,
+	schemaMapper schema.Mapper,
+	meter *observability.Meter,
+) *SinkRunner {
 	return &SinkRunner{
 		nc:  nc,
 		log: log,
 
-		inputNatsStream: inputNatsStream,
-		sinkCfg:         sinkCfg,
-		schemaMapper:    schemaMapper,
-		meter:           meter,
+		pipelineCfg:  pipelineCfg,
+		schemaMapper: schemaMapper,
+		meter:        meter,
 
 		component: nil,
 	}
@@ -47,22 +52,30 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
-		NatsStream:   s.inputNatsStream,
-		NatsConsumer: s.sinkCfg.NATSConsumerName,
-		NatsSubject:  models.GetWildcardNATSSubjectName(s.inputNatsStream),
+		NatsStream:   s.pipelineCfg.Sink.StreamID,
+		NatsConsumer: s.pipelineCfg.Sink.NATSConsumerName,
+		NatsSubject:  models.GetWildcardNATSSubjectName(s.pipelineCfg.Sink.StreamID),
 	})
 	if err != nil {
 		s.log.ErrorContext(ctx, "failed to create clickhouse consumer", "error", err)
 		return fmt.Errorf("create clickhouse consumer: %w", err)
 	}
 
+	dlqStreamPublisher := stream.NewNATSPublisher(
+		s.nc.JetStream(),
+		stream.PublisherConfig{
+			Subject: models.GetDLQStreamSubjectName(s.pipelineCfg.ID),
+		},
+	)
+
 	sinkComponent, err := component.NewSinkComponent(
-		s.sinkCfg,
+		s.pipelineCfg.Sink,
 		consumer,
 		s.schemaMapper,
 		s.doneCh,
 		s.log,
 		s.meter,
+		dlqStreamPublisher,
 	)
 	if err != nil {
 		s.log.ErrorContext(ctx, "failed to create ClickHouse sink: ", "error", err)

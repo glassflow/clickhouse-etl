@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.33.1
 	github.com/IBM/sarama v1.45.2
+	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/aws/aws-msk-iam-sasl-signer-go v1.0.4
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/cucumber/godog v0.15.0
@@ -14,7 +15,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lmittmann/tint v1.0.7
-	github.com/nats-io/nats.go v1.43.0
+	github.com/nats-io/nats.go v1.47.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/testcontainers/testcontainers-go/modules/clickhouse v0.35.0

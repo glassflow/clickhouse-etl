@@ -34,18 +34,29 @@ func NewSinkComponent(
 	doneCh chan struct{},
 	log *slog.Logger,
 	meter *observability.Meter,
+	dlqPublisher stream.Publisher,
 ) (Component, error) {
 	if sinkConfig.Type != internal.ClickHouseSinkType {
 		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
 	}
 
-	sink, err := sink.NewClickHouseSink(sinkConfig, streamCon, schemaMapper, log, meter)
+	chSink, err := sink.NewClickHouseSink(
+		sinkConfig,
+		streamCon,
+		schemaMapper,
+		log,
+		meter,
+		dlqPublisher,
+		models.ClickhouseQueryConfig{
+			WaitForAsyncInsert: true,
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sink: %w", err)
 	}
 
 	return &SinkComponent{
-		sink:   sink,
+		sink:   chSink,
 		log:    log,
 		wg:     sync.WaitGroup{},
 		doneCh: doneCh,
