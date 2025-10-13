@@ -174,10 +174,14 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const schemaColumns: Array<{ name: string; type: string; isNullable?: boolean; column_type?: string }> =
     schemaData.columns || []
 
+  // Filter out MATERIALIZED and ALIAS columns - import the utility at the top
+  const { filterUserMappableColumns } = await import('@/src/modules/clickhouse/utils')
+  const mappableColumns = filterUserMappableColumns(schemaColumns as any)
+
   // 5. Transform backend mapping (sink.table_mapping) into UI mapping shape aligned with schema
   const backendMapping = Array.isArray(sink.table_mapping) ? sink.table_mapping : []
 
-  const uiMapping = schemaColumns.map((col) => {
+  const uiMapping = mappableColumns.map((col) => {
     const found = backendMapping.find((m: any) => (m.column_name || m.name) === col.name)
     const columnType = col.type || (col as any).column_type || ''
 
@@ -196,13 +200,16 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     }
   })
 
-  // 6. Update the destination in store with schema and transformed mapping
+  // 6. Update the destination in store with schema and transformed mapping (only mappable columns)
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination({
     ...destination,
-    destinationColumns: schemaColumns.map((c) => ({
+    destinationColumns: mappableColumns.map((c) => ({
       name: c.name,
       type: c.type || (c as any).column_type || '',
       isNullable: c.isNullable === true || (c.type || (c as any).column_type || '').includes('Nullable'),
+      default_type: (c as any).default_type || '',
+      default_expression: (c as any).default_expression || '',
+      default_kind: (c as any).default_kind || '',
     })),
     mapping: uiMapping,
   })
