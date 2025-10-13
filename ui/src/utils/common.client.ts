@@ -221,3 +221,72 @@ export const formatRelativeTime = (timestamp: string | null, currentTime?: Date)
 
   return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
 }
+
+// Helper function to format creation date with intelligent display
+export const formatCreatedAt = (timestamp: string | null): string => {
+  if (!timestamp || timestamp === '' || timestamp === '0') return '-'
+
+  const now = new Date()
+  const createdTime = new Date(timestamp)
+
+  if (isNaN(createdTime.getTime()) || createdTime.getFullYear() < 2000) {
+    return '-'
+  }
+
+  const diffMs = now.getTime() - createdTime.getTime()
+  if (diffMs < 0) return '-'
+
+  const diffSeconds = Math.floor(diffMs / 1000)
+  const diffMinutes = Math.floor(diffSeconds / 60)
+  const diffHours = Math.floor(diffMinutes / 60)
+
+  // Less than 1 hour: show relative time
+  if (diffSeconds < 5) return 'Just now'
+  if (diffSeconds < 60) return `${diffSeconds} sec. ago`
+  if (diffMinutes < 60) return `${diffMinutes} min. ago`
+
+  // Format time as HH:MM AM/PM
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+  }
+
+  // Check if it's today
+  const isToday =
+    now.getDate() === createdTime.getDate() &&
+    now.getMonth() === createdTime.getMonth() &&
+    now.getFullYear() === createdTime.getFullYear()
+
+  if (isToday) {
+    return `Today, ${formatTime(createdTime)}`
+  }
+
+  // Check if it's yesterday
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday =
+    yesterday.getDate() === createdTime.getDate() &&
+    yesterday.getMonth() === createdTime.getMonth() &&
+    yesterday.getFullYear() === createdTime.getFullYear()
+
+  if (isYesterday) {
+    return `Yesterday, ${formatTime(createdTime)}`
+  }
+
+  // More than 1 day ago: show date and time
+  const month = createdTime.toLocaleString('en-US', { month: 'short' })
+  const day = createdTime.getDate()
+  const year = createdTime.getFullYear()
+  const currentYear = now.getFullYear()
+  const time = formatTime(createdTime)
+
+  // Include year if different from current year
+  if (year !== currentYear) {
+    return `${month} ${day}, ${year}, ${time}`
+  }
+
+  return `${month} ${day}, ${time}`
+}
