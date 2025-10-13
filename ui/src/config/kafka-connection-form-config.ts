@@ -60,20 +60,8 @@ export const KafkaFormConfig = {
         required: 'Password is required',
         type: 'password',
       },
-      certificate: {
-        name: 'saslPlain.certificate',
-        label: 'Certificate',
-        placeholder: 'Enter certificate',
-        required: 'Certificate is required',
-        type: 'textarea',
-      },
-      // consumerGroup: {
-      //   name: 'saslPlain.consumerGroup',
-      //   label: 'Consumer Group',
-      //   placeholder: 'Enter consumer group',
-      //   required: 'Consumer Group is required',
-      //   type: 'text',
-      // },
+      // Truststore fields are rendered conditionally based on securityProtocol
+      // See form-variants.tsx for conditional rendering logic
     },
   },
   [AUTH_OPTIONS['SASL/JAAS'].name]: {
@@ -187,20 +175,7 @@ export const KafkaFormConfig = {
         required: 'Password is required',
         type: 'password',
       },
-      // consumerGroup: {
-      //   name: 'saslScram256.consumerGroup',
-      //   label: 'Consumer Group',
-      //   placeholder: 'Enter consumer group',
-      //   required: 'Consumer Group is required',
-      //   type: 'text',
-      // },
-      certificate: {
-        name: 'saslScram256.certificate',
-        label: 'Certificate',
-        placeholder: 'Enter certificate',
-        required: 'Certificate is required',
-        type: 'textarea',
-      },
+      // Truststore fields are rendered conditionally based on securityProtocol
     },
   },
   [AUTH_OPTIONS['SASL/SCRAM-512'].name]: {
@@ -221,20 +196,7 @@ export const KafkaFormConfig = {
         required: 'Password is required',
         type: 'password',
       },
-      consumerGroup: {
-        name: 'saslScram512.consumerGroup',
-        label: 'Consumer Group',
-        placeholder: 'Enter consumer group',
-        required: 'Consumer Group is required',
-        type: 'text',
-      },
-      certificate: {
-        name: 'saslScram512.certificate',
-        label: 'Certificate',
-        placeholder: 'Enter certificate',
-        required: 'Certificate is required',
-        type: 'textarea',
-      },
+      // Truststore fields are rendered conditionally based on securityProtocol
     },
   },
   [AUTH_OPTIONS['Delegation tokens'].name]: {
@@ -377,50 +339,45 @@ export const KafkaFormConfig = {
     securityProtocol: SECURITY_PROTOCOL_OPTIONS.SASL_PLAINTEXT, // Default, but supports SSL too
     authMethod: AUTH_OPTIONS['NO_AUTH'],
     fields: {
-      certificate: {
-        name: 'noAuth.certificate',
-        label: 'Certificate (for SSL)',
-        placeholder: 'Enter certificate (required for SSL protocol)',
-        required: false, // Not required for PLAINTEXT
-        type: 'textarea',
-      },
+      // Truststore fields are rendered conditionally based on securityProtocol
+      // See form-variants.tsx for conditional rendering logic
     },
   },
   truststore: {
     fields: {
       location: {
-        name: 'trustStore.location',
-        label: 'Truststore Location',
-        placeholder: 'e.g., ./certs/kafka_server.truststore.jks',
-        required: 'Truststore location is required',
-        type: 'text',
+        name: 'truststore.location',
+        label: 'Certificate File',
+        placeholder: 'Upload or paste certificate content',
+        required: false, // Optional - can use file upload or paste
+        type: 'file',
       },
       password: {
-        name: 'trustStore.password',
-        label: 'Truststore Password',
-        placeholder: 'Enter truststore password',
-        required: 'Truststore password is required',
+        name: 'truststore.password',
+        label: 'Truststore Password (optional)',
+        placeholder: 'Enter password for encrypted truststore',
+        required: false,
         type: 'password',
       },
       type: {
-        name: 'trustStore.type',
-        label: 'Truststore Type',
-        placeholder: 'JKS',
-        required: 'Truststore type is required',
+        name: 'truststore.type',
+        label: 'Truststore Type (optional)',
+        placeholder: 'JKS, PKCS12, PEM, etc.',
+        required: false,
         type: 'text',
       },
       algorithm: {
-        name: 'trustStore.algorithm',
-        label: 'SSL Endpoint Identification Algorithm',
+        name: 'truststore.algorithm',
+        label: 'SSL Algorithm (optional)',
         placeholder: 'Leave empty for self-signed certificates',
-        required: false, // Make this optional for self-signed certs
+        required: false,
         type: 'text',
       },
       certificates: {
-        name: 'trustStore.certificates',
-        label: 'CA Certificates (PEM format)',
-        placeholder: 'Paste CA certificate content here (optional if using truststore file)',
-        required: false, // Make this optional when using truststore file
+        name: 'truststore.certificates',
+        label: 'CA Certificate (PEM format)',
+        placeholder: 'Paste CA certificate content here or upload a file',
+        required: false,
         type: 'textarea',
       },
     },
@@ -436,13 +393,25 @@ export const KafkaFormDefaultValues = {
       : 'localhost:9092,localhost:9093,localhost:9094',
   isConnected: false,
   noAuth: {
-    certificate: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
   },
   saslPlain: {
     username: 'admin',
     password: 'admin-secret',
-    certificate: '', // TODO: check if this is correct, added for SSL/SASL_SSL but not sure if it's correct for SASL_PLAINTEXT
-    // consumerGroup: 'admin-group',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
+    consumerGroup: '',
   },
   saslJaas: {
     jaasConfig: '',
@@ -456,6 +425,13 @@ export const KafkaFormDefaultValues = {
     krb5Config: '',
     useTicketCache: false,
     ticketCachePath: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
   },
   saslOauthbearer: {
     oauthBearerToken: '',
@@ -463,11 +439,25 @@ export const KafkaFormDefaultValues = {
   saslScram256: {
     username: '',
     password: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
     consumerGroup: '',
   },
   saslScram512: {
     username: '',
     password: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
     consumerGroup: '',
   },
   delegationToken: {
@@ -491,13 +481,6 @@ export const KafkaFormDefaultValues = {
     clientCert: '',
     clientKey: '',
     password: '',
-  },
-  trustStore: {
-    location: '',
-    password: '',
-    type: '',
-    algorithm: '',
-    certificates: '',
   },
 }
 

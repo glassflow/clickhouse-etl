@@ -19,6 +19,7 @@ import {
   MtlsForm,
   DelegationTokensForm,
   LdapForm,
+  TruststoreForm,
 } from './form-variants'
 
 // Base form - mandatory fields - always present in the form
@@ -153,6 +154,10 @@ export const KafkaConnectionFormRenderer = ({
     }
   }
 
+  const renderTruststoreForm = ({ readOnly }: { readOnly?: boolean }) => {
+    return <TruststoreForm errors={errors} readOnly={readOnly} />
+  }
+
   return (
     <div
       className={`space-y-4 md:space-y-6 transition-all duration-700 ease-out ${
@@ -161,6 +166,7 @@ export const KafkaConnectionFormRenderer = ({
     >
       <div>{renderBaseForm({ authMethod, readOnly })}</div>
       <div>{renderAuthForm({ readOnly: readOnly })}</div>
+      {/* <div>{renderTruststoreForm({ readOnly: readOnly })}</div> */}
     </div>
   )
 }

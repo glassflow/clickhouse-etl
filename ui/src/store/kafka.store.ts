@@ -44,6 +44,9 @@ export interface KafkaStoreProps {
   // no auth connection type
   noAuth: NoAuthFormType
 
+  // Note: truststore is now embedded in individual auth methods that support it
+  // (saslPlain, saslGssapi, noAuth, saslScram256, saslScram512)
+
   // aws iam connection type
   awsIam: AwsIamFormType
 
@@ -55,9 +58,6 @@ export interface KafkaStoreProps {
 
   // mtls connection type
   mtls: MtlsFormType
-
-  // ssl - truststore connection type
-  truststore: TruststoreFormType
 
   // validation state
   validation: ValidationState
@@ -91,8 +91,7 @@ export interface KafkaStore extends KafkaStoreProps, ValidationMethods {
   // mtls actions
   setKafkaMtls: (mtls: MtlsFormType) => void
 
-  // ssl - truststore actions
-  setKafkaTruststore: (truststore: TruststoreFormType) => void
+  // Note: No separate truststore setter - it's embedded in individual auth methods
 
   // kafka connection actions
   setKafkaConnection: (connection: KafkaConnectionFormType) => void
@@ -118,12 +117,24 @@ export const initialKafkaStore: KafkaStoreProps = {
   securityProtocol: '',
   bootstrapServers: '',
   noAuth: {
-    certificate: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
   },
   saslPlain: {
     username: '',
     password: '',
-    certificate: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
     consumerGroup: '',
   },
   isConnected: false,
@@ -140,6 +151,13 @@ export const initialKafkaStore: KafkaStoreProps = {
     krb5Config: '',
     useTicketCache: false,
     ticketCachePath: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
   },
   saslOauthbearer: {
     oauthBearerToken: '',
@@ -147,11 +165,25 @@ export const initialKafkaStore: KafkaStoreProps = {
   saslScram256: {
     username: '',
     password: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
     consumerGroup: '',
   },
   saslScram512: {
     username: '',
     password: '',
+    truststore: {
+      location: '',
+      password: '',
+      type: '',
+      algorithm: '',
+      certificates: '',
+    },
     consumerGroup: '',
   },
   awsIam: {
@@ -176,13 +208,6 @@ export const initialKafkaStore: KafkaStoreProps = {
     clientKey: '',
     password: '',
   },
-  truststore: {
-    location: '',
-    password: '',
-    type: '',
-    algorithm: '',
-    certificates: '',
-  },
 }
 
 export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
@@ -199,14 +224,26 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
 
     // no auth connection type
     noAuth: {
-      certificate: '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: '',
+      },
     },
 
     // sasl connection types
     saslPlain: {
       username: '',
       password: '',
-      certificate: '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: '',
+      },
       consumerGroup: '',
     },
     saslJaas: {
@@ -215,6 +252,19 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     saslGssapi: {
       kerberosPrincipal: '',
       kerberosKeytab: '',
+      serviceName: '',
+      kerberosRealm: '',
+      kdc: '',
+      krb5Config: '',
+      useTicketCache: false,
+      ticketCachePath: '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: '',
+      },
     },
     saslOauthbearer: {
       oauthBearerToken: '',
@@ -222,11 +272,25 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     saslScram256: {
       username: '',
       password: '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: '',
+      },
       consumerGroup: '',
     },
     saslScram512: {
       username: '',
       password: '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: '',
+      },
       consumerGroup: '',
     },
 
@@ -258,15 +322,6 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
       clientCert: '',
       clientKey: '',
       password: '',
-    },
-
-    // ssl - truststore connection type
-    truststore: {
-      location: '',
-      password: '',
-      type: '',
-      algorithm: '',
-      certificates: '',
     },
 
     // base actions
@@ -307,10 +362,6 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     // mtls actions
     setKafkaMtls: (mtls: MtlsFormType) => set((state) => ({ kafkaStore: { ...state.kafkaStore, mtls } })),
 
-    // ssl - truststore actions
-    setKafkaTruststore: (truststore: TruststoreFormType) =>
-      set((state) => ({ kafkaStore: { ...state.kafkaStore, truststore } })),
-
     // kafka connection actions
     setKafkaConnection: (connection: KafkaConnectionFormType) =>
       set((state) => ({
@@ -338,7 +389,6 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         delegationTokens,
         ldap,
         mtls,
-        truststore,
       } = get().kafkaStore
 
       const dirtyFields = Object.entries({

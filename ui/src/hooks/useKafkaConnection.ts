@@ -23,15 +23,20 @@ export const useKafkaConnection = () => {
       // Add authentication details based on the auth method
       switch (values.authMethod) {
         case 'NO_AUTH':
-          // @ts-expect-error - FIXME: introduce new type for no auth
-          requestBody.certificate = values.noAuth.certificate
+          // Certificate is now in truststore.certificates
+          if (values.noAuth.truststore?.certificates) {
+            requestBody.certificate = values.noAuth.truststore.certificates
+          }
           break
 
         case 'SASL/PLAIN':
           requestBody.username = values.saslPlain.username
           requestBody.password = values.saslPlain.password
           requestBody.consumerGroup = values.saslPlain.consumerGroup
-          requestBody.certificate = values.saslPlain.certificate
+          // Certificate is now in truststore.certificates
+          if (values.saslPlain.truststore?.certificates) {
+            requestBody.certificate = values.saslPlain.truststore.certificates
+          }
           break
 
         case 'SASL/JAAS':
@@ -47,6 +52,10 @@ export const useKafkaConnection = () => {
           requestBody.krb5Config = values.saslGssapi.krb5Config
           requestBody.useTicketCache = values.saslGssapi.useTicketCache
           requestBody.ticketCachePath = values.saslGssapi.ticketCachePath
+          // Certificate is now in truststore.certificates
+          if (values.saslGssapi.truststore?.certificates) {
+            requestBody.certificate = values.saslGssapi.truststore.certificates
+          }
           break
 
         case 'SASL/OAUTHBEARER':
@@ -59,7 +68,10 @@ export const useKafkaConnection = () => {
           requestBody.username = scramValues.username
           requestBody.password = scramValues.password
           requestBody.consumerGroup = scramValues.consumerGroup
-          requestBody.certificate = scramValues.certificate
+          // Certificate is now in truststore.certificates
+          if (scramValues.truststore?.certificates) {
+            requestBody.certificate = scramValues.truststore.certificates
+          }
           break
 
         case 'AWS_MSK_IAM':
@@ -89,19 +101,8 @@ export const useKafkaConnection = () => {
           break
       }
 
-      // Add SSL-specific properties if using SSL
-      // TODO: check is this valid for SASL_SSL
-      if (values.securityProtocol === 'SASL_SSL' || values.securityProtocol === 'SSL') {
-        if (values.trustStore) {
-          requestBody.truststore = {
-            location: values.trustStore.location,
-            password: values.trustStore.password,
-            type: values.trustStore.type,
-            algorithm: values.trustStore.algorithm,
-            certificates: values.trustStore.certificates,
-          }
-        }
-      }
+      // Note: Truststore is now embedded within individual auth methods
+      // No need to add it separately here
 
       const response = await fetch('/ui-api/kafka/', {
         method: 'POST',

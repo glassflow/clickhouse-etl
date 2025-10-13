@@ -18,6 +18,15 @@ const config: NextConfig = {
       permanent: true,
     },
   ],
+  // Externalize native addons - they cannot be bundled by webpack
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Mark node-rdkafka as external to prevent bundling
+      config.externals = config.externals || []
+      config.externals.push('node-rdkafka')
+    }
+    return config
+  },
 }
 
 export default config
