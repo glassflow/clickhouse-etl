@@ -34,7 +34,7 @@ import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
 import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
-import { formatNumber } from '@/src/utils/common.client'
+import { formatNumber, formatCreatedAt } from '@/src/utils/common.client'
 import Loader from '@/src/images/loader-small.svg'
 
 type PipelinesListProps = {
@@ -312,6 +312,7 @@ export function PipelinesList({
       key: 'name',
       header: 'Name',
       width: '2fr',
+      sortable: true,
       render: (pipeline) => {
         const isLoading = isPipelineLoading(pipeline.pipeline_id)
         const operation = getPipelineOperation(pipeline.pipeline_id)
@@ -339,6 +340,8 @@ export function PipelinesList({
       key: 'operations',
       header: 'Transformation',
       width: '2fr',
+      sortable: true,
+      sortKey: 'transformation_type',
       render: (pipeline) => pipeline.transformation_type || 'None',
     },
     {
@@ -346,6 +349,8 @@ export function PipelinesList({
       header: 'Health',
       width: '1fr',
       align: 'left',
+      sortable: true,
+      sortKey: 'health_status',
       render: (pipeline) => {
         const healthStatus = pipeline.health_status || 'stable'
         const dlqStats = pipeline.dlq_stats
@@ -376,6 +381,8 @@ export function PipelinesList({
       header: 'Events in DLQ',
       width: '1fr',
       align: 'left',
+      sortable: true,
+      sortKey: 'dlq_stats.unconsumed_messages',
       render: (pipeline) => {
         const dlqStats = pipeline.dlq_stats
         const unconsumedEvents = dlqStats?.unconsumed_messages || 0
@@ -400,6 +407,7 @@ export function PipelinesList({
       header: 'Status',
       width: '1fr',
       align: 'center',
+      sortable: true,
       render: (pipeline) => {
         const effectiveStatus = getEffectiveStatus(pipeline)
         return (
@@ -407,6 +415,20 @@ export function PipelinesList({
             <Badge className="rounded-xl my-2 mx-4" variant={getStatusVariant(effectiveStatus)}>
               {getBadgeLabel(effectiveStatus)}
             </Badge>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'created_at',
+      header: 'Created',
+      width: '1.5fr',
+      align: 'left',
+      sortable: true,
+      render: (pipeline) => {
+        return (
+          <div className="flex flex-row items-center justify-start text-content">
+            {formatCreatedAt(pipeline.created_at)}
           </div>
         )
       },
