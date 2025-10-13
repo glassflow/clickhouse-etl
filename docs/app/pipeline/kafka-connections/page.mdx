@@ -1,0 +1,94 @@
+---
+title: 'Kafka Connections'
+description: 'Supported Kafka connection protocols, authentication, and TLS options'
+---
+import { Callout } from 'nextra/components'
+
+# Supported Kafka Connections
+
+GlassFlow supports connecting to Kafka clusters with multiple protocols and authentication methods. This page lists the supported options and how to configure them.
+
+<Callout type="info" emoji="ℹ️">
+Configuration examples below refer to the pipeline source connection parameters. You can configure these via the Web UI or API.
+</Callout>
+
+## Connection Protocols
+
+Set the [`protocol`](pipeline-configuration#kafka-connection-parameters) according to your broker configuration:
+
+- **PLAINTEXT**
+- **SASL_PLAINTEXT**
+- **SSL**
+- **SASL_SSL**
+
+## SASL Authentication
+
+Set one of the supported mechanisms when authentication is enabled ([`mechanism`](pipeline-configuration#kafka-connection-parameters)):
+
+- **PLAIN**
+- **SCRAM-SHA-256**
+- **SCRAM-SHA-512**
+
+`skip_auth` is an optional flag to disable authentication entirely.
+
+When `skip_auth` is `false`, the following fields are required:
+  - `mechanism` (one of the above)
+  - `username`
+  - `password`
+
+## TLS Configuration
+
+Enable TLS via protocol SSL/SASL_SSL and optionally supply root_ca to trust a custom CA.
+
+Client certificate authentication (mTLS) is not supported.
+
+## Example Configurations
+
+### PLAINTEXT (no auth)
+
+```json
+{
+  "brokers": ["kafka-1:9092"],
+  "protocol": "PLAINTEXT",
+  "skip_auth": true
+}
+```
+
+### SASL/PLAIN over TLS
+
+```json
+{
+  "brokers": ["kafka-1:9093"],
+  "protocol": "SASL_SSL",
+  "skip_auth": false,
+  "mechanism": "PLAIN",
+  "username": "user",
+  "password": "pass",
+  "root_ca": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"
+}
+```
+
+### SASL/SCRAM-SHA-512
+
+```json
+{
+  "brokers": ["kafka-1:9093"],
+  "protocol": "SASL_SSL",
+  "skip_auth": false,
+  "mechanism": "SCRAM-SHA-512",
+  "username": "scram-user",
+  "password": "scram-password"
+}
+```
+
+
+### SSL (no SASL)
+
+```json
+{
+  "brokers": ["kafka-1:9093"],
+  "protocol": "SSL",
+  "skip_auth": true,
+  "root_ca": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"
+}
+```
