@@ -35,11 +35,11 @@ The source configuration defines how to connect to and consume from Kafka topics
 |-------|------|----------|-------------|
 | `brokers` | array | Yes | List of Kafka broker addresses (e.g., `["localhost:9092"]`). |
 | `protocol` | string | Yes | Security protocol for Kafka connection (e.g., `SASL_SSL`). |
-| `mechanism` | string | Yes | Authentication mechanism (e.g., `SCRAM-SHA-256`). |
+| `mechanism` | string | No | Authentication mechanism (e.g., `SCRAM-SHA-256`). Mandatory when `skip_auth` is `false`. |
 | `username` | string | Yes | Username for Kafka authentication. |
 | `password` | string | Yes | Password for Kafka authentication. |
 | `root_ca` | string | No | Cert. file for Kafka authentication. |
-| `skip_auth` | boolean | No | Skip Kafka authentication. |
+| `skip_auth` | boolean | No | Skip Kafka authentication. Default is `false`. |
 
 Supported Protocol:
 - `PLAINTEXT` - Plaintext protocol.
