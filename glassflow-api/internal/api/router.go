@@ -38,6 +38,7 @@ func NewRouter(log *slog.Logger, pSvc service.PipelineManager, dlqSvc service.DL
 	r.HandleFunc("/api/v1/pipeline/{id}/resume", h.resumePipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/stop", h.stopPipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/terminate", h.terminatePipeline).Methods("POST")
+	r.HandleFunc("/api/v1/pipeline/{id}/edit", h.editPipeline).Methods("POST")
 
 	r.Use(Recovery(log), RequestLogging(log))
 
