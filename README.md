@@ -44,21 +44,21 @@ docker compose up -d
 ```
 This will start GlassFlow, Kafka and Clickhouse inside of docker. 
 
-3. Once the services are up, run a demo script which will create the topic in kafka, a table in clickhouse and setup a pipeline on glassflow. 
+3. Once the services are up, run the demo script which will create a topic in kafka, a table in clickhouse and setup a pipeline on glassflow. 
 Since the script is in python, you will need python installed with the needed dependencies. 
 
-```
-python -m venv venv
+```bash
+python3 -m venv venv
 pip install -r requirements.txt 
 ```
-```
+```bash
 python demo_deduplication.py --num-records 10000 --duplication-rate 0.1
 ```
 This will send 10000 records to the kafka topic (with 10% duplicates). 
 
-3. Access the web interface at `http://localhost:8080` to view the demo pipeline.
+4. Access the web interface at `http://localhost:8080` to view the demo pipeline.
 
-4. View the logs:
+5. View the logs:
 ```bash
 # Follow logs in real-time for all containers
 docker compose logs -f
@@ -69,7 +69,8 @@ docker compose logs api -f
 # logs for the UI
 docker compose logs ui -f
 ```
-Explore more demos and setting of pipeline via UI in our [docs](https://docs.glassflow.dev/local-testing)
+
+Explore more demos and building pipeline via UI in our [docs](https://docs.glassflow.dev/local-testing)
 
 ## 🧭 Installation Options
 
@@ -78,9 +79,9 @@ For local testing or a small POC, you can also use Docker and Docker Compose to 
 
 | Method                         | Use Case                                | Docs Link                                                                 |
 |-------------------------------|------------------------------------------|---------------------------------------------------------------------------|
-| ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/kubernetes-helm) |
-| 🐳 **Local with Docker Compose**    | Quick evaluation and local testing         | [Local Docker Guide](https://docs.glassflow.dev/installation/local-docker)     |
-| ☁️ **AWS EC2 with Docker Compose** | Lightweight cloud deployment for testing   | [AWS EC2 Guide](https://docs.glassflow.dev/installation/aws-ec2)               |
+| ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/kubernetes) |
+| 🐳 **Local with Docker Compose**    | Quick evaluation and local testing         | [Local Docker Guide](https://docs.glassflow.dev/installation/docker)     |
+| ☁️ **AWS EC2 with Docker Compose** | Lightweight cloud deployment for testing   | [AWS EC2 Guide](https://docs.glassflow.dev/installation/docker/aws-ec2)               |
 
 
 ## 🎥 Demo
@@ -120,6 +121,7 @@ Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's comi
 - Deduplication with configurable time windows
 - Temporal joins between multiple Kafka topics
 - Scalable and robust architecture built for Kubernetes
+- Prometheus metrics and OTEL logs
 - Web-based UI for pipeline management
 - Docker version for local testing and evaluation
 
