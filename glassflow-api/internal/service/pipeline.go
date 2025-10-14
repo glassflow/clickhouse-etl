@@ -18,6 +18,7 @@ type Orchestrator interface {
 	TerminatePipeline(ctx context.Context, pid string) error
 	DeletePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
+	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
 }
 
 type PipelineStore interface {
@@ -27,6 +28,7 @@ type PipelineStore interface {
 	GetPipelines(ctx context.Context) ([]models.PipelineConfig, error)
 	PatchPipelineName(ctx context.Context, pid string, name string) error
 	UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error
+	UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error
 }
 
 type PipelineManager interface { //nolint:interfacebloat //important interface
@@ -35,6 +37,7 @@ type PipelineManager interface { //nolint:interfacebloat //important interface
 	TerminatePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
 	StopPipeline(ctx context.Context, pid string) error
+	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
@@ -345,6 +348,42 @@ func (p *PipelineManagerImpl) StopPipeline(ctx context.Context, pid string) erro
 		return fmt.Errorf("failed to stop k8 pipeline: %w", err)
 	}
 
+	return nil
+}
+
+// EditPipeline implements PipelineManager.
+func (p *PipelineManagerImpl) EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
+	// Get current pipeline to check existence and status
+	currentPipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		p.log.ErrorContext(ctx, "failed to get pipeline for edit", "pipeline_id", pid, "error", err)
+		return fmt.Errorf("get pipeline failed for edit: %w", err)
+	}
+
+	// Validate pipeline is in Stopped status
+	if currentPipeline.Status.OverallStatus != internal.PipelineStatusStopped {
+		p.log.ErrorContext(ctx, "pipeline must be stopped before editing", "pipeline_id", pid, "current_status", currentPipeline.Status.OverallStatus)
+		return fmt.Errorf("pipeline must be stopped before editing, current status: %s", currentPipeline.Status.OverallStatus)
+	}
+
+	// Update pipeline in NATS KV
+	err = p.db.UpdatePipeline(ctx, pid, *newCfg)
+	if err != nil {
+		p.log.ErrorContext(ctx, "failed to update pipeline in database", "pipeline_id", pid, "error", err)
+		return fmt.Errorf("update pipeline in database: %w", err)
+	}
+
+	// Call orchestrator to handle the edit operation
+	err = p.orchestrator.EditPipeline(ctx, pid, newCfg)
+	if err != nil {
+		p.log.ErrorContext(ctx, "failed to edit pipeline in orchestrator", "pipeline_id", pid, "error", err)
+		return fmt.Errorf("edit pipeline: %w", err)
+	}
+
+	p.log.InfoContext(ctx, "pipeline edit initiated successfully", "pipeline_id", pid)
 	return nil
 }
 
