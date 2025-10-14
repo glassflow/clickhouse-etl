@@ -70,7 +70,7 @@ docker compose logs api -f
 docker compose logs ui -f
 ```
 
-Explore more demos and building pipeline via UI in our [docs](https://docs.glassflow.dev/local-testing)
+Explore more demos and building pipeline via UI in our [docs](https://docs.glassflow.dev/local-testing). To start creating your own pipelines, follow the [Usage Guide](https://docs.glassflow.dev/pipeline/usage)
 
 ## 🧭 Installation Options
 
