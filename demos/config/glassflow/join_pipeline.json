@@ -106,12 +106,13 @@
       "provider": "localhost",
       "host": "clickhouse",
       "port": "9000",
+      "http_port": "8123",
       "database": "default",
       "username": "default",
       "password": "c2VjcmV0",
       "secure": false,
       "max_batch_size": 1000,
-      "max_delay_time": "30s",
+      "max_delay_time": "10s",
       "table": "orders_with_user_data",
       "table_mapping": [
         {

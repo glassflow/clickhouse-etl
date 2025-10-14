@@ -36,13 +36,27 @@ This guide walks you through a **local installation using Docker Compose** — p
 git clone https://github.com/glassflow/clickhouse-etl.git
 cd clickhouse-etl
 ```
+2. Go to the demo folder and start the services
 
-2. Start the services:
 ```bash
-docker compose up
+cd demos
+docker compose up -d
 ```
+This will start GlassFlow, Kafka and Clickhouse inside of docker. 
 
-3. Access the web interface at `http://localhost:8080` to configure your pipeline.
+3. Once the services are up, run a demo script which will create the topic in kafka, a table in clickhouse and setup a pipeline on glassflow. 
+Since the script is in python, you will need python installed with the needed dependencies. 
+
+```
+python -m venv venv
+pip install -r requirements.txt 
+```
+```
+python demo_deduplication.py --num-records 10000 --duplication-rate 0.1
+```
+This will send 10000 records to the kafka topic (with 10% duplicates). 
+
+3. Access the web interface at `http://localhost:8080` to view the demo pipeline.
 
 4. View the logs:
 ```bash
@@ -55,6 +69,7 @@ docker compose logs api -f
 # logs for the UI
 docker compose logs ui -f
 ```
+Explore more demos and setting of pipeline via UI in our [docs](https://docs.glassflow.dev/local-testing)
 
 ## 🧭 Installation Options
 
