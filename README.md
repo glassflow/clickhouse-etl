@@ -87,7 +87,7 @@ For local testing or a small POC, you can also use Docker and Docker Compose to 
 ## 🎥 Demo
 
 ### Live Demo
-See a working demo of GlassFlow in action at [demo.glassflow.dev](https://demo.glassflow.dev).
+Log in and see a working demo of GlassFlow running on a GPC cluster at [demo.glassflow.dev](https://demo.glassflow.dev). You will see a Grafana dashboard and the setup that we used.
 
 ![GlassFlow Pipeline Data Flow](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassflow_demo.png)
 
