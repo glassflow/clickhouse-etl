@@ -443,3 +443,65 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 	k.log.InfoContext(ctx, "requested resume of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
 }
+
+// EditPipeline implements Orchestrator.
+func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, newCfg *models.PipelineConfig) error {
+	k.log.InfoContext(ctx, "editing k8s pipeline", "pipeline_id", pipelineID)
+
+	// Get the pipeline CRD
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		k.log.ErrorContext(ctx, "failed to get pipeline CRD for edit", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	// Create pipeline config for status validation
+	pipelineConfig := k.getPipelineConfigFromK8sResource(customResource)
+
+	// Validate pipeline is stopped
+	if pipelineConfig.Status.OverallStatus != internal.PipelineStatusStopped {
+		k.log.ErrorContext(ctx, "pipeline must be stopped before editing", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus)
+		return fmt.Errorf("pipeline must be stopped before editing, current status: %s", pipelineConfig.Status.OverallStatus)
+	}
+
+	// Marshal new config to JSON string
+	configJSON, err := json.Marshal(newCfg)
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to marshal new pipeline config", "pipeline_id", pipelineID, "error", err)
+		return fmt.Errorf("marshal new pipeline config: %w", err)
+	}
+
+	// Update the CRD spec with new config
+	spec := customResource.Object["spec"].(map[string]interface{})
+	spec["config"] = string(configJSON)
+	customResource.Object["spec"] = spec
+
+	// Add edit annotation
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations["pipeline.etl.glassflow.io/edit"] = "true"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the edit annotation and new config
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to update pipeline CRD with edit annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
+		return fmt.Errorf("update pipeline CRD with edit annotation: %w", err)
+	}
+
+	k.log.InfoContext(ctx, "requested edit of k8s pipeline", "pipeline_id", pipelineID)
+	return nil
+}
