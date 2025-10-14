@@ -18,10 +18,15 @@ type mockOrchestrator struct {
 	orchestratorType string
 	pauseError       error
 	resumeError      error
+	deleteError      error
 	pauseCalled      bool
 	resumeCalled     bool
 	pausePipelineID  string
 	resumePipelineID string
+}
+
+func (m *mockOrchestrator) DeletePipeline(ctx context.Context, pid string) error {
+	return m.deleteError
 }
 
 func (m *mockOrchestrator) GetType() string {
@@ -277,6 +282,7 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 		name          string
 		pipelineID    string
 		store         *mockPipelineStore
+		orchestrator  *mockOrchestrator
 		expectedError string
 		shouldDelete  bool
 	}{
@@ -293,6 +299,7 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 					},
 				},
 			},
+			orchestrator: &mockOrchestrator{orchestratorType: "local"},
 			shouldDelete: true,
 		},
 		{
@@ -302,7 +309,24 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 				pipelines:   map[string]models.PipelineConfig{},
 				deleteError: ErrPipelineNotExists,
 			},
-			expectedError: "delete pipeline: no pipeline with given id exists",
+			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
+			expectedError: "delete pipeline from database: no pipeline with given id exists",
+		},
+		{
+			name:       "orchestrator delete error",
+			pipelineID: "test-pipeline-2",
+			store: &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					"test-pipeline-2": {
+						ID: "test-pipeline-2",
+						Status: models.PipelineHealth{
+							OverallStatus: internal.PipelineStatusStopped,
+						},
+					},
+				},
+			},
+			orchestrator:  &mockOrchestrator{orchestratorType: "local", deleteError: errors.New("orchestrator deletion failed")},
+			expectedError: "delete pipeline from orchestrator: orchestrator deletion failed",
 		},
 		{
 			name:       "delete error from store",
@@ -318,7 +342,8 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 				},
 				deleteError: errors.New("store deletion failed"),
 			},
-			expectedError: "delete pipeline: store deletion failed",
+			orchestrator:  &mockOrchestrator{orchestratorType: "local"},
+			expectedError: "delete pipeline from database: store deletion failed",
 		},
 	}
 
@@ -330,8 +355,9 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 			}
 
 			manager := &PipelineManagerImpl{
-				db:  tt.store,
-				log: slog.Default(),
+				orchestrator: tt.orchestrator,
+				db:           tt.store,
+				log:          slog.Default(),
 			}
 
 			err := manager.DeletePipeline(ctx, tt.pipelineID)

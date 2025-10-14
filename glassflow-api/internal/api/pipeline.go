@@ -681,7 +681,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if pipeline is in a deletable state (stopped )
+	// Check if pipeline is in a deletable state (stopped)
 	currentStatus := string(pipeline.Status.OverallStatus)
 	if currentStatus != internal.PipelineStatusStopped {
 		h.log.ErrorContext(r.Context(), "pipeline cannot be deleted due to invalid status", "pipeline_id", id, "current_status", currentStatus)
@@ -691,18 +691,27 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete the pipeline from NATS storage
 	err = h.pipelineManager.DeletePipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
+			h.log.ErrorContext(r.Context(), "pipeline not found for deletion", "pipeline_id", id, "error", err)
 			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
+		case errors.Is(err, service.ErrNotImplemented):
+			h.log.ErrorContext(r.Context(), "delete pipeline feature not implemented", "pipeline_id", id, "error", err)
+			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
 		default:
+			// Check if it's a status validation error
+			if statusErr, ok := status.GetStatusValidationError(err); ok {
+				jsonStatusValidationError(w, statusErr)
+				return
+			}
 			h.log.ErrorContext(r.Context(), "failed to delete pipeline", "pipeline_id", id, "error", err)
 			serverError(w)
 		}
 		return
 	}
 
+	h.log.InfoContext(r.Context(), "pipeline deleted")
 	w.WriteHeader(http.StatusNoContent)
 }

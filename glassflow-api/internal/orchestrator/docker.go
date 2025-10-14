@@ -32,6 +32,20 @@ type LocalOrchestrator struct {
 	pipelineConfig *models.PipelineConfig
 }
 
+func (d *LocalOrchestrator) DeletePipeline(ctx context.Context, pid string) error {
+	d.log.InfoContext(ctx, "deleting docker pipeline", "pipeline_id", pid)
+
+	// Terminate the pipeline to clean up any remaining resources
+	err := d.TerminatePipeline(ctx, pid)
+	if err != nil {
+		d.log.ErrorContext(ctx, "failed to terminate pipeline during deletion", "pipeline_id", pid, "error", err)
+		return fmt.Errorf("terminate pipeline during deletion: %w", err)
+	}
+
+	d.log.InfoContext(ctx, "successfully deleted docker pipeline", "pipeline_id", pid)
+	return nil
+}
+
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
 	log *slog.Logger,

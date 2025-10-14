@@ -328,6 +328,70 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	return nil
 }
 
+func (k *K8sOrchestrator) DeletePipeline(ctx context.Context, pipelineID string) error {
+	k.log.InfoContext(ctx, "deleting k8s pipeline", "pipeline_id", pipelineID)
+
+	// add annotation to indicate deletion
+	customResource, err := k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Get(ctx, pipelineID, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return service.ErrPipelineNotFound
+		}
+		k.log.ErrorContext(ctx, "failed to get pipeline CRD for terminate", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
+		return fmt.Errorf("get pipeline CRD: %w", err)
+	}
+
+	annotations := customResource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// Clear any conflicting operation annotations to ensure deletion takes precedence
+	conflictingAnnotations := []string{
+		"pipeline.etl.glassflow.io/create",
+		"pipeline.etl.glassflow.io/pause",
+		"pipeline.etl.glassflow.io/resume",
+		"pipeline.etl.glassflow.io/terminate",
+		"pipeline.etl.glassflow.io/stop",
+	}
+
+	for _, annotation := range conflictingAnnotations {
+		if _, exists := annotations[annotation]; exists {
+			k.log.Info("clearing conflicting annotation for terminate",
+				slog.String("pipeline_id", pipelineID),
+				slog.String("annotation", annotation))
+			delete(annotations, annotation)
+		}
+	}
+
+	// Add deletion annotation
+	annotations["pipeline.etl.glassflow.io/delete"] = "true"
+	customResource.SetAnnotations(annotations)
+
+	// Update the resource with the annotation
+	_, err = k.client.Resource(schema.GroupVersionResource{
+		Group:    k.customResource.APIGroup,
+		Version:  k.customResource.Version,
+		Resource: k.customResource.Resource,
+	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to update pipeline CRD with termination annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
+		return fmt.Errorf("update pipeline CRD with termination annotation: %w", err)
+	}
+
+	k.log.InfoContext(ctx, "requested deletion of k8s pipeline",
+		"pipeline_id", pipelineID,
+		"deletion_timestamp", customResource.GetDeletionTimestamp(),
+	)
+
+	k.log.InfoContext(ctx, "requested termination of k8s pipeline", "pipeline_id", pipelineID)
+	return nil
+}
+
 // ResumePipeline implements Orchestrator.
 func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string) error {
 	k.log.InfoContext(ctx, "resuming k8s pipeline", "pipeline_id", pipelineID)

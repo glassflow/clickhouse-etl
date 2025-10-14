@@ -16,6 +16,7 @@ type Orchestrator interface {
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
 	StopPipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
+	DeletePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string) error
 }
 
@@ -103,11 +104,21 @@ func (p *PipelineManagerImpl) CreatePipeline(ctx context.Context, cfg *models.Pi
 
 // DeletePipeline implements PipelineManager.
 func (p *PipelineManagerImpl) DeletePipeline(ctx context.Context, pid string) error {
-	// The pipeline should already be stopped
-	err := p.db.DeletePipeline(ctx, pid)
+	// First call orchestrator to handle resource cleanup
+	err := p.orchestrator.DeletePipeline(ctx, pid)
 	if err != nil {
-		p.log.ErrorContext(ctx, "failed to delete pipeline from database", "pipeline_id", pid, "error", err)
-		return fmt.Errorf("delete pipeline: %w", err)
+		p.log.ErrorContext(ctx, "failed to delete pipeline from orchestrator", "pipeline_id", pid, "error", err)
+		return fmt.Errorf("delete pipeline from orchestrator: %w", err)
+	}
+
+	// in case of k8 orchestrator the operator controller-manager takes care of deleting this from KV
+	if p.orchestrator.GetType() == "local" {
+		// Then delete from database/KV store
+		err = p.db.DeletePipeline(ctx, pid)
+		if err != nil {
+			p.log.ErrorContext(ctx, "failed to delete pipeline from database", "pipeline_id", pid, "error", err)
+			return fmt.Errorf("delete pipeline from database: %w", err)
+		}
 	}
 
 	return nil
