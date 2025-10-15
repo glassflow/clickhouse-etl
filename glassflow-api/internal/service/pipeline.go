@@ -369,6 +369,9 @@ func (p *PipelineManagerImpl) EditPipeline(ctx context.Context, pid string, newC
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
 	}
 
+	// Preserve the original created_at timestamp
+	newCfg.CreatedAt = currentPipeline.CreatedAt
+
 	// Update pipeline in NATS KV
 	err = p.db.UpdatePipeline(ctx, pid, *newCfg)
 	if err != nil {
