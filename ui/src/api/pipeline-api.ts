@@ -253,6 +253,38 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   }
 }
 
+export const editPipeline = async (id: string, config: Pipeline): Promise<Pipeline> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/edit`)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    })
+    const data = await response.json()
+
+    if (data.success) {
+      return data.pipeline
+    } else {
+      const errorMessage = data.error || 'Failed to edit pipeline'
+
+      // Handle specific backend validation errors
+      if (response.status === 400 && errorMessage.includes('Pipeline must be stopped')) {
+        throw {
+          code: 400,
+          message: 'Pipeline must be stopped before editing. Please pause the pipeline first.',
+          requiresPause: true
+        } as ApiError
+      }
+
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to edit pipeline' } as ApiError
+  }
+}
+
 export const stopPipeline = async (id: string): Promise<void> => {
   try {
     const url = getApiUrl(`pipeline/${id}/stop`)

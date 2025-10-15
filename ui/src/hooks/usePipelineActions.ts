@@ -8,6 +8,7 @@ import {
   deletePipeline,
   renamePipeline,
   updatePipeline,
+  editPipeline,
 } from '@/src/api/pipeline-api'
 import { getActionConfig, getActionButtonText, getAvailableActions } from '@/src/utils/pipeline-actions'
 import { PipelineAction } from '@/src/types/pipeline'
@@ -70,9 +71,9 @@ export const usePipelineActions = (pipeline: Pipeline) => {
 
         case 'edit':
           if (!payload) {
-            throw new Error('Update data is required for edit action')
+            throw new Error('Pipeline configuration is required for edit action')
           }
-          result = await updatePipeline(pipeline.pipeline_id, payload)
+          result = await editPipeline(pipeline.pipeline_id, payload)
           break
 
         default:

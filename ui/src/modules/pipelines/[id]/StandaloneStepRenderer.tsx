@@ -55,10 +55,8 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   useEffect(() => {
     if (stepKey) {
       setCurrentStep(stepKey)
-      // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
-      // Reset edit mode whenever step type changes
-      // setEditMode(pipeline?.status === 'active' ? false : true)
-      setEditMode(false) // Always stay in read-only mode
+      // Start in read-only mode - user must explicitly click Edit to enable editing
+      setEditMode(false)
     }
 
     if (stepKey === StepKeys.KAFKA_CONNECTION) {
@@ -151,55 +149,49 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     onClose()
   }
 
-  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
   // Handle edit mode toggle with confirmation for active pipelines
   const handleToggleEditMode = () => {
-    // Editing disabled for demo - do nothing
-    return
-    /* 
     if (pipeline?.status === 'active' && !editMode) {
       // For active pipelines, show confirmation modal before allowing edit
       const stepInfo = steps[stepKey]
       openEditConfirmationModal(pipeline, stepInfo)
-    } else {
-      // For stopped pipelines or when exiting edit mode, toggle immediately
-      const next = !editMode
-      setEditMode(next)
-      if (next) {
-        // Enter edit mode context to hydrate and set operation type
-        enterEditMode(pipeline)
+    } else if ((pipeline?.status === 'paused' || pipeline?.status === 'stopped') && !editMode) {
+      // For paused/stopped pipelines, enable edit mode immediately
+      setEditMode(true)
+      enterEditMode(pipeline)
+    } else if (editMode) {
+      // Toggle edit mode off - just close the modal, changes are saved in store
+      setEditMode(false)
+      if (onClose) {
+        onClose()
       }
     }
-    */
   }
 
-  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
   // Handle edit confirmation using the centralized pipeline actions
   const handleEditConfirmation = async () => {
-    // Editing disabled for demo - do nothing
-    return
-    /*
     if (!selectedPipeline) return
 
     closeEditConfirmationModal()
 
     try {
       // Use the centralized pipeline actions to stop the pipeline
-      const result = await executeAction('stop')
+      // Backend requires pipeline to be stopped before editing
+      await executeAction('stop', { graceful: true })
 
-      if (result) {
-        // Update pipeline status locally
-        onPipelineStatusUpdate?.('stopped')
+      // Update pipeline status locally to stopped
+      onPipelineStatusUpdate?.('stopped')
 
-        // Now enable edit mode
-        setEditMode(true)
-        enterEditMode(pipeline)
-      }
+      // Wait a bit for the stop action to propagate
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Now enable edit mode
+      setEditMode(true)
+      enterEditMode(pipeline)
     } catch (error) {
       console.error('Failed to stop pipeline for editing:', error)
       // Don't enable edit mode if stop failed
     }
-    */
   }
 
   // Show preloader if data is still loading or if there's an error
@@ -249,10 +241,11 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     validate: async () => true, // You might want to implement proper validation
     standalone: true,
     onCompleteStandaloneEditing: handleComplete,
-    readOnly: true, // TEMPORARILY FORCED TO TRUE - EDIT FUNCTIONALITY DISABLED FOR DEMO
+    readOnly: !editMode,
     toggleEditMode: handleToggleEditMode,
     // Pass pipeline action state for loading indicators
     pipelineActionState: actionState,
+    pipeline,
   }
 
   // Additional props for topic selector components
@@ -281,21 +274,20 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
                 : actionState.lastAction === 'rename'
                   ? 'Renaming pipeline...'
                   : actionState.lastAction === 'edit'
-                    ? 'Updating pipeline...'
+                    ? 'Saving pipeline configuration...'
                     : 'Processing...'
         }
       >
         <CurrentStepComponent {...extendedProps} />
       </StepRendererPageComponent>
 
-      {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
       {/* Edit Confirmation Modal */}
-      {/* <EditConfirmationModal
+      <EditConfirmationModal
         visible={isEditConfirmationModalVisible}
         onOk={handleEditConfirmation}
         onCancel={closeEditConfirmationModal}
         stepName={selectedStep?.title}
-      /> */}
+      />
     </>
   )
 }

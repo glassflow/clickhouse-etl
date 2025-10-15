@@ -14,6 +14,7 @@ import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
 import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
+import { useStore } from '@/src/store'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import PlayIcon from '@/src/images/play.svg'
@@ -107,6 +108,46 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         if (action === 'stop') {
           operations.reportStop(pipeline.pipeline_id)
         } else if (action === 'resume') {
+          // Check if there are unsaved changes before resuming
+          const { coreStore } = useStore.getState()
+          if (coreStore.isDirty) {
+            // Generate and send updated configuration before resuming
+            const { generateApiConfig } = await import('@/src/modules/clickhouse/utils')
+            const {
+              kafkaStore,
+              topicsStore,
+              clickhouseConnectionStore,
+              clickhouseDestinationStore,
+              joinStore,
+              deduplicationStore,
+            } = useStore.getState()
+
+            const apiConfig = generateApiConfig({
+              pipelineId: coreStore.pipelineId,
+              pipelineName: coreStore.pipelineName,
+              setPipelineId: coreStore.setPipelineId,
+              clickhouseConnection: clickhouseConnectionStore.clickhouseConnection,
+              clickhouseDestination: clickhouseDestinationStore.clickhouseDestination,
+              selectedTopics: Object.values(topicsStore.topics || {}),
+              getMappingType: (eventField: string, mapping: any) => {
+                const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
+                if (mappingEntry) {
+                  return mappingEntry.jsonType
+                }
+                return 'string'
+              },
+              joinStore,
+              kafkaStore,
+              deduplicationStore,
+            })
+
+            // Send edit request to backend
+            await executeAction('edit', apiConfig)
+
+            // Mark as clean after successful save
+            coreStore.markAsClean()
+          }
+
           operations.reportResume(pipeline.pipeline_id)
         } else if (action === 'terminate') {
           operations.reportTerminate(pipeline.pipeline_id)

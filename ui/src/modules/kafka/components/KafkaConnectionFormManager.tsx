@@ -6,6 +6,7 @@ import { useForm, FormProvider } from 'react-hook-form'
 import { KafkaConnectionFormRenderer } from './KafkaConnectionFormRenderer'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
 import FormActions from '@/src/components/shared/FormActions'
+import { useStore } from '@/src/store'
 
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<void>
@@ -21,7 +22,7 @@ type KafkaConnectionProps = {
   authMethod: string
   securityProtocol: string
   bootstrapServers: string
-  toggleEditMode?: () => void
+  toggleEditMode?: (apiConfig?: any) => void
   pipelineActionState?: any
   onClose?: () => void
 }
@@ -141,8 +142,41 @@ export const KafkaConnectionFormManager = ({
       return
     }
 
-    if (onTestConnection) {
-      await onTestConnection(values)
+    // If we're in read-only mode OR not in edit mode (standalone), just test the connection
+    // This handles both: create pipeline flow and view-only mode
+    if (readOnly || !standalone || !toggleEditMode) {
+      if (onTestConnection) {
+        await onTestConnection(values)
+      }
+      return
+    }
+
+    // If we're in edit mode (standalone with toggleEditMode), just save to store
+    // Don't send to backend yet - that happens when user clicks Resume
+    try {
+      const { kafkaStore } = useStore.getState()
+
+      // Update stores with form data
+      kafkaStore.setKafkaBootstrapServers(values.bootstrapServers)
+      kafkaStore.setKafkaSecurityProtocol(values.securityProtocol)
+
+      if (values.authMethod && values.authMethod !== 'NO_AUTH') {
+        kafkaStore.setKafkaAuthMethod(values.authMethod)
+      }
+
+      // Set skip auth based on auth method (NO_AUTH means skip auth is true)
+      kafkaStore.setKafkaSkipAuth(values.authMethod === 'NO_AUTH')
+
+      // Mark the configuration as modified (dirty)
+      const { coreStore } = useStore.getState()
+      coreStore.markAsDirty()
+
+      // Close the edit modal
+      if (toggleEditMode) {
+        await toggleEditMode()
+      }
+    } catch (error) {
+      console.error('Failed to save changes to store:', error)
     }
   }
 
@@ -191,14 +225,24 @@ export const KafkaConnectionFormManager = ({
           toggleEditMode={toggleEditMode}
           standalone={standalone}
           readOnly={readOnly}
-          disabled={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
-          isLoading={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
+          disabled={
+            isConnecting ||
+            (pipelineActionState?.isLoading &&
+              (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit'))
+          }
+          isLoading={
+            isConnecting ||
+            (pipelineActionState?.isLoading &&
+              (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit'))
+          }
           isSuccess={connectionResult?.success}
           successText="Continue"
           loadingText={
-            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
-              ? 'Pausing pipeline for editing...'
-              : 'Testing...'
+            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'stop'
+              ? 'Stopping pipeline for editing...'
+              : pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'edit'
+                ? 'Saving configuration...'
+                : 'Testing...'
           }
           regularText="Continue"
           actionType="primary"

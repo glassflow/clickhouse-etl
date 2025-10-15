@@ -39,8 +39,10 @@ export const FormEditActionButtonGroup = ({
     return () => clearTimeout(timer)
   }, [])
 
-  // Check if pipeline action is in progress (like pausing for editing)
-  const isPipelineActionInProgress = pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
+  // Check if pipeline action is in progress (like stopping for editing)
+  const isPipelineActionInProgress =
+    pipelineActionState?.isLoading &&
+    (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit')
 
   const handleSubmit = async () => {
     // Don't toggle edit mode immediately - wait for operation to complete
@@ -78,8 +80,7 @@ export const FormEditActionButtonGroup = ({
           </div>
         )}
 
-        {/* TEMPORARILY COMMENTED OUT - FULL EDIT FUNCTIONALITY DISABLED FOR DEMO */}
-        {/* {editMode ? (
+        {editMode ? (
           <>
             <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
               <FormActionButton
@@ -112,7 +113,7 @@ export const FormEditActionButtonGroup = ({
               disabled={isPipelineActionInProgress}
             />
           </div>
-        )} */}
+        )}
       </div>
     </div>
   )
