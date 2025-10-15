@@ -131,24 +131,44 @@ Example event with nested fields:
 
 ### Supported Data Type mappings
 
-GlassFlow supports the following data type mappings to ClickHouse:
+GlassFlow supports comprehensive data type mappings from Kafka to ClickHouse. The following table shows all supported type conversions:
 
 | Kafka Type | Supported ClickHouse Type Mappings |
-|------------|-----------------|
-| string     | String, FixedString, DataTime, DataTime64, UUID, Enum8, Enum16, LowCardinality(String), LowCardinality(FixedString), LowCardinality(DateTime)        |
-| int        | Int8, Int16, Int32, Int64          |
-| int8       | Int8, LowCardinality(Int8)            |
-| int16      | Int16, LowCardinality(Int16)           |
-| int32      | Int32, LowCardinality(Int32)           |
-| int64      | Int64, DateTime, DateTime64, LowCardinality(Int64)           |
-| uint       | UInt8, UInt16, UInt32, UInt64          |
-| uint8      | UInt8        |
-| uint16     | UInt16         |
-| uint32     | UInt32           |
-| uint64     | UInt64          |
-| float      | Float64          |
-| float32    | Float32, LowCardinality(Float32)           |
-| float64    | Float64, DateTime, DateTime64, LowCardinality(Float64), LowCardinality(DateTime)           |
-| bool       | Bool           |
-| bytes      | String           |
-| array      | Array(String), Array(Int8), Array(Int16), Array(Int32), Array(Int64), String           |
+|------------|-----------------------------------|
+| **string** | String, FixedString, DateTime, DateTime64, UUID, Enum8, Enum16, LowCardinality(String), LowCardinality(FixedString), LowCardinality(DateTime) |
+| **int** | Int8, Int16, Int32, Int64, LowCardinality(Int8), LowCardinality(Int16), LowCardinality(Int32), LowCardinality(Int64) |
+| **int8** | Int8, LowCardinality(Int8) |
+| **int16** | Int16, LowCardinality(Int16) |
+| **int32** | Int32, LowCardinality(Int32) |
+| **int64** | Int64, DateTime, DateTime64, LowCardinality(Int64) |
+| **uint** | UInt8, UInt16, UInt32, UInt64, LowCardinality(UInt8), LowCardinality(UInt16), LowCardinality(UInt32), LowCardinality(UInt64) |
+| **uint8** | UInt8, LowCardinality(UInt8) |
+| **uint16** | UInt16, LowCardinality(UInt16) |
+| **uint32** | UInt32, LowCardinality(UInt32) |
+| **uint64** | UInt64, LowCardinality(UInt64) |
+| **float** | Float32, Float64, LowCardinality(Float32), LowCardinality(Float64) |
+| **float32** | Float32, LowCardinality(Float32) |
+| **float64** | Float64, DateTime, DateTime64, LowCardinality(Float64), LowCardinality(DateTime) |
+| **bool** | Bool |
+| **bytes** | String |
+| **array** | Array(String), Array(Int8), Array(Int16), Array(Int32), Array(Int64), Array(UInt8), Array(UInt16), Array(UInt32), Array(UInt64), Array(Float32), Array(Float64), Array(Bool), Array(Map(...)), String |
+| **map** | Map(String, String), Array(Map(String, String)) |
+
+#### Special Type Support
+
+**LowCardinality Types**: GlassFlow supports ClickHouse's LowCardinality types for optimized storage of repetitive data. These are automatically handled when specified in the column mapping.
+
+**Array Types**: GlassFlow supports various ClickHouse Array types including:
+- Primitive arrays: `Array(String)`, `Array(Int32)`, etc.
+- Complex arrays: `Array(Map(String, String))`
+- Arrays are converted to JSON strings when the target type is `String`
+
+**Map Types**: GlassFlow supports ClickHouse Map types:
+- `Map(String, String)` - for key-value pairs
+- `Array(Map(String, String))` - for arrays of maps
+- Map values are automatically converted to strings for ClickHouse compatibility
+
+**DateTime Support**: DateTime fields can be sourced from:
+- `string` - ISO 8601 format timestamps
+- `int64` - Unix timestamps
+- `float64` - Unix timestamps with fractional seconds

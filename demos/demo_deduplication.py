@@ -195,7 +195,7 @@ if __name__ == "__main__":
         help="Rate of duplication (default: 0.1)",
     )
     parser.add_argument(
-        "--rps", type=int, default=1000, help="Records per second (default: 1000)"
+        "--rps", type=int, default=3000, help="Records per second (default: 1000)"
     )
     parser.add_argument(
         "--config",

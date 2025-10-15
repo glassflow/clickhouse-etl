@@ -125,7 +125,7 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.InfoContext(r.Context(), "pipeline stopped")
+	h.log.InfoContext(r.Context(), "pipeline terminated")
 	w.WriteHeader(http.StatusNoContent)
 }
 

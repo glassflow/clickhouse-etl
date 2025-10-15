@@ -155,4 +155,15 @@ const (
 
 	// FetchRetryDelay is the delay between retries when fetching messages from NATS stream
 	FetchRetryDelay = 100 * time.Millisecond
+
+	// Kubernetes annotation constants for pipeline operations
+	PipelineFinalizerName           = "pipeline.etl.glassflow.io/finalizer"
+	PipelineCreateAnnotation        = "pipeline.etl.glassflow.io/create"
+	PipelineResumeAnnotation        = "pipeline.etl.glassflow.io/resume"
+	PipelineStopAnnotation          = "pipeline.etl.glassflow.io/stop"
+	PipelineTerminateAnnotation     = "pipeline.etl.glassflow.io/terminate"
+	PipelineDeleteAnnotation        = "pipeline.etl.glassflow.io/delete"
+	PipelineEditAnnotation          = "pipeline.etl.glassflow.io/edit"
+	PipelineHelmUninstallAnnotation = "pipeline.etl.glassflow.io/helm-uninstall"
+	PipelinePauseAnnotation         = "pipeline.etl.glassflow.io/pause"
 )

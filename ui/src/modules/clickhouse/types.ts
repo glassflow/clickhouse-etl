@@ -23,11 +23,15 @@ export type TableAccessTestFn = (connectionConfig: ConnectionConfig) => Promise<
 export interface TableColumn {
   name: string
   type?: string
+  column_type?: string // Alternative field name from ClickHouse API (same as 'type')
   jsonType?: string
   isNullable?: boolean
   isKey?: boolean
   eventField?: string
   sourceTopic?: string
+  default_type?: string // 'DEFAULT', 'MATERIALIZED', 'ALIAS', or ''
+  default_expression?: string // The default expression (e.g., 'now()')
+  default_kind?: string // Alternative field name used by system.columns query
 }
 
 export interface TableSchema {

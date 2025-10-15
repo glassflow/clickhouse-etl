@@ -1,14 +1,20 @@
 ---
-title: 'Local Docker'
+title: 'Install with Docker'
 description: 'Install GlassFlow locally using Docker'
 ---
 import { Cards } from 'nextra/components'
 import { GitHubIcon, DiscordIcon, GlobeIcon } from 'nextra/icons'
+import { Callout } from 'nextra/components'
 
 # GlassFlow on Docker
 
-GlassFlow is designed to run locally using Docker and docker-compose. 
 The GitHub repository is shipped with a pre-configured docker-compose file that sets up all necessary components.
+
+<Callout type="warning">
+- Docker version is suitable for local testing or a small POC. It is not recommened to run in production
+- For production installatiion, please use the kubernetes version. Installation guide for kubernetes is [here](./kubernetes-helm)
+</Callout>
+
 
 ## Prerequisites
 
@@ -52,7 +58,7 @@ clickhouse-etl-nginx-1   nginx:1.27-alpine                           "/docker-en
 clickhouse-etl-ui-1      ghcr.io/glassflow/glassflow-etl-fe:stable   "docker-entrypoint.s…"   ui        About a minute ago   Up 20 seconds   8080/tcp                                                                                                                       
 ```
 
-For details about the Docker components that are running, see the [System Components](/architecture/system-components) page.
+For details about the Docker components that are running, see the [Dcoker Components](/architecture/docker-components) page.
 
 2. Verify that the web interface is accessible at `http://localhost:8080`. In case you do not see the web interface, 
 please ensure that the containers are in running state and no other services are using the port 8080. If needed, you can modify the ports in `docker-compose.yaml` file.                                                                                                    

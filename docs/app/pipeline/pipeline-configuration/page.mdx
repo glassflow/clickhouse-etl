@@ -35,11 +35,11 @@ The source configuration defines how to connect to and consume from Kafka topics
 |-------|------|----------|-------------|
 | `brokers` | array | Yes | List of Kafka broker addresses (e.g., `["localhost:9092"]`). |
 | `protocol` | string | Yes | Security protocol for Kafka connection (e.g., `SASL_SSL`). |
-| `mechanism` | string | Yes | Authentication mechanism (e.g., `SCRAM-SHA-256`). |
+| `mechanism` | string | No | Authentication mechanism (e.g., `SCRAM-SHA-256`). Mandatory when `skip_auth` is `false`. |
 | `username` | string | Yes | Username for Kafka authentication. |
 | `password` | string | Yes | Password for Kafka authentication. |
 | `root_ca` | string | No | Cert. file for Kafka authentication. |
-| `skip_auth` | boolean | No | Skip Kafka authentication. |
+| `skip_auth` | boolean | No | Skip Kafka authentication. Default is `false`. |
 
 Supported Protocol:
 - `PLAINTEXT` - Plaintext protocol.
@@ -87,6 +87,7 @@ The `type` parameter accepts the following Kafka data types:
 - `'bool'` - For boolean values
 - `'bytes'` - For binary data
 - `'array'` - For array data
+- `'map'` - For key-value pair data
 
 ### Deduplication Configuration
 
@@ -131,6 +132,7 @@ Each mapping in the `table_mapping` array has the following configuration:
 
 The `column_type` parameter accepts the following ClickHouse data types:
 
+**Basic Types:**
 - `'Int8'`, `'Int16'`, `'Int32'`, `'Int64'` - For integer values
 - `'UInt8'`, `'UInt16'`, `'UInt32'`, `'UInt64'` - For unsigned integer values
 - `'Float32'`, `'Float64'` - For float values
@@ -140,14 +142,27 @@ The `column_type` parameter accepts the following ClickHouse data types:
 - `'Bool'` - For bool values
 - `'UUID'` - For uuid values
 - `'Enum8'`, `'Enum16'` - For enum values
+
+**LowCardinality Types:**
 - `'LowCardinality(Int8)'`, `'LowCardinality(Int16)'`, `'LowCardinality(Int32)'`, `'LowCardinality(Int64)'` - For low cardinality int values
 - `'LowCardinality(UInt8)'`, `'LowCardinality(UInt16)'`, `'LowCardinality(UInt32)'`, `'LowCardinality(UInt64)'` - For low cardinality uint values
 - `'LowCardinality(Float32)'`, `'LowCardinality(Float64)'` - For low cardinality float values
 - `'LowCardinality(String)'` - For low cardinality string values
 - `'LowCardinality(FixedString)'` - For low cardinality fixedstring values
 - `'LowCardinality(DateTime)'` - For low cardinality datetime values
+
+**Array Types:**
 - `'Array(String)'` - For array of string values
 - `'Array(Int8)'`, `'Array(Int16)'`, `'Array(Int32)'`, `'Array(Int64)'` - For array of int values
+- `'Array(UInt8)'`, `'Array(UInt16)'`, `'Array(UInt32)'`, `'Array(UInt64)'` - For array of uint values
+- `'Array(Float32)'`, `'Array(Float64)'` - For array of float values
+- `'Array(Bool)'` - For array of bool values
+- `'Array(Map(String, String))'` - For array of maps
+
+**Map Types:**
+- `'Map(String, String)'` - For key-value pairs
+
+> 💡 **Note**: For comprehensive type mapping information, see the [Supported Data Formats](/pipeline/data-format) documentation.
 
 ## Join Configuration
 

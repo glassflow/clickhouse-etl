@@ -33,6 +33,7 @@ interface FieldColumnMapperProps {
   isJoinMapping?: boolean
   readOnly?: boolean
   unmappedNonNullableColumns?: string[]
+  unmappedDefaultColumns?: string[] // NEW: columns with DEFAULT that are unmapped
   onRefreshTableSchema: () => void
   selectedDatabase: string
   selectedTable: string
@@ -50,6 +51,7 @@ export function FieldColumnMapper({
   isJoinMapping = false,
   readOnly,
   unmappedNonNullableColumns = [],
+  unmappedDefaultColumns = [], // NEW
   onRefreshTableSchema,
   selectedDatabase,
   selectedTable,
@@ -63,6 +65,11 @@ export function FieldColumnMapper({
   // Helper function to check if a column is unmapped and non-nullable
   const isUnmappedNonNullable = (column: ColumnMappingType) => {
     return unmappedNonNullableColumns.includes(column.name) && !column.eventField
+  }
+
+  // Helper function to check if a column has DEFAULT and is unmapped (warning)
+  const isUnmappedWithDefault = (column: ColumnMappingType) => {
+    return unmappedDefaultColumns.includes(column.name) && !column.eventField
   }
 
   // Helper function to check if type mapping is incompatible
@@ -131,8 +138,10 @@ export function FieldColumnMapper({
         <TableBody className="border-0">
           {mappedColumns.map((column, index) => {
             const isRequiredField = isUnmappedNonNullable(column)
+            const hasDefaultWarning = isUnmappedWithDefault(column)
             const hasTypeError = isTypeIncompatible(column)
             const hasAnyError = isRequiredField || hasTypeError
+            const hasAnyIssue = hasAnyError || hasDefaultWarning // Include warning in spacing
             return (
               <TableRow
                 key={column.name}
@@ -150,7 +159,7 @@ export function FieldColumnMapper({
                         selectedOption={column.eventField}
                         onSelect={(option, source) => mapEventFieldToColumn(index, option || '', source)}
                         placeholder="Select event field"
-                        className={`w-full ${isRequiredField ? '[&_input]:border-red-500 [&_input]:border-2' : ''}`}
+                        className={`w-full ${isRequiredField ? '[&_input]:border-red-500 [&_input]:border-2' : hasDefaultWarning ? '[&_input]:border-orange-500 [&_input]:border-2' : ''}`}
                         primaryLabel={primaryTopicName}
                         secondaryLabel={secondaryTopicName}
                         open={openSelectIndex === index}
@@ -163,18 +172,22 @@ export function FieldColumnMapper({
                         selectedOption={column.eventField}
                         onSelect={(option) => mapEventFieldToColumn(index, option || '')}
                         placeholder="Select event field"
-                        className={`w-full ${isRequiredField ? '[&_input]:border-red-500 [&_input]:border-2' : ''}`}
+                        className={`w-full ${isRequiredField ? '[&_input]:border-red-500 [&_input]:border-2' : hasDefaultWarning ? '[&_input]:border-orange-500 [&_input]:border-2' : ''}`}
                         open={openSelectIndex === index}
                         onOpenChange={(isOpen) => handleSelectOpen(index, isOpen)}
                         disabled={readOnly}
                         readOnly={readOnly}
                       />
                     )}
-                    {/* Show error text or transparent placeholder to maintain alignment */}
-                    {hasAnyError && (
+                    {/* Show error/warning text or transparent placeholder to maintain alignment */}
+                    {hasAnyIssue && (
                       <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
                         {isRequiredField ? (
                           <span className="text-red-600">This field is not nullable, enter a value</span>
+                        ) : hasDefaultWarning ? (
+                          <span className="text-orange-500">
+                            Has default value - will be auto-populated if unmapped
+                          </span>
                         ) : (
                           <span className="text-transparent">Placeholder for alignment</span>
                         )}
@@ -203,7 +216,7 @@ export function FieldColumnMapper({
                       </SelectContent>
                     </Select>
                     {/* Show error text or transparent placeholder to maintain alignment */}
-                    {hasAnyError && (
+                    {hasAnyIssue && (
                       <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
                         {hasTypeError ? (
                           <span className="text-red-600">
@@ -218,7 +231,7 @@ export function FieldColumnMapper({
                 </TableCell>
                 <TableCell className="text-content w-[5%] align-left">
                   <div className="flex justify-center items-center h-full">{renderSourceTopicIcon(column)}</div>
-                  {hasAnyError && (
+                  {hasAnyIssue && (
                     <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
                       <span className="text-transparent">Placeholder for alignment</span>
                     </div>
@@ -229,7 +242,7 @@ export function FieldColumnMapper({
                     <span>{column.name}</span>
                     <span className="text-xs text-content-secondary">{column.type || 'Unknown'}</span>
                   </div>
-                  {hasAnyError && (
+                  {hasAnyIssue && (
                     <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
                       <span className="text-transparent">Placeholder for alignment</span>
                     </div>

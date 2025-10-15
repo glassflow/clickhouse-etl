@@ -1,0 +1,81 @@
+---
+title: 'Observability'
+description: 'Export GlassFlow logs and metrics for monitoring'
+---
+import { Callout } from 'nextra/components'
+import { Steps } from 'nextra/components'
+import { Cards } from 'nextra/components'
+import { GitHubIcon, DiscordIcon, GlobeIcon } from 'nextra/icons'
+
+# GlassFlow Observability
+
+This guide explains how to export GlassFlow's logs and metrics for monitoring and observability purposes.
+
+<Callout type="important">
+- Metrics are enabled by default in the Helm chart and available at the OTEL collector endpoint
+- Logs can be enabled by configuring an OTLP exporter endpoint
+- The OTEL collector service is available at `{release-name}-otel-collector.{namespace}.svc.cluster.local:9090`
+</Callout>
+
+## Metrics Export
+
+GlassFlow includes an OpenTelemetry (OTEL) collector that exposes metrics by default via a Prometheus exporter. The metrics are available at the `/metrics` endpoint.
+
+### Accessing Metrics
+
+The OTEL collector service exposes metrics at:
+```
+{release-name}-otel-collector.{namespace}.svc.cluster.local:9090/metrics
+```
+
+For example, if you installed GlassFlow with the release name `glassflow-chart` in the `glassflow` namespace:
+```
+glassflow-chart-otel-collector.glassflow.svc.cluster.local:9090/metrics
+```
+
+### Prometheus Scraping
+
+To scrape metrics with Prometheus, add the following configuration to your Prometheus config:
+
+```yaml
+# GlassFlow OTEL Collector metrics
+- job_name: 'glassflow-otel-collector'
+  static_configs:
+  - targets: ['glassflow-chart-otel-collector.glassflow.svc.cluster.local:9090']
+  metrics_path: /metrics
+  scrape_interval: 15s
+```
+
+<Callout type="info" emoji="💡">
+Replace `glassflow-chart` and `glassflow` with your actual release name and namespace if different.
+</Callout>
+
+## Logs Export
+
+To enable log export, you need to configure an OTLP exporter endpoint in your Helm values.
+
+### Configure OTLP Exporter
+
+Update your `values.yaml` file to include the OTLP exporter configuration:
+
+```yaml
+# OTLP exporter configuration for logs
+otel:
+  exporter:
+    endpoint: "https://your-otel-endpoint.com:4317"  # Replace with your OTLP endpoint
+    tls:
+      insecure: true
+```
+
+### Supported OTLP Endpoints
+
+GlassFlow supports standard OTLP exporters. You can configure it to send logs to:
+
+- **Jaeger**: `http://jaeger-collector:14250`
+- **Zipkin**: `http://zipkin:9411/api/v2/spans`
+- **Custom OTLP endpoint**: Any endpoint that accepts OTLP format
+
+<Callout type="info" emoji="ℹ️">
+The OTLP exporter configuration follows the standard OpenTelemetry format. Refer to the [OpenTelemetry Collector OTLP Exporter documentation](https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter) for detailed configuration options.
+</Callout>
+

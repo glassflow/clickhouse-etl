@@ -28,6 +28,10 @@ services:
       GLASSFLOW_RUN_LOCAL: true
       GLASSFLOW_K8S_NAMESPACE: glassflow
       GLASSFLOW_SERVER_ADDR: 0.0.0.0:8081
+      GLASSFLOW_OTEL_METRICS_ENABLED: false
+      GLASSFLOW_OTEL_LOGS_ENABLED: false
+      GLASSFLOW_NATS_MAX_STREAM_AGE: 12h
+      GLASSFLOW_NATS_MAX_STREAM_BYTES: 536870912
     volumes:
       - logs:/tmp/logs/glassflow
 

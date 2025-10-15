@@ -134,7 +134,7 @@ func mainErr(cfg *config, role models.Role) error {
 		ServiceInstanceID: cfg.OtelServiceInstanceID,
 	}
 	log := observability.ConfigureLogger(obsConfig, logOut)
-	meter := observability.ConfigureMeter(obsConfig)
+	meter := observability.ConfigureMeter(obsConfig, log)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -168,13 +168,19 @@ func mainErr(cfg *config, role models.Role) error {
 	case internal.RoleIngestor:
 		return mainIngestor(ctx, nc, cfg, log, meter)
 	case internal.RoleETL:
-		return mainEtl(ctx, nc, cfg, log)
+		return mainEtl(ctx, nc, cfg, log, meter)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}
 }
 
-func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger) error {
+func mainEtl(
+	ctx context.Context,
+	nc *client.NATSClient,
+	cfg *config,
+	log *slog.Logger,
+	meter *observability.Meter,
+) error {
 	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
 	if err != nil {
 		return fmt.Errorf("create nats store for pipelines: %w", err)
@@ -207,7 +213,7 @@ func mainEtl(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.
 
 	dlqSvc := service.NewDLQImpl(dlq)
 
-	handler := api.NewRouter(log, pipelineSvc, dlqSvc)
+	handler := api.NewRouter(log, pipelineSvc, dlqSvc, meter)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,

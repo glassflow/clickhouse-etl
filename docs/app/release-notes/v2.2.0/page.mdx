@@ -1,0 +1,106 @@
+---
+title: Release Notes v2.2.0
+sidebarTitle: v2.2.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.2.0.
+---
+
+# Release Notes v2.2.0
+
+Version 2.2.0 brings significant improvements to observability, data type support, and user experience. This release focuses on adding enhanced monitoring capabilities and better data handling.
+
+## What's New
+
+### 🔍 Enhanced Observability with OpenTelemetry
+
+GlassFlow now includes comprehensive **OpenTelemetry (OTEL) integration** for better observability and monitoring of your data pipelines. This enterprise-grade observability solution provides:
+
+- **Separate toggles** for OTEL logs and metrics, giving you granular control over what data is collected
+- **Pipeline-level metrics** including:
+  - Total number of records read from Kafka
+  - Records processed per second
+  - Total records written to Dead Letter Queue
+  - Total records written to ClickHouse
+  - Records written to ClickHouse per second
+  - Message processing time within components
+- **Service instance identification** for horizontally scaled replicas, enabling pod-level metrics
+- **Structured logging** with context-aware error handling and improved log formatting
+
+#### Prometheus Metrics Integration
+Prometheus metrics are **enabled by default** and can be easily configured by adding GlassFlow to your Prometheus configuration:
+
+```yaml
+- job_name: 'glassflow-otel-collector'
+  static_configs:
+  - targets: ['glassflow-chart-otel-collector.glassflow.svc.cluster.local:9090']
+  metrics_path: /metrics
+  scrape_interval: 15s
+```
+
+Once configured, you can visualize these metrics in Grafana for comprehensive pipeline monitoring.
+
+#### OTEL Logs Configuration
+For logs, simply turn on logs from the values file and set your OTEL collector information in the `values.yaml`. GlassFlow will send OTEL logs to your collector, which you can then ingest into your favorite OTEL backend for centralized log management and analysis.
+
+> 💡 **Setup Guide**: For detailed OTEL configuration and setup instructions, see our [Observability Setup Guide](/installation/kubernetes/observability) (coming soon).
+
+### 🗺️ Map Data Type Support
+
+GlassFlow now supports **Map data types** for handling key-value pair data structures:
+
+- **Map(String, String)** - For simple key-value pairs
+- **Array(Map(String, String))** - For arrays of maps
+- **Automatic type conversion** - Map values are automatically converted to strings for ClickHouse compatibility
+- **Nested JSON support** - Maps work seamlessly with nested JSON structures using dot notation
+
+This enhancement allows you to handle more complex data structures commonly found in real-world applications.
+
+### 🎨 UI Improvements
+
+The user interface has been significantly enhanced with better visibility into pipeline performance:
+
+![UI Metrics](/assets/ui_pipeline_metrics.jpg)
+
+#### ClickHouse Statistics Integration
+- **Real-time ClickHouse table stats** directly on the pipeline detail page
+- **Performance metrics** showing table size, row counts, and query performance
+- **Better resource monitoring** with component-level statistics
+
+#### Enhanced Pipeline Management
+- **Updated pipeline list page** with more detailed information
+- **Download pipeline configuration** button for easy backup and sharing
+- **Improved pipeline details** with better organization and readability
+
+### 🛡️ Better Null Value Handling
+
+GlassFlow now provides **improved null value handling** throughout the data pipeline:
+
+- **Graceful null processing** - Null values are handled without breaking the pipeline
+- **Dead Letter Queue integration** - Faulty records with null issues are properly routed to DLQ
+- **Type-safe conversions** - Better validation and conversion of null values across different data types
+
+## Migration Notes
+
+### For Existing Users
+- **No breaking changes** - This release is fully backward compatible
+- **OTEL is optional** - Existing pipelines will continue to work without OTEL configuration
+- **Map types available** - You can now use Map data types in new pipeline configurations
+
+### Configuration Updates
+- **Environment variables** - Service name and version are now read from environment variables for OTEL
+- **Pipeline configuration** - Map data types can be used in field definitions and table mappings
+
+## Try It Out
+
+To experience the new features in v2.2.0:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes-helm)
+2. **Configure OTEL observability** for enhanced monitoring
+3. **Create pipelines with Map data types** for complex data structures
+4. **Explore the improved UI** with ClickHouse statistics and better pipeline management
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in v2.2.0, see our [GitHub release 2.1.3](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.1.3) and [GitHub release 2.2.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.2.0) 
+
+*GlassFlow v2.2.0 continues our commitment to making streaming ETL more accessible, reliable, and observable for production environments.*
