@@ -169,6 +169,11 @@ type MockK8sOrchestrator struct {
 	log *slog.Logger
 }
 
+func (m *MockK8sOrchestrator) DeletePipeline(ctx context.Context, pid string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *MockK8sOrchestrator) GetType() string {
 	return "k8s"
 }
@@ -182,10 +187,6 @@ func (m *MockK8sOrchestrator) StopPipeline(_ context.Context, _ string) error {
 }
 
 func (m *MockK8sOrchestrator) TerminatePipeline(_ context.Context, _ string) error {
-	return fmt.Errorf("not implemented for testing")
-}
-
-func (m *MockK8sOrchestrator) PausePipeline(_ context.Context, _ string) error {
 	return fmt.Errorf("not implemented for testing")
 }
 

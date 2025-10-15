@@ -32,6 +32,20 @@ type LocalOrchestrator struct {
 	pipelineConfig *models.PipelineConfig
 }
 
+func (d *LocalOrchestrator) DeletePipeline(ctx context.Context, pid string) error {
+	d.log.InfoContext(ctx, "deleting docker pipeline", "pipeline_id", pid)
+
+	// Terminate the pipeline to clean up any remaining resources
+	err := d.TerminatePipeline(ctx, pid)
+	if err != nil {
+		d.log.ErrorContext(ctx, "failed to terminate pipeline during deletion", "pipeline_id", pid, "error", err)
+		return fmt.Errorf("terminate pipeline during deletion: %w", err)
+	}
+
+	d.log.InfoContext(ctx, "successfully deleted docker pipeline", "pipeline_id", pid)
+	return nil
+}
+
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
 	log *slog.Logger,
@@ -241,34 +255,6 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 	}
 
 	d.log.InfoContext(ctx, "pipeline stop completed successfully", "pipeline_id", pid)
-	return nil
-}
-
-// PausePipeline implements Orchestrator.
-func (d *LocalOrchestrator) PausePipeline(ctx context.Context, pid string) error {
-	d.m.Lock()
-	defer d.m.Unlock()
-
-	if d.id != pid {
-		d.log.ErrorContext(ctx, "mismatched pipeline id for pause", "expected_id", d.id, "requested_id", pid)
-		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
-	}
-
-	d.log.InfoContext(ctx, "pausing pipeline", "pipeline_id", pid)
-
-	// Stop the watcher to prevent restarts during pause
-	if d.watcherCancel != nil {
-		d.watcherCancel()
-		d.watcherWG.Wait()
-		d.watcherCancel = nil
-	}
-
-	err := d.pausePipelineComponents(ctx)
-	if err != nil {
-		return err
-	}
-
-	d.log.InfoContext(ctx, "pipeline paused successfully", "pipeline_id", pid)
 	return nil
 }
 

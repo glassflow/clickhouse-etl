@@ -77,10 +77,6 @@ func (k *K8sOrchestrator) getPipelineConfigFromK8sResource(customResource *unstr
 			currentStatus = internal.PipelineStatusCreated
 		case "Running":
 			currentStatus = internal.PipelineStatusRunning
-		case "Pausing":
-			currentStatus = internal.PipelineStatusPausing
-		case "Paused":
-			currentStatus = internal.PipelineStatusPaused
 		case "Resuming":
 			currentStatus = internal.PipelineStatusResuming
 		case "Stopping":
@@ -89,8 +85,6 @@ func (k *K8sOrchestrator) getPipelineConfigFromK8sResource(customResource *unstr
 			currentStatus = internal.PipelineStatusStopped
 		case "Terminating":
 			currentStatus = internal.PipelineStatusTerminating
-		case "Terminated":
-			currentStatus = internal.PipelineStatusTerminated
 		case "Failed":
 			currentStatus = internal.PipelineStatusFailed
 		default:
@@ -178,7 +172,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 			"metadata": map[string]any{
 				"name": cfg.ID,
 				"annotations": map[string]any{
-					"pipeline.etl.glassflow.io/create": "true",
+					internal.PipelineCreateAnnotation: "true",
 				},
 			},
 			"spec": specMap,
@@ -242,7 +236,7 @@ func (k *K8sOrchestrator) StopPipeline(ctx context.Context, pipelineID string) e
 	}
 
 	// Add stop annotation
-	annotations["pipeline.etl.glassflow.io/stop"] = "true"
+	annotations[internal.PipelineStopAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the stop annotation
@@ -295,10 +289,10 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	// Clear any conflicting operation annotations to ensure terminate takes precedence
 	// This prevents stuck pipelines from ignoring terminate requests
 	conflictingAnnotations := []string{
-		"pipeline.etl.glassflow.io/create",
-		"pipeline.etl.glassflow.io/pause",
-		"pipeline.etl.glassflow.io/resume",
-		"pipeline.etl.glassflow.io/stop",
+		internal.PipelineCreateAnnotation,
+		internal.PipelinePauseAnnotation,
+		internal.PipelineResumeAnnotation,
+		internal.PipelineStopAnnotation,
 	}
 
 	for _, annotation := range conflictingAnnotations {
@@ -311,7 +305,7 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	}
 
 	// Add terminate annotation
-	annotations["pipeline.etl.glassflow.io/terminate"] = "true"
+	annotations[internal.PipelineTerminateAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the annotation
@@ -334,11 +328,10 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	return nil
 }
 
-// PausePipeline implements Orchestrator.
-func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) error {
-	k.log.InfoContext(ctx, "pausing k8s pipeline", "pipeline_id", pipelineID)
+func (k *K8sOrchestrator) DeletePipeline(ctx context.Context, pipelineID string) error {
+	k.log.InfoContext(ctx, "deleting k8s pipeline", "pipeline_id", pipelineID)
 
-	// Get the pipeline CRD
+	// add annotation to indicate deletion
 	customResource, err := k.client.Resource(schema.GroupVersionResource{
 		Group:    k.customResource.APIGroup,
 		Version:  k.customResource.Version,
@@ -348,18 +341,8 @@ func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) 
 		if errors.IsNotFound(err) {
 			return service.ErrPipelineNotFound
 		}
-		k.log.ErrorContext(ctx, "failed to get pipeline CRD for pause", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
+		k.log.ErrorContext(ctx, "failed to get pipeline CRD for terminate", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
 		return fmt.Errorf("get pipeline CRD: %w", err)
-	}
-
-	// Create pipeline config for status validation
-	pipelineConfig := k.getPipelineConfigFromK8sResource(customResource)
-
-	// Validate status transition using the centralized validation system
-	err = status.ValidatePipelineOperation(pipelineConfig, internal.PipelineStatusPausing)
-	if err != nil {
-		k.log.ErrorContext(ctx, "pipeline status validation failed for pause", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus, "error", err)
-		return err
 	}
 
 	annotations := customResource.GetAnnotations()
@@ -367,22 +350,45 @@ func (k *K8sOrchestrator) PausePipeline(ctx context.Context, pipelineID string) 
 		annotations = make(map[string]string)
 	}
 
-	// Add pause annotation
-	annotations["pipeline.etl.glassflow.io/pause"] = "true"
+	// Clear any conflicting operation annotations to ensure deletion takes precedence
+	conflictingAnnotations := []string{
+		internal.PipelineCreateAnnotation,
+		internal.PipelinePauseAnnotation,
+		internal.PipelineResumeAnnotation,
+		internal.PipelineTerminateAnnotation,
+		internal.PipelineStopAnnotation,
+	}
+
+	for _, annotation := range conflictingAnnotations {
+		if _, exists := annotations[annotation]; exists {
+			k.log.Info("clearing conflicting annotation for terminate",
+				slog.String("pipeline_id", pipelineID),
+				slog.String("annotation", annotation))
+			delete(annotations, annotation)
+		}
+	}
+
+	// Add deletion annotation
+	annotations[internal.PipelineDeleteAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
-	// Update the resource with the pause annotation
+	// Update the resource with the annotation
 	_, err = k.client.Resource(schema.GroupVersionResource{
 		Group:    k.customResource.APIGroup,
 		Version:  k.customResource.Version,
 		Resource: k.customResource.Resource,
 	}).Namespace(k.namespace).Update(ctx, customResource, metav1.UpdateOptions{})
 	if err != nil {
-		k.log.ErrorContext(ctx, "failed to update pipeline CRD with pause annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
-		return fmt.Errorf("update pipeline CRD with pause annotation: %w", err)
+		k.log.ErrorContext(ctx, "failed to update pipeline CRD with termination annotation", "pipeline_id", pipelineID, "namespace", k.namespace, "error", err)
+		return fmt.Errorf("update pipeline CRD with termination annotation: %w", err)
 	}
 
-	k.log.InfoContext(ctx, "requested pause of k8s pipeline", "pipeline_id", pipelineID)
+	k.log.InfoContext(ctx, "requested deletion of k8s pipeline",
+		"pipeline_id", pipelineID,
+		"deletion_timestamp", customResource.GetDeletionTimestamp(),
+	)
+
+	k.log.InfoContext(ctx, "requested termination of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
 }
 
@@ -420,7 +426,7 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 	}
 
 	// Add resume annotation
-	annotations["pipeline.etl.glassflow.io/resume"] = "true"
+	annotations[internal.PipelineResumeAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the resume annotation
