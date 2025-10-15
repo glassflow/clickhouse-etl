@@ -8,6 +8,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -203,7 +204,14 @@ func TestEditPipeline_PipelineNotStopped(t *testing.T) {
 
 	// Assertions
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "pipeline must be stopped before editing")
+	assert.Contains(t, err.Error(), "Pipeline must be stopped before editing")
+
+	// Check that it's a proper StatusValidationError
+	statusErr, ok := status.GetStatusValidationError(err)
+	assert.True(t, ok, "Expected StatusValidationError")
+	assert.Equal(t, "PIPELINE_NOT_STOPPED_FOR_EDIT", statusErr.Code)
+	assert.Equal(t, models.PipelineStatus(internal.PipelineStatusRunning), statusErr.CurrentStatus)
+
 	mockStore.AssertExpectations(t)
 	mockOrchestrator.AssertNotCalled(t, "EditPipeline")
 }

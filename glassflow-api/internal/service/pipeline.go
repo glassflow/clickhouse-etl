@@ -366,7 +366,7 @@ func (p *PipelineManagerImpl) EditPipeline(ctx context.Context, pid string, newC
 	// Validate pipeline is in Stopped status
 	if currentPipeline.Status.OverallStatus != internal.PipelineStatusStopped {
 		p.log.ErrorContext(ctx, "pipeline must be stopped before editing", "pipeline_id", pid, "current_status", currentPipeline.Status.OverallStatus)
-		return fmt.Errorf("pipeline must be stopped before editing, current status: %s", currentPipeline.Status.OverallStatus)
+		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
 	}
 
 	// Update pipeline in NATS KV

@@ -468,7 +468,7 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 	// Validate pipeline is stopped
 	if pipelineConfig.Status.OverallStatus != internal.PipelineStatusStopped {
 		k.log.ErrorContext(ctx, "pipeline must be stopped before editing", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus)
-		return fmt.Errorf("pipeline must be stopped before editing, current status: %s", pipelineConfig.Status.OverallStatus)
+		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(pipelineConfig.Status.OverallStatus))
 	}
 
 	// Marshal new config to JSON string
