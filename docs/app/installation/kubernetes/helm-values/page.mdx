@@ -1,0 +1,522 @@
+---
+title: 'Helm Values Configuration'
+description: 'Complete guide to configuring GlassFlow using Helm values.yaml'
+---
+
+import { Callout } from 'nextra/components'
+import { Tabs } from 'nextra/components'
+import { Steps } from 'nextra/components'
+import { Cards } from 'nextra/components'
+
+# GlassFlow Helm Values Configuration
+
+This comprehensive guide covers all available configuration options in the GlassFlow Helm chart's `values.yaml` file. Use this reference to customize your GlassFlow deployment for production environments.
+
+<Callout type="important">
+**Quick Start**: For basic installations, you can use the default values. For production deployments, review the sections below to optimize your configuration.
+</Callout>
+
+## Table of Contents
+
+- [Global Settings](#global-settings)
+- [API Component](#api-component)
+- [UI Component](#ui-component)
+- [GlassFlow Operator](#glassflow-operator)
+- [NATS Configuration](#nats-configuration)
+- [Ingress Configuration](#ingress-configuration)
+- [Security Settings](#security-settings)
+- [Resource Management](#resource-management)
+- [Common Use Cases](#common-use-cases)
+
+## Global Settings
+
+Global settings apply across all components of the GlassFlow deployment.
+
+```yaml
+global:
+  # Global image registry - prepended to all image repositories
+  imageRegistry: "ghcr.io/glassflow/"
+  
+  # Observability configuration
+  observability:
+    metrics:
+      enabled: true  # Enable metrics collection
+    logs:
+      enabled: false  # Enable log export
+      exporter:
+        otlp: {}  # OTLP exporter configuration
+  
+  # NATS global configuration
+  nats:
+    # NATS address for operator connection
+    # Defaults to {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local
+    address: ""
+    stream:
+      maxAge: 24h      # Maximum age of messages in streams
+      maxBytes: 25GB   # Maximum size of streams
+```
+
+### Key Global Settings
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `imageRegistry` | Global Docker registry prefix | `ghcr.io/glassflow/` | - |
+| `observability.metrics.enabled` | Enable metrics collection | `true` | Keep enabled for monitoring |
+| `observability.logs.enabled` | Enable log export | `false` | Enable for production monitoring |
+| `observability.logs.exporter.otlp` | Your OTLP collector endpoint | `{}` | Configure your OTLP endpoint where glassflow will send logs. See [OTLP Exporter Configuration](/installation/kubernetes/observability#configure-otlp-exporter) for detailed setup |
+| `nats.stream.maxAge` | Message retention period | `24h` | Adjust based on your data retention needs |
+| `nats.stream.maxBytes` | Maximum stream size | `25GB` | Scale based on expected data volume |
+
+## API Component
+
+Configure the GlassFlow backend API service.
+
+```yaml
+api:
+  # Scaling configuration
+  replicas: 1
+  logLevel: "INFO"
+  
+  # Container image settings
+  image:
+    repository: glassflow-etl-be
+    tag: v2.2.0
+    pullPolicy: IfNotPresent
+  
+  # Resource allocation
+  resources:
+    requests:
+      memory: "100Mi"
+      cpu: "100m"
+    limits:
+      memory: "200Mi"
+      cpu: "250m"
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8081
+    targetPort: 8081
+  
+  # Environment variables
+  env: []
+```
+
+### API Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `replicas` | Number of API instances | `1` | `1` is sufficient for API operations |
+| `logLevel` | Logging verbosity | `INFO` | Use `DEBUG` for troubleshooting |
+| `resources.requests` | Minimum resources | `100Mi/100m` | Scale based on load |
+| `resources.limits` | Maximum resources | `200Mi/250m` | Set appropriate limits |
+
+
+## UI Component
+
+Configure the GlassFlow frontend user interface.
+
+```yaml
+ui:
+  # Scaling configuration
+  replicas: 1
+  
+  # Container image settings
+  image:
+    repository: glassflow-etl-fe
+    tag: v2.2.0
+    pullPolicy: IfNotPresent
+  
+  # Resource allocation
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "200m"
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  
+  # Environment variables
+  env: []
+```
+
+### UI Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `replicas` | Number of UI instances | `1` | `1` is sufficient for UI pod |
+| `resources.requests` | Minimum resources | `512Mi/100m` | Frontend typically needs more memory |
+| `resources.limits` | Maximum resources | `1Gi/200m` | Adjust based on user load |
+
+## GlassFlow Operator
+
+Configure the Kubernetes operator that manages ETL pipelines resources in k8s. The operator chart and code is in a [separate repo](https://github.com/glassflow/glassflow-etl-k8s-operator)
+and is deployed as a dependency chart.
+
+```yaml
+glassflow-operator:
+  controllerManager:
+    replicas: 1
+    
+    manager:
+      # Operator image configuration
+      image:
+        repository: glassflow-etl-k8s-operator
+        tag: v1.2.1
+        pullPolicy: IfNotPresent
+      
+      # Resource allocation
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 128Mi
+      
+      # Service account configuration
+      serviceAccount:
+        annotations: {}
+  
+  # ETL component configurations
+  glassflowComponents:
+    ingestor:
+      image:
+        repository: glassflow-etl-ingestor
+        tag: v2.2.0
+      logLevel: "INFO"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      affinity: {}
+    
+    join:
+      image:
+        repository: glassflow-etl-join
+        tag: v2.2.0
+      logLevel: "INFO"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      affinity: {}
+    
+    sink:
+      image:
+        repository: glassflow-etl-sink
+        tag: v2.2.0
+      logLevel: "INFO"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      affinity: {}
+```
+
+### Operator Configuration Options
+
+| Component | CPU Request | Memory Request | CPU Limit | Memory Limit |
+|-----------|-------------|----------------|-----------|--------------|
+| Controller Manager | `10m` | `64Mi` | `500m` | `128Mi` |
+| Ingestor | `1000m` | `1Gi` | `1500m` | `1.5Gi` |
+| Join | `1000m` | `1Gi` | `1500m` | `1.5Gi` |
+| Sink | `1000m` | `1Gi` | `1500m` | `1.5Gi` |
+
+## NATS Configuration
+
+NATS is the messaging system used for internal communication between GlassFlow components. 
+Nats is deployed as a dependency chart using the [official nats charts repo](https://nats-io.github.io/k8s/helm/charts/)
+
+```yaml
+nats:
+  # Enable/disable NATS deployment
+  enabled: true
+  
+  # NATS container image
+  container:
+    image:
+      repository: nats
+      tag: 2.12.0-alpine
+      pullPolicy: IfNotPresent
+  
+  # NATS configuration
+  config:
+    # Clustering for high availability
+    cluster:
+      enabled: true
+      port: 6222
+      replicas: 3  # Must be 2+ when JetStream is enabled
+    
+    # JetStream for persistent messaging
+    jetstream:
+      enabled: true
+      
+      # Memory store (fast, non-persistent)
+      memoryStore:
+        enabled: false
+        maxSize: 1Gi
+      
+      # File store (persistent, recommended for production)
+      fileStore:
+        enabled: true
+        dir: /data
+        pvc:
+          enabled: true
+          size: 100Gi
+          storageClassName: ""
+    
+    # Resource allocation
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "500m"
+      limits:
+        memory: "4Gi"
+        cpu: "1000m"
+```
+
+### NATS Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `enabled` | Deploy NATS with GlassFlow | `true` | Use external NATS for large deployments |
+| `cluster.replicas` | Number of NATS nodes | `3` | Use 3+ for production |
+| `jetstream.fileStore.pvc.size` | Storage size | `100Gi` | Scale based on data volume |
+| `resources.requests` | Minimum resources | `2Gi/500m` | NATS is resource-intensive |
+
+### NATS Prometheus Exporter
+
+Nats Prometheus exporter collects all NATS related metrics. These metrics are provdied together with GlassFlow metrics on the `/metrics` endpoint. 
+Details on accessing GlassFlow metrics can be found [here](/installation/kubernetes/observability#accessing-metrics)
+
+```yaml
+natsPrometheusExporter:
+  image:
+    repository: natsio/prometheus-nats-exporter
+    tag: 0.17.3
+    pullPolicy: IfNotPresent
+  
+  # Metrics to collect
+  metrics:
+    accstatz: true
+    connz: true
+    connz_detailed: true
+    jsz: true
+    gatewayz: true
+    leafz: true
+    routez: true
+    subz: true
+    varz: true
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 7777
+```
+
+## Ingress Configuration
+
+Configure external access to GlassFlow services.
+
+```yaml
+ingress:
+  # Enable external access
+  enabled: false
+  
+  # Ingress controller class
+  ingressClassName: "nginx"  # or "traefik", "istio"
+  
+  # Ingress annotations
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  
+  # Host configurations
+  hosts:
+    - host: "glassflow.example.com"
+      paths:
+        - path: "/"
+          pathType: Prefix
+          serviceName: "glassflow-ui"
+          servicePort: 8080
+        - path: "/api/v1"
+          pathType: Prefix
+          serviceName: "glassflow-api"
+          servicePort: 8081
+  
+  # TLS configuration
+  tls:
+    - hosts:
+        - "glassflow.example.com"
+      secretName: "glassflow-tls-secret"
+```
+
+### Ingress Configuration Options
+By default, helm deployment does not expose GlassFlow to the internet. See [Using Ingress](/installation/kubernetes#using-ingress) for details on configuring ingress for enabling external access.
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `enabled` | Enable external access | `false` | Set to `true` for production |
+| `ingressClassName` | Ingress controller | `""` | Specify your controller |
+| `hosts` | Domain configurations | `[]` | Configure your domains |
+| `tls` | HTTPS configuration | `[]` | Enable for production |
+
+## Security Settings
+
+Configure security contexts and service accounts.
+
+```yaml
+# Pod security context
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Container security context
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service account configuration
+serviceAccount:
+  create: true
+  automount: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT:role/ROLE"
+  name: ""
+```
+
+### Security Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `podSecurityContext.fsGroup` | File system group | `{}` | Set for proper permissions |
+| `securityContext.readOnlyRootFilesystem` | Read-only root filesystem | `{}` | Enable for security |
+| `serviceAccount.create` | Create service account | `true` | Use existing for production |
+
+
+## Best Practices
+
+<Callout type="info">
+**Production Checklist**:
+- Use 3+ replicas for high availability
+- Set appropriate resource requests and limits
+- Enable ingress with TLS
+- Configure persistent storage for NATS
+- Set up monitoring and logging
+- Use node selectors for dedicated resources
+</Callout>
+
+### Resource Sizing Guidelines
+
+| Environment | API CPU | API Memory | UI CPU | UI Memory | NATS CPU | NATS Memory | NATS Replicas | NATS Storage |
+|-------------|---------|------------|--------|-----------|----------|-------------|---------------|--------------|
+| Development | 50m | 50Mi | 50m | 256Mi | 200m | 1Gi | 1 | 10Gi |
+| Production | 500m | 500Mi | 200m | 1Gi | 1000m | 4Gi | 3 | 100Gi |
+| High-Performance | 1000m | 1Gi | 500m | 2Gi | 2000m | 8Gi | 5 | 500Gi |
+
+### Monitoring Configuration
+
+```yaml
+# Enable comprehensive monitoring
+global:
+  observability:
+    metrics:
+      enabled: true
+    logs:
+      enabled: true
+      exporter:
+        otlp:
+          endpoint: "https://your-otel-collector:4317"
+          tls:
+            insecure: false
+
+# Add monitoring annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **NATS Connection Issues**
+   ```yaml
+   # Ensure NATS is properly configured
+   nats:
+     config:
+       cluster:
+         replicas: 3  # Must be 2+ for JetStream
+   ```
+
+2. **Resource Constraints**
+   ```yaml
+   # Check resource requests vs limits
+   resources:
+     requests:
+       memory: "100Mi"  # Should be realistic
+       cpu: "100m"
+     limits:
+       memory: "200Mi"  # Should be higher than requests
+       cpu: "250m"
+   ```
+
+3. **Ingress Not Working**
+   ```yaml
+   # Verify ingress configuration
+   ingress:
+     enabled: true
+     ingressClassName: "nginx"  # Must match your controller
+     hosts:
+       - host: "your-domain.com"
+   ```
+
+### Validation Commands
+
+```bash
+# Validate Helm values
+helm template glassflow glassflow/glassflow-etl -f values.yaml --dry-run
+
+# Check resource usage
+kubectl top pods -n glassflow
+
+# Verify services
+kubectl get svc -n glassflow
+
+# Check ingress
+kubectl get ingress -n glassflow
+```
+
+## Next Steps
+
+After configuring your `values.yaml`:
+
+1. **Install GlassFlow**: `helm install glassflow glassflow/glassflow-etl -f values.yaml`
+2. **Verify Installation**: Check pod status and service endpoints
+3. **Configure Monitoring**: Set up Prometheus/Grafana dashboards
+4. **Set Up Logging**: Configure log aggregation
+5. **Test Functionality**: Create your first ETL pipeline
+
+For more information, see the [Installation Guide](/installation/kubernetes) and [Pipeline Configuration](/pipeline/usage).

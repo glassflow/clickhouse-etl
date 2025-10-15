@@ -1,0 +1,416 @@
+# Default values for glassflow-etl.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# =============================================================================
+# GLOBAL SETTINGS
+# =============================================================================
+# Global settings that apply across all components of the chart
+global:
+  # Global image registry - if set, will be prepended to all image repositories
+  imageRegistry: "ghcr.io/glassflow/"
+  observability:
+    metrics:
+      enabled: true
+    logs:
+      enabled: false
+      exporter:
+        otlp: {}
+  nats:
+    # NATS address for the operator to connect to
+    # Defaults to {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local if not specified
+    # address: ""
+    stream:
+      maxAge: 24h
+      maxBytes: 25GB
+# =============================================================================
+# API COMPONENT CONFIGURATION
+# =============================================================================
+# Backend API service configuration for the GlassFlow ETL application
+api:
+  # Number of API replicas for high availability
+  replicas: 1
+  logLevel: "INFO"
+  # Container image configuration for the API component
+  image:
+    # Docker image repository for the GlassFlow ETL backend
+    repository: glassflow-etl-be
+    # Image tag/version to deploy
+    tag: v2.2.0
+    # Image pull policy: Always, IfNotPresent, or Never
+    pullPolicy: IfNotPresent
+
+  # Resource requirements and limits for the API pods
+  resources:
+    # Minimum resources required by the API pods
+    requests:
+      memory: "100Mi"  # Memory request - adjust based on your workload
+      cpu: "100m"      # CPU request - 250 millicores = 0.25 CPU cores
+    # Maximum resources the API pods can use
+    limits:
+      memory: "200Mi"    # Memory limit - adjust based on your workload
+      cpu: "250m"      # CPU limit - 500 millicores = 0.5 CPU cores
+
+  service:
+    type: ClusterIP
+    port: 8081
+    targetPort: 8081
+
+  # Environment variables for the API service
+  # Supported variables:
+  # - GLASSFLOW_LOG_FILE_PATH: Path to the log file (Default: /tmp/logs/glassflow)
+  # - GLASSFLOW_LOG_LEVEL: Log level (Default: INFO)
+  # Example:
+  # env:
+  #   - name: GLASSFLOW_LOG_LEVEL
+  #     value: "DEBUG"
+  env: []
+
+# =============================================================================
+# UI COMPONENT CONFIGURATION
+# =============================================================================
+# Frontend UI service configuration for the GlassFlow ETL application
+ui:
+  # Number of UI replicas for high availability
+  replicas: 1
+
+  # Container image configuration for the UI component
+  image:
+    # Docker image repository for the GlassFlow ETL frontend
+    repository: glassflow-etl-fe
+    # Image tag/version to deploy
+    tag: v2.2.0
+    # Image pull policy: Always, IfNotPresent, or Never
+    pullPolicy: IfNotPresent
+
+  # Resource requirements and limits for the UI pods
+  resources:
+    # Minimum resources required by the UI pods
+    requests:
+      memory: "512Mi"  # Memory request - adjust based on your workload
+      cpu: "100m"      # CPU request - 100 millicores = 0.1 CPU cores
+    # Maximum resources the UI pods can use
+    limits:
+      memory: "1Gi"    # Memory limit - adjust based on your workload
+      cpu: "200m"      # CPU limit - 200 millicores = 0.2 CPU cores
+
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  # Environment variables for the UI service
+  # Supported variables:
+  # - NEXT_PUBLIC_API_URL: API URL for the application
+  # Example:
+  # env:
+  #   - name: NEXT_PUBLIC_API_URL
+  #     value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local:8080"
+  env: []
+
+# =============================================================================
+# GLASSFLOW OPERATOR CONFIGURATION
+# =============================================================================
+# Kubernetes operator for managing ETL pipelines and related resources
+glassflow-operator:
+  # Operator deployment configuration
+  controllerManager:
+    # Number of operator replicas for high availability
+    replicas: 1
+
+    # Operator manager configuration
+    manager:
+      # Container image configuration for the operator
+      image:
+        # Docker image repository for the GlassFlow ETL Kubernetes operator
+        repository: glassflow-etl-k8s-operator
+        # Image tag/version to deploy
+        tag: v1.2.1
+        # Image pull policy: Always, IfNotPresent, or Never
+        pullPolicy: IfNotPresent
+
+      # Resource requirements and limits for the operator pods
+      resources:
+        # Maximum resources the operator pods can use
+        limits:
+          cpu: 500m      # CPU limit - 500 millicores = 0.5 CPU cores
+          memory: 128Mi  # Memory limit - adjust based on your workload
+        # Minimum resources required by the operator pods
+        requests:
+          cpu: 10m       # CPU request - 10 millicores = 0.01 CPU cores
+          memory: 64Mi   # Memory request - adjust based on your workload
+
+    # Service account configuration for the operator
+    serviceAccount:
+      # Annotations to add to the operator service account
+      # Useful for IAM roles, OIDC providers, etc.
+      annotations: {}
+
+  glassflowComponents:
+    ingestor:
+      image:
+        repository: glassflow-etl-ingestor
+        tag: v2.2.0
+      logLevel: "INFO"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      # Node affinity for ingestor component (optional)
+      affinity: {}
+    join:
+      image:
+        repository: glassflow-etl-join
+        tag: v2.2.0
+      logLevel: "INFO"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      # Node affinity for join component (optional)
+      affinity: {}
+    sink:
+      image:
+        repository: glassflow-etl-sink
+        tag: v2.2.0
+      logLevel: "INFO"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      # Node affinity for sink component (optional)
+      affinity: {}
+# =============================================================================
+# NATS OPERATOR CONFIGURATION
+# =============================================================================
+# NATS prometheus exporter for getting metrics from NATS
+# This is enabled when global.observability.metrics.enabled is true
+natsPrometheusExporter:
+  image:
+    repository: natsio/prometheus-nats-exporter
+    tag: 0.17.3
+    pullPolicy: IfNotPresent
+  # Exporter metrics configuration
+  metrics:
+    accstatz: true
+    connz: true
+    connz_detailed: true
+    jsz: true
+    gatewayz: true
+    leafz: true
+    routez: true
+    subz: true
+    varz: true
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 7777
+    protocol: TCP
+    name: http
+
+
+# =============================================================================
+# NATS CONFIGURATION
+# =============================================================================
+# NATS messaging system configuration for internal communication
+nats:
+  # Enable or disable NATS deployment
+  # Set to false if you want to use an external NATS instance
+  enabled: true
+  container:
+    image:
+      repository: nats
+      tag: 2.12.0-alpine
+      pullPolicy: IfNotPresent
+  # NATS configuration settings
+  # Note: Node selector for NATS should be set under podTemplate.merge.spec.nodeSelector
+  config:
+    # NATS clustering configuration for high availability
+    cluster:
+      # Enable NATS clustering (recommended for production)
+      enabled: true
+      # Port for cluster communication between NATS nodes
+      port: 6222
+      # Number of NATS replicas
+      # IMPORTANT: Must be 2 or higher when JetStream is enabled
+      replicas: 3
+
+    # JetStream configuration for persistent messaging
+    jetstream:
+      # Enable JetStream for persistent message storage
+      enabled: true
+
+      # Memory store configuration (fast but non-persistent)
+      memoryStore:
+        # Enable memory-based storage (not recommended for production)
+        enabled: false
+        # Maximum size of memory store
+        maxSize: 1Gi
+
+      # File store configuration (persistent but slower)
+      fileStore:
+        # Enable file-based storage (recommended for production)
+        enabled: true
+        # Directory for storing JetStream data
+        dir: /data
+        # Persistent volume claim configuration
+        pvc:
+          # Enable PVC for persistent storage
+          enabled: true
+          # Size of the persistent volume
+          size: 100Gi
+          # Storage class for the PVC (uses global.storageClass if empty)
+          storageClassName: ""
+
+    # Resource requirements and limits for NATS pods
+    resources:
+      # Minimum resources required by NATS pods
+      requests:
+        memory: "2Gi"    # Memory request - adjust based on your workload
+        cpu: "500m"      # CPU request - 500 millicores = 0.5 CPU cores
+      # Maximum resources NATS pods can use
+      limits:
+        memory: "4Gi"    # Memory limit - adjust based on your workload
+        cpu: "1000m"     # CPU limit - 1000 millicores = 1.0 CPU cores
+
+# =============================================================================
+# INGRESS CONFIGURATION
+# =============================================================================
+# Ingress configuration for external access to the application
+ingress:
+  # Enable or disable ingress
+  # Set to true to expose the application externally
+  enabled: false
+
+  # Ingress class name (required for Kubernetes 1.18+)
+  # Example: "nginx", "traefik", "istio"
+  ingressClassName: ""
+
+  # Annotations for the ingress resource
+  # Useful for SSL termination, rate limiting, etc.
+  annotations: {}
+
+  # Host configurations for the ingress
+  # Example:
+  # - host: "etl.example.com"
+  #   paths:
+  #     - path: "/"
+  #       pathType: Prefix
+  #       serviceName: "glassflow-etl-ui"
+  #       servicePort: 8080
+  hosts: []
+
+  # TLS configuration for HTTPS
+  # Example:
+  # - hosts:
+  #     - "etl.example.com"
+  #   secretName: "etl-tls-secret"
+  tls: []
+
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
+# Pod and container security context settings
+podSecurityContext: {}
+  # fsGroup: 2000  # File system group ID
+
+# Container security context settings
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# =============================================================================
+# SERVICE ACCOUNT CONFIGURATION
+# =============================================================================
+# Service account configuration for the application (UI and API)
+serviceAccount:
+  # Create a new service account for the application (UI and API)
+  # Set to false if you want to use an existing service account
+  create: true
+
+  # Automatically mount the service account's API credentials
+  # Useful for accessing the Kubernetes API from within pods
+  automount: true
+
+  # Annotations to add to the service account
+  # Useful for IAM roles, OIDC providers, etc.
+  annotations: {}
+
+  # Name of the service account to use
+  # If not set and create is true, a name is generated using the fullname template
+  # Example: "glassflow-etl-sa"
+  name: ""
+
+# =============================================================================
+# POD CONFIGURATION
+# =============================================================================
+# Pod-level configuration settings
+podAnnotations: {}  # Annotations to add to all pods
+podLabels: {}       # Labels to add to all pods
+
+# Node selector for main application pods (UI and API)
+# Useful for scheduling pods on specific nodes
+# Example:
+# nodeSelector:
+#   kubernetes.io/os: linux
+#   node-role.kubernetes.io/worker: "true"
+nodeSelector: {}
+
+# Pod tolerations for scheduling
+# Useful for running pods on nodes with taints
+# Example:
+# - key: "dedicated"
+#   operator: "Equal"
+#   value: "glassflow"
+#   effect: "NoSchedule"
+tolerations: []
+
+# Pod affinity rules for scheduling
+# Useful for co-locating or spreading pods
+# Example:
+# podAffinity:
+#   requiredDuringSchedulingIgnoredDuringExecution:
+#   - labelSelector:
+#       matchExpressions:
+#       - key: app
+#         operator: In
+#         values:
+#         - glassflow-etl
+#     topologyKey: kubernetes.io/hostname
+affinity: {}
+
+# =============================================================================
+# AUTOSCALING CONFIGURATION
+# =============================================================================
+# Horizontal Pod Autoscaler (HPA) configuration
+autoscaling:
+  # Enable or disable autoscaling
+  enabled: false
+
+  # Minimum number of replicas when autoscaling
+  minReplicas: 1
+
+  # Maximum number of replicas when autoscaling
+  maxReplicas: 5
+
+  # Target CPU utilization percentage for scaling
+  # HPA will scale up when CPU usage exceeds this percentage
+  targetCPUUtilizationPercentage: 80
+
+  # Target memory utilization percentage for scaling (commented out)
+  # Uncomment and set a value to enable memory-based scaling
+  # targetMemoryUtilizationPercentage: 80
