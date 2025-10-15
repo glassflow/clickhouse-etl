@@ -62,10 +62,17 @@ Update your `values.yaml` file to include the OTLP exporter configuration:
 # OTLP exporter configuration for logs
 otel:
   exporter:
-    endpoint: "https://your-otel-endpoint.com:4317"  # Replace with your OTLP endpoint
+    endpoint: your-otel-endpoint.com:4317  # Replace with your OTLP endpoint
     tls:
       insecure: true
 ```
+
+<Callout type="info" emoji="💡">
+**Endpoint Protocol**: 
+- For **HTTP** (often port 4318): Use `http://your-endpoint:4318`
+- For **gRPC** (often port 4317): Use `your-endpoint:4317` (no http prefix)
+</Callout>
+
 
 ### Supported OTLP Endpoints
 
