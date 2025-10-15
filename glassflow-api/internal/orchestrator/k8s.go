@@ -172,7 +172,7 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 			"metadata": map[string]any{
 				"name": cfg.ID,
 				"annotations": map[string]any{
-					"pipeline.etl.glassflow.io/create": "true",
+					internal.PipelineCreateAnnotation: "true",
 				},
 			},
 			"spec": specMap,
@@ -236,7 +236,7 @@ func (k *K8sOrchestrator) StopPipeline(ctx context.Context, pipelineID string) e
 	}
 
 	// Add stop annotation
-	annotations["pipeline.etl.glassflow.io/stop"] = "true"
+	annotations[internal.PipelineStopAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the stop annotation
@@ -289,10 +289,10 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	// Clear any conflicting operation annotations to ensure terminate takes precedence
 	// This prevents stuck pipelines from ignoring terminate requests
 	conflictingAnnotations := []string{
-		"pipeline.etl.glassflow.io/create",
-		"pipeline.etl.glassflow.io/pause",
-		"pipeline.etl.glassflow.io/resume",
-		"pipeline.etl.glassflow.io/stop",
+		internal.PipelineCreateAnnotation,
+		internal.PipelinePauseAnnotation,
+		internal.PipelineResumeAnnotation,
+		internal.PipelineStopAnnotation,
 	}
 
 	for _, annotation := range conflictingAnnotations {
@@ -305,7 +305,7 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 	}
 
 	// Add terminate annotation
-	annotations["pipeline.etl.glassflow.io/terminate"] = "true"
+	annotations[internal.PipelineTerminateAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the annotation
@@ -352,11 +352,11 @@ func (k *K8sOrchestrator) DeletePipeline(ctx context.Context, pipelineID string)
 
 	// Clear any conflicting operation annotations to ensure deletion takes precedence
 	conflictingAnnotations := []string{
-		"pipeline.etl.glassflow.io/create",
-		"pipeline.etl.glassflow.io/pause",
-		"pipeline.etl.glassflow.io/resume",
-		"pipeline.etl.glassflow.io/terminate",
-		"pipeline.etl.glassflow.io/stop",
+		internal.PipelineCreateAnnotation,
+		internal.PipelinePauseAnnotation,
+		internal.PipelineResumeAnnotation,
+		internal.PipelineTerminateAnnotation,
+		internal.PipelineStopAnnotation,
 	}
 
 	for _, annotation := range conflictingAnnotations {
@@ -369,7 +369,7 @@ func (k *K8sOrchestrator) DeletePipeline(ctx context.Context, pipelineID string)
 	}
 
 	// Add deletion annotation
-	annotations["pipeline.etl.glassflow.io/delete"] = "true"
+	annotations[internal.PipelineDeleteAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the annotation
@@ -426,7 +426,7 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 	}
 
 	// Add resume annotation
-	annotations["pipeline.etl.glassflow.io/resume"] = "true"
+	annotations[internal.PipelineResumeAnnotation] = "true"
 	customResource.SetAnnotations(annotations)
 
 	// Update the resource with the resume annotation
