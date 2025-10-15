@@ -111,60 +111,9 @@ func (k *K8sOrchestrator) GetType() string {
 
 // SetupPipeline implements Orchestrator.
 func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error {
-	src := make([]operator.SourceStream, 0, len(cfg.Ingestor.KafkaTopics))
-
-	for _, s := range cfg.Ingestor.KafkaTopics {
-		src = append(src, operator.SourceStream{
-			TopicName:    s.Name,
-			OutputStream: s.OutputStreamID,
-			DedupWindow:  s.Deduplication.Window.Duration(),
-			Replicas:     s.Replicas,
-		})
-	}
-
-	pcfg, err := json.Marshal(*cfg)
+	specMap, err := k.buildPipelineSpec(ctx, cfg)
 	if err != nil {
-		k.log.ErrorContext(ctx, "failed to marshal pipeline config", "pipeline_id", cfg.ID, "error", err)
-		return fmt.Errorf("marshal pipeline config: %w", err)
-	}
-
-	spec := operator.PipelineSpec{
-		ID:  cfg.ID,
-		DLQ: models.GetDLQStreamName(cfg.ID),
-		Ingestor: operator.Sources{
-			Type:    cfg.Ingestor.Type,
-			Streams: src,
-		},
-		Join: operator.Join{
-			Type:                  cfg.Join.Type,
-			OutputStream:          cfg.Join.OutputStreamID,
-			Enabled:               cfg.Join.Enabled,
-			Replicas:              internal.DefaultReplicasCount,
-			LeftBufferTTL:         cfg.Join.LeftBufferTTL.Duration(),
-			RightBufferTTL:        cfg.Join.RightBufferTTL.Duration(),
-			NATSLeftConsumerName:  cfg.Join.NATSLeftConsumerName,
-			NATSRightConsumerName: cfg.Join.NATSRightConsumerName,
-		},
-		Sink: operator.Sink{
-			Type:             cfg.Sink.Type,
-			Replicas:         internal.DefaultReplicasCount,
-			NATSConsumerName: cfg.Sink.NATSConsumerName,
-		},
-		Config: string(pcfg),
-	}
-
-	var specMap map[string]any
-
-	jsonSpec, err := json.Marshal(spec)
-	if err != nil {
-		k.log.ErrorContext(ctx, "failed to marshal k8s pipeline spec", "pipeline_id", cfg.ID, "error", err)
-		return fmt.Errorf("marshal k8s pipeline spec: %w", err)
-	}
-
-	err = json.Unmarshal(jsonSpec, &specMap)
-	if err != nil {
-		k.log.ErrorContext(ctx, "failed to unmarshal k8s pipeline spec to spec map", "pipeline_id", cfg.ID, "error", err)
-		return fmt.Errorf("unmarshal k8s pipeline spec to spec map: %w", err)
+		return err
 	}
 
 	obj := &unstructured.Unstructured{
@@ -471,17 +420,14 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(pipelineConfig.Status.OverallStatus))
 	}
 
-	// Marshal new config to JSON string
-	configJSON, err := json.Marshal(newCfg)
+	// Build new spec using the same logic as SetupPipeline
+	specMap, err := k.buildPipelineSpec(ctx, newCfg)
 	if err != nil {
-		k.log.ErrorContext(ctx, "failed to marshal new pipeline config", "pipeline_id", pipelineID, "error", err)
-		return fmt.Errorf("marshal new pipeline config: %w", err)
+		return err
 	}
 
-	// Update the CRD spec with new config
-	spec := customResource.Object["spec"].(map[string]interface{})
-	spec["config"] = string(configJSON)
-	customResource.Object["spec"] = spec
+	// Replace the entire spec
+	customResource.Object["spec"] = specMap
 
 	// Add edit annotation
 	annotations := customResource.GetAnnotations()
@@ -504,4 +450,67 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 
 	k.log.InfoContext(ctx, "requested edit of k8s pipeline", "pipeline_id", pipelineID)
 	return nil
+}
+
+// buildPipelineSpec creates a complete PipelineSpec from a PipelineConfig
+func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.PipelineConfig) (map[string]any, error) {
+	// Build source streams
+	src := make([]operator.SourceStream, 0, len(cfg.Ingestor.KafkaTopics))
+	for _, s := range cfg.Ingestor.KafkaTopics {
+		src = append(src, operator.SourceStream{
+			TopicName:    s.Name,
+			OutputStream: s.OutputStreamID,
+			DedupWindow:  s.Deduplication.Window.Duration(),
+			Replicas:     s.Replicas,
+		})
+	}
+
+	// Marshal config to JSON string
+	configJSON, err := json.Marshal(cfg)
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to marshal pipeline config", "pipeline_id", cfg.ID, "error", err)
+		return nil, fmt.Errorf("marshal pipeline config: %w", err)
+	}
+
+	// Create complete spec
+	spec := operator.PipelineSpec{
+		ID:  cfg.ID,
+		DLQ: models.GetDLQStreamName(cfg.ID),
+		Ingestor: operator.Sources{
+			Type:    cfg.Ingestor.Type,
+			Streams: src,
+		},
+		Join: operator.Join{
+			Type:                  cfg.Join.Type,
+			OutputStream:          cfg.Join.OutputStreamID,
+			Enabled:               cfg.Join.Enabled,
+			Replicas:              internal.DefaultReplicasCount,
+			LeftBufferTTL:         cfg.Join.LeftBufferTTL.Duration(),
+			RightBufferTTL:        cfg.Join.RightBufferTTL.Duration(),
+			NATSLeftConsumerName:  cfg.Join.NATSLeftConsumerName,
+			NATSRightConsumerName: cfg.Join.NATSRightConsumerName,
+		},
+		Sink: operator.Sink{
+			Type:             cfg.Sink.Type,
+			Replicas:         internal.DefaultReplicasCount,
+			NATSConsumerName: cfg.Sink.NATSConsumerName,
+		},
+		Config: string(configJSON),
+	}
+
+	// Convert spec to map[string]interface{}
+	var specMap map[string]any
+	jsonSpec, err := json.Marshal(spec)
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to marshal k8s pipeline spec", "pipeline_id", cfg.ID, "error", err)
+		return nil, fmt.Errorf("marshal k8s pipeline spec: %w", err)
+	}
+
+	err = json.Unmarshal(jsonSpec, &specMap)
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to unmarshal k8s pipeline spec to spec map", "pipeline_id", cfg.ID, "error", err)
+		return nil, fmt.Errorf("unmarshal k8s pipeline spec to spec map: %w", err)
+	}
+
+	return specMap, nil
 }
