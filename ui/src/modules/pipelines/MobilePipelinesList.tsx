@@ -13,11 +13,11 @@ import Loader from '@/src/images/loader-small.svg'
 interface MobilePipelinesListProps {
   pipelines: ListPipelineConfig[]
   healthMap: Record<string, any> // Temporarily any since we're not using health data
-  onPause?: (pipeline: ListPipelineConfig) => void
+  onStop?: (pipeline: ListPipelineConfig) => void
   onResume?: (pipeline: ListPipelineConfig) => void
   onEdit?: (pipeline: ListPipelineConfig) => void
   onRename?: (pipeline: ListPipelineConfig) => void
-  onStop?: (pipeline: ListPipelineConfig) => void
+  onTerminate?: (pipeline: ListPipelineConfig) => void
   onDelete?: (pipeline: ListPipelineConfig) => void
   onRowClick?: (pipeline: ListPipelineConfig) => void
   isPipelineLoading?: (pipelineId: string) => boolean
@@ -27,11 +27,11 @@ interface MobilePipelinesListProps {
 export function MobilePipelinesList({
   pipelines,
   healthMap,
-  onPause,
+  onStop,
   onResume,
   onEdit,
   onRename,
-  onStop,
+  onTerminate,
   onDelete,
   onRowClick,
   isPipelineLoading,
@@ -121,11 +121,11 @@ export function MobilePipelinesList({
                 <TableContextMenu
                   pipelineStatus={(pipeline.status as PipelineStatus) || 'no_configuration'}
                   isLoading={isLoading}
-                  onPause={onPause ? () => onPause(pipeline) : undefined}
+                  onStop={onStop ? () => onStop(pipeline) : undefined}
                   onResume={onResume ? () => onResume(pipeline) : undefined}
                   onEdit={onEdit ? () => onEdit(pipeline) : undefined}
                   onRename={onRename ? () => onRename(pipeline) : undefined}
-                  onStop={onStop ? () => onStop(pipeline) : undefined}
+                  onTerminate={onTerminate ? () => onTerminate(pipeline) : undefined}
                   onDelete={onDelete ? () => onDelete(pipeline) : undefined}
                 />
               </div>

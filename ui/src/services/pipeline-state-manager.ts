@@ -19,7 +19,7 @@ export interface PipelineStateManager {
   subscribeTo: (callback: (pipelineId: string, status: PipelineStatus) => void) => () => void
 
   // Operation reporting
-  reportOperation: (pipelineId: string, operation: 'pause' | 'resume' | 'stop' | 'delete' | 'deploy') => void
+  reportOperation: (pipelineId: string, operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'deploy') => void
   reportOptimisticUpdate: (pipelineId: string, status: PipelineStatus) => void
 
   // Lifecycle
@@ -59,7 +59,7 @@ class PipelineStateManagerImpl implements PipelineStateManager {
   }
 
   // Operation reporting - This is where the business logic lives
-  reportOperation(pipelineId: string, operation: 'pause' | 'resume' | 'stop' | 'delete' | 'deploy'): void {
+  reportOperation(pipelineId: string, operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'deploy'): void {
     console.log(`[PipelineStateManager] Operation reported: ${operation} on ${pipelineId}`)
 
     // Business logic: Should we track this pipeline?
@@ -150,9 +150,9 @@ class PipelineStateManagerImpl implements PipelineStateManager {
   private shouldTrackOperation(operation: string): boolean {
     // Business logic: Which operations need tracking?
     switch (operation) {
-      case 'pause':
-      case 'resume':
       case 'stop':
+      case 'resume':
+      case 'terminate':
       case 'deploy':
         return true // These operations have transitions that need tracking
       case 'delete':
@@ -165,12 +165,12 @@ class PipelineStateManagerImpl implements PipelineStateManager {
   private getMaxDurationForOperation(operation: string): number {
     // Business logic: How long should we track each operation?
     switch (operation) {
-      case 'pause':
-        return 30 // Pause can take time to process remaining messages
+      case 'stop':
+        return 30 // Stop (graceful) can take time to process remaining messages
       case 'resume':
         return 10 // Resume should be relatively quick
-      case 'stop':
-        return 15 // Stop operations typically complete faster than pause
+      case 'terminate':
+        return 15 // Terminate operations are immediate
       case 'deploy':
         return 20 // Deployments can take some time
       default:

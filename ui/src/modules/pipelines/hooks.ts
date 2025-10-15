@@ -1,26 +1,26 @@
 import { useState } from 'react'
 
-export function usePausePipelineModal() {
-  const [isPauseModalVisible, setIsPauseModalVisible] = useState(false)
+export function useStopPipelineModal() {
+  const [isStopModalVisible, setIsStopModalVisible] = useState(false)
   const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
 
-  const openPauseModal = (pipeline?: any) => {
+  const openStopModal = (pipeline?: any) => {
     setSelectedPipeline(pipeline)
-    setIsPauseModalVisible(true)
+    setIsStopModalVisible(true)
   }
 
-  const closePauseModal = () => {
-    setIsPauseModalVisible(false)
+  const closeStopModal = () => {
+    setIsStopModalVisible(false)
     setSelectedPipeline(null)
   }
 
   return {
-    isPauseModalVisible,
+    isStopModalVisible,
     selectedPipeline,
-    openPauseModal,
-    closePauseModal,
-    onOk: closePauseModal,
-    onCancel: closePauseModal,
+    openStopModal,
+    closeStopModal,
+    onOk: closeStopModal,
+    onCancel: closeStopModal,
   }
 }
 
@@ -100,26 +100,26 @@ export function useEditConfirmationModal() {
   }
 }
 
-export function useStopPipelineModal() {
-  const [isStopModalVisible, setIsStopModalVisible] = useState(false)
+export function useTerminatePipelineModal() {
+  const [isTerminateModalVisible, setIsTerminateModalVisible] = useState(false)
   const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
 
-  const openStopModal = (pipeline?: any) => {
+  const openTerminateModal = (pipeline?: any) => {
     setSelectedPipeline(pipeline)
-    setIsStopModalVisible(true)
+    setIsTerminateModalVisible(true)
   }
 
-  const closeStopModal = () => {
-    setIsStopModalVisible(false)
+  const closeTerminateModal = () => {
+    setIsTerminateModalVisible(false)
     setSelectedPipeline(null)
   }
 
   return {
-    isStopModalVisible,
+    isTerminateModalVisible,
     selectedPipeline,
-    openStopModal,
-    closeStopModal,
-    onOk: closeStopModal,
-    onCancel: closeStopModal,
+    openTerminateModal,
+    closeTerminateModal,
+    onOk: closeTerminateModal,
+    onCancel: closeTerminateModal,
   }
 }

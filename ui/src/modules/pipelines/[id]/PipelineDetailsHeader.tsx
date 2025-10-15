@@ -6,10 +6,10 @@ import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
 import { Copy, Check } from 'lucide-react'
 import PipelineActionButton from '@/src/components/shared/PipelineActionButton'
-import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
+import TerminatePipelineModal from '@/src/modules/pipelines/components/TerminatePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import EditPipelineModal from '@/src/modules/pipelines/components/EditPipelineModal'
-import PausePipelineModal from '@/src/modules/pipelines/components/PausePipelineModal'
+import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
@@ -20,10 +20,12 @@ import PlayIcon from '@/src/images/play.svg'
 import EditIcon from '@/src/images/edit.svg'
 import RenameIcon from '@/src/images/rename.svg'
 import DeleteIcon from '@/src/images/trash.svg'
-import StopIcon from '@/src/images/close.svg'
+import StopIcon from '@/src/images/stop.svg'
+import CloseIcon from '@/src/images/close.svg'
 import PauseIcon from '@/src/images/pause.svg'
 import ShutdownIcon from '@/src/images/shutdown.svg'
 import DownloadIcon from '@/src/images/download-white.svg'
+import StopWhiteIcon from '@/src/images/stop-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
@@ -102,10 +104,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       // Execute action directly (like resume)
       try {
         // NEW: Report operations to centralized system for status tracking
-        if (action === 'pause') {
-          operations.reportPause(pipeline.pipeline_id)
+        if (action === 'stop') {
+          operations.reportStop(pipeline.pipeline_id)
         } else if (action === 'resume') {
           operations.reportResume(pipeline.pipeline_id)
+        } else if (action === 'terminate') {
+          operations.reportTerminate(pipeline.pipeline_id)
         } else if (action === 'delete') {
           operations.reportDelete(pipeline.pipeline_id)
           // Handle navigation in the parent component
@@ -122,10 +126,13 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         recentActionRef.current = { action, timestamp: Date.now() }
       } catch (error) {
         // NEW: Revert optimistic updates using centralized system
-        if (action === 'pause') {
+        if (action === 'stop') {
           operations.revertOptimisticUpdate(pipeline.pipeline_id, 'active')
         } else if (action === 'resume') {
-          operations.revertOptimisticUpdate(pipeline.pipeline_id, 'paused')
+          operations.revertOptimisticUpdate(pipeline.pipeline_id, 'stopped')
+        } else if (action === 'terminate') {
+          const currentStatus = (pipeline.status as PipelineStatus) || 'active'
+          operations.revertOptimisticUpdate(pipeline.pipeline_id, currentStatus)
         } else if (action === 'delete') {
           const currentStatus = (pipeline.status as PipelineStatus) || 'active'
           operations.revertOptimisticUpdate(pipeline.pipeline_id, currentStatus)
@@ -146,12 +153,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
     try {
       // NEW: Report operations to centralized system for status tracking
-      if (action === 'pause') {
-        operations.reportPause(pipeline.pipeline_id)
+      if (action === 'stop') {
+        operations.reportStop(pipeline.pipeline_id)
       } else if (action === 'resume') {
         operations.reportResume(pipeline.pipeline_id)
-      } else if (action === 'stop') {
-        operations.reportStop(pipeline.pipeline_id)
+      } else if (action === 'terminate') {
+        operations.reportTerminate(pipeline.pipeline_id)
       } else if (action === 'delete') {
         operations.reportDelete(pipeline.pipeline_id)
       }
@@ -178,11 +185,11 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       recentActionRef.current = { action, timestamp: Date.now() }
     } catch (error) {
       // NEW: Revert optimistic updates using centralized system
-      if (action === 'pause') {
+      if (action === 'stop') {
         operations.revertOptimisticUpdate(pipeline.pipeline_id, 'active')
       } else if (action === 'resume') {
-        operations.revertOptimisticUpdate(pipeline.pipeline_id, 'paused')
-      } else if (action === 'stop') {
+        operations.revertOptimisticUpdate(pipeline.pipeline_id, 'stopped')
+      } else if (action === 'terminate') {
         const currentStatus = (pipeline.status as PipelineStatus) || 'active'
         operations.revertOptimisticUpdate(pipeline.pipeline_id, currentStatus)
       }
@@ -253,6 +260,10 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         return 'warning'
       case 'stopped':
         return 'secondary'
+      case 'terminating':
+        return 'warning'
+      case 'terminated':
+        return 'secondary'
       case 'failed':
         return 'error'
       default:
@@ -295,6 +306,10 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         return 'Stopping...'
       case 'stopped':
         return 'Stopped'
+      case 'terminating':
+        return 'Terminating...'
+      case 'terminated':
+        return 'Terminated'
       case 'failed':
         return 'Failed'
       default:
@@ -333,10 +348,10 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
-            {action === 'pause' && (
+            {action === 'stop' && (
               <Image
-                src={PauseIcon}
-                alt="Pause"
+                src={StopWhiteIcon}
+                alt="Stop"
                 width={16}
                 height={16}
                 className="filter brightness-100 group-hover:brightness-0"
@@ -351,10 +366,10 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
-            {action === 'stop' && (
+            {action === 'terminate' && (
               <Image
-                src={ShutdownIcon}
-                alt="Stop"
+                src={CloseIcon}
+                alt="Terminate"
                 width={16}
                 height={16}
                 className="filter brightness-100 group-hover:brightness-0"
@@ -387,12 +402,13 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
 
   const getActionButtons = () => {
     // Use effective status (centralized status takes priority)
-    const showPause = effectiveStatus === 'active' || effectiveStatus === 'pausing'
-    const showResume = effectiveStatus === 'paused' || effectiveStatus === 'resuming'
+    const showStop = effectiveStatus === 'active' || effectiveStatus === 'stopping'
+    const showResume = effectiveStatus === 'stopped' || effectiveStatus === 'terminated'
 
-    // Show stop button for active/paused pipelines, delete for terminated/stopped pipelines
-    const showStop = effectiveStatus === 'active' || effectiveStatus === 'paused'
-    const showDelete = effectiveStatus === 'stopped'
+    // Terminate is a kill switch - available for all states except final states (stopped/terminated) and transitional terminating state
+    const showTerminate =
+      effectiveStatus !== 'stopped' && effectiveStatus !== 'terminated' && effectiveStatus !== 'terminating'
+    const showDelete = effectiveStatus === 'stopped' || effectiveStatus === 'terminated'
 
     // Check if rename should be shown (not disabled)
     const renameConfig = getActionConfiguration('rename')
@@ -402,9 +418,9 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
       <>
         {showResume && renderActionButton('resume')}
         {showRename && renderActionButton('rename')}
-        {showStop && renderActionButton('stop')}
+        {showTerminate && renderActionButton('terminate')}
         {showDelete && renderActionButton('delete')}
-        {showPause && renderActionButton('pause')}
+        {showStop && renderActionButton('stop')}
         {/* Edit button disabled - functionality not implemented yet */}
         {/* {renderActionButton('edit')} */}
         <Button
@@ -440,9 +456,9 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
                 <div className="flex items-center gap-2">
                   <Image src={Loader} alt="Loading" width={24} height={24} className="animate-spin" />
                   <span className="text-sm text-blue-600 font-medium">
-                    {actionState.lastAction === 'pause' && 'Pausing pipeline...'}
-                    {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
                     {actionState.lastAction === 'stop' && 'Stopping pipeline...'}
+                    {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
+                    {actionState.lastAction === 'terminate' && 'Terminating pipeline...'}
                     {actionState.lastAction === 'delete' && 'Deleting pipeline...'}
                     {actionState.lastAction === 'rename' && 'Renaming pipeline...'}
                     {actionState.lastAction === 'edit' && 'Updating pipeline...'}
@@ -496,16 +512,13 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         </div>
       </Card>
 
-      {/* Stop Pipeline Modal */}
-      <StopPipelineModal
-        visible={activeModal === 'stop'}
-        onOk={(isGraceful) => {
-          handleModalConfirm('stop', { graceful: isGraceful })
+      {/* Terminate Pipeline Modal */}
+      <TerminatePipelineModal
+        visible={activeModal === 'terminate'}
+        onOk={() => {
+          handleModalConfirm('terminate', { graceful: false })
         }}
         onCancel={handleModalCancel}
-        callback={(result) => {
-          console.log('Stop pipeline gracefully:', result)
-        }}
       />
 
       {/* Rename Modal */}
@@ -530,11 +543,11 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         onCancel={handleModalCancel}
       /> */}
 
-      {/* Pause Modal */}
-      <PausePipelineModal
-        visible={activeModal === 'pause'}
+      {/* Stop Modal */}
+      <StopPipelineModal
+        visible={activeModal === 'stop'}
         onOk={() => {
-          handleModalConfirm('pause')
+          handleModalConfirm('stop')
         }}
         onCancel={handleModalCancel}
       />

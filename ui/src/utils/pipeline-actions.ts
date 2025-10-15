@@ -83,45 +83,42 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           return baseConfig
       }
 
-    case 'stop':
+    case 'terminate':
+      // Terminate is a kill switch - only disabled for final states and when already terminating
       switch (pipelineStatus) {
-        case PIPELINE_STATUS_MAP.active:
-        case PIPELINE_STATUS_MAP.paused:
-          return {
-            ...baseConfig,
-            showModal: true,
-            requiresConfirmation: true,
-            warningMessage:
-              'This action will stop the pipeline. Choose whether to process remaining events in the queue (graceful) or stop immediately (ungraceful).',
-          }
-        case PIPELINE_STATUS_MAP.pausing:
-          return {
-            ...baseConfig,
-            showModal: true,
-            requiresConfirmation: true,
-            warningMessage:
-              'The pipeline is currently pausing. This action will stop the pipeline. Choose whether to process remaining events in the queue (graceful) or stop immediately (ungraceful).',
-          }
-        case PIPELINE_STATUS_MAP.stopping:
+        case PIPELINE_STATUS_MAP.terminating:
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already being stopped',
+            disabledReason: 'Pipeline is already being terminated',
           }
         case PIPELINE_STATUS_MAP.stopped:
+        case PIPELINE_STATUS_MAP.terminated:
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already stopped',
+            disabledReason: 'Pipeline is already terminated',
           }
+        // All other states - terminate is available as a kill switch
+        case PIPELINE_STATUS_MAP.active:
+        case PIPELINE_STATUS_MAP.paused:
+        case PIPELINE_STATUS_MAP.pausing:
+        case PIPELINE_STATUS_MAP.resuming:
+        case PIPELINE_STATUS_MAP.stopping:
         case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
             showModal: true,
-            requiresConfirmation: false,
+            requiresConfirmation: true,
+            warningMessage: 'This action will terminate the pipeline immediately without processing remaining events.',
           }
         default:
-          return baseConfig
+          return {
+            ...baseConfig,
+            showModal: true,
+            requiresConfirmation: true,
+            warningMessage: 'This action will terminate the pipeline immediately without processing remaining events.',
+          }
       }
 
     case 'delete':
@@ -151,7 +148,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           return baseConfig
       }
 
-    case 'pause':
+    case 'stop':
       switch (pipelineStatus) {
         case PIPELINE_STATUS_MAP.active:
           return {
@@ -159,26 +156,26 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             showModal: true,
             requiresConfirmation: false,
           }
-        case PIPELINE_STATUS_MAP.paused:
+        case PIPELINE_STATUS_MAP.stopped:
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already paused',
+            disabledReason: 'Pipeline is already stopped',
           }
-        case PIPELINE_STATUS_MAP.pausing:
+        case PIPELINE_STATUS_MAP.stopping:
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already being paused',
+            disabledReason: 'Pipeline is already being stopped',
           }
         case PIPELINE_STATUS_MAP.resuming:
-        case PIPELINE_STATUS_MAP.stopping:
-        case PIPELINE_STATUS_MAP.stopped:
+        case PIPELINE_STATUS_MAP.terminating:
+        case PIPELINE_STATUS_MAP.terminated:
         case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: `Cannot pause a ${pipelineStatus} pipeline`,
+            disabledReason: `Cannot stop a ${pipelineStatus} pipeline`,
           }
         default:
           return baseConfig
@@ -186,7 +183,8 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
 
     case 'resume':
       switch (pipelineStatus) {
-        case PIPELINE_STATUS_MAP.paused:
+        case PIPELINE_STATUS_MAP.stopped:
+        case PIPELINE_STATUS_MAP.terminated:
           return {
             ...baseConfig,
             showModal: false,
@@ -204,9 +202,8 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             isDisabled: true,
             disabledReason: 'Pipeline is already being resumed',
           }
-        case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.stopping:
-        case PIPELINE_STATUS_MAP.stopped:
+        case PIPELINE_STATUS_MAP.terminating:
         case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
@@ -226,7 +223,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
  * Determines which actions are available for a given pipeline status
  */
 export const getAvailableActions = (pipelineStatus: Pipeline['status']): PipelineAction[] => {
-  const allActions: PipelineAction[] = ['edit', 'rename', 'stop', 'delete', 'pause', 'resume']
+  const allActions: PipelineAction[] = ['edit', 'rename', 'terminate', 'delete', 'stop', 'resume']
 
   return allActions.filter((action) => {
     const config = getActionConfig(action, pipelineStatus)
@@ -239,12 +236,12 @@ export const getAvailableActions = (pipelineStatus: Pipeline['status']): Pipelin
  */
 export const getActionButtonText = (action: PipelineAction, pipelineStatus: Pipeline['status']): string => {
   switch (action) {
-    case 'pause':
-      return pipelineStatus === PIPELINE_STATUS_MAP.pausing ? 'Pausing...' : 'Pause'
-    case 'resume':
-      return pipelineStatus === PIPELINE_STATUS_MAP.resuming ? 'Resuming...' : 'Resume'
     case 'stop':
       return pipelineStatus === PIPELINE_STATUS_MAP.stopping ? 'Stopping...' : 'Stop'
+    case 'resume':
+      return pipelineStatus === PIPELINE_STATUS_MAP.resuming ? 'Resuming...' : 'Resume'
+    case 'terminate':
+      return pipelineStatus === PIPELINE_STATUS_MAP.terminating ? 'Terminating...' : 'Terminate'
     case 'delete':
       return 'Delete'
     case 'edit':

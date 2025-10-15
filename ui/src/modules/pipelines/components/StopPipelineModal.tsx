@@ -1,56 +1,24 @@
 import { ConfirmationModal, ModalResult } from '@/src/components/common/ConfirmationModal'
-import { Checkbox } from '@/src/components/ui/checkbox'
-import { useState } from 'react'
 
-function StopPipelineModal({
-  visible,
-  onOk,
-  onCancel,
-  callback,
-}: {
-  visible: boolean
-  onOk: (isGraceful: boolean) => void
-  onCancel: () => void
-  callback?: (result: boolean) => void
-}) {
-  const [isGraceful, setIsGraceful] = useState(true)
-
-  const handleCheckboxChange = (checked: boolean) => {
-    setIsGraceful(checked)
-    if (callback) {
-      callback(checked)
-    }
-  }
-
+function StopPipelineModal({ visible, onOk, onCancel }: { visible: boolean; onOk: () => void; onCancel: () => void }) {
   return (
     <ConfirmationModal
       visible={visible}
       title="Stop Pipeline?"
       description={`<div>
-        <div style="margin-bottom: 16px;">Stopping this pipeline will permanently end its execution. You won't be able to restart it later.</div>
-        <div>Are you sure you want to stop the pipeline?</div>
+        <div style="margin-bottom: 16px;">Any events currently in the queue will be processed before stopping, which may take some time.</div>
+        <div>Are you sure you want to stop?</div>
       </div>`}
-      content={
-        <div className="flex items-center gap-2 mt-4">
-          <Checkbox
-            id="graceful-stop"
-            className="border-input"
-            checked={isGraceful}
-            onCheckedChange={handleCheckboxChange}
-          />
-          <span className="text-sm">Process events in the queue (if any) before stopping</span>
-        </div>
-      }
-      okButtonText="Stop Pipeline"
+      okButtonText="Stop"
       cancelButtonText="Cancel"
       onComplete={(result) => {
         if (result === ModalResult.YES) {
-          onOk(isGraceful)
+          onOk()
         } else {
           onCancel()
         }
       }}
-      criticalOperation={true}
+      criticalOperation={false}
     />
   )
 }
