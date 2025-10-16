@@ -26,7 +26,12 @@
 
 # GlassFlow for ClickHouse Streaming ETL
 
-GlassFlow is an open-source ETL tool that enables real-time data processing from Kafka to ClickHouse with features like deduplication and temporal joins.
+GlassFlow is an open-source ETL tool that enables real-time data processing from Kafka to ClickHouse. GlassFlow pipelines can perform the following operations:
+
+- **Deduplicate**: Remove duplicate records based on configurable keys and time windows - use when you need to ensure data uniqueness
+- **Join**: Perform temporal joins between multiple Kafka topics - use when combining related data streams with time-based matching
+- **Deduplicate & Join**: Combine both deduplication and joining in a single pipeline
+- **Ingest only**: Direct data transfer from Kafka to ClickHouse without transformations
 
 ## ⚡️ Quick Start
 This guide walks you through a **local installation using Docker Compose** — perfect for development, testing, or trying out GlassFlow on your machine.
