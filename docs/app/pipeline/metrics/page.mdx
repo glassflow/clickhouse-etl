@@ -1,0 +1,283 @@
+---
+title: 'Metrics'
+description: 'GlassFlow metrics and monitoring guide'
+---
+import { Callout } from 'nextra/components'
+import { Steps } from 'nextra/components'
+import { Cards } from 'nextra/components'
+
+# GlassFlow Metrics
+
+This guide provides comprehensive information about GlassFlow's metrics, including available metrics, labels, and monitoring best practices.
+
+<Callout type="important">
+- Metrics are enabled by default and available at the OTEL collector endpoint
+- All metrics follow Prometheus format and can be scraped by Prometheus
+- Metrics include component-specific labels for detailed monitoring
+- OpenTelemetry (OTEL) collector exposes metrics via Prometheus exporter
+</Callout>
+
+## Metrics Overview
+
+GlassFlow exports comprehensive metrics in Prometheus format through an OpenTelemetry collector. The metrics are designed to provide visibility into:
+
+- **Data Ingestion**: Kafka record consumption rates and volumes
+- **Data Processing**: Processing duration and throughput metrics
+- **Data Sinking**: ClickHouse write operations and performance
+- **Error Handling**: Dead Letter Queue (DLQ) operations
+
+## Metric Naming Convention
+
+All GlassFlow metrics follow a consistent naming pattern:
+
+```
+{namespace}_gfm_{metric_name}
+```
+
+Where:
+- `{namespace}` - Deployment namespace prefix (e.g., "glassflow" if deployed in glassflow namespace)
+- `gfm` - GlassFlow Metrics prefix
+- `{metric_name}` - Descriptive metric name
+
+<Callout type="info">
+The namespace prefix is automatically added based on your deployment configuration. If you deploy GlassFlow in a different namespace, the prefix will change accordingly.
+</Callout>
+
+## Core Metrics
+
+### Data Ingestion Metrics
+
+#### `{namespace}_gfm_kafka_records_read_total`
+- **Type**: Counter
+- **Description**: Total number of records read from Kafka
+- **Unit**: Records
+- **Components**: Ingestor
+- **Labels**:
+  - `component`: Component type (e.g., "ingestor") - *Added by GlassFlow*
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+
+**Example**:
+```
+glassflow_gfm_kafka_records_read_total{component="ingestor",instance="ingestor-0-7f44fbbfd8-bqbw9",job="pipeline-load-pipeline-1-05b7/ingestor",pipeline_id="load-pipeline-1-05b7"} 16914
+```
+
+<Callout type="info">
+In this example, `glassflow` is the namespace prefix. If you deploy in a different namespace, the prefix will change accordingly.
+</Callout>
+
+### Data Processing Metrics
+
+#### `{namespace}_gfm_processing_duration_seconds`
+- **Type**: Histogram
+- **Description**: Processing duration in seconds
+- **Unit**: Seconds
+- **Components**: Ingestor, Sink
+- **Labels**:
+  - `component`: Component type - *Added by GlassFlow*
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+  - `le`: Histogram bucket boundary - *Added by Prometheus*
+
+**Histogram Buckets**:
+- 0.001s (1ms)
+- 0.005s (5ms)
+- 0.01s (10ms)
+- 0.025s (25ms)
+- 0.05s (50ms)
+- 0.1s (100ms)
+- 0.25s (250ms)
+- 0.5s (500ms)
+- 1.0s (1s)
+- 2.5s (2.5s)
+- 5.0s (5s)
+- 10.0s (10s)
+
+**Example**:
+```
+glassflow_gfm_processing_duration_seconds_bucket{component="ingestor",instance="ingestor-0-7f44fbbfd8-bqbw9",job="pipeline-load-pipeline-1-05b7/ingestor",pipeline_id="load-pipeline-1-05b7",le="5"} 16914
+glassflow_gfm_processing_duration_seconds_sum{component="ingestor",instance="ingestor-0-7f44fbbfd8-bqbw9",job="pipeline-load-pipeline-1-05b7/ingestor",pipeline_id="load-pipeline-1-05b7"} 2.8343126270000267
+glassflow_gfm_processing_duration_seconds_count{component="ingestor",instance="ingestor-0-7f44fbbfd8-bqbw9",job="pipeline-load-pipeline-1-05b7/ingestor",pipeline_id="load-pipeline-1-05b7"} 16914
+```
+
+<Callout type="info">
+In this example, `glassflow` is the namespace prefix. If you deploy in a different namespace, the prefix will change accordingly.
+</Callout>
+
+### Data Sinking Metrics
+
+#### `{namespace}_gfm_clickhouse_records_written_total`
+- **Type**: Counter
+- **Description**: Total number of records written to ClickHouse
+- **Unit**: Records
+- **Components**: Sink
+- **Labels**:
+  - `component`: Component type (e.g., "sink") - *Added by GlassFlow*
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+
+**Example**:
+```
+glassflow_gfm_clickhouse_records_written_total{component="sink",instance="sink-7c87594fd9-jmdw2",job="pipeline-load-pipeline-1-05b7/sink",pipeline_id="load-pipeline-1-05b7"} 80000
+```
+
+<Callout type="info">
+In this example, `glassflow` is the namespace prefix. If you deploy in a different namespace, the prefix will change accordingly.
+</Callout>
+
+#### `{namespace}_gfm_clickhouse_records_written_per_second`
+- **Type**: Gauge
+- **Description**: Number of records written to ClickHouse per second
+- **Unit**: Records per second
+- **Components**: Sink
+- **Labels**:
+  - `component`: Component type (e.g., "sink") - *Added by GlassFlow*
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+
+**Example**:
+```
+glassflow_gfm_clickhouse_records_written_per_second{component="sink",instance="sink-7c87594fd9-jmdw2",job="pipeline-load-pipeline-1-05b7/sink",pipeline_id="load-pipeline-1-05b7"} 430120.2485745206
+```
+
+<Callout type="info">
+In this example, `glassflow` is the namespace prefix. If you deploy in a different namespace, the prefix will change accordingly.
+</Callout>
+
+### Error Handling Metrics
+
+#### `{namespace}_gfm_dlq_records_written_total`
+- **Type**: Counter
+- **Description**: Total number of records written to dead letter queue
+- **Unit**: Records
+- **Components**: Ingestor, Sink
+- **Labels**:
+  - `component`: Component type - *Added by GlassFlow*
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+
+<Callout type="info">
+This metric is defined in the code but may not appear in the sample metrics if no records have been written to the DLQ during the observation period.
+</Callout>
+
+
+## Component-Specific Metrics
+
+### Ingestor Component
+The Ingestor component primarily exports:
+- `{namespace}_gfm_kafka_records_read_total` - Records consumed from Kafka
+- `{namespace}_gfm_processing_duration_seconds` - Processing time for ingested records
+- `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ on processing errors
+
+### Sink Component
+The Sink component primarily exports:
+- `{namespace}_gfm_clickhouse_records_written_total` - Records written to ClickHouse
+- `{namespace}_gfm_clickhouse_records_written_per_second` - Write rate to ClickHouse
+- `{namespace}_gfm_processing_duration_seconds` - Processing time for sink operations
+- `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ on write errors
+
+## Metric Labels
+
+GlassFlow metrics include labels from two sources:
+
+### Application Labels (Added by GlassFlow)
+
+These labels are added by the GlassFlow application code:
+
+| Label | Description | Example Values |
+|-------|-------------|----------------|
+| `component` | Component type | `ingestor`, `sink` |
+| `pipeline_id` | Unique pipeline identifier | `load-pipeline-1-05b7` |
+
+### Prometheus Labels (Added by Prometheus)
+
+These labels are automatically added by Prometheus during the scraping process:
+
+| Label | Description | Example Values |
+|-------|-------------|----------------|
+| `instance` | Instance identifier (typically pod name) | `ingestor-0-7f44fbbfd8-bqbw9` |
+| `job` | Job identifier (from Prometheus config) | `pipeline-load-pipeline-1-05b7/ingestor` |
+| `le` | Histogram bucket boundary (for histogram metrics only) | `0.001`, `0.005`, `1.0`, `+Inf` |
+
+<Callout type="info">
+**Label Sources**: 
+- **Application labels** (`component`, `pipeline_id`) are added by GlassFlow code and are consistent across all deployments
+- **Prometheus labels** (`instance`, `job`, `le`) are added by Prometheus during scraping and depend on your monitoring setup
+- The `job` label comes from your Prometheus configuration's `job_name` field
+- The `instance` label typically contains the Kubernetes pod name or target endpoint
+</Callout>
+
+## Accessing Metrics
+
+### Metrics Endpoint
+
+The OTEL collector service exposes metrics at:
+```
+{release-name}-otel-collector.{namespace}.svc.cluster.local:9090/metrics
+```
+
+For example, if you installed GlassFlow with the release name `glassflow-chart` in the `glassflow` namespace:
+```
+glassflow-chart-otel-collector.glassflow.svc.cluster.local:9090/metrics
+```
+
+### Prometheus Scraping
+
+To scrape metrics with Prometheus, add the following configuration to your Prometheus config:
+
+```yaml
+# GlassFlow OTEL Collector metrics
+- job_name: 'glassflow-otel-collector'
+  static_configs:
+  - targets: ['glassflow-chart-otel-collector.glassflow.svc.cluster.local:9090']
+  metrics_path: /metrics
+  scrape_interval: 15s
+```
+
+<Callout type="info" emoji="💡">
+Replace `glassflow-chart` and `glassflow` with your actual release name and namespace if different.
+</Callout>
+
+### Understanding the `job` Label
+
+The `job` label in your metrics comes from the `job_name` field in your Prometheus configuration. For example:
+
+- If your Prometheus config has `job_name: 'glassflow-otel-collector'`, then `job="glassflow-otel-collector"`
+- If you use Kubernetes service discovery, the job name might be auto-generated based on the service name
+- The job name helps Prometheus identify which scrape configuration was used to collect the metrics
+
+<Callout type="info">
+**Job Label Examples**:
+- `job="pipeline-load-pipeline-1-05b7/ingestor"` - Indicates this metric came from an ingestor component
+- `job="pipeline-load-pipeline-1-05b7/sink"` - Indicates this metric came from a sink component
+- `job="glassflow-otel-collector"` - Indicates this metric came from the OTEL collector endpoint
+</Callout>
+
+## Monitoring Best Practices
+
+### Key Metrics to Monitor
+
+1. **Throughput Metrics**:
+   - `rate({namespace}_gfm_kafka_records_read_total[5m])` - Kafka consumption rate
+   - `{namespace}_gfm_clickhouse_records_written_per_second` - ClickHouse write rate
+
+2. **Latency Metrics**:
+   - `histogram_quantile(0.95, rate({namespace}_gfm_processing_duration_seconds_bucket[5m]))` - 95th percentile processing time
+   - `histogram_quantile(0.99, rate({namespace}_gfm_processing_duration_seconds_bucket[5m]))` - 99th percentile processing time
+
+3. **Error Metrics**:
+   - `rate({namespace}_gfm_dlq_records_written_total[5m])` - DLQ write rate
+
+4. **Health Metrics**:
+   - `{namespace}_up` - Service availability
+   - `{namespace}_target_info` - Service metadata
+
+
+## Installation and Setup
+
+For detailed installation instructions and configuration options, see the [Observability Installation Guide](/installation/kubernetes/observability).

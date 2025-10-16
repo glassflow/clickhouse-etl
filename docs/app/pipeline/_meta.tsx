@@ -2,5 +2,6 @@ export default {
     'usage': '',
     'data-format': '',
     'pipeline-configuration': '',
-    'kafka-connections': ''
+    'kafka-connections': '',
+    'metrics': '',
 }
