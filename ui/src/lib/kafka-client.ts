@@ -20,6 +20,10 @@ export interface KafkaConfig {
   kerberosKeytab?: string
   kerberosRealm?: string
   kdc?: string
+  serviceName?: string
+  krb5Config?: string
+  useTicketCache?: boolean
+  ticketCachePath?: string
 
   // SASL/OAUTHBEARER
   oauthBearerToken?: string
@@ -90,6 +94,21 @@ export class KafkaClient {
         ca: config.certificate ? [config.certificate] : undefined,
         checkServerIdentity: () => undefined, // Disable hostname verification
       }
+
+      // Handle truststore configuration for SSL
+      if (config.truststore) {
+        // For Node.js/KafkaJS, we need to handle truststore differently
+        // Since KafkaJS doesn't directly support JKS files, we use certificates
+        if (config.truststore.certificates) {
+          kafkaConfig.ssl.ca = [config.truststore.certificates]
+        }
+
+        // Handle self-signed certificates by disabling certificate verification
+        // when algorithm is empty (which indicates self-signed certs)
+        if (config.truststore.algorithm === '' || !config.truststore.algorithm) {
+          kafkaConfig.ssl.rejectUnauthorized = false
+        }
+      }
     } else {
       kafkaConfig.ssl = false
     }
@@ -123,6 +142,10 @@ export class KafkaClient {
             kerberosKeytab: config.kerberosKeytab,
             kerberosRealm: config.kerberosRealm,
             kdc: config.kdc,
+            serviceName: config.serviceName,
+            krb5Config: config.krb5Config,
+            useTicketCache: config.useTicketCache,
+            ticketCachePath: config.ticketCachePath,
           }
           break
 

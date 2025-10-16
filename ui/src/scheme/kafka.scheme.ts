@@ -9,15 +9,24 @@ const KafkaBaseFormSchema = z.object({
   bootstrapServers: z.string().min(1, 'Bootstrap servers are required'),
 })
 
+// Define Truststore schema first so it can be reused
+const TruststoreFormSchema = z.object({
+  location: z.string().optional(), // Optional - for UI file path reference
+  password: z.string().optional(), // Optional - only needed for encrypted truststores
+  type: z.string().optional(), // Optional - JKS, PKCS12, etc.
+  algorithm: z.string().optional(), // Optional - for self-signed certificates
+  certificates: z.string().optional(), // Optional - raw PEM certificate content
+})
+
 const SaslPlainFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
-  certificate: z.string().optional(),
+  truststore: TruststoreFormSchema.optional(),
   consumerGroup: z.string().optional(),
 })
 
 const NoAuthFormSchema = z.object({
-  certificate: z.string().optional(),
+  truststore: TruststoreFormSchema.optional(),
 })
 
 const SaslJaasFormSchema = z.object({
@@ -29,6 +38,11 @@ const SaslGssapiFormSchema = z.object({
   kerberosKeytab: z.string().min(1, 'Kerberos keytab is required'),
   kerberosRealm: z.optional(z.string().min(1, 'Kerberos realm is optional')),
   kdc: z.optional(z.string().min(1, 'Kerberos KDC is optional')),
+  serviceName: z.optional(z.string()),
+  krb5Config: z.optional(z.string()),
+  useTicketCache: z.optional(z.boolean()),
+  ticketCachePath: z.optional(z.string()),
+  truststore: TruststoreFormSchema.optional(),
 })
 
 const SaslOauthbearerFormSchema = z.object({
@@ -41,15 +55,15 @@ const SaslOauthbearerFormSchema = z.object({
 const SaslScram256FormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+  truststore: TruststoreFormSchema.optional(),
   consumerGroup: z.string().optional(),
-  certificate: z.string().optional(),
 })
 
 const SaslScram512FormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+  truststore: TruststoreFormSchema.optional(),
   consumerGroup: z.string().optional(),
-  certificate: z.string().optional(),
 })
 
 const DelegationTokensFormSchema = z.object({
@@ -78,14 +92,6 @@ const MtlsFormSchema = z.object({
   clientCert: z.string().min(1, 'Client certificate is required'),
   clientKey: z.string().min(1, 'Client key is required'),
   password: z.string().min(1, 'Password is required'),
-})
-
-const TruststoreFormSchema = z.object({
-  location: z.string().min(1, 'Location is required'),
-  password: z.string().min(1, 'Password is required'),
-  type: z.string().min(1, 'Type is required'),
-  algorithm: z.string().min(1, 'Algorithm is required'),
-  certificates: z.string().min(1, 'Certificates are required'),
 })
 
 // First, define a base schema with the common fields
@@ -155,8 +161,7 @@ const KafkaConnectionFormSchema = z.discriminatedUnion('authMethod', [
   // NO_AUTH - Not actual auth method, it is used to avoid sending auth credentials to Kafka
   KafkaConnectionBaseSchema.extend({
     authMethod: z.literal('NO_AUTH'),
-    certificate: z.string().optional(),
-    // No additional fields needed for NO_AUTH
+    noAuth: NoAuthFormSchema,
   }),
 ])
 
