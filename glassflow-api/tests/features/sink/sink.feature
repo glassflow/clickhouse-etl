@@ -109,7 +109,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I gracefully stop ClickHouse sink
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Events from NATS to Clickhouse synced after batch fulfillment
@@ -311,7 +311,7 @@ Feature: Clickhouse ETL sink
                 }
             ]
             """
-        And I gracefully stop ClickHouse sink
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time
@@ -462,7 +462,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I gracefully stop ClickHouse sink
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 7 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time #2
@@ -762,7 +762,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I gracefully stop ClickHouse sink
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Import events with low cardinality string
@@ -827,5 +827,5 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I gracefully stop ClickHouse sink
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 2 rows
