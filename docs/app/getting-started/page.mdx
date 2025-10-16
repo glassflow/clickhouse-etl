@@ -1,0 +1,50 @@
+---
+title: 'Getting Started'
+description: 'Learn how to create and manage data pipelines with GlassFlow'
+asIndexPage: true
+---
+
+# Getting Started
+
+GlassFlow pipelines are the core of the platform, enabling real-time data processing from Kafka to ClickHouse.
+
+## What is a Pipeline?
+
+A pipeline in GlassFlow is a configuration that defines:
+
+- **Source**: Kafka topics to consume from
+- **Transformations**: Data processing steps (deduplication, joins, etc.)
+- **Sink**: ClickHouse tables to write to
+- **Monitoring**: Health checks and metrics
+
+## See GlassFlow in action
+
+- [Run a pipeline locally](/getting-started/demo)
+  This will spin up a local Kafka, GlassFlow and ClickHouse instance and run a demo pipeline.
+- [Live Preview](/getting-started/live-preview)
+  This will show you a live preview of GlassFlow running on a GPC cluster.
+
+## Demo Video
+
+<iframe
+  src="https://www.youtube.com/embed/tbrWqYHCCpI"
+  title="GlassFlow Demo"
+  width="100%"
+  height="500"
+  style={{
+    aspectRatio: '16/9',
+    maxWidth: '100%',
+    margin: '2rem 0',
+    border: 'none',
+    borderRadius: '8px'
+  }}
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+/>
+
+## Next Steps
+
+Ready to get started? Check out these resources:
+
+- [Installation](/installation) - Learn how to install GlassFlow
+- [Usage Guide](/usage-guide) - Learn how to build your first pipeline

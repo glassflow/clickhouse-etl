@@ -1,11 +1,11 @@
 ---
-title: 'Local Testing'
-description: 'Learn how to test GlassFlow using the local demo environment'
+title: 'Run a demo pipeline'
+description: 'Learn how to run a demo pipeline using the local demo environment'
 ---
 import { Steps } from 'nextra/components'
 import { Tabs } from 'nextra/components'
 
-# Local Testing
+# Run a demo pipeline
 
 
 GlassFlow comes with a comprehensive demo environment that allows you to test its capabilities locally. This guide walks you through a **local installation using Docker Compose**. It spins up a local Kafka, GlassFlow and a local ClickHouse. It showcases how deduplication works at GlassFlow. It is perfect for development, testing, or trying out GlassFlow on your machine.
@@ -165,7 +165,7 @@ docker compose exec clickhouse clickhouse-client \
 2. │      124 │     457 │ Jane Smith │ jane@example.com │ 2024-03-20 10:03:00 │ ["tag13", "tag324"] │
    └──────────┴─────────┴────────────┴──────────────────┴─────────────────────┴─────────────────────┘
 ```
-To start creating your own pipelines with the UI, you can follow the [pipeline/usage/web-ui](/pipeline/usage/web-ui) guide.
+To start creating your own pipelines with the UI, you can follow the [Web UI Usage guide](/usage-guide/web-ui).
 
 </Steps>
 
@@ -270,7 +270,7 @@ The demo uses configuration files in the `config` directory:
    - `user_event.json`: User event schema
    - `order_event.json`: Order event schema
 
-To start creating your own pipelines with the python SDK, you can follow the [pipeline/usage/python-sdk](/pipeline/usage/python-sdk) guide.
+To start creating your own pipelines with the python SDK, you can follow the [Python SDK Usage guide](/usage-guide/python-sdk).
 
 ## Cleaning Up
 
