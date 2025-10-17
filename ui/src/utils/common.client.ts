@@ -79,6 +79,25 @@ export const isAnalyticsEnabled = (): boolean => {
   }
 }
 
+// Helper function to check if demo mode is enabled based on environment variable
+export const isDemoMode = (): boolean => {
+  const isServer = typeof window === 'undefined'
+
+  if (isServer) {
+    // For server-side, use process.env directly
+    return process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+  } else {
+    // For client-side, check runtime environment first (for Docker builds)
+    const runtimeEnv = getRuntimeEnv() as any
+    if (runtimeEnv.NEXT_PUBLIC_DEMO_MODE !== undefined) {
+      return runtimeEnv.NEXT_PUBLIC_DEMO_MODE === 'true'
+    }
+
+    // Fallback to process.env
+    return process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+  }
+}
+
 // Helper function to extract fields from event data with support for nested objects and arrays
 export const extractEventFields = (data: any, prefix = ''): string[] => {
   if (!data || typeof data !== 'object') {

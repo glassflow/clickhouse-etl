@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { MoreVertical } from 'lucide-react'
-import { cn } from '@/src/utils/common.client'
+import { cn, isDemoMode } from '@/src/utils/common.client'
 import { getActionConfig } from '@/src/utils/pipeline-actions'
 import { PipelineStatus } from '@/src/types/pipeline'
 import PlayIcon from '@/src/images/play-white.svg'
@@ -41,6 +41,7 @@ export const TableContextMenu = ({
   onOpen,
 }: TableContextMenuProps) => {
   const [isOpen, setIsOpen] = useState(false)
+  const demoMode = isDemoMode()
 
   // Get action configurations based on pipeline status
   const stopConfig = getActionConfig('stop', pipelineStatus)
@@ -49,12 +50,13 @@ export const TableContextMenu = ({
   const renameConfig = getActionConfig('rename', pipelineStatus)
   const terminateConfig = getActionConfig('terminate', pipelineStatus)
   const deleteConfig = getActionConfig('delete', pipelineStatus)
+  
   // Determine which stop/resume action to show
-  const showStop = pipelineStatus === 'active' && !stopConfig.isDisabled
-  const showResume = (pipelineStatus === 'stopped' || pipelineStatus === 'terminated') && !resumeConfig.isDisabled
+  const showStop = pipelineStatus === 'active' && !stopConfig.isDisabled && !(demoMode)
+  const showResume = (pipelineStatus === 'stopped' || pipelineStatus === 'terminated') && !resumeConfig.isDisabled && !(demoMode)
   // Terminate is a kill switch - available for all states except final states and when already terminating
   const showTerminate =
-    pipelineStatus !== 'stopped' && pipelineStatus !== 'terminated' && pipelineStatus !== 'terminating'
+    pipelineStatus !== 'stopped' && pipelineStatus !== 'terminated' && pipelineStatus !== 'terminating' && !(demoMode)
 
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -220,7 +222,7 @@ export const TableContextMenu = ({
             )}
 
             {/* Delete Button */}
-            {onDelete && (
+            {onDelete && !demoMode && (
               <Button
                 variant="ghost"
                 className={cn(
