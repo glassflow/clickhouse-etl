@@ -51,6 +51,10 @@ func (m *mockOrchestrator) ResumePipeline(ctx context.Context, pid string) error
 	return m.resumeError
 }
 
+func (m *mockOrchestrator) EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
+	return nil
+}
+
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
 	mu               sync.RWMutex
@@ -109,6 +113,13 @@ func (m *mockPipelineStore) PatchPipelineName(ctx context.Context, pid string, n
 		pipeline.Name = name
 		m.pipelines[pid] = pipeline
 	}
+	return nil
+}
+
+func (m *mockPipelineStore) UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pipelines[pid] = cfg
 	return nil
 }
 

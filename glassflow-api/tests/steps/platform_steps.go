@@ -193,3 +193,7 @@ func (m *MockK8sOrchestrator) TerminatePipeline(_ context.Context, _ string) err
 func (m *MockK8sOrchestrator) ResumePipeline(_ context.Context, _ string) error {
 	return fmt.Errorf("not implemented for testing")
 }
+
+func (m *MockK8sOrchestrator) EditPipeline(_ context.Context, _ string, _ *models.PipelineConfig) error {
+	return fmt.Errorf("not implemented for testing")
+}

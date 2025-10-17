@@ -99,14 +99,25 @@ func NewPipelineInTransitionError(current, requested models.PipelineStatus) *Sta
 	}
 }
 
+// NewPipelineNotStoppedForEditError creates a new StatusValidationError for edit operations on non-stopped pipelines
+func NewPipelineNotStoppedForEditError(current models.PipelineStatus) *StatusValidationError {
+	return &StatusValidationError{
+		CurrentStatus:   current,
+		RequestedStatus: "", // No specific requested status for edit operation
+		Message:         fmt.Sprintf("Pipeline must be stopped before editing, current status: %s", current),
+		Code:            "PIPELINE_NOT_STOPPED_FOR_EDIT",
+	}
+}
+
 // Error codes for different types of validation failures
 const (
-	ErrorCodeInvalidTransition      = "INVALID_STATUS_TRANSITION"
-	ErrorCodeTerminalStateViolation = "TERMINAL_STATE_VIOLATION"
-	ErrorCodeUnknownStatus          = "UNKNOWN_STATUS"
-	ErrorCodePipelineNotFound       = "PIPELINE_NOT_FOUND"
-	ErrorCodePipelineAlreadyInState = "PIPELINE_ALREADY_IN_STATE"
-	ErrorCodePipelineInTransition   = "PIPELINE_IN_TRANSITION"
+	ErrorCodeInvalidTransition         = "INVALID_STATUS_TRANSITION"
+	ErrorCodeTerminalStateViolation    = "TERMINAL_STATE_VIOLATION"
+	ErrorCodeUnknownStatus             = "UNKNOWN_STATUS"
+	ErrorCodePipelineNotFound          = "PIPELINE_NOT_FOUND"
+	ErrorCodePipelineAlreadyInState    = "PIPELINE_ALREADY_IN_STATE"
+	ErrorCodePipelineInTransition      = "PIPELINE_IN_TRANSITION"
+	ErrorCodePipelineNotStoppedForEdit = "PIPELINE_NOT_STOPPED_FOR_EDIT"
 )
 
 // IsStatusValidationError checks if an error is a StatusValidationError

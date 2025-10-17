@@ -74,6 +74,11 @@ func (m *MockPipelineManager) CleanUpPipelines(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockPipelineManager) EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
+	args := m.Called(ctx, pid, newCfg)
+	return args.Error(0)
+}
+
 // MockDLQ is a mock implementation of service.DLQ
 type MockDLQ struct {
 	mock.Mock

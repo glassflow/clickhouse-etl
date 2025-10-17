@@ -1,11 +1,14 @@
 package steps
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -477,6 +480,92 @@ func (p *PipelineSteps) waitForPauseOperationComplete(duration string) error {
 	return p.waitFor(duration)
 }
 
+// editGlassflowPipeline edits the glassflow pipeline with the given configuration
+func (p *PipelineSteps) editGlassflowPipeline(configJSON *godog.DocString) error {
+	if p.currentPipelineID == "" {
+		return fmt.Errorf("no current pipeline to edit")
+	}
+
+	// Parse the configuration JSON
+	var config map[string]interface{}
+	err := json.Unmarshal([]byte(configJSON.Content), &config)
+	if err != nil {
+		return fmt.Errorf("failed to parse pipeline configuration JSON: %w", err)
+	}
+
+	// Make HTTP request to edit pipeline endpoint
+	url := fmt.Sprintf("http://localhost:8080/api/v1/pipeline/%s/edit", p.currentPipelineID)
+
+	reqBody, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return fmt.Errorf("failed to make edit pipeline request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("edit pipeline request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	p.log.Info("Pipeline edit request sent successfully", slog.String("pipeline_id", p.currentPipelineID))
+	return nil
+}
+
+// editGlassflowPipelineAndExpectError edits the glassflow pipeline and expects an error
+func (p *PipelineSteps) editGlassflowPipelineAndExpectError(configJSON *godog.DocString, expectedError *godog.DocString) error {
+	if p.currentPipelineID == "" {
+		return fmt.Errorf("no current pipeline to edit")
+	}
+
+	// Parse the configuration JSON
+	var config map[string]interface{}
+	err := json.Unmarshal([]byte(configJSON.Content), &config)
+	if err != nil {
+		return fmt.Errorf("failed to parse pipeline configuration JSON: %w", err)
+	}
+
+	// Make HTTP request to edit pipeline endpoint
+	url := fmt.Sprintf("http://localhost:8080/api/v1/pipeline/%s/edit", p.currentPipelineID)
+
+	reqBody, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return fmt.Errorf("failed to make edit pipeline request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check if we got the expected error
+	if resp.StatusCode == http.StatusNoContent {
+		return fmt.Errorf("expected error but got success (status 204)")
+	}
+
+	// Check if the error message contains the expected text
+	if !strings.Contains(string(body), expectedError.Content) {
+		return fmt.Errorf("expected error message '%s' but got: %s", expectedError.Content, string(body))
+	}
+
+	p.log.Info("Pipeline edit request failed as expected",
+		slog.String("pipeline_id", p.currentPipelineID),
+		slog.String("expected_error", expectedError.Content),
+		slog.Int("status_code", resp.StatusCode))
+	return nil
+}
+
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
@@ -491,6 +580,8 @@ func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I shutdown the glassflow pipeline after "([^"]*)"$`, p.shutdownPipelineWithDelay)
 	sc.Step(`^I resume the glassflow pipeline$`, p.resumePipeline)
 	sc.Step(`^I resume the glassflow pipeline after "([^"]*)"$`, p.resumePipelineWithDelay)
+	sc.Step(`^I edit the glassflow pipeline with next configuration:$`, p.editGlassflowPipeline)
+	sc.Step(`^I edit the glassflow pipeline and expect error:$`, p.editGlassflowPipelineAndExpectError)
 
 	sc.Step(`^the pipeline status should be "([^"]*)"$`, p.thePipelineStatusShouldBe)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, p.theClickHouseTableShouldContainRows)

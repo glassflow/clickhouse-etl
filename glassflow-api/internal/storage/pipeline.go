@@ -154,3 +154,25 @@ func (s *Storage) UpdatePipelineStatus(ctx context.Context, id string, status mo
 
 	return nil
 }
+
+func (s *Storage) UpdatePipeline(ctx context.Context, id string, newCfg models.PipelineConfig) error {
+	entry, err := s.kv.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return service.ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline to update from kv: %w", err)
+	}
+
+	pc, err := json.Marshal(newCfg)
+	if err != nil {
+		return fmt.Errorf("marshal kv pipeline: %w", err)
+	}
+
+	_, err = s.kv.Update(ctx, id, pc, entry.Revision())
+	if err != nil {
+		return fmt.Errorf("update pipeline in kv: %w", err)
+	}
+
+	return nil
+}
