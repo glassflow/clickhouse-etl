@@ -29,6 +29,7 @@ import StopWhiteIcon from '@/src/images/stop-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { isDemoMode } from '@/src/utils/common.client'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -321,6 +322,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
     const config = getActionConfiguration(action)
     const buttonText = getButtonText(action)
     const disabled = isActionDisabled(action)
+    const demoMode = isDemoMode()
+    
+    // Disable pipeline control actions in demo mode (except download and rename)
+    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete'].includes(action)
+    const finalDisabled = disabled || isDemoDisabled
+    const finalTitle = isDemoDisabled ? 'Action disabled in demo mode' : config.disabledReason
 
     // Use regular Button for more flexibility with loading states and disabled state
     return (
@@ -328,9 +335,9 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         key={action}
         variant="outline"
         onClick={() => handleActionClick(action)}
-        disabled={disabled}
+        disabled={finalDisabled}
         className={`group ${action === 'resume' ? 'btn-primary' : 'btn-action'}`}
-        title={config.disabledReason}
+        title={finalTitle}
       >
         {actionState.isLoading && actionState.lastAction === action ? (
           <span className="flex items-center gap-3">
