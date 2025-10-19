@@ -67,8 +67,8 @@ type KafkaConnectionParamsConfig struct {
 
 	KerberosServiceName string `json:"kerberos_service_name,omitempty"`
 	KerberosRealm       string `json:"kerberos_realm,omitempty"`
-	KerberosKeytabPath  string `json:"kerberos_keytab_path,omitempty"`
-	KerberosConfigPath  string `json:"kerberos_config_path,omitempty"`
+	KerberosKeytab      string `json:"kerberos_keytab,omitempty"`
+	KerberosConfig      string `json:"kerberos_config,omitempty"`
 }
 
 type ConsumerGroupOffset string

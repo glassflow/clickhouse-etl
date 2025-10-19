@@ -60,18 +60,32 @@ func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.K
 			cfg.Net.SASL.GSSAPI.Realm = conn.KerberosRealm
 			cfg.Net.SASL.GSSAPI.Username = conn.SASLUsername
 
-			if conn.KerberosKeytabPath != "" {
+			if conn.KerberosKeytab != "" {
 				// Use keytab authentication
+				keytabFile, err := createTempKeytabFile(conn.KerberosKeytab)
+				if err != nil {
+					slog.Error("Failed to create temporary keytab file", slog.Any("error", err))
+				}
+
+				slog.Debug("Using Kerberos keytab file for the authentication", slog.String("keytab_file_path", keytabFile))
+
 				cfg.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
-				cfg.Net.SASL.GSSAPI.KeyTabPath = conn.KerberosKeytabPath
+				cfg.Net.SASL.GSSAPI.KeyTabPath = keytabFile
 			} else if conn.SASLPassword != "" {
 				// Use password authentication
 				cfg.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
 				cfg.Net.SASL.GSSAPI.Password = conn.SASLPassword
 			}
 
-			if conn.KerberosConfigPath != "" {
-				cfg.Net.SASL.GSSAPI.KerberosConfigPath = conn.KerberosConfigPath
+			if conn.KerberosConfig != "" {
+				krb5ConfigFile, err := createTempKerberosConfigFile(conn.KerberosConfig)
+				if err != nil {
+					slog.Error("Failed to create temporary krb5 config file", slog.Any("error", err))
+				}
+
+				slog.Debug("Using Kerberos configuration file", slog.String("config_file_path", krb5ConfigFile))
+
+				cfg.Net.SASL.GSSAPI.KerberosConfigPath = krb5ConfigFile
 			}
 		default:
 			cfg.Net.SASL.Mechanism = sarama.SASLTypePlaintext
