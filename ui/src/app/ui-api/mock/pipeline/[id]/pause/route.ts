@@ -1,41 +1,71 @@
 import { NextResponse } from 'next/server'
-import { generateMockPipeline } from '@/src/utils/mock-api'
+import { canPause, simulateTransition, getPipelineConfig } from '@/src/app/ui-api/mock/data/mock-state'
 
+/**
+ * Mock pause pipeline endpoint
+ * POST /ui-api/mock/pipeline/[id]/pause
+ *
+ * Pauses a running pipeline.
+ */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 200))
-
   const { id } = await params
 
-  if (!id || id.trim() === '') {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Pipeline ID is required',
-      },
-      { status: 400 },
-    )
-  }
+  try {
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Pipeline ID is required',
+        },
+        { status: 400 },
+      )
+    }
 
-  // Simulate 90% success rate for realistic testing
-  const isSuccess = Math.random() > 0.1
+    // Check if pipeline exists
+    const pipeline = getPipelineConfig(id)
+    if (!pipeline) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Pipeline with id ${id} does not exist`,
+        },
+        { status: 404 },
+      )
+    }
 
-  if (isSuccess) {
-    const mockPipeline = generateMockPipeline(id)
-    // Set state to paused
-    mockPipeline.state = 'paused'
+    // Validate if pipeline can be paused
+    const validation = canPause(id)
+    if (!validation.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: validation.reason || 'Cannot pause pipeline',
+        },
+        { status: 400 },
+      )
+    }
+
+    console.log(`[Mock] Pausing pipeline: ${id}`)
+
+    // Simulate transitional state: Pausing -> Paused
+    simulateTransition(id, 'Pausing', 'Paused', 1500)
+
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 200))
 
     return NextResponse.json({
       success: true,
-      pipeline: mockPipeline,
+      message: `Pipeline ${id} paused successfully`,
     })
-  } else {
+  } catch (error: any) {
+    console.error('Mock Pause Pipeline - Error:', error)
+
     return NextResponse.json(
       {
         success: false,
-        error: `Pipeline with id ${id} does not exist`,
+        error: `Failed to pause pipeline ${id}`,
       },
-      { status: 404 },
+      { status: 500 },
     )
   }
 }

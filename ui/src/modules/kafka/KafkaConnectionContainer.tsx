@@ -212,6 +212,13 @@ export function KafkaConnectionContainer({
       })
     }
 
+    // If in standalone mode (editing existing pipeline), mark configuration as dirty
+    // This indicates changes need to be sent to backend when user clicks Resume
+    if (standalone && toggleEditMode) {
+      coreStore.markAsDirty()
+      console.log('[KafkaConnection] Configuration marked as dirty - changes will be saved on Resume')
+    }
+
     // Proceed to next step or close standalone component
     if (!standalone && onCompleteStep) {
       onCompleteStep(StepKeys.KAFKA_CONNECTION as StepKeys)
@@ -274,7 +281,7 @@ export function KafkaConnectionContainer({
         authMethod={authMethod}
         securityProtocol={securityProtocol}
         bootstrapServers={bootstrapServers}
-        toggleEditMode={handleFormSubmit}
+        toggleEditMode={toggleEditMode}
         pipelineActionState={pipelineActionState}
         onClose={onCompleteStandaloneEditing}
       />

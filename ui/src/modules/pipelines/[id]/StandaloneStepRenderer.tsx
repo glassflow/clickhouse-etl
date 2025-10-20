@@ -18,6 +18,8 @@ import { StepDataPreloader } from '@/src/components/StepDataPreloader'
 import { useEditConfirmationModal } from '../hooks'
 import EditConfirmationModal from '../components/EditConfirmationModal'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
+import { usePipelineState } from '@/src/hooks/usePipelineState'
+import { PipelineStatus } from '@/src/types/pipeline'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
@@ -30,11 +32,16 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
-  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
+
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
 
   const { enterEditMode } = coreStore
+
+  // Get centralized pipeline status
+  const centralizedStatus = usePipelineState(pipeline?.pipeline_id)
+  // Use centralized status if available, otherwise fall back to pipeline prop
+  const effectiveStatus = centralizedStatus || (pipeline?.status as PipelineStatus) || 'stopped'
 
   // Use the centralized pipeline actions hook for state management
   const { executeAction, actionState } = usePipelineActions(pipeline)
@@ -151,19 +158,35 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
 
   // Handle edit mode toggle with confirmation for active pipelines
   const handleToggleEditMode = () => {
-    if (pipeline?.status === 'active' && !editMode) {
-      // For active pipelines, show confirmation modal before allowing edit
-      const stepInfo = steps[stepKey]
-      openEditConfirmationModal(pipeline, stepInfo)
-    } else if ((pipeline?.status === 'paused' || pipeline?.status === 'stopped') && !editMode) {
-      // For paused/stopped pipelines, enable edit mode immediately
+    console.log('handleToggleEditMode called', {
+      pipelineStatus: pipeline?.status,
+      centralizedStatus,
+      effectiveStatus,
+      editMode,
+    })
+
+    if ((effectiveStatus === 'stopped' || effectiveStatus === 'terminated') && !editMode) {
+      // For stopped/terminated pipelines, enable edit mode immediately
       setEditMode(true)
       enterEditMode(pipeline)
-    } else if (editMode) {
-      // Toggle edit mode off - just close the modal, changes are saved in store
-      setEditMode(false)
-      if (onClose) {
-        onClose()
+    } else if ((effectiveStatus === 'active' || effectiveStatus === 'paused') && !editMode) {
+      // For active/paused pipelines, show confirmation modal before allowing edit
+      const stepInfo = steps[stepKey]
+      openEditConfirmationModal(pipeline, stepInfo)
+    } else if (
+      effectiveStatus === 'stopping' ||
+      effectiveStatus === 'pausing' ||
+      effectiveStatus === 'resuming' ||
+      effectiveStatus === 'terminating'
+    ) {
+      // For transitional states, show warning
+      console.warn('Edit mode not available while pipeline is in transitional state:', effectiveStatus)
+    } else {
+      // For other cases (failed, etc), allow editing
+      console.warn('Edit mode requested for pipeline status:', effectiveStatus)
+      if (!editMode) {
+        setEditMode(true)
+        enterEditMode(pipeline)
       }
     }
   }

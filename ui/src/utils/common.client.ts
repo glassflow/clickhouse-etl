@@ -112,6 +112,56 @@ export const extractEventFields = (data: any, prefix = ''): string[] => {
   return fields
 }
 
+/**
+ * Compare two event schemas to determine if they have the same structure
+ * Returns true if schemas match, false if they differ
+ * This is used to determine if changing the event (e.g., offset change) should invalidate dependent sections
+ */
+export const compareEventSchemas = (oldEvent: any, newEvent: any): boolean => {
+  if (!oldEvent && !newEvent) return true
+  if (!oldEvent || !newEvent) return false
+
+  try {
+    // Remove _metadata from both events before comparison
+    const cleanOldEvent = { ...oldEvent }
+    const cleanNewEvent = { ...newEvent }
+    delete cleanOldEvent?._metadata
+    delete cleanNewEvent?._metadata
+
+    // Extract field paths from both events
+    const oldFields = extractEventFields(cleanOldEvent).sort()
+    const newFields = extractEventFields(cleanNewEvent).sort()
+
+    // If field counts differ, schemas are different
+    if (oldFields.length !== newFields.length) {
+      console.log('[Schema Comparison] Field count differs:', {
+        old: oldFields.length,
+        new: newFields.length,
+      })
+      return false
+    }
+
+    // Check if all field paths are the same
+    for (let i = 0; i < oldFields.length; i++) {
+      if (oldFields[i] !== newFields[i]) {
+        console.log('[Schema Comparison] Field path differs:', {
+          old: oldFields[i],
+          new: newFields[i],
+        })
+        return false
+      }
+    }
+
+    // Field paths are identical, schemas match!
+    console.log('[Schema Comparison] Schemas match! Field count:', oldFields.length)
+    return true
+  } catch (error) {
+    console.error('[Schema Comparison] Error comparing schemas:', error)
+    // On error, assume schemas differ to be safe
+    return false
+  }
+}
+
 export const generatePipelineId = (pipelineName: string, existingIds: string[] = []): string => {
   // Convert pipeline name to lowercase and replace spaces/special chars with dashes
   const baseId = pipelineName

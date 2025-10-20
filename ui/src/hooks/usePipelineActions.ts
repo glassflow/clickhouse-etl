@@ -49,11 +49,13 @@ export const usePipelineActions = (pipeline: Pipeline) => {
 
         case 'terminate':
           const isGraceful = payload?.graceful || false
+
           if (isGraceful) {
             await stopPipeline(pipeline.pipeline_id)
           } else {
             await terminatePipeline(pipeline.pipeline_id)
           }
+
           result = undefined
           break
 

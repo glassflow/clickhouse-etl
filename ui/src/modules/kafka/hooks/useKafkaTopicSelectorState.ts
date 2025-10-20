@@ -5,6 +5,7 @@ import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { StepKeys } from '@/src/config/constants'
+import { compareEventSchemas } from '@/src/utils/common.client'
 
 interface UseTopicSelectionStateProps {
   index: number
@@ -635,6 +636,11 @@ export function useKafkaTopicSelectorState({
       return
     }
 
+    // Get the previously stored topic to compare schemas
+    const previousTopic = topicsStore.topics[index]
+    const previousEvent = previousTopic?.selectedEvent?.event
+    const previousTopicName = previousTopic?.name
+
     // Create final topic data
     const topicData = {
       index,
@@ -675,46 +681,76 @@ export function useKafkaTopicSelectorState({
     topicsStore.updateTopic(topicData)
     deduplicationStore.updateDeduplication(index, deduplicationData)
 
-    // DEFERRED INVALIDATION: Now that changes are saved, invalidate dependent sections
-    // This ensures invalidation only happens after changes are actually persisted
+    // SMART INVALIDATION: Only invalidate dependent sections if schema actually changed
+    // This prevents unnecessary invalidation when only offset or time window changes
 
-    // Clear join store when topic changes (deferred until save)
-    joinStore.setEnabled(false)
-    joinStore.setType('')
-    joinStore.setStreams([])
+    // Determine if we need to invalidate dependent sections
+    let shouldInvalidate = false
+    let invalidationReason = ''
 
-    // Invalidate dependent state (deferred until save)
-    // topicsStore.invalidateTopicDependentState(index)
-
-    // Trigger validation engine to invalidate dependent sections
-    // Use string matching instead of exact StepKeys comparison since actual values are different
-    if (currentStep === 'topic-selection-1' || currentStep === StepKeys.TOPIC_SELECTION_1) {
-      validationEngine.invalidateSection(StepKeys.DEDUPLICATION_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
-    } else if (currentStep === 'topic-selection-2' || currentStep === StepKeys.TOPIC_SELECTION_2) {
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
-    } else if (
-      currentStep === 'topic-deduplication-configurator-1' ||
-      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1
-    ) {
-      // For deduplication configurator, also invalidate join configurator since topic selection affects join
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic deduplication changed')
-    } else if (
-      currentStep === 'topic-deduplication-configurator-2' ||
-      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-    ) {
-      // For deduplication configurator, also invalidate join configurator since topic selection affects join
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic deduplication changed')
+    if (topicName !== previousTopicName) {
+      // Topic name changed - different topic entirely, always invalidate
+      shouldInvalidate = true
+      invalidationReason = 'Topic name changed'
+      console.log('[Topic Submit] Topic name changed, invalidating dependent sections')
+    } else if (!previousEvent) {
+      // No previous event - first time selecting event, always invalidate
+      shouldInvalidate = true
+      invalidationReason = 'First event selection'
+      console.log('[Topic Submit] First event selection, invalidating dependent sections')
     } else {
-      // Fallback: always invalidate join and clickhouse for any topic selection
-      if (currentStep && (currentStep.includes('topic-selection') || currentStep.includes('topic-deduplication'))) {
-        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
+      // Same topic - compare schemas to decide
+      const schemasMatch = compareEventSchemas(previousEvent, finalEvent)
+
+      if (!schemasMatch) {
+        shouldInvalidate = true
+        invalidationReason = 'Event schema changed'
+        console.log('[Topic Submit] Schema changed, invalidating dependent sections')
+      } else {
+        shouldInvalidate = false
+        console.log('[Topic Submit] Schema unchanged, preserving dependent sections (offset/time window change)')
       }
+    }
+
+    // Only invalidate if schema actually changed
+    if (shouldInvalidate) {
+      // Clear join store when schema changes
+      joinStore.setEnabled(false)
+      joinStore.setType('')
+      joinStore.setStreams([])
+
+      // Trigger validation engine to invalidate dependent sections
+      // Use string matching instead of exact StepKeys comparison since actual values are different
+      if (currentStep === 'topic-selection-1' || currentStep === StepKeys.TOPIC_SELECTION_1) {
+        validationEngine.invalidateSection(StepKeys.DEDUPLICATION_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else if (currentStep === 'topic-selection-2' || currentStep === StepKeys.TOPIC_SELECTION_2) {
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else if (
+        currentStep === 'topic-deduplication-configurator-1' ||
+        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1
+      ) {
+        // For deduplication configurator, also invalidate join configurator since topic selection affects join
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else if (
+        currentStep === 'topic-deduplication-configurator-2' ||
+        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+      ) {
+        // For deduplication configurator, also invalidate join configurator since topic selection affects join
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else {
+        // Fallback: always invalidate join and clickhouse for any topic selection
+        if (currentStep && (currentStep.includes('topic-selection') || currentStep.includes('topic-deduplication'))) {
+          validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+          validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+        }
+      }
+    } else {
+      console.log('[Topic Submit] Skipping invalidation - schema unchanged')
     }
   }, [
     index,
@@ -731,6 +767,8 @@ export function useKafkaTopicSelectorState({
     joinStore,
     validationEngine,
     currentStep,
+    replicas,
+    effectivePartitionCount,
   ])
 
   return {

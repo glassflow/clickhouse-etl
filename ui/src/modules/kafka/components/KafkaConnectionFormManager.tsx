@@ -100,11 +100,17 @@ export const KafkaConnectionFormManager = ({
   useEffect(() => {
     if (isReturningToForm && !formInitialized.current) {
       // Set form values from existing data
-      if (authMethod) setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
-      if (securityProtocol)
+      if (authMethod) {
+        setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
+      }
+
+      if (securityProtocol) {
         setValue('securityProtocol', securityProtocol as KafkaConnectionFormType['securityProtocol'])
-      if (bootstrapServers)
+      }
+
+      if (bootstrapServers) {
         setValue('bootstrapServers', bootstrapServers as KafkaConnectionFormType['bootstrapServers'])
+      }
 
       // Only manually trigger validation if returning to a form with stored values
       // and only after the user has explicitly interacted with it
@@ -142,41 +148,21 @@ export const KafkaConnectionFormManager = ({
       return
     }
 
-    // If we're in read-only mode OR not in edit mode (standalone), just test the connection
-    // This handles both: create pipeline flow and view-only mode
-    if (readOnly || !standalone || !toggleEditMode) {
+    // In standalone mode (both create and edit), always test the connection
+    // Only save if the test succeeds
+    // The onTestConnection handler will save the data and close the modal on success
+    if (standalone) {
       if (onTestConnection) {
         await onTestConnection(values)
+        // Note: Don't close here - the success handler in KafkaConnectionContainer
+        // will save the data and close the modal only if connection test succeeds
       }
       return
     }
 
-    // If we're in edit mode (standalone with toggleEditMode), just save to store
-    // Don't send to backend yet - that happens when user clicks Resume
-    try {
-      const { kafkaStore } = useStore.getState()
-
-      // Update stores with form data
-      kafkaStore.setKafkaBootstrapServers(values.bootstrapServers)
-      kafkaStore.setKafkaSecurityProtocol(values.securityProtocol)
-
-      if (values.authMethod && values.authMethod !== 'NO_AUTH') {
-        kafkaStore.setKafkaAuthMethod(values.authMethod)
-      }
-
-      // Set skip auth based on auth method (NO_AUTH means skip auth is true)
-      kafkaStore.setKafkaSkipAuth(values.authMethod === 'NO_AUTH')
-
-      // Mark the configuration as modified (dirty)
-      const { coreStore } = useStore.getState()
-      coreStore.markAsDirty()
-
-      // Close the edit modal
-      if (toggleEditMode) {
-        await toggleEditMode()
-      }
-    } catch (error) {
-      console.error('Failed to save changes to store:', error)
+    // For non-standalone mode (regular pipeline creation flow)
+    if (onTestConnection) {
+      await onTestConnection(values)
     }
   }
 
@@ -191,11 +177,15 @@ export const KafkaConnectionFormManager = ({
     formInitialized.current = false
 
     // Force re-initialization by setting values manually
-    if (authMethod) formMethods.setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
-    if (securityProtocol)
+    if (authMethod) {
+      formMethods.setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
+    }
+    if (securityProtocol) {
       formMethods.setValue('securityProtocol', securityProtocol as KafkaConnectionFormType['securityProtocol'])
-    if (bootstrapServers)
+    }
+    if (bootstrapServers) {
       formMethods.setValue('bootstrapServers', bootstrapServers as KafkaConnectionFormType['bootstrapServers'])
+    }
 
     onDiscardConnectionChange()
   }

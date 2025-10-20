@@ -105,7 +105,7 @@ export interface DLQState {
 export interface Pipeline {
   pipeline_id: string
   name: string
-  state: string // Pipeline status from backend State field
+  // state: string // Pipeline status from backend State field
   status?: PipelineStatus // UI status field (converted from state)
   created_at?: string // Creation timestamp
   source: {
