@@ -30,15 +30,23 @@ import StopWhiteIcon from '@/src/images/stop-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { cn } from '@/src/utils/common.client'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
   onPipelineUpdate?: (updatedPipeline: Pipeline) => void
   onPipelineDeleted?: () => void
   actions?: React.ReactNode
+  showHeader?: boolean
 }
 
-function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, actions }: PipelineDetailsHeaderProps) {
+function PipelineDetailsHeader({
+  pipeline,
+  onPipelineUpdate,
+  onPipelineDeleted,
+  actions,
+  showHeader = true,
+}: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
@@ -488,7 +496,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   return (
-    <>
+    <div
+      className={cn(
+        'flex flex-col gap-4 transition-all duration-750 ease-out',
+        showHeader ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+      )}
+    >
       <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2">
@@ -592,7 +605,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         }}
         onCancel={handleModalCancel}
       />
-    </>
+    </div>
   )
 }
 

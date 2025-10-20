@@ -3,27 +3,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import PipelineDetailsHeader from './PipelineDetailsHeader'
 import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
-import TitleCardWithIcon from './TitleCardWithIcon'
-import TransformationSection from './TransformationSection'
+import TransformationSection from './sections/TransformationSection'
 import StandaloneStepRenderer from '@/src/modules/pipelines/[id]/StandaloneStepRenderer'
-import SectionCard from '@/src/components/SectionCard'
 import { StepKeys } from '@/src/config/constants'
-import { Pipeline, detectTransformationType } from '@/src/types/pipeline'
+import { Pipeline } from '@/src/types/pipeline'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import KafkaIcon from '@/src/images/kafka.svg'
-import ClickHouseIcon from '@/src/images/clickhouse.svg'
-import { hydrateKafkaConnection } from '@/src/store/hydration/kafka-connection'
-import { hydrateClickhouseConnection } from '@/src/store/hydration/clickhouse-connection'
-import { hydrateKafkaTopics } from '@/src/store/hydration/topics'
-import { hydrateClickhouseDestination } from '@/src/store/hydration/clickhouse-destination'
-import { hydrateJoinConfiguration } from '@/src/store/hydration/join-configuration'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
 import { usePipelineOperations } from '@/src/hooks/usePipelineState'
 import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline } from '@/src/api/pipeline-api'
 import { cn } from '@/src/utils/common.client'
+import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
+import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -52,7 +44,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const deduplicationValidation = useStore((state) => state.deduplicationStore.validation)
 
   const { coreStore } = useStore()
-  const { enterViewMode, hydrateFromConfig, mode } = coreStore
+  const { enterViewMode, mode } = coreStore
 
   // Determine if pipeline editing operations should be disabled
   // Consider both pipeline status AND if any action is currently loading
@@ -73,16 +65,28 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }, [pipeline.pipeline_id, pipeline.status])
 
-  // Hydrate the pipeline data when the pipeline configuration is loaded - copy pipeline data to stores
-  // this does not connect to external services, it just copies the data to the stores
+  // Hydrate the pipeline data when the pipeline configuration is loaded
   useEffect(() => {
     const hydrateData = async () => {
       if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
+        // Prevent re-hydration if already hydrated for this pipeline
+        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}`
+        const lastHydratedKey = sessionStorage.getItem('lastHydratedPipeline')
+
+        if (lastHydratedKey === currentPipelineKey) {
+          console.log('[PipelineDetailsModule] Already hydrated, skipping:', currentPipelineKey)
+          return
+        }
+
+        console.log('[PipelineDetailsModule] Hydrating pipeline:', currentPipelineKey)
+
         try {
+          // pipeline hydration is handled by the enterViewMode function from the core store
           await enterViewMode(pipeline)
+          // Mark as hydrated to prevent re-hydration - this is used to prevent infinite loop
+          sessionStorage.setItem('lastHydratedPipeline', currentPipelineKey)
         } catch (error) {
-          console.error('Failed to hydrate pipeline data:', error)
-          // The error will be handled by the stores' validation states
+          console.error('Failed to hydrate pipeline data:', error) // The error will be handled by the stores' validation states
         }
       }
     }
@@ -161,40 +165,6 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }))
   }
 
-  // Compute transformation label using hydrated store first, fallback to raw pipeline
-  const getTransformationLabel = () => {
-    try {
-      const store = useStore.getState()
-      const joinEnabled = Boolean(
-        (store.joinStore?.enabled && (store.joinStore.streams?.length || 0) > 0) ||
-          (pipeline?.join?.enabled && (pipeline?.join?.sources?.length || 0) > 0),
-      )
-
-      const dedup0 = store.deduplicationStore?.getDeduplication?.(0)
-      const dedup1 = store.deduplicationStore?.getDeduplication?.(1)
-
-      const topic0 = pipeline?.source?.topics?.[0]
-      const topic1 = pipeline?.source?.topics?.[1]
-
-      const isDedup = (d: any, t: any) => {
-        const enabled = d?.enabled === true || t?.deduplication?.enabled === true
-        const key = (d?.key || t?.deduplication?.id_field || '').trim()
-        return enabled && key.length > 0
-      }
-
-      const leftDedup = isDedup(dedup0, topic0)
-      const rightDedup = isDedup(dedup1, topic1)
-
-      if (joinEnabled && leftDedup && rightDedup) return 'Join & Deduplication'
-      if (joinEnabled) return 'Join'
-
-      // Fallback to raw pipeline detection for single topic cases
-      return detectTransformationType(pipeline)
-    } catch {
-      return detectTransformationType(pipeline)
-    }
-  }
-
   // Section selection highlighting
   const SOURCE_STEPS = new Set<StepKeys>([StepKeys.KAFKA_CONNECTION])
   const TRANSFORMATION_STEPS = new Set<StepKeys>([
@@ -214,28 +184,15 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   return (
     <div>
       {/* Header Section - Appears first */}
-      <div
-        className={cn(
-          'flex flex-col gap-4 transition-all duration-750 ease-out',
-          showHeader ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
-        )}
-      >
-        <PipelineDetailsHeader
-          pipeline={pipeline}
-          onPipelineUpdate={handlePipelineUpdate}
-          onPipelineDeleted={handlePipelineDeleted}
-        />
-      </div>
+      <PipelineDetailsHeader
+        pipeline={pipeline}
+        onPipelineUpdate={handlePipelineUpdate}
+        onPipelineDeleted={handlePipelineDeleted}
+        showHeader={showHeader}
+      />
 
       {/* Status Overview Section - Appears second */}
-      <div
-        className={cn(
-          'flex flex-col gap-4 transition-all duration-750 ease-out',
-          showStatusOverview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
-        )}
-      >
-        <PipelineStatusOverviewSection pipeline={pipeline} />
-      </div>
+      <PipelineStatusOverviewSection pipeline={pipeline} showStatusOverview={showStatusOverview} />
 
       {/* Configuration Section - Appears third */}
       <div
@@ -244,58 +201,30 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
         )}
       >
-        <div className="flex flex-col gap-4 w-1/5">
-          {/* Source */}
-          <div className="text-center">
-            <span className="text-lg font-bold">Source</span>
-          </div>
-          <TitleCardWithIcon
-            validation={kafkaValidation}
-            title="Kafka"
-            onClick={() => handleStepClick(StepKeys.KAFKA_CONNECTION)}
-            disabled={isEditingDisabled}
-            selected={isSourceSelected}
-          >
-            <Image src={KafkaIcon} alt="Kafka" className="w-8 h-8" width={32} height={32} />
-          </TitleCardWithIcon>
-        </div>
-        <div className="flex flex-col gap-4 w-3/5">
-          {/* Transformation */}
-          <div className="text-center">
-            <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
-              Transformation: {getTransformationLabel()}
-            </span>
-          </div>
-          <TransformationSection
-            pipeline={pipeline}
-            onStepClick={handleStepClick}
-            disabled={isEditingDisabled}
-            validation={{
-              kafkaValidation: kafkaValidation,
-              topicsValidation: topicsValidation,
-              joinValidation: joinValidation,
-              deduplicationValidation: deduplicationValidation,
-              clickhouseConnectionValidation: clickhouseConnectionValidation,
-              clickhouseDestinationValidation: clickhouseDestinationValidation,
-            }}
-            activeStep={activeStep}
-          />
-        </div>
-        <div className="flex flex-col gap-4 w-1/5">
-          {/* Sink */}
-          <div className="text-center">
-            <span className="text-lg font-bold">Sink</span>
-          </div>
-          <TitleCardWithIcon
-            validation={clickhouseConnectionValidation}
-            title="ClickHouse"
-            onClick={() => handleStepClick(StepKeys.CLICKHOUSE_CONNECTION)}
-            disabled={isEditingDisabled}
-            selected={isSinkSelected}
-          >
-            <Image src={ClickHouseIcon} alt="ClickHouse" className="w-8 h-8" width={32} height={32} />
-          </TitleCardWithIcon>
-        </div>
+        <KafkaConnectionSection
+          disabled={isEditingDisabled}
+          selected={isSourceSelected}
+          onStepClick={handleStepClick}
+        />
+        <TransformationSection
+          pipeline={pipeline}
+          onStepClick={handleStepClick}
+          disabled={isEditingDisabled}
+          validation={{
+            kafkaValidation: kafkaValidation,
+            topicsValidation: topicsValidation,
+            joinValidation: joinValidation,
+            deduplicationValidation: deduplicationValidation,
+            clickhouseConnectionValidation: clickhouseConnectionValidation,
+            clickhouseDestinationValidation: clickhouseDestinationValidation,
+          }}
+          activeStep={activeStep}
+        />
+        <ClickhouseConnectionSection
+          disabled={isEditingDisabled}
+          selected={isSinkSelected}
+          onStepClick={handleStepClick}
+        />
       </div>
 
       {/* Render the standalone step renderer when a step is active */}

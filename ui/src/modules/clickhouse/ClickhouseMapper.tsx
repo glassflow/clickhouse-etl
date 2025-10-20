@@ -452,10 +452,17 @@ export function ClickhouseMapper({
         return
       } else {
         // Fetch schema from API using hook
+        console.log('[ClickhouseMapper] Fetching table schema:', selectedDatabase, selectedTable)
         fetchTableSchema()
       }
     }
-  }, [selectedDatabase, selectedTable, getTableSchema, clickhouseDestination, fetchTableSchema])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    selectedDatabase,
+    selectedTable,
+    // NOTE: fetchTableSchema is intentionally excluded to prevent infinite loops
+    // getTableSchema and clickhouseDestination are used inside, but adding them causes loops
+  ])
 
   // Load event fields when event data changes (single mode)
   useEffect(() => {
@@ -697,11 +704,14 @@ export function ClickhouseMapper({
       clickhouseConnection.directConnection.host && clickhouseConnection.directConnection.httpPort
 
     if (connectionStatus === 'success' || (hasConnectionDetails && !databasesLoading)) {
+      console.log('[ClickhouseMapper] Fetching databases')
       fetchDatabases()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     connectionStatus,
-    fetchDatabases,
+    // NOTE: fetchDatabases is intentionally excluded to prevent infinite loops
+    // The databases.length guard prevents unnecessary fetches
     databases.length,
     clickhouseConnection.directConnection.host,
     clickhouseConnection.directConnection.httpPort,
@@ -714,8 +724,13 @@ export function ClickhouseMapper({
       return
     }
 
+    console.log('[ClickhouseMapper] Fetching tables for database:', selectedDatabase)
     fetchTables()
-  }, [selectedDatabase, fetchTables])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    selectedDatabase,
+    // NOTE: fetchTables is intentionally excluded to prevent infinite loops
+  ])
 
   // Update column mapping
   const updateColumnMapping = (index: number, field: keyof TableColumn, value: any) => {
@@ -1062,6 +1077,21 @@ export function ClickhouseMapper({
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
+    // If in standalone edit mode, just save to store and mark as dirty
+    // The actual deployment will happen when user clicks Resume
+    if (standalone && toggleEditMode) {
+      // Mark the configuration as modified (dirty)
+      coreStore.markAsDirty()
+      console.log('[ClickhouseMapper] Configuration marked as dirty - changes will be saved on Resume')
+
+      // Close the edit modal
+      if (onCompleteStandaloneEditing) {
+        onCompleteStandaloneEditing()
+      }
+      return
+    }
+
+    // For non-standalone mode (regular pipeline creation flow)
     if (isPreviewMode) {
       // Navigate to the review configuration step for preview
       onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
@@ -1069,6 +1099,7 @@ export function ClickhouseMapper({
       // Direct mode: Deploy pipeline immediately and then navigate to pipelines page
       deployPipelineAndNavigate(apiConfig)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     clickhouseDestination,
     selectedDatabase,
@@ -1091,6 +1122,14 @@ export function ClickhouseMapper({
     mode,
     primaryTopic?.name,
     secondaryTopic?.name,
+    standalone,
+    toggleEditMode,
+    coreStore,
+    onCompleteStandaloneEditing,
+    deduplicationStore,
+    pipelineName,
+    onCompleteStep,
+    // deployPipelineAndNavigate is intentionally excluded - it's defined after this callback
   ])
 
   // Add function to deploy pipeline and navigate

@@ -4,7 +4,8 @@ import type { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { detectTransformationType } from '@/src/types/pipeline'
 
 // Backend response format (what the API returns)
-type BackendPipeline = Omit<Pipeline, 'sink'> & {
+export type BackendPipeline = Omit<Pipeline, 'sink'> & {
+  state: string // Backend pipeline state (active, paused, stopped, error)
   sink: Omit<Pipeline['sink'], 'httpPort' | 'nativePort'> & {
     http_port: string
     port: string
@@ -100,13 +101,13 @@ export const mockPipelines: BackendPipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      http_port: '12754',
-      port: '12753',
-      database: 'vlad',
+      http_port: process.env.NEXT_PUBLIC_CLICKHOUSE_HTTP_PORT || '',
+      port: process.env.NEXT_PUBLIC_CLICKHOUSE_NATIVE_PORT || '',
+      database: 'default',
       username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
-      table: 'test_table',
+      table: 'NewTable',
       table_mapping: [
         {
           source_id: 'transactions',
@@ -225,13 +226,13 @@ export const mockPipelines: BackendPipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      http_port: '12754',
-      port: '12753',
-      database: 'vlad',
+      http_port: process.env.NEXT_PUBLIC_CLICKHOUSE_HTTP_PORT || '',
+      port: process.env.NEXT_PUBLIC_CLICKHOUSE_NATIVE_PORT || '',
+      database: 'default',
       username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
-      table: 'test_table',
+      table: 'NewTable',
       table_mapping: [
         {
           source_id: 'transactions',
@@ -329,13 +330,13 @@ export const mockPipelines: BackendPipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      http_port: '12754',
-      port: '12753',
-      database: 'vlad',
+      http_port: process.env.NEXT_PUBLIC_CLICKHOUSE_HTTP_PORT || '',
+      port: process.env.NEXT_PUBLIC_CLICKHOUSE_NATIVE_PORT || '',
+      database: 'default',
       username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
       secure: true,
-      table: 'transactions',
+      table: 'NewTable',
       table_mapping: [
         {
           source_id: 'transactions',
@@ -452,12 +453,12 @@ export const mockPipelines: BackendPipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      http_port: '12754',
-      port: '12753',
-      database: 'vlad',
+      http_port: process.env.NEXT_PUBLIC_CLICKHOUSE_HTTP_PORT || '',
+      port: process.env.NEXT_PUBLIC_CLICKHOUSE_NATIVE_PORT || '',
+      database: 'default',
       username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
-      table: 'test_table',
+      table: 'NewTable',
       secure: false,
       table_mapping: [
         {
@@ -579,12 +580,12 @@ export const mockPipelines: BackendPipeline[] = [
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
-      http_port: '12754',
-      port: '12753',
-      database: 'vlad',
+      http_port: process.env.NEXT_PUBLIC_CLICKHOUSE_HTTP_PORT || '',
+      port: process.env.NEXT_PUBLIC_CLICKHOUSE_NATIVE_PORT || '',
+      database: 'default',
       username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME || '',
       password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || '',
-      table: 'test_table',
+      table: 'NewTable',
       secure: true,
       table_mapping: [
         {

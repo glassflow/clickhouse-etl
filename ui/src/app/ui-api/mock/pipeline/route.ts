@@ -1,14 +1,6 @@
 import { NextResponse } from 'next/server'
-import { mockPipelines as mockPipelinesData, getMockPipelinesList } from '../data/pipelines'
-import { Pipeline } from '@/src/types/pipeline'
-
-// Backend response format (what the API returns)
-type BackendPipeline = Omit<Pipeline, 'sink'> & {
-  sink: Omit<Pipeline['sink'], 'httpPort' | 'nativePort'> & {
-    http_port: string
-    port: string
-  }
-}
+import { mockPipelines as mockPipelinesData, getMockPipelinesList, type BackendPipeline } from '../data/pipelines'
+import { registerPipeline, unregisterPipeline } from '../data/mock-state'
 
 // GET /ui-api/mock/pipeline - Returns list of pipelines (matches backend ListPipelineConfig)
 export async function GET() {
@@ -26,14 +18,19 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    // Generate a unique pipeline ID
-    const pipelineId = `pipeline-${Date.now()}`
+    // Generate a unique pipeline ID using timestamp + random string
+    const timestamp = Date.now()
+    const randomStr = Math.random().toString(36).substring(2, 15)
+    const pipelineId = `pipeline-${randomStr}${timestamp}`
 
-    // You may want to validate body.source, body.join, body.sink, etc.
+    console.log('[Mock] Creating new pipeline:', pipelineId)
+
+    // Create full pipeline config with all required fields
     const newPipeline: BackendPipeline = {
       pipeline_id: pipelineId,
       name: body.name || 'New Pipeline',
       state: 'active',
+      created_at: new Date().toISOString(),
       source: body.source || {
         type: 'kafka',
         provider: 'local',
@@ -70,7 +67,14 @@ export async function POST(request: Request) {
       },
     }
 
+    // Add to mock data array
     mockPipelinesData.push(newPipeline)
+
+    // Register in centralized state management
+    // This is crucial - without this, the pipeline won't be found by other endpoints!
+    registerPipeline(pipelineId, newPipeline, 'Running')
+
+    console.log('[Mock] Pipeline created and registered successfully:', pipelineId)
 
     // Return the same format as the real API route
     return NextResponse.json({
@@ -79,6 +83,7 @@ export async function POST(request: Request) {
       status: 'active',
     })
   } catch (error) {
+    console.error('[Mock] Failed to create pipeline:', error)
     return NextResponse.json({ success: false, error: 'Failed to create pipeline' }, { status: 500 })
   }
 }
