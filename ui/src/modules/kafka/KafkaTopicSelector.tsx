@@ -191,6 +191,11 @@ export function KafkaTopicSelector({
         validationEngine.markSectionAsValid(currentStep as StepKeys)
       }
 
+      // ✅ Mark configuration as dirty when saving changes in edit mode
+      // This ensures the download warning appears for unsaved changes
+      coreStore.markAsDirty()
+      console.log('[TopicSelector] Configuration marked as dirty - changes will be saved on Resume')
+
       onCompleteStandaloneEditing?.()
     } else {
       // In creation mode, just move to next step
@@ -282,6 +287,7 @@ export function KafkaTopicSelector({
             additionalContent={renderDeduplicationSection()}
             isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
             readOnly={readOnly}
+            disableTopicChange={standalone} // ✅ Disable topic selection when in edit mode (standalone)
             topicName={topicName}
             offset={offset}
             event={event}

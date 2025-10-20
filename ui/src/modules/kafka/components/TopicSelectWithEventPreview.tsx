@@ -24,6 +24,7 @@ export type TopicSelectWithEventPreviewProps = {
   additionalContent?: React.ReactNode
   isEditingEnabled: boolean
   readOnly?: boolean
+  disableTopicChange?: boolean // ✅ NEW: Specifically disable topic selection in edit mode
   topicName?: string
   offset?: 'earliest' | 'latest'
   event?: any
@@ -56,6 +57,7 @@ export function TopicSelectWithEventPreview({
   additionalContent,
   isEditingEnabled,
   readOnly,
+  disableTopicChange, // ✅ NEW: Specifically disable topic selection in edit mode
   topicName: hookTopicName,
   offset: hookOffset,
   event: hookEvent,
@@ -159,6 +161,7 @@ export function TopicSelectWithEventPreview({
               value: value as 'earliest' | 'latest',
             }))}
             readOnly={readOnly}
+            disableTopicChange={disableTopicChange} // ✅ Pass down the new prop
             onRefreshTopics={onRefreshTopics}
           />
 
