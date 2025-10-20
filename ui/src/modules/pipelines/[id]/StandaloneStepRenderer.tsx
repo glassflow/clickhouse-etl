@@ -36,7 +36,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
 
-  const { enterEditMode } = coreStore
+  const { enterEditMode, mode: globalMode } = coreStore
 
   // Get centralized pipeline status
   const centralizedStatus = usePipelineState(pipeline?.pipeline_id)
@@ -168,7 +168,15 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     if ((effectiveStatus === 'stopped' || effectiveStatus === 'terminated') && !editMode) {
       // For stopped/terminated pipelines, enable edit mode immediately
       setEditMode(true)
-      enterEditMode(pipeline)
+
+      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+      // This prevents re-hydration which would overwrite unsaved changes from other sections
+      if (globalMode !== 'edit') {
+        console.log('[StandaloneStepRenderer] Entering edit mode for first time')
+        enterEditMode(pipeline)
+      } else {
+        console.log('[StandaloneStepRenderer] Already in global edit mode, preserving existing changes')
+      }
     } else if ((effectiveStatus === 'active' || effectiveStatus === 'paused') && !editMode) {
       // For active/paused pipelines, show confirmation modal before allowing edit
       const stepInfo = steps[stepKey]
@@ -186,7 +194,15 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       console.warn('Edit mode requested for pipeline status:', effectiveStatus)
       if (!editMode) {
         setEditMode(true)
-        enterEditMode(pipeline)
+
+        // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+        // This prevents re-hydration which would overwrite unsaved changes from other sections
+        if (globalMode !== 'edit') {
+          console.log('[StandaloneStepRenderer] Entering edit mode for first time')
+          enterEditMode(pipeline)
+        } else {
+          console.log('[StandaloneStepRenderer] Already in global edit mode, preserving existing changes')
+        }
       }
     }
   }
@@ -210,7 +226,15 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
 
       // Now enable edit mode
       setEditMode(true)
-      enterEditMode(pipeline)
+
+      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+      // This prevents re-hydration which would overwrite unsaved changes from other sections
+      if (globalMode !== 'edit') {
+        console.log('[StandaloneStepRenderer] Entering edit mode after stopping pipeline')
+        enterEditMode(pipeline)
+      } else {
+        console.log('[StandaloneStepRenderer] Already in global edit mode after stopping, preserving existing changes')
+      }
     } catch (error) {
       console.error('Failed to stop pipeline for editing:', error)
       // Don't enable edit mode if stop failed

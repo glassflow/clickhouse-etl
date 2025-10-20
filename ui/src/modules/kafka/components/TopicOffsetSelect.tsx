@@ -20,6 +20,7 @@ export function TopicOffsetSelect({
   offsetOptions,
   index,
   readOnly,
+  disableTopicChange, // ✅ NEW: Specifically disable topic selection
   onRefreshTopics,
 }: {
   topicValue: string
@@ -37,6 +38,7 @@ export function TopicOffsetSelect({
   offsetOptions: { label: string; value: 'earliest' | 'latest' }[]
   index: number
   readOnly?: boolean
+  disableTopicChange?: boolean // ✅ NEW: Specifically disable topic selection in edit mode
   onRefreshTopics?: () => Promise<void>
 }) {
   const [isFocused, setIsFocused] = useState(false)
@@ -124,9 +126,16 @@ export function TopicOffsetSelect({
         error={topicError}
         placeholder={topicPlaceholder}
         options={topicOptions}
-        readOnly={readOnly}
+        readOnly={disableTopicChange || readOnly} // ✅ Topic is disabled if in edit mode OR readOnly
         label="Source Topic"
         onRefresh={onRefreshTopics}
+        // ✅ Show tooltip when topic change is disabled in edit mode
+        {...(disableTopicChange && !readOnly
+          ? {
+              title:
+                'Topic cannot be changed when editing a pipeline. To use a different topic, create a new pipeline.',
+            }
+          : {})}
       />
       {topicValue && (
         <OffsetSelect
@@ -137,7 +146,7 @@ export function TopicOffsetSelect({
           error={offsetError}
           placeholder={offsetPlaceholder}
           options={offsetOptions}
-          readOnly={readOnly || isLoadingEvent}
+          readOnly={readOnly || isLoadingEvent} // ✅ Offset can still be changed in edit mode
           label="Initial Offset"
         />
       )}
