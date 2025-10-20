@@ -641,6 +641,25 @@ export function useKafkaTopicSelectorState({
     const previousEvent = previousTopic?.selectedEvent?.event
     const previousTopicName = previousTopic?.name
 
+    // ✅ FIX: If we don't have a new event (e.g., just changing replica count),
+    // use the existing event from the store for comparison
+    // This prevents false invalidation when only metadata (replicas, etc.) changes
+    if (!finalEvent && previousEvent) {
+      finalEvent = previousEvent
+      console.log('[Topic Submit] Using existing event from store (metadata-only change)')
+    }
+
+    console.log('[Topic Submit] Current state:', {
+      topicName,
+      previousTopicName,
+      replicas,
+      previousReplicas: previousTopic?.replicas,
+      hasFinalEvent: !!finalEvent,
+      hasPreviousEvent: !!previousEvent,
+      finalEventKeys: finalEvent ? Object.keys(finalEvent).length : 0,
+      previousEventKeys: previousEvent ? Object.keys(previousEvent).length : 0,
+    })
+
     // Create final topic data
     const topicData = {
       index,
@@ -682,33 +701,47 @@ export function useKafkaTopicSelectorState({
     deduplicationStore.updateDeduplication(index, deduplicationData)
 
     // SMART INVALIDATION: Only invalidate dependent sections if schema actually changed
-    // This prevents unnecessary invalidation when only offset or time window changes
+    // This prevents unnecessary invalidation when:
+    // - Replica count changes
+    // - Offset changes (earliest/latest) but schema is the same
+    // - Event selection changes but schema is the same
+    // - Even topic name changes but schema is the same
 
     // Determine if we need to invalidate dependent sections
     let shouldInvalidate = false
     let invalidationReason = ''
 
-    if (topicName !== previousTopicName) {
-      // Topic name changed - different topic entirely, always invalidate
-      shouldInvalidate = true
-      invalidationReason = 'Topic name changed'
-      console.log('[Topic Submit] Topic name changed, invalidating dependent sections')
-    } else if (!previousEvent) {
+    if (!previousEvent) {
       // No previous event - first time selecting event, always invalidate
       shouldInvalidate = true
       invalidationReason = 'First event selection'
-      console.log('[Topic Submit] First event selection, invalidating dependent sections')
+      console.log('[Topic Submit] ⚠️ No previous event found, invalidating dependent sections')
+    } else if (!finalEvent) {
+      // No current event - this shouldn't happen in edit mode, but handle it
+      shouldInvalidate = true
+      invalidationReason = 'Missing current event'
+      console.log('[Topic Submit] ⚠️ No current event found, invalidating dependent sections')
     } else {
-      // Same topic - compare schemas to decide
+      // Compare schemas to decide - this handles ALL cases:
+      // - Same topic, different event/offset
+      // - Same topic, different replica count
+      // - Different topic name (but potentially same schema)
+      console.log('[Topic Submit] Comparing schemas...')
       const schemasMatch = compareEventSchemas(previousEvent, finalEvent)
+      console.log('[Topic Submit] Schema comparison result:', schemasMatch)
 
       if (!schemasMatch) {
         shouldInvalidate = true
-        invalidationReason = 'Event schema changed'
-        console.log('[Topic Submit] Schema changed, invalidating dependent sections')
+        invalidationReason =
+          topicName !== previousTopicName ? 'Topic changed and schema differs' : 'Event schema changed'
+        console.log(`[Topic Submit] ❌ ${invalidationReason}, invalidating dependent sections`)
       } else {
         shouldInvalidate = false
-        console.log('[Topic Submit] Schema unchanged, preserving dependent sections (offset/time window change)')
+        if (topicName !== previousTopicName) {
+          console.log('[Topic Submit] ✅ Topic name changed but schema is identical, preserving dependent sections')
+        } else {
+          console.log('[Topic Submit] ✅ Schema unchanged, preserving dependent sections (offset/replica/event change)')
+        }
       }
     }
 

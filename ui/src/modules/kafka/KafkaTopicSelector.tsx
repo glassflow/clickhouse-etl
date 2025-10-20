@@ -170,19 +170,25 @@ export function KafkaTopicSelector({
     const isEditMode = standalone && toggleEditMode
 
     if (isEditMode) {
-      // In edit mode, just save changes and trigger validation engine
-      // Don't call onCompleteStep as we want to stay in the same section
+      // In edit mode, mark section as valid WITHOUT invalidating dependents
+      // The smart invalidation logic in useKafkaTopicSelectorState.handleSubmit
+      // already handles invalidation based on schema comparison
+
+      // We use markSectionAsValid instead of onSectionConfigured because:
+      // - onSectionConfigured would ALWAYS invalidate ALL dependents (bypassing smart logic)
+      // - markSectionAsValid only marks this section as valid
+      // - Dependent sections are invalidated ONLY if schema changed (handled by submit())
+
       if (currentStep === StepKeys.TOPIC_SELECTION_1) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
+        validationEngine.markSectionAsValid(StepKeys.TOPIC_SELECTION_1)
       } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
+        validationEngine.markSectionAsValid(StepKeys.TOPIC_SELECTION_2)
       } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
+        validationEngine.markSectionAsValid(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
       } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-        validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
-      } else {
-        // Fallback for any other topic selection step
-        validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
+        validationEngine.markSectionAsValid(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
+      } else if (currentStep) {
+        validationEngine.markSectionAsValid(currentStep as StepKeys)
       }
 
       onCompleteStandaloneEditing?.()
