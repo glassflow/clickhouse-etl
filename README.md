@@ -123,13 +123,13 @@ Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's comi
 
 ## 	✨ Features
 
-- Real-time data processing from Kafka to ClickHouse
-- Deduplication with configurable time windows
-- Temporal joins between multiple Kafka topics
-- Scalable and robust architecture built for Kubernetes
-- Prometheus metrics and OTEL logs
-- Web-based UI for pipeline management
-- Docker version for local testing and evaluation
+- Streaming deduplication and joins for up to 7d through an inbuilt state store
+- ClickHouse sink with a native protocol for high performance
+- Built-in Kafka connector with SASL, SSL, etc. for nearly all Kafka providers
+- Dead-Letter Queue for handling failed events
+- Field mapping of your Kafka table to ClickHouse
+
+You can find a list of all GlassFlow features [here](https://www.glassflow.dev/product).
 
 ## 🆘 Support
 
