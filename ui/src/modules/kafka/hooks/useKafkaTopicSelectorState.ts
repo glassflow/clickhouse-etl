@@ -122,7 +122,16 @@ export function useKafkaTopicSelectorState({
     if (effectiveReplicas && effectiveReplicas !== replicas) {
       setReplicas(effectiveReplicas)
     }
-  }, [effectiveTopicName, effectiveOffset, effectiveReplicas, topicName, offset, replicas])
+    // ✅ CRITICAL FIX: Initialize state.event with existing event from store
+    // This ensures that in edit mode, we have the event data available
+    if (effectiveEvent && !state.event) {
+      console.log('[Topic Init] Loading existing event from store into state')
+      setState((prev) => ({
+        ...prev,
+        event: effectiveEvent,
+      }))
+    }
+  }, [effectiveTopicName, effectiveOffset, effectiveReplicas, effectiveEvent, topicName, offset, replicas, state.event])
 
   // Validate manual event - enable continue button only if the manual event is valid
   useEffect(() => {
@@ -638,15 +647,31 @@ export function useKafkaTopicSelectorState({
 
     // Get the previously stored topic to compare schemas
     const previousTopic = topicsStore.topics[index]
-    const previousEvent = previousTopic?.selectedEvent?.event
+    let previousEvent = previousTopic?.selectedEvent?.event
     const previousTopicName = previousTopic?.name
 
-    // ✅ FIX: If we don't have a new event (e.g., just changing replica count),
+    // ✅ CRITICAL FIX 1: If previousEvent doesn't exist in store but finalEvent does,
+    // this is likely the first edit after loading, use finalEvent as previous too
+    // (they're the same since we just loaded it)
+    if (!previousEvent && finalEvent) {
+      previousEvent = finalEvent
+      console.log(
+        '[Topic Submit] 🔄 FALLBACK 1: No previous event in store, using current event as previous (edit mode initialization)',
+      )
+    }
+
+    // ✅ CRITICAL FIX 2: If we don't have a new event (e.g., just changing replica count),
     // use the existing event from the store for comparison
     // This prevents false invalidation when only metadata (replicas, etc.) changes
     if (!finalEvent && previousEvent) {
       finalEvent = previousEvent
-      console.log('[Topic Submit] Using existing event from store (metadata-only change)')
+      console.log('[Topic Submit] 🔄 FALLBACK 2: Using existing event from store (metadata-only change)')
+      console.log('[Topic Submit] Event keys:', Object.keys(finalEvent).slice(0, 10))
+    } else if (!finalEvent && !previousEvent) {
+      console.warn('[Topic Submit] ⚠️ Neither finalEvent nor previousEvent exists!')
+    } else if (finalEvent) {
+      console.log('[Topic Submit] ✓ FinalEvent exists, using it directly')
+      console.log('[Topic Submit] Source: state.event?', !!state.event, 'manualEvent?', !!manualEvent)
     }
 
     console.log('[Topic Submit] Current state:', {
@@ -715,18 +740,27 @@ export function useKafkaTopicSelectorState({
       // No previous event - first time selecting event, always invalidate
       shouldInvalidate = true
       invalidationReason = 'First event selection'
-      console.log('[Topic Submit] ⚠️ No previous event found, invalidating dependent sections')
+      console.log('[Topic Submit] ⚠️ PATH 1: No previous event found, invalidating dependent sections')
     } else if (!finalEvent) {
-      // No current event - this shouldn't happen in edit mode, but handle it
+      // No current event - this shouldn't happen now with our fallback, but handle it
       shouldInvalidate = true
       invalidationReason = 'Missing current event'
-      console.log('[Topic Submit] ⚠️ No current event found, invalidating dependent sections')
+      console.error(
+        '[Topic Submit] ⚠️ PATH 2: No current event found (THIS SHOULD NOT HAPPEN!), invalidating dependent sections',
+      )
+      console.error('[Topic Submit] Debug: previousEvent exists?', !!previousEvent, 'finalEvent exists?', !!finalEvent)
     } else {
       // Compare schemas to decide - this handles ALL cases:
       // - Same topic, different event/offset
       // - Same topic, different replica count
       // - Different topic name (but potentially same schema)
-      console.log('[Topic Submit] Comparing schemas...')
+      console.log('[Topic Submit] 🔍 PATH 3: Comparing schemas...')
+      console.log(
+        '[Topic Submit] Previous event sample:',
+        previousEvent ? Object.keys(previousEvent).slice(0, 5) : 'none',
+      )
+      console.log('[Topic Submit] Final event sample:', finalEvent ? Object.keys(finalEvent).slice(0, 5) : 'none')
+
       const schemasMatch = compareEventSchemas(previousEvent, finalEvent)
       console.log('[Topic Submit] Schema comparison result:', schemasMatch)
 
@@ -734,7 +768,7 @@ export function useKafkaTopicSelectorState({
         shouldInvalidate = true
         invalidationReason =
           topicName !== previousTopicName ? 'Topic changed and schema differs' : 'Event schema changed'
-        console.log(`[Topic Submit] ❌ ${invalidationReason}, invalidating dependent sections`)
+        console.log(`[Topic Submit] ❌ Schemas differ, invalidating dependent sections. Reason: ${invalidationReason}`)
       } else {
         shouldInvalidate = false
         if (topicName !== previousTopicName) {

@@ -10,6 +10,7 @@ import TerminatePipelineModal from '@/src/modules/pipelines/components/Terminate
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import EditPipelineModal from '@/src/modules/pipelines/components/EditPipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
+import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
@@ -49,7 +50,11 @@ function PipelineDetailsHeader({
 }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
+  const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
+
+  // Get store to check for unsaved changes
+  const { coreStore } = useStore()
 
   // Get centralized pipeline status and operations
   const centralizedStatus = usePipelineState(pipeline.pipeline_id)
@@ -191,12 +196,29 @@ function PipelineDetailsHeader({
   }
 
   const handleDownloadClick = async () => {
+    // Check for unsaved changes
+    if (coreStore.isDirty) {
+      // Show warning modal if there are unsaved changes
+      setShowDownloadWarningModal(true)
+      return
+    }
+
+    // No unsaved changes, proceed with download
+    await proceedWithDownload()
+  }
+
+  const proceedWithDownload = async () => {
     try {
       await downloadPipelineConfig(pipeline)
+      setShowDownloadWarningModal(false) // Close modal if it was open
     } catch (error) {
       console.error('Failed to download pipeline configuration:', error)
       // You could add a toast notification here to show the error to the user
     }
+  }
+
+  const handleDownloadWarningCancel = () => {
+    setShowDownloadWarningModal(false)
   }
 
   const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
@@ -477,8 +499,10 @@ function PipelineDetailsHeader({
           variant="outline"
           onClick={() => handleDownloadClick()}
           disabled={false}
-          className={`group btn-action`}
-          title={`Download configuration`}
+          className={`group btn-action relative`}
+          title={
+            coreStore.isDirty ? 'Unsaved changes will not be included in downloaded config' : 'Download configuration'
+          }
         >
           <div className="flex items-center gap-3">
             <Image
@@ -488,6 +512,11 @@ function PipelineDetailsHeader({
               height={16}
               className="filter brightness-100 group-hover:brightness-0"
             />
+            {coreStore.isDirty && (
+              <Badge variant="warning" className="ml-1 px-1.5 py-0.5 text-[10px] leading-none" title="Unsaved changes">
+                ⚠️
+              </Badge>
+            )}
           </div>
           Download config
         </Button>
@@ -583,6 +612,13 @@ function PipelineDetailsHeader({
           handleModalConfirm('rename', { name: newName })
         }}
         onCancel={handleModalCancel}
+      />
+
+      {/* Unsaved Changes Download Warning Modal */}
+      <UnsavedChangesDownloadModal
+        visible={showDownloadWarningModal}
+        onOk={proceedWithDownload}
+        onCancel={handleDownloadWarningCancel}
       />
 
       {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
