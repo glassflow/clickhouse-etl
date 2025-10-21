@@ -149,8 +149,8 @@ export const initialKafkaStore: KafkaStoreProps = {
     kerberosRealm: '',
     kdc: '',
     krb5Config: '',
-    useTicketCache: false,
-    ticketCachePath: '',
+    // useTicketCache: false,
+    // ticketCachePath: '',
     truststore: {
       location: '',
       password: '',

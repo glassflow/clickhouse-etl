@@ -50,8 +50,8 @@ export const useKafkaConnection = () => {
           requestBody.kdc = values.saslGssapi.kdc
           requestBody.serviceName = values.saslGssapi.serviceName
           requestBody.krb5Config = values.saslGssapi.krb5Config
-          requestBody.useTicketCache = values.saslGssapi.useTicketCache
-          requestBody.ticketCachePath = values.saslGssapi.ticketCachePath
+          // requestBody.useTicketCache = values.saslGssapi.useTicketCache
+          // requestBody.ticketCachePath = values.saslGssapi.ticketCachePath
           // Certificate is now in truststore.certificates
           if (values.saslGssapi.truststore?.certificates) {
             requestBody.certificate = values.saslGssapi.truststore.certificates

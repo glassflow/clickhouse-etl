@@ -124,19 +124,19 @@ export const KafkaFormConfig = {
         optional: 'Kerberos Configuration (krb5.conf) is optional',
         type: 'textarea',
       },
-      useTicketCache: {
-        name: 'saslGssapi.useTicketCache',
-        label: 'Use Ticket Cache',
-        type: 'boolean',
-        defaultValue: false,
-      },
-      ticketCachePath: {
-        name: 'saslGssapi.ticketCachePath',
-        label: 'Ticket Cache Path',
-        placeholder: 'Enter ticket cache path',
-        optional: 'Ticket Cache Path is optional',
-        type: 'text',
-      },
+      // useTicketCache: {
+      //   name: 'saslGssapi.useTicketCache',
+      //   label: 'Use Ticket Cache',
+      //   type: 'boolean',
+      //   defaultValue: false,
+      // },
+      // ticketCachePath: {
+      //   name: 'saslGssapi.ticketCachePath',
+      //   label: 'Ticket Cache Path',
+      //   placeholder: 'Enter ticket cache path',
+      //   optional: 'Ticket Cache Path is optional',
+      //   type: 'text',
+      // },
     },
   },
   // org.apache.common.security.oauthbearer.OAuthBearerLoginModule
