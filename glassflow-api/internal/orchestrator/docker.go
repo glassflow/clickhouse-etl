@@ -572,6 +572,36 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 	return nil
 }
 
+// EditPipeline implements Orchestrator.
+func (d *LocalOrchestrator) EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
+	d.log.InfoContext(ctx, "editing local pipeline", "pipeline_id", pid)
+
+	// Check if this is the active pipeline
+	d.m.Lock()
+	activeID := d.id
+	d.m.Unlock()
+
+	if activeID != pid {
+		d.log.ErrorContext(ctx, "pipeline is not active", "pipeline_id", pid, "active_pipeline_id", activeID)
+		return fmt.Errorf("pipeline %s is not active, cannot edit", pid)
+	}
+
+	// Update the pipeline configuration
+	d.m.Lock()
+	d.pipelineConfig = newCfg
+	d.m.Unlock()
+
+	// Start the pipeline with new configuration
+	err := d.SetupPipeline(ctx, newCfg)
+	if err != nil {
+		d.log.ErrorContext(ctx, "failed to setup pipeline with new config", "pipeline_id", pid, "error", err)
+		return fmt.Errorf("setup pipeline with new config: %w", err)
+	}
+
+	d.log.InfoContext(ctx, "pipeline edited successfully", "pipeline_id", pid)
+	return nil
+}
+
 // TerminatePipeline implements Orchestrator.
 func (d *LocalOrchestrator) TerminatePipeline(ctx context.Context, pid string) error {
 	return d.StopPipeline(ctx, pid)
