@@ -128,8 +128,8 @@ Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's comi
 - Built-in Kafka connector with SASL, SSL, etc. for nearly all Kafka providers
 - Dead-Letter Queue for handling failed events
 - Field mapping of your Kafka table to ClickHouse
+- Prometheus metrics and OpenTelemetry logs for comprehensive observability
 
-You can find a list of all GlassFlow features [here](https://www.glassflow.dev/product).
 
 ## 🆘 Support
 
