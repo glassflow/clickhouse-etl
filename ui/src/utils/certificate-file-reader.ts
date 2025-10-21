@@ -98,12 +98,16 @@ export const validateCertificateContent = (content: string): { valid: boolean; e
 
 /**
  * Supported certificate file extensions
+ * Note: Many CA certificates come without extensions (e.g., 'ca-cert', 'server-cert')
  */
-export const SUPPORTED_CERTIFICATE_EXTENSIONS = ['.pem', '.crt', '.cer', '.key', '.cert', '.p12', '.pfx', '.jks']
+export const SUPPORTED_CERTIFICATE_EXTENSIONS = ['.pem', '.crt', '.cer', '.key', '.cert', '.p12', '.pfx', '.jks', '']
 
 /**
  * Get accept attribute value for file input
+ * Returns empty string to allow all files since certificates often have no extension
  */
 export const getCertificateFileAccept = (): string => {
-  return SUPPORTED_CERTIFICATE_EXTENSIONS.join(',')
+  // Don't restrict file types - certificates often come without extensions
+  // The validation will happen based on content, not file extension
+  return ''
 }

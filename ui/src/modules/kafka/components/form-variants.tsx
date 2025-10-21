@@ -1,5 +1,6 @@
 import { useFormContext } from 'react-hook-form'
 import { FormGroup } from '@/src/components/ui'
+import { InputFile } from '@/src/components/common/InputFile'
 import { useRenderFormFields, renderFormField } from '@/src/components/ui/form'
 import { KafkaFormConfig } from '@/src/config/kafka-connection-form-config'
 import { FieldErrors } from 'react-hook-form'
@@ -44,7 +45,7 @@ export const SaslPlainForm = ({
       </div>
       {showTruststoreFields && (
         <div className="space-y-4 mt-4">
-          <div className="text-sm font-medium text-gray-700">SSL/TLS Configuration (Optional)</div>
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
           <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslPlain" />
         </div>
       )}
@@ -71,7 +72,7 @@ export const NoAuthForm = ({
     <FormGroup className="space-y-4">
       {showSSLFields && (
         <div className="space-y-4">
-          <div className="text-sm font-medium text-gray-700">SSL/TLS Configuration (Optional)</div>
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
           <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="noAuth" />
         </div>
       )}
@@ -114,29 +115,30 @@ export const SaslGssapiForm = ({
   const securityProtocolSelected = watch('securityProtocol')
   const showTruststoreFields = securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL'
 
-  // Get all fields except kerberosKeytab (we'll render it separately)
   const fields = KafkaFormConfig['SASL/GSSAPI'].fields
-  const fieldsToRender = Object.entries(fields).filter(([key]) => key !== 'kerberosKeytab')
+  const fieldsToRender = Object.entries(fields).filter(([key]) => key !== 'kerberosKeytab' && key !== 'krb5Config')
 
-  // Helper function to handle keytab file upload
-  const handleKeytabUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
+  const handleKeytabUpload = (fileContent: string, fileName: string) => {
+    console.log('fileContent', fileContent, 'fileName', fileName)
     try {
-      // Read file as base64 (binary file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const base64Content = e.target?.result as string
-        // Store the base64 encoded keytab
-        setValue('saslGssapi.kerberosKeytab', base64Content, {
-          shouldValidate: true,
-          shouldDirty: true,
-        })
-      }
-      reader.readAsDataURL(file) // Read as base64
+      setValue('saslGssapi.kerberosKeytab', fileContent, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
     } catch (error) {
       console.error('Error reading keytab file:', error)
+    }
+  }
+
+  const handleKrb5ConfigUpload = (fileContent: string, fileName: string) => {
+    console.log('fileContent', fileContent, 'fileName', fileName)
+    try {
+      setValue('saslGssapi.krb5Config', fileContent, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
+    } catch (error) {
+      console.error('Error reading krb5.conf file:', error)
     }
   }
 
@@ -154,34 +156,41 @@ export const SaslGssapiForm = ({
         </div>
       ))}
 
-      {/* Custom keytab file upload field */}
       <div className="space-y-2 w-full">
-        <label htmlFor="saslGssapi.kerberosKeytab" className="block text-sm font-medium text-gray-700">
-          Kerberos Keytab File *
-        </label>
-        <input
-          type="file"
-          id="saslGssapi.kerberosKeytab"
-          accept=".keytab"
-          onChange={handleKeytabUpload}
-          disabled={readOnly}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-md file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100
-            disabled:opacity-50 disabled:cursor-not-allowed"
+        <InputFile
+          label="Kerberos Configuration (krb5.conf) File"
+          id="saslGssapi.krb5Config"
+          placeholder="Select krb5.conf file"
+          allowedFileTypes={['conf', 'txt', 'cfg', 'ini', 'properties']}
+          onChange={handleKrb5ConfigUpload}
+          value={watch('saslGssapi.krb5Config')}
+          readType="text"
+          showLoadingState={true}
+          showErrorState={true}
+          hintText="Accepted formats: .conf, .txt, .cfg, .ini, .properties"
+          externalError={errors ? getFieldError(errors, 'saslGssapi.krb5Config') : undefined}
         />
-        <p className="text-xs text-gray-500">Upload your Kerberos keytab file (binary file)</p>
-        {getFieldError(errors, 'saslGssapi.kerberosKeytab') && (
-          <p className="text-sm text-red-500">{getFieldError(errors, 'saslGssapi.kerberosKeytab')}</p>
-        )}
+      </div>
+
+      <div className="space-y-2 w-full">
+        <InputFile
+          label="Kerberos Keytab File"
+          id="saslGssapi.kerberosKeytab"
+          placeholder="Select keytab file"
+          allowedFileTypes={['keytab', 'txt']}
+          onChange={handleKeytabUpload}
+          value={watch('saslGssapi.kerberosKeytab')}
+          readType="base64"
+          showLoadingState={true}
+          showErrorState={true}
+          hintText="Accepted formats: .keytab, .txt"
+          externalError={errors ? getFieldError(errors, 'saslGssapi.kerberosKeytab') : undefined}
+        />
       </div>
 
       {showTruststoreFields && (
         <div className="space-y-4 mt-4">
-          <div className="text-sm font-medium text-gray-700">SSL/TLS Configuration (Optional)</div>
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
           <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslGssapi" />
         </div>
       )}
@@ -235,7 +244,7 @@ export const SaslScram256Form = ({
       })}
       {showTruststoreFields && (
         <div className="space-y-4 mt-4">
-          <div className="text-sm font-medium text-gray-700">SSL/TLS Configuration (Optional)</div>
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
           <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslScram256" />
         </div>
       )}
@@ -266,7 +275,7 @@ export const SaslScram512Form = ({
       })}
       {showTruststoreFields && (
         <div className="space-y-4 mt-4">
-          <div className="text-sm font-medium text-gray-700">SSL/TLS Configuration (Optional)</div>
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
           <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslScram512" />
         </div>
       )}
@@ -391,15 +400,18 @@ export const TruststoreForm = ({
         }
 
         // Skip rendering the 'location' field as we'll use CertificateFileUpload for 'certificates'
-        if (key === 'location') {
+        // Skip rendering other fields that are not relevant to the truststore - for now
+        if (key === 'location' || key === 'password' || key === 'type' || key === 'algorithm') {
           return null
         }
 
         // For the certificates field, use a custom file upload + textarea combination
         if (key === 'certificates') {
+          const certificateError = errors ? getFieldError(errors, fieldWithPrefix.name) : undefined
+
           return (
             <div key={key} className="space-y-2 w-full">
-              <label htmlFor={fieldWithPrefix.name} className="block text-sm font-medium text-gray-700">
+              <label htmlFor={fieldWithPrefix.name} className="block text-sm font-medium text-content">
                 {field.label}
               </label>
 
@@ -411,12 +423,13 @@ export const TruststoreForm = ({
                   }}
                   disabled={readOnly}
                   className="w-full"
+                  externalError={certificateError}
                 />
               </div>
 
               {/* Textarea for manual paste or viewing content */}
-              <div className="space-y-1">
-                <label htmlFor={`${fieldWithPrefix.name}-textarea`} className="block text-xs text-gray-500">
+              <div className="space-y-1 mt-2">
+                <label htmlFor={`${fieldWithPrefix.name}-textarea`} className="block text-xs text-content">
                   Or paste certificate content:
                 </label>
                 <textarea
@@ -425,15 +438,15 @@ export const TruststoreForm = ({
                     required: false,
                   })}
                   placeholder={field.placeholder}
-                  className="w-full min-h-[150px] px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                  className={`w-full min-h-[150px] px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono input-border-regular ${
+                    certificateError ? 'input-border-error' : ''
+                  }`}
                   readOnly={readOnly}
                 />
               </div>
 
               {/* Show error if exists */}
-              {errors && getFieldError(errors, fieldWithPrefix.name) && (
-                <p className="text-sm text-red-500">{getFieldError(errors, fieldWithPrefix.name)}</p>
-              )}
+              {certificateError && <p className="text-sm text-content">{certificateError}</p>}
             </div>
           )
         }
