@@ -18,20 +18,16 @@ import {
 } from './kafka-client-interface'
 
 // Dynamically import node-rdkafka only when needed
-let Kafka: any = null
+// let Kafka: any = null
+import * as Kafka from 'node-rdkafka'
 
 // Only attempt to load node-rdkafka on server-side
 if (typeof window === 'undefined') {
   try {
-    // Dynamic import to avoid bundling in client-side code
-    // We use dynamic import for optional native module
-    import('node-rdkafka')
-      .then((module) => {
-        Kafka = module.default || module
-      })
-      .catch(() => {
-        console.warn('node-rdkafka not installed. Kerberos authentication will not be available.')
-      })
+    // Use synchronous require since this is server-side only
+    // Dynamic import() is async and won't be ready when constructor runs
+    // Kafka = require('node-rdkafka')
+    console.log('[RdKafka] node-rdkafka loaded successfully')
   } catch (error) {
     console.warn('node-rdkafka not installed. Kerberos authentication will not be available.')
   }
