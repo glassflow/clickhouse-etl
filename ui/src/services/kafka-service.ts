@@ -12,32 +12,50 @@ export class KafkaService {
   async getTopics(config: KafkaConfig): Promise<string[]> {
     const kafkaClient = await createKafkaClient(config)
 
-    // First test the connection
-    const isConnected = await kafkaClient.testConnection()
-    if (!isConnected) {
-      throw new Error('Failed to connect to Kafka cluster')
-    }
+    try {
+      // First test the connection
+      const isConnected = await kafkaClient.testConnection()
+      if (!isConnected) {
+        throw new Error('Failed to connect to Kafka cluster')
+      }
 
-    // Fetch topics
-    const topics = await kafkaClient.listTopics()
-    return topics
+      // Fetch topics
+      const topics = await kafkaClient.listTopics()
+      return topics
+    } finally {
+      // Always disconnect to clean up resources and event listeners
+      try {
+        await kafkaClient.disconnect()
+      } catch (error) {
+        console.error('[KafkaService] Error disconnecting client:', error)
+      }
+    }
   }
 
   async getTopicDetails(config: KafkaConfig): Promise<Array<{ name: string; partitionCount: number }>> {
     const kafkaClient = await createKafkaClient(config)
 
-    // First test the connection
-    const isConnected = await kafkaClient.testConnection()
-    if (!isConnected) {
-      throw new Error('Failed to connect to Kafka cluster')
-    }
+    try {
+      // First test the connection
+      const isConnected = await kafkaClient.testConnection()
+      if (!isConnected) {
+        throw new Error('Failed to connect to Kafka cluster')
+      }
 
-    // Fetch topic details with partition information
-    if (!kafkaClient.getTopicDetails) {
-      throw new Error('getTopicDetails is not supported by this Kafka client')
+      // Fetch topic details with partition information
+      if (!kafkaClient.getTopicDetails) {
+        throw new Error('getTopicDetails is not supported by this Kafka client')
+      }
+      const topicDetails = await kafkaClient.getTopicDetails()
+      return topicDetails
+    } finally {
+      // Always disconnect to clean up resources and event listeners
+      try {
+        await kafkaClient.disconnect()
+      } catch (error) {
+        console.error('[KafkaService] Error disconnecting client:', error)
+      }
     }
-    const topicDetails = await kafkaClient.getTopicDetails()
-    return topicDetails
   }
 
   async fetchEvent({
@@ -70,6 +88,7 @@ export class KafkaService {
     const kafkaClient = await createKafkaClient(kafkaConfig)
     const fetchTimeout = API_TIMEOUT
     let event
+
     try {
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
@@ -156,6 +175,13 @@ export class KafkaService {
         isAtEarliest: false,
         isEmptyTopic: false,
         event: null,
+      }
+    } finally {
+      // Always disconnect to clean up resources and event listeners
+      try {
+        await kafkaClient.disconnect()
+      } catch (error) {
+        console.error('[KafkaService] Error disconnecting client:', error)
       }
     }
   }

@@ -33,6 +33,10 @@ if (typeof window === 'undefined') {
   }
 }
 
+// Global connection lock to prevent concurrent producer creation (causes segfault)
+let connectionLock: Promise<void> | null = null
+const CONNECTION_LOCK_TIMEOUT = 30000 // 30 seconds
+
 export class RdKafkaClient implements IKafkaClient {
   private producer: any = null
   private consumer: any = null
@@ -52,6 +56,28 @@ export class RdKafkaClient implements IKafkaClient {
   }
 
   async connect(): Promise<void> {
+    // CRITICAL: Wait for any existing connection to complete to prevent segfault
+    // node-rdkafka crashes when multiple producers are created concurrently
+    if (connectionLock) {
+      console.log('[RdKafka] Waiting for existing connection to complete...')
+      try {
+        await Promise.race([
+          connectionLock,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Connection lock timeout')), CONNECTION_LOCK_TIMEOUT),
+          ),
+        ])
+      } catch (error) {
+        console.warn('[RdKafka] Connection lock timeout, proceeding anyway')
+      }
+    }
+
+    // Create a new lock for this connection
+    let resolveLock: (() => void) | undefined
+    connectionLock = new Promise<void>((resolve) => {
+      resolveLock = resolve
+    })
+
     try {
       const rdkafkaConfig = this.buildRdKafkaConfig()
       console.log('[RdKafka] Configuration:', JSON.stringify(rdkafkaConfig, null, 2))
@@ -63,54 +89,118 @@ export class RdKafkaClient implements IKafkaClient {
       } catch (error) {
         console.error('[RdKafka] Failed to create producer:', error)
         const errorMessage = error instanceof Error ? error.message : String(error)
+        resolveLock?.() // Release lock on error
+        connectionLock = null
         throw new KafkaConnectionError(`Failed to create producer: ${errorMessage}`)
       }
 
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new KafkaConnectionError('Connection timeout after 10 seconds'))
-        }, 10000)
+          this.removeConnectionListeners()
+          console.error('[RdKafka] Connection timeout after 30 seconds')
+          reject(new KafkaConnectionError('Connection timeout after 30 seconds'))
+        }, 30000) // Increased from 10s to 30s for Kerberos
 
-        this.producer.on('ready', () => {
+        // Use a timeout to prevent hanging if producer.connect() causes issues
+        let connectTimeout: NodeJS.Timeout | null = setTimeout(() => {
+          this.removeConnectionListeners()
+          console.error('[RdKafka] Producer connect() timed out after 10 seconds')
+          reject(new KafkaConnectionError('Producer connect() timed out - possible segfault'))
+        }, 10000) // Increased from 5s to 10s
+
+        const onReady = () => {
           clearTimeout(timeout)
+          if (connectTimeout) clearTimeout(connectTimeout)
           this.isConnected = true
           console.log('[RdKafka] Producer connected successfully')
-          resolve()
-        })
+          this.removeConnectionListeners()
 
-        this.producer.on('event.error', (err: Error) => {
+          // CRITICAL: Add a delay to prevent segfault when calling getMetadata() immediately after ready
+          // node-rdkafka needs time to fully stabilize, especially with Kerberos
+          setTimeout(() => {
+            console.log('[RdKafka] Producer ready for operations')
+            // Release the connection lock
+            resolveLock?.()
+            connectionLock = null
+            resolve()
+          }, 500)
+        }
+
+        const onError = (err: Error) => {
           clearTimeout(timeout)
+          if (connectTimeout) clearTimeout(connectTimeout)
           console.error('[RdKafka] Producer error:', err)
+          this.removeConnectionListeners()
+
+          // Release the connection lock
+          resolveLock?.()
+          connectionLock = null
 
           if (err.message.includes('authentication') || err.message.includes('SASL')) {
             reject(new KafkaAuthenticationError('Kerberos authentication failed', err))
           } else {
             reject(new KafkaConnectionError('Failed to connect to Kafka', err))
           }
-        })
+        }
 
-        this.producer.on('event.log', (log: any) => {
-          console.log('[RdKafka] Log:', log)
-        })
+        const onLog = (log: any) => {
+          // Only log errors and warnings during connection phase (severity <= 4)
+          // Severity levels: 0=EMERG, 1=ALERT, 2=CRIT, 3=ERR, 4=WARNING, 5=NOTICE, 6=INFO, 7=DEBUG
+          if (log.severity <= 4) {
+            console.log('[RdKafka] Log:', log)
+          }
+        }
 
-        // Use a timeout to prevent hanging if producer.connect() causes issues
-        const connectTimeout = setTimeout(() => {
-          reject(new KafkaConnectionError('Producer connect() timed out - possible segfault'))
-        }, 5000)
+        // Store listener references for cleanup
+        this.producer.once('ready', onReady)
+        this.producer.once('event.error', onError)
+        this.producer.on('event.log', onLog)
+
+        // Store references for cleanup
+        this.connectionListeners = { onReady, onError, onLog }
 
         try {
           this.producer.connect()
-          clearTimeout(connectTimeout)
+          if (connectTimeout) {
+            clearTimeout(connectTimeout)
+            connectTimeout = null
+          }
         } catch (error) {
-          clearTimeout(connectTimeout)
+          if (connectTimeout) {
+            clearTimeout(connectTimeout)
+            connectTimeout = null
+          }
+          this.removeConnectionListeners()
+          // Release the connection lock
+          resolveLock?.()
+          connectionLock = null
           reject(new KafkaConnectionError(`Producer connect() failed: ${error}`))
         }
       })
     } catch (error) {
+      // Release the connection lock on any error
+      if (resolveLock) {
+        resolveLock()
+        connectionLock = null
+      }
       throw new KafkaConnectionError(
         `Failed to initialize RdKafka client: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error : undefined,
       )
+    }
+  }
+
+  /**
+   * Remove event listeners to prevent memory leaks and infinite loops
+   */
+  private connectionListeners: any = null
+
+  private removeConnectionListeners(): void {
+    if (this.producer && this.connectionListeners) {
+      this.producer.removeListener('ready', this.connectionListeners.onReady)
+      this.producer.removeListener('event.error', this.connectionListeners.onError)
+      this.producer.removeListener('event.log', this.connectionListeners.onLog)
+      this.connectionListeners = null
     }
   }
 
@@ -149,8 +239,10 @@ export class RdKafkaClient implements IKafkaClient {
   }
 
   async send(topic: string, messages: KafkaMessage[]): Promise<void> {
+    // Auto-connect if not already connected
     if (!this.producer || !this.isConnected) {
-      throw new Error('Producer not connected. Call connect() first.')
+      console.log('[RdKafka] Producer not connected, connecting now...')
+      await this.connect()
     }
 
     return new Promise((resolve, reject) => {
@@ -263,8 +355,10 @@ export class RdKafkaClient implements IKafkaClient {
   }
 
   async listTopics(): Promise<string[]> {
+    // Auto-connect if not already connected
     if (!this.producer || !this.isConnected) {
-      throw new Error('Producer not connected. Call connect() first.')
+      console.log('[RdKafka] Producer not connected, connecting now...')
+      await this.connect()
     }
 
     return new Promise((resolve, reject) => {
@@ -280,8 +374,10 @@ export class RdKafkaClient implements IKafkaClient {
   }
 
   async getTopicDetails(): Promise<Array<{ name: string; partitionCount: number }>> {
+    // Auto-connect if not already connected
     if (!this.producer || !this.isConnected) {
-      throw new Error('Producer not connected. Call connect() first.')
+      console.log('[RdKafka] Producer not connected, connecting now...')
+      await this.connect()
     }
 
     return new Promise((resolve, reject) => {
@@ -300,8 +396,10 @@ export class RdKafkaClient implements IKafkaClient {
   }
 
   async getTopicMetadata(topic: string): Promise<TopicMetadata> {
+    // Auto-connect if not already connected
     if (!this.producer || !this.isConnected) {
-      throw new Error('Producer not connected. Call connect() first.')
+      console.log('[RdKafka] Producer not connected, connecting now...')
+      await this.connect()
     }
 
     return new Promise((resolve, reject) => {
@@ -338,11 +436,11 @@ export class RdKafkaClient implements IKafkaClient {
         config: config?.config || {},
       }
 
-      adminClient.createTopic(newTopic, (err: Error | null) => {
+      adminClient.createTopic(newTopic, (err: any) => {
         adminClient.disconnect()
 
         if (err) {
-          reject(new Error(`Failed to create topic: ${err.message}`))
+          reject(new Error(`Failed to create topic: ${err.message || String(err)}`))
         } else {
           resolve()
         }
@@ -385,12 +483,13 @@ export class RdKafkaClient implements IKafkaClient {
           krb5Path = '/etc/krb5.conf'
         }
 
+        const krb5CcName = process.env.KRB5CCNAME || '/tmp/krb5cc_ui'
         const kinitProcess = spawn(
           'kinit',
           ['-t', keytabPath, '-k', this.config.kerberosPrincipal || 'admin@EXAMPLE.COM'],
           {
             stdio: 'pipe',
-            env: { ...process.env, KRB5_CONFIG: krb5Path },
+            env: { ...process.env, KRB5_CONFIG: krb5Path, KRB5CCNAME: krb5CcName },
           },
         )
 
@@ -437,11 +536,11 @@ export class RdKafkaClient implements IKafkaClient {
       'log.connection.close': false,
 
       // Basic logging and timeout settings
-      log_level: 6, // Info level (reduced from debug)
-      debug: 'broker', // Reduced debug scope
-      'socket.timeout.ms': 5000,
-      'api.version.request.timeout.ms': 5000,
-      'metadata.request.timeout.ms': 5000,
+      log_level: 3, // Error level only (was 6=Info, 7=Debug)
+      // debug: 'broker', // Commented out - reduces verbose logging
+      'socket.timeout.ms': 10000, // Increased for Kerberos/SSL handshake
+      'api.version.request.timeout.ms': 10000,
+      'metadata.request.timeout.ms': 10000,
     }
 
     // Configure security protocol
@@ -502,14 +601,8 @@ export class RdKafkaClient implements IKafkaClient {
         // Set environment variable for Node.js process
         process.env.KRB5_CONFIG = krb5Path
 
-        // CRITICAL: Also copy to /etc/krb5.conf so kinit spawned by librdkafka can find it
-        // librdkafka spawns kinit as a child process, which doesn't inherit process.env
-        try {
-          fs.copyFileSync(krb5Path, '/etc/krb5.conf')
-        } catch (error) {
-          console.error('[RdKafka] Warning: Could not copy krb5.conf to /etc/krb5.conf:', error)
-          // Continue anyway, maybe KRB5_CONFIG will work
-        }
+        // NOTE: We rely on KRB5_CONFIG env var and explicit kinit commands
+        // No need to copy to /etc/krb5.conf (requires root permissions)
       }
 
       if (this.config.useTicketCache) {
@@ -519,11 +612,16 @@ export class RdKafkaClient implements IKafkaClient {
         }
       } else if (config['sasl.kerberos.keytab'] && this.config.kerberosPrincipal) {
         // When using keytab (not ticket cache), we need to tell librdkafka how to run kinit
-        // Format: kinit -t <keytab> -k <principal>
+        // IMPORTANT: Include KRB5_CONFIG and KRB5CCNAME env vars
         const keytabPath = config['sasl.kerberos.keytab']
         const principal = this.config.kerberosPrincipal
-        config['sasl.kerberos.kinit.cmd'] = `kinit -t "${keytabPath}" -k ${principal}`
-        console.log(`[RdKafka] Configured kinit command: kinit -t ${keytabPath} -k ${principal}`)
+        const krb5ConfigPath = process.env.KRB5_CONFIG || '/etc/krb5.conf'
+        const krb5CcName = process.env.KRB5CCNAME || '/tmp/krb5cc_ui'
+        config['sasl.kerberos.kinit.cmd'] =
+          `env KRB5_CONFIG="${krb5ConfigPath}" KRB5CCNAME="${krb5CcName}" kinit -t "${keytabPath}" -k ${principal}`
+        console.log(
+          `[RdKafka] Configured kinit command: env KRB5_CONFIG="${krb5ConfigPath}" KRB5CCNAME="${krb5CcName}" kinit -t ${keytabPath} -k ${principal}`,
+        )
       }
     }
 
@@ -580,9 +678,13 @@ export class RdKafkaClient implements IKafkaClient {
   }
 
   /**
-   * Clean up temporary files
+   * Clean up temporary files and event listeners
    */
   private cleanup(): void {
+    // Remove any lingering event listeners
+    this.removeConnectionListeners()
+
+    // Clean up temp files
     this.tempCertFiles.forEach((file) => {
       try {
         if (fs.existsSync(file)) {
