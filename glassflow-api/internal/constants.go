@@ -166,4 +166,9 @@ const (
 	PipelineEditAnnotation          = "pipeline.etl.glassflow.io/edit"
 	PipelineHelmUninstallAnnotation = "pipeline.etl.glassflow.io/helm-uninstall"
 	PipelinePauseAnnotation         = "pipeline.etl.glassflow.io/pause"
+
+	// SinkDefaultBatchMaxDelayTime is the maximum time to wait before flushing a partial batch to ClickHouse.
+	SinkDefaultBatchMaxDelayTime = 60 * time.Second
+	// SinkDefaultShutdownTimeout is the maximum time allowed for graceful shutdown and final batch flush.
+	SinkDefaultShutdownTimeout = 5 * time.Second
 )

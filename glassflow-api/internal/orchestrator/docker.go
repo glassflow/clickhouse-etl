@@ -188,18 +188,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		}
 	}
 
-	d.sinkRunner = service.NewSinkRunner(d.log.With("component", "clickhouse_sink"), d.nc,
-		sinkConsumerStream,
-		models.SinkComponentConfig{
-			Type:     internal.ClickHouseSinkType,
-			StreamID: sinkConsumerStream,
-			Batch: models.BatchConfig{
-				MaxBatchSize: pi.Sink.Batch.MaxBatchSize,
-				MaxDelayTime: pi.Sink.Batch.MaxDelayTime,
-			},
-			NATSConsumerName:           pi.Sink.NATSConsumerName,
-			ClickHouseConnectionParams: pi.Sink.ClickHouseConnectionParams,
-		},
+	d.sinkRunner = service.NewSinkRunner(
+		d.log.With("component", "clickhouse_sink"),
+		d.nc,
+		*pi,
 		schemaMapper,
 		nil, // nil meter for docker orchestrator
 	)

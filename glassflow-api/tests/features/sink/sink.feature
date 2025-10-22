@@ -109,6 +109,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
+        And Wait until all messages are processed
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
@@ -222,7 +223,8 @@ Feature: Clickhouse ETL sink
                 }
             ]
             """
-        And I stop ClickHouse sink after "1s"
+        And Wait until all messages are processed
+        And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Exports events after JOIN component
@@ -311,6 +313,7 @@ Feature: Clickhouse ETL sink
                 }
             ]
             """
+        And Wait until all messages are processed
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
@@ -462,7 +465,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I gracefully stop ClickHouse sink
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 7 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time #2
@@ -696,7 +699,8 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after "1s"
+        And Wait until all messages are processed
+        And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
     Scenario: Import events with float32
@@ -762,6 +766,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
+        And Wait until all messages are processed
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
@@ -827,5 +832,6 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
+        And Wait until all messages are processed
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows

@@ -284,7 +284,13 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("stream_id in sink config cannot be empty")
 	}
 
-	sinkRunner := service.NewSinkRunner(log, nc, pipelineCfg.Sink.StreamID, pipelineCfg.Sink, schemaMapper, meter)
+	sinkRunner := service.NewSinkRunner(
+		log,
+		nc,
+		pipelineCfg,
+		schemaMapper,
+		meter,
+	)
 
 	return runWithGracefulShutdown(
 		ctx,

@@ -16,6 +16,7 @@ import (
 type DatabaseClient interface {
 	Reconnect(ctx context.Context) error
 	PrepareBatch(ctx context.Context, query string) (driver.Batch, error)
+	AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 	GetDatabase() string
 	GetTableName() string
 	Close() error
@@ -33,7 +34,10 @@ type ClickHouseClient struct {
 	skipCertificateCheck bool
 }
 
-func NewClickHouseClient(ctx context.Context, cfg models.ClickHouseConnectionParamsConfig) (*ClickHouseClient, error) {
+func NewClickHouseClient(
+	ctx context.Context,
+	cfg models.ClickHouseConnectionParamsConfig,
+) (*ClickHouseClient, error) {
 	client := &ClickHouseClient{ //nolint:exhaustruct // optional config
 		host:                 cfg.Host,
 		port:                 cfg.Port,
@@ -138,4 +142,13 @@ func (c *ClickHouseClient) GetDatabase() string {
 
 func (c *ClickHouseClient) GetTableName() string {
 	return c.tableName
+}
+
+func (c *ClickHouseClient) AsyncInsert(
+	ctx context.Context,
+	query string,
+	wait bool,
+	args ...any,
+) error {
+	return c.conn.AsyncInsert(ctx, query, wait, args...)
 }

@@ -16,6 +16,7 @@ type Consumer interface {
 	Next() (jetstream.Msg, error)
 	Fetch(maxMsgs int, maxWait time.Duration) (jetstream.MessageBatch, error)
 	FetchNoAwait(maxMsgs int) (jetstream.MessageBatch, error)
+	Info(ctx context.Context) (*jetstream.ConsumerInfo, error)
 }
 
 type ConsumerConfig struct {
@@ -134,4 +135,13 @@ func (c *NatsConsumer) FetchNoAwait(maxMsgs int) (jetstream.MessageBatch, error)
 	}
 
 	return msgBatch, nil
+}
+
+func (c *NatsConsumer) Info(ctx context.Context) (*jetstream.ConsumerInfo, error) {
+	consumerInfo, err := c.Consumer.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to consumer info: %w", err)
+	}
+
+	return consumerInfo, nil
 }

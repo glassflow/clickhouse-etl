@@ -189,10 +189,10 @@ type JoinComponentConfig struct {
 	Sources        []JoinSourceConfig `json:"sources"`
 	OutputStreamID string             `json:"output_stream_id"`
 
-	NATSLeftConsumerName  string `json:"nats_left_consumer_name"`
-	NATSRightConsumerName string `json:"nats_right_consumer_name"`
-	LeftBufferTTL  JSONDuration `json:"left_buffer_ttl"`
-	RightBufferTTL JSONDuration `json:"right_buffer_ttl"`
+	NATSLeftConsumerName  string       `json:"nats_left_consumer_name"`
+	NATSRightConsumerName string       `json:"nats_right_consumer_name"`
+	LeftBufferTTL         JSONDuration `json:"left_buffer_ttl"`
+	RightBufferTTL        JSONDuration `json:"right_buffer_ttl"`
 }
 
 type JoinOrder string
@@ -276,6 +276,10 @@ type ClickHouseConnectionParamsConfig struct {
 	Table                string `json:"table"`
 	Secure               bool   `json:"secure"`
 	SkipCertificateCheck bool   `json:"skip_certificate_check"`
+}
+
+type ClickhouseQueryConfig struct {
+	WaitForAsyncInsert bool `json:"wait_for_async_insert`
 }
 
 type BatchConfig struct {
