@@ -37,13 +37,13 @@ GlassFlow has been redesigned to be **horizontally scalable**. As your data grow
 
 We have embedded **pipeline metrics and improved logging,** so you can gain deeper insights into pipeline health and performance, making debugging and monitoring much easier.
 
-With the **Dead-Letter Queue (DLQ):** Fault events at ingestion will be logged to the [DLQ](https://docs.glassflow.dev/pipeline/usage/python-sdk#read-messages-from-pipelines-dead-letter-queue-dlq) without blocking your current pipeline. Giving you the chance to re-run those events and have your ClickHouse complete.
+With the **Dead-Letter Queue (DLQ):** Fault events at ingestion will be logged to the [DLQ](/usage-guide/python-sdk#read-messages-from-pipelines-dead-letter-queue-dlq) without blocking your current pipeline. Giving you the chance to re-run those events and have your ClickHouse complete.
 
 ![DLQ metrics panel](/assets/dlq-metrics.png)
 
 ### Real-World Data Handling:
 
-Glasflow is now supporting **Nested JSON.** It allows you to seamlessly ingest, flatten and process complex Kafka event payloads that mirror messy real-world data. Feel free to check out our example [here](https://docs.glassflow.dev/pipeline/data-format#nested-json-support).
+Glasflow is now supporting **Nested JSON.** It allows you to seamlessly ingest, flatten and process complex Kafka event payloads that mirror messy real-world data. Feel free to check out our example [here](/configuration/data-format#nested-json-support).
 
 **Supporting Low-cardinality data types** is crucial for storing and querying data more efficiently, improving performance and reducing costs on your ClickHouse. That's why we wanted to include this functionality in our release.
 
@@ -87,7 +87,6 @@ In this demo, you will see:
 
 ## Try yourself
 
-If you want to try GlassFlow yourself, we suggest you take a look at our instructions:
-https://docs.glassflow.dev/installation/kubernetes
+If you want to try GlassFlow yourself, we suggest you take a look at our [installation instructions](/installation/kubernetes)
 
 ### An overview of all released changes is available [here](https://github.com/glassflow/clickhouse-etl/compare/v0.1.17...v2.0.0).

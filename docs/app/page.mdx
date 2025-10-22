@@ -8,12 +8,15 @@ import { FolderOpenIcon, GitHubTipIcon, MenuIcon, GitHubIcon, DiscordIcon, Globe
 # GlassFlow for ClickHouse ETL Documentation
 
 
-GlassFlow for ClickHouse Streaming ETL is a real-time stream processor designed to simplify data pipeline creation and management between Kafka and ClickHouse. It provides a powerful, user-friendly interface for building and managing real-time data pipelines with built-in support for deduplication and temporal joins.                                 
-
-Its fully open-source and built for data engineers by data engineers. GlassFlow handles late-arriving events, ensures exactly-once correctness, and scales with high-throughput data. It delivers accurate, low-latency results from streaming data without compromising simplicity or performance. The tool's intuitive web interface makes it easy to configure and monitor pipelines, while its robust architecture ensures reliable data processing.                            
-
+GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It has built-in deduplication, temporal joins, handles late-arriving events with exactly-once guarantees, and scales for high-throughput low-latency workloads on ClickHouse. It reduces the need to use ReplacingMergeTree, FINAL and Joins on ClickHouse.
 <br />
 <img src="/assets/clickhouse-etl-introduction.jpg" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
+
+## Getting Started
+
+- [Getting Started](/getting-started) - Learn about GlassFlow with our demos
+- [Installation](/installation) - Install GlassFlow
+- [Usage Guide](/usage-guide) - Learn how to create and manage data pipelines with GlassFlow
 
 ## Features
 
@@ -65,14 +68,6 @@ Its fully open-source and built for data engineers by data engineers. GlassFlow 
 - **Docker Support**: Easy deployment using Docker and docker compose
 - **Self-Hosted**: Open-source solution that can be self-hosted in your infrastructure
 </div>
-
-## Getting Started
-
-<Cards>
-    <Cards.Card icon={<TerminalIcon />} title="Installation" href="/installation" />
-    <Cards.Card icon={<MenuIcon />} title="Usage Guide" href="/pipeline/usage" />
-    <Cards.Card icon={<GitHubTipIcon />} title="Local Testing" href="/local-testing" />
-</Cards>
 
 ## Support
 <Cards>

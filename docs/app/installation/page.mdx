@@ -19,3 +19,22 @@ To run GlassFlow in your Kubernetes cluster, use the Helm chart. This provides a
 ### [Docker](/installation/docker)
 
 The easiest way to get started is to use Docker on your local machine. This will give you a local environment that you can use to create a pipeline and test the functionality.
+
+## Deployment types comparison
+
+Kubernetes is the recommended way to run GlassFlow in production. It is more scalable and has more features.
+Docker is a good option for local development and testing. It is easy to set up and use.
+
+<div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
+
+| Feature | Docker | Kubernetes |
+|---------|--------|----------|
+| **# Pipelines** | 1 | ∞ |
+| **Pipeline Management** | ✅ | ✅ |
+| **Dead Letter Queue (DLQ)** | ❌ | ✅ |
+| **Prometheus Metrics** | ❌ | ✅ |
+| **OpenTelemetry Logs** | ❌ | ✅ |
+| **# Ingestors** | 1 | Multiple |
+| **Scalability** | ❌ | ✅ |
+
+</div>

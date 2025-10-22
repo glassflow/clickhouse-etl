@@ -1,5 +1,5 @@
 <a href="https://glassflow.dev">
-  <img alt="GlassFlow Logo" src="https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassfow-banner.jpg">
+  <img alt="GlassFlow Logo" src="docs/public/assets/glassfow-banner.jpg">
 </a>
 
 <p align="center">
@@ -7,7 +7,7 @@
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
       <a href="https://glassflow.dev/roadmap"><strong>Roadmap</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
-      <a href="https://docs.glassflow.dev/demo"><strong>Watch Demo</strong></a>
+      <a href="https://docs.glassflow.dev/getting-started#demo-video"><strong>Watch Demo</strong></a>
 </p>
 
 <div align="center">
@@ -26,17 +26,24 @@
 
 # GlassFlow for ClickHouse Streaming ETL
 
-GlassFlow is an open-source ETL tool that enables real-time data processing from Kafka to ClickHouse with features like deduplication and temporal joins.
+GlassFlow is an open-source ETL tool that enables real-time data processing from Kafka to ClickHouse. GlassFlow pipelines can perform the following operations:
+
+- **Deduplicate**: Remove duplicate records based on configurable keys and time windows - use when you need to ensure data uniqueness
+- **Join**: Perform temporal joins between multiple Kafka topics - use when combining related data streams with time-based matching
+- **Deduplicate & Join**: Combine both deduplication and joining in a single pipeline
+- **Ingest only**: Direct data transfer from Kafka to ClickHouse without transformations
 
 ## ⚡️ Quick Start
 This guide walks you through a **local installation using Docker Compose** — perfect for development, testing, or trying out GlassFlow on your machine.
+
+Explore more demos and building pipeline via UI in our [docs](https://docs.glassflow.dev/getting-started/demo). To start creating your own pipelines, follow the [Usage Guide](https://docs.glassflow.dev/usage-guide)
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/glassflow/clickhouse-etl.git
 cd clickhouse-etl
 ```
-2. Go to the demo folder and start the services
+1. Go to the demo folder and start the services
 
 ```bash
 cd demos
@@ -70,7 +77,6 @@ docker compose logs api -f
 docker compose logs ui -f
 ```
 
-Explore more demos and building pipeline via UI in our [docs](https://docs.glassflow.dev/local-testing). To start creating your own pipelines, follow the [Usage Guide](https://docs.glassflow.dev/pipeline/usage)
 
 ## 🧭 Installation Options
 
@@ -86,7 +92,7 @@ For local testing or a small POC, you can also use Docker and Docker Compose to 
 
 ## 🎥 Demo
 
-### Live Demo
+### Live Preview
 Log in and see a working demo of GlassFlow running on a GPC cluster at [demo.glassflow.dev](https://demo.glassflow.dev). You will see a Grafana dashboard and the setup that we used.
 
 ![GlassFlow Pipeline Data Flow](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassflow_demo.png)
@@ -95,7 +101,7 @@ Log in and see a working demo of GlassFlow running on a GPC cluster at [demo.gla
 
 ### Demo Video
 
-[![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/demo)
+[![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/getting-started#demo-video)
 
 
 ## 📚 Documentation
@@ -103,9 +109,9 @@ Log in and see a working demo of GlassFlow running on a GPC cluster at [demo.gla
 For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.dev). The documentation includes:
 
 - [Installation Guide](https://docs.glassflow.dev/installation)
-- [Usage Guide](https://docs.glassflow.dev/pipeline/usage)
-- [Pipeline Configuration](https://docs.glassflow.dev/pipeline/pipeline-configuration)
-- [Local Testing](https://docs.glassflow.dev/local-testing)
+- [Usage Guide](https://docs.glassflow.dev/usage-guide)
+- [Pipeline JSON Reference](https://docs.glassflow.dev/pipeline/pipeline-json-reference)
+- [Run a demo pipeline](https://docs.glassflow.dev/getting-started/demo)
 - [Architecture](https://docs.glassflow.dev/architecture)
 
 ## 🗺️ Roadmap
@@ -117,13 +123,13 @@ Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's comi
 
 ## 	✨ Features
 
-- Real-time data processing from Kafka to ClickHouse
-- Deduplication with configurable time windows
-- Temporal joins between multiple Kafka topics
-- Scalable and robust architecture built for Kubernetes
-- Prometheus metrics and OTEL logs
-- Web-based UI for pipeline management
-- Docker version for local testing and evaluation
+- Streaming deduplication and joins for up to 7d through an inbuilt state store
+- ClickHouse sink with a native protocol for high performance
+- Built-in Kafka connector with SASL, SSL, etc. for nearly all Kafka providers
+- Dead-Letter Queue for handling failed events
+- Field mapping of your Kafka table to ClickHouse
+- Prometheus metrics and OpenTelemetry logs for comprehensive observability
+
 
 ## 🆘 Support
 

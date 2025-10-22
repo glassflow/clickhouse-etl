@@ -1,8 +1,8 @@
 export default {
+    'getting-started': '',
     'installation': '',
-    'pipeline': '',
-    'demo': '',
-    'local-testing': '',
+    'usage-guide': '',
+    'configuration': '',
     'architecture': '',
     'release-notes': '',
     'faq': '',

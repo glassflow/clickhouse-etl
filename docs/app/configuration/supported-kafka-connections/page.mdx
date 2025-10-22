@@ -1,5 +1,5 @@
 ---
-title: 'Kafka Connections'
+title: 'Supported Kafka Connections'
 description: 'Supported Kafka connection protocols, authentication, and TLS options'
 ---
 import { Callout, Tabs } from 'nextra/components'
@@ -14,7 +14,7 @@ Configuration examples below refer to the pipeline source connection parameters.
 
 ## Connection Protocols
 
-Set the **Security Protocol** ([`protocol`](pipeline-configuration#kafka-connection-parameters)) according to your broker configuration:
+Set the **Security Protocol** ([`protocol`](/configuration/pipeline-json-reference#kafka-connection-parameters)) according to your broker configuration:
 
 - **PLAINTEXT**
 - **SASL_PLAINTEXT**
@@ -23,7 +23,7 @@ Set the **Security Protocol** ([`protocol`](pipeline-configuration#kafka-connect
 
 ## SASL Authentication
 
-Set one of the following **Authentication Methods** ([`mechanism`](pipeline-configuration#kafka-connection-parameters)):
+Set one of the following **Authentication Methods** ([`mechanism`](/configuration/pipeline-json-reference#kafka-connection-parameters)):
 
 - **PLAIN**
 - **SCRAM-SHA-256**
