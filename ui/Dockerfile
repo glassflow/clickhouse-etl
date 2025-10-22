@@ -62,6 +62,10 @@ RUN echo 'krb5-config krb5-config/default_realm string EXAMPLE.COM' | debconf-se
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
+# Set Kerberos environment variables to prevent replay cache issues in containers
+ENV KRB5RCACHETYPE=none
+ENV NODE_ENV=production
+
 # Copy package files for reference
 COPY package.json package-lock.json* ./
 
