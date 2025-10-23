@@ -31,11 +31,13 @@ func runSingleSuite(
 
 	// Allow overriding tags with environment variables
 	envTags := os.Getenv("TEST_TAGS")
-	if !testutils.CheckTags(envTags, config.Tags) {
-		t.Logf("Skip test suite %s, tags conflict: %s != %s", name, config.Tags, envTags)
-		return
-	} else {
-		config.Tags = envTags
+	if envTags != "" {
+		if !testutils.CheckTags(envTags, config.Tags) {
+			t.Logf("Skip test suite %s, tags conflict: %s != %s", name, config.Tags, envTags)
+			return
+		} else {
+			config.Tags = envTags
+		}
 	}
 
 	opts := godog.Options{

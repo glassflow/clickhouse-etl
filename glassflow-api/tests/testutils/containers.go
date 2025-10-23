@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -57,18 +58,19 @@ type NATSContainer struct {
 
 func StartNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // optional config
+		Name:         "testcontainers-nats",
 		Image:        NATSContainerImage,
 		ExposedPorts: []string{NATSPort},
 		Cmd:          []string{"-js"},
-		WaitingFor: wait.ForAll(
-			wait.ForLog("Server is ready"),
-		),
+		WaitingFor: wait.ForListeningPort(NATSPort).
+			WithStartupTimeout(30 * time.Second),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx,
 		testcontainers.GenericContainerRequest{ //nolint:exhaustruct // optional config
 			ContainerRequest: req,
 			Started:          true,
+			Reuse:            true,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start NATS container %w", err)
@@ -82,8 +84,6 @@ func StartNATSContainer(ctx context.Context) (*NATSContainer, error) {
 
 	// Build connection URI
 	uri := net.JoinHostPort("127.0.0.1", mappedPort.Port())
-
-	time.Sleep(3 * time.Second) // Delay before NATS will start
 
 	return &NATSContainer{
 		container: container,
@@ -107,6 +107,11 @@ func (n *NATSContainer) GetConnection() (zero *nats.Conn, _ error) {
 
 // Stop stops the container
 func (n *NATSContainer) Stop(ctx context.Context) error {
+	reuse := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
+	if reuse == "true" {
+		return nil
+	}
+
 	err := n.container.Terminate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to stop NATS container %w", err)
@@ -126,14 +131,14 @@ func StartClickHouseContainer(ctx context.Context) (*ClickHouseContainer, error)
 		ctx,
 		ClickHouseContainerImage,
 		testcontainers.WithWaitStrategy(
-			wait.ForLog("Saved preprocessed configuration"),
-		),
+			wait.ForHTTP("/").
+				WithPort("8123/tcp").
+				WithStartupTimeout(60*time.Second)),
+		testcontainers.WithReuseByName("testcontainers-clickhouse"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start ClickHouse container %w", err)
 	}
-
-	time.Sleep(5 * time.Second) // Delay before ClickHouse will start
 
 	return &ClickHouseContainer{
 		container: container,
@@ -178,6 +183,11 @@ func (c *ClickHouseContainer) GetDefaultDBName() string {
 
 // Stop stops the container
 func (c *ClickHouseContainer) Stop(ctx context.Context) error {
+	reuse := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
+	if reuse == "true" {
+		return nil
+	}
+
 	err := c.container.Terminate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to stop ClickHouse container %w", err)
@@ -195,6 +205,7 @@ func StartKafkaContainer(ctx context.Context) (*KafkaContainer, error) {
 	clusterID := "test-cluster"
 
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // necessary fields only
+		Name:         "testcontainers-kafka",
 		Image:        KafkaContainerImage,
 		ExposedPorts: []string{string(KafkaPort)},
 		Env: map[string]string{
@@ -244,6 +255,7 @@ func StartKafkaContainer(ctx context.Context) (*KafkaContainer, error) {
 	genericContainerReq := testcontainers.GenericContainerRequest{ //nolint:exhaustruct // optional config
 		ContainerRequest: req,
 		Started:          true,
+		Reuse:            true,
 	}
 
 	configureControllerQuorumVoters(&genericContainerReq)
@@ -289,9 +301,16 @@ func (k *KafkaContainer) GetURI() string {
 }
 
 func (k *KafkaContainer) Stop(ctx context.Context) error {
+	// Check if reuse is enabled via label
+	reuse := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
+	if reuse == "true" {
+		return nil
+	}
+
 	err := k.container.Terminate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to stop Kafka container %w", err)
 	}
+
 	return nil
 }
