@@ -16,6 +16,7 @@ type JetStreamClient interface {
 type StreamClient interface {
 	CreateOrUpdateConsumer(ctx context.Context, cfg jetstream.ConsumerConfig) (ConsumerClient, error)
 	Info(ctx context.Context, opts ...jetstream.StreamInfoOpt) (*jetstream.StreamInfo, error)
+	Purge(ctx context.Context, opts ...jetstream.StreamPurgeOpt) error
 }
 
 // ConsumerClient abstracts the Consumer interface for testability
@@ -50,6 +51,10 @@ func (j *JetStreamAdapter) Stream(ctx context.Context, name string) (StreamClien
 // StreamAdapter adapts the real Stream to our interface
 type StreamAdapter struct {
 	stream jetstream.Stream
+}
+
+func (s *StreamAdapter) Purge(ctx context.Context, opts ...jetstream.StreamPurgeOpt) error {
+	return s.stream.Purge(ctx, opts...)
 }
 
 func (s *StreamAdapter) CreateOrUpdateConsumer(ctx context.Context, cfg jetstream.ConsumerConfig) (ConsumerClient, error) {

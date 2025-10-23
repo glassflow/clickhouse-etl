@@ -135,3 +135,24 @@ func (c *Client) GetDLQState(ctx context.Context, stream string) (zero models.DL
 		UnconsumedMessages: dcInfo.NumPending,
 	}, nil
 }
+
+func (c *Client) PurgeDLQ(ctx context.Context, stream string) error {
+	if stream == "" {
+		return fmt.Errorf("stream name cannot be empty")
+	}
+
+	natsStream, err := c.js.Stream(ctx, stream)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			return service.ErrDLQNotExists
+		}
+		return fmt.Errorf("get dlq stream: %w", err)
+	}
+
+	err = natsStream.Purge(ctx)
+	if err != nil {
+		return fmt.Errorf("purge dlq stream: %w", err)
+	}
+
+	return nil
+}

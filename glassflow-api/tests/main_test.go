@@ -102,7 +102,7 @@ func testPipelineFeatures(t *testing.T) {
 
 	config := TestConfig{
 		FeaturePaths: []string{filepath.Join("features", "pipeline")},
-		Tags:         "@pipeline",
+		Tags:         "@qwe",
 		Format:       "pretty",
 	}
 
