@@ -22,10 +22,13 @@ export const useFetchTopics = ({ kafka }: { kafka: any }) => {
 
     try {
       // Fetch both topics and topic details in parallel
-      const [topicsResponse, detailsResponse] = await Promise.all([
-        kafkaApiClient.fetchTopics(kafka),
-        kafkaApiClient.fetchTopicDetails(kafka),
-      ])
+      // const [topicsResponse, detailsResponse] = await Promise.all([
+      //   kafkaApiClient.fetchTopics(kafka),
+      //   kafkaApiClient.fetchTopicDetails(kafka),
+      // ])
+
+      const topicsResponse = await kafkaApiClient.fetchTopics(kafka)
+      const detailsResponse = await kafkaApiClient.fetchTopicDetails(kafka)
 
       if (topicsResponse.success && topicsResponse.topics) {
         setTopics(topicsResponse?.topics || [])

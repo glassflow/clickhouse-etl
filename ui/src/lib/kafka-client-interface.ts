@@ -164,6 +164,7 @@ export interface IKafkaClient {
 export enum KafkaClientType {
   KAFKAJS = 'kafkajs',
   RDKAFKA = 'rdkafka',
+  GATEWAY = 'gateway', // Go-based Kafka Gateway for Kerberos
 }
 
 /**

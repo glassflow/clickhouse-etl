@@ -8,6 +8,7 @@
 
 import { IKafkaClient, KafkaConfig, KafkaClientType } from './kafka-client-interface'
 import { RdKafkaClient } from './kafka-rdkafka-client'
+import { KafkaGatewayClient } from './kafka-gateway-client'
 
 // Lazy load KafkaJS client to avoid circular dependencies
 let KafkaJSClient: any = null
@@ -25,7 +26,12 @@ export class KafkaClientFactory {
     console.log(`[KafkaClientFactory] Creating ${clientType} client for auth method: ${config.authMethod || 'default'}`)
 
     switch (clientType) {
+      case KafkaClientType.GATEWAY:
+        // Use Go-based gateway service for Kerberos
+        return new KafkaGatewayClient(config)
+
       case KafkaClientType.RDKAFKA:
+        // Fallback to RdKafka if gateway is not available (not recommended for Kerberos)
         return new RdKafkaClient(config)
 
       case KafkaClientType.KAFKAJS:
@@ -38,9 +44,9 @@ export class KafkaClientFactory {
    * Determine which client type to use based on authentication method
    */
   private static determineClientType(config: KafkaConfig): KafkaClientType {
-    // Use RdKafka for Kerberos authentication
+    // Use Gateway for Kerberos authentication (stable, production-ready)
     if (config.authMethod === 'SASL/GSSAPI') {
-      return KafkaClientType.RDKAFKA
+      return KafkaClientType.GATEWAY
     }
 
     // Use KafkaJS for all other authentication methods
