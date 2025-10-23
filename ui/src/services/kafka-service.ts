@@ -13,12 +13,6 @@ export class KafkaService {
     const kafkaClient = await createKafkaClient(config)
 
     try {
-      // First test the connection
-      const isConnected = await kafkaClient.testConnection()
-      if (!isConnected) {
-        throw new Error('Failed to connect to Kafka cluster')
-      }
-
       // Fetch topics
       const topics = await kafkaClient.listTopics()
       return topics
@@ -36,12 +30,6 @@ export class KafkaService {
     const kafkaClient = await createKafkaClient(config)
 
     try {
-      // First test the connection
-      const isConnected = await kafkaClient.testConnection()
-      if (!isConnected) {
-        throw new Error('Failed to connect to Kafka cluster')
-      }
-
       // Fetch topic details with partition information
       if (!kafkaClient.getTopicDetails) {
         throw new Error('getTopicDetails is not supported by this Kafka client')

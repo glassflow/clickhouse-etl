@@ -60,16 +60,7 @@ export class RdKafkaClient implements IKafkaClient {
     // node-rdkafka crashes when multiple producers are created concurrently
     if (connectionLock) {
       console.log('[RdKafka] Waiting for existing connection to complete...')
-      try {
-        await Promise.race([
-          connectionLock,
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Connection lock timeout')), CONNECTION_LOCK_TIMEOUT),
-          ),
-        ])
-      } catch (error) {
-        console.warn('[RdKafka] Connection lock timeout, proceeding anyway')
-      }
+      await connectionLock
     }
 
     // Create a new lock for this connection
@@ -112,6 +103,12 @@ export class RdKafkaClient implements IKafkaClient {
           clearTimeout(timeout)
           if (connectTimeout) clearTimeout(connectTimeout)
           this.isConnected = true
+          // Ensure background event polling is active for stability
+          try {
+            if (this.producer && typeof this.producer.setPollInterval === 'function') {
+              this.producer.setPollInterval(100)
+            }
+          } catch {}
           console.log('[RdKafka] Producer connected successfully')
           this.removeConnectionListeners()
 
@@ -160,7 +157,17 @@ export class RdKafkaClient implements IKafkaClient {
         this.connectionListeners = { onReady, onError, onLog }
 
         try {
-          this.producer.connect()
+          // CRITICAL: Wrap connect() in setImmediate to prevent synchronous segfault
+          // This moves the connect() call to the next tick of the event loop
+          setImmediate(() => {
+            try {
+              this.producer.connect()
+            } catch (error) {
+              console.error('[RdKafka] connect() threw error:', error)
+              onError(error instanceof Error ? error : new Error(String(error)))
+            }
+          })
+
           if (connectTimeout) {
             clearTimeout(connectTimeout)
             connectTimeout = null
@@ -362,14 +369,16 @@ export class RdKafkaClient implements IKafkaClient {
     }
 
     return new Promise((resolve, reject) => {
-      this.producer.getMetadata({ timeout: 10000 }, (err: Error | null, metadata: any) => {
-        if (err) {
-          reject(new Error(`Failed to get metadata: ${err.message}`))
-        } else {
-          const topics = metadata.topics.map((t: any) => t.name)
-          resolve(topics)
-        }
-      })
+      setTimeout(() => {
+        this.producer.getMetadata({ timeout: 30000 }, (err: Error | null, metadata: any) => {
+          if (err) {
+            reject(new Error(`Failed to get metadata: ${err.message}`))
+          } else {
+            const topics = metadata.topics.map((t: any) => t.name)
+            resolve(topics)
+          }
+        })
+      }, 500)
     })
   }
 
@@ -381,17 +390,19 @@ export class RdKafkaClient implements IKafkaClient {
     }
 
     return new Promise((resolve, reject) => {
-      this.producer.getMetadata({ timeout: 10000 }, (err: Error | null, metadata: any) => {
-        if (err) {
-          reject(new Error(`Failed to get metadata: ${err.message}`))
-        } else {
-          const topicDetails = metadata.topics.map((t: any) => ({
-            name: t.name,
-            partitionCount: t.partitions.length,
-          }))
-          resolve(topicDetails)
-        }
-      })
+      setTimeout(() => {
+        this.producer.getMetadata({ timeout: 30000 }, (err: Error | null, metadata: any) => {
+          if (err) {
+            reject(new Error(`Failed to get metadata: ${err.message}`))
+          } else {
+            const topicDetails = metadata.topics.map((t: any) => ({
+              name: t.name,
+              partitionCount: t.partitions.length,
+            }))
+            resolve(topicDetails)
+          }
+        })
+      }, 500)
     })
   }
 
@@ -403,24 +414,26 @@ export class RdKafkaClient implements IKafkaClient {
     }
 
     return new Promise((resolve, reject) => {
-      this.producer.getMetadata({ topic, timeout: 10000 }, (err: Error | null, metadata: any) => {
-        if (err) {
-          reject(new Error(`Failed to get topic metadata: ${err.message}`))
-        } else if (!metadata.topics || metadata.topics.length === 0) {
-          reject(new Error(`Topic '${topic}' not found`))
-        } else {
-          const topicMeta = metadata.topics[0]
-          resolve({
-            name: topicMeta.name,
-            partitions: topicMeta.partitions.map((p: any) => ({
-              id: p.id,
-              leader: p.leader,
-              replicas: p.replicas,
-              isr: p.isrs || [],
-            })),
-          })
-        }
-      })
+      setTimeout(() => {
+        this.producer.getMetadata({ topic, timeout: 30000 }, (err: Error | null, metadata: any) => {
+          if (err) {
+            reject(new Error(`Failed to get topic metadata: ${err.message}`))
+          } else if (!metadata.topics || metadata.topics.length === 0) {
+            reject(new Error(`Topic '${topic}' not found`))
+          } else {
+            const topicMeta = metadata.topics[0]
+            resolve({
+              name: topicMeta.name,
+              partitions: topicMeta.partitions.map((p: any) => ({
+                id: p.id,
+                leader: p.leader,
+                replicas: p.replicas,
+                isr: p.isrs || [],
+              })),
+            })
+          }
+        })
+      }, 500)
     })
   }
 
