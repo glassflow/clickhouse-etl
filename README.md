@@ -110,7 +110,7 @@ For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.de
 
 - [Installation Guide](https://docs.glassflow.dev/installation)
 - [Usage Guide](https://docs.glassflow.dev/usage-guide)
-- [Pipeline JSON Reference](https://docs.glassflow.dev/pipeline/pipeline-json-reference)
+- [Pipeline JSON Reference](https://docs.glassflow.dev/configuration/pipeline-json-reference)
 - [Run a demo pipeline](https://docs.glassflow.dev/getting-started/demo)
 - [Architecture](https://docs.glassflow.dev/architecture)
 
