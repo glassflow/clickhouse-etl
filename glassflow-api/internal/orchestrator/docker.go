@@ -268,7 +268,6 @@ func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context) error {
 
 	// 2. Check join and shutdown join runner
 	if d.joinRunner != nil {
-
 		pipeline, err := d.getPipelineConfig(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to get pipeline config for join safety check", "error", err)
@@ -321,7 +320,6 @@ func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context) error {
 
 	// 3. Check sink and shutdown sink runner
 	if d.sinkRunner != nil {
-
 		pipeline, err := d.getPipelineConfig(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to get pipeline config for sink safety check", "error", err)

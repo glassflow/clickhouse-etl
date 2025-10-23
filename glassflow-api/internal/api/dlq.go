@@ -18,7 +18,8 @@ import (
 
 type DLQ interface {
 	FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error)
-	GetDLQState(ctx context.Context, pid string) (zero models.DLQState, _ error)
+	GetDLQState(ctx context.Context, stream string) (zero models.DLQState, _ error)
+	PurgeDLQ(ctx context.Context, stream string) (err error)
 }
 
 func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
@@ -116,6 +117,37 @@ func (h *handler) getDLQState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusOK, res)
+}
+
+func (h *handler) purgeDLQ(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	pipelineID, ok := params["id"]
+	if !ok {
+		h.log.Error("Cannot extract pipeline id", slog.Any("params", params))
+		serverError(w)
+		return
+	}
+
+	if len(strings.TrimSpace(pipelineID)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", map[string]string{"pipeline_id": pipelineID})
+		return
+	}
+
+	dlqStream := models.GetDLQStreamName(pipelineID)
+	err := h.dlqSvc.PurgeDLQ(r.Context(), dlqStream)
+	if err != nil {
+		switch {
+		case errors.Is(err, internal.ErrDLQNotExists):
+			jsonError(w, http.StatusNotFound, "dlq for pipeline does not exist", map[string]string{"pipeline_id": pipelineID})
+		default:
+			h.log.Error("DLQ purge failed", slog.String("pipeline_id", pipelineID), slog.Any("error", err))
+			serverError(w)
+		}
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, nil)
 }
 
 type dlqStateResponse struct {

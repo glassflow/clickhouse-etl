@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -402,4 +403,60 @@ func (b *BaseTestSuite) publishEventsToKafka(topicName string, table *godog.Tabl
 	}
 
 	return nil
+}
+
+func (b *BaseTestSuite) createNatsConsumer(streamName, subject, consumerName string) (jetstream.Consumer, error) {
+	js := b.natsClient.JetStream()
+	consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamName, jetstream.ConsumerConfig{
+		Name:          consumerName,
+		Durable:       consumerName,
+		FilterSubject: subject,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create or update nats consumer: %w", err)
+	}
+
+	return consumer, nil
+}
+
+func (b *BaseTestSuite) natsStreamSubjectHasNEvents(natsStream, natsSubject string, expectedCount int) error {
+	consumerName := fmt.Sprintf("test-consumer-%s", uuid.New().String())
+	consumer, err := b.createNatsConsumer(natsStream, natsSubject, consumerName)
+	if err != nil {
+		return fmt.Errorf("create nats consumer: %w", err)
+	}
+
+	consumerInfo, err := consumer.Info(context.Background())
+	if err != nil {
+		return fmt.Errorf("get consumer info: %w", err)
+	}
+
+	if consumerInfo.NumPending != uint64(expectedCount) {
+		return fmt.Errorf(
+			"expected %d events, got %d from stream %s, subject %s",
+			expectedCount,
+			consumerInfo.NumPending,
+			natsStream,
+			natsSubject,
+		)
+	}
+
+	return nil
+}
+
+func logElapsedTime(sc *godog.ScenarioContext) {
+	type stepTimingKey struct{}
+
+	sc.StepContext().Before(func(ctx context.Context, st *godog.Step) (context.Context, error) {
+		ctx = context.WithValue(ctx, stepTimingKey{}, time.Now())
+		return ctx, nil
+	})
+
+	sc.StepContext().After(func(ctx context.Context, st *godog.Step, status godog.StepResultStatus, err error) (context.Context, error) {
+		if start, ok := ctx.Value(stepTimingKey{}).(time.Time); ok {
+			duration := time.Since(start)
+			fmt.Printf("Step '%s' elapsed %v (status: %s)\n", st.Text, duration, status)
+		}
+		return ctx, nil
+	})
 }
