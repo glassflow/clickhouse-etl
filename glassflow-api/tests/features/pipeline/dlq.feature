@@ -2,6 +2,10 @@
 Feature: Working with DLQ
 
   Scenario: Purge DLQ
+    And the ClickHouse table "events_test" on database "default" already exists with schema
+      | column_name | data_type |
+      | id          | String    |
+      | name        | String    |
     Given a glassflow pipeline with next configuration:
             """json
             {
@@ -38,6 +42,7 @@ Feature: Working with DLQ
                     ]
                 },
                 "ingestor": {
+                    "enabled": false,
                     "type": "kafka",
                     "kafka_connection_params": {
                         "brokers": [],
@@ -59,8 +64,8 @@ Feature: Working with DLQ
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-3e22534f-test_topic",
-                            "output_stream_subject": "gf-3e22534f-test_topic.input"
+                            "output_stream_id": "gf-d7fac70f-test_topic",
+                            "output_stream_subject": "gf-d7fac70f-test_topic.input"
                         }
                     ]
                 },
@@ -68,22 +73,23 @@ Feature: Working with DLQ
                     "enabled": false
                 },
                 "sink": {
+                    "enabled": false,
                     "type": "clickhouse",
                     "batch": {
                         "max_batch_size": 1000,
-                        "max_delay_time": "1s"
+                        "max_delay_time": "10ms"
                     },
                     "clickhouse_connection_params": {
                         "database": "default",
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-3e22534f-test_topic",
-                    "nats_consumer_name": "gf-nats-si-3e22534f"
+                    "stream_id": "gf-d7fac70f-test_topic",
+                    "nats_consumer_name": "gf-nats-si-d7fac70f"
                 }
             }
             """
-    Then I publish a message to NATS stream "gf-3e22534f-test_topic" with subject "gf-3e22534f-test_topic.input"
+    Then I publish a message to NATS stream "gf-d7fac70f-test_topic" with subject "gf-d7fac70f-test_topic.input"
         """json
         {
           "id": "123",
@@ -98,5 +104,5 @@ Feature: Working with DLQ
         }
         """
     Then I send a POST request to "/api/v1/pipeline/kafka-to-clickhouse-pipeline-dfadfbad-aeec-43a9-9870-b7d5ac993ae7/dlq/purge"
-    Then NATS stream "gf-3e22534f-test_topic" with subject "gf-3e22534f-test_topic.input" should contain 1 events
+    Then NATS stream "gf-d7fac70f-test_topic" with subject "gf-d7fac70f-test_topic.input" should contain 1 events
     Then NATS stream "gf-d7fac70f-DLQ" with subject "gf-d7fac70f-DLQ.failed" should contain 0 events
