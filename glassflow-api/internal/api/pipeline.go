@@ -16,6 +16,22 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
 
+//go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService
+type PipelineService interface { //nolint:interfacebloat //important interface
+	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
+	DeletePipeline(ctx context.Context, pid string) error
+	TerminatePipeline(ctx context.Context, pid string) error
+	ResumePipeline(ctx context.Context, pid string) error
+	StopPipeline(ctx context.Context, pid string) error
+	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
+	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
+	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
+	UpdatePipelineName(ctx context.Context, id string, name string) error
+	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
+	GetOrchestratorType() string
+	CleanUpPipelines(ctx context.Context) error
+}
+
 func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[pipelineJSON](w, r)
 	if err != nil {
@@ -37,7 +53,7 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.pipelineManager.CreatePipeline(r.Context(), &pipeline)
+	err = h.pipelineService.CreatePipeline(r.Context(), &pipeline)
 	if err != nil {
 		var pErr models.PipelineConfigError
 		switch {
@@ -69,7 +85,7 @@ func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.pipelineManager.StopPipeline(r.Context(), id)
+	err := h.pipelineService.StopPipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -107,7 +123,7 @@ func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.pipelineManager.TerminatePipeline(r.Context(), id)
+	err := h.pipelineService.TerminatePipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -144,7 +160,7 @@ func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.pipelineManager.ResumePipeline(r.Context(), id)
+	err := h.pipelineService.ResumePipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -211,7 +227,7 @@ func (h *handler) editPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.pipelineManager.EditPipeline(r.Context(), id, &pipeline)
+	err = h.pipelineService.EditPipeline(r.Context(), id, &pipeline)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -250,7 +266,7 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.pipelineManager.GetPipeline(r.Context(), id)
+	p, err := h.pipelineService.GetPipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -282,7 +298,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	health, err := h.pipelineManager.GetPipelineHealth(r.Context(), id)
+	health, err := h.pipelineService.GetPipelineHealth(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -300,7 +316,7 @@ func (h *handler) getPipelineHealth(w http.ResponseWriter, r *http.Request) {
 
 // TODO: set up pagination to avoid unsavory memory errors
 func (h *handler) getPipelines(w http.ResponseWriter, r *http.Request) {
-	pipelines, err := h.pipelineManager.GetPipelines(r.Context())
+	pipelines, err := h.pipelineService.GetPipelines(r.Context())
 	if err != nil {
 		h.log.ErrorContext(r.Context(), "Unable to list pipelines", "error", err)
 		serverError(w)
@@ -341,7 +357,7 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.pipelineManager.UpdatePipelineName(r.Context(), id, req.Name)
+	err = h.pipelineService.UpdatePipelineName(r.Context(), id, req.Name)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -735,7 +751,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the pipeline to check its status
-	pipeline, err := h.pipelineManager.GetPipeline(r.Context(), id)
+	pipeline, err := h.pipelineService.GetPipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -758,7 +774,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.pipelineManager.DeletePipeline(r.Context(), id)
+	err = h.pipelineService.DeletePipeline(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):

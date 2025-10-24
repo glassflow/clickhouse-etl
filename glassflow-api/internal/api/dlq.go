@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,11 +14,14 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
-func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
+type DLQ interface {
+	FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error)
+	GetDLQState(ctx context.Context, pid string) (zero models.DLQState, _ error)
+}
 
+func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
 	batchSize, err := strconv.Atoi(r.URL.Query().Get("batch_size"))
 	if err != nil || batchSize <= 0 {
 		batchSize = internal.DLQDefaultBatchSize
@@ -30,27 +34,28 @@ func (h *handler) consumeDLQ(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := mux.Vars(r)
-	id, ok := params["id"]
+	pipelineID, ok := params["id"]
 	if !ok {
 		h.log.Error("Cannot extract pipeline id", slog.Any("params", params))
 		serverError(w)
 		return
 	}
 
-	if len(strings.TrimSpace(id)) == 0 {
-		jsonError(w, http.StatusUnprocessableEntity, err.Error(), map[string]string{"pipeline_id": id})
+	if len(strings.TrimSpace(pipelineID)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, err.Error(), map[string]string{"pipeline_id": pipelineID})
 		return
 	}
 
-	msgs, err := h.dlqSvc.ConsumeDLQ(r.Context(), id, dlqBatch)
+	dlqStream := models.GetDLQStreamName(pipelineID)
+	msgs, err := h.dlqSvc.FetchDLQMessages(r.Context(), dlqStream, dlqBatch.Int)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrDLQNotExists):
-			jsonError(w, http.StatusNotFound, "dlq for pipeline does not exist", map[string]string{"pipeline_id": id})
-		case errors.Is(err, service.ErrNoMessagesInDLQ):
+		case errors.Is(err, internal.ErrDLQNotExists):
+			jsonError(w, http.StatusNotFound, "dlq for pipeline does not exist", map[string]string{"pipeline_id": pipelineID})
+		case errors.Is(err, internal.ErrNoMessagesInDLQ):
 			w.WriteHeader(http.StatusNoContent)
 		default:
-			h.log.Error("Consuming DLQ failed", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.Error("Consuming DLQ failed", slog.String("pipeline_id", pipelineID), slog.Any("error", err))
 			serverError(w)
 		}
 		return
@@ -77,25 +82,27 @@ type dlqConsumeResponse struct {
 func (h *handler) getDLQState(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
-	id, ok := params["id"]
+	pipelineID, ok := params["id"]
 	if !ok {
 		h.log.Error("Cannot extract pipeline id", slog.Any("params", params))
 		serverError(w)
 		return
 	}
 
-	if len(strings.TrimSpace(id)) == 0 {
-		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", map[string]string{"pipeline_id": id})
+	if len(strings.TrimSpace(pipelineID)) == 0 {
+		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", map[string]string{"pipeline_id": pipelineID})
 		return
 	}
 
-	state, err := h.dlqSvc.GetDLQState(r.Context(), id)
+	dlqStream := models.GetDLQStreamName(pipelineID)
+
+	state, err := h.dlqSvc.GetDLQState(r.Context(), dlqStream)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrDLQNotExists):
-			jsonError(w, http.StatusNotFound, "dlq for pipeline does not exist", map[string]string{"pipeline_id": id})
+		case errors.Is(err, internal.ErrDLQNotExists):
+			jsonError(w, http.StatusNotFound, "dlq for pipeline does not exist", map[string]string{"pipeline_id": pipelineID})
 		default:
-			h.log.Error("DLQ state fetch failed", slog.String("pipeline_id", id), slog.Any("error", err))
+			h.log.Error("DLQ state fetch failed", slog.String("pipeline_id", pipelineID), slog.Any("error", err))
 			serverError(w)
 		}
 		return

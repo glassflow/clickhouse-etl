@@ -102,7 +102,7 @@ func TestEditPipeline_Success(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineService := &PipelineService{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -131,7 +131,7 @@ func TestEditPipeline_Success(t *testing.T) {
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(nil)
 
 	// Execute
-	err := pipelineManager.EditPipeline(context.Background(), pipelineID, newConfig)
+	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
 
 	// Assertions
 	assert.NoError(t, err)
@@ -145,7 +145,7 @@ func TestEditPipeline_PipelineNotExists(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineService := &PipelineService{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -161,7 +161,7 @@ func TestEditPipeline_PipelineNotExists(t *testing.T) {
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(nil, ErrPipelineNotExists)
 
 	// Execute
-	err := pipelineManager.EditPipeline(context.Background(), pipelineID, newConfig)
+	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
 
 	// Assertions
 	assert.Error(t, err)
@@ -176,7 +176,7 @@ func TestEditPipeline_PipelineNotStopped(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineService := &PipelineService{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -200,7 +200,7 @@ func TestEditPipeline_PipelineNotStopped(t *testing.T) {
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
 
 	// Execute
-	err := pipelineManager.EditPipeline(context.Background(), pipelineID, newConfig)
+	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
 
 	// Assertions
 	assert.Error(t, err)
@@ -222,7 +222,7 @@ func TestEditPipeline_UpdatePipelineFails(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineService := &PipelineService{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -247,7 +247,7 @@ func TestEditPipeline_UpdatePipelineFails(t *testing.T) {
 	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(errors.New("database error"))
 
 	// Execute
-	err := pipelineManager.EditPipeline(context.Background(), pipelineID, newConfig)
+	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
 
 	// Assertions
 	assert.Error(t, err)
@@ -262,7 +262,7 @@ func TestEditPipeline_OrchestratorFails(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineService := &PipelineService{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -288,7 +288,7 @@ func TestEditPipeline_OrchestratorFails(t *testing.T) {
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(errors.New("orchestrator error"))
 
 	// Execute
-	err := pipelineManager.EditPipeline(context.Background(), pipelineID, newConfig)
+	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
 
 	// Assertions
 	assert.Error(t, err)

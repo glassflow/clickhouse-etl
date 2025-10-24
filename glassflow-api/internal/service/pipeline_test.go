@@ -136,7 +136,7 @@ func (m *mockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string
 	return nil
 }
 
-func TestPipelineManager_ResumePipeline(t *testing.T) {
+func TestPipelineService_ResumePipeline(t *testing.T) {
 	tests := []struct {
 		name           string
 		pipelineID     string
@@ -209,7 +209,7 @@ func TestPipelineManager_ResumePipeline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
 			ctx := context.Background()
-			manager := NewPipelineManager(tt.orchestrator, tt.store, slog.Default())
+			manager := NewPipelineService(tt.orchestrator, tt.store, slog.Default())
 
 			// Create test pipeline if needed
 			if tt.initialStatus != "" {
@@ -286,7 +286,7 @@ func containsSubstring(s, substr string) bool {
 	return false
 }
 
-func TestPipelineManager_DeletePipeline(t *testing.T) {
+func TestPipelineService_DeletePipeline(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
@@ -365,7 +365,7 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 				tt.store.pipelines = make(map[string]models.PipelineConfig)
 			}
 
-			manager := &PipelineManagerImpl{
+			manager := &PipelineService{
 				orchestrator: tt.orchestrator,
 				db:           tt.store,
 				log:          slog.Default(),

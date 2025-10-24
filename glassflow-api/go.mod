@@ -29,6 +29,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/otel/sdk/log v0.14.0
 	go.opentelemetry.io/otel/sdk/metric v1.38.0
+	go.uber.org/mock v0.6.0
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.0
 	sigs.k8s.io/controller-runtime v0.21.0
