@@ -43,12 +43,12 @@ func TestPlatformHandler(t *testing.T) {
 			defer ctrl.Finish()
 
 			// Create mock pipeline manager
-			mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
-			mockPipelineManager.EXPECT().GetOrchestratorType().Return(tt.orchestratorType)
+			mockPipelineService := mocks.NewMockPipelineService(ctrl)
+			mockPipelineService.EXPECT().GetOrchestratorType().Return(tt.orchestratorType)
 
 			// Create handler
 			h := &handler{
-				pipelineManager: mockPipelineManager,
+				pipelineService: mockPipelineService,
 				dlqSvc:          nil,
 			}
 
@@ -74,10 +74,9 @@ func TestPlatformHandler(t *testing.T) {
 	}
 }
 
-func TestPlatformHandlerWithNilPipelineManager(t *testing.T) {
-	// Create handler with nil pipeline manager
+func TestPlatformHandlerWithNilPipelineService(t *testing.T) {
 	h := &handler{
-		pipelineManager: nil,
+		pipelineService: nil,
 		dlqSvc:          nil,
 	}
 

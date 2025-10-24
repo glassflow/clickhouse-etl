@@ -14,8 +14,8 @@ type PlatformResponse struct {
 func (h *handler) platform(w http.ResponseWriter, _ *http.Request) {
 	// Get orchestrator type from the pipeline manager
 	orchType := "unknown"
-	if h.pipelineManager != nil {
-		orchType = h.pipelineManager.GetOrchestratorType()
+	if h.pipelineService != nil {
+		orchType = h.pipelineService.GetOrchestratorType()
 	}
 
 	response := PlatformResponse{

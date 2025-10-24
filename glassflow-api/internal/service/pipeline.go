@@ -31,14 +31,14 @@ type PipelineStore interface {
 	UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error
 }
 
-type PipelineManager struct {
+type PipelineService struct {
 	orchestrator Orchestrator
 	db           PipelineStore
 	log          *slog.Logger
 }
 
-func NewPipelineManager(orch Orchestrator, db PipelineStore, log *slog.Logger) *PipelineManager {
-	return &PipelineManager{
+func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger) *PipelineService {
+	return &PipelineService{
 		orchestrator: orch,
 		db:           db,
 		log:          log,
@@ -53,8 +53,8 @@ var (
 	ErrPipelineQuotaReached = errors.New("pipeline quota reached; shutdown active pipeline(s)")
 )
 
-// CreatePipeline implements PipelineManager.
-func (p *PipelineManager) CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error {
+// CreatePipeline implements PipelineService.
+func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error {
 	existing, err := p.db.GetPipeline(ctx, cfg.ID)
 	if err != nil && !errors.Is(err, ErrPipelineNotExists) {
 		p.log.ErrorContext(ctx, "failed to check existing pipeline ID", "pipeline_id", cfg.ID, "error", err)
@@ -88,8 +88,8 @@ func (p *PipelineManager) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 	return nil
 }
 
-// DeletePipeline implements PipelineManager.
-func (p *PipelineManager) DeletePipeline(ctx context.Context, pid string) error {
+// DeletePipeline implements PipelineService.
+func (p *PipelineService) DeletePipeline(ctx context.Context, pid string) error {
 	// First call orchestrator to handle resource cleanup
 	err := p.orchestrator.DeletePipeline(ctx, pid)
 	if err != nil {
@@ -110,8 +110,8 @@ func (p *PipelineManager) DeletePipeline(ctx context.Context, pid string) error 
 	return nil
 }
 
-// TerminatePipeline implements PipelineManager.
-func (p *PipelineManager) TerminatePipeline(ctx context.Context, pid string) error {
+// TerminatePipeline implements PipelineService.
+func (p *PipelineService) TerminatePipeline(ctx context.Context, pid string) error {
 	// Get current pipeline to update status
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
@@ -159,8 +159,8 @@ func (p *PipelineManager) TerminatePipeline(ctx context.Context, pid string) err
 	return nil
 }
 
-// GetPipeline implements PipelineManager.
-func (p *PipelineManager) GetPipeline(ctx context.Context, pid string) (zero models.PipelineConfig, _ error) {
+// GetPipeline implements PipelineService.
+func (p *PipelineService) GetPipeline(ctx context.Context, pid string) (zero models.PipelineConfig, _ error) {
 	pi, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to load pipeline from database", "pipeline_id", pid, "error", err)
@@ -170,8 +170,8 @@ func (p *PipelineManager) GetPipeline(ctx context.Context, pid string) (zero mod
 	return *pi, nil
 }
 
-// GetPipelines implements PipelineManager.
-func (p *PipelineManager) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
+// GetPipelines implements PipelineService.
+func (p *PipelineService) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
 	pipelines, err := p.db.GetPipelines(ctx)
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to load pipelines from database", "error", err)
@@ -186,8 +186,8 @@ func (p *PipelineManager) GetPipelines(ctx context.Context) ([]models.ListPipeli
 	return ps, nil
 }
 
-// UpdatePipelineName implements PipelineManager.
-func (p *PipelineManager) UpdatePipelineName(ctx context.Context, id string, name string) error {
+// UpdatePipelineName implements PipelineService.
+func (p *PipelineService) UpdatePipelineName(ctx context.Context, id string, name string) error {
 	err := p.db.PatchPipelineName(ctx, id, name)
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to update pipeline name", "pipeline_id", id, "new_name", name, "error", err)
@@ -197,8 +197,8 @@ func (p *PipelineManager) UpdatePipelineName(ctx context.Context, id string, nam
 	return nil
 }
 
-// GetPipelineHealth implements PipelineManager.
-func (p *PipelineManager) GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error) {
+// GetPipelineHealth implements PipelineService.
+func (p *PipelineService) GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error) {
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
 		if errors.Is(err, ErrPipelineNotExists) {
@@ -211,8 +211,8 @@ func (p *PipelineManager) GetPipelineHealth(ctx context.Context, pid string) (mo
 	return pipeline.Status, nil
 }
 
-// UpdatePipelineStatus implements PipelineManager.
-func (p *PipelineManager) UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error {
+// UpdatePipelineStatus implements PipelineService.
+func (p *PipelineService) UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error {
 	err := p.db.UpdatePipelineStatus(ctx, pid, status)
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to update pipeline status", "pipeline_id", pid, "status", status.OverallStatus, "error", err)
@@ -222,8 +222,8 @@ func (p *PipelineManager) UpdatePipelineStatus(ctx context.Context, pid string, 
 	return nil
 }
 
-// ResumePipeline implements PipelineManager.
-func (p *PipelineManager) ResumePipeline(ctx context.Context, pid string) error {
+// ResumePipeline implements PipelineService.
+func (p *PipelineService) ResumePipeline(ctx context.Context, pid string) error {
 	// Get current pipeline to update status
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
@@ -272,8 +272,8 @@ func (p *PipelineManager) ResumePipeline(ctx context.Context, pid string) error 
 	return nil
 }
 
-// StopPipeline implements PipelineManager.
-func (p *PipelineManager) StopPipeline(ctx context.Context, pid string) error {
+// StopPipeline implements PipelineService.
+func (p *PipelineService) StopPipeline(ctx context.Context, pid string) error {
 	// Get current pipeline to update status
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
@@ -334,8 +334,8 @@ func (p *PipelineManager) StopPipeline(ctx context.Context, pid string) error {
 	return nil
 }
 
-// EditPipeline implements PipelineManager.
-func (p *PipelineManager) EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
+// EditPipeline implements PipelineService.
+func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
 	// Get current pipeline to check existence and status
 	currentPipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
@@ -373,13 +373,13 @@ func (p *PipelineManager) EditPipeline(ctx context.Context, pid string, newCfg *
 	return nil
 }
 
-// GetOrchestratorType implements PipelineManager.
-func (p *PipelineManager) GetOrchestratorType() string {
+// GetOrchestratorType implements PipelineService.
+func (p *PipelineService) GetOrchestratorType() string {
 	return p.orchestrator.GetType()
 }
 
-// CleanUpPipelines implements PipelineManager.
-func (p *PipelineManager) CleanUpPipelines(ctx context.Context) error {
+// CleanUpPipelines implements PipelineService.
+func (p *PipelineService) CleanUpPipelines(ctx context.Context) error {
 	p.log.Info("cleaning up pipelines", slog.String("orchestrator", p.GetOrchestratorType()))
 
 	if p.GetOrchestratorType() != "local" {

@@ -30,7 +30,7 @@ type PipelineSteps struct {
 	chTable    string
 	log        *slog.Logger
 
-	pipelineManager   *service.PipelineManager
+	pipelineService   *service.PipelineService
 	orchestrator      *orchestrator.LocalOrchestrator
 	currentPipelineID string
 }
@@ -166,24 +166,24 @@ func (p *PipelineSteps) fastCleanup() error {
 		errs = append(errs, err)
 	}
 
-	if p.pipelineManager != nil {
+	if p.pipelineService != nil {
 		pipelineID := p.orchestrator.ActivePipelineID()
 
 		// Try to stop the pipeline first
-		err = p.pipelineManager.StopPipeline(context.Background(), pipelineID)
+		err = p.pipelineService.StopPipeline(context.Background(), pipelineID)
 		if err != nil {
 			// Log the error but continue - pipeline might already be stopped or not exist
 			p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
 		}
 
 		// Always try to delete the pipeline from KV store to ensure cleanup
-		err = p.pipelineManager.DeletePipeline(context.Background(), pipelineID)
+		err = p.pipelineService.DeletePipeline(context.Background(), pipelineID)
 		if err != nil {
 			// Log the error but continue - pipeline might already be deleted
 			p.log.Info("delete pipeline failed (might already be deleted)", slog.Any("error", err))
 		}
 
-		p.pipelineManager = nil
+		p.pipelineService = nil
 	}
 
 	err = testutils.CombineErrors(errs)
@@ -274,7 +274,7 @@ func (p *PipelineSteps) thePipelineStatusShouldBe(expectedStatus string) error {
 	p.log.Info("Checking pipeline status", slog.String("expected_status", expectedStatus))
 
 	// Get the current pipeline status
-	pipeline, err := p.pipelineManager.GetPipeline(context.Background(), p.currentPipelineID)
+	pipeline, err := p.pipelineService.GetPipeline(context.Background(), p.currentPipelineID)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline: %w", err)
 	}
@@ -323,8 +323,8 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 	return &pc, nil
 }
 
-func (p *PipelineSteps) setupPipelineManager() error {
-	if p.pipelineManager != nil {
+func (p *PipelineSteps) setupPipelineService() error {
+	if p.pipelineService != nil {
 		return fmt.Errorf("pipeline manager already initialized")
 	}
 
@@ -341,7 +341,7 @@ func (p *PipelineSteps) setupPipelineManager() error {
 	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
-	p.pipelineManager = service.NewPipelineManager(
+	p.pipelineService = service.NewPipelineService(
 		orch,
 		db,
 		p.log,
@@ -359,12 +359,12 @@ func (p *PipelineSteps) aGlassflowPipelineWithNextConfiguration(config *godog.Do
 	// Store the current pipeline ID for later use
 	p.currentPipelineID = pipelineConfig.ID
 
-	err = p.setupPipelineManager()
+	err = p.setupPipelineService()
 	if err != nil {
 		return fmt.Errorf("setup pipeline manager: %w", err)
 	}
 
-	err = p.pipelineManager.CreatePipeline(context.Background(), pipelineConfig)
+	err = p.pipelineService.CreatePipeline(context.Background(), pipelineConfig)
 	if err != nil {
 		return fmt.Errorf("setup pipeline: %w", err)
 	}
@@ -392,14 +392,14 @@ func (p *PipelineSteps) theClickHouseTableShouldContain(tableName string, table 
 
 func (p *PipelineSteps) shutdownPipeline() error {
 	p.log.Info("Shutting down pipeline")
-	if p.pipelineManager == nil {
+	if p.pipelineService == nil {
 		return fmt.Errorf("pipeline manager not initialized")
 	}
 
 	pipelineID := p.orchestrator.ActivePipelineID()
 
 	// Try to stop the pipeline first
-	err := p.pipelineManager.StopPipeline(context.Background(), pipelineID)
+	err := p.pipelineService.StopPipeline(context.Background(), pipelineID)
 	if err != nil {
 		// Log the error but continue - pipeline might already be stopped or not exist
 		p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
@@ -422,7 +422,7 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
 
-	p.pipelineManager = nil
+	p.pipelineService = nil
 
 	p.log.Info("Pipeline shutdown completed after delay")
 
@@ -431,11 +431,11 @@ func (p *PipelineSteps) shutdownPipelineWithDelay(delay string) error {
 
 func (p *PipelineSteps) resumePipeline() error {
 	p.log.Info("Resuming pipeline")
-	if p.pipelineManager == nil {
+	if p.pipelineService == nil {
 		return fmt.Errorf("pipeline manager not initialized")
 	}
 
-	err := p.pipelineManager.ResumePipeline(context.Background(), p.orchestrator.ActivePipelineID())
+	err := p.pipelineService.ResumePipeline(context.Background(), p.orchestrator.ActivePipelineID())
 	if err != nil {
 		return fmt.Errorf("resume pipeline: %w", err)
 	}

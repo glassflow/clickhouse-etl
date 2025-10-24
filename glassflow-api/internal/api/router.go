@@ -12,22 +12,22 @@ import (
 type handler struct {
 	log *slog.Logger
 
-	pipelineManager PipelineManager
+	pipelineService PipelineService
 	dlqSvc          DLQ
 }
 
 func NewRouter(
 	log *slog.Logger,
-	pSvc PipelineManager,
-	dlqSvc DLQ,
+	pipelineService PipelineService,
+	dlqService DLQ,
 	meter *observability.Meter,
 ) http.Handler {
 	r := mux.NewRouter()
 
 	h := handler{
 		log:             log,
-		pipelineManager: pSvc,
-		dlqSvc:          dlqSvc,
+		pipelineService: pipelineService,
+		dlqSvc:          dlqService,
 	}
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")

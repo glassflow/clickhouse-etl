@@ -20,12 +20,12 @@ func TestEditPipeline_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
 	logger := slog.Default()
 
 	handler := &handler{
 		log:             logger,
-		pipelineManager: mockPipelineManager,
+		pipelineService: mockPipelineService,
 	}
 
 	// Test data - use a simple valid pipeline JSON
@@ -74,7 +74,7 @@ func TestEditPipeline_Success(t *testing.T) {
 	}
 
 	// Setup mock expectations
-	mockPipelineManager.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(nil)
+	mockPipelineService.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(nil)
 
 	// Create request
 	reqBody, _ := json.Marshal(editRequest)
@@ -99,12 +99,12 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
 	logger := slog.Default()
 
 	handler := &handler{
 		log:             logger,
-		pipelineManager: mockPipelineManager,
+		pipelineService: mockPipelineService,
 	}
 
 	pipelineID := "non-existent-pipeline"
@@ -152,7 +152,7 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 	}
 
 	// Setup mock expectations
-	mockPipelineManager.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(service.ErrPipelineNotExists)
+	mockPipelineService.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(service.ErrPipelineNotExists)
 
 	// Create request
 	reqBody, _ := json.Marshal(editRequest)
@@ -176,13 +176,13 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 func TestEditPipeline_IDMismatch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
 
 	logger := slog.Default()
 
 	handler := &handler{
 		log:             logger,
-		pipelineManager: mockPipelineManager,
+		pipelineService: mockPipelineService,
 	}
 
 	// Test data with mismatched pipeline ID
@@ -214,13 +214,13 @@ func TestEditPipeline_IDMismatch(t *testing.T) {
 func TestEditPipeline_InvalidJSON(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
 
 	logger := slog.Default()
 
 	handler := &handler{
 		log:             logger,
-		pipelineManager: mockPipelineManager,
+		pipelineService: mockPipelineService,
 	}
 
 	// Test data with invalid JSON

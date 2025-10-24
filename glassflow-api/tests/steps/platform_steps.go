@@ -21,7 +21,7 @@ import (
 type PlatformSteps struct {
 	BaseTestSuite
 	log              *slog.Logger
-	pipelineManager  *service.PipelineManager
+	pipelineService  *service.PipelineService
 	orchestrator     service.Orchestrator
 	orchestratorType string
 	lastResponse     *http.Response
@@ -85,7 +85,7 @@ func (p *PlatformSteps) setupServices() error {
 	}
 
 	// Create pipeline manager
-	p.pipelineManager = service.NewPipelineManager(p.orchestrator, db, p.log)
+	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log)
 	return nil
 }
 
@@ -95,7 +95,7 @@ func (p *PlatformSteps) iSendAGETRequestTo(endpoint string) error {
 	}
 
 	// Create handler
-	handler := api.NewRouter(p.log, p.pipelineManager, nil, nil)
+	handler := api.NewRouter(p.log, p.pipelineService, nil, nil)
 
 	// Create request
 	req := httptest.NewRequest("GET", endpoint, nil)

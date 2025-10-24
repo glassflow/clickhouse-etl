@@ -204,7 +204,7 @@ func mainEtl(
 		}
 	}
 
-	pipelineSvc := service.NewPipelineManager(orch, db, log)
+	pipelineSvc := service.NewPipelineService(orch, db, log)
 
 	err = pipelineSvc.CleanUpPipelines(ctx)
 	if err != nil {
