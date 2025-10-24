@@ -102,7 +102,7 @@ func TestEditPipeline_Success(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineManager := &PipelineManager{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -145,7 +145,7 @@ func TestEditPipeline_PipelineNotExists(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineManager := &PipelineManager{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -176,7 +176,7 @@ func TestEditPipeline_PipelineNotStopped(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineManager := &PipelineManager{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -222,7 +222,7 @@ func TestEditPipeline_UpdatePipelineFails(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineManager := &PipelineManager{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,
@@ -262,7 +262,7 @@ func TestEditPipeline_OrchestratorFails(t *testing.T) {
 	mockStore := new(MockPipelineStore)
 	logger := slog.Default()
 
-	pipelineManager := &PipelineManagerImpl{
+	pipelineManager := &PipelineManager{
 		orchestrator: mockOrchestrator,
 		db:           mockStore,
 		log:          logger,

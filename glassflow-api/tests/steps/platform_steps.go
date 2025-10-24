@@ -21,7 +21,7 @@ import (
 type PlatformSteps struct {
 	BaseTestSuite
 	log              *slog.Logger
-	pipelineManager  *service.PipelineManagerImpl
+	pipelineManager  *service.PipelineManager
 	orchestrator     service.Orchestrator
 	orchestratorType string
 	lastResponse     *http.Response
@@ -95,8 +95,7 @@ func (p *PlatformSteps) iSendAGETRequestTo(endpoint string) error {
 	}
 
 	// Create handler
-	dlqSvc := service.NewDLQImpl(nil) // No DLQ client needed for platform tests
-	handler := api.NewRouter(p.log, p.pipelineManager, dlqSvc, nil)
+	handler := api.NewRouter(p.log, p.pipelineManager, nil, nil)
 
 	// Create request
 	req := httptest.NewRequest("GET", endpoint, nil)

@@ -365,7 +365,7 @@ func TestPipelineManager_DeletePipeline(t *testing.T) {
 				tt.store.pipelines = make(map[string]models.PipelineConfig)
 			}
 
-			manager := &PipelineManagerImpl{
+			manager := &PipelineManager{
 				orchestrator: tt.orchestrator,
 				db:           tt.store,
 				log:          slog.Default(),

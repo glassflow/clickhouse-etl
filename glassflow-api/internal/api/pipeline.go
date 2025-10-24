@@ -16,6 +16,22 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
 
+//go:generate mockgen -destination ./mocks/pipeline_manager_mock.go -package mocks . PipelineManager
+type PipelineManager interface { //nolint:interfacebloat //important interface
+	CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error
+	DeletePipeline(ctx context.Context, pid string) error
+	TerminatePipeline(ctx context.Context, pid string) error
+	ResumePipeline(ctx context.Context, pid string) error
+	StopPipeline(ctx context.Context, pid string) error
+	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
+	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
+	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
+	UpdatePipelineName(ctx context.Context, id string, name string) error
+	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
+	GetOrchestratorType() string
+	CleanUpPipelines(ctx context.Context) error
+}
+
 func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 	req, err := parseRequest[pipelineJSON](w, r)
 	if err != nil {

@@ -16,7 +16,6 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 func TestGetDurableConsumerConfig(t *testing.T) {
@@ -489,7 +488,7 @@ func TestFetchDLQMessages_StreamNotFound(t *testing.T) {
 	result, err := client.FetchDLQMessages(ctx, streamName, batchSize)
 
 	assert.Nil(t, result)
-	assert.Equal(t, service.ErrDLQNotExists, err)
+	assert.Equal(t, internal.ErrDLQNotExists, err)
 	mockJS.AssertExpectations(t)
 }
 
@@ -741,7 +740,7 @@ func TestGetDLQState_StreamNotFound(t *testing.T) {
 	result, err := client.GetDLQState(ctx, streamName)
 
 	assert.Equal(t, models.DLQState{}, result)
-	assert.Equal(t, service.ErrDLQNotExists, err)
+	assert.Equal(t, internal.ErrDLQNotExists, err)
 	mockJS.AssertExpectations(t)
 }
 

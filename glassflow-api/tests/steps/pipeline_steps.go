@@ -30,7 +30,7 @@ type PipelineSteps struct {
 	chTable    string
 	log        *slog.Logger
 
-	pipelineManager   *service.PipelineManagerImpl
+	pipelineManager   *service.PipelineManager
 	orchestrator      *orchestrator.LocalOrchestrator
 	currentPipelineID string
 }

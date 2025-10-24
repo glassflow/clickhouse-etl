@@ -1,98 +1,16 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api/mocks"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"go.uber.org/mock/gomock"
 )
-
-// MockPipelineManager is a mock implementation of service.PipelineManager
-type MockPipelineManager struct {
-	mock.Mock
-}
-
-func (m *MockPipelineManager) ResumePipeline(ctx context.Context, pid string) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MockPipelineManager) CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error {
-	args := m.Called(ctx, cfg)
-	return args.Error(0)
-}
-
-func (m *MockPipelineManager) DeletePipeline(ctx context.Context, pid string) error {
-	args := m.Called(ctx, pid)
-	return args.Error(0)
-}
-
-func (m *MockPipelineManager) StopPipeline(ctx context.Context, pid string) error {
-	args := m.Called(ctx, pid)
-	return args.Error(0)
-}
-
-func (m *MockPipelineManager) TerminatePipeline(ctx context.Context, pid string) error {
-	args := m.Called(ctx, pid)
-	return args.Error(0)
-}
-
-func (m *MockPipelineManager) GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error) {
-	args := m.Called(ctx, pid)
-	return args.Get(0).(models.PipelineConfig), args.Error(1)
-}
-
-func (m *MockPipelineManager) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]models.ListPipelineConfig), args.Error(1)
-}
-
-func (m *MockPipelineManager) UpdatePipelineName(ctx context.Context, id string, name string) error {
-	args := m.Called(ctx, id, name)
-	return args.Error(0)
-}
-
-func (m *MockPipelineManager) GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error) {
-	args := m.Called(ctx, pid)
-	return args.Get(0).(models.PipelineHealth), args.Error(1)
-}
-
-func (m *MockPipelineManager) GetOrchestratorType() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *MockPipelineManager) CleanUpPipelines(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-func (m *MockPipelineManager) EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
-	args := m.Called(ctx, pid, newCfg)
-	return args.Error(0)
-}
-
-// MockDLQ is a mock implementation of service.DLQ
-type MockDLQ struct {
-	mock.Mock
-}
-
-func (m *MockDLQ) ConsumeDLQ(ctx context.Context, pid string, batchSize models.DLQBatchSize) ([]models.DLQMessage, error) {
-	args := m.Called(ctx, pid, batchSize)
-	return args.Get(0).([]models.DLQMessage), args.Error(1)
-}
-
-func (m *MockDLQ) GetDLQState(ctx context.Context, pid string) (models.DLQState, error) {
-	args := m.Called(ctx, pid)
-	return args.Get(0).(models.DLQState), args.Error(1)
-}
 
 func TestPlatformHandler(t *testing.T) {
 	tests := []struct {
@@ -121,17 +39,17 @@ func TestPlatformHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock pipeline manager
-			mockPipelineManager := &MockPipelineManager{}
-			mockPipelineManager.On("GetOrchestratorType").Return(tt.orchestratorType)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-			// Create mock DLQ service
-			mockDLQ := &MockDLQ{}
+			// Create mock pipeline manager
+			mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
+			mockPipelineManager.EXPECT().GetOrchestratorType().Return(tt.orchestratorType)
 
 			// Create handler
 			h := &handler{
 				pipelineManager: mockPipelineManager,
-				dlqSvc:          mockDLQ,
+				dlqSvc:          nil,
 			}
 
 			// Create request
@@ -152,9 +70,6 @@ func TestPlatformHandler(t *testing.T) {
 			// Assert response
 			assert.Equal(t, tt.expectedResponse.Orchestrator, response.Orchestrator)
 			assert.Equal(t, tt.expectedResponse.APIVersion, response.APIVersion)
-
-			// Verify mock expectations
-			mockPipelineManager.AssertExpectations(t)
 		})
 	}
 }
@@ -163,7 +78,7 @@ func TestPlatformHandlerWithNilPipelineManager(t *testing.T) {
 	// Create handler with nil pipeline manager
 	h := &handler{
 		pipelineManager: nil,
-		dlqSvc:          &MockDLQ{},
+		dlqSvc:          nil,
 	}
 
 	// Create request

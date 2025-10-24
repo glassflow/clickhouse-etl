@@ -211,9 +211,7 @@ func mainEtl(
 		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
 	}
 
-	dlqSvc := service.NewDLQImpl(dlq)
-
-	handler := api.NewRouter(log, pipelineSvc, dlqSvc, meter)
+	handler := api.NewRouter(log, pipelineSvc, dlq, meter)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,

@@ -9,7 +9,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -50,7 +49,7 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
-			return nil, service.ErrDLQNotExists
+			return nil, internal.ErrDLQNotExists
 		}
 		return nil, fmt.Errorf("get dlq stream: %w", err)
 	}
@@ -94,6 +93,10 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 		}
 	}
 
+	if len(dlqMsgs) == 0 {
+		return nil, internal.ErrNoMessagesInDLQ
+	}
+
 	return dlqMsgs, nil
 }
 
@@ -105,7 +108,7 @@ func (c *Client) GetDLQState(ctx context.Context, stream string) (zero models.DL
 	s, err := c.js.Stream(ctx, stream)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
-			return zero, service.ErrDLQNotExists
+			return zero, internal.ErrDLQNotExists
 		}
 		return zero, fmt.Errorf("get dlq stream: %w", err)
 	}

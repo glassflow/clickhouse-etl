@@ -9,15 +9,18 @@ import (
 
 	"log/slog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api/mocks"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"go.uber.org/mock/gomock"
 )
 
 func TestEditPipeline_Success(t *testing.T) {
-	// Setup
-	mockPipelineManager := new(MockPipelineManager)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
 	logger := slog.Default()
 
 	handler := &handler{
@@ -34,9 +37,9 @@ func TestEditPipeline_Success(t *testing.T) {
 			"type":     "kafka",
 			"provider": "confluent",
 			"connection_params": map[string]interface{}{
-				"brokers":      []string{"localhost:9092"},
-				"skip_auth":    true,
-				"protocol":     "PLAINTEXT",
+				"brokers":   []string{"localhost:9092"},
+				"skip_auth": true,
+				"protocol":  "PLAINTEXT",
 			},
 			"topics": []map[string]interface{}{
 				{
@@ -71,7 +74,7 @@ func TestEditPipeline_Success(t *testing.T) {
 	}
 
 	// Setup mock expectations
-	mockPipelineManager.On("EditPipeline", mock.Anything, pipelineID, mock.AnythingOfType("*models.PipelineConfig")).Return(nil)
+	mockPipelineManager.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(nil)
 
 	// Create request
 	reqBody, _ := json.Marshal(editRequest)
@@ -90,12 +93,13 @@ func TestEditPipeline_Success(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusNoContent, w.Code)
-	mockPipelineManager.AssertExpectations(t)
 }
 
 func TestEditPipeline_PipelineNotFound(t *testing.T) {
-	// Setup
-	mockPipelineManager := new(MockPipelineManager)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
 	logger := slog.Default()
 
 	handler := &handler{
@@ -111,9 +115,9 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 			"type":     "kafka",
 			"provider": "confluent",
 			"connection_params": map[string]interface{}{
-				"brokers":      []string{"localhost:9092"},
-				"skip_auth":    true,
-				"protocol":     "PLAINTEXT",
+				"brokers":   []string{"localhost:9092"},
+				"skip_auth": true,
+				"protocol":  "PLAINTEXT",
 			},
 			"topics": []map[string]interface{}{
 				{
@@ -148,7 +152,7 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 	}
 
 	// Setup mock expectations
-	mockPipelineManager.On("EditPipeline", mock.Anything, pipelineID, mock.AnythingOfType("*models.PipelineConfig")).Return(service.ErrPipelineNotExists)
+	mockPipelineManager.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(service.ErrPipelineNotExists)
 
 	// Create request
 	reqBody, _ := json.Marshal(editRequest)
@@ -167,12 +171,13 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusNotFound, w.Code)
-	mockPipelineManager.AssertExpectations(t)
 }
 
 func TestEditPipeline_IDMismatch(t *testing.T) {
-	// Setup
-	mockPipelineManager := new(MockPipelineManager)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
+
 	logger := slog.Default()
 
 	handler := &handler{
@@ -204,14 +209,13 @@ func TestEditPipeline_IDMismatch(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	// Should not call the pipeline manager
-	mockPipelineManager.AssertNotCalled(t, "EditPipeline")
 }
 
 func TestEditPipeline_InvalidJSON(t *testing.T) {
-	// Setup
-	mockPipelineManager := new(MockPipelineManager)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockPipelineManager := mocks.NewMockPipelineManager(ctrl)
+
 	logger := slog.Default()
 
 	handler := &handler{
@@ -239,7 +243,4 @@ func TestEditPipeline_InvalidJSON(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	// Should not call the pipeline manager
-	mockPipelineManager.AssertNotCalled(t, "EditPipeline")
 }

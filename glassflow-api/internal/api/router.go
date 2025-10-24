@@ -6,21 +6,20 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type handler struct {
 	log *slog.Logger
 
-	pipelineManager service.PipelineManager
-	dlqSvc          service.DLQ
+	pipelineManager PipelineManager
+	dlqSvc          DLQ
 }
 
 func NewRouter(
 	log *slog.Logger,
-	pSvc service.PipelineManager,
-	dlqSvc service.DLQ,
+	pSvc PipelineManager,
+	dlqSvc DLQ,
 	meter *observability.Meter,
 ) http.Handler {
 	r := mux.NewRouter()
