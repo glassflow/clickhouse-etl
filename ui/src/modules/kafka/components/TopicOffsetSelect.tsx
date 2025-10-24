@@ -20,6 +20,7 @@ export function TopicOffsetSelect({
   offsetOptions,
   index,
   readOnly,
+  disableTopicChange, // ✅ NEW: Specifically disable topic selection
   onRefreshTopics,
 }: {
   topicValue: string
@@ -37,11 +38,12 @@ export function TopicOffsetSelect({
   offsetOptions: { label: string; value: 'earliest' | 'latest' }[]
   index: number
   readOnly?: boolean
+  disableTopicChange?: boolean // ✅ NEW: Specifically disable topic selection in edit mode
   onRefreshTopics?: () => Promise<void>
 }) {
   const [isFocused, setIsFocused] = useState(false)
-  const { topicsStore, joinStore } = useStore()
-  const { invalidateTopicDependentState, updateTopic } = topicsStore
+  const { topicsStore } = useStore()
+  const { updateTopic } = topicsStore
 
   // Enhanced topic change handler with state management
   const handleTopicChange = useCallback(
@@ -51,15 +53,12 @@ export function TopicOffsetSelect({
 
       // Additional state management
       if (value !== topicValue) {
-        // Invalidate dependent state
-        invalidateTopicDependentState(index)
+        // Note: We don't invalidate dependent state here anymore
+        // The smart invalidation logic in handleSubmit will determine if invalidation is needed
+        // based on schema comparison (topic name change + schema change = invalidate)
+        // This prevents unnecessary invalidation when topic changes but schema is the same
 
-        // Clear join store configuration
-        joinStore.setEnabled(false)
-        joinStore.setType('')
-        joinStore.setStreams([])
-
-        // Clear previous events when topic changes
+        // Clear previous events when topic changes - we'll fetch new ones
         updateTopic({
           index: index,
           name: value,
@@ -73,7 +72,7 @@ export function TopicOffsetSelect({
         })
       }
     },
-    [topicValue, offsetValue, index, onTopicChange, invalidateTopicDependentState, joinStore, updateTopic],
+    [topicValue, offsetValue, index, onTopicChange, updateTopic],
   )
 
   // Enhanced offset change handler
@@ -127,9 +126,16 @@ export function TopicOffsetSelect({
         error={topicError}
         placeholder={topicPlaceholder}
         options={topicOptions}
-        readOnly={readOnly}
+        readOnly={disableTopicChange || readOnly} // ✅ Topic is disabled if in edit mode OR readOnly
         label="Source Topic"
         onRefresh={onRefreshTopics}
+        // ✅ Show tooltip when topic change is disabled in edit mode
+        {...(disableTopicChange && !readOnly
+          ? {
+              title:
+                'Topic cannot be changed when editing a pipeline. To use a different topic, create a new pipeline.',
+            }
+          : {})}
       />
       {topicValue && (
         <OffsetSelect
@@ -140,7 +146,7 @@ export function TopicOffsetSelect({
           error={offsetError}
           placeholder={offsetPlaceholder}
           options={offsetOptions}
-          readOnly={readOnly || isLoadingEvent}
+          readOnly={readOnly || isLoadingEvent} // ✅ Offset can still be changed in edit mode
           label="Initial Offset"
         />
       )}

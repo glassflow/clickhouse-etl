@@ -25,6 +25,7 @@ async function PipelinePage({
   // For real API mode without special parameters, use SSR
   try {
     const pipeline = await getPipeline(id)
+
     return <PipelineDetailsModule pipeline={pipeline} />
   } catch (error) {
     console.error('Failed to fetch pipeline during SSR:', error)

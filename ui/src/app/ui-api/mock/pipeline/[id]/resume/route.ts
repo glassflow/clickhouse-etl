@@ -1,41 +1,71 @@
 import { NextResponse } from 'next/server'
-import { generateMockPipeline } from '@/src/utils/mock-api'
+import { canResume, simulateTransition, getPipelineConfig } from '@/src/app/ui-api/mock/data/mock-state'
 
+/**
+ * Mock resume pipeline endpoint
+ * POST /ui-api/mock/pipeline/[id]/resume
+ *
+ * Resumes a stopped or paused pipeline.
+ */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 200))
-
   const { id } = await params
 
-  if (!id || id.trim() === '') {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Pipeline ID is required',
-      },
-      { status: 400 },
-    )
-  }
+  try {
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Pipeline ID is required',
+        },
+        { status: 400 },
+      )
+    }
 
-  // Simulate 90% success rate for realistic testing
-  const isSuccess = Math.random() > 0.1
+    // Check if pipeline exists
+    const pipeline = getPipelineConfig(id)
+    if (!pipeline) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Pipeline with id ${id} does not exist`,
+        },
+        { status: 404 },
+      )
+    }
 
-  if (isSuccess) {
-    const mockPipeline = generateMockPipeline(id)
-    // Set state to active
-    mockPipeline.state = 'active'
+    // Validate if pipeline can be resumed
+    const validation = canResume(id)
+    if (!validation.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: validation.reason || 'Cannot resume pipeline',
+        },
+        { status: 400 },
+      )
+    }
+
+    console.log(`[Mock] Resuming pipeline: ${id}`)
+
+    // Simulate transitional state: Resuming -> Running
+    simulateTransition(id, 'Resuming', 'Running', 2000)
+
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 200))
 
     return NextResponse.json({
       success: true,
-      pipeline: mockPipeline,
+      message: `Pipeline ${id} resumed successfully`,
     })
-  } else {
+  } catch (error: any) {
+    console.error('Mock Resume Pipeline - Error:', error)
+
     return NextResponse.json(
       {
         success: false,
-        error: `Pipeline with id ${id} does not exist`,
+        error: `Failed to resume pipeline ${id}`,
       },
-      { status: 404 },
+      { status: 500 },
     )
   }
 }

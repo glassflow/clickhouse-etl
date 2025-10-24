@@ -5,6 +5,7 @@ import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { StepKeys } from '@/src/config/constants'
+import { compareEventSchemas } from '@/src/utils/common.client'
 
 interface UseTopicSelectionStateProps {
   index: number
@@ -54,6 +55,13 @@ export function useKafkaTopicSelectorState({
 
   // Use ref to track if we've already fetched for this topic/offset combination
   const lastFetchRef = useRef<{ topic: string; offset: string } | null>(null)
+
+  // ✅ Store original topic state when entering edit mode (before any changes)
+  // This is used for schema comparison to detect if schema actually changed
+  const originalTopicRef = useRef<{
+    name: string
+    event: any
+  } | null>(null)
 
   // Topic selection state
   const [topicName, setTopicName] = useState('')
@@ -121,7 +129,25 @@ export function useKafkaTopicSelectorState({
     if (effectiveReplicas && effectiveReplicas !== replicas) {
       setReplicas(effectiveReplicas)
     }
-  }, [effectiveTopicName, effectiveOffset, effectiveReplicas, topicName, offset, replicas])
+    // ✅ CRITICAL FIX: Initialize state.event with existing event from store
+    // This ensures that in edit mode, we have the event data available
+    if (effectiveEvent && !state.event) {
+      console.log('[Topic Init] Loading existing event from store into state')
+      setState((prev) => ({
+        ...prev,
+        event: effectiveEvent,
+      }))
+    }
+    // ✅ CRITICAL FIX: Capture original topic state when first loading in edit mode
+    // This preserves the "before" state for schema comparison even if user changes topics
+    if (effectiveTopicName && effectiveEvent && !originalTopicRef.current) {
+      originalTopicRef.current = {
+        name: effectiveTopicName,
+        event: effectiveEvent,
+      }
+      console.log('[Topic Init] Captured original topic state for comparison:', effectiveTopicName)
+    }
+  }, [effectiveTopicName, effectiveOffset, effectiveReplicas, effectiveEvent, topicName, offset, replicas, state.event])
 
   // Validate manual event - enable continue button only if the manual event is valid
   useEffect(() => {
@@ -635,6 +661,63 @@ export function useKafkaTopicSelectorState({
       return
     }
 
+    // ✅ CRITICAL FIX: Use original topic state for comparison, not current store
+    // The store gets overwritten when user selects a different topic, so we can't rely on it
+    // Instead, use the originalTopicRef which was captured when entering edit mode
+    const previousTopicName = originalTopicRef.current?.name || topicsStore.topics[index]?.name
+    let previousEvent = originalTopicRef.current?.event || topicsStore.topics[index]?.selectedEvent?.event
+
+    console.log('[Topic Submit] Comparison sources:', {
+      usingOriginalRef: !!originalTopicRef.current,
+      originalTopicName: originalTopicRef.current?.name,
+      currentTopicName: topicName,
+      hasOriginalEvent: !!originalTopicRef.current?.event,
+    })
+
+    // ✅ FALLBACK: If previousEvent doesn't exist but finalEvent does,
+    // AND the topic name hasn't changed, use finalEvent as previous
+    // (they're the same since we're just changing metadata for the same topic)
+    // NOTE: Don't apply this fallback if topic name changed - we need to compare different events!
+    if (!previousEvent && finalEvent && topicName === previousTopicName) {
+      previousEvent = finalEvent
+      console.log(
+        '[Topic Submit] 🔄 FALLBACK: No previous event, using current event as previous (same topic, metadata-only change)',
+      )
+    } else if (!previousEvent && finalEvent && topicName !== previousTopicName) {
+      // Topic name changed but no previous event - this means first time selecting a topic
+      // Don't set previousEvent, let it stay undefined so PATH 1 invalidates
+      console.log(
+        '[Topic Submit] ⚠️ Topic changed and no previous event - will invalidate (first time or new topic selection)',
+      )
+    }
+
+    // ✅ FALLBACK 2: If we don't have a new event (e.g., just changing replica count without fetching new event),
+    // use the original event for comparison
+    // This prevents false invalidation when only metadata (replicas, etc.) changes
+    if (!finalEvent && previousEvent) {
+      finalEvent = previousEvent
+      console.log('[Topic Submit] 🔄 FALLBACK 2: No new event, using original event (metadata-only change)')
+      console.log('[Topic Submit] Event keys:', Object.keys(finalEvent).slice(0, 10))
+    } else if (!finalEvent && !previousEvent) {
+      console.warn('[Topic Submit] ⚠️ Neither finalEvent nor previousEvent exists!')
+    } else if (finalEvent) {
+      console.log('[Topic Submit] ✓ FinalEvent exists, using it for comparison')
+      console.log('[Topic Submit] Source: state.event?', !!state.event, 'manualEvent?', !!manualEvent)
+    }
+
+    console.log('[Topic Submit] Current state:', {
+      topicName,
+      previousTopicName,
+      topicChanged: topicName !== previousTopicName,
+      replicas,
+      previousReplicas: topicsStore.topics[index]?.replicas,
+      hasFinalEvent: !!finalEvent,
+      hasPreviousEvent: !!previousEvent,
+      finalEventKeys: finalEvent ? Object.keys(finalEvent).length : 0,
+      previousEventKeys: previousEvent ? Object.keys(previousEvent).length : 0,
+      sameEventObject: finalEvent === previousEvent, // Check if they're the same reference
+    })
+
     // Create final topic data
     const topicData = {
       index,
@@ -675,45 +758,119 @@ export function useKafkaTopicSelectorState({
     topicsStore.updateTopic(topicData)
     deduplicationStore.updateDeduplication(index, deduplicationData)
 
-    // DEFERRED INVALIDATION: Now that changes are saved, invalidate dependent sections
-    // This ensures invalidation only happens after changes are actually persisted
+    // SMART INVALIDATION: Only invalidate dependent sections if schema actually changed
+    // This prevents unnecessary invalidation when:
+    // - Replica count changes
+    // - Offset changes (earliest/latest) but schema is the same
+    // - Event selection changes but schema is the same
+    // - Even topic name changes but schema is the same
 
-    // Clear join store when topic changes (deferred until save)
-    joinStore.setEnabled(false)
-    joinStore.setType('')
-    joinStore.setStreams([])
+    // Determine if we need to invalidate dependent sections
+    let shouldInvalidate = false
+    let invalidationReason = ''
 
-    // Invalidate dependent state (deferred until save)
-    // topicsStore.invalidateTopicDependentState(index)
-
-    // Trigger validation engine to invalidate dependent sections
-    // Use string matching instead of exact StepKeys comparison since actual values are different
-    if (currentStep === 'topic-selection-1' || currentStep === StepKeys.TOPIC_SELECTION_1) {
-      validationEngine.invalidateSection(StepKeys.DEDUPLICATION_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
-    } else if (currentStep === 'topic-selection-2' || currentStep === StepKeys.TOPIC_SELECTION_2) {
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
-    } else if (
-      currentStep === 'topic-deduplication-configurator-1' ||
-      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1
-    ) {
-      // For deduplication configurator, also invalidate join configurator since topic selection affects join
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic deduplication changed')
-    } else if (
-      currentStep === 'topic-deduplication-configurator-2' ||
-      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-    ) {
-      // For deduplication configurator, also invalidate join configurator since topic selection affects join
-      validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic deduplication changed')
+    if (!previousEvent) {
+      // No previous event - first time selecting event, always invalidate
+      shouldInvalidate = true
+      invalidationReason = 'First event selection'
+      console.log('[Topic Submit] ⚠️ PATH 1: No previous event found, invalidating dependent sections')
+    } else if (!finalEvent) {
+      // No current event - this shouldn't happen now with our fallback, but handle it
+      shouldInvalidate = true
+      invalidationReason = 'Missing current event'
+      console.error(
+        '[Topic Submit] ⚠️ PATH 2: No current event found (THIS SHOULD NOT HAPPEN!), invalidating dependent sections',
+      )
+      console.error('[Topic Submit] Debug: previousEvent exists?', !!previousEvent, 'finalEvent exists?', !!finalEvent)
     } else {
-      // Fallback: always invalidate join and clickhouse for any topic selection
-      if (currentStep && (currentStep.includes('topic-selection') || currentStep.includes('topic-deduplication'))) {
-        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, 'Topic selection changed')
-        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Topic selection changed')
+      // Compare schemas to decide - this handles ALL cases:
+      // - Same topic, different event/offset
+      // - Same topic, different replica count
+      // - Different topic name (but potentially same schema)
+      console.log('[Topic Submit] 🔍 PATH 3: Comparing schemas...')
+      console.log(
+        '[Topic Submit] Previous event sample:',
+        previousEvent ? Object.keys(previousEvent).slice(0, 5) : 'none',
+      )
+      console.log('[Topic Submit] Final event sample:', finalEvent ? Object.keys(finalEvent).slice(0, 5) : 'none')
+
+      const schemasMatch = compareEventSchemas(previousEvent, finalEvent)
+      console.log('[Topic Submit] Schema comparison result:', schemasMatch)
+
+      if (!schemasMatch) {
+        shouldInvalidate = true
+        invalidationReason =
+          topicName !== previousTopicName ? 'Topic changed and schema differs' : 'Event schema changed'
+        console.log(`[Topic Submit] ❌ Schemas differ, invalidating dependent sections. Reason: ${invalidationReason}`)
+      } else {
+        shouldInvalidate = false
+        if (topicName !== previousTopicName) {
+          console.log('[Topic Submit] ✅ Topic name changed but schema is identical, preserving dependent sections')
+        } else {
+          console.log('[Topic Submit] ✅ Schema unchanged, preserving dependent sections (offset/replica/event change)')
+        }
+      }
+    }
+
+    // Only invalidate if schema actually changed
+    if (shouldInvalidate) {
+      console.log('[Topic Submit] 🧹 Schema changed, invalidating dependent sections')
+
+      // ✅ Clear join store data when schema changes
+      joinStore.setEnabled(false)
+      joinStore.setType('')
+      joinStore.setStreams([])
+
+      // Note: We DON'T clear deduplication and mapping data here anymore
+      // because topic changes are now PREVENTED in edit mode (topic dropdown is disabled)
+      // This solves the issue where sections would disappear after clearing their data
+
+      // If user somehow changes topic during pipeline creation (not edit mode),
+      // the validation engine will mark sections as invalid (red borders)
+      // but the data remains, allowing user to review what needs to be updated
+
+      // ✅ Trigger validation engine to invalidate dependent sections (red borders only)
+      // Use string matching instead of exact StepKeys comparison since actual values are different
+      if (currentStep === 'topic-selection-1' || currentStep === StepKeys.TOPIC_SELECTION_1) {
+        validationEngine.invalidateSection(StepKeys.DEDUPLICATION_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else if (currentStep === 'topic-selection-2' || currentStep === StepKeys.TOPIC_SELECTION_2) {
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else if (
+        currentStep === 'topic-deduplication-configurator-1' ||
+        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1
+      ) {
+        // For deduplication configurator, also invalidate join configurator since topic selection affects join
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else if (
+        currentStep === 'topic-deduplication-configurator-2' ||
+        currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+      ) {
+        // For deduplication configurator, also invalidate join configurator since topic selection affects join
+        validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+        validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+      } else {
+        // Fallback: always invalidate join and clickhouse for any topic selection
+        if (currentStep && (currentStep.includes('topic-selection') || currentStep.includes('topic-deduplication'))) {
+          validationEngine.invalidateSection(StepKeys.JOIN_CONFIGURATOR, invalidationReason)
+          validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
+        }
+      }
+    } else {
+      console.log('[Topic Submit] ✅ Skipping invalidation - schema unchanged, preserving all dependent sections')
+    }
+
+    // ✅ Reset original topic reference after submit
+    // The next time user enters edit mode, we'll capture the new "original" state
+    // This ensures each edit session starts fresh
+    if (originalTopicRef.current) {
+      console.log('[Topic Submit] Resetting original topic reference for next edit session')
+      originalTopicRef.current = {
+        name: topicName,
+        event: finalEvent,
       }
     }
   }, [
@@ -731,6 +888,8 @@ export function useKafkaTopicSelectorState({
     joinStore,
     validationEngine,
     currentStep,
+    replicas,
+    effectivePartitionCount,
   ])
 
   return {

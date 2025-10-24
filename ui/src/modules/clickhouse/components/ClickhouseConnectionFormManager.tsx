@@ -161,6 +161,19 @@ export const ClickhouseConnectionFormManager = ({
       return
     }
 
+    // In standalone mode (both create and edit), always test the connection
+    // Only save if the test succeeds
+    // The onTestConnection handler will save the data and close the modal on success
+    if (standalone) {
+      if (onTestConnection) {
+        await onTestConnection(values)
+        // Note: Don't close here - the success handler in ClickhouseConnectionContainer
+        // will save the data and close the modal only if connection test succeeds
+      }
+      return
+    }
+
+    // For non-standalone mode (regular pipeline creation flow)
     if (onTestConnection) {
       await onTestConnection(values)
     }
@@ -213,14 +226,24 @@ export const ClickhouseConnectionFormManager = ({
           onDiscard={handleDiscard}
           toggleEditMode={toggleEditMode}
           readOnly={readOnly}
-          isLoading={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
+          isLoading={
+            isConnecting ||
+            (pipelineActionState?.isLoading &&
+              (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit'))
+          }
           isSuccess={connectionResult?.success}
-          disabled={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
+          disabled={
+            isConnecting ||
+            (pipelineActionState?.isLoading &&
+              (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit'))
+          }
           successText="Continue"
           loadingText={
-            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
-              ? 'Pausing pipeline for editing...'
-              : 'Testing...'
+            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'stop'
+              ? 'Stopping pipeline for editing...'
+              : pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'edit'
+                ? 'Saving configuration...'
+                : 'Testing...'
           }
           regularText="Continue"
           actionType="primary"

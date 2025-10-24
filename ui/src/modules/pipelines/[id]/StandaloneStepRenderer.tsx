@@ -18,6 +18,8 @@ import { StepDataPreloader } from '@/src/components/StepDataPreloader'
 import { useEditConfirmationModal } from '../hooks'
 import EditConfirmationModal from '../components/EditConfirmationModal'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
+import { usePipelineState } from '@/src/hooks/usePipelineState'
+import { PipelineStatus } from '@/src/types/pipeline'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
@@ -30,11 +32,16 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
-  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
+
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
 
-  const { enterEditMode } = coreStore
+  const { enterEditMode, mode: globalMode } = coreStore
+
+  // Get centralized pipeline status
+  const centralizedStatus = usePipelineState(pipeline?.pipeline_id)
+  // Use centralized status if available, otherwise fall back to pipeline prop
+  const effectiveStatus = centralizedStatus || (pipeline?.status as PipelineStatus) || 'stopped'
 
   // Use the centralized pipeline actions hook for state management
   const { executeAction, actionState } = usePipelineActions(pipeline)
@@ -55,10 +62,8 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   useEffect(() => {
     if (stepKey) {
       setCurrentStep(stepKey)
-      // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
-      // Reset edit mode whenever step type changes
-      // setEditMode(pipeline?.status === 'active' ? false : true)
-      setEditMode(false) // Always stay in read-only mode
+      // Start in read-only mode - user must explicitly click Edit to enable editing
+      setEditMode(false)
     }
 
     if (stepKey === StepKeys.KAFKA_CONNECTION) {
@@ -151,55 +156,89 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     onClose()
   }
 
-  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
   // Handle edit mode toggle with confirmation for active pipelines
   const handleToggleEditMode = () => {
-    // Editing disabled for demo - do nothing
-    return
-    /* 
-    if (pipeline?.status === 'active' && !editMode) {
-      // For active pipelines, show confirmation modal before allowing edit
+    console.log('handleToggleEditMode called', {
+      pipelineStatus: pipeline?.status,
+      centralizedStatus,
+      effectiveStatus,
+      editMode,
+    })
+
+    if ((effectiveStatus === 'stopped' || effectiveStatus === 'terminated') && !editMode) {
+      // For stopped/terminated pipelines, enable edit mode immediately
+      setEditMode(true)
+
+      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+      // This prevents re-hydration which would overwrite unsaved changes from other sections
+      if (globalMode !== 'edit') {
+        console.log('[StandaloneStepRenderer] Entering edit mode for first time')
+        enterEditMode(pipeline)
+      } else {
+        console.log('[StandaloneStepRenderer] Already in global edit mode, preserving existing changes')
+      }
+    } else if ((effectiveStatus === 'active' || effectiveStatus === 'paused') && !editMode) {
+      // For active/paused pipelines, show confirmation modal before allowing edit
       const stepInfo = steps[stepKey]
       openEditConfirmationModal(pipeline, stepInfo)
+    } else if (
+      effectiveStatus === 'stopping' ||
+      effectiveStatus === 'pausing' ||
+      effectiveStatus === 'resuming' ||
+      effectiveStatus === 'terminating'
+    ) {
+      // For transitional states, show warning
+      console.warn('Edit mode not available while pipeline is in transitional state:', effectiveStatus)
     } else {
-      // For stopped pipelines or when exiting edit mode, toggle immediately
-      const next = !editMode
-      setEditMode(next)
-      if (next) {
-        // Enter edit mode context to hydrate and set operation type
-        enterEditMode(pipeline)
+      // For other cases (failed, etc), allow editing
+      console.warn('Edit mode requested for pipeline status:', effectiveStatus)
+      if (!editMode) {
+        setEditMode(true)
+
+        // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+        // This prevents re-hydration which would overwrite unsaved changes from other sections
+        if (globalMode !== 'edit') {
+          console.log('[StandaloneStepRenderer] Entering edit mode for first time')
+          enterEditMode(pipeline)
+        } else {
+          console.log('[StandaloneStepRenderer] Already in global edit mode, preserving existing changes')
+        }
       }
     }
-    */
   }
 
-  // TEMPORARILY DISABLED - EDIT FUNCTIONALITY DISABLED FOR DEMO
   // Handle edit confirmation using the centralized pipeline actions
   const handleEditConfirmation = async () => {
-    // Editing disabled for demo - do nothing
-    return
-    /*
     if (!selectedPipeline) return
 
     closeEditConfirmationModal()
 
     try {
       // Use the centralized pipeline actions to stop the pipeline
-      const result = await executeAction('stop')
+      // Backend requires pipeline to be stopped before editing
+      await executeAction('stop', { graceful: true })
 
-      if (result) {
-        // Update pipeline status locally
-        onPipelineStatusUpdate?.('stopped')
+      // Update pipeline status locally to stopped
+      onPipelineStatusUpdate?.('stopped')
 
-        // Now enable edit mode
-        setEditMode(true)
+      // Wait a bit for the stop action to propagate
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Now enable edit mode
+      setEditMode(true)
+
+      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+      // This prevents re-hydration which would overwrite unsaved changes from other sections
+      if (globalMode !== 'edit') {
+        console.log('[StandaloneStepRenderer] Entering edit mode after stopping pipeline')
         enterEditMode(pipeline)
+      } else {
+        console.log('[StandaloneStepRenderer] Already in global edit mode after stopping, preserving existing changes')
       }
     } catch (error) {
       console.error('Failed to stop pipeline for editing:', error)
       // Don't enable edit mode if stop failed
     }
-    */
   }
 
   // Show preloader if data is still loading or if there's an error
@@ -249,10 +288,11 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     validate: async () => true, // You might want to implement proper validation
     standalone: true,
     onCompleteStandaloneEditing: handleComplete,
-    readOnly: true, // TEMPORARILY FORCED TO TRUE - EDIT FUNCTIONALITY DISABLED FOR DEMO
+    readOnly: !editMode,
     toggleEditMode: handleToggleEditMode,
     // Pass pipeline action state for loading indicators
     pipelineActionState: actionState,
+    pipeline,
   }
 
   // Additional props for topic selector components
@@ -281,21 +321,20 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
                 : actionState.lastAction === 'rename'
                   ? 'Renaming pipeline...'
                   : actionState.lastAction === 'edit'
-                    ? 'Updating pipeline...'
+                    ? 'Saving pipeline configuration...'
                     : 'Processing...'
         }
       >
         <CurrentStepComponent {...extendedProps} />
       </StepRendererPageComponent>
 
-      {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
       {/* Edit Confirmation Modal */}
-      {/* <EditConfirmationModal
+      <EditConfirmationModal
         visible={isEditConfirmationModalVisible}
         onOk={handleEditConfirmation}
         onCancel={closeEditConfirmationModal}
         stepName={selectedStep?.title}
-      /> */}
+      />
     </>
   )
 }

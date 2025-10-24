@@ -97,6 +97,14 @@ export function ClickhouseConnectionContainer({
 
     setClickhouseConnection(newConnection)
 
+    // If in standalone edit mode, mark configuration as dirty
+    // This indicates changes need to be sent to backend when user clicks Resume
+    if (standalone && toggleEditMode) {
+      const { coreStore } = useStore.getState()
+      coreStore.markAsDirty()
+      console.log('[ClickhouseConnection] Configuration marked as dirty - changes will be saved on Resume')
+    }
+
     // Proceed to next step
     if (!standalone && onCompleteStep) {
       onCompleteStep(StepKeys.CLICKHOUSE_CONNECTION)

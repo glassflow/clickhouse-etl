@@ -1,9 +1,10 @@
-import SingleCard from './SingleColumnCard'
-import DoubleColumnCard from './DoubleColumnCard'
-import { StepType } from '../types'
+import SingleCard from '../SingleColumnCard'
+import DoubleColumnCard from '../DoubleColumnCard'
+import { StepType } from '../../types'
 import { StepKeys } from '@/src/config/constants'
-import SingleColumnCard from './SingleColumnCard'
+import SingleColumnCard from '../SingleColumnCard'
 import { useStore } from '@/src/store'
+import { detectTransformationType } from '@/src/types/pipeline'
 
 // covers the case where there is a single topic and no join for deduplication or ingest only
 const DeduplicationCase = ({
@@ -333,12 +334,48 @@ function TransformationSection({
   const totalSourceFields = tableMapping.length
   const totalDestinationColumns = tableMapping.length
 
+  // Compute transformation label using hydrated store first, fallback to raw pipeline
+  const getTransformationLabel = () => {
+    try {
+      const store = useStore.getState()
+      const joinEnabled = Boolean(
+        (store.joinStore?.enabled && (store.joinStore.streams?.length || 0) > 0) ||
+          (pipeline?.join?.enabled && (pipeline?.join?.sources?.length || 0) > 0),
+      )
+
+      const dedup0 = store.deduplicationStore?.getDeduplication?.(0)
+      const dedup1 = store.deduplicationStore?.getDeduplication?.(1)
+
+      const topic0 = pipeline?.source?.topics?.[0]
+      const topic1 = pipeline?.source?.topics?.[1]
+
+      const isDedup = (d: any, t: any) => {
+        const enabled = d?.enabled === true || t?.deduplication?.enabled === true
+        const key = (d?.key || t?.deduplication?.id_field || '').trim()
+        return enabled && key.length > 0
+      }
+
+      const leftDedup = isDedup(dedup0, topic0)
+      const rightDedup = isDedup(dedup1, topic1)
+
+      if (joinEnabled && leftDedup && rightDedup) return 'Join & Deduplication'
+      if (joinEnabled) return 'Join'
+
+      // Fallback to raw pipeline detection for single topic cases
+      return detectTransformationType(pipeline)
+    } catch {
+      return detectTransformationType(pipeline)
+    }
+  }
+
+  let sectionContent = null
+
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
     const topic = topics[0]
     const hasDedup = isDedup(dedup0, topic)
 
-    return (
+    sectionContent = (
       <DeduplicationCase
         topic={topic}
         hasDedup={hasDedup}
@@ -352,9 +389,8 @@ function TransformationSection({
       />
     )
   }
-
   // Join case
-  if (topics.length > 1 && hasJoin && !(leftTopicDeduplication && rightTopicDeduplication)) {
+  else if (topics.length > 1 && hasJoin && !(leftTopicDeduplication && rightTopicDeduplication)) {
     const leftSource = joinSources.find((s: any) => s.orientation === 'left')
     const rightSource = joinSources.find((s: any) => s.orientation === 'right')
 
@@ -379,8 +415,8 @@ function TransformationSection({
   }
 
   // Join & Deduplication case
-  if (topics.length > 1 && hasJoin && leftTopicDeduplication && rightTopicDeduplication) {
-    return (
+  else if (topics.length > 1 && hasJoin && leftTopicDeduplication && rightTopicDeduplication) {
+    sectionContent = (
       <JoinDeduplicationCase
         leftTopic={topics[0]}
         rightTopic={topics[1]}
@@ -398,21 +434,35 @@ function TransformationSection({
   }
 
   // Fallback case
+  else {
+    sectionContent = (
+      <div className="flex flex-col gap-4">
+        <SingleCard
+          label={['Configuration']}
+          value={[`${topics.length} topic(s), Join: ${hasJoin ? 'Yes' : 'No'}`]}
+          orientation="center"
+          width="full"
+          disabled={disabled}
+        />
+        <DoubleColumnCard
+          label={['Destination Table', 'Schema Mapping']}
+          value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
+          width="full"
+          disabled={disabled}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <SingleCard
-        label={['Configuration']}
-        value={[`${topics.length} topic(s), Join: ${hasJoin ? 'Yes' : 'No'}`]}
-        orientation="center"
-        width="full"
-        disabled={disabled}
-      />
-      <DoubleColumnCard
-        label={['Destination Table', 'Schema Mapping']}
-        value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
-        width="full"
-        disabled={disabled}
-      />
+    <div className="flex flex-col gap-4 w-3/5">
+      {/* Transformation */}
+      <div className="text-center">
+        <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
+          Transformation: {getTransformationLabel()}
+        </span>
+      </div>
+      {sectionContent}
     </div>
   )
 }

@@ -252,11 +252,13 @@ export const getActionButtonText = (action: PipelineAction, pipelineStatus: Pipe
 }
 
 export const shouldDisablePipelineOperation = (pipelineStatus: Pipeline['status']): boolean => {
-  // Only disable operations for truly inaccessible states
+  // Only disable section editing for states where the pipeline is being destroyed
+  // or is in a transitional state that prevents interaction
+  // Note: Stopped pipelines SHOULD allow editing - that's when configuration changes are made!
   return (
-    pipelineStatus === PIPELINE_STATUS_MAP.stopped ||
-    pipelineStatus === PIPELINE_STATUS_MAP.stopping ||
-    pipelineStatus === PIPELINE_STATUS_MAP.failed
+    pipelineStatus === PIPELINE_STATUS_MAP.terminating ||
+    pipelineStatus === PIPELINE_STATUS_MAP.terminated ||
+    pipelineStatus === PIPELINE_STATUS_MAP.stopping // Temporary state, wait for it to finish
   )
 }
 

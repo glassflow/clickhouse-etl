@@ -10,10 +10,12 @@ import TerminatePipelineModal from '@/src/modules/pipelines/components/Terminate
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import EditPipelineModal from '@/src/modules/pipelines/components/EditPipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
+import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
 import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
+import { useStore } from '@/src/store'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 import PlayIcon from '@/src/images/play.svg'
@@ -29,18 +31,30 @@ import StopWhiteIcon from '@/src/images/stop-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { cn } from '@/src/utils/common.client'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
   onPipelineUpdate?: (updatedPipeline: Pipeline) => void
   onPipelineDeleted?: () => void
   actions?: React.ReactNode
+  showHeader?: boolean
 }
 
-function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, actions }: PipelineDetailsHeaderProps) {
+function PipelineDetailsHeader({
+  pipeline,
+  onPipelineUpdate,
+  onPipelineDeleted,
+  actions,
+  showHeader = true,
+}: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
+  const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
+
+  // Get store to check for unsaved changes
+  const { coreStore } = useStore()
 
   // Get centralized pipeline status and operations
   const centralizedStatus = usePipelineState(pipeline.pipeline_id)
@@ -107,6 +121,46 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         if (action === 'stop') {
           operations.reportStop(pipeline.pipeline_id)
         } else if (action === 'resume') {
+          // Check if there are unsaved changes before resuming
+          const { coreStore } = useStore.getState()
+          if (coreStore.isDirty) {
+            // Generate and send updated configuration before resuming
+            const { generateApiConfig } = await import('@/src/modules/clickhouse/utils')
+            const {
+              kafkaStore,
+              topicsStore,
+              clickhouseConnectionStore,
+              clickhouseDestinationStore,
+              joinStore,
+              deduplicationStore,
+            } = useStore.getState()
+
+            const apiConfig = generateApiConfig({
+              pipelineId: coreStore.pipelineId,
+              pipelineName: coreStore.pipelineName,
+              setPipelineId: coreStore.setPipelineId,
+              clickhouseConnection: clickhouseConnectionStore.clickhouseConnection,
+              clickhouseDestination: clickhouseDestinationStore.clickhouseDestination,
+              selectedTopics: Object.values(topicsStore.topics || {}),
+              getMappingType: (eventField: string, mapping: any) => {
+                const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
+                if (mappingEntry) {
+                  return mappingEntry.jsonType
+                }
+                return 'string'
+              },
+              joinStore,
+              kafkaStore,
+              deduplicationStore,
+            })
+
+            // Send edit request to backend
+            await executeAction('edit', apiConfig)
+
+            // Mark as clean after successful save
+            coreStore.markAsClean()
+          }
+
           operations.reportResume(pipeline.pipeline_id)
         } else if (action === 'terminate') {
           operations.reportTerminate(pipeline.pipeline_id)
@@ -142,12 +196,29 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   const handleDownloadClick = async () => {
+    // Check for unsaved changes
+    if (coreStore.isDirty) {
+      // Show warning modal if there are unsaved changes
+      setShowDownloadWarningModal(true)
+      return
+    }
+
+    // No unsaved changes, proceed with download
+    await proceedWithDownload()
+  }
+
+  const proceedWithDownload = async () => {
     try {
       await downloadPipelineConfig(pipeline)
+      setShowDownloadWarningModal(false) // Close modal if it was open
     } catch (error) {
       console.error('Failed to download pipeline configuration:', error)
       // You could add a toast notification here to show the error to the user
     }
+  }
+
+  const handleDownloadWarningCancel = () => {
+    setShowDownloadWarningModal(false)
   }
 
   const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
@@ -428,8 +499,10 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
           variant="outline"
           onClick={() => handleDownloadClick()}
           disabled={false}
-          className={`group btn-action`}
-          title={`Download configuration`}
+          className={`group btn-action relative`}
+          title={
+            coreStore.isDirty ? 'Unsaved changes will not be included in downloaded config' : 'Download configuration'
+          }
         >
           <div className="flex items-center gap-3">
             <Image
@@ -439,6 +512,11 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
               height={16}
               className="filter brightness-100 group-hover:brightness-0"
             />
+            {coreStore.isDirty && (
+              <Badge variant="warning" className="ml-1 px-1.5 py-0.5 text-[10px] leading-none" title="Unsaved changes">
+                ⚠️
+              </Badge>
+            )}
           </div>
           Download config
         </Button>
@@ -447,7 +525,12 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
   }
 
   return (
-    <>
+    <div
+      className={cn(
+        'flex flex-col gap-4 transition-all duration-750 ease-out',
+        showHeader ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+      )}
+    >
       <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2">
@@ -531,6 +614,13 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         onCancel={handleModalCancel}
       />
 
+      {/* Unsaved Changes Download Warning Modal */}
+      <UnsavedChangesDownloadModal
+        visible={showDownloadWarningModal}
+        onOk={proceedWithDownload}
+        onCancel={handleDownloadWarningCancel}
+      />
+
       {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
       {/* Edit Modal */}
       {/* <EditPipelineModal
@@ -551,7 +641,7 @@ function PipelineDetailsHeader({ pipeline, onPipelineUpdate, onPipelineDeleted, 
         }}
         onCancel={handleModalCancel}
       />
-    </>
+    </div>
   )
 }
 
