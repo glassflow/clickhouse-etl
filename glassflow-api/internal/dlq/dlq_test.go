@@ -2,11 +2,17 @@
 package dlq
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	natsServer "github.com/nats-io/nats-server/v2/server"
+	natsTest "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -252,4 +258,359 @@ func TestGetDLQState_ValidationErrors(t *testing.T) {
 	_, err := client.GetDLQState(t.Context(), "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "stream name cannot be empty")
+}
+
+func TestClient_GetDLQState(t *testing.T) {
+	opts := &natsServer.Options{
+		Host:      "127.0.0.1",
+		Port:      -1, // Random port
+		NoLog:     true,
+		NoSigs:    true,
+		JetStream: true,
+	}
+
+	start := time.Now()
+	ns := natsTest.RunServer(opts)
+	defer func() {
+		fmt.Println(time.Since(start).Seconds())
+	}()
+
+	defer ns.Shutdown()
+
+	natsURL := ns.ClientURL()
+
+	natsClient, err := client.NewNATSClient(context.Background(), natsURL)
+	require.NoError(t, err)
+	defer natsClient.Close()
+
+	js := natsClient.JetStream()
+
+	type args struct {
+		ctx        context.Context
+		streamName string
+		setup      func(t *testing.T, js jetstream.JetStream, streamName string)
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    func(t *testing.T, state models.DLQState)
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "success with messages in stream",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "test-stream-with-messages",
+				setup: func(t *testing.T, js jetstream.JetStream, streamName string) {
+					// Create stream
+					_, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
+						Name:     streamName,
+						Subjects: []string{streamName + ".failed"},
+					})
+					require.NoError(t, err)
+
+					// Publish some messages to the stream
+					for i := 0; i < 5; i++ {
+						_, err := js.Publish(context.Background(), streamName+".failed", []byte(fmt.Sprintf("test message %d", i)))
+						require.NoError(t, err)
+					}
+
+					// Create consumer to consume some messages
+					consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamName, jetstream.ConsumerConfig{
+						Name:          streamName + "-consumer",
+						Durable:       streamName + "-consumer",
+						AckPolicy:     jetstream.AckAllPolicy,
+						FilterSubject: streamName + ".failed",
+					})
+					require.NoError(t, err)
+
+					// Consume and acknowledge 2 messages
+					msgs, err := consumer.Fetch(2)
+					require.NoError(t, err)
+					for msg := range msgs.Messages() {
+						err := msg.Ack()
+						require.NoError(t, err)
+					}
+				},
+			},
+			want: func(t *testing.T, state models.DLQState) {
+				assert.NotNil(t, state.LastReceivedAt)
+				assert.NotNil(t, state.LastConsumedAt)
+				assert.Equal(t, uint64(5), state.TotalMessages)
+				assert.Equal(t, uint64(3), state.UnconsumedMessages) // 5 total - 2 consumed = 3 unconsumed
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "success with empty stream",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "test-stream-empty",
+				setup: func(t *testing.T, js jetstream.JetStream, streamName string) {
+					// Create stream without any messages
+					_, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
+						Name:     streamName,
+						Subjects: []string{streamName + ".failed"},
+					})
+					require.NoError(t, err)
+				},
+			},
+			want: func(t *testing.T, state models.DLQState) {
+				assert.Equal(t, uint64(0), state.TotalMessages)
+				assert.Equal(t, uint64(0), state.UnconsumedMessages)
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "error when stream does not exist",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "non-existent-stream",
+				setup:      func(t *testing.T, js jetstream.JetStream, streamName string) {},
+			},
+			want: func(t *testing.T, state models.DLQState) {
+				// Expect zero value
+				assert.Equal(t, models.DLQState{}, state)
+			},
+			wantErr: assert.Error,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Run setup for this test case
+			tt.args.setup(t, js, tt.args.streamName)
+			// Cleanup after test
+			defer func() {
+				_ = js.DeleteStream(context.Background(), tt.args.streamName)
+			}()
+
+			c := &Client{
+				jetstreamClient: js,
+			}
+			got, err := c.GetDLQState(tt.args.ctx, tt.args.streamName)
+			if !tt.wantErr(t, err, fmt.Sprintf("GetDLQState(%v, %v)", tt.args.ctx, tt.args.streamName)) {
+				return
+			}
+			tt.want(t, got)
+		})
+	}
+}
+
+func TestClient_FetchDLQMessages(t *testing.T) {
+	opts := &natsServer.Options{
+		Host:      "127.0.0.1",
+		Port:      -1, // Random port
+		NoLog:     true,
+		NoSigs:    true,
+		JetStream: true,
+	}
+
+	start := time.Now()
+	ns := natsTest.RunServer(opts)
+	defer func() {
+		fmt.Println(time.Since(start).Seconds())
+	}()
+
+	defer ns.Shutdown()
+
+	natsURL := ns.ClientURL()
+
+	natsClient, err := client.NewNATSClient(context.Background(), natsURL)
+	require.NoError(t, err)
+	defer natsClient.Close()
+
+	js := natsClient.JetStream()
+
+	type args struct {
+		ctx        context.Context
+		streamName string
+		batchSize  int
+		setup      func(t *testing.T, js jetstream.JetStream, streamName string)
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    func(t *testing.T, messages []models.DLQMessage)
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "success with multiple DLQ messages",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "test-stream-fetch-messages",
+				batchSize:  3,
+				setup: func(t *testing.T, js jetstream.JetStream, streamName string) {
+					// Create stream
+					_, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
+						Name:     streamName,
+						Subjects: []string{streamName + ".failed"},
+					})
+					require.NoError(t, err)
+
+					// Create DLQ messages
+					dlqMsg1 := models.DLQMessage{
+						Component:       "component1",
+						Error:           "error1",
+						OriginalMessage: models.NewOriginalMessage([]byte("data1")),
+					}
+					dlqMsg2 := models.DLQMessage{
+						Component:       "component2",
+						Error:           "error2",
+						OriginalMessage: models.NewOriginalMessage([]byte("data2")),
+					}
+					dlqMsg3 := models.DLQMessage{
+						Component:       "component3",
+						Error:           "error3",
+						OriginalMessage: models.NewOriginalMessage([]byte("data3")),
+					}
+
+					// Publish DLQ messages to the stream
+					for _, dlqMsg := range []models.DLQMessage{dlqMsg1, dlqMsg2, dlqMsg3} {
+						data, err := json.Marshal(dlqMsg)
+						require.NoError(t, err)
+						_, err = js.Publish(context.Background(), streamName+".failed", data)
+						require.NoError(t, err)
+					}
+				},
+			},
+			want: func(t *testing.T, messages []models.DLQMessage) {
+				assert.Len(t, messages, 3)
+				assert.Equal(t, "component1", messages[0].Component)
+				assert.Equal(t, "error1", messages[0].Error)
+				assert.Equal(t, models.NewOriginalMessage([]byte("data1")), messages[0].OriginalMessage)
+				assert.Equal(t, "component2", messages[1].Component)
+				assert.Equal(t, "error2", messages[1].Error)
+				assert.Equal(t, models.NewOriginalMessage([]byte("data2")), messages[1].OriginalMessage)
+				assert.Equal(t, "component3", messages[2].Component)
+				assert.Equal(t, "error3", messages[2].Error)
+				assert.Equal(t, models.NewOriginalMessage([]byte("data3")), messages[2].OriginalMessage)
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "success with batch size smaller than available messages",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "test-stream-fetch-partial",
+				batchSize:  2,
+				setup: func(t *testing.T, js jetstream.JetStream, streamName string) {
+					// Create stream
+					_, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
+						Name:     streamName,
+						Subjects: []string{streamName + ".failed"},
+					})
+					require.NoError(t, err)
+
+					// Publish 5 messages but only fetch 2
+					for i := 0; i < 5; i++ {
+						dlqMsg := models.DLQMessage{
+							Component:       fmt.Sprintf("component%d", i),
+							Error:           fmt.Sprintf("error%d", i),
+							OriginalMessage: models.NewOriginalMessage([]byte(fmt.Sprintf("data%d", i))),
+						}
+						data, err := json.Marshal(dlqMsg)
+						require.NoError(t, err)
+						_, err = js.Publish(context.Background(), streamName+".failed", data)
+						require.NoError(t, err)
+					}
+				},
+			},
+			want: func(t *testing.T, messages []models.DLQMessage) {
+				assert.Len(t, messages, 2)
+				assert.Equal(t, "component0", messages[0].Component)
+				assert.Equal(t, "component1", messages[1].Component)
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "error when stream is empty",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "test-stream-empty-fetch",
+				batchSize:  10,
+				setup: func(t *testing.T, js jetstream.JetStream, streamName string) {
+					// Create stream without any messages
+					_, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
+						Name:     streamName,
+						Subjects: []string{streamName + ".failed"},
+					})
+					require.NoError(t, err)
+				},
+			},
+			want: func(t *testing.T, messages []models.DLQMessage) {
+				assert.Nil(t, messages)
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+				return assert.ErrorIs(t, err, internal.ErrNoMessagesInDLQ, msgAndArgs...)
+			},
+		},
+		{
+			name: "error when stream does not exist",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "non-existent-stream-fetch",
+				batchSize:  10,
+				setup:      func(t *testing.T, js jetstream.JetStream, streamName string) {},
+			},
+			want: func(t *testing.T, messages []models.DLQMessage) {
+				assert.Nil(t, messages)
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+				return assert.ErrorIs(t, err, internal.ErrDLQNotExists, msgAndArgs...)
+			},
+		},
+		{
+			name: "success with single message",
+			args: args{
+				ctx:        context.Background(),
+				streamName: "test-stream-single-message",
+				batchSize:  10,
+				setup: func(t *testing.T, js jetstream.JetStream, streamName string) {
+					// Create stream
+					_, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
+						Name:     streamName,
+						Subjects: []string{streamName + ".failed"},
+					})
+					require.NoError(t, err)
+
+					// Publish one message
+					dlqMsg := models.DLQMessage{
+						Component:       "single-component",
+						Error:           "single-error",
+						OriginalMessage: models.NewOriginalMessage([]byte("single-data")),
+					}
+					data, err := json.Marshal(dlqMsg)
+					require.NoError(t, err)
+					_, err = js.Publish(context.Background(), streamName+".failed", data)
+					require.NoError(t, err)
+				},
+			},
+			want: func(t *testing.T, messages []models.DLQMessage) {
+				assert.Len(t, messages, 1)
+				assert.Equal(t, "single-component", messages[0].Component)
+				assert.Equal(t, "single-error", messages[0].Error)
+				assert.Equal(t, models.NewOriginalMessage([]byte("single-data")), messages[0].OriginalMessage)
+			},
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Run setup for this test case
+			tt.args.setup(t, js, tt.args.streamName)
+			// Cleanup after test
+			defer func() {
+				_ = js.DeleteStream(context.Background(), tt.args.streamName)
+			}()
+
+			c := &Client{
+				jetstreamClient: js,
+			}
+			got, err := c.FetchDLQMessages(tt.args.ctx, tt.args.streamName, tt.args.batchSize)
+			if !tt.wantErr(t, err, fmt.Sprintf("FetchDLQMessages(%v, %v, %v)", tt.args.ctx, tt.args.streamName, tt.args.batchSize)) {
+				return
+			}
+			tt.want(t, got)
+		})
+	}
 }
