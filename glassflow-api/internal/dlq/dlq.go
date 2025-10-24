@@ -13,12 +13,12 @@ import (
 )
 
 type Client struct {
-	js JetStreamClient
+	jetstreamClient jetstream.JetStream
 }
 
 func NewClient(natsClient *client.NATSClient) *Client {
 	return &Client{
-		js: NewJetStreamAdapter(natsClient.JetStream()),
+		jetstreamClient: natsClient.JetStream(),
 	}
 }
 
@@ -35,8 +35,8 @@ func (c *Client) getDurableConsumerConfig(stream string) jetstream.ConsumerConfi
 	}
 }
 
-func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize int) ([]models.DLQMessage, error) {
-	if stream == "" {
+func (c *Client) FetchDLQMessages(ctx context.Context, streamName string, batchSize int) ([]models.DLQMessage, error) {
+	if streamName == "" {
 		return nil, fmt.Errorf("stream name cannot be empty")
 	}
 	if batchSize <= 0 {
@@ -46,7 +46,7 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 		return nil, models.ErrDLQMaxBatchSize
 	}
 
-	s, err := c.js.Stream(ctx, stream)
+	stream, err := c.jetstreamClient.Stream(ctx, streamName)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return nil, internal.ErrDLQNotExists
@@ -54,12 +54,12 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 		return nil, fmt.Errorf("get dlq stream: %w", err)
 	}
 
-	dc, err := s.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(stream))
+	consumer, err := stream.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(streamName))
 	if err != nil {
 		return nil, fmt.Errorf("get message queue consumer: %w", err)
 	}
 
-	batch, err := dc.FetchNoWait(batchSize)
+	batch, err := consumer.FetchNoWait(batchSize)
 	if err != nil {
 		return nil, fmt.Errorf("fetch dlq message batch: %w", err)
 	}
@@ -100,12 +100,12 @@ func (c *Client) FetchDLQMessages(ctx context.Context, stream string, batchSize 
 	return dlqMsgs, nil
 }
 
-func (c *Client) GetDLQState(ctx context.Context, stream string) (zero models.DLQState, _ error) {
-	if stream == "" {
+func (c *Client) GetDLQState(ctx context.Context, streamName string) (zero models.DLQState, _ error) {
+	if streamName == "" {
 		return zero, fmt.Errorf("stream name cannot be empty")
 	}
 
-	s, err := c.js.Stream(ctx, stream)
+	stream, err := c.jetstreamClient.Stream(ctx, streamName)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return zero, internal.ErrDLQNotExists
@@ -113,25 +113,46 @@ func (c *Client) GetDLQState(ctx context.Context, stream string) (zero models.DL
 		return zero, fmt.Errorf("get dlq stream: %w", err)
 	}
 
-	sInfo, err := s.Info(ctx, jetstream.WithSubjectFilter(stream+".failed"))
+	streamInfo, err := stream.Info(ctx, jetstream.WithSubjectFilter(streamName+".failed"))
 	if err != nil {
 		return zero, fmt.Errorf("get dlq stream info: %w", err)
 	}
 
-	dc, err := s.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(stream))
+	consumer, err := stream.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(streamName))
 	if err != nil {
 		return zero, fmt.Errorf("get dlq durable consumer: %w", err)
 	}
 
-	dcInfo, err := dc.Info(ctx)
+	consumerInfo, err := consumer.Info(ctx)
 	if err != nil {
 		return zero, fmt.Errorf("get dlq consumer info: %w", err)
 	}
 
 	return models.DLQState{
-		LastReceivedAt:     &sInfo.State.LastTime,
-		LastConsumedAt:     dcInfo.Delivered.Last,
-		TotalMessages:      sInfo.State.Msgs,
-		UnconsumedMessages: dcInfo.NumPending,
+		LastReceivedAt:     &streamInfo.State.LastTime,
+		LastConsumedAt:     consumerInfo.Delivered.Last,
+		TotalMessages:      streamInfo.State.Msgs,
+		UnconsumedMessages: consumerInfo.NumPending,
 	}, nil
+}
+
+func (c *Client) PurgeDLQ(ctx context.Context, stream string) error {
+	if stream == "" {
+		return fmt.Errorf("stream name cannot be empty")
+	}
+
+	natsStream, err := c.jetstreamClient.Stream(ctx, stream)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			return internal.ErrDLQNotExists
+		}
+		return fmt.Errorf("get dlq stream: %w", err)
+	}
+
+	err = natsStream.Purge(ctx, jetstream.WithPurgeSubject(stream+".failed"))
+	if err != nil {
+		return fmt.Errorf("purge dlq stream: %w", err)
+	}
+
+	return nil
 }

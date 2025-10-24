@@ -16,7 +16,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
-	"github.com/nats-io/nats.go/jetstream"
 )
 
 type SinkTestSuite struct {
@@ -428,45 +427,6 @@ func (s *SinkTestSuite) CleanupResources() error {
 	return nil
 }
 
-func (s *SinkTestSuite) createNatsConsumer(streamName, subject, consumerName string) (jetstream.Consumer, error) {
-	js := s.natsClient.JetStream()
-	consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamName, jetstream.ConsumerConfig{
-		Name:          consumerName,
-		Durable:       consumerName,
-		FilterSubject: subject,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create or update nats consumer: %w", err)
-	}
-
-	return consumer, nil
-}
-
-func (s *SinkTestSuite) natsStreamSubjectHasNEvents(natsStream, natsSubject string, expectedCount int) error {
-	consumerName := "test-dlq-consumer"
-	consumer, err := s.createNatsConsumer(natsStream, natsSubject, consumerName)
-	if err != nil {
-		return fmt.Errorf("create nats consumer for DLQ: %w", err)
-	}
-
-	consumerInfo, err := consumer.Info(context.Background())
-	if err != nil {
-		return fmt.Errorf("get consumer info for DLQ: %w", err)
-	}
-
-	if consumerInfo.NumPending != uint64(expectedCount) {
-		return fmt.Errorf(
-			"expected %d DLQ events, got %d from stream %s, subject %s",
-			expectedCount,
-			consumerInfo.NumPending,
-			s.dlqStreamCfg.NatsStream,
-			s.dlqStreamCfg.NatsSubject,
-		)
-	}
-
-	return nil
-}
-
 func (s *SinkTestSuite) dlqHasNEvents(expectedCount int) error {
 	return s.natsStreamSubjectHasNEvents(s.dlqStreamCfg.NatsStream, s.dlqStreamCfg.NatsSubject, expectedCount)
 }
@@ -505,6 +465,7 @@ func (s *SinkTestSuite) allMessagesAreProcessed() error {
 }
 
 func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
+	logElapsedTime(sc)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, s.aRunningNATSJetStream)
 	sc.Step(`^a stream consumer with config$`, s.aStreamConsumerConfig)
 	sc.Step(`^a ClickHouse client with db "([^"]*)" and table "([^"]*)"$`, s.aClickHouseClientWithConfig)

@@ -36,13 +36,14 @@ func NewPlatformSteps() *PlatformSteps {
 	}
 }
 
-func (p *PlatformSteps) RegisterSteps(ctx *godog.ScenarioContext) {
-	ctx.Given(`^a running glassflow API server with local orchestrator$`, p.aRunningGlassflowAPIServerWithLocalOrchestrator)
-	ctx.Given(`^a running glassflow API server with k8s orchestrator$`, p.aRunningGlassflowAPIServerWithK8sOrchestrator)
-	ctx.When(`^I send a GET request to "([^"]*)"$`, p.iSendAGETRequestTo)
-	ctx.Then(`^the response status should be (\d+)$`, p.theResponseStatusShouldBe)
-	ctx.Then(`^the response should contain JSON:$`, p.theResponseShouldContainJSON)
-	ctx.Then(`^the response should have content type "([^"]*)"$`, p.theResponseShouldHaveContentType)
+func (p *PlatformSteps) RegisterSteps(sc *godog.ScenarioContext) {
+	logElapsedTime(sc)
+	sc.Given(`^a running glassflow API server with local orchestrator$`, p.aRunningGlassflowAPIServerWithLocalOrchestrator)
+	sc.Given(`^a running glassflow API server with k8s orchestrator$`, p.aRunningGlassflowAPIServerWithK8sOrchestrator)
+	sc.When(`^I send a GET request to "([^"]*)"$`, p.iSendAGETRequestTo)
+	sc.Then(`^the response status should be (\d+)$`, p.theResponseStatusShouldBe)
+	sc.Then(`^the response should contain JSON:$`, p.theResponseShouldContainJSON)
+	sc.Then(`^the response should have content type "([^"]*)"$`, p.theResponseShouldHaveContentType)
 }
 
 func (p *PlatformSteps) SetupResources() error {

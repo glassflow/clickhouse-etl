@@ -439,6 +439,7 @@ func (j *JoinTestSuite) CleanupResources() error {
 }
 
 func (j *JoinTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
+	logElapsedTime(sc)
 	sc.Step(`a "([^"]*)" stream consumer with config$`, j.aStreamConsumerConfig)
 
 	sc.Step(`^a running "([^"]*)" stream$`, j.aRunningStream)
