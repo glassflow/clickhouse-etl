@@ -59,8 +59,8 @@ Feature: Working with DLQ
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-3e00534f-test_topic",
-                            "output_stream_subject": "gf-3e00534f-test_topic.input"
+                            "output_stream_id": "gf-3e22534f-test_topic",
+                            "output_stream_subject": "gf-3e22534f-test_topic.input"
                         }
                     ]
                 },
@@ -78,26 +78,25 @@ Feature: Working with DLQ
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-3e00534f-test_topic",
-                    "nats_consumer_name": "gf-nats-si-3e00534f"
+                    "stream_id": "gf-3e22534f-test_topic",
+                    "nats_consumer_name": "gf-nats-si-3e22534f"
                 }
             }
             """
-    Then I publish a message to NATS stream "test_stream" with subject "test_subject"
+    Then I publish a message to NATS stream "gf-3e22534f-test_topic" with subject "gf-3e22534f-test_topic.input"
         """json
         {
-          "hello": "world"
+          "id": "123",
+          "name": "world"
         }
         """
-    Then I publish a message to NATS stream "test_stream" with subject "test_subject.failed"
-        """json
+    Then I publish a message to NATS stream "gf-d7fac70f-DLQ" with subject "gf-d7fac70f-DLQ.failed"
+    """json
         {
-          "hello": "world"
+          "id": "123",
+          "name": "world"
         }
         """
-    Then I publish a message to NATS stream "test_stream_2" with subject "test_subject.failed"
-        """json
-        {
-          "hello": "world"
-        }
-        """
+    Then I send a POST request to "/api/v1/pipeline/kafka-to-clickhouse-pipeline-dfadfbad-aeec-43a9-9870-b7d5ac993ae7/dlq/purge"
+    Then NATS stream "gf-3e22534f-test_topic" with subject "gf-3e22534f-test_topic.input" should contain 1 events
+    Then NATS stream "gf-d7fac70f-DLQ" with subject "gf-d7fac70f-DLQ.failed" should contain 0 events

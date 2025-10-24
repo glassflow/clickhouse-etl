@@ -321,31 +321,30 @@ func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context) error {
 
 	// 3. Check sink and shutdown sink runner
 	if d.sinkRunner != nil {
-
-		pipeline, err := d.getPipelineConfig(ctx)
-		if err != nil {
-			d.log.ErrorContext(ctx, "failed to get pipeline config for sink safety check", "error", err)
-			return fmt.Errorf("get pipeline config for sink safety check: %w", err)
-		}
-
-		// Wait for sink pending messages to clear
-		checkSinkFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
-			sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
-			sinkStreamName := pipeline.Sink.StreamID
-
-			err := d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
-			if err != nil {
-				d.log.ErrorContext(ctx, "sink consumer has pending messages", "sink_consumer", sinkConsumerName, "sink_stream", sinkStreamName, "error", err)
-				return fmt.Errorf("sink consumer: %w", err)
-			}
-
-			return nil
-		}
-		err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkSinkFunc, "sink")
-		if err != nil {
-			d.log.ErrorContext(ctx, "waiting for sink pending messages to clear failed", "error", err)
-			return fmt.Errorf("waiting for sink pending messages to clear failed: %w", err)
-		}
+		//pipeline, err := d.getPipelineConfig(ctx)
+		//if err != nil {
+		//	d.log.ErrorContext(ctx, "failed to get pipeline config for sink safety check", "error", err)
+		//	return fmt.Errorf("get pipeline config for sink safety check: %w", err)
+		//}
+		//
+		//// Wait for sink pending messages to clear
+		//checkSinkFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
+		//	sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
+		//	sinkStreamName := pipeline.Sink.StreamID
+		//
+		//	err := d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
+		//	if err != nil {
+		//		d.log.ErrorContext(ctx, "sink consumer has pending messages", "sink_consumer", sinkConsumerName, "sink_stream", sinkStreamName, "error", err)
+		//		return fmt.Errorf("sink consumer: %w", err)
+		//	}
+		//
+		//	return nil
+		//}
+		//err = d.waitForPendingMessagesToClear(context.Background(), pipeline, checkSinkFunc, "sink")
+		//if err != nil {
+		//	d.log.ErrorContext(ctx, "waiting for sink pending messages to clear failed", "error", err)
+		//	return fmt.Errorf("waiting for sink pending messages to clear failed: %w", err)
+		//}
 
 		d.log.Debug("shutting down sink runner")
 		d.sinkRunner.Shutdown()

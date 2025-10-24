@@ -505,6 +505,7 @@ func (s *SinkTestSuite) allMessagesAreProcessed() error {
 }
 
 func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
+	logElapsedTime(sc)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, s.aRunningNATSJetStream)
 	sc.Step(`^a stream consumer with config$`, s.aStreamConsumerConfig)
 	sc.Step(`^a ClickHouse client with db "([^"]*)" and table "([^"]*)"$`, s.aClickHouseClientWithConfig)

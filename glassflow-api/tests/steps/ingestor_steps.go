@@ -434,6 +434,7 @@ func (s *IngestorTestSuite) CleanupResources() error {
 }
 
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
+	logElapsedTime(sc)
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
 	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)

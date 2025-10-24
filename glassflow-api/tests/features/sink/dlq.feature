@@ -1,4 +1,4 @@
-@qwe
+@sink
 Feature: Clickhouse ETL sink dlq
 Given a running NATS instance
 And a running ClickHouse instance
