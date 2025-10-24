@@ -3,11 +3,14 @@ package kafka
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
-	"github.com/IBM/sarama"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/sasl"
+	"github.com/twmb/franz-go/pkg/sasl/plain"
+	"github.com/twmb/franz-go/pkg/sasl/scram"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -19,13 +22,13 @@ type Message struct {
 	Partition int32
 	Offset    int64
 
-	Key     []byte
-	Value   []byte
-	Headers []sarama.RecordHeader
+	Key   []byte
+	Value []byte
 }
 
 type MessageProcessor interface {
 	ProcessMessage(ctx context.Context, msg Message) error
+	ProcessBatch(ctx context.Context, batch MessageBatch) error
 }
 
 type Consumer interface {
@@ -33,226 +36,274 @@ type Consumer interface {
 	Close() error
 }
 
-func newConnectionConfig(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) *sarama.Config {
-	cfg := sarama.NewConfig()
-	cfg.Net.DialTimeout = internal.DefaultDialTimeout
-	cfg.ClientID = internal.ClientID
+type MessageBatch []Message
 
-	if conn.SASLUsername != "" {
-		cfg.Net.SASL.Enable = true
-		cfg.Net.SASL.Handshake = true
-		cfg.Net.SASL.User = conn.SASLUsername
-		cfg.Net.SASL.Password = conn.SASLPassword
-
-		switch conn.SASLMechanism {
-		case internal.MechanismSHA256:
-			//nolint: exhaustruct // optional config
-			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
-			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
-		case internal.MechanismSHA512:
-			//nolint: exhaustruct // optional config
-			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
-			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
-		case internal.MechanismKerberos:
-			// Kerberos/GSSAPI configuration
-			cfg.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
-			cfg.Net.SASL.GSSAPI.ServiceName = conn.KerberosServiceName
-			cfg.Net.SASL.GSSAPI.Realm = conn.KerberosRealm
-			cfg.Net.SASL.GSSAPI.Username = conn.SASLUsername
-
-			if conn.KerberosKeytab != "" {
-				// Use keytab authentication
-				keytabFile, err := createTempKeytabFile(conn.KerberosKeytab)
-				if err != nil {
-					slog.Error("Failed to create temporary keytab file", slog.Any("error", err))
-				}
-
-				slog.Debug("Using Kerberos keytab file for the authentication", slog.String("keytab_file_path", keytabFile))
-
-				cfg.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
-				cfg.Net.SASL.GSSAPI.KeyTabPath = keytabFile
-			} else if conn.SASLPassword != "" {
-				// Use password authentication
-				cfg.Net.SASL.GSSAPI.AuthType = sarama.KRB5_USER_AUTH
-				cfg.Net.SASL.GSSAPI.Password = conn.SASLPassword
-			}
-
-			if conn.KerberosConfig != "" {
-				krb5ConfigFile, err := createTempKerberosConfigFile(conn.KerberosConfig)
-				if err != nil {
-					slog.Error("Failed to create temporary krb5 config file", slog.Any("error", err))
-				}
-
-				slog.Debug("Using Kerberos configuration file", slog.String("config_file_path", krb5ConfigFile))
-
-				cfg.Net.SASL.GSSAPI.KerberosConfigPath = krb5ConfigFile
-			}
-		default:
-			cfg.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-		}
-	} else if conn.IAMEnable && conn.IAMRegion != "" {
-		cfg.Net.SASL.Enable = true
-		cfg.Net.SASL.Mechanism = sarama.SASLTypeOAuth
-		cfg.Net.SASL.TokenProvider = &MSKAccessTokenProvider{Region: conn.IAMRegion}
-	}
-
-	if cfg.Net.SASL.Enable && conn.SkipAuth {
-		cfg.Net.TLS.Enable = true
-		//nolint: exhaustruct, gosec // optional config, local testing
-		cfg.Net.TLS.Config = &tls.Config{
-			InsecureSkipVerify: conn.SkipAuth,
-		}
-	} else if tlsC, err := MakeTLSConfigFromStrings(conn.TLSCert, conn.TLSKey, conn.TLSRoot); tlsC != nil && err == nil {
-		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = tlsC
-	} else if conn.IAMEnable {
-		//nolint: exhaustruct // placeholder config
-		tlsConfig := tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = &tlsConfig
-	}
-	if conn.SASLTLSEnable {
-		cfg.Net.TLS.Enable = conn.SASLTLSEnable
-	}
-
-	if topic.ConsumerGroupInitialOffset == internal.InitialOffsetEarliest {
-		cfg.Consumer.Offsets.Initial = sarama.OffsetOldest
-	} else {
-		cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
-	}
-
-	return cfg
+type BatchConsumer struct {
+	client    *kgo.Client
+	topic     string
+	groupID   string
+	batchSize int
+	timeout   time.Duration
+	processor MessageProcessor
+	meter     *observability.Meter
+	log       *slog.Logger
+	cancel    context.CancelFunc
 }
 
 func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (Consumer, error) {
-	consumer, err := newGroupConsumer(conn, topic, log, meter)
+	client, err := kgo.NewClient(buildClientOptions(conn, topic)...)
 	if err != nil {
-		log.Error("failed to create group consumer", "topic", topic, "error", err)
-		return nil, fmt.Errorf("failed to create group consumer: %w", err)
-	}
-	return consumer, nil
-}
-
-type groupConsumer struct {
-	cGroup    sarama.ConsumerGroup
-	name      string
-	topicName string
-	cancel    context.CancelFunc
-	processor MessageProcessor
-	log       *slog.Logger
-	meter     *observability.Meter
-}
-
-func newGroupConsumer(connectionParams models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (Consumer, error) {
-	cfg := newConnectionConfig(connectionParams, topic)
-	cGroup, err := sarama.NewConsumerGroup(
-		connectionParams.Brokers,
-		topic.ConsumerGroupName,
-		cfg,
-	)
-	if err != nil {
-		log.Error("failed to create consumer group", "brokers", connectionParams.Brokers, "consumer_group", topic.ConsumerGroupName, "error", err)
-		return nil, fmt.Errorf("failed to create consumer group: %w", err)
+		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	consumer := &groupConsumer{ //nolint: exhaustruct // fields will be set later
-		cGroup:    cGroup,
-		name:      topic.ConsumerGroupName,
-		topicName: topic.Name,
+	return &BatchConsumer{
+		client:    client,
+		topic:     topic.Name,
+		groupID:   topic.ConsumerGroupName,
 		log:       log,
+		batchSize: internal.DefaultKafkaBatchSize,
+		timeout:   internal.DefaultKafkaBatchTimeout,
 		meter:     meter,
-	}
-
-	return consumer, nil
+		processor: nil,
+		cancel:    nil,
+	}, nil
 }
 
-func (c *groupConsumer) Start(ctx context.Context, processor MessageProcessor) error {
+func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) []kgo.Opt {
+	opts := []kgo.Opt{
+		kgo.SeedBrokers(conn.Brokers...),
+		kgo.ConsumerGroup(topic.ConsumerGroupName),
+		kgo.ConsumeTopics(topic.Name),
+		kgo.ClientID(internal.ClientID),
+
+		// Session configuration
+		kgo.SessionTimeout(time.Duration(internal.KafkaSessionTimeoutMs) * time.Millisecond),
+		kgo.HeartbeatInterval(time.Duration(internal.KafkaHeartbeatInterval) * time.Millisecond),
+
+		// Disable auto commit - we handle commits manually
+		kgo.DisableAutoCommit(),
+
+		// Fetch configuration
+		kgo.FetchMinBytes(internal.KafkaMinFetchBytes),
+		kgo.FetchMaxBytes(internal.KafkaMaxFetchBytes),
+		kgo.FetchMaxWait(internal.KafkaMaxWait),
+	}
+
+	// Set initial offset
+	if topic.ConsumerGroupInitialOffset == internal.InitialOffsetEarliest {
+		opts = append(opts, kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+	} else {
+		opts = append(opts, kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))
+	}
+
+	// Configure security
+	opts = append(opts, confugureAuth(conn)...)
+
+	return opts
+}
+
+func confugureAuth(conn models.KafkaConnectionParamsConfig) []kgo.Opt {
+	var opts []kgo.Opt
+	var auth sasl.Mechanism
+
+	if conn.SASLUsername != "" {
+		// SASL Authentication
+		switch conn.SASLMechanism {
+		case internal.MechanismSHA256:
+			auth = scram.Auth{
+				User: conn.SASLUsername,
+				Pass: conn.SASLPassword,
+			}.AsSha256Mechanism()
+		case internal.MechanismSHA512:
+			auth = scram.Auth{
+				User: conn.SASLUsername,
+				Pass: conn.SASLPassword,
+			}.AsSha512Mechanism()
+		default:
+			auth = plain.Auth{
+				User: conn.SASLUsername,
+				Pass: conn.SASLPassword,
+			}.AsMechanism()
+		}
+
+		opts = append(opts, kgo.SASL(auth))
+	} else {
+		// No authentication
+		return opts
+	}
+
+	if conn.SASLTLSEnable {
+		var tlsCfg *tls.Config
+		if tlsC, err := MakeTLSConfigFromStrings(conn.TLSCert, conn.TLSKey, conn.TLSRoot); tlsC != nil && err == nil {
+			tlsCfg = tlsC
+		}
+
+		if conn.SkipAuth {
+			tlsCfg.InsecureSkipVerify = true
+		}
+
+		kgo.DialTLSConfig(tlsCfg)
+
+		// TLS only (no SASL)
+		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
+	}
+
+	return opts
+}
+
+func (c *BatchConsumer) Start(ctx context.Context, processor MessageProcessor) error {
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.processor = processor
 
-	topics := []string{c.topicName}
+	c.log.Info("Starting Kafka consumer",
+		slog.String("topic", c.topic),
+		slog.String("group", c.groupID))
+
+	return c.consumeLoop(ctx)
+}
+
+func (c *BatchConsumer) consumeLoop(ctx context.Context) error {
+	c.log.Debug("Consuming messages in batch mode",
+		slog.String("topic", c.topic),
+		slog.String("group", c.groupID),
+		slog.Int("batchSize", c.batchSize),
+		slog.Duration("timeout", c.timeout))
+
+	batch := make(MessageBatch, 0, c.batchSize)
+	batchTimer := time.NewTimer(c.timeout)
+	defer batchTimer.Stop()
 
 	for {
-		if err := c.cGroup.Consume(ctx, topics, c); err != nil {
-			if errors.Is(err, sarama.ErrClosedConsumerGroup) {
-				return nil
-			}
-			c.log.ErrorContext(ctx, "failed to consume from kafka", "topics", topics, "error", err)
-			return fmt.Errorf("failed to consume from kafka: %w", err)
-		}
+		select {
+		case <-ctx.Done():
+			return c.processRemainingBatch(ctx, &batch)
 
-		if ctx.Err() != nil && !errors.Is(ctx.Err(), context.Canceled) {
-			return ctx.Err()
+		case <-batchTimer.C:
+			if err := c.processTimerBatch(ctx, &batch, batchTimer); err != nil {
+				return err
+			}
+
+		default:
+			if err := c.handleBatchMessages(ctx, &batch, batchTimer); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-func (c *groupConsumer) Close() error {
-	c.log.Info("Closing Kafka consumer group", "group", c.name)
+func (c *BatchConsumer) processRemainingBatch(ctx context.Context, batch *MessageBatch) error {
+	if len(*batch) > 0 {
+		return c.processBatch(ctx, *batch)
+	}
+	return nil
+}
+
+func (c *BatchConsumer) processTimerBatch(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
+	if len(*batch) > 0 {
+		if err := c.processBatch(ctx, *batch); err != nil {
+			return err
+		}
+		// Reset batch
+		*batch = (*batch)[:0]
+	}
+	timer.Reset(c.timeout)
+	return nil
+}
+
+func (c *BatchConsumer) handleBatchMessages(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
+	remainingCapacity := c.batchSize - len(*batch)
+	if remainingCapacity <= 0 {
+		return nil
+	}
+
+	// Poll for messages
+	fetches := c.client.PollFetches(ctx)
+	if errs := fetches.Errors(); len(errs) > 0 {
+		for _, err := range errs {
+			c.log.Error("Error fetching messages", slog.Any("error", err))
+		}
+		return nil
+	}
+
+	if fetches.Empty() {
+		return nil
+	}
+
+	// if records exists - convert and push to the batch
+	fetches.EachRecord(func(record *kgo.Record) {
+		if len(*batch) < c.batchSize {
+			message := c.convertRecord(record)
+			*batch = append(*batch, message)
+		}
+	})
+
+	// if batch is fill - perfrom processing
+	if len(*batch) >= c.batchSize {
+		if err := c.processBatch(ctx, *batch); err != nil {
+			return err
+		}
+		*batch = (*batch)[:0]
+		timer.Reset(c.timeout)
+	}
+
+	return nil
+}
+
+func (c *BatchConsumer) processBatch(ctx context.Context, batch MessageBatch) error {
+	if len(batch) == 0 {
+		return nil
+	}
+
+	err := c.processor.ProcessBatch(ctx, batch)
+	if err != nil {
+		c.log.Error("Batch processing failed",
+			slog.Any("error", err),
+			slog.Int("batchSize", len(batch)))
+		return fmt.Errorf("batch processing failed: %w", err)
+	}
+
+	err = c.commitBatch(ctx)
+	if err != nil {
+		return fmt.Errorf("batch processing failed on commit offsets: %w", err)
+	}
+
+	// Record Kafka read metric
+	if c.meter != nil {
+		c.meter.RecordKafkaRead(ctx, int64(len(batch)))
+	}
+
+	return nil
+}
+
+func (c *BatchConsumer) commitBatch(ctx context.Context) error {
+	if err := c.client.CommitUncommittedOffsets(ctx); err != nil {
+		c.log.Error("Failed to commit offsets", slog.Any("error", err))
+		return fmt.Errorf("failed to commit offsets: %w", err)
+	}
+	return nil
+}
+
+func (c *BatchConsumer) convertRecord(record *kgo.Record) Message {
+	return Message{
+		Topic:     record.Topic,
+		Partition: record.Partition,
+		Offset:    record.Offset,
+		Key:       record.Key,
+		Value:     record.Value,
+	}
+}
+
+func (c *BatchConsumer) Close() error {
+	c.log.Info("Closing Kafka consumer", slog.String("group", c.groupID))
+
 	if c.cancel != nil {
 		c.cancel()
 	}
-	if err := c.cGroup.Close(); err != nil {
-		c.log.Error("failed to close consumer group", "group", c.name, "error", err)
-		return fmt.Errorf("failed to close consumer group: %w", err)
-	}
+
+	// TODO: fix that
+	time.Sleep(internal.KafkaMaxWait)
+
+	c.client.Close()
+
 	return nil
-}
-
-func (c *groupConsumer) Setup(sarama.ConsumerGroupSession) error {
-	// This method is need for the compartibility with sarama.ConsumerGroupHandler interface.
-	return nil
-}
-
-func (c *groupConsumer) Cleanup(sarama.ConsumerGroupSession) error {
-	// This method is need for the compartibility with sarama.ConsumerGroupHandler interface.
-	return nil
-}
-
-func (c *groupConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	for {
-		select {
-		case message := <-claim.Messages():
-			if message == nil {
-				// Channel closed, exit gracefully
-				return nil
-			}
-
-			// Record Kafka read metric
-			if c.meter != nil {
-				c.meter.RecordKafkaRead(session.Context(), 1)
-			}
-
-			// Process message directly using the processor
-			if err := c.processor.ProcessMessage(session.Context(), Message{
-				Topic:     message.Topic,
-				Partition: message.Partition,
-				Offset:    message.Offset,
-				Key:       message.Key,
-				Value:     message.Value,
-				Headers:   convertSaramaToRecordHeaders(message.Headers),
-			}); err != nil {
-				c.log.ErrorContext(session.Context(), "Message processing failed", "error", err)
-				return fmt.Errorf("message processing failed: %w", err) // Exit consumer loop - this will cause restart
-			}
-
-			// Auto-commit on success
-			session.MarkMessage(message, "")
-
-		case <-session.Context().Done():
-			return nil
-		}
-	}
-}
-
-func convertSaramaToRecordHeaders(headers []*sarama.RecordHeader) []sarama.RecordHeader {
-	result := make([]sarama.RecordHeader, 0, len(headers))
-	for _, h := range headers {
-		if h != nil {
-			result = append(result, *h)
-		}
-	}
-	return result
 }

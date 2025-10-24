@@ -9,6 +9,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/synadia-io/orbit.go/jetstreamext"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
@@ -23,6 +24,7 @@ type Publisher interface {
 	Publish(ctx context.Context, msg []byte) error
 	GetSubject() string
 	PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts ...PublishOpt) error
+	PublishBatch(ctx context.Context, msgs []*nats.Msg) error
 }
 
 func WithUntilAck() PublishOpt {
@@ -102,6 +104,15 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 
 			retryDelay = min(time.Duration(float64(retryDelay)*1.5), internal.PublisherMaxRetryDelay)
 		}
+	}
+
+	return nil
+}
+
+func (p *NatsPublisher) PublishBatch(ctx context.Context, msgs []*nats.Msg) error {
+	_, err := jetstreamext.PublishMsgBatch(ctx, p.js, msgs)
+	if err != nil {
+		return fmt.Errorf("failed to publish message batch: %w", err)
 	}
 
 	return nil

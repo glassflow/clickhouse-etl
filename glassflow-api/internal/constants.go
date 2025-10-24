@@ -174,4 +174,28 @@ const (
 
 	// Kerberos GSSAPI Auth Mechanisms
 	MechanismKerberos = "GSSAPI"
+
+	// Kafka session timeout in milliseconds
+	KafkaSessionTimeoutMs = 60000
+
+	// Kafka heartbeat interval in milliseconds
+	KafkaHeartbeatInterval = 15000
+
+	// Kafka MinFetchBytes is the minimum amount of data the server should return for a fetch request.
+	KafkaMinFetchBytes = 102400
+
+	// Kafka MaxFetchBytes is the maximum amount of data the server should return for a fetch request.
+	KafkaMaxFetchBytes = 1048576
+
+	// KafkaMaxQueuedMessagesSize is the maximum number of messages that can be queued in the consumer
+	KafkaMaxMessagesInQueueSize = 1048576
+
+	// DefaultKafkaBatchTimeout is default delay of batch collection in kafka ingestor component
+	DefaultKafkaBatchTimeout = 200 * time.Microsecond
+
+	// DefaultKafkaBatchSize is default size of batch in kafka ingestor component
+	DefaultKafkaBatchSize = 10000
+
+	// KafkaMaxWait is the maximum time to wait for messages from Kafka
+	KafkaMaxWait = 100 * time.Millisecond
 )
