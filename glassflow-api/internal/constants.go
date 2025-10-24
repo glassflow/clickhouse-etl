@@ -171,4 +171,7 @@ const (
 	SinkDefaultBatchMaxDelayTime = 60 * time.Second
 	// SinkDefaultShutdownTimeout is the maximum time allowed for graceful shutdown and final batch flush.
 	SinkDefaultShutdownTimeout = 5 * time.Second
+
+	// Kerberos GSSAPI Auth Mechanisms
+	MechanismKerberos = "GSSAPI"
 )
