@@ -399,6 +399,7 @@ export const KafkaFormDefaultValues = {
       type: '',
       algorithm: '',
       certificates: '',
+      certificatesFileName: '',
     },
   },
   saslPlain: {
@@ -410,6 +411,7 @@ export const KafkaFormDefaultValues = {
       type: '',
       algorithm: '',
       certificates: '',
+      certificatesFileName: '',
     },
     consumerGroup: '',
   },
@@ -419,10 +421,12 @@ export const KafkaFormDefaultValues = {
   saslGssapi: {
     kerberosPrincipal: '',
     kerberosKeytab: '',
+    kerberosKeytabFileName: '',
     kerberosRealm: '',
     kdc: '',
     serviceName: 'kafka',
     krb5Config: '',
+    krb5ConfigFileName: '',
     useTicketCache: false,
     ticketCachePath: '',
     truststore: {
@@ -431,6 +435,7 @@ export const KafkaFormDefaultValues = {
       type: '',
       algorithm: '',
       certificates: '',
+      certificatesFileName: '',
     },
   },
   saslOauthbearer: {
@@ -445,6 +450,7 @@ export const KafkaFormDefaultValues = {
       type: '',
       algorithm: '',
       certificates: '',
+      certificatesFileName: '',
     },
     consumerGroup: '',
   },
@@ -457,6 +463,7 @@ export const KafkaFormDefaultValues = {
       type: '',
       algorithm: '',
       certificates: '',
+      certificatesFileName: '',
     },
     consumerGroup: '',
   },
