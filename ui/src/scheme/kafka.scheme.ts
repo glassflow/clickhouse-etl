@@ -9,27 +9,87 @@ const KafkaBaseFormSchema = z.object({
   bootstrapServers: z.string().min(1, 'Bootstrap servers are required'),
 })
 
-const SaslPlainFormSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
-  certificate: z.string().optional(),
-  consumerGroup: z.string().optional(),
+// Define Truststore schema first so it can be reused
+// When truststore is provided, certificates must be present
+const TruststoreFormSchema = z.object({
+  location: z.string().optional(), // Optional - for UI file path reference
+  password: z.string().optional(), // Optional - only needed for encrypted truststores
+  type: z.string().optional(), // Optional - JKS, PKCS12, etc.
+  algorithm: z.string().optional(), // Optional - for self-signed certificates
+  certificates: z.string().optional(), // Optional - but will be validated conditionally
+  certificatesFileName: z.string().optional(), // Store the filename for UI display
 })
 
-const NoAuthFormSchema = z.object({
-  certificate: z.string().optional(),
-})
+const SaslPlainFormSchema = z
+  .object({
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required'),
+    truststore: TruststoreFormSchema.optional(),
+    consumerGroup: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // If truststore exists and has any field set, certificates must be provided
+      if (data.truststore && Object.keys(data.truststore).length > 0) {
+        return data.truststore.certificates && data.truststore.certificates.length > 0
+      }
+      return true
+    },
+    {
+      message: 'Certificate is required when using SSL/TLS',
+      path: ['truststore', 'certificates'],
+    },
+  )
+
+const NoAuthFormSchema = z
+  .object({
+    truststore: TruststoreFormSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      // If truststore exists and has any field set, certificates must be provided
+      if (data.truststore && Object.keys(data.truststore).length > 0) {
+        return data.truststore.certificates && data.truststore.certificates.length > 0
+      }
+      return true
+    },
+    {
+      message: 'Certificate is required when using SSL/TLS',
+      path: ['truststore', 'certificates'],
+    },
+  )
 
 const SaslJaasFormSchema = z.object({
   jaasConfig: z.string().min(1, 'JAAS config is required'),
 })
 
-const SaslGssapiFormSchema = z.object({
-  kerberosPrincipal: z.string().min(1, 'Kerberos principal is required'),
-  kerberosKeytab: z.string().min(1, 'Kerberos keytab is required'),
-  kerberosRealm: z.optional(z.string().min(1, 'Kerberos realm is optional')),
-  kdc: z.optional(z.string().min(1, 'Kerberos KDC is optional')),
-})
+const SaslGssapiFormSchema = z
+  .object({
+    kerberosPrincipal: z.string().min(1, 'Kerberos principal is required'),
+    kerberosKeytab: z.string().min(1, 'Kerberos keytab is required'),
+    kerberosKeytabFileName: z.string().optional(), // Store the filename for UI display
+    kerberosRealm: z.string().min(1, 'Kerberos realm is required'),
+    kdc: z.string().min(1, 'Kerberos KDC is required'),
+    serviceName: z.string().min(1, 'Kerberos service name is required'),
+    krb5Config: z.string().min(1, 'Kerberos configuration is required'),
+    krb5ConfigFileName: z.string().optional(), // Store the filename for UI display
+    // useTicketCache: z.optional(z.boolean()),
+    // ticketCachePath: z.optional(z.string()),
+    truststore: TruststoreFormSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      // If truststore exists and has any field set, certificates must be provided
+      if (data.truststore && Object.keys(data.truststore).length > 0) {
+        return data.truststore.certificates && data.truststore.certificates.length > 0
+      }
+      return true
+    },
+    {
+      message: 'Certificate is required when using SSL/TLS',
+      path: ['truststore', 'certificates'],
+    },
+  )
 
 const SaslOauthbearerFormSchema = z.object({
   oauthBearerToken: z.string().min(1, 'OAuth bearer token is required'),
@@ -38,19 +98,47 @@ const SaslOauthbearerFormSchema = z.object({
   // clientSecret: z.string().min(1, 'Client secret is required'),
 })
 
-const SaslScram256FormSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
-  consumerGroup: z.string().optional(),
-  certificate: z.string().optional(),
-})
+const SaslScram256FormSchema = z
+  .object({
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required'),
+    truststore: TruststoreFormSchema.optional(),
+    consumerGroup: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // If truststore exists and has any field set, certificates must be provided
+      if (data.truststore && Object.keys(data.truststore).length > 0) {
+        return data.truststore.certificates && data.truststore.certificates.length > 0
+      }
+      return true
+    },
+    {
+      message: 'Certificate is required when using SSL/TLS',
+      path: ['truststore', 'certificates'],
+    },
+  )
 
-const SaslScram512FormSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
-  consumerGroup: z.string().optional(),
-  certificate: z.string().optional(),
-})
+const SaslScram512FormSchema = z
+  .object({
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required'),
+    truststore: TruststoreFormSchema.optional(),
+    consumerGroup: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // If truststore exists and has any field set, certificates must be provided
+      if (data.truststore && Object.keys(data.truststore).length > 0) {
+        return data.truststore.certificates && data.truststore.certificates.length > 0
+      }
+      return true
+    },
+    {
+      message: 'Certificate is required when using SSL/TLS',
+      path: ['truststore', 'certificates'],
+    },
+  )
 
 const DelegationTokensFormSchema = z.object({
   delegationToken: z.string().min(1, 'Delegation token is required'),
@@ -78,14 +166,6 @@ const MtlsFormSchema = z.object({
   clientCert: z.string().min(1, 'Client certificate is required'),
   clientKey: z.string().min(1, 'Client key is required'),
   password: z.string().min(1, 'Password is required'),
-})
-
-const TruststoreFormSchema = z.object({
-  location: z.string().min(1, 'Location is required'),
-  password: z.string().min(1, 'Password is required'),
-  type: z.string().min(1, 'Type is required'),
-  algorithm: z.string().min(1, 'Algorithm is required'),
-  certificates: z.string().min(1, 'Certificates are required'),
 })
 
 // First, define a base schema with the common fields
@@ -155,8 +235,7 @@ const KafkaConnectionFormSchema = z.discriminatedUnion('authMethod', [
   // NO_AUTH - Not actual auth method, it is used to avoid sending auth credentials to Kafka
   KafkaConnectionBaseSchema.extend({
     authMethod: z.literal('NO_AUTH'),
-    certificate: z.string().optional(),
-    // No additional fields needed for NO_AUTH
+    noAuth: NoAuthFormSchema,
   }),
 ])
 

@@ -50,4 +50,12 @@ export interface KafkaConnectionParams {
   password?: string
   oauthBearerToken?: string
   root_ca?: string
+  principal?: string
+  kerberosKeytab?: string
+  kerberosRealm?: string
+  kdc?: string
+  serviceName?: string
+  krb5Config?: string
+  useTicketCache?: boolean
+  ticketCachePath?: string
 }

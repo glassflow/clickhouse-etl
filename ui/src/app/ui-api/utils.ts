@@ -69,14 +69,27 @@ export function getKafkaConfig(requestBody: any) {
       break
 
     case 'SASL/GSSAPI':
-      const { kerberosPrincipal, kerberosKeytab, kerberosRealm, kdc } = requestBody
-      if (!kerberosPrincipal || !kerberosKeytab) {
+      const {
+        kerberosPrincipal,
+        kerberosKeytab,
+        kerberosRealm,
+        kdc,
+        serviceName,
+        krb5Config,
+        useTicketCache,
+        ticketCachePath,
+      } = requestBody
+      if (!kerberosPrincipal || !kerberosKeytab || !serviceName) {
         return { success: false, error: 'Missing required Kerberos parameters' }
       }
       kafkaConfig.kerberosPrincipal = kerberosPrincipal
       kafkaConfig.kerberosKeytab = kerberosKeytab
       if (kerberosRealm) kafkaConfig.kerberosRealm = kerberosRealm
       if (kdc) kafkaConfig.kdc = kdc
+      if (serviceName) kafkaConfig.serviceName = serviceName
+      if (krb5Config) kafkaConfig.krb5Config = krb5Config
+      if (useTicketCache) kafkaConfig.useTicketCache = useTicketCache
+      if (ticketCachePath) kafkaConfig.ticketCachePath = ticketCachePath
       break
 
     case 'SASL/OAUTHBEARER':
