@@ -17,6 +17,7 @@ const TruststoreFormSchema = z.object({
   type: z.string().optional(), // Optional - JKS, PKCS12, etc.
   algorithm: z.string().optional(), // Optional - for self-signed certificates
   certificates: z.string().optional(), // Optional - but will be validated conditionally
+  certificatesFileName: z.string().optional(), // Store the filename for UI display
 })
 
 const SaslPlainFormSchema = z
@@ -66,10 +67,12 @@ const SaslGssapiFormSchema = z
   .object({
     kerberosPrincipal: z.string().min(1, 'Kerberos principal is required'),
     kerberosKeytab: z.string().min(1, 'Kerberos keytab is required'),
+    kerberosKeytabFileName: z.string().optional(), // Store the filename for UI display
     kerberosRealm: z.string().min(1, 'Kerberos realm is required'),
     kdc: z.string().min(1, 'Kerberos KDC is required'),
     serviceName: z.string().min(1, 'Kerberos service name is required'),
     krb5Config: z.string().min(1, 'Kerberos configuration is required'),
+    krb5ConfigFileName: z.string().optional(), // Store the filename for UI display
     // useTicketCache: z.optional(z.boolean()),
     // ticketCachePath: z.optional(z.string()),
     truststore: TruststoreFormSchema.optional(),

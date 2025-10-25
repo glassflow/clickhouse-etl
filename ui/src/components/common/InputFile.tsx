@@ -10,6 +10,7 @@ export interface InputFileProps {
   allowedFileTypes: string[]
   onChange: (fileContent: string, fileName: string) => void
   value?: string
+  initialFileName?: string // Allow passing stored filename to display
   readType?: 'text' | 'base64'
   disabled?: boolean
   className?: string
@@ -35,6 +36,7 @@ export function InputFile({
   allowedFileTypes,
   onChange,
   value,
+  initialFileName,
   readType = 'text',
   disabled = false,
   className = '',
@@ -45,7 +47,7 @@ export function InputFile({
   hintText,
   externalError,
 }: InputFileProps) {
-  const [fileName, setFileName] = useState<string>('')
+  const [fileName, setFileName] = useState<string>(initialFileName || '')
   const [fileContent, setFileContent] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -134,12 +136,19 @@ export function InputFile({
     return validExtensions.map((accept) => `.${accept}`).join(',')
   }, [allowedFileTypes])
 
-  // Sync with external value
+  // Sync with external value and initialFileName
   useEffect(() => {
     if (value !== undefined && value !== fileContent) {
       setFileContent(value)
     }
   }, [value])
+
+  // Sync with initialFileName when it changes (e.g., when navigating back to the form)
+  useEffect(() => {
+    if (initialFileName !== undefined && initialFileName !== fileName && !fileContent) {
+      setFileName(initialFileName)
+    }
+  }, [initialFileName])
 
   // Notify parent of changes
   useEffect(() => {
@@ -165,7 +174,17 @@ export function InputFile({
         disabled={disabled || isLoading}
       />
 
-      <InputGroup className={cn('input-border-regular', displayError && 'input-border-error')}>
+      <InputGroup
+        className={cn(
+          'input-border-regular',
+          displayError && 'input-border-error',
+          // Override default InputGroup focus ring to remove it
+          'has-[[data-slot=input-group-control]:focus-visible]:!ring-0',
+          // Apply custom focus styling to match other form fields
+          'has-[[data-slot=input-group-control]:focus-visible]:!border-[var(--color-background-primary,#a5b9e4)]',
+          'has-[[data-slot=input-group-control]:focus-visible]:!shadow-[0_0_0_2px_rgba(165,185,228,0.25)]',
+        )}
+      >
         <InputGroupInput
           value={fileName}
           placeholder={placeholder}

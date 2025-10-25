@@ -125,6 +125,10 @@ export const SaslGssapiForm = ({
         shouldValidate: true,
         shouldDirty: true,
       })
+      setValue('saslGssapi.kerberosKeytabFileName', fileName, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
     } catch (error) {
       console.error('Error reading keytab file:', error)
     }
@@ -135,6 +139,10 @@ export const SaslGssapiForm = ({
     try {
       setValue('saslGssapi.krb5Config', fileContent, {
         shouldValidate: true,
+        shouldDirty: true,
+      })
+      setValue('saslGssapi.krb5ConfigFileName', fileName, {
+        shouldValidate: false,
         shouldDirty: true,
       })
     } catch (error) {
@@ -164,6 +172,7 @@ export const SaslGssapiForm = ({
           allowedFileTypes={['conf', 'txt', 'cfg', 'ini', 'properties']}
           onChange={handleKrb5ConfigUpload}
           value={watch('saslGssapi.krb5Config')}
+          initialFileName={watch('saslGssapi.krb5ConfigFileName')}
           readType="text"
           showLoadingState={true}
           showErrorState={true}
@@ -180,6 +189,7 @@ export const SaslGssapiForm = ({
           allowedFileTypes={['keytab', 'txt']}
           onChange={handleKeytabUpload}
           value={watch('saslGssapi.kerberosKeytab')}
+          initialFileName={watch('saslGssapi.kerberosKeytabFileName')}
           readType="base64"
           showLoadingState={true}
           showErrorState={true}
@@ -385,7 +395,7 @@ export const TruststoreForm = ({
   readOnly?: boolean
   authMethodPrefix?: string // e.g., 'saslPlain', 'noAuth', 'saslScram256'
 }) => {
-  const { register, setValue } = useFormContext()
+  const { register, setValue, watch } = useFormContext()
 
   // Render truststore fields with the appropriate auth method prefix
   const fields = KafkaFormConfig.truststore.fields
@@ -408,6 +418,7 @@ export const TruststoreForm = ({
         // For the certificates field, use a custom file upload + textarea combination
         if (key === 'certificates') {
           const certificateError = errors ? getFieldError(errors, fieldWithPrefix.name) : undefined
+          const fileNameFieldName = `${prefix}.certificatesFileName`
 
           return (
             <div key={key} className="space-y-2 w-full">
@@ -418,12 +429,15 @@ export const TruststoreForm = ({
               {/* File Upload Section */}
               <div className="space-y-2">
                 <CertificateFileUpload
-                  onFileRead={(content) => {
+                  onFileRead={(content, fileName) => {
                     setValue(fieldWithPrefix.name, content, { shouldValidate: true, shouldDirty: true })
+                    setValue(fileNameFieldName, fileName, { shouldValidate: false, shouldDirty: true })
                   }}
                   disabled={readOnly}
                   className="w-full"
                   externalError={certificateError}
+                  value={watch(fieldWithPrefix.name)}
+                  initialFileName={watch(fileNameFieldName)}
                 />
               </div>
 
@@ -438,7 +452,7 @@ export const TruststoreForm = ({
                     required: false,
                   })}
                   placeholder={field.placeholder}
-                  className={`w-full min-h-[150px] px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono input-border-regular ${
+                  className={`w-full min-h-[150px] px-3 py-2 text-sm rounded-md font-mono input-border-regular focus:outline-none focus:border-[var(--color-background-primary,#a5b9e4)] focus:shadow-[0_0_0_2px_rgba(165,185,228,0.25)] ${
                     certificateError ? 'input-border-error' : ''
                   }`}
                   readOnly={readOnly}
