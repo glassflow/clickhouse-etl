@@ -100,7 +100,6 @@ Dockerfile*
 docker-compose*.yml
 .dockerignore
 
-# Lock files (copied separately)
+# Lock files (pnpm-lock.yaml is needed for installation)
 package-lock.json
-pnpm-lock.yaml
 yarn.lock
