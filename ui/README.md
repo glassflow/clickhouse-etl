@@ -17,7 +17,6 @@ This project provides a user-friendly interface for:
 ## Features
 
 - **Kafka Integration**
-
   - Support for multiple security protocols (PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL)
   - Topic browsing and selection
   - Event preview with JSON formatting
@@ -25,20 +24,17 @@ This project provides a user-friendly interface for:
   - Event caching for improved performance
 
 - **ClickHouse Integration**
-
   - Multiple connection methods (direct, proxy, connection string)
   - Database and table selection
   - Schema discovery and validation
 
 - **Data Mapping**
-
   - Visual field mapping between Kafka events and ClickHouse columns
   - Type inference and conversion
   - Support for nullable fields
   - Key field designation
 
 - **Deduplication**
-
   - Key-based or hash-based deduplication
   - Configurable time windows
   - Per-topic deduplication settings
@@ -52,8 +48,8 @@ This project provides a user-friendly interface for:
 
 ### Prerequisites
 
-- Node.js 16.x or higher
-- pnpm 7.x or higher
+- Node.js 20.x or higher
+- pnpm 8.x or higher
 
 ### Installation
 
