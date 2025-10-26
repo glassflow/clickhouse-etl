@@ -3,11 +3,10 @@
  *
  * Factory pattern to create the appropriate Kafka client based on authentication method
  * - Uses KafkaJS for most authentication methods (PLAIN, SCRAM, AWS IAM, etc.)
- * - Uses node-rdkafka for Kerberos (SASL/GSSAPI) which requires native library support
+ * - Uses kafka-gateway service for Kerberos (SASL/GSSAPI) authentication
  */
 
 import { IKafkaClient, KafkaConfig, KafkaClientType } from './kafka-client-interface'
-import { RdKafkaClient } from './kafka-rdkafka-client'
 import { KafkaGatewayClient } from './kafka-gateway-client'
 
 // Lazy load KafkaJS client to avoid circular dependencies
@@ -29,10 +28,6 @@ export class KafkaClientFactory {
       case KafkaClientType.GATEWAY:
         // Use Go-based gateway service for Kerberos
         return new KafkaGatewayClient(config)
-
-      case KafkaClientType.RDKAFKA:
-        // Fallback to RdKafka if gateway is not available (not recommended for Kerberos)
-        return new RdKafkaClient(config)
 
       case KafkaClientType.KAFKAJS:
       default:
@@ -68,35 +63,10 @@ export class KafkaClientFactory {
   }
 
   /**
-   * Check if RdKafka is available on the system
-   */
-  static isRdKafkaAvailable(): boolean {
-    // Only check on server-side
-    if (typeof window === 'undefined') {
-      try {
-        // Try to dynamically import the module
-        // If it succeeds, the module is available
-        eval("require.resolve('node-rdkafka')")
-        return true
-      } catch {
-        // Module not found
-        return false
-      }
-    }
-    // Client-side, node-rdkafka is not available
-    return false
-  }
-
-  /**
    * Check if a specific auth method is supported
    */
   static isAuthMethodSupported(authMethod: string): boolean {
-    // Kerberos requires RdKafka
-    if (authMethod === 'SASL/GSSAPI') {
-      return this.isRdKafkaAvailable()
-    }
-
-    // All other methods are supported by KafkaJS
+    // All methods are supported - Kerberos via Gateway, others via KafkaJS
     return true
   }
 
@@ -104,14 +74,8 @@ export class KafkaClientFactory {
    * Get supported authentication methods
    */
   static getSupportedAuthMethods(): string[] {
-    const methods = ['NO_AUTH', 'SASL/PLAIN', 'SASL/SCRAM-256', 'SASL/SCRAM-512', 'AWS_MSK_IAM', 'mTLS', 'SSL']
-
-    // Add Kerberos if RdKafka is available
-    if (this.isRdKafkaAvailable()) {
-      methods.push('SASL/GSSAPI')
-    }
-
-    return methods
+    // All auth methods are supported: KafkaJS for most, Gateway for Kerberos
+    return ['NO_AUTH', 'SASL/PLAIN', 'SASL/SCRAM-256', 'SASL/SCRAM-512', 'AWS_MSK_IAM', 'mTLS', 'SSL', 'SASL/GSSAPI']
   }
 }
 
@@ -141,9 +105,10 @@ export async function createKafkaClient(config: KafkaConfig): Promise<IKafkaClie
 
 /**
  * Check if Kerberos authentication is available
+ * With the Gateway approach, Kerberos is always available (via the kafka-gateway service)
  */
 export function isKerberosSupported(): boolean {
-  return KafkaClientFactory.isRdKafkaAvailable()
+  return true
 }
 
 /**

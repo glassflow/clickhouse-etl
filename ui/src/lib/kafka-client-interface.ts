@@ -2,7 +2,7 @@
  * Kafka Client Interface
  *
  * Provides a unified interface for different Kafka client implementations
- * (KafkaJS for most auth methods, node-rdkafka for Kerberos)
+ * (KafkaJS for most auth methods, kafka-gateway for Kerberos)
  */
 
 export interface KafkaConfig {
@@ -163,7 +163,6 @@ export interface IKafkaClient {
  */
 export enum KafkaClientType {
   KAFKAJS = 'kafkajs',
-  RDKAFKA = 'rdkafka',
   GATEWAY = 'gateway', // Go-based Kafka Gateway for Kerberos
 }
 
