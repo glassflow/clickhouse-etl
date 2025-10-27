@@ -143,15 +143,6 @@ func (s *IngestorTestSuite) aKafkaTopicWithPartitions(topicName string, partitio
 	return nil
 }
 
-func (s *IngestorTestSuite) iPublishEventsToKafka(topicName string, table *godog.Table) error {
-	err := s.publishEventsToKafka(topicName, table)
-	if err != nil {
-		return fmt.Errorf("publish events to kafka: %w", err)
-	}
-
-	return nil
-}
-
 func (s *IngestorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
 	err := s.getMappingConfig(cfg, &s.schemaConfig)
 	if err != nil {
@@ -434,6 +425,7 @@ func (s *IngestorTestSuite) CleanupResources() error {
 }
 
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
+	logElapsedTime(sc)
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
 	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)
@@ -441,7 +433,7 @@ func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^I run the ingestor component$`, s.iRunningIngestorComponent)
 	sc.Step(`^I stop the ingestor component$`, s.stopIngestor)
-	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, s.iPublishEventsToKafka)
+	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, s.publishEventsToKafka)
 	sc.Step(`^I check results stream with content$`, s.checkResultsStream)
 	sc.Step(`^I check DLQ stream with content$`, s.checkDLQStream)
 	sc.Step(`^I flush all NATS streams$`, s.cleanNatsStreams)

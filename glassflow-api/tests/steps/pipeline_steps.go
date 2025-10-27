@@ -9,12 +9,15 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
@@ -33,6 +36,8 @@ type PipelineSteps struct {
 	pipelineService   *service.PipelineService
 	orchestrator      *orchestrator.LocalOrchestrator
 	currentPipelineID string
+
+	httpRouter http.Handler
 }
 
 func NewPipelineSteps() *PipelineSteps {
@@ -270,6 +275,25 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 	return nil
 }
 
+func (p *PipelineSteps) iPublishAMessageToNATSStream(streamName, subjectName string, data *godog.DocString) error {
+	err := p.createStream(streamName, subjectName, 0)
+	if err != nil {
+		return fmt.Errorf("create nats stream: %w", err)
+	}
+
+	js := p.natsClient.JetStream()
+	_, err = js.Publish(context.Background(), subjectName, []byte(data.Content))
+	if err != nil {
+		return fmt.Errorf("publish message to subject %s: %w", subjectName, err)
+	}
+
+	p.log.Info("Published message to NATS stream",
+		slog.String("stream", streamName),
+		slog.String("subject", subjectName))
+
+	return nil
+}
+
 func (p *PipelineSteps) thePipelineStatusShouldBe(expectedStatus string) error {
 	p.log.Info("Checking pipeline status", slog.String("expected_status", expectedStatus))
 
@@ -346,6 +370,8 @@ func (p *PipelineSteps) setupPipelineService() error {
 		db,
 		p.log,
 	)
+
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil)
 
 	return nil
 }
@@ -566,13 +592,48 @@ func (p *PipelineSteps) editGlassflowPipelineAndExpectError(configJSON *godog.Do
 	return nil
 }
 
+type httpResponseKey struct{}
+
+func (p *PipelineSteps) iSendHTTPRequest(ctx context.Context, method, path string, body *godog.DocString) (context.Context, error) {
+	if p.httpRouter == nil {
+		return ctx, fmt.Errorf("HTTP router not initialized")
+	}
+
+	var reqBody io.Reader
+	if body != nil && body.Content != "" {
+		reqBody = bytes.NewBufferString(body.Content)
+	}
+
+	// Create request using httptest
+	req := httptest.NewRequest(method, path, reqBody)
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Create response recorder
+	w := httptest.NewRecorder()
+
+	// Execute request through router
+	p.httpRouter.ServeHTTP(w, req)
+
+	p.log.Info("HTTP request executed",
+		slog.String("method", method),
+		slog.String("path", path),
+		slog.Int("status", w.Code))
+
+	return context.WithValue(ctx, httpResponseKey{}, w), nil
+}
+
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
+	logElapsedTime(sc)
+
 	sc.Step(`^a Kafka topic "([^"]*)" with (\d+) partition`, p.theKafkaTopic)
 	sc.Step(`^a running NATS stream "([^"]*)" with subject "([^"]*)"$`, p.aRunningNATSJetStream)
 	sc.Step(`^the ClickHouse table "([^"]*)" on database "([^"]*)" already exists with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
 	sc.Step(`^a ClickHouse table "([^"]*)" on database "([^"]*)" with schema$`, p.theClickHouseTableAlreadyExistsWithSchema)
 
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, p.iPublishEventsToKafka)
+	sc.Step(`^I publish a message to NATS stream "([^"]*)" with subject "([^"]*)"$`, p.iPublishAMessageToNATSStream)
 	sc.Step(`^I wait for "([^"]*)"$`, p.waitFor)
 	sc.Step(`^I wait for "([^"]*)" to let pause operation complete$`, p.waitForPauseOperationComplete)
 
@@ -583,10 +644,17 @@ func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I edit the glassflow pipeline with next configuration:$`, p.editGlassflowPipeline)
 	sc.Step(`^I edit the glassflow pipeline and expect error:$`, p.editGlassflowPipelineAndExpectError)
 
+	sc.Step(`^I send a (GET|POST|PUT|DELETE|PATCH) request to "([^"]*)"$`,
+		func(ctx context.Context, method, path string) (context.Context, error) {
+			return p.iSendHTTPRequest(ctx, method, path, nil)
+		})
+	sc.Step(`^I send a (GET|POST|PUT|DELETE|PATCH) request to "([^"]*)" with body:$`, p.iSendHTTPRequest)
+
 	sc.Step(`^the pipeline status should be "([^"]*)"$`, p.thePipelineStatusShouldBe)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, p.theClickHouseTableShouldContainRows)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain:`, p.theClickHouseTableShouldContain)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain row with values$`, p.theClickHouseTableShouldContain)
+	sc.Step(`^NATS stream "([^"]*)" with subject "([^"]*)" should contain (\d+) events$`, p.natsStreamSubjectHasNEvents)
 
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := p.fastCleanup()
