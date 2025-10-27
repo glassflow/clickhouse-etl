@@ -316,13 +316,14 @@ export const generateApiConfig = ({
         ...config.source.connection_params,
         mechanism: 'GSSAPI',
         principal: kafkaStore.saslGssapi.kerberosPrincipal,
+        username: kafkaStore.saslGssapi.kerberosPrincipal,
         kerberosKeytab: kafkaStore.saslGssapi.kerberosKeytab,
         kerberosRealm: kafkaStore.saslGssapi.kerberosRealm,
         kdc: kafkaStore.saslGssapi.kdc,
         serviceName: kafkaStore.saslGssapi.serviceName,
         krb5Config: kafkaStore.saslGssapi.krb5Config,
-        useTicketCache: kafkaStore.saslGssapi.useTicketCache,
-        ticketCachePath: kafkaStore.saslGssapi.ticketCachePath,
+        // useTicketCache: kafkaStore.saslGssapi.useTicketCache,
+        // ticketCachePath: kafkaStore.saslGssapi.ticketCachePath,
       }
 
       // Add SSL certificate from truststore if using SSL
