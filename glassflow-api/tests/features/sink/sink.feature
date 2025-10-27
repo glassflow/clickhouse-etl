@@ -24,7 +24,7 @@ Feature: Clickhouse ETL sink
                 "ack_wait": "1m"
             }
             """
-        And a batch config with max size 2
+        And a batch config with max size 2 and delay "3s"
         And a schema config with mapping
             """json
             {
@@ -130,7 +130,7 @@ Feature: Clickhouse ETL sink
                 "ack_wait": "3s"
             }
             """
-        And a batch config with max size 2 and delay "3s"
+        And a batch config with max size 2 and delay "50ms"
         And a schema config with mapping
             """json
             {
@@ -208,7 +208,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after "1s"
+        And I stop ClickHouse sink after "200ms"
         Then the ClickHouse table "default.events_test" should contain 1 rows
         And I run ClickHouse sink
         When I publish 1 events to the stream with data
@@ -331,7 +331,7 @@ Feature: Clickhouse ETL sink
                 "ack_wait": "6s"
             }
             """
-        And a batch config with max size 100 and delay "3s"
+        And a batch config with max size 100 and delay "100ms"
         And a schema config with mapping
             """json
             {
@@ -388,7 +388,8 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after "5s"
+        And Wait until all messages are processed
+        And I stop ClickHouse sink after "0s"
         Then the ClickHouse table "default.events_test" should contain 4 rows
 
     Scenario: Start and graceful sink stop for already existing events in stream
@@ -465,7 +466,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after "1s"
+        And I stop ClickHouse sink after "200ms"
         Then the ClickHouse table "default.events_test" should contain 7 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time #2
@@ -482,7 +483,7 @@ Feature: Clickhouse ETL sink
                 "ack_wait": "5s"
             }
             """
-        And a batch config with max size 5 and delay "6s"
+        And a batch config with max size 5 and delay "100ms"
         And a schema config with mapping
             """json
             {
@@ -559,7 +560,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after "10s"
+        And I stop ClickHouse sink after "200ms"
         Then the ClickHouse table "default.events_test" should contain 9 rows
 
     Scenario: Successfully import events from NATS to Clickhouse by max delay time #3
@@ -576,7 +577,7 @@ Feature: Clickhouse ETL sink
                 "ack_wait": "3s"
             }
             """
-        And a batch config with max size 5 and delay "5s"
+        And a batch config with max size 5 and delay "100ms"
         And a schema config with mapping
             """json
             {
@@ -633,7 +634,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after "6s"
+        And I stop ClickHouse sink after "0s"
         Then the ClickHouse table "default.events_test" should contain 4 rows
 
     Scenario: Import events with UUID

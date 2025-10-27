@@ -96,7 +96,7 @@ Feature: Join component
             | 2  | bob@mailbox.com |
             | 1  | alice@gmail.com |
         And I run join component with left TTL "2s" right TTL "2s"
-        And I stop join component after "3s"
+        And I gracefully stop join component after "0s"
         Then I check results with content
             | left_stream.id | left_stream.name | right_stream.email | right_stream.id |
             | 2              | Bob              | bob@mailbox.com    | 2               |
@@ -167,7 +167,7 @@ Feature: Join component
             | 2  | bob@mailbox.com   |
             | 1  | service@gmail.com |
         And I run join component with left TTL "2s" right TTL "2s"
-        And I stop join component after "3s"
+        And I gracefully stop join component after "0s"
         Then I check results with content
             | left_stream.id | left_stream.name | right_stream.email | right_stream.id |
             | 2              | Bob              | bob@mailbox.com    | 2               |
@@ -239,7 +239,7 @@ Feature: Join component
             | 4  | box4@mailbox.com |
             | 5  | box4@mailbox.com |
         And I run join component with left TTL "2s" right TTL "2s"
-        And I stop join component after "3s"
+        And I gracefully stop join component after "0s"
         Then I check results count is 0
 
     Scenario: Stop join gracefully

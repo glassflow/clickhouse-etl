@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/cucumber/godog"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 
@@ -399,18 +400,42 @@ func (p *PipelineSteps) aGlassflowPipelineWithNextConfiguration(config *godog.Do
 }
 
 func (p *PipelineSteps) theClickHouseTableShouldContainRows(tableName string, count int) error {
-	err := p.clickhouseShouldContainNumberOfRows(tableName, count)
+	err := retry.Do(
+		func() error {
+			err := p.clickhouseShouldContainNumberOfRows(tableName, count)
+			if err != nil {
+				return fmt.Errorf("check clickhouse table %s: %w", tableName, err)
+			}
+
+			return nil
+		},
+		retry.Attempts(100),
+		retry.DelayType(retry.FixedDelay),
+		retry.Delay(time.Millisecond*25),
+	)
 	if err != nil {
-		return fmt.Errorf("check clickhouse table %s: %w", tableName, err)
+		return fmt.Errorf("check results stream: %w", err)
 	}
 
 	return nil
 }
 
 func (p *PipelineSteps) theClickHouseTableShouldContain(tableName string, table *godog.Table) error {
-	err := p.clickhouseShouldContainData(tableName, table)
+	err := retry.Do(
+		func() error {
+			err := p.clickhouseShouldContainData(tableName, table)
+			if err != nil {
+				return fmt.Errorf("check clickhouse table %s: %w", tableName, err)
+			}
+
+			return nil
+		},
+		retry.Attempts(100),
+		retry.DelayType(retry.FixedDelay),
+		retry.Delay(time.Millisecond*25),
+	)
 	if err != nil {
-		return fmt.Errorf("check clickhouse table %s: %w", tableName, err)
+		return fmt.Errorf("check results stream: %w", err)
 	}
 
 	return nil

@@ -24,7 +24,7 @@ type BaseTestSuite struct {
 	chContainer    *testutils.ClickHouseContainer
 	kafkaContainer *testutils.KafkaContainer
 
-	kWriter *testutils.KafkaWriter
+	kafkaWriter *testutils.KafkaWriter
 
 	natsClient *client.NATSClient
 
@@ -116,7 +116,7 @@ func (b *BaseTestSuite) getKafkaURI() (string, error) {
 }
 
 func (b *BaseTestSuite) createKafkaWriter() error {
-	if b.kWriter != nil {
+	if b.kafkaWriter != nil {
 		return nil
 	}
 
@@ -125,8 +125,11 @@ func (b *BaseTestSuite) createKafkaWriter() error {
 		return fmt.Errorf("get kafka uri: %w", err)
 	}
 
-	writer := testutils.NewKafkaWriter(uri)
-	b.kWriter = writer
+	writer, err := testutils.NewKafkaWriter(uri)
+	if err != nil {
+		return fmt.Errorf("create kafka writer: %w", err)
+	}
+	b.kafkaWriter = writer
 
 	return nil
 }
@@ -141,7 +144,7 @@ func (b *BaseTestSuite) createKafkaTopic(topic string, partitions int) error {
 		return fmt.Errorf("create kafka writer: %w", err)
 	}
 
-	err = b.kWriter.CreateTopic(context.Background(), topic, partitions)
+	err = b.kafkaWriter.CreateTopic(context.Background(), topic, partitions)
 	if err != nil {
 		return fmt.Errorf("create kafka topic: %w", err)
 	}
@@ -159,7 +162,7 @@ func (b *BaseTestSuite) deleteKafkaTopic(topic string) error {
 		return fmt.Errorf("create kafka writer: %w", err)
 	}
 
-	err = b.kWriter.DeleteTopic(context.Background(), topic)
+	err = b.kafkaWriter.DeleteTopic(context.Background(), topic)
 	if err != nil {
 		return fmt.Errorf("delete kafka topic: %w", err)
 	}
@@ -169,7 +172,11 @@ func (b *BaseTestSuite) deleteKafkaTopic(topic string) error {
 
 func (b *BaseTestSuite) cleanupKafka() error {
 	if b.kafkaContainer != nil {
-		err := b.kafkaContainer.Stop(context.Background())
+		err := b.kafkaWriter.Cleanup()
+		if err != nil {
+			return fmt.Errorf("cleanup kafka writer: %w", err)
+		}
+		err = b.kafkaContainer.Stop(context.Background())
 		if err != nil {
 			return fmt.Errorf("stop kafka container: %w", err)
 		}
@@ -397,7 +404,7 @@ func (b *BaseTestSuite) publishEventsToKafka(topicName string, table *godog.Tabl
 		return fmt.Errorf("create kafka writer: %w", err)
 	}
 
-	err = b.kWriter.WriteJSONEvents(topicName, events)
+	err = b.kafkaWriter.WriteJSONEvents(topicName, events)
 	if err != nil {
 		return fmt.Errorf("write events to kafka: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -261,7 +262,6 @@ func (s *IngestorTestSuite) createNatsConsumer(streamCfg natsStreamConfig) (zero
 }
 
 func (s *IngestorTestSuite) checkResultsFromNatsStream(streamConfig natsStreamConfig, dataTable *godog.Table) error {
-	time.Sleep(1 * time.Second) // Give some time for the ingestor to process events
 	consumer, err := s.createNatsConsumer(streamConfig)
 	if err != nil {
 		return fmt.Errorf("create nats consumer: %w", err)
@@ -349,7 +349,19 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(streamConfig natsStreamCo
 }
 
 func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
-	err := s.checkResultsFromNatsStream(s.streamCfg, dataTable)
+	err := retry.Do(
+		func() error {
+			err := s.checkResultsFromNatsStream(s.streamCfg, dataTable)
+			if err != nil {
+				return fmt.Errorf("check results stream: %w", err)
+			}
+
+			return nil
+		},
+		retry.Attempts(100),
+		retry.DelayType(retry.FixedDelay),
+		retry.Delay(time.Millisecond*25),
+	)
 	if err != nil {
 		return fmt.Errorf("check results stream: %w", err)
 	}
@@ -426,6 +438,7 @@ func (s *IngestorTestSuite) CleanupResources() error {
 
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	logElapsedTime(sc)
+
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
 	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)

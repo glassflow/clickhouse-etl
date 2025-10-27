@@ -22,8 +22,8 @@ import (
 
 const (
 	streamConsumerAckWaitDuration = time.Duration(5) * time.Second
-	streamConsumerExpireTimeout   = time.Duration(1) * time.Second
-	fetchTimeout                  = time.Duration(1) * time.Second
+	streamConsumerExpireTimeout   = time.Duration(10) * time.Millisecond
+	fetchTimeout                  = time.Duration(10) * time.Millisecond
 )
 
 type JoinTestSuite struct {
@@ -412,6 +412,20 @@ func (j *JoinTestSuite) fastJoinCleanUp() error {
 		j.JoinComponent = nil
 	}
 
+	js := j.natsClient.JetStream()
+	ctx := context.Background()
+
+	// Delete KV stores (buffers)
+	for _, kvStoreName := range []string{j.leftStreamConfig.NatsStream, j.rightStreamConfig.NatsStream} {
+		if kvStoreName != "" {
+			err := js.DeleteKeyValue(ctx, kvStoreName)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("delete KV store %s: %w", kvStoreName, err))
+			}
+		}
+	}
+
+	// Delete streams
 	for _, streamCfg := range []*stream.ConsumerConfig{j.leftStreamConfig, j.rightStreamConfig, j.resultsConsumerConfig} {
 		if streamCfg != nil {
 			err := j.deleteStream(streamCfg.NatsStream)

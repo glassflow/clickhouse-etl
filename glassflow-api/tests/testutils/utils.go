@@ -42,30 +42,45 @@ type KafkaEvent struct {
 }
 
 type KafkaWriter struct {
-	kafkaURI string
+	kafkaURI      string
+	kafkaProducer *kafka.Producer
+	adminClient   *kafka.AdminClient
 }
 
-func NewKafkaWriter(kafkaURI string) *KafkaWriter {
-	return &KafkaWriter{
-		kafkaURI: kafkaURI,
-	}
+func (kw *KafkaWriter) Cleanup() error {
+	kw.kafkaProducer.Close()
+	kw.adminClient.Close()
+
+	return nil
 }
 
-func (kw *KafkaWriter) CreateTopic(ctx context.Context, topic string, partitions int) error {
-	adminConfig := kafka.ConfigMap{
-		"bootstrap.servers":       kw.kafkaURI,
+func NewKafkaWriter(kafkaURI string) (*KafkaWriter, error) {
+	config := &kafka.ConfigMap{
+		"bootstrap.servers":       kafkaURI,
 		"socket.keepalive.enable": true,
 		"client.id":               "kafka-admin",
 		"debug":                   "broker,admin",
 		"broker.address.family":   "v4",
 	}
 
-	adminClient, err := kafka.NewAdminClient(&adminConfig)
+	producer, err := kafka.NewProducer(config)
 	if err != nil {
-		return fmt.Errorf("failed to create admin client: %w", err)
+		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
-	defer adminClient.Close()
 
+	adminClient, err := kafka.NewAdminClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kafka admin client: %w", err)
+	}
+
+	return &KafkaWriter{
+		kafkaProducer: producer,
+		adminClient:   adminClient,
+		kafkaURI:      kafkaURI,
+	}, nil
+}
+
+func (kw *KafkaWriter) CreateTopic(ctx context.Context, topic string, partitions int) error {
 	// Create topic specification
 	topicSpec := kafka.TopicSpecification{ //nolint:exhaustruct // only necessary fields
 		Topic:             topic,
@@ -74,7 +89,7 @@ func (kw *KafkaWriter) CreateTopic(ctx context.Context, topic string, partitions
 	}
 
 	// Create the topic
-	results, err := adminClient.CreateTopics(
+	results, err := kw.adminClient.CreateTopics(
 		ctx,
 		[]kafka.TopicSpecification{topicSpec},
 		kafka.SetAdminOperationTimeout(time.Second*30),
@@ -90,26 +105,27 @@ func (kw *KafkaWriter) CreateTopic(ctx context.Context, topic string, partitions
 		}
 	}
 
+	// Force metadata refresh by querying the topic from the producer
+	// This ensures the producer knows about all partitions before we try to write to them
+	metadata, err := kw.kafkaProducer.GetMetadata(&topic, false, int(time.Second))
+	if err != nil {
+		return fmt.Errorf("failed to get metadata for topic %s: %w", topic, err)
+	}
+
+	// Verify the topic has the expected number of partitions
+	topicMetadata, ok := metadata.Topics[topic]
+	if !ok {
+		return fmt.Errorf("topic %s not found in metadata", topic)
+	}
+	if len(topicMetadata.Partitions) != partitions {
+		return fmt.Errorf("topic %s has %d partitions, expected %d", topic, len(topicMetadata.Partitions), partitions)
+	}
+
 	return nil
 }
 
 func (kw *KafkaWriter) DeleteTopic(ctx context.Context, topic string) error {
-	adminConfig := &kafka.ConfigMap{
-		"bootstrap.servers":       kw.kafkaURI,
-		"socket.keepalive.enable": true,
-		"client.id":               "kafka-admin",
-		"debug":                   "broker,admin",
-		"broker.address.family":   "v4",
-	}
-
-	adminClient, err := kafka.NewAdminClient(adminConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create admin client: %w", err)
-	}
-	defer adminClient.Close()
-
-	// Delete the topic
-	results, err := adminClient.DeleteTopics(
+	results, err := kw.adminClient.DeleteTopics(
 		ctx,
 		[]string{topic},
 		kafka.SetAdminOperationTimeout(time.Second*30),
@@ -129,20 +145,6 @@ func (kw *KafkaWriter) DeleteTopic(ctx context.Context, topic string) error {
 }
 
 func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error {
-	config := &kafka.ConfigMap{
-		"bootstrap.servers":       kw.kafkaURI,
-		"socket.keepalive.enable": true,
-		"client.id":               "kafka-admin",
-		"debug":                   "broker,admin",
-		"broker.address.family":   "v4",
-	}
-
-	producer, err := kafka.NewProducer(config)
-	if err != nil {
-		return fmt.Errorf("failed to create producer: %w", err)
-	}
-	defer producer.Close()
-
 	deliveryChan := make(chan kafka.Event, len(events)) // Buffered channel to prevent blocking
 
 	for _, event := range events {
@@ -154,7 +156,7 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 				return fmt.Errorf("failed to set partition %s", event.Partition)
 			}
 		}
-		err := producer.Produce(&kafka.Message{ //nolint:exhaustruct // only necessary fields
+		err := kw.kafkaProducer.Produce(&kafka.Message{ //nolint:exhaustruct // only necessary fields
 			TopicPartition: kafka.TopicPartition{ //nolint:exhaustruct // only necessary fields
 				Topic:     &topic,
 				Partition: partition,
@@ -179,7 +181,8 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 		}
 	}
 
-	remaining := producer.Flush(5000) // 5 second timeout
+	timeoutMs := 1000
+	remaining := kw.kafkaProducer.Flush(timeoutMs)
 	if remaining > 0 {
 		return fmt.Errorf("%d messages remain unflushed", remaining)
 	}
