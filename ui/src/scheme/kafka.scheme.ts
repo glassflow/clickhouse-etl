@@ -9,15 +9,26 @@ const KafkaBaseFormSchema = z.object({
   bootstrapServers: z.string().min(1, 'Bootstrap servers are required'),
 })
 
+// Define Truststore schema first so it can be reused
+// When truststore is provided, certificates must be present
+const TruststoreFormSchema = z.object({
+  location: z.string().optional(), // Optional - for UI file path reference
+  password: z.string().optional(), // Optional - only needed for encrypted truststores
+  type: z.string().optional(), // Optional - JKS, PKCS12, etc.
+  algorithm: z.string().optional(), // Optional - for self-signed certificates
+  certificates: z.string().optional(), // Optional - but will be validated conditionally
+  certificatesFileName: z.string().optional(), // Store the filename for UI display
+})
+
 const SaslPlainFormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
-  certificate: z.string().optional(),
+  truststore: TruststoreFormSchema.optional(),
   consumerGroup: z.string().optional(),
 })
 
 const NoAuthFormSchema = z.object({
-  certificate: z.string().optional(),
+  truststore: TruststoreFormSchema.optional(),
 })
 
 const SaslJaasFormSchema = z.object({
@@ -27,8 +38,15 @@ const SaslJaasFormSchema = z.object({
 const SaslGssapiFormSchema = z.object({
   kerberosPrincipal: z.string().min(1, 'Kerberos principal is required'),
   kerberosKeytab: z.string().min(1, 'Kerberos keytab is required'),
-  kerberosRealm: z.optional(z.string().min(1, 'Kerberos realm is optional')),
-  kdc: z.optional(z.string().min(1, 'Kerberos KDC is optional')),
+  kerberosKeytabFileName: z.string().optional(), // Store the filename for UI display
+  kerberosRealm: z.string().min(1, 'Kerberos realm is required'),
+  kdc: z.string().min(1, 'Kerberos KDC is required'),
+  serviceName: z.string().min(1, 'Kerberos service name is required'),
+  krb5Config: z.string().min(1, 'Kerberos configuration is required'),
+  krb5ConfigFileName: z.string().optional(), // Store the filename for UI display
+  // useTicketCache: z.optional(z.boolean()),
+  // ticketCachePath: z.optional(z.string()),
+  truststore: TruststoreFormSchema.optional(),
 })
 
 const SaslOauthbearerFormSchema = z.object({
@@ -41,15 +59,15 @@ const SaslOauthbearerFormSchema = z.object({
 const SaslScram256FormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+  truststore: TruststoreFormSchema.optional(),
   consumerGroup: z.string().optional(),
-  certificate: z.string().optional(),
 })
 
 const SaslScram512FormSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+  truststore: TruststoreFormSchema.optional(),
   consumerGroup: z.string().optional(),
-  certificate: z.string().optional(),
 })
 
 const DelegationTokensFormSchema = z.object({
@@ -80,14 +98,6 @@ const MtlsFormSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
-const TruststoreFormSchema = z.object({
-  location: z.string().min(1, 'Location is required'),
-  password: z.string().min(1, 'Password is required'),
-  type: z.string().min(1, 'Type is required'),
-  algorithm: z.string().min(1, 'Algorithm is required'),
-  certificates: z.string().min(1, 'Certificates are required'),
-})
-
 // First, define a base schema with the common fields
 const KafkaConnectionBaseSchema = z.object({
   authMethod: z.string(),
@@ -96,69 +106,124 @@ const KafkaConnectionBaseSchema = z.object({
   isConnected: z.boolean().optional(),
 })
 
+// Helper function to check if security protocol requires SSL/TLS
+const requiresSSL = (securityProtocol: string): boolean => {
+  return securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL'
+}
+
 // Then, create a discriminated union for the different auth methods
-const KafkaConnectionFormSchema = z.discriminatedUnion('authMethod', [
-  // SASL/PLAIN
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('SASL/PLAIN'),
-    saslPlain: SaslPlainFormSchema,
-  }),
+const KafkaConnectionFormSchema = z
+  .discriminatedUnion('authMethod', [
+    // SASL/PLAIN
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('SASL/PLAIN'),
+      saslPlain: SaslPlainFormSchema,
+    }),
 
-  // SASL/JAAS
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('SASL/JAAS'),
-    saslJaas: SaslJaasFormSchema,
-  }),
+    // SASL/JAAS
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('SASL/JAAS'),
+      saslJaas: SaslJaasFormSchema,
+    }),
 
-  // SASL/GSSAPI
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('SASL/GSSAPI'),
-    saslGssapi: SaslGssapiFormSchema,
-  }),
+    // SASL/GSSAPI
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('SASL/GSSAPI'),
+      saslGssapi: SaslGssapiFormSchema,
+    }),
 
-  // Add the rest of your auth methods following the same pattern
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('SASL/OAUTHBEARER'),
-    saslOauthbearer: SaslOauthbearerFormSchema,
-  }),
+    // Add the rest of your auth methods following the same pattern
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('SASL/OAUTHBEARER'),
+      saslOauthbearer: SaslOauthbearerFormSchema,
+    }),
 
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('SASL/SCRAM-256'),
-    saslScram256: SaslScram256FormSchema,
-  }),
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('SASL/SCRAM-256'),
+      saslScram256: SaslScram256FormSchema,
+    }),
 
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('SASL/SCRAM-512'),
-    saslScram512: SaslScram512FormSchema,
-  }),
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('SASL/SCRAM-512'),
+      saslScram512: SaslScram512FormSchema,
+    }),
 
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('AWS_MSK_IAM'),
-    awsIam: AwsIamFormSchema,
-  }),
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('AWS_MSK_IAM'),
+      awsIam: AwsIamFormSchema,
+    }),
 
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('Delegation tokens'),
-    delegationTokens: DelegationTokensFormSchema,
-  }),
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('Delegation tokens'),
+      delegationTokens: DelegationTokensFormSchema,
+    }),
 
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('SASL/LDAP'),
-    ldap: LdapFormSchema,
-  }),
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('SASL/LDAP'),
+      ldap: LdapFormSchema,
+    }),
 
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('mTLS'),
-    mtls: MtlsFormSchema,
-  }),
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('mTLS'),
+      mtls: MtlsFormSchema,
+    }),
 
-  // NO_AUTH - Not actual auth method, it is used to avoid sending auth credentials to Kafka
-  KafkaConnectionBaseSchema.extend({
-    authMethod: z.literal('NO_AUTH'),
-    certificate: z.string().optional(),
-    // No additional fields needed for NO_AUTH
-  }),
-])
+    // NO_AUTH - Not actual auth method, it is used to avoid sending auth credentials to Kafka
+    KafkaConnectionBaseSchema.extend({
+      authMethod: z.literal('NO_AUTH'),
+      noAuth: NoAuthFormSchema,
+    }),
+  ])
+  .superRefine((data, ctx) => {
+    // Validate certificate requirement based on security protocol at the top level
+    // This has access to both authMethod and securityProtocol
+    const needsSSL = requiresSSL(data.securityProtocol)
+
+    if (needsSSL) {
+      // Check if the auth method supports truststore and if certificate is provided
+      if (data.authMethod === 'SASL/PLAIN' && data.saslPlain) {
+        if (!data.saslPlain.truststore?.certificates || data.saslPlain.truststore.certificates.trim() === '') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Certificate is required when using SSL/TLS',
+            path: ['saslPlain', 'truststore', 'certificates'],
+          })
+        }
+      } else if (data.authMethod === 'NO_AUTH' && data.noAuth) {
+        if (!data.noAuth.truststore?.certificates || data.noAuth.truststore.certificates.trim() === '') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Certificate is required when using SSL/TLS',
+            path: ['noAuth', 'truststore', 'certificates'],
+          })
+        }
+      } else if (data.authMethod === 'SASL/GSSAPI' && data.saslGssapi) {
+        if (!data.saslGssapi.truststore?.certificates || data.saslGssapi.truststore.certificates.trim() === '') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Certificate is required when using SSL/TLS',
+            path: ['saslGssapi', 'truststore', 'certificates'],
+          })
+        }
+      } else if (data.authMethod === 'SASL/SCRAM-256' && data.saslScram256) {
+        if (!data.saslScram256.truststore?.certificates || data.saslScram256.truststore.certificates.trim() === '') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Certificate is required when using SSL/TLS',
+            path: ['saslScram256', 'truststore', 'certificates'],
+          })
+        }
+      } else if (data.authMethod === 'SASL/SCRAM-512' && data.saslScram512) {
+        if (!data.saslScram512.truststore?.certificates || data.saslScram512.truststore.certificates.trim() === '') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Certificate is required when using SSL/TLS',
+            path: ['saslScram512', 'truststore', 'certificates'],
+          })
+        }
+      }
+    }
+  })
 
 // extract the inferred type
 type KafkaMetaForm = z.infer<typeof KafkaMetaFormSchema>

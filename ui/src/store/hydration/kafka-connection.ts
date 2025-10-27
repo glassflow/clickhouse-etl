@@ -37,20 +37,39 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
     saslPlain: {
       username: connection_params.username || '',
       password: connection_params.password || '',
-      certificate: connection_params.certificate || '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+      },
       consumerGroup: connection_params.consumer_group || '',
     },
     // sasl scram 256 connection type
     saslScram256: {
       username: connection_params.username || '',
       password: connection_params.password || '',
-      certificate: connection_params.certificate || '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+      },
       consumerGroup: connection_params.consumer_group || '',
     },
     // sasl scram 512 connection type
     saslScram512: {
       username: connection_params.username || '',
       password: connection_params.password || '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+      },
     },
     // sasl jaas config connection type
     saslJaas: {
@@ -60,6 +79,19 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
     saslGssapi: {
       kerberosPrincipal: connection_params.kerberos_principal || '',
       kerberosKeytab: connection_params.kerberos_keytab || '',
+      serviceName: connection_params.service_name || '',
+      kerberosRealm: connection_params.kerberos_realm || '',
+      kdc: connection_params.kdc || '',
+      krb5Config: connection_params.krb5_config || '',
+      useTicketCache: connection_params.use_ticket_cache || false,
+      ticketCachePath: connection_params.ticket_cache_path || '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+      },
     },
     // sasl oauthbearer connection type
     saslOauthbearer: {
@@ -91,17 +123,15 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
       clientKey: connection_params.client_key || '',
       password: connection_params.password || '',
     },
-    // ssl - truststore connection type
-    truststore: {
-      location: connection_params.location || '',
-      password: connection_params.password || '',
-      type: connection_params.type || '',
-      algorithm: connection_params.algorithm || '',
-      certificates: connection_params.certificates || '',
-    },
     // no auth connection type
     noAuth: {
-      certificate: connection_params.certificate || '',
+      truststore: {
+        location: '',
+        password: '',
+        type: '',
+        algorithm: '',
+        certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+      },
     },
   }
 }

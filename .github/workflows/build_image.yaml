@@ -139,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4

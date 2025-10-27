@@ -283,7 +283,7 @@ export const AUTH_OPTIONS = {
     name: 'SASL/GSSAPI',
     label: 'SASL/GSSAPI',
     securityProtocols: [SECURITY_PROTOCOL_OPTIONS.SASL_SSL],
-    active: false,
+    active: true,
   },
   'SASL/OAUTHBEARER': {
     name: 'SASL/OAUTHBEARER',

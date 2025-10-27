@@ -127,12 +127,12 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     <div className="flex flex-col gap-4">
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 mb-4">
-          <TabsTrigger
-            value="overview"
+          {/* <TabsTrigger
+            value="api"
             className="transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)]"
           >
-            Overview
-          </TabsTrigger>
+            API Config
+          </TabsTrigger> */}
           <TabsTrigger
             value="json"
             className="transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)]"
@@ -145,12 +145,12 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
           >
             YAML
           </TabsTrigger>
-          <TabsTrigger
-            value="api"
+          {/* <TabsTrigger
+            value="overview"
             className="transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)]"
           >
-            API Config
-          </TabsTrigger>
+            Overview
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">

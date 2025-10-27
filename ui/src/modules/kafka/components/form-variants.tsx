@@ -1,10 +1,12 @@
 import { useFormContext } from 'react-hook-form'
 import { FormGroup } from '@/src/components/ui'
+import { InputFile } from '@/src/components/common/InputFile'
 import { useRenderFormFields, renderFormField } from '@/src/components/ui/form'
 import { KafkaFormConfig } from '@/src/config/kafka-connection-form-config'
 import { FieldErrors } from 'react-hook-form'
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { AUTH_OPTIONS } from '@/src/config/constants'
+import { CertificateFileUpload } from '@/src/components/common/CertificateFileUpload'
 
 // SASL/PLAIN specific form
 export const SaslPlainForm = ({
@@ -14,15 +16,12 @@ export const SaslPlainForm = ({
   errors?: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
 }) => {
-  const { register } = useFormContext()
-  const { watch } = useFormContext()
+  const { register, watch } = useFormContext()
   const authMethodSelected = watch('authMethod')
   const securityProtocolSelected = watch('securityProtocol')
-  const showCertificateField =
-    (authMethodSelected === AUTH_OPTIONS['SASL/PLAIN'].name &&
-      (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL')) ||
-    (authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name &&
-      (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL'))
+  const showTruststoreFields =
+    authMethodSelected === AUTH_OPTIONS['SASL/PLAIN'].name &&
+    (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL')
 
   return (
     <FormGroup className="space-y-4">
@@ -44,31 +43,12 @@ export const SaslPlainForm = ({
           })}
         </div>
       </div>
-      <div className="space-y-2 w-full">
-        {showCertificateField && (
-          <div className="space-y-2 w-full">
-            {renderFormField({
-              field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.certificate as any,
-              register,
-              errors,
-              readOnly,
-            })}
-          </div>
-        )}
-      </div>
-      {/* <div className="space-y-2 w-[50%] pr-2">
-        {renderFormField({
-          field: KafkaFormConfig[AUTH_OPTIONS['SASL/PLAIN'].name].fields.consumerGroup as any,
-          register,
-          errors,
-        })}
-      </div> */}
-      {/* {useRenderFormFields({
-        formConfig: KafkaFormConfig,
-        formGroupName: 'SASL/PLAIN',
-        register,
-        errors,
-      })} */}
+      {showTruststoreFields && (
+        <div className="space-y-4 mt-4">
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
+          <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslPlain" />
+        </div>
+      )}
     </FormGroup>
   )
 }
@@ -81,27 +61,21 @@ export const NoAuthForm = ({
   errors?: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
 }) => {
-  const { register } = useFormContext()
   const { watch } = useFormContext()
   const authMethodSelected = watch('authMethod')
   const securityProtocolSelected = watch('securityProtocol')
-  const showCertificateField =
+  const showSSLFields =
     authMethodSelected === AUTH_OPTIONS['NO_AUTH'].name &&
     (securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL')
+
   return (
     <FormGroup className="space-y-4">
-      <div className="flex flex-col lg:flex-row gap-4">
-        {showCertificateField && (
-          <div className="space-y-2 w-full">
-            {renderFormField({
-              field: KafkaFormConfig[AUTH_OPTIONS['NO_AUTH'].name].fields.certificate as any,
-              register,
-              errors,
-              readOnly,
-            })}
-          </div>
-        )}
-      </div>
+      {showSSLFields && (
+        <div className="space-y-4">
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
+          <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="noAuth" />
+        </div>
+      )}
     </FormGroup>
   )
 }
@@ -137,17 +111,99 @@ export const SaslGssapiForm = ({
   errors?: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
 }) => {
-  const { register } = useFormContext()
+  const { register, watch, setValue } = useFormContext()
+  const securityProtocolSelected = watch('securityProtocol')
+  const showTruststoreFields = securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL'
+
+  const fields = KafkaFormConfig['SASL/GSSAPI'].fields
+  const fieldsToRender = Object.entries(fields).filter(([key]) => key !== 'kerberosKeytab' && key !== 'krb5Config')
+
+  const handleKeytabUpload = (fileContent: string, fileName: string) => {
+    console.log('fileContent', fileContent, 'fileName', fileName)
+    try {
+      setValue('saslGssapi.kerberosKeytab', fileContent, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
+      setValue('saslGssapi.kerberosKeytabFileName', fileName, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+    } catch (error) {
+      console.error('Error reading keytab file:', error)
+    }
+  }
+
+  const handleKrb5ConfigUpload = (fileContent: string, fileName: string) => {
+    console.log('fileContent', fileContent, 'fileName', fileName)
+    try {
+      setValue('saslGssapi.krb5Config', fileContent, {
+        shouldValidate: true,
+        shouldDirty: true,
+      })
+      setValue('saslGssapi.krb5ConfigFileName', fileName, {
+        shouldValidate: false,
+        shouldDirty: true,
+      })
+    } catch (error) {
+      console.error('Error reading krb5.conf file:', error)
+    }
+  }
 
   return (
     <FormGroup className="space-y-4">
-      {useRenderFormFields({
-        formConfig: KafkaFormConfig,
-        formGroupName: 'SASL/GSSAPI',
-        register,
-        errors,
-        readOnly,
-      })}
+      {/* Render all fields except kerberosKeytab */}
+      {fieldsToRender.map(([key, field]: [string, any]) => (
+        <div key={key} className="space-y-2 w-full">
+          {renderFormField({
+            field,
+            register,
+            errors,
+            readOnly,
+          })}
+        </div>
+      ))}
+
+      <div className="space-y-2 w-full">
+        <InputFile
+          label="Kerberos Configuration (krb5.conf) File"
+          id="saslGssapi.krb5Config"
+          placeholder="Select krb5.conf file"
+          allowedFileTypes={['conf', 'txt', 'cfg', 'ini', 'properties']}
+          onChange={handleKrb5ConfigUpload}
+          value={watch('saslGssapi.krb5Config')}
+          initialFileName={watch('saslGssapi.krb5ConfigFileName')}
+          readType="text"
+          showLoadingState={true}
+          showErrorState={true}
+          hintText="Accepted formats: .conf, .txt, .cfg, .ini, .properties"
+          externalError={errors ? getFieldError(errors, 'saslGssapi.krb5Config') : undefined}
+        />
+      </div>
+
+      <div className="space-y-2 w-full">
+        <InputFile
+          label="Kerberos Keytab File"
+          id="saslGssapi.kerberosKeytab"
+          placeholder="Select keytab file"
+          allowedFileTypes={['keytab', 'txt']}
+          onChange={handleKeytabUpload}
+          value={watch('saslGssapi.kerberosKeytab')}
+          initialFileName={watch('saslGssapi.kerberosKeytabFileName')}
+          readType="base64"
+          showLoadingState={true}
+          showErrorState={true}
+          hintText="Accepted formats: .keytab, .txt"
+          externalError={errors ? getFieldError(errors, 'saslGssapi.kerberosKeytab') : undefined}
+        />
+      </div>
+
+      {showTruststoreFields && (
+        <div className="space-y-4 mt-4">
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
+          <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslGssapi" />
+        </div>
+      )}
     </FormGroup>
   )
 }
@@ -183,10 +239,12 @@ export const SaslScram256Form = ({
   errors?: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
 }) => {
-  const { register } = useFormContext()
+  const { register, watch } = useFormContext()
+  const securityProtocolSelected = watch('securityProtocol')
+  const showTruststoreFields = securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL'
 
   return (
-    <FormGroup>
+    <FormGroup className="space-y-4">
       {useRenderFormFields({
         formConfig: KafkaFormConfig,
         formGroupName: 'SASL/SCRAM-256',
@@ -194,6 +252,12 @@ export const SaslScram256Form = ({
         errors,
         readOnly,
       })}
+      {showTruststoreFields && (
+        <div className="space-y-4 mt-4">
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
+          <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslScram256" />
+        </div>
+      )}
     </FormGroup>
   )
 }
@@ -206,10 +270,12 @@ export const SaslScram512Form = ({
   errors?: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
 }) => {
-  const { register } = useFormContext()
+  const { register, watch } = useFormContext()
+  const securityProtocolSelected = watch('securityProtocol')
+  const showTruststoreFields = securityProtocolSelected === 'SASL_SSL' || securityProtocolSelected === 'SSL'
 
   return (
-    <FormGroup>
+    <FormGroup className="space-y-4">
       {useRenderFormFields({
         formConfig: KafkaFormConfig,
         formGroupName: 'SASL/SCRAM-512',
@@ -217,6 +283,12 @@ export const SaslScram512Form = ({
         errors,
         readOnly,
       })}
+      {showTruststoreFields && (
+        <div className="space-y-4 mt-4">
+          <div className="text-sm font-medium text-content">SSL/TLS Configuration</div>
+          <TruststoreForm errors={errors} readOnly={readOnly} authMethodPrefix="saslScram512" />
+        </div>
+      )}
     </FormGroup>
   )
 }
@@ -317,21 +389,109 @@ export const LdapForm = ({
 export const TruststoreForm = ({
   errors,
   readOnly,
+  authMethodPrefix,
 }: {
   errors?: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
+  authMethodPrefix?: string // e.g., 'saslPlain', 'noAuth', 'saslScram256'
 }) => {
-  const { register } = useFormContext()
+  const { register, setValue, watch } = useFormContext()
+
+  // Render truststore fields with the appropriate auth method prefix
+  const fields = KafkaFormConfig.truststore.fields
+  const prefix = authMethodPrefix ? `${authMethodPrefix}.truststore` : 'truststore'
 
   return (
     <FormGroup className="space-y-4">
-      {useRenderFormFields({
-        formConfig: KafkaFormConfig,
-        formGroupName: 'trustStore',
-        register,
-        errors,
-        readOnly,
+      {Object.entries(fields).map(([key, field]: [string, any]) => {
+        const fieldWithPrefix = {
+          ...field,
+          name: `${prefix}.${key}`,
+        }
+
+        // Skip rendering the 'location' field as we'll use CertificateFileUpload for 'certificates'
+        // Skip rendering other fields that are not relevant to the truststore - for now
+        if (key === 'location' || key === 'password' || key === 'type' || key === 'algorithm') {
+          return null
+        }
+
+        // For the certificates field, use a custom file upload + textarea combination
+        if (key === 'certificates') {
+          const certificateError = errors ? getFieldError(errors, fieldWithPrefix.name) : undefined
+          const fileNameFieldName = `${prefix}.certificatesFileName`
+
+          return (
+            <div key={key} className="space-y-2 w-full">
+              <label htmlFor={fieldWithPrefix.name} className="block text-sm font-medium text-content">
+                {field.label}
+              </label>
+
+              {/* File Upload Section */}
+              <div className="space-y-2">
+                <CertificateFileUpload
+                  onFileRead={(content, fileName) => {
+                    setValue(fieldWithPrefix.name, content, { shouldValidate: true, shouldDirty: true })
+                    setValue(fileNameFieldName, fileName, { shouldValidate: false, shouldDirty: true })
+                  }}
+                  disabled={readOnly}
+                  className="w-full"
+                  externalError={certificateError}
+                  value={watch(fieldWithPrefix.name)}
+                  initialFileName={watch(fileNameFieldName)}
+                />
+              </div>
+
+              {/* Textarea for manual paste or viewing content */}
+              <div className="space-y-1 mt-2">
+                <label htmlFor={`${fieldWithPrefix.name}-textarea`} className="block text-xs text-content">
+                  Or paste certificate content:
+                </label>
+                <textarea
+                  id={`${fieldWithPrefix.name}-textarea`}
+                  {...register(fieldWithPrefix.name, {
+                    required: false,
+                  })}
+                  placeholder={field.placeholder}
+                  className={`w-full min-h-[150px] px-3 py-2 text-sm rounded-md font-mono input-border-regular focus:outline-none focus:border-[var(--color-background-primary,#a5b9e4)] focus:shadow-[0_0_0_2px_rgba(165,185,228,0.25)] ${
+                    certificateError ? 'input-border-error' : ''
+                  }`}
+                  readOnly={readOnly}
+                />
+              </div>
+
+              {/* Show error if exists */}
+              {certificateError && <p className="text-sm text-content">{certificateError}</p>}
+            </div>
+          )
+        }
+
+        return (
+          <div key={key} className="space-y-2 w-full">
+            {renderFormField({
+              field: fieldWithPrefix,
+              register,
+              errors,
+              readOnly,
+            })}
+          </div>
+        )
       })}
     </FormGroup>
   )
+}
+
+// Helper function to get field error (moved here from form.tsx if not exported)
+function getFieldError(errors: any, path: string): string | undefined {
+  if (!errors) return undefined
+  if (!path) return undefined
+
+  const parts = path?.split('.')
+  let current = errors
+
+  for (const part of parts) {
+    if (!current[part]) return undefined
+    current = current[part]
+  }
+
+  return current.message ? current.message : undefined
 }

@@ -85,13 +85,10 @@ export function KafkaConnectionContainer({
     securityProtocol: securityProtocol || KafkaFormDefaultValues.securityProtocol,
     bootstrapServers: bootstrapServers || KafkaFormDefaultValues.bootstrapServers,
     saslPlain: saslPlain || KafkaFormDefaultValues.saslPlain,
+    saslGssapi: saslGssapi || KafkaFormDefaultValues.saslGssapi,
     noAuth: noAuth || KafkaFormDefaultValues.noAuth,
-    // saslJaas: saslJaas || KafkaFormDefaultValues.saslJaas,
-    // saslGssapi: saslGssapi || KafkaFormDefaultValues.saslGssapi,
-    // saslOauthbearer: saslOauthbearer || KafkaFormDefaultValues.saslOauthbearer,
     saslScram256: saslScram256 || KafkaFormDefaultValues.saslScram256,
     saslScram512: saslScram512 || KafkaFormDefaultValues.saslScram512,
-    // delegationTokens: delegationTokens || KafkaFormDefaultValues.delegationToken,
   } as KafkaConnectionFormType
 
   // Monitor changes to bootstrapServers
@@ -157,9 +154,6 @@ export function KafkaConnectionContainer({
       })
     } else {
       setKafkaSkipAuth(false)
-      setKafkaNoAuth({
-        certificate: '',
-      })
     }
 
     // Set the appropriate auth form based on auth method

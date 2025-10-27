@@ -43,18 +43,30 @@ export class KafkaApiClient {
     if (kafka.securityProtocol === 'SASL_SSL' || kafka.securityProtocol === 'SSL') {
       switch (kafka.authMethod) {
         case 'NO_AUTH':
-          headers.certificate = kafka.noAuth.certificate
+          if (kafka.noAuth?.truststore?.certificates) {
+            headers.certificate = kafka.noAuth.truststore.certificates
+          }
           break
         case 'SASL/PLAIN':
-          headers.certificate = kafka.saslPlain.certificate
+          if (kafka.saslPlain?.truststore?.certificates) {
+            headers.certificate = kafka.saslPlain.truststore.certificates
+          }
+          break
+        case 'SASL/GSSAPI':
+          if (kafka.saslGssapi?.truststore?.certificates) {
+            headers.certificate = kafka.saslGssapi.truststore.certificates
+          }
           break
         case 'SASL/SCRAM-256':
-          headers.certificate = kafka.saslScram256.certificate
+          if (kafka.saslScram256?.truststore?.certificates) {
+            headers.certificate = kafka.saslScram256.truststore.certificates
+          }
           break
         case 'SASL/SCRAM-512':
-          headers.certificate = kafka.saslScram512.certificate
+          if (kafka.saslScram512?.truststore?.certificates) {
+            headers.certificate = kafka.saslScram512.truststore.certificates
+          }
           break
-        // Add other auth methods that support certificates here if needed
       }
     }
 
@@ -80,6 +92,10 @@ export class KafkaApiClient {
         headers.kerberosKeytab = kafka.saslGssapi.kerberosKeytab
         headers.kerberosRealm = kafka.saslGssapi.kerberosRealm
         headers.kdc = kafka.saslGssapi.kdc
+        headers.serviceName = kafka.saslGssapi.serviceName
+        headers.krb5Config = kafka.saslGssapi.krb5Config
+        // headers.useTicketCache = kafka.saslGssapi.useTicketCache
+        // headers.ticketCachePath = kafka.saslGssapi.ticketCachePath
         break
 
       case 'SASL/OAUTHBEARER':

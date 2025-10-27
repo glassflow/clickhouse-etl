@@ -1,19 +1,52 @@
+# Multi-stage Dockerfile for Next.js UI
+# Uses kafka-gateway for Kerberos authentication, no native dependencies needed
+# Alpine-based for minimal image size (~70MB smaller than Debian)
+
+# Stage 1: Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install pnpm and compatibility layer for Next.js
+RUN apk add --no-cache libc6-compat && \
+    npm install -g pnpm@latest
+
+# Copy package files
+COPY package.json pnpm-lock.yaml* ./
+
+# Install dependencies using pnpm
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build the Next.js application
+RUN pnpm run build
+
+# Stage 2: Production stage
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install only ca-certificates for HTTPS support (already included in alpine)
+RUN apk add --no-cache ca-certificates
 
-# Copy only production dependencies
-COPY ./package.json ./pnpm-lock.yaml* ./
-RUN pnpm install --prod --frozen-lockfile
+ENV NODE_ENV=production
 
-# Copy built files
-COPY ./.next ./.next
-COPY ./public ./public
-COPY ./next.config.ts ./
-COPY ./server.js ./
+# Install pnpm in production stage
+RUN npm install -g pnpm@latest
+
+# Copy package files for reference
+COPY package.json pnpm-lock.yaml* ./
+
+# Copy node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy built application from builder stage
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.ts ./
+COPY --from=builder /app/server.js ./
 
 # Set environment variables
 ENV NODE_ENV=production
