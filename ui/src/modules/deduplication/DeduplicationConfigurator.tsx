@@ -38,11 +38,12 @@ export function DeduplicationConfigurator({
   // Get topic data for event information
   const topic = useStore((state) => state.topicsStore.getTopic(index))
 
-  // Get the event directly from the topic's events array
-  const topicEvent = topic?.events?.[0] || null
+  // Get the selected event from the topic
+  // The event data is in topic.selectedEvent.event, not in topic.events array
+  const selectedEvent = topic?.selectedEvent
 
   // Extract event data
-  const eventData = topicEvent?.event || '{}'
+  const eventData = selectedEvent?.event || null
 
   // Track page view when component loads
   useEffect(() => {
@@ -90,9 +91,9 @@ export function DeduplicationConfigurator({
       // Update the deduplication config in the new store
       updateDeduplication(index, updatedConfig)
 
-      // Trigger validation engine to invalidate dependent sections
-      // When deduplication changes, it affects ClickHouse mapping
-      validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, 'Deduplication configuration changed')
+      // Note: Deduplication changes do NOT invalidate ClickHouse mapping
+      // Deduplication settings (key, time window) are independent of field-to-column mappings
+      // Only topic/event structure changes should invalidate the mapping
 
       analytics.key.dedupKey({
         keyType,
@@ -100,7 +101,7 @@ export function DeduplicationConfigurator({
         unit,
       })
     },
-    [index, updateDeduplication, validationEngine],
+    [index, updateDeduplication, analytics.key],
   )
 
   // Handle continue button click
@@ -132,8 +133,18 @@ export function DeduplicationConfigurator({
     coreStore.discardSection('deduplication')
   }, [coreStore])
 
-  if (!topic || !topicEvent) {
-    return <div>No topic or event data available for index {index}</div>
+  // Show error message if topic or event data is missing
+  if (!topic) {
+    return <div>No topic data available for index {index}</div>
+  }
+
+  if (!eventData) {
+    return (
+      <div>
+        No event data available for topic &quot;{topic.name}&quot;. Please ensure the topic has been configured with
+        event data.
+      </div>
+    )
   }
 
   return (

@@ -6,6 +6,7 @@ import { StepKeys, AUTH_OPTIONS } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { useKafkaConnection } from '@/src/hooks/useKafkaConnection'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-config'
@@ -19,15 +20,17 @@ export function KafkaConnectionContainer({
   standalone,
   onCompleteStandaloneEditing,
   pipelineActionState,
+  pipeline,
 }: {
   steps: any
   onCompleteStep?: (step: StepKeys) => void
   validate: () => Promise<boolean>
   standalone?: boolean
   readOnly?: boolean
-  toggleEditMode?: () => void
+  toggleEditMode?: (apiConfig?: any) => void
   onCompleteStandaloneEditing?: () => void
   pipelineActionState?: any
+  pipeline?: any
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { kafkaStore, topicsStore, coreStore } = useStore()
@@ -71,6 +74,9 @@ export function KafkaConnectionContainer({
     kafkaConnection: kafkaConnectionFromHook,
     isConnecting: isConnectingFromHook,
   } = useKafkaConnection()
+
+  // Use the centralized pipeline actions hook
+  const { executeAction } = usePipelineActions(pipeline)
 
   // Prepare initial values by merging defaults with store values
   const initialValues = {
@@ -206,6 +212,13 @@ export function KafkaConnectionContainer({
       })
     }
 
+    // If in standalone mode (editing existing pipeline), mark configuration as dirty
+    // This indicates changes need to be sent to backend when user clicks Resume
+    if (standalone && toggleEditMode) {
+      coreStore.markAsDirty()
+      console.log('[KafkaConnection] Configuration marked as dirty - changes will be saved on Resume')
+    }
+
     // Proceed to next step or close standalone component
     if (!standalone && onCompleteStep) {
       onCompleteStep(StepKeys.KAFKA_CONNECTION as StepKeys)
@@ -244,6 +257,15 @@ export function KafkaConnectionContainer({
 
   const handleDiscardConnectionChange = () => {
     setClearErrorMessage(true)
+  }
+
+  const handleFormSubmit = async () => {
+    // When save is clicked in edit mode, just close the modal
+    // Changes are already saved to the store by the form manager
+    // The actual backend update happens when user clicks Resume
+    if (onCompleteStandaloneEditing) {
+      onCompleteStandaloneEditing()
+    }
   }
 
   return (

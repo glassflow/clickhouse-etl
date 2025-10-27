@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server'
+import { getPipelineStatus, getPipelineConfig } from '@/src/app/ui-api/mock/data/mock-state'
 
 // Simple in-memory rate limiting (for development only)
 const requestCounts = new Map<string, { count: number; lastReset: number }>()
 const RATE_LIMIT_WINDOW = 1000 // 1 second
-const MAX_REQUESTS_PER_WINDOW = 3 // Max 3 requests per second per pipeline
+const MAX_REQUESTS_PER_WINDOW = 10 // Max 10 requests per second per pipeline (increased for active testing)
 
-// Mock pipeline health data for development
-const mockHealthData = {
-  pipeline_id: 'mock-pipeline',
-  pipeline_name: 'Mock Pipeline',
-  overall_status: 'Running' as const,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-}
-
+/**
+ * Mock pipeline health endpoint
+ * GET /ui-api/mock/pipeline/[id]/health
+ *
+ * Returns the current health status of a pipeline using centralized state management.
+ * This allows realistic simulation of pipeline lifecycle state changes.
+ */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
@@ -55,34 +54,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 50)) // Reduced from 200ms to 50ms
+  await new Promise((resolve) => setTimeout(resolve, 50))
 
-  // Generate mock health data with the provided pipeline ID
-  // Use a consistent status based on the pipeline ID to avoid constant polling loops
-  // These statuses match what the real backend returns (uppercase first letter)
-  const statuses = [
-    'Created',
-    'Running',
-    'Paused',
-    'Pausing',
-    'Resuming',
-    'Stopping',
-    'Stopped',
-    'Terminating',
-    'Terminated',
-    'Failed',
-  ]
-  const statusIndex = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % statuses.length
-  const consistentStatus = statuses[statusIndex]
+  // Get current status from centralized state
+  const currentStatus = getPipelineStatus(id)
+  const pipelineConfig = getPipelineConfig(id)
 
+  // Generate health data with real-time status
   const healthData = {
-    ...mockHealthData,
     pipeline_id: id,
-    pipeline_name: `Mock Pipeline ${id}`,
-    overall_status: consistentStatus,
+    pipeline_name: pipelineConfig?.name || `Mock Pipeline ${id}`,
+    overall_status: currentStatus,
+    created_at: pipelineConfig?.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }
-
-  // Removed debug logging
 
   return NextResponse.json({
     success: true,

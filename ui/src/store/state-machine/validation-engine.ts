@@ -90,6 +90,22 @@ export class DistributedValidationEngine {
   }
 
   /**
+   * Mark a section as valid WITHOUT invalidating dependent sections
+   * Use this in edit mode when you want to keep the section valid
+   * but let smart invalidation logic decide about dependents
+   */
+  markSectionAsValid(section: StepKeys) {
+    const slices = this.getStoreSliceForSection(section)
+    if (slices && slices.length > 0) {
+      slices.forEach((slice) => {
+        if (slice?.markAsValid) {
+          slice.markAsValid()
+        }
+      })
+    }
+  }
+
+  /**
    * Get validation status for a section
    */
   getSectionValidation(section: StepKeys) {

@@ -6,6 +6,7 @@ import { useForm, FormProvider } from 'react-hook-form'
 import { KafkaConnectionFormRenderer } from './KafkaConnectionFormRenderer'
 import { KafkaConnectionFormSchema, KafkaConnectionFormType } from '@/src/scheme'
 import FormActions from '@/src/components/shared/FormActions'
+import { useStore } from '@/src/store'
 
 type KafkaConnectionProps = {
   onTestConnection: (values: KafkaConnectionFormType) => Promise<void>
@@ -21,7 +22,7 @@ type KafkaConnectionProps = {
   authMethod: string
   securityProtocol: string
   bootstrapServers: string
-  toggleEditMode?: () => void
+  toggleEditMode?: (apiConfig?: any) => void
   pipelineActionState?: any
   onClose?: () => void
 }
@@ -99,11 +100,17 @@ export const KafkaConnectionFormManager = ({
   useEffect(() => {
     if (isReturningToForm && !formInitialized.current) {
       // Set form values from existing data
-      if (authMethod) setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
-      if (securityProtocol)
+      if (authMethod) {
+        setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
+      }
+
+      if (securityProtocol) {
         setValue('securityProtocol', securityProtocol as KafkaConnectionFormType['securityProtocol'])
-      if (bootstrapServers)
+      }
+
+      if (bootstrapServers) {
         setValue('bootstrapServers', bootstrapServers as KafkaConnectionFormType['bootstrapServers'])
+      }
 
       // Only manually trigger validation if returning to a form with stored values
       // and only after the user has explicitly interacted with it
@@ -141,6 +148,19 @@ export const KafkaConnectionFormManager = ({
       return
     }
 
+    // In standalone mode (both create and edit), always test the connection
+    // Only save if the test succeeds
+    // The onTestConnection handler will save the data and close the modal on success
+    if (standalone) {
+      if (onTestConnection) {
+        await onTestConnection(values)
+        // Note: Don't close here - the success handler in KafkaConnectionContainer
+        // will save the data and close the modal only if connection test succeeds
+      }
+      return
+    }
+
+    // For non-standalone mode (regular pipeline creation flow)
     if (onTestConnection) {
       await onTestConnection(values)
     }
@@ -157,11 +177,15 @@ export const KafkaConnectionFormManager = ({
     formInitialized.current = false
 
     // Force re-initialization by setting values manually
-    if (authMethod) formMethods.setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
-    if (securityProtocol)
+    if (authMethod) {
+      formMethods.setValue('authMethod', authMethod as KafkaConnectionFormType['authMethod'])
+    }
+    if (securityProtocol) {
       formMethods.setValue('securityProtocol', securityProtocol as KafkaConnectionFormType['securityProtocol'])
-    if (bootstrapServers)
+    }
+    if (bootstrapServers) {
       formMethods.setValue('bootstrapServers', bootstrapServers as KafkaConnectionFormType['bootstrapServers'])
+    }
 
     onDiscardConnectionChange()
   }
@@ -191,14 +215,24 @@ export const KafkaConnectionFormManager = ({
           toggleEditMode={toggleEditMode}
           standalone={standalone}
           readOnly={readOnly}
-          disabled={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
-          isLoading={isConnecting || (pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause')}
+          disabled={
+            isConnecting ||
+            (pipelineActionState?.isLoading &&
+              (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit'))
+          }
+          isLoading={
+            isConnecting ||
+            (pipelineActionState?.isLoading &&
+              (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit'))
+          }
           isSuccess={connectionResult?.success}
           successText="Continue"
           loadingText={
-            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
-              ? 'Pausing pipeline for editing...'
-              : 'Testing...'
+            pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'stop'
+              ? 'Stopping pipeline for editing...'
+              : pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'edit'
+                ? 'Saving configuration...'
+                : 'Testing...'
           }
           regularText="Continue"
           actionType="primary"

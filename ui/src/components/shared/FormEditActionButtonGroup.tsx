@@ -39,24 +39,24 @@ export const FormEditActionButtonGroup = ({
     return () => clearTimeout(timer)
   }, [])
 
-  // Check if pipeline action is in progress (like pausing for editing)
-  const isPipelineActionInProgress = pipelineActionState?.isLoading && pipelineActionState?.lastAction === 'pause'
+  // Check if pipeline action is in progress (like stopping for editing)
+  const isPipelineActionInProgress =
+    pipelineActionState?.isLoading &&
+    (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit')
 
   const handleSubmit = async () => {
     // Don't toggle edit mode immediately - wait for operation to complete
     await onSubmit()
 
-    // After successful submission, toggle edit mode to close the form
-    // This ensures the form closes after the operation is complete
-    if (isSuccess) {
-      toggleEditMode?.()
-    }
+    // After successful submission, close the modal
+    // The onSubmit handler in the form already handles saving to store
+    // Note: We don't check isSuccess here because onSubmit handles the flow
   }
 
   const handleDiscard = () => {
     onDiscard()
-    // Discard is immediate, so we can toggle edit mode right away
-    toggleEditMode?.()
+    // Discard is immediate, close the modal
+    onClose?.()
   }
 
   return (
@@ -78,8 +78,7 @@ export const FormEditActionButtonGroup = ({
           </div>
         )}
 
-        {/* TEMPORARILY COMMENTED OUT - FULL EDIT FUNCTIONALITY DISABLED FOR DEMO */}
-        {/* {editMode ? (
+        {editMode ? (
           <>
             <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
               <FormActionButton
@@ -112,7 +111,7 @@ export const FormEditActionButtonGroup = ({
               disabled={isPipelineActionInProgress}
             />
           </div>
-        )} */}
+        )}
       </div>
     </div>
   )
