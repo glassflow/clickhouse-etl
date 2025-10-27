@@ -390,13 +390,17 @@ type pipelineJSON struct {
 }
 
 type sourceConnectionParams struct {
-	Brokers       []string `json:"brokers"`
-	SkipAuth      bool     `json:"skip_auth"`
-	SASLProtocol  string   `json:"protocol"`
-	SASLMechanism string   `json:"mechanism"`
-	SASLUsername  string   `json:"username"`
-	SASLPassword  string   `json:"password"`
-	TLSRoot       string   `json:"root_ca"`
+	Brokers             []string `json:"brokers"`
+	SkipAuth            bool     `json:"skip_auth"`
+	SASLProtocol        string   `json:"protocol"`
+	SASLMechanism       string   `json:"mechanism"`
+	SASLUsername        string   `json:"username"`
+	SASLPassword        string   `json:"password"`
+	TLSRoot             string   `json:"root_ca"`
+	KerberosServiceName string   `json:"kerberos_service_name"`
+	KerberosRealm       string   `json:"kerberos_realm"`
+	KerberosKeytab      string   `json:"kerberos_keytab"`
+	KerberosConfig      string   `json:"kerberos_config"`
 }
 
 type kafkaTopic struct {
@@ -473,13 +477,17 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 	)
 
 	kcfg := models.KafkaConnectionParamsConfig{
-		Brokers:       p.Source.ConnectionParams.Brokers,
-		SkipAuth:      p.Source.ConnectionParams.SkipAuth,
-		SASLProtocol:  p.Source.ConnectionParams.SASLProtocol,
-		SASLMechanism: p.Source.ConnectionParams.SASLMechanism,
-		SASLUsername:  p.Source.ConnectionParams.SASLUsername,
-		SASLPassword:  p.Source.ConnectionParams.SASLPassword,
-		TLSRoot:       p.Source.ConnectionParams.TLSRoot,
+		Brokers:             p.Source.ConnectionParams.Brokers,
+		SkipAuth:            p.Source.ConnectionParams.SkipAuth,
+		SASLProtocol:        p.Source.ConnectionParams.SASLProtocol,
+		SASLMechanism:       p.Source.ConnectionParams.SASLMechanism,
+		SASLUsername:        p.Source.ConnectionParams.SASLUsername,
+		SASLPassword:        p.Source.ConnectionParams.SASLPassword,
+		TLSRoot:             p.Source.ConnectionParams.TLSRoot,
+		KerberosServiceName: p.Source.ConnectionParams.KerberosServiceName,
+		KerberosRealm:       p.Source.ConnectionParams.KerberosRealm,
+		KerberosKeytab:      p.Source.ConnectionParams.KerberosKeytab,
+		KerberosConfig:      p.Source.ConnectionParams.KerberosConfig,
 	}
 
 	topics := make([]models.KafkaTopicsConfig, 0, len(p.Source.Topics))
