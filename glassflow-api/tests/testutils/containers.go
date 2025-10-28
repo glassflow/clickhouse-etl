@@ -107,7 +107,7 @@ func (n *NATSContainer) GetConnection() (zero *nats.Conn, _ error) {
 
 // Stop stops the container
 func (n *NATSContainer) Stop(ctx context.Context) error {
-	reuse := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
+	reuse := os.Getenv("GLASSFLOW_REUSE_TESTCONTAINERS")
 	if reuse == "true" {
 		return nil
 	}
@@ -183,7 +183,7 @@ func (c *ClickHouseContainer) GetDefaultDBName() string {
 
 // Stop stops the container
 func (c *ClickHouseContainer) Stop(ctx context.Context) error {
-	reuse := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
+	reuse := os.Getenv("GLASSFLOW_REUSE_TESTCONTAINERS")
 	if reuse == "true" {
 		return nil
 	}
@@ -301,8 +301,7 @@ func (k *KafkaContainer) GetURI() string {
 }
 
 func (k *KafkaContainer) Stop(ctx context.Context) error {
-	// Check if reuse is enabled via label
-	reuse := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
+	reuse := os.Getenv("GLASSFLOW_REUSE_TESTCONTAINERS")
 	if reuse == "true" {
 		return nil
 	}
