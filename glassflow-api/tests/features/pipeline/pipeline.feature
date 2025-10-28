@@ -708,7 +708,7 @@ Feature: Kafka to CH pipeline
                     "type": "clickhouse",
                     "batch": {
                         "max_batch_size": 1000,
-                        "max_delay_time": "10ms"
+                        "max_delay_time": "200ms"
                     },
                     "clickhouse_connection_params": {
                         "database": "default",
@@ -720,12 +720,12 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        Then the ClickHouse table "default.events_test" should contain 6 rows
+      And I shutdown the glassflow pipeline after "4s"
+      Then the ClickHouse table "default.events_test" should contain 6 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |
             | 123 | 5     |
             | 890 | 1     |
-      And I shutdown the glassflow pipeline after "100ms"
 
     Scenario: Kafka topic with 3 partitions to ClickHouse with 1 replica
         Given a Kafka topic "test_topic" with 3 partitions
@@ -823,10 +823,10 @@ Feature: Kafka to CH pipeline
             }
             """
 
-        Then the ClickHouse table "default.events_test" should contain 6 rows
+      And I shutdown the glassflow pipeline after "4s"
+
+      Then the ClickHouse table "default.events_test" should contain 6 rows
         And the ClickHouse table "default.events_test" should contain:
             | id  | COUNT |
             | 123 | 5     |
             | 890 | 1     |
-
-      And I shutdown the glassflow pipeline after "100ms"
