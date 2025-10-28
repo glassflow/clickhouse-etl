@@ -154,7 +154,7 @@ const (
 	DefaultReplicasCount = 1
 
 	// FetchRetryDelay is the delay between retries when fetching messages from NATS stream
-	FetchRetryDelay = 100 * time.Millisecond
+	FetchRetryDelay = 50 * time.Millisecond
 
 	// Kubernetes annotation constants for pipeline operations
 	PipelineFinalizerName           = "pipeline.etl.glassflow.io/finalizer"

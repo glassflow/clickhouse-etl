@@ -105,6 +105,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 			hasEnoughEvents, err := ch.hasBatchSizeReached(ctx, ch.sinkConfig.Batch.MaxBatchSize)
 			if err != nil {
 				ch.log.ErrorContext(ctx, "hasEnoughEvents", "error", err)
+				time.Sleep(internal.FetchRetryDelay)
 				continue
 			}
 
