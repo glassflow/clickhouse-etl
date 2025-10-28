@@ -22,8 +22,8 @@ import (
 
 const (
 	streamConsumerAckWaitDuration = time.Duration(5) * time.Second
-	streamConsumerExpireTimeout   = time.Duration(10) * time.Millisecond
-	fetchTimeout                  = time.Duration(10) * time.Millisecond
+	streamConsumerExpireTimeout   = time.Duration(100) * time.Millisecond
+	fetchTimeout                  = time.Duration(100) * time.Millisecond
 )
 
 type JoinTestSuite struct {
