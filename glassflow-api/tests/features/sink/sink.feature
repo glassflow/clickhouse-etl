@@ -634,7 +634,7 @@ Feature: Clickhouse ETL sink
             ]
             """
         And I run ClickHouse sink
-        And I stop ClickHouse sink after "0s"
+        And I stop ClickHouse sink after "1s"
         Then the ClickHouse table "default.events_test" should contain 4 rows
 
     Scenario: Import events with UUID
