@@ -94,7 +94,6 @@ func (s *NatsSubscriber) Stop() {
 	defer s.mu.Unlock()
 	if s.isStopSent || s.isDrainSent {
 		s.log.Warn("stop signal already sent")
-		s.mu.Unlock()
 		return
 	}
 
