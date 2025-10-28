@@ -84,7 +84,7 @@ Feature: Kafka to CH pipeline
                     "type": "clickhouse",
                     "batch": {
                         "max_batch_size": 1000,
-                        "max_delay_time": "10ms"
+                        "max_delay_time": "200ms"
                     },
                     "clickhouse_connection_params": {
                         "database": "default",
@@ -229,7 +229,7 @@ Feature: Kafka to CH pipeline
                     "type": "clickhouse",
                     "batch": {
                         "max_batch_size": 1000,
-                        "max_delay_time": "10ms"
+                        "max_delay_time": "200ms"
                     },
                     "clickhouse_connection_params": {
                         "database": "default",
@@ -389,7 +389,7 @@ Feature: Kafka to CH pipeline
                     "type": "clickhouse",
                     "batch": {
                         "max_batch_size": 1000,
-                        "max_delay_time": "10ms"
+                        "max_delay_time": "200ms"
                     },
                     "clickhouse_connection_params": {
                         "database": "default",
@@ -502,7 +502,7 @@ Feature: Kafka to CH pipeline
                     "type": "clickhouse",
                     "batch": {
                         "max_batch_size": 1000,
-                        "max_delay_time": "10ms"
+                        "max_delay_time": "200ms"
                     },
                     "clickhouse_connection_params": {
                         "database": "default",
@@ -603,7 +603,7 @@ Feature: Kafka to CH pipeline
                     "type": "clickhouse",
                     "batch": {
                         "max_batch_size": 1000,
-                        "max_delay_time": "10ms"
+                        "max_delay_time": "200ms"
                     },
                     "clickhouse_connection_params": {
                         "database": "default",
