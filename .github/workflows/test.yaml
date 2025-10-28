@@ -13,7 +13,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: './glassflow-api/go.mod'
-          cache-dependency-path: './glassflow-api/go.sum'
+          cache-dependency-path: './glassflow-api/go.mod'
       - name: Run test
         working-directory: './glassflow-api'
         run: make run-test
@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: './glassflow-api/go.mod'
-          cache-dependency-path: './glassflow-api/go.sum'
+          cache-dependency-path: './glassflow-api/go.mod'
       - name: run e2e test
         working-directory: './glassflow-api'
         run: make run-e2e-test
