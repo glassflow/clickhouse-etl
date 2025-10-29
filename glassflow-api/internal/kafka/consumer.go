@@ -166,36 +166,20 @@ func (c *KafkaConsumer) consumeLoop(ctx context.Context) error {
 	batchTimer := time.NewTimer(c.timeout)
 	defer batchTimer.Stop()
 
+	handleCtx, handleCancel := context.WithCancel(ctx)
+	defer handleCancel()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 
-		case <-batchTimer.C:
-			if err := c.processTimerBatch(ctx, batchTimer); err != nil {
-				return err
-			}
-
 		default:
-			if err := c.handleBatchMessages(ctx, batchTimer); err != nil {
+			if err := c.handleBatchMessages(handleCtx, batchTimer); err != nil {
 				return err
 			}
 		}
 	}
-}
-
-func (c *KafkaConsumer) processTimerBatch(ctx context.Context, timer *time.Timer) error {
-	if c.processor.GetBatchSize() == 0 {
-		timer.Reset(c.timeout)
-		return nil
-	}
-
-	err := c.processBatch(ctx)
-	if err != nil {
-		return fmt.Errorf("process batch by timer: %w", err)
-	}
-	timer.Reset(c.timeout)
-	return nil
 }
 
 func (c *KafkaConsumer) handleBatchMessages(ctx context.Context, timer *time.Timer) error {
@@ -212,22 +196,32 @@ func (c *KafkaConsumer) handleBatchMessages(ctx context.Context, timer *time.Tim
 		return nil
 	}
 
-	if fetches.Empty() {
-		return nil
+	if !fetches.Empty() {
+		fetches.EachRecord(func(record *kgo.Record) {
+			c.processor.PushMsgToBatch(ctx, record)
+		})
 	}
 
-	// if records exists - convert and push to the batch
-	fetches.EachRecord(func(record *kgo.Record) {
-		c.processor.PushMsgToBatch(ctx, record)
-	})
+	select {
+	case <-ctx.Done():
+		// if context is done, exit
+		return nil
 
-	// if batch size reached threshold - process it
-	if c.processor.GetBatchSize() >= internal.DefaultKafkaBatchSize {
-		err := c.processBatch(ctx)
-		if err != nil {
-			return fmt.Errorf("process batch: %w", err)
+	case <-timer.C:
+		// process batch by timeout
+		if err := c.processBatch(ctx); err != nil {
+			return fmt.Errorf("process batch by timer: %w", err)
 		}
 		timer.Reset(c.timeout)
+
+	default:
+		// Check if batch size threshold is reached
+		if c.processor.GetBatchSize() >= internal.DefaultKafkaBatchSize {
+			if err := c.processBatch(ctx); err != nil {
+				return fmt.Errorf("process batch: %w", err)
+			}
+			timer.Reset(c.timeout)
+		}
 	}
 
 	return nil
@@ -235,6 +229,12 @@ func (c *KafkaConsumer) handleBatchMessages(ctx context.Context, timer *time.Tim
 
 func (c *KafkaConsumer) processBatch(ctx context.Context) error {
 	size := c.processor.GetBatchSize()
+	if size == 0 {
+		return nil
+	}
+
+	c.log.Info("Processing batch of messages", slog.Int("batchSize", size))
+
 	err := c.processor.ProcessBatch(ctx)
 	if err != nil {
 		c.log.Error("Batch processing failed", slog.Any("error", err), slog.Int("batchSize", size))
