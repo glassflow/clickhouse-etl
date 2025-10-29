@@ -7,5 +7,6 @@ export default {
     'release-notes': '',
     'faq': '',
     'support': '',
-    'blog': ''
+    'blog': '',
+    'free-swag': ''
 }

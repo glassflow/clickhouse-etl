@@ -7,7 +7,8 @@
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
       <a href="https://glassflow.dev/roadmap"><strong>Roadmap</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
-      <a href="https://docs.glassflow.dev/getting-started#demo-video"><strong>Watch Demo</strong></a>
+      <a href="https://docs.glassflow.dev/getting-started#demo-video"><strong>Watch Demo</strong></a> ·
+      <a href="https://docs.glassflow.dev/free-swag"><strong>Free Swag</strong></a>
 </p>
 
 <div align="center">
