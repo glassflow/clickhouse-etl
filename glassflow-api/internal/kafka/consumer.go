@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -20,15 +21,13 @@ import (
 type Message struct {
 	Topic     string
 	Partition int32
-	Offset    int64
-
-	Key   []byte
-	Value []byte
+	Value     []byte
 }
 
 type MessageProcessor interface {
-	ProcessMessage(ctx context.Context, msg Message) error
-	ProcessBatch(ctx context.Context, batch MessageBatch) error
+	PushMsgToBatch(ctx context.Context, record *kgo.Record)
+	ProcessBatch(ctx context.Context) error
+	GetBatchSize() int
 }
 
 type Consumer interface {
@@ -38,11 +37,10 @@ type Consumer interface {
 
 type MessageBatch []Message
 
-type BatchConsumer struct {
+type KafkaConsumer struct {
 	client    *kgo.Client
 	topic     string
 	groupID   string
-	batchSize int
 	timeout   time.Duration
 	processor MessageProcessor
 	meter     *observability.Meter
@@ -56,12 +54,11 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	return &BatchConsumer{
+	return &KafkaConsumer{
 		client:    client,
 		topic:     topic.Name,
 		groupID:   topic.ConsumerGroupName,
 		log:       log,
-		batchSize: internal.DefaultKafkaBatchSize,
 		timeout:   internal.DefaultKafkaBatchTimeout,
 		meter:     meter,
 		processor: nil,
@@ -142,16 +139,13 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) []kgo.Opt {
 			tlsCfg.InsecureSkipVerify = true
 		}
 
-		kgo.DialTLSConfig(tlsCfg)
-
-		// TLS only (no SASL)
 		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
 	}
 
 	return opts
 }
 
-func (c *BatchConsumer) Start(ctx context.Context, processor MessageProcessor) error {
+func (c *KafkaConsumer) Start(ctx context.Context, processor MessageProcessor) error {
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.processor = processor
 
@@ -162,64 +156,57 @@ func (c *BatchConsumer) Start(ctx context.Context, processor MessageProcessor) e
 	return c.consumeLoop(ctx)
 }
 
-func (c *BatchConsumer) consumeLoop(ctx context.Context) error {
+func (c *KafkaConsumer) consumeLoop(ctx context.Context) error {
 	c.log.Debug("Consuming messages in batch mode",
 		slog.String("topic", c.topic),
 		slog.String("group", c.groupID),
-		slog.Int("batchSize", c.batchSize),
+		slog.Int("batchSizeThreshold", internal.DefaultKafkaBatchSize),
 		slog.Duration("timeout", c.timeout))
 
-	batch := make(MessageBatch, 0, c.batchSize)
 	batchTimer := time.NewTimer(c.timeout)
 	defer batchTimer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return c.processRemainingBatch(ctx, &batch)
+			return nil
 
 		case <-batchTimer.C:
-			if err := c.processTimerBatch(ctx, &batch, batchTimer); err != nil {
+			if err := c.processTimerBatch(ctx, batchTimer); err != nil {
 				return err
 			}
 
 		default:
-			if err := c.handleBatchMessages(ctx, &batch, batchTimer); err != nil {
+			if err := c.handleBatchMessages(ctx, batchTimer); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (c *BatchConsumer) processRemainingBatch(ctx context.Context, batch *MessageBatch) error {
-	if len(*batch) > 0 {
-		return c.processBatch(ctx, *batch)
+func (c *KafkaConsumer) processTimerBatch(ctx context.Context, timer *time.Timer) error {
+	if c.processor.GetBatchSize() == 0 {
+		timer.Reset(c.timeout)
+		return nil
 	}
-	return nil
-}
 
-func (c *BatchConsumer) processTimerBatch(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
-	if len(*batch) > 0 {
-		if err := c.processBatch(ctx, *batch); err != nil {
-			return err
-		}
-		// Reset batch
-		*batch = (*batch)[:0]
+	err := c.processBatch(ctx)
+	if err != nil {
+		return fmt.Errorf("process batch by timer: %w", err)
 	}
 	timer.Reset(c.timeout)
 	return nil
 }
 
-func (c *BatchConsumer) handleBatchMessages(ctx context.Context, batch *MessageBatch, timer *time.Timer) error {
-	remainingCapacity := c.batchSize - len(*batch)
-	if remainingCapacity <= 0 {
-		return nil
-	}
-
+func (c *KafkaConsumer) handleBatchMessages(ctx context.Context, timer *time.Timer) error {
 	// Poll for messages
 	fetches := c.client.PollFetches(ctx)
 	if errs := fetches.Errors(); len(errs) > 0 {
 		for _, err := range errs {
+			if errors.Is(err.Err, context.Canceled) {
+				c.log.Info("Received context cancel, abort fetching...")
+				return nil
+			}
 			c.log.Error("Error fetching messages", slog.Any("error", err))
 		}
 		return nil
@@ -231,34 +218,26 @@ func (c *BatchConsumer) handleBatchMessages(ctx context.Context, batch *MessageB
 
 	// if records exists - convert and push to the batch
 	fetches.EachRecord(func(record *kgo.Record) {
-		if len(*batch) < c.batchSize {
-			message := c.convertRecord(record)
-			*batch = append(*batch, message)
-		}
+		c.processor.PushMsgToBatch(ctx, record)
 	})
 
-	// if batch is fill - perfrom processing
-	if len(*batch) >= c.batchSize {
-		if err := c.processBatch(ctx, *batch); err != nil {
-			return err
+	// if batch size reached threshold - process it
+	if c.processor.GetBatchSize() >= internal.DefaultKafkaBatchSize {
+		err := c.processBatch(ctx)
+		if err != nil {
+			return fmt.Errorf("process batch: %w", err)
 		}
-		*batch = (*batch)[:0]
 		timer.Reset(c.timeout)
 	}
 
 	return nil
 }
 
-func (c *BatchConsumer) processBatch(ctx context.Context, batch MessageBatch) error {
-	if len(batch) == 0 {
-		return nil
-	}
-
-	err := c.processor.ProcessBatch(ctx, batch)
+func (c *KafkaConsumer) processBatch(ctx context.Context) error {
+	size := c.processor.GetBatchSize()
+	err := c.processor.ProcessBatch(ctx)
 	if err != nil {
-		c.log.Error("Batch processing failed",
-			slog.Any("error", err),
-			slog.Int("batchSize", len(batch)))
+		c.log.Error("Batch processing failed", slog.Any("error", err), slog.Int("batchSize", size))
 		return fmt.Errorf("batch processing failed: %w", err)
 	}
 
@@ -269,13 +248,13 @@ func (c *BatchConsumer) processBatch(ctx context.Context, batch MessageBatch) er
 
 	// Record Kafka read metric
 	if c.meter != nil {
-		c.meter.RecordKafkaRead(ctx, int64(len(batch)))
+		c.meter.RecordKafkaRead(ctx, int64(size))
 	}
 
 	return nil
 }
 
-func (c *BatchConsumer) commitBatch(ctx context.Context) error {
+func (c *KafkaConsumer) commitBatch(ctx context.Context) error {
 	if err := c.client.CommitUncommittedOffsets(ctx); err != nil {
 		c.log.Error("Failed to commit offsets", slog.Any("error", err))
 		return fmt.Errorf("failed to commit offsets: %w", err)
@@ -283,17 +262,7 @@ func (c *BatchConsumer) commitBatch(ctx context.Context) error {
 	return nil
 }
 
-func (c *BatchConsumer) convertRecord(record *kgo.Record) Message {
-	return Message{
-		Topic:     record.Topic,
-		Partition: record.Partition,
-		Offset:    record.Offset,
-		Key:       record.Key,
-		Value:     record.Value,
-	}
-}
-
-func (c *BatchConsumer) Close() error {
+func (c *KafkaConsumer) Close() error {
 	c.log.Info("Closing Kafka consumer", slog.String("group", c.groupID))
 
 	if c.cancel != nil {

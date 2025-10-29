@@ -2,6 +2,8 @@ package internal
 
 import "time"
 
+type ProcessorMode string
+
 // Default values
 const (
 	DefaultSubjectName = "input"
@@ -106,9 +108,15 @@ const (
 	CHTypeLCDateTime = "LowCardinality(DateTime)"
 
 	// Stream publisher constants
-	PublisherInitialRetryDelay = 1 * time.Second
-	PublisherMaxRetryDelay     = 10 * time.Second
-	PublisherMaxRetryWait      = 5 * time.Minute
+	PublisherSyncInitialRetryDelay = 100 * time.Millisecond
+	PublisherSyncMaxRetryDelay     = 1 * time.Second
+	PublisherSyncMaxRetryWait      = 1 * time.Minute
+
+	PublisherAsyncInitialRetryDelay = 10 * time.Millisecond
+	PublisherAsyncMaxRetryDelay     = 100 * time.Millisecond
+	PublisherAsyncMaxRetryWait      = 1 * time.Second
+
+	PublisherMaxPendingAcks = 4000
 
 	// Stream consumer constants
 	ConsumerRetries           = 10
@@ -177,25 +185,23 @@ const (
 
 	// Kafka session timeout in milliseconds
 	KafkaSessionTimeoutMs = 60000
-
 	// Kafka heartbeat interval in milliseconds
 	KafkaHeartbeatInterval = 15000
-
 	// Kafka MinFetchBytes is the minimum amount of data the server should return for a fetch request.
 	KafkaMinFetchBytes = 102400
-
 	// Kafka MaxFetchBytes is the maximum amount of data the server should return for a fetch request.
 	KafkaMaxFetchBytes = 1048576
-
 	// KafkaMaxQueuedMessagesSize is the maximum number of messages that can be queued in the consumer
 	KafkaMaxMessagesInQueueSize = 1048576
-
 	// DefaultKafkaBatchTimeout is default delay of batch collection in kafka ingestor component
 	DefaultKafkaBatchTimeout = 200 * time.Microsecond
-
 	// DefaultKafkaBatchSize is default size of batch in kafka ingestor component
 	DefaultKafkaBatchSize = 10000
-
 	// KafkaMaxWait is the maximum time to wait for messages from Kafka
 	KafkaMaxWait = 100 * time.Millisecond
+
+	// Kafka message processor modes
+	SyncMode             ProcessorMode = "sync"
+	AsyncMode            ProcessorMode = "async"
+	DefaultProcessorMode               = SyncMode
 )
