@@ -399,6 +399,11 @@ func (s *IngestorTestSuite) fastJoinCleanUp() error {
 	return nil
 }
 
+func (s *IngestorTestSuite) iWaitForSeconds(seconds int) error {
+	time.Sleep(time.Duration(seconds) * time.Second)
+	return nil
+}
+
 func (s *IngestorTestSuite) CleanupResources() error {
 	var errs []error
 
@@ -437,6 +442,7 @@ func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I check results stream with content$`, s.checkResultsStream)
 	sc.Step(`^I check DLQ stream with content$`, s.checkDLQStream)
 	sc.Step(`^I flush all NATS streams$`, s.cleanNatsStreams)
+	sc.Step(`^I wait for (\d+) second`, s.iWaitForSeconds)
 
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		cleanupErr := s.fastJoinCleanUp()

@@ -8,9 +8,10 @@ import (
 	"strconv"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kafka"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
@@ -21,19 +22,13 @@ var (
 	ErrDeduplicateData = errors.New("failed to deduplicate data")
 )
 
-type MessageProcessor interface {
-	ProcessMessage(ctx context.Context, msg kafka.Message) error
-	ProcessBatch(ctx context.Context, batch kafka.MessageBatch) error
-}
-
 type KafkaMsgProcessor struct {
 	publisher    stream.Publisher
 	dlqPublisher stream.Publisher
 	schemaMapper schema.Mapper
-
-	topic models.KafkaTopicsConfig
-
-	log *slog.Logger
+	topic        models.KafkaTopicsConfig
+	batch        []*kgo.Record
+	log          *slog.Logger
 }
 
 func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper schema.Mapper, topic models.KafkaTopicsConfig, log *slog.Logger) *KafkaMsgProcessor {
@@ -42,6 +37,7 @@ func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper
 		dlqPublisher: dlqPublisher,
 		schemaMapper: schemaMapper,
 		topic:        topic,
+		batch:        make([]*kgo.Record, 0),
 		log:          log,
 	}
 }
@@ -78,13 +74,15 @@ func (k *KafkaMsgProcessor) setupDeduplicationHeader(headers nats.Header, msgDat
 		return fmt.Errorf("deduplication key is nil for topic %s", k.topic.Name)
 	}
 
+	strKey := fmt.Sprintf("%v", keyValue)
+
 	k.log.Debug("Setting deduplication header",
 		slog.String("topic", k.topic.Name),
 		slog.String("dedupKey", dedupKey),
 		slog.Any("keyValue", keyValue),
 	)
 
-	headers.Set("Nats-Msg-Id", fmt.Sprintf("%v", keyValue))
+	headers.Set("Nats-Msg-Id", strKey)
 
 	return nil
 }
@@ -97,13 +95,22 @@ func (k *KafkaMsgProcessor) setSubject(partitionID int32) string {
 	return k.publisher.GetSubject()
 }
 
-func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg kafka.Message) (*nats.Msg, error) {
+func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record) (*nats.Msg, error) {
 	nMsg := nats.NewMsg(k.setSubject(msg.Partition))
 	nMsg.Data = msg.Value
 
+	k.log.Debug("Preparing message",
+		slog.String("topic", k.topic.Name),
+		slog.Any("data", nMsg.Data),
+		slog.String("subject", nMsg.Subject))
+
 	err := k.schemaMapper.ValidateSchema(k.topic.Name, msg.Value)
 	if err != nil {
-		k.log.Error("Failed to validate data", slog.Any("error", err), slog.String("topic", k.topic.Name))
+		k.log.Error("Failed to validate data",
+			slog.Any("error", err), slog.String("topic", k.topic.Name),
+			slog.Int64("offset", msg.Offset),
+			slog.String("partition", strconv.Itoa(int(msg.Partition))))
+
 		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrValidateSchema); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
@@ -123,6 +130,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg kafka.Messa
 				slog.String("dedupKey", k.topic.Deduplication.ID),
 				slog.String("subject", string(msg.Value)),
 			)
+
 			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData); dlqErr != nil {
 				return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 			}
@@ -133,71 +141,122 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg kafka.Messa
 	return nMsg, nil
 }
 
-func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
-	nMsg, err := k.prepareMesssage(ctx, msg)
-	if err != nil {
-		return fmt.Errorf("failed to prepare NATS message: %w", err)
-	}
-	if nMsg == nil {
-		// Message was pushed to DLQ, nothing more to do
-		return nil
+func (k *KafkaMsgProcessor) PushMsgToBatch(_ context.Context, msg *kgo.Record) {
+	if msg == nil {
+		return
 	}
 
-	err = k.publisher.PublishNatsMsg(ctx, nMsg, stream.WithUntilAck())
-	if err != nil {
-		k.log.Error("Failed to publish message to NATS",
-			slog.Any("error", err),
-			slog.String("topic", k.topic.Name),
-			slog.String("subject", k.publisher.GetSubject()),
-		)
-		return fmt.Errorf("failed to publish to NATS: %w", err)
-	}
-
-	return nil
+	k.batch = append(k.batch, msg)
 }
 
-func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context, batch kafka.MessageBatch) error {
-	natsBatch := make([]*nats.Msg, 0, len(batch))
-	for i, msg := range batch {
+func (k *KafkaMsgProcessor) GetBatchSize() int {
+	return len(k.batch)
+}
+
+func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context) error {
+	if internal.DefaultProcessorMode == internal.SyncMode {
+		return k.processBatchSync(ctx)
+	}
+	return k.processBatchAsync(ctx)
+}
+
+func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context) error {
+	for _, msg := range k.batch {
 		natsMsg, err := k.prepareMesssage(ctx, msg)
 		if err != nil {
-			k.log.Error("Failed to process message in batch",
+			k.log.Error("Failed to prepare message",
 				slog.Any("error", err),
-				slog.Int("messageIndex", i),
-				slog.Int("batchSize", len(batch)),
 				slog.String("topic", msg.Topic),
-				slog.Int("partition", int(msg.Partition)),
-				slog.Int64("offset", msg.Offset))
-			return fmt.Errorf("failed to process message %d in batch: %w", i, err)
+				slog.Int("partition", int(msg.Partition)))
+
+			return fmt.Errorf("failed to prepare message: %w", err)
 		}
 		if natsMsg == nil {
 			// Message was pushed to DLQ, nothing more to do
 			continue
 		}
 
-		natsBatch = append(natsBatch, natsMsg)
-	}
+		err = k.publisher.PublishNatsMsg(ctx, natsMsg, stream.WithUntilAck())
+		if err != nil {
+			k.log.Error("Failed to publish message to NATS",
+				slog.Any("error", err),
+				slog.String("topic", msg.Topic),
+				slog.Int("partition", int(msg.Partition)))
 
-	k.log.Debug("Publishing NATS message batch", slog.Int("batchSize", len(natsBatch)))
-
-	err := k.publisher.PublishBatch(ctx, natsBatch)
-	if err != nil {
-		k.log.Error("Failed to publish batch messages to NATS", slog.Any("error", err), slog.String("topic", k.topic.Name))
-		return fmt.Errorf("failed to publish batch to NATS: %w", err)
+			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, err); dlqErr != nil {
+				k.log.Error("Failed to push failed message to DLQ",
+					slog.Any("error", dlqErr),
+					slog.String("topic", msg.Topic),
+					slog.Int("partition", int(msg.Partition)))
+				return fmt.Errorf("failed to publish to NATS: %w", err)
+			}
+		}
 	}
 
 	return nil
 }
 
-func (k *KafkaMsgProcessor) sendNatsMessage(ctx context.Context, msg *nats.Msg) error {
-	err := k.publisher.PublishNatsMsg(ctx, msg, stream.WithUntilAck())
-	if err != nil {
-		k.log.Error("Failed to publish message to NATS",
-			slog.Any("error", err),
-			slog.String("topic", k.topic.Name),
-			slog.String("subject", k.publisher.GetSubject()),
-		)
-		return fmt.Errorf("failed to publish to NATS: %w", err)
+func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context) error {
+	ctx := context.Background()
+	futures := make([]jetstream.PubAckFuture, 0)
+	for _, msg := range k.batch {
+		natsMsg, err := k.prepareMesssage(ctx, msg)
+		if err != nil {
+			k.log.Error("Failed to prepare message",
+				slog.Any("error", err),
+				slog.String("topic", msg.Topic),
+				slog.Int("partition", int(msg.Partition)))
+
+			return fmt.Errorf("failed to prepare message: %w", err)
+		}
+		if natsMsg == nil {
+			// Message was pushed to DLQ, nothing more to do
+			continue
+		}
+
+		fut, err := k.publisher.PublishNatsMsgAsync(natsMsg)
+		if err != nil {
+			k.log.Error("Failed to publish message async to NATS",
+				slog.Any("error", err),
+				slog.String("topic", msg.Topic),
+				slog.Int("partition", int(msg.Partition)))
+
+			dlqErr := k.pushMsgToDLQ(ctx, msg.Value, err)
+			if dlqErr != nil {
+				k.log.Error("Failed to push failed message to DLQ",
+					slog.Any("error", dlqErr),
+					slog.String("topic", msg.Topic),
+					slog.Int("partition", int(msg.Partition)))
+				return fmt.Errorf("failed to publish async to NATS: %w", err)
+			}
+
+			continue
+		}
+
+		futures = append(futures, fut)
+	}
+
+	// Wait for all futures to complete
+	<-k.publisher.WaitForAsyncPublishAcks()
+
+	for _, fut := range futures {
+		select {
+		case <-fut.Ok():
+			// Successfully published
+			continue
+		case err := <-fut.Err():
+			k.log.Error("Failed to receive async publish ack",
+				slog.Any("error", err),
+				slog.String("subject", fut.Msg().Subject))
+
+			dlqErr := k.pushMsgToDLQ(ctx, fut.Msg().Data, err)
+			if dlqErr != nil {
+				k.log.Error("Failed to push failed message to DLQ",
+					slog.Any("error", dlqErr),
+					slog.String("subject", fut.Msg().Subject))
+				return fmt.Errorf("push mesage to the DLQ %w", dlqErr)
+			}
+		}
 	}
 
 	return nil
