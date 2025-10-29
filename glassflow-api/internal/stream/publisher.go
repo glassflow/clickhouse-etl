@@ -23,7 +23,7 @@ type Publisher interface {
 	Publish(ctx context.Context, msg []byte) error
 	GetSubject() string
 	PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts ...PublishOpt) error
-	PublishNatsMsgAsync(msg *nats.Msg) (jetstream.PubAckFuture, error)
+	PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream.PubAckFuture, error)
 	WaitForAsyncPublishAcks() <-chan struct{}
 }
 
@@ -129,7 +129,7 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 	return nil
 }
 
-func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg) (jetstream.PubAckFuture, error) {
+func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream.PubAckFuture, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("message cannot be nil")
 	}
@@ -137,7 +137,7 @@ func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg) (jetstream.PubAckFutu
 	ctx, cancel := context.WithTimeout(context.Background(), internal.PublisherAsyncMaxRetryWait)
 	defer cancel()
 
-	err := p.throttlePublishBackOff(ctx)
+	err := p.throttlePublishBackOff(ctx, limit)
 	if err != nil {
 		return nil, fmt.Errorf("throttle publish backoff: %w", err)
 	}
@@ -158,14 +158,14 @@ func (p *NatsPublisher) GetSubject() string {
 	return p.Subject
 }
 
-func (p *NatsPublisher) throttlePublishBackOff(ctx context.Context) error {
+func (p *NatsPublisher) throttlePublishBackOff(ctx context.Context, limit int) error {
 	err := retry.Do(
 		func() error {
 			currentAsyncPendingMsgs := p.js.PublishAsyncPending()
-			if currentAsyncPendingMsgs < internal.PublisherMaxPendingAcks {
+			if currentAsyncPendingMsgs < limit {
 				return nil
 			}
-			return fmt.Errorf("max in-flight messages reached: %d", currentAsyncPendingMsgs)
+			return fmt.Errorf("max pending publishes reached: %d", currentAsyncPendingMsgs)
 		},
 		retry.Context(ctx),
 		retry.DelayType(retry.BackOffDelay),
@@ -173,7 +173,7 @@ func (p *NatsPublisher) throttlePublishBackOff(ctx context.Context) error {
 		retry.MaxDelay(internal.PublisherAsyncMaxRetryDelay),
 	)
 	if err != nil {
-		return fmt.Errorf("throttling failed %w", err)
+		return fmt.Errorf("throttling failed: %w", err)
 	}
 
 	return nil
