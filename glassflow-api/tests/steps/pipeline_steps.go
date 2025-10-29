@@ -177,7 +177,7 @@ func (p *PipelineSteps) fastCleanup() error {
 		pipelineID := p.orchestrator.ActivePipelineID()
 
 		// Try to stop the pipeline first
-		err = p.pipelineService.TerminatePipeline(context.Background(), pipelineID)
+		err = p.pipelineService.StopPipeline(context.Background(), pipelineID)
 		if err != nil {
 			// Log the error but continue - pipeline might already be stopped or not exist
 			p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
