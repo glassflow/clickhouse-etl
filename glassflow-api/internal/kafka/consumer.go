@@ -18,26 +18,13 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
-type Message struct {
-	Topic     string
-	Partition int32
-	Value     []byte
-}
-
 type MessageProcessor interface {
 	PushMsgToBatch(ctx context.Context, record *kgo.Record)
 	ProcessBatch(ctx context.Context) error
 	GetBatchSize() int
 }
 
-type Consumer interface {
-	Start(ctx context.Context, processor MessageProcessor) error
-	Close() error
-}
-
-type MessageBatch []Message
-
-type KafkaConsumer struct {
+type Consumer struct {
 	client    *kgo.Client
 	topic     string
 	groupID   string
@@ -48,13 +35,13 @@ type KafkaConsumer struct {
 	cancel    context.CancelFunc
 }
 
-func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (Consumer, error) {
+func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (*Consumer, error) {
 	client, err := kgo.NewClient(buildClientOptions(conn, topic)...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
+		return &Consumer{}, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	return &KafkaConsumer{
+	return &Consumer{
 		client:    client,
 		topic:     topic.Name,
 		groupID:   topic.ConsumerGroupName,
@@ -145,7 +132,7 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) []kgo.Opt {
 	return opts
 }
 
-func (c *KafkaConsumer) Start(ctx context.Context, processor MessageProcessor) error {
+func (c *Consumer) Start(ctx context.Context, processor MessageProcessor) error {
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.processor = processor
 
@@ -156,7 +143,7 @@ func (c *KafkaConsumer) Start(ctx context.Context, processor MessageProcessor) e
 	return c.consumeLoop(ctx)
 }
 
-func (c *KafkaConsumer) consumeLoop(ctx context.Context) error {
+func (c *Consumer) consumeLoop(ctx context.Context) error {
 	c.log.Debug("Consuming messages in batch mode",
 		slog.String("topic", c.topic),
 		slog.String("group", c.groupID),
@@ -182,7 +169,7 @@ func (c *KafkaConsumer) consumeLoop(ctx context.Context) error {
 	}
 }
 
-func (c *KafkaConsumer) handleBatchMessages(ctx context.Context, timer *time.Timer) error {
+func (c *Consumer) handleBatchMessages(ctx context.Context, timer *time.Timer) error {
 	// Poll for messages
 	fetches := c.client.PollFetches(ctx)
 	if errs := fetches.Errors(); len(errs) > 0 {
@@ -227,7 +214,7 @@ func (c *KafkaConsumer) handleBatchMessages(ctx context.Context, timer *time.Tim
 	return nil
 }
 
-func (c *KafkaConsumer) processBatch(ctx context.Context) error {
+func (c *Consumer) processBatch(ctx context.Context) error {
 	size := c.processor.GetBatchSize()
 	if size == 0 {
 		return nil
@@ -254,7 +241,7 @@ func (c *KafkaConsumer) processBatch(ctx context.Context) error {
 	return nil
 }
 
-func (c *KafkaConsumer) commitBatch(ctx context.Context) error {
+func (c *Consumer) commitBatch(ctx context.Context) error {
 	if err := c.client.CommitUncommittedOffsets(ctx); err != nil {
 		c.log.Error("Failed to commit offsets", slog.Any("error", err))
 		return fmt.Errorf("failed to commit offsets: %w", err)
@@ -262,7 +249,7 @@ func (c *KafkaConsumer) commitBatch(ctx context.Context) error {
 	return nil
 }
 
-func (c *KafkaConsumer) Close() error {
+func (c *Consumer) Close() error {
 	c.log.Info("Closing Kafka consumer", slog.String("group", c.groupID))
 
 	if c.cancel != nil {
