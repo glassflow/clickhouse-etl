@@ -12,8 +12,13 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
+type KafkaConsumer interface {
+	Start(ctx context.Context, processor kafka.MessageProcessor) error
+	Close() error
+}
+
 type KafkaIngestor struct {
-	consumer  kafka.Consumer
+	consumer  KafkaConsumer
 	processor kafka.MessageProcessor
 	topic     models.KafkaTopicsConfig
 	log       *slog.Logger
