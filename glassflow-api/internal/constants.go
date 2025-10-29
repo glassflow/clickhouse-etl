@@ -134,6 +134,7 @@ const (
 	DefaultDialTimeout     = 5000 * time.Millisecond
 	MechanismSHA256        = "SCRAM-SHA-256"
 	MechanismSHA512        = "SCRAM-SHA-512"
+	MechanismPlain         = "PLAIN"
 
 	// Ingestor constants
 	IngestorInitialRetryDelay = 500 * time.Millisecond

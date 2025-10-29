@@ -136,14 +136,21 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 		if len(strings.TrimSpace(conn.SASLUsername)) == 0 {
 			return zero, PipelineConfigError{Msg: "SASL username cannot be empty"}
 		}
-		if len(conn.SASLPassword) == 0 {
+		if len(conn.SASLPassword) == 0 && conn.SASLMechanism != internal.MechanismKerberos {
 			return zero, PipelineConfigError{Msg: "SASL password cannot be empty"}
 		}
 
 		switch conn.SASLMechanism {
-		case "SCRAM-SHA-256":
-		case "SCRAM-SHA-512":
-		case "PLAIN":
+		case internal.MechanismSHA256:
+		case internal.MechanismSHA512:
+		case internal.MechanismKerberos:
+			if len(strings.TrimSpace(conn.KerberosServiceName)) == 0 ||
+				len(strings.TrimSpace(conn.KerberosRealm)) == 0 ||
+				len(strings.TrimSpace(conn.KerberosKeytab)) == 0 ||
+				len(strings.TrimSpace(conn.KerberosConfig)) == 0 {
+				return zero, PipelineConfigError{Msg: "Kerberos configuration fields cannot be empty"}
+			}
+		case internal.MechanismPlain:
 		default:
 			return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", conn.SASLMechanism)}
 		}
@@ -168,13 +175,17 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 		Type:     internal.KafkaIngestorType,
 		Provider: provider,
 		KafkaConnectionParams: KafkaConnectionParamsConfig{
-			Brokers:       conn.Brokers,
-			SkipAuth:      conn.SkipAuth,
-			SASLProtocol:  conn.SASLProtocol,
-			SASLMechanism: conn.SASLMechanism,
-			SASLUsername:  conn.SASLUsername,
-			SASLPassword:  conn.SASLPassword,
-			TLSRoot:       conn.TLSRoot,
+			Brokers:             conn.Brokers,
+			SkipAuth:            conn.SkipAuth,
+			SASLProtocol:        conn.SASLProtocol,
+			SASLMechanism:       conn.SASLMechanism,
+			SASLUsername:        conn.SASLUsername,
+			SASLPassword:        conn.SASLPassword,
+			TLSRoot:             conn.TLSRoot,
+			KerberosServiceName: conn.KerberosServiceName,
+			KerberosRealm:       conn.KerberosRealm,
+			KerberosKeytab:      conn.KerberosKeytab,
+			KerberosConfig:      conn.KerberosConfig,
 		},
 		KafkaTopics: topics,
 	}, nil
