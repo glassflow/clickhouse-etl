@@ -7,9 +7,16 @@ import (
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
+
+type Component interface {
+	Start(context.Context) error
+	Stop(...component.StopOption)
+	Done() <-chan struct{} // Signals when component stops by itself
+}
 
 type Orchestrator interface {
 	GetType() string

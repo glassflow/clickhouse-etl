@@ -106,3 +106,4 @@ Feature: Working with DLQ
     Then I send a POST request to "/api/v1/pipeline/kafka-to-clickhouse-pipeline-dfadfbad-aeec-43a9-9870-b7d5ac993ae7/dlq/purge"
     Then NATS stream "gf-d7fac70f-test_topic" with subject "gf-d7fac70f-test_topic.input" should contain 1 events
     Then NATS stream "gf-d7fac70f-DLQ" with subject "gf-d7fac70f-DLQ.failed" should contain 0 events
+    And I shutdown the glassflow pipeline after "0s"

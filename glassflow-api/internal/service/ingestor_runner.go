@@ -7,6 +7,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
@@ -22,8 +23,7 @@ type IngestorRunner struct {
 	schemaMapper schema.Mapper
 	meter        *observability.Meter
 
-	component component.Component
-	c         chan error
+	component Component
 	doneCh    chan struct{}
 }
 
@@ -43,7 +43,6 @@ func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string
 
 func (i *IngestorRunner) Start(ctx context.Context) error {
 	i.doneCh = make(chan struct{})
-	i.c = make(chan error, 1)
 
 	if i.topicName == "" {
 		i.log.ErrorContext(ctx, "topic name cannot be empty")
@@ -78,29 +77,27 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		},
 	)
 
-	component, err := component.NewIngestorComponent(
+	ingestor, err := ingestor.NewKafkaIngestor(
 		i.pipelineCfg.Ingestor,
 		i.topicName,
 		streamPublisher,
 		dlqStreamPublisher,
 		i.schemaMapper,
-		i.doneCh,
 		i.log,
 		i.meter,
 	)
 	if err != nil {
-		i.log.ErrorContext(ctx, "failed to create ingestor component: ", "error", err)
-		return fmt.Errorf("create ingestor: %w", err)
+		return fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}
 
-	i.component = component
+	i.component = ingestor
 
 	go func() {
-		component.Start(ctx, i.c)
-		close(i.c)
-		for err := range i.c {
-			i.log.ErrorContext(ctx, "error in ingestor component", "error", err, "topic", i.topicName)
+		err = ingestor.Start(ctx)
+		if err != nil {
+			i.log.ErrorContext(ctx, "failed to start ingestor", "error", err)
 		}
+		close(i.doneCh)
 	}()
 
 	return nil

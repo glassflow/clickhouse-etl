@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
@@ -26,6 +27,7 @@ type ClickHouseSink struct {
 	streamConsumer        stream.Consumer
 	schemaMapper          schema.Mapper
 	cancel                context.CancelFunc
+	chDone                <-chan struct{}
 	shutdownOnce          sync.Once
 	sinkConfig            models.SinkComponentConfig
 	clickhouseQueryConfig models.ClickhouseQueryConfig
@@ -85,6 +87,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 	ch.cancel = cancel
+	ch.chDone = ctx.Done()
 	defer cancel()
 
 	for {
@@ -351,12 +354,11 @@ func (ch *ClickHouseSink) clearConn() {
 	}
 }
 
-func (ch *ClickHouseSink) Stop(noWait bool) {
+func (ch *ClickHouseSink) Stop(_ ...component.StopOption) {
+	ch.log.Info("Clickhouse sink received stop signal")
+	defer ch.log.Info("Clickhouse sink stopped")
 	ch.shutdownOnce.Do(func() {
-		if ch.cancel != nil {
-			ch.cancel()
-		}
-		ch.log.Debug("Stop signal sent", "no_wait", noWait)
+		ch.cancel()
 	})
 }
 
@@ -377,4 +379,8 @@ func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err e
 	}
 
 	return nil
+}
+
+func (ch *ClickHouseSink) Done() <-chan struct{} {
+	return ch.chDone
 }

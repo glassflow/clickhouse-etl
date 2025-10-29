@@ -18,6 +18,12 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
+type Component interface {
+	Start(context.Context) error
+	Stop(...component.StopOption)
+	Done() <-chan struct{} // Signals when component stops by itself
+}
+
 // BaseTestSuite provides common functionality for test suites
 type BaseTestSuite struct {
 	natsContainer  *testutils.NATSContainer

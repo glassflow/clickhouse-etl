@@ -796,8 +796,8 @@ Feature: Kafka to CH pipeline
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-859867ac-test_topic",
-                            "output_stream_subject": "gf-859867ac-test_topic.*",
+                            "output_stream_id": "gf-92ff8558-test_topic",
+                            "output_stream_subject": "gf-92ff8558-test_topic.*",
                             "replicas": 1
                         }
                     ]
@@ -816,8 +816,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-859867ac-test_topic",
-                    "nats_consumer_name": "gf-nats-si-859867ac"
+                    "stream_id": "gf-92ff8558-test_topic",
+                    "nats_consumer_name": "gf-nats-si-92ff8558"
                 }
             }
             """

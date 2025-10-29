@@ -9,6 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -22,8 +23,7 @@ type SinkRunner struct {
 	meter        *observability.Meter
 	dlqPublisher stream.Publisher
 
-	component component.Component
-	c         chan error
+	component Component
 	doneCh    chan struct{}
 }
 
@@ -48,7 +48,6 @@ func NewSinkRunner(
 
 func (s *SinkRunner) Start(ctx context.Context) error {
 	s.doneCh = make(chan struct{})
-	s.c = make(chan error, 1)
 
 	//nolint: exhaustruct // optional config
 	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
@@ -68,28 +67,29 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		},
 	)
 
-	sinkComponent, err := component.NewSinkComponent(
+	sinkComponent, err := sink.NewClickHouseSink(
 		s.pipelineCfg.Sink,
 		consumer,
 		s.schemaMapper,
-		s.doneCh,
 		s.log,
 		s.meter,
 		dlqStreamPublisher,
+		models.ClickhouseQueryConfig{
+			WaitForAsyncInsert: true,
+		},
 	)
 	if err != nil {
-		s.log.ErrorContext(ctx, "failed to create ClickHouse sink: ", "error", err)
-		return fmt.Errorf("create sink: %w", err)
+		return fmt.Errorf("create clickhouse sink: %w", err)
 	}
 
 	s.component = sinkComponent
 
 	go func() {
-		sinkComponent.Start(ctx, s.c)
-		close(s.c)
-		for err := range s.c {
-			s.log.ErrorContext(ctx, "Error in the sink component", "error", err)
+		err = sinkComponent.Start(ctx)
+		if err != nil {
+			s.log.ErrorContext(ctx, "failed to start clickhouse sink: ", "error", err)
 		}
+		close(s.doneCh)
 	}()
 
 	return nil

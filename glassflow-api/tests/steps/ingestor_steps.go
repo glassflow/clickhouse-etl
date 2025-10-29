@@ -10,6 +10,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
@@ -43,7 +44,7 @@ type IngestorTestSuite struct {
 
 	ingestorCfg models.IngestorComponentConfig
 
-	ingestor component.Component
+	ingestor Component
 
 	topicName string
 }
@@ -215,20 +216,21 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 			Subject: s.dlqStreamCfg.Subject,
 		},
 	)
-	ingestor, err := component.NewIngestorComponent(
+
+	kafkaIngestor, err := ingestor.NewKafkaIngestor(
 		s.ingestorCfg,
 		s.topicName,
 		streamConsumer,
 		dlqStreamPublisher,
 		s.schemaMapper,
-		make(chan struct{}),
 		logger,
 		nil, // nil meter for e2e tests
 	)
 	if err != nil {
-		return fmt.Errorf("create ingestor component: %w", err)
+		return fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}
-	s.ingestor = ingestor
+
+	s.ingestor = kafkaIngestor
 
 	s.errCh = make(chan error, 1)
 
@@ -236,7 +238,10 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	go func() {
 		defer s.wg.Done()
 
-		ingestor.Start(context.Background(), s.errCh)
+		err = kafkaIngestor.Start(context.Background())
+		if err != nil {
+			s.errCh <- fmt.Errorf("error starting kafka ingestor: %w", err)
+		}
 	}()
 
 	return nil

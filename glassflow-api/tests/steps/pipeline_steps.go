@@ -13,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/cucumber/godog"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -175,7 +177,7 @@ func (p *PipelineSteps) fastCleanup() error {
 		pipelineID := p.orchestrator.ActivePipelineID()
 
 		// Try to stop the pipeline first
-		err = p.pipelineService.StopPipeline(context.Background(), pipelineID)
+		err = p.pipelineService.TerminatePipeline(context.Background(), pipelineID)
 		if err != nil {
 			// Log the error but continue - pipeline might already be stopped or not exist
 			p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
@@ -429,6 +431,25 @@ func (p *PipelineSteps) shutdownPipeline() error {
 	if err != nil {
 		// Log the error but continue - pipeline might already be stopped or not exist
 		p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
+	}
+
+	err = retry.Do(
+		func() error {
+			pipeline, err := p.pipelineService.GetPipeline(context.Background(), pipelineID)
+			if err != nil {
+				return err
+			}
+			if pipeline.Status.OverallStatus == internal.PipelineStatusFailed || pipeline.Status.OverallStatus == internal.PipelineStatusStopped {
+				return nil
+			}
+			return fmt.Errorf("pipeline %s is not finished", pipelineID)
+		},
+		retry.Attempts(100),
+		retry.DelayType(retry.FixedDelay),
+		retry.Delay(time.Millisecond*25),
+	)
+	if err != nil {
+		return fmt.Errorf("acknowledge message: %w", err)
 	}
 
 	return nil

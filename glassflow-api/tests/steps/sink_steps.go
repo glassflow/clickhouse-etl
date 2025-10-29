@@ -14,6 +14,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
@@ -28,7 +29,7 @@ type SinkTestSuite struct {
 	streamConfig *stream.ConsumerConfig
 	schemaConfig models.MapperConfig
 	sinkConfig   models.SinkComponentConfig
-	CHSink       component.Component
+	CHSink       Component
 }
 
 func NewSinkTestSuite() *SinkTestSuite {
@@ -277,26 +278,32 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		},
 	)
 
-	sink, err := component.NewSinkComponent(
+	chSink, err := sink.NewClickHouseSink(
 		s.sinkConfig,
 		streamConsumer,
 		schemaMapper,
-		make(chan struct{}),
 		logger,
 		nil, // nil meter for e2e tests
 		dlqStreamPublisher,
+		models.ClickhouseQueryConfig{
+			WaitForAsyncInsert: true,
+		},
 	)
 	if err != nil {
-		return fmt.Errorf("create ClickHouse sink: %w", err)
+		return fmt.Errorf("create sink: %w", err)
 	}
-	s.CHSink = sink
+
+	s.CHSink = chSink
 
 	s.errCh = make(chan error, 1)
 
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		s.CHSink.Start(context.Background(), s.errCh)
+		err = s.CHSink.Start(context.Background())
+		if err != nil {
+			s.errCh <- fmt.Errorf("start ClickHouse sink: %w", err)
+		}
 	}()
 
 	return nil

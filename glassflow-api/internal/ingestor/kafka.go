@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/nats-io/nats.go"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
@@ -179,18 +181,32 @@ func (k *KafkaMsgProcessor) ProcessMessage(ctx context.Context, msg kafka.Messag
 }
 
 type KafkaIngestor struct {
-	consumer  kafka.Consumer
-	processor MessageProcessor
-	topic     models.KafkaTopicsConfig
-	log       *slog.Logger
-	meter     *observability.Meter
+	consumer     kafka.Consumer
+	processor    MessageProcessor
+	topic        models.KafkaTopicsConfig
+	log          *slog.Logger
+	cancel       context.CancelFunc
+	chDone       <-chan struct{}
+	shutdownOnce sync.Once
+	meter        *observability.Meter
 }
 
-func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, natsPub, dlqPub stream.Publisher, schema schema.Mapper, log *slog.Logger, meter *observability.Meter) (*KafkaIngestor, error) {
+func NewKafkaIngestor(
+	config models.IngestorComponentConfig,
+	topicName string,
+	natsPub, dlqPub stream.Publisher,
+	schema schema.Mapper,
+	log *slog.Logger,
+	meter *observability.Meter,
+) (*KafkaIngestor, error) {
 	var topic models.KafkaTopicsConfig
 
 	if topicName == "" {
 		return nil, fmt.Errorf("topic not found")
+	}
+
+	if config.Type != internal.KafkaIngestorType {
+		return nil, fmt.Errorf("invalid kafka ingestor type: %s", config.Type)
 	}
 
 	for _, t := range config.KafkaTopics {
@@ -222,19 +238,30 @@ func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, n
 func (k *KafkaIngestor) Start(ctx context.Context) error {
 	k.log.Info("Starting Kafka ingestor", slog.String("topic", k.topic.Name))
 
+	ctx, cancel := context.WithCancel(ctx)
+	k.cancel = cancel
+	k.chDone = ctx.Done()
+
 	// Pass self as processor - we implement MessageProcessor interface
 	if err := k.consumer.Start(ctx, k.processor); err != nil {
 		return fmt.Errorf("failed to start kafka consumer: %w", err)
 	}
+
 	return nil
 }
 
-func (k *KafkaIngestor) Stop() {
+func (k *KafkaIngestor) Stop(_ ...component.StopOption) {
 	k.log.Info("Stopping Kafka ingestor", slog.String("topic", k.topic.Name))
+	defer k.log.Info("Kafka ingestor stopped")
 
-	if err := k.consumer.Close(); err != nil {
-		k.log.Error("failed to close Kafka consumer", slog.Any("error", err))
-	}
+	k.shutdownOnce.Do(func() {
+		k.cancel()
+		if err := k.consumer.Close(); err != nil {
+			k.log.Error("failed to close Kafka consumer", slog.Any("error", err))
+		}
+	})
+}
 
-	k.log.Info("Kafka ingestor stopped")
+func (k *KafkaIngestor) Done() <-chan struct{} {
+	return k.chDone
 }

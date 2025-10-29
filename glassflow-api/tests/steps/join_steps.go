@@ -32,7 +32,7 @@ type JoinTestSuite struct {
 	rightStreamConfig     *stream.ConsumerConfig
 	resultsConsumerConfig *stream.ConsumerConfig
 	schemaConfig          *models.MapperConfig
-	JoinComponent         component.Component
+	JoinComponent         Component
 }
 
 func NewJoinTestSuite() *JoinTestSuite {
@@ -168,7 +168,7 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 
 	logger := testutils.NewTestLogger()
 
-	component, err := component.NewJoinComponent(
+	joinComponent, err := component.NewJoinComponent(
 		models.JoinComponentConfig{
 			Type: internal.TemporalJoinType,
 		},
@@ -180,7 +180,6 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		rightKVStore,
 		j.leftStreamConfig.NatsStream,
 		j.rightStreamConfig.NatsStream,
-		make(chan struct{}),
 		logger,
 	)
 
@@ -188,14 +187,17 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		return fmt.Errorf("create join component: %w", err)
 	}
 
-	j.JoinComponent = component
+	j.JoinComponent = joinComponent
 
 	j.errCh = make(chan error, 1)
 
 	j.wg.Add(1)
 	go func() {
 		defer j.wg.Done()
-		component.Start(ctx, j.errCh)
+		err = joinComponent.Start(ctx)
+		if err != nil {
+			j.errCh <- fmt.Errorf("start join component: %w", err)
+		}
 	}()
 
 	return nil

@@ -21,9 +21,8 @@ type JoinComponent struct {
 	rightStreamSubscriber stream.Subscriber
 	executor              join.Executor
 	handleMu              sync.Mutex
-	wg                    sync.WaitGroup
+	chDone                <-chan struct{}
 	once                  sync.Once
-	ctx                   context.Context //nolint:containedctx // we need a context to use our Stop function
 	cancelFunc            context.CancelFunc
 	stopNoWait            bool
 	doneCh                chan struct{}
@@ -37,16 +36,11 @@ func NewJoinComponent(
 	schema schema.Mapper,
 	leftKVStore, rightKVStore kv.KeyValueStore,
 	leftStreamName, rightStreamName string,
-	doneCh chan struct{},
 	log *slog.Logger,
-) (Component, error) {
+) (*JoinComponent, error) {
 	if cfg.Type != internal.TemporalJoinType {
 		return nil, fmt.Errorf("unsupported join type")
 	}
-
-	// not actaually a best approach to use background context here
-	// but we need a context to use our Stop function
-	ctx, cancel := context.WithCancel(context.Background())
 
 	executor := join.NewTemporalJoinExecutor(
 		resultsPublisher,
@@ -59,22 +53,18 @@ func NewJoinComponent(
 		leftStreamSubsriber:   stream.NewNATSSubscriber(leftStreamConsumer, log),
 		rightStreamSubscriber: stream.NewNATSSubscriber(rightStreamConsumer, log),
 		executor:              executor,
-		handleMu:              sync.Mutex{},
-		wg:                    sync.WaitGroup{},
-		ctx:                   ctx,
-		cancelFunc:            cancel,
-		doneCh:                doneCh,
 		log:                   log,
 	}, nil
 }
 
-func (j *JoinComponent) Start(ctx context.Context, errChan chan<- error) {
-	j.wg.Add(1)
-	defer j.wg.Done()
-
-	defer close(j.doneCh)
-
+func (j *JoinComponent) Start(ctx context.Context) error {
 	j.log.Info("Join component is starting...")
+
+	// in ideal world we should have some kind of separate process to handle shutdown
+	shutdownCtx, cancel := context.WithCancel(context.Background())
+	j.cancelFunc = cancel
+	j.chDone = shutdownCtx.Done()
+	defer cancel()
 
 	err := j.leftStreamSubsriber.Subscribe(func(msg jetstream.Msg) {
 		j.handleMu.Lock()
@@ -91,15 +81,14 @@ func (j *JoinComponent) Start(ctx context.Context, errChan chan<- error) {
 		}
 	})
 	if err != nil {
-		errChan <- fmt.Errorf("failed to start left stream consumer: %w", err)
-		return
+		return fmt.Errorf("failed to start left stream consumer: %w", err)
 	}
 
 	err = j.rightStreamSubscriber.Subscribe(func(msg jetstream.Msg) {
 		j.handleMu.Lock()
 		defer j.handleMu.Unlock()
 
-		err := j.executor.HandleRightStreamEvents(ctx, msg)
+		err = j.executor.HandleRightStreamEvents(ctx, msg)
 		if err != nil {
 			j.log.Error("failed to handle right stream event", slog.Any("error", err))
 			return
@@ -110,16 +99,14 @@ func (j *JoinComponent) Start(ctx context.Context, errChan chan<- error) {
 		}
 	})
 	if err != nil {
-		errChan <- fmt.Errorf("failed to start right stream consumer: %w", err)
-		return
+		return fmt.Errorf("failed to start right stream consumer: %w", err)
 	}
 
 	j.log.Info("Join component was started successfully!")
 
 	select {
-	case <-j.ctx.Done():
+	case <-j.chDone:
 		// Context cancelled, normal shutdown
-		j.log.Warn("Stopping Join component...")
 		if j.stopNoWait {
 			j.leftStreamSubsriber.Stop()
 			j.rightStreamSubscriber.Stop()
@@ -129,31 +116,26 @@ func (j *JoinComponent) Start(ctx context.Context, errChan chan<- error) {
 		}
 		<-j.leftStreamSubsriber.Closed()
 		<-j.rightStreamSubscriber.Closed()
-		return
+		return nil
 
 	case <-j.leftStreamSubsriber.Closed():
-		err := fmt.Errorf("left stream subscriber closed unexpectedly")
+		err = fmt.Errorf("left stream subscriber closed unexpectedly")
 		j.log.Error("Join unexpectedly stopping")
 		j.rightStreamSubscriber.Stop()
 		<-j.rightStreamSubscriber.Closed()
-		errChan <- err
-		return
-
+		return err
 	case <-j.rightStreamSubscriber.Closed():
-		err := fmt.Errorf("right stream subscriber closed unexpectedly")
+		err = fmt.Errorf("right stream subscriber closed unexpectedly")
 		j.log.Error("Join unexpectedly stopping")
 		j.leftStreamSubsriber.Stop()
 		<-j.leftStreamSubsriber.Closed()
-		errChan <- err
-		return
+		return err
 	}
 }
 
 func (j *JoinComponent) Stop(opts ...StopOption) {
 	j.once.Do(func() {
-		options := &StopOptions{
-			NoWait: false,
-		}
+		options := &StopOptions{}
 
 		for _, opt := range opts {
 			opt(options)
@@ -165,8 +147,6 @@ func (j *JoinComponent) Stop(opts ...StopOption) {
 		}
 
 		j.cancelFunc()
-
-		j.wg.Wait()
 
 		j.log.Info("Join component stopped")
 	})
