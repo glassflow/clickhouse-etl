@@ -29,16 +29,20 @@ type KafkaMsgProcessor struct {
 	topic        models.KafkaTopicsConfig
 	batch        []*kgo.Record
 	log          *slog.Logger
+
+	pendingPublishesLimit int
 }
 
 func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper schema.Mapper, topic models.KafkaTopicsConfig, log *slog.Logger) *KafkaMsgProcessor {
+	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs/topic.Replicas)
 	return &KafkaMsgProcessor{
-		publisher:    publisher,
-		dlqPublisher: dlqPublisher,
-		schemaMapper: schemaMapper,
-		topic:        topic,
-		batch:        make([]*kgo.Record, 0),
-		log:          log,
+		publisher:             publisher,
+		dlqPublisher:          dlqPublisher,
+		schemaMapper:          schemaMapper,
+		topic:                 topic,
+		batch:                 make([]*kgo.Record, 0),
+		pendingPublishesLimit: pendingPublishesLimit,
+		log:                   log,
 	}
 }
 
@@ -214,7 +218,7 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context) error {
 			continue
 		}
 
-		fut, err := k.publisher.PublishNatsMsgAsync(natsMsg)
+		fut, err := k.publisher.PublishNatsMsgAsync(natsMsg, k.pendingPublishesLimit)
 		if err != nil {
 			k.log.Error("Failed to publish message async to NATS",
 				slog.Any("error", err),

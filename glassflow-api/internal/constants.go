@@ -132,6 +132,7 @@ const (
 	NATSInitialRetryDelay = 1 * time.Second
 	NATSMaxRetryDelay     = 30 * time.Second
 	NATSMaxConnectionWait = 2 * time.Minute
+	NATSMaxBufferedMsgs   = 10000
 
 	// Kafka consumer constants
 	ConsumerGroupNamePrefix = "glassflow-consumer-group"
