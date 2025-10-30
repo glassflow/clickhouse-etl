@@ -150,8 +150,8 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 		slog.Int("batchSizeThreshold", internal.DefaultKafkaBatchSize),
 		slog.Duration("timeout", c.timeout))
 
-	batchTimer := time.NewTimer(c.timeout)
-	defer batchTimer.Stop()
+	ticker := time.NewTicker(c.timeout)
+	defer ticker.Stop()
 
 	handleCtx, handleCancel := context.WithCancel(ctx)
 	defer handleCancel()
@@ -162,14 +162,14 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 			return nil
 
 		default:
-			if err := c.handleBatchMessages(handleCtx, batchTimer); err != nil {
+			if err := c.handleBatchMessages(handleCtx, ticker); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (c *Consumer) handleBatchMessages(ctx context.Context, timer *time.Timer) error {
+func (c *Consumer) handleBatchMessages(ctx context.Context, ticker *time.Ticker) error {
 	// Poll for messages
 	fetches := c.client.PollFetches(ctx)
 	if errs := fetches.Errors(); len(errs) > 0 {
@@ -194,12 +194,11 @@ func (c *Consumer) handleBatchMessages(ctx context.Context, timer *time.Timer) e
 		// if context is done, exit
 		return nil
 
-	case <-timer.C:
+	case <-ticker.C:
 		// process batch by timeout
 		if err := c.processBatch(ctx); err != nil {
 			return fmt.Errorf("process batch by timer: %w", err)
 		}
-		timer.Reset(c.timeout)
 
 	default:
 		// Check if batch size threshold is reached
@@ -207,7 +206,7 @@ func (c *Consumer) handleBatchMessages(ctx context.Context, timer *time.Timer) e
 			if err := c.processBatch(ctx); err != nil {
 				return fmt.Errorf("process batch: %w", err)
 			}
-			timer.Reset(c.timeout)
+			ticker.Reset(c.timeout)
 		}
 	}
 
