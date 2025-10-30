@@ -34,6 +34,10 @@ type KafkaMsgProcessor struct {
 }
 
 func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper schema.Mapper, topic models.KafkaTopicsConfig, log *slog.Logger) *KafkaMsgProcessor {
+	if topic.Replicas < 1 {
+		topic.Replicas = 1
+	}
+
 	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs/topic.Replicas)
 	return &KafkaMsgProcessor{
 		publisher:             publisher,
