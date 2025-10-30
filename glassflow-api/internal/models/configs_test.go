@@ -37,8 +37,9 @@ func TestNewPipelineConfig(t *testing.T) {
 	ingestor := IngestorComponentConfig{Type: internal.KafkaIngestorType}
 	join := JoinComponentConfig{Type: internal.TemporalJoinType}
 	sink := SinkComponentConfig{Type: internal.ClickHouseSinkType}
+	filter := FilterComponentConfig{Enabled: false}
 
-	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink)
+	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter)
 
 	if config.ID != id {
 		t.Errorf("Expected ID %s, got %s", id, config.ID)
