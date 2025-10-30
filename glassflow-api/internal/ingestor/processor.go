@@ -158,10 +158,27 @@ func (k *KafkaMsgProcessor) GetBatchSize() int {
 }
 
 func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context) error {
-	if internal.DefaultProcessorMode == internal.SyncMode {
-		return k.processBatchSync(ctx)
+	if len(k.batch) == 0 {
+		return nil
 	}
-	return k.processBatchAsync(ctx)
+
+	var err error
+
+	if internal.DefaultProcessorMode == internal.SyncMode {
+		err = k.processBatchSync(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to process sync batch: %w", err)
+		}
+	} else {
+		err = k.processBatchAsync(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to process async batch: %w", err)
+		}
+	}
+
+	// Clear batch after processing
+	k.batch = k.batch[:0]
+	return nil
 }
 
 func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context) error {
@@ -202,7 +219,7 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context) error {
 
 func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context) error {
 	ctx := context.Background()
-	futures := make([]jetstream.PubAckFuture, 0)
+	futures := make([]jetstream.PubAckFuture, 0, len(k.batch))
 	for _, msg := range k.batch {
 		natsMsg, err := k.prepareMesssage(ctx, msg)
 		if err != nil {
