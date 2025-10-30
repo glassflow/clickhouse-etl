@@ -382,6 +382,11 @@ func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConf
 	}, nil
 }
 
+type FilterComponentConfig struct {
+	Enabled    bool   `json:"enabled"`
+	Expression string `json:"expression"`
+}
+
 type PipelineConfig struct {
 	ID        string                  `json:"pipeline_id"`
 	Name      string                  `json:"name"`
@@ -389,6 +394,7 @@ type PipelineConfig struct {
 	Ingestor  IngestorComponentConfig `json:"ingestor"`
 	Join      JoinComponentConfig     `json:"join"`
 	Sink      SinkComponentConfig     `json:"sink"`
+	Filter    FilterComponentConfig   `json:"filter"`
 	CreatedAt time.Time               `json:"created_at"`
 	Status    PipelineHealth          `json:"status,omitempty"`
 }
@@ -444,7 +450,14 @@ func (e PipelineConfigError) Error() string {
 	return "invalid pipeline config: " + e.Msg
 }
 
-func NewPipelineConfig(id, name string, mc MapperConfig, ic IngestorComponentConfig, jc JoinComponentConfig, sc SinkComponentConfig) PipelineConfig {
+func NewPipelineConfig(
+	id, name string,
+	mc MapperConfig,
+	ic IngestorComponentConfig,
+	jc JoinComponentConfig,
+	sc SinkComponentConfig,
+	filterConfig FilterComponentConfig,
+) PipelineConfig {
 	return PipelineConfig{
 		ID:        id,
 		Name:      name,
@@ -452,6 +465,7 @@ func NewPipelineConfig(id, name string, mc MapperConfig, ic IngestorComponentCon
 		Ingestor:  ic,
 		Join:      jc,
 		Sink:      sc,
+		Filter:    filterConfig,
 		CreatedAt: time.Now().UTC(),
 		Status:    NewPipelineHealth(id, name),
 	}

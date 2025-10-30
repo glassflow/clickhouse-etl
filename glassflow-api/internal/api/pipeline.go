@@ -8,12 +8,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gorilla/mux"
-
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
+	"github.com/gorilla/mux"
 )
 
 //go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService
@@ -386,6 +385,11 @@ type pipelineJSON struct {
 
 		Sources []joinSource `json:"sources"`
 	} `json:"join"`
+	Filter struct {
+		Enabled    bool   `json:"enabled"`
+		Expression string `json:"expression"`
+	} `json:"filter"`
+
 	Sink clickhouseSink `json:"sink"`
 }
 
@@ -630,7 +634,20 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 		SinkMapping: sinkCfg,
 	}
 
-	return models.NewPipelineConfig(p.PipelineID, p.Name, mc, ic, jc, sc), nil
+	filterConfig := models.FilterComponentConfig{
+		Enabled:    p.Filter.Enabled,
+		Expression: p.Filter.Expression,
+	}
+
+	return models.NewPipelineConfig(
+		p.PipelineID,
+		p.Name,
+		mc,
+		ic,
+		jc,
+		sc,
+		filterConfig,
+	), nil
 }
 
 func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
@@ -739,6 +756,13 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			MaxBatchSize:                p.Sink.Batch.MaxBatchSize,
 			MaxDelayTime:                p.Sink.Batch.MaxDelayTime,
 			SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
+		},
+		Filter: struct {
+			Enabled    bool   `json:"enabled"`
+			Expression string `json:"expression"`
+		}{
+			Enabled:    p.Filter.Enabled,
+			Expression: p.Filter.Expression,
 		},
 	}
 }
