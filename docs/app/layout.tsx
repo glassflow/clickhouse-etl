@@ -5,6 +5,7 @@ import { getPageMap } from 'nextra/page-map'
 import 'nextra-theme-docs/style.css'
 
 import { FathomAnalytics } from './fathom'
+import { ReoAnalytics } from './reodotdev'
 import { Logo } from './Logo'
 
 export const metadata = {
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }) {
         // ...Your additional theme config options
         >
           <FathomAnalytics />
+          <ReoAnalytics />
           {children}
         </Layout>
       </body>
