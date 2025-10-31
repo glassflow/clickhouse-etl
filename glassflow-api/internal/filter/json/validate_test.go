@@ -138,6 +138,26 @@ func TestValidateFilter(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "valid expression with nested field",
+			args: args{
+				expression: `user.name == "John"`,
+				fields: []models.StreamDataField{
+					{FieldName: "user.name", FieldType: "string"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid expression with nested field comparison",
+			args: args{
+				expression: "user.age > 18",
+				fields: []models.StreamDataField{
+					{FieldName: "user.age", FieldType: "int"},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
