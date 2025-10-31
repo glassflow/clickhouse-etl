@@ -126,7 +126,7 @@ func TestExtractEventValue(t *testing.T) {
 			dataType: "unsupported",
 			input:    42,
 			want:     nil,
-			wantErr:  false,
+			wantErr:  true,
 		},
 		{
 			name:     "array of strings",
