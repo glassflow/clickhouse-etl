@@ -196,11 +196,11 @@ const (
 	// KafkaMaxQueuedMessagesSize is the maximum number of messages that can be queued in the consumer
 	KafkaMaxMessagesInQueueSize = 1048576
 	// DefaultKafkaBatchTimeout is default delay of batch collection in kafka ingestor component
-	DefaultKafkaBatchTimeout = 700 * time.Microsecond
+	DefaultKafkaBatchTimeout = 1 * time.Second
 	// DefaultKafkaBatchSize is default size of batch in kafka ingestor component
 	DefaultKafkaBatchSize = 10000
 	// KafkaMaxWait is the maximum time to wait for messages from Kafka
-	KafkaMaxWait = 500 * time.Millisecond
+	KafkaMaxWait = 750 * time.Millisecond
 
 	// Kafka message processor modes
 	SyncMode             ProcessorMode = "sync"
