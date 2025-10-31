@@ -62,8 +62,6 @@ type KafkaConnectionParamsConfig struct {
 	TLSRoot       string   `json:"root_ca"`
 	TLSCert       string   `json:"tls_cert"`
 	TLSKey        string   `json:"tls_key"`
-	IAMEnable     bool     `json:"iam_enable"`
-	IAMRegion     string   `json:"iam_region"`
 
 	KerberosServiceName string `json:"kerberos_service_name,omitempty"`
 	KerberosRealm       string `json:"kerberos_realm,omitempty"`

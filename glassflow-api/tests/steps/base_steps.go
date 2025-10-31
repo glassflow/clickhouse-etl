@@ -190,8 +190,9 @@ func (b *BaseTestSuite) getMappingConfig(cfg *godog.DocString, target any) error
 
 func (b *BaseTestSuite) createStream(streamName, subjectName string, timeWindow time.Duration) error {
 	streamConfig := jetstream.StreamConfig{ //nolint:exhaustruct //only necessary fields
-		Name:     streamName,
-		Subjects: []string{subjectName},
+		Name:               streamName,
+		Subjects:           []string{subjectName},
+		AllowAtomicPublish: true,
 	}
 
 	if timeWindow > 0 {
