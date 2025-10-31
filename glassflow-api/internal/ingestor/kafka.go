@@ -39,7 +39,13 @@ type KafkaMsgProcessor struct {
 	meter *observability.Meter
 }
 
-func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper schema.Mapper, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) *KafkaMsgProcessor {
+func NewKafkaMsgProcessor(
+	publisher, dlqPublisher stream.Publisher,
+	schemaMapper schema.Mapper,
+	topic models.KafkaTopicsConfig,
+	log *slog.Logger,
+	meter *observability.Meter,
+) *KafkaMsgProcessor {
 	return &KafkaMsgProcessor{
 		publisher:    publisher,
 		dlqPublisher: dlqPublisher,
@@ -186,7 +192,14 @@ type KafkaIngestor struct {
 	meter     *observability.Meter
 }
 
-func NewKafkaIngestor(config models.IngestorComponentConfig, topicName string, natsPub, dlqPub stream.Publisher, schema schema.Mapper, log *slog.Logger, meter *observability.Meter) (*KafkaIngestor, error) {
+func NewKafkaIngestor(
+	config models.IngestorComponentConfig,
+	topicName string,
+	natsPub, dlqPub stream.Publisher,
+	schema schema.Mapper,
+	log *slog.Logger,
+	meter *observability.Meter,
+) (*KafkaIngestor, error) {
 	var topic models.KafkaTopicsConfig
 
 	if topicName == "" {

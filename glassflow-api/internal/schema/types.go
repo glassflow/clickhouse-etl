@@ -56,7 +56,7 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 		// The actual processing will be done by the ConvertValue function
 		return data, nil
 	default:
-		return zero, nil
+		return zero, fmt.Errorf("unknown data type %s", dataType)
 	}
 }
 
@@ -182,6 +182,12 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		}
 		return zero, fmt.Errorf("unsupported ClickHouse data type: %s", columnType)
 	}
+}
+
+func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
+	// we don't care about error, only for zero value for the type
+	zeroValue, _ := ExtractEventValue(kafkaType, "")
+	return zeroValue, nil
 }
 
 // convertMapToStringMap converts map[string]any to map[string]string for ClickHouse compatibility
