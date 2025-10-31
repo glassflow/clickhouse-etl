@@ -1,6 +1,7 @@
-package filter
+package json
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/expr-lang/expr"
@@ -13,19 +14,25 @@ type Filter struct {
 }
 
 func New(expression string) (*Filter, error) {
-	expressionExecutor, err := expr.Compile(expression)
+	compiledExpression, err := expr.Compile(expression)
 	if err != nil {
 		return nil, fmt.Errorf("compiling expression: %w", err)
 	}
 
 	return &Filter{
 		Expression:         expression,
-		CompiledExpression: expressionExecutor,
+		CompiledExpression: compiledExpression,
 	}, nil
 }
 
 func (f *Filter) Satisfies(jsonData []byte) (bool, error) {
-	result, err := expr.Run(f.CompiledExpression, jsonData)
+	exprEnv := make(map[string]interface{})
+	err := json.Unmarshal(jsonData, &exprEnv)
+	if err != nil {
+		return false, fmt.Errorf("unmarshal json: %w", err)
+	}
+
+	result, err := expr.Run(f.CompiledExpression, exprEnv)
 	if err != nil {
 		return false, fmt.Errorf("evaluating expression: %w", err)
 	}

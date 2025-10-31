@@ -1,4 +1,4 @@
-package filter
+package json
 
 import (
 	"encoding/json"
@@ -33,12 +33,12 @@ func ValidateFilter(expression string, fields []models.StreamDataField) error {
 		return fmt.Errorf("unmarshal json: %w", err)
 	}
 
-	expressionExecutor, err := expr.Compile(expression, expr.Env(exprEnv))
+	compiledExecutor, err := expr.Compile(expression, expr.Env(exprEnv))
 	if err != nil {
 		return fmt.Errorf("compile expression: %w", err)
 	}
 
-	result, err := expr.Run(expressionExecutor, exprEnv)
+	result, err := expr.Run(compiledExecutor, exprEnv)
 	if err != nil {
 		return fmt.Errorf("eval expression: %w", err)
 	}

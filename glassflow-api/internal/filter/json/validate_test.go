@@ -1,4 +1,4 @@
-package filter
+package json
 
 import (
 	"testing"
