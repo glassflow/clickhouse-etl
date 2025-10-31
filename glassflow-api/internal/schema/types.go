@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,10 @@ import (
 type (
 	KafkaDataType      string
 	ClickHouseDataType string
+)
+
+var (
+	ErrUnknownFieldType = errors.New("unknown field type")
 )
 
 func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
@@ -56,7 +61,7 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 		// The actual processing will be done by the ConvertValue function
 		return data, nil
 	default:
-		return zero, fmt.Errorf("unknown data type %s", dataType)
+		return zero, fmt.Errorf("%w: %s", ErrUnknownFieldType, dataType)
 	}
 }
 
@@ -185,8 +190,12 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 }
 
 func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
-	// we don't care about error, only for zero value for the type
-	zeroValue, _ := ExtractEventValue(kafkaType, "")
+	// we would get invalid zeroValue only if there's unknown type
+	zeroValue, err := ExtractEventValue(kafkaType, "")
+	if err != nil && errors.Is(err, ErrUnknownFieldType) {
+		return nil, err
+	}
+
 	return zeroValue, nil
 }
 
