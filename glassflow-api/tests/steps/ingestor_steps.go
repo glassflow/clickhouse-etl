@@ -45,6 +45,8 @@ type IngestorTestSuite struct {
 
 	ingestorCfg models.IngestorComponentConfig
 
+	filterCfg models.FilterComponentConfig
+
 	ingestor component.Component
 
 	topicName string
@@ -181,6 +183,18 @@ func (s *IngestorTestSuite) anIngestorComponentConfig(config string) error {
 	return nil
 }
 
+func (s *IngestorTestSuite) aFilterComponentConfig(config string) error {
+	var filterCfg models.FilterComponentConfig
+	err := json.Unmarshal([]byte(config), &filterCfg)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal filter component config: %w", err)
+	}
+
+	s.filterCfg = filterCfg
+
+	return nil
+}
+
 func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	var duration time.Duration
 
@@ -222,7 +236,10 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		},
 	)
 	ingestor, err := component.NewIngestorComponent(
-		s.ingestorCfg,
+		models.PipelineConfig{
+			Ingestor: s.ingestorCfg,
+			Filter:   s.filterCfg,
+		},
 		s.topicName,
 		streamConsumer,
 		dlqStreamPublisher,
@@ -494,6 +511,7 @@ func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
 	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
 	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)
+	sc.Step(`^an filter component config:$`, s.aFilterComponentConfig)
 	sc.Step(`a Kafka topic "([^"]*)" with (\d+) partition`, s.aKafkaTopicWithPartitions)
 
 	sc.Step(`^I run the ingestor component$`, s.iRunningIngestorComponent)

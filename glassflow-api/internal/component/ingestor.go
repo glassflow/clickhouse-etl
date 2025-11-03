@@ -28,7 +28,7 @@ type IngestorComponent struct {
 }
 
 func NewIngestorComponent(
-	config models.IngestorComponentConfig,
+	config models.PipelineConfig,
 	topicName string,
 	streamPublisher stream.Publisher,
 	dlqStreamPublisher stream.Publisher,
@@ -37,11 +37,19 @@ func NewIngestorComponent(
 	log *slog.Logger,
 	meter *observability.Meter,
 ) (*IngestorComponent, error) {
-	if config.Type != internal.KafkaIngestorType {
+	if config.Ingestor.Type != internal.KafkaIngestorType {
 		return nil, fmt.Errorf("unknown ingestor type")
 	}
 
-	ingestor, err := ingestor.NewKafkaIngestor(config, topicName, streamPublisher, dlqStreamPublisher, schemaMapper, log, meter)
+	ingestor, err := ingestor.NewKafkaIngestor(
+		config,
+		topicName,
+		streamPublisher,
+		dlqStreamPublisher,
+		schemaMapper,
+		log,
+		meter,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)
 	}

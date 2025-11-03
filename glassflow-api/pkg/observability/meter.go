@@ -20,6 +20,7 @@ type Meter struct {
 	KafkaRecordsRead       metric.Int64Counter
 	RecordsProcessedPerSec metric.Float64Gauge
 	DLQRecordsWritten      metric.Int64Counter
+	RecordsFiltered        metric.Int64Counter
 
 	// Sink metrics
 	ClickHouseRecordsWritten metric.Int64Counter
@@ -90,6 +91,8 @@ func NewMeter(component, pipelineID string) *Meter {
 			"Number of records processed per second"),
 		DLQRecordsWritten: mustCreateCounter(meter, GfMetricPrefix+"_"+"dlq_records_written_total",
 			"Total number of records written to dead letter queue"),
+		RecordsFiltered: mustCreateCounter(meter, GfMetricPrefix+"_"+"records_filtered_total",
+			"Total number of records filtered out"),
 		ClickHouseRecordsWritten: mustCreateCounter(meter, GfMetricPrefix+"_"+"clickhouse_records_written_total",
 			"Total number of records written to ClickHouse"),
 		SinkRecordsPerSec: mustCreateGauge(meter, GfMetricPrefix+"_"+"clickhouse_records_written_per_second",
@@ -124,6 +127,14 @@ func (m *Meter) RecordProcessingRate(ctx context.Context, rate float64) {
 // RecordDLQWrite records a record written to DLQ
 func (m *Meter) RecordDLQWrite(ctx context.Context, count int64) {
 	m.DLQRecordsWritten.Add(ctx, count, metric.WithAttributes(
+		attribute.String("component", m.component),
+		attribute.String("pipeline_id", m.pipelineID),
+	))
+}
+
+// RecordFilteredMessage records a message that was filtered out
+func (m *Meter) RecordFilteredMessage(ctx context.Context, count int64) {
+	m.RecordsFiltered.Add(ctx, count, metric.WithAttributes(
 		attribute.String("component", m.component),
 		attribute.String("pipeline_id", m.pipelineID),
 	))

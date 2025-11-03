@@ -15,9 +15,14 @@ type Filter struct {
 }
 
 func New(expression string, filterEnabled bool) (*Filter, error) {
-	compiledExpression, err := expr.Compile(expression)
-	if err != nil {
-		return nil, fmt.Errorf("compiling expression: %w", err)
+	var compiledExpression *vm.Program
+
+	if filterEnabled {
+		var err error
+		compiledExpression, err = expr.Compile(expression)
+		if err != nil {
+			return nil, fmt.Errorf("compiling expression: %w", err)
+		}
 	}
 
 	return &Filter{
