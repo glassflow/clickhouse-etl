@@ -9,11 +9,12 @@ import (
 )
 
 type Filter struct {
+	Enabled            bool
 	Expression         string
 	CompiledExpression *vm.Program
 }
 
-func New(expression string) (*Filter, error) {
+func New(expression string, filterEnabled bool) (*Filter, error) {
 	compiledExpression, err := expr.Compile(expression)
 	if err != nil {
 		return nil, fmt.Errorf("compiling expression: %w", err)
@@ -22,10 +23,14 @@ func New(expression string) (*Filter, error) {
 	return &Filter{
 		Expression:         expression,
 		CompiledExpression: compiledExpression,
+		Enabled:            filterEnabled,
 	}, nil
 }
 
 func (f *Filter) Matches(jsonData []byte) (bool, error) {
+	if !f.Enabled {
+		return false, nil
+	}
 	exprEnv := make(map[string]interface{})
 	err := json.Unmarshal(jsonData, &exprEnv)
 	if err != nil {
