@@ -20,6 +20,7 @@ import EditConfirmationModal from '../components/EditConfirmationModal'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { usePipelineState } from '@/src/hooks/usePipelineState'
 import { PipelineStatus } from '@/src/types/pipeline'
+import { PipelineTransitionOverlay } from '@/src/components/common/PipelineTransitionOverlay'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
@@ -35,6 +36,9 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
 
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
+
+  // Track pipeline stopping transition for overlay
+  const [isStoppingForEdit, setIsStoppingForEdit] = useState(false)
 
   const { enterEditMode, mode: globalMode } = coreStore
 
@@ -57,6 +61,21 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
 
   // Pre-load data required for this step
   const preloader = useStepDataPreloader(stepKey, pipeline)
+
+  // Monitor pipeline status changes to detect when it has stopped after edit confirmation
+  useEffect(() => {
+    if (isStoppingForEdit && effectiveStatus === 'stopped') {
+      // Pipeline has stopped, enable edit mode
+      setEditMode(true)
+      setIsStoppingForEdit(false)
+
+      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+      // This prevents re-hydration which would overwrite unsaved changes from other sections
+      if (globalMode !== 'edit') {
+        enterEditMode(pipeline)
+      }
+    }
+  }, [isStoppingForEdit, effectiveStatus, globalMode, enterEditMode, pipeline])
 
   // Initialize steps based on stepKey and reset edit mode when step changes
   useEffect(() => {
@@ -213,6 +232,9 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
 
     closeEditConfirmationModal()
 
+    // Show the transition overlay
+    setIsStoppingForEdit(true)
+
     try {
       // Use the centralized pipeline actions to stop the pipeline
       // Backend requires pipeline to be stopped before editing
@@ -221,22 +243,12 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       // Update pipeline status locally to stopped
       onPipelineStatusUpdate?.('stopped')
 
-      // Wait a bit for the stop action to propagate
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Now enable edit mode
-      setEditMode(true)
-
-      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
-      // This prevents re-hydration which would overwrite unsaved changes from other sections
-      if (globalMode !== 'edit') {
-        console.log('[StandaloneStepRenderer] Entering edit mode after stopping pipeline')
-        enterEditMode(pipeline)
-      } else {
-        console.log('[StandaloneStepRenderer] Already in global edit mode after stopping, preserving existing changes')
-      }
+      // The useEffect hook monitoring effectiveStatus will handle enabling edit mode
+      // when the status changes to 'stopped'
     } catch (error) {
       console.error('Failed to stop pipeline for editing:', error)
+      // Hide overlay on error
+      setIsStoppingForEdit(false)
       // Don't enable edit mode if stop failed
     }
   }
@@ -334,6 +346,13 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
         onOk={handleEditConfirmation}
         onCancel={closeEditConfirmationModal}
         stepName={selectedStep?.title}
+      />
+
+      {/* Pipeline Transition Overlay - shown during stopping transition */}
+      <PipelineTransitionOverlay
+        visible={isStoppingForEdit}
+        title="Stopping Pipeline"
+        description="The pipeline is being stopped to enable editing. Please wait while the transition completes..."
       />
     </>
   )
