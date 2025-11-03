@@ -24,7 +24,7 @@ func ValidateFilterExpression(expression string, fields []models.StreamDataField
 
 		jsonInput, err = sjson.Set(jsonInput, field.FieldName, defaultTypeValue)
 		if err != nil {
-			return fmt.Errorf("failed to qweqweqwe")
+			return fmt.Errorf("failed to set field")
 		}
 	}
 	exprEnv := make(map[string]interface{})

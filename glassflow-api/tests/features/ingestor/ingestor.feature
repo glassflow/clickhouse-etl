@@ -1,4 +1,4 @@
-@wip @ingestor
+@ingestor
 Feature: Kafka Ingestor
 
     Background: Run before each scenario

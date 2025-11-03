@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kafka"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -25,7 +26,7 @@ type KafkaIngestor struct {
 }
 
 func NewKafkaIngestor(
-	config models.IngestorComponentConfig,
+	config models.PipelineConfig,
 	topicName string,
 	natsPub, dlqPub stream.Publisher,
 	schema schema.Mapper,
@@ -39,7 +40,7 @@ func NewKafkaIngestor(
 	}
 
 	found := false
-	for _, t := range config.KafkaTopics {
+	for _, t := range config.Ingestor.KafkaTopics {
 		if t.Name == topicName {
 			log.Debug("Found topic for Kafka ingestor", slog.String("topic", t.Name), slog.String("id", t.ID))
 			if t.Deduplication.Enabled {
@@ -55,12 +56,24 @@ func NewKafkaIngestor(
 		return nil, fmt.Errorf("topic %s not found in ingestor config", topicName)
 	}
 
-	consumer, err := kafka.NewConsumer(config.KafkaConnectionParams, topic, log, meter)
+	consumer, err := kafka.NewConsumer(config.Ingestor.KafkaConnectionParams, topic, log, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
+	filterComponent, err := filterJSON.New(config.Filter.Expression, config.Filter.Enabled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create filter compoment: %w", err)
+	}
 
-	msgProcessor := NewKafkaMsgProcessor(natsPub, dlqPub, schema, topic, log)
+	msgProcessor := NewKafkaMsgProcessor(
+		natsPub,
+		dlqPub,
+		schema,
+		topic,
+		log,
+		meter,
+		filterComponent,
+	)
 
 	return &KafkaIngestor{
 		consumer:  consumer,
