@@ -27,8 +27,8 @@ func New(expression string, filterEnabled bool) (*Filter, error) {
 	}, nil
 }
 
-func (f *Filter) Matches(jsonData []byte) (bool, error) {
-	if !f.Enabled {
+func (filter *Filter) Matches(jsonData []byte) (bool, error) {
+	if !filter.Enabled {
 		return false, nil
 	}
 	exprEnv := make(map[string]interface{})
@@ -37,7 +37,7 @@ func (f *Filter) Matches(jsonData []byte) (bool, error) {
 		return false, fmt.Errorf("unmarshal json: %w", err)
 	}
 
-	result, err := expr.Run(f.CompiledExpression, exprEnv)
+	result, err := expr.Run(filter.CompiledExpression, exprEnv)
 	if err != nil {
 		return false, fmt.Errorf("evaluating expression: %w", err)
 	}
