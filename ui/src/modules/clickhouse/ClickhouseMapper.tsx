@@ -28,6 +28,7 @@ import {
 import { extractEventFields } from '@/src/utils/common.client'
 
 import { useStore } from '@/src/store'
+import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { useClickhouseConnection } from '@/src/hooks/useClickhouseConnection'
 import { useClickhouseDatabases } from '@/src/hooks/useClickhouseDatabases'
 import { useClickhouseTables } from '@/src/hooks/useClickhouseTables'
@@ -71,6 +72,7 @@ export function ClickhouseMapper({
     deduplicationStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
+  const validationEngine = useValidationEngine()
   const { clickhouseConnection, getDatabases, getTables, getTableSchema, updateDatabases, getConnectionId } =
     clickhouseConnectionStore
   const { clickhouseDestination, setClickhouseDestination } = clickhouseDestinationStore
@@ -934,7 +936,7 @@ export function ClickhouseMapper({
         title: 'Default Values Will Be Used',
         message: `The following columns have DEFAULT expressions and are not mapped. They will be automatically populated by ClickHouse during insert:
         ${issues.unmappedDefaultColumns.join(', ')}
-        
+
         Do you want to continue?`,
         okButtonText: 'Continue',
         cancelButtonText: 'Cancel',
@@ -1072,6 +1074,11 @@ export function ClickhouseMapper({
 
     // Update the store with the new destination config
     setClickhouseDestination(updatedDestination)
+
+    // EXPLICITLY mark as valid to ensure validation state is cleared
+    // Even though setClickhouseDestination should do this, we do it explicitly
+    clickhouseDestinationStore.markAsValid()
+
     setApiConfig(apiConfig as Partial<Pipeline>)
 
     setSuccess('Destination configuration saved successfully!')
@@ -1080,6 +1087,9 @@ export function ClickhouseMapper({
     // If in standalone edit mode, just save to store and mark as dirty
     // The actual deployment will happen when user clicks Resume
     if (standalone && toggleEditMode) {
+      // Note: setClickhouseDestination (line 1074) already marks validation as valid
+      // No need to call validationEngine.markSectionAsValid() again
+
       // Mark the configuration as modified (dirty)
       coreStore.markAsDirty()
       console.log('[ClickhouseMapper] Configuration marked as dirty - changes will be saved on Resume')

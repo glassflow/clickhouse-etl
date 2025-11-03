@@ -8,7 +8,7 @@ import {
   ClickhouseConnectionContainer,
   ClickhouseMapper,
 } from '@/src/modules'
-import { StepKeys } from '@/src/config/constants'
+import { StepKeys, OperationKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { JoinConfigurator } from '../../join/JoinConfigurator'
 import StepRendererModal from './StepRendererModal'

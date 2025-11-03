@@ -67,7 +67,7 @@ const DeduplicationCase = ({
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
-        validation={validation}
+        validation={validation.clickhouseDestinationValidation}
         selected={activeStep === StepKeys.CLICKHOUSE_MAPPER}
       />
     </div>
@@ -156,7 +156,7 @@ const JoinCase = ({
         width="full"
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
         disabled={disabled}
-        validation={validation}
+        validation={validation.clickhouseDestinationValidation}
         selected={activeStep === StepKeys.CLICKHOUSE_MAPPER}
       />
     </div>
@@ -278,7 +278,7 @@ function TransformationSection({
   activeStep: StepKeys | null
 }) {
   // Get fresh data from store instead of stale pipeline config
-  const { topicsStore, joinStore, clickhouseDestinationStore } = useStore()
+  const { topicsStore, joinStore, clickhouseDestinationStore, coreStore, deduplicationStore } = useStore()
 
   // Extract topics from store (fresh data) - convert to array format like pipeline config
   const storeTopics = Object.values(topicsStore.topics).map((topic: any) => ({
@@ -298,7 +298,6 @@ function TransformationSection({
   )
 
   // Get deduplication configs from store and pipeline for strict checks
-  const { deduplicationStore } = useStore()
   const dedup0 = deduplicationStore.getDeduplication(0)
   const dedup1 = deduplicationStore.getDeduplication(1)
   const topic0 = topics[0]
@@ -373,12 +372,15 @@ function TransformationSection({
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
     const topic = topics[0]
-    const hasDedup = isDedup(dedup0, topic)
+    // FIX: Check operation type to determine if dedup card should be shown
+    // This ensures the card remains visible even after dedup data is cleared (invalidated)
+    const operationType = coreStore.operationsSelected.operation
+    const shouldShowDedupCard = operationType === 'deduplication' || isDedup(dedup0, topic)
 
     sectionContent = (
       <DeduplicationCase
         topic={topic}
-        hasDedup={hasDedup}
+        hasDedup={shouldShowDedupCard}
         destinationTable={destinationTable}
         totalSourceFields={totalSourceFields}
         totalDestinationColumns={totalDestinationColumns}
