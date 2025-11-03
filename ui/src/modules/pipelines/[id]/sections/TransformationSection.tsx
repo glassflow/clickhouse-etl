@@ -399,7 +399,7 @@ function TransformationSection({
     const leftTopic = topics.find((t: any) => t.name === leftSource?.source_id)
     const rightTopic = topics.find((t: any) => t.name === rightSource?.source_id)
 
-    return (
+    sectionContent = (
       <JoinCase
         leftTopic={leftTopic}
         rightTopic={rightTopic}
@@ -457,7 +457,7 @@ function TransformationSection({
   }
 
   return (
-    <div className="flex flex-col gap-4 w-3/5">
+    <div className="flex flex-col gap-4 w-[70%]">
       {/* Transformation */}
       <div className="text-center">
         <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
