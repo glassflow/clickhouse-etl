@@ -232,7 +232,10 @@ export function ClickhouseMapper({
 
     // Update the connection reference
     lastConnectionRef.current = currentConnectionId
-  }, [clickhouseConnection, topicName, index, primaryTopic?.name, secondaryTopic?.name])
+  }, [clickhouseConnection])
+  // NOTE: Removed topicName, index, primaryTopic?.name, secondaryTopic?.name from dependencies
+  // When topics change, we want to preserve database/table/schema selections for better UX
+  // The mapping invalidation is handled separately by the topic selector which clears mappings in the store
 
   // Track initial view based on mode
   useEffect(() => {
@@ -425,15 +428,33 @@ export function ClickhouseMapper({
       setSelectedDatabase(clickhouseDestination.database || '')
       setSelectedTable(clickhouseDestination.table || '')
       setTableSchema({ columns: clickhouseDestination.destinationColumns || [] })
-      setMappedColumns(clickhouseDestination.mapping || [])
+
+      // If mapping is empty but we have destinationColumns, initialize mappedColumns
+      // This happens when mapping is invalidated (e.g., topic change) but schema is preserved
+      const hasMapping = clickhouseDestination.mapping && clickhouseDestination.mapping.length > 0
+      const hasColumns = clickhouseDestination.destinationColumns && clickhouseDestination.destinationColumns.length > 0
+
+      if (!hasMapping && hasColumns) {
+        const filteredSchema = filterUserMappableColumns(clickhouseDestination.destinationColumns)
+        const initialMapping = filteredSchema.map((col) => ({
+          ...col,
+          jsonType: '',
+          isNullable: col.isNullable || false,
+          isKey: false,
+          eventField: '',
+        }))
+        setMappedColumns(initialMapping)
+      } else {
+        setMappedColumns(clickhouseDestination.mapping || [])
+      }
+
       setMaxBatchSize(clickhouseDestination.maxBatchSize || 1000)
       setMaxDelayTime(clickhouseDestination.maxDelayTime || 1)
       setMaxDelayTimeUnit(clickhouseDestination.maxDelayTimeUnit || 'm')
-
       // Mark as hydrated
       setIsHydrated(true)
     }
-  }, [isHydrated]) // Removed clickhouseDestination from dependencies to prevent resetting user changes
+  }, [isHydrated, standalone]) // Removed clickhouseDestination from dependencies to prevent resetting user changes
 
   // Load table schema when database and table are selected
   useEffect(() => {
@@ -450,11 +471,10 @@ export function ClickhouseMapper({
         clickhouseDestination.database === selectedDatabase &&
         clickhouseDestination.table === selectedTable
       ) {
-        // Schema is already in destination, no need to fetch
+        // Schema is in destination store, use it directly
         return
       } else {
         // Fetch schema from API using hook
-        console.log('[ClickhouseMapper] Fetching table schema:', selectedDatabase, selectedTable)
         fetchTableSchema()
       }
     }
@@ -587,9 +607,6 @@ export function ClickhouseMapper({
           sourceTopic: sourceTopic,
         }
         hasChanges = true
-        console.log(
-          `Auto-mapped column "${col.name}" to field "${matchingField}" from ${source} topic (${sourceTopic})`,
-        )
       } else {
         console.log(`No match found for column "${col.name}" in either topic`)
       }
@@ -601,10 +618,6 @@ export function ClickhouseMapper({
         ...clickhouseDestination,
         mapping: updatedColumns,
       })
-
-      // Track auto-mapping success
-      const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
-      console.log(`Auto-mapped ${autoMappedCount} fields in join mode with left topic preference`)
     }
   }, [
     primaryEventFields,
@@ -706,7 +719,6 @@ export function ClickhouseMapper({
       clickhouseConnection.directConnection.host && clickhouseConnection.directConnection.httpPort
 
     if (connectionStatus === 'success' || (hasConnectionDetails && !databasesLoading)) {
-      console.log('[ClickhouseMapper] Fetching databases')
       fetchDatabases()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -726,7 +738,6 @@ export function ClickhouseMapper({
       return
     }
 
-    console.log('[ClickhouseMapper] Fetching tables for database:', selectedDatabase)
     fetchTables()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -791,9 +802,6 @@ export function ClickhouseMapper({
           sourceTopic: sourceTopic,
         }
         hasChanges = true
-        console.log(
-          `Auto-mapped column "${col.name}" to field "${matchingField}" from ${source} topic (${sourceTopic})`,
-        )
       }
     })
 
@@ -803,9 +811,6 @@ export function ClickhouseMapper({
         ...clickhouseDestination,
         mapping: updatedColumns,
       })
-
-      const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
-      console.log(`Auto-mapped ${autoMappedCount} fields in join mode with left topic preference`)
     }
 
     return hasChanges
@@ -1092,7 +1097,6 @@ export function ClickhouseMapper({
 
       // Mark the configuration as modified (dirty)
       coreStore.markAsDirty()
-      console.log('[ClickhouseMapper] Configuration marked as dirty - changes will be saved on Resume')
 
       // Close the edit modal
       if (onCompleteStandaloneEditing) {
@@ -1296,7 +1300,11 @@ export function ClickhouseMapper({
         />
 
         {/* Batch Size / Delay Time / Column Mapping */}
-        {selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading && (
+        {(() => {
+          const shouldShow =
+            selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading
+          return shouldShow
+        })() && (
           <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
             <BatchDelaySelector
               maxBatchSize={maxBatchSize}

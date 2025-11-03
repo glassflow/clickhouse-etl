@@ -108,6 +108,14 @@ export function KafkaTopicSelector({
     }
   }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender, topicFetchAttempts])
 
+  // Fetch topic details (including partition counts) when topics are available but details aren't
+  // This is especially important in edit mode where topics are hydrated but partition counts are missing
+  useEffect(() => {
+    if (availableTopics.length > 0 && topicDetails.length === 0 && !isLoadingTopics) {
+      fetchTopics()
+    }
+  }, [availableTopics.length, topicDetails.length, fetchTopics, isLoadingTopics])
+
   // Update partition count and replica count when topic details are fetched
   useEffect(() => {
     if (topicName && topicDetails.length > 0) {
