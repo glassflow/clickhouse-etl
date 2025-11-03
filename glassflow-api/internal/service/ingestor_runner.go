@@ -9,7 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink_ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
@@ -22,9 +22,11 @@ type IngestorRunner struct {
 	schemaMapper schema.Mapper
 	meter        *observability.Meter
 
-	component component.Component
-	c         chan error
-	doneCh    chan struct{}
+	component     component.Component
+	sinkIngestor  *sink_ingestor.KafkaClickHouseSinkIngestor
+	c             chan error
+	doneCh        chan struct{}
+	useDirectSink bool
 }
 
 func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper, meter *observability.Meter) *IngestorRunner {
@@ -50,10 +52,12 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
+	var topicConfig models.KafkaTopicsConfig
 	var outputStreamID string
 	for _, topic := range i.pipelineCfg.Ingestor.KafkaTopics {
 		if topic.Name == i.topicName {
 			outputStreamID = topic.OutputStreamID
+			topicConfig = topic
 		}
 	}
 
@@ -64,43 +68,38 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("output stream name cannot be empty")
 	}
 
-	streamPublisher := stream.NewNATSPublisher(
-		i.nc.JetStream(),
-		stream.PublisherConfig{
-			Subject: models.GetNATSSubjectNameDefault(outputStreamID),
-		},
-	)
+	// Use direct Kafka->ClickHouse sink ingestor
+	i.useDirectSink = true
+	i.log.Info("Using direct Kafka->ClickHouse sink ingestor (bypassing NATS)")
 
-	dlqStreamPublisher := stream.NewNATSPublisher(
-		i.nc.JetStream(),
-		stream.PublisherConfig{
-			Subject: models.GetDLQStreamSubjectName(i.pipelineCfg.ID),
-		},
-	)
+	config := sink_ingestor.Config{
+		KafkaConnection: i.pipelineCfg.Ingestor.KafkaConnectionParams,
+		KafkaTopic:      topicConfig,
+		ClickHouse:      i.pipelineCfg.Sink.ClickHouseConnectionParams,
+		Batch:           i.pipelineCfg.Sink.Batch,
+	}
 
-	component, err := component.NewIngestorComponent(
-		i.pipelineCfg.Ingestor,
-		i.topicName,
-		streamPublisher,
-		dlqStreamPublisher,
+	sinkIngestor, err := sink_ingestor.NewKafkaClickHouseSinkIngestor(
+		config,
 		i.schemaMapper,
-		i.doneCh,
 		i.log,
 		i.meter,
 	)
 	if err != nil {
-		i.log.ErrorContext(ctx, "failed to create ingestor component: ", "error", err)
-		return fmt.Errorf("create ingestor: %w", err)
+		i.log.ErrorContext(ctx, "failed to create sink ingestor: ", "error", err)
+		return fmt.Errorf("create sink ingestor: %w", err)
 	}
 
-	i.component = component
+	i.sinkIngestor = sinkIngestor
 
 	go func() {
-		component.Start(ctx, i.c)
-		close(i.c)
-		for err := range i.c {
-			i.log.ErrorContext(ctx, "error in ingestor component", "error", err, "topic", i.topicName)
+		defer close(i.doneCh)
+		err := sinkIngestor.Start(ctx)
+		if err != nil {
+			i.log.ErrorContext(ctx, "error in sink ingestor", "error", err, "topic", i.topicName)
+			i.c <- err
 		}
+		close(i.c)
 	}()
 
 	return nil
@@ -108,7 +107,9 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 
 func (i *IngestorRunner) Shutdown() {
 	i.log.Debug("Stopping ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("topic", i.topicName))
-	if i.component != nil {
+	if i.useDirectSink && i.sinkIngestor != nil {
+		i.sinkIngestor.Stop()
+	} else if i.component != nil {
 		i.component.Stop(component.WithNoWait(true))
 	}
 }
