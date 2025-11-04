@@ -459,30 +459,51 @@ export function useKafkaTopicSelectorState({
   // Handle topic selection
   const selectTopic = useCallback(
     (newTopicName: string) => {
+      // FIX: Get fresh topic data from store to avoid stale closures
+      const currentTopic = topicsStore.getTopic(index)
+
       // Only update if the topic actually changed
-      if (newTopicName === topicName) {
+      if (currentTopic && newTopicName === currentTopic.name) {
         return
       }
 
       setTopicName(newTopicName)
 
-      // Create topic data
+      // When changing topic, we SHOULD clear events (different topic = different events)
+      // But preserve other properties from current topic to avoid stale closure values
       const topicData = {
+        ...(currentTopic || {}), // Preserve existing properties if topic exists
         index,
         name: newTopicName,
-        initialOffset: offset,
-        events: [],
+        initialOffset: currentTopic?.initialOffset || 'latest',
+        events: [], // Clear events - new topic needs new events
         selectedEvent: {
-          event: undefined,
+          event: undefined, // Clear event - new topic needs new event
           topicIndex: index,
-          position: offset,
+          position: currentTopic?.initialOffset || 'latest',
         },
-        replicas: replicas,
+        replicas: currentTopic?.replicas || 1,
         partitionCount: 0, // Will be updated when partition details are fetched
       }
 
       // Update store (draft or real)
       topicsStore.updateTopic(topicData)
+
+      // FIX: Synchronize join sources when topic name changes
+      // This ensures join source_id stays in sync with topic name
+      if (joinStore.enabled && joinStore.streams.length > 0) {
+        const updatedStreams = joinStore.streams.map((stream: any, streamIndex: number) => {
+          // Update the stream that corresponds to this topic index
+          if (streamIndex === index) {
+            return {
+              ...stream,
+              topicName: newTopicName,
+            }
+          }
+          return stream
+        })
+        joinStore.setStreams(updatedStreams)
+      }
 
       // NOTE: Dependent state invalidation is now deferred until changes are saved
       // This prevents premature invalidation of dependent sections
@@ -503,91 +524,87 @@ export function useKafkaTopicSelectorState({
   // Handle offset change
   const handleOffsetChange = useCallback(
     (newOffset: 'earliest' | 'latest') => {
+      // FIX: Get fresh topic data from store to avoid stale closures
+      const currentTopic = topicsStore.getTopic(index)
+
       // Only update if the offset actually changed
-      if (newOffset === offset) {
+      if (currentTopic && newOffset === currentTopic.initialOffset) {
         return
       }
 
       setOffset(newOffset)
 
-      // Create topic data
+      // When changing offset, we SHOULD clear events (different offset = different events)
+      // But preserve other properties from current topic to avoid stale closure values
       const topicData = {
+        ...(currentTopic || {}), // Preserve existing properties
         index,
-        name: topicName,
+        name: currentTopic?.name || '',
         initialOffset: newOffset,
-        events: [],
+        events: [], // Clear events - new offset needs new events
         selectedEvent: {
-          event: undefined,
+          event: undefined, // Clear event - new offset needs new event
           topicIndex: index,
           position: newOffset,
         },
-        replicas: replicas,
-        partitionCount: effectivePartitionCount,
+        replicas: currentTopic?.replicas || 1,
+        partitionCount: currentTopic?.partitionCount || 0,
       }
 
       // Update store (draft or real)
       topicsStore.updateTopic(topicData)
     },
-    [index, topicName, topicsStore, offset, replicas],
+    [index, topicsStore], // Minimal dependencies
   )
 
   // Handle replica count change
   const handleReplicaCountChange = useCallback(
     (newReplicaCount: number) => {
-      // Only update if the replica count actually changed
-      if (newReplicaCount === replicas) {
+      // FIX: Get fresh topic data from store to avoid stale closures
+      const currentTopic = topicsStore.getTopic(index)
+
+      // Guard: only update if topic exists and replica count actually changed
+      if (!currentTopic || newReplicaCount === currentTopic.replicas) {
         return
       }
 
       setReplicas(newReplicaCount)
 
-      // Create topic data
+      // CRITICAL: Preserve ALL existing topic data, only update replicas
+      // This avoids wiping out event data that was fetched before this callback runs
       const topicData = {
-        index,
-        name: topicName,
-        initialOffset: offset,
-        events: [],
-        selectedEvent: {
-          event: undefined,
-          topicIndex: index,
-          position: offset,
-        },
-        replicas: newReplicaCount,
-        partitionCount: effectivePartitionCount,
+        ...currentTopic, // Spread ALL existing properties (including events, selectedEvent, etc.)
+        replicas: newReplicaCount, // Only override this one field
       }
 
-      // Update store (draft or real)
+      // Update store with preserved data
       topicsStore.updateTopic(topicData)
     },
-    [index, topicName, topicsStore, offset, replicas, effectivePartitionCount],
+    [index, topicsStore], // Minimal dependencies - only what we actually use
   )
 
   // Update partition count when topic details are fetched
   const updatePartitionCount = useCallback(
     (newPartitionCount: number) => {
-      if (newPartitionCount === effectivePartitionCount) {
+      // FIX: Get fresh topic data from store to avoid stale closures
+      const currentTopic = topicsStore.getTopic(index)
+
+      // Guard: only update if topic exists and partition count actually changed
+      if (!currentTopic || newPartitionCount === currentTopic.partitionCount) {
         return
       }
 
-      // Create topic data with updated partition count
+      // CRITICAL: Preserve ALL existing topic data, only update partitionCount
+      // This avoids wiping out event data that was fetched before this callback runs
       const topicData = {
-        index,
-        name: topicName,
-        initialOffset: offset,
-        events: [],
-        selectedEvent: {
-          event: undefined,
-          topicIndex: index,
-          position: offset,
-        },
-        replicas: replicas,
-        partitionCount: newPartitionCount,
+        ...currentTopic, // Spread ALL existing properties (including events, selectedEvent, etc.)
+        partitionCount: newPartitionCount, // Only override this one field
       }
 
-      // Update store (draft or real)
+      // Update store with preserved data
       topicsStore.updateTopic(topicData)
     },
-    [index, topicName, topicsStore, offset, replicas, effectivePartitionCount],
+    [index, topicsStore], // Minimal dependencies - only what we actually use
   )
 
   // Handle deduplication config change
@@ -674,9 +691,6 @@ export function useKafkaTopicSelectorState({
     } else if (!previousEvent && finalEvent && topicName !== previousTopicName) {
       // Topic name changed but no previous event - this means first time selecting a topic
       // Don't set previousEvent, let it stay undefined so PATH 1 invalidates
-      console.log(
-        '[Topic Submit] Topic changed and no previous event - will invalidate (first time or new topic selection)',
-      )
     }
 
     // FALLBACK 2: If we don't have a new event (e.g., just changing replica count without fetching new event),
@@ -773,9 +787,16 @@ export function useKafkaTopicSelectorState({
       joinStore.setType('')
       joinStore.setStreams([])
 
+      // Mark join store as invalidated to trigger red border on join key card
+      joinStore.markAsInvalidated(invalidationReason)
+
       // NEW: Clear deduplication config when topic changes
       // We clear this because deduplication keys are event-specific
-      if (isTopicChange) {
+      // FIX: Only clear dedup if it's embedded in topic selector (not a separate step)
+      // In join+dedup pipelines, dedup is configured in separate TOPIC_DEDUPLICATION_CONFIGURATOR steps
+      // and should only be invalidated, not cleared
+      const isEmbeddedDedup = currentStep === StepKeys.TOPIC_SELECTION_1 && enableDeduplication
+      if (isTopicChange && isEmbeddedDedup) {
         deduplicationStore.updateDeduplication(index, {
           enabled: false,
           window: 0,
@@ -783,6 +804,12 @@ export function useKafkaTopicSelectorState({
           key: '',
           keyType: '',
         })
+      }
+
+      // For join+dedup pipelines, mark dedup as invalidated but don't clear it
+      // User will reconfigure it in the separate dedup configurator step
+      if (isTopicChange && !isEmbeddedDedup) {
+        deduplicationStore.markAsInvalidated(`topic-selection-${index + 1}`)
       }
 
       // NEW: Clear mapping data when topic or schema changes
@@ -827,8 +854,6 @@ export function useKafkaTopicSelectorState({
           validationEngine.invalidateSection(StepKeys.CLICKHOUSE_MAPPER, invalidationReason)
         }
       }
-    } else {
-      console.log('[Topic Submit] Skipping invalidation - schema unchanged, preserving all dependent sections')
     }
 
     // Reset original topic reference after submit

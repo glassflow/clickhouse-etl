@@ -135,6 +135,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
+          validation={validation.joinValidation}
           selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
 
@@ -145,6 +146,7 @@ const JoinCase = ({
           width="full"
           onClick={() => onStepClick(StepKeys.JOIN_CONFIGURATOR)}
           disabled={disabled}
+          validation={validation.joinValidation}
           selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
       </div>
@@ -280,13 +282,10 @@ function TransformationSection({
   // Get fresh data from store instead of stale pipeline config
   const { topicsStore, joinStore, clickhouseDestinationStore, coreStore, deduplicationStore } = useStore()
 
-  // Extract topics from store (fresh data) - convert to array format like pipeline config
-  const storeTopics = Object.values(topicsStore.topics).map((topic: any) => ({
-    name: topic.name,
-    deduplication: {
-      enabled: false, // Will be handled by deduplicationStore
-    },
-  }))
+  // FIX: Extract FULL topic objects from store in correct order (by index)
+  // Object.values() doesn't guarantee order, so we must sort by index
+  // IMPORTANT: We need the full topic objects, not just {name, deduplication}
+  const storeTopics = Object.values(topicsStore.topics).sort((a: any, b: any) => a.index - b.index) // Sort by index to maintain order
 
   // Fallback to pipeline config if store is empty (e.g., when viewing existing pipeline)
   const topics = storeTopics.length > 0 ? storeTopics : pipeline?.source?.topics || []
@@ -309,8 +308,14 @@ function TransformationSection({
     return enabled && key.length > 0
   }
 
-  const leftTopicDeduplication = isDedup(dedup0, topic0)
-  const rightTopicDeduplication = isDedup(dedup1, topic1)
+  // FIX: Check if this is a dedup+join pipeline based on operation type
+  // Not just whether dedup keys currently exist (they might be cleared/invalidated)
+  const operationType = coreStore.operationsSelected.operation
+  const isJoinDeduplicationPipeline = operationType === 'deduplication-join'
+
+  // Use operation type as primary check, fall back to actual dedup config
+  const leftTopicDeduplication = isJoinDeduplicationPipeline || isDedup(dedup0, topic0)
+  const rightTopicDeduplication = isJoinDeduplicationPipeline || isDedup(dedup1, topic1)
 
   // Convert join streams to pipeline config format
   const storeJoinSources =
@@ -320,8 +325,17 @@ function TransformationSection({
       orientation: stream.orientation,
     })) || []
 
-  // Fallback to pipeline config if store is empty
-  const joinSources = storeJoinSources.length > 0 ? storeJoinSources : pipeline?.join?.sources || []
+  // FIX: If join store is invalidated, show empty join keys (N/A)
+  // Don't fall back to pipeline config when join is invalidated by topic change
+  const isJoinInvalidated = joinStore.validation?.status === 'invalidated'
+  const joinSources = isJoinInvalidated
+    ? [
+        { source_id: '', join_key: '', orientation: 'left' },
+        { source_id: '', join_key: '', orientation: 'right' },
+      ]
+    : storeJoinSources.length > 0
+      ? storeJoinSources
+      : pipeline?.join?.sources || []
 
   // Get destination table info from store
   const storeDestinationTable = clickhouseDestinationStore.clickhouseDestination.table
@@ -396,8 +410,10 @@ function TransformationSection({
     const leftSource = joinSources.find((s: any) => s.orientation === 'left')
     const rightSource = joinSources.find((s: any) => s.orientation === 'right')
 
-    const leftTopic = topics.find((t: any) => t.name === leftSource?.source_id)
-    const rightTopic = topics.find((t: any) => t.name === rightSource?.source_id)
+    // FIX: Use index-based lookup as fallback when source_id doesn't match
+    // This handles the case where topic is changed but join sources aren't updated yet
+    const leftTopic = topics.find((t: any) => t.name === leftSource?.source_id) || topics[0]
+    const rightTopic = topics.find((t: any) => t.name === rightSource?.source_id) || topics[1]
 
     sectionContent = (
       <JoinCase
