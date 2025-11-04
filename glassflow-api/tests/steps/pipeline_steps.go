@@ -431,6 +431,8 @@ func (p *PipelineSteps) shutdownPipeline() error {
 		p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
 	}
 
+	
+
 	return nil
 }
 

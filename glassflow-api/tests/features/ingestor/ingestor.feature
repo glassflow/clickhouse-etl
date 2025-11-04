@@ -535,7 +535,6 @@ Feature: Kafka Ingestor
             | 6   | {"id": "101", "name": "Robert Johnson"} |
             | 7   | {"id": "111", "name": "Alice Brown"}    |
             | 8   | {"id": "101", "name": "Johnny Doe"}     |
-        And I wait for 1 second
 
         Then I check results stream with content
             | id  | name           |
