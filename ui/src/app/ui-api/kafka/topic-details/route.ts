@@ -30,8 +30,6 @@ export async function POST(request: Request) {
       // Fetch topic details with partition information
       const topicDetails = await kafkaService.getTopicDetails(kafkaConfig as KafkaConfig)
 
-      console.log('topicDetails', topicDetails)
-
       return NextResponse.json({
         success: true,
         topicDetails,

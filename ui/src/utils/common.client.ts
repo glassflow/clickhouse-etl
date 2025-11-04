@@ -134,26 +134,17 @@ export const compareEventSchemas = (oldEvent: any, newEvent: any): boolean => {
 
     // If field counts differ, schemas are different
     if (oldFields.length !== newFields.length) {
-      console.log('[Schema Comparison] Field count differs:', {
-        old: oldFields.length,
-        new: newFields.length,
-      })
       return false
     }
 
     // Check if all field paths are the same
     for (let i = 0; i < oldFields.length; i++) {
       if (oldFields[i] !== newFields[i]) {
-        console.log('[Schema Comparison] Field path differs:', {
-          old: oldFields[i],
-          new: newFields[i],
-        })
         return false
       }
     }
 
     // Field paths are identical, schemas match!
-    console.log('[Schema Comparison] Schemas match! Field count:', oldFields.length)
     return true
   } catch (error) {
     console.error('[Schema Comparison] Error comparing schemas:', error)

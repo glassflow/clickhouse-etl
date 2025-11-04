@@ -23,8 +23,6 @@ export async function POST(request: Request) {
     const randomStr = Math.random().toString(36).substring(2, 15)
     const pipelineId = `pipeline-${randomStr}${timestamp}`
 
-    console.log('[Mock] Creating new pipeline:', pipelineId)
-
     // Create full pipeline config with all required fields
     const newPipeline: BackendPipeline = {
       pipeline_id: pipelineId,
@@ -73,8 +71,6 @@ export async function POST(request: Request) {
     // Register in centralized state management
     // This is crucial - without this, the pipeline won't be found by other endpoints!
     registerPipeline(pipelineId, newPipeline, 'Running')
-
-    console.log('[Mock] Pipeline created and registered successfully:', pipelineId)
 
     // Return the same format as the real API route
     return NextResponse.json({

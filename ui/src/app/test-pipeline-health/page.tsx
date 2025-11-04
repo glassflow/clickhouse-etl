@@ -16,7 +16,7 @@ export default function TestPipelineHealthPage() {
     enabled,
     pollingInterval: 3000,
     onStatusChange: (newStatus, previousStatus) => {
-      console.log(`Status changed: ${previousStatus} → ${newStatus}`)
+      // console.log(`Status changed: ${previousStatus} → ${newStatus}`)
     },
     onError: (error) => {
       console.error('Health check error:', error)

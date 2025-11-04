@@ -71,9 +71,9 @@ export const setUserIdentity = (userId: string) => {
       'Internal User': isInternalUser(),
     })
 
-    if (isDev) {
-      console.log('User identified for analytics:', userId)
-    }
+    // if (isDev) {
+    // console.log('User identified for analytics:', userId)
+    // }
   } catch (error) {
     console.error('Failed to set user identity:', error)
   }
@@ -138,9 +138,9 @@ export const track = ({
     }
 
     if (!(event.name in eventCatalog)) {
-      if (isDev) {
-        console.log('Event not in catalog, not tracking:', event.name)
-      }
+      // if (isDev) {
+      // console.log('Event not in catalog, not tracking:', event.name)
+      // }
       return
     }
 
@@ -153,11 +153,11 @@ export const track = ({
       const lastTracked = eventCache.get(cacheKey) || 0
       if (now - lastTracked < EVENT_THROTTLE_MS) {
         if (isDev) {
-          console.log('Event throttled (too frequent):', {
-            event: event.name,
-            context,
-            timeSinceLast: now - lastTracked,
-          })
+          // console.log('Event throttled (too frequent):', {
+          //   event: event.name,
+          //   context,
+          //   timeSinceLast: now - lastTracked,
+          // })
         }
         return
       }
@@ -188,9 +188,9 @@ export const track = ({
     try {
       mixpanel.track(event.name, eventProps)
 
-      if (isDev) {
-        console.log('Analytics event tracked:', eventProps)
-      }
+      // if (isDev) {
+      // console.log('Analytics event tracked:', eventProps)
+      // }
     } catch (trackError) {
       console.error('Error during mixpanel.track():', trackError)
     }

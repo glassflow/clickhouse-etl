@@ -607,8 +607,6 @@ export function ClickhouseMapper({
           sourceTopic: sourceTopic,
         }
         hasChanges = true
-      } else {
-        console.log(`No match found for column "${col.name}" in either topic`)
       }
     })
 

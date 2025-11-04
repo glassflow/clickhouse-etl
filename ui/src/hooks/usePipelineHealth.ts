@@ -43,28 +43,18 @@ export const usePipelineHealth = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const previousStatusRef = useRef<PipelineHealthStatus | null>(null)
 
-  console.log(
-    `[usePipelineHealth] Pipeline: ${pipelineId}, enabled: ${enabled}, started: ${hasStarted}, stopped: ${hasStopped}`,
-  )
-
   // Single fetch function - no recursion, no complex state dependencies
   const fetchOnce = useCallback(async () => {
     if (!enabled || !pipelineId || hasStopped) {
-      console.log(
-        `[usePipelineHealth] Skipping fetch - enabled: ${enabled}, pipelineId: ${!!pipelineId}, stopped: ${hasStopped}`,
-      )
       return
     }
 
-    console.log(`[usePipelineHealth] Fetching health for ${pipelineId}`)
     setIsLoading(true)
 
     try {
       const healthData = await getPipelineHealth(pipelineId)
       const newStatus = healthData.overall_status
       const previousStatus = previousStatusRef.current
-
-      console.log(`[usePipelineHealth] Got status: ${newStatus} for ${pipelineId}`)
 
       // Update state
       setHealth(healthData)
@@ -80,7 +70,6 @@ export const usePipelineHealth = ({
 
       // Check if we should stop polling
       if (stopOnStatuses.includes(newStatus)) {
-        console.log(`[usePipelineHealth] Status ${newStatus} is final, stopping polling for ${pipelineId}`)
         setHasStopped(true)
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current)
@@ -92,15 +81,10 @@ export const usePipelineHealth = ({
       // Schedule next fetch only if not stopped
       if (!hasStopped && enabled) {
         timeoutRef.current = setTimeout(fetchOnce, pollingInterval)
-        console.log(`[usePipelineHealth] Scheduled next fetch in ${pollingInterval}ms for ${pipelineId}`)
       }
     } catch (err: any) {
       const healthError = err as PipelineHealthError
       const newErrorCount = errorCount + 1
-
-      console.log(
-        `[usePipelineHealth] Error ${healthError.code} for ${pipelineId}, count: ${newErrorCount}/${maxRetries}`,
-      )
 
       setError(healthError)
       setErrorCount(newErrorCount)
@@ -108,7 +92,6 @@ export const usePipelineHealth = ({
 
       // Stop on critical errors or max retries
       if (healthError.code === 404 || healthError.code >= 500 || newErrorCount >= maxRetries) {
-        console.log(`[usePipelineHealth] Critical error or max retries reached, stopping polling for ${pipelineId}`)
         setHasStopped(true)
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current)
@@ -120,7 +103,6 @@ export const usePipelineHealth = ({
       // Schedule retry for non-critical errors
       if (!hasStopped && enabled) {
         timeoutRef.current = setTimeout(fetchOnce, pollingInterval)
-        console.log(`[usePipelineHealth] Scheduled retry in ${pollingInterval}ms for ${pipelineId}`)
       }
     } finally {
       setIsLoading(false)
@@ -141,7 +123,6 @@ export const usePipelineHealth = ({
   // Start polling effect - runs only once when conditions are met
   useEffect(() => {
     if (enabled && pipelineId && !hasStarted && !hasStopped) {
-      console.log(`[usePipelineHealth] Starting health monitoring for ${pipelineId}`)
       setHasStarted(true)
       fetchOnce()
     }
@@ -150,7 +131,6 @@ export const usePipelineHealth = ({
   // Cleanup effect
   useEffect(() => {
     return () => {
-      console.log(`[usePipelineHealth] Cleanup for ${pipelineId}`)
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
@@ -167,7 +147,6 @@ export const usePipelineHealth = ({
   }, [hasStopped, fetchOnce])
 
   const stopPolling = useCallback(() => {
-    console.log(`[usePipelineHealth] Manual stop for ${pipelineId}`)
     setHasStopped(true)
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
@@ -244,11 +223,6 @@ export const useMultiplePipelineHealth = ({
     const currentPipelineIds = currentPipelineIdsRef.current
     if (!enabled || currentPipelineIds.length === 0 || !isMountedRef.current) return
 
-    console.log(
-      `[useMultiplePipelineHealth] Fetching health for ${currentPipelineIds.length} pipelines:`,
-      currentPipelineIds,
-    )
-
     const newLoadingMap: Record<string, boolean> = {}
     currentPipelineIds.forEach((id) => {
       newLoadingMap[id] = true
@@ -270,14 +244,12 @@ export const useMultiplePipelineHealth = ({
 
         // Call status change callback if status changed
         if (previousStatus !== newStatus) {
-          console.log(`[useMultiplePipelineHealth] Status changed for ${pipelineId}: ${previousStatus} → ${newStatus}`)
           onStatusChange?.(pipelineId, newStatus, previousStatus || null)
         }
 
         return { pipelineId, health, error: null }
       } catch (error) {
         const healthError = error as PipelineHealthError
-        console.log(`[useMultiplePipelineHealth] Error for ${pipelineId}:`, healthError)
         onError?.(pipelineId, healthError)
         return { pipelineId, health: null, error: healthError }
       }

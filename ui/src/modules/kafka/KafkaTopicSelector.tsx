@@ -240,7 +240,6 @@ export function KafkaTopicSelector({
       // Mark configuration as dirty when saving changes in edit mode
       // This ensures the download warning appears for unsaved changes
       coreStore.markAsDirty()
-      console.log('[TopicSelector] Configuration marked as dirty - changes will be saved on Resume')
 
       onCompleteStandaloneEditing?.()
     } else {

@@ -132,10 +132,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const index = mockPipelines.findIndex((p) => p.pipeline_id === id)
     if (index !== -1) {
       mockPipelines.splice(index, 1)
-      console.log(`[Mock] Pipeline ${id} deleted from array`)
     }
-
-    console.log(`[Mock] Pipeline ${id} deleted successfully`)
 
     return NextResponse.json({
       success: true,

@@ -77,8 +77,6 @@ export const downloadPipelineConfig = async (
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-
-    console.log(`Pipeline configuration downloaded: ${finalFilename}`)
   } catch (error) {
     console.error('Failed to download pipeline configuration:', error)
     throw new Error('Failed to download pipeline configuration. Please try again.')
@@ -128,8 +126,6 @@ export const downloadPipelineConfigAsYaml = async (
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-
-    console.log(`Pipeline configuration downloaded as YAML: ${finalFilename}`)
   } catch (error) {
     console.error('Failed to download pipeline configuration as YAML:', error)
     throw new Error('Failed to download pipeline configuration as YAML. Please try again.')

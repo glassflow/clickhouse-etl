@@ -56,8 +56,6 @@ const useActualStore = create<Store>()(
 
         if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
           // Complete reset: Use individual store reset methods for comprehensive cleanup
-          console.log('🧹 Complete state reset for new pipeline creation')
-
           // Reset individual stores using their dedicated reset methods
           state.kafkaStore.resetKafkaStore()
           state.topicsStore.resetTopicsStore()
@@ -80,7 +78,6 @@ const useActualStore = create<Store>()(
           }))
         } else {
           // Partial reset: Only change operation type
-          console.log('🔄 Partial state reset - operation change only')
           set((state) => ({
             coreStore: {
               ...state.coreStore,
@@ -98,7 +95,6 @@ const useActualStore = create<Store>()(
 
       // Convenience method: Reset specifically for new pipeline creation
       resetForNewPipeline: (operation: string) => {
-        console.log('🆕 Resetting state for new pipeline creation')
         const state = get()
 
         // Always do a complete reset for new pipelines
@@ -111,7 +107,6 @@ const useActualStore = create<Store>()(
 
       // Convenience method: Reset only form validation states
       resetFormValidationStates: () => {
-        console.log('🔄 Resetting form validation states')
         const state = get()
 
         // Reset validation states without losing user data
@@ -125,7 +120,6 @@ const useActualStore = create<Store>()(
 
       // Convenience method: Clear all user data (nuclear option)
       clearAllUserData: () => {
-        console.log('💣 Nuclear reset - clearing ALL user data')
         const state = get()
 
         // Reset all stores to initial state
@@ -146,6 +140,7 @@ const useActualStore = create<Store>()(
     {
       name: 'app-clickhouse-pivot-store', // unique name for the store in DevTools
       enabled: process.env.NODE_ENV !== 'production', // only enable in development
+      trace: process.env.NEXT_PUBLIC_REDUX_DEVTOOLS_TRACE === 'true', // enable stack traces for state changes
     },
   ),
 )

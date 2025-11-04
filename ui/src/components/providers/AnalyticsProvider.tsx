@@ -18,7 +18,6 @@ export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
   useEffect(() => {
     // Only initialize analytics if it's enabled
     if (!isAnalyticsEnabled()) {
-      console.log('Analytics is disabled via NEXT_PUBLIC_ANALYTICS_ENABLED environment variable')
       return
     }
 

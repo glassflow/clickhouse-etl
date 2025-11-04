@@ -857,8 +857,6 @@ export function PipelinesList({
               onUpdatePipelineStatus?.(editSelectedPipeline.pipeline_id, 'stopped')
 
               // Skip refresh since we're navigating to edit page immediately
-            } else {
-              console.log('Pipeline already stopped, proceeding to edit:', editSelectedPipeline.pipeline_id)
             }
 
             // Track edit success (preparation completed)

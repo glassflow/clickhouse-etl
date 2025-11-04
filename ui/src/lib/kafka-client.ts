@@ -556,7 +556,7 @@ export class KafkaClient {
             eachMessage: messageHandler,
           })
           .then(() => {
-            console.log(`KafkaClient: Consumer run promise resolved`)
+            // console.log(`KafkaClient: Consumer run promise resolved`)
           })
           .catch((error) => {
             console.error(`KafkaClient: Error running consumer:`, error)

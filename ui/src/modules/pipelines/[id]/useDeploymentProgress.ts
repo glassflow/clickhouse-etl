@@ -95,8 +95,6 @@ export const useDeploymentProgress = ({
     stopOnStatuses: ['Running', 'Failed', 'Terminated'],
     maxRetries: 5, // Allow more retries during deployment
     onStatusChange: (newStatus, previousStatus) => {
-      console.log(`[DeploymentProgress] Status change: ${previousStatus} → ${newStatus}`)
-
       if (newStatus === 'Running') {
         setDeploymentPhase('deployed')
         addDeploymentState('deployed', 'Pipeline deployed successfully and is now running')

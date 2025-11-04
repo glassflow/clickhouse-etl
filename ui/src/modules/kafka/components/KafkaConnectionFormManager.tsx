@@ -144,7 +144,6 @@ export const KafkaConnectionFormManager = ({
 
     // early return if there are validation errors
     if (!result) {
-      console.log('Form has validation errors', formMethods.formState.errors)
       return
     }
 

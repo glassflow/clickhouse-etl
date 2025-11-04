@@ -305,7 +305,7 @@ const mockClickhouseDestination = {
 
 // Mock data for TopicsStore (updated to remove deduplication)
 const mockTopicsStore = {
-  availableTopics: ['transactions', 'credit_card_1_transactions', '__consumer_offsets'],
+  availableTopics: ['transactions', 'same_as_transactions', 'totally_different_than_transactions'],
   topicCount: 1,
   topics: {
     '0': {

@@ -106,8 +106,6 @@ export function KafkaConnectionContainer({
   useEffect(() => {
     if (operationsSelected?.operation) {
       analytics.page.setupKafkaConnection({})
-    } else {
-      console.log('no operation selected')
     }
   }, [operationsSelected?.operation, analytics.page])
 
@@ -210,7 +208,6 @@ export function KafkaConnectionContainer({
     // This indicates changes need to be sent to backend when user clicks Resume
     if (standalone && toggleEditMode) {
       coreStore.markAsDirty()
-      console.log('[KafkaConnection] Configuration marked as dirty - changes will be saved on Resume')
     }
 
     // Proceed to next step or close standalone component

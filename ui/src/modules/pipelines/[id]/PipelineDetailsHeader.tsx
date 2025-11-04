@@ -82,7 +82,7 @@ function PipelineDetailsHeader({
     stopOnStatuses: ['Running', 'Terminated', 'Failed'], // Stop on stable states
     maxRetries: 2,
     onStatusChange: (newStatus, previousStatus) => {
-      console.log(`Pipeline ${pipeline.pipeline_id} health status changed: ${previousStatus} → ${newStatus}`)
+      // console.log(`Pipeline ${pipeline.pipeline_id} health status changed: ${previousStatus} → ${newStatus}`)
     },
     onError: (error) => {
       console.error(`Pipeline ${pipeline.pipeline_id} health check error:`, error)

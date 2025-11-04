@@ -177,13 +177,6 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
 
   // Handle edit mode toggle with confirmation for active pipelines
   const handleToggleEditMode = () => {
-    console.log('handleToggleEditMode called', {
-      pipelineStatus: pipeline?.status,
-      centralizedStatus,
-      effectiveStatus,
-      editMode,
-    })
-
     if ((effectiveStatus === 'stopped' || effectiveStatus === 'terminated') && !editMode) {
       // For stopped/terminated pipelines, enable edit mode immediately
       setEditMode(true)
@@ -191,10 +184,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
       // This prevents re-hydration which would overwrite unsaved changes from other sections
       if (globalMode !== 'edit') {
-        console.log('[StandaloneStepRenderer] Entering edit mode for first time')
         enterEditMode(pipeline)
-      } else {
-        console.log('[StandaloneStepRenderer] Already in global edit mode, preserving existing changes')
       }
     } else if ((effectiveStatus === 'active' || effectiveStatus === 'paused') && !editMode) {
       // For active/paused pipelines, show confirmation modal before allowing edit
@@ -214,13 +204,10 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       if (!editMode) {
         setEditMode(true)
 
-        // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
+        // CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
         // This prevents re-hydration which would overwrite unsaved changes from other sections
         if (globalMode !== 'edit') {
-          console.log('[StandaloneStepRenderer] Entering edit mode for first time')
           enterEditMode(pipeline)
-        } else {
-          console.log('[StandaloneStepRenderer] Already in global edit mode, preserving existing changes')
         }
       }
     }

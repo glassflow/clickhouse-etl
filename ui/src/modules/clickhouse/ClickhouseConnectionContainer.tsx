@@ -102,7 +102,6 @@ export function ClickhouseConnectionContainer({
     if (standalone && toggleEditMode) {
       const { coreStore } = useStore.getState()
       coreStore.markAsDirty()
-      console.log('[ClickhouseConnection] Configuration marked as dirty - changes will be saved on Resume')
     }
 
     // Proceed to next step

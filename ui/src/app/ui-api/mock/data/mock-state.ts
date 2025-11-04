@@ -43,12 +43,10 @@ const pipelineConfigs = new Map<string, PipelineConfig>()
  */
 export const initializeMockState = () => {
   if (pipelineStates.size === 0) {
-    console.log('[MockState] Initializing mock pipeline states...')
     mockPipelines.forEach((pipeline) => {
       const status = stateToStatus[pipeline.state] || 'Running'
       pipelineStates.set(pipeline.pipeline_id, status)
       pipelineConfigs.set(pipeline.pipeline_id, pipeline)
-      console.log(`[MockState] Initialized ${pipeline.pipeline_id}: ${status}`)
     })
   }
 }
@@ -66,7 +64,6 @@ export const getPipelineStatus = (pipelineId: string): MockPipelineStatus => {
  */
 export const setPipelineStatus = (pipelineId: string, status: MockPipelineStatus): void => {
   initializeMockState()
-  console.log(`[MockState] Setting ${pipelineId} status: ${status}`)
   pipelineStates.set(pipelineId, status)
 }
 
@@ -83,7 +80,6 @@ export const getPipelineConfig = (pipelineId: string): PipelineConfig | undefine
  */
 export const updatePipelineConfig = (pipelineId: string, config: PipelineConfig): void => {
   initializeMockState()
-  console.log(`[MockState] Updating ${pipelineId} configuration`)
   pipelineConfigs.set(pipelineId, config)
 }
 
@@ -100,7 +96,6 @@ export const simulateTransition = (
   setPipelineStatus(pipelineId, fromStatus)
   setTimeout(() => {
     setPipelineStatus(pipelineId, toStatus)
-    console.log(`[MockState] Transition complete: ${pipelineId} ${fromStatus} -> ${toStatus}`)
   }, delayMs)
 }
 
@@ -163,7 +158,6 @@ export const registerPipeline = (
   config: PipelineConfig,
   initialStatus: MockPipelineStatus = 'Running',
 ): void => {
-  console.log(`[MockState] Registering new pipeline: ${pipelineId} (${initialStatus})`)
   pipelineStates.set(pipelineId, initialStatus)
   pipelineConfigs.set(pipelineId, config)
 }
@@ -173,7 +167,6 @@ export const registerPipeline = (
  * Used when deleting pipelines
  */
 export const unregisterPipeline = (pipelineId: string): void => {
-  console.log(`[MockState] Unregistering pipeline: ${pipelineId}`)
   pipelineStates.delete(pipelineId)
   pipelineConfigs.delete(pipelineId)
 }
@@ -182,7 +175,6 @@ export const unregisterPipeline = (pipelineId: string): void => {
  * Reset all state (useful for testing)
  */
 export const resetMockState = (): void => {
-  console.log('[MockState] Resetting all state...')
   pipelineStates.clear()
   pipelineConfigs.clear()
   initializeMockState()

@@ -119,7 +119,6 @@ export const SaslGssapiForm = ({
   const fieldsToRender = Object.entries(fields).filter(([key]) => key !== 'kerberosKeytab' && key !== 'krb5Config')
 
   const handleKeytabUpload = (fileContent: string, fileName: string) => {
-    console.log('fileContent', fileContent, 'fileName', fileName)
     try {
       setValue('saslGssapi.kerberosKeytab', fileContent, {
         shouldValidate: true,
@@ -135,7 +134,6 @@ export const SaslGssapiForm = ({
   }
 
   const handleKrb5ConfigUpload = (fileContent: string, fileName: string) => {
-    console.log('fileContent', fileContent, 'fileName', fileName)
     try {
       setValue('saslGssapi.krb5Config', fileContent, {
         shouldValidate: true,
