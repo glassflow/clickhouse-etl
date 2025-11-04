@@ -45,6 +45,7 @@ const (
 	RoleJoin     = "join"
 	RoleIngestor = "ingestor"
 	RoleETL      = ""
+	RoleDemo     = "demo"
 
 	// DLQ constants
 	DLQMaxBatchSize     = 100

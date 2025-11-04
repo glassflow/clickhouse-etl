@@ -1,0 +1,348 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    },
+    {
+      "source": "/",
+      "destination": "/home",
+      "statusCode": 308,
+      "regex": "^(?!/_next)/(?:/)?$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/pipelines/[id]",
+      "regex": "^/pipelines/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/pipelines/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/dlq",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/dlq(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/dlq(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/dlq/consume",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/dlq/consume(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/dlq/consume(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/dlq/state",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/dlq/state(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/dlq/state(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/edit",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/edit(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/edit(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/health",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/health(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/health(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/pause",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/pause(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/pause(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/resume",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/resume(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/resume(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/stop",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/stop(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/stop(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline/[id]/terminate",
+      "regex": "^/ui\\-api/mock/pipeline/([^/]+?)/terminate(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/pipeline/(?<nxtPid>[^/]+?)/terminate(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/schemas/[id]",
+      "regex": "^/ui\\-api/mock/schemas/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/mock/schemas/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/clickhouse/metrics-from-config",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/clickhouse/metrics\\-from\\-config(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/clickhouse/metrics\\-from\\-config(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/dlq/consume",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/dlq/consume(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/dlq/consume(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/dlq/state",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/dlq/state(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/dlq/state(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/health",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/health(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/health(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/pause",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/pause(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/pause(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/resume",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/resume(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/resume(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/stop",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/stop(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/stop(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline/[id]/terminate",
+      "regex": "^/ui\\-api/pipeline/([^/]+?)/terminate(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/ui\\-api/pipeline/(?<nxtPid>[^/]+?)/terminate(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/home",
+      "regex": "^/home(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/home(?:/)?$"
+    },
+    {
+      "page": "/pipelines",
+      "regex": "^/pipelines(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pipelines(?:/)?$"
+    },
+    {
+      "page": "/pipelines/create",
+      "regex": "^/pipelines/create(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pipelines/create(?:/)?$"
+    },
+    {
+      "page": "/pipelines/logs",
+      "regex": "^/pipelines/logs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pipelines/logs(?:/)?$"
+    },
+    {
+      "page": "/test-health",
+      "regex": "^/test\\-health(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/test\\-health(?:/)?$"
+    },
+    {
+      "page": "/test-pipeline-health",
+      "regex": "^/test\\-pipeline\\-health(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/test\\-pipeline\\-health(?:/)?$"
+    },
+    {
+      "page": "/ui-api/clickhouse/databases",
+      "regex": "^/ui\\-api/clickhouse/databases(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/clickhouse/databases(?:/)?$"
+    },
+    {
+      "page": "/ui-api/clickhouse/schema",
+      "regex": "^/ui\\-api/clickhouse/schema(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/clickhouse/schema(?:/)?$"
+    },
+    {
+      "page": "/ui-api/clickhouse/tables",
+      "regex": "^/ui\\-api/clickhouse/tables(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/clickhouse/tables(?:/)?$"
+    },
+    {
+      "page": "/ui-api/clickhouse/test-connection",
+      "regex": "^/ui\\-api/clickhouse/test\\-connection(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/clickhouse/test\\-connection(?:/)?$"
+    },
+    {
+      "page": "/ui-api/healthz",
+      "regex": "^/ui\\-api/healthz(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/healthz(?:/)?$"
+    },
+    {
+      "page": "/ui-api/kafka",
+      "regex": "^/ui\\-api/kafka(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/kafka(?:/)?$"
+    },
+    {
+      "page": "/ui-api/kafka/events",
+      "regex": "^/ui\\-api/kafka/events(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/kafka/events(?:/)?$"
+    },
+    {
+      "page": "/ui-api/kafka/topic-details",
+      "regex": "^/ui\\-api/kafka/topic\\-details(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/kafka/topic\\-details(?:/)?$"
+    },
+    {
+      "page": "/ui-api/kafka/topics",
+      "regex": "^/ui\\-api/kafka/topics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/kafka/topics(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/healthz",
+      "regex": "^/ui\\-api/mock/healthz(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/mock/healthz(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/pipeline",
+      "regex": "^/ui\\-api/mock/pipeline(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/mock/pipeline(?:/)?$"
+    },
+    {
+      "page": "/ui-api/mock/schemas",
+      "regex": "^/ui\\-api/mock/schemas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/mock/schemas(?:/)?$"
+    },
+    {
+      "page": "/ui-api/pipeline",
+      "regex": "^/ui\\-api/pipeline(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/pipeline(?:/)?$"
+    },
+    {
+      "page": "/ui-api/platform",
+      "regex": "^/ui\\-api/platform(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ui\\-api/platform(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "RSC",
+    "varyHeader": "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch",
+    "prefetchHeader": "Next-Router-Prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "Next-Router-Segment-Prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

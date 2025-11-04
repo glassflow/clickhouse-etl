@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"path"
@@ -21,6 +22,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/embedded"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -148,6 +150,11 @@ func mainErr(cfg *config, role models.Role) error {
 		cancel()
 	}()
 
+	// Demo mode handles its own NATS server, skip client creation
+	if role == internal.RoleDemo {
+		return mainDemo(ctx, cfg, log, meter)
+	}
+
 	nc, err := client.NewNATSClient(
 		ctx,
 		cfg.NATSServer,
@@ -260,6 +267,124 @@ func mainEtl(
 			default:
 				wg.Done()
 			}
+		}()
+	}
+
+	wg.Wait()
+	return nil
+}
+
+func mainDemo(
+	ctx context.Context,
+	cfg *config,
+	log *slog.Logger,
+	meter *observability.Meter,
+) error {
+	// Start embedded NATS server
+	natsServer, err := embedded.NewNATSServer(log, 4222)
+	if err != nil {
+		return fmt.Errorf("failed to start embedded NATS server: %w", err)
+	}
+	defer natsServer.Shutdown()
+
+	log.Info("Demo mode started", slog.String("nats_url", natsServer.URL()))
+
+	// Create NATS client
+	nc, err := client.NewNATSClient(
+		ctx,
+		natsServer.URL(),
+		client.WithMaxAge(cfg.NATSMaxStreamAge),
+		client.WithMaxBytes(cfg.NATSMaxStreamBytes),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create NATS client: %w", err)
+	}
+	defer cleanUp(nc, log)
+
+	// Set up storage
+	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
+	if err != nil {
+		return fmt.Errorf("create nats store for pipelines: %w", err)
+	}
+
+	dlqClient := dlq.NewClient(nc)
+
+	// Use local orchestrator for demo mode
+	orch := orchestrator.NewLocalOrchestrator(nc, log)
+
+	pipelineSvc := service.NewPipelineService(orch, db, log)
+
+	err = pipelineSvc.CleanUpPipelines(ctx)
+	if err != nil {
+		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
+	}
+
+	// Create API router
+	apiHandler := api.NewRouter(log, pipelineSvc, dlqClient, meter)
+
+	// Get UI handler
+	uiHandler, err := embedded.UIHandler()
+	if err != nil {
+		return fmt.Errorf("failed to create UI handler: %w", err)
+	}
+
+	// Combine API and UI handlers
+	mux := http.NewServeMux()
+
+	// API routes (all /api/* and /ui-api/* routes)
+	mux.Handle("/api/", http.StripPrefix("/api", apiHandler))
+	mux.Handle("/ui-api/", uiHandler)
+
+	// UI routes (everything else)
+	mux.Handle("/", uiHandler)
+
+	// Create HTTP server
+	apiServer := server.NewHTTPServer(
+		":8080",
+		cfg.ServerReadTimeout,
+		cfg.ServerWriteTimeout,
+		cfg.ServerIdleTimeout,
+		log,
+		mux,
+	)
+
+	serverErr := make(chan error, 1)
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		serverErr <- apiServer.Start()
+	}()
+
+	log.Info("Demo server started on http://localhost:8080")
+	log.Info("Access the UI at http://localhost:8080")
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			return fmt.Errorf("failed to start server: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+		log.Info("Received termination signal - service will shutdown")
+
+		wg.Add(2)
+		go func() {
+			if err := apiServer.Shutdown(ctx, cfg.ServerShutdownTimeout); err != nil {
+				log.Error("failed to shutdown server", slog.Any("error", err))
+			}
+			wg.Done()
+		}()
+
+		go func() {
+			if o, ok := orch.(*orchestrator.LocalOrchestrator); ok {
+				err := orch.StopPipeline(ctx, o.ActivePipelineID())
+				if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
+					log.Error("pipeline stop error", slog.Any("error", err))
+				}
+			}
+			wg.Done()
 		}()
 	}
 
