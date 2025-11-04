@@ -143,6 +143,7 @@ const (
 	DefaultDialTimeout     = 5000 * time.Millisecond
 	MechanismSHA256        = "SCRAM-SHA-256"
 	MechanismSHA512        = "SCRAM-SHA-512"
+	MechanismKerberos      = "GSSAPI"
 	MechanismPlain         = "PLAIN"
 
 	// Ingestor constants
@@ -181,9 +182,6 @@ const (
 	SinkDefaultBatchMaxDelayTime = 60 * time.Second
 	// SinkDefaultShutdownTimeout is the maximum time allowed for graceful shutdown and final batch flush.
 	SinkDefaultShutdownTimeout = 5 * time.Second
-
-	// Kerberos GSSAPI Auth Mechanisms
-	MechanismKerberos = "GSSAPI"
 
 	// Kafka session timeout in milliseconds
 	KafkaSessionTimeoutMs = 60000

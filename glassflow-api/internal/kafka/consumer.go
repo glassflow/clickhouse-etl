@@ -8,8 +8,12 @@ import (
 	"log/slog"
 	"time"
 
+	krb5client "github.com/jcmturner/gokrb5/v8/client"
+	krb5config "github.com/jcmturner/gokrb5/v8/config"
+	krb5keytab "github.com/jcmturner/gokrb5/v8/keytab"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/sasl"
+	"github.com/twmb/franz-go/pkg/sasl/kerberos"
 	"github.com/twmb/franz-go/pkg/sasl/plain"
 	"github.com/twmb/franz-go/pkg/sasl/scram"
 
@@ -36,7 +40,12 @@ type Consumer struct {
 }
 
 func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (*Consumer, error) {
-	client, err := kgo.NewClient(buildClientOptions(conn, topic)...)
+	clientOpts, err := buildClientOptions(conn, topic)
+	if err != nil {
+		return &Consumer{}, fmt.Errorf("build client options: %w", err)
+	}
+
+	client, err := kgo.NewClient(clientOpts...)
 	if err != nil {
 		return &Consumer{}, fmt.Errorf("failed to create client: %w", err)
 	}
@@ -53,7 +62,7 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 	}, nil
 }
 
-func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) []kgo.Opt {
+func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig) ([]kgo.Opt, error) {
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(conn.Brokers...),
 		kgo.ConsumerGroup(topic.ConsumerGroupName),
@@ -81,12 +90,17 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 	}
 
 	// Configure security
-	opts = append(opts, confugureAuth(conn)...)
+	authOpts, err := confugureAuth(conn)
+	if err != nil {
+		return nil, fmt.Errorf("configure auth: %w", err)
+	}
 
-	return opts
+	opts = append(opts, authOpts...)
+
+	return opts, nil
 }
 
-func confugureAuth(conn models.KafkaConnectionParamsConfig) []kgo.Opt {
+func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 	var opts []kgo.Opt
 	var auth sasl.Mechanism
 
@@ -103,6 +117,36 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) []kgo.Opt {
 				User: conn.SASLUsername,
 				Pass: conn.SASLPassword,
 			}.AsSha512Mechanism()
+		case internal.MechanismKerberos:
+			krbAuth := kerberos.Auth{
+				Service: conn.KerberosServiceName,
+			}
+			krb5ConfigFilePath, err := createTempKerberosConfigFile(conn.KerberosConfig)
+			if err != nil {
+				return nil, fmt.Errorf("create temp krb5 config file: %w", err)
+			}
+			krbConfig, err := krb5config.Load(krb5ConfigFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("load krb5 config: %w", err)
+			}
+
+			if conn.KerberosKeytab != "" {
+				keytabFile, err := createTempKeytabFile(conn.KerberosKeytab)
+				if err != nil {
+					return nil, fmt.Errorf("create temp keytab file: %w", err)
+				}
+
+				keytab, err := krb5keytab.Load(keytabFile)
+				if err != nil {
+					return nil, fmt.Errorf("load keytab: %w", err)
+				}
+
+				krbAuth.Client = krb5client.NewWithKeytab(conn.SASLUsername, conn.KerberosRealm, keytab, krbConfig)
+			} else {
+				krbAuth.Client = krb5client.NewWithPassword(conn.SASLUsername, conn.KerberosRealm, conn.SASLPassword, krbConfig)
+			}
+
+			auth = krbAuth.AsMechanism()
 		default:
 			auth = plain.Auth{
 				User: conn.SASLUsername,
@@ -113,7 +157,7 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) []kgo.Opt {
 		opts = append(opts, kgo.SASL(auth))
 	} else {
 		// No authentication
-		return opts
+		return opts, nil
 	}
 
 	if conn.SASLTLSEnable {
@@ -129,7 +173,7 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) []kgo.Opt {
 		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
 	}
 
-	return opts
+	return opts, nil
 }
 
 func (c *Consumer) Start(ctx context.Context, processor MessageProcessor) error {
