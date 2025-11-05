@@ -1,9 +1,13 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humamux"
 	"github.com/gorilla/mux"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
@@ -14,6 +18,7 @@ type handler struct {
 
 	pipelineService PipelineService
 	dlqSvc          DLQ
+	api             huma.API
 }
 
 func NewRouter(
@@ -24,14 +29,38 @@ func NewRouter(
 ) http.Handler {
 	r := mux.NewRouter()
 
+	config := huma.DefaultConfig("GlassFlow API", "1.0.0")
+	config.OpenAPI.Info.Description = "GlassFlow ClickHouse ETL API"
+
+	// Remove $schema from all schemas
+	// https://github.com/danielgtaylor/huma/issues/428
+	config.CreateHooks = nil
+	config.OpenAPIPath = ""
+	config.DocsPath = ""
+
+	huma.NewError = func(status int, message string, errs ...error) huma.StatusError {
+		return &ErrorDetail{}
+	}
+
+	humaAPI := humamux.New(r, config)
+
 	h := handler{
 		log:             log,
 		pipelineService: pipelineService,
 		dlqSvc:          dlqService,
+		api:             humaAPI,
 	}
 
+	// we need to support v1 and v2 for healthz since it's backward incompatible
+	// TODO delete v1 when Vlad migrates to v2 on FE
+	registerHumaHandler("/api/v2/healthz", h.healthzV2, log, HealthzSwaggerDocs(), humaAPI)
+	registerHumaHandler("/api/v1/platform", h.platform, log, PlatformSwaggerDocs(), humaAPI)
+	registerHumaHandler("/api/v1/pipeline/{id}/dlq/purge", h.purgeDLQ, log, PurgeDLQDocs(), humaAPI)
+
+	r.HandleFunc("/api/v1/docs", h.docs)
+	r.HandleFunc("/api/v1/openapi.json", h.swaggerDocsJSON)
+
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
-	r.HandleFunc("/api/v1/platform", h.platform).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline", h.createPipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}", h.getPipeline).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}", h.updatePipelineName).Methods("PATCH")
@@ -40,7 +69,6 @@ func NewRouter(
 	r.HandleFunc("/api/v1/pipeline/{id}/health", h.getPipelineHealth).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}/dlq/state", h.getDLQState).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/{id}/dlq/purge", h.purgeDLQ).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/resume", h.resumePipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/stop", h.stopPipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/terminate", h.terminatePipeline).Methods("POST")
@@ -49,4 +77,43 @@ func NewRouter(
 	r.Use(Recovery(log), RequestLogging(log), RequestMetrics(meter))
 
 	return r
+}
+
+// to log all errors, it's a bit hard to implement it on middleware side
+func registerHumaHandler[I, O any](
+	path string,
+	handler func(context.Context, *I) (*O, error),
+	log *slog.Logger,
+	op huma.Operation,
+	api huma.API,
+) {
+	op.Path = path
+	huma.Register(api, op, func(ctx context.Context, input *I) (*O, error) {
+		output, err := handler(ctx, input)
+		if err == nil {
+			return output, nil
+		}
+		var errDetails *ErrorDetail
+		ok := errors.As(err, &errDetails)
+		if !ok {
+			log.ErrorContext(ctx, err.Error())
+			return output, err
+		}
+
+		log.ErrorContext(
+			ctx,
+			errDetails.Error(),
+			slog.Any("details", errDetails.Details),
+			slog.Any("errors", errDetails.Errors),
+			slog.Int("status", errDetails.Status),
+		)
+
+		// do we want to expose this to user?
+		if errDetails.Status == http.StatusInternalServerError {
+			errDetails.Details = nil
+			errDetails.Message = "Internal server error"
+		}
+
+		return output, err
+	})
 }
