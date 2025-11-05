@@ -182,9 +182,14 @@ function HomePageClient() {
       const finalPipelineId = pipelineId || generatePipelineId(configName)
       setPipelineId(finalPipelineId)
 
-      // Use setTimeout to ensure state updates are processed before navigation
+      // Pass operation, name, and ID as URL parameters to survive page reload in static export
       setTimeout(() => {
-        router.push('/pipelines/create')
+        const params = new URLSearchParams({
+          operation: operation,
+          name: configName,
+          id: finalPipelineId,
+        })
+        router.push(`/pipelines/create?${params.toString()}`)
       }, 0)
     } catch (error) {
       setIsNavigating(false)

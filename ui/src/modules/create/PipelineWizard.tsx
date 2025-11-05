@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { CheckIcon, ChevronLeftIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { OperationKeys, stepsMetadata } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
 import { useStore } from '@/src/store'
@@ -18,16 +18,35 @@ import {
 
 function PipelineWizard() {
   const { coreStore } = useStore()
-  const { operationsSelected } = coreStore
+  const { operationsSelected, setOperationsSelected, setPipelineName, setPipelineId, pipelineName, pipelineId } = coreStore
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  // If no operation is selected, redirect to home
+  // Restore state from URL if not in store (handles static export page reloads)
   useEffect(() => {
-    if (!operationsSelected?.operation) {
+    const operationFromUrl = searchParams?.get('operation')
+    const nameFromUrl = searchParams?.get('name')
+    const idFromUrl = searchParams?.get('id')
+
+    // If we have data in the URL but not in the store, restore it
+    if (operationFromUrl && !operationsSelected?.operation) {
+      setOperationsSelected({ operation: operationFromUrl })
+    }
+
+    if (nameFromUrl && !pipelineName) {
+      setPipelineName(nameFromUrl)
+    }
+
+    if (idFromUrl && !pipelineId) {
+      setPipelineId(idFromUrl)
+    }
+
+    // If no operation in store or URL, redirect to home
+    if (!operationsSelected?.operation && !operationFromUrl) {
       router.push('/')
       return
     }
-  }, [operationsSelected, router])
+  }, [operationsSelected, setOperationsSelected, setPipelineName, setPipelineId, pipelineName, pipelineId, searchParams, router])
 
   // Determine the current journey based on operation
   const currentJourney = React.useMemo(() => {
