@@ -71,8 +71,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         // If decoding succeeds and doesn't contain control characters, use decoded version
         if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
           decodedPassword = decoded
-        } else {
-          console.log('Password appears to be already decoded or contains control characters')
         }
       }
     } catch (error) {
@@ -285,20 +283,6 @@ async function fetchClickHouseTableMetrics(
     }
   }
 
-  // Debug: Log query results to understand what data we're getting
-  console.log('ClickHouse Metrics Query Results:', {
-    tableInfo: results.tableInfo,
-    tableInfoDirect: results.tableInfoDirect,
-    tableSize: results.tableSize,
-    insertRate: results.insertRate,
-    insertLatency: results.insertLatency,
-    failedInserts: results.failedInserts,
-    mergePressure: results.mergePressure,
-    memoryUsage: results.memoryUsage,
-    memoryUsageFromLog: results.memoryUsageFromLog,
-    activeQueries: results.activeQueries,
-  })
-
   // Helper function to safely convert to number
   const toNumber = (value: any): number => {
     if (value === null || value === undefined || value === '') return 0
@@ -374,35 +358,6 @@ async function fetchClickHouseTableMetrics(
   // Get active queries
   const activeQueriesData = results.activeQueries || {}
   const activeQueries = toNumber(activeQueriesData.active_queries)
-
-  // Debug: Log final computed values
-  console.log('ClickHouse Metrics Final Computed Values:', {
-    rowCount,
-    tableSizeBytes,
-    compressedSizeBytes,
-    compressedSizeDebug: {
-      fromTables: compressedSizeBytesFromTables,
-      fromParts: compressedSizeBytesFromParts,
-      fromDirect: compressedSizeBytesFromDirect,
-    },
-    insertRateRowsPerSec,
-    insertRateBytesPerSec,
-    insertRateDebug: {
-      insertCount,
-      totalRows: toNumber(insertRateData.total_rows),
-      earliestInsert: insertRateData.earliest_insert,
-      latestInsert: insertRateData.latest_insert,
-    },
-    insertLatencyP50Ms,
-    insertLatencyP95Ms,
-    failedInserts,
-    memoryUsageBytes,
-    memoryDebug: {
-      fromProcesses: memoryUsageBytesFromProc,
-      fromLog: memoryUsageBytesFromLog,
-    },
-    activeQueries,
-  })
 
   return {
     database,

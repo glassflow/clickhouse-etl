@@ -74,8 +74,9 @@ export function JoinConfigurator({
   // Get existing topic data if available
   const topic1 = getTopic(index)
   const topic2 = getTopic(index + 1)
-  const event1 = topic1?.events[0]?.event
-  const event2 = topic2?.events[0]?.event
+  // FIX: Try to get event from events array first, then fall back to selectedEvent
+  const event1 = topic1?.events?.[0]?.event || topic1?.selectedEvent?.event
+  const event2 = topic2?.events?.[0]?.event || topic2?.selectedEvent?.event
 
   // Check if we're returning to a previously filled form
   const isReturningToForm = topic1 && topic1.name && topic2 && topic2.name

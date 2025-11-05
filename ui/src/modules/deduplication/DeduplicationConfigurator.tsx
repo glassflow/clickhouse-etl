@@ -150,8 +150,8 @@ export function DeduplicationConfigurator({
   return (
     <div className="flex flex-col gap-8">
       {/* Topic Configuration */}
-      <div className="flex gap-4">
-        <div className="flex flex-col gap-12 w-[40%]">
+      <div className="flex gap-4 w-full">
+        <div className="flex flex-col gap-12 flex-[2] min-w-0">
           {/* Force remounting of this component when the topic name changes */}
           <SelectDeduplicateKeys
             key={`dedup-keys-${topic.name}-${Date.now()}`}
@@ -162,7 +162,7 @@ export function DeduplicationConfigurator({
             readOnly={readOnly}
           />
         </div>
-        <div className="w-[60%] min-h-[400px]">
+        <div className="flex-[3] min-w-0 min-h-[400px]">
           <EventEditor
             event={parseForCodeEditor(eventData)}
             topic={topic?.name}

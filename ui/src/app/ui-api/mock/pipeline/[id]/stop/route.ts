@@ -45,8 +45,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    console.log(`[Mock] Stopping pipeline: ${id}`)
-
     // Simulate transitional state: Stopping -> Stopped
     // Real backend takes ~2-3 seconds to stop a pipeline
     simulateTransition(id, 'Stopping', 'Stopped', 2000)

@@ -39,7 +39,6 @@ class PipelineStateManagerImpl implements PipelineStateManager {
   setPipelineStatus(pipelineId: string, status: PipelineStatus): void {
     const currentStatus = pipelineState.get(pipelineId)
     if (currentStatus !== status) {
-      console.log(`[PipelineStateManager] Status update: ${pipelineId} ${currentStatus} → ${status}`)
       pipelineState.set(pipelineId, status)
 
       // Notify all listeners
@@ -60,20 +59,15 @@ class PipelineStateManagerImpl implements PipelineStateManager {
 
   // Operation reporting - This is where the business logic lives
   reportOperation(pipelineId: string, operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'deploy'): void {
-    console.log(`[PipelineStateManager] Operation reported: ${operation} on ${pipelineId}`)
-
     // Business logic: Should we track this pipeline?
     const shouldTrack = this.shouldTrackOperation(operation)
 
     if (shouldTrack) {
-      console.log(`[PipelineStateManager] Starting tracking for ${pipelineId} (${operation})`)
-
       // Start centralized tracking with state updates
       pipelineStatusManager.trackPipeline(
         pipelineId,
         {
           onStatusChange: (newStatus, previousStatus) => {
-            console.log(`[PipelineStateManager] Tracked status change: ${pipelineId} ${previousStatus} → ${newStatus}`)
             this.setPipelineStatus(pipelineId, newStatus)
           },
           onError: (error) => {
@@ -95,14 +89,11 @@ class PipelineStateManagerImpl implements PipelineStateManager {
   }
 
   reportOptimisticUpdate(pipelineId: string, status: PipelineStatus): void {
-    console.log(`[PipelineStateManager] Optimistic update: ${pipelineId} → ${status}`)
     this.setPipelineStatus(pipelineId, status)
   }
 
   // Monitoring management
   startMonitoring(pipelineIds: string[]): void {
-    console.log(`[PipelineStateManager] Starting general monitoring for ${pipelineIds.length} pipelines`)
-
     // Add to monitored set
     pipelineIds.forEach((id) => this.monitoredPipelines.add(id))
 
@@ -112,7 +103,6 @@ class PipelineStateManagerImpl implements PipelineStateManager {
         pipelineId,
         {
           onStatusChange: (newStatus, previousStatus) => {
-            console.log(`[PipelineStateManager] General monitoring: ${pipelineId} ${previousStatus} → ${newStatus}`)
             this.setPipelineStatus(pipelineId, newStatus)
           },
           onError: (error) => {
@@ -129,18 +119,15 @@ class PipelineStateManagerImpl implements PipelineStateManager {
 
   stopMonitoring(pipelineId?: string): void {
     if (pipelineId) {
-      console.log(`[PipelineStateManager] Stopping monitoring for ${pipelineId}`)
       this.monitoredPipelines.delete(pipelineId)
       pipelineStatusManager.stopTracking(pipelineId)
     } else {
-      console.log('[PipelineStateManager] Stopping all monitoring')
       this.monitoredPipelines.clear()
       pipelineStatusManager.killAllTracking()
     }
   }
 
   cleanup(): void {
-    console.log('[PipelineStateManager] Cleaning up')
     this.stopMonitoring()
     pipelineState.clear()
     stateListeners.clear()

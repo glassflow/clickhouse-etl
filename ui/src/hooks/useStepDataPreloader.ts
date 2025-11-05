@@ -118,7 +118,6 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
 
         // If we already have an event for this topic, skip fetching
         if (topic.selectedEvent?.event) {
-          console.log(`Event already available for topic ${topic.name}`)
           return true
         }
 
@@ -173,13 +172,11 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
   const preloadData = useCallback(async () => {
     // Prevent concurrent preloading
     if (isPreloadingRef.current) {
-      console.log('Preloading already in progress, skipping')
       return
     }
 
     // Check if we've already processed this step
     if (currentStepRef.current === stepKey && state.isComplete) {
-      console.log('Step already preloaded, skipping')
       return
     }
 
@@ -262,14 +259,12 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
   useEffect(() => {
     // Only preload if step actually changed
     if (currentStepRef.current !== stepKey) {
-      console.log(`Starting preload for step: ${stepKey}`)
       preloadData()
     }
   }, [stepKey, preloadData])
 
   // Function to retry preloading
   const retry = useCallback(() => {
-    console.log('Retrying preload...')
     // Reset the current step ref to force preloading
     currentStepRef.current = null
     isPreloadingRef.current = false

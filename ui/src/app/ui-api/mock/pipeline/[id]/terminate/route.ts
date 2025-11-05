@@ -33,8 +33,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    console.log(`[Mock] Terminating pipeline: ${id}`)
-
     // Simulate transitional state: Terminating -> Terminated
     simulateTransition(id, 'Terminating', 'Terminated', 2000)
 

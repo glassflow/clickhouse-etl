@@ -11,10 +11,6 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
       // If decoding succeeds and doesn't contain control characters, use decoded version
       if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
         decodedPassword = decoded
-      } else {
-        console.log(
-          'hydrateClickhouseConnection - password appears to be already decoded or contains control characters',
-        )
       }
     }
   } catch (error) {

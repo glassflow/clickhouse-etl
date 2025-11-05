@@ -130,11 +130,11 @@ export function TopicSelectWithEventPreview({
   )
 
   return (
-    <div className="flex flex-row gap-6">
+    <div className="flex flex-row gap-6 w-full">
       {/* Form Fields */}
       <div
         className={cn(
-          'w-[40%] space-y-4',
+          'flex-[2] min-w-0 space-y-4',
           isLoading && 'opacity-50 pointer-events-none transition-opacity duration-200',
         )}
       >
@@ -190,7 +190,7 @@ export function TopicSelectWithEventPreview({
       </div>
 
       {/* Event Preview */}
-      <div className="w-[60%] min-h-[450px] h-full">
+      <div className="flex-[3] min-w-0 min-h-[450px] h-full">
         <EventManager
           topicName={topicName}
           initialOffset={offset}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '@/src/store'
-import { StepKeys } from '@/src/config/constants'
+import { StepKeys, OperationKeys } from '@/src/config/constants'
 import { useFetchTopics } from '@/src/hooks/useFetchKafkaTopics'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
 import FormActions from '@/src/components/shared/FormActions'
@@ -11,6 +11,7 @@ import { useValidationEngine } from '@/src/store/state-machine/validation-engine
 import { TopicSelectorProps } from '@/src/modules/kafka/types'
 import useGetIndex from '@/src/modules/kafka/useGetIndex'
 import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
+import TopicChangeConfirmationModal from '@/src/modules/kafka/components/TopicChangeConfirmationModal'
 
 export function KafkaTopicSelector({
   steps,
@@ -107,6 +108,14 @@ export function KafkaTopicSelector({
     }
   }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender, topicFetchAttempts])
 
+  // Fetch topic details (including partition counts) when topics are available but details aren't
+  // This is especially important in edit mode where topics are hydrated but partition counts are missing
+  useEffect(() => {
+    if (availableTopics.length > 0 && topicDetails.length === 0 && !isLoadingTopics) {
+      fetchTopics()
+    }
+  }, [availableTopics.length, topicDetails.length, fetchTopics, isLoadingTopics])
+
   // Update partition count and replica count when topic details are fetched
   useEffect(() => {
     if (topicName && topicDetails.length > 0) {
@@ -131,6 +140,10 @@ export function KafkaTopicSelector({
   // State for tracking save success in edit mode
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
+  // State for topic change confirmation modal
+  const [isTopicChangeModalVisible, setIsTopicChangeModalVisible] = useState(false)
+  const [pendingTopicChange, setPendingTopicChange] = useState<string | null>(null)
+
   // Reset success state when user starts editing again
   useEffect(() => {
     if (!readOnly && isSaveSuccess) {
@@ -140,17 +153,50 @@ export function KafkaTopicSelector({
 
   // Handle topic change using the hook
   const handleTopicChange = useCallback(
-    (topicName: string, event: any) => {
-      // Use the hook's topic selection
-      selectTopic(topicName)
+    (newTopicName: string, event: any) => {
+      // Check if we're in edit mode (standalone) and topic is actually changing
+      const isEditMode = standalone && !readOnly
+      const isTopicChanging = storedTopic?.name && newTopicName !== storedTopic.name
+
+      if (isEditMode && isTopicChanging) {
+        // Show confirmation modal before changing topic
+        setPendingTopicChange(newTopicName)
+        setIsTopicChangeModalVisible(true)
+      } else {
+        // Not in edit mode OR topic not changing - proceed directly
+        selectTopic(newTopicName)
+        // Set replica count to partition count when topic changes
+        const partitionCount = getPartitionCount(newTopicName)
+        if (partitionCount > 0) {
+          selectReplicaCount(partitionCount)
+        }
+      }
+    },
+    [selectTopic, selectReplicaCount, getPartitionCount, standalone, readOnly, storedTopic?.name],
+  )
+
+  // Handle confirmation of topic change
+  const handleConfirmTopicChange = useCallback(() => {
+    if (pendingTopicChange) {
+      // User confirmed - proceed with topic change
+      selectTopic(pendingTopicChange)
       // Set replica count to partition count when topic changes
-      const partitionCount = getPartitionCount(topicName)
+      const partitionCount = getPartitionCount(pendingTopicChange)
       if (partitionCount > 0) {
         selectReplicaCount(partitionCount)
       }
-    },
-    [selectTopic, selectReplicaCount, getPartitionCount],
-  )
+    }
+    // Close modal and clear pending change
+    setIsTopicChangeModalVisible(false)
+    setPendingTopicChange(null)
+  }, [pendingTopicChange, selectTopic, selectReplicaCount, getPartitionCount])
+
+  // Handle cancellation of topic change
+  const handleCancelTopicChange = useCallback(() => {
+    // User cancelled - just close modal and clear pending change
+    setIsTopicChangeModalVisible(false)
+    setPendingTopicChange(null)
+  }, [])
 
   // Handle offset change using the hook
   const handleOffsetChange = useCallback(
@@ -191,10 +237,9 @@ export function KafkaTopicSelector({
         validationEngine.markSectionAsValid(currentStep as StepKeys)
       }
 
-      // ✅ Mark configuration as dirty when saving changes in edit mode
+      // Mark configuration as dirty when saving changes in edit mode
       // This ensures the download warning appears for unsaved changes
       coreStore.markAsDirty()
-      console.log('[TopicSelector] Configuration marked as dirty - changes will be saved on Resume')
 
       onCompleteStandaloneEditing?.()
     } else {
@@ -287,7 +332,7 @@ export function KafkaTopicSelector({
             additionalContent={renderDeduplicationSection()}
             isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
             readOnly={readOnly}
-            disableTopicChange={standalone} // ✅ Disable topic selection when in edit mode (standalone)
+            disableTopicChange={false} // Allow topic selection in edit mode to enable topic changes
             topicName={topicName}
             offset={offset}
             event={event}
@@ -333,6 +378,23 @@ export function KafkaTopicSelector({
           <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
         )}
       </div>
+
+      {/* Topic Change Confirmation Modal */}
+      <TopicChangeConfirmationModal
+        visible={isTopicChangeModalVisible}
+        onOk={handleConfirmTopicChange}
+        onCancel={handleCancelTopicChange}
+        newTopicName={pendingTopicChange || ''}
+        operationType={
+          coreStore.operationsSelected.operation === OperationKeys.DEDUPLICATION
+            ? 'deduplication'
+            : coreStore.operationsSelected.operation === OperationKeys.JOINING
+              ? 'join'
+              : coreStore.operationsSelected.operation === OperationKeys.DEDUPLICATION_JOINING
+                ? 'deduplication-join'
+                : 'ingest'
+        }
+      />
     </div>
   )
 }

@@ -98,10 +98,6 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
       // If decoding succeeds and doesn't contain control characters, use decoded version
       if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
         decodedPassword = decoded
-      } else {
-        console.log(
-          'hydrateClickhouseDestination - password appears to be already decoded or contains control characters',
-        )
       }
     }
   } catch (error) {
@@ -114,8 +110,6 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination(destination)
 
   // 2. Fetch databases
-  console.log('[Hydration] Fetching ClickHouse databases...')
-
   const dbRes = await fetch('/ui-api/clickhouse/databases', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -139,10 +133,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     console.warn('[Hydration] Continuing with basic destination setup (databases unavailable)')
     return // Exit gracefully instead of throwing
   }
-  console.log('[Hydration] Databases fetched successfully:', dbData.databases?.length)
 
   // 3. Fetch tables for the selected database
-  console.log('[Hydration] Fetching tables for database:', sink.database)
 
   const tablesRes = await fetch('/ui-api/clickhouse/tables', {
     method: 'POST',
@@ -165,10 +157,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     console.warn('[Hydration] Continuing with basic destination setup (tables unavailable)')
     return // Exit gracefully
   }
-  console.log('[Hydration] Tables fetched successfully:', tablesData.tables?.length)
 
   // 4. Fetch schema for the selected table
-  console.log('[Hydration] Fetching schema for table:', sink.database, sink.table)
 
   const schemaRes = await fetch('/ui-api/clickhouse/schema', {
     method: 'POST',
@@ -192,7 +182,6 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     console.warn('[Hydration] Continuing with basic destination setup (schema unavailable)')
     return // Exit gracefully
   }
-  console.log('[Hydration] Schema fetched successfully:', schemaData.columns?.length)
 
   const schemaColumns: Array<{ name: string; type: string; isNullable?: boolean; column_type?: string }> =
     schemaData.columns || []

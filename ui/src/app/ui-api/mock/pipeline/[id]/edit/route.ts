@@ -42,7 +42,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Validate if pipeline can be edited (must be stopped)
     const validation = canEdit(id)
     if (!validation.allowed) {
-      console.log(`[Mock] Edit rejected for ${id}: ${validation.reason}`)
       return NextResponse.json(
         {
           success: false,
@@ -54,9 +53,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     // Parse the request body (new configuration)
     const newConfig = await request.json()
-
-    console.log(`[Mock] Editing pipeline: ${id}`)
-    console.log(`[Mock] Current status: ${getPipelineStatus(id)}`)
 
     // Merge the new configuration with existing pipeline
     // Keep the same ID and state, but update all other fields

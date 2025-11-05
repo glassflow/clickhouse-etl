@@ -22,8 +22,6 @@ export class KafkaClientFactory {
   static async createClient(config: KafkaConfig): Promise<IKafkaClient> {
     const clientType = this.determineClientType(config)
 
-    console.log(`[KafkaClientFactory] Creating ${clientType} client for auth method: ${config.authMethod || 'default'}`)
-
     switch (clientType) {
       case KafkaClientType.GATEWAY:
         // Use Go-based gateway service for Kerberos

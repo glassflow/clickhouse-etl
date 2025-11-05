@@ -68,7 +68,6 @@ export class KafkaGatewayClient implements IKafkaClient {
 
   constructor(config: KafkaConfig) {
     this.config = config
-    console.log('[KafkaGateway] Client initialized')
   }
 
   /**
@@ -88,7 +87,6 @@ export class KafkaGatewayClient implements IKafkaClient {
       const parts = keytabBase64.split(',')
       if (parts.length > 1) {
         keytabBase64 = parts[1]
-        console.log('[KafkaGateway] Extracted base64 keytab from data URL')
       }
     }
 
@@ -106,12 +104,10 @@ export class KafkaGatewayClient implements IKafkaClient {
           const text = decodeURIComponent(parts[1])
           krb5ConfBase64 = Buffer.from(text, 'utf-8').toString('base64')
         }
-        console.log('[KafkaGateway] Extracted krb5.conf from data URL')
       }
     } else if (!this.isBase64(krb5ConfBase64)) {
       // If it's plain text, encode it to base64
       krb5ConfBase64 = Buffer.from(krb5ConfBase64, 'utf-8').toString('base64')
-      console.log('[KafkaGateway] Encoded krb5.conf to base64')
     }
 
     // Extract CA certificate from truststore and encode as base64
@@ -142,12 +138,10 @@ export class KafkaGatewayClient implements IKafkaClient {
             const text = decodeURIComponent(parts[1])
             caCertificateBase64 = Buffer.from(text, 'utf-8').toString('base64')
           }
-          console.log('[KafkaGateway] Extracted CA certificate from data URL')
         }
       } else if (!this.isBase64(caCertificate)) {
         // If it's plain text (PEM format), encode to base64
         caCertificateBase64 = Buffer.from(caCertificate, 'utf-8').toString('base64')
-        console.log('[KafkaGateway] Encoded CA certificate to base64')
       } else {
         caCertificateBase64 = caCertificate
       }
@@ -229,19 +223,16 @@ export class KafkaGatewayClient implements IKafkaClient {
    * Connect to Kafka (no-op for HTTP gateway client)
    */
   async connect(): Promise<void> {
-    console.log('[KafkaGateway] Connect called (no-op for HTTP client)')
+    // console.log('[KafkaGateway] Connect called (no-op for HTTP client)')
   }
 
   /**
    * Test connection to Kafka cluster via gateway
    */
   async testConnection(): Promise<boolean> {
-    console.log('[KafkaGateway] Testing connection via gateway service')
-
     try {
       const requestBody = this.buildGatewayRequest()
       await this.callGateway<GatewayResponse>('/kafka/test-connection', requestBody)
-      console.log('[KafkaGateway] Connection test successful')
       return true
     } catch (error) {
       console.error('[KafkaGateway] Connection test failed:', error)
@@ -274,8 +265,6 @@ export class KafkaGatewayClient implements IKafkaClient {
    * Get metadata for a specific topic
    */
   async getTopicMetadata(topic: string): Promise<any> {
-    console.log(`[KafkaGateway] Fetching metadata for topic: ${topic}`)
-
     // Get all topic details and find the requested topic
     const allTopics = await this.getTopicDetails()
     const topicDetail = allTopics.find((t) => t.name === topic)
@@ -294,8 +283,6 @@ export class KafkaGatewayClient implements IKafkaClient {
    * List all Kafka topics via gateway
    */
   async listTopics(): Promise<string[]> {
-    console.log('[KafkaGateway] Fetching topics via gateway service')
-
     const requestBody = this.buildGatewayRequest()
     const response = await this.callGateway<TopicsResponse>('/kafka/topics', requestBody)
 
@@ -303,7 +290,6 @@ export class KafkaGatewayClient implements IKafkaClient {
       throw new KafkaConnectionError('Gateway returned no topics')
     }
 
-    console.log(`[KafkaGateway] Retrieved ${response.topics.length} topics`)
     return response.topics
   }
 
@@ -311,8 +297,6 @@ export class KafkaGatewayClient implements IKafkaClient {
    * Get details for all topics via gateway
    */
   async getTopicDetails(): Promise<Array<{ name: string; partitionCount: number }>> {
-    console.log('[KafkaGateway] Fetching topic details via gateway service')
-
     const requestBody = this.buildGatewayRequest()
     const response = await this.callGateway<TopicDetailsResponse>('/kafka/topic-details', requestBody)
 
@@ -320,7 +304,6 @@ export class KafkaGatewayClient implements IKafkaClient {
       throw new KafkaConnectionError('Gateway returned no topic details')
     }
 
-    console.log(`[KafkaGateway] Retrieved details for ${response.topicDetails.length} topics`)
     return response.topicDetails
   }
 
@@ -334,8 +317,6 @@ export class KafkaGatewayClient implements IKafkaClient {
     currentOffset?: string | null,
     options?: any,
   ): Promise<any> {
-    console.log(`[KafkaGateway] Fetching sample event from topic: ${topic}`)
-
     const requestBody: SampleEventRequest = {
       ...this.buildGatewayRequest(),
       topic,
@@ -345,8 +326,6 @@ export class KafkaGatewayClient implements IKafkaClient {
     }
 
     const response = await this.callGateway<SampleEventResponse>('/kafka/sample-events', requestBody)
-
-    console.log(`[KafkaGateway] Fetched event from topic ${topic}`)
 
     // Parse the event value (it's a JSON string) and return ONLY the parsed data
     if (response.event) {
@@ -375,7 +354,7 @@ export class KafkaGatewayClient implements IKafkaClient {
    * Disconnect (no-op for HTTP client)
    */
   async disconnect(): Promise<void> {
-    console.log('[KafkaGateway] Disconnect called (no-op for HTTP client)')
+    // console.log('[KafkaGateway] Disconnect called (no-op for HTTP client)')
   }
 
   /**

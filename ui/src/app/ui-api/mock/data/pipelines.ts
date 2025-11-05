@@ -178,8 +178,8 @@ export const mockPipelines: BackendPipeline[] = [
           },
         },
         {
-          name: 'other_transactions',
-          id: 'other_transactions',
+          name: 'same_as_transactions',
+          id: 'same_as_transactions',
           schema: {
             type: 'json',
             fields: [
@@ -296,7 +296,7 @@ export const mockPipelines: BackendPipeline[] = [
       topics: [
         {
           name: 'transactions',
-          id: 'topic-1',
+          id: 'transactions',
           schema: {
             type: 'json',
             fields: [
@@ -413,8 +413,8 @@ export const mockPipelines: BackendPipeline[] = [
           },
         },
         {
-          name: 'test_topic_1',
-          id: 'test_topic_1',
+          name: 'totally_different_than_transactions`',
+          id: 'totally_different_than_transactions',
           schema: {
             type: 'json',
             fields: [
@@ -522,37 +522,53 @@ export const mockPipelines: BackendPipeline[] = [
       },
       topics: [
         {
-          name: 'test_topic_1',
-          id: 'test_topic_1',
+          name: 'transactions',
+          id: 'transactions',
           schema: {
             type: 'json',
             fields: [
-              { name: 'id', type: 'string' },
-              { name: 'name', type: 'string' },
+              { name: 'transaction_id', type: 'string' },
+              { name: 'transaction_date', type: 'string' },
+              { name: 'transaction_amount', type: 'number' },
+              { name: 'transaction_type', type: 'string' },
+              { name: 'transaction_description', type: 'string' },
+              { name: 'merchant_name', type: 'string' },
+              { name: 'category', type: 'string' },
+              { name: 'account_balance', type: 'number' },
+              { name: 'currency', type: 'string' },
+              { name: 'location', type: 'string' },
             ],
           },
           consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: true,
-            id_field: 'id',
+            id_field: 'transaction_id',
             id_field_type: 'string',
             time_window: '12h',
           },
         },
         {
-          name: 'test_topic_2',
-          id: 'test_topic_2',
+          name: 'same_as_transactions',
+          id: 'same_as_transactions',
           schema: {
             type: 'json',
             fields: [
-              { name: 'id', type: 'string' },
-              { name: 'name', type: 'string' },
+              { name: 'transaction_id', type: 'string' },
+              { name: 'transaction_date', type: 'string' },
+              { name: 'transaction_amount', type: 'number' },
+              { name: 'transaction_type', type: 'string' },
+              { name: 'transaction_description', type: 'string' },
+              { name: 'merchant_name', type: 'string' },
+              { name: 'category', type: 'string' },
+              { name: 'account_balance', type: 'number' },
+              { name: 'currency', type: 'string' },
+              { name: 'location', type: 'string' },
             ],
           },
           consumer_group_initial_offset: 'earliest',
           deduplication: {
             enabled: true,
-            id_field: 'id',
+            id_field: 'transaction_id',
             id_field_type: 'string',
             time_window: '12h',
           },
@@ -564,14 +580,14 @@ export const mockPipelines: BackendPipeline[] = [
       enabled: true,
       sources: [
         {
-          source_id: 'test_topic_1',
-          join_key: 'id',
+          source_id: 'transactions',
+          join_key: 'transaction_id',
           time_window: '1h',
           orientation: 'left',
         },
         {
-          source_id: 'test_topic_2',
-          join_key: 'id',
+          source_id: 'same_as_transactions',
+          join_key: 'transaction_id',
           time_window: '1h',
           orientation: 'right',
         },
@@ -589,27 +605,27 @@ export const mockPipelines: BackendPipeline[] = [
       secure: true,
       table_mapping: [
         {
-          source_id: 'test_topic_1',
-          field_name: 'id',
-          column_name: 'id',
+          source_id: 'transactions',
+          field_name: 'transaction_id',
+          column_name: 'transaction_id',
           column_type: 'UUID',
         },
         {
-          source_id: 'test_topic_1',
-          field_name: 'name',
-          column_name: 'name',
+          source_id: 'transactions',
+          field_name: 'transaction_date',
+          column_name: 'transaction_date',
           column_type: 'String',
         },
         {
-          source_id: 'test_topic_2',
-          field_name: 'id',
-          column_name: 'id',
+          source_id: 'transactions',
+          field_name: 'transaction_amount',
+          column_name: 'transaction_amount',
           column_type: 'UUID',
         },
         {
-          source_id: 'test_topic_2',
-          field_name: 'name',
-          column_name: 'name',
+          source_id: 'transactions',
+          field_name: 'transaction_type',
+          column_name: 'transaction_type',
           column_type: 'String',
         },
       ],

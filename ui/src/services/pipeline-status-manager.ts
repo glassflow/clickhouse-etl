@@ -119,10 +119,6 @@ export class PipelineStatusManager {
     this.trackers.set(pipelineId, tracker)
     this.stats.activeTrackers = this.trackers.size
 
-    console.log(`[PipelineStatusManager] Started tracking pipeline ${pipelineId} for ${tracker.operationName}`, {
-      maxDuration: tracker.options.maxDurationMinutes,
-    })
-
     // Start polling immediately
     this.scheduleNextCheck(tracker)
   }
@@ -140,7 +136,6 @@ export class PipelineStatusManager {
     this.trackers.delete(pipelineId)
     this.stats.activeTrackers = this.trackers.size
 
-    console.log(`[PipelineStatusManager] Stopped tracking pipeline ${pipelineId}`)
     return true
   }
 
@@ -148,16 +143,12 @@ export class PipelineStatusManager {
    * Kill all active tracking operations
    */
   public killAllTracking(): void {
-    console.log(`[PipelineStatusManager] Killing all ${this.trackers.size} active tracking operations`)
-
     this.trackers.forEach((tracker) => {
       this.destroyTracker(tracker)
     })
 
     this.trackers.clear()
     this.stats.activeTrackers = 0
-
-    console.log('[PipelineStatusManager] All tracking operations killed')
   }
 
   /**
@@ -241,10 +232,6 @@ export class PipelineStatusManager {
 
       // Check for timeout
       if (tracker.elapsedTime >= maxDuration) {
-        console.log(
-          `[PipelineStatusManager] Timeout reached for ${tracker.operationName} on pipeline ${tracker.pipelineId}`,
-          { elapsedMinutes: Math.floor(tracker.elapsedTime / 60000) },
-        )
         tracker.callbacks.onTimeout?.()
         this.stopTracking(tracker.pipelineId)
         return
@@ -253,7 +240,6 @@ export class PipelineStatusManager {
       // Check for error backoff
       const now = Date.now()
       if (tracker.errorCount >= this.MAX_ERROR_COUNT && now - tracker.lastErrorTime < this.ERROR_BACKOFF_TIME) {
-        console.log(`[PipelineStatusManager] Error backoff active for pipeline ${tracker.pipelineId}, skipping check`)
         this.scheduleNextCheck(tracker)
         return
       }
@@ -270,10 +256,6 @@ export class PipelineStatusManager {
     const minutes = Math.floor(tracker.elapsedTime / 60000)
     const seconds = Math.floor((tracker.elapsedTime % 60000) / 1000)
     const nextCheckSeconds = nextInterval / 1000
-
-    console.log(
-      `[PipelineStatusManager] Next ${tracker.operationName} check for ${tracker.pipelineId} in ${nextCheckSeconds}s (elapsed: ${minutes}m ${seconds}s)`,
-    )
   }
 
   private async performStatusCheck(tracker: PipelineTracker): Promise<void> {
@@ -286,10 +268,6 @@ export class PipelineStatusManager {
       const newStatus = parsePipelineStatus(health.overall_status)
       const previousStatus = tracker.currentStatus
 
-      console.log(
-        `[PipelineStatusManager] Status check for ${tracker.pipelineId}: ${previousStatus} → ${newStatus} (health: ${health.overall_status})`,
-      )
-
       // Update tracker state
       tracker.currentStatus = newStatus
       tracker.errorCount = 0 // Reset error count on successful check
@@ -301,9 +279,6 @@ export class PipelineStatusManager {
 
       // Check if we should stop polling based on final states
       if (this.isFinalStatus(newStatus)) {
-        console.log(
-          `[PipelineStatusManager] Status ${newStatus} is final for pipeline ${tracker.pipelineId}, stopping tracking`,
-        )
         this.stopTracking(tracker.pipelineId)
       }
     } catch (error) {
@@ -371,8 +346,6 @@ export class PipelineStatusManager {
         })
       }
     }, this.BACKEND_SYNC_INTERVAL)
-
-    console.log('[PipelineStatusManager] Backend sync monitor started')
   }
 
   private async detectOrphanedPipelines(): Promise<void> {
@@ -381,8 +354,6 @@ export class PipelineStatusManager {
       if (trackedIds.length === 0) {
         return
       }
-
-      console.log(`[PipelineStatusManager] Syncing ${trackedIds.length} tracked pipelines with backend`)
 
       const existingPipelines = await getPipelines()
       const existingIds = existingPipelines.map((p) => p.pipeline_id)
@@ -398,7 +369,6 @@ export class PipelineStatusManager {
         orphaned.forEach((pipelineId) => {
           const tracker = this.trackers.get(pipelineId)
           if (tracker) {
-            console.log(`[PipelineStatusManager] Stopping tracking for orphaned pipeline ${pipelineId}`)
             tracker.callbacks.onError?.(new Error(`Pipeline ${pipelineId} no longer exists in backend`))
             this.stopTracking(pipelineId)
           }
@@ -423,7 +393,6 @@ export class PipelineStatusManager {
       // Cleanup on page visibility change (when tab becomes hidden)
       document.addEventListener('visibilitychange', () => {
         if (document.hidden && this.trackers.size > 0) {
-          console.log('[PipelineStatusManager] Page hidden, reducing polling frequency')
           // Could implement reduced polling frequency here if needed
         }
       })

@@ -74,11 +74,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         const lastHydratedKey = sessionStorage.getItem('lastHydratedPipeline')
 
         if (lastHydratedKey === currentPipelineKey) {
-          console.log('[PipelineDetailsModule] Already hydrated, skipping:', currentPipelineKey)
           return
         }
-
-        console.log('[PipelineDetailsModule] Hydrating pipeline:', currentPipelineKey)
 
         try {
           // pipeline hydration is handled by the enterViewMode function from the core store

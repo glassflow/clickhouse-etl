@@ -7,7 +7,7 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
     index,
     name: topicConfig.name,
     initialOffset,
-    events: [],
+    events: [] as Array<{ event: any; topicIndex: number; position: string }>,
     selectedEvent: {
       topicIndex: index,
       position: initialOffset,
@@ -155,13 +155,8 @@ async function waitForKafkaStoreHydration(maxRetries = 5, retryDelayMs = 100): P
     const validation = validateKafkaStoreHydration(kafkaStore)
 
     if (validation.isValid) {
-      console.log('✅ Kafka store properly hydrated, proceeding with topics fetch')
       return
     }
-
-    console.log(
-      `⏳ Kafka store not ready (attempt ${attempt + 1}/${maxRetries}), missing: ${validation.missingFields.join(', ')}`,
-    )
 
     if (attempt < maxRetries - 1) {
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
@@ -266,24 +261,28 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         const topicState = mapBackendTopicToStore(topicConfig, idx)
         topicState.partitionCount = currentPartitionCount
 
-        // ✅ Preserve existing event data if available (prevents clearing on re-hydration)
+        // Preserve existing event data if available (prevents clearing on re-hydration)
         if (existingEvent) {
           topicState.selectedEvent.event = existingEvent
-          console.log(`[Hydration] Preserving existing event data for topic "${topicConfig.name}"`)
+          // Also preserve in events array for JoinConfigurator compatibility
+          topicState.events = [
+            {
+              event: existingEvent,
+              topicIndex: idx,
+              position: topicConfig.consumer_group_initial_offset || 'latest',
+            },
+          ]
         }
 
-        // ✅ Preserve existing replica count if available (prevents overwriting user changes)
+        // Preserve existing replica count if available (prevents overwriting user changes)
         if (existingReplicas && existingReplicas !== topicState.replicas) {
           topicState.replicas = existingReplicas
-          console.log(
-            `[Hydration] Preserving user-modified replica count (${existingReplicas}) for topic "${topicConfig.name}"`,
-          )
         }
 
         useStore.getState().topicsStore.updateTopic(topicState)
 
         // Map deduplication data to the new separated store
-        // ✅ Check if deduplication config already exists (to preserve user changes during re-hydration)
+        // Check if deduplication config already exists (to preserve user changes during re-hydration)
         const existingDeduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(idx)
 
         // Only update deduplication if it doesn't exist yet, or if we're doing initial hydration
@@ -291,28 +290,20 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         if (!existingDeduplicationConfig || !existingDeduplicationConfig.key) {
           const deduplicationState = mapBackendDeduplicationToStore(topicConfig, idx)
           useStore.getState().deduplicationStore.updateDeduplication(idx, deduplicationState)
-          console.log(`[Hydration] Setting initial deduplication config for topic "${topicConfig.name}"`)
-        } else {
-          console.log(`[Hydration] Preserving existing deduplication config for topic "${topicConfig.name}"`)
         }
       })
 
       // 7. Fetch actual event data from Kafka for each topic (only if not already present)
       // This is needed for deduplication, join, and mapping configurations
-      console.log('[Hydration] Checking which topics need event data...')
       await Promise.all(
         pipelineConfig.source.topics.map(async (topicConfig: any, idx: number) => {
           try {
             // Check if topic already has event data
             const currentTopic = useStore.getState().topicsStore.getTopic(idx)
             if (currentTopic?.selectedEvent?.event) {
-              console.log(
-                `[Hydration] ⏭️  Skipping event fetch for topic "${topicConfig.name}" (already has event data)`,
-              )
               return // Skip fetch if event data already exists
             }
 
-            console.log(`[Hydration] 📥 Fetching event for topic "${topicConfig.name}"...`)
             const eventResponse = await fetch('/ui-api/kafka/events', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -338,14 +329,18 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
                     position: topicConfig.consumer_group_initial_offset || 'latest',
                     event: eventData.event,
                   },
+                  // FIX: Also populate the events array for JoinConfigurator compatibility
+                  events: [
+                    {
+                      event: eventData.event,
+                      topicIndex: idx,
+                      position: topicConfig.consumer_group_initial_offset || 'latest',
+                    },
+                  ],
                 })
-                console.log(`[Hydration] ✅ Fetched event for topic "${topicConfig.name}"`)
               }
-            } else {
-              console.warn(`[Hydration] ⚠️ Could not fetch event for topic "${topicConfig.name}":`, eventData.error)
             }
           } catch (error) {
-            console.error(`[Hydration] ❌ Failed to fetch event for topic "${topicConfig.name}":`, error)
             // Don't throw - continue hydration even if event fetch fails
           }
         }),
@@ -353,7 +348,7 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
       // useStore.getState().topicsStore.setTopicCount(pipelineConfig.source.topics.length)
     }
   } catch (error) {
-    console.error('❌ Failed to hydrate Kafka topics:', error)
+    console.error('Failed to hydrate Kafka topics:', error)
     throw error
   }
 }
