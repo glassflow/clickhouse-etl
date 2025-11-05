@@ -67,7 +67,15 @@ func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
 			h.log.ErrorContext(r.Context(), "failed to setup pipeline", "error", err)
 			serverError(w)
 		}
+		return
 	}
+
+	// Return the created pipeline
+	h.log.InfoContext(r.Context(), "pipeline created successfully", "pipeline_id", pipeline.ID)
+	jsonResponse(w, http.StatusCreated, map[string]any{
+		"success":  true,
+		"pipeline": toPipelineJSON(pipeline),
+	})
 }
 
 func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
@@ -278,7 +286,10 @@ func (h *handler) getPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, http.StatusOK, toPipelineJSON(p))
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"success":  true,
+		"pipeline": toPipelineJSON(p),
+	})
 }
 
 // getPipelineHealth returns the health status of a specific pipeline
@@ -322,7 +333,10 @@ func (h *handler) getPipelines(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResponse(w, http.StatusOK, pipelines)
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"success":   true,
+		"pipelines": pipelines,
+	})
 }
 
 type updatePipelineNameRequest struct {
@@ -368,6 +382,9 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	h.log.InfoContext(r.Context(), "pipeline name updated successfully", "pipeline_id", id, "new_name", req.Name)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type pipelineJSON struct {

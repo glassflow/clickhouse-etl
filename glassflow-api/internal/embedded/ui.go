@@ -10,6 +10,9 @@ import (
 //go:embed all:ui/.next
 var uiFiles embed.FS
 
+//go:embed ui/public/env.js
+var envJS []byte
+
 // UIHandler returns an http.Handler that serves the embedded UI static files
 func UIHandler() (http.Handler, error) {
 	// Create filesystem view for HTML files from server/app directory
@@ -32,6 +35,14 @@ func UIHandler() (http.Handler, error) {
 		// Handle root redirect to /home
 		if r.URL.Path == "/" {
 			http.Redirect(w, r, "/home", http.StatusMovedPermanently)
+			return
+		}
+
+		// Serve env.js with correct Content-Type
+		if r.URL.Path == "/env.js" {
+			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(envJS)
 			return
 		}
 
@@ -60,6 +71,18 @@ func UIHandler() (http.Handler, error) {
 			htmlPath := path + ".html"
 			if _, err := fs.Stat(htmlFS, htmlPath); err == nil {
 				r.URL.Path = "/" + htmlPath
+			} else {
+				// Handle dynamic routes (e.g., /pipelines/[id])
+				// For Next.js static export, we need to serve a fallback page
+				// and let client-side routing handle the dynamic segment
+
+				// Special handling for /pipelines/{id} routes
+				if strings.HasPrefix(path, "pipelines/") && len(strings.Split(path, "/")) == 2 {
+					// Serve the _not-found page with proper status
+					// The Next.js client-side router will handle the actual routing
+					r.URL.Path = "/_not-found.html"
+					w.WriteHeader(http.StatusOK) // Return 200 for client-side routing to work
+				}
 			}
 		}
 

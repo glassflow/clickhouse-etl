@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -329,14 +330,18 @@ func mainDemo(
 	}
 
 	// Combine API and UI handlers
-	mux := http.NewServeMux()
+	// Note: apiHandler is a gorilla mux router that has all routes registered
+	// We wrap it to handle both /api/* and /ui-api/* routes, then fall back to UI
+	combinedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// API routes - pass directly to gorilla router
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ui-api/") {
+			apiHandler.ServeHTTP(w, r)
+			return
+		}
 
-	// API routes (all /api/* and /ui-api/* routes)
-	mux.Handle("/api/", http.StripPrefix("/api", apiHandler))
-	mux.Handle("/ui-api/", uiHandler)
-
-	// UI routes (everything else)
-	mux.Handle("/", uiHandler)
+		// UI routes - serve static files
+		uiHandler.ServeHTTP(w, r)
+	})
 
 	// Create HTTP server
 	apiServer := server.NewHTTPServer(
@@ -345,7 +350,7 @@ func mainDemo(
 		cfg.ServerWriteTimeout,
 		cfg.ServerIdleTimeout,
 		log,
-		mux,
+		combinedHandler,
 	)
 
 	serverErr := make(chan error, 1)

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
@@ -42,6 +43,7 @@ type statusValidationErrorResponse struct {
 }
 
 func jsonError(w http.ResponseWriter, code int, message string, field map[string]string) {
+	log.Println("json error: ", message)
 	jsonResponse(w, code, &errorResponse{
 		Message: message,
 		Field:   field,

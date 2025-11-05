@@ -505,12 +505,26 @@ func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) erro
 	d.m.Lock()
 	defer d.m.Unlock()
 
-	if d.id != pid {
+	// Check if we have a different pipeline running
+	// Note: d.id can be empty string after a stop, which is valid for resume
+	if d.id != "" && d.id != pid {
 		d.log.ErrorContext(ctx, "mismatched pipeline id for resume", "expected_id", d.id, "requested_id", pid)
 		return fmt.Errorf("mismatched pipeline id: %w", service.ErrPipelineNotFound)
 	}
 
+	// If d.id is empty (pipeline was stopped), we need to restore it
+	if d.id == "" {
+		d.id = pid
+	}
+
 	d.log.InfoContext(ctx, "resuming pipeline", "pipeline_id", pid)
+
+	// Check if runners are nil (pipeline was fully stopped/terminated)
+	// If so, we need to re-setup the pipeline instead of just resuming
+	if d.ingestorRunners == nil && d.joinRunner == nil && d.sinkRunner == nil {
+		d.log.WarnContext(ctx, "pipeline runners are nil, cannot resume - pipeline was fully terminated", "pipeline_id", pid)
+		return fmt.Errorf("pipeline was fully terminated, cannot resume without re-setup: %w", service.ErrPipelineNotFound)
+	}
 
 	// Create a new background context for the components to run in
 	// This prevents the components from inheriting any cancellation from the request context
