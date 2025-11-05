@@ -162,9 +162,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace (
-	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5
-	google.golang.org/genproto/googleapis/api => google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
-	google.golang.org/genproto/googleapis/rpc => google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5
-)
