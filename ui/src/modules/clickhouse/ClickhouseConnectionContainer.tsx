@@ -100,8 +100,13 @@ export function ClickhouseConnectionContainer({
     // If in standalone edit mode, mark configuration as dirty
     // This indicates changes need to be sent to backend when user clicks Resume
     if (standalone && toggleEditMode) {
-      const { coreStore } = useStore.getState()
+      const { coreStore, clickhouseDestinationStore } = useStore.getState()
       coreStore.markAsDirty()
+
+      // Invalidate dependent sections when ClickHouse connection is edited
+      // When ClickHouse connection changes, only invalidate the mapper section
+      // This ensures the user reconfigures table mapping for the new connection
+      clickhouseDestinationStore.markAsInvalidated(StepKeys.CLICKHOUSE_CONNECTION)
     }
 
     // Proceed to next step

@@ -208,6 +208,16 @@ export function KafkaConnectionContainer({
     // This indicates changes need to be sent to backend when user clicks Resume
     if (standalone && toggleEditMode) {
       coreStore.markAsDirty()
+
+      // Invalidate dependent sections when Kafka connection is edited
+      // When Kafka connection changes, invalidate all sections except ClickHouse connection
+      // This ensures users reconfigure dependent sections that rely on Kafka data
+      const { topicsStore, joinStore, deduplicationStore, clickhouseDestinationStore } = useStore.getState()
+
+      topicsStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+      joinStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+      deduplicationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+      clickhouseDestinationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
     }
 
     // Proceed to next step or close standalone component
