@@ -1,4 +1,4 @@
-module github.com/glassflow/clickhouse-etl-internal/glassflow-api
+module github.com/glassflow/clickhouse-etl/glassflow-api
 
 go 1.24.0
 
