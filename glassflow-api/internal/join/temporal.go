@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/kv"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 type TemporalJoinExecutor struct {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
 )
 
 func TestNewPipelineHealth(t *testing.T) {

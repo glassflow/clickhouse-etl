@@ -8,12 +8,12 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/join"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/join"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/kv"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 type JoinComponent struct {

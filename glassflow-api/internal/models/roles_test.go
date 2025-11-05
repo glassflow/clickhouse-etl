@@ -3,7 +3,7 @@ package models
 import (
 	"testing"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
 )
 
 func TestRoleValid(t *testing.T) {

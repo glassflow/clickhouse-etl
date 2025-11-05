@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/status"
 )
 
 func jsonResponse(w http.ResponseWriter, code int, v any) {

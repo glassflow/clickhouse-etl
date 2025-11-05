@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
 )
 
 // GetDLQStreamName generates a unique DLQ stream name for a pipeline

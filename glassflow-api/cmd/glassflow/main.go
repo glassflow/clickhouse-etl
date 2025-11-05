@@ -19,18 +19,18 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/embedded"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/api"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/dlq"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/embedded"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/orchestrator"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/server"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
 )
 
 type config struct {
