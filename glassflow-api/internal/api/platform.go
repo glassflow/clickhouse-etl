@@ -1,34 +1,43 @@
 package api
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
 )
 
-type PlatformResponse struct {
-	Orchestrator string `json:"orchestrator"`
-	APIVersion   string `json:"api_version,omitempty"`
+func PlatformSwaggerDocs() huma.Operation {
+	return huma.Operation{
+		OperationID: "get-platform",
+		Method:      http.MethodGet,
+		Summary:     "Get platform information",
+		Description: "Returns information about the platform and orchestrator being used",
+	}
 }
 
-// platform returns information about the platform and orchestrator being used
-func (h *handler) platform(w http.ResponseWriter, _ *http.Request) {
-	// Get orchestrator type from the pipeline manager
+type PlatformResponse struct {
+	Body PlatformInfo
+}
+
+type PlatformInfo struct {
+	Orchestrator string `json:"orchestrator" doc:"Type of orchestrator being used"`
+	APIVersion   string `json:"api_version,omitempty" doc:"API version"`
+}
+
+func (h *handler) platform(_ context.Context, _ *struct{}) (*PlatformResponse, error) {
 	orchType := "unknown"
 	if h.pipelineService != nil {
 		orchType = h.pipelineService.GetOrchestratorType()
 	}
 
-	response := PlatformResponse{
-		Orchestrator: orchType,
-		// API version is not currently available, so we'll skip it
-		// APIVersion: "v1",
+	resp := &PlatformResponse{
+		Body: PlatformInfo{
+			Orchestrator: orchType,
+		},
 	}
+	// API version is not currently available, so we'll skip it
+	// resp.Body.APIVersion = "v1"
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.log.Error("failed to encode platform response", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
+	return resp, nil
 }

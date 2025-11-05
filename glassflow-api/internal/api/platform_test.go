@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"context"
 	"testing"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api/mocks"
@@ -16,23 +14,24 @@ func TestPlatformHandler(t *testing.T) {
 	tests := []struct {
 		name             string
 		orchestratorType string
-		expectedStatus   int
 		expectedResponse PlatformResponse
 	}{
 		{
 			name:             "local orchestrator",
 			orchestratorType: "local",
-			expectedStatus:   http.StatusOK,
 			expectedResponse: PlatformResponse{
-				Orchestrator: "local",
+				Body: PlatformInfo{
+					Orchestrator: "local",
+				},
 			},
 		},
 		{
 			name:             "k8s orchestrator",
 			orchestratorType: "k8s",
-			expectedStatus:   http.StatusOK,
 			expectedResponse: PlatformResponse{
-				Orchestrator: "k8s",
+				Body: PlatformInfo{
+					Orchestrator: "k8s",
+				},
 			},
 		},
 	}
@@ -42,34 +41,20 @@ func TestPlatformHandler(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			// Create mock pipeline manager
 			mockPipelineService := mocks.NewMockPipelineService(ctrl)
 			mockPipelineService.EXPECT().GetOrchestratorType().Return(tt.orchestratorType)
 
-			// Create handler
 			h := &handler{
 				pipelineService: mockPipelineService,
 				dlqSvc:          nil,
 			}
 
-			// Create request
-			req := httptest.NewRequest("GET", "/api/v1/platform", nil)
-			w := httptest.NewRecorder()
-
-			// Call handler
-			h.platform(w, req)
-
-			// Assert status code
-			assert.Equal(t, tt.expectedStatus, w.Code)
-
-			// Parse response
-			var response PlatformResponse
-			err := json.NewDecoder(w.Body).Decode(&response)
+			response, err := h.platform(context.Background(), &struct{}{})
 			require.NoError(t, err)
+			require.NotNil(t, response)
 
-			// Assert response
-			assert.Equal(t, tt.expectedResponse.Orchestrator, response.Orchestrator)
-			assert.Equal(t, tt.expectedResponse.APIVersion, response.APIVersion)
+			assert.Equal(t, tt.expectedResponse.Body.Orchestrator, response.Body.Orchestrator)
+			assert.Equal(t, tt.expectedResponse.Body.APIVersion, response.Body.APIVersion)
 		})
 	}
 }
@@ -80,22 +65,10 @@ func TestPlatformHandlerWithNilPipelineService(t *testing.T) {
 		dlqSvc:          nil,
 	}
 
-	// Create request
-	req := httptest.NewRequest("GET", "/api/v1/platform", nil)
-	w := httptest.NewRecorder()
-
-	// Call handler
-	h.platform(w, req)
-
-	// Assert status code
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	// Parse response
-	var response PlatformResponse
-	err := json.NewDecoder(w.Body).Decode(&response)
+	response, err := h.platform(context.Background(), &struct{}{})
 	require.NoError(t, err)
+	require.NotNil(t, response)
 
-	// Assert response
-	assert.Equal(t, "unknown", response.Orchestrator)
-	assert.Equal(t, "", response.APIVersion)
+	assert.Equal(t, "unknown", response.Body.Orchestrator)
+	assert.Equal(t, "", response.Body.APIVersion)
 }
