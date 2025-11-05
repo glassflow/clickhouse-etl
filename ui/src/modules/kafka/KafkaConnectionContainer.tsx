@@ -131,8 +131,36 @@ export function KafkaConnectionContainer({
     }
   }, [connectionResult, connectionFormValues, isConnectingFromHook, analytics.kafka])
 
-  const saveConnectionData = (values: KafkaConnectionFormType) => {
+  const saveConnectionData = async (values: KafkaConnectionFormType) => {
     const { authMethod, securityProtocol, bootstrapServers } = values
+
+    // If in standalone mode (editing existing pipeline), check if topics have changed
+    let shouldInvalidateDependents = false
+
+    if (standalone && toggleEditMode) {
+      // Phase 2: Smart invalidation - check if available topics have changed
+      const { topicsStore: currentTopicsStore } = useStore.getState()
+      const oldTopics = currentTopicsStore.availableTopics || []
+
+      try {
+        // Fetch topics from new connection
+        const newTopics = await fetchTopicsForConnection(values)
+
+        // Compare topic lists (sorted for accurate comparison)
+        const oldTopicsSorted = [...oldTopics].sort()
+        const newTopicsSorted = [...newTopics].sort()
+
+        const topicsChanged = JSON.stringify(oldTopicsSorted) !== JSON.stringify(newTopicsSorted)
+
+        if (topicsChanged) {
+          shouldInvalidateDependents = true
+        }
+      } catch (error) {
+        // If we can't fetch topics (connection issue), be conservative and invalidate
+        shouldInvalidateDependents = true
+      }
+    }
+
     // FIXME: this is not the right place to set the connection - check does it have negative side effects
     setKafkaConnection({
       ...values,
@@ -209,15 +237,15 @@ export function KafkaConnectionContainer({
     if (standalone && toggleEditMode) {
       coreStore.markAsDirty()
 
-      // Invalidate dependent sections when Kafka connection is edited
-      // When Kafka connection changes, invalidate all sections except ClickHouse connection
-      // This ensures users reconfigure dependent sections that rely on Kafka data
-      const { topicsStore, joinStore, deduplicationStore, clickhouseDestinationStore } = useStore.getState()
+      // Invalidate dependent sections only if topics have changed (Phase 2: Smart Invalidation)
+      if (shouldInvalidateDependents) {
+        const { topicsStore, joinStore, deduplicationStore, clickhouseDestinationStore } = useStore.getState()
 
-      topicsStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
-      joinStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
-      deduplicationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
-      clickhouseDestinationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+        topicsStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+        joinStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+        deduplicationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+        clickhouseDestinationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
+      }
     }
 
     // Proceed to next step or close standalone component
@@ -225,6 +253,108 @@ export function KafkaConnectionContainer({
       onCompleteStep(StepKeys.KAFKA_CONNECTION as StepKeys)
     } else if (standalone && onCompleteStandaloneEditing) {
       onCompleteStandaloneEditing()
+    }
+  }
+
+  // Helper function to fetch topics from a Kafka connection
+  const fetchTopicsForConnection = async (connectionValues: KafkaConnectionFormType): Promise<string[]> => {
+    // Build request body similar to how it's done in useKafkaConnection
+    const requestBody: any = {
+      servers: connectionValues.bootstrapServers,
+      securityProtocol: connectionValues.securityProtocol,
+      authMethod: connectionValues.authMethod,
+    }
+
+    // Add authentication details based on the auth method
+    switch (connectionValues.authMethod) {
+      case 'NO_AUTH':
+        if (connectionValues.noAuth.truststore?.certificates) {
+          requestBody.certificate = connectionValues.noAuth.truststore.certificates
+        }
+        break
+
+      case 'SASL/PLAIN':
+        requestBody.username = connectionValues.saslPlain.username
+        requestBody.password = connectionValues.saslPlain.password
+        requestBody.consumerGroup = connectionValues.saslPlain.consumerGroup
+        if (connectionValues.saslPlain.truststore?.certificates) {
+          requestBody.certificate = connectionValues.saslPlain.truststore.certificates
+        }
+        break
+
+      case 'SASL/JAAS':
+        requestBody.jaasConfig = connectionValues.saslJaas.jaasConfig
+        break
+
+      case 'SASL/GSSAPI':
+        requestBody.kerberosPrincipal = connectionValues.saslGssapi.kerberosPrincipal
+        requestBody.kerberosKeytab = connectionValues.saslGssapi.kerberosKeytab
+        requestBody.kerberosRealm = connectionValues.saslGssapi.kerberosRealm
+        requestBody.kdc = connectionValues.saslGssapi.kdc
+        requestBody.serviceName = connectionValues.saslGssapi.serviceName
+        requestBody.krb5Config = connectionValues.saslGssapi.krb5Config
+        if (connectionValues.saslGssapi.truststore?.certificates) {
+          requestBody.certificate = connectionValues.saslGssapi.truststore.certificates
+        }
+        break
+
+      case 'SASL/OAUTHBEARER':
+        requestBody.oauthBearerToken = connectionValues.saslOauthbearer.oauthBearerToken
+        break
+
+      case 'SASL/SCRAM-256':
+      case 'SASL/SCRAM-512':
+        const scramValues =
+          connectionValues.authMethod === 'SASL/SCRAM-256'
+            ? connectionValues.saslScram256
+            : connectionValues.saslScram512
+        requestBody.username = scramValues.username
+        requestBody.password = scramValues.password
+        requestBody.consumerGroup = scramValues.consumerGroup
+        if (scramValues.truststore?.certificates) {
+          requestBody.certificate = scramValues.truststore.certificates
+        }
+        break
+
+      case 'AWS_MSK_IAM':
+        requestBody.awsAccessKey = connectionValues.awsIam.awsAccessKey
+        requestBody.awsAccessKeySecret = connectionValues.awsIam.awsAccessKeySecret
+        requestBody.awsRegion = connectionValues.awsIam.awsRegion
+        break
+
+      case 'Delegation tokens':
+        requestBody.delegationToken = connectionValues.delegationTokens.delegationToken
+        break
+
+      case 'SASL/LDAP':
+        requestBody.ldapServerUrl = connectionValues.ldap.ldapServerUrl
+        requestBody.ldapServerPort = connectionValues.ldap.ldapServerPort
+        requestBody.ldapBindDn = connectionValues.ldap.ldapBindDn
+        requestBody.ldapBindPassword = connectionValues.ldap.ldapBindPassword
+        requestBody.ldapUserSearchFilter = connectionValues.ldap.ldapUserSearchFilter
+        requestBody.ldapBaseDn = connectionValues.ldap.ldapBaseDn
+        break
+
+      case 'mTLS':
+        requestBody.clientCert = connectionValues.mtls.clientCert
+        requestBody.clientKey = connectionValues.mtls.clientKey
+        requestBody.password = connectionValues.mtls.password
+        break
+    }
+
+    // Fetch topics from the Kafka connection
+    const response = await fetch('/ui-api/kafka/topics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    })
+
+    const data = await response.json()
+
+    if (data.success && data.topics) {
+      return data.topics
+    } else {
+      throw new Error(data.error || 'Failed to fetch topics')
     }
   }
 
