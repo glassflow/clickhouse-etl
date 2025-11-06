@@ -36,6 +36,7 @@ type Consumer struct {
 	meter     *observability.Meter
 	log       *slog.Logger
 	cancel    context.CancelFunc
+	closeCh   chan struct{}
 }
 
 func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (*Consumer, error) {
@@ -57,6 +58,7 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 		timeout:   internal.DefaultKafkaBatchTimeout,
 		meter:     meter,
 		batch:     make([]*kgo.Record, 0),
+		closeCh:   make(chan struct{}),
 		processor: nil,
 		cancel:    nil,
 	}, nil
@@ -194,8 +196,9 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 		slog.Int("batchSizeThreshold", internal.DefaultKafkaBatchSize),
 		slog.Duration("timeout", c.timeout))
 
-	ticker := time.NewTicker(c.timeout)
-	defer ticker.Stop()
+	defer func() {
+		close(c.closeCh)
+	}()
 
 	handleCtx, handleCancel := context.WithCancel(ctx)
 	defer handleCancel()
@@ -206,14 +209,14 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 			return nil
 
 		default:
-			if err := c.handleBatchMessages(handleCtx, ticker); err != nil {
+			if err := c.handleBatchMessages(handleCtx); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (c *Consumer) handleBatchMessages(ctx context.Context, ticker *time.Ticker) error {
+func (c *Consumer) handleBatchMessages(ctx context.Context) error {
 	// Poll for messages
 	pollCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
@@ -235,28 +238,10 @@ func (c *Consumer) handleBatchMessages(ctx context.Context, ticker *time.Ticker)
 			c.batch = append(c.batch, record)
 		})
 
-		if len(c.batch) >= internal.DefaultKafkaBatchSize {
-			if err := c.processBatch(ctx); err != nil {
-				return fmt.Errorf("process batch: %w", err)
-			}
-			ticker.Reset(c.timeout)
-			return nil
-		}
-	}
-
-	select {
-	case <-ctx.Done():
-		// if context is done, exit
-		return nil
-
-	case <-ticker.C:
-		// process batch by timeout
 		if err := c.processBatch(ctx); err != nil {
-			return fmt.Errorf("process batch by timer: %w", err)
+			return fmt.Errorf("process batch: %w", err)
 		}
-		ticker.Reset(c.timeout)
 		return nil
-	default:
 	}
 
 	return nil
@@ -306,8 +291,7 @@ func (c *Consumer) Close() error {
 		c.cancel()
 	}
 
-	// TODO: fix that
-	time.Sleep(internal.KafkaMaxWait)
+	<-c.closeCh
 
 	c.client.Close()
 
