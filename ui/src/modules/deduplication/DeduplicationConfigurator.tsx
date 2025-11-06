@@ -117,6 +117,10 @@ export function DeduplicationConfigurator({
     if (isEditMode) {
       // In edit mode, just save changes and stay in the same section
       // Don't call onCompleteStep as we want to stay in the same section
+
+      // CRITICAL: Mark configuration as dirty so it gets sent to backend on resume
+      coreStore.markAsDirty()
+
       setIsSaveSuccess(true)
       onCompleteStandaloneEditing?.()
       // Don't reset success state - let it stay true to keep the form closed

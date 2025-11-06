@@ -68,14 +68,39 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Hydrate the pipeline data when the pipeline configuration is loaded
   useEffect(() => {
     const hydrateData = async () => {
+      // CRITICAL: Don't hydrate if there are unsaved changes or if we're in edit mode
+      // This prevents overwriting user changes with stale backend data
+      // We check the current state directly instead of using it as a dependency
+      const { coreStore: currentCoreStore } = useStore.getState()
+
+      if (currentCoreStore.isDirty) {
+        console.log('[PipelineDetailsModule] Skipping hydration - dirty config present')
+        return
+      }
+
       if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
-        // Prevent re-hydration if already hydrated for this pipeline
-        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}`
+        // Create a cache key that includes the pipeline configuration to detect changes
+        // This ensures re-hydration when the pipeline is edited
+        const topicNames = pipeline.source?.topics?.map((t: any) => t.name).join(',') || ''
+        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}-${topicNames}`
         const lastHydratedKey = sessionStorage.getItem('lastHydratedPipeline')
 
+        // CRITICAL: Check if cache says we're hydrated, but also verify stores actually have data
+        // After a page reload, sessionStorage persists but Zustand stores are empty
         if (lastHydratedKey === currentPipelineKey) {
-          return
+          // Verify that stores actually have data before skipping hydration
+          const { topicsStore } = useStore.getState()
+          const hasTopics = topicsStore.topics && Object.keys(topicsStore.topics).length > 0
+
+          if (hasTopics) {
+            return
+          } else {
+            // Clear the stale cache and proceed with hydration
+            sessionStorage.removeItem('lastHydratedPipeline')
+          }
         }
+
+        console.log('[PipelineDetailsModule] Hydrating pipeline:', currentPipelineKey)
 
         try {
           // pipeline hydration is handled by the enterViewMode function from the core store
@@ -89,7 +114,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
 
     hydrateData()
-  }, [pipeline, enterViewMode, mode, actionState.isLoading, actionState.lastAction])
+    // NOTE: We intentionally don't include actionState.lastAction in dependencies
+    // to prevent re-hydration on every action completion (stop, resume, etc.)
+    // The sessionStorage cache and topicNames in the key handle detecting real config changes
+    // We check isDirty directly in the function rather than as a dependency to avoid loops
+  }, [pipeline, enterViewMode, mode, actionState.isLoading])
 
   // Sequential animation effect - show sections one by one
   useEffect(() => {

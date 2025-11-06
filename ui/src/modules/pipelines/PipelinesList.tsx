@@ -518,6 +518,10 @@ export function PipelinesList({
 
       // Make API call
       await resumePipeline(pipeline.pipeline_id)
+      
+      // CRITICAL: Clear the hydration cache so the pipeline re-hydrates with fresh data
+      // This ensures that if the pipeline was edited while stopped, the changes are reflected
+      sessionStorage.removeItem('lastHydratedPipeline')
 
       // Track resume success
       analytics.pipeline.resumeSuccess({
