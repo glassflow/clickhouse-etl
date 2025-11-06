@@ -23,9 +23,7 @@ import (
 )
 
 type MessageProcessor interface {
-	PushMsgToBatch(ctx context.Context, record *kgo.Record)
-	ProcessBatch(ctx context.Context) error
-	GetBatchSize() int
+	ProcessBatch(ctx context.Context, batch []*kgo.Record) error
 }
 
 type Consumer struct {
@@ -33,6 +31,7 @@ type Consumer struct {
 	topic     string
 	groupID   string
 	timeout   time.Duration
+	batch     []*kgo.Record
 	processor MessageProcessor
 	meter     *observability.Meter
 	log       *slog.Logger
@@ -57,6 +56,7 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 		log:       log,
 		timeout:   internal.DefaultKafkaBatchTimeout,
 		meter:     meter,
+		batch:     make([]*kgo.Record, 0),
 		processor: nil,
 		cancel:    nil,
 	}, nil
@@ -232,10 +232,10 @@ func (c *Consumer) handleBatchMessages(ctx context.Context, ticker *time.Ticker)
 
 	if !fetches.Empty() {
 		fetches.EachRecord(func(record *kgo.Record) {
-			c.processor.PushMsgToBatch(ctx, record)
+			c.batch = append(c.batch, record)
 		})
 
-		if c.processor.GetBatchSize() >= internal.DefaultKafkaBatchSize {
+		if len(c.batch) >= internal.DefaultKafkaBatchSize {
 			if err := c.processBatch(ctx); err != nil {
 				return fmt.Errorf("process batch: %w", err)
 			}
@@ -263,14 +263,14 @@ func (c *Consumer) handleBatchMessages(ctx context.Context, ticker *time.Ticker)
 }
 
 func (c *Consumer) processBatch(ctx context.Context) error {
-	size := c.processor.GetBatchSize()
+	size := len(c.batch)
 	if size == 0 {
 		return nil
 	}
 
 	c.log.Info("Processing batch of messages", slog.Int("batchSize", size))
 
-	err := c.processor.ProcessBatch(ctx)
+	err := c.processor.ProcessBatch(ctx, c.batch)
 	if err != nil {
 		c.log.Error("Batch processing failed", slog.Any("error", err), slog.Int("batchSize", size))
 		return fmt.Errorf("batch processing failed: %w", err)
@@ -280,6 +280,8 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("batch processing failed on commit offsets: %w", err)
 	}
+
+	c.batch = c.batch[:0]
 
 	// Record Kafka read metric
 	if c.meter != nil {

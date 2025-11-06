@@ -42,22 +42,6 @@ type NatsPublisher struct {
 	Subject string
 }
 
-type FailedMessage struct {
-	Msg *nats.Msg
-	Err error
-}
-
-func (fm *FailedMessage) GetData() []byte {
-	if fm.Msg != nil {
-		return fm.Msg.Data
-	}
-	return nil
-}
-
-func (fm *FailedMessage) GetError() error {
-	return fm.Err
-}
-
 func NewNATSPublisher(js jetstream.JetStream, cfg PublisherConfig) *NatsPublisher {
 	pub := &NatsPublisher{
 		js:      js,

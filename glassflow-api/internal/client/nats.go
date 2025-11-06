@@ -126,11 +126,10 @@ func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject str
 		Subjects: []string{subject},
 		Storage:  jetstream.FileStorage,
 
-		Retention:          jetstream.LimitsPolicy,
-		MaxAge:             n.maxAge,
-		MaxBytes:           n.maxBytes,
-		Discard:            jetstream.DiscardOld,
-		AllowAtomicPublish: true,
+		Retention: jetstream.LimitsPolicy,
+		MaxAge:    n.maxAge,
+		MaxBytes:  n.maxBytes,
+		Discard:   jetstream.DiscardOld,
 	}
 
 	if dedupWindow > 0 {

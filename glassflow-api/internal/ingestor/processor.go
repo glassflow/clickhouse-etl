@@ -27,7 +27,6 @@ type KafkaMsgProcessor struct {
 	dlqPublisher stream.Publisher
 	schemaMapper schema.Mapper
 	topic        models.KafkaTopicsConfig
-	batch        []*kgo.Record
 	log          *slog.Logger
 
 	pendingPublishesLimit int
@@ -44,7 +43,6 @@ func NewKafkaMsgProcessor(publisher, dlqPublisher stream.Publisher, schemaMapper
 		dlqPublisher:          dlqPublisher,
 		schemaMapper:          schemaMapper,
 		topic:                 topic,
-		batch:                 make([]*kgo.Record, 0),
 		pendingPublishesLimit: pendingPublishesLimit,
 		log:                   log,
 	}
@@ -149,44 +147,30 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	return nMsg, nil
 }
 
-func (k *KafkaMsgProcessor) PushMsgToBatch(_ context.Context, msg *kgo.Record) {
-	if msg == nil {
-		return
-	}
-
-	k.batch = append(k.batch, msg)
-}
-
-func (k *KafkaMsgProcessor) GetBatchSize() int {
-	return len(k.batch)
-}
-
-func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context) error {
-	if len(k.batch) == 0 {
+func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context, batch []*kgo.Record) error {
+	if len(batch) == 0 {
 		return nil
 	}
 
 	var err error
 
 	if internal.DefaultProcessorMode == internal.SyncMode {
-		err = k.processBatchSync(ctx)
+		err = k.processBatchSync(ctx, batch)
 		if err != nil {
 			return fmt.Errorf("failed to process sync batch: %w", err)
 		}
 	} else {
-		err = k.processBatchAsync(ctx)
+		err = k.processBatchAsync(ctx, batch)
 		if err != nil {
 			return fmt.Errorf("failed to process async batch: %w", err)
 		}
 	}
 
-	// Clear batch after processing
-	k.batch = k.batch[:0]
 	return nil
 }
 
-func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context) error {
-	for _, msg := range k.batch {
+func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.Record) error {
+	for _, msg := range batch {
 		natsMsg, err := k.prepareMesssage(ctx, msg)
 		if err != nil {
 			k.log.Error("Failed to prepare message",
@@ -221,10 +205,10 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context) error {
 	return nil
 }
 
-func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context) error {
+func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Record) error {
 	ctx := context.Background()
-	futures := make([]jetstream.PubAckFuture, 0, len(k.batch))
-	for _, msg := range k.batch {
+	futures := make([]jetstream.PubAckFuture, 0, len(batch))
+	for _, msg := range batch {
 		natsMsg, err := k.prepareMesssage(ctx, msg)
 		if err != nil {
 			k.log.Error("Failed to prepare message",
