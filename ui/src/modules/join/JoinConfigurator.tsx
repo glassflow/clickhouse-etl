@@ -13,6 +13,8 @@ import { extractEventFields } from '@/src/utils/common.client'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { notify } from '@/src/lib/notifications'
+import { validationMessages, dataProcessingMessages } from '@/src/lib/notifications/messages'
 
 export type JoinConfiguratorProps = {
   steps: any
@@ -181,6 +183,10 @@ export function JoinConfigurator({
     setShowValidation(true)
 
     if (!validateForm()) {
+      // Show notification for critical validation errors
+      // Note: errors state is updated by validateForm(), but we need to check it after state update
+      // For now, show a generic message since errors are displayed inline
+      notify(dataProcessingMessages.joinConfigurationError('Please fix the errors in the form'))
       return
     }
 

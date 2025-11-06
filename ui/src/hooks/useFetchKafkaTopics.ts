@@ -2,6 +2,8 @@ import { KafkaConnectionFormType } from '@/src/scheme'
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useCallback, useState } from 'react'
 import { kafkaApiClient } from '../services/kafka-api-client'
+import { notify } from '@/src/lib/notifications'
+import { kafkaMessages } from '@/src/lib/notifications/messages'
 
 export const useFetchTopics = ({ kafka }: { kafka: any }) => {
   const [topics, setTopics] = useState<string[]>([])
@@ -34,7 +36,15 @@ export const useFetchTopics = ({ kafka }: { kafka: any }) => {
         setTopics(topicsResponse?.topics || [])
         setFetchAttempts(0)
       } else {
-        setTopicsError(topicsResponse.error || 'Failed to fetch topics')
+        const errorMessage = topicsResponse.error || 'Failed to fetch topics'
+        setTopicsError(errorMessage)
+
+        // Show notification to user
+        notify(
+          kafkaMessages.fetchTopicsFailed(() => {
+            fetchTopics() // Retry
+          }),
+        )
 
         // Retry logic
         if (fetchAttempts < retryAttempts) {
@@ -47,7 +57,15 @@ export const useFetchTopics = ({ kafka }: { kafka: any }) => {
         setTopicDetails(detailsResponse.topicDetails || [])
       }
     } catch (error) {
-      setTopicsError(error instanceof Error ? error.message : 'Unknown error occurred')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setTopicsError(errorMessage)
+
+      // Show notification to user
+      notify(
+        kafkaMessages.fetchTopicsFailed(() => {
+          fetchTopics() // Retry
+        }),
+      )
     } finally {
       setIsLoadingTopics(false)
     }

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getPipelineHealth, PipelineHealth, PipelineHealthStatus, PipelineHealthError } from '../api/pipeline-health'
+import { notify } from '@/src/lib/notifications'
+import { metricsMessages } from '@/src/lib/notifications/messages'
 
 export interface UsePipelineHealthOptions {
   pipelineId: string
@@ -97,6 +99,12 @@ export const usePipelineHealth = ({
           clearTimeout(timeoutRef.current)
           timeoutRef.current = null
         }
+
+        // Show notification for persistent failures
+        if (newErrorCount >= maxRetries) {
+          notify(metricsMessages.fetchHealthFailed())
+        }
+
         return
       }
 

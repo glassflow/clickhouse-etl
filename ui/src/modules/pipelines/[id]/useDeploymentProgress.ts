@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
 import { DeploymentPhase } from './DeploymentStep'
+import { notify } from '@/src/lib/notifications'
+import { networkMessages, metricsMessages } from '@/src/lib/notifications/messages'
 
 interface DeploymentState {
   phase: DeploymentPhase
@@ -73,6 +75,12 @@ export const useDeploymentProgress = ({
         setError(timeoutError)
         addDeploymentState('failed', 'Deployment timed out after 5 minutes', timeoutError)
 
+        // Show notification for timeout
+        notify({
+          ...networkMessages.requestTimeout(),
+          channel: 'banner', // Use banner for critical deployment failures
+        })
+
         // Auto-navigate to pipelines list after delay for timeout
         setTimeout(() => {
           onDeploymentFailed?.(timeoutError)
@@ -110,6 +118,12 @@ export const useDeploymentProgress = ({
         setError(failureMessage)
         addDeploymentState('failed', failureMessage, failureMessage)
 
+        // Show notification for deployment failure
+        notify({
+          ...metricsMessages.fetchHealthFailed(),
+          channel: 'banner', // Use banner for critical deployment failures
+        })
+
         // Auto-navigate to pipelines list after delay
         setTimeout(() => {
           onDeploymentFailed?.(failureMessage)
@@ -117,12 +131,10 @@ export const useDeploymentProgress = ({
       }
     },
     onError: (healthError) => {
-      console.error('[DeploymentProgress] Health check error:', healthError)
-
       // Only treat as deployment failure if we've been polling for a while
       // or if it's a critical error
       const elapsedTime = Date.now() - startTime
-      const isCriticalError = healthError.code === 404 || healthError.code === 500
+      const isCriticalError = healthError.code === 404 || healthError.code >= 500
 
       if (elapsedTime > 30000 || isCriticalError) {
         // 30 seconds
@@ -130,6 +142,12 @@ export const useDeploymentProgress = ({
         const errorMessage = `Deployment monitoring failed: ${healthError.message}`
         setError(errorMessage)
         addDeploymentState('failed', 'Unable to monitor deployment progress', errorMessage)
+
+        // Show notification for critical deployment failures
+        notify({
+          ...metricsMessages.fetchHealthFailed(),
+          channel: 'banner', // Use banner for critical deployment failures
+        })
 
         // Auto-navigate to pipelines list after delay for health error
         setTimeout(() => {

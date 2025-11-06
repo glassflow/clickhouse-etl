@@ -57,6 +57,7 @@
     "react-syntax-highlighter": "^15.6.1",
     "select": "^1.1.2",
     "shadcn": "2.4.0-canary.14",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "tls": "^0.0.1",
     "typescript": "^5.8.3",

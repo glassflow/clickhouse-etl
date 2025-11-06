@@ -8,6 +8,7 @@ import PipelineDeploymentProgress from './PipelineDeploymentProgress'
 import { PipelineNotFound } from '../PipelineNotFound'
 import { useStore } from '@/src/store'
 import type { Pipeline, ApiError } from '@/src/types/pipeline'
+import { handleApiError } from '@/src/lib/notifications/api-error-handler'
 
 interface PipelineDetailsClientWrapperProps {
   pipelineId: string
@@ -44,14 +45,18 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
         const data = await getPipeline(pipelineId)
         setPipeline(data)
       } catch (err: any) {
-        console.error('Failed to fetch pipeline:', err)
-
         // Check if this is a 404 error (pipeline not found)
         const apiError = err as ApiError
         if (apiError?.code === 404) {
           setIsPipelineNotFound(true)
+          // Notification will be shown by the component that handles pipeline not found
         } else {
           setError(err.message || 'Failed to fetch pipeline')
+          // Show notification for other errors using centralized error handler
+          handleApiError(err, {
+            operation: 'fetch',
+            retryFn: () => fetchPipeline(),
+          })
         }
       } finally {
         setLoading(false)
@@ -108,14 +113,18 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
         const data = await getPipeline(pipelineId)
         setPipeline(data)
       } catch (err: any) {
-        console.error('Failed to fetch pipeline after deployment:', err)
-
         // Check if this is a 404 error (pipeline not found)
         const apiError = err as ApiError
         if (apiError?.code === 404) {
           setIsPipelineNotFound(true)
+          // Notification will be shown by the component that handles pipeline not found
         } else {
           setError(err.message || 'Failed to fetch pipeline')
+          // Show notification for other errors using centralized error handler
+          handleApiError(err, {
+            operation: 'fetch',
+            retryFn: () => fetchPipeline(),
+          })
         }
       } finally {
         setLoading(false)
@@ -126,7 +135,7 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
   }
 
   const handleDeploymentFailed = (error: string) => {
-    console.error('Pipeline deployment failed:', error)
+    // Notification is already shown by useDeploymentProgress
     // Navigate back to pipelines list on failure
     router.push('/pipelines')
   }

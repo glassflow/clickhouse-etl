@@ -28,6 +28,8 @@ import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
+import { notify } from '@/src/lib/notifications'
+import { pipelineMessages } from '@/src/lib/notifications/messages'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -251,7 +253,14 @@ function PipelineDetailsHeader({
     try {
       await purgePipelineDLQ(pipeline.pipeline_id)
     } catch (error) {
-      console.error('Failed to purge pipeline DLQ:', error)
+      notify({
+        variant: 'error',
+        title: 'Failed to purge error queue.',
+        description: 'The error queue could not be cleared.',
+        action: { label: 'Try again', onClick: handleFlushDataClick },
+        reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
+        channel: 'toast',
+      })
     }
   }
 
@@ -260,8 +269,14 @@ function PipelineDetailsHeader({
       await downloadPipelineConfig(pipeline)
       setShowDownloadWarningModal(false) // Close modal if it was open
     } catch (error) {
-      console.error('Failed to download pipeline configuration:', error)
-      // You could add a toast notification here to show the error to the user
+      notify({
+        variant: 'error',
+        title: 'Failed to download pipeline configuration.',
+        description: 'The configuration file could not be downloaded.',
+        action: { label: 'Try again', onClick: proceedWithDownload },
+        reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
+        channel: 'toast',
+      })
     }
   }
 
