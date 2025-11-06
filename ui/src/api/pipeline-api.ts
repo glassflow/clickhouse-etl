@@ -273,7 +273,7 @@ export const editPipeline = async (id: string, config: Pipeline): Promise<Pipeli
         throw {
           code: 400,
           message: 'Pipeline must be stopped before editing. Please pause the pipeline first.',
-          requiresPause: true
+          requiresPause: true,
         } as ApiError
       }
 
@@ -452,6 +452,25 @@ export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<str
     console.error('Failed to fetch bulk DLQ stats:', error)
     // Return empty map if bulk fetch fails
     return {}
+  }
+}
+
+export const purgePipelineDLQ = async (id: string): Promise<void> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/dlq/purge`)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw { code: response.status, message: errorText || 'Failed to flush pipeline DLQ' } as ApiError
+    }
+    // Success: 204 No Content, no body to parse
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to flush pipeline DLQ' } as ApiError
   }
 }
 

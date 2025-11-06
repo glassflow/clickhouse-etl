@@ -5,10 +5,8 @@ import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
 import { Copy, Check } from 'lucide-react'
-import PipelineActionButton from '@/src/components/shared/PipelineActionButton'
 import TerminatePipelineModal from '@/src/modules/pipelines/components/TerminatePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
-import EditPipelineModal from '@/src/modules/pipelines/components/EditPipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
 import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
 import { Pipeline } from '@/src/types/pipeline'
@@ -22,16 +20,14 @@ import PlayIcon from '@/src/images/play.svg'
 import EditIcon from '@/src/images/edit.svg'
 import RenameIcon from '@/src/images/rename.svg'
 import DeleteIcon from '@/src/images/trash.svg'
-import StopIcon from '@/src/images/stop.svg'
 import CloseIcon from '@/src/images/close.svg'
-import PauseIcon from '@/src/images/pause.svg'
-import ShutdownIcon from '@/src/images/shutdown.svg'
 import DownloadIcon from '@/src/images/download-white.svg'
 import StopWhiteIcon from '@/src/images/stop-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
 import { cn } from '@/src/utils/common.client'
+import { purgePipelineDLQ } from '@/src/api/pipeline-api'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -249,6 +245,14 @@ function PipelineDetailsHeader({
 
     // No unsaved changes, proceed with download
     await proceedWithDownload()
+  }
+
+  const handleFlushDataClick = async () => {
+    try {
+      await purgePipelineDLQ(pipeline.pipeline_id)
+    } catch (error) {
+      console.error('Failed to purge pipeline DLQ:', error)
+    }
   }
 
   const proceedWithDownload = async () => {
@@ -538,6 +542,7 @@ function PipelineDetailsHeader({
         {showStop && renderActionButton('stop')}
         {/* Edit button disabled - functionality not implemented yet */}
         {/* {renderActionButton('edit')} */}
+
         <Button
           key="download"
           variant="outline"
@@ -563,6 +568,26 @@ function PipelineDetailsHeader({
             )}
           </div>
           Download config
+        </Button>
+
+        <Button
+          key="flush-dlq"
+          variant="outline"
+          onClick={() => handleFlushDataClick()}
+          disabled={false}
+          className={`group btn-action relative`}
+          title={'Flush DLQ'}
+        >
+          <div className="flex items-center gap-3">
+            <Image
+              src={DeleteIcon}
+              alt="Download"
+              width={16}
+              height={16}
+              className="filter brightness-100 group-hover:brightness-0"
+            />
+          </div>
+          Flush DLQ
         </Button>
       </>
     )
