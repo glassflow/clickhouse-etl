@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import { BannerProvider, useBanner } from '@/src/lib/notifications/channels/banner-provider'
-import { ModalProvider, useModal } from '@/src/lib/notifications/channels/modal'
-import { setBannerContext, setModalContext } from '@/src/lib/notifications/notify'
+import { BannerProvider, useBanner } from '@/src/notifications/channels/banner-provider'
+import { ModalProvider, useModal } from '@/src/notifications/channels/modal'
+import { setBannerContext, setModalContext } from '@/src/notifications/notify'
 
 function NotificationContextSetup() {
   const { showBanner } = useBanner()

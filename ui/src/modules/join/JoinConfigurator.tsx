@@ -13,8 +13,8 @@ import { extractEventFields } from '@/src/utils/common.client'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { notify } from '@/src/lib/notifications'
-import { validationMessages, dataProcessingMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { validationMessages, dataProcessingMessages } from '@/src/notifications/messages'
 
 export type JoinConfiguratorProps = {
   steps: any

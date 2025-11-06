@@ -8,7 +8,7 @@ import PipelineDeploymentProgress from './PipelineDeploymentProgress'
 import { PipelineNotFound } from '../PipelineNotFound'
 import { useStore } from '@/src/store'
 import type { Pipeline, ApiError } from '@/src/types/pipeline'
-import { handleApiError } from '@/src/lib/notifications/api-error-handler'
+import { handleApiError } from '@/src/notifications/api-error-handler'
 
 interface PipelineDetailsClientWrapperProps {
   pipelineId: string

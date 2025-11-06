@@ -2,8 +2,8 @@ import { KafkaConnectionFormType } from '@/src/scheme'
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useCallback, useState } from 'react'
 import { kafkaApiClient } from '../services/kafka-api-client'
-import { notify } from '@/src/lib/notifications'
-import { kafkaMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { kafkaMessages } from '@/src/notifications/messages'
 
 export const useFetchTopics = ({ kafka }: { kafka: any }) => {
   const [topics, setTopics] = useState<string[]>([])

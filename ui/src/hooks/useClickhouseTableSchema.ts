@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 import { useStore } from '@/src/store'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import { notify } from '@/src/lib/notifications'
-import { clickhouseMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { clickhouseMessages } from '@/src/notifications/messages'
 
 export const useClickhouseTableSchema = (database: string, table: string) => {
   const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()

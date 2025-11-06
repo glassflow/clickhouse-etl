@@ -28,8 +28,8 @@ import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
-import { notify } from '@/src/lib/notifications'
-import { pipelineMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { pipelineMessages } from '@/src/notifications/messages'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline

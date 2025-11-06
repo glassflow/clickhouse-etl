@@ -23,9 +23,9 @@ import { PipelineFilterMenu, FilterState } from './PipelineFilterMenu'
 import { FilterChip } from './FilterChip'
 import { useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal, useTerminatePipelineModal } from './hooks'
 import { PipelineStatus } from '@/src/types/pipeline'
-import { notify } from '@/src/lib/notifications'
-import { pipelineMessages } from '@/src/lib/notifications/messages'
-import { handleApiError } from '@/src/lib/notifications/api-error-handler'
+import { notify } from '@/src/notifications'
+import { pipelineMessages } from '@/src/notifications/messages'
+import { handleApiError } from '@/src/notifications/api-error-handler'
 import {
   resumePipeline,
   renamePipeline,

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
 import { DeploymentPhase } from './DeploymentStep'
-import { notify } from '@/src/lib/notifications'
-import { networkMessages, metricsMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { networkMessages, metricsMessages } from '@/src/notifications/messages'
 
 interface DeploymentState {
   phase: DeploymentPhase

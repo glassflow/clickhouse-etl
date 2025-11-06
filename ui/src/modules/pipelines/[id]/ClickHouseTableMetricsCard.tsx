@@ -9,8 +9,8 @@ import { useState, useEffect, useRef } from 'react'
 import { getClickHouseMetricsFromConfig, ClickHouseTableMetrics } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { formatNumber, formatBytes, formatRelativeTime } from '@/src/utils/common.client'
-import { notify } from '@/src/lib/notifications'
-import { metricsMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { metricsMessages } from '@/src/notifications/messages'
 
 interface ClickHouseMetricsDisplay {
   rowCount: string
@@ -184,15 +184,17 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
         } else {
           errorMessage = err.message || 'Failed to fetch ClickHouse metrics'
         }
-        
+
         setError(errorMessage)
         setMetrics(defaultMetrics)
         setRawMetrics(null)
-        
+
         // Show notification to user
-        notify(metricsMessages.fetchClickHouseMetricsFailed(() => {
-          fetchClickHouseMetrics() // Retry
-        }))
+        notify(
+          metricsMessages.fetchClickHouseMetricsFailed(() => {
+            fetchClickHouseMetrics() // Retry
+          }),
+        )
       } finally {
         setLoading(false)
       }

@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { HealthCheckDialog } from '../shared/HealthCheckDialog'
 import { checkBackendHealth } from '@/src/api/health'
-import { notify } from '@/src/lib/notifications'
-import { networkMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { networkMessages } from '@/src/notifications/messages'
 
 interface HealthCheckProviderProps {
   children: React.ReactNode

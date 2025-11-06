@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react'
 import Cookies from 'js-cookie'
-import { notify } from '@/src/lib/notifications/notify'
-import type { FlashMessage } from '@/src/lib/notifications/types'
+import { notify } from '@/src/notifications/notify'
+import type { FlashMessage } from '@/src/notifications/types'
 
 const FLASH_COOKIE_NAME = 'flash_message'
 

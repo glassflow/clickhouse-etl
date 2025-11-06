@@ -1,7 +1,7 @@
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { useState } from 'react'
-import { notify } from '@/src/lib/notifications'
-import { kafkaMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { kafkaMessages } from '@/src/notifications/messages'
 
 export const useKafkaConnection = () => {
   const [isConnecting, setIsConnecting] = useState(false)

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getPipelineHealth, PipelineHealth, PipelineHealthStatus, PipelineHealthError } from '../api/pipeline-health'
-import { notify } from '@/src/lib/notifications'
-import { metricsMessages } from '@/src/lib/notifications/messages'
+import { notify } from '@/src/notifications'
+import { metricsMessages } from '@/src/notifications/messages'
 
 export interface UsePipelineHealthOptions {
   pipelineId: string
