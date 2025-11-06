@@ -117,6 +117,9 @@ function PipelineDetailsHeader({
     } else {
       // Execute action directly (like resume)
       try {
+        // Track if we performed an edit before resume
+        let didEditBeforeResume = false
+
         // NEW: Report operations to centralized system for status tracking
         if (action === 'stop') {
           operations.reportStop(pipeline.pipeline_id)
@@ -134,6 +137,8 @@ function PipelineDetailsHeader({
               joinStore,
               deduplicationStore,
             } = useStore.getState()
+            // Log all deduplication configs
+            // const topicIndices = Object.keys(topicsStore.topics || {})
 
             const apiConfig = generateApiConfig({
               pipelineId: coreStore.pipelineId,
@@ -155,12 +160,17 @@ function PipelineDetailsHeader({
             })
 
             // Send edit request to backend
-            await executeAction('edit', apiConfig)
+            const editResult = await executeAction('edit', apiConfig)
 
-            // Mark as clean after successful save
+            // Mark as clean after successful edit
             coreStore.markAsClean()
+
+            // Set flag to indicate we edited before resume
+            didEditBeforeResume = true
           }
 
+          // CRITICAL: For resume action, report optimistic update BEFORE executing
+          // This ensures UI updates immediately
           operations.reportResume(pipeline.pipeline_id)
         } else if (action === 'terminate') {
           operations.reportTerminate(pipeline.pipeline_id)
@@ -170,10 +180,44 @@ function PipelineDetailsHeader({
           onPipelineDeleted?.()
         }
 
+        // Execute the action and wait for result
         const result = await executeAction(action)
 
-        if (result && onPipelineUpdate) {
-          onPipelineUpdate(result as Pipeline)
+        // CRITICAL: If we just edited and resumed, we need to:
+        // 1. Fetch the fresh pipeline config from backend
+        // 2. Reset stores to clear old data
+        // 3. Update pipeline prop to trigger re-hydration
+        if (action === 'resume' && didEditBeforeResume) {
+          // Fetch the updated pipeline configuration from the backend
+          const { getPipeline } = await import('@/src/api/pipeline-api')
+          const updatedPipeline = await getPipeline(pipeline.pipeline_id)
+
+          // Clear the hydration cache so the pipeline re-hydrates with fresh data
+          sessionStorage.removeItem('lastHydratedPipeline')
+
+          // Reset all relevant stores to force complete re-hydration
+
+          const {
+            topicsStore: currentTopicsStore,
+            deduplicationStore: currentDeduplicationStore,
+            joinStore: currentJoinStore,
+          } = useStore.getState()
+
+          // Reset all stores that depend on pipeline configuration
+          currentTopicsStore.resetTopicsStore()
+          currentDeduplicationStore.resetDeduplicationStore()
+          currentJoinStore.resetJoinStore()
+
+          // Update the local pipeline state with the fresh configuration
+          // This will trigger re-hydration in PipelineDetailsModule
+          if (onPipelineUpdate) {
+            onPipelineUpdate(updatedPipeline)
+          }
+        } else {
+          // For all other cases (normal resume, stop, terminate, delete), just update normally
+          if (result && onPipelineUpdate) {
+            onPipelineUpdate(result as Pipeline)
+          }
         }
 
         // Mark recent action for health monitoring coordination
