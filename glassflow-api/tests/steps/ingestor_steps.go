@@ -4,9 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/avast/retry-go/v4"
+	"github.com/cucumber/godog"
+	"github.com/google/uuid"
+	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
@@ -14,10 +20,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
-	"github.com/google/uuid"
-	"github.com/nats-io/nats.go/jetstream"
-
-	"github.com/cucumber/godog"
 )
 
 const (
@@ -46,6 +48,10 @@ type IngestorTestSuite struct {
 	ingestor component.Component
 
 	topicName string
+
+	cGroupName string
+
+	logger *slog.Logger
 }
 
 func NewIngestorTestSuite() *IngestorTestSuite {
@@ -55,6 +61,7 @@ func NewIngestorTestSuite() *IngestorTestSuite {
 			kafkaContainer: nil,
 			natsContainer:  nil,
 		},
+		logger: testutils.NewTestLogger(),
 	}
 }
 
@@ -176,7 +183,6 @@ func (s *IngestorTestSuite) anIngestorComponentConfig(config string) error {
 
 func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	var duration time.Duration
-	logger := testutils.NewTestLogger()
 
 	if s.natsContainer == nil {
 		return fmt.Errorf("nats container is not initialized")
@@ -222,12 +228,20 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		dlqStreamPublisher,
 		s.schemaMapper,
 		make(chan struct{}),
-		logger,
+		s.logger,
 		nil, // nil meter for e2e tests
 	)
 	if err != nil {
 		return fmt.Errorf("create ingestor component: %w", err)
 	}
+
+	for _, cfgTopic := range s.ingestorCfg.KafkaTopics {
+		if cfgTopic.Name == s.topicName {
+			s.cGroupName = cfgTopic.ConsumerGroupName
+			break
+		}
+	}
+
 	s.ingestor = ingestor
 
 	s.errCh = make(chan error, 1)
@@ -261,7 +275,6 @@ func (s *IngestorTestSuite) createNatsConsumer(streamCfg natsStreamConfig) (zero
 }
 
 func (s *IngestorTestSuite) checkResultsFromNatsStream(streamConfig natsStreamConfig, dataTable *godog.Table) error {
-	time.Sleep(1 * time.Second) // Give some time for the ingestor to process events
 	consumer, err := s.createNatsConsumer(streamConfig)
 	if err != nil {
 		return fmt.Errorf("create nats consumer: %w", err)
@@ -349,7 +362,12 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(streamConfig natsStreamCo
 }
 
 func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
-	err := s.checkResultsFromNatsStream(s.streamCfg, dataTable)
+	err := s.waitForEventsProcessed()
+	if err != nil {
+		return fmt.Errorf("wait for events processed: %w", err)
+	}
+
+	err = s.checkResultsFromNatsStream(s.streamCfg, dataTable)
 	if err != nil {
 		return fmt.Errorf("check results stream: %w", err)
 	}
@@ -359,9 +377,43 @@ func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
 
 func (s *IngestorTestSuite) checkDLQStream(dataTable *godog.Table) error {
 	err := s.checkResultsFromNatsStream(s.dlqStreamCfg, dataTable)
-
 	if err != nil {
 		return fmt.Errorf("check DLQ stream: %w", err)
+	}
+
+	return nil
+}
+
+func (s *IngestorTestSuite) waitForEventsProcessed() error {
+	s.logger.Info("waiting for kafka consumer to process events",
+		"topic", s.topicName,
+		"consumerGroup", s.cGroupName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := retry.Do(
+		func() error {
+			lag, err := s.kWriter.GetLag(ctx, s.topicName, s.cGroupName)
+			if err != nil {
+				return fmt.Errorf("failed to get kafka lag: %w", err)
+			}
+
+			if lag > 0 {
+				return fmt.Errorf("consumer lag not zero: %d messages pending", lag)
+			}
+
+			s.logger.Info("all kafka events processed", "topic", s.topicName)
+			return nil
+		},
+		retry.Context(ctx),
+		retry.UntilSucceeded(),
+		retry.Delay(50*time.Millisecond),
+		retry.MaxDelay(500*time.Millisecond),
+		retry.DelayType(retry.BackOffDelay),
+		retry.LastErrorOnly(true),
+	); err != nil {
+		return fmt.Errorf("failed to wait util' events would be processed: %w", err)
 	}
 
 	return nil
@@ -374,14 +426,24 @@ func (s *IngestorTestSuite) stopIngestor() {
 	}
 }
 
-func (s *IngestorTestSuite) fastJoinCleanUp() error {
+func (s *IngestorTestSuite) fastCleanUp() error {
 	var errs []error
+
+	s.logger.Info("Starting fast cleanup of ingestor test suite resources")
+
+	if s.ingestor != nil {
+		s.stopIngestor()
+		s.wg.Wait()
+	}
 
 	if s.topicName != "" {
 		err := s.deleteKafkaTopic(s.topicName)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("delete kafka topic %s: %w", s.topicName, err))
 		}
+		s.kWriter.Reset()
+		s.topicName = ""
+		s.cGroupName = ""
 	}
 
 	err := s.cleanNatsStreams()
@@ -389,13 +451,16 @@ func (s *IngestorTestSuite) fastJoinCleanUp() error {
 		errs = append(errs, fmt.Errorf("clean nats streams: %w", err))
 	}
 
-	s.stopIngestor()
-
 	err = testutils.CombineErrors(errs)
 	if err != nil {
 		return fmt.Errorf("cleanup resources: %w", err)
 	}
 
+	return nil
+}
+
+func (s *IngestorTestSuite) iWaitForSeconds(seconds int) error {
+	time.Sleep(time.Duration(seconds) * time.Second)
 	return nil
 }
 
@@ -437,9 +502,10 @@ func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I check results stream with content$`, s.checkResultsStream)
 	sc.Step(`^I check DLQ stream with content$`, s.checkDLQStream)
 	sc.Step(`^I flush all NATS streams$`, s.cleanNatsStreams)
+	sc.Step(`^I wait for (\d+) second`, s.iWaitForSeconds)
 
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
-		cleanupErr := s.fastJoinCleanUp()
+		cleanupErr := s.fastCleanUp()
 		if cleanupErr != nil {
 			return ctx, cleanupErr
 		}

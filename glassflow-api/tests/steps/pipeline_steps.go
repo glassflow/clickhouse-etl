@@ -13,9 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cucumber/godog"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
-
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -23,6 +21,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+
+	"github.com/cucumber/godog"
 )
 
 type PipelineSteps struct {
@@ -430,6 +430,8 @@ func (p *PipelineSteps) shutdownPipeline() error {
 		// Log the error but continue - pipeline might already be stopped or not exist
 		p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
 	}
+
+	
 
 	return nil
 }

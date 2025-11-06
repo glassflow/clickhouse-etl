@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -23,6 +23,8 @@ type Publisher interface {
 	Publish(ctx context.Context, msg []byte) error
 	GetSubject() string
 	PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts ...PublishOpt) error
+	PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream.PubAckFuture, error)
+	WaitForAsyncPublishAcks() <-chan struct{}
 }
 
 func WithUntilAck() PublishOpt {
@@ -76,37 +78,87 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %w", err)
 		}
-	} else {
-		retryDelay := internal.PublisherInitialRetryDelay
-		startTime := time.Now()
-		for {
-			_, err := p.js.PublishMsg(ctx, msg)
-			if err == nil {
-				break
-			}
+	}
 
-			if errors.Is(err, nats.ErrConnectionClosed) {
-				return fmt.Errorf("connection error: %w", err)
-			}
+	ctxMax, cancel := context.WithTimeout(ctx, internal.PublisherSyncMaxRetryWait)
+	defer cancel()
 
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(retryDelay):
-				log.Printf("Retrying publish to NATS subject %s in %v...", msg.Subject, retryDelay)
+	err := retry.Do(
+		func() error {
+			_, err := p.js.PublishMsg(ctxMax, msg)
+			if err != nil {
+				if errors.Is(err, nats.ErrConnectionClosed) {
+					return retry.Unrecoverable(fmt.Errorf("connection error: %w", err))
+				}
+				return fmt.Errorf("failed to publish message: %w", err)
 			}
-
-			if time.Since(startTime) >= internal.PublisherMaxRetryWait {
-				return fmt.Errorf("max retry wait exceeded: %w", err)
-			}
-
-			retryDelay = min(time.Duration(float64(retryDelay)*1.5), internal.PublisherMaxRetryDelay)
+			return nil
+		},
+		retry.Context(ctxMax),
+		retry.Delay(internal.PublisherSyncInitialRetryDelay),
+		retry.MaxDelay(internal.PublisherSyncMaxRetryDelay),
+		retry.DelayType(retry.BackOffDelay),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			log.Printf("Retrying publish to NATS subject %s (attempt %d): %v", msg.Subject, n+1, err)
+		}),
+	)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("max retry wait exceeded: %w", err)
 		}
+		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
 	return nil
 }
 
+func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream.PubAckFuture, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("message cannot be nil")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), internal.PublisherAsyncMaxRetryWait)
+	defer cancel()
+
+	err := p.throttlePublishBackOff(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("throttle publish backoff: %w", err)
+	}
+
+	futAck, err := p.js.PublishMsgAsync(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish message async: %w", err)
+	}
+
+	return futAck, nil
+}
+
+func (p *NatsPublisher) WaitForAsyncPublishAcks() <-chan struct{} {
+	return p.js.PublishAsyncComplete()
+}
+
 func (p *NatsPublisher) GetSubject() string {
 	return p.Subject
+}
+
+func (p *NatsPublisher) throttlePublishBackOff(ctx context.Context, limit int) error {
+	err := retry.Do(
+		func() error {
+			currentAsyncPendingMsgs := p.js.PublishAsyncPending()
+			if currentAsyncPendingMsgs < limit {
+				return nil
+			}
+			return fmt.Errorf("max pending publishes reached: %d", currentAsyncPendingMsgs)
+		},
+		retry.Context(ctx),
+		retry.DelayType(retry.BackOffDelay),
+		retry.Delay(internal.PublisherAsyncInitialRetryDelay),
+		retry.MaxDelay(internal.PublisherAsyncMaxRetryDelay),
+	)
+	if err != nil {
+		return fmt.Errorf("throttling failed: %w", err)
+	}
+
+	return nil
 }

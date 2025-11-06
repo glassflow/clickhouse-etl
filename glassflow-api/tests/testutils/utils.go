@@ -2,14 +2,16 @@ package testutils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kerr"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 func NewTestLogger() *slog.Logger {
@@ -43,50 +45,67 @@ type KafkaEvent struct {
 
 type KafkaWriter struct {
 	kafkaURI string
+	client   *kgo.Client
 }
 
 func NewKafkaWriter(kafkaURI string) *KafkaWriter {
 	return &KafkaWriter{
 		kafkaURI: kafkaURI,
+		client:   nil,
+	}
+}
+
+func (kw *KafkaWriter) getClient() (*kgo.Client, error) {
+	if kw.client != nil {
+		return kw.client, nil
+	}
+
+	client, err := kgo.NewClient(
+		kgo.SeedBrokers(kw.kafkaURI),
+		kgo.WithLogger(kgo.BasicLogger(os.Stderr, kgo.LogLevelError, nil)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kafka client: %w", err)
+	}
+
+	kw.client = client
+	return client, nil
+}
+
+func (kw *KafkaWriter) Close() {
+	if kw.client != nil {
+		kw.client.Close()
+	}
+}
+
+func (kw *KafkaWriter) Reset() {
+	if kw.client != nil {
+		kw.client.Close()
+		kw.client = nil
 	}
 }
 
 func (kw *KafkaWriter) CreateTopic(ctx context.Context, topic string, partitions int) error {
-	adminConfig := kafka.ConfigMap{
-		"bootstrap.servers":       kw.kafkaURI,
-		"socket.keepalive.enable": true,
-		"client.id":               "kafka-admin",
-		"debug":                   "broker,admin",
-		"broker.address.family":   "v4",
-	}
-
-	adminClient, err := kafka.NewAdminClient(&adminConfig)
+	client, err := kw.getClient()
 	if err != nil {
-		return fmt.Errorf("failed to create admin client: %w", err)
-	}
-	defer adminClient.Close()
-
-	// Create topic specification
-	topicSpec := kafka.TopicSpecification{ //nolint:exhaustruct // only necessary fields
-		Topic:             topic,
-		NumPartitions:     partitions,
-		ReplicationFactor: 1,
+		return err
 	}
 
-	// Create the topic
-	results, err := adminClient.CreateTopics(
-		ctx,
-		[]kafka.TopicSpecification{topicSpec},
-		kafka.SetAdminOperationTimeout(time.Second*30),
-	)
+	admClient := kadm.NewClient(client)
+
+	resp, err := admClient.CreateTopics(ctx, int32(partitions), int16(1), nil, topic)
 	if err != nil {
 		return fmt.Errorf("failed to create topic: %w", err)
 	}
 
-	// Check if there was an error with this specific topic
-	for _, result := range results {
-		if result.Error.Code() != kafka.ErrNoError && result.Error.Code() != kafka.ErrTopicAlreadyExists {
-			return fmt.Errorf("failed to create topic %s: %w", result.Topic, result.Error)
+	// Check for errors in response
+	for _, topicResp := range resp {
+		if topicResp.Err != nil {
+			// Ignore "topic already exists" error
+			if errors.Is(topicResp.Err, kerr.TopicAlreadyExists) {
+				continue
+			}
+			return fmt.Errorf("failed to create topic %s: %w", topicResp.Topic, topicResp.Err)
 		}
 	}
 
@@ -94,34 +113,26 @@ func (kw *KafkaWriter) CreateTopic(ctx context.Context, topic string, partitions
 }
 
 func (kw *KafkaWriter) DeleteTopic(ctx context.Context, topic string) error {
-	adminConfig := &kafka.ConfigMap{
-		"bootstrap.servers":       kw.kafkaURI,
-		"socket.keepalive.enable": true,
-		"client.id":               "kafka-admin",
-		"debug":                   "broker,admin",
-		"broker.address.family":   "v4",
-	}
-
-	adminClient, err := kafka.NewAdminClient(adminConfig)
+	client, err := kw.getClient()
 	if err != nil {
-		return fmt.Errorf("failed to create admin client: %w", err)
+		return err
 	}
-	defer adminClient.Close()
 
-	// Delete the topic
-	results, err := adminClient.DeleteTopics(
-		ctx,
-		[]string{topic},
-		kafka.SetAdminOperationTimeout(time.Second*30),
-	)
+	admClient := kadm.NewClient(client)
+
+	resp, err := admClient.DeleteTopics(ctx, topic)
 	if err != nil {
 		return fmt.Errorf("failed to delete topic: %w", err)
 	}
 
-	// Check if there was an error with this specific topic
-	for _, result := range results {
-		if result.Error.Code() != kafka.ErrNoError && result.Error.Code() != kafka.ErrUnknownTopic {
-			return fmt.Errorf("failed to delete topic %s: %w", result.Topic, result.Error)
+	// Check for errors in response
+	for _, topicResp := range resp {
+		if topicResp.Err != nil {
+			// Ignore "unknown topic" error
+			if errors.Is(topicResp.Err, kerr.UnknownTopicOrPartition) {
+				continue
+			}
+			return fmt.Errorf("failed to delete topic %s: %w", topicResp.Topic, topicResp.Err)
 		}
 	}
 
@@ -129,65 +140,95 @@ func (kw *KafkaWriter) DeleteTopic(ctx context.Context, topic string) error {
 }
 
 func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error {
-	config := &kafka.ConfigMap{
-		"bootstrap.servers":       kw.kafkaURI,
-		"socket.keepalive.enable": true,
-		"client.id":               "kafka-admin",
-		"debug":                   "broker,admin",
-		"broker.address.family":   "v4",
-	}
-
-	producer, err := kafka.NewProducer(config)
+	client, err := kw.getClient()
 	if err != nil {
-		return fmt.Errorf("failed to create producer: %w", err)
+		return err
 	}
-	defer producer.Close()
 
-	deliveryChan := make(chan kafka.Event, len(events)) // Buffered channel to prevent blocking
+	records := make([]*kgo.Record, 0, len(events))
 
 	for _, event := range events {
-		partition := kafka.PartitionAny
-		if event.Partition != "" {
-			p, err := strconv.ParseInt(event.Partition, 10, 32)
-			partition = int32(p)
-			if err != nil {
-				return fmt.Errorf("failed to set partition %s", event.Partition)
-			}
-		}
-		err := producer.Produce(&kafka.Message{ //nolint:exhaustruct // only necessary fields
-			TopicPartition: kafka.TopicPartition{ //nolint:exhaustruct // only necessary fields
-				Topic:     &topic,
-				Partition: partition,
-			},
+		record := &kgo.Record{
+			Topic: topic,
 			Key:   []byte(event.Key),
 			Value: event.Value,
-		}, deliveryChan)
-
-		if err != nil {
-			return fmt.Errorf("failed to produce message: %w", err)
 		}
+
+		// Set partition if specified
+		if event.Partition != "" {
+			p, err := strconv.ParseInt(event.Partition, 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse partition %s: %w", event.Partition, err)
+			}
+			record.Partition = int32(p)
+		}
+
+		records = append(records, record)
 	}
 
-	for range events {
-		e := <-deliveryChan
-		m, ok := e.(*kafka.Message)
-		if !ok {
-			return fmt.Errorf("failed to cast event")
-		}
-		if m.TopicPartition.Error != nil {
-			return fmt.Errorf("delivery failed: %w", m.TopicPartition.Error)
+	// Synchronous produce - waits for all records to be acknowledged
+	results := client.ProduceSync(context.Background(), records...)
+
+	// Check for errors in any of the results
+	for _, result := range results {
+		if result.Err != nil {
+			return fmt.Errorf("failed to produce message to partition %d: %w", result.Record.Partition, result.Err)
 		}
 	}
-
-	remaining := producer.Flush(5000) // 5 second timeout
-	if remaining > 0 {
-		return fmt.Errorf("%d messages remain unflushed", remaining)
-	}
-
-	// Close delivery channel only after all operations are complete
-	close(deliveryChan)
 
 	return nil
+}
+
+func (kw *KafkaWriter) GetLag(ctx context.Context, topic string, cGroupName string) (int64, error) {
+	client, err := kw.getClient()
+	if err != nil {
+		return 0, err
+	}
+
+	admClient := kadm.NewClient(client)
+
+	lags, err := admClient.Lag(ctx, cGroupName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get lag for consumer group %s: %w", cGroupName, err)
+	}
+
+	groupLag, exists := lags[cGroupName]
+	if !exists {
+		return 0, fmt.Errorf("consumer group %s not found in lag response (groups: %v)",
+			cGroupName, getGroupNames(lags))
+	}
+
+	if groupLag.FetchErr != nil {
+		return 0, fmt.Errorf("error fetching lag for group %s: %w", cGroupName, groupLag.FetchErr)
+	}
+
+	lagByTopic := groupLag.Lag.TotalByTopic()
+
+	topicLag, exists := lagByTopic[topic]
+	if !exists {
+		return 0, fmt.Errorf("topic %s not found in consumer group %s (topics: %v)",
+			topic, cGroupName, getTopicNames(lagByTopic))
+	}
+
+	return topicLag.Lag, nil
+}
+
+// Helper to extract group names for debugging
+func getGroupNames(lags kadm.DescribedGroupLags) []string {
+	names := make([]string, 0, len(lags))
+	for name := range lags {
+		names = append(names, name)
+	}
+	return names
+}
+
+// Helper to extract topic names for debugging
+func getTopicNames(lagByTopic kadm.GroupTopicsLag) []string {
+	names := make([]string, 0, len(lagByTopic))
+	for name := range lagByTopic {
+		names = append(names, name)
+	}
+	return names
 }
 
 func CheckTags(tagExpression string, scenarioTags string) bool {

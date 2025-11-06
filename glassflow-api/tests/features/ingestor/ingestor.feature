@@ -238,11 +238,11 @@ Feature: Kafka Ingestor
             """
 
         When I write these events to Kafka topic "test_topic":
-            | partition | key | value                                   |
-            | 0         | 1   | {"id": "123", "name":"Max Wilson"}      |
-            | 1         | 2   | {"id": "456", "name":"Pete Roller"}     |
-            | 2         | 3   | {"id": "789", "name":"Fedor Smolov"}    |
-            | 0         | 4   | {"id": "789", "name":"Victor Thurilla"} |
+            | partition | key | value                                |
+            | 0         | 1   | {"id": "123", "name":"Max Wilson"}   |
+            | 1         | 2   | {"id": "456", "name":"Pete Roller"}  |
+            | 2         | 3   | {"id": "789", "name":"Fedor Smolov"} |
+            | 0         | 4   | {"id": "789", "name":"Fedor Smolov"} |
 
         And I run the ingestor component
 
@@ -449,6 +449,188 @@ Feature: Kafka Ingestor
             | 789 | Bob Johnson   |
             | 789 | Ulm Petterson |
 
+    Scenario: Check deduplication within 2 batches
+        Given a Kafka topic "test_topic" with 1 partition
+        And a schema mapper with config:
+            """json
+            {
+                "type": "jsonToClickhouse",
+                "streams": {
+                    "test_topic": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "test_topic",
+                        "column_type": "string"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "test_topic",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        Given an ingestor component config:
+            """json
+            {
+                "type": "kafka",
+                "kafka_connection_params": {
+                    "brokers": [],
+                    "skip_auth": true,
+                    "protocol": "SASL_PLAINTEXT",
+                    "mechanism": "",
+                    "username": "",
+                    "password": "",
+                    "root_ca": ""
+                },
+                "kafka_topics": [
+                    {
+                        "name": "test_topic",
+                        "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                        "partitions": 1,
+                        "deduplication": {
+                            "enabled": true,
+                            "id_field": "id",
+                            "id_field_type": "string",
+                            "time_window": "1h"
+                        }
+                    }
+                ]
+            }
+            """
+
+        When I write these events to Kafka topic "test_topic":
+            | key | value                                 |
+            | 1   | {"id": "123", "name": "John Doe"}     |
+            | 2   | {"id": "456", "name": "Jane Smith"}   |
+            | 3   | {"id": "123", "name": "Johnny Doe"}   |
+            | 4   | {"id": "789", "name": "Bob Johnson"}  |
+            | 5   | {"id": "456",  "name": "Janet Smith"} |
+
+        And I run the ingestor component
+        Then I check results stream with content
+            | id  | name        |
+            | 123 | John Doe    |
+            | 456 | Jane Smith  |
+            | 789 | Bob Johnson |
+
+        When I write these events to Kafka topic "test_topic":
+            | key | value                                   |
+            | 6   | {"id": "101", "name": "Robert Johnson"} |
+            | 7   | {"id": "111", "name": "Alice Brown"}    |
+            | 8   | {"id": "101", "name": "Johnny Doe"}     |
+
+        Then I check results stream with content
+            | id  | name           |
+            | 111 | Alice Brown    |
+            | 101 | Robert Johnson |
+
+    Scenario: Check kafka partitions read
+        Given a Kafka topic "test_topic" with 3 partitions
+        And a schema mapper with config:
+            """json
+            {
+                "type": "jsonToClickhouse",
+                "streams": {
+                    "test_topic": {
+                        "fields": [
+                            {
+                                "field_name": "id",
+                                "field_type": "string"
+                            },
+                            {
+                                "field_name": "name",
+                                "field_type": "string"
+                            }
+                        ]
+                    }
+                },
+                "sink_mapping": [
+                    {
+                        "column_name": "id",
+                        "field_name": "id",
+                        "stream_name": "test_topic",
+                        "column_type": "string"
+                    },
+                    {
+                        "column_name": "name",
+                        "field_name": "name",
+                        "stream_name": "test_topic",
+                        "column_type": "String"
+                    }
+                ]
+            }
+            """
+        Given an ingestor component config:
+            """json
+            {
+                "type": "kafka",
+                "kafka_connection_params": {
+                    "brokers": [],
+                    "skip_auth": true,
+                    "protocol": "SASL_PLAINTEXT",
+                    "mechanism": "",
+                    "username": "",
+                    "password": "",
+                    "root_ca": ""
+                },
+                "kafka_topics": [
+                    {
+                        "name": "test_topic",
+                        "id": "topic_id",
+                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                        "partitions": 3,
+                        "deduplication": {
+                            "enabled": true,
+                            "id_field": "id",
+                            "id_field_type": "string",
+                            "time_window": "1h"
+                        }
+                    }
+                ]
+            }
+            """
+
+        When I write these events to Kafka topic "test_topic":
+            | partition | key | value                                |
+            | 0         | 1   | {"id": "123", "name":"Max Wilson"}   |
+            | 1         | 2   | {"id": "130", "name":"Pete Roller"}  |
+            | 2         | 3   | {"id": "789", "name":"Fedor Smolov"} |
+            | 0         | 4   | {"id": "124", "name":"Max Wilson"}   |
+            | 0         | 5   | {"id": "125", "name":"Ed Brown"}     |
+            | 0         | 6   | {"id": "126", "name":"Sam Green"}    |
+            | 0         | 7   | {"id": "127", "name":"Tom White"}    |
+            | 0         | 8   | {"id": "128", "name":"Jim Black"}    |
+            | 0         | 9   | {"id": "129", "name":"Tim Blue"}     |
+            | 0         | 10  | {"id": "130", "name":"Pete Roller"}  |
 
 
+        And I run the ingestor component
 
+        Then I check results stream with content
+            | id  | name         |
+            | 123 | Max Wilson   |
+            | 130 | Pete Roller  |
+            | 789 | Fedor Smolov |
+            | 124 | Max Wilson   |
+            | 125 | Ed Brown     |
+            | 126 | Sam Green    |
+            | 127 | Tom White    |
+            | 128 | Jim Black    |
+            | 129 | Tim Blue     |
