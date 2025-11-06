@@ -28,6 +28,7 @@ Set one of the following **Authentication Methods** ([`mechanism`](/configuratio
 - **PLAIN**
 - **SCRAM-SHA-256**
 - **SCRAM-SHA-512**
+- **GSSAPI**
 
 On the UI, you can disable authentication entirely by selecting "No authentication" in the authentication method dropdown. On the Python SDK, you can set the `skip_auth` flag to `true`.
 
@@ -35,6 +36,10 @@ When authentication is enabled, the following fields are required:
   - `mechanism` (one of the above)
   - `username`
   - `password`
+
+<Callout type="warning" emoji="⚠️">
+For **GSSAPI** (Kerberos) authentication, different fields are required. See the [SASL/GSSAPI (Kerberos)](#saslgssapi-kerberos) section below for details.
+</Callout>
 
 ## TLS Configuration
 
@@ -102,6 +107,46 @@ Client certificate authentication (mTLS) is not supported.
   </Tabs.Tab>
 </Tabs>
 
+### SASL/GSSAPI (Kerberos)
+
+GlassFlow supports Kerberos authentication (GSSAPI) for connecting to Kafka clusters secured with Kerberos. This is commonly used in enterprise environments.
+
+**Required fields for GSSAPI:**
+  - `mechanism`: `"GSSAPI"`
+  - `username`: Kerberos principal (e.g., `"user@EXAMPLE.COM"`)
+  - `kerberos_service_name`: Service name (typically `"kafka"`)
+  - `kerberos_realm`: Kerberos realm (e.g., `"EXAMPLE.COM"`)
+  - `kerberos_keytab`: Base64-encoded keytab file content
+  - `kerberos_config`: Kerberos configuration (krb5.conf format)
+
+**Optional fields:**
+  - `password`: Required only if using password-based authentication instead of keytab
+
+<Tabs items={['Web UI', 'Python SDK']} groupId="kafka-conn" storageKey="kafka-conn-tab">
+  <Tabs.Tab>
+    <img alt="SASL/GSSAPI (Kerberos) example" src="/assets/ui_kafka_connection_sasl_gssapi.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    "connection_params": {
+      "brokers": ["kafka-1:9093"],
+      "protocol": "SASL_SSL",
+      "skip_auth": false,
+      "mechanism": "GSSAPI",
+      "username": "kafka-user@EXAMPLE.COM",
+      "kerberos_service_name": "kafka",
+      "kerberos_realm": "EXAMPLE.COM",
+      "kerberos_keytab": "BQIAAABH...",
+      "kerberos_config": "[libdefaults]\n\tdefault_realm = EXAMPLE.COM\n\n[realms]\n\tEXAMPLE.COM = {\n\t\tkdc = kdc-server.example.com\n\t\tadmin_server = kdc-server.example.com\n\t}",
+      "root_ca": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+<Callout type="info" emoji="ℹ️">
+The `kerberos_keytab` field should contain the base64-encoded content of your keytab file. The `kerberos_config` field should contain the contents of your krb5.conf file, which typically includes realm and KDC (Key Distribution Center) configuration.
+</Callout>
 
 ### SSL (no SASL)
 
