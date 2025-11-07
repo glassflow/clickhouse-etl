@@ -8,6 +8,8 @@ import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import { getDLQState } from '@/src/api/pipeline-api'
 import { DLQState } from '@/src/types/pipeline'
+import { notify } from '@/src/notifications'
+import { dlqMessages } from '@/src/notifications/messages'
 
 interface DLQMetrics {
   totalDlq: string
@@ -124,9 +126,12 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
         const state = await getDLQState(pipelineId)
         setMetrics(convertToMetrics(state))
       } catch (err: any) {
-        console.error('Failed to fetch DLQ state:', err)
-        setError(err.message || 'Failed to fetch DLQ data')
+        const errorMessage = err.message || 'Failed to fetch DLQ data'
+        setError(errorMessage)
         setMetrics(defaultMetrics)
+
+        // Show notification to user
+        notify(dlqMessages.fetchStateFailed())
       } finally {
         setLoading(false)
       }

@@ -9,6 +9,8 @@ import { useState, useEffect, useRef } from 'react'
 import { getClickHouseMetricsFromConfig, ClickHouseTableMetrics } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { formatNumber, formatBytes, formatRelativeTime } from '@/src/utils/common.client'
+import { notify } from '@/src/notifications'
+import { metricsMessages } from '@/src/notifications/messages'
 
 interface ClickHouseMetricsDisplay {
   rowCount: string
@@ -173,19 +175,26 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
         setRawMetrics(fetchedMetrics)
         setMetrics(convertToDisplayMetrics(fetchedMetrics))
       } catch (err: any) {
-        console.error('Failed to fetch ClickHouse metrics:', err)
-
         // Handle specific error cases
+        let errorMessage: string
         if (err.code === 404) {
-          setError('Pipeline not found in backend')
+          errorMessage = 'Pipeline not found in backend'
         } else if (err.message?.includes('Pipeline does not have a ClickHouse sink')) {
-          setError('Pipeline does not have a ClickHouse sink')
+          errorMessage = 'Pipeline does not have a ClickHouse sink'
         } else {
-          setError(err.message || 'Failed to fetch ClickHouse metrics')
+          errorMessage = err.message || 'Failed to fetch ClickHouse metrics'
         }
 
+        setError(errorMessage)
         setMetrics(defaultMetrics)
         setRawMetrics(null)
+
+        // Show notification to user
+        notify(
+          metricsMessages.fetchClickHouseMetricsFailed(() => {
+            fetchClickHouseMetrics() // Retry
+          }),
+        )
       } finally {
         setLoading(false)
       }

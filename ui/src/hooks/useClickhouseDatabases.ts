@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { useStore } from '@/src/store'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { notify } from '@/src/notifications'
+import { clickhouseMessages } from '@/src/notifications/messages'
 
 export const useClickhouseDatabases = () => {
   const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
@@ -51,6 +53,15 @@ export const useClickhouseDatabases = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch databases'
       setError(errorMessage)
+
+      // Show notification to user
+      const port = parseInt(clickhouseConnection.directConnection.httpPort) || 8123
+      notify(
+        clickhouseMessages.fetchDatabasesFailed(clickhouseConnection.directConnection.host, port, () => {
+          fetchDatabases() // Retry
+        }),
+      )
+
       analytics.destination.databaseFetchedError({ error: errorMessage })
     } finally {
       setIsLoading(false)

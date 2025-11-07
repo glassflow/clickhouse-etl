@@ -1,5 +1,7 @@
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { useState } from 'react'
+import { notify } from '@/src/notifications'
+import { kafkaMessages } from '@/src/notifications/messages'
 
 export const useKafkaConnection = () => {
   const [isConnecting, setIsConnecting] = useState(false)
@@ -126,9 +128,15 @@ export const useKafkaConnection = () => {
         })
         return result
       } else {
+        const errorMessage = data.error || 'Failed to connect to Kafka cluster'
+        const brokers = values.bootstrapServers || 'unknown'
+
+        // Show notification to user
+        notify(kafkaMessages.connectionFailed(brokers, errorMessage))
+
         const result = {
           success: false,
-          message: data.error || 'Failed to connect to Kafka cluster',
+          message: errorMessage,
         }
         setConnectionResult(result)
         setKafkaConnection({
@@ -138,10 +146,15 @@ export const useKafkaConnection = () => {
         return result
       }
     } catch (error) {
-      console.error('Error testing Kafka connection:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      const brokers = values.bootstrapServers || 'unknown'
+
+      // Show notification to user
+      notify(kafkaMessages.connectionFailed(brokers, errorMessage))
+
       const result = {
         success: false,
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: errorMessage,
       }
       setConnectionResult(result)
       setKafkaConnection({

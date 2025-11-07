@@ -23,6 +23,9 @@ import { PipelineFilterMenu, FilterState } from './PipelineFilterMenu'
 import { FilterChip } from './FilterChip'
 import { useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal, useTerminatePipelineModal } from './hooks'
 import { PipelineStatus } from '@/src/types/pipeline'
+import { notify } from '@/src/notifications'
+import { pipelineMessages } from '@/src/notifications/messages'
+import { handleApiError } from '@/src/notifications/api-error-handler'
 import {
   resumePipeline,
   renamePipeline,
@@ -57,7 +60,6 @@ export function PipelinesList({
   const { coreStore, resetAllPipelineState } = useStore()
   const { pipelineId, setPipelineId } = coreStore
   const [status, setStatus] = useState<PipelineStatus>('active')
-  const [error, setError] = useState<string | null>(null)
   const {
     isRenameModalVisible,
     selectedPipeline: renameSelectedPipeline,
@@ -240,7 +242,6 @@ export function PipelinesList({
 
         await terminatePipeline(pipelineId)
         setStatus('stopped')
-        setError(null)
         resetAllPipelineState('', true)
 
         // Track successful pipeline modification
@@ -250,7 +251,12 @@ export function PipelinesList({
       } catch (err) {
         const error = err as PipelineError
         setStatus('failed')
-        setError(error.message)
+
+        // Show notification to user using centralized error handler
+        handleApiError(err, {
+          operation: 'fetch',
+          retryFn: () => onRefresh?.(),
+        })
 
         // Track failed pipeline modification
         analytics.pipeline.modifyFailed({
@@ -518,7 +524,7 @@ export function PipelinesList({
 
       // Make API call
       await resumePipeline(pipeline.pipeline_id)
-      
+
       // CRITICAL: Clear the hydration cache so the pipeline re-hydrates with fresh data
       // This ensures that if the pipeline was edited while stopped, the changes are reflected
       sessionStorage.removeItem('lastHydratedPipeline')
@@ -531,7 +537,11 @@ export function PipelinesList({
 
       // Central system handles tracking and state updates
     } catch (error) {
-      console.error('Failed to resume pipeline:', error)
+      // Show notification to user using centralized error handler
+      handleApiError(error, {
+        operation: 'resume',
+        pipelineName: pipeline.name,
+      })
 
       // Track resume failure
       analytics.pipeline.resumeFailed({
@@ -588,7 +598,12 @@ export function PipelinesList({
       onRemovePipeline?.(pipeline.pipeline_id)
       setTimeout(() => onRefresh?.(), 1000)
     } catch (error) {
-      console.error('Failed to delete pipeline:', error)
+      // Show notification to user using centralized error handler
+      handleApiError(error, {
+        operation: 'delete',
+        pipelineName: pipeline.name,
+        retryFn: () => handleDelete(pipeline),
+      })
 
       // Track delete failure
       analytics.pipeline.deleteFailed({
@@ -620,8 +635,14 @@ export function PipelinesList({
     try {
       await downloadPipelineConfig(pipeline)
     } catch (error) {
-      console.error('Failed to download pipeline configuration:', error)
-      // TODO: Add a toast notification to show the error to the user
+      notify({
+        variant: 'error',
+        title: 'Failed to download pipeline configuration.',
+        description: 'The configuration file could not be downloaded.',
+        action: { label: 'Try again', onClick: () => handleDownload(pipeline) },
+        reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
+        channel: 'toast',
+      })
     }
   }
 
@@ -763,7 +784,30 @@ export function PipelinesList({
 
             // Central system handles tracking and state updates
           } catch (error) {
-            console.error('Failed to stop pipeline:', error)
+            // Show notification to user using centralized error handler
+            handleApiError(error, {
+              operation: 'stop',
+              pipelineName: stopSelectedPipeline.name,
+              retryFn: async () => {
+                // Retry stop operation
+                try {
+                  setPipelineLoading(stopSelectedPipeline.pipeline_id, 'stop')
+                  operations.reportStop(stopSelectedPipeline.pipeline_id)
+                  await stopPipeline(stopSelectedPipeline.pipeline_id)
+                  analytics.pipeline.pauseSuccess({
+                    pipelineId: stopSelectedPipeline.pipeline_id,
+                    pipelineName: stopSelectedPipeline.name,
+                  })
+                } catch (retryError) {
+                  handleApiError(retryError, {
+                    operation: 'stop',
+                    pipelineName: stopSelectedPipeline.name,
+                  })
+                } finally {
+                  clearPipelineLoading(stopSelectedPipeline.pipeline_id)
+                }
+              },
+            })
 
             // Track stop failure
             analytics.pipeline.pauseFailed({
@@ -813,7 +857,12 @@ export function PipelinesList({
 
             // Skip immediate refresh for rename - optimistic update is sufficient
           } catch (error) {
-            console.error('Failed to rename pipeline:', error)
+            // Show notification to user using centralized error handler
+            handleApiError(error, {
+              operation: 'rename',
+              pipelineName: renameSelectedPipeline.name,
+              retryFn: () => openRenameModal(renameSelectedPipeline),
+            })
 
             // Track rename failure
             analytics.pipeline.renameFailed({
@@ -873,7 +922,13 @@ export function PipelinesList({
             // Navigate to pipeline details page for editing
             router.push(`/pipelines/${editSelectedPipeline.pipeline_id}`)
           } catch (error) {
-            console.error('Failed to prepare pipeline for edit:', error)
+            // Use centralized error handler - it will handle "must be stopped" errors
+            handleApiError(error, {
+              operation: 'edit',
+              pipelineName: editSelectedPipeline.name,
+              retryFn: () => handleEdit(editSelectedPipeline),
+              onMustBeStopped: () => handleStop(editSelectedPipeline), // Special handler for "must be stopped"
+            })
 
             // Track edit failure
             analytics.pipeline.editFailed({
@@ -928,7 +983,11 @@ export function PipelinesList({
 
             // Central system handles tracking and state updates
           } catch (error) {
-            console.error('Failed to terminate pipeline:', error)
+            // Show notification to user using centralized error handler
+            handleApiError(error, {
+              operation: 'terminate',
+              pipelineName: deleteSelectedPipeline.name,
+            })
 
             // Track terminate failure
             analytics.pipeline.deleteFailed({

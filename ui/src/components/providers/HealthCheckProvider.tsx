@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { HealthCheckDialog } from '../shared/HealthCheckDialog'
 import { checkBackendHealth } from '@/src/api/health'
+import { notify } from '@/src/notifications'
+import { networkMessages } from '@/src/notifications/messages'
 
 interface HealthCheckProviderProps {
   children: React.ReactNode
@@ -22,15 +24,32 @@ export function HealthCheckProvider({ children }: HealthCheckProviderProps) {
         setIsConnected(result.success)
         // Only show dialog if connection is failing
         setShowHealthCheck(!result.success)
+
+        // Show notification if backend is unavailable
+        if (!result.success) {
+          notify(
+            networkMessages.backendUnavailable(() => {
+              checkConnection() // Retry
+            }),
+          )
+        }
       } catch (error) {
         setIsConnected(false)
         setShowHealthCheck(true)
+
+        // Show notification for backend unavailable
+        notify(
+          networkMessages.backendUnavailable(() => {
+            checkConnection() // Retry
+          }),
+        )
       } finally {
         setIsLoading(false)
       }
     }
 
     checkConnection()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleTestConnection = async () => {
@@ -40,9 +59,25 @@ export function HealthCheckProvider({ children }: HealthCheckProviderProps) {
       setIsConnected(result.success)
       // Hide dialog if connection is now successful
       setShowHealthCheck(!result.success)
+
+      // Show notification if backend is still unavailable
+      if (!result.success) {
+        notify(
+          networkMessages.backendUnavailable(() => {
+            handleTestConnection() // Retry
+          }),
+        )
+      }
     } catch (error) {
       setIsConnected(false)
       setShowHealthCheck(true)
+
+      // Show notification for backend unavailable
+      notify(
+        networkMessages.backendUnavailable(() => {
+          handleTestConnection() // Retry
+        }),
+      )
     } finally {
       setIsLoading(false)
     }

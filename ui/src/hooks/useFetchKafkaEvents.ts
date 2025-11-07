@@ -2,6 +2,8 @@ import { KafkaConnectionFormType } from '@/src/scheme'
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useState } from 'react'
 import { kafkaApiClient } from '../services/kafka-api-client'
+import { notify } from '@/src/notifications'
+import { kafkaMessages } from '@/src/notifications/messages'
 
 export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
   const [isLoadingEvent, setIsLoadingEvent] = useState(false)
@@ -126,25 +128,30 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
         if (response.error && (response.error.includes('end of topic') || response.error.includes('no more events'))) {
           setHasMoreEvents(false)
           setEventError('No more events available')
+          notify(kafkaMessages.endOfTopicReached())
         } else if (response.error && response.error.includes('Timeout waiting for message')) {
           // Handle timeout errors specifically
           if (getNext) {
             setHasMoreEvents(false)
             setEventError('No more events available')
+            notify(kafkaMessages.endOfTopicReached())
           } else if (options?.direction === 'previous') {
             setHasOlderEvents(false)
             setEventError('No previous events available')
+            notify(kafkaMessages.beginningOfTopicReached())
           } else {
-            setEventError(response.error || 'Failed to fetch event')
+            const errorMsg = response.error || 'Failed to fetch event'
+            setEventError(errorMsg)
+            notify(kafkaMessages.timeout(() => fetchEvent(topic, getNext, options)))
           }
         } else {
-          setEventError(response.error || 'Failed to fetch event')
+          const errorMsg = response.error || 'Failed to fetch event'
+          setEventError(errorMsg)
+          notify(kafkaMessages.fetchEventFailed(topic, () => fetchEvent(topic, getNext, options)))
         }
       }
     } catch (error) {
       clearTimeout(fetchTimeout)
-
-      console.error('Error fetching event:', error)
 
       // Handle specific error messages
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -154,14 +161,18 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
         if (getNext) {
           setHasMoreEvents(false)
           setEventError('No more events available')
+          notify(kafkaMessages.endOfTopicReached())
         } else if (options?.direction === 'previous') {
           setHasOlderEvents(false)
           setEventError('No previous events available')
+          notify(kafkaMessages.beginningOfTopicReached())
         } else {
           setEventError(`Error: ${errorMessage}`)
+          notify(kafkaMessages.timeout(() => fetchEvent(topic, getNext, options)))
         }
       } else {
         setEventError(`Error: ${errorMessage}`)
+        notify(kafkaMessages.fetchEventFailed(topic, () => fetchEvent(topic, getNext, options)))
       }
     } finally {
       if (isLoadingEvent) {

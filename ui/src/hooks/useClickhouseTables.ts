@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { useStore } from '@/src/store'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { notify } from '@/src/notifications'
+import { clickhouseMessages } from '@/src/notifications/messages'
 
 export const useClickhouseTables = (database: string) => {
   const { clickhouseConnectionStore, clickhouseDestinationStore } = useStore()
@@ -54,6 +56,14 @@ export const useClickhouseTables = (database: string) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch tables'
       setError(errorMessage)
+
+      // Show notification to user
+      notify(
+        clickhouseMessages.fetchTablesFailed(database, () => {
+          fetchTables() // Retry
+        }),
+      )
+
       analytics.destination.tableFetchedError({ database, error: errorMessage })
     } finally {
       setIsLoading(false)

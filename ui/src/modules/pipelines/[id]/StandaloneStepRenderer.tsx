@@ -233,7 +233,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
       // The useEffect hook monitoring effectiveStatus will handle enabling edit mode
       // when the status changes to 'stopped'
     } catch (error) {
-      console.error('Failed to stop pipeline for editing:', error)
+      // Notification will be shown by the pipeline action handler
       // Hide overlay on error
       setIsStoppingForEdit(false)
       // Don't enable edit mode if stop failed

@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { useStore } from '@/src/store'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
+import { notify } from '@/src/notifications'
+import { clickhouseMessages } from '@/src/notifications/messages'
 
 // Unified ClickHouse connection hook that handles all connection-related operations
 export const useClickhouseConnection = () => {
@@ -94,6 +96,14 @@ export const useClickhouseConnection = () => {
           const errorMsg = data.error || 'Test connection failed - Failed to connect to ClickHouse'
           setConnectionError(errorMsg)
 
+          // Show notification to user
+          const port = parseInt(connectionConfig.httpPort) || 8123
+          notify(
+            clickhouseMessages.connectionFailed(connectionConfig.host, port, () => {
+              testConnection(connectionConfig) // Retry
+            }),
+          )
+
           // Don't update store on failure - let the container handle it
           analytics.clickhouse.failed({
             error: errorMsg,
@@ -106,6 +116,14 @@ export const useClickhouseConnection = () => {
         setConnectionStatus('error')
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
         setConnectionError(errorMessage)
+
+        // Show notification to user
+        const port = parseInt(connectionConfig.httpPort) || 8123
+        notify(
+          clickhouseMessages.connectionFailed(connectionConfig.host, port, () => {
+            testConnection(connectionConfig) // Retry
+          }),
+        )
 
         // Don't update store on failure - let the container handle it
         analytics.clickhouse.failed({
@@ -201,6 +219,14 @@ export const useClickhouseConnection = () => {
           const errorMsg = data.error || `Failed to access database '${connectionConfig.database}'`
           setConnectionError(errorMsg)
 
+          // Show notification to user
+          const port = parseInt(connectionConfig.httpPort) || 8123
+          notify(
+            clickhouseMessages.fetchDatabasesFailed(connectionConfig.host, port, () => {
+              testDatabaseAccess(connectionConfig) // Retry
+            }),
+          )
+
           // Don't update store on failure - let the container handle it
           analytics.destination.tableFetchedError({
             database: connectionConfig.database,
@@ -213,6 +239,14 @@ export const useClickhouseConnection = () => {
         setConnectionStatus('error')
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
         setConnectionError(errorMessage)
+
+        // Show notification to user
+        const port = parseInt(connectionConfig.httpPort) || 8123
+        notify(
+          clickhouseMessages.fetchDatabasesFailed(connectionConfig.host, port, () => {
+            testDatabaseAccess(connectionConfig) // Retry
+          }),
+        )
 
         // Don't update store on failure - let the container handle it
         analytics.destination.tableFetchedError({
