@@ -45,6 +45,8 @@ export interface SampleEvent {
 export interface KafkaConnectionParams {
   brokers: string[]
   protocol: string
+  skip_auth?: boolean
+  sasl_tls_enable?: boolean
   mechanism?: string
   username?: string
   password?: string
