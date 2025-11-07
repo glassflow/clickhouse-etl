@@ -26,11 +26,13 @@ The web interface supports four main pipeline types:
 ![Pipeline Types](/assets/ui_home.png)
 
 
-## Creating a Deduplication Pipeline
+## Creating a Pipeline
+
+### Creating a Deduplication Pipeline
 
 This section walks through creating a pipeline that removes duplicate records from a Kafka topic.
 <Steps>
-### Setup Kafka Connection
+#### Setup Kafka Connection
 
 
 Configure the connection to your Kafka cluster:
@@ -49,13 +51,11 @@ Configure the connection to your Kafka cluster:
   - **Root CA**: SSL certificate
 - **Skip Authentication**: Enable for unsecured connections
 
-**Local Kafka Connection**
-![Setup Kafka Connection](/assets/ui_kafka_connection_local.png)
+**Kafka Connection**
 
-**Production Kafka Connection**
-![Setup Kafka Connection](/assets/ui_kafka_connection_prod.png)
+![Setup Kafka Connection](/assets/ui_kafka_connection.png)
 
-### Select Topic
+#### Select Topic
 
 Choose the Kafka topic and define its schema:
 
@@ -72,7 +72,7 @@ Choose the Kafka topic and define its schema:
 **Schema Definition**
 The UI automatically detects the schema of the topic.
 
-### Define Deduplicate Keys
+#### Define Deduplicate Keys
 
 
 Configure deduplication settings to remove duplicate records:
@@ -103,7 +103,7 @@ The system will:
 3. Discard subsequent duplicates within the time window
 4. Reset tracking after the time window expires
 
-### Setup ClickHouse Connection
+#### Setup ClickHouse Connection
 
 Configure the connection to your ClickHouse database:
 
@@ -115,15 +115,13 @@ Configure the connection to your ClickHouse database:
 - **Password**: Your ClickHouse password
 - **Database**: Select the target database
 - **Secure Connection**: Enable for TLS/SSL connections
+- **Skip Certificate Verification**: Enable for self-signed certificates
 
+**Clickhouse Connection**
 
-**Clickhouse Local Connection**
-![Clickhouse Local Connection](/assets/ui_clickhouse_local.png)
+![Clickhouse Connection](/assets/ui_clickhouse_connection.png)
 
-**Clickhouse Production Connection**
-![Clickhouse Production Connection](/assets/ui_clickhouse_prod.png)
-
-### Select Destination
+#### Select Destination
 
 
 Configure the destination table and field mappings:
@@ -151,14 +149,16 @@ Map source fields to ClickHouse columns:
 - **Max Batch Size**: Maximum number of records per batch (default: 1000)
 - **Max Delay Time**: Maximum time to wait before flushing batch (default: 1s)
 
+![Clickhouse Table Mapping](/assets/ui_table_mapping.png)
+
 </Steps>
 
-## Creating a Join Pipeline
+### Creating a Join Pipeline
 
 This section covers creating pipelines that combine data from multiple Kafka topics.
 <Steps>
 
-### Setup Multiple Kafka Connections
+#### Setup Multiple Kafka Connections
 
 Follow the same steps as the deduplication pipeline, but configure connections for multiple Kafka topics:
 
@@ -167,7 +167,7 @@ Follow the same steps as the deduplication pipeline, but configure connections f
 3. **Setup Second Kafka Connection** (Right Topic)
 4. **Select Second Topic** and define schema
 
-### Configure Join Settings
+#### Configure Join Settings
 
 **Join Configuration**
 
@@ -183,53 +183,53 @@ The system will:
 3. Combine matching records according to the join orientation
 4. Output the joined results
 
-### Setup ClickHouse and Destination
+#### Setup ClickHouse and Destination
 
 Follow the same steps as the deduplication pipeline for the destination configuration.
 
 </Steps>
 
-## Creating a Deduplicate and Join Pipeline
+### Creating a Deduplicate and Join Pipeline
 
 This pipeline type combines both deduplication and joining capabilities.
 <Steps>
-### Setup Multiple Kafka Connections
+#### Setup Multiple Kafka Connections
 
 Configure connections for all topics you want to process.
 
-### Configure Deduplication
+#### Configure Deduplication
 
 Set up deduplication for each topic individually:
 - Configure deduplication keys for the first topic
 - Configure deduplication keys for the second topic
 - Set appropriate time windows for each
 
-### Configure Join Settings
+#### Configure Join Settings
 
 Set up the join configuration as described in the join pipeline section.
 
-### Setup ClickHouse and Destination
+#### Setup ClickHouse and Destination
 
 Configure the destination as in previous pipeline types.
 </Steps>
 
-## Creating an Ingest Only Pipeline
+### Creating an Ingest Only Pipeline
 
 This is the simplest pipeline type for basic data ingestion without transformations.
 <Steps>
-### Setup Kafka Connection
+#### Setup Kafka Connection
 
 Follow the same Kafka connection setup as other pipeline types.
 
-### Select Topic
+#### Select Topic
 
 Choose your topic and define the schema.
 
-### Setup ClickHouse Connection
+#### Setup ClickHouse Connection
 
 Configure the ClickHouse connection.
 
-### Select Destination
+#### Select Destination
 
 Configure the destination table and field mappings.
 
@@ -240,6 +240,7 @@ Configure the destination table and field mappings.
 ## Deploying the Pipeline
 
 ### Review Configuration
+
 
 Before deploying:
 1. Review all connection settings
@@ -261,17 +262,30 @@ Before deploying:
 Monitor your pipeline:
 - **Status**: Shows if the pipeline is running, stopped, or in error
 - **Metrics**: View processing statistics
-- **Logs**: Access pipeline logs for debugging
 
 ## Pipeline Management
 
+![Pipeline Page](/assets/ui_pipeline_page.png)
+
+### Stopping Pipelines
+
+When a pipeline is stopped, it will stop ingesting new messages and once all messages in the queue are processed, the pipeline will stop (i.e. scale down resources to 0).
+
+### Terminating Pipelines
+
+When a pipeline is terminated, it will stop ingesting new messages and immediately terminate the pipeline (i.e. scale down resources to 0).
+
+### Resuming Pipelines
+
+When a pipeline is resumed, it will resume ingesting new messages and scale up resources to the original size.
+
+### Editing Pipelines
+
+All pipeline configurations can be edited. Only stopped (or terminated) pipelines can be edited.
+
 ### Deleting Pipelines
 
-
-- Remove pipeline configurations
-- Clean up resources
-
-**Important**: Only one pipeline can be active at a time in the current version.
+Only stopped (or terminated) pipelines can be deleted. Deleting a pipeline will remove all pipeline resources and configuration.
 
 ## Best Practices
 
