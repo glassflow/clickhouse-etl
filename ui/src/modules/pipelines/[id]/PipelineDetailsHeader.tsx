@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, MoreVertical } from 'lucide-react'
 import TerminatePipelineModal from '@/src/modules/pipelines/components/TerminatePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
 import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
+import FlushDLQModal from '@/src/modules/pipelines/components/FlushDLQModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
@@ -26,10 +28,11 @@ import StopWhiteIcon from '@/src/images/stop-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { isDemoMode } from '@/src/utils/common.client'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
 import { notify } from '@/src/notifications'
-import { pipelineMessages } from '@/src/notifications/messages'
+import { pipelineMessages, metricsMessages, dlqMessages } from '@/src/notifications/messages'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -49,6 +52,10 @@ function PipelineDetailsHeader({
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
   const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false)
+  const [showFlushDLQModal, setShowFlushDLQModal] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 })
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
 
   // Get store to check for unsaved changes
@@ -157,7 +164,7 @@ function PipelineDetailsHeader({
               deduplicationStore,
             })
 
-            // Send edit request to backend
+            // Send edit request to backend (backend will automatically resume after edit)
             const editResult = await executeAction('edit', apiConfig)
 
             // Mark as clean after successful edit
@@ -179,7 +186,8 @@ function PipelineDetailsHeader({
         }
 
         // Execute the action and wait for result
-        const result = await executeAction(action)
+        // IMPORTANT: Skip resume action if we already did edit (backend auto-resumes after edit)
+        const result = !didEditBeforeResume ? await executeAction(action) : undefined
 
         // CRITICAL: If we just edited and resumed, we need to:
         // 1. Fetch the fresh pipeline config from backend
@@ -249,19 +257,25 @@ function PipelineDetailsHeader({
     await proceedWithDownload()
   }
 
-  const handleFlushDataClick = async () => {
+  const handleFlushDataClick = () => {
+    // Show confirmation modal first
+    setShowFlushDLQModal(true)
+  }
+
+  const handleFlushDLQConfirm = async () => {
+    setShowFlushDLQModal(false)
     try {
       await purgePipelineDLQ(pipeline.pipeline_id)
+      // Show success notification
+      notify(dlqMessages.purgeSuccess())
     } catch (error) {
-      notify({
-        variant: 'error',
-        title: 'Failed to purge error queue.',
-        description: 'The error queue could not be cleared.',
-        action: { label: 'Try again', onClick: handleFlushDataClick },
-        reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
-        channel: 'toast',
-      })
+      // Show error notification
+      notify(dlqMessages.purgeFailed(handleFlushDataClick))
     }
+  }
+
+  const handleFlushDLQCancel = () => {
+    setShowFlushDLQModal(false)
   }
 
   const proceedWithDownload = async () => {
@@ -335,6 +349,84 @@ function PipelineDetailsHeader({
     setActiveModal(null)
     clearError()
   }
+
+  const handleMenuButtonClick = () => {
+    if (menuButtonRef.current && !isMenuOpen) {
+      const rect = menuButtonRef.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.bottom + window.scrollY + 4, // 4px gap (mt-1)
+        right: window.innerWidth - rect.right + window.scrollX,
+      })
+    }
+    setIsMenuOpen(!isMenuOpen)
+  }
+
+  const handleMenuBackdropClick = () => {
+    setIsMenuOpen(false)
+  }
+
+  const handleMenuItemClick = (action: () => void) => {
+    action()
+    setIsMenuOpen(false)
+  }
+
+  // Close menu on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (isMenuOpen) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [isMenuOpen])
+
+  // Show notification when health error occurs
+  useEffect(() => {
+    if (healthError) {
+      notify(metricsMessages.fetchHealthFailed())
+    }
+  }, [healthError])
+
+  // Show notification when action error occurs
+  useEffect(() => {
+    if (actionState.error && actionState.lastAction) {
+      const action = actionState.lastAction
+      const pipelineName = pipeline.name
+
+      switch (action) {
+        case 'resume':
+          notify(pipelineMessages.resumeFailed(pipelineName))
+          break
+        case 'stop':
+          notify(pipelineMessages.stopFailed(pipelineName))
+          break
+        case 'terminate':
+          notify(pipelineMessages.terminateFailed(pipelineName))
+          break
+        case 'delete':
+          notify(pipelineMessages.deleteFailed(pipelineName))
+          break
+        case 'rename':
+          notify(pipelineMessages.renameFailed())
+          break
+        case 'edit':
+          notify(pipelineMessages.fetchFailed())
+          break
+        default:
+          notify({
+            variant: 'error',
+            title: 'Action failed.',
+            description: actionState.error,
+            reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
+            channel: 'toast',
+          })
+      }
+      // Clear error after showing notification
+      clearError()
+    }
+  }, [actionState.error, actionState.lastAction, pipeline.name, clearError])
 
   const handleCopyPipelineId = async () => {
     try {
@@ -455,6 +547,12 @@ function PipelineDetailsHeader({
     const config = getActionConfiguration(action)
     const buttonText = getButtonText(action)
     const disabled = isActionDisabled(action)
+    const demoMode = isDemoMode()
+
+    // Disable pipeline control actions in demo mode (except download and rename)
+    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete'].includes(action)
+    const finalDisabled = disabled || isDemoDisabled
+    const finalTitle = isDemoDisabled ? 'Action disabled in demo mode' : config.disabledReason
 
     // Use regular Button for more flexibility with loading states and disabled state
     return (
@@ -462,23 +560,23 @@ function PipelineDetailsHeader({
         key={action}
         variant="outline"
         onClick={() => handleActionClick(action)}
-        disabled={disabled}
-        className={`group ${action === 'resume' ? 'btn-primary' : 'btn-action'}`}
-        title={config.disabledReason}
+        disabled={finalDisabled}
+        className={`group ${action === 'resume' ? 'btn-primary' : 'btn-action'} !px-3 !py-1.5 h-auto text-sm`}
+        title={finalTitle}
       >
         {actionState.isLoading && actionState.lastAction === action ? (
-          <span className="flex items-center gap-3">
-            <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
+          <span className="flex items-center gap-2">
+            <Image src={Loader} alt="Loading" width={14} height={14} className="animate-spin" />
             Loading...
           </span>
         ) : (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {action === 'resume' && (
               <Image
                 src={PlayIcon}
                 alt="Start"
-                width={16}
-                height={16}
+                width={14}
+                height={14}
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
@@ -486,8 +584,8 @@ function PipelineDetailsHeader({
               <Image
                 src={StopWhiteIcon}
                 alt="Stop"
-                width={16}
-                height={16}
+                width={14}
+                height={14}
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
@@ -495,8 +593,8 @@ function PipelineDetailsHeader({
               <Image
                 src={RenameIcon}
                 alt="Rename"
-                width={16}
-                height={16}
+                width={14}
+                height={14}
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
@@ -504,8 +602,8 @@ function PipelineDetailsHeader({
               <Image
                 src={CloseIcon}
                 alt="Terminate"
-                width={16}
-                height={16}
+                width={14}
+                height={14}
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
@@ -513,8 +611,8 @@ function PipelineDetailsHeader({
               <Image
                 src={DeleteIcon}
                 alt="Delete"
-                width={16}
-                height={16}
+                width={14}
+                height={14}
                 className="filter brightness-100 group-hover:brightness-0"
               />
             )}
@@ -522,14 +620,59 @@ function PipelineDetailsHeader({
               <Image
                 src={EditIcon}
                 alt="Edit"
-                width={16}
-                height={16}
+                width={14}
+                height={14}
                 className="filter brightness-0 group-hover:brightness-0"
               />
             )}
             {buttonText}
           </div>
         )}
+      </Button>
+    )
+  }
+
+  const renderMenuButton = (action: PipelineAction, label: string, icon: any) => {
+    const config = getActionConfiguration(action)
+    const disabled = isActionDisabled(action)
+    const demoMode = isDemoMode()
+
+    // Disable pipeline control actions in demo mode (except download and rename)
+    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete'].includes(action)
+    const finalDisabled = disabled || isDemoDisabled
+
+    // Determine if this is a destructive action
+    const isDestructive = action === 'terminate' || action === 'delete'
+
+    return (
+      <Button
+        key={action}
+        variant="ghost"
+        className={cn(
+          'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+          finalDisabled
+            ? 'text-muted-foreground cursor-not-allowed opacity-50'
+            : isDestructive
+              ? 'text-destructive hover:bg-[var(--color-background-neutral-faded)]'
+              : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+        )}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (!finalDisabled) {
+            handleMenuItemClick(() => handleActionClick(action))
+          }
+        }}
+        disabled={finalDisabled}
+        title={isDemoDisabled ? 'Action disabled in demo mode' : config.disabledReason}
+      >
+        <Image
+          src={icon}
+          alt={label}
+          width={16}
+          height={16}
+          className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+        />
+        <span className="truncate">{label}</span>
       </Button>
     )
   }
@@ -548,62 +691,177 @@ function PipelineDetailsHeader({
     const renameConfig = getActionConfiguration('rename')
     const showRename = !renameConfig.isDisabled
 
+    // Collect all menu items
+    const menuItems = []
+    if (showResume) menuItems.push({ action: 'resume' as PipelineAction, label: 'Resume pipeline' })
+    if (showRename) menuItems.push({ action: 'rename' as PipelineAction, label: 'Rename pipeline' })
+    if (showTerminate) menuItems.push({ action: 'terminate' as PipelineAction, label: 'Terminate pipeline' })
+    if (showDelete) menuItems.push({ action: 'delete' as PipelineAction, label: 'Delete pipeline' })
+    if (showStop) menuItems.push({ action: 'stop' as PipelineAction, label: 'Stop pipeline' })
+
     return (
       <>
-        {showResume && renderActionButton('resume')}
-        {showRename && renderActionButton('rename')}
-        {showTerminate && renderActionButton('terminate')}
-        {showDelete && renderActionButton('delete')}
-        {showStop && renderActionButton('stop')}
-        {/* Edit button disabled - functionality not implemented yet */}
-        {/* {renderActionButton('edit')} */}
+        {/* Desktop: Show primary action inline, others in menu on medium screens */}
+        {/* Mobile: Show only most important actions inline */}
 
-        <Button
-          key="download"
-          variant="outline"
-          onClick={() => handleDownloadClick()}
-          disabled={false}
-          className={`group btn-action relative`}
-          title={
-            coreStore.isDirty ? 'Unsaved changes will not be included in downloaded config' : 'Download configuration'
-          }
-        >
-          <div className="flex items-center gap-3">
-            <Image
-              src={DownloadIcon}
-              alt="Download"
-              width={16}
-              height={16}
-              className="filter brightness-100 group-hover:brightness-0"
-            />
-            {coreStore.isDirty && (
-              <Badge variant="warning" className="ml-1 px-1.5 py-0.5 text-[10px] leading-none" title="Unsaved changes">
-                ⚠️
-              </Badge>
-            )}
-          </div>
-          Download config
-        </Button>
+        {/* Always visible primary actions */}
+        <div className="hidden xl:flex xl:flex-row xl:gap-2">
+          {showResume && renderActionButton('resume')}
+          {showStop && renderActionButton('stop')}
+          {showRename && renderActionButton('rename')}
+          {showTerminate && renderActionButton('terminate')}
+          {showDelete && renderActionButton('delete')}
 
-        <Button
-          key="flush-dlq"
-          variant="outline"
-          onClick={() => handleFlushDataClick()}
-          disabled={false}
-          className={`group btn-action relative`}
-          title={'Flush DLQ'}
-        >
-          <div className="flex items-center gap-3">
-            <Image
-              src={DeleteIcon}
-              alt="Download"
-              width={16}
-              height={16}
-              className="filter brightness-100 group-hover:brightness-0"
-            />
+          <Button
+            key="download"
+            variant="outline"
+            onClick={() => handleDownloadClick()}
+            disabled={false}
+            className={`group btn-action relative !px-3 !py-1.5 h-auto text-sm`}
+            title={
+              coreStore.isDirty ? 'Unsaved changes will not be included in downloaded config' : 'Download configuration'
+            }
+          >
+            <div className="flex items-center gap-2">
+              <Image
+                src={DownloadIcon}
+                alt="Download"
+                width={14}
+                height={14}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+              {coreStore.isDirty && (
+                <Badge
+                  variant="warning"
+                  className="ml-1 px-1.5 py-0.5 text-[10px] leading-none"
+                  title="Unsaved changes"
+                >
+                  ⚠️
+                </Badge>
+              )}
+            </div>
+            Download config
+          </Button>
+
+          <Button
+            key="flush-dlq"
+            variant="outline"
+            onClick={() => handleFlushDataClick()}
+            disabled={false}
+            className={`group btn-action relative !px-3 !py-1.5 h-auto text-sm`}
+            title={'Flush DLQ'}
+          >
+            <div className="flex items-center gap-2">
+              <Image
+                src={DeleteIcon}
+                alt="Download"
+                width={14}
+                height={14}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+            </div>
+            Flush DLQ
+          </Button>
+        </div>
+
+        {/* Tablet/Mobile: Show most critical actions + More menu */}
+        <div className="flex xl:hidden flex-row gap-2">
+          {/* Show primary action inline */}
+          {showResume && renderActionButton('resume')}
+          {showStop && renderActionButton('stop')}
+
+          {/* More menu for remaining actions */}
+          <div className="relative">
+            <Button
+              ref={menuButtonRef}
+              variant="ghost"
+              size="sm"
+              className={cn('h-8 w-8 p-0 hover:bg-muted')}
+              onClick={handleMenuButtonClick}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+
+            {isMenuOpen &&
+              typeof document !== 'undefined' &&
+              createPortal(
+                <>
+                  {/* Backdrop to close menu when clicking outside */}
+                  <div className="fixed inset-0 z-[100]" onClick={handleMenuBackdropClick} />
+
+                  {/* Menu dropdown - using fixed positioning */}
+                  <div
+                    className="fixed z-[110] w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+                    style={{
+                      top: `${menuPosition.top}px`,
+                      right: `${menuPosition.right}px`,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
+                    {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
+                    {showDelete && renderMenuButton('delete', 'Delete', DeleteIcon)}
+
+                    {/* Download Button */}
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                        'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMenuItemClick(() => handleDownloadClick())
+                      }}
+                      title={
+                        coreStore.isDirty
+                          ? 'Unsaved changes will not be included in downloaded config'
+                          : 'Download configuration'
+                      }
+                    >
+                      <Image
+                        src={DownloadIcon}
+                        alt="Download"
+                        width={16}
+                        height={16}
+                        className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                      />
+                      <span className="truncate">Download config</span>
+                      {coreStore.isDirty && (
+                        <Badge variant="warning" className="ml-auto px-1.5 py-0.5 text-[10px] leading-none">
+                          ⚠️
+                        </Badge>
+                      )}
+                    </Button>
+
+                    {/* Flush DLQ Button */}
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                        'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMenuItemClick(() => handleFlushDataClick())
+                      }}
+                      title="Flush DLQ"
+                    >
+                      <Image
+                        src={DeleteIcon}
+                        alt="Flush"
+                        width={16}
+                        height={16}
+                        className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                      />
+                      <span className="truncate">Flush DLQ</span>
+                    </Button>
+                  </div>
+                </>,
+                document.body,
+              )}
           </div>
-          Flush DLQ
-        </Button>
+        </div>
       </>
     )
   }
@@ -642,16 +900,6 @@ function PipelineDetailsHeader({
                 lastAction={actionState.lastAction}, health={health?.overall_status || 'none'}, recentAction=
                 {recentActionRef.current?.action || 'none'}
               </div> */}
-              {healthError && (
-                <Badge variant="destructive" className="ml-2">
-                  Health Error
-                </Badge>
-              )}
-              {actionState.error && (
-                <Badge variant="destructive" className="ml-2">
-                  {actionState.error}
-                </Badge>
-              )}
             </div>
             <div className="flex flex-row flex-end gap-2">{actions || getActionButtons()}</div>
           </div>
@@ -725,6 +973,9 @@ function PipelineDetailsHeader({
         }}
         onCancel={handleModalCancel}
       />
+
+      {/* Flush DLQ Modal */}
+      <FlushDLQModal visible={showFlushDLQModal} onOk={handleFlushDLQConfirm} onCancel={handleFlushDLQCancel} />
     </div>
   )
 }

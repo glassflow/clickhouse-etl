@@ -416,9 +416,9 @@ export function KafkaConnectionContainer({
         pipelineActionState={pipelineActionState}
         onClose={onCompleteStandaloneEditing}
       />
-      {connectionResult && !clearErrorMessage && (
+      {/* {connectionResult && !clearErrorMessage && (
         <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />
-      )}
+      )} */}
     </>
   )
 }
