@@ -184,13 +184,13 @@ export function ClickhouseConnectionContainer({
         onClose={onCompleteStandaloneEditing}
       />
 
-      {connectionStatus === 'success' && !clearErrorMessage && (
+      {/* {connectionStatus === 'success' && !clearErrorMessage && (
         <ActionStatusMessage message="Successfully connected to ClickHouse!" success={true} />
       )}
 
       {connectionStatus === 'error' && !clearErrorMessage && (
         <ActionStatusMessage message={connectionError || 'Connection failed'} success={false} />
-      )}
+      )} */}
     </>
   )
 }

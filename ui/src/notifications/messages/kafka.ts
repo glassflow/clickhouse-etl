@@ -11,7 +11,7 @@ export const kafkaMessages = {
     title: 'Failed to connect to Kafka.',
     description: details ? `Unable to connect to ${brokers}. ${details}` : `Unable to connect to ${brokers}.`,
     action: {
-      label: 'Verify broker addresses, network access, and credentials',
+      label: 'Verify Kafka credentials',
       onClick: () => {},
     },
     reportLink: DEFAULT_REPORT_LINK,
