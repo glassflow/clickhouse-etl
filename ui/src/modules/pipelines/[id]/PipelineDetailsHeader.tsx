@@ -9,6 +9,7 @@ import TerminatePipelineModal from '@/src/modules/pipelines/components/Terminate
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
 import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
+import FlushDLQModal from '@/src/modules/pipelines/components/FlushDLQModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
@@ -30,7 +31,7 @@ import { isDemoMode } from '@/src/utils/common.client'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
 import { notify } from '@/src/notifications'
-import { pipelineMessages, metricsMessages } from '@/src/notifications/messages'
+import { pipelineMessages, metricsMessages, dlqMessages } from '@/src/notifications/messages'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -50,6 +51,7 @@ function PipelineDetailsHeader({
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
   const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false)
+  const [showFlushDLQModal, setShowFlushDLQModal] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
 
@@ -252,19 +254,25 @@ function PipelineDetailsHeader({
     await proceedWithDownload()
   }
 
-  const handleFlushDataClick = async () => {
+  const handleFlushDataClick = () => {
+    // Show confirmation modal first
+    setShowFlushDLQModal(true)
+  }
+
+  const handleFlushDLQConfirm = async () => {
+    setShowFlushDLQModal(false)
     try {
       await purgePipelineDLQ(pipeline.pipeline_id)
+      // Show success notification
+      notify(dlqMessages.purgeSuccess())
     } catch (error) {
-      notify({
-        variant: 'error',
-        title: 'Failed to purge error queue.',
-        description: 'The error queue could not be cleared.',
-        action: { label: 'Try again', onClick: handleFlushDataClick },
-        reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
-        channel: 'toast',
-      })
+      // Show error notification
+      notify(dlqMessages.purgeFailed(handleFlushDataClick))
     }
+  }
+
+  const handleFlushDLQCancel = () => {
+    setShowFlushDLQModal(false)
   }
 
   const proceedWithDownload = async () => {
@@ -947,6 +955,9 @@ function PipelineDetailsHeader({
         }}
         onCancel={handleModalCancel}
       />
+
+      {/* Flush DLQ Modal */}
+      <FlushDLQModal visible={showFlushDLQModal} onOk={handleFlushDLQConfirm} onCancel={handleFlushDLQCancel} />
     </div>
   )
 }
