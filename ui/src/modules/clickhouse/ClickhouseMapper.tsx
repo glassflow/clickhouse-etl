@@ -245,6 +245,54 @@ export function ClickhouseMapper({
     }
   }, [hasTrackedView, analytics.page])
 
+  // SAFETY NET: Check for missing event data when component mounts or enters edit mode
+  // This ensures ClickHouse mapping has the necessary event data to display fields
+  useEffect(() => {
+    const checkAndRefreshEventData = async () => {
+      // Only check when not in read-only mode (i.e., in edit mode or creation mode)
+      if (readOnly) return
+
+      let needsRefresh = false
+      const topicsToRefresh: number[] = []
+
+      if (mode === 'single') {
+        // Single topic mode: check if the selected topic has event data
+        if (selectedTopic && !selectedEvent?.event) {
+          needsRefresh = true
+          topicsToRefresh.push(index)
+        }
+      } else {
+        // Join/dedup mode: check both primary and secondary topics
+        if (primaryTopic && !primaryTopic.selectedEvent?.event) {
+          needsRefresh = true
+          topicsToRefresh.push(primaryIndex)
+        }
+        if (secondaryTopic && !secondaryTopic.selectedEvent?.event) {
+          needsRefresh = true
+          topicsToRefresh.push(secondaryIndex)
+        }
+      }
+
+      // If event data is missing, trigger section hydration
+      if (needsRefresh) {
+        try {
+          const { coreStore } = useStore.getState()
+          const baseConfig = coreStore.baseConfig
+
+          if (baseConfig) {
+            await coreStore.hydrateSection('topics', baseConfig)
+          } else {
+            console.warn('[ClickhouseMapper] No base config available for re-hydration')
+          }
+        } catch (error) {
+          console.error('[ClickhouseMapper] Failed to re-hydrate topics:', error)
+        }
+      }
+    }
+
+    checkAndRefreshEventData()
+  }, [readOnly, mode, selectedTopic, selectedEvent, primaryTopic, secondaryTopic, index, primaryIndex, secondaryIndex])
+
   // Get connection config based on connection type
   const getConnectionConfig = () => ({
     ...clickhouseConnection.directConnection,
@@ -490,10 +538,10 @@ export function ClickhouseMapper({
   useEffect(() => {
     if (mode !== 'single') return
 
-    if (selectedEvent && topicEvents && topicEvents.length > 0) {
-      // The structure has changed - selectedEvent is now an object with event property
-      // We don't need to search in topicEvents anymore
-      const eventData = selectedEvent?.event
+    // FIX: Check for selectedEvent.event directly, don't require topicEvents array
+    // The topicEvents array might be empty during hydration, but selectedEvent.event can still be populated
+    if (selectedEvent?.event) {
+      const eventData = selectedEvent.event
 
       if (eventData) {
         setEventData(eventData)
@@ -536,7 +584,7 @@ export function ClickhouseMapper({
         console.log('No event data found')
       }
     }
-  }, [selectedEvent, topicEvents, clickhouseDestination, mappedColumns, setClickhouseDestination, mode])
+  }, [selectedEvent?.event, clickhouseDestination, mappedColumns, setClickhouseDestination, mode])
 
   // Load event fields for join/dedup mode
   useEffect(() => {

@@ -309,9 +309,8 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ...requestBody,
-                topicName: topicConfig.name,
-                offset: topicConfig.consumer_group_initial_offset || 'latest',
-                partition: 0,
+                topic: topicConfig.name, // FIX: API expects 'topic', not 'topicName'
+                position: topicConfig.consumer_group_initial_offset || 'latest',
                 format: 'JSON',
               }),
             })
