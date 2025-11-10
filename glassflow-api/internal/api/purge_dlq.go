@@ -50,6 +50,7 @@ func (h *handler) purgeDLQ(ctx context.Context, input *PurgeDLQInput) (*PurgeDLQ
 				Message: "DLQ purge failed",
 				Details: map[string]any{
 					"pipeline_id": input.ID,
+					"error":       err.Error(),
 				},
 			}
 		}
