@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -29,119 +30,6 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
 	GetOrchestratorType() string
 	CleanUpPipelines(ctx context.Context) error
-}
-
-func (h *handler) createPipeline(w http.ResponseWriter, r *http.Request) {
-	req, err := parseRequest[pipelineJSON](w, r)
-	if err != nil {
-		var jsonErr invalidJSONError
-		switch {
-		case errors.As(err, &jsonErr):
-			jsonError(w, http.StatusBadRequest, err.Error(), nil)
-		default:
-			h.log.ErrorContext(r.Context(), "failed to read create pipeline request", "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	pipeline, err := req.toModel(r.Context(), h.log)
-	if err != nil {
-		h.log.ErrorContext(r.Context(), "failed to convert request to pipeline model", "error", err)
-		jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
-		return
-	}
-
-	err = h.pipelineService.CreatePipeline(r.Context(), &pipeline)
-	if err != nil {
-		var pErr models.PipelineConfigError
-		switch {
-		case errors.Is(err, service.ErrPipelineQuotaReached), errors.Is(err, service.ErrIDExists):
-			h.log.ErrorContext(r.Context(), "pipeline creation failed, only single pipeline in docker allowed", "pipeline_id", pipeline.ID, "error", err)
-			jsonError(w, http.StatusForbidden, err.Error(), map[string]string{"pipeline_id": pipeline.ID})
-		case errors.As(err, &pErr):
-			h.log.ErrorContext(r.Context(), "pipeline creation failed due to configuration error", "pipeline_id", pipeline.ID, "error", err)
-			jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
-
-		default:
-			h.log.ErrorContext(r.Context(), "failed to setup pipeline", "error", err)
-			serverError(w)
-		}
-	}
-}
-
-func (h *handler) stopPipeline(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-	if !ok {
-		h.log.ErrorContext(r.Context(), "Cannot get id param")
-		serverError(w)
-	}
-
-	if len(strings.TrimSpace(id)) == 0 {
-		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
-		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
-		return
-	}
-
-	err := h.pipelineService.StopPipeline(r.Context(), id)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			h.log.ErrorContext(r.Context(), "pipeline not found for stop", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotFound, "no active pipeline with given id to stop", nil)
-		case errors.Is(err, service.ErrNotImplemented):
-			h.log.ErrorContext(r.Context(), "stop pipeline feature not implemented", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
-		default:
-			// Check if it's a status validation error
-			if statusErr, ok := status.GetStatusValidationError(err); ok {
-				jsonStatusValidationError(w, statusErr)
-				return
-			}
-			serverError(w)
-		}
-		return
-	}
-
-	h.log.InfoContext(r.Context(), "pipeline stop")
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *handler) terminatePipeline(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-	if !ok {
-		h.log.ErrorContext(r.Context(), "Cannot get id param")
-		serverError(w)
-	}
-
-	if len(strings.TrimSpace(id)) == 0 {
-		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
-		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
-		return
-	}
-
-	err := h.pipelineService.TerminatePipeline(r.Context(), id)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			jsonError(w, http.StatusNotFound, "no active pipeline with given id to terminate", nil)
-		case errors.Is(err, service.ErrNotImplemented):
-			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
-		default:
-			// Check if it's a status validation error
-			if statusErr, ok := status.GetStatusValidationError(err); ok {
-				jsonStatusValidationError(w, statusErr)
-				return
-			}
-			serverError(w)
-		}
-		return
-	}
-
-	h.log.InfoContext(r.Context(), "pipeline terminated")
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
@@ -384,13 +272,18 @@ type pipelineJSON struct {
 		Enabled bool   `json:"enabled"`
 
 		Sources []joinSource `json:"sources"`
-	} `json:"join"`
+	} `json:"join,omitempty"`
 	Filter struct {
 		Enabled    bool   `json:"enabled"`
 		Expression string `json:"expression"`
-	} `json:"filter"`
+	} `json:"filter,omitempty"`
 
 	Sink clickhouseSink `json:"sink"`
+
+	// Metadata fields (ignored, for backwards compatibility with exported configs)
+	Version    string `json:"version,omitempty"`
+	ExportedAt string `json:"exported_at,omitempty"`
+	ExportedBy string `json:"exported_by,omitempty"`
 }
 
 type sourceConnectionParams struct {
@@ -400,11 +293,11 @@ type sourceConnectionParams struct {
 	SASLMechanism       string   `json:"mechanism"`
 	SASLUsername        string   `json:"username"`
 	SASLPassword        string   `json:"password"`
-	TLSRoot             string   `json:"root_ca"`
-	KerberosServiceName string   `json:"kerberos_service_name"`
-	KerberosRealm       string   `json:"kerberos_realm"`
-	KerberosKeytab      string   `json:"kerberos_keytab"`
-	KerberosConfig      string   `json:"kerberos_config"`
+	TLSRoot             string   `json:"root_ca,omitempty"`
+	KerberosServiceName string   `json:"kerberos_service_name,omitempty"`
+	KerberosRealm       string   `json:"kerberos_realm,omitempty"`
+	KerberosKeytab      string   `json:"kerberos_keytab,omitempty"`
+	KerberosConfig      string   `json:"kerberos_config,omitempty"`
 }
 
 type kafkaTopic struct {
@@ -413,7 +306,7 @@ type kafkaTopic struct {
 	Schema                     topicSchema      `json:"schema"`
 	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset" default:"earliest"`
 	Replicas                   int              `json:"replicas" default:"1"`
-	Deduplication              topicDedupConfig `json:"deduplication"`
+	Deduplication              topicDedupConfig `json:"deduplication,omitempty"`
 }
 
 type topicSchema struct {
@@ -429,15 +322,15 @@ type topicSchemaField struct {
 type topicDedupConfig struct {
 	Enabled bool `json:"enabled"`
 
-	ID     string              `json:"id_field"`
-	Type   string              `json:"id_field_type"`
-	Window models.JSONDuration `json:"time_window"`
+	ID     string              `json:"id_field,omitempty"`
+	Type   string              `json:"id_field_type,omitempty"`
+	Window models.JSONDuration `json:"time_window,omitempty" format:"duration" example:"5m"`
 }
 
 type joinSource struct {
 	SourceID    string              `json:"source_id"`
 	JoinKey     string              `json:"join_key"`
-	Window      models.JSONDuration `json:"time_window"`
+	Window      models.JSONDuration `json:"time_window" format:"duration" example:"5m"`
 	Orientation string              `json:"orientation"`
 }
 
@@ -456,7 +349,7 @@ type clickhouseSink struct {
 
 	// Add validation for range
 	MaxBatchSize                int                 `json:"max_batch_size"`
-	MaxDelayTime                models.JSONDuration `json:"max_delay_time" default:"60s"`
+	MaxDelayTime                models.JSONDuration `json:"max_delay_time" format:"duration" doc:"Maximum delay time for batching (e.g., 60s, 1m, 5m)" example:"1m"`
 	SkipCertificateVerification bool                `json:"skip_certificate_verification"`
 }
 
@@ -558,6 +451,11 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 		}
 	}
 
+	maxDelayTime := p.Sink.MaxDelayTime
+	if maxDelayTime.Duration() == 0 {
+		maxDelayTime = *models.NewJSONDuration(60 * time.Second)
+	}
+
 	sc, err = models.NewClickhouseSinkComponent(models.ClickhouseSinkArgs{
 		Host:                 p.Sink.Host,
 		Port:                 p.Sink.Port,
@@ -569,7 +467,7 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 		Secure:               p.Sink.Secure,
 		StreamID:             sinkStreamID,
 		MaxBatchSize:         p.Sink.MaxBatchSize,
-		MaxDelayTime:         p.Sink.MaxDelayTime,
+		MaxDelayTime:         maxDelayTime,
 		SkipCertificateCheck: p.Sink.SkipCertificateVerification,
 	})
 	if err != nil {

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
@@ -57,11 +59,11 @@ type KafkaConnectionParamsConfig struct {
 	SASLTLSEnable bool     `json:"sasl_tls_enable"`
 	SASLProtocol  string   `json:"protocol"`
 	SASLMechanism string   `json:"mechanism"`
-	SASLUsername  string   `json:"username"`
-	SASLPassword  string   `json:"password"`
-	TLSRoot       string   `json:"root_ca"`
-	TLSCert       string   `json:"tls_cert"`
-	TLSKey        string   `json:"tls_key"`
+	SASLUsername  string   `json:"username,omitempty"`
+	SASLPassword  string   `json:"password,omitempty"`
+	TLSRoot       string   `json:"root_ca,omitempty"`
+	TLSCert       string   `json:"tls_cert,omitempty"`
+	TLSKey        string   `json:"tls_key,omitempty"`
 
 	KerberosServiceName string `json:"kerberos_service_name,omitempty"`
 	KerberosRealm       string `json:"kerberos_realm,omitempty"`
@@ -77,10 +79,10 @@ func (o ConsumerGroupOffset) String() string {
 
 type DeduplicationConfig struct {
 	Enabled bool   `json:"enabled"`
-	ID      string `json:"id_field"`
-	Type    string `json:"id_field_type"`
+	ID      string `json:"id_field,omitempty"`
+	Type    string `json:"id_field_type,omitempty"`
 
-	Window JSONDuration `json:"time_window"`
+	Window JSONDuration `json:"time_window,omitempty"`
 }
 
 type KafkaTopicsConfig struct {
@@ -90,7 +92,7 @@ type KafkaTopicsConfig struct {
 	ConsumerGroupName          string `json:"consumer_group_name"`
 	Replicas                   int    `json:"replicas" default:"1"`
 
-	Deduplication       DeduplicationConfig `json:"deduplication"`
+	Deduplication       DeduplicationConfig `json:"deduplication,omitempty"`
 	OutputStreamID      string              `json:"output_stream_id"`
 	OutputStreamSubject string              `json:"output_stream_subject"`
 }
@@ -298,7 +300,7 @@ type ClickhouseQueryConfig struct {
 
 type BatchConfig struct {
 	MaxBatchSize int          `json:"max_batch_size"`
-	MaxDelayTime JSONDuration `json:"max_delay_time" default:"60s"`
+	MaxDelayTime JSONDuration `json:"max_delay_time"`
 }
 
 type SinkComponentConfig struct {
@@ -359,12 +361,17 @@ func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConf
 		return zero, PipelineConfigError{Msg: "stream_id cannot be empty"}
 	}
 
+	maxDelayTime := args.MaxDelayTime
+	if maxDelayTime.Duration() == 0 {
+		maxDelayTime = JSONDuration{t: 60 * time.Second}
+	}
+
 	return SinkComponentConfig{
 		Type:     internal.ClickHouseSinkType,
 		StreamID: args.StreamID,
 		Batch: BatchConfig{
 			MaxBatchSize: args.MaxBatchSize,
-			MaxDelayTime: args.MaxDelayTime,
+			MaxDelayTime: maxDelayTime,
 		},
 		ClickHouseConnectionParams: ClickHouseConnectionParamsConfig{
 			Host:                 args.Host,
@@ -525,6 +532,15 @@ func (d *JSONDuration) UnmarshalJSON(b []byte) error {
 func (d JSONDuration) MarshalJSON() ([]byte, error) {
 	//nolint: wrapcheck // no more error context needed
 	return json.Marshal(d.String())
+}
+
+// Schema implements huma.SchemaProvider to tell Huma that this type should be represented as a string
+func (d JSONDuration) Schema(r huma.Registry) *huma.Schema {
+	return &huma.Schema{
+		Type:        "string",
+		Format:      "duration",
+		Description: "Duration in Go format (e.g., '5m', '1h30m', '24h'). Supports 'd' for days.",
+	}
 }
 
 func (d JSONDuration) String() string {
