@@ -159,7 +159,7 @@ function PipelineDetailsHeader({
               deduplicationStore,
             })
 
-            // Send edit request to backend
+            // Send edit request to backend (backend will automatically resume after edit)
             const editResult = await executeAction('edit', apiConfig)
 
             // Mark as clean after successful edit
@@ -181,7 +181,8 @@ function PipelineDetailsHeader({
         }
 
         // Execute the action and wait for result
-        const result = await executeAction(action)
+        // IMPORTANT: Skip resume action if we already did edit (backend auto-resumes after edit)
+        const result = !didEditBeforeResume ? await executeAction(action) : undefined
 
         // CRITICAL: If we just edited and resumed, we need to:
         // 1. Fetch the fresh pipeline config from backend
