@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
@@ -53,6 +54,8 @@ function PipelineDetailsHeader({
   const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false)
   const [showFlushDLQModal, setShowFlushDLQModal] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 })
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
 
   // Get store to check for unsaved changes
@@ -348,6 +351,13 @@ function PipelineDetailsHeader({
   }
 
   const handleMenuButtonClick = () => {
+    if (menuButtonRef.current && !isMenuOpen) {
+      const rect = menuButtonRef.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.bottom + window.scrollY + 4, // 4px gap (mt-1)
+        right: window.innerWidth - rect.right + window.scrollX,
+      })
+    }
     setIsMenuOpen(!isMenuOpen)
   }
 
@@ -763,6 +773,7 @@ function PipelineDetailsHeader({
           {/* More menu for remaining actions */}
           <div className="relative">
             <Button
+              ref={menuButtonRef}
               variant="ghost"
               size="sm"
               className={cn('h-8 w-8 p-0 hover:bg-muted')}
@@ -771,77 +782,84 @@ function PipelineDetailsHeader({
               <MoreVertical className="h-4 w-4" />
             </Button>
 
-            {isMenuOpen && (
-              <>
-                {/* Backdrop to close menu when clicking outside */}
-                <div className="fixed inset-0 z-10" onClick={handleMenuBackdropClick} />
+            {isMenuOpen &&
+              typeof document !== 'undefined' &&
+              createPortal(
+                <>
+                  {/* Backdrop to close menu when clicking outside */}
+                  <div className="fixed inset-0 z-[100]" onClick={handleMenuBackdropClick} />
 
-                {/* Menu dropdown */}
-                <div
-                  className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
-                  {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
-                  {showDelete && renderMenuButton('delete', 'Delete', DeleteIcon)}
-
-                  {/* Download Button */}
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
-                      'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleMenuItemClick(() => handleDownloadClick())
+                  {/* Menu dropdown - using fixed positioning */}
+                  <div
+                    className="fixed z-[110] w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+                    style={{
+                      top: `${menuPosition.top}px`,
+                      right: `${menuPosition.right}px`,
                     }}
-                    title={
-                      coreStore.isDirty
-                        ? 'Unsaved changes will not be included in downloaded config'
-                        : 'Download configuration'
-                    }
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Image
-                      src={DownloadIcon}
-                      alt="Download"
-                      width={16}
-                      height={16}
-                      className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-                    />
-                    <span className="truncate">Download config</span>
-                    {coreStore.isDirty && (
-                      <Badge variant="warning" className="ml-auto px-1.5 py-0.5 text-[10px] leading-none">
-                        ⚠️
-                      </Badge>
-                    )}
-                  </Button>
+                    {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
+                    {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
+                    {showDelete && renderMenuButton('delete', 'Delete', DeleteIcon)}
 
-                  {/* Flush DLQ Button */}
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
-                      'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleMenuItemClick(() => handleFlushDataClick())
-                    }}
-                    title="Flush DLQ"
-                  >
-                    <Image
-                      src={DeleteIcon}
-                      alt="Flush"
-                      width={16}
-                      height={16}
-                      className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-                    />
-                    <span className="truncate">Flush DLQ</span>
-                  </Button>
-                </div>
-              </>
-            )}
+                    {/* Download Button */}
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                        'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMenuItemClick(() => handleDownloadClick())
+                      }}
+                      title={
+                        coreStore.isDirty
+                          ? 'Unsaved changes will not be included in downloaded config'
+                          : 'Download configuration'
+                      }
+                    >
+                      <Image
+                        src={DownloadIcon}
+                        alt="Download"
+                        width={16}
+                        height={16}
+                        className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                      />
+                      <span className="truncate">Download config</span>
+                      {coreStore.isDirty && (
+                        <Badge variant="warning" className="ml-auto px-1.5 py-0.5 text-[10px] leading-none">
+                          ⚠️
+                        </Badge>
+                      )}
+                    </Button>
+
+                    {/* Flush DLQ Button */}
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                        'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMenuItemClick(() => handleFlushDataClick())
+                      }}
+                      title="Flush DLQ"
+                    >
+                      <Image
+                        src={DeleteIcon}
+                        alt="Flush"
+                        width={16}
+                        height={16}
+                        className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                      />
+                      <span className="truncate">Flush DLQ</span>
+                    </Button>
+                  </div>
+                </>,
+                document.body,
+              )}
           </div>
         </div>
       </>
