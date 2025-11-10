@@ -80,9 +80,9 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
       if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
         // Create a cache key that includes the pipeline configuration to detect changes
-        // This ensures re-hydration when the pipeline is edited
+        // This ensures re-hydration when the pipeline is edited or status changes
         const topicNames = pipeline.source?.topics?.map((t: any) => t.name).join(',') || ''
-        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}-${topicNames}`
+        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}-${pipeline.status}-${topicNames}`
         const lastHydratedKey = sessionStorage.getItem('lastHydratedPipeline')
 
         // CRITICAL: Check if cache says we're hydrated, but also verify stores actually have data
@@ -93,7 +93,18 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           const hasTopics = topicsStore.topics && Object.keys(topicsStore.topics).length > 0
 
           if (hasTopics) {
-            return
+            // ENHANCED VALIDATION: Also verify that topics have event data
+            // Without event data, ClickHouse mapping won't have fields to display
+            const topicsHaveEventData = Object.values(topicsStore.topics).every(
+              (topic: any) => topic?.selectedEvent?.event !== undefined,
+            )
+
+            if (topicsHaveEventData) {
+              return
+            } else {
+              sessionStorage.removeItem('lastHydratedPipeline')
+              // Continue with hydration
+            }
           } else {
             // Clear the stale cache and proceed with hydration
             sessionStorage.removeItem('lastHydratedPipeline')

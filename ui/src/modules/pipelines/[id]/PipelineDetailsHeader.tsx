@@ -207,12 +207,17 @@ function PipelineDetailsHeader({
             topicsStore: currentTopicsStore,
             deduplicationStore: currentDeduplicationStore,
             joinStore: currentJoinStore,
+            coreStore: currentCoreStore,
           } = useStore.getState()
 
           // Reset all stores that depend on pipeline configuration
           currentTopicsStore.resetTopicsStore()
           currentDeduplicationStore.resetDeduplicationStore()
           currentJoinStore.resetJoinStore()
+
+          // CRITICAL: Reset mode to 'view' to allow re-hydration on next edit
+          // Without this, the mode stays 'edit' and blocks hydration in PipelineDetailsModule
+          currentCoreStore.setMode('view')
 
           // Update the local pipeline state with the fresh configuration
           // This will trigger re-hydration in PipelineDetailsModule
