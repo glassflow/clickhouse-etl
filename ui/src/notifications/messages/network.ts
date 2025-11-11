@@ -12,6 +12,7 @@ export const networkMessages = {
     description: 'The API is unreachable.',
     action: retryFn ? { label: 'Check your connection', onClick: retryFn } : refreshAction,
     reportLink: DEFAULT_REPORT_LINK,
+    documentationLink: 'https://docs.glassflow.dev/usage-guide/web-ui#troubleshooting',
     channel: 'banner', // Important enough for banner
   }),
 

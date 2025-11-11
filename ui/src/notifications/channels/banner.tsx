@@ -11,7 +11,7 @@ interface BannerProps {
 }
 
 export function Banner({ options, onDismiss }: BannerProps) {
-  const { title, description, action, reportLink } = options
+  const { title, description, action, reportLink, documentationLink } = options
 
   return (
     <div className="flex flex-col min-w-[320px] max-w-[500px] bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md shadow-lg">
@@ -28,7 +28,7 @@ export function Banner({ options, onDismiss }: BannerProps) {
       </div>
 
       {/* Content section with borders */}
-      {(description || action || reportLink) && (
+      {(description || action || reportLink || documentationLink) && (
         <div className="px-4 pb-4 border-[var(--color-border-neutral)]">
           {/* Description */}
           {description && (
@@ -43,6 +43,22 @@ export function Banner({ options, onDismiss }: BannerProps) {
           {action && (
             <div className="text-sm pt-2">
               <strong>What to do:</strong> {action.label}
+            </div>
+          )}
+
+          {/* Documentation link section */}
+          {documentationLink && (
+            <div className="text-sm text-muted-foreground pt-2">
+              For more information, please see the{' '}
+              <a
+                href={documentationLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:no-underline text-[var(--color-foreground-primary)]"
+              >
+                documentation
+              </a>
+              .
             </div>
           )}
 

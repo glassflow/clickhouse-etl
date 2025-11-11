@@ -13,6 +13,7 @@ export interface NotificationOptions {
   description?: string
   action?: NotificationAction
   reportLink?: string
+  documentationLink?: string
   channel?: NotificationChannel
   duration?: number // For toast only (in milliseconds)
   persistent?: boolean // For banner/modal - prevents auto-dismiss
