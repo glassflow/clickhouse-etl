@@ -1,0 +1,148 @@
+---
+title: Release Notes v2.4.0
+sidebarTitle: v2.4.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.4.0.
+---
+
+# Release Notes v2.4.0
+
+Version 2.4.0 (combined with v2.3.0) introduces powerful pipeline editing capabilities, enterprise-grade Kafka authentication, and significant performance improvements. This release focuses on making GlassFlow more flexible, secure, and efficient for production workloads.
+
+## What's New
+
+### ✏️ Pipeline Editing
+
+GlassFlow now supports **full pipeline editing** capabilities, allowing you to modify existing pipelines without recreating them from scratch. The editing functionality was introduced in v2.3.0 and significantly enhanced in v2.4.0.
+
+Editing a pipeline will stop the pipeline (stop ingestion and finish processing all the events in the queue).
+
+![Pipeline Editing](/assets/pipeline_editing_1.jpg)
+![Pipeline Editing](/assets/pipeline_editing_2.jpg)
+
+### 🔐 Kafka Kerberos Authentication
+
+Enterprise users can now connect to **Kerberos-secured Kafka clusters** with full GSSAPI support:
+
+- **Kerberos principal configuration** - Support for Kerberos authentication with principal and keytab files
+- **SSL/TLS integration** - Kerberos works seamlessly with SSL/TLS for secure connections
+- **Sidecar gateway** - Dedicated Kafka sidecar gateway for handling GSSAPI interactions on the UI
+
+This enhancement enables GlassFlow to work with enterprise Kafka clusters that require Kerberos authentication, expanding compatibility with secure enterprise environments.
+
+![Kerberos Authentication](/assets/ui_kafka_connection_sasl_gssapi.png)
+
+### ⚡ Batch Processing for Kafka Ingestion
+
+The Kafka ingestor has been **completely redesigned** to use batch processing for significantly improved performance:
+
+- **Batch consumption** - Read messages from Kafka in batches instead of one-by-one processing
+- **Async NATS publishing** - Asynchronous publishing to NATS for better throughput
+- **Optimized consumer parameters** - Tuned Kafka consumer settings for optimal batch processing
+- **Improved throttling** - Better rate limiting and backpressure handling
+- **Efficient batch cleanup** - Proper cleanup of processed batches to prevent memory leaks
+
+This architectural improvement results in **higher throughput** and **better resource utilization**, especially for high-volume data streams.
+
+### 🗑️ Dead Letter Queue Enhancements
+
+The Dead Letter Queue (DLQ) has been significantly improved with new management capabilities:
+
+- **Flush DLQ endpoint** - New API endpoint and UI button to flush DLQ messages
+- **Sink DLQ support** - Sink components now can also write to the DLQ stream.
+
+These improvements give you better control over DLQ management.
+
+### 🎨 UI/UX Improvements
+
+The user interface has been enhanced with better error handling, notifications, and responsive design:
+
+- **Pipeline filtering and sorting** - Filter pipelines by health and status, sort by various columns, and view creation timestamps with the new `created_at` column
+- **Robust notification system** - Improved toast notifications with better styling and positioning
+- **Standardized error messages** - Consistent error messaging throughout the application
+- **Responsive action buttons** - Context menu and inline menu options for different screen sizes
+- **Portal rendering** - Context menus now render in portals for better z-index handling
+- **Demo mode support** - Pipeline action buttons are disabled in demo mode
+- **Connection edit invalidation** - Smart cache invalidation when editing connections
+- **Topic hydration improvements** - Better handling of topic changes and field mapping updates
+
+### Pipeline Status Management
+
+Pipeline status management has been streamlined for better control and clarity:
+
+- **Consolidated stop and terminate** - Simplified pipeline lifecycle management
+- **Removed pause functionality** - Streamlined to active, stopped, and terminated states
+- **Terminate as kill switch** - Terminate now serves as a reliable kill switch for pipelines
+- **Delete pipeline handling** - Pipeline deletion is now properly handled by orchestrators for better resource management
+
+### Enhanced Observability
+
+Additional metrics and monitoring capabilities have been added:
+
+- **HTTP server metrics** - HTTP server metrics are now sent to OpenTelemetry for better API monitoring and observability
+- **Improved histogram buckets** - Fixed bucket boundaries for histograms with `WithExplicitBucketBoundaries`
+- **Enhanced metrics visibility** - Improved metrics documentation with UI screenshots and detailed information
+
+### ClickHouse Column Validation
+
+Better handling and validation of ClickHouse column types:
+
+- **Default columns** - Improved mapping and validation for default columns
+- **Materialized columns** - Added support for materialized column mappings
+- **Alias columns** - Improved validation for alias column configurations
+
+### 📚 Documentation Improvements
+
+- **Swagger documentation** - Complete API documentation available via Swagger for the backend
+- **Better API discoverability** - Easier exploration of available endpoints and their parameters
+
+## Bug Fixes
+
+- Fixed topic hydration after editing to enable proper mapping
+- Fixed double unlock issue in subscriber stop
+- Fixed stream name handling in e2e tests
+- Fixed join journey details layout issues
+- Fixed table fields loading after topic changes
+- Fixed mapping hydration after pipeline edits
+- Fixed connection changes persistence
+- Fixed deduplication and ClickHouse mapping editing
+- Fixed broken links in documentation
+- Fixed delay in batch tail synchronization
+- Fixed `created_at` timestamp preservation when editing pipelines
+- Fixed Kubernetes CRD spec building duplication
+- Fixed observability documentation to highlight gRPC vs HTTP differences
+
+## Migration Notes
+
+### For Existing Users
+
+- **No breaking changes** - This release is fully backward compatible
+- **Editing available** - Existing pipelines can now be edited through the UI
+- **Pause removed** - The pause functionality has been removed; use stop/terminate instead
+- **Pipeline status changes** - Stop and terminate have been consolidated for simpler pipeline management
+- **Kerberos optional** - Kerberos authentication is optional and only needed for secured Kafka clusters
+
+### Configuration Updates
+
+- **Kerberos settings** - New connection fields for Kerberos authentication (principal, keytab, etc.)
+- **DLQ endpoints** - New API endpoints for DLQ management operations
+- **Docker environment variables** - Environment variables can now be set for Docker deployments
+- **HTTP metrics** - HTTP server metrics automatically sent to OpenTelemetry when configured
+
+## Try It Out
+
+To experience the new features in v2.4.0:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes) or [Docker Compose](/installation/docker)
+2. **Edit an existing pipeline** to see the new editing capabilities in action
+3. **Sort pipelines** in the UI by health, status, and creation date
+4. **Configure Kerberos authentication** if you're connecting to secured Kafka clusters
+5. **Explore the improved UI** with better notifications and error handling
+6. **Use the DLQ flush feature** to manage error messages more effectively
+7. **Explore the API documentation** via Swagger for complete endpoint reference
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in v2.4.0, see our [GitHub release 2.3.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.3.0) and [GitHub release 2.4.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.4.0).
+
+*GlassFlow v2.4.0 continues our commitment to making streaming ETL more flexible, secure, and performant for enterprise production environments.*
