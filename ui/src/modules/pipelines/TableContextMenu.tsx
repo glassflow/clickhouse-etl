@@ -50,13 +50,15 @@ export const TableContextMenu = ({
   const renameConfig = getActionConfig('rename', pipelineStatus)
   const terminateConfig = getActionConfig('terminate', pipelineStatus)
   const deleteConfig = getActionConfig('delete', pipelineStatus)
-  
+
   // Determine which stop/resume action to show
-  const showStop = pipelineStatus === 'active' && !stopConfig.isDisabled && !(demoMode)
-  const showResume = (pipelineStatus === 'stopped' || pipelineStatus === 'terminated') && !resumeConfig.isDisabled && !(demoMode)
+  const showStop = pipelineStatus === 'active' && !stopConfig.isDisabled && !demoMode
+  const showResume =
+    (pipelineStatus === 'stopped' || pipelineStatus === 'terminated') && !resumeConfig.isDisabled && !demoMode
   // Terminate is a kill switch - available for all states except final states and when already terminating
   const showTerminate =
-    pipelineStatus !== 'stopped' && pipelineStatus !== 'terminated' && pipelineStatus !== 'terminating' && !(demoMode)
+    pipelineStatus !== 'stopped' && pipelineStatus !== 'terminated' && pipelineStatus !== 'terminating' && !demoMode
+  const showRename = !renameConfig?.isDisabled && !demoMode
 
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -166,7 +168,7 @@ export const TableContextMenu = ({
             )} */}
 
             {/* Rename Button */}
-            {onRename && (
+            {showRename && onRename && (
               <Button
                 variant="ghost"
                 className={cn(
