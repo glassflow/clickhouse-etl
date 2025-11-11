@@ -42,7 +42,21 @@ global:
     stream:
       maxAge: 24h      # Maximum age of messages in streams
       maxBytes: 25GB   # Maximum size of streams
+  
+  # Pipeline namespace configuration
+  pipelines:
+    namespace:
+      auto: true        # When true, operator creates per-pipeline namespaces (pipeline-<id>)
+      name: "glassflow-pipelines"  # Fixed namespace to deploy all pipelines into (when auto is false)
+      create: true      # When auto is false, Helm can optionally create the namespace
 ```
+
+<Callout type="info">
+**Pipeline Namespaces**:
+- By default, the operator creates per-pipeline namespaces (`pipeline-<id>`)
+- To use a fixed namespace for all pipelines, set `global.pipelines.namespace.auto: false`
+- When `auto` is `false`, all pipelines deploy to the namespace specified in `global.pipelines.namespace.name`
+</Callout>
 
 ### Key Global Settings
 
@@ -54,6 +68,9 @@ global:
 | `observability.logs.exporter.otlp` | Your OTLP collector endpoint | `{}` | Configure your OTLP endpoint where glassflow will send logs. See [OTLP Exporter Configuration](/installation/kubernetes/observability#configure-otlp-exporter) for detailed setup |
 | `nats.stream.maxAge` | Message retention period | `24h` | Adjust based on your data retention needs |
 | `nats.stream.maxBytes` | Maximum stream size | `25GB` | Scale based on expected data volume |
+| `pipelines.namespace.auto` | Create per-pipeline namespaces | `true` | Set to `false` to use fixed namespace |
+| `pipelines.namespace.name` | Fixed namespace for all pipelines | `glassflow-pipelines` | Used when `auto` is `false` |
+| `pipelines.namespace.create` | Create namespace if it doesn't exist | `true` | Only applies when `auto` is `false` |
 
 ## API Component
 
@@ -68,7 +85,7 @@ api:
   # Container image settings
   image:
     repository: glassflow-etl-be
-    tag: v2.2.0
+    tag: v2.4.0
     pullPolicy: IfNotPresent
   
   # Resource allocation
@@ -112,7 +129,7 @@ ui:
   # Container image settings
   image:
     repository: glassflow-etl-fe
-    tag: v2.2.0
+    tag: v2.4.0
     pullPolicy: IfNotPresent
   
   # Resource allocation
@@ -130,8 +147,24 @@ ui:
     port: 8080
     targetPort: 8080
   
-  # Environment variables
-  env: []
+  # Environment variables (object format)
+  env: {}
+  
+  # Kafka Kerberos Gateway sidecar (for connecting to Kerberos-secured Kafka clusters)
+  kafkaGateway:
+    enabled: true
+    image:
+      repository: kafka-kerberos-gateway
+      tag: latest
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+    port: 8082  # Internal port within the UI pod
 ```
 
 ### UI Configuration Options
@@ -141,6 +174,10 @@ ui:
 | `replicas` | Number of UI instances | `1` | `1` is sufficient for UI pod |
 | `resources.requests` | Minimum resources | `512Mi/100m` | Frontend typically needs more memory |
 | `resources.limits` | Maximum resources | `1Gi/200m` | Adjust based on user load |
+| `env` | Environment variables (object format) | `{}` | Use object format, not array |
+| `kafkaGateway.enabled` | Enable Kafka Kerberos Gateway sidecar | `true` | Enable if connecting to Kerberos-secured Kafka |
+| `kafkaGateway.resources` | Gateway resource requests/limits | `128Mi/50m` - `256Mi/200m` | Adjust based on usage |
+| `kafkaGateway.port` | Gateway internal port | `8082` | Internal port within UI pod |
 
 ## GlassFlow Operator
 
@@ -156,7 +193,7 @@ glassflow-operator:
       # Operator image configuration
       image:
         repository: glassflow-etl-k8s-operator
-        tag: v1.2.1
+        tag: v1.3.0
         pullPolicy: IfNotPresent
       
       # Resource allocation
@@ -177,7 +214,7 @@ glassflow-operator:
     ingestor:
       image:
         repository: glassflow-etl-ingestor
-        tag: v2.2.0
+        tag: v2.4.0
       logLevel: "INFO"
       resources:
         requests:
@@ -191,7 +228,7 @@ glassflow-operator:
     join:
       image:
         repository: glassflow-etl-join
-        tag: v2.2.0
+        tag: v2.4.0
       logLevel: "INFO"
       resources:
         requests:
@@ -205,7 +242,7 @@ glassflow-operator:
     sink:
       image:
         repository: glassflow-etl-sink
-        tag: v2.2.0
+        tag: v2.4.0
       logLevel: "INFO"
       resources:
         requests:
@@ -316,6 +353,8 @@ natsPrometheusExporter:
     type: ClusterIP
     port: 80
     targetPort: 7777
+    protocol: TCP
+    name: http
 ```
 
 ## Ingress Configuration
@@ -401,13 +440,71 @@ serviceAccount:
 | `podSecurityContext.fsGroup` | File system group | `{}` | Set for proper permissions |
 | `securityContext.readOnlyRootFilesystem` | Read-only root filesystem | `{}` | Enable for security |
 | `serviceAccount.create` | Create service account | `true` | Use existing for production |
+| `serviceAccount.automount` | Automount API credentials | `true` | Enable for service account token mounting |
+| `serviceAccount.name` | Service account name | `""` | Use custom name if needed |
+| `serviceAccount.annotations` | Service account annotations | `{}` | Useful for IAM roles, OIDC providers |
+
+## Pod Configuration
+
+Configure pod-level settings for scheduling and labeling.
+
+```yaml
+# Pod annotations (useful for monitoring, logging, etc.)
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+
+# Pod labels
+podLabels: {}
+
+# Node selector for main pods (API and UI)
+nodeSelector: {}
+
+# Pod tolerations
+tolerations: []
+
+# Pod affinity rules
+affinity: {}
+```
+
+### Pod Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `podAnnotations` | Additional pod annotations | `{}` | Add monitoring annotations |
+| `podLabels` | Additional pod labels | `{}` | Useful for service discovery |
+| `nodeSelector` | Node selector for scheduling | `{}` | Use for dedicated nodes |
+| `tolerations` | Pod tolerations | `[]` | For tainted nodes |
+| `affinity` | Pod affinity/anti-affinity rules | `{}` | Control pod placement |
+
+## Autoscaling Configuration
+
+Configure horizontal pod autoscaling for the API and UI components.
+
+```yaml
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+```
+
+### Autoscaling Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `enabled` | Enable autoscaling | `false` | Enable for production workloads |
+| `minReplicas` | Minimum number of replicas | `1` | Set based on minimum load |
+| `maxReplicas` | Maximum number of replicas | `5` | Set based on peak load |
+| `targetCPUUtilizationPercentage` | Target CPU utilization | `80` | Adjust based on workload |
 
 
 ## Best Practices
 
 <Callout type="info">
 **Production Checklist**:
-- Use 3+ replicas for high availability
+- Use 3+ NATS replicas for high availability
 - Set appropriate resource requests and limits
 - Enable ingress with TLS
 - Configure persistent storage for NATS
