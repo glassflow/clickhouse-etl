@@ -1,5 +1,5 @@
 import { notify } from './notify'
-import { pipelineMessages, networkMessages, authMessages } from './messages'
+import { pipelineMessages, networkMessages, authMessages, serverMessages } from './messages'
 import type { ApiError } from '@/src/types/pipeline'
 
 export interface ApiErrorContext {
@@ -64,8 +64,8 @@ export function handleApiError(error: unknown, context: ApiErrorContext) {
     return
   }
 
-  if (apiError.code >= 500) {
-    notify(networkMessages.backendUnavailable(context.retryFn))
+  if (apiError.code === 500) {
+    notify(serverMessages.internalServerError())
     return
   }
 

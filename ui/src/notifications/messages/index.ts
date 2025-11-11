@@ -9,6 +9,7 @@ export { networkMessages } from './network'
 export { authMessages } from './auth'
 export { platformMessages } from './platform'
 export { dataProcessingMessages } from './data-processing'
+export { serverMessages } from './server'
 
 // Export constants
 export { DEFAULT_REPORT_LINK, refreshAction, retryAction } from './constants'

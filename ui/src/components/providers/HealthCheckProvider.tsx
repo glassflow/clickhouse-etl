@@ -90,7 +90,7 @@ export function HealthCheckProvider({ children }: HealthCheckProviderProps) {
   return (
     <>
       {children}
-      {showHealthCheck && (
+      {/* {showHealthCheck && (
         <div className="fixed top-8 right-8 z-50 max-w-[488px] animate-slideDownFade">
           <HealthCheckDialog
             showHealthCheck={showHealthCheck}
@@ -108,7 +108,7 @@ export function HealthCheckProvider({ children }: HealthCheckProviderProps) {
             </svg>
           </button>
         </div>
-      )}
+      )} */}
     </>
   )
 }
