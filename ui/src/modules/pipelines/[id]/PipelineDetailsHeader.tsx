@@ -555,7 +555,7 @@ function PipelineDetailsHeader({
     const demoMode = isDemoMode()
 
     // Disable pipeline control actions in demo mode (except download and rename)
-    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete'].includes(action)
+    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete', 'rename'].includes(action)
     const finalDisabled = disabled || isDemoDisabled
     const finalTitle = isDemoDisabled ? 'Action disabled in demo mode' : config.disabledReason
 
@@ -643,7 +643,7 @@ function PipelineDetailsHeader({
     const demoMode = isDemoMode()
 
     // Disable pipeline control actions in demo mode (except download and rename)
-    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete'].includes(action)
+    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete', 'rename'].includes(action)
     const finalDisabled = disabled || isDemoDisabled
 
     // Determine if this is a destructive action
@@ -686,6 +686,8 @@ function PipelineDetailsHeader({
     // Use effective status (centralized status takes priority)
     const showStop = effectiveStatus === 'active' || effectiveStatus === 'stopping'
     const showResume = effectiveStatus === 'stopped' || effectiveStatus === 'terminated'
+
+    const demoMode = isDemoMode()
 
     // Terminate is a kill switch - available for all states except final states (stopped/terminated) and transitional terminating state
     const showTerminate =
@@ -752,7 +754,7 @@ function PipelineDetailsHeader({
             key="flush-dlq"
             variant="outline"
             onClick={() => handleFlushDataClick()}
-            disabled={false}
+            disabled={demoMode}
             className={`group btn-action relative !px-3 !py-1.5 h-auto text-sm`}
             title={'Flush DLQ'}
           >
@@ -851,6 +853,7 @@ function PipelineDetailsHeader({
                         handleMenuItemClick(() => handleFlushDataClick())
                       }}
                       title="Flush DLQ"
+                      disabled={demoMode}
                     >
                       <Image
                         src={DeleteIcon}
