@@ -11,6 +11,18 @@ Version 2.4.0 (combined with v2.3.0) introduces powerful pipeline editing capabi
 
 ## What's New
 
+### ⚡ Kafka Ingestion Performance Improvements
+
+The Kafka ingestor has been **significantly optimized** for better performance:
+
+- **New Kafka library (franz-go)** - Migrated to franz-go, a modern and more efficient Kafka client library
+- **Fine-tuned consumer parameters** - Optimized Kafka consumer settings for improved batch processing performance
+- **Asynchronous NATS publishing** - Messages are now published to NATS asynchronously, eliminating blocking operations and improving throughput
+- **Improved throttling** - Better rate limiting and backpressure handling
+- **Efficient batch cleanup** - Proper cleanup of processed batches to prevent memory leaks
+
+These optimizations result in **significantly higher processing speeds** and **better resource utilization**, especially for high-volume data streams.
+
 ### ✏️ Pipeline Editing
 
 GlassFlow now supports **full pipeline editing** capabilities, allowing you to modify existing pipelines without recreating them from scratch. The editing functionality was introduced in v2.3.0 and significantly enhanced in v2.4.0.
@@ -31,18 +43,6 @@ Enterprise users can now connect to **Kerberos-secured Kafka clusters** with ful
 This enhancement enables GlassFlow to work with enterprise Kafka clusters that require Kerberos authentication, expanding compatibility with secure enterprise environments.
 
 ![Kerberos Authentication](/assets/ui_kafka_connection_sasl_gssapi.png)
-
-### ⚡ Batch Processing for Kafka Ingestion
-
-The Kafka ingestor has been **completely redesigned** to use batch processing for significantly improved performance:
-
-- **Batch consumption** - Read messages from Kafka in batches instead of one-by-one processing
-- **Async NATS publishing** - Asynchronous publishing to NATS for better throughput
-- **Optimized consumer parameters** - Tuned Kafka consumer settings for optimal batch processing
-- **Improved throttling** - Better rate limiting and backpressure handling
-- **Efficient batch cleanup** - Proper cleanup of processed batches to prevent memory leaks
-
-This architectural improvement results in **higher throughput** and **better resource utilization**, especially for high-volume data streams.
 
 ### 🗑️ Dead Letter Queue Enhancements
 
