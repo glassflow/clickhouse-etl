@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -36,8 +35,6 @@ type PipelineSteps struct {
 	pipelineService   *service.PipelineService
 	orchestrator      *orchestrator.LocalOrchestrator
 	currentPipelineID string
-
-	httpRouter http.Handler
 }
 
 func NewPipelineSteps() *PipelineSteps {
@@ -371,7 +368,7 @@ func (p *PipelineSteps) setupPipelineService() error {
 		p.log,
 	)
 
-	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil)
+	p.BaseTestSuite.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil)
 
 	return nil
 }
@@ -430,8 +427,6 @@ func (p *PipelineSteps) shutdownPipeline() error {
 		// Log the error but continue - pipeline might already be stopped or not exist
 		p.log.Info("stop pipeline failed (might already be stopped)", slog.Any("error", err))
 	}
-
-	
 
 	return nil
 }
@@ -592,38 +587,6 @@ func (p *PipelineSteps) editGlassflowPipelineAndExpectError(configJSON *godog.Do
 		slog.String("expected_error", expectedError.Content),
 		slog.Int("status_code", resp.StatusCode))
 	return nil
-}
-
-type httpResponseKey struct{}
-
-func (p *PipelineSteps) iSendHTTPRequest(ctx context.Context, method, path string, body *godog.DocString) (context.Context, error) {
-	if p.httpRouter == nil {
-		return ctx, fmt.Errorf("HTTP router not initialized")
-	}
-
-	var reqBody io.Reader
-	if body != nil && body.Content != "" {
-		reqBody = bytes.NewBufferString(body.Content)
-	}
-
-	// Create request using httptest
-	req := httptest.NewRequest(method, path, reqBody)
-	if reqBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	// Create response recorder
-	w := httptest.NewRecorder()
-
-	// Execute request through router
-	p.httpRouter.ServeHTTP(w, req)
-
-	p.log.Info("HTTP request executed",
-		slog.String("method", method),
-		slog.String("path", path),
-		slog.Int("status", w.Code))
-
-	return context.WithValue(ctx, httpResponseKey{}, w), nil
 }
 
 func (p *PipelineSteps) RegisterSteps(sc *godog.ScenarioContext) {

@@ -63,6 +63,7 @@ func NewRouter(
 	registerHumaHandler("/api/v1/pipeline", h.createPipeline, log, CreatePipelineDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}/stop", h.stopPipeline, log, StopPipelineDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}/terminate", h.terminatePipeline, log, TerminatePipelineDocs(), humaAPI)
+	registerHumaHandler("/api/v1/filter/validate", h.validateFilter, log, ValidateFilterDocs(), humaAPI)
 
 	r.HandleFunc("/api/v1/docs", h.docs)
 	r.HandleFunc("/api/v1/openapi.json", h.swaggerDocsJSON)
