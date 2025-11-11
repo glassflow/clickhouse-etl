@@ -1,9 +1,13 @@
 package steps
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +31,8 @@ type BaseTestSuite struct {
 	kWriter *testutils.KafkaWriter
 
 	natsClient *client.NATSClient
+
+	httpRouter http.Handler
 
 	wg    sync.WaitGroup
 	errCh chan error
@@ -440,6 +446,49 @@ func (b *BaseTestSuite) natsStreamSubjectHasNEvents(natsStream, natsSubject stri
 			natsStream,
 			natsSubject,
 		)
+	}
+
+	return nil
+}
+
+// httpResponseKey is a context key for storing HTTP response recorders
+type httpResponseKey struct{}
+
+// iSendHTTPRequest sends an HTTP request to the httpRouter and stores the response in context
+func (b *BaseTestSuite) iSendHTTPRequest(ctx context.Context, method, path string, body *godog.DocString) (context.Context, error) {
+	if b.httpRouter == nil {
+		return ctx, fmt.Errorf("HTTP router not initialized")
+	}
+
+	var reqBody io.Reader
+	if body != nil && body.Content != "" {
+		reqBody = bytes.NewBufferString(body.Content)
+	}
+
+	// Create request using httptest
+	req := httptest.NewRequest(method, path, reqBody)
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Create response recorder
+	w := httptest.NewRecorder()
+
+	// Execute request through router
+	b.httpRouter.ServeHTTP(w, req)
+
+	return context.WithValue(ctx, httpResponseKey{}, w), nil
+}
+
+// theResponseStatusShouldBe checks the HTTP response status code
+func (b *BaseTestSuite) theResponseStatusShouldBe(ctx context.Context, expectedStatus int) error {
+	w, ok := ctx.Value(httpResponseKey{}).(*httptest.ResponseRecorder)
+	if !ok || w == nil {
+		return fmt.Errorf("no HTTP response found in context")
+	}
+
+	if w.Code != expectedStatus {
+		return fmt.Errorf("expected status %d, got %d. Response body: %s", expectedStatus, w.Code, w.Body.String())
 	}
 
 	return nil

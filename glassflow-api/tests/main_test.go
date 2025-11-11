@@ -133,6 +133,18 @@ func testPlatformFeatures(t *testing.T) {
 	runSingleSuite(t, "platform", platformSuite, config)
 }
 
+func testAPIFeatures(t *testing.T) {
+	apiSuite := steps.NewAPISteps()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "api")},
+		Tags:         "@api",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "api", apiSuite, config)
+}
+
 // TestFeatures runs all feature tests but in separate contexts
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
@@ -141,4 +153,5 @@ func TestFeatures(t *testing.T) {
 	t.Run("PipelineFeatures", testPipelineFeatures)
 	t.Run("IngestorFeatures", testIngetorFeatures)
 	t.Run("PlatformFeatures", testPlatformFeatures)
+	t.Run("APIFeatures", testAPIFeatures)
 }

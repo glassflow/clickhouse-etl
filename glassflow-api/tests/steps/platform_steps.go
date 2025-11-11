@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"net/http/httptest"
 
 	"github.com/cucumber/godog"
@@ -24,7 +23,6 @@ type PlatformSteps struct {
 	pipelineService  *service.PipelineService
 	orchestrator     service.Orchestrator
 	orchestratorType string
-	lastResponse     *http.Response
 }
 
 func NewPlatformSteps() *PlatformSteps {
@@ -40,8 +38,12 @@ func (p *PlatformSteps) RegisterSteps(sc *godog.ScenarioContext) {
 	logElapsedTime(sc)
 	sc.Given(`^a running glassflow API server with local orchestrator$`, p.aRunningGlassflowAPIServerWithLocalOrchestrator)
 	sc.Given(`^a running glassflow API server with k8s orchestrator$`, p.aRunningGlassflowAPIServerWithK8sOrchestrator)
-	sc.When(`^I send a GET request to "([^"]*)"$`, p.iSendAGETRequestTo)
-	sc.Then(`^the response status should be (\d+)$`, p.theResponseStatusShouldBe)
+	sc.Step(`^I send a (GET|POST|PUT|DELETE|PATCH) request to "([^"]*)"$`,
+		func(ctx context.Context, method, path string) (context.Context, error) {
+			return p.iSendHTTPRequest(ctx, method, path, nil)
+		})
+	sc.Step(`^I send a (GET|POST|PUT|DELETE|PATCH) request to "([^"]*)" with body:$`, p.iSendHTTPRequest)
+	sc.Then(`^the response status should be (\d+)$`, p.BaseTestSuite.theResponseStatusShouldBe)
 	sc.Then(`^the response should contain JSON:$`, p.theResponseShouldContainJSON)
 	sc.Then(`^the response should have content type "([^"]*)"$`, p.theResponseShouldHaveContentType)
 }
@@ -87,44 +89,17 @@ func (p *PlatformSteps) setupServices() error {
 
 	// Create pipeline manager
 	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log)
-	return nil
-}
 
-func (p *PlatformSteps) iSendAGETRequestTo(endpoint string) error {
-	if endpoint != "/api/v1/platform" {
-		return fmt.Errorf("unsupported endpoint: %s", endpoint)
-	}
-
-	// Create handler
-	handler := api.NewRouter(p.log, p.pipelineService, nil, nil)
-
-	// Create request
-	req := httptest.NewRequest("GET", endpoint, nil)
-	w := httptest.NewRecorder()
-
-	// Call handler
-	handler.ServeHTTP(w, req)
-
-	// Store response for assertions
-	p.lastResponse = w.Result()
-	return nil
-}
-
-func (p *PlatformSteps) theResponseStatusShouldBe(expectedStatus int) error {
-	if p.lastResponse == nil {
-		return fmt.Errorf("no response available")
-	}
-
-	if p.lastResponse.StatusCode != expectedStatus {
-		return fmt.Errorf("expected status %d, got %d", expectedStatus, p.lastResponse.StatusCode)
-	}
+	// Create HTTP router
+	p.BaseTestSuite.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil)
 
 	return nil
 }
 
-func (p *PlatformSteps) theResponseShouldContainJSON(docString *godog.DocString) error {
-	if p.lastResponse == nil {
-		return fmt.Errorf("no response available")
+func (p *PlatformSteps) theResponseShouldContainJSON(ctx context.Context, docString *godog.DocString) error {
+	w, ok := ctx.Value(httpResponseKey{}).(*httptest.ResponseRecorder)
+	if !ok || w == nil {
+		return fmt.Errorf("no HTTP response found in context")
 	}
 
 	var expectedResponse map[string]interface{}
@@ -133,7 +108,7 @@ func (p *PlatformSteps) theResponseShouldContainJSON(docString *godog.DocString)
 	}
 
 	var actualResponse map[string]interface{}
-	if err := json.NewDecoder(p.lastResponse.Body).Decode(&actualResponse); err != nil {
+	if err := json.NewDecoder(w.Body).Decode(&actualResponse); err != nil {
 		return fmt.Errorf("parse actual response: %w", err)
 	}
 
@@ -151,12 +126,13 @@ func (p *PlatformSteps) theResponseShouldContainJSON(docString *godog.DocString)
 	return nil
 }
 
-func (p *PlatformSteps) theResponseShouldHaveContentType(expectedContentType string) error {
-	if p.lastResponse == nil {
-		return fmt.Errorf("no response available")
+func (p *PlatformSteps) theResponseShouldHaveContentType(ctx context.Context, expectedContentType string) error {
+	w, ok := ctx.Value(httpResponseKey{}).(*httptest.ResponseRecorder)
+	if !ok || w == nil {
+		return fmt.Errorf("no HTTP response found in context")
 	}
 
-	contentType := p.lastResponse.Header.Get("Content-Type")
+	contentType := w.Header().Get("Content-Type")
 	if contentType != expectedContentType {
 		return fmt.Errorf("expected content type %s, got %s", expectedContentType, contentType)
 	}
