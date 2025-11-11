@@ -14,6 +14,7 @@ The pipeline configuration is a JSON object that defines how data flows from Kaf
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `pipeline_id` | string | Yes | Unique identifier for the pipeline. Must be non-empty. |
+| `name` | string | No | Name of the pipeline that will be displayed in the UI. |
 | `source` | object | Yes | Configuration for the Kafka source. See [Source Configuration](#source-configuration). |
 | `sink` | object | Yes | Configuration for the ClickHouse sink. See [Sink Configuration](#sink-configuration). |
 | `join` | object | No | Configuration for joining multiple Kafka topics. See [Join Configuration](#join-configuration). |
@@ -38,6 +39,10 @@ The source configuration defines how to connect to and consume from Kafka topics
 | `mechanism` | string | No | Authentication mechanism (e.g., `SCRAM-SHA-256`). Mandatory when `skip_auth` is `false`. |
 | `username` | string | Yes | Username for Kafka authentication. |
 | `password` | string | Yes | Password for Kafka authentication. |
+| `kerberos_service_name` | string | No | Kerberos service name. |
+| `kerberos_keytab` | string | No | Kerberos keytab file. |
+| `kerberos_realm` | string | No | Kerberos realm. |
+| `kerberos_config` | string | No | Kerberos configuration file. |
 | `root_ca` | string | No | Cert. file for Kafka authentication. |
 | `skip_auth` | boolean | No | Skip Kafka authentication. Default is `false`. |
 
@@ -48,9 +53,10 @@ Supported Protocol:
 - `SASL_PLAINTEXT` - SASL over plaintext protocol.
 
 Supported Mechanism:
+- `PLAIN` - Plaintext authentication.
 - `SCRAM-SHA-256` - SCRAM-SHA-256 authentication.
 - `SCRAM-SHA-512` - SCRAM-SHA-512 authentication.
-- `PLAIN` - Plaintext authentication.
+- `GSSAPI` - GSSAPI authentication.
 
 ### Topic Configuration
 

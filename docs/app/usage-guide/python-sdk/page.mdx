@@ -99,12 +99,78 @@ Output:
 ]
 ```
 
-### Read messages from Pipeline's Dead-Letter Queue (DLQ)
+### Stop a Pipeline
 
-Get DQL state summary:
+Stopping a pipeline will stop ingesting new messages and once all messages in the queue are processed, the pipeline will stop.
+
+```python
+pipeline.stop()
+```
+
+### Terminate a Pipeline
+
+Terminating a pipeline will stop ingesting new messages and immediately terminate the pipeline.
+
+```python
+pipeline.stop(terminate=True)
+```
+
+### Resume a Pipeline
+
+Resume will bring the pipeline back to running state from stopped state.
+
+```python
+pipeline.resume()
+```
+
+### Delete a Pipeline
+
+Only stopped (or terminated) pipelines can be deleted.
+
+```python
+pipeline.delete()
+```
+
+or 
+
+```python
+client.delete_pipeline(pipeline_id="<my-pipeline-id>")
+```
+
+### Update a Pipeline
+
+Only stopped (or terminated) pipelines can be updated.
+
+```python
+pipeline.update(config_patch=<pipeline config patch>)
+```
+
+Example:
+
+```python
+pipeline.update(config_patch={"join": {"type": "join", "enabled": true}})
+```
+
+or update the full pipeline config:
+
+```python
+pipeline.update(config_patch=<new pipeline config>)
+```
+
+## Dead-Letter Queue (DLQ)
+
+### Get DLQ State
+
 ```python
 dlq_state = pipeline.dlq.state()
 print(dlq_state)
+```
+
+
+### Purge DLQ
+
+```python
+pipeline.dlq.purge()
 ```
 
 Output:
@@ -117,7 +183,7 @@ Output:
 }
 ```
 
-and read messages from DLQ:
+### Read Messages from DLQ
 
 ```python
 messages = pipeline.dlq.consume(batch_size=1)
@@ -133,32 +199,6 @@ Output:
         "original_message": "<original kafka message>"
     }
 ]
-```
-
-### Delete a Pipeline
-
-```python
-pipeline.delete()
-```
-
-or 
-
-```python
-client.delete_pipeline(pipeline_id="<my-pipeline-id>")
-```
-
-## Pipeline Pausing and Resuming
-
-### Pause a Pipeline
-
-```python
-pipeline.pause()
-```
-
-### Resume a Pipeline
-
-```python
-pipeline.resume()
 ```
 
 ## Import / Export Pipeline Configurations
