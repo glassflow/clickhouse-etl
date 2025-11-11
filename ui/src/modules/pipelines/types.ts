@@ -2,9 +2,12 @@
 export type KafkaConnectionParams = {
   brokers: string[]
   protocol: string
+  skip_auth?: boolean
+  sasl_tls_enable?: boolean
   mechanism: string
   username: string
   password: string
+  root_ca?: string
 }
 
 export type TopicSchema = {

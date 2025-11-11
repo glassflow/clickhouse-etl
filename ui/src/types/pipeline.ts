@@ -114,6 +114,7 @@ export interface Pipeline {
     connection_params: {
       brokers: string[]
       skip_auth: boolean
+      sasl_tls_enable?: boolean
       protocol: string
       mechanism: string
       username?: string

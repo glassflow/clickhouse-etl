@@ -187,6 +187,8 @@ export const generateApiConfig = ({
           brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
           protocol: kafkaStore?.securityProtocol || 'PLAINTEXT',
           skip_auth: kafkaStore?.skipAuth || false,
+          sasl_tls_enable:
+            kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL',
         } as KafkaConnectionParams,
         topics: topicsConfig,
       },
