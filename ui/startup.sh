@@ -9,6 +9,7 @@ echo "NEXT_PUBLIC_PREVIEW_MODE: $NEXT_PUBLIC_PREVIEW_MODE"
 echo "NEXT_PUBLIC_USE_MOCK_API: $NEXT_PUBLIC_USE_MOCK_API"
 echo "NEXT_PUBLIC_ANALYTICS_ENABLED: $NEXT_PUBLIC_ANALYTICS_ENABLED"
 echo "NEXT_PUBLIC_DEMO_MODE: $NEXT_PUBLIC_DEMO_MODE"
+echo "NEXT_PUBLIC_AUTH0_ENABLED: $NEXT_PUBLIC_AUTH0_ENABLED"
 echo "=================================="
 
 # Set default values for environment variables
@@ -19,6 +20,7 @@ export NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
 export NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
 export NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
 export NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE:-false}
+export NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED:-false}
 
 # Generate runtime configuration for client-side
 echo "window.__ENV__ = {" > /app/public/env.js
@@ -27,7 +29,8 @@ echo "  NEXT_PUBLIC_IN_DOCKER: \"$NEXT_PUBLIC_IN_DOCKER\"," >> /app/public/env.j
 echo "  NEXT_PUBLIC_PREVIEW_MODE: \"$NEXT_PUBLIC_PREVIEW_MODE\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_USE_MOCK_API: \"$NEXT_PUBLIC_USE_MOCK_API\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_ANALYTICS_ENABLED: \"$NEXT_PUBLIC_ANALYTICS_ENABLED\"," >> /app/public/env.js
-echo "  NEXT_PUBLIC_DEMO_MODE: \"$NEXT_PUBLIC_DEMO_MODE\"" >> /app/public/env.js
+echo "  NEXT_PUBLIC_DEMO_MODE: \"$NEXT_PUBLIC_DEMO_MODE\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_AUTH0_ENABLED: \"$NEXT_PUBLIC_AUTH0_ENABLED\"" >> /app/public/env.js
 echo "};" >> /app/public/env.js
 
 # Generate runtime configuration for server-side

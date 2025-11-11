@@ -11,6 +11,7 @@ import { HealthCheckProvider } from '@/src/components/providers/HealthCheckProvi
 import { PlatformProvider } from '@/src/contexts/PlatformContext'
 import { Toaster } from '@/src/components/ui/sonner'
 import { NotificationProvider } from '@/src/components/providers/NotificationProvider'
+import { AuthProvider } from '@/src/components/providers/AuthProvider'
 import Script from 'next/script'
 // import { EnvDebug } from '@/src/components/debug/EnvDebug'
 
@@ -46,18 +47,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <HealthCheckProvider>
               <PlatformProvider>
                 <NotificationProvider>
-                  <HeaderWrapper>
-                    <Header />
-                  </HeaderWrapper>
-                  <main className="flex flex-col items-center w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-8 overflow-x-hidden overflow-y-auto">
-                    <div className="w-full max-w-[1240px] mx-auto px-4 sm:px-0">{children}</div>
-                  </main>
-                  <footer className="w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-6 shrink-0">
-                    <div className="max-w-[1240px] mx-auto w-full flex gap-6 flex-wrap items-center justify-center">
-                      {/* <GlobalFooter /> */}
-                    </div>
-                  </footer>
-                  <Toaster />
+                  <AuthProvider>
+                    <HeaderWrapper>
+                      <Header />
+                    </HeaderWrapper>
+                    <main className="flex flex-col items-center w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-8 overflow-x-hidden overflow-y-auto">
+                      <div className="w-full max-w-[1240px] mx-auto px-4 sm:px-0">{children}</div>
+                    </main>
+                    <footer className="w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-6 shrink-0">
+                      <div className="max-w-[1240px] mx-auto w-full flex gap-6 flex-wrap items-center justify-center">
+                        {/* <GlobalFooter /> */}
+                      </div>
+                    </footer>
+                    <Toaster />
+                  </AuthProvider>
                 </NotificationProvider>
               </PlatformProvider>
             </HealthCheckProvider>

@@ -96,3 +96,17 @@ This project provides a user-friendly interface for:
 ## Configuration
 
 The application uses environment variables for configuration. Create a `.env.local` file in the root directory with the following variables:
+
+### Authentication (Optional)
+
+This application supports **optional Auth0 authentication**. It is **disabled by default**.
+
+- **To run without authentication**: No configuration needed! Just run `pnpm dev`
+- **To enable authentication**: See [AUTH0_INTEGRATION.md](./AUTH0_INTEGRATION.md) for complete setup instructions
+
+Key features:
+
+- ✅ Zero configuration required for basic usage
+- ✅ Optional authentication via environment variable
+- ✅ Perfect for demos with user management
+- ✅ Self-hosted deployments can opt-out completely

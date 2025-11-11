@@ -16,6 +16,7 @@ const envVars = {
   NEXT_PUBLIC_USE_MOCK_API: process.env.NEXT_PUBLIC_USE_MOCK_API || 'false',
   NEXT_PUBLIC_ANALYTICS_ENABLED: process.env.NEXT_PUBLIC_ANALYTICS_ENABLED || 'true',
   NEXT_PUBLIC_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE || 'false',
+  NEXT_PUBLIC_AUTH0_ENABLED: process.env.NEXT_PUBLIC_AUTH0_ENABLED || 'false',
 }
 
 // Generate the env.js content
@@ -25,7 +26,8 @@ const envJsContent = `window.__ENV__ = {
   NEXT_PUBLIC_PREVIEW_MODE: "${envVars.NEXT_PUBLIC_PREVIEW_MODE}",
   NEXT_PUBLIC_USE_MOCK_API: "${envVars.NEXT_PUBLIC_USE_MOCK_API}",
   NEXT_PUBLIC_ANALYTICS_ENABLED: "${envVars.NEXT_PUBLIC_ANALYTICS_ENABLED}",
-  NEXT_PUBLIC_DEMO_MODE: "${envVars.NEXT_PUBLIC_DEMO_MODE}"
+  NEXT_PUBLIC_DEMO_MODE: "${envVars.NEXT_PUBLIC_DEMO_MODE}",
+  NEXT_PUBLIC_AUTH0_ENABLED: "${envVars.NEXT_PUBLIC_AUTH0_ENABLED}"
 };`
 
 // Ensure public directory exists
