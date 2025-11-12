@@ -58,7 +58,7 @@ type KafkaConnectionParamsConfig struct {
 	SkipAuth      bool     `json:"skip_auth"`
 	SASLTLSEnable bool     `json:"sasl_tls_enable"`
 	SASLProtocol  string   `json:"protocol"`
-	SASLMechanism string   `json:"mechanism"`
+	SASLMechanism string   `json:"mechanism,omitempty"`
 	SASLUsername  string   `json:"username,omitempty"`
 	SASLPassword  string   `json:"password,omitempty"`
 	TLSRoot       string   `json:"root_ca,omitempty"`
