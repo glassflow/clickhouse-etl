@@ -157,7 +157,7 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 	}
 
 	if conn.SASLTLSEnable {
-		if len(strings.TrimSpace(conn.TLSCert)) == 0 {
+		if len(strings.TrimSpace(conn.TLSCert)) == 0 && len(strings.TrimSpace(conn.TLSKey)) == 0 && len(strings.TrimSpace(conn.TLSRoot)) == 0 {
 			return zero, PipelineConfigError{Msg: "TLS certificate cannot be empty when SASL TLS is enabled"}
 		}
 	}
