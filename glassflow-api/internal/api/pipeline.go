@@ -290,7 +290,7 @@ type sourceConnectionParams struct {
 	Brokers             []string `json:"brokers"`
 	SkipAuth            bool     `json:"skip_auth"`
 	SASLProtocol        string   `json:"protocol"`
-	SASLMechanism       string   `json:"mechanism"`
+	SASLMechanism       string   `json:"mechanism,omitempty"`
 	SASLUsername        string   `json:"username,omitempty"`
 	SASLPassword        string   `json:"password,omitempty"`
 	SASLTLSEnable       bool     `json:"sasl_tls_enable"`
