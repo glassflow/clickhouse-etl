@@ -925,6 +925,17 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			description: "invalid consumer_group_initial_offset",
 			expectError: true,
 		},
+		{
+			name: "positive case with TLS and skip auth",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLProtocol:  validProtocol,
+				SkipAuth:      true,
+				SASLTLSEnable: true,
+				TLSCert:       "somecert",
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
