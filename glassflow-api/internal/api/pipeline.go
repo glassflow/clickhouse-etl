@@ -293,7 +293,10 @@ type sourceConnectionParams struct {
 	SASLMechanism       string   `json:"mechanism"`
 	SASLUsername        string   `json:"username"`
 	SASLPassword        string   `json:"password"`
+	SASLTLSEnable       bool     `json:"sasl_tls_enable"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
+	TLSCert             string   `json:"client_cert,omitempty"`
+	TLSKey              string   `json:"client_key,omitempty"`
 	KerberosServiceName string   `json:"kerberos_service_name,omitempty"`
 	KerberosRealm       string   `json:"kerberos_realm,omitempty"`
 	KerberosKeytab      string   `json:"kerberos_keytab,omitempty"`
@@ -335,7 +338,8 @@ type joinSource struct {
 }
 
 type clickhouseSink struct {
-	Kind string `json:"type"`
+	Kind     string `json:"type"`
+	Provider string `json:"provider,omitempty"`
 	// Add validation for null/empty values
 	Host     string                    `json:"host"`
 	Port     string                    `json:"port"`      // native port used in BE connection
@@ -380,7 +384,10 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 		SASLMechanism:       p.Source.ConnectionParams.SASLMechanism,
 		SASLUsername:        p.Source.ConnectionParams.SASLUsername,
 		SASLPassword:        p.Source.ConnectionParams.SASLPassword,
+		SASLTLSEnable:       p.Source.ConnectionParams.SASLTLSEnable,
 		TLSRoot:             p.Source.ConnectionParams.TLSRoot,
+		TLSCert:             p.Source.ConnectionParams.TLSCert,
+		TLSKey:              p.Source.ConnectionParams.TLSKey,
 		KerberosServiceName: p.Source.ConnectionParams.KerberosServiceName,
 		KerberosRealm:       p.Source.ConnectionParams.KerberosRealm,
 		KerberosKeytab:      p.Source.ConnectionParams.KerberosKeytab,
