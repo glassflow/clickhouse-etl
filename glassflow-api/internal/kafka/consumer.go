@@ -106,7 +106,7 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 	var opts []kgo.Opt
 	var auth sasl.Mechanism
 
-	if conn.SASLUsername != "" {
+	if !conn.SkipAuth {
 		// SASL Authentication
 		switch conn.SASLMechanism {
 		case internal.MechanismSHA256:
@@ -157,19 +157,12 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 		}
 
 		opts = append(opts, kgo.SASL(auth))
-	} else {
-		// No authentication
-		return opts, nil
 	}
 
 	if conn.SASLTLSEnable {
 		var tlsCfg *tls.Config
 		if tlsC, err := MakeTLSConfigFromStrings(conn.TLSCert, conn.TLSKey, conn.TLSRoot); tlsC != nil && err == nil {
 			tlsCfg = tlsC
-		}
-
-		if conn.SkipAuth {
-			tlsCfg.InsecureSkipVerify = true
 		}
 
 		opts = append(opts, kgo.DialTLSConfig(tlsCfg))

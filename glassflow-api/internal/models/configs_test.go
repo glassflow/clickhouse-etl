@@ -790,3 +790,244 @@ func TestJSONDurationEdgeCases(t *testing.T) {
 		})
 	}
 }
+func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
+	validBroker := "kafka:9092"
+	validProvider := "confluent"
+	validProtocol := "SASL_PLAINTEXT"
+
+	tests := []struct {
+		name        string
+		conn        KafkaConnectionParamsConfig
+		topics      []KafkaTopicsConfig
+		description string
+		expectError bool
+	}{
+		{
+			name:        "no brokers",
+			conn:        KafkaConnectionParamsConfig{Brokers: []string{}, SASLProtocol: validProtocol, SkipAuth: true},
+			topics:      nil,
+			description: "must have at least one kafka server",
+			expectError: true,
+		},
+		{
+			name:        "empty broker entry",
+			conn:        KafkaConnectionParamsConfig{Brokers: []string{" "}, SASLProtocol: validProtocol, SkipAuth: true},
+			topics:      nil,
+			description: "kafka server cannot be empty",
+			expectError: true,
+		},
+		{
+			name:        "empty SASL protocol",
+			conn:        KafkaConnectionParamsConfig{Brokers: []string{validBroker}, SASLProtocol: " ", SkipAuth: true},
+			topics:      nil,
+			description: "SASL protocol cannot be empty",
+			expectError: true,
+		},
+		{
+			name: "unsupported SASL protocol",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:      []string{validBroker},
+				SASLProtocol: "UNKNOWN",
+				SkipAuth:     true,
+			},
+			description: "Unsupported SASL protocol",
+			expectError: true,
+		},
+		{
+			name: "missing SASL mechanism when auth required",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLProtocol:  validProtocol,
+				SkipAuth:      false,
+				SASLMechanism: "",
+			},
+			description: "SASL mechanism cannot be empty",
+			expectError: true,
+		},
+		{
+			name: "missing SASL username when auth required",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLProtocol:  validProtocol,
+				SkipAuth:      false,
+				SASLMechanism: internal.MechanismPlain,
+				SASLUsername:  " ",
+				SASLPassword:  "pwd",
+			},
+			description: "SASL username cannot be empty",
+			expectError: true,
+		},
+		{
+			name: "missing SASL password for non-kerberos",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLProtocol:  validProtocol,
+				SkipAuth:      false,
+				SASLMechanism: internal.MechanismPlain,
+				SASLUsername:  "user",
+				SASLPassword:  "",
+			},
+			description: "SASL password cannot be empty",
+			expectError: true,
+		},
+		{
+			name: "unsupported SASL mechanism",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLProtocol:  validProtocol,
+				SkipAuth:      false,
+				SASLMechanism: "UNSUPPORTED",
+				SASLUsername:  "user",
+				SASLPassword:  "pwd",
+			},
+			description: "Unsupported SASL mechanism",
+			expectError: true,
+		},
+		{
+			name: "kerberos missing fields",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:             []string{validBroker},
+				SASLProtocol:        validProtocol,
+				SkipAuth:            false,
+				SASLMechanism:       internal.MechanismKerberos,
+				SASLUsername:        "user",
+				SASLPassword:        "", // allowed for kerberos but kerberos fields missing
+				KerberosServiceName: "",
+				KerberosRealm:       "",
+				KerberosKeytab:      "",
+				KerberosConfig:      "",
+			},
+			description: "Kerberos configuration fields cannot be empty",
+			expectError: true,
+		},
+		{
+			name: "sasl tls enabled without cert",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLProtocol:  validProtocol,
+				SkipAuth:      true,
+				SASLTLSEnable: true,
+				TLSCert:       " ", // empty after trim
+			},
+			description: "TLS certificate cannot be empty when SASL TLS is enabled",
+			expectError: true,
+		},
+		{
+			name: "invalid consumer group initial offset",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:      []string{validBroker},
+				SASLProtocol: validProtocol,
+				SkipAuth:     true,
+			},
+			topics: []KafkaTopicsConfig{
+				{ConsumerGroupInitialOffset: "badvalue", Replicas: 1},
+			},
+			description: "invalid consumer_group_initial_offset",
+			expectError: true,
+		},
+		{
+			name: "positive case with TLS and skip auth",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLProtocol:  validProtocol,
+				SkipAuth:      true,
+				SASLTLSEnable: true,
+				TLSCert:       "somecert",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewIngestorComponentConfig(validProvider, tt.conn, tt.topics)
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.description)
+				}
+				if !strings.Contains(err.Error(), tt.description) {
+					t.Fatalf("expected error containing %q, got %v", tt.description, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestNewIngestorComponentConfig_SuccessAndTopicDefaults(t *testing.T) {
+	provider := "confluent"
+	conn := KafkaConnectionParamsConfig{
+		Brokers:       []string{"kafka:9092"},
+		SASLProtocol:  "SASL_PLAINTEXT",
+		SkipAuth:      false,
+		SASLMechanism: internal.MechanismPlain,
+		SASLUsername:  "user",
+		SASLPassword:  "password",
+		SASLTLSEnable: true,
+		TLSCert:       "cert-data",
+	}
+
+	topics := []KafkaTopicsConfig{
+		{
+			Name:                       "topic-a",
+			ID:                         "t1",
+			ConsumerGroupInitialOffset: "", // should default to earliest
+			ConsumerGroupName:          "cg",
+			Replicas:                   0, // should default to 1
+			Deduplication:              DeduplicationConfig{Enabled: false},
+		},
+		{
+			Name:                       "topic-b",
+			ID:                         "t2",
+			ConsumerGroupInitialOffset: internal.InitialOffsetLatest,
+			ConsumerGroupName:          "cg2",
+			Replicas:                   3,
+			Deduplication:              DeduplicationConfig{Enabled: true},
+		},
+	}
+
+	cfg, err := NewIngestorComponentConfig(provider, conn, topics)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Basic returned structure checks
+	if cfg.Type != internal.KafkaIngestorType {
+		t.Fatalf("expected Type %q, got %q", internal.KafkaIngestorType, cfg.Type)
+	}
+	if cfg.Provider != provider {
+		t.Fatalf("expected Provider %q, got %q", provider, cfg.Provider)
+	}
+
+	// Connection params round-trip
+	if len(cfg.KafkaConnectionParams.Brokers) != 1 || cfg.KafkaConnectionParams.Brokers[0] != "kafka:9092" {
+		t.Fatalf("unexpected brokers: %#v", cfg.KafkaConnectionParams.Brokers)
+	}
+	if cfg.KafkaConnectionParams.SASLMechanism != internal.MechanismPlain {
+		t.Fatalf("unexpected SASL mechanism: %s", cfg.KafkaConnectionParams.SASLMechanism)
+	}
+	if !cfg.KafkaConnectionParams.SASLTLSEnable || cfg.KafkaConnectionParams.TLSCert != "cert-data" {
+		t.Fatalf("unexpected TLS settings: %+v", cfg.KafkaConnectionParams)
+	}
+
+	// Topic defaults applied
+	if len(cfg.KafkaTopics) != 2 {
+		t.Fatalf("expected 2 topics, got %d", len(cfg.KafkaTopics))
+	}
+
+	if cfg.KafkaTopics[0].ConsumerGroupInitialOffset != internal.InitialOffsetEarliest {
+		t.Fatalf("expected default consumer_group_initial_offset to be %q, got %q", internal.InitialOffsetEarliest, cfg.KafkaTopics[0].ConsumerGroupInitialOffset)
+	}
+	if cfg.KafkaTopics[0].Replicas != 1 {
+		t.Fatalf("expected default replicas to be 1, got %d", cfg.KafkaTopics[0].Replicas)
+	}
+	if cfg.KafkaTopics[1].ConsumerGroupInitialOffset != internal.InitialOffsetLatest {
+		t.Fatalf("expected consumer_group_initial_offset to be %q, got %q", internal.InitialOffsetLatest, cfg.KafkaTopics[1].ConsumerGroupInitialOffset)
+	}
+	if cfg.KafkaTopics[1].Replicas != 3 {
+		t.Fatalf("expected replicas to be 3, got %d", cfg.KafkaTopics[1].Replicas)
+	}
+}

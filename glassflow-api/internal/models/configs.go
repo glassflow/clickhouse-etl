@@ -155,6 +155,13 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 			return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", conn.SASLMechanism)}
 		}
 	}
+
+	if conn.SASLTLSEnable {
+		if len(strings.TrimSpace(conn.TLSCert)) == 0 {
+			return zero, PipelineConfigError{Msg: "TLS certificate cannot be empty when SASL TLS is enabled"}
+		}
+	}
+
 	for i, kt := range topics {
 		switch strings.ToLower(kt.ConsumerGroupInitialOffset) {
 		case internal.InitialOffsetEarliest:
@@ -181,7 +188,10 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 			SASLMechanism:       conn.SASLMechanism,
 			SASLUsername:        conn.SASLUsername,
 			SASLPassword:        conn.SASLPassword,
+			SASLTLSEnable:       conn.SASLTLSEnable,
 			TLSRoot:             conn.TLSRoot,
+			TLSCert:             conn.TLSCert,
+			TLSKey:              conn.TLSKey,
 			KerberosServiceName: conn.KerberosServiceName,
 			KerberosRealm:       conn.KerberosRealm,
 			KerberosKeytab:      conn.KerberosKeytab,
