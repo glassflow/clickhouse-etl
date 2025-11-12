@@ -291,8 +291,8 @@ type sourceConnectionParams struct {
 	SkipAuth            bool     `json:"skip_auth"`
 	SASLProtocol        string   `json:"protocol"`
 	SASLMechanism       string   `json:"mechanism"`
-	SASLUsername        string   `json:"username"`
-	SASLPassword        string   `json:"password"`
+	SASLUsername        string   `json:"username,omitempty"`
+	SASLPassword        string   `json:"password,omitempty"`
 	SASLTLSEnable       bool     `json:"sasl_tls_enable"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
 	TLSCert             string   `json:"client_cert,omitempty"`
