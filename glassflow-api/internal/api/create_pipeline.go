@@ -30,7 +30,7 @@ type CreatePipelineResponse struct {
 }
 
 func (h *handler) createPipeline(ctx context.Context, input *CreatePipelineInput) (*CreatePipelineResponse, error) {
-	pipeline, err := input.Body.toModel(ctx, h.log)
+	pipeline, err := input.Body.toModel()
 	if err != nil {
 		return nil, &ErrorDetail{
 			Status:  http.StatusUnprocessableEntity,
