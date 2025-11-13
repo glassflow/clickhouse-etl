@@ -310,7 +310,6 @@ type sourceConnectionParams struct {
 
 type kafkaTopic struct {
 	Topic                      string           `json:"name"`
-	ID                         string           `json:"id,omitempty"`
 	Schema                     topicSchema      `json:"schema"`
 	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset,omitempty" default:"earliest"`
 	Replicas                   int              `json:"replicas,omitempty" default:"1"`
@@ -403,7 +402,6 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 	for _, t := range p.Source.Topics {
 		topics = append(topics, models.KafkaTopicsConfig{
 			Name:                       t.Topic,
-			ID:                         t.ID,
 			ConsumerGroupName:          models.GetKafkaConsumerGroupName(p.PipelineID),
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Replicas:                   t.Replicas,
@@ -566,7 +564,6 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		//nolint: exhaustruct // schema is added later
 		kt := kafkaTopic{
 			Topic:                      t.Name,
-			ID:                         t.ID,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Replicas:                   t.Replicas,
 			Deduplication: topicDedupConfig{
