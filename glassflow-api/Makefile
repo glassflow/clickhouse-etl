@@ -1,5 +1,6 @@
 CI_GOLANGCI_LINT_VERSION?=v1.64.5
 COMMIT_HASH?=$(shell git rev-parse --short HEAD)
+VERSION?=$(shell git describe --tags --always --dirty)
 
 ifneq (,$(wildcard ./.env))
 include .env
@@ -17,21 +18,21 @@ run:
 .PHONY: build
 build:
 	CGO_ENABLED=0 go build -mod=readonly \
-	-ldflags "-X main.version=$(shell git describe --tags --always --dirty)" \
+	-ldflags "-X main.version=$(VERSION)" \
 	-o bin/glassflow \
 	cmd/glassflow/main.go
 
 .PHONY: build-linux-amd64
 build-linux-amd64:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly \
-	-ldflags "-X main.version=$(shell git describe --tags --always --dirty)" \
+	-ldflags "-X main.version=$(VERSION)" \
 	-o bin/clickhouse-etl \
 	cmd/glassflow/main.go
 
 .PHONY: build-linux-arm64
 build-linux-arm64:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly \
-	-ldflags "-X main.version=$(shell git describe --tags --always --dirty)" \
+	-ldflags "-X main.version=$(VERSION)" \
 	-o bin/glassflow \
 	cmd/glassflow/main.go
 

@@ -20,6 +20,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Generate version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          SHORT_SHA=$(echo $SHA | cut -c1-7)
+          echo "VERSION=$SHORT_SHA" >> $GITHUB_OUTPUT
       - name: Setup go
         uses: actions/setup-go@v5
         with:
@@ -31,6 +41,7 @@ jobs:
         env:
           GOOS: ${{ matrix.platform.os }}
           GOARCH: ${{ matrix.platform.arch }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
