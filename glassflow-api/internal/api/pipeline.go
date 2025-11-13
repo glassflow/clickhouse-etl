@@ -258,27 +258,32 @@ func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type pipelineSource struct {
+	Kind             string                 `json:"type"`
+	Provider         string                 `json:"provider,omitempty"`
+	ConnectionParams sourceConnectionParams `json:"connection_params"`
+	Topics           []kafkaTopic           `json:"topics"`
+}
+
+type pipelineJoin struct {
+	Kind    string `json:"type,omitempty"`
+	Enabled bool   `json:"enabled"`
+
+	Sources []joinSource `json:"sources,omitempty"`
+}
+
+type pipelineFilter struct {
+	Enabled    bool   `json:"enabled"`
+	Expression string `json:"expression"`
+}
+
 type pipelineJSON struct {
-	PipelineID string `json:"pipeline_id"`
-	Name       string `json:"name"`
-	Source     struct {
-		Kind             string                 `json:"type"`
-		Provider         string                 `json:"provider"`
-		ConnectionParams sourceConnectionParams `json:"connection_params"`
-		Topics           []kafkaTopic           `json:"topics"`
-	} `json:"source"`
-	Join struct {
-		Kind    string `json:"type"`
-		Enabled bool   `json:"enabled"`
-
-		Sources []joinSource `json:"sources"`
-	} `json:"join,omitempty"`
-	Filter struct {
-		Enabled    bool   `json:"enabled"`
-		Expression string `json:"expression"`
-	} `json:"filter,omitempty"`
-
-	Sink clickhouseSink `json:"sink"`
+	PipelineID string         `json:"pipeline_id"`
+	Name       string         `json:"name"`
+	Source     pipelineSource `json:"source"`
+	Join       pipelineJoin   `json:"join,omitempty"`
+	Filter     pipelineFilter `json:"filter,omitempty"`
+	Sink       clickhouseSink `json:"sink"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -293,7 +298,7 @@ type sourceConnectionParams struct {
 	SASLMechanism       string   `json:"mechanism,omitempty"`
 	SASLUsername        string   `json:"username,omitempty"`
 	SASLPassword        string   `json:"password,omitempty"`
-	SASLTLSEnable       bool     `json:"sasl_tls_enable"`
+	SASLTLSEnable       bool     `json:"sasl_tls_enable,omitempty"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
 	TLSCert             string   `json:"client_cert,omitempty"`
 	TLSKey              string   `json:"client_key,omitempty"`
@@ -305,10 +310,9 @@ type sourceConnectionParams struct {
 
 type kafkaTopic struct {
 	Topic                      string           `json:"name"`
-	ID                         string           `json:"id"`
 	Schema                     topicSchema      `json:"schema"`
-	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset" default:"earliest"`
-	Replicas                   int              `json:"replicas" default:"1"`
+	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset,omitempty" default:"earliest"`
+	Replicas                   int              `json:"replicas,omitempty" default:"1"`
 	Deduplication              topicDedupConfig `json:"deduplication,omitempty"`
 }
 
@@ -354,7 +358,7 @@ type clickhouseSink struct {
 	// Add validation for range
 	MaxBatchSize                int                 `json:"max_batch_size"`
 	MaxDelayTime                models.JSONDuration `json:"max_delay_time" format:"duration" doc:"Maximum delay time for batching (e.g., 60s, 1m, 5m)" example:"1m"`
-	SkipCertificateVerification bool                `json:"skip_certificate_verification"`
+	SkipCertificateVerification bool                `json:"skip_certificate_verification,omitempty" default:"false"`
 }
 
 type clickhouseColumnMapping struct {
@@ -398,7 +402,6 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 	for _, t := range p.Source.Topics {
 		topics = append(topics, models.KafkaTopicsConfig{
 			Name:                       t.Topic,
-			ID:                         t.ID,
 			ConsumerGroupName:          models.GetKafkaConsumerGroupName(p.PipelineID),
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Replicas:                   t.Replicas,
@@ -561,7 +564,6 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		//nolint: exhaustruct // schema is added later
 		kt := kafkaTopic{
 			Topic:                      t.Name,
-			ID:                         t.ID,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Replicas:                   t.Replicas,
 			Deduplication: topicDedupConfig{
@@ -618,12 +620,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	return pipelineJSON{
 		PipelineID: p.ID,
 		Name:       p.Name,
-		Source: struct {
-			Kind             string                 `json:"type"`
-			Provider         string                 `json:"provider"`
-			ConnectionParams sourceConnectionParams `json:"connection_params"`
-			Topics           []kafkaTopic           `json:"topics"`
-		}{
+		Source: pipelineSource{
 			Kind:     p.Ingestor.Type,
 			Provider: p.Ingestor.Provider,
 			ConnectionParams: sourceConnectionParams{
@@ -637,12 +634,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			},
 			Topics: topics,
 		},
-		Join: struct {
-			Kind    string `json:"type"`
-			Enabled bool   `json:"enabled"`
-
-			Sources []joinSource `json:"sources"`
-		}{
+		Join: pipelineJoin{
 			Kind:    internal.TemporalJoinType,
 			Enabled: p.Join.Enabled,
 			Sources: joinSources,
