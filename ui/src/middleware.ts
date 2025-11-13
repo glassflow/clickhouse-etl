@@ -18,8 +18,25 @@ export default async function middleware(request: NextRequest) {
     return response
   }
 
-  // For all other routes, just pass through
-  return NextResponse.next()
+  // For all other routes, check if user is authenticated
+  try {
+    const session = await auth0.getSession(request)
+
+    if (!session) {
+      // No session - redirect to login
+      const loginUrl = new URL('/api/auth/login', request.url)
+      loginUrl.searchParams.set('returnTo', request.nextUrl.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // User is authenticated - allow access
+    return NextResponse.next()
+  } catch (error) {
+    // Error checking session - redirect to login
+    const loginUrl = new URL('/api/auth/login', request.url)
+    loginUrl.searchParams.set('returnTo', request.nextUrl.pathname)
+    return NextResponse.redirect(loginUrl)
+  }
 }
 
 // Configure which routes the middleware runs on
@@ -27,5 +44,10 @@ export const config = {
   matcher: [
     // Run middleware on Auth0 routes
     '/api/auth/:path*',
+    // Protect all app pages
+    '/home/:path*',
+    '/pipelines/:path*',
+    '/connections/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }
