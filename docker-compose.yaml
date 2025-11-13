@@ -16,7 +16,17 @@ services:
       - NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
       - NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
       - NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE:-false}
+      # Sidecar service url - used for Kafka Kerberos connections
       - KAFKA_GATEWAY_URL=${KAFKA_GATEWAY_URL:-http://kafka-gateway:8082}
+      # Auth0 Configuration (Optional - set NEXT_PUBLIC_AUTH0_ENABLED=true to enable)
+      - NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED:-false}
+      - NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE:-/api/auth/me}
+      - AUTH0_SECRET=${AUTH0_SECRET}
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8080}
+      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
+      - AUTH0_ISSUER_BASE_URL=${AUTH0_ISSUER_BASE_URL}
+      - AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID}
+      - AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET}
     depends_on:
       - kafka-gateway
 

@@ -6,7 +6,7 @@ export const auth0 = new Auth0Client({
     login: '/api/auth/login',
     callback: '/api/auth/callback',
     logout: '/api/auth/logout',
-    profile: '/api/auth/me',
+    // profile: '/api/auth/me',
   },
   session: {
     absoluteDuration: 604800, // 7 days
