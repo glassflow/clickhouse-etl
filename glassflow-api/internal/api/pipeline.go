@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -107,7 +106,7 @@ func (h *handler) editPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pipeline, err := req.toModel(r.Context(), h.log)
+	pipeline, err := req.toModel()
 	if err != nil {
 		h.log.ErrorContext(r.Context(), "failed to convert request to pipeline model", "error", err)
 		jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
@@ -370,19 +369,8 @@ type clickhouseColumnMapping struct {
 	ColumnType string `json:"column_type"`
 }
 
-func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero models.PipelineConfig, _ error) {
-	if len(strings.TrimSpace(p.PipelineID)) == 0 {
-		log.ErrorContext(ctx, "pipeline ID cannot be empty")
-		return zero, fmt.Errorf("pipeline ID cannot be empty")
-	}
-
-	var (
-		ic models.IngestorComponentConfig
-		jc models.JoinComponentConfig
-		sc models.SinkComponentConfig
-	)
-
-	kcfg := models.KafkaConnectionParamsConfig{
+func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentConfig, _ error) {
+	kafkaConfig := models.KafkaConnectionParamsConfig{
 		Brokers:             p.Source.ConnectionParams.Brokers,
 		SkipAuth:            p.Source.ConnectionParams.SkipAuth,
 		SASLProtocol:        p.Source.ConnectionParams.SASLProtocol,
@@ -417,57 +405,53 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 		})
 	}
 
-	ic, err := models.NewIngestorComponentConfig(p.Source.Provider, kcfg, topics)
+	ingestorComponentConfig, err := models.NewIngestorComponentConfig(p.Source.Provider, kafkaConfig, topics)
 	if err != nil {
-		log.ErrorContext(ctx, "failed to create ingestor config", "provider", p.Source.Provider, "error", err)
-		return zero, fmt.Errorf("ingestor config: %w", err)
+		return zero, fmt.Errorf("create ingestor config: %w", err)
 	}
 
-	if p.Join.Enabled {
-		var sources []models.JoinSourceConfig
-		for _, s := range p.Join.Sources {
-			// Generate OutputStreamID using pipeline ID and source ID (topic name)
-			streamID := models.GetIngestorStreamName(p.PipelineID, s.SourceID)
-			sources = append(sources, models.JoinSourceConfig{
-				SourceID:    s.SourceID,
-				StreamID:    streamID,
-				JoinKey:     s.JoinKey,
-				Window:      s.Window,
-				Orientation: s.Orientation,
-			})
-		}
+	return ingestorComponentConfig, nil
+}
 
-		jc, err = models.NewJoinComponentConfig(p.Join.Kind, sources)
-		if err != nil {
-			log.ErrorContext(ctx, "failed to create join config", "join_kind", p.Join.Kind, "error", err)
-			return zero, fmt.Errorf("join config: %w", err)
-		}
-		jc.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
-		jc.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(p.PipelineID)
-		jc.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(p.PipelineID)
-
+func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ error) {
+	if !p.Join.Enabled {
+		return zero, nil
 	}
 
-	// Determine the stream ID for the sink
-	var sinkStreamID string
-	if p.Join.Enabled {
-		// If join is enabled, sink consumes from the joined stream
-		sinkStreamID = models.GetJoinedStreamName(p.PipelineID)
-	} else {
-		// If join is not enabled, sink consumes from the first topic's stream
-		if len(p.Source.Topics) > 0 {
-			sinkStreamID = models.GetIngestorStreamName(p.PipelineID, p.Source.Topics[0].Topic)
-		} else {
-			return zero, fmt.Errorf("no topics defined for sink when join is disabled")
-		}
+	var sources []models.JoinSourceConfig
+	for _, s := range p.Join.Sources {
+		// Generate OutputStreamID using pipeline ID and source ID (topic name)
+		streamID := models.GetIngestorStreamName(p.PipelineID, s.SourceID)
+		sources = append(sources, models.JoinSourceConfig{
+			SourceID:    s.SourceID,
+			StreamID:    streamID,
+			JoinKey:     s.JoinKey,
+			Window:      s.Window,
+			Orientation: s.Orientation,
+		})
 	}
 
+	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, sources)
+	if err != nil {
+		return zero, fmt.Errorf("create join config: %w", err)
+	}
+	joinComponentConfig.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
+	joinComponentConfig.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(p.PipelineID)
+	joinComponentConfig.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(p.PipelineID)
+
+	return joinComponentConfig, nil
+}
+
+func newSinkComponentConfig(
+	p pipelineJSON,
+	sinkStreamID string,
+) (zero models.SinkComponentConfig, _ error) {
 	maxDelayTime := p.Sink.MaxDelayTime
 	if maxDelayTime.Duration() == 0 {
 		maxDelayTime = *models.NewJSONDuration(60 * time.Second)
 	}
 
-	sc, err = models.NewClickhouseSinkComponent(models.ClickhouseSinkArgs{
+	sinkComponentConfig, err := models.NewClickhouseSinkComponent(models.ClickhouseSinkArgs{
 		Host:                 p.Sink.Host,
 		Port:                 p.Sink.Port,
 		HttpPort:             p.Sink.HttpPort,
@@ -482,17 +466,37 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 		SkipCertificateCheck: p.Sink.SkipCertificateVerification,
 	})
 	if err != nil {
-		log.ErrorContext(ctx, "failed to create sink config", "error", err)
-		return zero, fmt.Errorf("sink config: %w", err)
+		return zero, fmt.Errorf("create sink config: %w", err)
 	}
-	sc.NATSConsumerName = models.GetNATSSinkConsumerName(p.PipelineID)
+	sinkComponentConfig.NATSConsumerName = models.GetNATSSinkConsumerName(p.PipelineID)
 
+	return sinkComponentConfig, nil
+}
+
+func getSinkStreamID(p pipelineJSON) (string, error) {
+	var sinkStreamID string
+	if p.Join.Enabled {
+		// If join is enabled, sink consumes from the joined stream
+		sinkStreamID = models.GetJoinedStreamName(p.PipelineID)
+	} else {
+		// If join is not enabled, sink consumes from the first topic's stream
+		if len(p.Source.Topics) > 0 {
+			sinkStreamID = models.GetIngestorStreamName(p.PipelineID, p.Source.Topics[0].Topic)
+		} else {
+			return "", fmt.Errorf("no topics defined for sink when join is disabled")
+		}
+	}
+
+	return sinkStreamID, nil
+}
+
+func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) {
 	// NOTE: optimized for speed - dirty implementation mixing infra
 	// with domain logic and must be changed when schema mapper doesn't mix
 	// multiple components together.
 	streamsCfg := make(map[string]models.StreamSchemaConfig)
-	sinkCfg := make([]models.SinkMappingConfig, len(p.Sink.Mapping))
-	for _, t := range p.Source.Topics {
+	sinkCfg := make([]models.SinkMappingConfig, len(pipeline.Sink.Mapping))
+	for _, t := range pipeline.Source.Topics {
 		if len(t.Schema.Fields) == 0 {
 			return zero, fmt.Errorf("topic schema must have at least one value")
 		}
@@ -512,7 +516,7 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 			Fields: fields,
 		}
 
-		for _, js := range p.Join.Sources {
+		for _, js := range pipeline.Join.Sources {
 			if js.SourceID == t.Topic {
 				streamsCfg[t.Topic] = models.StreamSchemaConfig{
 					Fields:          fields,
@@ -523,9 +527,9 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 			}
 		}
 
-		sinkCfg = make([]models.SinkMappingConfig, len(p.Sink.Mapping))
+		sinkCfg = make([]models.SinkMappingConfig, len(pipeline.Sink.Mapping))
 
-		for i, m := range p.Sink.Mapping {
+		for i, m := range pipeline.Sink.Mapping {
 			mapping := models.SinkMappingConfig{
 				ColumnName: m.ColumnName,
 				StreamName: m.Source,
@@ -537,24 +541,66 @@ func (p pipelineJSON) toModel(ctx context.Context, log *slog.Logger) (zero model
 		}
 	}
 
-	mc := models.MapperConfig{
+	mapperConfig := models.MapperConfig{
 		Type:        internal.SchemaMapperJSONToCHType,
 		Streams:     streamsCfg,
 		SinkMapping: sinkCfg,
 	}
 
+	return mapperConfig, nil
+}
+
+func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error) {
 	filterConfig := models.FilterComponentConfig{
-		Enabled:    p.Filter.Enabled,
-		Expression: p.Filter.Expression,
+		Enabled:    pipeline.Filter.Enabled,
+		Expression: pipeline.Filter.Expression,
+	}
+
+	return filterConfig, nil
+}
+
+func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
+	if len(strings.TrimSpace(pipeline.PipelineID)) == 0 {
+		return zero, fmt.Errorf("pipeline ID cannot be empty")
+	}
+
+	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)
+	if err != nil {
+		return zero, fmt.Errorf("create ingestor component config: %w", err)
+	}
+
+	joinComponentConfig, err := newJoinComponentConfig(pipeline)
+	if err != nil {
+		return zero, fmt.Errorf("create join component config: %w", err)
+	}
+
+	sinkStreamID, err := getSinkStreamID(pipeline)
+	if err != nil {
+		return zero, fmt.Errorf("get sink stream id: %w", err)
+	}
+
+	sinkComponentConfig, err := newSinkComponentConfig(pipeline, sinkStreamID)
+	if err != nil {
+		return zero, fmt.Errorf("create sink component config: %w", err)
+	}
+
+	mapperConfig, err := newMapperConfig(pipeline)
+	if err != nil {
+		return zero, fmt.Errorf("create mapper config: %w", err)
+	}
+
+	filterConfig, err := newFilterConfig(pipeline)
+	if err != nil {
+		return zero, fmt.Errorf("create filter config: %w", err)
 	}
 
 	return models.NewPipelineConfig(
-		p.PipelineID,
-		p.Name,
-		mc,
-		ic,
-		jc,
-		sc,
+		pipeline.PipelineID,
+		pipeline.Name,
+		mapperConfig,
+		ingestorComponentConfig,
+		joinComponentConfig,
+		sinkComponentConfig,
 		filterConfig,
 	), nil
 }
@@ -655,10 +701,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			MaxDelayTime:                p.Sink.Batch.MaxDelayTime,
 			SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
 		},
-		Filter: struct {
-			Enabled    bool   `json:"enabled"`
-			Expression string `json:"expression"`
-		}{
+		Filter: pipelineFilter{
 			Enabled:    p.Filter.Enabled,
 			Expression: p.Filter.Expression,
 		},
