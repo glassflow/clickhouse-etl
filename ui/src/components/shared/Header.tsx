@@ -363,7 +363,8 @@ export function Header() {
           {/* Right Section: Platform Badge + Auth + Help Menu */}
           <div className="flex items-center gap-3">
             <PlatformBadge />
-            {user ? <UserProfile /> : <LoginButton />}
+            {isAuthEnabled && !user && !isUserLoading && <LoginButton />}
+            {isAuthEnabled && user && <UserProfile />}
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>
