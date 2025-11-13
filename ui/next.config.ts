@@ -13,13 +13,7 @@ const config: NextConfig = {
     NEXT_PUBLIC_AUTH0_ENABLED: process.env.NEXT_PUBLIC_AUTH0_ENABLED,
     NEXT_PUBLIC_PROFILE_ROUTE: process.env.NEXT_PUBLIC_PROFILE_ROUTE,
   },
-  redirects: async () => [
-    {
-      source: '/',
-      destination: '/home',
-      permanent: true,
-    },
-  ],
+  // Redirects are now handled by middleware.ts to support optional auth
 }
 
 export default config

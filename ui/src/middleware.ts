@@ -5,37 +5,57 @@ import { auth0 } from './lib/auth0'
 // Check if Auth0 is enabled via environment variable
 const isAuthEnabled = process.env.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
 
+// Public routes that don't require authentication
+const PUBLIC_ROUTES = ['/']
+
 // Conditional middleware: only apply auth if enabled
 export default async function middleware(request: NextRequest) {
-  // If auth is disabled, pass through all requests
+  const pathname = request.nextUrl.pathname
+
+  // If auth is disabled, redirect root to /home and pass through everything else
   if (!isAuthEnabled) {
+    if (pathname === '/') {
+      return NextResponse.redirect(new URL('/home', request.url))
+    }
     return NextResponse.next()
   }
 
   // Let Auth0 SDK handle all its routes
-  if (request.nextUrl.pathname.startsWith('/api/auth/')) {
+  if (pathname.startsWith('/api/auth/')) {
     const response = await auth0.middleware(request)
     return response
   }
+
+  // Check if this is a public route
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
 
   // For all other routes, check if user is authenticated
   try {
     const session = await auth0.getSession(request)
 
-    if (!session) {
-      // No session - redirect to login
-      const loginUrl = new URL('/api/auth/login', request.url)
-      loginUrl.searchParams.set('returnTo', request.nextUrl.pathname)
-      return NextResponse.redirect(loginUrl)
+    // If user is authenticated and on root, redirect to /home
+    if (session && pathname === '/') {
+      return NextResponse.redirect(new URL('/home', request.url))
     }
 
-    // User is authenticated - allow access
+    // If no session and on root (public), allow access
+    if (!session && isPublicRoute) {
+      return NextResponse.next()
+    }
+
+    // If no session and trying to access protected route, redirect to root (landing page)
+    if (!session && !isPublicRoute) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+
+    // User is authenticated, allow access
     return NextResponse.next()
   } catch (error) {
-    // Error checking session - redirect to login
-    const loginUrl = new URL('/api/auth/login', request.url)
-    loginUrl.searchParams.set('returnTo', request.nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
+    // Error checking session - redirect to root if not public
+    if (!isPublicRoute) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    return NextResponse.next()
   }
 }
 
@@ -44,10 +64,7 @@ export const config = {
   matcher: [
     // Run middleware on Auth0 routes
     '/api/auth/:path*',
-    // Protect all app pages
-    '/home/:path*',
-    '/pipelines/:path*',
-    '/connections/:path*',
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    // Check all routes except static files
+    '/((?!_next/static|_next/image|favicon.ico|public|env.js).*)',
   ],
 }
