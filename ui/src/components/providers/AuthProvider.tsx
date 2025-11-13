@@ -12,6 +12,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  // If enabled, wrap with Auth0 Auth0Provider with correct profile endpoint
+  // If enabled, wrap with Auth0Provider
+  // The profile endpoint is configured via NEXT_PUBLIC_AUTH0_PROFILE env var
   return <Auth0Provider>{children}</Auth0Provider>
 }

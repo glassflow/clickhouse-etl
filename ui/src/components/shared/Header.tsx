@@ -172,7 +172,7 @@ export function Header() {
   const { resetPipelineState } = coreStore
 
   // Auth0 hooks
-  const { user, isLoading: isUserLoading } = useUser()
+  const { user, isLoading: isUserLoading, error: userError } = useUser()
   const runtimeEnv = getRuntimeEnv()
   const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
 
@@ -363,12 +363,7 @@ export function Header() {
           {/* Right Section: Platform Badge + Auth + Help Menu */}
           <div className="flex items-center gap-3">
             <PlatformBadge />
-            {isAuthEnabled && (
-              <>
-                {!user && !isUserLoading && <LoginButton />}
-                {user && <UserProfile />}
-              </>
-            )}
+            {user ? <UserProfile /> : <LoginButton />}
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>

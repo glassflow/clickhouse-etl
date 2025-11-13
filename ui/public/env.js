@@ -6,5 +6,5 @@ window.__ENV__ = {
   NEXT_PUBLIC_ANALYTICS_ENABLED: "true",
   NEXT_PUBLIC_DEMO_MODE: "false",
   NEXT_PUBLIC_AUTH0_ENABLED: "false",
-  NEXT_PUBLIC_PROFILE_ROUTE: "/api/auth/me"
+  NEXT_PUBLIC_AUTH0_PROFILE: "/api/auth/me"
 };

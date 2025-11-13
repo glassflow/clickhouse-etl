@@ -22,8 +22,13 @@ export default async function middleware(request: NextRequest) {
 
   // Let Auth0 SDK handle all its routes
   if (pathname.startsWith('/api/auth/')) {
-    const response = await auth0.middleware(request)
-    return response
+    try {
+      const response = await auth0.middleware(request)
+      return response
+    } catch (error) {
+      console.error('[Middleware] Auth0 SDK error:', error)
+      return NextResponse.next()
+    }
   }
 
   // Check if this is a public route
@@ -64,7 +69,12 @@ export const config = {
   matcher: [
     // Run middleware on Auth0 routes
     '/api/auth/:path*',
-    // Check all routes except static files
-    '/((?!_next/static|_next/image|favicon.ico|public|env.js).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
   ],
 }

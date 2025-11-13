@@ -17,7 +17,7 @@ const envVars = {
   NEXT_PUBLIC_ANALYTICS_ENABLED: process.env.NEXT_PUBLIC_ANALYTICS_ENABLED || 'true',
   NEXT_PUBLIC_DEMO_MODE: process.env.NEXT_PUBLIC_DEMO_MODE || 'false',
   NEXT_PUBLIC_AUTH0_ENABLED: process.env.NEXT_PUBLIC_AUTH0_ENABLED || 'false',
-  NEXT_PUBLIC_PROFILE_ROUTE: process.env.NEXT_PUBLIC_PROFILE_ROUTE || '/api/auth/me',
+  NEXT_PUBLIC_AUTH0_PROFILE: process.env.NEXT_PUBLIC_AUTH0_PROFILE || '/api/auth/me',
 }
 
 // Generate the env.js content
@@ -29,7 +29,7 @@ const envJsContent = `window.__ENV__ = {
   NEXT_PUBLIC_ANALYTICS_ENABLED: "${envVars.NEXT_PUBLIC_ANALYTICS_ENABLED}",
   NEXT_PUBLIC_DEMO_MODE: "${envVars.NEXT_PUBLIC_DEMO_MODE}",
   NEXT_PUBLIC_AUTH0_ENABLED: "${envVars.NEXT_PUBLIC_AUTH0_ENABLED}",
-  NEXT_PUBLIC_PROFILE_ROUTE: "${envVars.NEXT_PUBLIC_PROFILE_ROUTE}"
+  NEXT_PUBLIC_AUTH0_PROFILE: "${envVars.NEXT_PUBLIC_AUTH0_PROFILE}"
 };`
 
 // Ensure public directory exists

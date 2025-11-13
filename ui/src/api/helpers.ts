@@ -11,7 +11,7 @@ declare global {
       NEXT_PUBLIC_ANALYTICS_ENABLED?: string
       NEXT_PUBLIC_DEMO_MODE?: string
       NEXT_PUBLIC_AUTH0_ENABLED?: string
-      NEXT_PUBLIC_PROFILE_ROUTE?: string
+      NEXT_PUBLIC_AUTH0_PROFILE?: string
     }
   }
 }
