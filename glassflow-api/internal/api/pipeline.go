@@ -310,7 +310,7 @@ type sourceConnectionParams struct {
 
 type kafkaTopic struct {
 	Topic                      string           `json:"name"`
-	ID                         string           `json:"id"`
+	ID                         string           `json:"id,omitempty"`
 	Schema                     topicSchema      `json:"schema"`
 	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset,omitempty" default:"earliest"`
 	Replicas                   int              `json:"replicas,omitempty" default:"1"`
