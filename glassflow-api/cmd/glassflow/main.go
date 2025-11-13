@@ -71,6 +71,8 @@ type config struct {
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
 }
 
+var version = "dev"
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("Service failed", slog.Any("error", err))
@@ -134,6 +136,9 @@ func mainErr(cfg *config, role models.Role) error {
 		ServiceInstanceID: cfg.OtelServiceInstanceID,
 	}
 	log := observability.ConfigureLogger(obsConfig, logOut)
+
+	log.Info("Starting App", slog.String("version", version))
+
 	meter := observability.ConfigureMeter(obsConfig, log)
 
 	shutdown := make(chan os.Signal, 1)
