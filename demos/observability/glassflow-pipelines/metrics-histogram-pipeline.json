@@ -1,0 +1,318 @@
+{
+  "pipeline_id": "metrics-histogram-pipeline",
+  "name": "Metrics Histogram Pipeline",
+  "source": {
+    "type": "kafka",
+    "provider": "custom",
+    "connection_params": {
+      "brokers": [
+        "kafka.kafka.svc.cluster.local:9092"
+      ],
+      "protocol": "PLAINTEXT",
+      "sasl_tls_enable": false,
+      "skip_auth": true
+    },
+    "topics": [
+      {
+        "consumer_group_initial_offset": "latest",
+        "name": "otel-metrics-histogram",
+        "id": "otel-metrics-histogram",
+        "replicas": 1,
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "ResourceAttributes",
+              "type": "map"
+            },
+            {
+              "name": "ResourceSchemaUrl",
+              "type": "string"
+            },
+            {
+              "name": "ScopeName",
+              "type": "string"
+            },
+            {
+              "name": "ScopeVersion",
+              "type": "string"
+            },
+            {
+              "name": "ScopeAttributes",
+              "type": "map"
+            },
+            {
+              "name": "ScopeDroppedAttrCount",
+              "type": "uint32"
+            },
+            {
+              "name": "ScopeSchemaUrl",
+              "type": "string"
+            },
+            {
+              "name": "ServiceName",
+              "type": "string"
+            },
+            {
+              "name": "MetricName",
+              "type": "string"
+            },
+            {
+              "name": "MetricDescription",
+              "type": "string"
+            },
+            {
+              "name": "MetricUnit",
+              "type": "string"
+            },
+            {
+              "name": "Attributes",
+              "type": "map"
+            },
+            {
+              "name": "StartTimeUnix",
+              "type": "string"
+            },
+            {
+              "name": "TimeUnix",
+              "type": "string"
+            },
+            {
+              "name": "Count",
+              "type": "uint64"
+            },
+            {
+              "name": "Sum",
+              "type": "float"
+            },
+            {
+              "name": "BucketCounts",
+              "type": "array"
+            },
+            {
+              "name": "ExplicitBounds",
+              "type": "array"
+            },
+            {
+              "name": "Exemplars.FilteredAttributes",
+              "type": "array"
+            },
+            {
+              "name": "Exemplars.TimeUnix",
+              "type": "array"
+            },
+            {
+              "name": "Exemplars.Value",
+              "type": "array"
+            },
+            {
+              "name": "Exemplars.SpanId",
+              "type": "array"
+            },
+            {
+              "name": "Exemplars.TraceId",
+              "type": "array"
+            },
+            {
+              "name": "Flags",
+              "type": "uint32"
+            },
+            {
+              "name": "Min",
+              "type": "float64"
+            },
+            {
+              "name": "Max",
+              "type": "float64"
+            },
+            {
+              "name": "AggregationTemporality",
+              "type": "int32"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": false
+        }
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "host": "hyperdx-hdx-oss-v2-clickhouse.hyperdx.svc.cluster.local",
+    "port": "9000",
+    "http_port": "8123",
+    "database": "default",
+    "username": "default",
+    "password": "c2VjcmV0",
+    "secure": false,
+    "max_batch_size": 1000,
+    "max_delay_time": "30s",
+    "table": "otel_metrics_histogram",
+    "skip_certificate_verification": false,
+    "table_mapping": [
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ResourceAttributes",
+        "column_name": "ResourceAttributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ResourceSchemaUrl",
+        "column_name": "ResourceSchemaUrl",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ScopeName",
+        "column_name": "ScopeName",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ScopeVersion",
+        "column_name": "ScopeVersion",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ScopeAttributes",
+        "column_name": "ScopeAttributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ScopeDroppedAttrCount",
+        "column_name": "ScopeDroppedAttrCount",
+        "column_type": "UInt32"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ScopeSchemaUrl",
+        "column_name": "ScopeSchemaUrl",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ServiceName",
+        "column_name": "ServiceName",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "MetricName",
+        "column_name": "MetricName",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "MetricDescription",
+        "column_name": "MetricDescription",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "MetricUnit",
+        "column_name": "MetricUnit",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Attributes",
+        "column_name": "Attributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "StartTimeUnix",
+        "column_name": "StartTimeUnix",
+        "column_type": "DateTime64"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "TimeUnix",
+        "column_name": "TimeUnix",
+        "column_type": "DateTime64"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Count",
+        "column_name": "Count",
+        "column_type": "UInt64"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Sum",
+        "column_name": "Sum",
+        "column_type": "Float64"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "BucketCounts",
+        "column_name": "BucketCounts",
+        "column_type": "Array(UInt64)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "ExplicitBounds",
+        "column_name": "ExplicitBounds",
+        "column_type": "Array(Float64)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Exemplars.FilteredAttributes",
+        "column_name": "Exemplars.FilteredAttributes",
+        "column_type": "Array(Map(LowCardinality(String), String))"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Exemplars.TimeUnix",
+        "column_name": "Exemplars.TimeUnix",
+        "column_type": "Array(DateTime64)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Exemplars.Value",
+        "column_name": "Exemplars.Value",
+        "column_type": "Array(Float64)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Exemplars.SpanId",
+        "column_name": "Exemplars.SpanId",
+        "column_type": "Array(String)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Exemplars.TraceId",
+        "column_name": "Exemplars.TraceId",
+        "column_type": "Array(String)"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Flags",
+        "column_name": "Flags",
+        "column_type": "UInt32"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Min",
+        "column_name": "Min",
+        "column_type": "Float64"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "Max",
+        "column_name": "Max",
+        "column_type": "Float64"
+      },
+      {
+        "source_id": "otel-metrics-histogram",
+        "field_name": "AggregationTemporality",
+        "column_name": "AggregationTemporality",
+        "column_type": "Int32"
+      }
+    ]
+  }
+}

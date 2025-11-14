@@ -1,0 +1,28 @@
+# Bitnami Kafka - minimal single-broker demo config (KRaft, no auth)
+listeners:
+  client:
+    protocol: PLAINTEXT
+
+sasl:
+  enabledMechanisms: PLAIN
+
+global:
+  security:
+    allowInsecureImages: true
+
+image:
+  repository: bitnamilegacy/kafka
+  tag: 4.0.0-debian-12-r10
+
+rbac:
+  create: true
+
+controller:
+  resources:
+    limits:
+      cpu: 800m
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  automountServiceAccountToken: true

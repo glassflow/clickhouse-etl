@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: telemetrygen-metrics-sum
+  namespace: otel
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: telemetrygen
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          args:
+            - metrics
+            - --otlp-endpoint=opentelemetry-collector.otel.svc.cluster.local:4317
+            - --otlp-insecure
+            - --metric-type=Sum
+            - --aggregation-temporality=cumulative
+            - --otlp-metric-name=gen-sum
+            - --duration=50m
+            - --rate=50
+
