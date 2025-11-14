@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
@@ -490,6 +491,20 @@ func getSinkStreamID(p pipelineJSON) (string, error) {
 	return sinkStreamID, nil
 }
 
+func mapFieldsToStreamDataFields(fields []topicSchemaField) []models.StreamDataField {
+	var resp []models.StreamDataField
+	for _, f := range fields {
+		field := models.StreamDataField{
+			FieldName: f.Name,
+			FieldType: f.DataType,
+		}
+
+		resp = append(resp, field)
+	}
+
+	return resp
+}
+
 func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) {
 	// NOTE: optimized for speed - dirty implementation mixing infra
 	// with domain logic and must be changed when schema mapper doesn't mix
@@ -501,15 +516,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 			return zero, fmt.Errorf("topic schema must have at least one value")
 		}
 
-		var fields []models.StreamDataField
-		for _, f := range t.Schema.Fields {
-			field := models.StreamDataField{
-				FieldName: f.Name,
-				FieldType: f.DataType,
-			}
-
-			fields = append(fields, field)
-		}
+		fields := mapFieldsToStreamDataFields(t.Schema.Fields)
 
 		//nolint: exhaustruct // join info will be filled later
 		streamsCfg[t.Topic] = models.StreamSchemaConfig{
@@ -551,6 +558,22 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 }
 
 func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error) {
+	if !pipeline.Filter.Enabled {
+		return models.FilterComponentConfig{}, nil
+	}
+
+	// only 1 source is supported for filter (ingestor)
+	if pipeline.Source.Topics == nil || len(pipeline.Source.Topics) != 1 {
+		return models.FilterComponentConfig{}, nil
+	}
+
+	fields := mapFieldsToStreamDataFields(pipeline.Source.Topics[0].Schema.Fields)
+
+	err := filter.ValidateFilterExpression(pipeline.Filter.Expression, fields)
+	if err != nil {
+		return models.FilterComponentConfig{}, fmt.Errorf("filter validation: %w", err)
+	}
+
 	filterConfig := models.FilterComponentConfig{
 		Enabled:    pipeline.Filter.Enabled,
 		Expression: pipeline.Filter.Expression,
