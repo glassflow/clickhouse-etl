@@ -18,10 +18,8 @@ import { Button } from '@/src/components/ui/button'
 import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 import { PlatformBadge } from './PlatformBadge'
-import { useUser } from '@auth0/nextjs-auth0/client'
 import { getRuntimeEnv } from '@/src/utils/common.client'
-import LoginButton from '@/src/components/auth/LoginButton'
-import UserProfile from '@/src/components/auth/UserProfile'
+import { UserSection } from './UserSection'
 
 const NavButton = ({
   href,
@@ -172,7 +170,6 @@ export function Header() {
   const { resetPipelineState } = coreStore
 
   // Auth0 hooks
-  const { user, isLoading: isUserLoading, error: userError } = useUser()
   const runtimeEnv = getRuntimeEnv()
   const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
 
@@ -363,7 +360,7 @@ export function Header() {
           {/* Right Section: Platform Badge + Auth + Help Menu */}
           <div className="flex items-center gap-3">
             <PlatformBadge />
-            {isAuthEnabled && (user ? <UserProfile /> : <LoginButton />)}
+            {isAuthEnabled && <UserSection />}
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>
