@@ -27,6 +27,7 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
+	UpdatePipelineMetadata(ctx context.Context, id string, metadata models.PipelineMetadata) error
 	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
 	GetOrchestratorType() string
 	CleanUpPipelines(ctx context.Context) error

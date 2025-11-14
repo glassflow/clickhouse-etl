@@ -58,6 +58,11 @@ type MockPipelineStore struct {
 	mock.Mock
 }
 
+func (m *MockPipelineStore) PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *MockPipelineStore) InsertPipeline(ctx context.Context, pi models.PipelineConfig) error {
 	args := m.Called(ctx, pi)
 	return args.Error(0)

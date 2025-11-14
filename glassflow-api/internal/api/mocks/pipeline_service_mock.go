@@ -198,6 +198,20 @@ func (mr *MockPipelineServiceMockRecorder) TerminatePipeline(ctx, pid any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TerminatePipeline", reflect.TypeOf((*MockPipelineService)(nil).TerminatePipeline), ctx, pid)
 }
 
+// UpdatePipelineMetadata mocks base method.
+func (m *MockPipelineService) UpdatePipelineMetadata(ctx context.Context, id string, metadata models.PipelineMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePipelineMetadata", ctx, id, metadata)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdatePipelineMetadata indicates an expected call of UpdatePipelineMetadata.
+func (mr *MockPipelineServiceMockRecorder) UpdatePipelineMetadata(ctx, id, metadata any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePipelineMetadata", reflect.TypeOf((*MockPipelineService)(nil).UpdatePipelineMetadata), ctx, id, metadata)
+}
+
 // UpdatePipelineName mocks base method.
 func (m *MockPipelineService) UpdatePipelineName(ctx context.Context, id, name string) error {
 	m.ctrl.T.Helper()
