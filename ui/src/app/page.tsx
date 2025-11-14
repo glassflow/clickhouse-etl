@@ -1,12 +1,25 @@
-export default function Home() {
+import { Button } from '@/src/components/ui/button'
+import { auth0 } from '@/src/lib/auth0'
+import LoginButton from '@/src/components/auth/LoginButton'
+import UserProfile from '@/src/components/auth/UserProfile'
+
+export default async function Home() {
+  // Server-side: Get session using auth0.getSession()
+  const session = await auth0.getSession()
+  const user = session?.user
+
+  // Show landing page
   return (
-    // <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)] min-w-[1200px] max-w-[1200px] mx-auto">
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)] min-w-[var(--main-container-width)] max-w-[var(--main-container-width)] mx-auto">
-      <header className="row-start-1 w-full"></header>
-      <main className="flex flex-col gap-[32px] row-start-2 items-center">{/* Your page content goes here */}</main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center w-full">
-        <p>Glassflow Footer</p>
-      </footer>
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-2xl mx-auto text-center">
+      <h1 className="text-4xl sm:text-5xl font-bold text-brand-gradient">Welcome to Glassflow</h1>
+      <p className="text-lg text-muted-foreground max-w-xl">
+        Create powerful data pipelines with ready-to-use operations. Sign in to get started with your real-time data
+        processing.
+      </p>
+      <div className="flex gap-4 mt-4">
+        {user ? <div className="text-lg">Welcome back, {user.name}!</div> : <LoginButton />}
+      </div>
+      {/* <p className="text-xs text-muted-foreground text-content mt-8">Secure authentication powered by Auth0</p> */}
     </div>
   )
 }

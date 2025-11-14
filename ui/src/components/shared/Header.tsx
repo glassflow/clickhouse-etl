@@ -18,6 +18,8 @@ import { Button } from '@/src/components/ui/button'
 import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 import { PlatformBadge } from './PlatformBadge'
+import { getRuntimeEnv } from '@/src/utils/common.client'
+import { UserSection } from './UserSection'
 
 const NavButton = ({
   href,
@@ -166,6 +168,10 @@ export function Header() {
   const pathname = usePathname()
   const { coreStore } = useStore()
   const { resetPipelineState } = coreStore
+
+  // Auth0 hooks
+  const runtimeEnv = getRuntimeEnv()
+  const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false)
@@ -351,9 +357,10 @@ export function Header() {
             </nav>
           </div>
 
-          {/* Right Section: Platform Badge + Help Menu */}
+          {/* Right Section: Platform Badge + Auth + Help Menu */}
           <div className="flex items-center gap-3">
             <PlatformBadge />
+            {isAuthEnabled && <UserSection />}
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>
