@@ -27,6 +27,7 @@ type PipelineStore interface {
 	GetPipeline(ctx context.Context, pid string) (*models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.PipelineConfig, error)
 	PatchPipelineName(ctx context.Context, pid string, name string) error
+	PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error
 	UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error
 	UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error
 }
@@ -192,6 +193,16 @@ func (p *PipelineService) UpdatePipelineName(ctx context.Context, id string, nam
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to update pipeline name", "pipeline_id", id, "new_name", name, "error", err)
 		return fmt.Errorf("update pipeline: %w", err)
+	}
+
+	return nil
+}
+
+// UpdatePipelineMetadata implements PipelineService.
+func (p *PipelineService) UpdatePipelineMetadata(ctx context.Context, id string, metadata models.PipelineMetadata) error {
+	err := p.db.PatchPipelineMetadata(ctx, id, metadata)
+	if err != nil {
+		return fmt.Errorf("update pipeline metadata: %w", err)
 	}
 
 	return nil

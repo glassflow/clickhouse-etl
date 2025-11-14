@@ -106,6 +106,36 @@ func (s *Storage) PatchPipelineName(ctx context.Context, id, name string) error 
 	return nil
 }
 
+func (s *Storage) PatchPipelineMetadata(ctx context.Context, id string, metadata models.PipelineMetadata) error {
+	entry, err := s.kv.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) {
+			return service.ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline to patch from kv: %w", err)
+	}
+
+	var p models.PipelineConfig
+	err = json.Unmarshal(entry.Value(), &p)
+	if err != nil {
+		return fmt.Errorf("unmarshal loaded entry: %w", err)
+	}
+
+	p.Metadata = metadata
+
+	pc, err := json.Marshal(p)
+	if err != nil {
+		return fmt.Errorf("marshal kv pipeline: %w", err)
+	}
+
+	_, err = s.kv.Update(ctx, p.ID, pc, entry.Revision())
+	if err != nil {
+		return fmt.Errorf("patch pipeline metadata in kv: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Storage) DeletePipeline(ctx context.Context, id string) error {
 	entry, err := s.kv.Get(ctx, id)
 	if err != nil {

@@ -66,6 +66,11 @@ type mockPipelineStore struct {
 	deletePipelineID string
 }
 
+func (m *mockPipelineStore) PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockPipelineStore) InsertPipeline(ctx context.Context, pi models.PipelineConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
