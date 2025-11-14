@@ -255,6 +255,7 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	}
 
 	c.log.Info("Processing batch of messages", slog.Int("batchSize", size))
+	start := time.Now()
 
 	err := c.processor.ProcessBatch(ctx, c.batch)
 	if err != nil {
@@ -272,6 +273,8 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	// Record Kafka read metric
 	if c.meter != nil {
 		c.meter.RecordKafkaRead(ctx, int64(size))
+		duration := time.Since(start).Seconds()
+		c.meter.RecordProcessingDuration(ctx, duration/float64(size))
 	}
 
 	return nil
