@@ -7,7 +7,7 @@ clickhouse:
   enabled: true
   config:
     users:
-      appUserPassword: "hyperdx"
+      appUserPassword: "password"
       otelUserPassword: "c2VjcmV0"
       otelUserName: "default"
 
