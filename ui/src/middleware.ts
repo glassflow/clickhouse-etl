@@ -66,6 +66,7 @@ export default async function middleware(request: NextRequest) {
 
 // Configure which routes the middleware runs on
 export const config = {
+  runtime: 'nodejs', // Use Node.js runtime instead of Edge Runtime (Next.js 15.2+)
   matcher: [
     // Run middleware on Auth0 routes
     '/api/auth/:path*',
