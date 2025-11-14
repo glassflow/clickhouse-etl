@@ -402,6 +402,10 @@ type FilterComponentConfig struct {
 	Expression string `json:"expression"`
 }
 
+type PipelineMetadata struct {
+	Tags []string `json:"tags"`
+}
+
 type PipelineConfig struct {
 	ID        string                  `json:"pipeline_id"`
 	Name      string                  `json:"name"`
@@ -411,6 +415,7 @@ type PipelineConfig struct {
 	Sink      SinkComponentConfig     `json:"sink"`
 	Filter    FilterComponentConfig   `json:"filter"`
 	CreatedAt time.Time               `json:"created_at"`
+	Metadata  PipelineMetadata        `json:"metadata"`
 	Status    PipelineHealth          `json:"status,omitempty"`
 }
 
