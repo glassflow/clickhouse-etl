@@ -3,6 +3,8 @@
  * Matches the structure from glassflow-api/pkg/observability/config.go
  */
 
+import { getRuntimeEnv } from '@/src/utils/common.client'
+
 export interface ObservabilityConfig {
   // Logging configuration
   logLevel: 'debug' | 'info' | 'warn' | 'error'
@@ -18,16 +20,6 @@ export interface ObservabilityConfig {
   // OTLP Exporter configuration
   otlpEndpoint: string
   otlpHeaders?: Record<string, string>
-}
-
-/**
- * Get runtime environment variables (browser-safe)
- */
-function getRuntimeEnv() {
-  if (typeof window !== 'undefined' && (window as any).__ENV) {
-    return (window as any).__ENV
-  }
-  return process.env
 }
 
 /**
