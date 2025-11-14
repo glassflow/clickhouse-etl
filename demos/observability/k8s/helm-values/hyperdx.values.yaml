@@ -8,8 +8,8 @@ clickhouse:
   config:
     users:
       appUserPassword: "hyperdx"
-      otelUserPassword: "glassflow"
-      otelUserName: "glassflow"
+      otelUserPassword: "c2VjcmV0"
+      otelUserName: "default"
 
   resources:
     limits:
