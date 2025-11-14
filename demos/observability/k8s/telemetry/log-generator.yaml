@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: telemetrygen-logs
+  namespace: otel
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: telemetrygen
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          args:
+            - logs
+            - --otlp-endpoint=opentelemetry-collector.otel.svc.cluster.local:4317
+            - --otlp-insecure
+            - --duration=50m
+            - --rate=50
+
+

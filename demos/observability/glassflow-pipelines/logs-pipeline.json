@@ -1,0 +1,198 @@
+{
+  "pipeline_id": "logs-pipeline",
+  "name": "Logs Pipeline",
+  "source": {
+    "type": "kafka",
+    "provider": "custom",
+    "connection_params": {
+      "brokers": [
+        "kafka.kafka.svc.cluster.local:9092"
+      ],
+      "sasl_tls_enable": false,
+      "protocol": "PLAINTEXT",
+      "skip_auth": true
+    },
+    "topics": [
+      {
+        "consumer_group_initial_offset": "latest",
+        "id": "otel-logs",
+        "name": "otel-logs",
+        "replicas": 1,
+        "schema": {
+          "type": "json",
+          "fields": [
+            {
+              "name": "Timestamp",
+              "type": "string"
+            },
+            {
+              "name": "TraceId",
+              "type": "string"
+            },
+            {
+              "name": "SpanId",
+              "type": "string"
+            },
+            {
+              "name": "TraceFlags",
+              "type": "uint8"
+            },
+            {
+              "name": "SeverityText",
+              "type": "string"
+            },
+            {
+              "name": "SeverityNumber",
+              "type": "uint8"
+            },
+            {
+              "name": "ServiceName",
+              "type": "string"
+            },
+            {
+              "name": "Body",
+              "type": "string"
+            },
+            {
+              "name": "ResourceSchemaUrl",
+              "type": "string"
+            },
+            {
+              "name": "ResourceAttributes",
+              "type": "map"
+            },
+            {
+              "name": "ScopeSchemaUrl",
+              "type": "string"
+            },
+            {
+              "name": "ScopeName",
+              "type": "string"
+            },
+            {
+              "name": "ScopeVersion",
+              "type": "string"
+            },
+            {
+              "name": "ScopeAttributes",
+              "type": "map"
+            },
+            {
+              "name": "LogAttributes",
+              "type": "map"
+            }
+          ]
+        },
+        "deduplication": {
+          "enabled": false
+        }
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "host": "hyperdx-hdx-oss-v2-clickhouse.hyperdx.svc.cluster.local",
+    "port": "9000",
+    "http_port": "8123",
+    "database": "default",
+    "username": "glassflow",
+    "password": "Z2xhc3NmbG93",
+    "secure": false,
+    "max_batch_size": 1000,
+    "max_delay_time": "30s",
+    "table": "otel_logs",
+    "skip_certificate_verification": false,
+    "table_mapping": [
+      {
+        "source_id": "otel-logs",
+        "field_name": "Timestamp",
+        "column_name": "Timestamp",
+        "column_type": "DateTime64"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "TraceId",
+        "column_name": "TraceId",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "SpanId",
+        "column_name": "SpanId",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "TraceFlags",
+        "column_name": "TraceFlags",
+        "column_type": "UInt8"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "SeverityText",
+        "column_name": "SeverityText",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "SeverityNumber",
+        "column_name": "SeverityNumber",
+        "column_type": "UInt8"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "ServiceName",
+        "column_name": "ServiceName",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "Body",
+        "column_name": "Body",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "ResourceSchemaUrl",
+        "column_name": "ResourceSchemaUrl",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "ResourceAttributes",
+        "column_name": "ResourceAttributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "ScopeSchemaUrl",
+        "column_name": "ScopeSchemaUrl",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "ScopeName",
+        "column_name": "ScopeName",
+        "column_type": "String"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "ScopeVersion",
+        "column_name": "ScopeVersion",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "ScopeAttributes",
+        "column_name": "ScopeAttributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      },
+      {
+        "source_id": "otel-logs",
+        "field_name": "LogAttributes",
+        "column_name": "LogAttributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      }
+    ]
+  }
+}

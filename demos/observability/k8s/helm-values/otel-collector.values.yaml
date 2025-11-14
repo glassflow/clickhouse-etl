@@ -1,0 +1,86 @@
+# OpenTelemetry Collector - DaemonSet with OTLP enabled and Kafka exporter
+
+mode: daemonset
+
+# Use upstream contrib collector image to ensure all OTLP services (metrics/logs/traces) are available
+image:
+  repository: glassflow/otelcontribcol
+  tag: "v1.0.0"
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+service:
+  enabled: true
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+  processors:
+    batch:
+      timeout: "1s"
+      send_batch_size: 64
+      send_batch_max_size: 128
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 128
+      spike_limit_mib: 64
+  exporters:
+    glassflow:
+      debug: true
+      brokers: ["kafka.kafka.svc.cluster.local:9092"]
+      logs:
+        enabled: true
+        topic:
+          name: otel-logs
+      metrics:
+        sum:
+          enabled: true
+          topic:
+            name: otel-metrics-sum
+        histogram:
+          enabled: true
+          topic:
+            name: otel-metrics-histogram
+        summary:
+          enabled: true
+          topic:
+            name: otel-metrics-summary
+        exponential_histogram:
+          enabled: true
+          topic:
+            name: otel-metrics-exponential-histogram
+        gauge:
+          enabled: true
+          topic:
+            name: otel-metrics-gauge
+      traces:
+        enabled: true
+        topic:
+          name: otel-traces
+  service:
+    pipelines:
+      logs:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [glassflow]
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [glassflow]
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [glassflow]

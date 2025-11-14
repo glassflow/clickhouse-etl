@@ -1,0 +1,45 @@
+# HyperDX OSS v2 - enable embedded ClickHouse for demo
+
+global:
+  storageClassName: standard-rwo
+
+clickhouse:
+  enabled: true
+  config:
+    users:
+      appUserPassword: "hyperdx"
+      otelUserPassword: "glassflow"
+      otelUserName: "glassflow"
+
+  resources:
+    limits:
+      cpu: 800m
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+hyperdx:
+  resources:
+    limits:
+      cpu: 1500m
+      memory: 3Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  usageStatsEnabled: false
+  useExistingConfigSecret: false
+  otelExporterEndpoint: http://otel-opentelemetry-collector.otel.svc.cluster.local:4318
+
+otel:
+  enabled: false
+
+mongodb:
+  enabled: true
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
