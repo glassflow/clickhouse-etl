@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -39,7 +38,7 @@ type Consumer struct {
 	closeCh   chan struct{}
 }
 
-func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (*Consumer, error) {
+func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (zero *Consumer, _ error) {
 	clientOpts, err := buildClientOptions(conn, topic)
 	if err != nil {
 		return &Consumer{}, fmt.Errorf("build client options: %w", err)
@@ -48,6 +47,13 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 	client, err := kgo.NewClient(clientOpts...)
 	if err != nil {
 		return &Consumer{}, fmt.Errorf("failed to create client: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), internal.DefaultKafkaBatchTimeout)
+	defer cancel()
+
+	err = client.Ping(ctx)
+	if err != nil {
+		return zero, fmt.Errorf("failed to ping kafka brokers: %w", err)
 	}
 
 	return &Consumer{
@@ -160,12 +166,14 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 	}
 
 	if conn.SASLTLSEnable {
-		var tlsCfg *tls.Config
-		if tlsC, err := MakeTLSConfigFromStrings(conn.TLSCert, conn.TLSKey, conn.TLSRoot); tlsC != nil && err == nil {
-			tlsCfg = tlsC
+		tlsCfg, err := MakeTLSConfigFromStrings(conn.TLSCert, conn.TLSKey, conn.TLSRoot)
+		if err != nil {
+			return nil, fmt.Errorf("make tls config: %w", err)
 		}
 
-		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
+		if tlsCfg != nil {
+			opts = append(opts, kgo.DialTLSConfig(tlsCfg))
+		}
 	}
 
 	return opts, nil
