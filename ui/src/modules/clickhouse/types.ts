@@ -47,6 +47,7 @@ export interface KafkaConnectionParams {
   protocol: string
   skip_auth?: boolean
   sasl_tls_enable?: boolean
+  skip_certificate_verification?: boolean
   mechanism?: string
   username?: string
   password?: string

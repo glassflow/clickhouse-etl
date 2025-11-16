@@ -177,6 +177,21 @@ export const generateApiConfig = ({
     }
 
     // Build the complete API config
+    // Extract skipCertificateVerification from the appropriate truststore based on auth method
+    let skipCertificateVerification = false
+    const authMethod = kafkaStore?.authMethod
+    if (authMethod === 'SASL/PLAIN' && kafkaStore?.saslPlain?.truststore) {
+      skipCertificateVerification = kafkaStore.saslPlain.truststore.skipCertificateVerification ?? false
+    } else if (authMethod === 'SASL/SCRAM-256' && kafkaStore?.saslScram256?.truststore) {
+      skipCertificateVerification = kafkaStore.saslScram256.truststore.skipCertificateVerification ?? false
+    } else if (authMethod === 'SASL/SCRAM-512' && kafkaStore?.saslScram512?.truststore) {
+      skipCertificateVerification = kafkaStore.saslScram512.truststore.skipCertificateVerification ?? false
+    } else if (authMethod === 'SASL/GSSAPI' && kafkaStore?.saslGssapi?.truststore) {
+      skipCertificateVerification = kafkaStore.saslGssapi.truststore.skipCertificateVerification ?? false
+    } else if (authMethod === 'NO_AUTH' && kafkaStore?.noAuth?.truststore) {
+      skipCertificateVerification = kafkaStore.noAuth.truststore.skipCertificateVerification ?? false
+    }
+
     const config = {
       pipeline_id: finalPipelineId,
       name: pipelineName,
@@ -187,8 +202,8 @@ export const generateApiConfig = ({
           brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
           protocol: kafkaStore?.securityProtocol || 'PLAINTEXT',
           skip_auth: kafkaStore?.skipAuth || false,
-          sasl_tls_enable:
-            kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL',
+          sasl_tls_enable: kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL',
+          skip_certificate_verification: skipCertificateVerification,
         } as KafkaConnectionParams,
         topics: topicsConfig,
       },

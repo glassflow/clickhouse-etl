@@ -463,6 +463,24 @@ export const TruststoreForm = ({
           )
         }
 
+        // For the skipCertificateVerification field, render it as a boolean switch
+        if (key === 'skipCertificateVerification') {
+          return (
+            <div key={key} className="space-y-2 w-full">
+              {renderFormField({
+                field: {
+                  ...fieldWithPrefix,
+                  readOnly: readOnly,
+                  defaultValue: field.defaultValue?.toString(),
+                },
+                register,
+                errors,
+                readOnly,
+              })}
+            </div>
+          )
+        }
+
         return (
           <div key={key} className="space-y-2 w-full">
             {renderFormField({
