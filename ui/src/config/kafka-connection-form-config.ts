@@ -380,6 +380,13 @@ export const KafkaFormConfig = {
         required: false,
         type: 'textarea',
       },
+      skipCertificateVerification: {
+        name: 'truststore.skipCertificateVerification',
+        label: 'Skip Certificate Verification',
+        type: 'boolean',
+        defaultValue: false,
+        placeholder: 'Skip Certificate Verification',
+      },
     },
   },
 }
@@ -400,6 +407,7 @@ export const KafkaFormDefaultValues = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipCertificateVerification: false,
     },
   },
   saslPlain: {
@@ -412,6 +420,7 @@ export const KafkaFormDefaultValues = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipCertificateVerification: false,
     },
     consumerGroup: '',
   },
@@ -436,6 +445,7 @@ export const KafkaFormDefaultValues = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipCertificateVerification: false,
     },
   },
   saslOauthbearer: {
@@ -451,6 +461,7 @@ export const KafkaFormDefaultValues = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipCertificateVerification: false,
     },
     consumerGroup: '',
   },
@@ -464,6 +475,7 @@ export const KafkaFormDefaultValues = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipCertificateVerification: false,
     },
     consumerGroup: '',
   },

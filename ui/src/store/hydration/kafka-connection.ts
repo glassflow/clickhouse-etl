@@ -43,6 +43,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipCertificateVerification: connection_params.skip_certificate_verification ?? false,
       },
       consumerGroup: connection_params.consumer_group || '',
     },
@@ -56,6 +57,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipCertificateVerification: connection_params.skip_certificate_verification ?? false,
       },
       consumerGroup: connection_params.consumer_group || '',
     },
@@ -69,6 +71,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipCertificateVerification: connection_params.skip_certificate_verification ?? false,
       },
     },
     // sasl jaas config connection type
@@ -91,6 +94,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipCertificateVerification: connection_params.skip_certificate_verification ?? false,
       },
     },
     // sasl oauthbearer connection type
@@ -131,6 +135,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipCertificateVerification: connection_params.skip_certificate_verification ?? false,
       },
     },
   }

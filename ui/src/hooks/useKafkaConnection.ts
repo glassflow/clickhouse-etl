@@ -15,11 +15,32 @@ export const useKafkaConnection = () => {
 
       await new Promise((resolve) => setTimeout(resolve, 5000))
 
+      // Extract skipCertificateVerification from the appropriate truststore
+      let skipCertificateVerification = false
+      switch (values.authMethod) {
+        case 'SASL/PLAIN':
+          skipCertificateVerification = values.saslPlain?.truststore?.skipCertificateVerification ?? false
+          break
+        case 'SASL/SCRAM-256':
+          skipCertificateVerification = values.saslScram256?.truststore?.skipCertificateVerification ?? false
+          break
+        case 'SASL/SCRAM-512':
+          skipCertificateVerification = values.saslScram512?.truststore?.skipCertificateVerification ?? false
+          break
+        case 'SASL/GSSAPI':
+          skipCertificateVerification = values.saslGssapi?.truststore?.skipCertificateVerification ?? false
+          break
+        case 'NO_AUTH':
+          skipCertificateVerification = values.noAuth?.truststore?.skipCertificateVerification ?? false
+          break
+      }
+
       // Base request body with common properties
       const requestBody: any = {
         servers: values.bootstrapServers,
         securityProtocol: values.securityProtocol,
         authMethod: values.authMethod,
+        skipCertificateVerification: skipCertificateVerification,
       }
 
       // Add authentication details based on the auth method
