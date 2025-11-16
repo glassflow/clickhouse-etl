@@ -15,23 +15,23 @@ export const useKafkaConnection = () => {
 
       await new Promise((resolve) => setTimeout(resolve, 5000))
 
-      // Extract skipCertificateVerification from the appropriate truststore
-      let skipCertificateVerification = false
+      // Extract skipTlsVerification from the appropriate truststore
+      let skipTlsVerification = false
       switch (values.authMethod) {
         case 'SASL/PLAIN':
-          skipCertificateVerification = values.saslPlain?.truststore?.skipCertificateVerification ?? false
+          skipTlsVerification = values.saslPlain?.truststore?.skipTlsVerification ?? false
           break
         case 'SASL/SCRAM-256':
-          skipCertificateVerification = values.saslScram256?.truststore?.skipCertificateVerification ?? false
+          skipTlsVerification = values.saslScram256?.truststore?.skipTlsVerification ?? false
           break
         case 'SASL/SCRAM-512':
-          skipCertificateVerification = values.saslScram512?.truststore?.skipCertificateVerification ?? false
+          skipTlsVerification = values.saslScram512?.truststore?.skipTlsVerification ?? false
           break
         case 'SASL/GSSAPI':
-          skipCertificateVerification = values.saslGssapi?.truststore?.skipCertificateVerification ?? false
+          skipTlsVerification = values.saslGssapi?.truststore?.skipTlsVerification ?? false
           break
         case 'NO_AUTH':
-          skipCertificateVerification = values.noAuth?.truststore?.skipCertificateVerification ?? false
+          skipTlsVerification = values.noAuth?.truststore?.skipTlsVerification ?? false
           break
       }
 
@@ -40,7 +40,7 @@ export const useKafkaConnection = () => {
         servers: values.bootstrapServers,
         securityProtocol: values.securityProtocol,
         authMethod: values.authMethod,
-        skipCertificateVerification: skipCertificateVerification,
+        skipTlsVerification: skipTlsVerification,
       }
 
       // Add authentication details based on the auth method

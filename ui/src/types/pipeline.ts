@@ -120,7 +120,7 @@ export interface Pipeline {
       brokers: string[]
       skip_auth: boolean
       sasl_tls_enable?: boolean
-      skip_certificate_verification?: boolean
+      skip_tls_verification?: boolean
       protocol: string
       mechanism: string
       username?: string
