@@ -59,7 +59,7 @@ export interface KafkaConfig {
   }
 
   certificate?: string
-  skipCertificateVerification?: boolean
+  skipTlsVerification?: boolean
 }
 
 export interface KafkaEvent {
@@ -91,9 +91,9 @@ export class KafkaClient {
     // Configure SSL
     if (config.securityProtocol === 'SASL_SSL' || config.securityProtocol === 'SSL') {
       kafkaConfig.ssl = {
-        rejectUnauthorized: config.skipCertificateVerification ? false : true, // Skip certificate verification if enabled
+        rejectUnauthorized: config.skipTlsVerification ? false : true, // Skip TLS verification if enabled
         ca: config.certificate ? [config.certificate] : undefined,
-        checkServerIdentity: config.skipCertificateVerification ? () => undefined : undefined, // Disable hostname verification if skip is enabled
+        checkServerIdentity: config.skipTlsVerification ? () => undefined : undefined, // Disable hostname verification if skip is enabled
       }
 
       // Handle truststore configuration for SSL

@@ -12,7 +12,7 @@ const getKafkaBootstrapServers = (originalServers: string) => {
 }
 
 export function getKafkaConfig(requestBody: any) {
-  const { servers, securityProtocol, authMethod, certificate, skipCertificateVerification } = requestBody
+  const { servers, securityProtocol, authMethod, certificate, skipTlsVerification } = requestBody
 
   const bootstrapServers = getKafkaBootstrapServers(servers)
 
@@ -38,7 +38,7 @@ export function getKafkaConfig(requestBody: any) {
     securityProtocol,
     authMethod: authMethod === 'NO_AUTH' ? undefined : authMethod, // NOTE: Default to undefined if NO_AUTH
     clientId: 'kafka-local-test',
-    skipCertificateVerification: skipCertificateVerification ?? false,
+    skipTlsVerification: skipTlsVerification ?? false,
   }
 
   // Add certificate if using SSL

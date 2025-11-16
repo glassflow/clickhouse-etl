@@ -177,19 +177,19 @@ export const generateApiConfig = ({
     }
 
     // Build the complete API config
-    // Extract skipCertificateVerification from the appropriate truststore based on auth method
-    let skipCertificateVerification = false
+    // Extract skipTlsVerification from the appropriate truststore based on auth method
+    let skipTlsVerification = false
     const authMethod = kafkaStore?.authMethod
     if (authMethod === 'SASL/PLAIN' && kafkaStore?.saslPlain?.truststore) {
-      skipCertificateVerification = kafkaStore.saslPlain.truststore.skipCertificateVerification ?? false
+      skipTlsVerification = kafkaStore.saslPlain.truststore.skipTlsVerification ?? false
     } else if (authMethod === 'SASL/SCRAM-256' && kafkaStore?.saslScram256?.truststore) {
-      skipCertificateVerification = kafkaStore.saslScram256.truststore.skipCertificateVerification ?? false
+      skipTlsVerification = kafkaStore.saslScram256.truststore.skipTlsVerification ?? false
     } else if (authMethod === 'SASL/SCRAM-512' && kafkaStore?.saslScram512?.truststore) {
-      skipCertificateVerification = kafkaStore.saslScram512.truststore.skipCertificateVerification ?? false
+      skipTlsVerification = kafkaStore.saslScram512.truststore.skipTlsVerification ?? false
     } else if (authMethod === 'SASL/GSSAPI' && kafkaStore?.saslGssapi?.truststore) {
-      skipCertificateVerification = kafkaStore.saslGssapi.truststore.skipCertificateVerification ?? false
+      skipTlsVerification = kafkaStore.saslGssapi.truststore.skipTlsVerification ?? false
     } else if (authMethod === 'NO_AUTH' && kafkaStore?.noAuth?.truststore) {
-      skipCertificateVerification = kafkaStore.noAuth.truststore.skipCertificateVerification ?? false
+      skipTlsVerification = kafkaStore.noAuth.truststore.skipTlsVerification ?? false
     }
 
     const config = {
@@ -203,7 +203,7 @@ export const generateApiConfig = ({
           protocol: kafkaStore?.securityProtocol || 'PLAINTEXT',
           skip_auth: kafkaStore?.skipAuth || false,
           sasl_tls_enable: kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL',
-          skip_certificate_verification: skipCertificateVerification,
+          skip_tls_verification: skipTlsVerification,
         } as KafkaConnectionParams,
         topics: topicsConfig,
       },
