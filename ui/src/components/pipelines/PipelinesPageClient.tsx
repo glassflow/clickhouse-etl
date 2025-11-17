@@ -41,6 +41,16 @@ export default function PipelinesPageClient() {
     )
   }, [])
 
+  const updatePipelineTags = useCallback((pipelineId: string, tags: string[]) => {
+    setPipelines((prevPipelines) =>
+      prevPipelines.map((pipeline) =>
+        pipeline.pipeline_id === pipelineId
+          ? { ...pipeline, metadata: { ...(pipeline.metadata || {}), tags } }
+          : pipeline,
+      ),
+    )
+  }, [])
+
   // Remove pipeline from local state
   const removePipeline = useCallback((pipelineId: string) => {
     setPipelines((prevPipelines) => prevPipelines.filter((pipeline) => pipeline.pipeline_id !== pipelineId))
@@ -70,6 +80,7 @@ export default function PipelinesPageClient() {
             onUpdatePipelineStatus={updatePipelineStatus}
             onUpdatePipelineName={updatePipelineName}
             onRemovePipeline={removePipeline}
+            onUpdatePipelineTags={updatePipelineTags}
           />
         ) : (
           <NoPipelines />

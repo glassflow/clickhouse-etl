@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
-import { Copy, Check, MoreVertical } from 'lucide-react'
+import { Copy, Check, MoreVertical, Tag as TagIcon } from 'lucide-react'
 import TerminatePipelineModal from '@/src/modules/pipelines/components/TerminatePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
@@ -40,6 +40,8 @@ interface PipelineDetailsHeaderProps {
   onPipelineDeleted?: () => void
   actions?: React.ReactNode
   showHeader?: boolean
+  onManageTags?: () => void
+  tags?: string[]
 }
 
 function PipelineDetailsHeader({
@@ -48,6 +50,8 @@ function PipelineDetailsHeader({
   onPipelineDeleted,
   actions,
   showHeader = true,
+  onManageTags,
+  tags,
 }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
@@ -99,6 +103,8 @@ function PipelineDetailsHeader({
     ...pipeline,
     status: effectiveStatus as Pipeline['status'],
   }
+
+  const tagsList = tags ?? pipeline.metadata?.tags ?? []
 
   const {
     actionState,
@@ -682,6 +688,23 @@ function PipelineDetailsHeader({
     )
   }
 
+  const renderTagsButton = () => {
+    if (!onManageTags) return null
+    return (
+      <Button
+        key="tags"
+        variant="outline"
+        onClick={onManageTags}
+        className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
+      >
+        <div className="flex items-center gap-2">
+          <TagIcon className="h-4 w-4" />
+          Manage tags
+        </div>
+      </Button>
+    )
+  }
+
   const getActionButtons = () => {
     // Use effective status (centralized status takes priority)
     const showStop = effectiveStatus === 'active' || effectiveStatus === 'stopping'
@@ -769,6 +792,8 @@ function PipelineDetailsHeader({
             </div>
             Flush DLQ
           </Button>
+
+          {renderTagsButton()}
         </div>
 
         {/* Tablet/Mobile: Show most critical actions + More menu */}
@@ -776,6 +801,19 @@ function PipelineDetailsHeader({
           {/* Show primary action inline */}
           {showResume && renderActionButton('resume')}
           {showStop && renderActionButton('stop')}
+          {onManageTags && (
+            <Button
+              key="tags-mobile"
+              variant="outline"
+              onClick={onManageTags}
+              className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
+            >
+              <div className="flex items-center gap-2">
+                <TagIcon className="h-4 w-4" />
+                Tags
+              </div>
+            </Button>
+          )}
 
           {/* More menu for remaining actions */}
           <div className="relative">
@@ -931,6 +969,16 @@ function PipelineDetailsHeader({
             ) : (
               <span>Pipeline ID: None</span>
             )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>Tags:</span>
+            {tagsList.length === 0 && <span className="text-muted-foreground">No tags yet</span>}
+            {tagsList.slice(0, 6).map((tag) => (
+              <Badge key={tag} variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
+                {tag}
+              </Badge>
+            ))}
+            {tagsList.length > 6 && <span className="text-xs text-muted-foreground">+{tagsList.length - 6} more</span>}
           </div>
         </div>
       </Card>

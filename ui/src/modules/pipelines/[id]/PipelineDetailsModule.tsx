@@ -12,10 +12,13 @@ import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
 import { usePipelineOperations } from '@/src/hooks/usePipelineState'
 import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
-import { getPipeline } from '@/src/api/pipeline-api'
+import { getPipeline, updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
+import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
+import { handleApiError } from '@/src/notifications/api-error-handler'
+import { notify } from '@/src/notifications'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -30,6 +33,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const [showHeader, setShowHeader] = useState(false)
   const [showStatusOverview, setShowStatusOverview] = useState(false)
   const [showConfigurationSection, setShowConfigurationSection] = useState(false)
+  const [isTagsModalVisible, setIsTagsModalVisible] = useState(false)
+  const [isSavingTags, setIsSavingTags] = useState(false)
 
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
@@ -204,6 +209,43 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }))
   }
 
+  const openTagsModal = () => {
+    setIsTagsModalVisible(true)
+  }
+
+  const closeTagsModal = () => {
+    if (isSavingTags) return
+    setIsTagsModalVisible(false)
+  }
+
+  const handleTagsSave = async (newTags: string[]) => {
+    setIsSavingTags(true)
+    try {
+      await updatePipelineMetadata(pipeline.pipeline_id, { tags: newTags })
+      setPipeline((prev) => ({
+        ...prev,
+        metadata: {
+          ...(prev.metadata || {}),
+          tags: newTags,
+        },
+      }))
+      notify({
+        variant: 'success',
+        title: 'Tags updated',
+        description: 'Pipeline tags have been saved.',
+        channel: 'toast',
+      })
+      setIsTagsModalVisible(false)
+    } catch (error) {
+      handleApiError(error, {
+        operation: 'update tags',
+        pipelineName: pipeline.name,
+      })
+    } finally {
+      setIsSavingTags(false)
+    }
+  }
+
   // Section selection highlighting
   const SOURCE_STEPS = new Set<StepKeys>([StepKeys.KAFKA_CONNECTION])
   const TRANSFORMATION_STEPS = new Set<StepKeys>([
@@ -228,6 +270,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         onPipelineUpdate={handlePipelineUpdate}
         onPipelineDeleted={handlePipelineDeleted}
         showHeader={showHeader}
+        onManageTags={openTagsModal}
+        tags={pipeline.metadata?.tags}
       />
 
       {/* Status Overview Section - Appears second */}
@@ -265,6 +309,15 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           onStepClick={handleStepClick}
         />
       </div>
+
+      <PipelineTagsModal
+        visible={isTagsModalVisible}
+        pipelineName={pipeline.name}
+        initialTags={pipeline.metadata?.tags || []}
+        onSave={handleTagsSave}
+        onCancel={closeTagsModal}
+        isSaving={isSavingTags}
+      />
 
       {/* Render the standalone step renderer when a step is active */}
       {activeStep && (

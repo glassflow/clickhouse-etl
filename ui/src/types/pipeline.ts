@@ -78,6 +78,10 @@ export const detectTransformationType = (
 }
 
 // Type for pipeline list endpoint (matches backend ListPipelineConfig)
+export interface PipelineMetadata {
+  tags?: string[]
+}
+
 export interface ListPipelineConfig {
   pipeline_id: string
   name: string
@@ -92,6 +96,7 @@ export interface ListPipelineConfig {
     last_consumed_at: string | null
   }
   health_status?: 'stable' | 'unstable' // Based on DLQ stats: stable if unconsumed_messages = 0, unstable otherwise
+  metadata?: PipelineMetadata
 }
 
 // Type for DLQ state (matches backend dlqStateResponse)
@@ -170,6 +175,7 @@ export interface Pipeline {
     max_delay_time: string
     skip_certificate_verification: boolean
   }
+  metadata?: PipelineMetadata
 }
 
 export interface Schema {

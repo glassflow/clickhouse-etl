@@ -8,6 +8,7 @@ import type {
   DLQEvent,
   ApiResponse,
   ApiError,
+  PipelineMetadata,
 } from '@/src/types/pipeline'
 import {
   parsePipelineStatus,
@@ -402,6 +403,28 @@ export const renamePipeline = async (id: string, newName: string): Promise<Pipel
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to rename pipeline' } as ApiError
+  }
+}
+
+export const updatePipelineMetadata = async (id: string, metadata: PipelineMetadata): Promise<void> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/metadata`)
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ metadata }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw { code: response.status, message: errorText || 'Failed to update pipeline metadata' } as ApiError
+    }
+
+    // Endpoint returns empty body on success, so nothing else to parse
+    return
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to update pipeline metadata' } as ApiError
   }
 }
 

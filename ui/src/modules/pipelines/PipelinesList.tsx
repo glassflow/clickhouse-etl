@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { useStore } from '@/src/store'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { Badge } from '@/src/components/ui/badge'
 import { Button } from '@/src/components/ui/button'
 import { ModalResult as InputModalResult } from '@/src/components/common/InputModal'
@@ -19,6 +19,7 @@ import StopPipelineModal from './components/StopPipelineModal'
 import TerminatePipelineModal from './components/TerminatePipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
+import PipelineTagsModal from './components/PipelineTagsModal'
 import { PipelineFilterMenu, FilterState } from './PipelineFilterMenu'
 import { FilterChip } from './FilterChip'
 import { useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal, useTerminatePipelineModal } from './hooks'
@@ -33,6 +34,7 @@ import {
   terminatePipeline,
   deletePipeline,
   getPipeline,
+  updatePipelineMetadata,
 } from '@/src/api/pipeline-api'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
@@ -47,6 +49,7 @@ type PipelinesListProps = {
   onUpdatePipelineStatus?: (pipelineId: string, status: PipelineStatus) => void
   onUpdatePipelineName?: (pipelineId: string, newName: string) => void
   onRemovePipeline?: (pipelineId: string) => void
+  onUpdatePipelineTags?: (pipelineId: string, tags: string[]) => void
 }
 
 export function PipelinesList({
@@ -55,6 +58,7 @@ export function PipelinesList({
   onUpdatePipelineStatus,
   onUpdatePipelineName,
   onRemovePipeline,
+  onUpdatePipelineTags,
 }: PipelinesListProps) {
   const analytics = useJourneyAnalytics()
   const { coreStore, resetAllPipelineState } = useStore()
@@ -89,12 +93,16 @@ export function PipelinesList({
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
 
   // Filter state
-  const [filters, setFilters] = useState<FilterState>({
-    status: [],
-    health: [],
-  })
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+
+  const [filters, setFilters] = useState<FilterState>(() => parseFiltersFromParams(searchParams))
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
   const filterButtonRef = React.useRef<HTMLButtonElement>(null)
+
+  const [tagsModalPipeline, setTagsModalPipeline] = useState<ListPipelineConfig | null>(null)
+  const [isTagsModalVisible, setIsTagsModalVisible] = useState(false)
+  const [isSavingTags, setIsSavingTags] = useState(false)
 
   // Track loading operations for individual pipelines
   const [pipelineOperations, setPipelineOperations] = useState<
@@ -102,7 +110,7 @@ export function PipelinesList({
       string,
       {
         isLoading: boolean
-        operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'rename' | 'edit' | null
+        operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'rename' | 'edit' | 'tags' | null
       }
     >
   >({})
@@ -122,10 +130,23 @@ export function PipelinesList({
   // NEW: Start monitoring these pipelines
   usePipelineMonitoring(pipelineIds)
 
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>()
+    pipelines.forEach((pipeline) => {
+      pipeline.metadata?.tags?.forEach((tag) => {
+        const normalized = (tag || '').trim()
+        if (normalized) {
+          tagSet.add(normalized)
+        }
+      })
+    })
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b))
+  }, [pipelines])
+
   // Helper functions to manage pipeline operation state
   const setPipelineLoading = (
     pipelineId: string,
-    operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'rename' | 'edit',
+    operation: 'stop' | 'resume' | 'terminate' | 'delete' | 'rename' | 'edit' | 'tags',
   ) => {
     setPipelineOperations((prev) => ({
       ...prev,
@@ -172,6 +193,15 @@ export function PipelinesList({
         }
       }
 
+      if (filters.tags.length > 0) {
+        const pipelineTags = (pipeline.metadata?.tags || []).map((tag) => tag.trim().toLowerCase()).filter(Boolean)
+        const requiredTags = filters.tags.map((tag) => tag.toLowerCase())
+        const hasAllTags = requiredTags.every((tag) => pipelineTags.includes(tag))
+        if (!hasAllTags) {
+          return false
+        }
+      }
+
       return true
     })
   }, [pipelines, filters, pipelineStatuses])
@@ -210,6 +240,21 @@ export function PipelinesList({
     window.addEventListener('resize', checkScreenSize)
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
+
+  useEffect(() => {
+    const parsed = parseFiltersFromParams(searchParams)
+    setFilters((current) => (areFiltersEqual(current, parsed) ? current : parsed))
+  }, [searchParams])
+
+  useEffect(() => {
+    const serialized = serializeFilters(filters)
+    if (serialized === searchParams.toString()) {
+      return
+    }
+
+    const nextUrl = serialized ? `${pathname}?${serialized}` : pathname
+    router.replace(nextUrl, { scroll: false })
+  }, [filters, pathname, router, searchParams])
 
   const handleModifyAndRestart = () => {
     openRenameModal()
@@ -390,6 +435,13 @@ export function PipelinesList({
       render: (pipeline) => pipeline.transformation_type || 'None',
     },
     {
+      key: 'tags',
+      header: 'Tags',
+      width: '2fr',
+      align: 'left',
+      render: (pipeline) => <TagsCell tags={pipeline.metadata?.tags || []} />,
+    },
+    {
       key: 'health',
       header: 'Health',
       width: '1fr',
@@ -497,6 +549,7 @@ export function PipelinesList({
             onTerminate={() => handleTerminate(pipeline)}
             onDelete={() => handleDelete(pipeline)}
             onDownload={() => handleDownload(pipeline)}
+            onManageTags={() => handleManageTags(pipeline)}
           />
         )
       },
@@ -646,6 +699,47 @@ export function PipelinesList({
     }
   }
 
+  const handleManageTags = (pipeline: ListPipelineConfig) => {
+    setTagsModalPipeline(pipeline)
+    setIsTagsModalVisible(true)
+  }
+
+  const handleTagsModalClose = () => {
+    if (isSavingTags) return
+    setIsTagsModalVisible(false)
+    setTagsModalPipeline(null)
+  }
+
+  const handleTagsModalSave = async (newTags: string[]) => {
+    if (!tagsModalPipeline) return
+
+    const pipelineId = tagsModalPipeline.pipeline_id
+    setIsSavingTags(true)
+    setPipelineLoading(pipelineId, 'tags')
+
+    try {
+      await updatePipelineMetadata(pipelineId, { tags: newTags })
+      onUpdatePipelineTags?.(pipelineId, newTags)
+      setTagsModalPipeline((prev) => (prev ? { ...prev, metadata: { ...(prev.metadata || {}), tags: newTags } } : prev))
+      notify({
+        variant: 'success',
+        title: 'Tags updated',
+        description: `Tags saved for ${tagsModalPipeline.name}.`,
+        channel: 'toast',
+      })
+      setIsTagsModalVisible(false)
+      setTagsModalPipeline(null)
+    } catch (error) {
+      handleApiError(error, {
+        operation: 'update tags',
+        pipelineName: tagsModalPipeline.name,
+      })
+    } finally {
+      clearPipelineLoading(pipelineId)
+      setIsSavingTags(false)
+    }
+  }
+
   const handlePipelineLimitModalComplete = (result: string) => {
     setShowPipelineLimitModal(false)
 
@@ -664,12 +758,20 @@ export function PipelinesList({
     setFilters({ ...filters, health: [] })
   }
 
+  const handleClearTagFilters = () => {
+    setFilters({ ...filters, tags: [] })
+  }
+
   const getStatusLabels = () => {
     return filters.status.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
   }
 
   const getHealthLabels = () => {
     return filters.health.map((h) => h.charAt(0).toUpperCase() + h.slice(1))
+  }
+
+  const getTagLabels = () => {
+    return filters.tags
   }
 
   return (
@@ -710,6 +812,14 @@ export function PipelinesList({
               onClick={() => setIsFilterMenuOpen(true)}
             />
           )}
+          {filters.tags.length > 0 && (
+            <FilterChip
+              label="Tags"
+              values={getTagLabels()}
+              onRemove={handleClearTagFilters}
+              onClick={() => setIsFilterMenuOpen(true)}
+            />
+          )}
         </div>
 
         <Button variant="default" className="btn-primary btn-text" onClick={handleCreate}>
@@ -725,6 +835,7 @@ export function PipelinesList({
         filters={filters}
         onFiltersChange={setFilters}
         anchorEl={filterButtonRef.current}
+        availableTags={availableTags}
       />
 
       {/* Desktop/Tablet Table */}
@@ -748,11 +859,21 @@ export function PipelinesList({
           onRename={handleRename}
           onTerminate={handleTerminate}
           onDelete={handleDelete}
+          onManageTags={handleManageTags}
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
           isPipelineLoading={isPipelineLoading}
           getPipelineOperation={getPipelineOperation}
         />
       </div>
+
+      <PipelineTagsModal
+        visible={isTagsModalVisible}
+        pipelineName={tagsModalPipeline?.name || ''}
+        initialTags={tagsModalPipeline?.metadata?.tags || []}
+        onSave={handleTagsModalSave}
+        onCancel={handleTagsModalClose}
+        isSaving={isSavingTags}
+      />
 
       <StopPipelineModal
         visible={isStopModalVisible}
@@ -1021,6 +1142,87 @@ export function PipelinesList({
   )
 }
 
+const TagsCell = ({ tags }: { tags: string[] }) => {
+  if (!tags || tags.length === 0) {
+    return <span className="text-sm text-muted-foreground">No tags</span>
+  }
+
+  const visibleTags = tags.slice(0, 3)
+  const remaining = tags.length - visibleTags.length
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {visibleTags.map((tag) => (
+        <Badge key={tag} variant="outline" className="rounded-full px-2 py-0.5 text-xs font-medium">
+          {tag}
+        </Badge>
+      ))}
+      {remaining > 0 && <span className="text-xs text-muted-foreground">+{remaining} more</span>}
+    </div>
+  )
+}
+
 const ActiveChip = ({ status }: { status: Pipeline['status'] }) => {
   return <span className="chip-positive">{status}</span>
+}
+
+const STATUS_FILTER_SET = new Set<PipelineStatus>(['active', 'paused', 'stopped', 'failed'])
+const HEALTH_FILTER_SET = new Set<'stable' | 'unstable'>(['stable', 'unstable'])
+
+function parseCommaSeparatedValues(value: string | null) {
+  if (!value) return []
+  return value
+    .split(',')
+    .map((item) => decodeURIComponent(item.trim()))
+    .filter(Boolean)
+}
+
+function parseFiltersFromParams(params: ReadonlyURLSearchParams | URLSearchParams): FilterState {
+  const rawStatus = parseCommaSeparatedValues(params.get('status'))
+  const status = rawStatus.reduce<PipelineStatus[]>((acc, value) => {
+    const normalized = value.toLowerCase() as PipelineStatus
+    if (STATUS_FILTER_SET.has(normalized)) {
+      acc.push(normalized)
+    }
+    return acc
+  }, [])
+
+  const rawHealth = parseCommaSeparatedValues(params.get('health'))
+  const health = rawHealth.reduce<Array<'stable' | 'unstable'>>((acc, value) => {
+    const normalized = value.toLowerCase() as 'stable' | 'unstable'
+    if (HEALTH_FILTER_SET.has(normalized)) {
+      acc.push(normalized)
+    }
+    return acc
+  }, [])
+
+  const tags = parseCommaSeparatedValues(params.get('tags'))
+
+  return { status, health, tags }
+}
+
+function areFiltersEqual(a: FilterState, b: FilterState) {
+  if (a.status.length !== b.status.length || a.health.length !== b.health.length || a.tags.length !== b.tags.length) {
+    return false
+  }
+
+  const compareArrays = (first: string[], second: string[]) => {
+    return first.every((value, index) => second[index] === value)
+  }
+
+  return compareArrays(a.status, b.status) && compareArrays(a.health, b.health) && compareArrays(a.tags, b.tags)
+}
+
+function serializeFilters(filters: FilterState) {
+  const params = new URLSearchParams()
+  if (filters.status.length > 0) {
+    params.set('status', filters.status.join(','))
+  }
+  if (filters.health.length > 0) {
+    params.set('health', filters.health.join(','))
+  }
+  if (filters.tags.length > 0) {
+    params.set('tags', filters.tags.join(','))
+  }
+  return params.toString()
 }

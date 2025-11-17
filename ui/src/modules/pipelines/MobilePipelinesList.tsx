@@ -19,6 +19,7 @@ interface MobilePipelinesListProps {
   onRename?: (pipeline: ListPipelineConfig) => void
   onTerminate?: (pipeline: ListPipelineConfig) => void
   onDelete?: (pipeline: ListPipelineConfig) => void
+  onManageTags?: (pipeline: ListPipelineConfig) => void
   onRowClick?: (pipeline: ListPipelineConfig) => void
   isPipelineLoading?: (pipelineId: string) => boolean
   getPipelineOperation?: (pipelineId: string) => string | null
@@ -33,6 +34,7 @@ export function MobilePipelinesList({
   onRename,
   onTerminate,
   onDelete,
+  onManageTags,
   onRowClick,
   isPipelineLoading,
   getPipelineOperation,
@@ -127,6 +129,7 @@ export function MobilePipelinesList({
                   onRename={onRename ? () => onRename(pipeline) : undefined}
                   onTerminate={onTerminate ? () => onTerminate(pipeline) : undefined}
                   onDelete={onDelete ? () => onDelete(pipeline) : undefined}
+                  onManageTags={onManageTags ? () => onManageTags(pipeline) : undefined}
                 />
               </div>
             </div>
@@ -147,6 +150,24 @@ export function MobilePipelinesList({
                 >
                   {getStatusLabel((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
                 </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Tags</span>
+                <div className="flex flex-wrap justify-end gap-1 max-w-[60%]">
+                  {(pipeline.metadata?.tags || []).slice(0, 3).map((tag) => (
+                    <Badge key={tag} variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {(pipeline.metadata?.tags?.length || 0) === 0 && (
+                    <span className="text-xs text-muted-foreground">No tags</span>
+                  )}
+                  {(pipeline.metadata?.tags?.length || 0) > 3 && (
+                    <span className="text-xs text-muted-foreground">
+                      +{(pipeline.metadata?.tags?.length || 0) - 3} more
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Events in DLQ</span>
