@@ -200,9 +200,11 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 			return nil, fmt.Errorf("make tls config: %w", err)
 		}
 
-		if tlsCfg != nil {
-			opts = append(opts, kgo.DialTLSConfig(tlsCfg))
+		if conn.SkipTLSVerification {
+			tlsCfg.InsecureSkipVerify = true
 		}
+
+		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
 	}
 
 	return opts, nil

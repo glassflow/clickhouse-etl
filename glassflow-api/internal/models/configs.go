@@ -54,16 +54,17 @@ type MapperConfig struct {
 }
 
 type KafkaConnectionParamsConfig struct {
-	Brokers       []string `json:"brokers"`
-	SkipAuth      bool     `json:"skip_auth"`
-	SASLTLSEnable bool     `json:"sasl_tls_enable"`
-	SASLProtocol  string   `json:"protocol"`
-	SASLMechanism string   `json:"mechanism,omitempty"`
-	SASLUsername  string   `json:"username,omitempty"`
-	SASLPassword  string   `json:"password,omitempty"`
-	TLSRoot       string   `json:"root_ca,omitempty"`
-	TLSCert       string   `json:"tls_cert,omitempty"`
-	TLSKey        string   `json:"tls_key,omitempty"`
+	Brokers             []string `json:"brokers"`
+	SkipAuth            bool     `json:"skip_auth"`
+	SASLTLSEnable       bool     `json:"sasl_tls_enable"`
+	SASLProtocol        string   `json:"protocol"`
+	SASLMechanism       string   `json:"mechanism,omitempty"`
+	SASLUsername        string   `json:"username,omitempty"`
+	SASLPassword        string   `json:"password,omitempty"`
+	TLSRoot             string   `json:"root_ca,omitempty"`
+	TLSCert             string   `json:"tls_cert,omitempty"`
+	TLSKey              string   `json:"tls_key,omitempty"`
+	SkipTLSVerification bool     `json:"skip_tls_verification,omitempty"`
 
 	KerberosServiceName string `json:"kerberos_service_name,omitempty"`
 	KerberosRealm       string `json:"kerberos_realm,omitempty"`

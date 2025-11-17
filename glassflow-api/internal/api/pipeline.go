@@ -226,6 +226,7 @@ type sourceConnectionParams struct {
 	SASLUsername        string   `json:"username,omitempty"`
 	SASLPassword        string   `json:"password,omitempty"`
 	SASLTLSEnable       bool     `json:"sasl_tls_enable,omitempty"`
+	SkipTLSVerification bool     `json:"skip_tls_verification,omitempty"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
 	TLSCert             string   `json:"client_cert,omitempty"`
 	TLSKey              string   `json:"client_key,omitempty"`
@@ -306,6 +307,7 @@ func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentCo
 		SASLUsername:        p.Source.ConnectionParams.SASLUsername,
 		SASLPassword:        p.Source.ConnectionParams.SASLPassword,
 		SASLTLSEnable:       p.Source.ConnectionParams.SASLTLSEnable,
+		SkipTLSVerification: p.Source.ConnectionParams.SkipTLSVerification,
 		TLSRoot:             p.Source.ConnectionParams.TLSRoot,
 		TLSCert:             p.Source.ConnectionParams.TLSCert,
 		TLSKey:              p.Source.ConnectionParams.TLSKey,

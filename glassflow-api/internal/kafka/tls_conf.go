@@ -8,16 +8,10 @@ import (
 )
 
 func MakeTLSConfigFromStrings(tlsCert, tlsKey, tlsRoot string) (*tls.Config, error) {
-	if tlsCert == "" && tlsKey == "" && tlsRoot == "" {
-		//nolint: nilnil // don't need sentinel error
-		return nil, nil
-	}
-
 	//nolint: exhaustruct // optional config
 	config := tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		ClientAuth:               tls.NoClientCert,
-		PreferServerCipherSuites: true,
+		MinVersion: tls.VersionTLS12,
+		ClientAuth: tls.NoClientCert,
 	}
 
 	if tlsRoot != "" {
