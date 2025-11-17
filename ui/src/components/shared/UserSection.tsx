@@ -9,8 +9,11 @@ export function UserSection() {
     return <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
   }
 
-  if (userError) {
-    return <div>Error: {userError.message}</div>
+  // 401 Unauthorized is expected when user is not logged in, not an error
+  // Only show error for actual errors (network issues, server errors, etc.)
+  if (userError && !userError.message?.includes('Unauthorized')) {
+    console.error('[UserSection] Unexpected error:', userError)
+    return <LoginButton />
   }
 
   if (!user) {
