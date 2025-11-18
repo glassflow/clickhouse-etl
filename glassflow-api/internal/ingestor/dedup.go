@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	numOfBuckets = 1024
+	numOfBuckets = 8
 )
 
 func getBucket(id string, numBuckets int) int {
