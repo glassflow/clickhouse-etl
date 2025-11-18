@@ -127,7 +127,7 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 	}
 
 	// Configure security
-	authOpts, err := confugureAuth(conn)
+	authOpts, err := configureAuth(conn)
 	if err != nil {
 		return nil, fmt.Errorf("configure auth: %w", err)
 	}
@@ -137,7 +137,7 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 	return opts, nil
 }
 
-func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
+func configureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 	var opts []kgo.Opt
 	var auth sasl.Mechanism
 
