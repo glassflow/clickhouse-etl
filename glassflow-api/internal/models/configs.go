@@ -57,8 +57,8 @@ type KafkaConnectionParamsConfig struct {
 	Brokers             []string `json:"brokers"`
 	SkipAuth            bool     `json:"skip_auth"`
 	SASLTLSEnable       bool     `json:"sasl_tls_enable"`
-	SASLProtocol        string   `json:"protocol"`
-	SASLMechanism       string   `json:"mechanism,omitempty"`
+	SASLMechanism       string   `json:"mechanism"`
+	SASLProtocol        string   `json:"protocol,omitempty"`
 	SASLUsername        string   `json:"username,omitempty"`
 	SASLPassword        string   `json:"password,omitempty"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
@@ -116,50 +116,31 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 		}
 	}
 
-	if strings.Trim(conn.SASLProtocol, " ") == "" {
-		return zero, PipelineConfigError{Msg: "SASL protocol cannot be empty"}
-	}
-
-	switch conn.SASLProtocol {
-	case "SASL_PLAINTEXT":
-	case "PLAINTEXT":
-	case "SASL_SSL":
-	case "SSL":
-	default:
-		return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL protocol: %s; allowed: SASL_PLAINTEXT, PLAINTEXT, SASL_SSL, SSL", conn.SASLProtocol)}
-	}
-
-	// TODO: add validation for protocol w/o skipAuth
-	if !conn.SkipAuth {
-		if len(strings.TrimSpace(conn.SASLMechanism)) == 0 {
-			return zero, PipelineConfigError{Msg: "SASL mechanism cannot be empty"}
-		}
+	switch conn.SASLMechanism {
+	case internal.MechanismSHA256, internal.MechanismSHA512, internal.MechanismPlain:
 		if len(strings.TrimSpace(conn.SASLUsername)) == 0 {
 			return zero, PipelineConfigError{Msg: "SASL username cannot be empty"}
 		}
-		if len(conn.SASLPassword) == 0 && conn.SASLMechanism != internal.MechanismKerberos {
+		if len(conn.SASLPassword) == 0 {
 			return zero, PipelineConfigError{Msg: "SASL password cannot be empty"}
 		}
-
-		switch conn.SASLMechanism {
-		case internal.MechanismSHA256:
-		case internal.MechanismSHA512:
-		case internal.MechanismKerberos:
-			if len(strings.TrimSpace(conn.KerberosServiceName)) == 0 ||
-				len(strings.TrimSpace(conn.KerberosRealm)) == 0 ||
-				len(strings.TrimSpace(conn.KerberosKeytab)) == 0 ||
-				len(strings.TrimSpace(conn.KerberosConfig)) == 0 {
-				return zero, PipelineConfigError{Msg: "Kerberos configuration fields cannot be empty"}
-			}
-		case internal.MechanismPlain:
-		default:
-			return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN", conn.SASLMechanism)}
+	case internal.MechanismKerberos:
+		if len(strings.TrimSpace(conn.KerberosServiceName)) == 0 ||
+			len(strings.TrimSpace(conn.KerberosRealm)) == 0 ||
+			len(strings.TrimSpace(conn.KerberosKeytab)) == 0 ||
+			len(strings.TrimSpace(conn.KerberosConfig)) == 0 {
+			return zero, PipelineConfigError{Msg: "Kerberos configuration fields cannot be empty"}
 		}
+	case internal.MechanismNoAuth:
+	default:
+		return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN, GSSAPI, NO_AUTH", conn.SASLMechanism)}
 	}
 
 	if conn.SASLTLSEnable {
-		if len(strings.TrimSpace(conn.TLSCert)) == 0 && len(strings.TrimSpace(conn.TLSKey)) == 0 && len(strings.TrimSpace(conn.TLSRoot)) == 0 {
-			return zero, PipelineConfigError{Msg: "TLS certificate cannot be empty when SASL TLS is enabled"}
+		if !conn.SkipTLSVerification {
+			if len(strings.TrimSpace(conn.TLSCert)) == 0 && len(strings.TrimSpace(conn.TLSKey)) == 0 && len(strings.TrimSpace(conn.TLSRoot)) == 0 {
+				return zero, PipelineConfigError{Msg: "TLS certificate cannot be empty when SASL TLS is enabled"}
+			}
 		}
 	}
 
