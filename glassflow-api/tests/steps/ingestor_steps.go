@@ -247,6 +247,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		make(chan struct{}),
 		s.logger,
 		nil, // nil meter for e2e tests
+		nc.JetStream(),
 	)
 	if err != nil {
 		return fmt.Errorf("create ingestor component: %w", err)
