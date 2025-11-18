@@ -7,12 +7,11 @@ import (
 	"hash/fnv"
 	"time"
 
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
 const (
-	numOfBuckets = 8
+	numOfBuckets = 64
 )
 
 func getBucket(id string, numBuckets int) int {
@@ -41,7 +40,7 @@ func (k *KafkaMsgProcessor) Duplicate(
 	var kv jetstream.KeyValue
 	kv, err = k.js.KeyValue(ctx, bucketName)
 	if err != nil {
-		if !errors.Is(err, nats.ErrBucketNotFound) {
+		if !errors.Is(err, jetstream.ErrBucketNotFound) {
 			return false, fmt.Errorf("failed to get key-value bucket: %w", err)
 		}
 
