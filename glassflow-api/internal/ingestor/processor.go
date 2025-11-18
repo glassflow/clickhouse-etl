@@ -168,7 +168,16 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 
 		isDuplicate, err := k.Duplicate(ctx, msg.Value, k.topic.Deduplication.ID)
 		if err != nil {
-			k.log.Error("Failed to duplicate message")
+			k.log.Error("Failed to deduplicate message",
+				slog.Any("error", err),
+				slog.String("topic", k.topic.Name),
+				slog.String("dedupKey", k.topic.Deduplication.ID),
+				slog.String("subject", string(msg.Value)),
+			)
+
+			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrValidateSchema); dlqErr != nil {
+				return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
+			}
 		}
 		if isDuplicate {
 			return nil, nil
