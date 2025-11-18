@@ -87,6 +87,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		i.doneCh,
 		i.log,
 		i.meter,
+		i.nc.JetStream(),
 	)
 	if err != nil {
 		i.log.ErrorContext(ctx, "failed to create ingestor component: ", "error", err)

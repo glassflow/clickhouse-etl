@@ -36,6 +36,8 @@ type KafkaMsgProcessor struct {
 	log          *slog.Logger
 	meter        *observability.Meter
 
+	js jetstream.JetStream
+
 	filter Filter
 
 	pendingPublishesLimit int
@@ -48,6 +50,8 @@ func NewKafkaMsgProcessor(
 	log *slog.Logger,
 	meter *observability.Meter,
 	filter Filter,
+	js jetstream.JetStream,
+
 ) *KafkaMsgProcessor {
 	if topic.Replicas < 1 {
 		topic.Replicas = 1
@@ -63,6 +67,7 @@ func NewKafkaMsgProcessor(
 		log:                   log,
 		meter:                 meter,
 		filter:                filter,
+		js:                    js,
 	}
 }
 
@@ -158,6 +163,14 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData); dlqErr != nil {
 				return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 			}
+			return nil, nil
+		}
+
+		isDuplicate, err := k.Duplicate(ctx, msg.Value, k.topic.Deduplication.ID)
+		if err != nil {
+			k.log.Error("Failed to duplicate message")
+		}
+		if isDuplicate {
 			return nil, nil
 		}
 	}

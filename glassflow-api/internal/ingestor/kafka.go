@@ -11,6 +11,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type KafkaConsumer interface {
@@ -32,6 +33,7 @@ func NewKafkaIngestor(
 	schema schema.Mapper,
 	log *slog.Logger,
 	meter *observability.Meter,
+	js jetstream.JetStream,
 ) (*KafkaIngestor, error) {
 	var topic models.KafkaTopicsConfig
 
@@ -73,6 +75,7 @@ func NewKafkaIngestor(
 		log,
 		meter,
 		filterComponent,
+		js,
 	)
 
 	return &KafkaIngestor{

@@ -132,9 +132,9 @@ func (n *NATSClient) CreateOrUpdateStream(ctx context.Context, name, subject str
 		Discard:   jetstream.DiscardOld,
 	}
 
-	if dedupWindow > 0 {
-		sc.Duplicates = dedupWindow
-	}
+	//if dedupWindow > 0 {
+	//	sc.Duplicates = dedupWindow
+	//}
 
 	_, err := n.JetStream().CreateOrUpdateStream(ctx, sc)
 	if err != nil {
