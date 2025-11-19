@@ -8,6 +8,7 @@ require (
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/cucumber/godog v0.15.0
 	github.com/danielgtaylor/huma/v2 v2.34.1
+	github.com/dgraph-io/badger/v4 v4.8.0
 	github.com/docker/go-connections v0.6.0
 	github.com/expr-lang/expr v1.17.6
 	github.com/glassflow/glassflow-etl-k8s-operator v0.0.4-0.20250919232944-170fd73388c9
@@ -49,6 +50,7 @@ require (
 	github.com/antithesishq/antithesis-sdk-go v0.4.3-default-no-op // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -57,9 +59,11 @@ require (
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
 	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/docker v28.3.3+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
@@ -70,6 +74,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-tpm v0.9.6 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
