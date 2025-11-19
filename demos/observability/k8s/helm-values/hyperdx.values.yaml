@@ -1,15 +1,15 @@
 # HyperDX OSS v2 - enable embedded ClickHouse for demo
 
 global:
-  storageClassName: standard-rwo
+  storageClassName: standard
 
 clickhouse:
   enabled: true
   config:
     users:
       appUserPassword: "password"
-      otelUserPassword: "c2VjcmV0"
-      otelUserName: "default"
+      otelUserPassword: "password"
+      otelUserName: "otel"
 
   resources:
     limits:
@@ -22,11 +22,11 @@ clickhouse:
 hyperdx:
   resources:
     limits:
-      cpu: 1500m
-      memory: 3Gi
+      cpu: 500m
+      memory: 1Gi
     requests:
       cpu: 200m
-      memory: 512Mi
+      memory: 412Mi
   usageStatsEnabled: false
   useExistingConfigSecret: false
   otelExporterEndpoint: http://otel-opentelemetry-collector.otel.svc.cluster.local:4318
@@ -36,10 +36,13 @@ otel:
 
 mongodb:
   enabled: true
+  persistence:
+    enabled: true
+    dataSize: 10Gi
   resources:
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 300m
+      memory: 412Mi
     requests:
       cpu: 100m
       memory: 128Mi

@@ -51,7 +51,7 @@ install:
 	helm install $(OTEL_CHART_RELEASE) opentelemetry/opentelemetry-collector -n $(OTEL_NS) -f $(HELM_VALUES)/otel-collector.values.yaml --create-namespace=false || true
 	
 	# Glassflow
-	helm install $(GLASSFLOW_CHART_RELEASE) glassflow/glassflow-etl -n $(GLASSFLOW_NS) --create-namespace=false --version=0.3.4 || true
+	helm install $(GLASSFLOW_CHART_RELEASE) glassflow/glassflow-etl -n $(GLASSFLOW_NS) --create-namespace=false -f $(HELM_VALUES)/glassflow.values.yaml --version=0.3.4 || true
 	
 	# HyperDX (with embedded ClickHouse)
 	helm install $(HYPERDX_CHART_RELEASE) hyperdx/hdx-oss-v2 -n $(HYPERDX_NS) -f $(HELM_VALUES)/hyperdx.values.yaml --create-namespace=false || true
