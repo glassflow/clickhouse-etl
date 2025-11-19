@@ -1,4 +1,3 @@
-
 // This helper is specifically for Server Components to read runtime environment variables.
 // Next.js inlines NEXT_PUBLIC_* variables at build time, so process.env in a server component
 // will reflect the build-time value unless explicitly read at runtime.

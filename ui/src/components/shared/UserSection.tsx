@@ -1,8 +1,23 @@
+'use client'
+
 import { useUser } from '@auth0/nextjs-auth0/client'
 import LoginButton from '../auth/LoginButton'
 import UserProfile from '../auth/UserProfile'
+import { getRuntimeEnv } from '@/src/utils/common.client'
 
 export function UserSection() {
+  // Double-check that auth is actually enabled before rendering anything
+  // This prevents rendering auth components when auth is disabled
+  const runtimeEnv = getRuntimeEnv()
+  const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
+
+  // If auth is disabled, don't render anything
+  // This is a safety check in case this component is rendered incorrectly
+  if (!isAuthEnabled) {
+    console.warn('[UserSection] Auth is disabled but UserSection was rendered. This should not happen.')
+    return null
+  }
+
   const { user, isLoading: isUserLoading, error: userError } = useUser()
 
   if (isUserLoading) {

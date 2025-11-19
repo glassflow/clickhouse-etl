@@ -22,7 +22,12 @@ COPY . .
 
 # Set build-time environment variables for Auth0
 # These must be set at build time for the SDK to use them
-ARG NEXT_PUBLIC_AUTH0_ENABLED=false
+# IMPORTANT: For cloud deployments with Auth0, build with:
+#   docker build --build-arg NEXT_PUBLIC_AUTH0_ENABLED=true ...
+# For local development without Auth0, use the default (false)
+ARG NEXT_PUBLIC_PROFILE_ROUTE=/api/auth/me
+ARG NEXT_PUBLIC_AUTH0_ENABLED=true
+ENV NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE}
 ENV NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED}
 
 # Build the Next.js application
