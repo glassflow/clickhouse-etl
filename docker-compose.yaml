@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
 
   ui:
-    image: ghcr.io/glassflow/glassflow-etl-fe:main
+    image: ghcr.io/glassflow/glassflow-etl-fe:stable
     pull_policy: always
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api:8081}
