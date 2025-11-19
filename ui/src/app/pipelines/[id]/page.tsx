@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation'
+import { auth0 } from '@/src/lib/auth0'
+import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import PipelineDetailsModule from '@/src/modules/pipelines/[id]/PipelineDetailsModule'
 import { getPipeline } from '@/src/api/pipeline-api'
 import { isMockMode } from '@/src/utils/mock-api'
@@ -12,6 +15,15 @@ async function PipelinePage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  // Check authentication
+  const authEnabled = isAuthEnabled()
+  if (authEnabled) {
+    const session = await auth0.getSession()
+    if (!session?.user) {
+      redirect('/')
+    }
+  }
+
   const finalParams = await params
   const finalSearchParams = await searchParams
   const { id } = finalParams

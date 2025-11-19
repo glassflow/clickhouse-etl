@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-// Check if Auth0 is enabled via environment variable
-const isAuthEnabled = process.env.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
+import { isAuthEnabled } from './utils/auth-config.server'
 
 // Conditional middleware: only apply auth if enabled
 export default async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // Always allow /ui-api routes to pass through - they handle their own authentication if needed
+  if (pathname.startsWith('/ui-api')) {
+    return NextResponse.next()
+  }
+
+  // Check Auth0 status at runtime
+  const authEnabled = isAuthEnabled()
+
   // If auth is disabled, redirect root to /home and pass through everything else
-  if (!isAuthEnabled) {
+  if (!authEnabled) {
     if (pathname === '/') {
       return NextResponse.redirect(new URL('/home', request.url))
     }
@@ -35,5 +41,7 @@ export const config = {
     '/home',
     '/pipelines',
     '/pipelines/:path*',
+    // Explicitly include /ui-api to ensure it's handled (though we pass it through)
+    '/ui-api/:path*',
   ],
 }
