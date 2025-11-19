@@ -22,9 +22,7 @@ COPY . .
 
 # Set build-time environment variables for Auth0
 # These must be set at build time for the SDK to use them
-ARG NEXT_PUBLIC_PROFILE_ROUTE=/api/auth/me
 ARG NEXT_PUBLIC_AUTH0_ENABLED=false
-ENV NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE}
 ENV NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED}
 
 # Build the Next.js application
