@@ -20,6 +20,7 @@ services:
       - KAFKA_GATEWAY_URL=${KAFKA_GATEWAY_URL:-http://kafka-gateway:8082}
       # Auth0 Configuration (Optional - set NEXT_PUBLIC_AUTH0_ENABLED=true to enable)
       - NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED:-false}
+      - NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE:-/api/auth/me}
       - AUTH0_SECRET=${AUTH0_SECRET}
       - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8080}
       - AUTH0_DOMAIN=${AUTH0_DOMAIN}
