@@ -1,13 +1,14 @@
 import { redirect } from 'next/navigation'
 import { auth0 } from '@/src/lib/auth0'
+import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import LoginButton from '@/src/components/auth/LoginButton'
 
 export default async function Home() {
-  // Check if Auth0 is enabled
-  const isAuthEnabled = process.env.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
+  // Check if Auth0 is enabled (reads from runtime environment)
+  const authEnabled = isAuthEnabled()
 
   // If auth is disabled, redirect to /home
-  if (!isAuthEnabled) {
+  if (!authEnabled) {
     redirect('/home')
   }
 
