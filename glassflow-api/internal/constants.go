@@ -203,5 +203,5 @@ const (
 	// Kafka message processor modes
 	SyncMode             ProcessorMode = "sync"
 	AsyncMode            ProcessorMode = "async"
-	DefaultProcessorMode               = AsyncMode
+	DefaultProcessorMode               = SyncMode
 )
