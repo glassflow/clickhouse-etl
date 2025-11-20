@@ -223,7 +223,6 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 	c.log.Debug("Consuming messages in batch mode",
 		slog.String("topic", c.topic),
 		slog.String("group", c.groupID),
-		slog.Int("batchSizeThreshold", internal.DefaultKafkaBatchSize),
 		slog.Duration("timeout", c.timeout))
 
 	defer func() {
@@ -297,7 +296,7 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 		return fmt.Errorf("batch processing failed on commit offsets: %w", err)
 	}
 
-	c.log.Info("Batch processed successfully", slog.Int("batchSize", size), slog.Duration("duration", time.Since(start)))
+	c.log.Info("Batch processed successfully", slog.Int("batchSize", size), slog.Duration("duration", time.Duration(time.Since(start).Milliseconds())))
 
 	c.batch = c.batch[:0]
 

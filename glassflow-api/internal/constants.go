@@ -195,8 +195,6 @@ const (
 	KafkaMaxMessagesInQueueSize = 1048576
 	// DefaultKafkaBatchTimeout is default delay of batch collection in kafka ingestor component
 	DefaultKafkaBatchTimeout = 1 * time.Second
-	// DefaultKafkaBatchSize is default size of batch in kafka ingestor component
-	DefaultKafkaBatchSize = 10000
 	// KafkaMaxWait is the maximum time to wait for messages from Kafka
 	KafkaMaxWait = 750 * time.Millisecond
 
