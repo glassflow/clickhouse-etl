@@ -184,9 +184,9 @@ const (
 	SinkDefaultShutdownTimeout = 5 * time.Second
 
 	// Kafka session timeout in milliseconds
-	KafkaSessionTimeoutMs = 60000
+	KafkaSessionTimeout = 30000 * time.Millisecond
 	// Kafka heartbeat interval in milliseconds
-	KafkaHeartbeatInterval = 15000
+	KafkaHeartbeatInterval = 10000 * time.Millisecond
 	// Kafka MinFetchBytes is the minimum amount of data the server should return for a fetch request.
 	KafkaMinFetchBytes = 102400
 	// Kafka MaxFetchBytes is the maximum amount of data the server should return for a fetch request.
@@ -195,8 +195,6 @@ const (
 	KafkaMaxMessagesInQueueSize = 1048576
 	// DefaultKafkaBatchTimeout is default delay of batch collection in kafka ingestor component
 	DefaultKafkaBatchTimeout = 1 * time.Second
-	// DefaultKafkaBatchSize is default size of batch in kafka ingestor component
-	DefaultKafkaBatchSize = 10000
 	// KafkaMaxWait is the maximum time to wait for messages from Kafka
 	KafkaMaxWait = 750 * time.Millisecond
 
