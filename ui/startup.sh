@@ -33,7 +33,7 @@ export NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
 export NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
 export NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
 export NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE:-false}
-export NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED:-false}
+# NOTE: NEXT_PUBLIC_AUTH0_ENABLED is set below to match AUTH0_ENABLED (single source of truth)
 export NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE:-/api/auth/me}
 # OpenTelemetry Configuration
 export NEXT_PUBLIC_OTEL_LOGS_ENABLED=${NEXT_PUBLIC_OTEL_LOGS_ENABLED:-false}
@@ -54,6 +54,11 @@ export AUTH0_ISSUER_BASE_URL=${AUTH0_ISSUER_BASE_URL:-}
 export AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID:-}
 export AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET:-}
 export APP_BASE_URL=${APP_BASE_URL:-http://localhost:8080}
+
+# CRITICAL: Sync NEXT_PUBLIC_AUTH0_ENABLED to match AUTH0_ENABLED
+# This ensures client-side and server-side auth state are always in agreement
+# AUTH0_ENABLED is the single source of truth for authentication state
+export NEXT_PUBLIC_AUTH0_ENABLED=${AUTH0_ENABLED}
 
 # Generate runtime configuration for client-side
 echo "window.__ENV__ = {" > /app/public/env.js
