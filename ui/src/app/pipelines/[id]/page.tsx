@@ -17,8 +17,10 @@ async function PipelinePage({
 }) {
   // Check authentication
   const authEnabled = isAuthEnabled()
+
   if (authEnabled) {
     const session = await auth0.getSession()
+
     if (!session?.user) {
       redirect('/')
     }
