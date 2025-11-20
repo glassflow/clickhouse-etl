@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type JoinRunner struct {
@@ -63,8 +65,8 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	}
 
 	var (
-		leftConsumer    stream.Consumer
-		rightConsumer   stream.Consumer
+		leftConsumer    jetstream.Consumer
+		rightConsumer   jetstream.Consumer
 		leftBuffer      kv.KeyValueStore
 		rightBuffer     kv.KeyValueStore
 		leftStreamName  string
@@ -75,21 +77,37 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	leftStreamName = mapper.GetLeftStream()
 	rightStreamName = mapper.GetRightStream()
 
-	leftConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-		NatsStream:   j.leftInputStreamName,
-		NatsConsumer: j.joinCfg.NATSLeftConsumerName,
-		NatsSubject:  models.GetWildcardNATSSubjectName(j.leftInputStreamName),
-	})
+	leftConsumer, err = stream.NewNATSConsumer(
+		ctx,
+		j.nc.JetStream(),
+		jetstream.ConsumerConfig{
+			Name:          j.joinCfg.NATSLeftConsumerName,
+			Durable:       j.joinCfg.NATSLeftConsumerName,
+			FilterSubject: models.GetWildcardNATSSubjectName(j.leftInputStreamName),
+			AckPolicy:     jetstream.AckAllPolicy,
+			AckWait:       internal.NatsDefaultAckWait,
+			MaxAckPending: -1,
+		},
+		j.leftInputStreamName,
+	)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to create left consumer", "left_stream", j.leftInputStreamName, "error", err)
 		return fmt.Errorf("create left consumer: %w", err)
 	}
 
-	rightConsumer, err = stream.NewNATSConsumer(ctx, j.nc.JetStream(), stream.ConsumerConfig{
-		NatsStream:   j.rightInputStreamName,
-		NatsConsumer: j.joinCfg.NATSRightConsumerName,
-		NatsSubject:  models.GetWildcardNATSSubjectName(j.rightInputStreamName),
-	})
+	rightConsumer, err = stream.NewNATSConsumer(
+		ctx,
+		j.nc.JetStream(),
+		jetstream.ConsumerConfig{
+			Name:          j.joinCfg.NATSRightConsumerName,
+			Durable:       j.joinCfg.NATSRightConsumerName,
+			FilterSubject: models.GetWildcardNATSSubjectName(j.rightInputStreamName),
+			AckPolicy:     jetstream.AckAllPolicy,
+			AckWait:       internal.NatsDefaultAckWait,
+			MaxAckPending: -1,
+		},
+		j.rightInputStreamName,
+	)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to create right consumer", "right_stream", j.rightInputStreamName, "error", err)
 		return fmt.Errorf("create right consumer: %w", err)

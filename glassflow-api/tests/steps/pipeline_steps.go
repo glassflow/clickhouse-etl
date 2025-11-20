@@ -20,6 +20,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/cucumber/godog"
 )
@@ -71,8 +72,8 @@ func (p *PipelineSteps) cleanTopic(topicName string) error {
 	return nil
 }
 
-func (p *PipelineSteps) aRunningNATSJetStream(streamName, subjectName string) error {
-	err := p.createStream(streamName, subjectName, 0)
+func (p *PipelineSteps) aRunningNATSJetStream(streamName string) error {
+	err := p.createStream(jetstream.StreamConfig{Name: streamName}, 0)
 	if err != nil {
 		return fmt.Errorf("create nats stream: %w", err)
 	}
@@ -273,7 +274,7 @@ func (p *PipelineSteps) iPublishEventsToKafka(topic string, table *godog.Table) 
 }
 
 func (p *PipelineSteps) iPublishAMessageToNATSStream(streamName, subjectName string, data *godog.DocString) error {
-	err := p.createStream(streamName, subjectName, 0)
+	err := p.createStream(jetstream.StreamConfig{Name: streamName}, 0)
 	if err != nil {
 		return fmt.Errorf("create nats stream: %w", err)
 	}

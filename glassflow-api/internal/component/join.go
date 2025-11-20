@@ -32,7 +32,7 @@ type JoinComponent struct {
 
 func NewJoinComponent(
 	cfg models.JoinComponentConfig,
-	leftStreamConsumer, rightStreamConsumer stream.Consumer,
+	leftStreamConsumer, rightStreamConsumer jetstream.Consumer,
 	resultsPublisher stream.Publisher,
 	schema schema.Mapper,
 	leftKVStore, rightKVStore kv.KeyValueStore,

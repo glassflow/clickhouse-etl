@@ -16,6 +16,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type SinkTestSuite struct {
@@ -24,8 +25,12 @@ type SinkTestSuite struct {
 	streamName string
 	tablename  string
 
-	dlqStreamCfg *stream.ConsumerConfig
-	streamConfig *stream.ConsumerConfig
+	dlqStreamCfg   jetstream.StreamConfig
+	dlqConsumerCfg jetstream.ConsumerConfig
+
+	streamConfig   jetstream.StreamConfig
+	consumerConfig jetstream.ConsumerConfig
+
 	schemaConfig models.MapperConfig
 	sinkConfig   models.SinkComponentConfig
 	CHSink       component.Component
@@ -76,34 +81,39 @@ func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
 		return fmt.Errorf("parse ack time: %w", err)
 	}
 
-	s.streamConfig = &stream.ConsumerConfig{
-		NatsStream:    cfg.StreamName,
-		NatsConsumer:  cfg.ConsumerName,
-		NatsSubject:   cfg.SubjectName,
-		AckWait:       ackWaitDuration,
-		ExpireTimeout: streamConsumerExpireTimeout,
+	s.streamConfig = jetstream.StreamConfig{
+		Name:     cfg.StreamName,
+		Subjects: []string{cfg.SubjectName},
 	}
+
+	s.consumerConfig = jetstream.ConsumerConfig{
+		Name:          cfg.ConsumerName,
+		Durable:       cfg.ConsumerName,
+		FilterSubject: cfg.SubjectName,
+		AckWait:       ackWaitDuration,
+		AckPolicy:     jetstream.AckAllPolicy,
+	}
+
 	return nil
 }
 
 func (s *SinkTestSuite) aRunningNATSJetStream(streamName, subjectName string) error {
-	err := s.createStream(streamName, subjectName, 0)
+	streamConfig := jetstream.StreamConfig{Name: streamName, Subjects: []string{subjectName}}
+	err := s.createStream(streamConfig, 0)
 	if err != nil {
 		return fmt.Errorf("create nats stream: %w", err)
 	}
 
 	s.streamName = streamName
+	s.streamConfig = streamConfig
 
-	s.dlqStreamCfg = &stream.ConsumerConfig{
-		NatsStream:  streamName + "_dlq",
-		NatsSubject: subjectName + ".failed",
+	// Create DLQ stream with different name and subject
+	s.dlqStreamCfg = jetstream.StreamConfig{
+		Name:     streamName + "_dlq",
+		Subjects: []string{"failed"},
 	}
 
-	err = s.createStream(
-		s.dlqStreamCfg.NatsStream,
-		s.dlqStreamCfg.NatsSubject,
-		0,
-	)
+	err = s.createStream(s.dlqStreamCfg, 0)
 	if err != nil {
 		return fmt.Errorf("create nats DLQ stream: %w", err)
 	}
@@ -248,7 +258,7 @@ func (s *SinkTestSuite) iPublishEventsToTheStream(count int, data *godog.DocStri
 			return fmt.Errorf("marshal event: %w", err)
 		}
 
-		_, err = js.Publish(context.Background(), s.streamConfig.NatsSubject, eventBytes)
+		_, err = js.Publish(context.Background(), s.streamConfig.Subjects[0], eventBytes)
 		if err != nil {
 			return fmt.Errorf("publish event: %w", err)
 		}
@@ -258,7 +268,7 @@ func (s *SinkTestSuite) iPublishEventsToTheStream(count int, data *godog.DocStri
 }
 
 func (s *SinkTestSuite) iRunClickHouseSink() error {
-	streamConsumer, err := stream.NewNATSConsumer(context.Background(), s.natsClient.JetStream(), *s.streamConfig)
+	streamConsumer, err := stream.NewNATSConsumer(context.Background(), s.natsClient.JetStream(), s.consumerConfig, s.streamConfig.Name)
 	if err != nil {
 		return fmt.Errorf("create stream consumer: %w", err)
 	}
@@ -273,7 +283,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 	dlqStreamPublisher := stream.NewNATSPublisher(
 		s.natsClient.JetStream(),
 		stream.PublisherConfig{
-			Subject: s.dlqStreamCfg.NatsSubject,
+			Subject: s.dlqStreamCfg.Subjects[0],
 		},
 	)
 
@@ -428,12 +438,12 @@ func (s *SinkTestSuite) CleanupResources() error {
 }
 
 func (s *SinkTestSuite) dlqHasNEvents(expectedCount int) error {
-	return s.natsStreamSubjectHasNEvents(s.dlqStreamCfg.NatsStream, s.dlqStreamCfg.NatsSubject, expectedCount)
+	return s.natsStreamSubjectHasNEvents(s.dlqStreamCfg.Name, s.dlqStreamCfg.Subjects[0], expectedCount)
 }
 
 func (s *SinkTestSuite) allMessagesAreProcessed() error {
-	consumerName := s.streamConfig.NatsConsumer
-	streamName := s.streamConfig.NatsStream
+	consumerName := s.consumerConfig.Name
+	streamName := s.streamConfig.Name
 
 	consumer, err := s.natsClient.JetStream().Consumer(context.Background(), streamName, consumerName)
 	if err != nil {
@@ -449,7 +459,7 @@ func (s *SinkTestSuite) allMessagesAreProcessed() error {
 		select {
 		case <-timeout:
 			consumerInfo, _ := consumer.Info(context.Background())
-			return fmt.Errorf("timeout waiting for messages to be processed, NumPending: %d", consumerInfo.NumPending)
+			return fmt.Errorf("timeout waiting for messages to be processed, NumPending: %d, NumAckPending: %d", consumerInfo.NumPending, consumerInfo.NumAckPending)
 		case <-ticker.C:
 			consumerInfo, err := consumer.Info(context.Background())
 			if err != nil {

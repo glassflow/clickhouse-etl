@@ -28,9 +28,14 @@ const (
 
 type JoinTestSuite struct {
 	BaseTestSuite
-	leftStreamConfig      *stream.ConsumerConfig
-	rightStreamConfig     *stream.ConsumerConfig
-	resultsConsumerConfig *stream.ConsumerConfig
+	leftStreamConfig      jetstream.StreamConfig
+	leftConsumerConfig    jetstream.ConsumerConfig
+	rightStreamConfig     jetstream.StreamConfig
+	rightConsumerConfig   jetstream.ConsumerConfig
+	resultsStreamConfig   jetstream.StreamConfig
+	resultsConsumerConfig jetstream.ConsumerConfig
+	streamConsumerAckWait time.Duration
+	streamConsumerExpire  time.Duration
 	schemaConfig          *models.MapperConfig
 	JoinComponent         component.Component
 }
@@ -62,22 +67,38 @@ func (j *JoinTestSuite) aStreamConsumerConfig(position string, data *godog.DocSt
 		return fmt.Errorf("unmarshal stream consumer config: %w", err)
 	}
 
-	streamConfig := stream.ConsumerConfig{
-		NatsStream:    cfg.StreamName,
-		NatsConsumer:  cfg.ConsumerName,
-		NatsSubject:   cfg.SubjectName,
-		AckWait:       streamConsumerAckWaitDuration,
-		ExpireTimeout: streamConsumerExpireTimeout,
+	streamCfg := jetstream.StreamConfig{
+		Name:     cfg.StreamName,
+		Subjects: []string{cfg.SubjectName},
 	}
+
+	consumerCfg := jetstream.ConsumerConfig{
+		Name:          cfg.ConsumerName,
+		Durable:       cfg.ConsumerName,
+		FilterSubject: cfg.SubjectName,
+		AckWait:       streamConsumerAckWaitDuration,
+	}
+
+	// Store ack wait and expire timeout for later use
+	if j.streamConsumerAckWait == 0 {
+		j.streamConsumerAckWait = streamConsumerAckWaitDuration
+	}
+	if j.streamConsumerExpire == 0 {
+		j.streamConsumerExpire = streamConsumerExpireTimeout
+	}
+
 	switch position {
 	case "left":
-		j.leftStreamConfig = &streamConfig
+		j.leftStreamConfig = streamCfg
+		j.leftConsumerConfig = consumerCfg
 		return nil
 	case "right":
-		j.rightStreamConfig = &streamConfig
+		j.rightStreamConfig = streamCfg
+		j.rightConsumerConfig = consumerCfg
 		return nil
 	case "results":
-		j.resultsConsumerConfig = &streamConfig
+		j.resultsStreamConfig = streamCfg
+		j.resultsConsumerConfig = consumerCfg
 		return nil
 	default:
 		return fmt.Errorf("unknown stream position: %s", position)
@@ -87,11 +108,11 @@ func (j *JoinTestSuite) aStreamConsumerConfig(position string, data *godog.DocSt
 func (j *JoinTestSuite) aRunningStream(stream string) error {
 	switch stream {
 	case "left":
-		return j.createStream(j.leftStreamConfig.NatsStream, j.leftStreamConfig.NatsSubject, 0)
+		return j.createStream(j.leftStreamConfig, 0)
 	case "right":
-		return j.createStream(j.rightStreamConfig.NatsStream, j.rightStreamConfig.NatsSubject, 0)
+		return j.createStream(j.rightStreamConfig, 0)
 	case "results":
-		return j.createStream(j.resultsConsumerConfig.NatsStream, j.resultsConsumerConfig.NatsSubject, 0)
+		return j.createStream(j.resultsStreamConfig, 0)
 	default:
 		return fmt.Errorf("unknown stream: %s", stream)
 	}
@@ -111,7 +132,7 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		return fmt.Errorf("nats container is not running")
 	}
 
-	if j.leftStreamConfig == nil || j.rightStreamConfig == nil || j.resultsConsumerConfig == nil {
+	if j.leftStreamConfig.Name == "" || j.rightStreamConfig.Name == "" || j.resultsConsumerConfig.Name == "" {
 		return fmt.Errorf("stream consumer configs are not set")
 	}
 
@@ -132,34 +153,41 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 	ctx := context.Background()
 
 	leftKVStore, err := kv.NewNATSKeyValueStore(ctx, j.natsClient.JetStream(), kv.KeyValueStoreConfig{
-		StoreName: j.leftStreamConfig.NatsStream,
+		StoreName: j.leftStreamConfig.Name,
 		TTL:       lTTL,
 	})
 	if err != nil {
 		return fmt.Errorf("create left kv store: %w", err)
 	}
 
-	rightKVStore, err := kv.NewNATSKeyValueStore(ctx, j.natsClient.JetStream(), kv.KeyValueStoreConfig{
-		StoreName: j.rightStreamConfig.NatsStream,
-		TTL:       rTTL,
-	})
+	rightKVStore, err := kv.NewNATSKeyValueStore(
+		ctx,
+		j.natsClient.JetStream(),
+		kv.KeyValueStoreConfig{
+			StoreName: j.rightStreamConfig.Name,
+			TTL:       rTTL,
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("create right kv store: %w", err)
 	}
 
-	leftStreamConsumer, err := stream.NewNATSConsumer(ctx, j.natsClient.JetStream(), *j.leftStreamConfig)
+	leftStreamConsumer, err := stream.NewNATSConsumer(ctx, j.natsClient.JetStream(), j.leftConsumerConfig, j.leftStreamConfig.Name)
 	if err != nil {
 		return fmt.Errorf("create left stream consumer: %w", err)
 	}
 
-	rightStreamConsumer, err := stream.NewNATSConsumer(ctx, j.natsClient.JetStream(), *j.rightStreamConfig)
+	rightStreamConsumer, err := stream.NewNATSConsumer(ctx, j.natsClient.JetStream(), j.rightConsumerConfig, j.rightStreamConfig.Name)
 	if err != nil {
 		return fmt.Errorf("create right stream consumer: %w", err)
 	}
 
-	resultsPublisher := stream.NewNATSPublisher(j.natsClient.JetStream(), stream.PublisherConfig{
-		Subject: j.resultsConsumerConfig.NatsSubject,
-	})
+	resultsPublisher := stream.NewNATSPublisher(
+		j.natsClient.JetStream(),
+		stream.PublisherConfig{
+			Subject: j.resultsConsumerConfig.FilterSubject,
+		},
+	)
 
 	schemaMapper, err := schema.NewJSONToClickHouseMapper(j.schemaConfig.Streams, j.schemaConfig.SinkMapping)
 	if err != nil {
@@ -168,7 +196,7 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 
 	logger := testutils.NewTestLogger()
 
-	component, err := component.NewJoinComponent(
+	joinComponent, err := component.NewJoinComponent(
 		models.JoinComponentConfig{
 			Type: internal.TemporalJoinType,
 		},
@@ -178,8 +206,8 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		schemaMapper,
 		leftKVStore,
 		rightKVStore,
-		j.leftStreamConfig.NatsStream,
-		j.rightStreamConfig.NatsStream,
+		j.leftStreamConfig.Name,
+		j.rightStreamConfig.Name,
 		make(chan struct{}),
 		logger,
 	)
@@ -188,14 +216,14 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		return fmt.Errorf("create join component: %w", err)
 	}
 
-	j.JoinComponent = component
+	j.JoinComponent = joinComponent
 
 	j.errCh = make(chan error, 1)
 
 	j.wg.Add(1)
 	go func() {
 		defer j.wg.Done()
-		component.Start(ctx, j.errCh)
+		joinComponent.Start(ctx, j.errCh)
 	}()
 
 	return nil
@@ -224,11 +252,11 @@ func (j *JoinTestSuite) iStopJoinComponentGracefullyAfterDelay(delay string) err
 }
 
 func (j *JoinTestSuite) iPublishEventsToTheLeftStream(count int, dataTable *godog.Table) error {
-	return j.publishEvents(count, dataTable, j.leftStreamConfig.NatsSubject)
+	return j.publishEvents(count, dataTable, j.leftConsumerConfig.FilterSubject)
 }
 
 func (j *JoinTestSuite) iPublishEventsToTheRightStream(count int, dataTable *godog.Table) error {
-	return j.publishEvents(count, dataTable, j.rightStreamConfig.NatsSubject)
+	return j.publishEvents(count, dataTable, j.rightConsumerConfig.FilterSubject)
 }
 
 // Generic helper function for publishing events
@@ -268,12 +296,11 @@ func (j *JoinTestSuite) publishEvents(count int, dataTable *godog.Table, subject
 func (j *JoinTestSuite) createResultsConsumer() (zero jetstream.Consumer, _ error) {
 	js := j.natsClient.JetStream()
 
-	consumer, err := js.CreateOrUpdateConsumer(context.Background(), j.resultsConsumerConfig.NatsStream, jetstream.ConsumerConfig{ //nolint:exhaustruct // optional config
-		Name:          j.resultsConsumerConfig.NatsConsumer,
-		Durable:       j.resultsConsumerConfig.NatsConsumer,
-		AckWait:       j.resultsConsumerConfig.AckWait,
-		FilterSubject: j.resultsConsumerConfig.NatsSubject,
-	})
+	consumer, err := js.CreateOrUpdateConsumer(
+		context.Background(),
+		j.resultsStreamConfig.Name,
+		j.resultsConsumerConfig,
+	)
 	if err != nil {
 		return zero, fmt.Errorf("subscribe to results stream: %w", err)
 	}
@@ -412,11 +439,15 @@ func (j *JoinTestSuite) fastJoinCleanUp() error {
 		j.JoinComponent = nil
 	}
 
-	for _, streamCfg := range []*stream.ConsumerConfig{j.leftStreamConfig, j.rightStreamConfig, j.resultsConsumerConfig} {
-		if streamCfg != nil {
-			err := j.deleteStream(streamCfg.NatsStream)
+	for _, streamName := range []string{
+		j.leftStreamConfig.Name,
+		j.rightStreamConfig.Name,
+		j.resultsStreamConfig.Name,
+	} {
+		if streamName != "" {
+			err := j.deleteStream(streamName)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("clean stream %s: %w", streamCfg.NatsStream, err))
+				errs = append(errs, fmt.Errorf("clean stream %s: %w", streamName, err))
 			}
 		}
 	}
