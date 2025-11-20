@@ -184,9 +184,9 @@ const (
 	SinkDefaultShutdownTimeout = 5 * time.Second
 
 	// Kafka session timeout in milliseconds
-	KafkaSessionTimeoutMs = 60000
+	KafkaSessionTimeout = 30000 * time.Millisecond
 	// Kafka heartbeat interval in milliseconds
-	KafkaHeartbeatInterval = 15000
+	KafkaHeartbeatInterval = 10000 * time.Millisecond
 	// Kafka MinFetchBytes is the minimum amount of data the server should return for a fetch request.
 	KafkaMinFetchBytes = 102400
 	// Kafka MaxFetchBytes is the maximum amount of data the server should return for a fetch request.
