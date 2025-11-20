@@ -1,0 +1,1178 @@
+---
+title: 'Ingress Setup for GlassFlow'
+description: 'Complete guide to setting up ingress for GlassFlow on Kubernetes'
+---
+
+import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
+import { Tabs } from 'nextra/components'
+
+# Ingress Setup for GlassFlow
+
+This guide provides comprehensive instructions for setting up ingress to expose GlassFlow externally on Kubernetes. We'll cover two approaches: configuring ingress through Helm values and setting up ingress components independently.
+
+<Callout type="info">
+By default, GlassFlow is **not exposed externally** and requires port-forwarding to access the UI and API. This guide will help you expose GlassFlow through a proper ingress setup.
+</Callout>
+
+## Prerequisites
+
+- A running Kubernetes cluster
+- GlassFlow installed via Helm (see [Installation Guide](/installation/kubernetes))
+- A domain name pointing to your cluster's ingress controller IP
+- Basic understanding of Kubernetes ingress concepts
+
+## Approach 1: Configure Ingress via Helm Values
+
+This is the **recommended approach** for most users as it integrates seamlessly with the GlassFlow Helm chart.
+
+### Basic HTTP Setup
+
+<Steps>
+
+### Create a values.yaml file
+
+Create a `values.yaml` file with basic ingress configuration:
+
+```yaml
+ingress:
+  # Enable ingress
+  enabled: true
+  
+  # Ingress class name (required for Kubernetes 1.18+)
+  ingressClassName: "nginx"
+  
+  # Host configurations
+  hosts: 
+  - host: "glassflow.example.com"  # Replace with your domain
+    paths:
+    - path: "/"
+      pathType: Prefix
+      serviceName: "glassflow-ui"
+      servicePort: 8080
+    - path: "/api/v1"
+      pathType: Prefix
+      serviceName: "glassflow-api"
+      servicePort: 8081
+  
+  # Basic annotations (optional)
+  annotations: {}
+  
+  # TLS configuration (empty for HTTP-only)
+  tls: []
+```
+
+### Apply the configuration
+
+Update your GlassFlow installation with the new values:
+
+```bash
+helm upgrade glassflow glassflow/glassflow-etl -f values.yaml --namespace glassflow
+```
+
+### Verify the ingress
+
+Check that the ingress resource was created:
+
+```bash
+kubectl get ingress -n glassflow
+```
+
+</Steps>
+
+### HTTPS Setup with TLS
+
+For production environments, you should enable HTTPS with automatic certificate management:
+
+<Steps>
+
+### Update values.yaml with TLS configuration
+
+```yaml
+ingress:
+  # Enable ingress
+  enabled: true
+  
+  # Ingress class name
+  ingressClassName: "nginx"
+  
+  # Cert-manager annotations for automatic TLS certificate management
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  
+  # Host configurations
+  hosts: 
+  - host: "glassflow.example.com"  # Replace with your domain
+    paths:
+    - path: "/"
+      pathType: Prefix
+      serviceName: "glassflow-ui"
+      servicePort: 8080
+    - path: "/api/v1"
+      pathType: Prefix
+      serviceName: "glassflow-api"
+      servicePort: 8081
+  
+  # TLS configuration for HTTPS
+  tls:
+    - hosts:
+        - "glassflow.example.com"  # Replace with your domain
+      secretName: "glassflow-tls-secret"
+```
+
+### Apply the updated configuration
+
+```bash
+helm upgrade glassflow glassflow/glassflow-etl -f values.yaml --namespace glassflow
+```
+
+</Steps>
+
+### Using Custom TLS Certificates
+
+If you have your own TLS certificates (instead of using cert-manager with Let's Encrypt), you can create the TLS secret manually:
+
+<Steps>
+
+### Create the TLS secret
+
+```bash
+kubectl create secret tls glassflow-tls-secret \
+  --cert=path/to/your/cert.pem \
+  --key=path/to/your/key.pem \
+  --namespace glassflow
+```
+
+Replace `path/to/your/cert.pem` and `path/to/your/key.pem` with the actual paths to your certificate files.
+
+### Update values.yaml for custom certificates
+
+```yaml
+ingress:
+  enabled: true
+  ingressClassName: "nginx"
+  
+  # Remove cert-manager annotations when using custom certificates
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  
+  hosts: 
+  - host: "glassflow.example.com"
+    paths:
+    - path: "/"
+      pathType: Prefix
+      serviceName: "glassflow-ui"
+      servicePort: 8080
+    - path: "/api/v1"
+      pathType: Prefix
+      serviceName: "glassflow-api"
+      servicePort: 8081
+  
+  # Reference your custom TLS secret
+  tls:
+    - hosts:
+        - "glassflow.example.com"
+      secretName: "glassflow-tls-secret"  # Must match the secret name created above
+```
+
+### Apply the configuration
+
+```bash
+helm upgrade glassflow glassflow/glassflow-etl -f values.yaml --namespace glassflow
+```
+
+</Steps>
+
+<Callout type="warning">
+The TLS setup requires cert-manager to be installed in your cluster for automatic certificate management. If you don't have cert-manager, see Approach 2 for installation instructions, or use the custom TLS certificate method above.
+</Callout>
+
+## Approach 2: Independent Ingress Setup
+
+This approach gives you full control over the ingress components and is useful when you need custom configurations or want to manage ingress separately from the GlassFlow Helm chart.
+
+### Step 1: Install NGINX Ingress Controller
+
+<Steps>
+
+### Deploy the NGINX Ingress Controller
+
+Apply the complete NGINX ingress controller configuration. This configuration is based on the official [NGINX Ingress Controller](https://github.com/kubernetes/ingress-nginx) project:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+  name: ingress-nginx
+---
+apiVersion: v1
+automountServiceAccountToken: true
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx
+  namespace: ingress-nginx
+---
+apiVersion: v1
+automountServiceAccountToken: true
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission
+  namespace: ingress-nginx
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx
+  namespace: ingress-nginx
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - pods
+  - secrets
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/status
+  verbs:
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingressclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resourceNames:
+  - ingress-nginx-leader
+  resources:
+  - leases
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - list
+  - watch
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission
+  namespace: ingress-nginx
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - nodes
+  - pods
+  - secrets
+  - namespaces
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/status
+  verbs:
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingressclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - list
+  - watch
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx
+  namespace: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ingress-nginx
+subjects:
+- kind: ServiceAccount
+  name: ingress-nginx
+  namespace: ingress-nginx
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission
+  namespace: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ingress-nginx-admission
+subjects:
+- kind: ServiceAccount
+  name: ingress-nginx-admission
+  namespace: ingress-nginx
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-nginx
+subjects:
+- kind: ServiceAccount
+  name: ingress-nginx
+  namespace: ingress-nginx
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-nginx-admission
+subjects:
+- kind: ServiceAccount
+  name: ingress-nginx-admission
+  namespace: ingress-nginx
+---
+apiVersion: v1
+data: null
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  externalTrafficPolicy: Local
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - appProtocol: http
+    name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  - appProtocol: https
+    name: https
+    port: 443
+    protocol: TCP
+    targetPort: https
+  selector:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-controller-admission
+  namespace: ingress-nginx
+spec:
+  ports:
+  - appProtocol: https
+    name: https-webhook
+    port: 443
+    targetPort: webhook
+  selector:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  minReadySeconds: 0
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/instance: ingress-nginx
+      app.kubernetes.io/name: ingress-nginx
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/instance: ingress-nginx
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/part-of: ingress-nginx
+        app.kubernetes.io/version: 1.12.3
+    spec:
+      containers:
+      - args:
+        - /nginx-ingress-controller
+        - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+        - --election-id=ingress-nginx-leader
+        - --controller-class=k8s.io/ingress-nginx
+        - --ingress-class=nginx
+        - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+        - --validating-webhook=:8443
+        - --validating-webhook-certificate=/usr/local/certificates/cert
+        - --validating-webhook-key=/usr/local/certificates/key
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LD_PRELOAD
+          value: /usr/local/lib/libmimalloc.so
+        image: registry.k8s.io/ingress-nginx/controller:v1.12.3@sha256:ac444cd9515af325ba577b596fe4f27a34be1aa330538e8b317ad9d6c8fb94ee
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /wait-shutdown
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: controller
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        - containerPort: 443
+          name: https
+          protocol: TCP
+        - containerPort: 8443
+          name: webhook
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 90Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+          runAsGroup: 82
+          runAsNonRoot: true
+          runAsUser: 101
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /usr/local/certificates/
+          name: webhook-cert
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        kubernetes.io/os: linux
+      serviceAccountName: ingress-nginx
+      terminationGracePeriodSeconds: 300
+      volumes:
+      - name: webhook-cert
+        secret:
+          secretName: ingress-nginx-admission
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission-create
+  namespace: ingress-nginx
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: admission-webhook
+        app.kubernetes.io/instance: ingress-nginx
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/part-of: ingress-nginx
+        app.kubernetes.io/version: 1.12.3
+      name: ingress-nginx-admission-create
+    spec:
+      containers:
+      - args:
+        - create
+        - --host=ingress-nginx-controller-admission,ingress-nginx-controller-admission.$(POD_NAMESPACE).svc
+        - --namespace=$(POD_NAMESPACE)
+        - --secret-name=ingress-nginx-admission
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.4@sha256:7a38cf0f8480775baaee71ab519c7465fd1dfeac66c421f28f087786e631456e
+        imagePullPolicy: IfNotPresent
+        name: create
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: OnFailure
+      serviceAccountName: ingress-nginx-admission
+  ttlSecondsAfterFinished: 0
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission-patch
+  namespace: ingress-nginx
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: admission-webhook
+        app.kubernetes.io/instance: ingress-nginx
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/part-of: ingress-nginx
+        app.kubernetes.io/version: 1.12.3
+      name: ingress-nginx-admission-patch
+    spec:
+      containers:
+      - args:
+        - patch
+        - --webhook-name=ingress-nginx-admission
+        - --namespace=$(POD_NAMESPACE)
+        - --patch-mutating=false
+        - --secret-name=ingress-nginx-admission
+        - --patch-failure-policy=Fail
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.4@sha256:7a38cf0f8480775baaee71ab519c7465fd1dfeac66c421f28f087786e631456e
+        imagePullPolicy: IfNotPresent
+        name: patch
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: OnFailure
+      serviceAccountName: ingress-nginx-admission
+  ttlSecondsAfterFinished: 0
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: nginx
+spec:
+  controller: k8s.io/ingress-nginx
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    app.kubernetes.io/component: admission-webhook
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.12.3
+  name: ingress-nginx-admission
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: ingress-nginx-controller-admission
+      namespace: ingress-nginx
+      path: /networking/v1/ingresses
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: validate.nginx.ingress.kubernetes.io
+  rules:
+  - apiGroups:
+    - networking.k8s.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingresses
+  sideEffects: None
+```
+
+Save this as `ingress-nginx-controller.yaml` and apply it:
+
+```bash
+kubectl apply -f ingress-nginx-controller.yaml
+```
+
+### Verify the installation
+
+Check that the ingress controller is running:
+
+```bash
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+```
+
+You should see the ingress controller pod running and a LoadBalancer service.
+
+</Steps>
+
+### Step 2: Install cert-manager (for HTTPS)
+
+<Steps>
+
+### Install cert-manager
+
+```bash
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+```
+
+### Create a ClusterIssuer
+
+Create and apply the Let's Encrypt cluster issuer:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: help@glassflow.dev  # Replace with your email
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+```
+
+Save as `cluster-issuer.yaml` and apply:
+
+```bash
+kubectl apply -f cluster-issuer.yaml
+```
+
+### Verify cert-manager installation
+
+```bash
+kubectl get pods -n cert-manager
+kubectl get clusterissuer
+```
+
+</Steps>
+
+### Alternative: Using Custom TLS Certificates
+
+If you prefer to use your own TLS certificates instead of cert-manager with Let's Encrypt:
+
+<Steps>
+
+### Create the TLS secret manually
+
+```bash
+kubectl create secret tls glassflow-tls \
+  --cert=path/to/your/cert.pem \
+  --key=path/to/your/key.pem \
+  --namespace glassflow
+```
+
+Replace `path/to/your/cert.pem` and `path/to/your/key.pem` with the actual paths to your certificate files.
+
+### Skip cert-manager installation
+
+If using custom certificates, you can skip the cert-manager installation steps above and proceed directly to creating the GlassFlow ingress with your custom TLS secret.
+
+</Steps>
+
+### Step 3: Create GlassFlow Ingress
+
+<Steps>
+
+### Create the ingress resource
+
+Create the GlassFlow ingress configuration. Choose the appropriate version based on your certificate setup:
+
+<Tabs items={['With cert-manager', 'With custom certificates']}>
+
+<Tabs.Tab>
+**For automatic certificates with cert-manager:**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: glassflow-ingress
+  namespace: glassflow
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - glassflow.example.com  # Replace with your domain
+    secretName: glassflow-tls
+  rules:
+  - host: "glassflow.example.com"  # Replace with your domain
+    http:
+      paths:
+      - path: "/api/v1"
+        pathType: Prefix
+        backend:
+          service:
+            name: glassflow-api
+            port:
+              number: 8081
+      - path: "/"
+        pathType: Prefix
+        backend:
+          service:
+            name: glassflow-ui
+            port:
+              number: 8080
+```
+</Tabs.Tab>
+
+<Tabs.Tab>
+**For custom TLS certificates:**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: glassflow-ingress
+  namespace: glassflow
+  annotations:
+    # No cert-manager annotation needed for custom certificates
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - glassflow.example.com  # Replace with your domain
+    secretName: glassflow-tls  # Must match your custom TLS secret name
+  rules:
+  - host: "glassflow.example.com"  # Replace with your domain
+    http:
+      paths:
+      - path: "/api/v1"
+        pathType: Prefix
+        backend:
+          service:
+            name: glassflow-api
+            port:
+              number: 8081
+      - path: "/"
+        pathType: Prefix
+        backend:
+          service:
+            name: glassflow-ui
+            port:
+              number: 8080
+```
+</Tabs.Tab>
+
+</Tabs>
+
+Save as `glassflow-ingress.yaml` and apply:
+
+```bash
+kubectl apply -f glassflow-ingress.yaml
+```
+
+### Verify the ingress
+
+```bash
+kubectl get ingress -n glassflow
+kubectl describe ingress glassflow-ingress -n glassflow
+```
+
+</Steps>
+
+## DNS Configuration
+
+Regardless of which approach you choose, you need to configure DNS to point your domain to the ingress controller.
+
+<Steps>
+
+### Get the ingress controller IP
+
+```bash
+kubectl get svc ingress-nginx-controller -n ingress-nginx
+```
+
+Look for the `EXTERNAL-IP` in the output.
+
+### Configure DNS
+
+Create an A record in your DNS provider:
+- **Name**: `glassflow` (or your chosen subdomain)
+- **Type**: `A`
+- **Value**: The external IP from step 1
+
+### Verify DNS resolution
+
+```bash
+nslookup glassflow.example.com
+```
+
+</Steps>
+
+## Verification and Testing
+
+<Steps>
+
+### Check certificate status (HTTPS only)
+
+If you configured HTTPS, verify the certificate was issued:
+
+```bash
+kubectl get certificate -n glassflow
+kubectl describe certificate glassflow-tls -n glassflow
+```
+
+### Test the endpoints
+
+Once DNS is configured, test your endpoints:
+
+```bash
+# Test UI (should redirect to HTTPS if configured)
+curl -I http://glassflow.example.com
+
+# Test API
+curl -I http://glassflow.example.com/api/v1/health
+```
+
+### Access GlassFlow
+
+Open your browser and navigate to:
+- **UI**: `https://glassflow.example.com` (or `http://` if HTTPS not configured)
+- **API**: `https://glassflow.example.com/api/v1`
+
+</Steps>
+
+## Troubleshooting
+
+### Common Issues
+
+**Ingress not getting an IP address:**
+- Check if your cloud provider supports LoadBalancer services
+- Verify the ingress controller is running: `kubectl get pods -n ingress-nginx`
+
+**Certificate not being issued:**
+- Check cert-manager logs: `kubectl logs -n cert-manager deployment/cert-manager`
+- Verify the ClusterIssuer: `kubectl describe clusterissuer letsencrypt-prod`
+- Check certificate status: `kubectl describe certificate -n glassflow`
+
+**502 Bad Gateway errors:**
+- Verify GlassFlow services are running: `kubectl get pods -n glassflow`
+- Check service endpoints: `kubectl get endpoints -n glassflow`
+- Verify service names in ingress match actual service names
+
+**DNS issues:**
+- Verify DNS propagation: `dig glassflow.example.com`
+- Check if the domain points to the correct IP address
+
+### Useful Commands
+
+```bash
+# Check ingress status
+kubectl get ingress -A
+
+# View ingress controller logs
+kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
+
+# Check cert-manager logs
+kubectl logs -n cert-manager deployment/cert-manager
+
+# Describe ingress for detailed information
+kubectl describe ingress glassflow-ingress -n glassflow
+```
+
+## Security Considerations
+
+- **Always use HTTPS in production** with proper TLS certificates
+- **Configure rate limiting** through ingress annotations if needed
+- **Restrict access** using IP whitelisting or authentication if required
+- **Keep ingress controller updated** to the latest stable version
+- **Monitor certificate expiration** and renewal
+
+<Callout type="success">
+Congratulations! You now have GlassFlow exposed externally through a properly configured ingress setup. Your GlassFlow instance should be accessible via your domain name with automatic HTTPS certificate management.
+</Callout>
