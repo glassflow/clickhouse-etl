@@ -38,11 +38,40 @@ type Consumer struct {
 	closeCh   chan struct{}
 }
 
+type kgoLogger struct {
+	log *slog.Logger
+}
+
+func (l *kgoLogger) Level() kgo.LogLevel {
+	return kgo.LogLevelInfo
+}
+
+func (l *kgoLogger) Log(level kgo.LogLevel, msg string, keyvals ...any) {
+	var slogLevel slog.Level
+	switch level {
+	case kgo.LogLevelError:
+		slogLevel = slog.LevelError
+	case kgo.LogLevelWarn:
+		slogLevel = slog.LevelWarn
+	case kgo.LogLevelInfo:
+		slogLevel = slog.LevelInfo
+	case kgo.LogLevelDebug:
+		slogLevel = slog.LevelDebug
+	default:
+		slogLevel = slog.LevelDebug
+	}
+	keyvals = append(keyvals, slog.String("client", "franz-go"))
+
+	l.log.Log(context.Background(), slogLevel, msg, keyvals...)
+}
+
 func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (zero *Consumer, _ error) {
 	clientOpts, err := buildClientOptions(conn, topic)
 	if err != nil {
 		return &Consumer{}, fmt.Errorf("build client options: %w", err)
 	}
+
+	clientOpts = append(clientOpts, kgo.WithLogger(&kgoLogger{log: log}))
 
 	client, err := kgo.NewClient(clientOpts...)
 	if err != nil {
@@ -267,6 +296,8 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("batch processing failed on commit offsets: %w", err)
 	}
+
+	c.log.Info("Batch processed successfully", slog.Int("batchSize", size), slog.Duration("duration", time.Since(start)))
 
 	c.batch = c.batch[:0]
 
