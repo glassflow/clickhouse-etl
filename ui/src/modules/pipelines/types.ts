@@ -2,12 +2,12 @@
 export type KafkaConnectionParams = {
   brokers: string[]
   protocol: string
-  skip_auth?: boolean
+  skip_auth?: boolean // Deprecated: backend now uses mechanism: "NO_AUTH" instead
   sasl_tls_enable?: boolean
   skip_tls_verification?: boolean
   mechanism: string
-  username: string
-  password: string
+  username?: string
+  password?: string
   root_ca?: string
 }
 

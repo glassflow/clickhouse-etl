@@ -201,9 +201,11 @@ export const generateApiConfig = ({
         connection_params: {
           brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
           protocol: kafkaStore?.securityProtocol || 'PLAINTEXT',
-          skip_auth: kafkaStore?.skipAuth || false,
+          skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
           sasl_tls_enable: kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL',
           skip_tls_verification: skipTlsVerification,
+          // Set mechanism to NO_AUTH for no authentication, backend uses this for logic
+          mechanism: authMethod === 'NO_AUTH' ? 'NO_AUTH' : '',
         } as KafkaConnectionParams,
         topics: topicsConfig,
       },

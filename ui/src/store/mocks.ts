@@ -4,7 +4,6 @@ const mockKafkaConnection = {
   securityProtocol: 'SASL_PLAINTEXT',
   bootstrapServers: 'localhost:9092, localhost:9093, localhost:9094',
   isConnected: true,
-  skipAuth: false,
   saslPlain: {
     username: 'admin',
     password: 'admin-secret',

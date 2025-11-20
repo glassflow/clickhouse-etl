@@ -118,7 +118,7 @@ export interface Pipeline {
     provider: string
     connection_params: {
       brokers: string[]
-      skip_auth: boolean
+      skip_auth?: boolean // Deprecated: backend now uses mechanism: "NO_AUTH" instead
       sasl_tls_enable?: boolean
       skip_tls_verification?: boolean
       protocol: string
