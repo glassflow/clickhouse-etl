@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type SinkRunner struct {
@@ -50,12 +52,19 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	s.doneCh = make(chan struct{})
 	s.c = make(chan error, 1)
 
-	//nolint: exhaustruct // optional config
-	consumer, err := stream.NewNATSConsumer(ctx, s.nc.JetStream(), stream.ConsumerConfig{
-		NatsStream:   s.pipelineCfg.Sink.StreamID,
-		NatsConsumer: s.pipelineCfg.Sink.NATSConsumerName,
-		NatsSubject:  models.GetWildcardNATSSubjectName(s.pipelineCfg.Sink.StreamID),
-	})
+	consumer, err := stream.NewNATSConsumer(
+		ctx,
+		s.nc.JetStream(),
+		jetstream.ConsumerConfig{
+			Name:          s.pipelineCfg.Sink.NATSConsumerName,
+			Durable:       s.pipelineCfg.Sink.NATSConsumerName,
+			FilterSubject: models.GetWildcardNATSSubjectName(s.pipelineCfg.Sink.StreamID),
+			AckPolicy:     jetstream.AckAllPolicy,
+			AckWait:       internal.NatsDefaultAckWait,
+			MaxAckPending: -1,
+		},
+		s.pipelineCfg.Sink.StreamID,
+	)
 	if err != nil {
 		s.log.ErrorContext(ctx, "failed to create clickhouse consumer", "error", err)
 		return fmt.Errorf("create clickhouse consumer: %w", err)

@@ -12,6 +12,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type Sink interface {
@@ -29,7 +30,7 @@ type SinkComponent struct {
 
 func NewSinkComponent(
 	sinkConfig models.SinkComponentConfig,
-	streamCon stream.Consumer,
+	streamCon jetstream.Consumer,
 	schemaMapper schema.Mapper,
 	doneCh chan struct{},
 	log *slog.Logger,

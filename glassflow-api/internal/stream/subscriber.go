@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -19,7 +20,7 @@ type Subscriber interface {
 }
 
 type NatsSubscriber struct {
-	consumer    Consumer
+	consumer    jetstream.Consumer
 	wg          sync.WaitGroup
 	isStopSent  bool
 	isDrainSent bool
@@ -28,7 +29,7 @@ type NatsSubscriber struct {
 	log         *slog.Logger
 }
 
-func NewNATSSubscriber(consumer Consumer, log *slog.Logger) *NatsSubscriber {
+func NewNATSSubscriber(consumer jetstream.Consumer, log *slog.Logger) *NatsSubscriber {
 	return &NatsSubscriber{
 		consumer:    consumer,
 		wg:          sync.WaitGroup{},
@@ -52,7 +53,7 @@ func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 		defer s.wg.Done()
 		defer close(s.closedCh)
 		for {
-			msg, err := s.consumer.Next()
+			msg, err := s.consumer.Next(jetstream.FetchMaxWait(internal.NatsDefaultFetchMaxWait))
 			if err != nil {
 				s.mu.Lock()
 				readyToStop := s.isStopSent || s.isDrainSent

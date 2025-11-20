@@ -194,13 +194,10 @@ func (b *BaseTestSuite) getMappingConfig(cfg *godog.DocString, target any) error
 	return nil
 }
 
-func (b *BaseTestSuite) createStream(streamName, subjectName string, timeWindow time.Duration) error {
-	streamConfig := jetstream.StreamConfig{ //nolint:exhaustruct //only necessary fields
-		Name:               streamName,
-		Subjects:           []string{subjectName},
-		AllowAtomicPublish: true,
-	}
-
+func (b *BaseTestSuite) createStream(
+	streamConfig jetstream.StreamConfig,
+	timeWindow time.Duration,
+) error {
 	if timeWindow > 0 {
 		streamConfig.Duplicates = timeWindow
 	}
@@ -208,7 +205,7 @@ func (b *BaseTestSuite) createStream(streamName, subjectName string, timeWindow 
 	js := b.natsClient.JetStream()
 
 	// Create stream if not exists
-	_, err := js.Stream(context.Background(), streamName)
+	_, err := js.Stream(context.Background(), streamConfig.Name)
 	if err != nil {
 		_, err = js.CreateOrUpdateStream(context.Background(), streamConfig)
 		if err != nil {
@@ -414,11 +411,15 @@ func (b *BaseTestSuite) publishEventsToKafka(topicName string, table *godog.Tabl
 
 func (b *BaseTestSuite) createNatsConsumer(streamName, subject, consumerName string) (jetstream.Consumer, error) {
 	js := b.natsClient.JetStream()
-	consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamName, jetstream.ConsumerConfig{
-		Name:          consumerName,
-		Durable:       consumerName,
-		FilterSubject: subject,
-	})
+	consumer, err := js.CreateOrUpdateConsumer(
+		context.Background(),
+		streamName,
+		jetstream.ConsumerConfig{
+			Name:          consumerName,
+			Durable:       consumerName,
+			FilterSubject: subject,
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create or update nats consumer: %w", err)
 	}

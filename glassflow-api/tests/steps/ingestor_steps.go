@@ -35,9 +35,11 @@ type natsStreamConfig struct {
 type IngestorTestSuite struct {
 	BaseTestSuite
 
-	streamCfg natsStreamConfig
+	consumerCfg jetstream.ConsumerConfig
+	streamCfg   jetstream.StreamConfig
 
-	dlqStreamCfg natsStreamConfig
+	dlqStreamCfg   jetstream.StreamConfig
+	dlqConsumerCfg jetstream.ConsumerConfig
 
 	schemaConfig models.MapperConfig
 
@@ -93,20 +95,28 @@ func (s *IngestorTestSuite) SetupResources() error {
 }
 
 func (s *IngestorTestSuite) theNatsStreamConfig(cfg *godog.DocString) error {
-	err := json.Unmarshal([]byte(cfg.Content), &s.streamCfg)
+	var tempCfg natsStreamConfig
+	err := json.Unmarshal([]byte(cfg.Content), &tempCfg)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal NATS stream config: %w", err)
+	}
+
+	// Convert to jetstream configs
+	s.streamCfg = jetstream.StreamConfig{
+		Name:     tempCfg.Stream,
+		Subjects: []string{tempCfg.Subject},
+	}
+	s.consumerCfg = jetstream.ConsumerConfig{
+		Name:          tempCfg.Consumer,
+		Durable:       tempCfg.Consumer,
+		FilterSubject: tempCfg.Subject,
 	}
 
 	return nil
 }
 
 func (s *IngestorTestSuite) runNatsStreams(deduplicationWindow time.Duration) error {
-	if s.streamCfg.Stream == "" || s.streamCfg.Subject == "" || s.streamCfg.Consumer == "" {
-		return fmt.Errorf("nats stream config is not set properly")
-	}
-
-	err := s.createStream(s.streamCfg.Stream, s.streamCfg.Subject, deduplicationWindow)
+	err := s.createStream(s.streamCfg, deduplicationWindow)
 	if err != nil {
 		return fmt.Errorf("create nats stream: %w", err)
 	}
@@ -114,13 +124,17 @@ func (s *IngestorTestSuite) runNatsStreams(deduplicationWindow time.Duration) er
 	pipelineID := uuid.New().String()
 
 	// create DLQ nats stream
-	s.dlqStreamCfg = natsStreamConfig{
-		Stream:   models.GetDLQStreamName(pipelineID),
-		Subject:  "failed",
-		Consumer: "dlq-consumer",
+	s.dlqStreamCfg = jetstream.StreamConfig{
+		Name:     models.GetDLQStreamName(pipelineID),
+		Subjects: []string{"failed"},
+	}
+	s.dlqConsumerCfg = jetstream.ConsumerConfig{
+		Name:          "dlq-consumer",
+		Durable:       "dlq-consumer",
+		FilterSubject: "failed",
 	}
 
-	err = s.createStream(s.dlqStreamCfg.Stream, s.dlqStreamCfg.Subject, deduplicationWindow)
+	err = s.createStream(s.dlqStreamCfg, deduplicationWindow)
 	if err != nil {
 		return fmt.Errorf("create nats DLQ stream: %w", err)
 	}
@@ -225,14 +239,14 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	streamConsumer := stream.NewNATSPublisher(
 		nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: s.streamCfg.Subject,
+			Subject: s.streamCfg.Subjects[0],
 		},
 	)
 
 	dlqStreamPublisher := stream.NewNATSPublisher(
 		nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: s.dlqStreamCfg.Subject,
+			Subject: s.dlqStreamCfg.Subjects[0],
 		},
 	)
 	ingestor, err := component.NewIngestorComponent(
@@ -273,17 +287,16 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	return nil
 }
 
-func (s *IngestorTestSuite) createNatsConsumer(streamCfg natsStreamConfig) (zero jetstream.Consumer, _ error) {
+func (s *IngestorTestSuite) createNatsConsumer(
+	streamConfig jetstream.StreamConfig,
+	consumerConfig jetstream.ConsumerConfig,
+) (zero jetstream.Consumer, _ error) {
 	if s.natsContainer == nil {
 		return zero, fmt.Errorf("nats container is not initialized")
 	}
 
 	js := s.natsClient.JetStream()
-	consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamCfg.Stream, jetstream.ConsumerConfig{
-		Name:          streamCfg.Consumer,
-		Durable:       streamCfg.Consumer,
-		FilterSubject: streamCfg.Subject,
-	})
+	consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamConfig.Name, consumerConfig)
 	if err != nil {
 		return zero, fmt.Errorf("create or update nats consumer: %w", err)
 	}
@@ -291,8 +304,12 @@ func (s *IngestorTestSuite) createNatsConsumer(streamCfg natsStreamConfig) (zero
 	return consumer, nil
 }
 
-func (s *IngestorTestSuite) checkResultsFromNatsStream(streamConfig natsStreamConfig, dataTable *godog.Table) error {
-	consumer, err := s.createNatsConsumer(streamConfig)
+func (s *IngestorTestSuite) checkResultsFromNatsStream(
+	streamConfig jetstream.StreamConfig,
+	consumerConfig jetstream.ConsumerConfig,
+	dataTable *godog.Table,
+) error {
+	consumer, err := s.createNatsConsumer(streamConfig, consumerConfig)
 	if err != nil {
 		return fmt.Errorf("create nats consumer: %w", err)
 	}
@@ -372,7 +389,13 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(streamConfig natsStreamCo
 	}
 
 	if receivedCount != expectedCount {
-		return fmt.Errorf("not equal number of events: expected %d, got %d from stream %s, subject %s", expectedCount, receivedCount, streamConfig.Stream, streamConfig.Subject)
+		return fmt.Errorf(
+			"not equal number of events: expected %d, got %d from stream %s, subject %s",
+			expectedCount,
+			receivedCount,
+			streamConfig.Name,
+			streamConfig.Subjects[0],
+		)
 	}
 
 	return nil
@@ -384,7 +407,7 @@ func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
 		return fmt.Errorf("wait for events processed: %w", err)
 	}
 
-	err = s.checkResultsFromNatsStream(s.streamCfg, dataTable)
+	err = s.checkResultsFromNatsStream(s.streamCfg, s.consumerCfg, dataTable)
 	if err != nil {
 		return fmt.Errorf("check results stream: %w", err)
 	}
@@ -393,7 +416,7 @@ func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
 }
 
 func (s *IngestorTestSuite) checkDLQStream(dataTable *godog.Table) error {
-	err := s.checkResultsFromNatsStream(s.dlqStreamCfg, dataTable)
+	err := s.checkResultsFromNatsStream(s.dlqStreamCfg, s.dlqConsumerCfg, dataTable)
 	if err != nil {
 		return fmt.Errorf("check DLQ stream: %w", err)
 	}

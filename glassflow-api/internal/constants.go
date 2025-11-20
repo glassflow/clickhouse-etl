@@ -125,14 +125,16 @@ const (
 	ConsumerMaxWait           = 30 * time.Second
 
 	// NATS client constants
-	GlassflowStreamPrefix = "gf-stream"
-	NATSCleanupTimeout    = 5 * time.Second
-	NATSConnectionTimeout = 1 * time.Minute
-	NATSConnectionRetries = 12
-	NATSInitialRetryDelay = 1 * time.Second
-	NATSMaxRetryDelay     = 30 * time.Second
-	NATSMaxConnectionWait = 2 * time.Minute
-	NATSMaxBufferedMsgs   = 10000
+	GlassflowStreamPrefix   = "gf-stream"
+	NATSCleanupTimeout      = 5 * time.Second
+	NATSConnectionTimeout   = 1 * time.Minute
+	NATSConnectionRetries   = 12
+	NATSInitialRetryDelay   = 1 * time.Second
+	NATSMaxRetryDelay       = 30 * time.Second
+	NATSMaxConnectionWait   = 2 * time.Minute
+	NATSMaxBufferedMsgs     = 10000
+	NatsDefaultFetchMaxWait = 1 * time.Second
+	NatsDefaultAckWait      = 60 * time.Second
 
 	// Kafka consumer constants
 	ConsumerGroupNamePrefix = "glassflow-consumer-group"

@@ -23,7 +23,7 @@ import (
 
 type ClickHouseSink struct {
 	client                *client.ClickHouseClient
-	streamConsumer        stream.Consumer
+	streamConsumer        jetstream.Consumer
 	schemaMapper          schema.Mapper
 	cancel                context.CancelFunc
 	shutdownOnce          sync.Once
@@ -36,7 +36,7 @@ type ClickHouseSink struct {
 
 func NewClickHouseSink(
 	sinkConfig models.SinkComponentConfig,
-	streamConsumer stream.Consumer,
+	streamConsumer jetstream.Consumer,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
 	meter *observability.Meter,
@@ -164,7 +164,7 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 }
 
 func (ch *ClickHouseSink) fetchMessages(ctx context.Context) ([]jetstream.Msg, error) {
-	msgBatch, err := ch.streamConsumer.FetchNoAwait(ch.sinkConfig.Batch.MaxBatchSize)
+	msgBatch, err := ch.streamConsumer.FetchNoWait(ch.sinkConfig.Batch.MaxBatchSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch messages: %w", err)
 	}
