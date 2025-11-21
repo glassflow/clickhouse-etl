@@ -308,14 +308,14 @@ function TransformationSection({
     return enabled && key.length > 0
   }
 
-  // FIX: Check if this is a dedup+join pipeline based on operation type
-  // Not just whether dedup keys currently exist (they might be cleared/invalidated)
-  const operationType = coreStore.operationsSelected.operation
-  const isJoinDeduplicationPipeline = operationType === 'deduplication-join'
+  // Check if this is a dedup+join pipeline based on topic count and deduplication configs
+  // For 2 topics, check if both have deduplication enabled
+  const topicCount = coreStore.topicCount || topics.length
+  const isJoinDeduplicationPipeline = topicCount === 2 && isDedup(dedup0, topic0) && isDedup(dedup1, topic1)
 
-  // Use operation type as primary check, fall back to actual dedup config
-  const leftTopicDeduplication = isJoinDeduplicationPipeline || isDedup(dedup0, topic0)
-  const rightTopicDeduplication = isJoinDeduplicationPipeline || isDedup(dedup1, topic1)
+  // Use topic count and deduplication configs to determine behavior
+  const leftTopicDeduplication = topicCount === 2 && isDedup(dedup0, topic0)
+  const rightTopicDeduplication = topicCount === 2 && isDedup(dedup1, topic1)
 
   // Convert join streams to pipeline config format
   const storeJoinSources =
@@ -386,10 +386,10 @@ function TransformationSection({
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
     const topic = topics[0]
-    // FIX: Check operation type to determine if dedup card should be shown
-    // This ensures the card remains visible even after dedup data is cleared (invalidated)
-    const operationType = coreStore.operationsSelected.operation
-    const shouldShowDedupCard = operationType === 'deduplication' || isDedup(dedup0, topic)
+    // Check topic count and deduplication config to determine if dedup card should be shown
+    // For single topic, show dedup card if deduplication is configured
+    const topicCount = coreStore.topicCount || topics.length
+    const shouldShowDedupCard = topicCount === 1 && isDedup(dedup0, topic)
 
     sectionContent = (
       <DeduplicationCase

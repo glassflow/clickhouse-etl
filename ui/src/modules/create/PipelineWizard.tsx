@@ -2,50 +2,38 @@
 
 import React, { useState, useEffect } from 'react'
 import { CheckIcon, ChevronLeftIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
-import { OperationKeys, stepsMetadata } from '@/src/config/constants'
+import { stepsMetadata } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
 import { useStore } from '@/src/store'
-import {
-  deduplicationJourney,
-  joinJourney,
-  ingestOnlyJourney,
-  deduplicateJoinJourney,
-  getWizardJourneySteps,
-} from './wizard-utils'
+import { getSingleTopicJourney, getTwoTopicJourney, getWizardJourneySteps } from './wizard-utils'
 
 function PipelineWizard() {
   const { coreStore } = useStore()
-  const { operationsSelected } = coreStore
+  const { topicCount } = coreStore
   const router = useRouter()
 
-  // If no operation is selected, redirect to home
+  // If no topic count is selected, redirect to home
   useEffect(() => {
-    if (!operationsSelected?.operation) {
+    if (!topicCount || topicCount < 1 || topicCount > 2) {
       router.push('/')
       return
     }
-  }, [operationsSelected, router])
+  }, [topicCount, router])
 
-  // Determine the current journey based on operation
+  // Determine the current journey based on topic count
   const currentJourney = React.useMemo(() => {
-    switch (operationsSelected?.operation) {
-      case OperationKeys.DEDUPLICATION:
-        return deduplicationJourney
-      case OperationKeys.JOINING:
-        return joinJourney
-      case OperationKeys.INGEST_ONLY:
-        return ingestOnlyJourney
-      case OperationKeys.DEDUPLICATION_JOINING:
-        return deduplicateJoinJourney
-      default:
-        return []
+    if (topicCount === 1) {
+      return getSingleTopicJourney()
+    } else if (topicCount === 2) {
+      return getTwoTopicJourney()
     }
-  }, [operationsSelected?.operation])
+    return []
+  }, [topicCount])
 
-  const stepComponents = getWizardJourneySteps(operationsSelected?.operation)
+  const stepComponents = getWizardJourneySteps(topicCount)
   const { stepsStore } = useStore()
   const { completedSteps, setCompletedSteps, activeStep, setActiveStep, addCompletedStep } = stepsStore
   const completedStepsArray = Array.from(completedSteps)
@@ -68,8 +56,8 @@ function PipelineWizard() {
     const stepIndex = currentJourney.indexOf(stepName)
 
     if (stepIndex !== -1) {
-      // For join journey, we need to ensure steps are completed in order
-      if (operationsSelected?.operation === OperationKeys.JOINING) {
+      // For two-topic journey (join), we need to ensure steps are completed in order
+      if (topicCount === 2) {
         // Always mark the current step as completed
         addCompletedStep(stepName)
 
@@ -86,20 +74,13 @@ function PipelineWizard() {
           addCompletedStep(StepKeys.TOPIC_SELECTION_2)
         }
 
-        // // Handle special case for review configuration
-        // if (stepName === StepKeys.REVIEW_CONFIGURATION) {
-        //   setActiveStep(StepKeys.DEPLOY_PIPELINE)
-        //   router.push('/pipelines/')
-        //   return
-        // }
-
         // Set the next step as active
         const nextStep = currentJourney[stepIndex + 1]
         if (nextStep) {
           setActiveStep(nextStep)
         }
       } else {
-        // For other journeys, maintain the existing behavior
+        // For single-topic journey, maintain the existing behavior
         const previousSteps = currentJourney.slice(0, stepIndex)
         const allPreviousStepsCompleted = previousSteps.every((step) => completedSteps.includes(step))
 
@@ -203,17 +184,14 @@ function PipelineWizard() {
     const step = stepsMetadata[stepName]
     const topicsStore = useStore.getState().topicsStore || { topics: [] }
 
-    // First check specific step types regardless of operation
+    // First check specific step types regardless of topic count
     if (stepName === StepKeys.TOPIC_SELECTION_1 || stepName === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      // For join journeys, always call the first topic "Left Topic"
-      if (
-        operationsSelected?.operation === OperationKeys.JOINING ||
-        operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
-      ) {
+      // For two-topic journeys, always call the first topic "Left Topic"
+      if (topicCount === 2) {
         const topic = topicsStore.topics?.[0]
         return `Select Left Topic: ${topic?.name || ''}`
       }
-      // For non-join journeys, call it just "Topic"
+      // For single-topic journeys, call it just "Topic"
       else {
         const topic = topicsStore.topics?.[0]
         return `Select Topic: ${topic?.name || ''}`
@@ -243,15 +221,12 @@ function PipelineWizard() {
     const topicsStore = useStore.getState().topicsStore || { topics: [] }
 
     if (stepName === StepKeys.TOPIC_SELECTION_1 || stepName === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      // For join journeys, always call the first topic "Left Topic"
-      if (
-        operationsSelected?.operation === OperationKeys.JOINING ||
-        operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING
-      ) {
+      // For two-topic journeys, always call the first topic "Left Topic"
+      if (topicCount === 2) {
         const topic = topicsStore.topics?.[0]
         return `Select Left Topic: ${topic?.name || ''}`
       }
-      // For non-join journeys, call it just "Topic"
+      // For single-topic journeys, call it just "Topic"
       else {
         const topic = topicsStore.topics?.[0]
         return `Select Topic: ${topic?.name || ''}`

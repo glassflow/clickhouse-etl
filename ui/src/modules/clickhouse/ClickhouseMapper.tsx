@@ -11,7 +11,7 @@ import FormActions from '@/src/components/shared/FormActions'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 
-import { StepKeys, OperationKeys } from '@/src/config/constants'
+import { StepKeys } from '@/src/config/constants'
 
 import { cn } from '@/src/utils/common.client'
 import {
@@ -79,20 +79,10 @@ export function ClickhouseMapper({
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
-  const {
-    setApiConfig,
-    setPipelineId,
-    setOperationsSelected,
-    pipelineId,
-    pipelineName,
-    setPipelineName,
-    operationsSelected,
-  } = coreStore
+  const { setApiConfig, setPipelineId, pipelineId, pipelineName, setPipelineName, topicCount } = coreStore
 
-  // Determine operation mode and indices
-  const isJoinOperation =
-    operationsSelected.operation === OperationKeys.JOINING ||
-    operationsSelected.operation === OperationKeys.DEDUPLICATION_JOINING
+  // Determine operation mode and indices based on topic count
+  const isJoinOperation = topicCount === 2
   const mode: MappingMode = isJoinOperation ? 'join' : 'single'
   const index = 0
   const primaryIndex = 0
