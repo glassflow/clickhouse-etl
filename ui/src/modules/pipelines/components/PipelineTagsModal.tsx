@@ -142,7 +142,7 @@ export function PipelineTagsModal({
                 'min-h-[48px]',
               )}
             >
-              {tags.length === 0 && <span className="text-sm text-muted-foreground">No tags yet</span>}
+              {/* {tags.length === 0 && <span className="text-sm text-muted-foreground">No tags yet</span>} */}
               {tags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="flex items-center gap-1 rounded-full px-2 py-1 text-xs">
                   {tag}
