@@ -92,12 +92,31 @@ This demo showcases how Glassflow enhances your telemetry stack by:
 
 - `kubectl` configured to connect to your Kubernetes cluster
 - `helm` (v3.x) installed
-- A running Kubernetes cluster with sufficient resources:
-  - ~8 CPU cores
-  - ~16GB RAM
-  - Storage for persistent volumes
+- `kind` (Kubernetes in Docker) - for local cluster setup
+- A running Kubernetes cluster (or use kind to create one) with sufficient resources:
+  - **Minimum**: 4 CPU cores, 8GB RAM
+  - **Recommended**: 6 CPU cores, 12GB RAM (for better performance)
+  - **Storage**: ~15GB for persistent volumes (MongoDB requires 10Gi)
+  
+  **Resource breakdown**:
+  - Kafka: 200m CPU / 512Mi RAM (requests), 800m CPU / 2Gi RAM (limits)
+  - OpenTelemetry Collector: 200m CPU / 512Mi RAM (requests), 500m CPU / 1Gi RAM (limits)
+  - Glassflow: ~500m CPU / ~500Mi RAM (requests), ~1000m CPU / ~2Gi RAM (limits)
+  - HyperDX (ClickHouse + App + MongoDB): ~500m CPU / ~1Gi RAM (requests), ~1600m CPU / ~3.5Gi RAM (limits)
+
+**Note**: This demo is configured to run on a kind cluster. The Helm values are optimized for local development with kind.
 
 ## Step-by-Step Guide
+
+### Step 0: Create Kind Cluster
+
+If you don't have a Kubernetes cluster, create a kind cluster:
+
+```bash
+kind create cluster --name demo
+```
+
+This creates a local Kubernetes cluster using Docker. The demo is configured to work with kind's default storage class (`standard`).
 
 ### Step 1: Deploy the Complete Stack
 
@@ -234,13 +253,20 @@ This will:
 - Remove namespaces
 - Remove Helm repositories
 
+If you created a kind cluster, you can also delete it:
+
+```bash
+kind delete cluster --name demo
+```
+
 ## Configuration Files
 
 ### Helm Values
 
 - **`k8s/helm-values/kafka.values.yaml`** - Kafka configuration (single broker, no auth)
 - **`k8s/helm-values/otel-collector.values.yaml`** - OTel Collector with Glassflow exporter
-- **`k8s/helm-values/hyperdx.values.yaml`** - HyperDX with embedded ClickHouse
+- **`k8s/helm-values/hyperdx.values.yaml`** - HyperDX with embedded ClickHouse (configured for kind with `standard` storage class)
+- **`k8s/helm-values/glassflow.values.yaml`** - Glassflow configuration
 
 ### Glassflow Pipelines
 
