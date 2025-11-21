@@ -7,6 +7,7 @@ import { PipelineStatus } from '@/src/types/pipeline'
 export interface FilterState {
   status: PipelineStatus[]
   health: ('stable' | 'unstable')[]
+  tags: string[]
 }
 
 interface PipelineFilterMenuProps {
@@ -15,9 +16,17 @@ interface PipelineFilterMenuProps {
   filters: FilterState
   onFiltersChange: (filters: FilterState) => void
   anchorEl?: HTMLElement | null
+  availableTags?: string[]
 }
 
-export function PipelineFilterMenu({ isOpen, onClose, filters, onFiltersChange, anchorEl }: PipelineFilterMenuProps) {
+export function PipelineFilterMenu({
+  isOpen,
+  onClose,
+  filters,
+  onFiltersChange,
+  anchorEl,
+  availableTags = [],
+}: PipelineFilterMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Close menu when clicking outside
@@ -58,6 +67,11 @@ export function PipelineFilterMenu({ isOpen, onClose, filters, onFiltersChange, 
       : [...filters.health, health]
 
     onFiltersChange({ ...filters, health: newHealth })
+  }
+
+  const handleTagToggle = (tag: string) => {
+    const newTags = filters.tags.includes(tag) ? filters.tags.filter((t) => t !== tag) : [...filters.tags, tag]
+    onFiltersChange({ ...filters, tags: newTags })
   }
 
   const getStatusLabel = (status: PipelineStatus) => {
@@ -178,6 +192,44 @@ export function PipelineFilterMenu({ isOpen, onClose, filters, onFiltersChange, 
           </div>
         </div>
       </div>
+
+      {/* Divider */}
+      {availableTags.length > 0 && (
+        <div className="border-t" style={{ borderColor: 'var(--color-foreground-neutral-faded)' }} />
+      )}
+
+      {availableTags.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-foreground-neutral)' }}>
+            Tags
+          </h3>
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-auto pr-1">
+            {availableTags.map((tag) => {
+              const isSelected = filters.tags.includes(tag)
+              return (
+                <button
+                  key={tag}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-sm transition-all border',
+                    isSelected
+                      ? 'text-[var(--color-background-regular)] border-transparent'
+                      : 'text-[var(--color-foreground-neutral)] border-[var(--color-border-neutral)]',
+                  )}
+                  style={{
+                    background: isSelected
+                      ? 'linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%)'
+                      : 'var(--color-background-elevation-raised-faded)',
+                  }}
+                  onClick={() => handleTagToggle(tag)}
+                  type="button"
+                >
+                  {tag}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

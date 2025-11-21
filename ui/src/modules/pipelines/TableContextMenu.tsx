@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
-import { MoreVertical } from 'lucide-react'
+import { MoreVertical, Tag } from 'lucide-react'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { getActionConfig } from '@/src/utils/pipeline-actions'
 import { PipelineStatus } from '@/src/types/pipeline'
@@ -23,6 +23,7 @@ interface TableContextMenuProps {
   onTerminate?: () => void
   onDelete?: () => void
   onDownload?: () => void
+  onManageTags?: () => void
   disabled?: boolean
   onOpen?: (e: React.MouseEvent) => void
 }
@@ -37,6 +38,7 @@ export const TableContextMenu = ({
   onTerminate,
   onDelete,
   onDownload,
+  onManageTags,
   disabled = false,
   onOpen,
 }: TableContextMenuProps) => {
@@ -192,6 +194,23 @@ export const TableContextMenu = ({
                   className="filter brightness-100 group-hover:brightness-0"
                 />
                 <span className="truncate">Rename</span>
+              </Button>
+            )}
+
+            {onManageTags && (
+              <Button
+                variant="ghost"
+                className={cn(
+                  'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
+                  'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                )}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleMenuClick(e, onManageTags, false)
+                }}
+              >
+                <Tag className="h-4 w-4 mr-2" />
+                <span className="truncate">Edit tags</span>
               </Button>
             )}
 
