@@ -41,8 +41,8 @@ export function SavedConfigurations() {
 
       // Ensure we have a valid operation before navigating
       const { coreStore } = useStore.getState()
-      const { operationsSelected } = coreStore
-      if (!operationsSelected?.operation) {
+      const { topicCount } = coreStore
+      if (!topicCount || topicCount < 1) {
         console.error('No operation type found in restored configuration. Full state:', restoredState)
         return
       }

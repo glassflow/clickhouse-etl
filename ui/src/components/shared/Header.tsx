@@ -173,12 +173,6 @@ export function Header() {
   const runtimeEnv = getRuntimeEnv()
   const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
 
-  // Debug logging to help diagnose auth issues
-  if (typeof window !== 'undefined') {
-    console.debug('[Header] Runtime env:', runtimeEnv)
-    console.debug('[Header] Auth enabled:', isAuthEnabled)
-  }
-
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -271,7 +265,7 @@ export function Header() {
 
     if (result === ModalResult.YES) {
       // Clear the pipeline state
-      resetPipelineState('', true)
+      resetPipelineState(0, true)
 
       try {
         // Check if there are any existing pipelines

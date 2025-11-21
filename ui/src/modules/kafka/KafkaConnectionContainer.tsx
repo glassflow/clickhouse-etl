@@ -34,7 +34,7 @@ export function KafkaConnectionContainer({
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { kafkaStore, topicsStore, coreStore } = useStore()
-  const { operationsSelected } = coreStore
+  const { topicCount } = coreStore
   const {
     setKafkaAuthMethod,
     setKafkaSecurityProtocol,
@@ -104,10 +104,10 @@ export function KafkaConnectionContainer({
 
   // Track when user starts entering connection details
   useEffect(() => {
-    if (operationsSelected?.operation) {
+    if (coreStore.topicCount && coreStore.topicCount > 0) {
       analytics.page.setupKafkaConnection({})
     }
-  }, [operationsSelected?.operation, analytics.page])
+  }, [topicCount, analytics.page])
 
   // runs after successful test connection or failed test connection in the parent
   useEffect(() => {
