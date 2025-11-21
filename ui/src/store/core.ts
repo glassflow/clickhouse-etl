@@ -9,20 +9,37 @@ import { hydrateClickhouseConnection } from './hydration/clickhouse-connection'
 import { hydrateClickhouseDestination } from './hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from './hydration/join-configuration'
 
-// Helper function to determine topic count based on operation type
-export const getTopicCountForOperation = (operation: string): number => {
-  switch (operation) {
-    case 'joining':
-    case 'deduplication_joining':
-      return 2 // Join operations need 2 topics
-    case 'ingest_only':
-    case 'deduplication':
-    default:
-      return 1 // Simple operations need 1 topic
+// Helper function to compute operation type from topicCount + deduplication + join state
+// This is used for backward compatibility (analytics, display, etc.)
+export const computeOperationType = (
+  topicCount: number,
+  deduplicationConfigs: Record<number, { enabled: boolean; key: string }>,
+  hasJoin: boolean,
+): string => {
+  if (topicCount === 1 && !hasJoin) {
+    // Single topic: check if deduplication is enabled
+    const dedup0 = deduplicationConfigs[0]
+    const hasDedup = dedup0?.enabled && dedup0?.key?.trim().length > 0
+    return hasDedup ? 'deduplication' : 'ingest-only'
+  } else if (topicCount === 2 && hasJoin) {
+    // Two topics with join: check deduplication on both
+    const dedup0 = deduplicationConfigs[0]
+    const dedup1 = deduplicationConfigs[1]
+    const leftTopicDedup = dedup0?.enabled && dedup0?.key?.trim().length > 0
+    const rightTopicDedup = dedup1?.enabled && dedup1?.key?.trim().length > 0
+
+    if (leftTopicDedup && rightTopicDedup) {
+      return 'deduplication-joining'
+    } else {
+      return 'joining'
+    }
   }
+
+  return 'ingest-only' // Default fallback
 }
 
 // Helper function to determine operation type from pipeline configuration
+// Used when loading existing pipelines
 const determineOperationType = (pipeline: Pipeline): string => {
   const topics = pipeline?.source?.topics || []
   const hasJoin = pipeline?.join?.enabled || false
@@ -60,12 +77,13 @@ interface CoreStoreProps {
   pipelineId: string
   pipelineName: string
   pipelineVersion: string | undefined // Track the version of the pipeline config
-  operationsSelected: OperationsSelectedType
+  topicCount: number // Primary: number of topics (1 or 2)
+  operationsSelected: OperationsSelectedType // Computed/derived for backward compatibility
   outboundEventPreview: OutboundEventPreviewType
   analyticsConsent: boolean
   consentAnswered: boolean
   isDirty: boolean
-  apiConfig: Partial<Pipeline> // FIXME: improve type
+  apiConfig: Partial<Pipeline>
   // New mode-related fields
   mode: StoreMode
   baseConfig: Pipeline | undefined
@@ -77,7 +95,9 @@ interface CoreStoreProps {
 interface CoreStore extends CoreStoreProps {
   // actions
   setApiConfig: (config: Partial<Pipeline>) => void
-  setOperationsSelected: (operations: OperationsSelectedType) => void
+  setTopicCount: (topicCount: number) => void
+  setOperationsSelected: (operations: OperationsSelectedType) => void // Kept for backward compatibility
+  getComputedOperation: () => string // Computes operation from topicCount + deduplication + join
   setOutboundEventPreview: (preview: OutboundEventPreviewType) => void
   setAnalyticsConsent: (consent: boolean) => void
   setConsentAnswered: (consent: boolean) => void
@@ -86,7 +106,7 @@ interface CoreStore extends CoreStoreProps {
   setPipelineId: (id: string) => void
   setPipelineName: (name: string) => void
   setPipelineVersion: (version: string | undefined) => void
-  resetPipelineState: (operation: string, force?: boolean) => void
+  resetPipelineState: (topicCount: number, force?: boolean) => void
   // New mode-related actions
   setMode: (mode: StoreMode) => void
   setBaseConfig: (config: Pipeline | undefined) => void
@@ -118,6 +138,7 @@ export const initialCoreStore: CoreStoreProps = {
   pipelineId: '',
   pipelineName: '',
   pipelineVersion: undefined,
+  topicCount: 0, // 0 = not set, 1 = single topic, 2 = two topics
   operationsSelected: {
     operation: '',
   },
@@ -151,10 +172,63 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       set((state) => ({
         coreStore: { ...state.coreStore, pipelineVersion: version },
       })),
+    setTopicCount: (topicCount: number) => {
+      set((state) => ({
+        coreStore: { ...state.coreStore, topicCount },
+      }))
+      // Update operationsSelected for backward compatibility
+      // Note: This is a simplified update - full operation computation happens in getComputedOperation
+      const newState = get()
+      const computedOp = newState.coreStore.getComputedOperation()
+      set((state) => ({
+        coreStore: {
+          ...state.coreStore,
+          operationsSelected: {
+            operation: computedOp,
+          },
+        },
+      }))
+    },
     setOperationsSelected: (operations: OperationsSelectedType) =>
       set((state) => ({
         coreStore: { ...state.coreStore, operationsSelected: operations },
       })),
+    getComputedOperation: () => {
+      const state = get()
+      const topicCount = state.coreStore.topicCount
+
+      // If topicCount is not set, return empty string
+      if (!topicCount || topicCount < 1) {
+        return ''
+      }
+
+      // Access other stores through the root store
+      // We need to cast to access other slices since we're in a slice creator
+      try {
+        const rootState = get() as any
+        const deduplicationConfigs = rootState.deduplicationStore?.deduplicationConfigs || {}
+        const hasJoin = rootState.joinStore?.enabled || false
+
+        // Convert deduplication configs to the format expected by computeOperationType
+        const dedupConfigs: Record<number, { enabled: boolean; key: string }> = {}
+        Object.keys(deduplicationConfigs).forEach((key) => {
+          const index = parseInt(key, 10)
+          const config = deduplicationConfigs[index]
+          if (config) {
+            dedupConfigs[index] = {
+              enabled: config.enabled || false,
+              key: config.key || '',
+            }
+          }
+        })
+
+        return computeOperationType(topicCount, dedupConfigs, hasJoin)
+      } catch (error) {
+        // If stores aren't initialized yet, return a basic operation based on topicCount
+        console.warn('Failed to compute operation, using basic fallback:', error)
+        return topicCount === 2 ? 'joining' : 'ingest-only'
+      }
+    },
     setAnalyticsConsent: (consent: boolean) =>
       set((state) => ({
         coreStore: { ...state.coreStore, analyticsConsent: consent },
@@ -183,29 +257,47 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       set((state) => ({
         coreStore: { ...state.coreStore, apiConfig: config },
       })),
-    resetPipelineState: (operation: string, force = false) => {
+    resetPipelineState: (topicCount: number, force = false) => {
       const state = get()
       const currentConfig = state.coreStore
 
-      if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
+      if (force || (currentConfig.isDirty && topicCount !== currentConfig.topicCount)) {
         set((state) => ({
           coreStore: {
             ...state.coreStore,
-            operationsSelected: {
-              operation: operation,
-            },
+            topicCount,
             outboundEventPreview: {
               events: [],
             },
             isDirty: false,
           },
         }))
-      } else {
+        // Update computed operation
+        const newState = get()
+        const computedOp = newState.coreStore.getComputedOperation()
         set((state) => ({
           coreStore: {
             ...state.coreStore,
             operationsSelected: {
-              operation: operation,
+              operation: computedOp,
+            },
+          },
+        }))
+      } else {
+        set((state) => ({
+          coreStore: {
+            ...state.coreStore,
+            topicCount,
+          },
+        }))
+        // Update computed operation
+        const newState = get()
+        const computedOp = newState.coreStore.getComputedOperation()
+        set((state) => ({
+          coreStore: {
+            ...state.coreStore,
+            operationsSelected: {
+              operation: computedOp,
             },
           },
         }))
@@ -246,6 +338,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             pipelineId: baseConfig.pipeline_id,
             pipelineName: baseConfig.name,
             // Reset other fields to initial state
+            topicCount: 0,
             operationsSelected: {
               operation: '',
             },
@@ -295,6 +388,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
     },
     enterEditMode: (config: Pipeline) => {
       const operationType = determineOperationType(config)
+      const topicCount = config?.source?.topics?.length || 0
       const currentState = get()
       const previousMode = currentState.coreStore.mode
 
@@ -305,8 +399,9 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           baseConfig: config,
           lastSavedConfig: config, // Initialize lastSavedConfig with the loaded config
           saveHistory: [config], // Initialize saveHistory with the loaded config
+          topicCount: topicCount > 0 ? topicCount : 0,
           operationsSelected: {
-            operation: operationType,
+            operation: operationType, // Computed for backward compatibility
           },
         },
       }))
@@ -327,6 +422,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
     },
     enterViewMode: async (config: Pipeline) => {
       const operationType = determineOperationType(config)
+      const topicCount = config?.source?.topics?.length || 0
       const currentState = get()
       const previousMode = currentState.coreStore.mode
 
@@ -337,8 +433,9 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           baseConfig: config,
           lastSavedConfig: config, // Initialize lastSavedConfig with the loaded config
           saveHistory: [config], // Initialize saveHistory with the loaded config
+          topicCount: topicCount > 0 ? topicCount : 0,
           operationsSelected: {
-            operation: operationType,
+            operation: operationType, // Computed for backward compatibility
           },
         },
       }))

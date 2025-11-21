@@ -2,12 +2,9 @@
 
 import Image from 'next/image'
 import Join from '../../images/join.svg'
-import Deduplicate from '../../images/deduplicate.svg'
-import DeduplicateJoin from '../../images/deduplicate-join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
 import { useStore } from '@/src/store'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { OperationKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
 import { useState, useEffect } from 'react'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
@@ -27,12 +24,12 @@ export default function HomePageClient() {
   const fromPath = searchParams?.get('from')
   const [showWarningModal, setShowWarningModal] = useState(showWarning)
   const router = useRouter()
-  const [pendingOperation, setPendingOperation] = useState<string | null>(null)
+  const [pendingTopicCount, setPendingTopicCount] = useState<number | null>(null)
   const [isCreatePipelineModalVisible, setIsCreatePipelineModalVisible] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [activePipelinesCount, setActivePipelinesCount] = useState(0)
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
-  const { setOperationsSelected, setPipelineName, setPipelineId, operationsSelected, enterCreateMode } = coreStore
+  const { setPipelineName, setPipelineId, topicCount, enterCreateMode } = coreStore
   const { isDocker, isLocal } = usePlatformDetection()
 
   // by default enter create mode as soon as the component loads
@@ -69,32 +66,19 @@ export default function HomePageClient() {
     })
   }, [analytics.page, fromPath])
 
-  const handleOperationClick = (operation: OperationKeys) => {
+  const handleTopicCountClick = (count: 1 | 2) => {
     // Check if we're on a platform with limitations and there are active pipelines
     if ((isDocker || isLocal) && activePipelinesCount > 0) {
       setShowPipelineLimitModal(true)
       return
     }
 
-    if (operation === OperationKeys.DEDUPLICATION) {
-      analytics.operation.deduplication({
-        operationType: operation,
-      })
-    } else if (operation === OperationKeys.JOINING) {
-      analytics.operation.join({
-        operationType: operation,
-      })
-    } else if (operation === OperationKeys.DEDUPLICATION_JOINING) {
-      analytics.operation.dedupAndJoin({
-        operationType: operation,
-      })
-    } else if (operation === OperationKeys.INGEST_ONLY) {
-      analytics.operation.ingestOnly({
-        operationType: operation,
-      })
-    }
+    // Track topic count selection analytics
+    analytics.operation.ingestOnly({
+      operationType: count === 1 ? 'single-topic' : 'two-topics',
+    })
 
-    setPendingOperation(operation)
+    setPendingTopicCount(count)
     setIsCreatePipelineModalVisible(true)
     setIsNavigating(false) // Reset navigation state when opening modal
   }
@@ -104,7 +88,7 @@ export default function HomePageClient() {
 
     if (result === ModalResult.YES) {
       // Reset pipeline state and stay on home page
-      resetAllPipelineState('', true)
+      resetAllPipelineState(0, true)
     } else {
       // Go back to previous page
       router.push(fromPath || '/')
@@ -120,12 +104,12 @@ export default function HomePageClient() {
     }
   }
 
-  const completeOperationSelection = async (operation: OperationKeys, configName: string, pipelineId?: string) => {
+  const completeTopicCountSelection = async (topicCount: number, configName: string, pipelineId?: string) => {
     setIsNavigating(true)
 
     try {
       // Use the optimized reset method for new pipeline creation
-      resetForNewPipeline(operation)
+      resetForNewPipeline(topicCount)
       setPipelineName(configName)
 
       // Use provided pipeline ID or generate one
@@ -138,7 +122,7 @@ export default function HomePageClient() {
       }, 0)
     } catch (error) {
       setIsNavigating(false)
-      console.error('Failed to complete operation selection:', error)
+      console.error('Failed to complete topic count selection:', error)
     }
   }
 
@@ -151,10 +135,10 @@ export default function HomePageClient() {
     }
 
     // Save configuration if the user chose to do so and provided a name
-    if (result === ModalResult.YES && configName) {
+    if (result === ModalResult.YES && configName && pendingTopicCount) {
       try {
         // Keep modal open while navigating
-        await completeOperationSelection(pendingOperation as OperationKeys, configName, pipelineId)
+        await completeTopicCountSelection(pendingTopicCount, configName, pipelineId)
         // Modal will be closed when component unmounts due to navigation
       } catch (error) {
         console.error('Failed to save configuration:', error)
@@ -165,74 +149,32 @@ export default function HomePageClient() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-6 sm:gap-8 max-w-[var(--hero-container-width)] mx-auto px-4 py-20 sm:px-6 lg:px-8">
-      <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-center">Welcome!</h1>
-      <p className="w-full text-center subtitle muted-foreground text-sm sm:text-base">
-        Create a new pipeline with ready-to-use data operations
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-8 sm:mt-12 w-full max-w-[512px]">
-        <div
-          className={cn(
-            'card card-elevated',
-            operationsSelected?.operation === OperationKeys.DEDUPLICATION && 'active',
-            'h-16 sm:h-20 lg:h-24 w-full',
-          )}
-        >
+    <div className="flex flex-col items-start gap-6 sm:gap-8 max-w-[var(--hero-container-width)] px-4 py-20 sm:px-6 lg:px-8">
+      <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-center">Create Pipeline</h1>
+      <h2 className="w-full text-start subtitle muted-foreground text-xs sm:text-sm">
+        Choose a pipeline type based on the number of streams you want to ingest
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-8 sm:mt-12 w-full max-w-[640px]">
+        <div className={cn('card card-elevated', topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
           <button
-            className="flex items-center px-4 sm:px-6 w-full h-full"
-            onClick={() => handleOperationClick(OperationKeys.DEDUPLICATION)}
+            className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+            onClick={() => handleTopicCountClick(1)}
           >
-            <Image src={Deduplicate} alt="Deduplicate" width={24} height={24} className="sm:w-9 sm:h-9" />
-            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">Deduplicate</span>
-          </button>
-        </div>
-        <div
-          className={cn(
-            'card card-elevated',
-            operationsSelected?.operation === OperationKeys.JOINING && 'active',
-            'h-16 sm:h-20 lg:h-24 w-full',
-          )}
-        >
-          <button
-            className="flex items-center px-4 sm:px-6 w-full h-full"
-            onClick={() => handleOperationClick(OperationKeys.JOINING)}
-          >
-            <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
-            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">Join</span>
-          </button>
-        </div>
-
-        <div
-          className={cn(
-            'card card-elevated',
-            operationsSelected?.operation === OperationKeys.DEDUPLICATION_JOINING && 'active',
-            'h-16 sm:h-20 lg:h-24 w-full',
-          )}
-        >
-          <button
-            className="flex items-center px-4 sm:px-6 w-full h-full"
-            onClick={() => handleOperationClick(OperationKeys.DEDUPLICATION_JOINING)}
-          >
-            <Image src={DeduplicateJoin} alt="Deduplicate Join" width={24} height={24} className="sm:w-9 sm:h-9" />
-            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
-              Deduplicate & Join
+            <Image src={IngestOnly} alt="Ingest Only" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4text-sm sm:text-lg font-medium text-muted-foreground">
+              Single-Topic Pipeline
             </span>
           </button>
         </div>
-
-        <div
-          className={cn(
-            'card card-elevated',
-            operationsSelected?.operation === OperationKeys.INGEST_ONLY && 'active',
-            'h-16 sm:h-20 lg:h-24 w-full',
-          )}
-        >
+        <div className={cn('card card-elevated', topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
           <button
-            className="flex items-center px-4 sm:px-6 w-full h-full"
-            onClick={() => handleOperationClick(OperationKeys.INGEST_ONLY)}
+            className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+            onClick={() => handleTopicCountClick(2)}
           >
-            <Image src={IngestOnly} alt="Ingest Only" width={24} height={24} className="sm:w-9 sm:h-9" />
-            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">Ingest Only</span>
+            <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
+            <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+              Multi-Topic Pipeline
+            </span>
           </button>
         </div>
       </div>

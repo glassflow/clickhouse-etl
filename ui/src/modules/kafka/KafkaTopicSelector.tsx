@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '@/src/store'
-import { StepKeys, OperationKeys } from '@/src/config/constants'
+import { StepKeys } from '@/src/config/constants'
 import { useFetchTopics } from '@/src/hooks/useFetchKafkaTopics'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
 import FormActions from '@/src/components/shared/FormActions'
@@ -385,15 +385,7 @@ export function KafkaTopicSelector({
         onOk={handleConfirmTopicChange}
         onCancel={handleCancelTopicChange}
         newTopicName={pendingTopicChange || ''}
-        operationType={
-          coreStore.operationsSelected.operation === OperationKeys.DEDUPLICATION
-            ? 'deduplication'
-            : coreStore.operationsSelected.operation === OperationKeys.JOINING
-              ? 'join'
-              : coreStore.operationsSelected.operation === OperationKeys.DEDUPLICATION_JOINING
-                ? 'deduplication-join'
-                : 'ingest'
-        }
+        operationType={coreStore.topicCount === 2 ? 'join' : 'ingest'}
       />
     </div>
   )

@@ -344,7 +344,10 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
           }
         }),
       )
-      // useStore.getState().topicsStore.setTopicCount(pipelineConfig.source.topics.length)
+      // Set topic count in both topics store and core store
+      const topicCount = pipelineConfig.source.topics.length
+      useStore.getState().topicsStore.setTopicCount(topicCount)
+      useStore.getState().coreStore.setTopicCount(topicCount)
     }
   } catch (error) {
     console.error('Failed to hydrate Kafka topics:', error)
