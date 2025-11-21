@@ -171,6 +171,7 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 			SASLUsername:        conn.SASLUsername,
 			SASLPassword:        conn.SASLPassword,
 			SASLTLSEnable:       conn.SASLTLSEnable,
+			SkipTLSVerification: conn.SkipTLSVerification,
 			TLSRoot:             conn.TLSRoot,
 			TLSCert:             conn.TLSCert,
 			TLSKey:              conn.TLSKey,
