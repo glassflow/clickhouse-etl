@@ -4,7 +4,7 @@ import path from 'path'
 
 // Base URL for the documentation site
 // You can set NEXT_PUBLIC_SITE_URL environment variable for production builds
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://docs.glassflow.dev'
 
 interface SitemapEntry {
   url: string
