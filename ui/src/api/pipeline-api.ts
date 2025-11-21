@@ -58,6 +58,9 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
             return {
               ...p,
               transformation_type: transformation,
+              // Preserve metadata from list response, but merge with full pipeline metadata if available
+              // Full pipeline metadata takes precedence as it's more complete
+              metadata: full.metadata || p.metadata,
               dlq_stats: dlqStats
                 ? {
                     total_messages: dlqStats.total_messages,
