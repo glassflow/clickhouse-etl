@@ -16,6 +16,26 @@ const nextConfig = withNextra({
   },
   experimental: {
     mdxRs: true
+  },
+  // Ensure proper URL handling for sitemap
+  trailingSlash: false,
+  // Configure headers for sitemap
+  async headers() {
+    return [
+      {
+        source: '/sitemap.xml',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/xml',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=3600, s-maxage=3600',
+          },
+        ],
+      },
+    ]
   }
 })
 
