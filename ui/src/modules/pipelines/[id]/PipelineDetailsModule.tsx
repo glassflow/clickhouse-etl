@@ -13,7 +13,7 @@ import { usePipelineOperations } from '@/src/hooks/usePipelineState'
 import { useStore } from '@/src/store'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline } from '@/src/api/pipeline-api'
-import { cn } from '@/src/utils/common.client'
+import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
 
@@ -47,7 +47,9 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const { enterViewMode, mode } = coreStore
 
   // Determine if pipeline editing operations should be disabled
-  // Consider both pipeline status AND if any action is currently loading
+  // Consider pipeline status, loading state, AND demo mode
+  const demoMode = isDemoMode()
+  // In demo mode, sections should still be clickable for viewing, but editing is disabled
   const isEditingDisabled = shouldDisablePipelineOperation(pipeline.status) || actionState.isLoading
 
   // update the local copy of the pipeline data when the pipeline is updated
@@ -173,8 +175,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // set active step so that the standalone step renderer can be rendered
   const handleStepClick = (step: StepKeys) => {
-    // Prevent step clicks when editing is disabled
-    if (isEditingDisabled) {
+    // Prevent step clicks when editing is disabled (but allow in demo mode for viewing)
+    if (isEditingDisabled && !demoMode) {
       return
     }
 
@@ -239,14 +241,14 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         )}
       >
         <KafkaConnectionSection
-          disabled={isEditingDisabled}
+          disabled={isEditingDisabled && !demoMode}
           selected={isSourceSelected}
           onStepClick={handleStepClick}
         />
         <TransformationSection
           pipeline={pipeline}
           onStepClick={handleStepClick}
-          disabled={isEditingDisabled}
+          disabled={isEditingDisabled && !demoMode}
           validation={{
             kafkaValidation: kafkaValidation,
             topicsValidation: topicsValidation,
@@ -258,7 +260,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           activeStep={activeStep}
         />
         <ClickhouseConnectionSection
-          disabled={isEditingDisabled}
+          disabled={isEditingDisabled && !demoMode}
           selected={isSinkSelected}
           onStepClick={handleStepClick}
         />

@@ -21,6 +21,7 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { usePipelineState } from '@/src/hooks/usePipelineState'
 import { PipelineStatus } from '@/src/types/pipeline'
 import { PipelineTransitionOverlay } from '@/src/components/common/PipelineTransitionOverlay'
+import { isDemoMode } from '@/src/utils/common.client'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
@@ -175,8 +176,16 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     onClose()
   }
 
+  // Check if demo mode is enabled
+  const demoMode = isDemoMode()
+
   // Handle edit mode toggle with confirmation for active pipelines
   const handleToggleEditMode = () => {
+    // Disable editing in demo mode
+    if (demoMode) {
+      return
+    }
+
     if ((effectiveStatus === 'stopped' || effectiveStatus === 'terminated') && !editMode) {
       // For stopped/terminated pipelines, enable edit mode immediately
       setEditMode(true)
