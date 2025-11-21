@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import FormActionButton from './FormActionButton'
+import { isDemoMode } from '@/src/utils/common.client'
 
 export const FormEditActionButtonGroup = ({
   editMode,
@@ -43,6 +44,9 @@ export const FormEditActionButtonGroup = ({
   const isPipelineActionInProgress =
     pipelineActionState?.isLoading &&
     (pipelineActionState?.lastAction === 'stop' || pipelineActionState?.lastAction === 'edit')
+
+  // Check if demo mode is enabled
+  const demoMode = isDemoMode()
 
   const handleSubmit = async () => {
     // Don't toggle edit mode immediately - wait for operation to complete
@@ -103,14 +107,17 @@ export const FormEditActionButtonGroup = ({
             </div>
           </>
         ) : (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
-            <FormActionButton
-              actionType="primary"
-              onClick={toggleEditMode}
-              regularText="Edit"
-              disabled={isPipelineActionInProgress}
-            />
-          </div>
+          // Only render Edit button when not in demo mode
+          !demoMode && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
+              <FormActionButton
+                actionType="primary"
+                onClick={toggleEditMode}
+                regularText="Edit"
+                disabled={isPipelineActionInProgress}
+              />
+            </div>
+          )
         )}
       </div>
     </div>
