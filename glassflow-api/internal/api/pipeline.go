@@ -275,14 +275,14 @@ type clickhouseSink struct {
 	Kind     string `json:"type"`
 	Provider string `json:"provider,omitempty"`
 	// Add validation for null/empty values
-	Host     string                    `json:"host"`
-	Port     string                    `json:"port"`      // native port used in BE connection
-	HttpPort string                    `json:"http_port"` // http port used by UI for FE connection
-	Database string                    `json:"database"`
-	Username string                    `json:"username"`
-	Password string                    `json:"password"`
-	Table    string                    `json:"table"`
-	Secure   bool                      `json:"secure"`
+	Host     string `json:"host"`
+	Port     string `json:"port"`      // native port used in BE connection
+	HttpPort string `json:"http_port"` // http port used by UI for FE connection
+	Database string `json:"database"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Table    string `json:"table"`
+	Secure   bool   `json:"secure"`
 
 	// Add validation for range
 	MaxBatchSize                int                 `json:"max_batch_size"`
@@ -516,12 +516,21 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 	// Build sink mapping from schema fields
 	sinkCfg := make([]models.SinkMappingConfig, 0, len(pipeline.Schema.Fields))
 	for _, field := range pipeline.Schema.Fields {
+		// Skip fields without column mapping (used only for validation/join keys)
+		if field.ColumnName == "" || field.ColumnType == "" {
+			continue
+		}
 		sinkCfg = append(sinkCfg, models.SinkMappingConfig{
 			ColumnName: field.ColumnName,
 			StreamName: field.SourceID,
 			FieldName:  field.Name,
 			ColumnType: field.ColumnType,
 		})
+	}
+
+	// Validate that at least one field has a column mapping
+	if len(sinkCfg) == 0 {
+		return zero, fmt.Errorf("at least one field must have column_name and column_type defined")
 	}
 
 	mapperConfig := models.MapperConfig{
@@ -633,10 +642,10 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 
 	// Build unified schema from MapperConfig
 	schemaFields := make([]schemaField, 0)
-	
+
 	// Create a map to track which fields we've added (to avoid duplicates)
 	fieldMap := make(map[string]bool)
-	
+
 	// First, add all fields from streams with their types
 	for streamName, streamConfig := range p.Mapper.Streams {
 		for _, field := range streamConfig.Fields {
@@ -651,7 +660,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 						break
 					}
 				}
-				
+
 				schemaFields = append(schemaFields, schemaField{
 					SourceID:   streamName,
 					Name:       field.FieldName,
