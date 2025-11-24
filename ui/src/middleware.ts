@@ -17,7 +17,7 @@ export default async function middleware(request: NextRequest) {
   // If auth is disabled, redirect root to /home and pass through everything else
   if (!authEnabled) {
     if (pathname === '/') {
-      return NextResponse.redirect(new URL('/home', request.url))
+      return NextResponse.redirect(new URL('/pipelines', request.url))
     }
     return NextResponse.next()
   }

@@ -9,7 +9,7 @@ export default async function Home() {
 
   // If auth is disabled, redirect to /home
   if (!authEnabled) {
-    redirect('/home')
+    redirect('/pipelines')
   }
 
   // Server-side: Get session using auth0.getSession()
@@ -18,7 +18,7 @@ export default async function Home() {
 
   // If user is authenticated, redirect to /home
   if (user) {
-    redirect('/home')
+    redirect('/pipelines')
   }
 
   // Show landing page for unauthenticated users
