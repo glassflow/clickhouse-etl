@@ -43,8 +43,14 @@ func TestEditPipeline_Success(t *testing.T) {
 			},
 			"topics": []map[string]interface{}{
 				{
-					"name": "test-topic",
-					"id":   "topic-1",
+					"topic": "test-topic",
+					"id":    "topic-1",
+					"schema": map[string]interface{}{
+						"type": "json",
+						"fields": []map[string]interface{}{
+							{"name": "id", "data_type": "string"},
+						},
+					},
 				},
 			},
 		},
@@ -64,17 +70,6 @@ func TestEditPipeline_Success(t *testing.T) {
 			"secure":         false,
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
-		},
-		"schema": map[string]interface{}{
-			"fields": []map[string]interface{}{
-				{
-					"source_id":   "test-topic",
-					"name":        "id",
-					"type":        "string",
-					"column_name": "id",
-					"column_type": "String",
-				},
-			},
 		},
 	}
 
@@ -126,8 +121,14 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 			},
 			"topics": []map[string]interface{}{
 				{
-					"name": "test-topic",
-					"id":   "topic-1",
+					"topic": "test-topic",
+					"id":    "topic-1",
+					"schema": map[string]interface{}{
+						"type": "json",
+						"fields": []map[string]interface{}{
+							{"name": "id", "data_type": "string"},
+						},
+					},
 				},
 			},
 		},
@@ -147,17 +148,6 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 			"secure":         false,
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
-		},
-		"schema": map[string]interface{}{
-			"fields": []map[string]interface{}{
-				{
-					"source_id":   "test-topic",
-					"name":        "id",
-					"type":        "string",
-					"column_name": "id",
-					"column_type": "String",
-				},
-			},
 		},
 	}
 
