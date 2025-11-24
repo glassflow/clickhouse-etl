@@ -3,24 +3,25 @@ import { auth0 } from '@/src/lib/auth0'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import LoginButton from '@/src/components/auth/LoginButton'
 import axios from 'axios'
-import { runtimeConfig } from '@/src/app/ui-api/config'
+
+// Force dynamic rendering - don't cache this page
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 // Server-side function to check if pipelines exist
 async function checkPipelines() {
   try {
-    // Use the same API URL pattern as the route handler
-    const API_URL = runtimeConfig.apiUrl
+    const baseUrl = process.env.NEXT_PUBLIC_IN_DOCKER === 'true' ? 'http://ui:8080' : 'http://localhost:8080'
+    const apiUrl = `${baseUrl}/ui-api/pipeline`
 
-    const response = await axios.get(`${API_URL}/pipeline`)
+    const response = await axios.get(apiUrl)
 
-    if (response.data && Array.isArray(response.data)) {
-      return response.data.length > 0
+    if (response.data?.success && Array.isArray(response.data.pipelines)) {
+      return response.data.pipelines.length > 0
     }
 
     return false
   } catch (error) {
-    console.error('Failed to check pipelines:', error)
-    // On error, assume no pipelines to show the safer default
     return false
   }
 }
