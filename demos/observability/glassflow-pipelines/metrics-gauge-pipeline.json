@@ -9,8 +9,8 @@
         "kafka.kafka.svc.cluster.local:9092"
       ],
       "protocol": "PLAINTEXT",
-      "sasl_tls_enable": false,
-      "skip_auth": true
+      "mechanism": "NO_AUTH",
+      "sasl_tls_enable": false
     },
     "topics": [
       {
