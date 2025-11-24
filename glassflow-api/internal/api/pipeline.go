@@ -205,12 +205,13 @@ type pipelineFilter struct {
 }
 
 type pipelineJSON struct {
-	PipelineID string         `json:"pipeline_id"`
-	Name       string         `json:"name"`
-	Source     pipelineSource `json:"source"`
-	Join       pipelineJoin   `json:"join,omitempty"`
-	Filter     pipelineFilter `json:"filter,omitempty"`
-	Sink       clickhouseSink `json:"sink"`
+	PipelineID string                  `json:"pipeline_id"`
+	Name       string                  `json:"name"`
+	Source     pipelineSource          `json:"source"`
+	Join       pipelineJoin            `json:"join,omitempty"`
+	Filter     pipelineFilter          `json:"filter,omitempty"`
+	Sink       clickhouseSink          `json:"sink"`
+	Metadata   models.PipelineMetadata `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -655,6 +656,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Enabled:    p.Filter.Enabled,
 			Expression: p.Filter.Expression,
 		},
+		Metadata: p.Metadata,
 	}
 }
 
