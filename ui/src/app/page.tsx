@@ -2,23 +2,56 @@ import { redirect } from 'next/navigation'
 import { auth0 } from '@/src/lib/auth0'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import LoginButton from '@/src/components/auth/LoginButton'
+import axios from 'axios'
+import { runtimeConfig } from '@/src/app/ui-api/config'
+
+// Server-side function to check if pipelines exist
+async function checkPipelines() {
+  try {
+    // Use the same API URL pattern as the route handler
+    const API_URL = runtimeConfig.apiUrl
+    const response = await axios.get(`${API_URL}/pipeline`)
+
+    if (response.data && Array.isArray(response.data)) {
+      return response.data.length > 0
+    }
+
+    return false
+  } catch (error) {
+    console.error('Failed to check pipelines:', error)
+    // On error, assume no pipelines to show the safer default
+    return false
+  }
+}
 
 export default async function Home() {
   // Check if Auth0 is enabled (reads from runtime environment)
   const authEnabled = isAuthEnabled()
 
-  // If auth is disabled, redirect to /home
+  // If auth is disabled, check for pipelines and redirect accordingly
   if (!authEnabled) {
-    redirect('/pipelines')
+    const hasPipelines = await checkPipelines()
+
+    if (hasPipelines) {
+      redirect('/pipelines')
+    } else {
+      redirect('/home')
+    }
   }
 
   // Server-side: Get session using auth0.getSession()
   const session = await auth0.getSession()
   const user = session?.user
 
-  // If user is authenticated, redirect to /home
+  // If user is authenticated, check for pipelines and redirect accordingly
   if (user) {
-    redirect('/pipelines')
+    const hasPipelines = await checkPipelines()
+
+    if (hasPipelines) {
+      redirect('/pipelines')
+    } else {
+      redirect('/home')
+    }
   }
 
   // Show landing page for unauthenticated users
