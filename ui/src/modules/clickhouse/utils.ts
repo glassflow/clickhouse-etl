@@ -180,16 +180,96 @@ export const generateApiConfig = ({
     // Extract skipTlsVerification from the appropriate truststore based on auth method
     let skipTlsVerification = false
     const authMethod = kafkaStore?.authMethod
-    if (authMethod === 'SASL/PLAIN' && kafkaStore?.saslPlain?.truststore) {
-      skipTlsVerification = kafkaStore.saslPlain.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'SASL/SCRAM-256' && kafkaStore?.saslScram256?.truststore) {
-      skipTlsVerification = kafkaStore.saslScram256.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'SASL/SCRAM-512' && kafkaStore?.saslScram512?.truststore) {
-      skipTlsVerification = kafkaStore.saslScram512.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'SASL/GSSAPI' && kafkaStore?.saslGssapi?.truststore) {
-      skipTlsVerification = kafkaStore.saslGssapi.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'NO_AUTH' && kafkaStore?.noAuth?.truststore) {
-      skipTlsVerification = kafkaStore.noAuth.truststore.skipTlsVerification ?? false
+    const securityProtocol = kafkaStore?.securityProtocol || 'PLAINTEXT'
+    const isTLSEnabled = securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL'
+    
+    if (isTLSEnabled) {
+      if (authMethod === 'SASL/PLAIN' && kafkaStore?.saslPlain?.truststore) {
+        skipTlsVerification = kafkaStore.saslPlain.truststore.skipTlsVerification ?? false
+      } else if (authMethod === 'SASL/SCRAM-256' && kafkaStore?.saslScram256?.truststore) {
+        skipTlsVerification = kafkaStore.saslScram256.truststore.skipTlsVerification ?? false
+      } else if (authMethod === 'SASL/SCRAM-512' && kafkaStore?.saslScram512?.truststore) {
+        skipTlsVerification = kafkaStore.saslScram512.truststore.skipTlsVerification ?? false
+      } else if (authMethod === 'SASL/GSSAPI' && kafkaStore?.saslGssapi?.truststore) {
+        skipTlsVerification = kafkaStore.saslGssapi.truststore.skipTlsVerification ?? false
+      } else if (authMethod === 'NO_AUTH' && kafkaStore?.noAuth?.truststore) {
+        skipTlsVerification = kafkaStore.noAuth.truststore.skipTlsVerification ?? false
+      }
+    }
+
+    // Determine mechanism value based on auth method
+    let mechanism = ''
+    if (authMethod === 'NO_AUTH') {
+      mechanism = 'NO_AUTH'
+    } else if (authMethod === 'SASL/PLAIN') {
+      mechanism = 'PLAIN'
+    } else if (authMethod === 'SASL/SCRAM-256') {
+      mechanism = 'SCRAM-SHA-256'
+    } else if (authMethod === 'SASL/SCRAM-512') {
+      mechanism = 'SCRAM-SHA-512'
+    } else if (authMethod === 'SASL/GSSAPI') {
+      mechanism = 'GSSAPI'
+    }
+
+    const connectionParams: any = {
+      brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
+      protocol: securityProtocol,
+      skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
+      sasl_tls_enable: isTLSEnabled,
+      mechanism: mechanism,
+    }
+
+    // Only include skip_tls_verification when TLS is enabled
+    if (isTLSEnabled) {
+      connectionParams.skip_tls_verification = skipTlsVerification
+    }
+
+    // Add authentication parameters based on auth method
+    // Mechanism is already set in base connection_params, only add auth-specific fields
+    if (authMethod === 'SASL/PLAIN') {
+      connectionParams.username = kafkaStore.saslPlain?.username
+      connectionParams.password = kafkaStore.saslPlain?.password
+
+      // Add SSL certificate from truststore if using SSL/TLS
+      if (isTLSEnabled) {
+        const truststoreCert = kafkaStore.saslPlain?.truststore?.certificates
+        if (truststoreCert) {
+          connectionParams.root_ca = encodeBase64(truststoreCert)
+        }
+      }
+    } else if (authMethod === 'SASL/SCRAM-256' || authMethod === 'SASL/SCRAM-512') {
+      const scramConfig = authMethod === 'SASL/SCRAM-256' ? kafkaStore.saslScram256 : kafkaStore.saslScram512
+      connectionParams.username = scramConfig?.username
+      connectionParams.password = scramConfig?.password
+
+      // Add SSL certificate from truststore if using SSL/TLS
+      if (isTLSEnabled) {
+        const truststoreCert = scramConfig?.truststore?.certificates
+        if (truststoreCert) {
+          connectionParams.root_ca = encodeBase64(truststoreCert)
+        }
+      }
+    } else if (authMethod === 'SASL/GSSAPI') {
+      // Backend expects these field names for Kerberos
+      connectionParams.username = kafkaStore.saslGssapi?.kerberosPrincipal
+      connectionParams.kerberos_service_name = kafkaStore.saslGssapi?.serviceName
+      connectionParams.kerberos_realm = kafkaStore.saslGssapi?.kerberosRealm
+      connectionParams.kerberos_keytab = kafkaStore.saslGssapi?.kerberosKeytab
+      connectionParams.kerberos_config = kafkaStore.saslGssapi?.krb5Config
+
+      // Add SSL certificate from truststore if using SSL/TLS
+      if (isTLSEnabled) {
+        const truststoreCert = kafkaStore.saslGssapi?.truststore?.certificates
+        if (truststoreCert) {
+          connectionParams.root_ca = encodeBase64(truststoreCert)
+        }
+      }
+    } else if (authMethod === 'NO_AUTH' && isTLSEnabled) {
+      // Handle NO_AUTH with SSL/TLS certificate
+      const truststoreCert = kafkaStore.noAuth?.truststore?.certificates
+      if (truststoreCert) {
+        connectionParams.root_ca = encodeBase64(truststoreCert)
+      }
     }
 
     const config = {
@@ -198,15 +278,7 @@ export const generateApiConfig = ({
       source: {
         type: 'kafka',
         provider: 'custom', // Or determine from connection details
-        connection_params: {
-          brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
-          protocol: kafkaStore?.securityProtocol || 'PLAINTEXT',
-          skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
-          sasl_tls_enable: kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL',
-          skip_tls_verification: skipTlsVerification,
-          // Set mechanism to NO_AUTH for no authentication, backend uses this for logic
-          mechanism: authMethod === 'NO_AUTH' ? 'NO_AUTH' : '',
-        } as KafkaConnectionParams,
+        connection_params: connectionParams as KafkaConnectionParams,
         topics: topicsConfig,
       },
       // Include join configuration if multiple topics
@@ -274,100 +346,6 @@ export const generateApiConfig = ({
         table: clickhouseDestination?.table,
         table_mapping: tableMappings,
       },
-    }
-
-    // Add authentication parameters based on security protocol
-    if (kafkaStore?.securityProtocol === 'SASL_PLAINTEXT' || kafkaStore?.securityProtocol === 'SASL_SSL') {
-      const authMethod = kafkaStore.authMethod?.toLowerCase()
-
-      if (authMethod?.includes('plain')) {
-        config.source.connection_params = {
-          ...config.source.connection_params,
-          mechanism: 'PLAIN',
-          username: kafkaStore.saslPlain?.username,
-          // password: encodeBase64(kafkaStore.saslPlain?.password),
-          password: kafkaStore.saslPlain?.password,
-        }
-
-        // Add SSL certificate from truststore if using SSL
-        if (kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL') {
-          const truststoreCert = kafkaStore.saslPlain?.truststore?.certificates
-          if (truststoreCert) {
-            config.source.connection_params = {
-              ...config.source.connection_params,
-              root_ca: encodeBase64(truststoreCert),
-            }
-          }
-        }
-      } else if (authMethod?.includes('scram')) {
-        const scramType = authMethod.includes('256') ? 'SCRAM-SHA-256' : 'SCRAM-SHA-512'
-        const scramConfig = authMethod.includes('256') ? kafkaStore.saslScram256 : kafkaStore.saslScram512
-
-        config.source.connection_params = {
-          ...config.source.connection_params,
-          mechanism: scramType,
-          username: scramConfig?.username,
-          // password: encodeBase64(scramConfig?.password),
-          password: scramConfig?.password,
-        }
-
-        // Add SSL certificate from truststore if using SSL
-        if (kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL') {
-          const truststoreCert = scramConfig?.truststore?.certificates
-          if (truststoreCert) {
-            config.source.connection_params = {
-              ...config.source.connection_params,
-              root_ca: encodeBase64(truststoreCert),
-            }
-          }
-        }
-      } else if (authMethod?.includes('oauth')) {
-        config.source.connection_params = {
-          ...config.source.connection_params,
-          mechanism: 'OAUTHBEARER',
-          oauthBearerToken: kafkaStore.saslOauthbearer?.oauthBearerToken,
-        }
-      }
-    }
-
-    if (kafkaStore?.authMethod === 'SASL/GSSAPI') {
-      config.source.connection_params = {
-        ...config.source.connection_params,
-        mechanism: 'GSSAPI',
-        principal: kafkaStore.saslGssapi.kerberosPrincipal,
-        username: kafkaStore.saslGssapi.kerberosPrincipal,
-        kerberosKeytab: kafkaStore.saslGssapi.kerberosKeytab,
-        kerberosRealm: kafkaStore.saslGssapi.kerberosRealm,
-        kdc: kafkaStore.saslGssapi.kdc,
-        serviceName: kafkaStore.saslGssapi.serviceName,
-        krb5Config: kafkaStore.saslGssapi.krb5Config,
-        // useTicketCache: kafkaStore.saslGssapi.useTicketCache,
-        // ticketCachePath: kafkaStore.saslGssapi.ticketCachePath,
-      }
-
-      // Add SSL certificate from truststore if using SSL
-      if (kafkaStore?.securityProtocol === 'SASL_SSL' || kafkaStore?.securityProtocol === 'SSL') {
-        const truststoreCert = kafkaStore.saslGssapi?.truststore?.certificates
-        if (truststoreCert) {
-          config.source.connection_params = {
-            ...config.source.connection_params,
-            root_ca: encodeBase64(truststoreCert),
-          }
-        }
-      }
-    }
-
-    // Handle NO_AUTH with SSL/TLS certificate
-    if (kafkaStore?.authMethod === 'NO_AUTH') {
-      if (kafkaStore?.securityProtocol === 'SSL' || kafkaStore?.securityProtocol === 'SASL_SSL') {
-        const truststoreCert = kafkaStore.noAuth?.truststore?.certificates
-        if (truststoreCert) {
-          config.source.connection_params = {
-            ...config.source.connection_params,
-            root_ca: encodeBase64(truststoreCert),
-          }
-        }
-      }
     }
 
     return config
