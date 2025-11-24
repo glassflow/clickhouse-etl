@@ -722,12 +722,17 @@ function PipelineDetailsHeader({
 
   const renderTagsButton = () => {
     if (!onManageTags) return null
+
+    const demoMode = isDemoMode()
+
     return (
       <Button
         key="tags"
         variant="outline"
         onClick={onManageTags}
+        disabled={demoMode}
         className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
+        title={demoMode ? 'Action disabled in demo mode' : undefined}
       >
         <div className="flex items-center gap-2">
           <TagIcon className="h-4 w-4" />
@@ -866,7 +871,9 @@ function PipelineDetailsHeader({
               key="tags-mobile"
               variant="outline"
               onClick={onManageTags}
+              disabled={demoMode}
               className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
+              title={demoMode ? 'Action disabled in demo mode' : undefined}
             >
               <div className="flex items-center gap-2">
                 <TagIcon className="h-4 w-4" />

@@ -47,6 +47,8 @@ export default async function Home() {
   if (user) {
     const hasPipelines = await checkPipelines()
 
+    console.log('hasPipelines - home page: ', hasPipelines)
+
     if (hasPipelines) {
       redirect('/pipelines')
     } else {
