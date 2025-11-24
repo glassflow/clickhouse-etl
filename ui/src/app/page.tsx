@@ -10,6 +10,7 @@ async function checkPipelines() {
   try {
     // Use the same API URL pattern as the route handler
     const API_URL = runtimeConfig.apiUrl
+
     const response = await axios.get(`${API_URL}/pipeline`)
 
     if (response.data && Array.isArray(response.data)) {
