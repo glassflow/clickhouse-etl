@@ -14,11 +14,9 @@ export default async function middleware(request: NextRequest) {
   // Check Auth0 status at runtime
   const authEnabled = isAuthEnabled()
 
-  // If auth is disabled, redirect root to /home and pass through everything else
+  // If auth is disabled, allow root page to handle its own redirect logic based on pipelines
+  // This is now handled in app/page.tsx which checks for pipelines server-side
   if (!authEnabled) {
-    if (pathname === '/') {
-      return NextResponse.redirect(new URL('/home', request.url))
-    }
     return NextResponse.next()
   }
 

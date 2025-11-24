@@ -202,12 +202,16 @@ export const TableContextMenu = ({
                 variant="ghost"
                 className={cn(
                   'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
-                  'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                  demoMode || isLoading
+                    ? 'text-muted-foreground cursor-not-allowed opacity-50'
+                    : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
                 )}
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleMenuClick(e, onManageTags, false)
+                  handleMenuClick(e, onManageTags, demoMode || isLoading)
                 }}
+                disabled={demoMode || isLoading}
+                title={demoMode ? 'Action disabled in demo mode' : undefined}
               >
                 <Tag className="h-4 w-4 mr-2" />
                 <span className="truncate">Edit tags</span>
