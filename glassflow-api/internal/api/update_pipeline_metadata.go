@@ -22,8 +22,10 @@ func UpdatePipelineMetadataDocs() huma.Operation {
 }
 
 type UpdatePipelineMetadataInput struct {
-	ID       string                  `path:"id" minLength:"1" doc:"Pipeline ID"`
-	Metadata models.PipelineMetadata `json:"metadata"`
+	ID   string `path:"id" minLength:"1" doc:"Pipeline ID"`
+	Body struct {
+		Metadata models.PipelineMetadata `json:"metadata"`
+	}
 }
 
 type UpdatePipelineMetadataResponse struct {
@@ -31,7 +33,7 @@ type UpdatePipelineMetadataResponse struct {
 }
 
 func (h *handler) updatePipelineMetadata(ctx context.Context, input *UpdatePipelineMetadataInput) (*UpdatePipelineMetadataResponse, error) {
-	err := h.pipelineService.UpdatePipelineMetadata(ctx, input.ID, input.Metadata)
+	err := h.pipelineService.UpdatePipelineMetadata(ctx, input.ID, input.Body.Metadata)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
