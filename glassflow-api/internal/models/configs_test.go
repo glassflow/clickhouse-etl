@@ -793,7 +793,7 @@ func TestJSONDurationEdgeCases(t *testing.T) {
 func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 	validBroker := "kafka:9092"
 	validProvider := "confluent"
-	validProtocol := "SASL_PLAINTEXT"
+	validMechanism := internal.MechanismNoAuth
 
 	tests := []struct {
 		name        string
@@ -804,77 +804,22 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 	}{
 		{
 			name:        "no brokers",
-			conn:        KafkaConnectionParamsConfig{Brokers: []string{}, SASLProtocol: validProtocol, SkipAuth: true},
+			conn:        KafkaConnectionParamsConfig{Brokers: []string{}, SASLMechanism: validMechanism},
 			topics:      nil,
 			description: "must have at least one kafka server",
 			expectError: true,
 		},
 		{
 			name:        "empty broker entry",
-			conn:        KafkaConnectionParamsConfig{Brokers: []string{" "}, SASLProtocol: validProtocol, SkipAuth: true},
+			conn:        KafkaConnectionParamsConfig{Brokers: []string{" "}, SASLMechanism: validMechanism},
 			topics:      nil,
 			description: "kafka server cannot be empty",
-			expectError: true,
-		},
-		{
-			name:        "empty SASL protocol",
-			conn:        KafkaConnectionParamsConfig{Brokers: []string{validBroker}, SASLProtocol: " ", SkipAuth: true},
-			topics:      nil,
-			description: "SASL protocol cannot be empty",
-			expectError: true,
-		},
-		{
-			name: "unsupported SASL protocol",
-			conn: KafkaConnectionParamsConfig{
-				Brokers:      []string{validBroker},
-				SASLProtocol: "UNKNOWN",
-				SkipAuth:     true,
-			},
-			description: "Unsupported SASL protocol",
-			expectError: true,
-		},
-		{
-			name: "missing SASL mechanism when auth required",
-			conn: KafkaConnectionParamsConfig{
-				Brokers:       []string{validBroker},
-				SASLProtocol:  validProtocol,
-				SkipAuth:      false,
-				SASLMechanism: "",
-			},
-			description: "SASL mechanism cannot be empty",
-			expectError: true,
-		},
-		{
-			name: "missing SASL username when auth required",
-			conn: KafkaConnectionParamsConfig{
-				Brokers:       []string{validBroker},
-				SASLProtocol:  validProtocol,
-				SkipAuth:      false,
-				SASLMechanism: internal.MechanismPlain,
-				SASLUsername:  " ",
-				SASLPassword:  "pwd",
-			},
-			description: "SASL username cannot be empty",
-			expectError: true,
-		},
-		{
-			name: "missing SASL password for non-kerberos",
-			conn: KafkaConnectionParamsConfig{
-				Brokers:       []string{validBroker},
-				SASLProtocol:  validProtocol,
-				SkipAuth:      false,
-				SASLMechanism: internal.MechanismPlain,
-				SASLUsername:  "user",
-				SASLPassword:  "",
-			},
-			description: "SASL password cannot be empty",
 			expectError: true,
 		},
 		{
 			name: "unsupported SASL mechanism",
 			conn: KafkaConnectionParamsConfig{
 				Brokers:       []string{validBroker},
-				SASLProtocol:  validProtocol,
 				SkipAuth:      false,
 				SASLMechanism: "UNSUPPORTED",
 				SASLUsername:  "user",
@@ -887,7 +832,6 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			name: "kerberos missing fields",
 			conn: KafkaConnectionParamsConfig{
 				Brokers:             []string{validBroker},
-				SASLProtocol:        validProtocol,
 				SkipAuth:            false,
 				SASLMechanism:       internal.MechanismKerberos,
 				SASLUsername:        "user",
@@ -901,23 +845,59 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "sasl tls enabled without cert",
+			name: "sasl tls enabled without cert and skip_tls_verification false",
 			conn: KafkaConnectionParamsConfig{
-				Brokers:       []string{validBroker},
-				SASLProtocol:  validProtocol,
-				SkipAuth:      true,
-				SASLTLSEnable: true,
-				TLSCert:       " ", // empty after trim
+				Brokers:             []string{validBroker},
+				SASLMechanism:       internal.MechanismNoAuth,
+				SASLTLSEnable:       true,
+				SkipTLSVerification: false,
+				TLSCert:             " ", // empty after trim
+				TLSKey:              " ",
+				TLSRoot:             " ",
 			},
 			description: "TLS certificate cannot be empty when SASL TLS is enabled",
 			expectError: true,
 		},
 		{
+			name: "sasl tls enabled with skip_tls_verification true and invalid cert - no validation",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:             []string{validBroker},
+				SASLMechanism:       internal.MechanismNoAuth,
+				SASLTLSEnable:       true,
+				SkipTLSVerification: true,
+				TLSCert:             "invalid-cert-data", // any value accepted when skipping verification
+				TLSKey:              "",
+				TLSRoot:             "",
+			},
+			expectError: false,
+		},
+		{
+			name: "no username with plain mechanism",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLMechanism: internal.MechanismPlain,
+				SASLUsername:  "",
+				SASLPassword:  "pwd",
+			},
+			description: "SASL username cannot be empty",
+			expectError: true,
+		},
+		{
+			name: "no password with plain mechanism",
+			conn: KafkaConnectionParamsConfig{
+				Brokers:       []string{validBroker},
+				SASLMechanism: internal.MechanismPlain,
+				SASLUsername:  "user",
+				SASLPassword:  "",
+			},
+			description: "SASL password cannot be empty",
+			expectError: true,
+		},
+		{
 			name: "invalid consumer group initial offset",
 			conn: KafkaConnectionParamsConfig{
-				Brokers:      []string{validBroker},
-				SASLProtocol: validProtocol,
-				SkipAuth:     true,
+				Brokers:       []string{validBroker},
+				SASLMechanism: internal.MechanismNoAuth,
 			},
 			topics: []KafkaTopicsConfig{
 				{ConsumerGroupInitialOffset: "badvalue", Replicas: 1},
@@ -929,8 +909,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			name: "positive case with TLS and skip auth",
 			conn: KafkaConnectionParamsConfig{
 				Brokers:       []string{validBroker},
-				SASLProtocol:  validProtocol,
-				SkipAuth:      true,
+				SASLMechanism: internal.MechanismNoAuth,
 				SASLTLSEnable: true,
 				TLSCert:       "somecert",
 			},
@@ -961,8 +940,6 @@ func TestNewIngestorComponentConfig_SuccessAndTopicDefaults(t *testing.T) {
 	provider := "confluent"
 	conn := KafkaConnectionParamsConfig{
 		Brokers:       []string{"kafka:9092"},
-		SASLProtocol:  "SASL_PLAINTEXT",
-		SkipAuth:      false,
 		SASLMechanism: internal.MechanismPlain,
 		SASLUsername:  "user",
 		SASLPassword:  "password",
