@@ -224,6 +224,7 @@ type pipelineJSON struct {
 	Filter     pipelineFilter `json:"filter,omitempty"`
 	Sink       clickhouseSink `json:"sink"`
 	Schema     schema         `json:"schema"`
+	Metadata   models.PipelineMetadata `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -728,6 +729,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		Schema: schema{
 			Fields: schemaFields,
 		},
+		Metadata: p.Metadata,
 	}
 }
 
