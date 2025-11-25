@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -40,6 +41,9 @@ func NewRouter(
 
 	huma.NewError = func(status int, message string, errs ...error) huma.StatusError {
 		log.Error("error happened", "status", status, "message", message, "errors", errs)
+		if len(errs) >= 1 {
+			message = fmt.Sprintf("%s: %s", message, errs[0])
+		}
 		return &ErrorDetail{
 			Status:  status,
 			Message: message,
