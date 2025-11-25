@@ -91,72 +91,73 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
   }
 }
 
-export const getPipeline = async (id: string): Promise<Pipeline> => {
-  const url = getApiUrl(`pipeline/${id}`)
-  const urlHealth = getApiUrl(`pipeline/${id}/health`)
-
-  // Fetch both pipeline data and health status in parallel
-  const [response, responseHealth] = await Promise.all([fetch(url), fetch(urlHealth)])
-
-  // Prefer wrapped success shape from our API routes
-  if (response.ok) {
-    const data = await response.json()
-    if (data?.success === true) {
-      const pipelinePayload = data.pipeline
-
-      // Get status from health endpoint
-      let status = 'active' // default fallback
-      if (responseHealth.ok) {
-        try {
-          const healthData = await responseHealth.json()
-          if (healthData?.overall_status) {
-            status = parsePipelineStatus(healthData.overall_status)
-          }
-        } catch (healthError) {
-          console.warn('Failed to parse health data:', healthError)
-        }
-      }
-
-      // Set the status from health endpoint
-      pipelinePayload.status = status
-      return pipelinePayload
-    }
-
-    // If backend returns direct object (no wrapper), accept that path
-    if (data && typeof data === 'object' && data.pipeline_id) {
-      const pipelinePayload = data
-
-      // Get status from health endpoint
-      let status = 'active' // default fallback
-      if (responseHealth.ok) {
-        try {
-          const healthData = await responseHealth.json()
-          if (healthData?.overall_status) {
-            status = parsePipelineStatus(healthData.overall_status)
-          }
-        } catch (healthError) {
-          console.warn('Failed to parse health data:', healthError)
-        }
-      }
-
-      // Set the status from health endpoint
-      pipelinePayload.status = status
-      return pipelinePayload
-    }
-
-    throw { code: response.status, message: data?.error || 'Failed to fetch pipeline' } as ApiError
-  }
-
-  // Non-200 response - parse the error and throw with proper status code
-  let errorMessage = 'Failed to fetch pipeline'
+export const getPipeline = async (id: string): Promise<any> => {
   try {
+    const url = getApiUrl(`pipeline/${id}`)
+    const urlHealth = getApiUrl(`pipeline/${id}/health`)
+
+    // Fetch both pipeline data and health status in parallel
+    const [response, responseHealth] = await Promise.all([fetch(url), fetch(urlHealth)])
+
+    // Prefer wrapped success shape from our API routes
+    if (response.ok) {
+      const data = await response.json()
+      if (data?.success === true) {
+        const pipelinePayload = data.pipeline
+
+        // Get status from health endpoint
+        let status = 'active' // default fallback
+        if (responseHealth.ok) {
+          try {
+            const healthData = await responseHealth.json()
+            if (healthData?.overall_status) {
+              status = parsePipelineStatus(healthData.overall_status)
+            }
+          } catch (healthError) {
+            console.warn('Failed to parse health data:', healthError)
+          }
+        }
+
+        // Set the status from health endpoint
+        pipelinePayload.status = status
+        return pipelinePayload
+      }
+
+      // If backend returns direct object (no wrapper), accept that path
+      if (data && typeof data === 'object' && data.pipeline_id) {
+        const pipelinePayload = data
+
+        // Get status from health endpoint
+        let status = 'active' // default fallback
+        if (responseHealth.ok) {
+          try {
+            const healthData = await responseHealth.json()
+            if (healthData?.overall_status) {
+              status = parsePipelineStatus(healthData.overall_status)
+            }
+          } catch (healthError) {
+            console.warn('Failed to parse health data:', healthError)
+          }
+        }
+
+        // Set the status from health endpoint
+        pipelinePayload.status = status
+        return pipelinePayload
+      }
+
+      throw { code: response.status, message: data?.error || 'Failed to fetch pipeline' } as ApiError
+    }
+
+    // Non-200 response - parse the error and throw with proper status code
+    let errorMessage = 'Failed to fetch pipeline'
     const errorData = await response.json()
     errorMessage = errorData?.error || errorData?.message || errorMessage
-  } catch {
-    // If we can't parse the error response, use the default message
-  }
 
-  throw { code: response.status, message: errorMessage } as ApiError
+    throw { code: response.status, message: errorMessage } as ApiError
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch pipeline' } as ApiError
+  }
 }
 
 /**
