@@ -54,6 +54,16 @@ const (
 	DLQSubjectName      = "failed"
 	DLQDefaultBatchSize = 1
 
+	// JSON schema data types formats
+	JSONTypeString		= "string"
+	JSONTypeNumber		= "number"
+	JSONTypeInteger		= "integer"
+	JSONTypeBoolean		= "boolean"
+	JSONTypeNull		= "null"
+	JSONTypeArray		= "array"
+	JSONTypeObject		= "object"
+
+
 	// Kafka data type constants
 	KafkaTypeString  = "string"
 	KafkaTypeBool    = "bool"
