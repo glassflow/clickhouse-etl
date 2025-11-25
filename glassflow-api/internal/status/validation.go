@@ -58,8 +58,10 @@ var StatusValidationMatrix = map[models.PipelineStatus][]models.PipelineStatus{
 		models.PipelineStatus(internal.PipelineStatusFailed),
 	},
 
-	// Failed status has no valid transitions (terminal state)
-	models.PipelineStatus(internal.PipelineStatusFailed): {},
+	// Failed status can be deleted, edited or resumed
+	models.PipelineStatus(internal.PipelineStatusFailed): {
+		models.PipelineStatus(internal.PipelineStatusResuming),
+	},
 }
 
 // ValidateStatusTransition checks if a transition from one status to another is valid
