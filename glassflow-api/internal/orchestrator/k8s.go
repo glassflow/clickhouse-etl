@@ -415,7 +415,7 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 	pipelineConfig := k.getPipelineConfigFromK8sResource(customResource)
 
 	// Validate pipeline is stopped
-	if pipelineConfig.Status.OverallStatus != internal.PipelineStatusStopped {
+	if pipelineConfig.Status.OverallStatus != internal.PipelineStatusStopped && pipelineConfig.Status.OverallStatus != internal.PipelineStatusFailed {
 		k.log.ErrorContext(ctx, "pipeline must be stopped before editing", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus)
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(pipelineConfig.Status.OverallStatus))
 	}
