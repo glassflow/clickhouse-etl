@@ -46,9 +46,7 @@ Feature: Working with DLQ
                     "type": "kafka",
                     "kafka_connection_params": {
                         "brokers": [],
-                        "skip_auth": true,
-                        "protocol": "SASL_PLAINTEXT",
-                        "mechanism": "",
+                        "mechanism": "NO_AUTH",
                         "username": "",
                         "password": "",
                         "root_ca": ""

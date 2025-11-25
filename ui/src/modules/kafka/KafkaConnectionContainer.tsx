@@ -48,7 +48,7 @@ export function KafkaConnectionContainer({
     setKafkaSaslScram512,
     setKafkaDelegationTokens,
     setKafkaConnection,
-    setKafkaSkipAuth,
+    // setKafkaSkipAuth,
     isConnected,
     authMethod,
     securityProtocol,
@@ -173,13 +173,13 @@ export function KafkaConnectionContainer({
     setKafkaBootstrapServers(bootstrapServers)
 
     if (authMethod === AUTH_OPTIONS['NO_AUTH'].name) {
-      setKafkaSkipAuth(true)
+      // setKafkaSkipAuth(true)
       setKafkaNoAuth({
         // @ts-expect-error - FIXME: fix this later
         ...values.noAuth,
       })
     } else {
-      setKafkaSkipAuth(false)
+      // setKafkaSkipAuth(false)
     }
 
     // Set the appropriate auth form based on auth method

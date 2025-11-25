@@ -843,7 +843,7 @@ export function PipelinesList({
         <PipelinesTable
           data={filteredPipelines}
           columns={columns}
-          emptyMessage="No pipelines found. Create your first pipeline to get started."
+          emptyMessage="No pipelines found. Adjust your filters or create a new pipeline to get started."
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
         />
       </div>

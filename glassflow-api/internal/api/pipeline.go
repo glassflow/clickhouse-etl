@@ -224,6 +224,7 @@ type pipelineJSON struct {
 	Filter     pipelineFilter `json:"filter,omitempty"`
 	Sink       clickhouseSink `json:"sink"`
 	Schema     schema         `json:"schema"`
+	Metadata   models.PipelineMetadata `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -233,12 +234,13 @@ type pipelineJSON struct {
 
 type sourceConnectionParams struct {
 	Brokers             []string `json:"brokers"`
-	SkipAuth            bool     `json:"skip_auth"`
-	SASLProtocol        string   `json:"protocol"`
-	SASLMechanism       string   `json:"mechanism,omitempty"`
+	SASLMechanism       string   `json:"mechanism"`
+	SkipAuth            bool     `json:"skip_auth,omitempty"`
+	SASLProtocol        string   `json:"protocol,omitempty"`
 	SASLUsername        string   `json:"username,omitempty"`
 	SASLPassword        string   `json:"password,omitempty"`
 	SASLTLSEnable       bool     `json:"sasl_tls_enable,omitempty"`
+	SkipTLSVerification bool     `json:"skip_tls_verification,omitempty"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
 	TLSCert             string   `json:"client_cert,omitempty"`
 	TLSKey              string   `json:"client_key,omitempty"`
@@ -299,6 +301,7 @@ func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentCo
 		SASLUsername:        p.Source.ConnectionParams.SASLUsername,
 		SASLPassword:        p.Source.ConnectionParams.SASLPassword,
 		SASLTLSEnable:       p.Source.ConnectionParams.SASLTLSEnable,
+		SkipTLSVerification: p.Source.ConnectionParams.SkipTLSVerification,
 		TLSRoot:             p.Source.ConnectionParams.TLSRoot,
 		TLSCert:             p.Source.ConnectionParams.TLSCert,
 		TLSKey:              p.Source.ConnectionParams.TLSKey,
@@ -692,13 +695,15 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Kind:     p.Ingestor.Type,
 			Provider: p.Ingestor.Provider,
 			ConnectionParams: sourceConnectionParams{
-				Brokers:       p.Ingestor.KafkaConnectionParams.Brokers,
-				SkipAuth:      p.Ingestor.KafkaConnectionParams.SkipAuth,
-				SASLProtocol:  p.Ingestor.KafkaConnectionParams.SASLProtocol,
-				SASLMechanism: p.Ingestor.KafkaConnectionParams.SASLMechanism,
-				SASLUsername:  p.Ingestor.KafkaConnectionParams.SASLUsername,
-				SASLPassword:  p.Ingestor.KafkaConnectionParams.SASLPassword,
-				TLSRoot:       p.Ingestor.KafkaConnectionParams.TLSRoot,
+				Brokers:             p.Ingestor.KafkaConnectionParams.Brokers,
+				SkipAuth:            p.Ingestor.KafkaConnectionParams.SkipAuth,
+				SASLProtocol:        p.Ingestor.KafkaConnectionParams.SASLProtocol,
+				SASLMechanism:       p.Ingestor.KafkaConnectionParams.SASLMechanism,
+				SASLUsername:        p.Ingestor.KafkaConnectionParams.SASLUsername,
+				SASLPassword:        p.Ingestor.KafkaConnectionParams.SASLPassword,
+				TLSRoot:             p.Ingestor.KafkaConnectionParams.TLSRoot,
+				SASLTLSEnable:       p.Ingestor.KafkaConnectionParams.SASLTLSEnable,
+				SkipTLSVerification: p.Ingestor.KafkaConnectionParams.SkipTLSVerification,
 			},
 			Topics: topics,
 		},
@@ -728,6 +733,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		Schema: schema{
 			Fields: schemaFields,
 		},
+		Metadata: p.Metadata,
 	}
 }
 
@@ -762,7 +768,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 
 	// Check if pipeline is in a deletable state (stopped)
 	currentStatus := string(pipeline.Status.OverallStatus)
-	if currentStatus != internal.PipelineStatusStopped {
+	if currentStatus != internal.PipelineStatusStopped && currentStatus != internal.PipelineStatusFailed {
 		h.log.ErrorContext(r.Context(), "pipeline cannot be deleted due to invalid status", "pipeline_id", id, "current_status", currentStatus)
 		jsonError(w, http.StatusBadRequest,
 			fmt.Sprintf("pipeline can only be deleted if it's stopped, current status: %s", currentStatus),

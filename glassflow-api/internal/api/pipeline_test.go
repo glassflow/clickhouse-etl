@@ -38,8 +38,7 @@ func TestEditPipeline_Success(t *testing.T) {
 			"provider": "confluent",
 			"connection_params": map[string]interface{}{
 				"brokers":   []string{"localhost:9092"},
-				"skip_auth": true,
-				"protocol":  "PLAINTEXT",
+				"mechanism": "NO_AUTH",
 			},
 			"topics": []map[string]interface{}{
 				{
@@ -121,8 +120,7 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 			"provider": "confluent",
 			"connection_params": map[string]interface{}{
 				"brokers":   []string{"localhost:9092"},
-				"skip_auth": true,
-				"protocol":  "PLAINTEXT",
+				"mechanism": "NO_AUTH",
 			},
 			"topics": []map[string]interface{}{
 				{

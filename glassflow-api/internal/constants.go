@@ -143,10 +143,13 @@ const (
 	// NATS consumer constants
 	NATSConsumerNamePrefix = "gf-nats"
 	DefaultDialTimeout     = 5000 * time.Millisecond
-	MechanismSHA256        = "SCRAM-SHA-256"
-	MechanismSHA512        = "SCRAM-SHA-512"
-	MechanismKerberos      = "GSSAPI"
-	MechanismPlain         = "PLAIN"
+
+	// Kafka authentication mechanisms
+	MechanismSHA256   = "SCRAM-SHA-256"
+	MechanismSHA512   = "SCRAM-SHA-512"
+	MechanismKerberos = "GSSAPI"
+	MechanismPlain    = "PLAIN"
+	MechanismNoAuth   = "NO_AUTH"
 
 	// Ingestor constants
 	IngestorInitialRetryDelay = 500 * time.Millisecond

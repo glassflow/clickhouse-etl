@@ -127,7 +127,7 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 	}
 
 	// Configure security
-	authOpts, err := confugureAuth(conn)
+	authOpts, err := configureAuth(conn)
 	if err != nil {
 		return nil, fmt.Errorf("configure auth: %w", err)
 	}
@@ -137,60 +137,63 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 	return opts, nil
 }
 
-func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
+func configureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 	var opts []kgo.Opt
 	var auth sasl.Mechanism
 
-	if !conn.SkipAuth {
-		// SASL Authentication
-		switch conn.SASLMechanism {
-		case internal.MechanismSHA256:
-			auth = scram.Auth{
-				User: conn.SASLUsername,
-				Pass: conn.SASLPassword,
-			}.AsSha256Mechanism()
-		case internal.MechanismSHA512:
-			auth = scram.Auth{
-				User: conn.SASLUsername,
-				Pass: conn.SASLPassword,
-			}.AsSha512Mechanism()
-		case internal.MechanismKerberos:
-			krbAuth := kerberos.Auth{
-				Service: conn.KerberosServiceName,
-			}
-			krb5ConfigFilePath, err := createTempKerberosConfigFile(conn.KerberosConfig)
-			if err != nil {
-				return nil, fmt.Errorf("create temp krb5 config file: %w", err)
-			}
-			krbConfig, err := krb5config.Load(krb5ConfigFilePath)
-			if err != nil {
-				return nil, fmt.Errorf("load krb5 config: %w", err)
-			}
-
-			if conn.KerberosKeytab != "" {
-				keytabFile, err := createTempKeytabFile(conn.KerberosKeytab)
-				if err != nil {
-					return nil, fmt.Errorf("create temp keytab file: %w", err)
-				}
-
-				keytab, err := krb5keytab.Load(keytabFile)
-				if err != nil {
-					return nil, fmt.Errorf("load keytab: %w", err)
-				}
-
-				krbAuth.Client = krb5client.NewWithKeytab(conn.SASLUsername, conn.KerberosRealm, keytab, krbConfig)
-			} else {
-				krbAuth.Client = krb5client.NewWithPassword(conn.SASLUsername, conn.KerberosRealm, conn.SASLPassword, krbConfig)
-			}
-
-			auth = krbAuth.AsMechanism()
-		default:
-			auth = plain.Auth{
-				User: conn.SASLUsername,
-				Pass: conn.SASLPassword,
-			}.AsMechanism()
+	switch conn.SASLMechanism {
+	case internal.MechanismSHA256:
+		auth = scram.Auth{
+			User: conn.SASLUsername,
+			Pass: conn.SASLPassword,
+		}.AsSha256Mechanism()
+	case internal.MechanismSHA512:
+		auth = scram.Auth{
+			User: conn.SASLUsername,
+			Pass: conn.SASLPassword,
+		}.AsSha512Mechanism()
+	case internal.MechanismKerberos:
+		krbAuth := kerberos.Auth{
+			Service: conn.KerberosServiceName,
+		}
+		krb5ConfigFilePath, err := createTempKerberosConfigFile(conn.KerberosConfig)
+		if err != nil {
+			return nil, fmt.Errorf("create temp krb5 config file: %w", err)
+		}
+		krbConfig, err := krb5config.Load(krb5ConfigFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("load krb5 config: %w", err)
 		}
 
+		if conn.KerberosKeytab != "" {
+			keytabFile, err := createTempKeytabFile(conn.KerberosKeytab)
+			if err != nil {
+				return nil, fmt.Errorf("create temp keytab file: %w", err)
+			}
+
+			keytab, err := krb5keytab.Load(keytabFile)
+			if err != nil {
+				return nil, fmt.Errorf("load keytab: %w", err)
+			}
+
+			krbAuth.Client = krb5client.NewWithKeytab(conn.SASLUsername, conn.KerberosRealm, keytab, krbConfig)
+		} else {
+			krbAuth.Client = krb5client.NewWithPassword(conn.SASLUsername, conn.KerberosRealm, conn.SASLPassword, krbConfig)
+		}
+
+		auth = krbAuth.AsMechanism()
+	case internal.MechanismPlain:
+		auth = plain.Auth{
+			User: conn.SASLUsername,
+			Pass: conn.SASLPassword,
+		}.AsMechanism()
+	case internal.MechanismNoAuth:
+		auth = nil
+	default:
+		return nil, fmt.Errorf("unsupported SASL mechanism: %s", conn.SASLMechanism)
+	}
+
+	if auth != nil {
 		opts = append(opts, kgo.SASL(auth))
 	}
 
@@ -200,9 +203,11 @@ func confugureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 			return nil, fmt.Errorf("make tls config: %w", err)
 		}
 
-		if tlsCfg != nil {
-			opts = append(opts, kgo.DialTLSConfig(tlsCfg))
+		if conn.SkipTLSVerification {
+			tlsCfg.InsecureSkipVerify = true
 		}
+
+		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
 	}
 
 	return opts, nil
