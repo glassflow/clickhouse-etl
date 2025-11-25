@@ -695,7 +695,7 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 
 	// Check if pipeline is in a deletable state (stopped)
 	currentStatus := string(pipeline.Status.OverallStatus)
-	if currentStatus != internal.PipelineStatusStopped {
+	if currentStatus != internal.PipelineStatusStopped && currentStatus != internal.PipelineStatusFailed {
 		h.log.ErrorContext(r.Context(), "pipeline cannot be deleted due to invalid status", "pipeline_id", id, "current_status", currentStatus)
 		jsonError(w, http.StatusBadRequest,
 			fmt.Sprintf("pipeline can only be deleted if it's stopped, current status: %s", currentStatus),
