@@ -18,6 +18,7 @@ const TruststoreFormSchema = z.object({
   algorithm: z.string().optional(), // Optional - for self-signed certificates
   certificates: z.string().optional(), // Optional - but will be validated conditionally
   certificatesFileName: z.string().optional(), // Store the filename for UI display
+  skipTlsVerification: z.boolean().optional(), // Optional - skip TLS verification for SSL/TLS connections
 })
 
 const SaslPlainFormSchema = z.object({

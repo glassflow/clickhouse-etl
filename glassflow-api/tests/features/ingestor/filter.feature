@@ -63,9 +63,7 @@ Feature: Kafka Ingestor with Filter
                 "type": "kafka",
                 "kafka_connection_params": {
                     "brokers": [],
-                    "skip_auth": true,
-                    "protocol": "SASL_PLAINTEXT",
-                    "mechanism": "",
+                    "mechanism": "NO_AUTH",
                     "username": "",
                     "password": "",
                     "root_ca": ""
@@ -100,8 +98,8 @@ Feature: Kafka Ingestor with Filter
         And I run the ingestor component
 
         Then I check results stream with content
-            | id  | message      | env  |
-            | 456 | prod event   | prod |
+            | id  | message    | env  |
+            | 456 | prod event | prod |
 
 
     Scenario: Kafka Ingestor with filter disabled
@@ -156,9 +154,7 @@ Feature: Kafka Ingestor with Filter
                 "type": "kafka",
                 "kafka_connection_params": {
                     "brokers": [],
-                    "skip_auth": true,
-                    "protocol": "SASL_PLAINTEXT",
-                    "mechanism": "",
+                    "mechanism": "NO_AUTH",
                     "username": "",
                     "password": "",
                     "root_ca": ""
@@ -176,7 +172,7 @@ Feature: Kafka Ingestor with Filter
                 ]
             }
             """
-      Given an filter component config:
+        Given an filter component config:
             """
             {
                 "expression": "env == \"test\"",
@@ -193,7 +189,7 @@ Feature: Kafka Ingestor with Filter
         And I run the ingestor component
 
         Then I check results stream with content
-            | id  | message        | env  |
-            | 124 | test event     | test |
-            | 457 | prod event     | prod |
-            | 203 | another test   | test |
+            | id  | message      | env  |
+            | 124 | test event   | test |
+            | 457 | prod event   | prod |
+            | 203 | another test | test |

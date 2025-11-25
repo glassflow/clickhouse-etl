@@ -2,36 +2,38 @@ import { useStore } from '../index'
 
 // Map backend pipeline config to KafkaConnectionFormType (store shape)
 function mapBackendKafkaConfigToStore(connection_params: any): any {
-  const skipAuth = Boolean(connection_params.skip_auth)
-
   // Map backend mechanism to UI auth method names
+  // Backend now uses mechanism: "NO_AUTH" instead of skip_auth: true
   const mech = (connection_params.mechanism || '').toString().toUpperCase()
-  const authMethod = skipAuth
-    ? 'NO_AUTH'
-    : mech === 'PLAIN'
-      ? 'SASL/PLAIN'
-      : mech === 'SCRAM-SHA-256'
-        ? 'SASL/SCRAM-256'
-        : mech === 'SCRAM-SHA-512'
-          ? 'SASL/SCRAM-512'
-          : mech === 'OAUTHBEARER'
-            ? 'SASL/OAUTHBEARER'
-            : mech === 'GSSAPI'
-              ? 'SASL/GSSAPI'
-              : mech === 'JAAS'
-                ? 'SASL/JAAS'
-                : mech === 'LDAP'
-                  ? 'SASL/LDAP'
-                  : mech === 'MTLS'
-                    ? 'mTLS'
-                    : ''
+  const authMethod =
+    mech === 'NO_AUTH'
+      ? 'NO_AUTH'
+      : mech === 'PLAIN'
+        ? 'SASL/PLAIN'
+        : mech === 'SCRAM-SHA-256'
+          ? 'SASL/SCRAM-256'
+          : mech === 'SCRAM-SHA-512'
+            ? 'SASL/SCRAM-512'
+            : mech === 'OAUTHBEARER'
+              ? 'SASL/OAUTHBEARER'
+              : mech === 'GSSAPI'
+                ? 'SASL/GSSAPI'
+                : mech === 'JAAS'
+                  ? 'SASL/JAAS'
+                  : mech === 'LDAP'
+                    ? 'SASL/LDAP'
+                    : mech === 'MTLS'
+                      ? 'mTLS'
+                      : // Fallback: check deprecated skip_auth field for backward compatibility
+                        Boolean(connection_params.skip_auth)
+                        ? 'NO_AUTH'
+                        : ''
 
   return {
     // base values
     authMethod,
     securityProtocol: connection_params.protocol || '',
     bootstrapServers: (connection_params.brokers || []).join(', '),
-    skipAuth,
 
     // sasl connection types
     saslPlain: {
@@ -43,6 +45,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipTlsVerification: connection_params.skip_tls_verification ?? false,
       },
       consumerGroup: connection_params.consumer_group || '',
     },
@@ -56,6 +59,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipTlsVerification: connection_params.skip_tls_verification ?? false,
       },
       consumerGroup: connection_params.consumer_group || '',
     },
@@ -69,6 +73,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipTlsVerification: connection_params.skip_tls_verification ?? false,
       },
     },
     // sasl jaas config connection type
@@ -91,6 +96,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipTlsVerification: connection_params.skip_tls_verification ?? false,
       },
     },
     // sasl oauthbearer connection type
@@ -131,6 +137,7 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
         type: '',
         algorithm: '',
         certificates: connection_params.root_ca ? atob(connection_params.root_ca) : '',
+        skipTlsVerification: connection_params.skip_tls_verification ?? false,
       },
     },
   }

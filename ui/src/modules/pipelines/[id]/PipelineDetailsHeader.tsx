@@ -28,7 +28,7 @@ import StopWhiteIcon from '@/src/images/stop-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
-import { isDemoMode } from '@/src/utils/common.client'
+import { isDemoMode, getRuntimeEnv } from '@/src/utils/common.client'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
 import { notify } from '@/src/notifications'
@@ -168,6 +168,7 @@ function PipelineDetailsHeader({
               joinStore,
               kafkaStore,
               deduplicationStore,
+              version: coreStore.pipelineVersion, // Respect the original pipeline version
             })
 
             // Send edit request to backend (backend will automatically resume after edit)
@@ -287,6 +288,38 @@ function PipelineDetailsHeader({
 
   const handleFlushDLQCancel = () => {
     setShowFlushDLQModal(false)
+  }
+
+  // Helper function to check if Grafana dashboard is available
+  const isDashboardAvailable = (): boolean => {
+    const isServer = typeof window === 'undefined'
+
+    if (isServer) {
+      return !!(process.env.NEXT_PUBLIC_DASHBOARD && isDemoMode())
+    } else {
+      const runtimeEnv = getRuntimeEnv() as any
+      const dashboardUrl = runtimeEnv.NEXT_PUBLIC_DASHBOARD || process.env.NEXT_PUBLIC_DASHBOARD
+      return !!(dashboardUrl && isDemoMode())
+    }
+  }
+
+  // Helper function to get dashboard URL
+  const getDashboardUrl = (): string | null => {
+    const isServer = typeof window === 'undefined'
+
+    if (isServer) {
+      return process.env.NEXT_PUBLIC_DASHBOARD || null
+    } else {
+      const runtimeEnv = getRuntimeEnv() as any
+      return runtimeEnv.NEXT_PUBLIC_DASHBOARD || process.env.NEXT_PUBLIC_DASHBOARD || null
+    }
+  }
+
+  const handleGrafanaClick = () => {
+    const dashboardUrl = getDashboardUrl()
+    if (dashboardUrl) {
+      window.open(dashboardUrl, '_blank', 'noopener,noreferrer')
+    }
   }
 
   const proceedWithDownload = async () => {
@@ -690,12 +723,17 @@ function PipelineDetailsHeader({
 
   const renderTagsButton = () => {
     if (!onManageTags) return null
+
+    const demoMode = isDemoMode()
+
     return (
       <Button
         key="tags"
         variant="outline"
         onClick={onManageTags}
+        disabled={demoMode}
         className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
+        title={demoMode ? 'Action disabled in demo mode' : undefined}
       >
         <div className="flex items-center gap-2">
           <TagIcon className="h-4 w-4" />
@@ -794,6 +832,34 @@ function PipelineDetailsHeader({
           </Button>
 
           {renderTagsButton()}
+
+          {/* Grafana Dashboard Button - only visible in demo mode with dashboard URL */}
+          {isDashboardAvailable() && (
+            <Button
+              key="grafana-dashboard"
+              variant="outline"
+              onClick={handleGrafanaClick}
+              className={`group btn-action relative !px-3 !py-1.5 h-auto text-sm`}
+              title={'Open Grafana Dashboard'}
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="filter brightness-100 group-hover:brightness-0"
+                >
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </div>
+              Metrics(Grafana)
+            </Button>
+          )}
         </div>
 
         {/* Tablet/Mobile: Show most critical actions + More menu */}
@@ -806,7 +872,9 @@ function PipelineDetailsHeader({
               key="tags-mobile"
               variant="outline"
               onClick={onManageTags}
+              disabled={demoMode}
               className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
+              title={demoMode ? 'Action disabled in demo mode' : undefined}
             >
               <div className="flex items-center gap-2">
                 <TagIcon className="h-4 w-4" />
@@ -902,6 +970,37 @@ function PipelineDetailsHeader({
                       />
                       <span className="truncate">Flush DLQ</span>
                     </Button>
+
+                    {/* Grafana Dashboard Button - only visible in demo mode with dashboard URL */}
+                    {isDashboardAvailable() && (
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                          'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleMenuItemClick(() => handleGrafanaClick())
+                        }}
+                        title="Open Grafana Dashboard"
+                      >
+                        <svg
+                          width={16}
+                          height={16}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                        >
+                          <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                        <span className="truncate">Metrics(Grafana)</span>
+                      </Button>
+                    )}
                   </div>
                 </>,
                 document.body,

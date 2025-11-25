@@ -107,9 +107,14 @@ export interface DLQState {
   unconsumed_messages: number
 }
 
+// Defines the internal structure of a pipeline configuration used by the UI
+// This should remain stable even if the backend API format changes
+export type InternalPipelineConfig = Pipeline
+
 export interface Pipeline {
   pipeline_id: string
   name: string
+  version?: string // Pipeline configuration version
   // state: string // Pipeline status from backend State field
   status?: PipelineStatus // UI status field (converted from state)
   created_at?: string // Creation timestamp
@@ -118,8 +123,9 @@ export interface Pipeline {
     provider: string
     connection_params: {
       brokers: string[]
-      skip_auth: boolean
+      skip_auth?: boolean // Deprecated: backend now uses mechanism: "NO_AUTH" instead
       sasl_tls_enable?: boolean
+      skip_tls_verification?: boolean
       protocol: string
       mechanism: string
       username?: string

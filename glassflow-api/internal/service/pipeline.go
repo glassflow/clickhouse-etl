@@ -358,7 +358,7 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 	}
 
 	// Validate pipeline is in Stopped status
-	if currentPipeline.Status.OverallStatus != internal.PipelineStatusStopped {
+	if currentPipeline.Status.OverallStatus != internal.PipelineStatusStopped && currentPipeline.Status.OverallStatus != internal.PipelineStatusFailed {
 		p.log.ErrorContext(ctx, "pipeline must be stopped before editing", "pipeline_id", pid, "current_status", currentPipeline.Status.OverallStatus)
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
 	}

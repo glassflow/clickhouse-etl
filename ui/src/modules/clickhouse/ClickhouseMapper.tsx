@@ -87,6 +87,7 @@ export function ClickhouseMapper({
     pipelineName,
     setPipelineName,
     operationsSelected,
+    pipelineVersion,
   } = coreStore
 
   // Determine operation mode and indices
@@ -1121,6 +1122,7 @@ export function ClickhouseMapper({
       joinStore,
       kafkaStore,
       deduplicationStore,
+      version: pipelineVersion, // Respect the original pipeline version
     })
 
     // Update the store with the new destination config

@@ -26,8 +26,6 @@ export interface KafkaStoreProps {
   // status
   isConnected: boolean
 
-  skipAuth: boolean
-
   // base values
   authMethod: string
   securityProtocol: string
@@ -96,8 +94,6 @@ export interface KafkaStore extends KafkaStoreProps, ValidationMethods {
   // kafka connection actions
   setKafkaConnection: (connection: KafkaConnectionFormType) => void
 
-  setKafkaSkipAuth: (skipAuth: boolean) => void
-
   // status actions
   setIsConnected: (isConnected: boolean) => void
 
@@ -112,7 +108,6 @@ export interface KafkaSlice {
 }
 
 export const initialKafkaStore: KafkaStoreProps = {
-  skipAuth: false,
   authMethod: '',
   securityProtocol: '',
   bootstrapServers: '',
@@ -124,6 +119,7 @@ export const initialKafkaStore: KafkaStoreProps = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipTlsVerification: false,
     },
   },
   saslPlain: {
@@ -136,6 +132,7 @@ export const initialKafkaStore: KafkaStoreProps = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipTlsVerification: false,
     },
     consumerGroup: '',
   },
@@ -162,6 +159,7 @@ export const initialKafkaStore: KafkaStoreProps = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipTlsVerification: false,
     },
   },
   saslOauthbearer: {
@@ -177,6 +175,7 @@ export const initialKafkaStore: KafkaStoreProps = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipTlsVerification: false,
     },
     consumerGroup: '',
   },
@@ -190,6 +189,7 @@ export const initialKafkaStore: KafkaStoreProps = {
       algorithm: '',
       certificates: '',
       certificatesFileName: '',
+      skipTlsVerification: false,
     },
     consumerGroup: '',
   },
@@ -223,7 +223,6 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
     authMethod: '',
     securityProtocol: '',
     bootstrapServers: '',
-    skipAuth: false,
     // status
     isConnected: false,
     // validation state
@@ -238,6 +237,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         algorithm: '',
         certificates: '',
         certificatesFileName: '',
+        skipTlsVerification: false,
       },
     },
 
@@ -252,6 +252,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         algorithm: '',
         certificates: '',
         certificatesFileName: '',
+        skipTlsVerification: false,
       },
       consumerGroup: '',
     },
@@ -276,6 +277,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         algorithm: '',
         certificates: '',
         certificatesFileName: '',
+        skipTlsVerification: false,
       },
     },
     saslOauthbearer: {
@@ -291,6 +293,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         algorithm: '',
         certificates: '',
         certificatesFileName: '',
+        skipTlsVerification: false,
       },
       consumerGroup: '',
     },
@@ -304,6 +307,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
         algorithm: '',
         certificates: '',
         certificatesFileName: '',
+        skipTlsVerification: false,
       },
       consumerGroup: '',
     },
@@ -340,7 +344,6 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
 
     // base actions
     setKafkaAuthMethod: (authMethod: string) => set((state) => ({ kafkaStore: { ...state.kafkaStore, authMethod } })),
-    setKafkaSkipAuth: (skipAuth: boolean) => set((state) => ({ kafkaStore: { ...state.kafkaStore, skipAuth } })),
     setKafkaSecurityProtocol: (securityProtocol: string) =>
       set((state) => ({ kafkaStore: { ...state.kafkaStore, securityProtocol } })),
     setKafkaBootstrapServers: (bootstrapServers: string) =>
