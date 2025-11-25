@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
@@ -12,7 +14,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
-	"github.com/nats-io/nats.go/jetstream"
 )
 
 type SinkRunner struct {
@@ -22,7 +23,6 @@ type SinkRunner struct {
 	pipelineCfg  models.PipelineConfig
 	schemaMapper schema.Mapper
 	meter        *observability.Meter
-	dlqPublisher stream.Publisher
 
 	component component.Component
 	c         chan error

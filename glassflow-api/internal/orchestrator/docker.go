@@ -127,8 +127,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	for _, t := range pi.Ingestor.KafkaTopics {
 		for i := range t.Replicas {
-			sinkConsumerStream = pi.Sink.StreamID
-
 			d.log.DebugContext(ctx, "create ingestor for the topic", "topic", t.Name, "replica", i)
 			ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
 				schemaMapper, nil) // nil meter for docker orchestrator

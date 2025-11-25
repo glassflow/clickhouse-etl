@@ -43,7 +43,7 @@ func (p *PlatformSteps) RegisterSteps(sc *godog.ScenarioContext) {
 			return p.iSendHTTPRequest(ctx, method, path, nil)
 		})
 	sc.Step(`^I send a (GET|POST|PUT|DELETE|PATCH) request to "([^"]*)" with body:$`, p.iSendHTTPRequest)
-	sc.Then(`^the response status should be (\d+)$`, p.BaseTestSuite.theResponseStatusShouldBe)
+	sc.Then(`^the response status should be (\d+)$`, p.theResponseStatusShouldBe)
 	sc.Then(`^the response should contain JSON:$`, p.theResponseShouldContainJSON)
 	sc.Then(`^the response should have content type "([^"]*)"$`, p.theResponseShouldHaveContentType)
 }
@@ -91,7 +91,7 @@ func (p *PlatformSteps) setupServices() error {
 	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log)
 
 	// Create HTTP router
-	p.BaseTestSuite.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil)
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil)
 
 	return nil
 }

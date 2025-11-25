@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
-	"github.com/nats-io/nats.go/jetstream"
 )
 
 type SinkTestSuite struct {
@@ -25,8 +26,7 @@ type SinkTestSuite struct {
 	streamName string
 	tablename  string
 
-	dlqStreamCfg   jetstream.StreamConfig
-	dlqConsumerCfg jetstream.ConsumerConfig
+	dlqStreamCfg jetstream.StreamConfig
 
 	streamConfig   jetstream.StreamConfig
 	consumerConfig jetstream.ConsumerConfig
