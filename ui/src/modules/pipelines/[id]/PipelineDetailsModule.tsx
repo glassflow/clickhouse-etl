@@ -19,6 +19,7 @@ import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSect
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
+import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -89,7 +90,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         // Create a cache key that includes the pipeline configuration to detect changes
         // This ensures re-hydration when the pipeline is edited or status changes
         const topicNames = pipeline.source?.topics?.map((t: any) => t.name).join(',') || ''
-        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}-${pipeline.status}-${topicNames}`
+        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}-${pipeline.status}-${topicNames}-${pipeline.version || 'v1'}`
         const lastHydratedKey = sessionStorage.getItem('lastHydratedPipeline')
 
         // CRITICAL: Check if cache says we're hydrated, but also verify stores actually have data
@@ -121,8 +122,19 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         console.log('[PipelineDetailsModule] Hydrating pipeline:', currentPipelineKey)
 
         try {
+          // 1. Detect version and get appropriate adapter
+          // Use pipeline.version if available, or fallback to V1 (handled by factory)
+          const adapter = getPipelineAdapter(pipeline.version)
+
+          // 2. Hydrate raw API config into InternalPipelineConfig
+          // pipeline is currently typed as Pipeline which acts as our InternalPipelineConfig
+          // but at this boundary it's actually an API response that might differ in structure
+          const internalConfig = adapter.hydrate(pipeline)
+
+          // 3. Pass internal config to store
           // pipeline hydration is handled by the enterViewMode function from the core store
-          await enterViewMode(pipeline)
+          await enterViewMode(internalConfig)
+
           // Mark as hydrated to prevent re-hydration - this is used to prevent infinite loop
           sessionStorage.setItem('lastHydratedPipeline', currentPipelineKey)
         } catch (error) {

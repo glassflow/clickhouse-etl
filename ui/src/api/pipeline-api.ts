@@ -91,7 +91,7 @@ export const getPipelines = async (): Promise<ListPipelineConfig[]> => {
   }
 }
 
-export const getPipeline = async (id: string): Promise<Pipeline> => {
+export const getPipeline = async (id: string): Promise<any> => {
   try {
     const url = getApiUrl(`pipeline/${id}`)
     const urlHealth = getApiUrl(`pipeline/${id}/health`)
