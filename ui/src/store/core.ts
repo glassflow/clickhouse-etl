@@ -79,6 +79,7 @@ interface CoreStoreProps {
   pipelineVersion: string | undefined // Track the version of the pipeline config
   topicCount: number // Primary: number of topics (1 or 2)
   operationsSelected: OperationsSelectedType // Computed/derived for backward compatibility
+  pipelineVersion: string | undefined // Track the version of the pipeline config
   outboundEventPreview: OutboundEventPreviewType
   analyticsConsent: boolean
   consentAnswered: boolean
@@ -107,6 +108,7 @@ interface CoreStore extends CoreStoreProps {
   setPipelineName: (name: string) => void
   setPipelineVersion: (version: string | undefined) => void
   resetPipelineState: (topicCount: number, force?: boolean) => void
+  setPipelineVersion: (version: string | undefined) => void
   // New mode-related actions
   setMode: (mode: StoreMode) => void
   setBaseConfig: (config: Pipeline | undefined) => void
@@ -139,6 +141,7 @@ export const initialCoreStore: CoreStoreProps = {
   pipelineName: '',
   pipelineVersion: undefined,
   topicCount: 0, // 0 = not set, 1 = single topic, 2 = two topics
+  pipelineVersion: undefined,
   operationsSelected: {
     operation: '',
   },
@@ -189,6 +192,10 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         },
       }))
     },
+    setPipelineVersion: (version: string | undefined) =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, pipelineVersion: version },
+      })),
     setOperationsSelected: (operations: OperationsSelectedType) =>
       set((state) => ({
         coreStore: { ...state.coreStore, operationsSelected: operations },
