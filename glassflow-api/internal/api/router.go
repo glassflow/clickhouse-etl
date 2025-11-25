@@ -31,7 +31,7 @@ func NewRouter(
 	r := mux.NewRouter()
 
 	config := huma.DefaultConfig("GlassFlow API", "1.0.0")
-	config.OpenAPI.Info.Description = "GlassFlow ClickHouse ETL API"
+	config.Info.Description = "GlassFlow ClickHouse ETL API"
 
 	// Remove $schema from all schemas
 	// https://github.com/danielgtaylor/huma/issues/428

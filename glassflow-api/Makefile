@@ -1,4 +1,3 @@
-CI_GOLANGCI_LINT_VERSION?=v1.64.5
 COMMIT_HASH?=$(shell git rev-parse --short HEAD)
 VERSION?=$(shell git describe --tags --always --dirty)
 
@@ -6,10 +5,6 @@ ifneq (,$(wildcard ./.env))
 include .env
 $(eval export $(shell sed -ne 's/ *#.*$$//; /./ s/=.*$$// p' .env))
 endif
-
-.PHONY: ci-print-lint-version
-ci-print-lint-version: ## print linter version
-	@ echo ${CI_GOLANGCI_LINT_VERSION}
 
 .PHONY: run
 run:
@@ -40,9 +35,15 @@ build-linux-arm64:
 run-test:
 	go test -v -count=1 -race $(shell go list ./... | grep -v /tests)
 
+.PHONE: lint
+lint:
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.2 run ./...
+
+.PHONY: pre-push-check
+	pre-push-check: lint run-test run-e2e-test
+
 .PHONY: run-short-test
 run-short-test:
-	# Running with -short to avoid flaky tests.
 	go test -v -short -count=1 -timeout 5m -race $(shell go list ./... | grep -v /tests)
 
 .PHONY: run-e2e-test

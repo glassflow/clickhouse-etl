@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
@@ -20,7 +22,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
-	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/cucumber/godog"
 )
@@ -369,7 +370,7 @@ func (p *PipelineSteps) setupPipelineService() error {
 		p.log,
 	)
 
-	p.BaseTestSuite.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil)
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil)
 
 	return nil
 }

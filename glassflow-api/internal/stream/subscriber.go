@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
 type Subscriber interface {
@@ -64,7 +65,7 @@ func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 					return
 				}
 
-				if !(errors.Is(err, jetstream.ErrNoMessages) || errors.Is(err, nats.ErrTimeout)) {
+				if !errors.Is(err, jetstream.ErrNoMessages) && !errors.Is(err, nats.ErrTimeout) {
 					s.log.Error("error on getting message", "error", err)
 				}
 				time.Sleep(100 * time.Millisecond)
