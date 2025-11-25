@@ -3,6 +3,21 @@ on:
   workflow_call:
 
 jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: './glassflow-api/go.mod'
+          cache-dependency-path: './glassflow-api/go.mod'
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.6
+          working-directory: './glassflow-api'
+
   test-api:
     name: test api
     runs-on: ubuntu-latest
