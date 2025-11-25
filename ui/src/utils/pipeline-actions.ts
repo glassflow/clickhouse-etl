@@ -45,12 +45,14 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             isDisabled: true,
             disabledReason: `Cannot edit pipeline while it's ${pipelineStatus}`,
           }
+        // in case of stopped or failed pipelines, we don't want to disable the edit button
+        // because the user can edit the pipeline configuration and resume it
         case PIPELINE_STATUS_MAP.stopped:
         case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
-            isDisabled: true,
-            disabledReason: `Cannot edit a ${pipelineStatus} pipeline`,
+            // isDisabled: true,
+            // disabledReason: `Cannot edit a ${pipelineStatus} pipeline`,
           }
         default:
           return baseConfig
@@ -61,6 +63,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
         case PIPELINE_STATUS_MAP.active:
         case PIPELINE_STATUS_MAP.paused:
         case PIPELINE_STATUS_MAP.failed:
+        case PIPELINE_STATUS_MAP.stopped:
           return {
             ...baseConfig,
             showModal: true,
@@ -72,12 +75,6 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
             ...baseConfig,
             isDisabled: true,
             disabledReason: `Cannot rename pipeline while it's ${pipelineStatus}`,
-          }
-        case PIPELINE_STATUS_MAP.stopped:
-          return {
-            ...baseConfig,
-            isDisabled: true,
-            disabledReason: `Cannot rename a ${pipelineStatus} pipeline`,
           }
         default:
           return baseConfig
@@ -124,6 +121,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
     case 'delete':
       switch (pipelineStatus) {
         case PIPELINE_STATUS_MAP.stopped:
+        case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
             showModal: false,
@@ -133,16 +131,11 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
         case PIPELINE_STATUS_MAP.paused:
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.stopping:
+        case PIPELINE_STATUS_MAP.terminating:
           return {
             ...baseConfig,
             isDisabled: true,
             disabledReason: `Cannot delete pipeline while it's ${pipelineStatus}. Stop the pipeline first.`,
-          }
-        case PIPELINE_STATUS_MAP.failed:
-          return {
-            ...baseConfig,
-            isDisabled: true,
-            disabledReason: `Cannot delete pipeline in ${pipelineStatus} state. Pipeline must be stopped first.`,
           }
         default:
           return baseConfig
@@ -185,6 +178,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
       switch (pipelineStatus) {
         case PIPELINE_STATUS_MAP.stopped:
         case PIPELINE_STATUS_MAP.terminated:
+        case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
             showModal: false,
@@ -204,7 +198,6 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
           }
         case PIPELINE_STATUS_MAP.stopping:
         case PIPELINE_STATUS_MAP.terminating:
-        case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
             isDisabled: true,
