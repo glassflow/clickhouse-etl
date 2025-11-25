@@ -123,8 +123,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
         try {
           // 1. Detect version and get appropriate adapter
-          // Use pipeline.version if available, or fallback to V1 (handled by factory)
-          const adapter = getPipelineAdapter(pipeline.version)
+          // Use pipeline.version if available, or fallback to V1 (handled by factory) but added here for safety
+          const adapter = getPipelineAdapter(pipeline?.version || 'v1')
 
           // 2. Hydrate raw API config into InternalPipelineConfig
           // pipeline is currently typed as Pipeline which acts as our InternalPipelineConfig

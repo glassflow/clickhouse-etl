@@ -168,6 +168,7 @@ function PipelineDetailsHeader({
               joinStore,
               kafkaStore,
               deduplicationStore,
+              version: coreStore.pipelineVersion, // Respect the original pipeline version
             })
 
             // Send edit request to backend (backend will automatically resume after edit)
