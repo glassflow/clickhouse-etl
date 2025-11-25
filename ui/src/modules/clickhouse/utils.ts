@@ -403,11 +403,13 @@ export const generateApiConfig = ({
     })
 
     // 2. Get the appropriate adapter
-    // Use provided version or default to LATEST
+    // Use provided version or fallback to LATEST_PIPELINE_VERSION if not provided
+    // If version is passed (e.g. from existing config), we respect it to avoid implicit upgrades
     const targetVersion = version || LATEST_PIPELINE_VERSION
     const adapter = getPipelineAdapter(targetVersion)
 
     // 3. Generate the external API configuration
+    // Note: The adapter handles wrapping the configuration in the correct structure for the target version
     return adapter.generate(internalConfig)
   } catch (error) {
     console.error('Error generating API config:', error)
