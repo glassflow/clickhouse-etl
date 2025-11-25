@@ -1,5 +1,7 @@
 import { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { getPipeline } from '@/src/api/pipeline-api'
+import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
+import { PipelineVersion } from '@/src/config/pipeline-versions'
 
 /**
  * Pipeline Download Utility
@@ -7,6 +9,8 @@ import { getPipeline } from '@/src/api/pipeline-api'
  * This utility provides functions to download pipeline configurations in various formats.
  * It handles both full Pipeline objects and ListPipelineConfig objects by fetching
  * the complete configuration when needed.
+ *
+ * The utility uses the adapter system to ensure downloaded configs match the correct version format.
  *
  * Usage examples:
  *
@@ -25,6 +29,7 @@ import { getPipeline } from '@/src/api/pipeline-api'
 
 /**
  * Downloads pipeline configuration as a JSON file
+ * Uses the adapter system to ensure the config is in the correct version format
  * @param pipeline - Pipeline configuration to download
  * @param filename - Optional custom filename (defaults to pipeline name)
  */
@@ -33,33 +38,36 @@ export const downloadPipelineConfig = async (
   filename?: string,
 ): Promise<void> => {
   try {
-    let configToDownload: Pipeline
+    let rawConfig: any
 
     // If we have a full Pipeline object, use it directly
     if ('source' in pipeline && 'sink' in pipeline) {
-      configToDownload = pipeline as Pipeline
+      rawConfig = pipeline
     } else {
       // If we have a ListPipelineConfig, fetch the full configuration
-      configToDownload = await getPipeline(pipeline.pipeline_id)
+      rawConfig = await getPipeline(pipeline.pipeline_id)
     }
 
-    // Create a clean configuration object for download
+    // Use the adapter system to get the correct format
+    // 1. Hydrate to internal config using the source version adapter
+    const sourceVersion = rawConfig.version || PipelineVersion.V1
+    const sourceAdapter = getPipelineAdapter(sourceVersion)
+    const internalConfig = sourceAdapter.hydrate(rawConfig)
+
+    // 2. Generate the export config using the same version (preserve original format)
+    const targetAdapter = getPipelineAdapter(sourceVersion)
+    const exportConfig = targetAdapter.generate(internalConfig)
+
+    // Add export metadata
     const downloadConfig = {
-      pipeline_id: configToDownload.pipeline_id,
-      name: configToDownload.name,
-      created_at: configToDownload.created_at,
-      source: configToDownload.source,
-      join: configToDownload.join,
-      sink: configToDownload.sink,
-      // Add metadata
+      ...exportConfig,
       exported_at: new Date().toISOString(),
       exported_by: 'GlassFlow UI',
-      version: '1.0.0',
     }
 
     // Generate filename with timestamp for uniqueness
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
-    const sanitizedName = configToDownload.name.replace(/[^a-zA-Z0-9-_]/g, '_')
+    const sanitizedName = (rawConfig.name || 'pipeline').replace(/[^a-zA-Z0-9-_]/g, '_')
     const defaultFilename = `${sanitizedName}_config_${timestamp}.json`
     const finalFilename = filename || defaultFilename
 
@@ -85,6 +93,7 @@ export const downloadPipelineConfig = async (
 
 /**
  * Downloads pipeline configuration as a YAML file
+ * Uses the adapter system to ensure the config is in the correct version format
  * @param pipeline - Pipeline configuration to download
  * @param filename - Optional custom filename (defaults to pipeline name)
  */
@@ -93,22 +102,41 @@ export const downloadPipelineConfigAsYaml = async (
   filename?: string,
 ): Promise<void> => {
   try {
-    let configToDownload: Pipeline
+    let rawConfig: any
 
     // If we have a full Pipeline object, use it directly
     if ('source' in pipeline && 'sink' in pipeline) {
-      configToDownload = pipeline as Pipeline
+      rawConfig = pipeline
     } else {
       // If we have a ListPipelineConfig, fetch the full configuration
-      configToDownload = await getPipeline(pipeline.pipeline_id)
+      rawConfig = await getPipeline(pipeline.pipeline_id)
     }
 
-    // Convert to YAML format (simplified conversion)
-    const yamlConfig = convertToYaml(configToDownload)
+    // Use the adapter system to get the correct format
+    // 1. Hydrate to internal config using the source version adapter
+    const sourceVersion = rawConfig.version || PipelineVersion.V1
+    const sourceAdapter = getPipelineAdapter(sourceVersion)
+    const internalConfig = sourceAdapter.hydrate(rawConfig)
+
+    // 2. Generate the export config using the same version (preserve original format)
+    const targetAdapter = getPipelineAdapter(sourceVersion)
+    const exportConfig = targetAdapter.generate(internalConfig)
+
+    // Add export metadata
+    const configWithMetadata = {
+      ...exportConfig,
+      metadata: {
+        exported_at: new Date().toISOString(),
+        exported_by: 'GlassFlow UI',
+      },
+    }
+
+    // Convert to YAML format
+    const yamlConfig = convertToYaml(configWithMetadata)
 
     // Generate filename with timestamp for uniqueness
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
-    const sanitizedName = configToDownload.name.replace(/[^a-zA-Z0-9-_]/g, '_')
+    const sanitizedName = (rawConfig.name || 'pipeline').replace(/[^a-zA-Z0-9-_]/g, '_')
     const defaultFilename = `${sanitizedName}_config_${timestamp}.yaml`
     const finalFilename = filename || defaultFilename
 
@@ -136,7 +164,7 @@ export const downloadPipelineConfigAsYaml = async (
  * Simple JSON to YAML converter for pipeline configuration
  * This is a basic implementation - for production use, consider using a proper YAML library
  */
-function convertToYaml(pipeline: Pipeline): string {
+function convertToYaml(config: any): string {
   const indent = (level: number) => '  '.repeat(level)
 
   const convertValue = (value: any, level: number = 0): string => {
@@ -176,20 +204,6 @@ function convertToYaml(pipeline: Pipeline): string {
     }
 
     return String(value)
-  }
-
-  const config = {
-    pipeline_id: pipeline.pipeline_id,
-    name: pipeline.name,
-    created_at: pipeline.created_at,
-    source: pipeline.source,
-    join: pipeline.join,
-    sink: pipeline.sink,
-    metadata: {
-      exported_at: new Date().toISOString(),
-      exported_by: 'GlassFlow UI',
-      version: '1.0.0',
-    },
   }
 
   return convertValue(config, 0)

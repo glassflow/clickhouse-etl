@@ -48,7 +48,7 @@ export interface KafkaConnectionParams {
   skip_auth?: boolean // Deprecated: backend now uses mechanism: "NO_AUTH" instead
   sasl_tls_enable?: boolean
   skip_tls_verification?: boolean
-  mechanism?: string
+  mechanism: string
   username?: string
   password?: string
   oauthBearerToken?: string
