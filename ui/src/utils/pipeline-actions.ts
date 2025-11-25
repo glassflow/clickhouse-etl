@@ -83,6 +83,12 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
     case 'terminate':
       // Terminate is a kill switch - only disabled for final states and when already terminating
       switch (pipelineStatus) {
+        case PIPELINE_STATUS_MAP.failed:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Pipeline is failed, it cannot be terminated',
+          }
         case PIPELINE_STATUS_MAP.terminating:
           return {
             ...baseConfig,
@@ -102,7 +108,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.resuming:
         case PIPELINE_STATUS_MAP.stopping:
-        case PIPELINE_STATUS_MAP.failed:
+          // case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
             showModal: true,
