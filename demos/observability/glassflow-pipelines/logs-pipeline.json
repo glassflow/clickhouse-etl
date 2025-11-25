@@ -10,7 +10,7 @@
       ],
       "sasl_tls_enable": false,
       "protocol": "PLAINTEXT",
-      "skip_auth": true
+      "mechanism": "NO_AUTH"
     },
     "topics": [
       {

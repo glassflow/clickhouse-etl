@@ -83,7 +83,7 @@ def generate_events(
         kafka_params["bootstrap.servers"] = "localhost:9092"
     else:
         kafka_params["bootstrap.servers"] = ",".join(source_connection_params.brokers)
-    if not source_connection_params.skip_auth:
+    if not source_connection_params.mechanism == "NO_AUTH":
         kafka_params["security.protocol"] = source_connection_params.protocol
         kafka_params["sasl.mechanism"] = source_connection_params.mechanism
         kafka_params["sasl.username"] = source_connection_params.username

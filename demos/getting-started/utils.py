@@ -104,7 +104,7 @@ def create_topics_if_not_exists(source_config: models.SourceConfig):
         config["bootstrap_servers"] = ["localhost:9092"]
     else:
         config["bootstrap_servers"] = source_config.connection_params.brokers
-    if not source_config.connection_params.skip_auth:
+    if not source_config.connection_params.mechanism == "NO_AUTH":
         config["security_protocol"] = source_config.connection_params.protocol.value
         config["sasl_mechanism"] = source_config.connection_params.mechanism.value
         config["sasl_plain_username"] = source_config.connection_params.username
