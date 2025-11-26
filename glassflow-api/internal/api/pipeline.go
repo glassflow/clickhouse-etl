@@ -347,10 +347,24 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 		return zero, nil
 	}
 
+	// Create a map of topic names to their deduplication status for quick lookup
+	topicDedupMap := make(map[string]bool)
+	for _, topic := range p.Source.Topics {
+		topicDedupMap[topic.Topic] = topic.Deduplication.Enabled
+	}
+
 	var sources []models.JoinSourceConfig
 	for _, s := range p.Join.Sources {
-		// Generate OutputStreamID using pipeline ID and source ID (topic name)
-		streamID := models.GetIngestorStreamName(p.PipelineID, s.SourceID)
+		// Generate stream ID based on whether deduplication is enabled for this topic
+		var streamID string
+		if topicDedupMap[s.SourceID] {
+			// If deduplication is enabled, join consumes from dedup output stream
+			streamID = models.GetDedupOutputStreamName(p.PipelineID, s.SourceID)
+		} else {
+			// Otherwise, join consumes from ingestor output stream
+			streamID = models.GetIngestorStreamName(p.PipelineID, s.SourceID)
+		}
+
 		sources = append(sources, models.JoinSourceConfig{
 			SourceID:    s.SourceID,
 			StreamID:    streamID,
@@ -410,7 +424,13 @@ func getSinkStreamID(p pipelineJSON) (string, error) {
 	} else {
 		// If join is not enabled, sink consumes from the first topic's stream
 		if len(p.Source.Topics) > 0 {
-			sinkStreamID = models.GetIngestorStreamName(p.PipelineID, p.Source.Topics[0].Topic)
+			firstTopic := p.Source.Topics[0]
+			// If deduplication is enabled for this topic, use the dedup output stream
+			if firstTopic.Deduplication.Enabled {
+				sinkStreamID = models.GetDedupOutputStreamName(p.PipelineID, firstTopic.Topic)
+			} else {
+				sinkStreamID = models.GetIngestorStreamName(p.PipelineID, firstTopic.Topic)
+			}
 		} else {
 			return "", fmt.Errorf("no topics defined for sink when join is disabled")
 		}

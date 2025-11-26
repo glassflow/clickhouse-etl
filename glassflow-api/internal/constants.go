@@ -43,10 +43,11 @@ const (
 	IngestTransformation    = "Ingest Only"
 
 	// Role constants
-	RoleSink     = "sink"
-	RoleJoin     = "join"
-	RoleIngestor = "ingestor"
-	RoleETL      = ""
+	RoleSink         = "sink"
+	RoleJoin         = "join"
+	RoleIngestor     = "ingestor"
+	RoleDeduplicator = "dedup"
+	RoleETL          = ""
 
 	// DLQ constants
 	DLQMaxBatchSize     = 100
