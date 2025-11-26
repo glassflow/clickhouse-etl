@@ -55,7 +55,7 @@ def generate_events_with_duplicates(
         kafka_params["bootstrap.servers"] = ",".join(
             source_config.connection_params.brokers
         )
-    if not source_config.connection_params.skip_auth:
+    if not source_config.connection_params.mechanism == "NO_AUTH":
         kafka_params["security.protocol"] = source_config.connection_params.protocol
         kafka_params["sasl.mechanism"] = source_config.connection_params.mechanism
         kafka_params["sasl.username"] = source_config.connection_params.username

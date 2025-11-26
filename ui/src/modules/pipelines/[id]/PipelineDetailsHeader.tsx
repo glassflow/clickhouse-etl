@@ -106,15 +106,20 @@ function PipelineDetailsHeader({
 
   const tagsList = tags ?? pipeline.metadata?.tags ?? []
 
+  // Demo mode is checked once and passed to hook for centralized handling
+  const demoMode = isDemoMode()
+
   const {
     actionState,
     executeAction,
     getActionConfiguration,
     getButtonText,
     isActionDisabled,
+    shouldShowAction,
     shouldShowModal,
     clearError,
-  } = usePipelineActions(pipelineWithEffectiveStatus)
+    getAvailableActionsForPipeline,
+  } = usePipelineActions(pipelineWithEffectiveStatus, { demoMode })
 
   const handleActionClick = async (action: PipelineAction) => {
     const config = getActionConfiguration(action)
@@ -590,13 +595,8 @@ function PipelineDetailsHeader({
   const renderActionButton = (action: PipelineAction) => {
     const config = getActionConfiguration(action)
     const buttonText = getButtonText(action)
+    // isActionDisabled already accounts for demo mode via the hook options
     const disabled = isActionDisabled(action)
-    const demoMode = isDemoMode()
-
-    // Disable pipeline control actions in demo mode (except download and rename)
-    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete', 'rename'].includes(action)
-    const finalDisabled = disabled || isDemoDisabled
-    const finalTitle = isDemoDisabled ? 'Action disabled in demo mode' : config.disabledReason
 
     // Use regular Button for more flexibility with loading states and disabled state
     return (
@@ -604,9 +604,9 @@ function PipelineDetailsHeader({
         key={action}
         variant="outline"
         onClick={() => handleActionClick(action)}
-        disabled={finalDisabled}
+        disabled={disabled}
         className={`group ${action === 'resume' ? 'btn-primary' : 'btn-action'} !px-3 !py-1.5 h-auto text-sm`}
-        title={finalTitle}
+        title={config.disabledReason}
       >
         {actionState.isLoading && actionState.lastAction === action ? (
           <span className="flex items-center gap-2">
@@ -678,12 +678,8 @@ function PipelineDetailsHeader({
 
   const renderMenuButton = (action: PipelineAction, label: string, icon: any) => {
     const config = getActionConfiguration(action)
+    // isActionDisabled already accounts for demo mode via the hook options
     const disabled = isActionDisabled(action)
-    const demoMode = isDemoMode()
-
-    // Disable pipeline control actions in demo mode (except download and rename)
-    const isDemoDisabled = demoMode && ['stop', 'resume', 'terminate', 'delete', 'rename'].includes(action)
-    const finalDisabled = disabled || isDemoDisabled
 
     // Determine if this is a destructive action
     const isDestructive = action === 'terminate' || action === 'delete'
@@ -694,7 +690,7 @@ function PipelineDetailsHeader({
         variant="ghost"
         className={cn(
           'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
-          finalDisabled
+          disabled
             ? 'text-muted-foreground cursor-not-allowed opacity-50'
             : isDestructive
               ? 'text-destructive hover:bg-[var(--color-background-neutral-faded)]'
@@ -702,12 +698,12 @@ function PipelineDetailsHeader({
         )}
         onClick={(e) => {
           e.stopPropagation()
-          if (!finalDisabled) {
+          if (!disabled) {
             handleMenuItemClick(() => handleActionClick(action))
           }
         }}
-        disabled={finalDisabled}
-        title={isDemoDisabled ? 'Action disabled in demo mode' : config.disabledReason}
+        disabled={disabled}
+        title={config.disabledReason}
       >
         <Image
           src={icon}
@@ -724,8 +720,7 @@ function PipelineDetailsHeader({
   const renderTagsButton = () => {
     if (!onManageTags) return null
 
-    const demoMode = isDemoMode()
-
+    // demoMode is available from the component scope
     return (
       <Button
         key="tags"
@@ -744,23 +739,16 @@ function PipelineDetailsHeader({
   }
 
   const getActionButtons = () => {
-    // Use effective status (centralized status takes priority)
-    const showStop = effectiveStatus === 'active' || effectiveStatus === 'stopping'
-    const showResume = effectiveStatus === 'stopped' || effectiveStatus === 'terminated'
-
-    const demoMode = isDemoMode()
-
-    // Terminate is a kill switch - available for all states except final states (stopped/terminated) and transitional terminating state
-    const showTerminate =
-      effectiveStatus !== 'stopped' && effectiveStatus !== 'terminated' && effectiveStatus !== 'terminating'
-    const showDelete = effectiveStatus === 'stopped' || effectiveStatus === 'terminated'
-
-    // Check if rename should be shown (not disabled)
-    const renameConfig = getActionConfiguration('rename')
-    const showRename = !renameConfig.isDisabled
+    // Use centralized shouldShowAction from the hook (handles demo mode automatically)
+    const showStop = shouldShowAction('stop')
+    const showResume = shouldShowAction('resume')
+    const showTerminate = shouldShowAction('terminate')
+    const showDelete = shouldShowAction('delete')
+    const showRename = shouldShowAction('rename')
 
     // Collect all menu items
     const menuItems = []
+
     if (showResume) menuItems.push({ action: 'resume' as PipelineAction, label: 'Resume pipeline' })
     if (showRename) menuItems.push({ action: 'rename' as PipelineAction, label: 'Rename pipeline' })
     if (showTerminate) menuItems.push({ action: 'terminate' as PipelineAction, label: 'Terminate pipeline' })

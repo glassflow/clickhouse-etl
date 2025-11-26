@@ -10,11 +10,17 @@ export interface ActionConfig {
   isDisabled: boolean
 }
 
+export interface ActionConfigOptions {
+  demoMode?: boolean
+}
+
+// Actions that are disabled in demo mode
+const DEMO_DISABLED_ACTIONS: PipelineAction[] = ['stop', 'resume', 'terminate', 'delete', 'rename']
+
 /**
- * Determines if a pipeline action should show a modal, require confirmation, etc.
- * based on the current pipeline status
+ * Gets the base action configuration based on pipeline status only (without demo mode)
  */
-export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['status']): ActionConfig => {
+const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['status']): ActionConfig => {
   const baseConfig: ActionConfig = {
     showModal: false,
     requiresConfirmation: false,
@@ -83,6 +89,12 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
     case 'terminate':
       // Terminate is a kill switch - only disabled for final states and when already terminating
       switch (pipelineStatus) {
+        case PIPELINE_STATUS_MAP.failed:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Pipeline is failed, it cannot be terminated',
+          }
         case PIPELINE_STATUS_MAP.terminating:
           return {
             ...baseConfig,
@@ -102,7 +114,7 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.resuming:
         case PIPELINE_STATUS_MAP.stopping:
-        case PIPELINE_STATUS_MAP.failed:
+          // case PIPELINE_STATUS_MAP.failed:
           return {
             ...baseConfig,
             showModal: true,
@@ -213,15 +225,69 @@ export const getActionConfig = (action: PipelineAction, pipelineStatus: Pipeline
 }
 
 /**
+ * Determines if a pipeline action should show a modal, require confirmation, etc.
+ * based on the current pipeline status and optional configuration (like demo mode)
+ */
+export const getActionConfig = (
+  action: PipelineAction,
+  pipelineStatus: Pipeline['status'],
+  options?: ActionConfigOptions,
+): ActionConfig => {
+  const { demoMode = false } = options || {}
+
+  // Get base config from status-based logic
+  const config = getBaseActionConfig(action, pipelineStatus)
+
+  // Apply demo mode restrictions for control actions
+  if (demoMode && DEMO_DISABLED_ACTIONS.includes(action)) {
+    return {
+      ...config,
+      isDisabled: true,
+      disabledReason: 'Action disabled in demo mode',
+    }
+  }
+
+  return config
+}
+
+/**
+ * Determines if an action should be shown/visible for a given pipeline status
+ * An action is visible if it's not disabled
+ */
+export const shouldShowAction = (
+  action: PipelineAction,
+  pipelineStatus: Pipeline['status'],
+  options?: ActionConfigOptions,
+): boolean => {
+  const config = getActionConfig(action, pipelineStatus, options)
+  return !config.isDisabled
+}
+
+/**
  * Determines which actions are available for a given pipeline status
  */
-export const getAvailableActions = (pipelineStatus: Pipeline['status']): PipelineAction[] => {
+export const getAvailableActions = (
+  pipelineStatus: Pipeline['status'],
+  options?: ActionConfigOptions,
+): PipelineAction[] => {
   const allActions: PipelineAction[] = ['edit', 'rename', 'terminate', 'delete', 'stop', 'resume']
 
   return allActions.filter((action) => {
-    const config = getActionConfig(action, pipelineStatus)
+    const config = getActionConfig(action, pipelineStatus, options)
     return !config.isDisabled
   })
+}
+
+/**
+ * Gets visible actions for UI display (excludes 'edit' which is handled separately)
+ */
+export const getVisibleActions = (
+  pipelineStatus: Pipeline['status'],
+  options?: ActionConfigOptions,
+): PipelineAction[] => {
+  const uiActions: PipelineAction[] = ['stop', 'resume', 'terminate', 'delete', 'rename']
+
+  return uiActions.filter((action) => shouldShowAction(action, pipelineStatus, options))
 }
 
 /**

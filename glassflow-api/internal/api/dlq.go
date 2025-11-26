@@ -119,7 +119,6 @@ func (h *handler) getDLQState(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, res)
 }
 
-
 type dlqStateResponse struct {
 	LastReceivedAt     *time.Time `json:"last_received_at"`
 	LastConsumedAt     *time.Time `json:"last_consumed_at"`

@@ -259,9 +259,10 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinC
 	// Compute TTL values from sources' time_window
 	var leftBufferTTL, rightBufferTTL JSONDuration
 	for _, source := range sources {
-		if source.Orientation == internal.JoinLeft {
+		switch source.Orientation {
+		case internal.JoinLeft:
 			leftBufferTTL = source.Window
-		} else if source.Orientation == internal.JoinRight {
+		case internal.JoinRight:
 			rightBufferTTL = source.Window
 		}
 	}
@@ -288,7 +289,7 @@ type ClickHouseConnectionParamsConfig struct {
 }
 
 type ClickhouseQueryConfig struct {
-	WaitForAsyncInsert bool `json:"wait_for_async_insert`
+	WaitForAsyncInsert bool `json:"wait_for_async_insert"`
 }
 
 type BatchConfig struct {

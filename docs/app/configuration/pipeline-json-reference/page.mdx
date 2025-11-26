@@ -44,7 +44,8 @@ The source configuration defines how to connect to and consume from Kafka topics
 | `kerberos_realm` | string | No | Kerberos realm. |
 | `kerberos_config` | string | No | Kerberos configuration file. |
 | `root_ca` | string | No | Cert. file for Kafka authentication. |
-| `skip_auth` | boolean | No | Skip Kafka authentication. Default is `false`. |
+| `skip_auth` | boolean | No | Deprecated: Use mechanism `NO_AUTH` instead. Skip Kafka authentication. Default is `false`. |
+| `skip_tls_verification` | boolean | No | Skip TLS verification. Default is `false`. |
 
 Supported Protocol:
 - `PLAINTEXT` - Plaintext protocol.
@@ -53,6 +54,7 @@ Supported Protocol:
 - `SASL_PLAINTEXT` - SASL over plaintext protocol.
 
 Supported Mechanism:
+- `NO_AUTH` - No authentication mechanism.
 - `PLAIN` - Plaintext authentication.
 - `SCRAM-SHA-256` - SCRAM-SHA-256 authentication.
 - `SCRAM-SHA-512` - SCRAM-SHA-512 authentication.

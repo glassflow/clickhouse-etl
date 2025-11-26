@@ -8,7 +8,7 @@
           "kafka:9093"
         ],
         "protocol": "PLAINTEXT",
-        "skip_auth": true
+        "mechanism": "NO_AUTH"
       },
       "topics": [
         {
