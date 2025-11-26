@@ -10,9 +10,9 @@ var ErrSchemaNotFound = errors.New("schema not found")
 
 func IsSchemaNotFoundErr(err error) bool { return errors.Is(err, ErrSchemaNotFound) }
 
-var ErrNotJSONSchema = errors.New("schema is not JSON format")
+var ErrUnexpectedSchemaFormat = errors.New("schema is not JSON format")
 
-func IsNotJSONSchemaErr(err error) bool { return errors.Is(err, ErrNotJSONSchema) }
+func IsErrUnexpectedSchemaFormat(err error) bool { return errors.Is(err, ErrUnexpectedSchemaFormat) }
 
 var ErrInvalidSchema = errors.New("invalid schema format")
 
