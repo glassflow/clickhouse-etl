@@ -14,7 +14,7 @@ func TestParseJSONSchema(t *testing.T) {
 	tests := []struct {
 		name        string
 		schema      string
-		expected    map[string]string
+		expected    SchemaFields
 		expectError bool
 		errorType   error
 	}{
@@ -32,12 +32,14 @@ func TestParseJSONSchema(t *testing.T) {
                     "is_active": {"type": "boolean"}
                 }
             }`,
-			expected: map[string]string{
-				"user_id":   internal.KafkaTypeString,
-				"username":  internal.KafkaTypeString,
-				"age":       internal.KafkaTypeInt,
-				"score":     internal.KafkaTypeFloat64,
-				"is_active": internal.KafkaTypeBool,
+			expected: SchemaFields{
+				Fields: []Field{
+					{Name: "user_id", Type: internal.KafkaTypeString},
+					{Name: "username", Type: internal.KafkaTypeString},
+					{Name: "age", Type: internal.KafkaTypeInt},
+					{Name: "score", Type: internal.KafkaTypeFloat64},
+					{Name: "is_active", Type: internal.KafkaTypeBool},
+				},
 			},
 			expectError: false,
 		},
@@ -59,10 +61,12 @@ func TestParseJSONSchema(t *testing.T) {
                     }
                 }
             }`,
-			expected: map[string]string{
-				"order_id":   internal.KafkaTypeString,
-				"tags":       internal.KafkaTypeArray,
-				"quantities": internal.KafkaTypeArray,
+			expected: SchemaFields{
+				Fields: []Field{
+					{Name: "order_id", Type: internal.KafkaTypeString},
+					{Name: "tags", Type: internal.KafkaTypeArray},
+					{Name: "quantities", Type: internal.KafkaTypeArray},
+				},
 			},
 			expectError: false,
 		},
@@ -87,10 +91,12 @@ func TestParseJSONSchema(t *testing.T) {
                     }
                 }
             }`,
-			expected: map[string]string{
-				"customer_id":    internal.KafkaTypeString,
-				"address.street": internal.KafkaTypeString,
-				"address.city":   internal.KafkaTypeString,
+			expected: SchemaFields{
+				Fields: []Field{
+					{Name: "customer_id", Type: internal.KafkaTypeString},
+					{Name: "address.street", Type: internal.KafkaTypeString},
+					{Name: "address.city", Type: internal.KafkaTypeString},
+				},
 			},
 			expectError: false,
 		},
@@ -107,12 +113,14 @@ func TestParseJSONSchema(t *testing.T) {
                     "object_field": {"type": "object"}
                 }
             }`,
-			expected: map[string]string{
-				"string_field": internal.KafkaTypeString,
-				"int_field":    internal.KafkaTypeInt,
-				"number_field": internal.KafkaTypeFloat64,
-				"bool_field":   internal.KafkaTypeBool,
-				"array_field":  internal.KafkaTypeArray,
+			expected: SchemaFields{
+				Fields: []Field{
+					{Name: "string_field", Type: internal.KafkaTypeString},
+					{Name: "int_field", Type: internal.KafkaTypeInt},
+					{Name: "number_field", Type: internal.KafkaTypeFloat64},
+					{Name: "bool_field", Type: internal.KafkaTypeBool},
+					{Name: "array_field", Type: internal.KafkaTypeArray},
+				},
 			},
 			expectError: false,
 		},
@@ -143,12 +151,14 @@ func TestParseJSONSchema(t *testing.T) {
                     "is_paid": {"type": "boolean"}
                 }
             }`,
-			expected: map[string]string{
-				"order_id":     internal.KafkaTypeString,
-				"customer_id":  internal.KafkaTypeString,
-				"total_amount": internal.KafkaTypeFloat64,
-				"items":        internal.KafkaTypeArray,
-				"is_paid":      internal.KafkaTypeBool,
+			expected: SchemaFields{
+				Fields: []Field{
+					{Name: "order_id", Type: internal.KafkaTypeString},
+					{Name: "customer_id", Type: internal.KafkaTypeString},
+					{Name: "total_amount", Type: internal.KafkaTypeFloat64},
+					{Name: "items", Type: internal.KafkaTypeArray},
+					{Name: "is_paid", Type: internal.KafkaTypeBool},
+				},
 			},
 			expectError: false,
 		},
@@ -162,9 +172,11 @@ func TestParseJSONSchema(t *testing.T) {
                     "another_valid": {"type": "integer"}
                 }
             }`,
-			expected: map[string]string{
-				"valid_field":   internal.KafkaTypeString,
-				"another_valid": internal.KafkaTypeInt,
+			expected: SchemaFields{
+				Fields: []Field{
+					{Name: "valid_field", Type: internal.KafkaTypeString},
+					{Name: "another_valid", Type: internal.KafkaTypeInt},
+				},
 			},
 			expectError: false,
 		},
@@ -174,7 +186,7 @@ func TestParseJSONSchema(t *testing.T) {
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "string"
             }`,
-			expected:    nil,
+			expected:    SchemaFields{},
 			expectError: true,
 			errorType:   models.ErrInvalidSchema,
 		},
@@ -185,7 +197,7 @@ func TestParseJSONSchema(t *testing.T) {
                 "title": "Empty",
                 "type": "object"
             }`,
-			expected:    nil,
+			expected:    SchemaFields{},
 			expectError: true,
 			errorType:   models.ErrInvalidSchema,
 		},
@@ -197,7 +209,7 @@ func TestParseJSONSchema(t *testing.T) {
                     "field": {"type": "string"}
                 }
             }`,
-			expected:    nil,
+			expected:    SchemaFields{},
 			expectError: true,
 			errorType:   models.ErrInvalidSchema,
 		},
@@ -323,9 +335,9 @@ func TestParseJSONSchemaEdgeCases(t *testing.T) {
         }`
 		result, err := parseJSONSchema(schema)
 		require.NoError(t, err)
-		require.Len(t, result, 2)
-		require.Equal(t, internal.KafkaTypeString, result["valid1"])
-		require.Equal(t, internal.KafkaTypeInt, result["valid2"])
+		require.Len(t, result.Fields, 2)
+		require.Equal(t, Field{Name: "valid1", Type: internal.KafkaTypeString}, result.Fields[0])
+		require.Equal(t, Field{Name: "valid2", Type: internal.KafkaTypeInt}, result.Fields[1])
 	})
 
 	t.Run("nested array in object", func(t *testing.T) {
@@ -342,6 +354,19 @@ func TestParseJSONSchemaEdgeCases(t *testing.T) {
         }`
 		result, err := parseJSONSchema(schema)
 		require.NoError(t, err)
-		require.Equal(t, internal.KafkaTypeArray, result["data.items"])
+		require.Equal(t, Field{Name: "data.items", Type: internal.KafkaTypeArray}, result.Fields[0])
+	})
+
+	t.Run("invalid fields only", func(t *testing.T) {
+		schema := `{
+			"type": "object",
+			"properties": {
+				"invalid1": {"description": "missing type"},
+				"invalid2": {"type": "unknown_type"}
+			}
+		}`
+		result, err := parseJSONSchema(schema)
+		require.NoError(t, err)
+		require.Len(t, result.Fields, 0)
 	})
 }
