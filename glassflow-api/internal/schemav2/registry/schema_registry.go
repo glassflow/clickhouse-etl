@@ -50,7 +50,7 @@ func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zer
 	}
 
 	if schema.Type != sr.TypeJSON {
-		return zero, models.ErrNotJSONSchema
+		return zero, fmt.Errorf("%w: expected %s, got %s", models.ErrUnexpectedSchemaFormat, sr.TypeJSON, schema.Type)
 	}
 
 	return parseJSONSchema(schema.Schema)
