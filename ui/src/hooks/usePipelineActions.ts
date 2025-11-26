@@ -10,7 +10,13 @@ import {
   updatePipeline,
   editPipeline,
 } from '@/src/api/pipeline-api'
-import { getActionConfig, getActionButtonText, getAvailableActions } from '@/src/utils/pipeline-actions'
+import {
+  getActionConfig,
+  getActionButtonText,
+  getAvailableActions,
+  shouldShowAction as shouldShowActionUtil,
+  ActionConfigOptions,
+} from '@/src/utils/pipeline-actions'
 import { PipelineAction } from '@/src/types/pipeline'
 
 export interface PipelineActionState {
@@ -19,7 +25,13 @@ export interface PipelineActionState {
   lastAction: PipelineAction | null
 }
 
-export const usePipelineActions = (pipeline: Pipeline) => {
+export interface UsePipelineActionsOptions {
+  demoMode?: boolean
+}
+
+export const usePipelineActions = (pipeline: Pipeline, options?: UsePipelineActionsOptions) => {
+  const { demoMode = false } = options || {}
+  const configOptions: ActionConfigOptions = { demoMode }
   const [actionState, setActionState] = useState<PipelineActionState>({
     isLoading: false,
     error: null,
@@ -100,7 +112,7 @@ export const usePipelineActions = (pipeline: Pipeline) => {
   }
 
   const getActionConfiguration = (action: PipelineAction) => {
-    return getActionConfig(action, pipeline.status)
+    return getActionConfig(action, pipeline.status, configOptions)
   }
 
   const getButtonText = (action: PipelineAction) => {
@@ -108,16 +120,20 @@ export const usePipelineActions = (pipeline: Pipeline) => {
   }
 
   const getAvailableActionsForPipeline = () => {
-    return getAvailableActions(pipeline.status)
+    return getAvailableActions(pipeline.status, configOptions)
   }
 
   const isActionDisabled = (action: PipelineAction) => {
-    const config = getActionConfig(action, pipeline.status)
+    const config = getActionConfig(action, pipeline.status, configOptions)
     return config.isDisabled || actionState.isLoading
   }
 
+  const shouldShowAction = (action: PipelineAction) => {
+    return shouldShowActionUtil(action, pipeline.status, configOptions)
+  }
+
   const shouldShowModal = (action: PipelineAction) => {
-    const config = getActionConfig(action, pipeline.status)
+    const config = getActionConfig(action, pipeline.status, configOptions)
     return config.showModal
   }
 
@@ -138,6 +154,7 @@ export const usePipelineActions = (pipeline: Pipeline) => {
     getButtonText,
     getAvailableActionsForPipeline,
     isActionDisabled,
+    shouldShowAction,
     shouldShowModal,
   }
 }

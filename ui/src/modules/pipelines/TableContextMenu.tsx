@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { MoreVertical, Tag } from 'lucide-react'
 import { cn, isDemoMode } from '@/src/utils/common.client'
-import { getActionConfig } from '@/src/utils/pipeline-actions'
-import { PipelineStatus } from '@/src/types/pipeline'
+import { getActionConfig, shouldShowAction } from '@/src/utils/pipeline-actions'
+import { PipelineStatus, PipelineAction } from '@/src/types/pipeline'
 import PlayIcon from '@/src/images/play-white.svg'
 import RenameIcon from '@/src/images/rename.svg'
 import DeleteIcon from '@/src/images/trash.svg'
 import DownloadIcon from '@/src/images/download-white.svg'
 import CloseIcon from '@/src/images/close.svg'
 import StopWhiteIcon from '@/src/images/stop-white.svg'
-import CloseWhiteIcon from '@/src/images/close-white.svg'
+import TagIcon from '@/src/images/tag-icon-white.svg'
 import Image from 'next/image'
 
 interface TableContextMenuProps {
@@ -45,22 +45,21 @@ export const TableContextMenu = ({
   const [isOpen, setIsOpen] = useState(false)
   const demoMode = isDemoMode()
 
-  // Get action configurations based on pipeline status
-  const stopConfig = getActionConfig('stop', pipelineStatus)
-  const resumeConfig = getActionConfig('resume', pipelineStatus)
-  const editConfig = getActionConfig('edit', pipelineStatus)
-  const renameConfig = getActionConfig('rename', pipelineStatus)
-  const terminateConfig = getActionConfig('terminate', pipelineStatus)
-  const deleteConfig = getActionConfig('delete', pipelineStatus)
+  // Centralized action config options (includes demo mode handling)
+  const configOptions = { demoMode }
 
-  // Determine which stop/resume action to show
-  const showStop = pipelineStatus === 'active' && !stopConfig.isDisabled && !demoMode
-  const showResume =
-    (pipelineStatus === 'stopped' || pipelineStatus === 'terminated') && !resumeConfig.isDisabled && !demoMode
-  // Terminate is a kill switch - available for all states except final states and when already terminating
-  const showTerminate =
-    pipelineStatus !== 'stopped' && pipelineStatus !== 'terminated' && pipelineStatus !== 'terminating' && !demoMode
-  const showRename = !renameConfig?.isDisabled && !demoMode
+  // Helper to check if action should be shown (centralized logic)
+  const canShowAction = (action: PipelineAction) => shouldShowAction(action, pipelineStatus, configOptions)
+
+  // Get action configurations for disabled state/reason (with demo mode)
+  const getConfig = (action: PipelineAction) => getActionConfig(action, pipelineStatus, configOptions)
+
+  // Use centralized shouldShowAction for visibility
+  const showStop = canShowAction('stop')
+  const showResume = canShowAction('resume')
+  const showTerminate = canShowAction('terminate')
+  const showRename = canShowAction('rename')
+  const showDelete = canShowAction('delete')
 
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -112,13 +111,13 @@ export const TableContextMenu = ({
                 variant="ghost"
                 className={cn(
                   'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
-                  stopConfig.isDisabled || isLoading
+                  isLoading
                     ? 'text-muted-foreground cursor-not-allowed opacity-50'
                     : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
                 )}
-                onClick={(e) => handleMenuClick(e, onStop, stopConfig.isDisabled || isLoading)}
-                disabled={stopConfig.isDisabled || isLoading}
-                title={stopConfig.disabledReason}
+                onClick={(e) => handleMenuClick(e, onStop, isLoading)}
+                disabled={isLoading}
+                title={getConfig('stop').disabledReason}
               >
                 <Image
                   src={StopWhiteIcon}
@@ -137,13 +136,13 @@ export const TableContextMenu = ({
                 variant="ghost"
                 className={cn(
                   'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
-                  resumeConfig.isDisabled || isLoading
+                  isLoading
                     ? 'text-muted-foreground cursor-not-allowed opacity-50'
                     : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
                 )}
-                onClick={(e) => handleMenuClick(e, onResume, resumeConfig.isDisabled || isLoading)}
-                disabled={resumeConfig.isDisabled || isLoading}
-                title={resumeConfig.disabledReason}
+                onClick={(e) => handleMenuClick(e, onResume, isLoading)}
+                disabled={isLoading}
+                title={getConfig('resume').disabledReason}
               >
                 <Image src={PlayIcon} alt="Resume" width={16} height={16} />
                 <span className="truncate">Resume</span>
@@ -175,16 +174,16 @@ export const TableContextMenu = ({
                 variant="ghost"
                 className={cn(
                   'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
-                  renameConfig.isDisabled || isLoading
+                  isLoading
                     ? 'text-muted-foreground cursor-not-allowed opacity-50'
                     : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
                 )}
                 onClick={(e) => {
                   e.stopPropagation() // Always stop propagation first
-                  handleMenuClick(e, onRename, renameConfig.isDisabled || isLoading)
+                  handleMenuClick(e, onRename, isLoading)
                 }}
-                disabled={renameConfig.isDisabled || isLoading}
-                title={renameConfig.disabledReason}
+                disabled={isLoading}
+                title={getConfig('rename').disabledReason}
               >
                 <Image
                   src={RenameIcon}
@@ -213,7 +212,13 @@ export const TableContextMenu = ({
                 disabled={demoMode || isLoading}
                 title={demoMode ? 'Action disabled in demo mode' : undefined}
               >
-                <Tag className="h-4 w-4 mr-2" />
+                <Image
+                  alt="Edit tags"
+                  src={TagIcon}
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-0"
+                />
                 <span className="truncate">Edit tags</span>
               </Button>
             )}
@@ -233,7 +238,7 @@ export const TableContextMenu = ({
                   handleMenuClick(e, onTerminate, isLoading)
                 }}
                 disabled={isLoading}
-                title="Immediately terminate pipeline"
+                title={getConfig('terminate').disabledReason || 'Immediately terminate pipeline'}
               >
                 <Image
                   src={CloseIcon}
@@ -247,21 +252,21 @@ export const TableContextMenu = ({
             )}
 
             {/* Delete Button */}
-            {onDelete && !demoMode && (
+            {showDelete && onDelete && (
               <Button
                 variant="ghost"
                 className={cn(
                   'flex justify-start items-center w-full px-3 py-2 text-sm transition-colors',
-                  deleteConfig.isDisabled || isLoading
+                  isLoading
                     ? 'text-muted-foreground cursor-not-allowed opacity-50'
                     : 'text-destructive hover:bg-[var(--color-background-neutral-faded)]',
                 )}
                 onClick={(e) => {
                   e.stopPropagation() // Always stop propagation first
-                  handleMenuClick(e, onDelete, deleteConfig.isDisabled || isLoading)
+                  handleMenuClick(e, onDelete, isLoading)
                 }}
-                disabled={deleteConfig.isDisabled || isLoading}
-                title={deleteConfig.disabledReason}
+                disabled={isLoading}
+                title={getConfig('delete').disabledReason}
               >
                 <Image
                   src={DeleteIcon}
