@@ -217,13 +217,13 @@ type schema struct {
 }
 
 type pipelineJSON struct {
-	PipelineID string         `json:"pipeline_id"`
-	Name       string         `json:"name"`
-	Source     pipelineSource `json:"source"`
-	Join       pipelineJoin   `json:"join,omitempty"`
-	Filter     pipelineFilter `json:"filter,omitempty"`
-	Sink       clickhouseSink `json:"sink"`
-	Schema     schema         `json:"schema"`
+	PipelineID string                  `json:"pipeline_id"`
+	Name       string                  `json:"name"`
+	Source     pipelineSource          `json:"source"`
+	Join       pipelineJoin            `json:"join,omitempty"`
+	Filter     pipelineFilter          `json:"filter,omitempty"`
+	Sink       clickhouseSink          `json:"sink"`
+	Schema     schema                  `json:"schema"`
 	Metadata   models.PipelineMetadata `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
