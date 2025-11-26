@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 
 	"github.com/tidwall/gjson"
 	"github.com/twmb/franz-go/pkg/sr"
@@ -18,9 +17,18 @@ type SchemaRegistryClient struct {
 }
 
 type ClientConfig struct {
-	URL       string
-	APIKey    string
-	APISecret string
+	URL       string `json:"url"`
+	APIKey    string `json:"api_key,omitempty"`
+	APISecret string `json:"api_secret,omitempty"`
+}
+
+type Field struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type SchemaFields struct {
+	Fields []Field `json:"fields"`
 }
 
 func NewSchemaRegistryClient(config ClientConfig) (*SchemaRegistryClient, error) {
@@ -40,7 +48,7 @@ func NewSchemaRegistryClient(config ClientConfig) (*SchemaRegistryClient, error)
 	}, nil
 }
 
-func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zero map[string]string, _ error) {
+func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zero SchemaFields, _ error) {
 	schema, err := s.client.SchemaByID(ctx, schemaID)
 	if err != nil {
 		if errors.Is(err, sr.ErrSchemaNotFound) {
@@ -56,7 +64,7 @@ func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zer
 	return parseJSONSchema(schema.Schema)
 }
 
-func parseJSONSchema(schema string) (zero map[string]string, _ error) {
+func parseJSONSchema(schema string) (zero SchemaFields, _ error) {
 	schemaType := gjson.Get(schema, "type")
 	if !schemaType.Exists() || schemaType.String() != "object" {
 		return zero, models.ErrInvalidSchema
@@ -68,20 +76,22 @@ func parseJSONSchema(schema string) (zero map[string]string, _ error) {
 		return zero, models.ErrInvalidSchema
 	}
 
-	fields := make(map[string]string)
+	var fields SchemaFields
 	if properties.Exists() {
-		maps.Copy(fields, extructFieldTypes(properties))
+		propertiesFields := extractFieldTypes(properties)
+		fields.Fields = append(fields.Fields, propertiesFields.Fields...)
 	}
 
 	if additionalProperties.Exists() {
-		maps.Copy(fields, extructFieldTypes(additionalProperties))
+		additionalFields := extractFieldTypes(additionalProperties)
+		fields.Fields = append(fields.Fields, additionalFields.Fields...)
 	}
 
 	return fields, nil
 }
 
-func extructFieldTypes(properties gjson.Result) map[string]string {
-	fields := make(map[string]string)
+func extractFieldTypes(properties gjson.Result) SchemaFields {
+	var fields SchemaFields
 	properties.ForEach(func(key, value gjson.Result) bool {
 		fieldType := value.Get("type")
 		if !fieldType.Exists() {
@@ -97,15 +107,18 @@ func extructFieldTypes(properties gjson.Result) map[string]string {
 				return true
 			}
 
-			for nestedKey, nestedType := range nestedFields {
-				combinedKey := fmt.Sprintf("%s.%s", key.String(), nestedKey)
-				fields[combinedKey] = nestedType
+			for _, field := range nestedFields.Fields {
+				combinedName := fmt.Sprintf("%s.%s", key.String(), field.Name)
+				fields.Fields = append(fields.Fields, Field{Name: combinedName, Type: field.Type})
 			}
 
 			return true
 		}
 
-		fields[key.String()] = dataType
+		fields.Fields = append(fields.Fields, Field{
+			Name: key.String(),
+			Type: dataType,
+		})
 		return true
 	})
 
