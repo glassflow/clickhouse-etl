@@ -13,11 +13,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	operator "github.com/glassflow/glassflow-etl-k8s-operator/api/v1alpha1"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
-	operator "github.com/glassflow/glassflow-etl-k8s-operator/api/v1alpha1"
 )
 
 type K8sOrchestrator struct {
@@ -462,6 +463,11 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 			OutputStream: s.OutputStreamID,
 			DedupWindow:  s.Deduplication.Window.Duration(),
 			Replicas:     s.Replicas,
+			Deduplication: &operator.Deduplication{
+				Enabled:          true,
+				OutputStream:     models.GetDedupOutputStreamName(cfg.ID, s.Name),
+				NATSConsumerName: "please-fix-me-dedup",
+			},
 		})
 	}
 

@@ -22,6 +22,8 @@ jobs:
       glassflow-join-arm64: ${{ steps.gen-output.outputs.glassflow-join-arm64 }}
       glassflow-sink-amd64: ${{ steps.gen-output.outputs.glassflow-sink-amd64 }}
       glassflow-sink-arm64: ${{ steps.gen-output.outputs.glassflow-sink-arm64 }}
+      glassflow-dedup-amd64: ${{ steps.gen-output.outputs.glassflow-dedup-amd64 }}
+      glassflow-dedup-arm64: ${{ steps.gen-output.outputs.glassflow-dedup-arm64 }}
     permissions:
       contents: read
       packages: write
@@ -36,6 +38,8 @@ jobs:
             image_name: glassflow-etl-join
           - name: glassflow-sink
             image_name: glassflow-etl-sink
+          - name: glassflow-dedup
+            image_name: glassflow-etl-dedup
         platform:
           - os: linux
             arch: amd64
@@ -101,6 +105,9 @@ jobs:
           - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-sink-amd64 }}
             arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-sink-arm64 }}
             repository: glassflow-etl-sink
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-arm64 }}
+            repository: glassflow-etl-dedup
     if: ${{ inputs.push }}
     needs: build-docker-image
     steps:
