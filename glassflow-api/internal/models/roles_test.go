@@ -14,7 +14,8 @@ func TestRoleValid(t *testing.T) {
 		{"sink", true},
 		{"join", true},
 		{"ingestor", true},
-		{"", true}, // RoleETL
+		{"", true},      // RoleETL
+		{"dedup", true}, // RoleETL
 		{"invalid", false},
 	}
 	for _, tt := range tests {
@@ -36,6 +37,7 @@ func TestRoleString(t *testing.T) {
 		{internal.RoleJoin, "join"},
 		{internal.RoleIngestor, "ingestor"},
 		{internal.RoleETL, "ETL Pipeline"},
+		{internal.RoleDeduplicator, "dedup"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.role.String(), func(t *testing.T) {
@@ -51,6 +53,7 @@ func TestAllRoles(t *testing.T) {
 		"ingestor",
 		"join",
 		"sink",
+		"dedup",
 		"ETL Pipeline",
 	}
 	roles := AllRoles()

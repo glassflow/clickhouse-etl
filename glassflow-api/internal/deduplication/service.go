@@ -1,4 +1,4 @@
-package badger
+package deduplication
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication/badger"
 )
 
 type batchReader interface {
@@ -23,40 +24,43 @@ type batchWriter interface {
 	WriteBatch(ctx context.Context, messages []*nats.Msg) error
 }
 
-type Consumer struct {
+type DedupService struct {
 	reader       batchReader
 	writer       batchWriter
-	deduplicator Deduplicator
+	deduplicator *badger.Deduplicator
 	cancel       context.CancelFunc
 	shutdownOnce sync.Once
 	log          *slog.Logger
+	doneCh       chan struct{}
 	batchSize    int
 	maxWait      time.Duration
 }
 
-// NewConsumer creates a new deduplication consumer
-func NewConsumer(
+// NewDedupService creates a new deduplication consumer
+func NewDedupService(
 	reader batchReader,
 	writer batchWriter,
-	deduplicator Deduplicator,
+	deduplicator *badger.Deduplicator,
 	log *slog.Logger,
 	batchSize int,
 	maxWait time.Duration,
-) (*Consumer, error) {
-	return &Consumer{
+) (*DedupService, error) {
+	return &DedupService{
 		reader:       reader,
 		writer:       writer,
 		deduplicator: deduplicator,
 		log:          log,
 		batchSize:    batchSize,
 		maxWait:      maxWait,
+		doneCh:       make(chan struct{}),
 	}, nil
 }
 
 // Start runs the deduplication consumer
-func (c *Consumer) Start(ctx context.Context) error {
+func (c *DedupService) Start(ctx context.Context) error {
 	c.log.InfoContext(ctx, "Deduplication consumer started")
 	defer c.log.InfoContext(ctx, "Deduplication consumer stopped")
+	defer close(c.doneCh)
 
 	ctx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
@@ -90,7 +94,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 }
 
 // handleShutdown handles the shutdown logic
-func (c *Consumer) handleShutdown(ctx context.Context) error {
+func (c *DedupService) handleShutdown(ctx context.Context) error {
 	c.log.InfoContext(ctx, "Deduplication consumer shutting down")
 
 	batchMessages, err := c.reader.ReadBatchNoWait(ctx, c.batchSize)
@@ -107,7 +111,7 @@ func (c *Consumer) handleShutdown(ctx context.Context) error {
 }
 
 // processMessages reads, deduplicates, and writes messages
-func (c *Consumer) processMessages(ctx context.Context, batchMessages []*nats.Msg) error {
+func (c *DedupService) processMessages(ctx context.Context, batchMessages []*nats.Msg) error {
 	err := c.deduplicator.Deduplicate(
 		ctx,
 		batchMessages,
@@ -137,7 +141,7 @@ func (c *Consumer) processMessages(ctx context.Context, batchMessages []*nats.Ms
 	return nil
 }
 
-func (c *Consumer) ackMessages(_ context.Context, messages []*nats.Msg) error {
+func (c *DedupService) ackMessages(_ context.Context, messages []*nats.Msg) error {
 	if len(messages) == 0 {
 		return nil
 	}
@@ -151,8 +155,12 @@ func (c *Consumer) ackMessages(_ context.Context, messages []*nats.Msg) error {
 	return nil
 }
 
-// Stop gracefully stops the consumer
-func (c *Consumer) Stop() {
+func (c *DedupService) Done() <-chan struct{} {
+	return c.doneCh
+}
+
+// Shutdown gracefully stops the consumer
+func (c *DedupService) Shutdown() {
 	c.shutdownOnce.Do(func() {
 		if c.cancel != nil {
 			c.cancel()

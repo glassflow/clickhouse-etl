@@ -6,7 +6,7 @@ type Role string
 
 func (r Role) Valid() bool {
 	switch r {
-	case internal.RoleSink, internal.RoleJoin, internal.RoleIngestor, internal.RoleETL:
+	case internal.RoleSink, internal.RoleJoin, internal.RoleIngestor, internal.RoleETL, internal.RoleDeduplicator:
 		return true
 	default:
 		return false
@@ -26,5 +26,6 @@ func AllRoles() []string {
 		Role(internal.RoleJoin).String(),
 		Role(internal.RoleSink).String(),
 		Role(internal.RoleETL).String(),
+		Role(internal.RoleDeduplicator).String(),
 	}
 }

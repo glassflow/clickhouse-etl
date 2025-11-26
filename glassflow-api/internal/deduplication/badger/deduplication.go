@@ -15,7 +15,10 @@ type Deduplicator struct {
 	ttl time.Duration
 }
 
-func NewDeduplicator(db *badger.DB, ttl time.Duration) *Deduplicator {
+func NewDeduplicator(
+	db *badger.DB,
+	ttl time.Duration,
+) *Deduplicator {
 	return &Deduplicator{
 		db:  db,
 		ttl: ttl,
