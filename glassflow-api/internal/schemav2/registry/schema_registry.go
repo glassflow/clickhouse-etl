@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/tidwall/gjson"
 	"github.com/twmb/franz-go/pkg/sr"
@@ -69,17 +70,18 @@ func parseJSONSchema(schema string) (zero map[string]string, _ error) {
 
 	fields := make(map[string]string)
 	if properties.Exists() {
-		extructFieldTypes(properties, fields)
+		maps.Copy(fields, extructFieldTypes(properties))
 	}
 
 	if additionalProperties.Exists() {
-		extructFieldTypes(additionalProperties, fields)
+		maps.Copy(fields, extructFieldTypes(additionalProperties))
 	}
 
 	return fields, nil
 }
 
-func extructFieldTypes(properties gjson.Result, fields map[string]string) {
+func extructFieldTypes(properties gjson.Result) map[string]string {
+	fields := make(map[string]string)
 	properties.ForEach(func(key, value gjson.Result) bool {
 		fieldType := value.Get("type")
 		if !fieldType.Exists() {
@@ -106,6 +108,8 @@ func extructFieldTypes(properties gjson.Result, fields map[string]string) {
 		fields[key.String()] = dataType
 		return true
 	})
+
+	return fields
 }
 
 func resolveJSONSchemaType(property gjson.Result) (string, error) {
