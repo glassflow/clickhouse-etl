@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -25,7 +24,7 @@ func NewBatchReader(
 	}
 }
 
-func (r *BatchReader) ReadBatchNoWait(ctx context.Context, batchSize int) ([]*nats.Msg, error) {
+func (r *BatchReader) ReadBatchNoWait(ctx context.Context, batchSize int) ([]jetstream.Msg, error) {
 	msgBatch, err := r.consumer.FetchNoWait(batchSize)
 	if err != nil {
 		return nil, fmt.Errorf("FetchNoWait: %w", err)
@@ -38,7 +37,7 @@ func (r *BatchReader) ReadBatch(
 	ctx context.Context,
 	batchSize int,
 	opts ...jetstream.FetchOpt,
-) ([]*nats.Msg, error) {
+) ([]jetstream.Msg, error) {
 	msgBatch, err := r.consumer.Fetch(batchSize, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("FetchNoWait: %w", err)
@@ -50,8 +49,8 @@ func (r *BatchReader) ReadBatch(
 func (r *BatchReader) fetchMessagesFromBatch(
 	ctx context.Context,
 	msgBatch jetstream.MessageBatch,
-) ([]*nats.Msg, error) {
-	messages := make([]*nats.Msg, 0)
+) ([]jetstream.Msg, error) {
+	messages := make([]jetstream.Msg, 0)
 	for msg := range msgBatch.Messages() {
 		select {
 		case <-ctx.Done():
@@ -62,11 +61,7 @@ func (r *BatchReader) fetchMessagesFromBatch(
 		if msg == nil {
 			break
 		}
-		messages = append(messages, &nats.Msg{
-			Subject: msg.Subject(),
-			Data:    msg.Data(),
-			Header:  msg.Headers(),
-		})
+		messages = append(messages, msg)
 	}
 
 	if len(messages) == 0 {
