@@ -2,13 +2,13 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // buildSchemaJSON reconstructs the schema JSON from PipelineConfig.Mapper
@@ -72,14 +72,14 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 }
 
 // insertSchema inserts a schema into the schemas table
-func (s *PostgresStorage) insertSchema(ctx context.Context, tx *sql.Tx, pipelineID uuid.UUID, schemaJSON []byte, version string, active bool) error {
+func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte, version string, active bool) error {
 	// Convert active boolean to schema_status enum value
 	activeStatus := "Inactive"
 	if active {
 		activeStatus = "Active"
 	}
 
-	_, err := tx.ExecContext(ctx, `
+	_, err := tx.Exec(ctx, `
 		INSERT INTO schemas (pipeline_id, version, active, schema_data, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
 	`, pipelineID, version, activeStatus, schemaJSON)
@@ -97,8 +97,8 @@ func (s *PostgresStorage) insertSchema(ctx context.Context, tx *sql.Tx, pipeline
 
 // updateSchema updates the existing schema with version "v0" for the given pipeline
 // NOTE: With schema evolution, updates to schema should be versioned (create new versions instead of updating)
-func (s *PostgresStorage) updateSchema(ctx context.Context, tx *sql.Tx, pipelineID uuid.UUID, schemaJSON []byte) error {
-	result, err := tx.ExecContext(ctx, `
+func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte) error {
+	commandTag, err := tx.Exec(ctx, `
 		UPDATE schemas
 		SET schema_data = $1, updated_at = NOW()
 		WHERE pipeline_id = $2 AND version = 'v0'
@@ -110,15 +110,7 @@ func (s *PostgresStorage) updateSchema(ctx context.Context, tx *sql.Tx, pipeline
 		return fmt.Errorf("update schema: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to get rows affected for schema update",
-			slog.String("pipeline_id", pipelineID.String()),
-			slog.String("error", err.Error()))
-		return fmt.Errorf("get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
+	if commandTag.RowsAffected() == 0 {
 		// Schema with v0 doesn't exist, insert it
 		err = s.insertSchema(ctx, tx, pipelineID, schemaJSON, "v0", true)
 		if err != nil {
