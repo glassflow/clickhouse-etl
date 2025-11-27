@@ -12,12 +12,12 @@ import (
 )
 
 // getSource retrieves a source and its connection
-func (s *PostgresStorage) getSource(ctx context.Context, sourceID uuid.UUID) (map[string]interface{}, map[string]interface{}, error) {
+func (s *PostgresStorage) getSource(ctx context.Context, sourceID uuid.UUID) (json.RawMessage, json.RawMessage, error) {
 	return getEntityWithConnection(ctx, s.db, s.logger, "sources", "id", sourceID)
 }
 
 // getSink retrieves a sink and its connection
-func (s *PostgresStorage) getSink(ctx context.Context, sinkID uuid.UUID) (map[string]interface{}, map[string]interface{}, error) {
+func (s *PostgresStorage) getSink(ctx context.Context, sinkID uuid.UUID) (json.RawMessage, json.RawMessage, error) {
 	return getEntityWithConnection(ctx, s.db, s.logger, "sinks", "id", sinkID)
 }
 
@@ -28,7 +28,7 @@ func getEntityWithConnection(
 	logger *slog.Logger,
 	entityTable, entityIDColumn string,
 	entityID uuid.UUID,
-) (entityConfig map[string]interface{}, connConfig map[string]interface{}, err error) {
+) (entityConfig json.RawMessage, connConfig json.RawMessage, err error) {
 	var (
 		connID           uuid.UUID
 		entityConfigJSON []byte
@@ -63,26 +63,8 @@ func getEntityWithConnection(
 		return nil, nil, fmt.Errorf("get connection: %w", err)
 	}
 
-	// Unmarshal entity config
-	entityConfig = make(map[string]interface{})
-	if err := json.Unmarshal(entityConfigJSON, &entityConfig); err != nil {
-		logger.ErrorContext(ctx, "failed to unmarshal entity config",
-			slog.String("entity_table", entityTable),
-			slog.String("entity_id", entityID.String()),
-			slog.String("error", err.Error()))
-		return nil, nil, fmt.Errorf("unmarshal %s config: %w", entityTable, err)
-	}
-
-	// Unmarshal connection config
-	connConfig = make(map[string]interface{})
-	if err := json.Unmarshal(connConfigJSON, &connConfig); err != nil {
-		logger.ErrorContext(ctx, "failed to unmarshal connection config",
-			slog.String("connection_id", connID.String()),
-			slog.String("error", err.Error()))
-		return nil, nil, fmt.Errorf("unmarshal connection config: %w", err)
-	}
-
-	return entityConfig, connConfig, nil
+	// Return raw JSON for direct unmarshaling into typed structs
+	return json.RawMessage(entityConfigJSON), json.RawMessage(connConfigJSON), nil
 }
 
 // ------------------------------------------------------------------------------------------------
