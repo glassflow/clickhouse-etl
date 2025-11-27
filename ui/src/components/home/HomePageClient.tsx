@@ -149,11 +149,13 @@ export default function HomePageClient() {
   }
 
   return (
-    <div className="flex flex-col items-start gap-6 sm:gap-8 max-w-[var(--hero-container-width)] px-4 py-20 sm:px-6 lg:px-8">
-      <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-center">Create Pipeline</h1>
-      <h2 className="w-full text-start subtitle muted-foreground text-xs sm:text-sm">
-        Choose a pipeline type based on the number of streams you want to ingest
-      </h2>
+    <div className="grow flex-col items-start gap-6 sm:gap-8 container mx-auto px-4 sm:px-0 py-20">
+      <div className="flex flex-col items-start gap-6 sm:gap-8 w-full px-4 sm:px-0 py-16 sm:py-20">
+        <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-start">Create Pipeline</h1>
+        <h2 className="w-full text-start subtitle muted-foreground text-xs sm:text-sm">
+          Choose a pipeline type based on the number of streams you want to ingest
+        </h2>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-8 sm:mt-12 w-full max-w-[640px]">
         <div className={cn('card card-elevated', topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
           <button
