@@ -74,9 +74,9 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 // insertSchema inserts a schema into the schemas table
 func (s *PostgresStorage) insertSchema(ctx context.Context, tx *sql.Tx, pipelineID uuid.UUID, schemaJSON []byte, version string, active bool) error {
 	// Convert active boolean to schema_status enum value
-	activeStatus := "inactive"
+	activeStatus := "Inactive"
 	if active {
-		activeStatus = "active"
+		activeStatus = "Active"
 	}
 
 	_, err := tx.ExecContext(ctx, `
