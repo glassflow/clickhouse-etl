@@ -287,7 +287,7 @@ export function Header() {
   }
 
   return (
-    <div className="h-16 w-full max-w-[var(--main-container-width)] mx-auto">
+    <div className="h-16 w-full container mx-auto px-4 sm:px-0">
       <div className="container h-full px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row justify-between items-center h-full">
           {/* Left Section: Mobile Menu + Desktop Logo + Navigation */}
