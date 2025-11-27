@@ -40,7 +40,7 @@ lint:
 	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.2 run ./...
 
 .PHONY: pre-push-check
-	pre-push-check: lint run-test run-e2e-test
+pre-push-check: lint run-test run-e2e-test
 
 .PHONY: run-short-test
 run-short-test:
