@@ -12,6 +12,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // pipelineData holds all the data needed to reconstruct a PipelineConfig
@@ -61,7 +62,7 @@ func (s *PostgresStorage) GetPipelines(ctx context.Context) ([]models.PipelineCo
 	var pipelines []models.PipelineConfig
 	for rows.Next() {
 		var row pipelineRow
-		var transformationIDsStr sql.NullString
+		var transformationIDsArray pgtype.Array[pgtype.UUID]
 
 		if err := rows.Scan(
 			&row.pipelineID,
@@ -69,7 +70,7 @@ func (s *PostgresStorage) GetPipelines(ctx context.Context) ([]models.PipelineCo
 			&row.status,
 			&row.sourceID,
 			&row.sinkID,
-			&transformationIDsStr,
+			&transformationIDsArray,
 			&row.metadataJSON,
 			&row.createdAt,
 			&row.updatedAt,
@@ -79,15 +80,13 @@ func (s *PostgresStorage) GetPipelines(ctx context.Context) ([]models.PipelineCo
 			return nil, fmt.Errorf("scan pipeline: %w", err)
 		}
 
-		// Parse PostgreSQL UUID array string
-		if transformationIDsStr.Valid && transformationIDsStr.String != "" {
-			transformationIDs, err := parsePostgresUUIDArray(transformationIDsStr.String)
-			if err != nil {
-				s.logger.ErrorContext(ctx, "failed to parse transformation IDs",
-					slog.String("pipeline_id", row.pipelineID.String()),
-					slog.String("transformation_ids_str", transformationIDsStr.String),
-					slog.String("error", err.Error()))
-				return nil, fmt.Errorf("parse transformation IDs: %w", err)
+		// Convert pgtype UUID array to []uuid.UUID
+		if transformationIDsArray.Valid {
+			transformationIDs := make([]uuid.UUID, 0, len(transformationIDsArray.Elements))
+			for _, elem := range transformationIDsArray.Elements {
+				if elem.Valid {
+					transformationIDs = append(transformationIDs, elem.Bytes)
+				}
 			}
 			row.transformationIDsPtr = &transformationIDs
 		}
@@ -853,7 +852,7 @@ type pipelineRow struct {
 // loadPipelineRow loads a pipeline row from the database by ID
 func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.UUID) (*pipelineRow, error) {
 	var row pipelineRow
-	var transformationIDsStr sql.NullString
+	var transformationIDsArray pgtype.Array[pgtype.UUID]
 
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, name, status, source_id, sink_id, transformation_ids, metadata, created_at, updated_at
@@ -865,7 +864,7 @@ func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.U
 		&row.status,
 		&row.sourceID,
 		&row.sinkID,
-		&transformationIDsStr,
+		&transformationIDsArray,
 		&row.metadataJSON,
 		&row.createdAt,
 		&row.updatedAt,
@@ -882,15 +881,13 @@ func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.U
 		return nil, fmt.Errorf("get pipeline: %w", err)
 	}
 
-	// Parse PostgreSQL UUID array string
-	if transformationIDsStr.Valid && transformationIDsStr.String != "" {
-		transformationIDs, err := parsePostgresUUIDArray(transformationIDsStr.String)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "failed to parse transformation IDs",
-				slog.String("pipeline_id", pipelineID.String()),
-				slog.String("transformation_ids_str", transformationIDsStr.String),
-				slog.String("error", err.Error()))
-			return nil, fmt.Errorf("parse transformation IDs: %w", err)
+	// Convert pgtype UUID array to []uuid.UUID
+	if transformationIDsArray.Valid {
+		transformationIDs := make([]uuid.UUID, 0, len(transformationIDsArray.Elements))
+		for _, elem := range transformationIDsArray.Elements {
+			if elem.Valid {
+				transformationIDs = append(transformationIDs, elem.Bytes)
+			}
 		}
 		row.transformationIDsPtr = &transformationIDs
 	}
