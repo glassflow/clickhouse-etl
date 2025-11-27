@@ -12,15 +12,15 @@ CREATE TYPE pipeline_status AS ENUM (
 
 -- Create pipeline status enum
 CREATE TYPE schema_status AS ENUM (
-    'active',
-    'inactive',
-    'invalid'
+    'Active',
+    'Inactive',
+    'Invalid'
 );
 
 -- Create pipeline status enum
 CREATE TYPE credential_type AS ENUM (
-    'plain',
-    'vault'
+    'Plain',
+    'Vault'
     );
 
 -- Connections table
