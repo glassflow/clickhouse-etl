@@ -83,9 +83,7 @@ The user interface has been enhanced with better integration, messaging, and err
 
 Underlying data processing has been enhanced for better performance and reliability:
 
-- **NATS batch operations** - New batch read/write implementation for NATS improving throughput and efficiency
-- **Badger deduplication** - New Badger-based deduplication implementation for better performance and reliability in duplicate detection
-- **Schema management** - Schema separated as an independent entity with improved validation and handling of empty column mappings
+- **NATS async writes** - New async write implementation for NATS to improve throughput and efficiency
 - **Kafka session intervals** - Adjusted Kafka session interval parameters for better performance and reliability
 - **Franz-go client logging** - Added logging for franz-go Kafka client for better debugging capabilities
 
@@ -97,9 +95,8 @@ Developer experience has been improved with better documentation and API access:
 
 - **Swagger documentation** - Backend API documentation via Swagger for complete API reference
 - **API parameter fixes** - Fixed passing of API parameters for more reliable API usage
-- **Pipeline JSON improvements** - Refactored pipeline JSON to model method for better maintainability
 - **Ingress setup documentation** - New ingress setup page for Kubernetes deployments
-- **Updated Helm values** - Helm values updated with latest changes for easier deployment
+- **Updated Helm values** - Move env variables to a configmap and add values for enabling auth0
 
 ## Bug Fixes
 
