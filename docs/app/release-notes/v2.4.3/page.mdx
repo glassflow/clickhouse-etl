@@ -1,0 +1,166 @@
+---
+title: Release Notes v2.4.1-2.4.3
+sidebarTitle: v2.4.3
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.4.1, v2.4.2, and v2.4.3.
+---
+
+# Release Notes v2.4.1-2.4.3
+
+Versions 2.4.1, 2.4.2, and 2.4.3 bring significant improvements to Kafka authentication flexibility, pipeline lifecycle management, and enterprise authentication capabilities. These releases focus on enhancing operational control, security options, and user experience for production environments.
+
+## What's New
+
+### 🔐 Enhanced Kafka Authentication & Security
+
+GlassFlow now provides **more flexible Kafka connection options** to accommodate different security requirements and development workflows:
+
+- **Skip TLS certificate verification** - New `skip_tls_verification` flag allows you to skip certificate verification for development and testing environments where self-signed certificates are used
+- **Deprecated `skip_auth` flag** - The `skip_auth` flag has been deprecated in favor of the `NO_AUTH` mechanism for authentication-free connections (affects API and SDK clients only)
+- **Better parameter validation** - Enhanced validation for Kafka connection parameters with comprehensive test coverage to catch configuration issues early
+- **Improved SSL/TLS handling** - Fixed SSL/TLS handling in Kafka connections for better reliability and proper truststore configuration integration
+
+These improvements make it easier to connect to Kafka clusters in various environments, from development setups with self-signed certificates to production clusters with strict security requirements.
+
+### 🎯 Failed Pipeline Management
+
+Failed pipelines can now be **fully managed** without manual intervention or recreation:
+
+- **Resume failed pipelines** - Failed pipelines can now be resumed directly from the UI instead of requiring recreation
+- **Edit failed pipelines** - Edit failed pipelines to fix configuration issues and restart them
+- **Delete failed pipelines** - Delete failed pipelines through the UI for better cleanup
+- **Failed as final status** - Failed status is now treated as a final status with streamlined actions, making it clear which pipelines need attention
+
+Pipeline actions have been **streamlined and made context-aware** - actions are now available based on pipeline status, providing a clearer and more intuitive experience. The terminate action has been improved for more reliable pipeline termination.
+
+### 🏷️ Pipeline Metadata & Tags
+
+GlassFlow now supports **pipeline metadata and tagging** for better organization and management:
+
+- **Pipeline tags** - Add and manage tags for pipelines via metadata to organize and categorize your pipelines
+- **Metadata filtering** - Filter pipelines using metadata tags to quickly find related pipelines
+- **Metadata API endpoints** - New endpoints for managing pipeline metadata programmatically
+- **Improved metadata handling** - Better handling of metadata from list responses for consistent display
+
+This enhancement makes it easier to organize large numbers of pipelines and find specific pipelines quickly, especially in enterprise environments with many active pipelines.
+
+### 🔍 Observability Enhancements
+
+Observability capabilities have been expanded with improved metrics:
+
+- **Processing duration metric** - Fixed and restored `ProcessingDuration` metric calculation for accurate performance monitoring
+- **Record processing metrics** - Improved record processing metric tracking for better visibility into pipeline performance
+- **Explicit Kafka client errors** - Better error reporting from Kafka client with explicit error messages for easier debugging
+- **UI OpenTelemetry support** - Initial implementation of OpenTelemetry support in the UI laying the foundation for comprehensive observability integration
+
+These improvements provide better visibility into pipeline performance and make it easier to troubleshoot issues in production environments.
+
+### 🔐 Enterprise Authentication with Auth0
+
+GlassFlow now supports **Auth0 integration** for enterprise authentication and authorization:
+
+- **Full Auth0 integration** - Complete Auth0 integration for enterprise authentication workflows
+- **Protected routes** - Route protection with authentication middleware to secure sensitive operations
+- **User profile display** - Authenticated user profile displayed in the application header
+- **Custom home page** - Customizable home page based on authentication state
+- **Conditional auth rendering** - Smart conditional rendering based on authentication status throughout the application
+- **Server-side configuration** - Server-side variables for auth configuration to prevent inlining and ensure secure handling
+
+This enables enterprise deployments to integrate GlassFlow with existing identity providers and enforce proper access controls.
+
+### 🎨 UI/UX Improvements
+
+The user interface has been enhanced with better integration, messaging, and error handling:
+
+- **Improved empty states** - Better messaging when no pipelines are found to guide users
+- **Dynamic pipeline loading** - Force dynamic render to check for pipelines on each page load for up-to-date information
+- **Smart redirects** - Conditional redirects based on number of pipelines for better navigation flow
+- **Demo mode support** - Full demo mode support across all components with proper read-only mode propagation
+- **Consolidated error messages** - Removed ambiguous backend error messages and improved banner message styling
+- **Standardized error handling** - Consistent error messaging throughout the application for better user experience
+
+### 📊 Data Processing Improvements
+
+Underlying data processing has been enhanced for better performance and reliability:
+
+- **NATS batch operations** - New batch read/write implementation for NATS improving throughput and efficiency
+- **Badger deduplication** - New Badger-based deduplication implementation for better performance and reliability in duplicate detection
+- **Schema management** - Schema separated as an independent entity with improved validation and handling of empty column mappings
+- **Kafka session intervals** - Adjusted Kafka session interval parameters for better performance and reliability
+- **Franz-go client logging** - Added logging for franz-go Kafka client for better debugging capabilities
+
+These improvements result in better performance, more reliable duplicate detection, and easier troubleshooting of data processing issues.
+
+### 🛠️ Developer Experience
+
+Developer experience has been improved with better documentation and API access:
+
+- **Swagger documentation** - Backend API documentation via Swagger for complete API reference
+- **API parameter fixes** - Fixed passing of API parameters for more reliable API usage
+- **Pipeline JSON improvements** - Refactored pipeline JSON to model method for better maintainability
+- **Ingress setup documentation** - New ingress setup page for Kubernetes deployments
+- **Updated Helm values** - Helm values updated with latest changes for easier deployment
+
+## Bug Fixes
+
+- Fixed API parameter passing issues
+- Fixed `skip_auth` usage and validation
+- Fixed SSL/TLS handling in Kafka connections
+- Fixed record processing metric calculation
+- Fixed auth conditional rendering in header
+- Fixed profile path for Auth0
+- Fixed filter route implementation
+- Fixed loop redirect issues
+- Fixed terminate action for pipelines
+- Fixed middleware redirect issues
+- Fixed metadata tags update and return
+- Fixed pipeline description parameter passing
+- Fixed auth runtime configuration
+- Fixed validation filter on pipeline creation/edit
+- Fixed tag management button in edit mode
+- Fixed broken documentation links
+- Fixed linter configuration and enabled it in CI/CD
+
+## Migration Notes
+
+### For Existing Users
+
+- **No breaking changes** - These releases are fully backward compatible
+- **`skip_auth` deprecated** - The `skip_auth` flag is deprecated in favor of `NO_AUTH` SASL mechanism (affects API and SDK clients only)
+- **Failed pipelines manageable** - Failed pipelines can now be managed (resumed, edited, deleted) instead of requiring manual cleanup
+- **Auth0 optional** - Auth0 integration is optional and can be configured via environment variables
+- **Skip TLS verification available** - New `skip_tls_verification` flag available for development and testing environments
+
+### Configuration Updates
+
+- **Kafka authentication** - New `NO_AUTH` SASL mechanism replaces deprecated `skip_auth` flag
+- **Skip TLS verification** - New `skip_tls_verification` parameter for Kafka connections
+- **Auth0 variables** - New environment variables for Auth0 integration (`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, etc.)
+- **Metadata endpoints** - New API endpoints for pipeline metadata management
+- **Version logging** - Application version now logged on startup for easier troubleshooting
+
+### Demo Updates
+
+- **Observability demo** - New observability demo available in `demos/observability/` directory
+- **Updated demos** - All demos updated to use `NO_AUTH` instead of deprecated `skip_auth`
+- **Kind cluster support** - Demo configurations updated for Kind cluster compatibility
+
+## Try It Out
+
+To experience the new features in v2.4.1-2.4.3:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes) or [Docker Compose](/installation/docker)
+2. **Manage failed pipelines** - Resume, edit, or delete failed pipelines through the UI
+3. **Add tags to pipelines** - Organize pipelines using metadata tags
+4. **Configure skip TLS verification** for development Kafka connections if needed
+5. **Use the new `NO_AUTH` mechanism** instead of deprecated `skip_auth` flag in API/SDK clients
+6. **Explore Auth0 integration** - Set up enterprise authentication if needed
+7. **Check out the observability demo** - See OpenTelemetry integration in action
+8. **Access Grafana metrics** - Use the Grafana button on pipeline detail pages
+9. **Explore the API** - Use Swagger documentation for complete API reference
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in v2.4.1, v2.4.2, and v2.4.3, see our [GitHub release v2.4.1](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.4.1), [GitHub release v2.4.2](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.4.2), and [GitHub release v2.4.3](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.4.3).
+
+*GlassFlow v2.4.1-2.4.3 continues our commitment to making streaming ETL more secure, reliable, and user-friendly for enterprise production environments.*
