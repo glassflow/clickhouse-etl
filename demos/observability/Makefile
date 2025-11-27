@@ -18,6 +18,8 @@ HYPERDX_CHART_RELEASE ?= hyperdx
 
 HELM_VALUES := k8s/helm-values
 
+TIMEOUT ?= 10m
+
 repos:
 	helm repo add bitnami https://charts.bitnami.com/bitnami || true
 	helm repo add opentelemetry https://open-telemetry.github.io/opentelemetry-helm-charts || true
@@ -51,7 +53,7 @@ install:
 	helm install $(OTEL_CHART_RELEASE) opentelemetry/opentelemetry-collector -n $(OTEL_NS) -f $(HELM_VALUES)/otel-collector.values.yaml --create-namespace=false || true
 	
 	# Glassflow
-	helm install $(GLASSFLOW_CHART_RELEASE) glassflow/glassflow-etl -n $(GLASSFLOW_NS) --create-namespace=false -f $(HELM_VALUES)/glassflow.values.yaml --version=0.3.4 || true
+	helm install $(GLASSFLOW_CHART_RELEASE) glassflow/glassflow-etl -n $(GLASSFLOW_NS) --create-namespace=false -f $(HELM_VALUES)/glassflow.values.yaml || true
 	
 	# HyperDX (with embedded ClickHouse)
 	helm install $(HYPERDX_CHART_RELEASE) hyperdx/hdx-oss-v2 -n $(HYPERDX_NS) -f $(HELM_VALUES)/hyperdx.values.yaml --create-namespace=false || true
@@ -124,15 +126,15 @@ deploy-stack:
 	$(MAKE) repos ns install
 
 	# Wait for Kafka to be ready and make sure Kafka topics are created
-	kubectl rollout status -n $(KAFKA_NS) statefulset/$(KAFKA_CHART_RELEASE)-controller --timeout=5m
+	kubectl rollout status -n $(KAFKA_NS) statefulset/$(KAFKA_CHART_RELEASE)-controller --timeout=$(TIMEOUT)
 	$(MAKE) create-kafka-topics
 
 	# Wait for HyperDX and ClickHouse to be ready
-	kubectl rollout status -n $(HYPERDX_NS) deploy/$(HYPERDX_CHART_RELEASE)-hdx-oss-v2-clickhouse --timeout=5m
+	kubectl rollout status -n $(HYPERDX_NS) deploy/$(HYPERDX_CHART_RELEASE)-hdx-oss-v2-clickhouse --timeout=$(TIMEOUT)
 	$(MAKE) create-clickhouse-tables
 
 	# Wait for GlassFlow API to be ready
-	kubectl rollout status -n $(GLASSFLOW_NS) deploy/$(GLASSFLOW_CHART_RELEASE)-api --timeout=5m
+	kubectl rollout status -n $(GLASSFLOW_NS) deploy/$(GLASSFLOW_CHART_RELEASE)-api --timeout=$(TIMEOUT)
 	$(MAKE) deploy-pipelines
 
 	# Deploy telemetry generators
