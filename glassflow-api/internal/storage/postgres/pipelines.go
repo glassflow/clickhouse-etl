@@ -20,10 +20,10 @@ type pipelineData struct {
 	pipelineID      uuid.UUID
 	name            string
 	status          string
-	source          map[string]interface{}
-	kafkaConn       map[string]interface{}
-	sink            map[string]interface{}
-	chConn          map[string]interface{}
+	source          json.RawMessage
+	kafkaConn       json.RawMessage
+	sink            json.RawMessage
+	chConn          json.RawMessage
 	transformations map[string]interface{}
 	metadataJSON    []byte
 	createdAt       time.Time
