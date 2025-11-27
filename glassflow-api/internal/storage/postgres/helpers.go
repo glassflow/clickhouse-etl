@@ -1,7 +1,6 @@
 package postgres
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -20,11 +19,7 @@ func parsePipelineID(id string) (uuid.UUID, error) {
 }
 
 // checkRowsAffected checks if any rows were affected and returns ErrPipelineNotExists if none
-func checkRowsAffected(result sql.Result) error {
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("get rows affected: %w", err)
-	}
+func checkRowsAffected(rowsAffected int64) error {
 	if rowsAffected == 0 {
 		return service.ErrPipelineNotExists
 	}
