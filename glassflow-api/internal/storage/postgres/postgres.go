@@ -2,17 +2,16 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // PostgresStorage implements PipelineStore using PostgreSQL
 type PostgresStorage struct {
-	db     *sql.DB
+	pool   *pgxpool.Pool
 	logger *slog.Logger
 }
 
@@ -22,33 +21,42 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*Postgre
 		logger = slog.Default()
 	}
 
-	db, err := sql.Open("pgx", dsn)
+	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		logger.ErrorContext(ctx, "failed to open postgres connection",
+		logger.ErrorContext(ctx, "failed to parse postgres config",
 			slog.String("error", err.Error()))
-		return nil, fmt.Errorf("open postgres connection: %w", err)
-	}
-
-	// Test connection
-	if err := db.PingContext(ctx); err != nil {
-		logger.ErrorContext(ctx, "failed to ping postgres",
-			slog.String("error", err.Error()))
-		return nil, fmt.Errorf("ping postgres: %w", err)
+		return nil, fmt.Errorf("parse postgres config: %w", err)
 	}
 
 	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	config.MaxConns = 25
+	config.MinConns = 5
+	config.MaxConnLifetime = 5 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		logger.ErrorContext(ctx, "failed to create postgres connection pool",
+			slog.String("error", err.Error()))
+		return nil, fmt.Errorf("create postgres connection pool: %w", err)
+	}
+
+	// Test connection
+	if err := pool.Ping(ctx); err != nil {
+		logger.ErrorContext(ctx, "failed to ping postgres",
+			slog.String("error", err.Error()))
+		pool.Close()
+		return nil, fmt.Errorf("ping postgres: %w", err)
+	}
 
 	logger.InfoContext(ctx, "postgres connection established",
-		slog.Int("max_open_conns", 25),
-		slog.Int("max_idle_conns", 5))
+		slog.Int("max_conns", 25),
+		slog.Int("min_conns", 5))
 
-	return &PostgresStorage{db: db, logger: logger}, nil
+	return &PostgresStorage{pool: pool, logger: logger}, nil
 }
 
-// Close closes the database connection
+// Close closes the database connection pool
 func (s *PostgresStorage) Close() error {
-	return s.db.Close()
+	s.pool.Close()
+	return nil
 }

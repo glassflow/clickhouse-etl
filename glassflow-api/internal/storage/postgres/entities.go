@@ -2,29 +2,30 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // getSource retrieves a source and its connection
 func (s *PostgresStorage) getSource(ctx context.Context, sourceID uuid.UUID) (json.RawMessage, json.RawMessage, error) {
-	return getEntityWithConnection(ctx, s.db, s.logger, "sources", "id", sourceID)
+	return getEntityWithConnection(ctx, s.pool, s.logger, "sources", "id", sourceID)
 }
 
 // getSink retrieves a sink and its connection
 func (s *PostgresStorage) getSink(ctx context.Context, sinkID uuid.UUID) (json.RawMessage, json.RawMessage, error) {
-	return getEntityWithConnection(ctx, s.db, s.logger, "sinks", "id", sinkID)
+	return getEntityWithConnection(ctx, s.pool, s.logger, "sinks", "id", sinkID)
 }
 
 // getEntityWithConnection is a generic helper to get an entity (source/sink) and its connection
 func getEntityWithConnection(
 	ctx context.Context,
-	db *sql.DB,
+	pool *pgxpool.Pool,
 	logger *slog.Logger,
 	entityTable, entityIDColumn string,
 	entityID uuid.UUID,
@@ -35,7 +36,7 @@ func getEntityWithConnection(
 	)
 
 	// Query entity table
-	err = db.QueryRowContext(ctx, fmt.Sprintf(`
+	err = pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT connection_id, config
 		FROM %s
 		WHERE %s = $1
@@ -50,7 +51,7 @@ func getEntityWithConnection(
 
 	// Query connection
 	var connConfigJSON []byte
-	err = db.QueryRowContext(ctx, `
+	err = pool.QueryRow(ctx, `
 		SELECT config
 		FROM connections
 		WHERE id = $1
@@ -70,7 +71,7 @@ func getEntityWithConnection(
 // ------------------------------------------------------------------------------------------------
 
 // insertSource inserts a source
-func (s *PostgresStorage) insertSource(ctx context.Context, tx *sql.Tx, sourceType string, connID uuid.UUID, streams map[string]models.StreamSchemaConfig) (uuid.UUID, error) {
+func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, sourceType string, connID uuid.UUID, streams map[string]models.StreamSchemaConfig) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(map[string]interface{}{
 		"streams": streams,
 	})
@@ -82,7 +83,7 @@ func (s *PostgresStorage) insertSource(ctx context.Context, tx *sql.Tx, sourceTy
 	}
 
 	var sourceID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO sources (type, connection_id, config)
 		VALUES ($1, $2, $3)
 		RETURNING id
@@ -99,7 +100,7 @@ func (s *PostgresStorage) insertSource(ctx context.Context, tx *sql.Tx, sourceTy
 }
 
 // updateSource updates an existing source
-func (s *PostgresStorage) updateSource(ctx context.Context, tx *sql.Tx, sourceID uuid.UUID, streams map[string]models.StreamSchemaConfig) error {
+func (s *PostgresStorage) updateSource(ctx context.Context, tx pgx.Tx, sourceID uuid.UUID, streams map[string]models.StreamSchemaConfig) error {
 	configJSON, err := json.Marshal(map[string]interface{}{
 		"streams": streams,
 	})
@@ -110,7 +111,7 @@ func (s *PostgresStorage) updateSource(ctx context.Context, tx *sql.Tx, sourceID
 		return fmt.Errorf("marshal source config: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		UPDATE sources
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
@@ -128,7 +129,7 @@ func (s *PostgresStorage) updateSource(ctx context.Context, tx *sql.Tx, sourceID
 // ------------------------------------------------------------------------------------------------
 
 // insertSink inserts a sink
-func (s *PostgresStorage) insertSink(ctx context.Context, tx *sql.Tx, sinkType string, connID uuid.UUID, sinkMapping []models.SinkMappingConfig) (uuid.UUID, error) {
+func (s *PostgresStorage) insertSink(ctx context.Context, tx pgx.Tx, sinkType string, connID uuid.UUID, sinkMapping []models.SinkMappingConfig) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(map[string]interface{}{
 		"sink_mapping": sinkMapping,
 	})
@@ -140,7 +141,7 @@ func (s *PostgresStorage) insertSink(ctx context.Context, tx *sql.Tx, sinkType s
 	}
 
 	var sinkID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO sinks (type, connection_id, config)
 		VALUES ($1, $2, $3)
 		RETURNING id
@@ -157,7 +158,7 @@ func (s *PostgresStorage) insertSink(ctx context.Context, tx *sql.Tx, sinkType s
 }
 
 // updateSink updates an existing sink
-func (s *PostgresStorage) updateSink(ctx context.Context, tx *sql.Tx, sinkID uuid.UUID, sinkMapping []models.SinkMappingConfig) error {
+func (s *PostgresStorage) updateSink(ctx context.Context, tx pgx.Tx, sinkID uuid.UUID, sinkMapping []models.SinkMappingConfig) error {
 	configJSON, err := json.Marshal(map[string]interface{}{
 		"sink_mapping": sinkMapping,
 	})
@@ -168,7 +169,7 @@ func (s *PostgresStorage) updateSink(ctx context.Context, tx *sql.Tx, sinkID uui
 		return fmt.Errorf("marshal sink config: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		UPDATE sinks
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
@@ -186,7 +187,7 @@ func (s *PostgresStorage) updateSink(ctx context.Context, tx *sql.Tx, sinkID uui
 // ------------------------------------------------------------------------------------------------
 
 // insertTransformation inserts a transformation entity
-func (s *PostgresStorage) insertTransformation(ctx context.Context, tx *sql.Tx, transType string, config interface{}) (uuid.UUID, error) {
+func (s *PostgresStorage) insertTransformation(ctx context.Context, tx pgx.Tx, transType string, config interface{}) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to marshal transformation config",
@@ -196,7 +197,7 @@ func (s *PostgresStorage) insertTransformation(ctx context.Context, tx *sql.Tx, 
 	}
 
 	var transID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO transformations (type, config)
 		VALUES ($1, $2)
 		RETURNING id
@@ -212,7 +213,7 @@ func (s *PostgresStorage) insertTransformation(ctx context.Context, tx *sql.Tx, 
 }
 
 // updateTransformation updates an existing transformation
-func (s *PostgresStorage) updateTransformation(ctx context.Context, tx *sql.Tx, transID uuid.UUID, config interface{}) error {
+func (s *PostgresStorage) updateTransformation(ctx context.Context, tx pgx.Tx, transID uuid.UUID, config interface{}) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to marshal transformation config",
@@ -221,7 +222,7 @@ func (s *PostgresStorage) updateTransformation(ctx context.Context, tx *sql.Tx, 
 		return fmt.Errorf("marshal transformation config: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		UPDATE transformations
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
@@ -237,9 +238,9 @@ func (s *PostgresStorage) updateTransformation(ctx context.Context, tx *sql.Tx, 
 }
 
 // getTransformationType retrieves the type of a transformation by ID
-func (s *PostgresStorage) getTransformationType(ctx context.Context, tx *sql.Tx, transID uuid.UUID) (string, error) {
+func (s *PostgresStorage) getTransformationType(ctx context.Context, tx pgx.Tx, transID uuid.UUID) (string, error) {
 	var transType string
-	err := tx.QueryRowContext(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT type FROM transformations WHERE id = $1
 	`, transID).Scan(&transType)
 	if err != nil {
@@ -252,7 +253,7 @@ func (s *PostgresStorage) getTransformationType(ctx context.Context, tx *sql.Tx,
 }
 
 // updateTransformationsFromPipeline updates transformations by matching type, deletes unused ones, and inserts new ones
-func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context, tx *sql.Tx, pipelineID uuid.UUID, oldTransformationIDs []uuid.UUID, p models.PipelineConfig) ([]uuid.UUID, error) {
+func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, oldTransformationIDs []uuid.UUID, p models.PipelineConfig) ([]uuid.UUID, error) {
 	// Build map of old transformations by type
 	oldByType := make(map[string]uuid.UUID) // type -> transformation_id
 	for _, transID := range oldTransformationIDs {
@@ -358,7 +359,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 		}
 
 		if len(idsToDelete) > 0 {
-			_, err := tx.ExecContext(ctx, `
+			_, err := tx.Exec(ctx, `
 				DELETE FROM transformations WHERE id = ANY($1)
 			`, idsToDelete)
 			if err != nil {
@@ -380,7 +381,7 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 	}
 
 	query := `SELECT type, config FROM transformations WHERE id = ANY($1)`
-	rows, err := s.db.QueryContext(ctx, query, transIDs)
+	rows, err := s.pool.Query(ctx, query, transIDs)
 	if err != nil {
 		return nil, fmt.Errorf("query transformations: %w", err)
 	}
@@ -406,7 +407,7 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 }
 
 // insertTransformationsFromPipeline extracts and inserts transformations from a pipeline config
-func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context, tx *sql.Tx, p models.PipelineConfig) ([]uuid.UUID, error) {
+func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) ([]uuid.UUID, error) {
 	var transformationIDs []uuid.UUID
 
 	// Deduplication transformation (from topics)

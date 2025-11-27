@@ -2,16 +2,16 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // insertConnectionWithConfig inserts a connection with the given config
-func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx *sql.Tx, connType string, config map[string]interface{}) (uuid.UUID, error) {
+func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx pgx.Tx, connType string, config map[string]interface{}) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to marshal connection config",
@@ -21,7 +21,7 @@ func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx *sq
 	}
 
 	var connID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO connections (type, config)
 		VALUES ($1, $2)
 		RETURNING id
@@ -37,7 +37,7 @@ func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx *sq
 }
 
 // updateConnectionWithConfig updates an existing connection with the given config
-func (s *PostgresStorage) updateConnectionWithConfig(ctx context.Context, tx *sql.Tx, connID uuid.UUID, config map[string]interface{}) error {
+func (s *PostgresStorage) updateConnectionWithConfig(ctx context.Context, tx pgx.Tx, connID uuid.UUID, config map[string]interface{}) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to marshal connection config",
@@ -46,7 +46,7 @@ func (s *PostgresStorage) updateConnectionWithConfig(ctx context.Context, tx *sq
 		return fmt.Errorf("marshal connection config: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		UPDATE connections
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2

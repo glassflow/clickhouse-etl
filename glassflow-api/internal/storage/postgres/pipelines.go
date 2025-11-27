@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -47,7 +47,7 @@ func (s *PostgresStorage) GetPipeline(ctx context.Context, id string) (*models.P
 
 // GetPipelines retrieves all pipelines
 func (s *PostgresStorage) GetPipelines(ctx context.Context) ([]models.PipelineConfig, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.pool.Query(ctx, `
 		SELECT id, name, status, source_id, sink_id, transformation_ids, metadata, created_at, updated_at
 		FROM pipelines
 		ORDER BY created_at DESC
@@ -124,14 +124,14 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		slog.String("pipeline_id", p.ID),
 		slog.String("pipeline_name", p.Name))
 
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to begin transaction",
 			slog.String("pipeline_id", p.ID),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	// Insert Kafka connection and source
 	sourceID, err := s.insertKafkaSource(ctx, tx, p)
@@ -170,7 +170,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 	}
 
 	// Insert pipeline
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		INSERT INTO pipelines (id, name, status, source_id, sink_id, transformation_ids, metadata, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, insertData.metadataJSON, insertData.createdAt, insertData.updatedAt)
@@ -198,7 +198,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return fmt.Errorf("insert schema: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		s.logger.ErrorContext(ctx, "failed to commit transaction",
 			slog.String("pipeline_id", p.ID),
 			slog.String("error", err.Error()))
@@ -222,19 +222,19 @@ func (s *PostgresStorage) UpdatePipelineStatus(ctx context.Context, id string, s
 		return err
 	}
 
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to begin transaction",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	statusStr := string(status.OverallStatus)
 	now := time.Now().UTC()
 
-	result, err := tx.ExecContext(ctx, `
+	commandTag, err := tx.Exec(ctx, `
 		UPDATE pipelines
 		SET status = $1, updated_at = $2
 		WHERE id = $3
@@ -247,14 +247,14 @@ func (s *PostgresStorage) UpdatePipelineStatus(ctx context.Context, id string, s
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
-	if err := checkRowsAffected(result); err != nil {
+	if err := checkRowsAffected(commandTag.RowsAffected()); err != nil {
 		s.logger.ErrorContext(ctx, "pipeline not found for status update",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
 		return err
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		s.logger.ErrorContext(ctx, "failed to commit transaction",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
@@ -308,18 +308,18 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	// Get old transformation IDs
 	oldTransformationIDs := handleTransformationIDs(oldRow.transformationIDsPtr)
 
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to begin transaction",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	// Get connection IDs from existing source and sink
 	var kafkaConnID, chConnID uuid.UUID
-	err = tx.QueryRowContext(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT connection_id FROM sources WHERE id = $1
 	`, oldRow.sourceID).Scan(&kafkaConnID)
 	if err != nil {
@@ -330,7 +330,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		return fmt.Errorf("get kafka connection ID: %w", err)
 	}
 
-	err = tx.QueryRowContext(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT connection_id FROM sinks WHERE id = $1
 	`, oldRow.sinkID).Scan(&chConnID)
 	if err != nil {
@@ -378,7 +378,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	}
 
 	// Update pipeline
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		UPDATE pipelines
 		SET name = $1, status = $2, transformation_ids = $3, metadata = $4, updated_at = $5
 		WHERE id = $6
@@ -407,7 +407,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		return fmt.Errorf("update schema: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		s.logger.ErrorContext(ctx, "failed to commit transaction",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
@@ -431,7 +431,7 @@ func (s *PostgresStorage) PatchPipelineName(ctx context.Context, id, name string
 		return err
 	}
 
-	result, err := s.db.ExecContext(ctx, `
+	commandTag, err := s.pool.Exec(ctx, `
 		UPDATE pipelines
 		SET name = $1, updated_at = NOW()
 		WHERE id = $2
@@ -444,7 +444,7 @@ func (s *PostgresStorage) PatchPipelineName(ctx context.Context, id, name string
 		return fmt.Errorf("update pipeline name: %w", err)
 	}
 
-	if err := checkRowsAffected(result); err != nil {
+	if err := checkRowsAffected(commandTag.RowsAffected()); err != nil {
 		s.logger.ErrorContext(ctx, "pipeline not found for name update",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
@@ -476,7 +476,7 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 		return fmt.Errorf("marshal metadata: %w", err)
 	}
 
-	result, err := s.db.ExecContext(ctx, `
+	commandTag, err := s.pool.Exec(ctx, `
 		UPDATE pipelines
 		SET metadata = $1, updated_at = NOW()
 		WHERE id = $2
@@ -488,7 +488,7 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 		return fmt.Errorf("update pipeline metadata: %w", err)
 	}
 
-	if err := checkRowsAffected(result); err != nil {
+	if err := checkRowsAffected(commandTag.RowsAffected()); err != nil {
 		s.logger.ErrorContext(ctx, "pipeline not found for metadata update",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
@@ -533,7 +533,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 
 	// Get connection IDs from source and sink
 	var kafkaConnID, chConnID uuid.UUID
-	err = s.db.QueryRowContext(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		SELECT connection_id FROM sources WHERE id = $1
 	`, row.sourceID).Scan(&kafkaConnID)
 	if err != nil {
@@ -544,7 +544,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 		return fmt.Errorf("get kafka connection ID: %w", err)
 	}
 
-	err = s.db.QueryRowContext(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		SELECT connection_id FROM sinks WHERE id = $1
 	`, row.sinkID).Scan(&chConnID)
 	if err != nil {
@@ -556,18 +556,18 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	}
 
 	// Begin transaction for atomic deletion
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to begin transaction",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	// 1. Delete transformations (no foreign key constraints)
 	if len(transformationIDs) > 0 {
-		_, err = tx.ExecContext(ctx, `
+		_, err = tx.Exec(ctx, `
 			DELETE FROM transformations WHERE id = ANY($1)
 		`, transformationIDs)
 		if err != nil {
@@ -579,7 +579,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	}
 
 	// 2. Delete pipeline (CASCADE will delete schemas and pipeline_history)
-	result, err := tx.ExecContext(ctx, `
+	commandTag, err := tx.Exec(ctx, `
 		DELETE FROM pipelines WHERE id = $1
 	`, pipelineID)
 	if err != nil {
@@ -589,7 +589,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 		return fmt.Errorf("delete pipeline: %w", err)
 	}
 
-	if err := checkRowsAffected(result); err != nil {
+	if err := checkRowsAffected(commandTag.RowsAffected()); err != nil {
 		s.logger.ErrorContext(ctx, "pipeline not found for deletion",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
@@ -597,7 +597,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	}
 
 	// 3. Delete sources (no longer referenced by pipeline)
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		DELETE FROM sources WHERE id = $1
 	`, row.sourceID)
 	if err != nil {
@@ -609,7 +609,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	}
 
 	// 4. Delete sinks (no longer referenced by pipeline)
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		DELETE FROM sinks WHERE id = $1
 	`, row.sinkID)
 	if err != nil {
@@ -621,7 +621,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	}
 
 	// 5. Delete connections (no longer referenced by sources/sinks)
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.Exec(ctx, `
 		DELETE FROM connections WHERE id = $1
 	`, kafkaConnID)
 	if err != nil {
@@ -634,7 +634,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 
 	// Only delete ClickHouse connection if it's different from Kafka connection
 	if chConnID != kafkaConnID {
-		_, err = tx.ExecContext(ctx, `
+		_, err = tx.Exec(ctx, `
 			DELETE FROM connections WHERE id = $1
 		`, chConnID)
 		if err != nil {
@@ -647,7 +647,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	}
 
 	// Commit transaction
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		s.logger.ErrorContext(ctx, "failed to commit transaction",
 			slog.String("pipeline_id", id),
 			slog.String("error", err.Error()))
@@ -666,7 +666,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 // ------------------------------------------------------------------------------------------------
 
 // insertKafkaSource inserts Kafka connection and source
-func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx *sql.Tx, p models.PipelineConfig) (uuid.UUID, error) {
+func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
 	kafkaConnConfig := map[string]interface{}{
 		"kafka_connection_params": p.Ingestor.KafkaConnectionParams,
 		"kafka_topics":            p.Ingestor.KafkaTopics,
@@ -686,7 +686,7 @@ func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx *sql.Tx, p m
 }
 
 // updateKafkaSource updates Kafka connection and source
-func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx *sql.Tx, kafkaConnID uuid.UUID, sourceID uuid.UUID, p models.PipelineConfig) error {
+func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafkaConnID uuid.UUID, sourceID uuid.UUID, p models.PipelineConfig) error {
 	kafkaConnConfig := map[string]interface{}{
 		"kafka_connection_params": p.Ingestor.KafkaConnectionParams,
 		"kafka_topics":            p.Ingestor.KafkaTopics,
@@ -706,7 +706,7 @@ func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx *sql.Tx, kaf
 }
 
 // insertClickHouseSink inserts ClickHouse connection and sink
-func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx *sql.Tx, p models.PipelineConfig) (uuid.UUID, error) {
+func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
 	chConnConfig := map[string]interface{}{
 		"clickhouse_connection_params": p.Sink.ClickHouseConnectionParams,
 		"batch":                        p.Sink.Batch,
@@ -726,7 +726,7 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx *sql.Tx, 
 }
 
 // updateClickHouseSink updates ClickHouse connection and sink
-func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx *sql.Tx, chConnID uuid.UUID, sinkID uuid.UUID, p models.PipelineConfig) error {
+func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, chConnID uuid.UUID, sinkID uuid.UUID, p models.PipelineConfig) error {
 	chConnConfig := map[string]interface{}{
 		"clickhouse_connection_params": p.Sink.ClickHouseConnectionParams,
 		"batch":                        p.Sink.Batch,
@@ -854,7 +854,7 @@ func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.U
 	var row pipelineRow
 	var transformationIDsArray pgtype.Array[pgtype.UUID]
 
-	err := s.db.QueryRowContext(ctx, `
+	err := s.pool.QueryRow(ctx, `
 		SELECT id, name, status, source_id, sink_id, transformation_ids, metadata, created_at, updated_at
 		FROM pipelines
 		WHERE id = $1
@@ -870,7 +870,7 @@ func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.U
 		&row.updatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if err == pgx.ErrNoRows {
 			s.logger.DebugContext(ctx, "pipeline not found",
 				slog.String("pipeline_id", pipelineID.String()))
 			return nil, service.ErrPipelineNotExists
