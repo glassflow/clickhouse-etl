@@ -80,10 +80,10 @@ CREATE TABLE schemas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id UUID NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     version TEXT NOT NULL,
-    active schema_status NOT NULL DEFAULT 'active',
+    active schema_status NOT NULL DEFAULT 'Active',
     schema_data JSONB NOT NULL, -- Full schema JSON matching the provided structure
     vault_config JSONB DEFAULT '{}',
-    credential_type credential_type NOT NULL DEFAULT 'plain',
+    credential_type credential_type NOT NULL DEFAULT 'Plain',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(pipeline_id, version)
