@@ -140,8 +140,8 @@ func TestTransformer_Transform(t *testing.T) {
 					Type:         "string",
 				},
 			},
-			input:    `{"_x40timestamp":"2025-10-20 08:25:44.068833","path":"/g/collect","request_query":"cid=123456&sct=5&ep.event_id=999&dt=Test%20Page&cu=USD&ep.user_data.email=test@example.com&pr1=item1","http_user_agent":"Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"}`,
-			expected: `{"browser":"Unknown","client_id":"123456","currency":"USD","date":"2025-10-20","device":"Mobile","event_id":"999","has_ecommerce":1,"has_enhanced_conversions":1,"os":"macOS","page_title":"Test Page","request_type":"collect","session_count":5}`,
+			input:    `{"_x40timestamp":"2025-10-20 08:25:44.068833","path":"/g/collect","request_query":"cid=123456&sct=5&ep.event_id=999&dt=Test%20Page&cu=USD&ep.user_data.email=test@example.com&pr1=item1","http_user_agent":"Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"}`,
+			expected: `{"browser":"Safari","client_id":"123456","currency":"USD","date":"2025-10-20","device":"Mobile","event_id":"999","has_ecommerce":1,"has_enhanced_conversions":1,"os":"macOS","page_title":"Test Page","request_type":"collect","session_count":5}`,
 			wantErr:  false,
 		},
 	}
