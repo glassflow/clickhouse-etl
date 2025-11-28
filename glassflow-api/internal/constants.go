@@ -145,6 +145,13 @@ const (
 	NatsDefaultFetchMaxWait = 1 * time.Second
 	NatsDefaultAckWait      = 60 * time.Second
 
+	// Postgres client constants
+	PostgresConnectionRetries = 12
+	PostgresInitialRetryDelay = 1 * time.Second
+	PostgresMaxRetryDelay     = 30 * time.Second
+	PostgresMaxConnectionWait = 2 * time.Minute
+	PostgresConnectionTimeout = 1 * time.Minute
+
 	// Kafka consumer constants
 	ConsumerGroupNamePrefix = "glassflow-consumer-group"
 	ClientID                = "glassflow-consumer"
