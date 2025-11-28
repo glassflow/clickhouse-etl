@@ -64,7 +64,7 @@ CREATE TABLE pipelines (
     sink_id UUID NOT NULL REFERENCES sinks(id) ON DELETE RESTRICT,
     transformation_ids UUID[] DEFAULT '{}',
     metadata JSONB DEFAULT '{}',
-    version TEXT DEFAULT '1.0.0',
+    version TEXT DEFAULT 'v2',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
