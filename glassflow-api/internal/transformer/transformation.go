@@ -23,10 +23,6 @@ type Transformer struct {
 
 // NewTransformer creates a new Transformer and compiles all expressions
 func NewTransformer(transformations []TransformationConfig) (*Transformer, error) {
-	if len(transformations) == 0 {
-		return nil, fmt.Errorf("transformations cannot be empty")
-	}
-
 	compiledExpressions := make([]*vm.Program, len(transformations))
 	for i, transformation := range transformations {
 		program, err := expr.Compile(transformation.Expr, expr.Function("concat", concat))
@@ -44,12 +40,15 @@ func NewTransformer(transformations []TransformationConfig) (*Transformer, error
 
 // Transform applies transformations to input bytes and returns transformed bytes
 func (t *Transformer) Transform(inputBytes []byte) ([]byte, error) {
-	var inputData map[string]interface{}
+	if len(t.compiledExpressions) == 0 {
+		return inputBytes, nil
+	}
+	var inputData map[string]any
 	if err := json.Unmarshal(inputBytes, &inputData); err != nil {
 		return nil, fmt.Errorf("unmarshal input data: %w", err)
 	}
 
-	outputData := make(map[string]interface{})
+	outputData := make(map[string]any)
 	for i, transformation := range t.Transformations {
 		result, err := expr.Run(t.compiledExpressions[i], inputData)
 		if err != nil {
@@ -81,7 +80,7 @@ func concat(args ...any) (any, error) {
 	return builder.String(), nil
 }
 
-func convertType(value interface{}, targetType string) (interface{}, error) {
+func convertType(value any, targetType string) (any, error) {
 	switch targetType {
 	case "string":
 		return cast.ToStringE(value)
