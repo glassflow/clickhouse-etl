@@ -17,12 +17,6 @@ CREATE TYPE schema_status AS ENUM (
     'Invalid'
 );
 
--- Create pipeline status enum
-CREATE TYPE credential_type AS ENUM (
-    'Plain',
-    'Vault'
-    );
-
 -- Connections table
 CREATE TABLE connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -82,8 +76,6 @@ CREATE TABLE schemas (
     version TEXT NOT NULL,
     active schema_status NOT NULL DEFAULT 'Active',
     schema_data JSONB NOT NULL, -- Full schema JSON matching the provided structure
-    vault_config JSONB DEFAULT '{}',
-    credential_type credential_type NOT NULL DEFAULT 'Plain',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(pipeline_id, version)
@@ -93,6 +85,6 @@ CREATE TABLE schemas (
 CREATE TABLE pipeline_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id UUID NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
-    metadata JSONB DEFAULT '{}',
+    event JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
