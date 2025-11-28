@@ -20,6 +20,7 @@ import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsMo
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
+import { PipelineDetailsSidebar, SidebarSection, getSidebarItems } from './PipelineDetailsSidebar'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -29,6 +30,9 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   // active step - determines which step is currently being rendered in the standalone step renderer
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
+
+  // Active sidebar section - determines which section is highlighted in the sidebar
+  const [activeSection, setActiveSection] = useState<SidebarSection | null>('monitor')
 
   // Animation states for sequential appearance
   const [showHeader, setShowHeader] = useState(false)
@@ -190,7 +194,28 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id, refreshPipelineData, operations])
 
-  // set active step so that the standalone step renderer can be rendered
+  // Handle sidebar section click - sets both the active section and the active step
+  const handleSectionClick = (section: SidebarSection) => {
+    // Prevent section clicks when editing is disabled (but allow in demo mode for viewing)
+    if (isEditingDisabled && !demoMode && section !== 'monitor') {
+      return
+    }
+
+    setActiveSection(section)
+
+    // Get the sidebar items to find the step key for this section
+    const items = getSidebarItems(pipeline)
+    const item = items.find((i) => i.key === section)
+
+    if (item?.stepKey) {
+      setActiveStep(item.stepKey)
+    } else {
+      // For sections without a step key (like 'monitor' or 'filter'), close any open step
+      setActiveStep(null)
+    }
+  }
+
+  // Set active step directly (used by the transformation section cards)
   const handleStepClick = (step: StepKeys) => {
     // Prevent step clicks when editing is disabled (but allow in demo mode for viewing)
     if (isEditingDisabled && !demoMode) {
@@ -198,11 +223,20 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
 
     setActiveStep(step)
+
+    // Also update the sidebar section to match the clicked step
+    const items = getSidebarItems(pipeline)
+    const item = items.find((i) => i.stepKey === step)
+    if (item) {
+      setActiveSection(item.key)
+    }
   }
 
   // close the standalone step renderer
   const handleCloseStep = () => {
     setActiveStep(null)
+    // When closing a step, go back to monitor view
+    setActiveSection('monitor')
   }
 
   // redirect to pipelines list after deletion
@@ -258,7 +292,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }
 
-  // Section selection highlighting
+  // Section selection highlighting - determine which overview card should be highlighted
   const SOURCE_STEPS = new Set<StepKeys>([StepKeys.KAFKA_CONNECTION])
   const TRANSFORMATION_STEPS = new Set<StepKeys>([
     StepKeys.TOPIC_SELECTION_1,
@@ -275,51 +309,87 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const isSinkSelected = activeStep ? SINK_STEPS.has(activeStep) : false
 
   return (
-    <div>
-      {/* Header Section - Appears first */}
-      <PipelineDetailsHeader
-        pipeline={pipeline}
-        onPipelineUpdate={handlePipelineUpdate}
-        onPipelineDeleted={handlePipelineDeleted}
-        showHeader={showHeader}
-        onManageTags={openTagsModal}
-        tags={pipeline.metadata?.tags}
-      />
-
-      {/* Status Overview Section - Appears second */}
-      <PipelineStatusOverviewSection pipeline={pipeline} showStatusOverview={showStatusOverview} />
-
-      {/* Configuration Section - Appears third */}
+    <div className="container mx-auto px-4 sm:px-0">
+      {/* Two-column layout: Sidebar extends to top + Content (Header + Main) */}
       <div
         className={cn(
-          'flex flex-row gap-4 items-stretch transition-all duration-750 ease-out',
+          'flex flex-row gap-6 sm:gap-8 w-full py-4 transition-all duration-750 ease-out',
           showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
         )}
       >
-        <KafkaConnectionSection
-          disabled={isEditingDisabled && !demoMode}
-          selected={isSourceSelected}
-          onStepClick={handleStepClick}
-        />
-        <TransformationSection
+        {/* Left Sidebar - extends from top */}
+        <PipelineDetailsSidebar
           pipeline={pipeline}
-          onStepClick={handleStepClick}
+          activeSection={activeSection}
+          onSectionClick={handleSectionClick}
           disabled={isEditingDisabled && !demoMode}
-          validation={{
-            kafkaValidation: kafkaValidation,
-            topicsValidation: topicsValidation,
-            joinValidation: joinValidation,
-            deduplicationValidation: deduplicationValidation,
-            clickhouseConnectionValidation: clickhouseConnectionValidation,
-            clickhouseDestinationValidation: clickhouseDestinationValidation,
-          }}
-          activeStep={activeStep}
         />
-        <ClickhouseConnectionSection
-          disabled={isEditingDisabled && !demoMode}
-          selected={isSinkSelected}
-          onStepClick={handleStepClick}
-        />
+
+        {/* Right Content Area - contains Header + Main Content */}
+        <div className="grow flex flex-col gap-4">
+          {/* Header Section - contained within right column */}
+          <PipelineDetailsHeader
+            pipeline={pipeline}
+            onPipelineUpdate={handlePipelineUpdate}
+            onPipelineDeleted={handlePipelineDeleted}
+            showHeader={showHeader}
+            onManageTags={openTagsModal}
+            tags={pipeline.metadata?.tags}
+          />
+
+          {/* Main Content Area */}
+          <div className="grow">
+            {/* Show Status Overview when 'monitor' is selected and no step is active */}
+            {activeSection === 'monitor' && !activeStep && (
+              <>
+                <PipelineStatusOverviewSection pipeline={pipeline} showStatusOverview={showStatusOverview} />
+
+                {/* Pipeline Configuration Overview - shows the visual representation of the pipeline */}
+                <div
+                  className={cn(
+                    'flex flex-row gap-4 items-stretch transition-all duration-750 ease-out mt-6',
+                    showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+                  )}
+                >
+                  <KafkaConnectionSection
+                    disabled={isEditingDisabled && !demoMode}
+                    selected={isSourceSelected}
+                    onStepClick={handleStepClick}
+                  />
+                  <TransformationSection
+                    pipeline={pipeline}
+                    onStepClick={handleStepClick}
+                    disabled={isEditingDisabled && !demoMode}
+                    validation={{
+                      kafkaValidation: kafkaValidation,
+                      topicsValidation: topicsValidation,
+                      joinValidation: joinValidation,
+                      deduplicationValidation: deduplicationValidation,
+                      clickhouseConnectionValidation: clickhouseConnectionValidation,
+                      clickhouseDestinationValidation: clickhouseDestinationValidation,
+                    }}
+                    activeStep={activeStep}
+                  />
+                  <ClickhouseConnectionSection
+                    disabled={isEditingDisabled && !demoMode}
+                    selected={isSinkSelected}
+                    onStepClick={handleStepClick}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Render the standalone step renderer when a step is active */}
+            {activeStep && (
+              <StandaloneStepRenderer
+                stepKey={activeStep}
+                onClose={handleCloseStep}
+                pipeline={pipeline}
+                onPipelineStatusUpdate={handlePipelineStatusUpdate}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       <PipelineTagsModal
@@ -330,16 +400,6 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         onCancel={closeTagsModal}
         isSaving={isSavingTags}
       />
-
-      {/* Render the standalone step renderer when a step is active */}
-      {activeStep && (
-        <StandaloneStepRenderer
-          stepKey={activeStep}
-          onClose={handleCloseStep}
-          pipeline={pipeline}
-          onPipelineStatusUpdate={handlePipelineStatusUpdate}
-        />
-      )}
     </div>
   )
 }
