@@ -625,8 +625,9 @@ func GetKafkaConsumerGroupName(pipelineID string) string {
 
 func GetNATSConsumerName(pipelineID string, componentType string, streamType string) string {
 	componentAbbr := map[string]string{
-		"sink": "s",
-		"join": "j",
+		"sink":  "s",
+		"join":  "j",
+		"dedup": "d",
 	}
 	streamAbbr := map[string]string{
 		"input": "i",
@@ -650,4 +651,32 @@ func GetNATSJoinLeftConsumerName(pipelineID string) string {
 
 func GetNATSJoinRightConsumerName(pipelineID string) string {
 	return GetNATSConsumerName(pipelineID, "join", "right")
+}
+
+func GetNATSDedupConsumerName(pipelineID string) string {
+	return GetNATSConsumerName(pipelineID, "dedup", "input")
+}
+
+// GetDedupOutputStreamName generates the output stream name for a deduplicated topic
+// Format: gf-{hash}-{sanitized_topic}-dedup
+func GetDedupOutputStreamName(pipelineID, topicName string) string {
+	// Get the base ingestor stream name
+	baseStreamName := GetIngestorStreamName(pipelineID, topicName)
+
+	// Append -dedup suffix
+	dedupStreamName := baseStreamName + "-dedup"
+
+	// Truncate if too long to respect NATS limits
+	if len(dedupStreamName) > internal.MaxStreamNameLength {
+		// Remove enough characters to fit "-dedup" suffix
+		maxBaseLength := internal.MaxStreamNameLength - len("-dedup")
+		if maxBaseLength > 0 {
+			dedupStreamName = baseStreamName[:maxBaseLength] + "-dedup"
+		} else {
+			// Fallback to truncated name
+			dedupStreamName = baseStreamName[:internal.MaxStreamNameLength]
+		}
+	}
+
+	return dedupStreamName
 }

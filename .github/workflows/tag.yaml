@@ -59,13 +59,14 @@ jobs:
             ${{ steps.changelog.outputs.CHANGELOG }}
             
             ## Docker Images
-            
+
             The following Docker images are available with tag `${{ steps.tag.outputs.TAG_NAME }}`:
-            
+
             - `ghcr.io/glassflow/glassflow-etl-be:${{ steps.tag.outputs.TAG_NAME }}`
             - `ghcr.io/glassflow/glassflow-etl-ingestor:${{ steps.tag.outputs.TAG_NAME }}`
             - `ghcr.io/glassflow/glassflow-etl-join:${{ steps.tag.outputs.TAG_NAME }}`
             - `ghcr.io/glassflow/glassflow-etl-sink:${{ steps.tag.outputs.TAG_NAME }}`
+            - `ghcr.io/glassflow/glassflow-etl-dedup:${{ steps.tag.outputs.TAG_NAME }}`
             - `ghcr.io/glassflow/glassflow-etl-fe:${{ steps.tag.outputs.TAG_NAME }}`
           draft: false
           prerelease: false

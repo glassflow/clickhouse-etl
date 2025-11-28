@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v4"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type Deduplicator struct {
@@ -15,7 +15,10 @@ type Deduplicator struct {
 	ttl time.Duration
 }
 
-func NewDeduplicator(db *badger.DB, ttl time.Duration) *Deduplicator {
+func NewDeduplicator(
+	db *badger.DB,
+	ttl time.Duration,
+) *Deduplicator {
 	return &Deduplicator{
 		db:  db,
 		ttl: ttl,
@@ -25,8 +28,8 @@ func NewDeduplicator(db *badger.DB, ttl time.Duration) *Deduplicator {
 // Deduplicate filters out messages that have already been seen
 func (d *Deduplicator) Deduplicate(
 	ctx context.Context,
-	messages []*nats.Msg,
-	sendBatch func(ctx context.Context, messages []*nats.Msg) error,
+	messages []jetstream.Msg,
+	sendBatch func(ctx context.Context, messages []jetstream.Msg) error,
 ) error {
 	if len(messages) == 0 {
 		return nil
@@ -55,9 +58,9 @@ func (d *Deduplicator) Deduplicate(
 func (d *Deduplicator) deduplicateMessages(
 	ctx context.Context,
 	txn *badger.Txn,
-	messages []*nats.Msg,
-) ([]*nats.Msg, error) {
-	deduplicatedMessages := make([]*nats.Msg, 0, len(messages))
+	messages []jetstream.Msg,
+) ([]jetstream.Msg, error) {
+	deduplicatedMessages := make([]jetstream.Msg, 0, len(messages))
 	for _, msg := range messages {
 		select {
 		case <-ctx.Done():
@@ -66,7 +69,7 @@ func (d *Deduplicator) deduplicateMessages(
 		}
 
 		// Get the Nats-Msg-Id header set by the ingestor
-		msgID := msg.Header.Get("Nats-Msg-Id")
+		msgID := msg.Headers().Get("Nats-Msg-Id")
 		if msgID == "" {
 			deduplicatedMessages = append(deduplicatedMessages, msg)
 			continue
