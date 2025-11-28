@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
@@ -16,12 +15,12 @@ import (
 )
 
 type batchReader interface {
-	ReadBatchNoWait(ctx context.Context, batchSize int) ([]*nats.Msg, error)
-	ReadBatch(ctx context.Context, batchSize int, opts ...jetstream.FetchOpt) ([]*nats.Msg, error)
+	ReadBatchNoWait(ctx context.Context, batchSize int) ([]jetstream.Msg, error)
+	ReadBatch(ctx context.Context, batchSize int, opts ...jetstream.FetchOpt) ([]jetstream.Msg, error)
 }
 
 type batchWriter interface {
-	WriteBatch(ctx context.Context, messages []*nats.Msg) error
+	WriteBatch(ctx context.Context, messages []jetstream.Msg) error
 }
 
 type DedupService struct {
@@ -111,12 +110,12 @@ func (c *DedupService) handleShutdown(ctx context.Context) error {
 }
 
 // processMessages reads, deduplicates, and writes messages
-func (c *DedupService) processMessages(ctx context.Context, batchMessages []*nats.Msg) error {
+func (c *DedupService) processMessages(ctx context.Context, batchMessages []jetstream.Msg) error {
 	err := c.deduplicator.Deduplicate(
 		ctx,
 		batchMessages,
 		// Use a function to ensure atomic writes: only commit the KV transaction after successfully writing to the destination.
-		func(ctx context.Context, messages []*nats.Msg) error {
+		func(ctx context.Context, messages []jetstream.Msg) error {
 			err := c.writer.WriteBatch(ctx, messages)
 			if err != nil {
 				return fmt.Errorf("write batch: %w", err)
@@ -141,7 +140,7 @@ func (c *DedupService) processMessages(ctx context.Context, batchMessages []*nat
 	return nil
 }
 
-func (c *DedupService) ackMessages(_ context.Context, messages []*nats.Msg) error {
+func (c *DedupService) ackMessages(_ context.Context, messages []jetstream.Msg) error {
 	if len(messages) == 0 {
 		return nil
 	}

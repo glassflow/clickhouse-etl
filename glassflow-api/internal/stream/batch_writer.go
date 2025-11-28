@@ -41,7 +41,7 @@ func (w *NatsAsyncBatchWriter) WriteBatch(ctx context.Context, messages []jetstr
 
 	for _, msg := range messages {
 		natsMsgToPublish := &nats.Msg{
-			Subject: msg.Subject(),
+			Subject: w.publisher.GetSubject(),
 			Data:    msg.Data(),
 			Header:  msg.Headers(),
 		}
