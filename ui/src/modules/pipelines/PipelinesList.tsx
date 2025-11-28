@@ -287,7 +287,7 @@ export function PipelinesList({
 
         await terminatePipeline(pipelineId)
         setStatus('stopped')
-        resetAllPipelineState('', true)
+        resetAllPipelineState(0, true)
 
         // Track successful pipeline modification
         analytics.pipeline.modifySuccess({})

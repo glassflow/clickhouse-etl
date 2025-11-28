@@ -14,7 +14,7 @@ import { createStepsSlice, StepsSlice } from './steps.store'
 import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createDeduplicationSlice, DeduplicationSlice } from './deduplication.store'
 import { createJoinSlice, JoinSlice } from './join.store'
-import { createCoreSlice, CoreSlice, getTopicCountForOperation } from './core'
+import { createCoreSlice, CoreSlice } from './core'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -27,10 +27,10 @@ interface Store
     JoinSlice,
     CoreSlice {
   // Global reset function that can reset all slices
-  resetAllPipelineState: (operation: string, force?: boolean) => void
+  resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
   // Convenience methods for specific scenarios
-  resetForNewPipeline: (operation: string) => void
+  resetForNewPipeline: (topicCount: number) => void
   resetFormValidationStates: () => void
   clearAllUserData: () => void
 }
@@ -49,12 +49,11 @@ const useActualStore = create<Store>()(
       ...createCoreSlice(set, get, store),
 
       // Global reset function that resets all slices
-      resetAllPipelineState: (operation: string, force = false) => {
+      resetAllPipelineState: (topicCount: number, force = false) => {
         const state = get()
         const currentConfig = state.coreStore
-        const topicCount = getTopicCountForOperation(operation)
 
-        if (force || (currentConfig.isDirty && operation !== currentConfig.operationsSelected.operation)) {
+        if (force || (currentConfig.isDirty && topicCount !== currentConfig.topicCount)) {
           // Complete reset: Use individual store reset methods for comprehensive cleanup
           // Reset individual stores using their dedicated reset methods
           state.kafkaStore.resetKafkaStore()
@@ -65,11 +64,11 @@ const useActualStore = create<Store>()(
           state.clickhouseDestinationStore.resetDestinationStore()
           state.stepsStore.resetStepsStore()
 
-          // Reset core store with new operation
+          // Reset core store with new topic count
           state.coreStore.enterCreateMode()
-          state.coreStore.setOperationsSelected({ operation })
+          state.coreStore.setTopicCount(topicCount)
 
-          // Set correct topic count for the operation
+          // Set correct topic count in topics store
           set((state) => ({
             topicsStore: {
               ...state.topicsStore,
@@ -77,14 +76,9 @@ const useActualStore = create<Store>()(
             },
           }))
         } else {
-          // Partial reset: Only change operation type
+          // Partial reset: Only change topic count
+          state.coreStore.setTopicCount(topicCount)
           set((state) => ({
-            coreStore: {
-              ...state.coreStore,
-              operationsSelected: {
-                operation: operation,
-              },
-            },
             topicsStore: {
               ...state.topicsStore,
               topicCount: topicCount,
@@ -94,11 +88,11 @@ const useActualStore = create<Store>()(
       },
 
       // Convenience method: Reset specifically for new pipeline creation
-      resetForNewPipeline: (operation: string) => {
+      resetForNewPipeline: (topicCount: number) => {
         const state = get()
 
         // Always do a complete reset for new pipelines
-        state.resetAllPipelineState(operation, true)
+        state.resetAllPipelineState(topicCount, true)
 
         // Additional cleanup specific to new pipeline creation
         Cookies.remove('isDirty')

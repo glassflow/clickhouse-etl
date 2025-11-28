@@ -173,12 +173,6 @@ export function Header() {
   const runtimeEnv = getRuntimeEnv()
   const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
 
-  // Debug logging to help diagnose auth issues
-  if (typeof window !== 'undefined') {
-    console.debug('[Header] Runtime env:', runtimeEnv)
-    console.debug('[Header] Auth enabled:', isAuthEnabled)
-  }
-
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -271,7 +265,7 @@ export function Header() {
 
     if (result === ModalResult.YES) {
       // Clear the pipeline state
-      resetPipelineState('', true)
+      resetPipelineState(0, true)
 
       try {
         // Check if there are any existing pipelines
@@ -293,7 +287,7 @@ export function Header() {
   }
 
   return (
-    <div className="h-16 w-full max-w-[var(--main-container-width)] mx-auto">
+    <div className="h-16 w-full container mx-auto px-4 sm:px-0">
       <div className="container h-full px-4 sm:px-6 lg:px-8">
         <div className="flex flex-row justify-between items-center h-full">
           {/* Left Section: Mobile Menu + Desktop Logo + Navigation */}
