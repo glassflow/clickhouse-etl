@@ -39,6 +39,7 @@ func TestEditPipeline_Success(t *testing.T) {
 			"connection_params": map[string]interface{}{
 				"brokers":   []string{"localhost:9092"},
 				"mechanism": "NO_AUTH",
+				"protocol":  "SASL_PLAINTEXT",
 			},
 			"topics": []map[string]interface{}{
 				{
@@ -116,6 +117,7 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 			"connection_params": map[string]interface{}{
 				"brokers":   []string{"localhost:9092"},
 				"mechanism": "NO_AUTH",
+				"protocol":  "SASL_PLAINTEXT",
 			},
 			"topics": []map[string]interface{}{
 				{

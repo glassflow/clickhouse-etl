@@ -197,7 +197,7 @@ func configureAuth(conn models.KafkaConnectionParamsConfig) ([]kgo.Opt, error) {
 		opts = append(opts, kgo.SASL(auth))
 	}
 
-	if conn.SASLTLSEnable {
+	if conn.SASLProtocol == internal.SASLProtocolSASLSSL || conn.SASLProtocol == internal.SASLProtocolSSL {
 		tlsCfg, err := MakeTLSConfigFromStrings(conn.TLSCert, conn.TLSKey, conn.TLSRoot)
 		if err != nil {
 			return nil, fmt.Errorf("make tls config: %w", err)
