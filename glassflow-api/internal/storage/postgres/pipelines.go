@@ -164,6 +164,12 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return fmt.Errorf("insert schema: %w", err)
 	}
 
+	// Insert pipeline history event
+	err = s.insertPipelineHistoryEvent(ctx, tx, insertData.pipelineID, p, nil)
+	if err != nil {
+		return fmt.Errorf("insert pipeline history event: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
@@ -317,6 +323,12 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		return fmt.Errorf("update schema: %w", err)
 	}
 
+	// Insert pipeline history event
+	err = s.insertPipelineHistoryEvent(ctx, tx, existingData.pipelineID, newCfg, nil)
+	if err != nil {
+		return fmt.Errorf("insert pipeline history event: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
@@ -382,6 +394,43 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 
 	s.logger.InfoContext(ctx, "pipeline metadata updated",
 		slog.String("pipeline_id", id))
+
+	return nil
+}
+
+// insertPipelineHistoryEvent inserts a pipeline history event
+func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, pipeline models.PipelineConfig, errors []string) error {
+	// Marshal entire pipeline to JSON
+	pipelineJSON, err := json.Marshal(pipeline)
+	if err != nil {
+		return fmt.Errorf("marshal pipeline for history: %w", err)
+	}
+
+	// Unmarshal pipeline JSON into a map to store as nested JSON object
+	var pipelineObj map[string]interface{}
+	if err := json.Unmarshal(pipelineJSON, &pipelineObj); err != nil {
+		return fmt.Errorf("unmarshal pipeline for history: %w", err)
+	}
+
+	// Build event object with nested pipeline JSON
+	event := map[string]interface{}{
+		"pipeline": pipelineObj,
+		"status":   string(pipeline.Status.OverallStatus),
+		"errors":   errors,
+	}
+
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal pipeline history event: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO pipeline_history (pipeline_id, event)
+		VALUES ($1, $2)
+	`, pipelineID, eventJSON)
+	if err != nil {
+		return fmt.Errorf("insert pipeline history event: %w", err)
+	}
 
 	return nil
 }

@@ -85,6 +85,6 @@ CREATE TABLE schemas (
 CREATE TABLE pipeline_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id UUID NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
-    metadata JSONB DEFAULT '{}',
+    event JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
