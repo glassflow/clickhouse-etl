@@ -146,9 +146,9 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 
 	// Insert pipeline
 	_, err = tx.Exec(ctx, `
-		INSERT INTO pipelines (id, name, status, source_id, sink_id, transformation_ids, metadata, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, insertData.metadataJSON, insertData.createdAt, insertData.updatedAt)
+		INSERT INTO pipelines (id, name, status, source_id, sink_id, transformation_ids, metadata, version, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, insertData.metadataJSON, "v2", insertData.createdAt, insertData.updatedAt)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
@@ -305,9 +305,9 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	// Update pipeline
 	_, err = tx.Exec(ctx, `
 		UPDATE pipelines
-		SET name = $1, status = $2, transformation_ids = $3, metadata = $4, updated_at = $5
-		WHERE id = $6
-	`, updateData.name, updateData.status, updateData.transformationIDsArg, updateData.metadataJSON, updateData.updatedAt, updateData.pipelineID)
+		SET name = $1, status = $2, transformation_ids = $3, metadata = $4, version = $5, updated_at = $6
+		WHERE id = $7
+	`, updateData.name, updateData.status, updateData.transformationIDsArg, updateData.metadataJSON, "v2", updateData.updatedAt, updateData.pipelineID)
 	if err != nil {
 		return fmt.Errorf("update pipeline: %w", err)
 	}
