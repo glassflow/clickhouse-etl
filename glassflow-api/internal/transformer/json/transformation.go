@@ -1,4 +1,4 @@
-package transformer
+package json
 
 import (
 	"encoding/json"
