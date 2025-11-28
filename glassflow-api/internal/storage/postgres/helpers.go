@@ -9,11 +9,15 @@ import (
 	"github.com/google/uuid"
 )
 
+var (
+	ErrUUIDInvalid = fmt.Errorf("invalid UUID")
+)
+
 // parsePipelineID parses a pipeline ID string into a UUID
 func parsePipelineID(id string) (uuid.UUID, error) {
 	pipelineID, err := uuid.Parse(id)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid pipeline ID format: %w", err)
+		return uuid.Nil, ErrUUIDInvalid
 	}
 	return pipelineID, nil
 }
