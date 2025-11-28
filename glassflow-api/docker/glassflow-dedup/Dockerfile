@@ -10,4 +10,4 @@ RUN mkdir -p /tmp/logs/glassflow && chown 1001:1001 /tmp/logs/glassflow
 
 USER 1001
 
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/glassflow", "-role", "deduplicator"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/glassflow", "-role", "dedup"]
