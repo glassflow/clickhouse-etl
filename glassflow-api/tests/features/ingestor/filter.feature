@@ -64,6 +64,7 @@ Feature: Kafka Ingestor with Filter
                 "kafka_connection_params": {
                     "brokers": [],
                     "mechanism": "NO_AUTH",
+                    "protocol": "SASL_PLAINTEXT",
                     "username": "",
                     "password": "",
                     "root_ca": ""
@@ -155,6 +156,7 @@ Feature: Kafka Ingestor with Filter
                 "kafka_connection_params": {
                     "brokers": [],
                     "mechanism": "NO_AUTH",
+                    "protocol": "SASL_PLAINTEXT",
                     "username": "",
                     "password": "",
                     "root_ca": ""
