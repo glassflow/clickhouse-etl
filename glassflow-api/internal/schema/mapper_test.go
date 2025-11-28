@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 func TestNewSinkMapping(t *testing.T) {
