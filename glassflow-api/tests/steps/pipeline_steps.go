@@ -356,9 +356,19 @@ func (p *PipelineSteps) setupPipelineService() error {
 		return fmt.Errorf("create nats client: %w", err)
 	}
 
-	db, err := storage.New(context.Background(), "glassflow-pipeline-test", natsClient.JetStream())
+	// Setup Postgres container if not already set up
+	if p.postgresContainer == nil {
+		postgresContainer, err := testutils.StartPostgresContainer(context.Background())
+		if err != nil {
+			return fmt.Errorf("start postgres container: %w", err)
+		}
+		p.postgresContainer = postgresContainer
+		// Migrations are automatically run in StartPostgresContainer()
+	}
+
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log)
 	if err != nil {
-		return fmt.Errorf("create nats pipeline storage: %w", err)
+		return fmt.Errorf("create postgres pipeline storage: %w", err)
 	}
 
 	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)

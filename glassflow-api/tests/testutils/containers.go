@@ -6,11 +6,16 @@ import (
 	"math"
 	"net"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/docker/go-connections/nat"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/nats-io/nats.go"
 	"github.com/testcontainers/testcontainers-go"
 	chContainer "github.com/testcontainers/testcontainers-go/modules/clickhouse"
@@ -26,6 +31,9 @@ const (
 
 	KafkaContainerImage = "confluentinc/confluent-local:7.5.0"
 	KafkaPort           = "9093/tcp"
+
+	PostgresContainerImage = "postgres:15-alpine"
+	PostgresPort           = "5432/tcp"
 
 	starterScript = "/usr/sbin/testcontainers_start.sh"
 
@@ -309,6 +317,124 @@ func (k *KafkaContainer) Stop(ctx context.Context) error {
 	err := k.container.Terminate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to stop Kafka container %w", err)
+	}
+
+	return nil
+}
+
+// PostgresContainer wraps a Postgres testcontainer
+type PostgresContainer struct {
+	container testcontainers.Container
+	dsn       string
+}
+
+// StartPostgresContainer starts a Postgres container
+func StartPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
+	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // optional config
+		Name:         "testcontainers-postgres",
+		Image:        PostgresContainerImage,
+		ExposedPorts: []string{PostgresPort},
+		Env: map[string]string{
+			"POSTGRES_DB":       "glassflow_test",
+			"POSTGRES_USER":     "testuser",
+			"POSTGRES_PASSWORD": "testpass",
+		},
+		WaitingFor: wait.ForListeningPort(PostgresPort).
+			WithStartupTimeout(30 * time.Second),
+	}
+
+	container, err := testcontainers.GenericContainer(ctx,
+		testcontainers.GenericContainerRequest{ //nolint:exhaustruct // optional config
+			ContainerRequest: req,
+			Started:          true,
+			Reuse:            true,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start Postgres container: %w", err)
+	}
+
+	// Get mapped port
+	mappedPort, err := container.MappedPort(ctx, nat.Port(PostgresPort))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mapped port of Postgres container: %w", err)
+	}
+
+	// Build connection string
+	host, err := container.Host(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Postgres container host: %w", err)
+	}
+
+	dsn := fmt.Sprintf("postgres://testuser:testpass@%s:%s/glassflow_test?sslmode=disable",
+		host, mappedPort.Port())
+
+	// Run migrations to set up the database schema
+	if err := runMigrations(ctx, dsn); err != nil {
+		return nil, fmt.Errorf("run migrations: %w", err)
+	}
+
+	return &PostgresContainer{
+		container: container,
+		dsn:       dsn,
+	}, nil
+}
+
+// GetDSN returns the Postgres DSN
+func (p *PostgresContainer) GetDSN() string {
+	return p.dsn
+}
+
+// Stop stops the container
+func (p *PostgresContainer) Stop(ctx context.Context) error {
+	reuse := os.Getenv("GLASSFLOW_REUSE_TESTCONTAINERS")
+	if reuse == "true" {
+		return nil
+	}
+
+	err := p.container.Terminate(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to stop Postgres container: %w", err)
+	}
+
+	return nil
+}
+
+// runMigrations runs database migrations using golang-migrate
+func runMigrations(ctx context.Context, dsn string) error {
+	// Get the path to migrations directory relative to this file
+	// This file is at: glassflow-api/tests/testutils/containers.go
+	// Migrations are at: glassflow-api/migrations/
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return fmt.Errorf("failed to get current file path")
+	}
+
+	// Get the directory of this file (testutils/)
+	testutilsDir := filepath.Dir(filename)
+	// Go up two levels: testutils -> tests -> glassflow-api
+	projectRoot := filepath.Join(testutilsDir, "..", "..")
+	migrationsPath := filepath.Join(projectRoot, "migrations")
+
+	// Convert to absolute path and use file:// protocol
+	absPath, err := filepath.Abs(migrationsPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for migrations: %w", err)
+	}
+
+	// Use file:// protocol with absolute path
+	sourceURL := "file://" + absPath
+
+	// Create migrate instance
+	m, err := migrate.New(sourceURL, dsn)
+	if err != nil {
+		return fmt.Errorf("create migrate instance: %w", err)
+	}
+	defer m.Close()
+
+	// Apply all pending migrations
+	// ErrNoChange is expected when migrations are already applied (e.g., container reuse)
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("apply migrations: %w", err)
 	}
 
 	return nil

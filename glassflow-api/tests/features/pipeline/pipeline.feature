@@ -18,7 +18,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
+                "pipeline_id": "6038879f-cd67-5c2c-a261-1f46413838f7",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -63,15 +63,15 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00001",
+                            "consumer_group_name": "glassflow-consumer-group-6038879f-cd67-5c2c-a261-1f46413838f7",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-3e00534f-test_topic",
-                            "output_stream_subject": "gf-3e00534f-test_topic.input"
+                            "output_stream_id": "gf-c56aeff3-test_topic",
+                            "output_stream_subject": "gf-c56aeff3-test_topic.input"
                         }
                     ]
                 },
@@ -89,8 +89,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-3e00534f-test_topic",
-                    "nats_consumer_name": "gf-nats-si-3e00534f"
+                    "stream_id": "gf-c56aeff3-test_topic",
+                    "nats_consumer_name": "gf-nats-si-c56aeff3"
                 }
             }
             """
@@ -115,7 +115,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00002",
+                "pipeline_id": "8e26ed05-1c65-5d95-a286-2201078f95c5",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -178,22 +178,22 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_emails",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00002",
+                            "consumer_group_name": "glassflow-consumer-group-8e26ed05-1c65-5d95-a286-2201078f95c5",
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-609e6e0a-test_emails",
-                            "output_stream_subject": "gf-609e6e0a-test_emails.input"
+                            "output_stream_id": "gf-3f151721-test_emails",
+                            "output_stream_subject": "gf-3f151721-test_emails.input"
                         },
                         {
                             "name": "test_users",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00002",
+                            "consumer_group_name": "glassflow-consumer-group-8e26ed05-1c65-5d95-a286-2201078f95c5",
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-609e6e0a-test_users",
-                            "output_stream_subject": "gf-609e6e0a-test_users.input"
+                            "output_stream_id": "gf-3f151721-test_users",
+                            "output_stream_subject": "gf-3f151721-test_users.input"
                         }
                     ]
                 },
@@ -206,19 +206,19 @@ Feature: Kafka to CH pipeline
                             "join_key": "user_id",
                             "time_window": "1h",
                             "orientation": "left",
-                            "stream_id": "gf-609e6e0a-test_emails"
+                            "stream_id": "gf-3f151721-test_emails"
                         },
                         {
                             "source_id": "test_users",
                             "join_key": "id",
                             "time_window": "1h",
                             "orientation": "right",
-                            "stream_id": "gf-609e6e0a-test_users"
+                            "stream_id": "gf-3f151721-test_users"
                         }
                     ],
-                    "output_stream_id": "gf-609e6e0a-joined",
-                    "nats_left_consumer_name": "gf-nats-jl-609e6e0a",
-                    "nats_right_consumer_name": "gf-nats-jr-609e6e0a"
+                    "output_stream_id": "gf-3f151721-joined",
+                    "nats_left_consumer_name": "gf-nats-jl-3f151721",
+                    "nats_right_consumer_name": "gf-nats-jr-3f151721"
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -231,8 +231,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gf-609e6e0a-joined",
-                    "nats_consumer_name": "gf-nats-si-609e6e0a"
+                    "stream_id": "gf-3f151721-joined",
+                    "nats_consumer_name": "gf-nats-si-3f151721"
                 }
             }
             """
@@ -267,7 +267,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00003",
+                "pipeline_id": "af354ec4-a349-513a-922a-e2a58cc2b6db",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -330,28 +330,28 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_emails",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00003",
+                            "consumer_group_name": "glassflow-consumer-group-af354ec4-a349-513a-922a-e2a58cc2b6db",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "user_id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-a75779b0-test_emails",
-                            "output_stream_subject": "gf-a75779b0-test_emails.input"
+                            "output_stream_id": "gf-58bcb8e8-test_emails",
+                            "output_stream_subject": "gf-58bcb8e8-test_emails.input"
                         },
                         {
                             "name": "test_users",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00003",
+                            "consumer_group_name": "glassflow-consumer-group-af354ec4-a349-513a-922a-e2a58cc2b6db",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-a75779b0-test_users",
-                            "output_stream_subject": "gf-a75779b0-test_users.input"
+                            "output_stream_id": "gf-58bcb8e8-test_users",
+                            "output_stream_subject": "gf-58bcb8e8-test_users.input"
                         }
                     ]
                 },
@@ -364,19 +364,19 @@ Feature: Kafka to CH pipeline
                             "join_key": "user_id",
                             "time_window": "1h",
                             "orientation": "left",
-                            "stream_id": "gf-a75779b0-test_emails"
+                            "stream_id": "gf-58bcb8e8-test_emails"
                         },
                         {
                             "source_id": "test_users",
                             "join_key": "id",
                             "time_window": "1h",
                             "orientation": "right",
-                            "stream_id": "gf-a75779b0-test_users"
+                            "stream_id": "gf-58bcb8e8-test_users"
                         }
                     ],
-                    "output_stream_id": "gf-a75779b0-joined",
-                    "nats_left_consumer_name": "gf-nats-jl-a75779b0",
-                    "nats_right_consumer_name": "gf-nats-jr-a75779b0"
+                    "output_stream_id": "gf-58bcb8e8-joined",
+                    "nats_left_consumer_name": "gf-nats-jl-58bcb8e8",
+                    "nats_right_consumer_name": "gf-nats-jr-58bcb8e8"
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -389,8 +389,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gf-a75779b0-joined",
-                    "nats_consumer_name": "gf-nats-si-a75779b0"
+                    "stream_id": "gf-58bcb8e8-joined",
+                    "nats_consumer_name": "gf-nats-si-58bcb8e8"
                 }
             }
             """
@@ -432,7 +432,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00004",
+                "pipeline_id": "9a55db8d-d2e9-55a8-a4e3-4820b124a151",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -477,12 +477,12 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00004",
+                            "consumer_group_name": "glassflow-consumer-group-9a55db8d-d2e9-55a8-a4e3-4820b124a151",
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-13bea286-test_topic",
-                            "output_stream_subject": "gf-13bea286-test_topic.input"
+                            "output_stream_id": "gf-1ccde4cc-test_topic",
+                            "output_stream_subject": "gf-1ccde4cc-test_topic.input"
                         }
                     ]
                 },
@@ -500,8 +500,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-13bea286-test_topic",
-                    "nats_consumer_name": "gf-nats-si-13bea286"
+                    "stream_id": "gf-1ccde4cc-test_topic",
+                    "nats_consumer_name": "gf-nats-si-1ccde4cc"
                 }
             }
             """
@@ -528,7 +528,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00005",
+                "pipeline_id": "4e58aa0f-8800-564c-a936-27cf29e8f0fb",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -573,15 +573,15 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_measurments",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00005",
+                            "consumer_group_name": "glassflow-consumer-group-4e58aa0f-8800-564c-a936-27cf29e8f0fb",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-29bfc94d-test_measurments",
-                            "output_stream_subject": "gf-29bfc94d-test_measurments.input"
+                            "output_stream_id": "gf-1c63761f-test_measurments",
+                            "output_stream_subject": "gf-1c63761f-test_measurments.input"
                         }
                     ]
                 },
@@ -599,8 +599,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test"
                     },
-                    "stream_id": "gf-29bfc94d-test_measurments",
-                    "nats_consumer_name": "gf-nats-si-29bfc94d"
+                    "stream_id": "gf-1c63761f-test_measurments",
+                    "nats_consumer_name": "gf-nats-si-1c63761f"
                 }
             }
             """
@@ -632,7 +632,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00006",
+                "pipeline_id": "9c947608-2318-5b6e-99df-e1dc06068e2d",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -677,12 +677,12 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00006",
+                            "consumer_group_name": "glassflow-consumer-group-9c947608-2318-5b6e-99df-e1dc06068e2d",
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-859867ac-test_topic",
-                            "output_stream_subject": "gf-859867ac-test_topic.*",
+                            "output_stream_id": "gf-bd3e8842-test_topic",
+                            "output_stream_subject": "gf-bd3e8842-test_topic.*",
                             "replicas": 3
                         }
                     ]
@@ -701,8 +701,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-859867ac-test_topic",
-                    "nats_consumer_name": "gf-nats-si-859867ac"
+                    "stream_id": "gf-bd3e8842-test_topic",
+                    "nats_consumer_name": "gf-nats-si-bd3e8842"
                 }
             }
             """
@@ -732,7 +732,7 @@ Feature: Kafka to CH pipeline
         And a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-b00007",
+                "pipeline_id": "d8710de9-c72a-5129-9f4e-dba409e15716",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -777,12 +777,12 @@ Feature: Kafka to CH pipeline
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00007",
+                            "consumer_group_name": "glassflow-consumer-group-d8710de9-c72a-5129-9f4e-dba409e15716",
                             "deduplication": {
                                 "enabled": false
                             },
-                            "output_stream_id": "gf-92ff8558-test_topic",
-                            "output_stream_subject": "gf-92ff8558-test_topic.*",
+                            "output_stream_id": "gf-baeea748-test_topic",
+                            "output_stream_subject": "gf-baeea748-test_topic.*",
                             "replicas": 1
                         }
                     ]
@@ -801,8 +801,8 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-92ff8558-test_topic",
-                    "nats_consumer_name": "gf-nats-si-92ff8558"
+                    "stream_id": "gf-baeea748-test_topic",
+                    "nats_consumer_name": "gf-nats-si-baeea748"
                 }
             }
             """

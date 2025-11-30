@@ -59,6 +59,7 @@ export type StoreMode = 'create' | 'edit' | 'view'
 interface CoreStoreProps {
   pipelineId: string
   pipelineName: string
+  pipelineVersion: string | undefined // Track the version of the pipeline config
   operationsSelected: OperationsSelectedType
   outboundEventPreview: OutboundEventPreviewType
   analyticsConsent: boolean
@@ -84,6 +85,7 @@ interface CoreStore extends CoreStoreProps {
   markAsClean: () => void
   setPipelineId: (id: string) => void
   setPipelineName: (name: string) => void
+  setPipelineVersion: (version: string | undefined) => void
   resetPipelineState: (operation: string, force?: boolean) => void
   // New mode-related actions
   setMode: (mode: StoreMode) => void
@@ -115,6 +117,7 @@ export interface CoreSlice {
 export const initialCoreStore: CoreStoreProps = {
   pipelineId: '',
   pipelineName: '',
+  pipelineVersion: undefined,
   operationsSelected: {
     operation: '',
   },
@@ -143,6 +146,10 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
     setPipelineName: (name: string) =>
       set((state) => ({
         coreStore: { ...state.coreStore, pipelineName: name },
+      })),
+    setPipelineVersion: (version: string | undefined) =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, pipelineVersion: version },
       })),
     setOperationsSelected: (operations: OperationsSelectedType) =>
       set((state) => ({
@@ -219,6 +226,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           ...state.coreStore,
           pipelineId: config.pipeline_id,
           pipelineName: config.name,
+          pipelineVersion: config.version, // Store the version from the config
           isDirty: false,
         },
       }))
