@@ -59,7 +59,7 @@ func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 	existing, err := p.db.GetPipeline(ctx, cfg.ID)
 	if err != nil && !errors.Is(err, ErrPipelineNotExists) {
 		p.log.ErrorContext(ctx, "failed to check existing pipeline ID", "pipeline_id", cfg.ID, "error", err)
-		return fmt.Errorf("check existing pipeline ID: %w", err)
+		return err
 	}
 
 	if existing != nil {
