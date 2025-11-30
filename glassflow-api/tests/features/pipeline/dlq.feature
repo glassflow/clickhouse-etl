@@ -9,7 +9,7 @@ Feature: Working with DLQ
     Given a glassflow pipeline with next configuration:
             """json
             {
-                "pipeline_id": "kafka-to-clickhouse-pipeline-dfadfbad-aeec-43a9-9870-b7d5ac993ae7",
+                "pipeline_id": "307afd32-dc60-5e62-bb40-a4af094d860f",
                 "mapper": {
                     "type": "jsonToClickhouse",
                     "streams": {
@@ -55,15 +55,15 @@ Feature: Working with DLQ
                         {
                             "name": "test_topic",
                             "consumer_group_initial_offset": "earliest",
-                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-dfadfbad-aeec-43a9-9870-b7d5ac993ae7",
+                            "consumer_group_name": "glassflow-consumer-group-307afd32-dc60-5e62-bb40-a4af094d860f",
                             "deduplication": {
                                 "enabled": true,
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-d7fac70f-test_topic",
-                            "output_stream_subject": "gf-d7fac70f-test_topic.input"
+                            "output_stream_id": "gf-fac51ea6-test_topic",
+                            "output_stream_subject": "gf-fac51ea6-test_topic.input"
                         }
                     ]
                 },
@@ -82,25 +82,25 @@ Feature: Working with DLQ
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-d7fac70f-test_topic",
-                    "nats_consumer_name": "gf-nats-si-d7fac70f"
+                    "stream_id": "gf-fac51ea6-test_topic",
+                    "nats_consumer_name": "gf-nats-si-fac51ea6"
                 }
             }
             """
-    Then I publish a message to NATS stream "gf-d7fac70f-test_topic" with subject "gf-d7fac70f-test_topic.input"
+    Then I publish a message to NATS stream "gf-fac51ea6-test_topic" with subject "gf-fac51ea6-test_topic.input"
         """json
         {
           "id": "123",
           "name": "world"
         }
         """
-    Then I publish a message to NATS stream "gf-d7fac70f-DLQ" with subject "gf-d7fac70f-DLQ.failed"
+    Then I publish a message to NATS stream "gf-fac51ea6-DLQ" with subject "gf-fac51ea6-DLQ.failed"
     """json
         {
           "id": "123",
           "name": "world"
         }
         """
-    Then I send a POST request to "/api/v1/pipeline/kafka-to-clickhouse-pipeline-dfadfbad-aeec-43a9-9870-b7d5ac993ae7/dlq/purge"
-    Then NATS stream "gf-d7fac70f-test_topic" with subject "gf-d7fac70f-test_topic.input" should contain 1 events
-    Then NATS stream "gf-d7fac70f-DLQ" with subject "gf-d7fac70f-DLQ.failed" should contain 0 events
+    Then I send a POST request to "/api/v1/pipeline/307afd32-dc60-5e62-bb40-a4af094d860f/dlq/purge"
+    Then NATS stream "gf-fac51ea6-test_topic" with subject "gf-fac51ea6-test_topic.input" should contain 1 events
+    Then NATS stream "gf-fac51ea6-DLQ" with subject "gf-fac51ea6-DLQ.failed" should contain 0 events
