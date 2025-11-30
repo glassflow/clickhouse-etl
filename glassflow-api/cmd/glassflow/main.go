@@ -62,7 +62,9 @@ type config struct {
 	NATSServer         string        `default:"localhost:4222" split_words:"true"`
 	NATSMaxStreamAge   time.Duration `default:"168h" split_words:"true"`
 	NATSMaxStreamBytes int64         `default:"107374182400" split_words:"true"` // 100GB in bytes
-	NATSPipelineKV     string        `default:"glassflow-pipelines" split_words:"true"`
+
+	// Database configuration
+	DatabaseURL string `default:"" split_words:"true"`
 
 	K8sNamespace       string `default:"glassflow" split_words:"true"`
 	K8sResourceKind    string `default:"Pipeline" split_words:"true"`
@@ -186,9 +188,13 @@ func mainEtl(
 	log *slog.Logger,
 	meter *observability.Meter,
 ) error {
-	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
+	if cfg.DatabaseURL == "" {
+		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
+	}
+
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log)
 	if err != nil {
-		return fmt.Errorf("create nats store for pipelines: %w", err)
+		return fmt.Errorf("create postgres store for pipelines: %w", err)
 	}
 
 	dlq := dlq.NewClient(nc)
