@@ -24,9 +24,10 @@ import (
 
 // BaseTestSuite provides common functionality for test suites
 type BaseTestSuite struct {
-	natsContainer  *testutils.NATSContainer
-	chContainer    *testutils.ClickHouseContainer
-	kafkaContainer *testutils.KafkaContainer
+	natsContainer     *testutils.NATSContainer
+	chContainer       *testutils.ClickHouseContainer
+	kafkaContainer    *testutils.KafkaContainer
+	postgresContainer *testutils.PostgresContainer
 
 	kWriter *testutils.KafkaWriter
 
