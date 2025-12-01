@@ -10,8 +10,13 @@ export type SidebarSection =
   | 'monitor'
   | 'kafka-connection'
   | 'topic'
+  | 'left-topic'
+  | 'right-topic'
   | 'filter'
   | 'deduplicate'
+  | 'left-deduplicate'
+  | 'right-deduplicate'
+  | 'join'
   | 'clickhouse-connection'
   | 'destination'
 
@@ -19,6 +24,7 @@ export interface SidebarItem {
   key: SidebarSection
   label: string
   stepKey?: StepKeys // The step key to activate when clicked
+  topicIndex?: number // Topic index for multi-topic deduplication (0 = left, 1 = right)
 }
 
 interface PipelineDetailsSidebarProps {
@@ -33,20 +39,51 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
   const items: SidebarItem[] = [
     { key: 'monitor', label: 'Monitor' },
     { key: 'kafka-connection', label: 'Kafka Connection', stepKey: StepKeys.KAFKA_CONNECTION },
-    { key: 'topic', label: 'Topic', stepKey: StepKeys.TOPIC_SELECTION_1 },
   ]
 
-  // Check if pipeline has deduplication
+  // Check topics configuration
   const topics = pipeline?.source?.topics || []
-  const hasDeduplication = topics.some((topic: any) => topic?.deduplication?.enabled)
+  const topicCount = topics.length
+  const isMultiTopic = topicCount > 1
+
+  // Check if pipeline has join enabled
+  const hasJoin = pipeline?.join?.enabled === true
+
+  if (isMultiTopic) {
+    // Multi-topic pipeline: show Left Topic and Right Topic
+    items.push({ key: 'left-topic', label: 'Left Topic', stepKey: StepKeys.TOPIC_SELECTION_1, topicIndex: 0 })
+
+    // Check if left topic has deduplication
+    const leftTopicHasDedup = topics[0]?.deduplication?.enabled === true
+    if (leftTopicHasDedup) {
+      items.push({ key: 'left-deduplicate', label: 'Left Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR, topicIndex: 0 })
+    }
+
+    items.push({ key: 'right-topic', label: 'Right Topic', stepKey: StepKeys.TOPIC_SELECTION_2, topicIndex: 1 })
+
+    // Check if right topic has deduplication
+    const rightTopicHasDedup = topics[1]?.deduplication?.enabled === true
+    if (rightTopicHasDedup) {
+      items.push({ key: 'right-deduplicate', label: 'Right Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR, topicIndex: 1 })
+    }
+
+    // Add Join Configuration for multi-topic pipelines
+    if (hasJoin) {
+      items.push({ key: 'join', label: 'Join Configuration', stepKey: StepKeys.JOIN_CONFIGURATOR })
+    }
+  } else {
+    // Single topic pipeline
+    items.push({ key: 'topic', label: 'Topic', stepKey: StepKeys.TOPIC_SELECTION_1, topicIndex: 0 })
+
+    // Check if single topic has deduplication
+    const hasDeduplication = topics[0]?.deduplication?.enabled === true
+    if (hasDeduplication) {
+      items.push({ key: 'deduplicate', label: 'Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR, topicIndex: 0 })
+    }
+  }
 
   // Add Filter section (placeholder for future)
   items.push({ key: 'filter', label: 'Filter' })
-
-  // Add Deduplicate section if enabled
-  if (hasDeduplication) {
-    items.push({ key: 'deduplicate', label: 'Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR })
-  }
 
   // Add ClickHouse sections
   items.push({ key: 'clickhouse-connection', label: 'ClickHouse Connection', stepKey: StepKeys.CLICKHOUSE_CONNECTION })
