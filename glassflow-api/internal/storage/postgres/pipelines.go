@@ -36,7 +36,7 @@ type HistoryEntry struct {
 
 // pipelineData holds all the data needed to reconstruct a PipelineConfig
 type pipelineData struct {
-	pipelineID      uuid.UUID
+	pipelineID      string
 	name            string
 	status          string
 	source          json.RawMessage
@@ -457,7 +457,7 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 }
 
 // insertPipelineHistoryEvent inserts a pipeline history event
-func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, pipeline models.PipelineConfig, eventType string, errors []string) error {
+func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID string, pipeline models.PipelineConfig, eventType string, errors []string) error {
 	// Default to "history" if not specified
 	if eventType == "" {
 		eventType = "history"
@@ -722,7 +722,7 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 
 // pipelineInsertData holds data needed to insert a pipeline
 type pipelineInsertData struct {
-	pipelineID           uuid.UUID
+	pipelineID           string
 	name                 string
 	status               string
 	sourceID             uuid.UUID
@@ -811,7 +811,7 @@ func (s *PostgresStorage) preparePipelineInsertData(p models.PipelineConfig, sou
 
 // pipelineRow represents a row from the pipelines table
 type pipelineRow struct {
-	pipelineID           uuid.UUID
+	pipelineID           string
 	name                 string
 	status               string
 	sourceID             uuid.UUID
@@ -823,7 +823,7 @@ type pipelineRow struct {
 }
 
 // loadPipelineRow loads a pipeline row from the database by ID
-func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.UUID) (*pipelineRow, error) {
+func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID string) (*pipelineRow, error) {
 	var row pipelineRow
 	var transformationIDsArray pgtype.Array[pgtype.UUID]
 
@@ -845,11 +845,11 @@ func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.U
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			s.logger.DebugContext(ctx, "pipeline not found",
-				slog.String("pipeline_id", pipelineID.String()))
+				slog.String("pipeline_id", pipelineID))
 			return nil, service.ErrPipelineNotExists
 		}
 		s.logger.ErrorContext(ctx, "failed to load pipeline row",
-			slog.String("pipeline_id", pipelineID.String()),
+			slog.String("pipeline_id", pipelineID),
 			slog.String("error", err.Error()))
 		return nil, fmt.Errorf("get pipeline: %w", err)
 	}
@@ -875,7 +875,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 	source, kafkaConn, err := s.getSource(ctx, row.sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to get source",
-			slog.String("pipeline_id", row.pipelineID.String()),
+			slog.String("pipeline_id", row.pipelineID),
 			slog.String("source_id", row.sourceID.String()),
 			slog.String("error", err.Error()))
 		return nil, fmt.Errorf("get source: %w", err)
@@ -884,7 +884,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 	sink, chConn, err := s.getSink(ctx, row.sinkID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to get sink",
-			slog.String("pipeline_id", row.pipelineID.String()),
+			slog.String("pipeline_id", row.pipelineID),
 			slog.String("sink_id", row.sinkID.String()),
 			slog.String("error", err.Error()))
 		return nil, fmt.Errorf("get sink: %w", err)
@@ -895,7 +895,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 		transformations, err = s.getTransformations(ctx, transformationIDs)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "failed to get transformations",
-				slog.String("pipeline_id", row.pipelineID.String()),
+				slog.String("pipeline_id", row.pipelineID),
 				slog.String("error", err.Error()))
 			return nil, fmt.Errorf("get transformations: %w", err)
 		}
@@ -919,7 +919,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 }
 
 // loadPipelineData loads pipeline data from database and returns all components needed for reconstruction
-func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID uuid.UUID) (*pipelineData, error) {
+func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID string) (*pipelineData, error) {
 	row, err := s.loadPipelineRow(ctx, pipelineID)
 	if err != nil {
 		return nil, err

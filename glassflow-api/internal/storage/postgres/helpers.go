@@ -3,19 +3,50 @@ package postgres
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/google/uuid"
 )
 
-// parsePipelineID parses a pipeline ID string into a UUID
-func parsePipelineID(id string) (uuid.UUID, error) {
-	pipelineID, err := uuid.Parse(id)
-	if err != nil {
-		return uuid.Nil, models.ErrInvalidPipelineID
+// validatePipelineID validates a pipeline ID against Kubernetes resource name constraints
+func validatePipelineID(id string) error {
+	// Check length (max 40 characters)
+	if len(id) > 40 {
+		return fmt.Errorf("pipeline ID must be 40 characters or less")
 	}
-	return pipelineID, nil
+
+	// Check if starts with alphabetic character
+	if !regexp.MustCompile(`^[a-z]`).MatchString(id) {
+		return fmt.Errorf("pipeline ID must start with a letter")
+	}
+
+	// Check if ends with alphanumeric character
+	if !regexp.MustCompile(`[a-z0-9]$`).MatchString(id) {
+		return fmt.Errorf("pipeline ID must end with a letter or number")
+	}
+
+	// Check if contains only lowercase alphanumeric characters or '-'
+	if !regexp.MustCompile(`^[a-z0-9-]+$`).MatchString(id) {
+		return fmt.Errorf("pipeline ID can only contain lowercase letters, numbers, and hyphens")
+	}
+
+	// Check for consecutive hyphens (not allowed in Kubernetes)
+	if strings.Contains(id, "--") {
+		return fmt.Errorf("pipeline ID cannot contain consecutive hyphens")
+	}
+
+	return nil
+}
+
+// parsePipelineID validates a pipeline ID string (no longer parses to UUID)
+func parsePipelineID(id string) (string, error) {
+	if err := validatePipelineID(id); err != nil {
+		return "", fmt.Errorf("%w: %v", models.ErrInvalidPipelineID, err)
+	}
+	return id, nil
 }
 
 // checkRowsAffected checks if any rows were affected and returns ErrPipelineNotExists if none

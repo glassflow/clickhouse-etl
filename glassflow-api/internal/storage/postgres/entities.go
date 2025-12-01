@@ -253,7 +253,7 @@ func (s *PostgresStorage) getTransformationType(ctx context.Context, tx pgx.Tx, 
 }
 
 // updateTransformationsFromPipeline updates transformations by matching type, deletes unused ones, and inserts new ones
-func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, oldTransformationIDs []uuid.UUID, p models.PipelineConfig) ([]uuid.UUID, error) {
+func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context, tx pgx.Tx, pipelineID string, oldTransformationIDs []uuid.UUID, p models.PipelineConfig) ([]uuid.UUID, error) {
 	// Build map of old transformations by type
 	oldByType := make(map[string]uuid.UUID) // type -> transformation_id
 	for _, transID := range oldTransformationIDs {
@@ -275,7 +275,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 				err := s.updateTransformation(ctx, tx, oldID, topic.Deduplication)
 				if err != nil {
 					s.logger.ErrorContext(ctx, "failed to update deduplication transformation",
-						slog.String("pipeline_id", pipelineID.String()),
+						slog.String("pipeline_id", pipelineID),
 						slog.String("error", err.Error()))
 					return nil, fmt.Errorf("update deduplication transformation: %w", err)
 				}
@@ -286,7 +286,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 				dedupID, err := s.insertTransformation(ctx, tx, "deduplication", topic.Deduplication)
 				if err != nil {
 					s.logger.ErrorContext(ctx, "failed to insert deduplication transformation",
-						slog.String("pipeline_id", pipelineID.String()),
+						slog.String("pipeline_id", pipelineID),
 						slog.String("error", err.Error()))
 					return nil, fmt.Errorf("insert deduplication transformation: %w", err)
 				}
@@ -303,7 +303,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			err := s.updateTransformation(ctx, tx, oldID, p.Join)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to update join transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("update join transformation: %w", err)
 			}
@@ -314,7 +314,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			joinID, err := s.insertTransformation(ctx, tx, "join", p.Join)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to insert join transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("insert join transformation: %w", err)
 			}
@@ -329,7 +329,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			err := s.updateTransformation(ctx, tx, oldID, p.Filter)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to update filter transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("update filter transformation: %w", err)
 			}
@@ -340,7 +340,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			filterID, err := s.insertTransformation(ctx, tx, "filter", p.Filter)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to insert filter transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("insert filter transformation: %w", err)
 			}
@@ -364,7 +364,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			`, idsToDelete)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to delete unused transformations",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("delete unused transformations: %w", err)
 			}
