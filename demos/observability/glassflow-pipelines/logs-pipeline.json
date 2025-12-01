@@ -8,7 +8,6 @@
       "brokers": [
         "kafka.kafka.svc.cluster.local:9092"
       ],
-      "sasl_tls_enable": false,
       "protocol": "PLAINTEXT",
       "mechanism": "NO_AUTH"
     },

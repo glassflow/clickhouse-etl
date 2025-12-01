@@ -68,9 +68,8 @@ type Schema struct {
 type KafkaConnectionParamsConfig struct {
 	Brokers             []string `json:"brokers"`
 	SkipAuth            bool     `json:"skip_auth"`
-	SASLTLSEnable       bool     `json:"sasl_tls_enable"`
+	SASLProtocol        string   `json:"protocol"`
 	SASLMechanism       string   `json:"mechanism"`
-	SASLProtocol        string   `json:"protocol,omitempty"`
 	SASLUsername        string   `json:"username,omitempty"`
 	SASLPassword        string   `json:"password,omitempty"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
@@ -148,11 +147,18 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 		return zero, PipelineConfigError{Msg: fmt.Sprintf("Unsupported SASL mechanism: %s; allowed: SCRAM-SHA-256, SCRAM-SHA-512, PLAIN, GSSAPI, NO_AUTH", conn.SASLMechanism)}
 	}
 
-	if conn.SASLTLSEnable {
+	switch conn.SASLProtocol {
+	case internal.SASLProtocolPlaintext, internal.SASLProtocolSASLPlaintext:
+	case internal.SASLProtocolSASLSSL, internal.SASLProtocolSSL:
 		if !conn.SkipTLSVerification {
 			if len(strings.TrimSpace(conn.TLSCert)) == 0 && len(strings.TrimSpace(conn.TLSKey)) == 0 && len(strings.TrimSpace(conn.TLSRoot)) == 0 {
 				return zero, PipelineConfigError{Msg: "TLS certificate cannot be empty when SASL TLS is enabled"}
 			}
+		}
+	default:
+		return zero, PipelineConfigError{
+			Msg: fmt.Sprintf("Unsupported SASL protocol: %s; allowed: %s", conn.SASLProtocol,
+				strings.Join([]string{internal.SASLProtocolPlaintext, internal.SASLProtocolSASLSSL, internal.SASLProtocolSSL, internal.SASLProtocolSASLPlaintext}, ", ")),
 		}
 	}
 
@@ -182,7 +188,6 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 			SASLMechanism:       conn.SASLMechanism,
 			SASLUsername:        conn.SASLUsername,
 			SASLPassword:        conn.SASLPassword,
-			SASLTLSEnable:       conn.SASLTLSEnable,
 			SkipTLSVerification: conn.SkipTLSVerification,
 			TLSRoot:             conn.TLSRoot,
 			TLSCert:             conn.TLSCert,

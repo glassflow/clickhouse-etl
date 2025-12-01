@@ -167,6 +167,12 @@ const (
 	MechanismPlain    = "PLAIN"
 	MechanismNoAuth   = "NO_AUTH"
 
+	// kafka security protocols
+	SASLProtocolPlaintext     = "PLAINTEXT"
+	SASLProtocolSASLSSL       = "SASL_SSL"
+	SASLProtocolSSL           = "SSL"
+	SASLProtocolSASLPlaintext = "SASL_PLAINTEXT"
+
 	// Ingestor constants
 	IngestorInitialRetryDelay = 500 * time.Millisecond
 	IngestorMaxRetryDelay     = 5 * time.Second
