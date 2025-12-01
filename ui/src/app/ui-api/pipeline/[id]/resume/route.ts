@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../../../config'
+import { validatePipelineIdOrError } from '../../validation'
 
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
@@ -8,17 +9,11 @@ const API_URL = runtimeConfig.apiUrl
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  try {
-    if (!id || id.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pipeline ID is required',
-        },
-        { status: 400 },
-      )
-    }
+  // Validate pipeline ID format before sending to backend
+  const validationError = validatePipelineIdOrError(id)
+  if (validationError) return validationError
 
+  try {
     const backendUrl = `${API_URL}/pipeline/${id}/resume`
 
     // Call the backend resume endpoint
