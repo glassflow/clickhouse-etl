@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../../config'
+import { validatePipelineIdOrError } from '../validation'
 
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
@@ -8,17 +9,11 @@ const API_URL = runtimeConfig.apiUrl
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  try {
-    if (!id || id.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pipeline ID is required',
-        },
-        { status: 400 },
-      )
-    }
+  // Validate pipeline ID format before sending to backend
+  const validationError = validatePipelineIdOrError(id)
+  if (validationError) return validationError
 
+  try {
     const response = await axios.get(`${API_URL}/pipeline/${id}`)
 
     return NextResponse.json({
@@ -50,19 +45,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
+  // Validate pipeline ID format before sending to backend
+  const validationError = validatePipelineIdOrError(id)
+  if (validationError) return validationError
+
   try {
     const updates = await request.json()
-
-    if (!id || id.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pipeline ID is required',
-        },
-        { status: 400 },
-      )
-    }
-
     const response = await axios.patch(`${API_URL}/pipeline/${id}`, updates)
 
     return NextResponse.json({
@@ -94,17 +82,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  try {
-    if (!id || id.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pipeline ID is required',
-        },
-        { status: 400 },
-      )
-    }
+  // Validate pipeline ID format before sending to backend
+  const validationError = validatePipelineIdOrError(id)
+  if (validationError) return validationError
 
+  try {
     await axios.delete(`${API_URL}/pipeline/${id}`)
 
     return NextResponse.json({
