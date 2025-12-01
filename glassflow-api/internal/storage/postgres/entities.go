@@ -253,7 +253,7 @@ func (s *PostgresStorage) getTransformationType(ctx context.Context, tx pgx.Tx, 
 }
 
 // updateTransformationsFromPipeline updates transformations by matching type, deletes unused ones, and inserts new ones
-func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, oldTransformationIDs []uuid.UUID, p models.PipelineConfig) ([]uuid.UUID, error) {
+func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context, tx pgx.Tx, pipelineID string, oldTransformationIDs []uuid.UUID, p models.PipelineConfig) ([]uuid.UUID, error) {
 	// Build map of old transformations by type
 	oldByType := make(map[string]uuid.UUID) // type -> transformation_id
 	for _, transID := range oldTransformationIDs {
@@ -275,7 +275,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 				err := s.updateTransformation(ctx, tx, oldID, topic.Deduplication)
 				if err != nil {
 					s.logger.ErrorContext(ctx, "failed to update deduplication transformation",
-						slog.String("pipeline_id", pipelineID.String()),
+						slog.String("pipeline_id", pipelineID),
 						slog.String("error", err.Error()))
 					return nil, fmt.Errorf("update deduplication transformation: %w", err)
 				}
@@ -286,7 +286,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 				dedupID, err := s.insertTransformation(ctx, tx, "deduplication", topic.Deduplication)
 				if err != nil {
 					s.logger.ErrorContext(ctx, "failed to insert deduplication transformation",
-						slog.String("pipeline_id", pipelineID.String()),
+						slog.String("pipeline_id", pipelineID),
 						slog.String("error", err.Error()))
 					return nil, fmt.Errorf("insert deduplication transformation: %w", err)
 				}
@@ -303,7 +303,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			err := s.updateTransformation(ctx, tx, oldID, p.Join)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to update join transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("update join transformation: %w", err)
 			}
@@ -314,7 +314,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			joinID, err := s.insertTransformation(ctx, tx, "join", p.Join)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to insert join transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("insert join transformation: %w", err)
 			}
@@ -329,7 +329,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			err := s.updateTransformation(ctx, tx, oldID, p.Filter)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to update filter transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("update filter transformation: %w", err)
 			}
@@ -340,7 +340,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			filterID, err := s.insertTransformation(ctx, tx, "filter", p.Filter)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to insert filter transformation",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("insert filter transformation: %w", err)
 			}
@@ -364,7 +364,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 			`, idsToDelete)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to delete unused transformations",
-					slog.String("pipeline_id", pipelineID.String()),
+					slog.String("pipeline_id", pipelineID),
 					slog.String("error", err.Error()))
 				return nil, fmt.Errorf("delete unused transformations: %w", err)
 			}
@@ -375,9 +375,9 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 }
 
 // getTransformations retrieves transformations by their IDs
-func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uuid.UUID) (map[string]interface{}, error) {
+func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uuid.UUID) (map[string]Transformation, error) {
 	if len(transIDs) == 0 {
-		return make(map[string]interface{}), nil
+		return make(map[string]Transformation), nil
 	}
 
 	query := `SELECT type, config FROM transformations WHERE id = ANY($1)`
@@ -387,7 +387,7 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 	}
 	defer rows.Close()
 
-	transformations := make(map[string]interface{})
+	transformations := make(map[string]Transformation)
 	for rows.Next() {
 		var transType string
 		var configJSON []byte
@@ -395,12 +395,10 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 			return nil, fmt.Errorf("scan transformation: %w", err)
 		}
 
-		var config map[string]interface{}
-		if err := json.Unmarshal(configJSON, &config); err != nil {
-			return nil, fmt.Errorf("unmarshal transformation config: %w", err)
+		transformations[transType] = Transformation{
+			Type:   transType,
+			Config: configJSON,
 		}
-
-		transformations[transType] = config
 	}
 
 	return transformations, nil

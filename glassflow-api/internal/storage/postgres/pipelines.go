@@ -15,16 +15,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const (
+	schemaStatusActive   = "Active"
+	schemaStatusInactive = "Inactive"
+	schemaStatusInvalid  = "Invalid"
+)
+
+// Transformation represents a pipeline transformation with its type and configuration
+type Transformation struct {
+	Type   string
+	Config json.RawMessage
+}
+
+// HistoryEntry represents a pipeline history entry
+type HistoryEntry struct {
+	Type     string          // "history", "error", or "status"
+	Pipeline json.RawMessage // Full pipeline JSON
+	Errors   []string        // Array of error messages (for error type)
+}
+
 // pipelineData holds all the data needed to reconstruct a PipelineConfig
 type pipelineData struct {
-	pipelineID      uuid.UUID
+	pipelineID      string
 	name            string
 	status          string
 	source          json.RawMessage
 	kafkaConn       json.RawMessage
 	sink            json.RawMessage
 	chConn          json.RawMessage
-	transformations map[string]interface{}
+	transformations map[string]Transformation
 	metadataJSON    []byte
 	createdAt       time.Time
 	updatedAt       time.Time
@@ -159,13 +178,13 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return fmt.Errorf("build schema JSON: %w", err)
 	}
 
-	err = s.insertSchema(ctx, tx, insertData.pipelineID, schemaJSON, "v0", true)
+	err = s.insertSchema(ctx, tx, insertData.pipelineID, schemaJSON, "v0", schemaStatusActive)
 	if err != nil {
 		return fmt.Errorf("insert schema: %w", err)
 	}
 
 	// Insert pipeline history event
-	err = s.insertPipelineHistoryEvent(ctx, tx, insertData.pipelineID, p, nil)
+	err = s.insertPipelineHistoryEvent(ctx, tx, insertData.pipelineID, p, "history", nil)
 	if err != nil {
 		return fmt.Errorf("insert pipeline history event: %w", err)
 	}
@@ -216,6 +235,45 @@ func (s *PostgresStorage) UpdatePipelineStatus(ctx context.Context, id string, s
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
+
+	// Insert status history event in a separate transaction (non-blocking)
+	// History insertion failure should not block status updates
+	go func() {
+		historyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		pipeline, err := s.GetPipeline(historyCtx, id)
+		if err != nil {
+			s.logger.WarnContext(historyCtx, "failed to get pipeline for status history",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+
+		historyTx, err := s.pool.Begin(historyCtx)
+		if err != nil {
+			s.logger.WarnContext(historyCtx, "failed to begin transaction for status history",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+		defer historyTx.Rollback(historyCtx)
+
+		err = s.insertPipelineHistoryEvent(historyCtx, historyTx, pipelineID, *pipeline, "status", nil)
+		if err != nil {
+			s.logger.WarnContext(historyCtx, "failed to insert status history event",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+
+		if err := historyTx.Commit(historyCtx); err != nil {
+			s.logger.WarnContext(historyCtx, "failed to commit status history transaction",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+	}()
 
 	s.logger.InfoContext(ctx, "pipeline status updated",
 		slog.String("pipeline_id", id),
@@ -324,7 +382,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	}
 
 	// Insert pipeline history event
-	err = s.insertPipelineHistoryEvent(ctx, tx, existingData.pipelineID, newCfg, nil)
+	err = s.insertPipelineHistoryEvent(ctx, tx, existingData.pipelineID, newCfg, "history", nil)
 	if err != nil {
 		return fmt.Errorf("insert pipeline history event: %w", err)
 	}
@@ -399,24 +457,23 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 }
 
 // insertPipelineHistoryEvent inserts a pipeline history event
-func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, pipeline models.PipelineConfig, errors []string) error {
+func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID string, pipeline models.PipelineConfig, eventType string, errors []string) error {
+	// Default to "history" if not specified
+	if eventType == "" {
+		eventType = "history"
+	}
+
 	// Marshal entire pipeline to JSON
 	pipelineJSON, err := json.Marshal(pipeline)
 	if err != nil {
 		return fmt.Errorf("marshal pipeline for history: %w", err)
 	}
 
-	// Unmarshal pipeline JSON into a map to store as nested JSON object
-	var pipelineObj map[string]interface{}
-	if err := json.Unmarshal(pipelineJSON, &pipelineObj); err != nil {
-		return fmt.Errorf("unmarshal pipeline for history: %w", err)
-	}
-
-	// Build event object with nested pipeline JSON
-	event := map[string]interface{}{
-		"pipeline": pipelineObj,
-		"status":   string(pipeline.Status.OverallStatus),
-		"errors":   errors,
+	// Build event object matching HistoryEntry structure
+	event := HistoryEntry{
+		Type:     eventType,
+		Pipeline: pipelineJSON,
+		Errors:   errors,
 	}
 
 	eventJSON, err := json.Marshal(event)
@@ -425,9 +482,9 @@ func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO pipeline_history (pipeline_id, event)
-		VALUES ($1, $2)
-	`, pipelineID, eventJSON)
+		INSERT INTO pipeline_history (pipeline_id, type, event)
+		VALUES ($1, $2, $3)
+	`, pipelineID, eventType, eventJSON)
 	if err != nil {
 		return fmt.Errorf("insert pipeline history event: %w", err)
 	}
@@ -554,12 +611,19 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 
 // insertKafkaSource inserts Kafka connection and source
 func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
-	kafkaConnConfig := map[string]interface{}{
-		"kafka_connection_params": p.Ingestor.KafkaConnectionParams,
-		"kafka_topics":            p.Ingestor.KafkaTopics,
-		"provider":                p.Ingestor.Provider,
+	kafkaConnConfig := models.IngestorComponentConfig{
+		Provider:              p.Ingestor.Provider,
+		KafkaTopics:           p.Ingestor.KafkaTopics,
+		KafkaConnectionParams: p.Ingestor.KafkaConnectionParams,
+		Type:                  p.Ingestor.Type,
 	}
-	kafkaConnID, err := s.insertConnectionWithConfig(ctx, tx, "kafka", kafkaConnConfig)
+
+	connBytes, err := json.Marshal(kafkaConnConfig)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal kafka connection config: %w", err)
+	}
+
+	kafkaConnID, err := s.insertConnectionWithConfig(ctx, tx, "kafka", connBytes)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert kafka connection: %w", err)
 	}
@@ -574,12 +638,18 @@ func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx pgx.Tx, p mo
 
 // updateKafkaSource updates Kafka connection and source
 func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafkaConnID uuid.UUID, sourceID uuid.UUID, p models.PipelineConfig) error {
-	kafkaConnConfig := map[string]interface{}{
-		"kafka_connection_params": p.Ingestor.KafkaConnectionParams,
-		"kafka_topics":            p.Ingestor.KafkaTopics,
-		"provider":                p.Ingestor.Provider,
+	ingestorConnConfig := models.IngestorComponentConfig{
+		KafkaConnectionParams: p.Ingestor.KafkaConnectionParams,
+		KafkaTopics:           p.Ingestor.KafkaTopics,
+		Provider:              p.Ingestor.Provider,
+		Type:                  p.Ingestor.Type,
 	}
-	err := s.updateConnectionWithConfig(ctx, tx, kafkaConnID, kafkaConnConfig)
+	connBytes, err := json.Marshal(ingestorConnConfig)
+	if err != nil {
+		return fmt.Errorf("marshal kafka connection config: %w", err)
+	}
+
+	err = s.updateConnectionWithConfig(ctx, tx, kafkaConnID, connBytes)
 	if err != nil {
 		return fmt.Errorf("update kafka connection: %w", err)
 	}
@@ -594,12 +664,20 @@ func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafk
 
 // insertClickHouseSink inserts ClickHouse connection and sink
 func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
-	chConnConfig := map[string]interface{}{
-		"clickhouse_connection_params": p.Sink.ClickHouseConnectionParams,
-		"batch":                        p.Sink.Batch,
-		"stream_id":                    p.Sink.StreamID,
+	sinkConnConfig := models.SinkComponentConfig{
+		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
+		Batch:                      p.Sink.Batch,
+		StreamID:                   p.Sink.StreamID,
+		Type:                       p.Sink.Type,
+		NATSConsumerName:           p.Sink.NATSConsumerName,
 	}
-	chConnID, err := s.insertConnectionWithConfig(ctx, tx, "clickhouse", chConnConfig)
+
+	connBytes, err := json.Marshal(sinkConnConfig)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal clickhouse connection config: %w", err)
+	}
+
+	chConnID, err := s.insertConnectionWithConfig(ctx, tx, "clickhouse", connBytes)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert clickhouse connection: %w", err)
 	}
@@ -614,12 +692,20 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p
 
 // updateClickHouseSink updates ClickHouse connection and sink
 func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, chConnID uuid.UUID, sinkID uuid.UUID, p models.PipelineConfig) error {
-	chConnConfig := map[string]interface{}{
-		"clickhouse_connection_params": p.Sink.ClickHouseConnectionParams,
-		"batch":                        p.Sink.Batch,
-		"stream_id":                    p.Sink.StreamID,
+	sinkConnConfig := models.SinkComponentConfig{
+		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
+		Batch:                      p.Sink.Batch,
+		StreamID:                   p.Sink.StreamID,
+		NATSConsumerName:           p.Sink.NATSConsumerName,
+		Type:                       p.Sink.Type,
 	}
-	err := s.updateConnectionWithConfig(ctx, tx, chConnID, chConnConfig)
+
+	connBytes, err := json.Marshal(sinkConnConfig)
+	if err != nil {
+		return fmt.Errorf("marshal clickhouse connection config: %w", err)
+	}
+
+	err = s.updateConnectionWithConfig(ctx, tx, chConnID, connBytes)
 	if err != nil {
 		return fmt.Errorf("update clickhouse connection: %w", err)
 	}
@@ -636,7 +722,7 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 
 // pipelineInsertData holds data needed to insert a pipeline
 type pipelineInsertData struct {
-	pipelineID           uuid.UUID
+	pipelineID           string
 	name                 string
 	status               string
 	sourceID             uuid.UUID
@@ -725,7 +811,7 @@ func (s *PostgresStorage) preparePipelineInsertData(p models.PipelineConfig, sou
 
 // pipelineRow represents a row from the pipelines table
 type pipelineRow struct {
-	pipelineID           uuid.UUID
+	pipelineID           string
 	name                 string
 	status               string
 	sourceID             uuid.UUID
@@ -737,7 +823,7 @@ type pipelineRow struct {
 }
 
 // loadPipelineRow loads a pipeline row from the database by ID
-func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.UUID) (*pipelineRow, error) {
+func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID string) (*pipelineRow, error) {
 	var row pipelineRow
 	var transformationIDsArray pgtype.Array[pgtype.UUID]
 
@@ -759,11 +845,11 @@ func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID uuid.U
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			s.logger.DebugContext(ctx, "pipeline not found",
-				slog.String("pipeline_id", pipelineID.String()))
+				slog.String("pipeline_id", pipelineID))
 			return nil, service.ErrPipelineNotExists
 		}
 		s.logger.ErrorContext(ctx, "failed to load pipeline row",
-			slog.String("pipeline_id", pipelineID.String()),
+			slog.String("pipeline_id", pipelineID),
 			slog.String("error", err.Error()))
 		return nil, fmt.Errorf("get pipeline: %w", err)
 	}
@@ -789,7 +875,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 	source, kafkaConn, err := s.getSource(ctx, row.sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to get source",
-			slog.String("pipeline_id", row.pipelineID.String()),
+			slog.String("pipeline_id", row.pipelineID),
 			slog.String("source_id", row.sourceID.String()),
 			slog.String("error", err.Error()))
 		return nil, fmt.Errorf("get source: %w", err)
@@ -798,23 +884,23 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 	sink, chConn, err := s.getSink(ctx, row.sinkID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to get sink",
-			slog.String("pipeline_id", row.pipelineID.String()),
+			slog.String("pipeline_id", row.pipelineID),
 			slog.String("sink_id", row.sinkID.String()),
 			slog.String("error", err.Error()))
 		return nil, fmt.Errorf("get sink: %w", err)
 	}
 
-	var transformations map[string]interface{}
+	var transformations map[string]Transformation
 	if len(transformationIDs) > 0 {
 		transformations, err = s.getTransformations(ctx, transformationIDs)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "failed to get transformations",
-				slog.String("pipeline_id", row.pipelineID.String()),
+				slog.String("pipeline_id", row.pipelineID),
 				slog.String("error", err.Error()))
 			return nil, fmt.Errorf("get transformations: %w", err)
 		}
 	} else {
-		transformations = make(map[string]interface{})
+		transformations = make(map[string]Transformation)
 	}
 
 	return &pipelineData{
@@ -833,7 +919,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 }
 
 // loadPipelineData loads pipeline data from database and returns all components needed for reconstruction
-func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID uuid.UUID) (*pipelineData, error) {
+func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID string) (*pipelineData, error) {
 	row, err := s.loadPipelineRow(ctx, pipelineID)
 	if err != nil {
 		return nil, err

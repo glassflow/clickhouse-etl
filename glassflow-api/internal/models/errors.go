@@ -21,3 +21,7 @@ func IsInvalidSchemaErr(err error) bool { return errors.Is(err, ErrInvalidSchema
 var ErrUnsupportedDataType = errors.New("unsupported data type")
 
 func IsUnsupportedDataTypeErr(err error) bool { return errors.Is(err, ErrUnsupportedDataType) }
+
+var ErrInvalidPipelineID = errors.New("invalid pipeline ID format")
+
+func IsInvalidPipelineID(err error) bool { return errors.Is(err, ErrInvalidPipelineID) }

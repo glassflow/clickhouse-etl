@@ -57,7 +57,7 @@ CREATE TABLE transformations (
 
 -- Pipelines table
 CREATE TABLE pipelines (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     status pipeline_status NOT NULL DEFAULT 'Created',
     source_id UUID NOT NULL REFERENCES sources(id) ON DELETE RESTRICT,
@@ -72,7 +72,7 @@ CREATE TABLE pipelines (
 -- Schemas table for schema versioning and evolution
 CREATE TABLE schemas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pipeline_id UUID NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+    pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     version TEXT NOT NULL,
     active schema_status NOT NULL DEFAULT 'Active',
     schema_data JSONB NOT NULL, -- Full schema JSON matching the provided structure
@@ -84,7 +84,8 @@ CREATE TABLE schemas (
 -- Pipeline status history table
 CREATE TABLE pipeline_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pipeline_id UUID NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+    pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('history', 'error', 'status')),
     event JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

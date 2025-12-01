@@ -7,25 +7,13 @@ import (
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 // buildSchemaJSON reconstructs the schema JSON from PipelineConfig.Mapper
 func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.PipelineConfig) ([]byte, error) {
-	type schemaField struct {
-		SourceID   string `json:"source_id"`
-		Name       string `json:"name"`
-		Type       string `json:"type"`
-		ColumnName string `json:"column_name"`
-		ColumnType string `json:"column_type"`
-	}
 
-	type schema struct {
-		Fields []schemaField `json:"fields"`
-	}
-
-	schemaFields := make([]schemaField, 0)
+	schemaFields := make([]models.SchemaField, 0)
 	fieldMap := make(map[string]bool) // Track duplicates: streamName:fieldName
 
 	// Build schema fields from MapperConfig.Streams and MapperConfig.SinkMapping
@@ -43,7 +31,7 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 					}
 				}
 
-				schemaFields = append(schemaFields, schemaField{
+				schemaFields = append(schemaFields, models.SchemaField{
 					SourceID:   streamName,
 					Name:       field.FieldName,
 					Type:       field.FieldType,
@@ -55,7 +43,7 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 		}
 	}
 
-	schemaData := schema{
+	schemaData := models.Schema{
 		Fields: schemaFields,
 	}
 
@@ -72,22 +60,17 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 }
 
 // insertSchema inserts a schema into the schemas table
-func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte, version string, active bool) error {
-	// Convert active boolean to schema_status enum value
-	activeStatus := "Inactive"
-	if active {
-		activeStatus = "Active"
-	}
+func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineID string, schemaJSON []byte, version, status string) error {
 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO schemas (pipeline_id, version, active, schema_data, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
-	`, pipelineID, version, activeStatus, schemaJSON)
+	`, pipelineID, version, status, schemaJSON)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert schema",
-			slog.String("pipeline_id", pipelineID.String()),
+			slog.String("pipeline_id", pipelineID),
 			slog.String("version", version),
-			slog.String("active_status", activeStatus),
+			slog.String("active_status", status),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("insert schema: %w", err)
 	}
@@ -97,7 +80,7 @@ func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineI
 
 // updateSchema updates the existing schema with version "v0" for the given pipeline
 // NOTE: With schema evolution, updates to schema should be versioned (create new versions instead of updating)
-func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte) error {
+func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineID string, schemaJSON []byte) error {
 	commandTag, err := tx.Exec(ctx, `
 		UPDATE schemas
 		SET schema_data = $1, updated_at = NOW()
@@ -105,14 +88,14 @@ func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineI
 	`, schemaJSON, pipelineID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update schema",
-			slog.String("pipeline_id", pipelineID.String()),
+			slog.String("pipeline_id", pipelineID),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("update schema: %w", err)
 	}
 
 	if commandTag.RowsAffected() == 0 {
 		// Schema with v0 doesn't exist, insert it
-		err = s.insertSchema(ctx, tx, pipelineID, schemaJSON, "v0", true)
+		err = s.insertSchema(ctx, tx, pipelineID, schemaJSON, "v0", schemaStatusActive)
 		if err != nil {
 			return fmt.Errorf("insert schema: %w", err)
 		}
