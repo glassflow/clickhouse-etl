@@ -72,22 +72,17 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 }
 
 // insertSchema inserts a schema into the schemas table
-func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte, version string, active bool) error {
-	// Convert active boolean to schema_status enum value
-	activeStatus := "Inactive"
-	if active {
-		activeStatus = "Active"
-	}
+func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte, version, status string) error {
 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO schemas (pipeline_id, version, active, schema_data, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
-	`, pipelineID, version, activeStatus, schemaJSON)
+	`, pipelineID, version, status, schemaJSON)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert schema",
 			slog.String("pipeline_id", pipelineID.String()),
 			slog.String("version", version),
-			slog.String("active_status", activeStatus),
+			slog.String("active_status", status),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("insert schema: %w", err)
 	}
@@ -112,7 +107,7 @@ func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineI
 
 	if commandTag.RowsAffected() == 0 {
 		// Schema with v0 doesn't exist, insert it
-		err = s.insertSchema(ctx, tx, pipelineID, schemaJSON, "v0", true)
+		err = s.insertSchema(ctx, tx, pipelineID, schemaJSON, "v0", schemaStatusActive)
 		if err != nil {
 			return fmt.Errorf("insert schema: %w", err)
 		}

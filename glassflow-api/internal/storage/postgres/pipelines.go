@@ -15,6 +15,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const (
+	schemaStatusActive   = "Active"
+	schemaStatusInactive = "Inactive"
+	schemaStatusInvalid  = "Invalid"
+)
+
 // Transformation represents a pipeline transformation with its type and configuration
 type Transformation struct {
 	Type   string
@@ -172,7 +178,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return fmt.Errorf("build schema JSON: %w", err)
 	}
 
-	err = s.insertSchema(ctx, tx, insertData.pipelineID, schemaJSON, "v0", true)
+	err = s.insertSchema(ctx, tx, insertData.pipelineID, schemaJSON, "v0", schemaStatusActive)
 	if err != nil {
 		return fmt.Errorf("insert schema: %w", err)
 	}
