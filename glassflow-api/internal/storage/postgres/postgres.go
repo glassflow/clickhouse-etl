@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -25,10 +26,6 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*Postgre
 	connCtx, cancel := context.WithTimeout(ctx, internal.PostgresMaxConnectionWait)
 	defer cancel()
 
-	retryDelay := internal.PostgresInitialRetryDelay
-	var pool *pgxpool.Pool
-	var err error
-
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to parse postgres config",
@@ -41,51 +38,46 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*Postgre
 	config.MinConns = 5
 	config.MaxConnLifetime = 5 * time.Minute
 
-	// Retry connection pool creation and ping
-	for i := range internal.PostgresConnectionRetries {
-		select {
-		case <-connCtx.Done():
-			return nil, fmt.Errorf("timeout after %v waiting to connect to Postgres", internal.PostgresMaxConnectionWait)
-		default:
-		}
+	var pool *pgxpool.Pool
 
-		// Create connection pool with timeout context
-		poolCtx, poolCancel := context.WithTimeout(connCtx, internal.PostgresConnectionTimeout)
-		pool, err = pgxpool.NewWithConfig(poolCtx, config)
-		poolCancel()
+	err = retry.Do(
+		func() error {
+			// Create connection pool with timeout context
+			poolCtx, poolCancel := context.WithTimeout(connCtx, internal.PostgresConnectionTimeout)
+			newPool, poolErr := pgxpool.NewWithConfig(poolCtx, config)
+			poolCancel()
 
-		if err == nil {
+			if poolErr != nil {
+				return poolErr
+			}
+
 			// Test connection with ping
 			pingCtx, pingCancel := context.WithTimeout(connCtx, internal.PostgresConnectionTimeout)
-			err = pool.Ping(pingCtx)
+			pingErr := newPool.Ping(pingCtx)
 			pingCancel()
 
-			if err == nil {
-				// Successfully connected and pinged
-				break
+			if pingErr != nil {
+				// Ping failed, close pool and retry
+				newPool.Close()
+				return pingErr
 			}
 
-			// Ping failed, close pool and retry
-			pool.Close()
-			pool = nil
-		}
-
-		// If this is not the last retry, wait before retrying
-		if i < internal.PostgresConnectionRetries-1 {
-			select {
-			case <-time.After(retryDelay):
-				logger.InfoContext(ctx, "retrying postgres connection",
-					slog.Int("attempt", i+2),
-					slog.Int("max_attempts", internal.PostgresConnectionRetries),
-					slog.String("retry_delay", retryDelay.String()))
-				// Continue with retry
-			case <-connCtx.Done():
-				return nil, fmt.Errorf("timeout during retry delay for Postgres: %w", connCtx.Err())
-			}
-			// Exponential backoff
-			retryDelay = min(time.Duration(float64(retryDelay)*1.5), internal.PostgresMaxRetryDelay)
-		}
-	}
+			// Successfully connected and pinged
+			pool = newPool
+			return nil
+		},
+		retry.Attempts(internal.PostgresConnectionRetries),
+		retry.Delay(internal.PostgresInitialRetryDelay),
+		retry.MaxDelay(internal.PostgresMaxRetryDelay),
+		retry.DelayType(retry.BackOffDelay),
+		retry.Context(connCtx),
+		retry.OnRetry(func(n uint, err error) {
+			logger.InfoContext(ctx, "retrying postgres connection",
+				slog.Int("attempt", int(n+1)),
+				slog.Int("max_attempts", internal.PostgresConnectionRetries),
+				slog.String("error", err.Error()))
+		}),
+	)
 
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to connect to postgres after retries",
