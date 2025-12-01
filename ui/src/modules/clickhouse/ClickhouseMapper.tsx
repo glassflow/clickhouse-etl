@@ -769,7 +769,7 @@ export function ClickhouseMapper({
     const hasConnectionDetails =
       clickhouseConnection.directConnection.host && clickhouseConnection.directConnection.httpPort
 
-    if (connectionStatus === 'success' || (hasConnectionDetails && !databasesLoading)) {
+    if (connectionStatus === 'success' || hasConnectionDetails) {
       fetchDatabases()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -780,7 +780,9 @@ export function ClickhouseMapper({
     databases.length,
     clickhouseConnection.directConnection.host,
     clickhouseConnection.directConnection.httpPort,
-    databasesLoading,
+    // NOTE: databasesLoading is intentionally excluded to prevent infinite loops
+    // When fetch fails, databasesLoading changes from true->false, which would re-trigger this effect
+    // and cause repeated notifications for broken ClickHouse connections
   ])
 
   // Load tables when database is selected
