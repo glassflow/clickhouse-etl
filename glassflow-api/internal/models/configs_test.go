@@ -793,6 +793,7 @@ func TestJSONDurationEdgeCases(t *testing.T) {
 func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 	validBroker := "kafka:9092"
 	validProvider := "confluent"
+	validProtocol := internal.SASLProtocolSASLPlaintext
 	validMechanism := internal.MechanismNoAuth
 
 	tests := []struct {
@@ -804,14 +805,14 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 	}{
 		{
 			name:        "no brokers",
-			conn:        KafkaConnectionParamsConfig{Brokers: []string{}, SASLMechanism: validMechanism},
+			conn:        KafkaConnectionParamsConfig{Brokers: []string{}, SASLMechanism: validMechanism, SASLProtocol: validProtocol},
 			topics:      nil,
 			description: "must have at least one kafka server",
 			expectError: true,
 		},
 		{
 			name:        "empty broker entry",
-			conn:        KafkaConnectionParamsConfig{Brokers: []string{" "}, SASLMechanism: validMechanism},
+			conn:        KafkaConnectionParamsConfig{Brokers: []string{" "}, SASLMechanism: validMechanism, SASLProtocol: validProtocol},
 			topics:      nil,
 			description: "kafka server cannot be empty",
 			expectError: true,
@@ -822,6 +823,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 				Brokers:       []string{validBroker},
 				SkipAuth:      false,
 				SASLMechanism: "UNSUPPORTED",
+				SASLProtocol:  validProtocol,
 				SASLUsername:  "user",
 				SASLPassword:  "pwd",
 			},
@@ -834,6 +836,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 				Brokers:             []string{validBroker},
 				SkipAuth:            false,
 				SASLMechanism:       internal.MechanismKerberos,
+				SASLProtocol:        validProtocol,
 				SASLUsername:        "user",
 				SASLPassword:        "", // allowed for kerberos but kerberos fields missing
 				KerberosServiceName: "",
@@ -845,11 +848,11 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "sasl tls enabled without cert and skip_tls_verification false",
+			name: "sasl ssl enabled without cert and skip_tls_verification false",
 			conn: KafkaConnectionParamsConfig{
 				Brokers:             []string{validBroker},
 				SASLMechanism:       internal.MechanismNoAuth,
-				SASLTLSEnable:       true,
+				SASLProtocol:        internal.SASLProtocolSASLSSL,
 				SkipTLSVerification: false,
 				TLSCert:             " ", // empty after trim
 				TLSKey:              " ",
@@ -863,7 +866,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			conn: KafkaConnectionParamsConfig{
 				Brokers:             []string{validBroker},
 				SASLMechanism:       internal.MechanismNoAuth,
-				SASLTLSEnable:       true,
+				SASLProtocol:        internal.SASLProtocolSASLSSL,
 				SkipTLSVerification: true,
 				TLSCert:             "invalid-cert-data", // any value accepted when skipping verification
 				TLSKey:              "",
@@ -876,6 +879,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			conn: KafkaConnectionParamsConfig{
 				Brokers:       []string{validBroker},
 				SASLMechanism: internal.MechanismPlain,
+				SASLProtocol:  validProtocol,
 				SASLUsername:  "",
 				SASLPassword:  "pwd",
 			},
@@ -887,6 +891,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			conn: KafkaConnectionParamsConfig{
 				Brokers:       []string{validBroker},
 				SASLMechanism: internal.MechanismPlain,
+				SASLProtocol:  validProtocol,
 				SASLUsername:  "user",
 				SASLPassword:  "",
 			},
@@ -898,6 +903,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			conn: KafkaConnectionParamsConfig{
 				Brokers:       []string{validBroker},
 				SASLMechanism: internal.MechanismNoAuth,
+				SASLProtocol:  validProtocol,
 			},
 			topics: []KafkaTopicsConfig{
 				{ConsumerGroupInitialOffset: "badvalue", Replicas: 1},
@@ -910,7 +916,7 @@ func TestNewIngestorComponentConfig_ErrorsAndDefaults(t *testing.T) {
 			conn: KafkaConnectionParamsConfig{
 				Brokers:       []string{validBroker},
 				SASLMechanism: internal.MechanismNoAuth,
-				SASLTLSEnable: true,
+				SASLProtocol:  internal.SASLProtocolSASLSSL,
 				TLSCert:       "somecert",
 			},
 			expectError: false,
@@ -943,7 +949,7 @@ func TestNewIngestorComponentConfig_SuccessAndTopicDefaults(t *testing.T) {
 		SASLMechanism: internal.MechanismPlain,
 		SASLUsername:  "user",
 		SASLPassword:  "password",
-		SASLTLSEnable: true,
+		SASLProtocol:  internal.SASLProtocolSASLSSL,
 		TLSCert:       "cert-data",
 	}
 
@@ -986,7 +992,7 @@ func TestNewIngestorComponentConfig_SuccessAndTopicDefaults(t *testing.T) {
 	if cfg.KafkaConnectionParams.SASLMechanism != internal.MechanismPlain {
 		t.Fatalf("unexpected SASL mechanism: %s", cfg.KafkaConnectionParams.SASLMechanism)
 	}
-	if !cfg.KafkaConnectionParams.SASLTLSEnable || cfg.KafkaConnectionParams.TLSCert != "cert-data" {
+	if cfg.KafkaConnectionParams.SASLProtocol != internal.SASLProtocolSASLSSL || cfg.KafkaConnectionParams.TLSCert != "cert-data" {
 		t.Fatalf("unexpected TLS settings: %+v", cfg.KafkaConnectionParams)
 	}
 

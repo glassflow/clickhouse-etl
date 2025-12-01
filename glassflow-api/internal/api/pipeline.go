@@ -223,10 +223,9 @@ type sourceConnectionParams struct {
 	Brokers             []string `json:"brokers"`
 	SASLMechanism       string   `json:"mechanism"`
 	SkipAuth            bool     `json:"skip_auth,omitempty"`
-	SASLProtocol        string   `json:"protocol,omitempty"`
+	SASLProtocol        string   `json:"protocol"`
 	SASLUsername        string   `json:"username,omitempty"`
 	SASLPassword        string   `json:"password,omitempty"`
-	SASLTLSEnable       bool     `json:"sasl_tls_enable,omitempty"`
 	SkipTLSVerification bool     `json:"skip_tls_verification,omitempty"`
 	TLSRoot             string   `json:"root_ca,omitempty"`
 	TLSCert             string   `json:"client_cert,omitempty"`
@@ -307,7 +306,6 @@ func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentCo
 		SASLMechanism:       p.Source.ConnectionParams.SASLMechanism,
 		SASLUsername:        p.Source.ConnectionParams.SASLUsername,
 		SASLPassword:        p.Source.ConnectionParams.SASLPassword,
-		SASLTLSEnable:       p.Source.ConnectionParams.SASLTLSEnable,
 		SkipTLSVerification: p.Source.ConnectionParams.SkipTLSVerification,
 		TLSRoot:             p.Source.ConnectionParams.TLSRoot,
 		TLSCert:             p.Source.ConnectionParams.TLSCert,
@@ -631,7 +629,6 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 				SASLUsername:        p.Ingestor.KafkaConnectionParams.SASLUsername,
 				SASLPassword:        p.Ingestor.KafkaConnectionParams.SASLPassword,
 				TLSRoot:             p.Ingestor.KafkaConnectionParams.TLSRoot,
-				SASLTLSEnable:       p.Ingestor.KafkaConnectionParams.SASLTLSEnable,
 				SkipTLSVerification: p.Ingestor.KafkaConnectionParams.SkipTLSVerification,
 			},
 			Topics: topics,
