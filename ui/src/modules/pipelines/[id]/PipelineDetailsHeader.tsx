@@ -933,7 +933,9 @@ function PipelineDetailsHeader({
                   </span>
                 </div>
               )}
-              <h2 className="text-2xl font-bold truncate min-w-0" title={pipeline.name}>{pipeline.name}</h2>
+              <h2 className="text-2xl font-bold truncate min-w-0" title={pipeline.name}>
+                {pipeline.name}
+              </h2>
               <Badge variant={getStatusVariant(effectiveStatus)} className="rounded-xl my-2 mx-4 flex-shrink-0">
                 {healthLoading && !centralizedStatus ? 'Checking...' : getBadgeLabel(effectiveStatus)}
               </Badge>
