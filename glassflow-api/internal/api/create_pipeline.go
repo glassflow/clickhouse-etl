@@ -7,8 +7,6 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage/postgres"
-
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -66,7 +64,7 @@ func (h *handler) createPipeline(ctx context.Context, input *CreatePipelineInput
 					"error": err.Error(),
 				},
 			}
-		case errors.Is(err, postgres.ErrUUIDInvalid):
+		case errors.Is(err, models.ErrInvalidPipelineID):
 			return nil, &ErrorDetail{
 				Status:  http.StatusBadRequest,
 				Code:    "bad_request",
