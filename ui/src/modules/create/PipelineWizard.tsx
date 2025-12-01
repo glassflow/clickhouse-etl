@@ -97,8 +97,24 @@ function PipelineWizard() {
       const nextStep = currentJourney[currentStepIndex + 1]
       if (nextStep) {
         setActiveStep(nextStep)
-        // Clear deduplication parent when moving to next step
-        setDeduplicationParent(null)
+
+        // If navigating TO a deduplication step, set the parent based on journey position
+        if (nextStep === StepKeys.DEDUPLICATION_CONFIGURATOR) {
+          // Find which topic selection step precedes this deduplication step
+          for (let i = currentStepIndex; i >= 0; i--) {
+            const prevStep = currentJourney[i]
+            if (prevStep === StepKeys.TOPIC_SELECTION_1) {
+              setDeduplicationParent(StepKeys.TOPIC_SELECTION_1)
+              break
+            } else if (prevStep === StepKeys.TOPIC_SELECTION_2) {
+              setDeduplicationParent(StepKeys.TOPIC_SELECTION_2)
+              break
+            }
+          }
+        } else {
+          // Clear deduplication parent when moving to non-deduplication step
+          setDeduplicationParent(null)
+        }
       }
     }
 
@@ -301,6 +317,7 @@ function PipelineWizard() {
           activeStep={currentActiveStep}
           onStepClick={handleStepClick}
           journey={currentJourney}
+          deduplicationParent={deduplicationParent}
         />
 
         {/* Main Content Area */}
