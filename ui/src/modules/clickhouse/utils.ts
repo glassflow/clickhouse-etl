@@ -218,7 +218,7 @@ export const buildInternalPipelineConfig = ({
     protocol: securityProtocol,
     skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
     sasl_tls_enable: isTLSEnabled,
-    mechanism: mechanism || 'NO_AUTH', // Ensure mechanism is always a string, default to NO_AUTH
+    mechanism: mechanism,
   }
 
   // Only include skip_tls_verification when TLS is enabled
