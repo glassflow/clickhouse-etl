@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
-import { Copy, Check, MoreVertical, Tag as TagIcon } from 'lucide-react'
+import { Copy, Check, Tag as TagIcon } from 'lucide-react'
 import TerminatePipelineModal from '@/src/modules/pipelines/components/TerminatePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
@@ -25,6 +25,7 @@ import DeleteIcon from '@/src/images/trash.svg'
 import CloseIcon from '@/src/images/close.svg'
 import DownloadIcon from '@/src/images/download-white.svg'
 import StopWhiteIcon from '@/src/images/stop-white.svg'
+import MenuWhiteIcon from '@/src/images/menu-white.svg'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
@@ -743,12 +744,20 @@ function PipelineDetailsHeader({
         <div className="relative">
           <Button
             ref={menuButtonRef}
-            variant="ghost"
-            size="sm"
-            className={cn('h-8 w-8 p-0 hover:bg-muted')}
+            variant="outline"
+            className="group btn-action !px-3 !py-4 text-sm h-auto w-full"
             onClick={handleMenuButtonClick}
           >
-            <MoreVertical className="h-4 w-4" />
+            <div className="flex items-center gap-2">
+              <Image
+                src={MenuWhiteIcon}
+                alt="More options"
+                width={16}
+                height={16}
+                className="filter brightness-100 group-hover:brightness-0"
+              />
+              {/* Other actions */}
+            </div>
           </Button>
 
           {isMenuOpen &&
