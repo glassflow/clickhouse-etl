@@ -13,19 +13,8 @@ import (
 
 // buildSchemaJSON reconstructs the schema JSON from PipelineConfig.Mapper
 func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.PipelineConfig) ([]byte, error) {
-	type schemaField struct {
-		SourceID   string `json:"source_id"`
-		Name       string `json:"name"`
-		Type       string `json:"type"`
-		ColumnName string `json:"column_name"`
-		ColumnType string `json:"column_type"`
-	}
 
-	type schema struct {
-		Fields []schemaField `json:"fields"`
-	}
-
-	schemaFields := make([]schemaField, 0)
+	schemaFields := make([]models.SchemaField, 0)
 	fieldMap := make(map[string]bool) // Track duplicates: streamName:fieldName
 
 	// Build schema fields from MapperConfig.Streams and MapperConfig.SinkMapping
@@ -43,7 +32,7 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 					}
 				}
 
-				schemaFields = append(schemaFields, schemaField{
+				schemaFields = append(schemaFields, models.SchemaField{
 					SourceID:   streamName,
 					Name:       field.FieldName,
 					Type:       field.FieldType,
@@ -55,7 +44,7 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 		}
 	}
 
-	schemaData := schema{
+	schemaData := models.Schema{
 		Fields: schemaFields,
 	}
 
