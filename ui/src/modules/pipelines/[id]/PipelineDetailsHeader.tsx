@@ -717,27 +717,6 @@ function PipelineDetailsHeader({
     )
   }
 
-  const renderTagsButton = () => {
-    if (!onManageTags) return null
-
-    // demoMode is available from the component scope
-    return (
-      <Button
-        key="tags"
-        variant="outline"
-        onClick={onManageTags}
-        disabled={demoMode}
-        className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
-        title={demoMode ? 'Action disabled in demo mode' : undefined}
-      >
-        <div className="flex items-center gap-2">
-          <TagIcon className="h-4 w-4" />
-          Manage tags
-        </div>
-      </Button>
-    )
-  }
-
   const getActionButtons = () => {
     // Use centralized shouldShowAction from the hook (handles demo mode automatically)
     const showStop = shouldShowAction('stop')
@@ -746,256 +725,178 @@ function PipelineDetailsHeader({
     const showDelete = shouldShowAction('delete')
     const showRename = shouldShowAction('rename')
 
-    // Collect all menu items
-    const menuItems = []
+    // Determine the single primary action based on pipeline status
+    const getPrimaryAction = (): PipelineAction | null => {
+      if (effectiveStatus === 'active' && showStop) return 'stop'
+      if (effectiveStatus === 'stopped' && showResume) return 'resume'
+      if (effectiveStatus === 'terminated' && showDelete) return 'delete'
+      return null
+    }
 
-    if (showResume) menuItems.push({ action: 'resume' as PipelineAction, label: 'Resume pipeline' })
-    if (showRename) menuItems.push({ action: 'rename' as PipelineAction, label: 'Rename pipeline' })
-    if (showTerminate) menuItems.push({ action: 'terminate' as PipelineAction, label: 'Terminate pipeline' })
-    if (showDelete) menuItems.push({ action: 'delete' as PipelineAction, label: 'Delete pipeline' })
-    if (showStop) menuItems.push({ action: 'stop' as PipelineAction, label: 'Stop pipeline' })
+    const primaryAction = getPrimaryAction()
 
     return (
-      <>
-        {/* Desktop: Show primary action inline, others in menu on medium screens */}
-        {/* Mobile: Show only most important actions inline */}
+      <div className="flex flex-row gap-2">
+        {/* Single primary action button */}
+        {primaryAction && renderActionButton(primaryAction)}
 
-        {/* Always visible primary actions */}
-        <div className="hidden xl:flex xl:flex-row xl:gap-2">
-          {showResume && renderActionButton('resume')}
-          {showStop && renderActionButton('stop')}
-          {showRename && renderActionButton('rename')}
-          {showTerminate && renderActionButton('terminate')}
-          {showDelete && renderActionButton('delete')}
-
+        {/* More menu for all other actions */}
+        <div className="relative">
           <Button
-            key="download"
-            variant="outline"
-            onClick={() => handleDownloadClick()}
-            disabled={false}
-            className={`group btn-action relative !px-3 !py-1.5 h-auto text-sm`}
-            title={
-              coreStore.isDirty ? 'Unsaved changes will not be included in downloaded config' : 'Download configuration'
-            }
+            ref={menuButtonRef}
+            variant="ghost"
+            size="sm"
+            className={cn('h-8 w-8 p-0 hover:bg-muted')}
+            onClick={handleMenuButtonClick}
           >
-            <div className="flex items-center gap-2">
-              <Image
-                src={DownloadIcon}
-                alt="Download"
-                width={14}
-                height={14}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-              {coreStore.isDirty && (
-                <Badge
-                  variant="warning"
-                  className="ml-1 px-1.5 py-0.5 text-[10px] leading-none"
-                  title="Unsaved changes"
-                >
-                  ⚠️
-                </Badge>
-              )}
-            </div>
-            Download config
+            <MoreVertical className="h-4 w-4" />
           </Button>
 
-          <Button
-            key="flush-dlq"
-            variant="outline"
-            onClick={() => handleFlushDataClick()}
-            disabled={demoMode}
-            className={`group btn-action relative !px-3 !py-1.5 h-auto text-sm`}
-            title={'Flush DLQ'}
-          >
-            <div className="flex items-center gap-2">
-              <Image
-                src={DeleteIcon}
-                alt="Download"
-                width={14}
-                height={14}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-            </div>
-            Flush DLQ
-          </Button>
+          {isMenuOpen &&
+            typeof document !== 'undefined' &&
+            createPortal(
+              <>
+                {/* Backdrop to close menu when clicking outside */}
+                <div className="fixed inset-0 z-[100]" onClick={handleMenuBackdropClick} />
 
-          {renderTagsButton()}
-
-          {/* Grafana Dashboard Button - only visible in demo mode with dashboard URL */}
-          {isDashboardAvailable() && (
-            <Button
-              key="grafana-dashboard"
-              variant="outline"
-              onClick={handleGrafanaClick}
-              className={`group btn-action relative !px-3 !py-1.5 h-auto text-sm`}
-              title={'Open Grafana Dashboard'}
-            >
-              <div className="flex items-center gap-2">
-                <svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="filter brightness-100 group-hover:brightness-0"
+                {/* Menu dropdown - using fixed positioning */}
+                <div
+                  className="fixed z-[110] w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+                  style={{
+                    top: `${menuPosition.top}px`,
+                    right: `${menuPosition.right}px`,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </div>
-              Metrics(Grafana)
-            </Button>
-          )}
-        </div>
+                  {/* Show resume in menu if not primary */}
+                  {showResume && primaryAction !== 'resume' && renderMenuButton('resume', 'Resume', PlayIcon)}
+                  {/* Show stop in menu if not primary */}
+                  {showStop && primaryAction !== 'stop' && renderMenuButton('stop', 'Stop', StopWhiteIcon)}
+                  {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
+                  {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
+                  {/* Show delete in menu if not primary */}
+                  {showDelete && primaryAction !== 'delete' && renderMenuButton('delete', 'Delete', DeleteIcon)}
 
-        {/* Tablet/Mobile: Show most critical actions + More menu */}
-        <div className="flex xl:hidden flex-row gap-2">
-          {/* Show primary action inline */}
-          {showResume && renderActionButton('resume')}
-          {showStop && renderActionButton('stop')}
-          {onManageTags && (
-            <Button
-              key="tags-mobile"
-              variant="outline"
-              onClick={onManageTags}
-              disabled={demoMode}
-              className="group btn-action relative !px-3 !py-1.5 h-auto text-sm"
-              title={demoMode ? 'Action disabled in demo mode' : undefined}
-            >
-              <div className="flex items-center gap-2">
-                <TagIcon className="h-4 w-4" />
-                Tags
-              </div>
-            </Button>
-          )}
-
-          {/* More menu for remaining actions */}
-          <div className="relative">
-            <Button
-              ref={menuButtonRef}
-              variant="ghost"
-              size="sm"
-              className={cn('h-8 w-8 p-0 hover:bg-muted')}
-              onClick={handleMenuButtonClick}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-
-            {isMenuOpen &&
-              typeof document !== 'undefined' &&
-              createPortal(
-                <>
-                  {/* Backdrop to close menu when clicking outside */}
-                  <div className="fixed inset-0 z-[100]" onClick={handleMenuBackdropClick} />
-
-                  {/* Menu dropdown - using fixed positioning */}
-                  <div
-                    className="fixed z-[110] w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
-                    style={{
-                      top: `${menuPosition.top}px`,
-                      right: `${menuPosition.right}px`,
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
-                    {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
-                    {showDelete && renderMenuButton('delete', 'Delete', DeleteIcon)}
-
-                    {/* Download Button */}
+                  {/* Manage Tags Button */}
+                  {onManageTags && (
                     <Button
                       variant="ghost"
                       className={cn(
                         'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
-                        'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                        demoMode
+                          ? 'text-muted-foreground cursor-not-allowed opacity-50'
+                          : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
                       )}
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleMenuItemClick(() => handleDownloadClick())
+                        if (!demoMode) {
+                          handleMenuItemClick(() => onManageTags())
+                        }
                       }}
-                      title={
-                        coreStore.isDirty
-                          ? 'Unsaved changes will not be included in downloaded config'
-                          : 'Download configuration'
-                      }
-                    >
-                      <Image
-                        src={DownloadIcon}
-                        alt="Download"
-                        width={16}
-                        height={16}
-                        className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-                      />
-                      <span className="truncate">Download config</span>
-                      {coreStore.isDirty && (
-                        <Badge variant="warning" className="ml-auto px-1.5 py-0.5 text-[10px] leading-none">
-                          ⚠️
-                        </Badge>
-                      )}
-                    </Button>
-
-                    {/* Flush DLQ Button */}
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
-                        'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleMenuItemClick(() => handleFlushDataClick())
-                      }}
-                      title="Flush DLQ"
                       disabled={demoMode}
+                      title={demoMode ? 'Action disabled in demo mode' : 'Manage tags'}
                     >
-                      <Image
-                        src={DeleteIcon}
-                        alt="Flush"
+                      <TagIcon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">Manage tags</span>
+                    </Button>
+                  )}
+
+                  {/* Download Button */}
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                      'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleMenuItemClick(() => handleDownloadClick())
+                    }}
+                    title={
+                      coreStore.isDirty
+                        ? 'Unsaved changes will not be included in downloaded config'
+                        : 'Download configuration'
+                    }
+                  >
+                    <Image
+                      src={DownloadIcon}
+                      alt="Download"
+                      width={16}
+                      height={16}
+                      className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                    />
+                    <span className="truncate">Download config</span>
+                    {coreStore.isDirty && (
+                      <Badge variant="warning" className="ml-auto px-1.5 py-0.5 text-[10px] leading-none">
+                        ⚠️
+                      </Badge>
+                    )}
+                  </Button>
+
+                  {/* Flush DLQ Button */}
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                      demoMode
+                        ? 'text-muted-foreground cursor-not-allowed opacity-50'
+                        : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!demoMode) {
+                        handleMenuItemClick(() => handleFlushDataClick())
+                      }
+                    }}
+                    title="Flush DLQ"
+                    disabled={demoMode}
+                  >
+                    <Image
+                      src={DeleteIcon}
+                      alt="Flush"
+                      width={16}
+                      height={16}
+                      className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                    />
+                    <span className="truncate">Flush DLQ</span>
+                  </Button>
+
+                  {/* Grafana Dashboard Button - only visible in demo mode with dashboard URL */}
+                  {isDashboardAvailable() && (
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
+                        'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMenuItemClick(() => handleGrafanaClick())
+                      }}
+                      title="Open Grafana Dashboard"
+                    >
+                      <svg
                         width={16}
                         height={16}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
                         className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-                      />
-                      <span className="truncate">Flush DLQ</span>
-                    </Button>
-
-                    {/* Grafana Dashboard Button - only visible in demo mode with dashboard URL */}
-                    {isDashboardAvailable() && (
-                      <Button
-                        variant="ghost"
-                        className={cn(
-                          'flex justify-start items-center gap-2 w-full px-3 py-2 text-sm transition-colors h-auto',
-                          'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleMenuItemClick(() => handleGrafanaClick())
-                        }}
-                        title="Open Grafana Dashboard"
                       >
-                        <svg
-                          width={16}
-                          height={16}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-                        >
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                        <span className="truncate">Metrics(Grafana)</span>
-                      </Button>
-                    )}
-                  </div>
-                </>,
-                document.body,
-              )}
-          </div>
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      <span className="truncate">Metrics(Grafana)</span>
+                    </Button>
+                  )}
+                </div>
+              </>,
+              document.body,
+            )}
         </div>
-      </>
+      </div>
     )
   }
 
