@@ -140,27 +140,19 @@ func reconstructSinkConfig(chConnJSON json.RawMessage) (models.SinkComponentConf
 }
 
 // reconstructJoinConfig reconstructs JoinComponentConfig from transformations
-func reconstructJoinConfig(transformations map[string]any) models.JoinComponentConfig {
+func reconstructJoinConfig(transformations map[string]Transformation) models.JoinComponentConfig {
 	joinConfig := models.JoinComponentConfig{Enabled: false}
-	if joinRaw, ok := transformations["join"].(map[string]any); ok {
-		joinJSON, err := json.Marshal(joinRaw)
-		if err != nil {
-			return joinConfig
-		}
-		_ = json.Unmarshal(joinJSON, &joinConfig)
+	if joinTrans, ok := transformations["join"]; ok {
+		_ = json.Unmarshal(joinTrans.Config, &joinConfig)
 	}
 	return joinConfig
 }
 
 // reconstructFilterConfig reconstructs FilterComponentConfig from transformations
-func reconstructFilterConfig(transformations map[string]any) models.FilterComponentConfig {
+func reconstructFilterConfig(transformations map[string]Transformation) models.FilterComponentConfig {
 	filterConfig := models.FilterComponentConfig{Enabled: false}
-	if filterRaw, ok := transformations["filter"].(map[string]any); ok {
-		filterJSON, err := json.Marshal(filterRaw)
-		if err != nil {
-			return filterConfig
-		}
-		_ = json.Unmarshal(filterJSON, &filterConfig)
+	if filterTrans, ok := transformations["filter"]; ok {
+		_ = json.Unmarshal(filterTrans.Config, &filterConfig)
 	}
 	return filterConfig
 }

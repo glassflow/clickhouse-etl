@@ -15,6 +15,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Transformation represents a pipeline transformation with its type and configuration
+type Transformation struct {
+	Type   string
+	Config json.RawMessage
+}
+
 // pipelineData holds all the data needed to reconstruct a PipelineConfig
 type pipelineData struct {
 	pipelineID      uuid.UUID
@@ -24,7 +30,7 @@ type pipelineData struct {
 	kafkaConn       json.RawMessage
 	sink            json.RawMessage
 	chConn          json.RawMessage
-	transformations map[string]interface{}
+	transformations map[string]Transformation
 	metadataJSON    []byte
 	createdAt       time.Time
 	updatedAt       time.Time
@@ -833,7 +839,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 		return nil, fmt.Errorf("get sink: %w", err)
 	}
 
-	var transformations map[string]interface{}
+	var transformations map[string]Transformation
 	if len(transformationIDs) > 0 {
 		transformations, err = s.getTransformations(ctx, transformationIDs)
 		if err != nil {
@@ -843,7 +849,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 			return nil, fmt.Errorf("get transformations: %w", err)
 		}
 	} else {
-		transformations = make(map[string]interface{})
+		transformations = make(map[string]Transformation)
 	}
 
 	return &pipelineData{
