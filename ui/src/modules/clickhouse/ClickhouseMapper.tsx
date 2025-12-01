@@ -10,6 +10,8 @@ import { BatchDelaySelector } from './components/BatchDelaySelector'
 import FormActions from '@/src/components/shared/FormActions'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
+import DownloadIconWhite from '@/src/images/download-white.svg'
+import Image from 'next/image'
 
 import { StepKeys } from '@/src/config/constants'
 
@@ -166,6 +168,9 @@ export function ClickhouseMapper({
 
   // Add these state variables to track what action to take after validation
   const [pendingAction, setPendingAction] = useState<'none' | 'save'>('none')
+
+  // State to store config when deployment fails (for download)
+  const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
 
   const selectedTopics = useMemo(() => {
     if (mode === 'single') {
@@ -1186,6 +1191,9 @@ export function ClickhouseMapper({
   const deployPipelineAndNavigate = useCallback(
     async (apiConfig: any) => {
       try {
+        // Clear any previous failed config
+        setFailedDeploymentConfig(null)
+
         // Deploy the pipeline
         const response = await createPipeline(apiConfig)
 
@@ -1198,10 +1206,51 @@ export function ClickhouseMapper({
       } catch (error: any) {
         console.error('deployPipelineAndNavigate: Failed to deploy pipeline:', error)
         setError(`Failed to deploy pipeline: ${error.message}`)
+        // Store the failed config so user can download it
+        setFailedDeploymentConfig(apiConfig)
       }
     },
     [setPipelineId, router],
   )
+
+  // Download the failed deployment config
+  const handleDownloadFailedConfig = useCallback(() => {
+    if (!failedDeploymentConfig) return
+
+    try {
+      // Create a clean configuration object for download
+      const downloadConfig = {
+        ...failedDeploymentConfig,
+        exported_at: new Date().toISOString(),
+        exported_by: 'GlassFlow UI',
+        version: '1.0.0',
+        note: 'This configuration was exported after a failed deployment attempt.',
+      }
+
+      // Generate filename with timestamp for uniqueness
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
+      const configName = failedDeploymentConfig.name || pipelineName || 'pipeline'
+      const sanitizedName = configName.replace(/[^a-zA-Z0-9-_]/g, '_')
+      const filename = `${sanitizedName}_config_${timestamp}.json`
+
+      // Create and download the file
+      const blob = new Blob([JSON.stringify(downloadConfig, null, 2)], {
+        type: 'application/json',
+      })
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (downloadError) {
+      console.error('Failed to download configuration:', downloadError)
+    }
+  }, [failedDeploymentConfig, pipelineName])
 
   // Add this useEffect to clean up modal state
   useEffect(() => {
@@ -1402,9 +1451,34 @@ export function ClickhouseMapper({
         )} */}
 
         {combinedError && (
-          <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
-            <XCircleIcon className="h-5 w-5 mr-2" />
-            <span>{combinedError}</span>
+          <div className="space-y-3">
+            <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
+              <XCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" />
+              <span>{combinedError}</span>
+            </div>
+            {/* Show download button when deployment fails */}
+            {failedDeploymentConfig && (
+              <div className="flex items-center gap-3 p-3 bg-background-neutral-faded rounded-md border border-[var(--color-border-neutral)] text-content">
+                <span className="text-sm text-muted-foreground">
+                  You can download the configuration to save your work and try again later.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadFailedConfig}
+                  className="group flex items-center gap-2 whitespace-nowrap btn-action !px-3 !py-2 text-sm h-auto"
+                >
+                  <Image
+                    src={DownloadIconWhite}
+                    alt="Download"
+                    width={16}
+                    height={16}
+                    className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
+                  />
+                  Download config
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
