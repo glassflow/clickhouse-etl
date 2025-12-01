@@ -28,6 +28,7 @@ export interface DeduplicationStore extends DeduplicationStoreProps, ValidationM
   // Actions
   updateDeduplication: (topicIndex: number, config: DeduplicationConfig) => void
   getDeduplication: (topicIndex: number) => DeduplicationConfig | undefined
+  skipDeduplication: (topicIndex: number) => void
   invalidateDeduplication: (topicIndex: number) => void
   resetDeduplicationStore: () => void
 }
@@ -56,6 +57,24 @@ export const createDeduplicationSlice: StateCreator<DeduplicationSlice> = (set, 
       })),
 
     getDeduplication: (topicIndex: number) => get().deduplicationStore.deduplicationConfigs[topicIndex],
+
+    skipDeduplication: (topicIndex: number) =>
+      set((state) => ({
+        deduplicationStore: {
+          ...state.deduplicationStore,
+          deduplicationConfigs: {
+            ...state.deduplicationStore.deduplicationConfigs,
+            [topicIndex]: {
+              enabled: false,
+              window: 0,
+              unit: 'minutes',
+              key: '',
+              keyType: '',
+            },
+          },
+          validation: createValidValidation(), // Skipping is a valid configuration choice
+        },
+      })),
 
     invalidateDeduplication: (topicIndex: number) =>
       set((state) => ({

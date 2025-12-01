@@ -30,6 +30,9 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // active step - determines which step is currently being rendered in the standalone step renderer
   const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
 
+  // Active topic index - for multi-topic deduplication (0 = left, 1 = right)
+  const [activeTopicIndex, setActiveTopicIndex] = useState<number>(0)
+
   // Active sidebar section - determines which section is highlighted in the sidebar
   const [activeSection, setActiveSection] = useState<SidebarSection | null>('monitor')
 
@@ -197,6 +200,10 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
     if (item?.stepKey) {
       setActiveStep(item.stepKey)
+      // Set the topic index for multi-topic deduplication
+      if (item.topicIndex !== undefined) {
+        setActiveTopicIndex(item.topicIndex)
+      }
     } else {
       // For sections without a step key (like 'monitor' or 'filter'), close any open step
       setActiveStep(null)
@@ -204,7 +211,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   }
 
   // Set active step directly (used by the transformation section cards)
-  const handleStepClick = (step: StepKeys) => {
+  const handleStepClick = (step: StepKeys, topicIndex?: number) => {
     // Prevent step clicks when editing is disabled (but allow in demo mode for viewing)
     if (isEditingDisabled && !demoMode) {
       return
@@ -212,11 +219,19 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
     setActiveStep(step)
 
+    // Set the topic index if provided
+    if (topicIndex !== undefined) {
+      setActiveTopicIndex(topicIndex)
+    }
+
     // Also update the sidebar section to match the clicked step
     const items = getSidebarItems(pipeline)
-    const item = items.find((i) => i.stepKey === step)
+    const item = items.find((i) => i.stepKey === step && (topicIndex === undefined || i.topicIndex === topicIndex))
     if (item) {
       setActiveSection(item.key)
+      if (item.topicIndex !== undefined) {
+        setActiveTopicIndex(item.topicIndex)
+      }
     }
   }
 
@@ -374,6 +389,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                 onClose={handleCloseStep}
                 pipeline={pipeline}
                 onPipelineStatusUpdate={handlePipelineStatusUpdate}
+                topicIndex={activeTopicIndex}
               />
             )}
           </div>
