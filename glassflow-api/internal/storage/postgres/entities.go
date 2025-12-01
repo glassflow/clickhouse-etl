@@ -375,9 +375,9 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 }
 
 // getTransformations retrieves transformations by their IDs
-func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uuid.UUID) (map[string]interface{}, error) {
+func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uuid.UUID) (map[string]Transformation, error) {
 	if len(transIDs) == 0 {
-		return make(map[string]interface{}), nil
+		return make(map[string]Transformation), nil
 	}
 
 	query := `SELECT type, config FROM transformations WHERE id = ANY($1)`
@@ -387,7 +387,7 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 	}
 	defer rows.Close()
 
-	transformations := make(map[string]interface{})
+	transformations := make(map[string]Transformation)
 	for rows.Next() {
 		var transType string
 		var configJSON []byte
@@ -395,12 +395,10 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 			return nil, fmt.Errorf("scan transformation: %w", err)
 		}
 
-		var config map[string]interface{}
-		if err := json.Unmarshal(configJSON, &config); err != nil {
-			return nil, fmt.Errorf("unmarshal transformation config: %w", err)
+		transformations[transType] = Transformation{
+			Type:   transType,
+			Config: configJSON,
 		}
-
-		transformations[transType] = config
 	}
 
 	return transformations, nil
