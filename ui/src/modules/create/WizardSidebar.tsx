@@ -17,6 +17,7 @@ interface WizardSidebarProps {
   activeStep: string | null
   onStepClick: (stepKey: string, parent?: string | null) => void
   journey?: string[] // Journey array to help determine completion for duplicate step keys
+  deduplicationParent?: string | null // Parent step key when a deduplication step was clicked
 }
 
 type StepState = 'pending' | 'active' | 'completed'
@@ -27,6 +28,7 @@ function getStepState(
   activeStep: string | null,
   step: SidebarStep,
   journey?: string[],
+  deduplicationParent?: string | null,
 ): StepState {
   // For steps with duplicate keys (like DEDUPLICATION_CONFIGURATOR), check completion based on journey position
   if (stepKey === 'deduplication-configurator' && journey && step.parent) {
@@ -52,13 +54,20 @@ function getStepState(
     // For DEDUPLICATION_CONFIGURATOR, we need to determine which occurrence is actually active
     let activeStepIndex = -1
     if (activeStep === 'deduplication-configurator' && stepIndices.length > 0) {
-      // Determine which deduplication occurrence is currently active
-      // If TOPIC_SELECTION_2 is completed, the active one is the second occurrence
-      // Otherwise, it's the first occurrence
-      if (completedSteps.includes('topic-selection-2')) {
-        activeStepIndex = stepIndices[stepIndices.length - 1] // Second occurrence
+      // Use deduplicationParent to determine which occurrence is active (set when user clicks on a specific dedup step)
+      if (deduplicationParent) {
+        if (deduplicationParent === 'topic-selection-1') {
+          activeStepIndex = stepIndices[0] // First occurrence
+        } else if (deduplicationParent === 'topic-selection-2') {
+          activeStepIndex = stepIndices.length > 1 ? stepIndices[stepIndices.length - 1] : stepIndices[0] // Second occurrence
+        }
       } else {
-        activeStepIndex = stepIndices[0] // First occurrence
+        // Fallback: If no deduplicationParent, determine based on completed steps (for normal flow navigation)
+        if (completedSteps.includes('topic-selection-2')) {
+          activeStepIndex = stepIndices[stepIndices.length - 1] // Second occurrence
+        } else {
+          activeStepIndex = stepIndices[0] // First occurrence
+        }
       }
     } else {
       // For non-deduplication steps, use indexOf
@@ -121,7 +130,7 @@ function StepIcon({ state, stepKey }: StepIconProps) {
   )
 }
 
-export function WizardSidebar({ steps, completedSteps, activeStep, onStepClick, journey }: WizardSidebarProps) {
+export function WizardSidebar({ steps, completedSteps, activeStep, onStepClick, journey, deduplicationParent }: WizardSidebarProps) {
   // Separate top-level steps and substeps
   const topLevelSteps = steps.filter((step) => !step.parent)
   const substepsByParent = steps.reduce(
@@ -138,7 +147,7 @@ export function WizardSidebar({ steps, completedSteps, activeStep, onStepClick, 
   )
 
   const handleStepClick = (stepKey: string, step: SidebarStep) => {
-    const state = getStepState(stepKey, completedSteps, activeStep, step, journey)
+    const state = getStepState(stepKey, completedSteps, activeStep, step, journey, deduplicationParent)
     // Only allow clicking on completed steps (to edit) or the active step
     if (state === 'completed') {
       // Pass the parent information to help identify which occurrence was clicked
@@ -152,7 +161,7 @@ export function WizardSidebar({ steps, completedSteps, activeStep, onStepClick, 
     isLast: boolean = false,
     verticalLineHeight?: number,
   ) => {
-    const state = getStepState(step.key, completedSteps, activeStep, step, journey)
+    const state = getStepState(step.key, completedSteps, activeStep, step, journey, deduplicationParent)
     const isClickable = state === 'completed'
 
     return (

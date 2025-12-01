@@ -8,9 +8,16 @@ import { ReviewConfiguration } from '../review/ReviewConfiguration'
 import { JoinConfigurator } from '../join/JoinConfigurator'
 import { OperationKeys } from '@/src/config/constants'
 import type { SidebarStep } from './WizardSidebar'
+import { getRuntimeEnv } from '@/src/utils/common.client'
 
 // Re-export step icons for external use
 export { getStepIcon, stepIcons, type StepIconComponent } from './wizard-step-icons'
+
+// Check if preview mode is enabled (shows the Review & Deploy step)
+const isPreviewModeEnabled = (): boolean => {
+  const runtimeEnv = getRuntimeEnv()
+  return runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
+}
 
 // Sidebar step configuration for display in the wizard sidebar
 // Maps step keys to display titles and hierarchy information
@@ -63,61 +70,94 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'key'>> = {
 }
 
 // Legacy journeys kept for backward compatibility
-export const deduplicationJourney = [
-  StepKeys.KAFKA_CONNECTION,
-  StepKeys.TOPIC_SELECTION_1,
-  StepKeys.DEDUPLICATION_CONFIGURATOR,
-  StepKeys.CLICKHOUSE_CONNECTION,
-  StepKeys.CLICKHOUSE_MAPPER,
-  StepKeys.REVIEW_CONFIGURATION,
-]
-
-export const joinJourney = [
-  StepKeys.KAFKA_CONNECTION,
-  StepKeys.TOPIC_SELECTION_1,
-  StepKeys.TOPIC_SELECTION_2,
-  StepKeys.JOIN_CONFIGURATOR,
-  StepKeys.CLICKHOUSE_CONNECTION,
-  StepKeys.CLICKHOUSE_MAPPER,
-  StepKeys.REVIEW_CONFIGURATION,
-]
-
-export const ingestOnlyJourney = [
-  StepKeys.KAFKA_CONNECTION,
-  StepKeys.TOPIC_SELECTION_1,
-  StepKeys.CLICKHOUSE_CONNECTION,
-  StepKeys.CLICKHOUSE_MAPPER,
-  StepKeys.REVIEW_CONFIGURATION,
-]
-
-export const deduplicateJoinJourney = [
-  StepKeys.KAFKA_CONNECTION,
-  StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1,
-  StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2,
-  StepKeys.JOIN_CONFIGURATOR,
-  StepKeys.CLICKHOUSE_CONNECTION,
-  StepKeys.CLICKHOUSE_MAPPER,
-  StepKeys.REVIEW_CONFIGURATION,
-]
-
-// New topic count-based journeys
-export const getSingleTopicJourney = (): StepKeys[] => {
-  // 1 Topic: Kafka Connection → Topic Selection → ClickHouse Connection → Mapper → Review
-  // Deduplication is configured optionally within the topic selector
-  return [
+// These are now functions to support conditional review step based on preview mode
+export const getDeduplicationJourney = (): StepKeys[] => {
+  const steps: StepKeys[] = [
     StepKeys.KAFKA_CONNECTION,
     StepKeys.TOPIC_SELECTION_1,
     StepKeys.DEDUPLICATION_CONFIGURATOR,
     StepKeys.CLICKHOUSE_CONNECTION,
     StepKeys.CLICKHOUSE_MAPPER,
-    StepKeys.REVIEW_CONFIGURATION,
   ]
+  if (isPreviewModeEnabled()) {
+    steps.push(StepKeys.REVIEW_CONFIGURATION)
+  }
+  return steps
+}
+
+export const getJoinJourney = (): StepKeys[] => {
+  const steps: StepKeys[] = [
+    StepKeys.KAFKA_CONNECTION,
+    StepKeys.TOPIC_SELECTION_1,
+    StepKeys.TOPIC_SELECTION_2,
+    StepKeys.JOIN_CONFIGURATOR,
+    StepKeys.CLICKHOUSE_CONNECTION,
+    StepKeys.CLICKHOUSE_MAPPER,
+  ]
+  if (isPreviewModeEnabled()) {
+    steps.push(StepKeys.REVIEW_CONFIGURATION)
+  }
+  return steps
+}
+
+export const getIngestOnlyJourney = (): StepKeys[] => {
+  const steps: StepKeys[] = [
+    StepKeys.KAFKA_CONNECTION,
+    StepKeys.TOPIC_SELECTION_1,
+    StepKeys.CLICKHOUSE_CONNECTION,
+    StepKeys.CLICKHOUSE_MAPPER,
+  ]
+  if (isPreviewModeEnabled()) {
+    steps.push(StepKeys.REVIEW_CONFIGURATION)
+  }
+  return steps
+}
+
+export const getDeduplicateJoinJourney = (): StepKeys[] => {
+  const steps: StepKeys[] = [
+    StepKeys.KAFKA_CONNECTION,
+    StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1,
+    StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2,
+    StepKeys.JOIN_CONFIGURATOR,
+    StepKeys.CLICKHOUSE_CONNECTION,
+    StepKeys.CLICKHOUSE_MAPPER,
+  ]
+  if (isPreviewModeEnabled()) {
+    steps.push(StepKeys.REVIEW_CONFIGURATION)
+  }
+  return steps
+}
+
+// Legacy static exports for backward compatibility (deprecated - use functions above)
+export const deduplicationJourney = getDeduplicationJourney()
+export const joinJourney = getJoinJourney()
+export const ingestOnlyJourney = getIngestOnlyJourney()
+export const deduplicateJoinJourney = getDeduplicateJoinJourney()
+
+// New topic count-based journeys
+export const getSingleTopicJourney = (): StepKeys[] => {
+  // 1 Topic: Kafka Connection → Topic Selection → ClickHouse Connection → Mapper → Review (if preview mode)
+  // Deduplication is configured optionally within the topic selector
+  const steps: StepKeys[] = [
+    StepKeys.KAFKA_CONNECTION,
+    StepKeys.TOPIC_SELECTION_1,
+    StepKeys.DEDUPLICATION_CONFIGURATOR,
+    StepKeys.CLICKHOUSE_CONNECTION,
+    StepKeys.CLICKHOUSE_MAPPER,
+  ]
+
+  // Only include Review step if preview mode is enabled
+  if (isPreviewModeEnabled()) {
+    steps.push(StepKeys.REVIEW_CONFIGURATION)
+  }
+
+  return steps
 }
 
 export const getTwoTopicJourney = (): StepKeys[] => {
-  // 2 Topics: Kafka Connection → Topic 1 Selection → Topic 2 Selection → Join Configurator → ClickHouse Connection → Mapper → Review
+  // 2 Topics: Kafka Connection → Topic 1 Selection → Topic 2 Selection → Join Configurator → ClickHouse Connection → Mapper → Review (if preview mode)
   // Deduplication is configured optionally per-topic within each topic selector
-  return [
+  const steps: StepKeys[] = [
     StepKeys.KAFKA_CONNECTION,
     StepKeys.TOPIC_SELECTION_1,
     StepKeys.DEDUPLICATION_CONFIGURATOR,
@@ -126,8 +166,14 @@ export const getTwoTopicJourney = (): StepKeys[] => {
     StepKeys.JOIN_CONFIGURATOR,
     StepKeys.CLICKHOUSE_CONNECTION,
     StepKeys.CLICKHOUSE_MAPPER,
-    StepKeys.REVIEW_CONFIGURATION,
   ]
+
+  // Only include Review step if preview mode is enabled
+  if (isPreviewModeEnabled()) {
+    steps.push(StepKeys.REVIEW_CONFIGURATION)
+  }
+
+  return steps
 }
 
 // Convert a journey array to sidebar steps with hierarchy
