@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -61,7 +60,7 @@ func (s *PostgresStorage) buildSchemaJSON(ctx context.Context, p models.Pipeline
 }
 
 // insertSchema inserts a schema into the schemas table
-func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte, version, status string) error {
+func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineID string, schemaJSON []byte, version, status string) error {
 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO schemas (pipeline_id, version, active, schema_data, created_at, updated_at)
@@ -69,7 +68,7 @@ func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineI
 	`, pipelineID, version, status, schemaJSON)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert schema",
-			slog.String("pipeline_id", pipelineID.String()),
+			slog.String("pipeline_id", pipelineID),
 			slog.String("version", version),
 			slog.String("active_status", status),
 			slog.String("error", err.Error()))
@@ -81,7 +80,7 @@ func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineI
 
 // updateSchema updates the existing schema with version "v0" for the given pipeline
 // NOTE: With schema evolution, updates to schema should be versioned (create new versions instead of updating)
-func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, schemaJSON []byte) error {
+func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineID string, schemaJSON []byte) error {
 	commandTag, err := tx.Exec(ctx, `
 		UPDATE schemas
 		SET schema_data = $1, updated_at = NOW()
@@ -89,7 +88,7 @@ func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineI
 	`, schemaJSON, pipelineID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update schema",
-			slog.String("pipeline_id", pipelineID.String()),
+			slog.String("pipeline_id", pipelineID),
 			slog.String("error", err.Error()))
 		return fmt.Errorf("update schema: %w", err)
 	}

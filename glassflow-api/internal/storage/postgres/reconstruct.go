@@ -35,7 +35,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	metadata, err := unmarshalMetadata(data.metadataJSON)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to unmarshal metadata",
-			slog.String("pipeline_id", data.pipelineID.String()),
+			slog.String("pipeline_id", data.pipelineID),
 			slog.String("error", err.Error()))
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	kafkaConnCfg, err := reconstructKafkaConfig(data.kafkaConn)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to reconstruct kafka config",
-			slog.String("pipeline_id", data.pipelineID.String()),
+			slog.String("pipeline_id", data.pipelineID),
 			slog.String("error", err.Error()))
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	mapperConfig, err := reconstructMapperConfig(data.source, data.sink)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to reconstruct mapper config",
-			slog.String("pipeline_id", data.pipelineID.String()),
+			slog.String("pipeline_id", data.pipelineID),
 			slog.String("error", err.Error()))
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	sinkComponentConfig, err := reconstructSinkConfig(data.chConn)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to reconstruct sink config",
-			slog.String("pipeline_id", data.pipelineID.String()),
+			slog.String("pipeline_id", data.pipelineID),
 			slog.String("error", err.Error()))
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	joinConfig := reconstructJoinConfig(data.transformations)
 	filterConfig := reconstructFilterConfig(data.transformations)
 
-	id := data.pipelineID.String()
+	id := data.pipelineID
 	cfg := &models.PipelineConfig{
 		ID:        id,
 		Name:      data.name,
