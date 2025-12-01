@@ -918,12 +918,12 @@ function PipelineDetailsHeader({
     >
       <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4">
         <div className="flex flex-col gap-4">
-          <div className="flex flex-row justify-between gap-2">
-            <div className="flex flex-row flex-start gap-2 items-center">
+          <div className="flex flex-row justify-between gap-4 items-start">
+            <div className="flex flex-row flex-start gap-2 items-center min-w-0 flex-1">
               {actionState.isLoading && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <Image src={Loader} alt="Loading" width={24} height={24} className="animate-spin" />
-                  <span className="text-sm text-blue-600 font-medium">
+                  <span className="text-sm text-blue-600 font-medium whitespace-nowrap">
                     {actionState.lastAction === 'stop' && 'Stopping pipeline...'}
                     {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
                     {actionState.lastAction === 'terminate' && 'Terminating pipeline...'}
@@ -933,8 +933,8 @@ function PipelineDetailsHeader({
                   </span>
                 </div>
               )}
-              <h2 className="text-2xl font-bold">{pipeline.name}</h2>
-              <Badge variant={getStatusVariant(effectiveStatus)} className="rounded-xl my-2 mx-4">
+              <h2 className="text-2xl font-bold truncate min-w-0" title={pipeline.name}>{pipeline.name}</h2>
+              <Badge variant={getStatusVariant(effectiveStatus)} className="rounded-xl my-2 mx-4 flex-shrink-0">
                 {healthLoading && !centralizedStatus ? 'Checking...' : getBadgeLabel(effectiveStatus)}
               </Badge>
               {/* Debug info */}
@@ -944,7 +944,7 @@ function PipelineDetailsHeader({
                 {recentActionRef.current?.action || 'none'}
               </div> */}
             </div>
-            <div className="flex flex-row flex-end gap-2">{actions || getActionButtons()}</div>
+            <div className="flex flex-row flex-end gap-2 flex-shrink-0">{actions || getActionButtons()}</div>
           </div>
           <div className="flex flex-start items-center gap-1 text-sm text-muted-foreground">
             {pipeline.pipeline_id ? (
