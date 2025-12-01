@@ -11,7 +11,7 @@ import (
 )
 
 // insertConnectionWithConfig inserts a connection with the given config
-func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx pgx.Tx, connType string, config map[string]interface{}) (uuid.UUID, error) {
+func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx pgx.Tx, connType string, config []byte) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to marshal connection config",
@@ -37,7 +37,7 @@ func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx pgx
 }
 
 // updateConnectionWithConfig updates an existing connection with the given config
-func (s *PostgresStorage) updateConnectionWithConfig(ctx context.Context, tx pgx.Tx, connID uuid.UUID, config map[string]interface{}) error {
+func (s *PostgresStorage) updateConnectionWithConfig(ctx context.Context, tx pgx.Tx, connID uuid.UUID, config []byte) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to marshal connection config",

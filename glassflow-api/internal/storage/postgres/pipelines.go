@@ -554,12 +554,19 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 
 // insertKafkaSource inserts Kafka connection and source
 func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
-	kafkaConnConfig := map[string]interface{}{
-		"kafka_connection_params": p.Ingestor.KafkaConnectionParams,
-		"kafka_topics":            p.Ingestor.KafkaTopics,
-		"provider":                p.Ingestor.Provider,
+	kafkaConnConfig := models.IngestorComponentConfig{
+		Provider:              p.Ingestor.Provider,
+		KafkaTopics:           p.Ingestor.KafkaTopics,
+		KafkaConnectionParams: p.Ingestor.KafkaConnectionParams,
+		Type:                  p.Ingestor.Type,
 	}
-	kafkaConnID, err := s.insertConnectionWithConfig(ctx, tx, "kafka", kafkaConnConfig)
+
+	connBytes, err := json.Marshal(kafkaConnConfig)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal kafka connection config: %w", err)
+	}
+
+	kafkaConnID, err := s.insertConnectionWithConfig(ctx, tx, "kafka", connBytes)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert kafka connection: %w", err)
 	}
@@ -574,12 +581,18 @@ func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx pgx.Tx, p mo
 
 // updateKafkaSource updates Kafka connection and source
 func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafkaConnID uuid.UUID, sourceID uuid.UUID, p models.PipelineConfig) error {
-	kafkaConnConfig := map[string]interface{}{
-		"kafka_connection_params": p.Ingestor.KafkaConnectionParams,
-		"kafka_topics":            p.Ingestor.KafkaTopics,
-		"provider":                p.Ingestor.Provider,
+	ingestorConnConfig := models.IngestorComponentConfig{
+		KafkaConnectionParams: p.Ingestor.KafkaConnectionParams,
+		KafkaTopics:           p.Ingestor.KafkaTopics,
+		Provider:              p.Ingestor.Provider,
+		Type:                  p.Ingestor.Type,
 	}
-	err := s.updateConnectionWithConfig(ctx, tx, kafkaConnID, kafkaConnConfig)
+	connBytes, err := json.Marshal(ingestorConnConfig)
+	if err != nil {
+		return fmt.Errorf("marshal kafka connection config: %w", err)
+	}
+
+	err = s.updateConnectionWithConfig(ctx, tx, kafkaConnID, connBytes)
 	if err != nil {
 		return fmt.Errorf("update kafka connection: %w", err)
 	}
@@ -594,12 +607,20 @@ func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafk
 
 // insertClickHouseSink inserts ClickHouse connection and sink
 func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
-	chConnConfig := map[string]interface{}{
-		"clickhouse_connection_params": p.Sink.ClickHouseConnectionParams,
-		"batch":                        p.Sink.Batch,
-		"stream_id":                    p.Sink.StreamID,
+	sinkConnConfig := models.SinkComponentConfig{
+		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
+		Batch:                      p.Sink.Batch,
+		StreamID:                   p.Sink.StreamID,
+		Type:                       p.Sink.Type,
+		NATSConsumerName:           p.Sink.NATSConsumerName,
 	}
-	chConnID, err := s.insertConnectionWithConfig(ctx, tx, "clickhouse", chConnConfig)
+
+	connBytes, err := json.Marshal(sinkConnConfig)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal clickhouse connection config: %w", err)
+	}
+
+	chConnID, err := s.insertConnectionWithConfig(ctx, tx, "clickhouse", connBytes)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert clickhouse connection: %w", err)
 	}
@@ -614,12 +635,20 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p
 
 // updateClickHouseSink updates ClickHouse connection and sink
 func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, chConnID uuid.UUID, sinkID uuid.UUID, p models.PipelineConfig) error {
-	chConnConfig := map[string]interface{}{
-		"clickhouse_connection_params": p.Sink.ClickHouseConnectionParams,
-		"batch":                        p.Sink.Batch,
-		"stream_id":                    p.Sink.StreamID,
+	sinkConnConfig := models.SinkComponentConfig{
+		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
+		Batch:                      p.Sink.Batch,
+		StreamID:                   p.Sink.StreamID,
+		NATSConsumerName:           p.Sink.NATSConsumerName,
+		Type:                       p.Sink.Type,
 	}
-	err := s.updateConnectionWithConfig(ctx, tx, chConnID, chConnConfig)
+
+	connBytes, err := json.Marshal(sinkConnConfig)
+	if err != nil {
+		return fmt.Errorf("marshal clickhouse connection config: %w", err)
+	}
+
+	err = s.updateConnectionWithConfig(ctx, tx, chConnID, connBytes)
 	if err != nil {
 		return fmt.Errorf("update clickhouse connection: %w", err)
 	}
