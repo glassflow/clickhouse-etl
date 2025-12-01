@@ -21,6 +21,13 @@ type Transformation struct {
 	Config json.RawMessage
 }
 
+// HistoryEntry represents a pipeline history entry
+type HistoryEntry struct {
+	Type     string          // "history", "error", or "status"
+	Pipeline json.RawMessage // Full pipeline JSON
+	Errors   []string        // Array of error messages (for error type)
+}
+
 // pipelineData holds all the data needed to reconstruct a PipelineConfig
 type pipelineData struct {
 	pipelineID      uuid.UUID
@@ -171,7 +178,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 	}
 
 	// Insert pipeline history event
-	err = s.insertPipelineHistoryEvent(ctx, tx, insertData.pipelineID, p, nil)
+	err = s.insertPipelineHistoryEvent(ctx, tx, insertData.pipelineID, p, "history", nil)
 	if err != nil {
 		return fmt.Errorf("insert pipeline history event: %w", err)
 	}
@@ -222,6 +229,45 @@ func (s *PostgresStorage) UpdatePipelineStatus(ctx context.Context, id string, s
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
+
+	// Insert status history event in a separate transaction (non-blocking)
+	// History insertion failure should not block status updates
+	go func() {
+		historyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		pipeline, err := s.GetPipeline(historyCtx, id)
+		if err != nil {
+			s.logger.WarnContext(historyCtx, "failed to get pipeline for status history",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+
+		historyTx, err := s.pool.Begin(historyCtx)
+		if err != nil {
+			s.logger.WarnContext(historyCtx, "failed to begin transaction for status history",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+		defer historyTx.Rollback(historyCtx)
+
+		err = s.insertPipelineHistoryEvent(historyCtx, historyTx, pipelineID, *pipeline, "status", nil)
+		if err != nil {
+			s.logger.WarnContext(historyCtx, "failed to insert status history event",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+
+		if err := historyTx.Commit(historyCtx); err != nil {
+			s.logger.WarnContext(historyCtx, "failed to commit status history transaction",
+				slog.String("pipeline_id", id),
+				slog.String("error", err.Error()))
+			return
+		}
+	}()
 
 	s.logger.InfoContext(ctx, "pipeline status updated",
 		slog.String("pipeline_id", id),
@@ -330,7 +376,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	}
 
 	// Insert pipeline history event
-	err = s.insertPipelineHistoryEvent(ctx, tx, existingData.pipelineID, newCfg, nil)
+	err = s.insertPipelineHistoryEvent(ctx, tx, existingData.pipelineID, newCfg, "history", nil)
 	if err != nil {
 		return fmt.Errorf("insert pipeline history event: %w", err)
 	}
@@ -405,24 +451,23 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 }
 
 // insertPipelineHistoryEvent inserts a pipeline history event
-func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, pipeline models.PipelineConfig, errors []string) error {
+func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID uuid.UUID, pipeline models.PipelineConfig, eventType string, errors []string) error {
+	// Default to "history" if not specified
+	if eventType == "" {
+		eventType = "history"
+	}
+
 	// Marshal entire pipeline to JSON
 	pipelineJSON, err := json.Marshal(pipeline)
 	if err != nil {
 		return fmt.Errorf("marshal pipeline for history: %w", err)
 	}
 
-	// Unmarshal pipeline JSON into a map to store as nested JSON object
-	var pipelineObj map[string]interface{}
-	if err := json.Unmarshal(pipelineJSON, &pipelineObj); err != nil {
-		return fmt.Errorf("unmarshal pipeline for history: %w", err)
-	}
-
-	// Build event object with nested pipeline JSON
-	event := map[string]interface{}{
-		"pipeline": pipelineObj,
-		"status":   string(pipeline.Status.OverallStatus),
-		"errors":   errors,
+	// Build event object matching HistoryEntry structure
+	event := HistoryEntry{
+		Type:     eventType,
+		Pipeline: pipelineJSON,
+		Errors:   errors,
 	}
 
 	eventJSON, err := json.Marshal(event)
@@ -431,9 +476,9 @@ func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO pipeline_history (pipeline_id, event)
-		VALUES ($1, $2)
-	`, pipelineID, eventJSON)
+		INSERT INTO pipeline_history (pipeline_id, type, event)
+		VALUES ($1, $2, $3)
+	`, pipelineID, eventType, eventJSON)
 	if err != nil {
 		return fmt.Errorf("insert pipeline history event: %w", err)
 	}
