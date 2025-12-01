@@ -28,9 +28,10 @@ interface StandaloneStepRendererProps {
   onClose: () => void
   pipeline?: any
   onPipelineStatusUpdate?: (status: string) => void
+  topicIndex?: number // Topic index for multi-topic deduplication (0 = left, 1 = right)
 }
 
-function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUpdate }: StandaloneStepRendererProps) {
+function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUpdate, topicIndex = 0 }: StandaloneStepRendererProps) {
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
@@ -278,8 +279,11 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
   //   </StepRendererModal>
   // )
 
-  // Determine if this is a deduplication configurator step
-  const isDeduplicationStep =
+  // Determine if this is a deduplication configurator step (standalone dedup, not topic+dedup combined)
+  const isDeduplicationConfiguratorStep = stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR
+
+  // Determine if this is a topic+deduplication combined step
+  const isTopicDeduplicationStep =
     stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
 
   // Determine if this is a topic selector step that needs currentStep prop
@@ -308,9 +312,14 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
     ? {
         ...baseProps,
         currentStep: stepKey,
-        enableDeduplication: isDeduplicationStep,
+        enableDeduplication: isTopicDeduplicationStep,
       }
-    : baseProps
+    : isDeduplicationConfiguratorStep
+      ? {
+          ...baseProps,
+          index: topicIndex, // Pass topic index for multi-topic deduplication
+        }
+      : baseProps
 
   return (
     <>
