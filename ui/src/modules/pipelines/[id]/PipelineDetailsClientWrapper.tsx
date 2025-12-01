@@ -85,14 +85,8 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="text-red-500 text-lg font-semibold mb-2">Error</div>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Retry
-          </button>
+          <div className="text-gray-500 text-lg font-semibold mb-2">Error</div>
+          <p className="text-gray-600">{error}</p>
         </div>
       </div>
     )
