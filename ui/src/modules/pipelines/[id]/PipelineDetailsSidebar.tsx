@@ -51,21 +51,27 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
 
   if (isMultiTopic) {
     // Multi-topic pipeline: show Left Topic and Right Topic
-    items.push({ key: 'left-topic', label: 'Left Topic', stepKey: StepKeys.TOPIC_SELECTION_1, topicIndex: 0 })
-
     // Check if left topic has deduplication
     const leftTopicHasDedup = topics[0]?.deduplication?.enabled === true
-    if (leftTopicHasDedup) {
-      items.push({ key: 'left-deduplicate', label: 'Left Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR, topicIndex: 0 })
-    }
 
-    items.push({ key: 'right-topic', label: 'Right Topic', stepKey: StepKeys.TOPIC_SELECTION_2, topicIndex: 1 })
+    // Use combined step key (TOPIC_DEDUPLICATION_CONFIGURATOR) when topic has dedup
+    items.push({
+      key: 'left-topic',
+      label: leftTopicHasDedup ? 'Left Topic & Dedup' : 'Left Topic',
+      stepKey: leftTopicHasDedup ? StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 : StepKeys.TOPIC_SELECTION_1,
+      topicIndex: 0,
+    })
 
     // Check if right topic has deduplication
     const rightTopicHasDedup = topics[1]?.deduplication?.enabled === true
-    if (rightTopicHasDedup) {
-      items.push({ key: 'right-deduplicate', label: 'Right Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR, topicIndex: 1 })
-    }
+
+    // Use combined step key (TOPIC_DEDUPLICATION_CONFIGURATOR) when topic has dedup
+    items.push({
+      key: 'right-topic',
+      label: rightTopicHasDedup ? 'Right Topic & Dedup' : 'Right Topic',
+      stepKey: rightTopicHasDedup ? StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2 : StepKeys.TOPIC_SELECTION_2,
+      topicIndex: 1,
+    })
 
     // Add Join Configuration for multi-topic pipelines
     if (hasJoin) {
@@ -73,10 +79,12 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
     }
   } else {
     // Single topic pipeline
-    items.push({ key: 'topic', label: 'Topic', stepKey: StepKeys.TOPIC_SELECTION_1, topicIndex: 0 })
-
     // Check if single topic has deduplication
     const hasDeduplication = topics[0]?.deduplication?.enabled === true
+
+    // For single topic, keep Topic and Deduplicate as separate items
+    items.push({ key: 'topic', label: 'Topic', stepKey: StepKeys.TOPIC_SELECTION_1, topicIndex: 0 })
+
     if (hasDeduplication) {
       items.push({ key: 'deduplicate', label: 'Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR, topicIndex: 0 })
     }
