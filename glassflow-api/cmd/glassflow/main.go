@@ -64,6 +64,7 @@ type config struct {
 	NATSServer         string        `default:"localhost:4222" split_words:"true"`
 	NATSMaxStreamAge   time.Duration `default:"168h" split_words:"true"`
 	NATSMaxStreamBytes int64         `default:"107374182400" split_words:"true"` // 100GB in bytes
+	NATSPipelineKV     string        `default:"glassflow-pipelines" split_words:"true"`
 
 	// Database configuration
 	DatabaseURL string `default:"" split_words:"true"`
@@ -199,6 +200,19 @@ func mainEtl(
 	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log)
 	if err != nil {
 		return fmt.Errorf("create postgres store for pipelines: %w", err)
+	}
+
+	// Run data migration from NATS KV to Postgres
+	kvStoreName := cfg.NATSPipelineKV
+
+	if err = storage.MigratePipelinesFromNATSKV(ctx, nc, db, kvStoreName, log); err != nil {
+		// Log error but don't fail startup (data migration failures shouldn't block API)
+		log.Error("data migration from NATS KV failed",
+			slog.String("error", err.Error()),
+			slog.String("kv_store_name", kvStoreName))
+	} else {
+		log.Info("data migration from NATS KV completed",
+			slog.String("kv_store_name", kvStoreName))
 	}
 
 	dlq := dlq.NewClient(nc)

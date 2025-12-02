@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -817,4 +818,16 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 
 	h.log.InfoContext(r.Context(), "pipeline deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// MigratePipelineFromJSON converts pipeline JSON from NATS KV to PipelineConfig with a new UUID
+func MigratePipelineFromJSON(jsonData []byte, newPipelineID string) (models.PipelineConfig, error) {
+	var p pipelineJSON
+	if err := json.Unmarshal(jsonData, &p); err != nil {
+		return models.PipelineConfig{}, fmt.Errorf("unmarshal pipeline JSON: %w", err)
+	}
+
+	p.PipelineID = newPipelineID
+
+	return p.toModel()
 }
