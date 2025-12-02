@@ -38,12 +38,12 @@ export default function GlobalFooter() {
                 Report an issue
               </Button>
             </Link>
-            <Link href="mailto:help@glassflow.dev" target="_blank" rel="noopener noreferrer" passHref>
+            <Link href="https://www.glassflow.dev/contact" target="_blank" rel="noopener" passHref>
               <Button className="btn-tertiary" type="button" variant="outline" size="custom">
                 Get help
               </Button>
             </Link>
-            <Link href="https://docs.glassflow.dev/" target="_blank" rel="noopener noreferrer" passHref>
+            <Link href="https://docs.glassflow.dev/" target="_blank" rel="noopener" passHref>
               <Button className="btn-tertiary" type="button" variant="outline" size="custom">
                 View documentation
               </Button>
