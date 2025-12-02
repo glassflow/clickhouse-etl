@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import { KafkaConnectionParams, TableColumn } from './types'
 import { extractEventFields, getRuntimeEnv } from '@/src/utils/common.client'
+import { InternalPipelineConfig } from '@/src/types/pipeline'
+import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
+import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
 
 const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
@@ -29,8 +32,8 @@ export const filterUserMappableColumns = (columns: TableColumn[]): TableColumn[]
   return columns.filter((col) => !shouldExcludeColumn(col))
 }
 
-// Generate API config without updating the store
-export const generateApiConfig = ({
+// Build Internal Pipeline Config from UI stores
+export const buildInternalPipelineConfig = ({
   pipelineId,
   pipelineName,
   setPipelineId,
@@ -52,302 +55,362 @@ export const generateApiConfig = ({
   joinStore: any
   kafkaStore: any
   deduplicationStore: any
-}) => {
-  try {
-    // Generate a new pipeline ID if one doesn't exist
-    let finalPipelineId = pipelineId
-    if (!finalPipelineId) {
-      finalPipelineId = uuidv4()
-      setPipelineId(finalPipelineId)
+}): InternalPipelineConfig => {
+  // Generate a new pipeline ID if one doesn't exist
+  let finalPipelineId = pipelineId
+  if (!finalPipelineId) {
+    finalPipelineId = uuidv4()
+    setPipelineId(finalPipelineId)
+  }
+
+  const mapping = clickhouseDestination?.mapping || []
+
+  // Map topics to the expected format
+  const topicsConfig = selectedTopics.map((topic: any, topicIndex: number) => {
+    // Extract event data, ensuring _metadata is removed
+    let eventData = {}
+    if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
+      // Get the actual event data (either directly or from .event property)
+      const rawEvent = topic?.selectedEvent?.event || {}
+
+      // Clone the event and remove _metadata
+      eventData = { ...rawEvent }
+      if (typeof eventData === 'object' && eventData !== null && '_metadata' in eventData) {
+        delete (eventData as any)._metadata
+      }
     }
 
-    const mapping = clickhouseDestination?.mapping || []
+    // Get deduplication config from the new separated store
+    const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex) || null
 
-    // Map topics to the expected format
-    const topicsConfig = selectedTopics.map((topic: any, topicIndex: number) => {
-      // Extract event data, ensuring _metadata is removed
-      let eventData = {}
-      if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
-        // Get the actual event data (either directly or from .event property)
-        const rawEvent = topic?.selectedEvent?.event || {}
+    return {
+      consumer_group_initial_offset: topic.initialOffset,
+      name: topic.name,
+      id: topic.name, // Using topic name as id for now
+      replicas: topic.replicas,
+      schema: {
+        type: 'json',
+        fields: extractEventFields(eventData).map((fieldPath) => {
+          const mappingType = getMappingType(fieldPath, mapping)
+          const inferredType = getFieldType(eventData, fieldPath)
 
-        // Clone the event and remove _metadata
-        eventData = { ...rawEvent }
-        if (typeof eventData === 'object' && eventData !== null && '_metadata' in eventData) {
-          delete (eventData as any)._metadata
-        }
-      }
-
-      // Get deduplication config from the new separated store
-      const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex) || null
-
-      return {
-        consumer_group_initial_offset: topic.initialOffset,
-        name: topic.name,
-        id: topic.name, // Using topic name as id for now
-        replicas: topic.replicas,
-        schema: {
-          type: 'json',
-          fields: extractEventFields(eventData).map((fieldPath) => {
-            const mappingType = getMappingType(fieldPath, mapping)
-            const inferredType = getFieldType(eventData, fieldPath)
-
-            return {
-              name: fieldPath,
-              type: mappingType || inferredType,
+          return {
+            name: fieldPath,
+            type: mappingType || inferredType,
+          }
+        }),
+      },
+      deduplication:
+        // Enable deduplication if:
+        // 1. Deduplication is properly configured (enabled and has a key), AND
+        // 2. Either we're NOT in a join journey, OR we're in a deduplication-joining journey
+        deduplicationConfig && deduplicationConfig.enabled && deduplicationConfig.key
+          ? {
+              enabled: true,
+              id_field: deduplicationConfig.key,
+              id_field_type: deduplicationConfig.keyType,
+              time_window: deduplicationConfig.window
+                ? `${deduplicationConfig.window}${deduplicationConfig.unit?.charAt(0) || 'h'}`
+                : '1h',
             }
-          }),
-        },
-        deduplication:
-          // Enable deduplication if:
-          // 1. Deduplication is properly configured (enabled and has a key), AND
-          // 2. Either we're NOT in a join journey, OR we're in a deduplication-joining journey
-          deduplicationConfig && deduplicationConfig.enabled && deduplicationConfig.key
-            ? {
-                enabled: true,
-                id_field: deduplicationConfig.key,
-                id_field_type: deduplicationConfig.keyType,
-                time_window: deduplicationConfig.window
-                  ? `${deduplicationConfig.window}${deduplicationConfig.unit?.charAt(0) || 'h'}`
-                  : '1h',
-              }
-            : {
-                enabled: false,
-              },
-      }
-    })
+          : {
+              enabled: false,
+            },
+    }
+  })
 
-    // Create mapping for ClickHouse table
-    const tableMappings = clickhouseDestination?.mapping
-      ? clickhouseDestination.mapping
-          .filter((mapping: any) => mapping.eventField) // Only include mapped fields
-          .filter((mapping: any) => !mapping.eventField.startsWith('_metadata')) // Exclude _metadata fields
-          .map((mapping: any) => {
-            // Get source topic from mapping if available
-            let sourceId = mapping.sourceTopic || selectedTopics[0]?.name
+  // Create mapping for ClickHouse table
+  const tableMappings = clickhouseDestination?.mapping
+    ? clickhouseDestination.mapping
+        .filter((mapping: any) => mapping.eventField) // Only include mapped fields
+        .filter((mapping: any) => !mapping.eventField.startsWith('_metadata')) // Exclude _metadata fields
+        .map((mapping: any) => {
+          // Get source topic from mapping if available
+          let sourceId = mapping.sourceTopic || selectedTopics[0]?.name
 
-            // If no sourceTopic is specified in the mapping, we need to find it
-            if (!mapping.sourceTopic) {
-              // Try to find which topic contains this field
-              for (const topic of selectedTopics) {
-                if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
-                  const eventData = topic?.selectedEvent?.event || {}
+          // If no sourceTopic is specified in the mapping, we need to find it
+          if (!mapping.sourceTopic) {
+            // Try to find which topic contains this field
+            for (const topic of selectedTopics) {
+              if (topic.events && topic.selectedEvent && topic.selectedEvent.event) {
+                const eventData = topic?.selectedEvent?.event || {}
 
-                  // Check if the field exists in this topic's event data
-                  if (mapping.eventField in eventData) {
-                    sourceId = topic.name
-                    break
-                  }
-                }
-              }
-            }
-
-            // Now check if the field is in a stream in joinStore
-            if (joinStore.streams && joinStore.streams.length > 0) {
-              // Try to find the stream that has this field as its join key
-              for (const stream of joinStore.streams) {
-                if (stream.joinKey === mapping.eventField) {
-                  sourceId = stream.topicName || stream.streamId
+                // Check if the field exists in this topic's event data
+                if (mapping.eventField in eventData) {
+                  sourceId = topic.name
                   break
                 }
               }
             }
+          }
 
-            return {
-              source_id: sourceId,
-              field_name: mapping.eventField,
-              column_name: mapping.name,
-              column_type: mapping.type.replace(/Nullable\((.*)\)/, '$1'), // Remove Nullable wrapper
+          // Now check if the field is in a stream in joinStore
+          if (joinStore.streams && joinStore.streams.length > 0) {
+            // Try to find the stream that has this field as its join key
+            for (const stream of joinStore.streams) {
+              if (stream.joinKey === mapping.eventField) {
+                sourceId = stream.topicName || stream.streamId
+                break
+              }
             }
-          })
-      : []
+          }
 
-    // Normalize Kafka broker hosts when running inside Docker
-    const runtimeEnv = getRuntimeEnv()
-    const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
+          return {
+            source_id: sourceId,
+            field_name: mapping.eventField,
+            column_name: mapping.name,
+            column_type: mapping.type.replace(/Nullable\((.*)\)/, '$1'), // Remove Nullable wrapper
+          }
+        })
+    : []
 
-    const normalizeBroker = (broker: string): string => {
-      if (!broker) return broker
-      const [host, port] = broker.split(':')
-      const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
-      if (inDocker && isLocal) {
-        return `host.docker.internal${port ? `:${port}` : ''}`
-      }
-      return broker
+  // Normalize Kafka broker hosts when running inside Docker
+  const runtimeEnv = getRuntimeEnv()
+  const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
+
+  const normalizeBroker = (broker: string): string => {
+    if (!broker) return broker
+    const [host, port] = broker.split(':')
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+    if (inDocker && isLocal) {
+      return `host.docker.internal${port ? `:${port}` : ''}`
     }
+    return broker
+  }
 
-    // Build the complete API config
-    // Extract skipTlsVerification from the appropriate truststore based on auth method
-    let skipTlsVerification = false
-    const authMethod = kafkaStore?.authMethod
-    const securityProtocol = kafkaStore?.securityProtocol || 'PLAINTEXT'
-    const isTLSEnabled = securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL'
+  // Build the complete API config
+  // Extract skipTlsVerification from the appropriate truststore based on auth method
+  let skipTlsVerification = false
+  const authMethod = kafkaStore?.authMethod
+  const securityProtocol = kafkaStore?.securityProtocol || 'PLAINTEXT'
+  const isTLSEnabled = securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL'
 
+  if (isTLSEnabled) {
+    if (authMethod === 'SASL/PLAIN' && kafkaStore?.saslPlain?.truststore) {
+      skipTlsVerification = kafkaStore.saslPlain.truststore.skipTlsVerification ?? false
+    } else if (authMethod === 'SASL/SCRAM-256' && kafkaStore?.saslScram256?.truststore) {
+      skipTlsVerification = kafkaStore.saslScram256.truststore.skipTlsVerification ?? false
+    } else if (authMethod === 'SASL/SCRAM-512' && kafkaStore?.saslScram512?.truststore) {
+      skipTlsVerification = kafkaStore.saslScram512.truststore.skipTlsVerification ?? false
+    } else if (authMethod === 'SASL/GSSAPI' && kafkaStore?.saslGssapi?.truststore) {
+      skipTlsVerification = kafkaStore.saslGssapi.truststore.skipTlsVerification ?? false
+    } else if (authMethod === 'NO_AUTH' && kafkaStore?.noAuth?.truststore) {
+      skipTlsVerification = kafkaStore.noAuth.truststore.skipTlsVerification ?? false
+    }
+  }
+
+  // Determine mechanism value based on auth method
+  let mechanism = ''
+  if (authMethod === 'NO_AUTH') {
+    mechanism = 'NO_AUTH'
+  } else if (authMethod === 'SASL/PLAIN') {
+    mechanism = 'PLAIN'
+  } else if (authMethod === 'SASL/SCRAM-256') {
+    mechanism = 'SCRAM-SHA-256'
+  } else if (authMethod === 'SASL/SCRAM-512') {
+    mechanism = 'SCRAM-SHA-512'
+  } else if (authMethod === 'SASL/GSSAPI') {
+    mechanism = 'GSSAPI'
+  }
+
+  const connectionParams: any = {
+    brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
+    protocol: securityProtocol,
+    skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
+    sasl_tls_enable: isTLSEnabled,
+    mechanism: mechanism || 'NO_AUTH', // Ensure mechanism is always a string, default to NO_AUTH
+  }
+
+  // Only include skip_tls_verification when TLS is enabled
+  if (isTLSEnabled) {
+    connectionParams.skip_tls_verification = skipTlsVerification
+  }
+
+  // Add authentication parameters based on auth method
+  // Mechanism is already set in base connection_params, only add auth-specific fields
+  if (authMethod === 'SASL/PLAIN') {
+    connectionParams.username = kafkaStore.saslPlain?.username
+    connectionParams.password = kafkaStore.saslPlain?.password
+
+    // Add SSL certificate from truststore if using SSL/TLS
     if (isTLSEnabled) {
-      if (authMethod === 'SASL/PLAIN' && kafkaStore?.saslPlain?.truststore) {
-        skipTlsVerification = kafkaStore.saslPlain.truststore.skipTlsVerification ?? false
-      } else if (authMethod === 'SASL/SCRAM-256' && kafkaStore?.saslScram256?.truststore) {
-        skipTlsVerification = kafkaStore.saslScram256.truststore.skipTlsVerification ?? false
-      } else if (authMethod === 'SASL/SCRAM-512' && kafkaStore?.saslScram512?.truststore) {
-        skipTlsVerification = kafkaStore.saslScram512.truststore.skipTlsVerification ?? false
-      } else if (authMethod === 'SASL/GSSAPI' && kafkaStore?.saslGssapi?.truststore) {
-        skipTlsVerification = kafkaStore.saslGssapi.truststore.skipTlsVerification ?? false
-      } else if (authMethod === 'NO_AUTH' && kafkaStore?.noAuth?.truststore) {
-        skipTlsVerification = kafkaStore.noAuth.truststore.skipTlsVerification ?? false
-      }
-    }
-
-    // Determine mechanism value based on auth method
-    let mechanism = ''
-    if (authMethod === 'NO_AUTH') {
-      mechanism = 'NO_AUTH'
-    } else if (authMethod === 'SASL/PLAIN') {
-      mechanism = 'PLAIN'
-    } else if (authMethod === 'SASL/SCRAM-256') {
-      mechanism = 'SCRAM-SHA-256'
-    } else if (authMethod === 'SASL/SCRAM-512') {
-      mechanism = 'SCRAM-SHA-512'
-    } else if (authMethod === 'SASL/GSSAPI') {
-      mechanism = 'GSSAPI'
-    }
-
-    const connectionParams: any = {
-      brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
-      protocol: securityProtocol,
-      skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
-      mechanism: mechanism,
-    }
-
-    // Only include skip_tls_verification when TLS is enabled
-    if (isTLSEnabled) {
-      connectionParams.skip_tls_verification = skipTlsVerification
-    }
-
-    // Add authentication parameters based on auth method
-    // Mechanism is already set in base connection_params, only add auth-specific fields
-    if (authMethod === 'SASL/PLAIN') {
-      connectionParams.username = kafkaStore.saslPlain?.username
-      connectionParams.password = kafkaStore.saslPlain?.password
-
-      // Add SSL certificate from truststore if using SSL/TLS
-      if (isTLSEnabled) {
-        const truststoreCert = kafkaStore.saslPlain?.truststore?.certificates
-        if (truststoreCert) {
-          connectionParams.root_ca = encodeBase64(truststoreCert)
-        }
-      }
-    } else if (authMethod === 'SASL/SCRAM-256' || authMethod === 'SASL/SCRAM-512') {
-      const scramConfig = authMethod === 'SASL/SCRAM-256' ? kafkaStore.saslScram256 : kafkaStore.saslScram512
-      connectionParams.username = scramConfig?.username
-      connectionParams.password = scramConfig?.password
-
-      // Add SSL certificate from truststore if using SSL/TLS
-      if (isTLSEnabled) {
-        const truststoreCert = scramConfig?.truststore?.certificates
-        if (truststoreCert) {
-          connectionParams.root_ca = encodeBase64(truststoreCert)
-        }
-      }
-    } else if (authMethod === 'SASL/GSSAPI') {
-      // Backend expects these field names for Kerberos
-      connectionParams.username = kafkaStore.saslGssapi?.kerberosPrincipal
-      connectionParams.kerberos_service_name = kafkaStore.saslGssapi?.serviceName
-      connectionParams.kerberos_realm = kafkaStore.saslGssapi?.kerberosRealm
-      connectionParams.kerberos_keytab = kafkaStore.saslGssapi?.kerberosKeytab
-      connectionParams.kerberos_config = kafkaStore.saslGssapi?.krb5Config
-
-      // Add SSL certificate from truststore if using SSL/TLS
-      if (isTLSEnabled) {
-        const truststoreCert = kafkaStore.saslGssapi?.truststore?.certificates
-        if (truststoreCert) {
-          connectionParams.root_ca = encodeBase64(truststoreCert)
-        }
-      }
-    } else if (authMethod === 'NO_AUTH' && isTLSEnabled) {
-      // Handle NO_AUTH with SSL/TLS certificate
-      const truststoreCert = kafkaStore.noAuth?.truststore?.certificates
+      const truststoreCert = kafkaStore.saslPlain?.truststore?.certificates
       if (truststoreCert) {
         connectionParams.root_ca = encodeBase64(truststoreCert)
       }
     }
+  } else if (authMethod === 'SASL/SCRAM-256' || authMethod === 'SASL/SCRAM-512') {
+    const scramConfig = authMethod === 'SASL/SCRAM-256' ? kafkaStore.saslScram256 : kafkaStore.saslScram512
+    connectionParams.username = scramConfig?.username
+    connectionParams.password = scramConfig?.password
 
-    const config = {
-      pipeline_id: finalPipelineId,
-      name: pipelineName,
-      source: {
-        type: 'kafka',
-        provider: 'custom', // Or determine from connection details
-        connection_params: connectionParams as KafkaConnectionParams,
-        topics: topicsConfig,
-      },
-      // Include join configuration if multiple topics
-      ...(topicsConfig.length > 1
+    // Add SSL certificate from truststore if using SSL/TLS
+    if (isTLSEnabled) {
+      const truststoreCert = scramConfig?.truststore?.certificates
+      if (truststoreCert) {
+        connectionParams.root_ca = encodeBase64(truststoreCert)
+      }
+    }
+  } else if (authMethod === 'SASL/GSSAPI') {
+    // Backend expects these field names for Kerberos
+    connectionParams.username = kafkaStore.saslGssapi?.kerberosPrincipal
+    connectionParams.kerberos_service_name = kafkaStore.saslGssapi?.serviceName
+    connectionParams.kerberos_realm = kafkaStore.saslGssapi?.kerberosRealm
+    connectionParams.kerberos_keytab = kafkaStore.saslGssapi?.kerberosKeytab
+    connectionParams.kerberos_config = kafkaStore.saslGssapi?.krb5Config
+
+    // Add SSL certificate from truststore if using SSL/TLS
+    if (isTLSEnabled) {
+      const truststoreCert = kafkaStore.saslGssapi?.truststore?.certificates
+      if (truststoreCert) {
+        connectionParams.root_ca = encodeBase64(truststoreCert)
+      }
+    }
+  } else if (authMethod === 'NO_AUTH' && isTLSEnabled) {
+    // Handle NO_AUTH with SSL/TLS certificate
+    const truststoreCert = kafkaStore.noAuth?.truststore?.certificates
+    if (truststoreCert) {
+      connectionParams.root_ca = encodeBase64(truststoreCert)
+    }
+  }
+
+  const config: InternalPipelineConfig = {
+    pipeline_id: finalPipelineId,
+    name: pipelineName,
+    source: {
+      type: 'kafka',
+      provider: 'custom', // Or determine from connection details
+      connection_params: connectionParams as KafkaConnectionParams,
+      topics: topicsConfig,
+    },
+    // Include join configuration if multiple topics
+    ...(topicsConfig.length > 1
+      ? {
+          join: {
+            enabled: joinStore.enabled,
+            type: joinStore.type || 'temporal',
+            sources:
+              joinStore.streams.length > 0
+                ? joinStore.streams.map((stream: any) => ({
+                    // source_id: stream.streamId,
+                    source_id: stream.topicName,
+                    join_key: stream.joinKey,
+                    time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
+                    orientation: stream.orientation,
+                  }))
+                : topicsConfig.map((topic: any, index: number) => {
+                    // Get deduplication config for join key
+                    const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
+                    const joinKey = deduplicationConfig?.key || ''
+
+                    return {
+                      source_id: topic.name,
+                      join_key: joinKey,
+                      time_window: '1h',
+                      orientation: index === 0 ? 'left' : 'right',
+                    }
+                  }),
+          },
+        }
+      : {
+          // Add default empty join object to satisfy type
+          join: {
+            type: '',
+            enabled: false,
+            sources: [],
+          },
+        }),
+    sink: {
+      type: 'clickhouse',
+      provider: 'custom', // Or determine from connection details
+      ...(clickhouseConnection?.connectionType === 'direct'
         ? {
-            join: {
-              enabled: joinStore.enabled,
-              type: joinStore.type || 'temporal',
-              sources:
-                joinStore.streams.length > 0
-                  ? joinStore.streams.map((stream: any) => ({
-                      // source_id: stream.streamId,
-                      source_id: stream.topicName,
-                      join_key: stream.joinKey,
-                      time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
-                      orientation: stream.orientation,
-                    }))
-                  : topicsConfig.map((topic: any, index: number) => {
-                      // Get deduplication config for join key
-                      const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
-                      const joinKey = deduplicationConfig?.key || ''
+            host: clickhouseConnection.directConnection?.host,
+            // Backend expects native port on sink.port
+            port: clickhouseConnection.directConnection?.nativePort?.toString() || '9000',
+            // Provide http_port so backend echoes it back for UI editing
+            http_port: clickhouseConnection.directConnection?.httpPort?.toString() || undefined,
+            database: clickhouseDestination?.database,
+            username: clickhouseConnection.directConnection?.username,
+            password: encodeBase64(clickhouseConnection.directConnection?.password),
+            secure: clickhouseConnection.directConnection?.useSSL || false,
+            skip_certificate_verification: clickhouseConnection.directConnection?.skipCertificateVerification || false,
+            max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
+            max_delay_time: (() => {
+              const time = clickhouseDestination?.maxDelayTime || 1
+              const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
 
-                      return {
-                        source_id: topic.name,
-                        join_key: joinKey,
-                        time_window: '1h',
-                        orientation: index === 0 ? 'left' : 'right',
-                      }
-                    }),
-            },
+              // Convert full unit names to single letters if needed
+              let singleLetterUnit = unit
+              if (unit === 'seconds') singleLetterUnit = 's'
+              else if (unit === 'minutes') singleLetterUnit = 'm'
+              else if (unit === 'hours') singleLetterUnit = 'h'
+              else if (unit === 'days') singleLetterUnit = 'd'
+
+              return `${time}${singleLetterUnit}`
+            })(),
           }
         : {}),
-      sink: {
-        type: 'clickhouse',
-        provider: 'custom', // Or determine from connection details
-        ...(clickhouseConnection?.connectionType === 'direct'
-          ? {
-              host: clickhouseConnection.directConnection?.host,
-              // Backend expects native port on sink.port
-              port: clickhouseConnection.directConnection?.nativePort?.toString() || '9000',
-              // Provide http_port so backend echoes it back for UI editing
-              http_port: clickhouseConnection.directConnection?.httpPort?.toString() || undefined,
-              database: clickhouseDestination?.database,
-              username: clickhouseConnection.directConnection?.username,
-              password: encodeBase64(clickhouseConnection.directConnection?.password),
-              secure: clickhouseConnection.directConnection?.useSSL || false,
-              skip_certificate_verification:
-                clickhouseConnection.directConnection?.skipCertificateVerification || false,
-              max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
-              max_delay_time: (() => {
-                const time = clickhouseDestination?.maxDelayTime || 1
-                const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+      // Ensure missing required fields are handled or typed as optional in InternalPipelineConfig if needed
+      // but assuming they are filled by the spread above or default values
+      table: clickhouseDestination?.table,
+      table_mapping: tableMappings,
+    } as any, // Type assertion to bypass strict checks on conditional properties for now
+  }
 
-                // Convert full unit names to single letters if needed
-                let singleLetterUnit = unit
-                if (unit === 'seconds') singleLetterUnit = 's'
-                else if (unit === 'minutes') singleLetterUnit = 'm'
-                else if (unit === 'hours') singleLetterUnit = 'h'
-                else if (unit === 'days') singleLetterUnit = 'd'
+  return config
+}
 
-                return `${time}${singleLetterUnit}`
-              })(),
-            }
-          : {}),
-        table: clickhouseDestination?.table,
-        table_mapping: tableMappings,
-      },
-    }
+// Generate API config using version adapters
+export const generateApiConfig = ({
+  pipelineId,
+  pipelineName,
+  setPipelineId,
+  clickhouseConnection,
+  clickhouseDestination,
+  selectedTopics,
+  getMappingType,
+  joinStore,
+  kafkaStore,
+  deduplicationStore,
+  version, // New optional parameter
+}: {
+  pipelineId: string
+  pipelineName: string
+  setPipelineId: (pipelineId: string) => void
+  clickhouseConnection: any
+  clickhouseDestination: any
+  selectedTopics: any
+  getMappingType: (eventField: string, mapping: any) => string
+  joinStore: any
+  kafkaStore: any
+  deduplicationStore: any
+  version?: string
+}) => {
+  try {
+    // 1. Build the internal configuration structure
+    const internalConfig = buildInternalPipelineConfig({
+      pipelineId,
+      pipelineName,
+      setPipelineId,
+      clickhouseConnection,
+      clickhouseDestination,
+      selectedTopics,
+      getMappingType,
+      joinStore,
+      kafkaStore,
+      deduplicationStore,
+    })
 
-    return config
+    // 2. Get the appropriate adapter
+    // Use provided version or fallback to LATEST_PIPELINE_VERSION if not provided
+    // If version is passed (e.g. from existing config), we respect it to avoid implicit upgrades
+    const targetVersion = version || LATEST_PIPELINE_VERSION
+    const adapter = getPipelineAdapter(targetVersion)
+
+    // 3. Generate the external API configuration
+    // Note: The adapter handles wrapping the configuration in the correct structure for the target version
+    return adapter.generate(internalConfig)
   } catch (error) {
     console.error('Error generating API config:', error)
     return { error: 'Failed to generate API configuration' }

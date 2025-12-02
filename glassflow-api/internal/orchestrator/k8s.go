@@ -466,7 +466,7 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 			Deduplication: &operator.Deduplication{
 				Enabled:          true,
 				OutputStream:     models.GetDedupOutputStreamName(cfg.ID, s.Name),
-				NATSConsumerName: "please-fix-me-dedup",
+				NATSConsumerName: models.GetNATSDedupConsumerName(cfg.ID),
 			},
 		})
 	}
