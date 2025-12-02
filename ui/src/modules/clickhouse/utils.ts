@@ -217,7 +217,7 @@ export const buildInternalPipelineConfig = ({
     brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
     protocol: securityProtocol,
     skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
-    sasl_tls_enable: isTLSEnabled,
+    // sasl_tls_enable: isTLSEnabled,
     mechanism: mechanism || 'NO_AUTH', // Ensure mechanism is always a string, default to NO_AUTH
   }
 

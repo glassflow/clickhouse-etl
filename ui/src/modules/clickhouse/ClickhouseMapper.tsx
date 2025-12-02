@@ -1227,7 +1227,8 @@ export function ClickhouseMapper({
         exported_at: new Date().toISOString(),
         exported_by: 'GlassFlow UI',
         version: '1.0.0',
-        note: 'This configuration was exported after a failed deployment attempt.',
+        // TODO: Add more information about the failed deployment attempt such as the error message and the stack trace
+        // note: 'This configuration was exported after a failed deployment attempt.',
       }
 
       // Generate filename with timestamp for uniqueness
