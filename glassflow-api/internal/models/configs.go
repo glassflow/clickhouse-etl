@@ -53,6 +53,18 @@ type MapperConfig struct {
 	SinkMapping []SinkMappingConfig           `json:"sink_mapping"`
 }
 
+type SchemaField struct {
+	SourceID   string `json:"source_id"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	ColumnName string `json:"column_name"`
+	ColumnType string `json:"column_type"`
+}
+
+type Schema struct {
+	Fields []SchemaField `json:"fields"`
+}
+
 type KafkaConnectionParamsConfig struct {
 	Brokers             []string `json:"brokers"`
 	SkipAuth            bool     `json:"skip_auth"`
