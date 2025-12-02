@@ -66,13 +66,13 @@ export function TableSelect({
             </SelectContent>
           </Select>
         ) : (
-          <div className="flex gap-4 items-center transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+          <div className="w-full flex gap-4 items-center transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
             <Input
               id="table"
               placeholder="Enter table name"
               value={selectedTable}
               onChange={(e) => setSelectedTable(e.target.value)}
-              className="flex-1 text-content"
+              className="w-full text-content select-content-custom"
               disabled={readOnly}
             />
             {/* {renderTestAccessButton()} */}

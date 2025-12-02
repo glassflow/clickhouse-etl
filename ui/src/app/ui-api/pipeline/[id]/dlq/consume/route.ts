@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../../../../config'
+import { validatePipelineIdOrError } from '../../../validation'
 
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
@@ -10,17 +11,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { searchParams } = new URL(request.url)
   const batchSize = searchParams.get('batch_size')
 
-  try {
-    if (!id || id.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pipeline ID is required',
-        },
-        { status: 400 },
-      )
-    }
+  // Validate pipeline ID format before sending to backend
+  const validationError = validatePipelineIdOrError(id)
+  if (validationError) return validationError
 
+  try {
     if (!batchSize) {
       return NextResponse.json(
         {

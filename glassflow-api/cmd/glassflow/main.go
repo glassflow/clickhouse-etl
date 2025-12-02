@@ -57,6 +57,8 @@ type config struct {
 
 	IngestorTopic string `default:"" split_words:"true"`
 
+	DedupTopic string `default:"" split_words:"true"`
+
 	JoinType string `default:"temporal" split_words:"true"`
 
 	NATSServer         string        `default:"localhost:4222" split_words:"true"`
@@ -176,6 +178,8 @@ func mainErr(cfg *config, role models.Role) error {
 		return mainIngestor(ctx, nc, cfg, log, meter)
 	case internal.RoleETL:
 		return mainEtl(ctx, nc, cfg, log, meter)
+	case internal.RoleDeduplicator:
+		return mainDeduplicator(ctx, nc, cfg, log, meter)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}

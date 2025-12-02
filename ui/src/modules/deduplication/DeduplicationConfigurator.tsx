@@ -9,6 +9,7 @@ import SelectDeduplicateKeys from '@/src/modules/deduplication/components/Select
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
+import { Button } from '@/src/components/ui/button'
 
 export function DeduplicationConfigurator({
   onCompleteStep,
@@ -34,6 +35,7 @@ export function DeduplicationConfigurator({
   // Use the new separated store structure with proper memoization
   const deduplicationConfig = useStore((state) => state.deduplicationStore.getDeduplication(index))
   const updateDeduplication = useStore((state) => state.deduplicationStore.updateDeduplication)
+  const skipDeduplication = useStore((state) => state.deduplicationStore.skipDeduplication)
 
   // Get topic data for event information
   const topic = useStore((state) => state.topicsStore.getTopic(index))
@@ -137,6 +139,29 @@ export function DeduplicationConfigurator({
     coreStore.discardSection('deduplication')
   }, [coreStore])
 
+  // Handle skip button click - skips deduplication for this topic (makes it ingest only / join only)
+  const handleSkip = useCallback(() => {
+    if (!topic?.name) return
+
+    // Mark deduplication as skipped (disabled) for this topic
+    skipDeduplication(index)
+
+    // Trigger validation engine to mark this section as valid
+    // Skipping is a valid configuration choice
+    validationEngine.onSectionConfigured(StepKeys.DEDUPLICATION_CONFIGURATOR)
+
+    // Track skip action in analytics
+    analytics.key.dedupKey({
+      keyType: 'skipped',
+      window: 0,
+      unit: 'none',
+    })
+
+    // In creation mode, move to next step
+    // Skip is not available in edit mode (standalone)
+    onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
+  }, [topic, index, skipDeduplication, validationEngine, analytics.key, onCompleteStep])
+
   // Show error message if topic or event data is missing
   if (!topic) {
     return <div>No topic data available for index {index}</div>
@@ -180,23 +205,37 @@ export function DeduplicationConfigurator({
         </div>
       </div>
 
-      <FormActions
-        standalone={standalone}
-        onSubmit={handleSave}
-        onDiscard={handleDiscardChanges}
-        isLoading={false}
-        isSuccess={isSaveSuccess}
-        disabled={!canContinue}
-        successText="Continue"
-        loadingText="Loading..."
-        regularText="Continue"
-        actionType="primary"
-        showLoadingIcon={false}
-        readOnly={readOnly}
-        toggleEditMode={toggleEditMode}
-        pipelineActionState={pipelineActionState}
-        onClose={onCompleteStandaloneEditing}
-      />
+      {/* Action buttons */}
+      <div className="flex gap-4 items-center">
+        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
+        {!standalone && (
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
+          >
+            Skip Deduplication
+          </Button>
+        )}
+
+        <FormActions
+          standalone={standalone}
+          onSubmit={handleSave}
+          onDiscard={handleDiscardChanges}
+          isLoading={false}
+          isSuccess={isSaveSuccess}
+          disabled={!canContinue}
+          successText="Continue"
+          loadingText="Loading..."
+          regularText="Continue"
+          actionType="primary"
+          showLoadingIcon={false}
+          readOnly={readOnly}
+          toggleEditMode={toggleEditMode}
+          pipelineActionState={pipelineActionState}
+          onClose={onCompleteStandaloneEditing}
+        />
+      </div>
     </div>
   )
 }

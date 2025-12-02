@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClickHouseConnection, closeConnection } from '../../../../clickhouse/clickhouse-utils'
-import { Pipeline } from '@/src/types/pipeline'
+import { validatePipelineIdOrError } from '../../../validation'
 
 interface ClickHouseTableMetrics {
   database: string
@@ -26,17 +26,11 @@ interface ClickHouseTableMetrics {
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  try {
-    if (!id || id.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pipeline ID is required',
-        },
-        { status: 400 },
-      )
-    }
+  // Validate pipeline ID format before processing
+  const validationError = validatePipelineIdOrError(id)
+  if (validationError) return validationError
 
+  try {
     const body = await request.json()
     const { pipeline } = body
 

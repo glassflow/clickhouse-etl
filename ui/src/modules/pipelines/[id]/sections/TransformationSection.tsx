@@ -23,7 +23,7 @@ const DeduplicationCase = ({
   destinationTable: string
   totalSourceFields: number
   totalDestinationColumns: number
-  onStepClick: (step: StepKeys) => void
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
   disabled: boolean
   validation: any
   activeStep: StepKeys | null
@@ -36,7 +36,7 @@ const DeduplicationCase = ({
         value={[topic.name]}
         orientation="center"
         width="full"
-        onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
+        onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1, 0)}
         disabled={disabled}
         validation={validation}
         selected={activeStep === StepKeys.TOPIC_SELECTION_1}
@@ -52,7 +52,7 @@ const DeduplicationCase = ({
               value={[deduplicationConfig?.key || 'N/A']}
               orientation="center"
               width="full"
-              onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR)}
+              onClick={() => onStepClick(StepKeys.DEDUPLICATION_CONFIGURATOR, 0)}
               disabled={disabled}
               validation={validation.deduplicationValidation}
               selected={activeStep === StepKeys.DEDUPLICATION_CONFIGURATOR}
@@ -86,6 +86,8 @@ const JoinCase = ({
   disabled,
   validation,
   activeStep,
+  leftHasDedup = false,
+  rightHasDedup = false,
 }: {
   leftTopic: any
   rightTopic: any
@@ -94,36 +96,73 @@ const JoinCase = ({
   destinationTable: string
   totalSourceFields: number
   totalDestinationColumns: number
-  onStepClick: (step: StepKeys) => void
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
   disabled: boolean
   validation: any
   activeStep: StepKeys | null
+  leftHasDedup?: boolean
+  rightHasDedup?: boolean
 }) => {
+  // Get dedup keys from store for display
+  const leftDedupKey = (() => {
+    const deduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(0)
+    return deduplicationConfig?.enabled ? deduplicationConfig.key : null
+  })()
+
+  const rightDedupKey = (() => {
+    const deduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(1)
+    return deduplicationConfig?.enabled ? deduplicationConfig.key : null
+  })()
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Topics - Left and Right */}
+      {/* Topics - Left and Right (with optional dedup info) */}
       <div className="flex flex-row gap-4">
-        <SingleColumnCard
-          label={['Left Topic']}
-          orientation="left"
-          value={[leftTopic?.name || 'N/A']}
-          width="full"
-          onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1)}
-          disabled={disabled}
-          validation={validation.topicsValidation}
-          selected={activeStep === StepKeys.TOPIC_SELECTION_1}
-        />
+        {leftHasDedup && leftDedupKey ? (
+          <DoubleColumnCard
+            label={['Left Topic', 'Dedup Key']}
+            value={[leftTopic?.name || 'N/A', leftDedupKey]}
+            width="full"
+            onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1, 0)}
+            disabled={disabled}
+            validation={validation.topicsValidation}
+            selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || activeStep === StepKeys.TOPIC_SELECTION_1}
+          />
+        ) : (
+          <SingleColumnCard
+            label={['Left Topic']}
+            orientation="left"
+            value={[leftTopic?.name || 'N/A']}
+            width="full"
+            onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_1, 0)}
+            disabled={disabled}
+            validation={validation.topicsValidation}
+            selected={activeStep === StepKeys.TOPIC_SELECTION_1}
+          />
+        )}
 
-        <SingleColumnCard
-          label={['Right Topic']}
-          orientation="right"
-          value={[rightTopic?.name || 'N/A']}
-          width="full"
-          onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_2)}
-          disabled={disabled}
-          validation={validation.topicsValidation}
-          selected={activeStep === StepKeys.TOPIC_SELECTION_2}
-        />
+        {rightHasDedup && rightDedupKey ? (
+          <DoubleColumnCard
+            label={['Dedup Key', 'Right Topic']}
+            value={[rightDedupKey, rightTopic?.name || 'N/A']}
+            width="full"
+            onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2, 1)}
+            disabled={disabled}
+            validation={validation.topicsValidation}
+            selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2 || activeStep === StepKeys.TOPIC_SELECTION_2}
+          />
+        ) : (
+          <SingleColumnCard
+            label={['Right Topic']}
+            orientation="right"
+            value={[rightTopic?.name || 'N/A']}
+            width="full"
+            onClick={() => onStepClick(StepKeys.TOPIC_SELECTION_2, 1)}
+            disabled={disabled}
+            validation={validation.topicsValidation}
+            selected={activeStep === StepKeys.TOPIC_SELECTION_2}
+          />
+        )}
       </div>
 
       {/* Join Keys - Left and Right */}
@@ -185,7 +224,7 @@ const JoinDeduplicationCase = ({
   destinationTable: string
   totalSourceFields: number
   totalDestinationColumns: number
-  onStepClick: (step: StepKeys) => void
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
   disabled: boolean
   validation: any
   activeStep: StepKeys | null
@@ -204,7 +243,7 @@ const JoinDeduplicationCase = ({
             })(),
           ]}
           width="full"
-          onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)}
+          onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1, 0)}
           disabled={disabled}
           validation={validation.topicsValidation}
           selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1}
@@ -220,7 +259,7 @@ const JoinDeduplicationCase = ({
             rightTopic?.name || 'N/A',
           ]}
           width="full"
-          onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)}
+          onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2, 1)}
           disabled={disabled}
           validation={validation.topicsValidation}
           selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2}
@@ -274,7 +313,7 @@ function TransformationSection({
   activeStep,
 }: {
   pipeline: any
-  onStepClick: (step: StepKeys) => void
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
   disabled: boolean
   validation: any
   activeStep: StepKeys | null
@@ -308,14 +347,14 @@ function TransformationSection({
     return enabled && key.length > 0
   }
 
-  // FIX: Check if this is a dedup+join pipeline based on operation type
-  // Not just whether dedup keys currently exist (they might be cleared/invalidated)
-  const operationType = coreStore.operationsSelected.operation
-  const isJoinDeduplicationPipeline = operationType === 'deduplication-join'
+  // Check if this is a dedup+join pipeline based on topic count and deduplication configs
+  // For 2 topics, check if both have deduplication enabled
+  const topicCount = coreStore.topicCount || topics.length
+  const isJoinDeduplicationPipeline = topicCount === 2 && isDedup(dedup0, topic0) && isDedup(dedup1, topic1)
 
-  // Use operation type as primary check, fall back to actual dedup config
-  const leftTopicDeduplication = isJoinDeduplicationPipeline || isDedup(dedup0, topic0)
-  const rightTopicDeduplication = isJoinDeduplicationPipeline || isDedup(dedup1, topic1)
+  // Use topic count and deduplication configs to determine behavior
+  const leftTopicDeduplication = topicCount === 2 && isDedup(dedup0, topic0)
+  const rightTopicDeduplication = topicCount === 2 && isDedup(dedup1, topic1)
 
   // Convert join streams to pipeline config format
   const storeJoinSources =
@@ -386,10 +425,10 @@ function TransformationSection({
   // Deduplication & Ingest Only case
   if (topics.length === 1 && !hasJoin) {
     const topic = topics[0]
-    // FIX: Check operation type to determine if dedup card should be shown
-    // This ensures the card remains visible even after dedup data is cleared (invalidated)
-    const operationType = coreStore.operationsSelected.operation
-    const shouldShowDedupCard = operationType === 'deduplication' || isDedup(dedup0, topic)
+    // Check topic count and deduplication config to determine if dedup card should be shown
+    // For single topic, show dedup card if deduplication is configured
+    const topicCount = coreStore.topicCount || topics.length
+    const shouldShowDedupCard = topicCount === 1 && isDedup(dedup0, topic)
 
     sectionContent = (
       <DeduplicationCase
@@ -405,7 +444,7 @@ function TransformationSection({
       />
     )
   }
-  // Join case
+  // Join case (with optional partial deduplication)
   else if (topics.length > 1 && hasJoin && !(leftTopicDeduplication && rightTopicDeduplication)) {
     const leftSource = joinSources.find((s: any) => s.orientation === 'left')
     const rightSource = joinSources.find((s: any) => s.orientation === 'right')
@@ -428,6 +467,8 @@ function TransformationSection({
         disabled={disabled}
         validation={validation}
         activeStep={activeStep}
+        leftHasDedup={leftTopicDeduplication}
+        rightHasDedup={rightTopicDeduplication}
       />
     )
   }
