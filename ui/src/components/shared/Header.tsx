@@ -136,16 +136,16 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
         <a
           href="https://docs.glassflow.dev/"
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener"
           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           onClick={handleMenuItemClick}
         >
           View Docs
         </a>
         <a
-          href="mailto:help@glassflow.dev"
+          href="https://www.glassflow.dev/contact"
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener"
           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           onClick={handleMenuItemClick}
         >
@@ -155,6 +155,8 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
           href="https://github.com/glassflow/clickhouse-etl/issues"
           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           onClick={handleMenuItemClick}
+          target="_blank"
+          rel="noopener"
         >
           Report an Issue
         </a>
