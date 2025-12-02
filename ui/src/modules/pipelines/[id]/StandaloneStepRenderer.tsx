@@ -11,6 +11,7 @@ import {
 import { StepKeys, OperationKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { JoinConfigurator } from '../../join/JoinConfigurator'
+import { FilterConfigurator } from '../../filter/FilterConfigurator'
 import StepRendererModal from './StepRendererModal'
 import StepRendererPageComponent from './StepRendererPageComponent'
 import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
@@ -31,7 +32,13 @@ interface StandaloneStepRendererProps {
   topicIndex?: number // Topic index for multi-topic deduplication (0 = left, 1 = right)
 }
 
-function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUpdate, topicIndex = 0 }: StandaloneStepRendererProps) {
+function StandaloneStepRenderer({
+  stepKey,
+  onClose,
+  pipeline,
+  onPipelineStatusUpdate,
+  topicIndex = 0,
+}: StandaloneStepRendererProps) {
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
@@ -141,6 +148,14 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
           component: JoinConfigurator,
           title: 'Join Configuration',
           description: 'Configure join settings',
+        },
+      })
+    } else if (stepKey === StepKeys.FILTER_CONFIGURATOR) {
+      setSteps({
+        [StepKeys.FILTER_CONFIGURATOR]: {
+          component: FilterConfigurator,
+          title: 'Filter Configuration',
+          description: 'Define filter conditions for events',
         },
       })
     } else if (stepKey === StepKeys.CLICKHOUSE_CONNECTION) {
