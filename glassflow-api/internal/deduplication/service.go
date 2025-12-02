@@ -115,29 +115,38 @@ func (c *DedupService) processMessages(ctx context.Context, batchMessages []jets
 		ctx,
 		batchMessages,
 		// Use a function to ensure atomic writes: only commit the KV transaction after successfully writing to the destination.
-		func(ctx context.Context, messages []jetstream.Msg) error {
-			err := c.writer.WriteBatch(ctx, messages)
+		func(ctx context.Context, filteredMessages []jetstream.Msg) error {
+			err := c.writer.WriteBatch(ctx, filteredMessages)
 			if err != nil {
 				return fmt.Errorf("write batch: %w", err)
 			}
 
-			if err := c.ackMessages(ctx, messages); err != nil {
+			if err := c.ackMessages(ctx, batchMessages); err != nil {
 				return fmt.Errorf("failed to ack after successful write: %w", err)
 			}
 
 			c.log.InfoContext(ctx, "Deduplicated messages",
 				"input_count", len(batchMessages),
-				"unique_count", len(messages),
-				"duplicates_filtered", len(batchMessages)-len(messages))
+				"unique_count", len(filteredMessages),
+				"duplicates_filtered", len(batchMessages)-len(filteredMessages))
 
 			return nil
 		},
 	)
 	if err != nil {
+		c.nakMessages(ctx, batchMessages)
 		return fmt.Errorf("deduplicate: %w", err)
 	}
 
 	return nil
+}
+
+func (c *DedupService) nakMessages(ctx context.Context, messages []jetstream.Msg) {
+	for _, msg := range messages {
+		if err := msg.Nak(); err != nil {
+			c.log.ErrorContext(ctx, "failed to nak message", "error", err)
+		}
+	}
 }
 
 func (c *DedupService) ackMessages(_ context.Context, messages []jetstream.Msg) error {
