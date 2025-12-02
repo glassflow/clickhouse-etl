@@ -81,7 +81,7 @@ export function ClickhouseMapper({
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
-  const { setApiConfig, setPipelineId, pipelineId, pipelineName, setPipelineName, topicCount } = coreStore
+  const { setApiConfig, setPipelineId, pipelineId, pipelineName, pipelineVersion, topicCount } = coreStore
 
   // Determine operation mode and indices based on topic count
   const isJoinOperation = topicCount === 2
@@ -1118,6 +1118,7 @@ export function ClickhouseMapper({
       joinStore,
       kafkaStore,
       deduplicationStore,
+      version: pipelineVersion, // Respect the original pipeline version
     })
 
     // Update the store with the new destination config
@@ -1226,7 +1227,8 @@ export function ClickhouseMapper({
         exported_at: new Date().toISOString(),
         exported_by: 'GlassFlow UI',
         version: '1.0.0',
-        note: 'This configuration was exported after a failed deployment attempt.',
+        // TODO: Add more information about the failed deployment attempt such as the error message and the stack trace
+        // note: 'This configuration was exported after a failed deployment attempt.',
       }
 
       // Generate filename with timestamp for uniqueness

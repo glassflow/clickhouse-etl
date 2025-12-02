@@ -1,21 +1,21 @@
 @pipeline
 Feature: Kafka to CH pipeline
 
-    Scenario: Kafka to ClickHouse pipeline with deduplication only
-        Given a Kafka topic "test_topic" with 1 partition
-        And the ClickHouse table "events_test" on database "default" already exists with schema
-            | column_name | data_type |
-            | id          | String    |
-            | name        | String    |
+  Scenario: Kafka to ClickHouse pipeline with deduplication only
+    Given a Kafka topic "test_topic" with 1 partition
+    And the ClickHouse table "events_test" on database "default" already exists with schema
+      | column_name | data_type |
+      | id          | String    |
+      | name        | String    |
 
-        And I write these events to Kafka topic "test_topic":
-            | key | value                                  |
-            | 1   | {"id": "123", "name": "John Doe"}      |
-            | 2   | {"id": "456", "name": "Jane Smith"}    |
-            | 3   | {"id": "789", "name": "Bob Johnson"}   |
-            | 4   | {"id": "789", "name": "Ulm Petterson"} |
+    And I write these events to Kafka topic "test_topic":
+      | key | value                                  |
+      | 1   | {"id": "123", "name": "John Doe"}      |
+      | 2   | {"id": "456", "name": "Jane Smith"}    |
+      | 3   | {"id": "789", "name": "Bob Johnson"}   |
+      | 4   | {"id": "789", "name": "Ulm Petterson"} |
 
-        And a glassflow pipeline with next configuration:
+    And a glassflow pipeline with next configuration:
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
@@ -95,25 +95,25 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "4s"
+    And I shutdown the glassflow pipeline after "4s"
 
-        Then the ClickHouse table "default.events_test" should contain:
-            | id  | name          | COUNT |
-            | 123 | John Doe      | 1     |
-            | 456 | Jane Smith    | 1     |
-            | 789 | Bob Johnson   | 1     |
-            | 007 | James Bond    | 0     |
-            | 789 | Ulm Petterson | 0     |
+    Then the ClickHouse table "default.events_test" should contain:
+      | id  | name          | COUNT |
+      | 123 | John Doe      | 1     |
+      | 456 | Jane Smith    | 1     |
+      | 789 | Bob Johnson   | 1     |
+      | 007 | James Bond    | 0     |
+      | 789 | Ulm Petterson | 0     |
 
-    Scenario: Kafka to ClickHouse pipeline with join only
-        Given a Kafka topic "test_emails" with 1 partition
-        And a Kafka topic "test_users" with 1 partition
-        And the ClickHouse table "test_users" on database "default" already exists with schema
-            | column_name | data_type |
-            | name        | String    |
-            | email       | String    |
+  Scenario: Kafka to ClickHouse pipeline with join only
+    Given a Kafka topic "test_emails" with 1 partition
+    And a Kafka topic "test_users" with 1 partition
+    And the ClickHouse table "test_users" on database "default" already exists with schema
+      | column_name | data_type |
+      | name        | String    |
+      | email       | String    |
 
-        And a glassflow pipeline with next configuration:
+    And a glassflow pipeline with next configuration:
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00002",
@@ -238,35 +238,35 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I write these events to Kafka topic "test_emails":
-            | key | value                                               |
-            | 1   | {"user_id": "123", "email": "john.doe@mailbox.com"} |
-            | 2   | {"user_id": "480", "email": "zahng.chow@gmail.com"} |
-            | 3   | {"user_id": "789", "email": "b.johnson@gmail.com"}  |
-            | 4   | {"user_id": "789", "email": "b.johnson@yahoo.com"}  |
+    And I write these events to Kafka topic "test_emails":
+      | key | value                                               |
+      | 1   | {"user_id": "123", "email": "john.doe@mailbox.com"} |
+      | 2   | {"user_id": "480", "email": "zahng.chow@gmail.com"} |
+      | 3   | {"user_id": "789", "email": "b.johnson@gmail.com"}  |
+      | 4   | {"user_id": "789", "email": "b.johnson@yahoo.com"}  |
 
-        And I write these events to Kafka topic "test_users":
-            | key | value                                |
-            | 1   | {"id": "123", "name": "John Doe"}    |
-            | 2   | {"id": "456", "name": "Jane Smith"}  |
-            | 3   | {"id": "789", "name": "Bob Johnson"} |
+    And I write these events to Kafka topic "test_users":
+      | key | value                                |
+      | 1   | {"id": "123", "name": "John Doe"}    |
+      | 2   | {"id": "456", "name": "Jane Smith"}  |
+      | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "4s"
-        Then the ClickHouse table "default.test_users" should contain:
-            | name        | email                | COUNT |
-            | John Doe    | john.doe@mailbox.com | 1     |
-            | Bob Johnson | b.johnson@gmail.com  | 1     |
-            | Bob Johnson | b.johnson@yahoo.com  | 1     |
+    And I shutdown the glassflow pipeline after "4s"
+    Then the ClickHouse table "default.test_users" should contain:
+      | name        | email                | COUNT |
+      | John Doe    | john.doe@mailbox.com | 1     |
+      | Bob Johnson | b.johnson@gmail.com  | 1     |
+      | Bob Johnson | b.johnson@yahoo.com  | 1     |
 
-    Scenario: Kafka to ClickHouse pipeline with deduplication and join
-        Given a Kafka topic "test_emails" with 1 partition
-        And a Kafka topic "test_users" with 1 partition
-        And the ClickHouse table "test_users" on database "default" already exists with schema
-            | column_name | data_type |
-            | name        | String    |
-            | email       | String    |
+  Scenario: Kafka to ClickHouse pipeline with deduplication and join
+    Given a Kafka topic "test_emails" with 1 partition
+    And a Kafka topic "test_users" with 1 partition
+    And the ClickHouse table "test_users" on database "default" already exists with schema
+      | column_name | data_type |
+      | name        | String    |
+      | email       | String    |
 
-        And a glassflow pipeline with next configuration:
+    And a glassflow pipeline with next configuration:
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00003",
@@ -397,42 +397,42 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I write these events to Kafka topic "test_emails":
-            | key | value                                               |
-            | 1   | {"user_id": "123", "email": "john.doe@mailbox.com"} |
-            | 2   | {"user_id": "480", "email": "zahng.chow@gmail.com"} |
-            | 3   | {"user_id": "789", "email": "b.johnson@gmail.com"}  |
-            | 4   | {"user_id": "789", "email": "b.johnson@yahoo.com"}  |
+    And I write these events to Kafka topic "test_emails":
+      | key | value                                               |
+      | 1   | {"user_id": "123", "email": "john.doe@mailbox.com"} |
+      | 2   | {"user_id": "480", "email": "zahng.chow@gmail.com"} |
+      | 3   | {"user_id": "789", "email": "b.johnson@gmail.com"}  |
+      | 4   | {"user_id": "789", "email": "b.johnson@yahoo.com"}  |
 
-        And I write these events to Kafka topic "test_users":
-            | key | value                                |
-            | 1   | {"id": "123", "name": "John Doe"}    |
-            | 2   | {"id": "456", "name": "Jane Smith"}  |
-            | 3   | {"id": "789", "name": "Bob Johnson"} |
+    And I write these events to Kafka topic "test_users":
+      | key | value                                |
+      | 1   | {"id": "123", "name": "John Doe"}    |
+      | 2   | {"id": "456", "name": "Jane Smith"}  |
+      | 3   | {"id": "789", "name": "Bob Johnson"} |
 
-        And I shutdown the glassflow pipeline after "4s"
-        Then the ClickHouse table "default.test_users" should contain:
-            | name        | email                | COUNT |
-            | John Doe    | john.doe@mailbox.com | 1     |
-            | Bob Johnson | b.johnson@gmail.com  | 1     |
-            | Bob Johnson | b.johnson@yahoo.com  | 0     |
+    And I shutdown the glassflow pipeline after "4s"
+    Then the ClickHouse table "default.test_users" should contain:
+      | name        | email                | COUNT |
+      | John Doe    | john.doe@mailbox.com | 1     |
+      | Bob Johnson | b.johnson@gmail.com  | 1     |
+      | Bob Johnson | b.johnson@yahoo.com  | 0     |
 
-    Scenario: Kafka to ClickHouse pipeline without deduplication or join
-        Given a Kafka topic "test_topic" with 1 partition
-        And the ClickHouse table "events_test" on database "default" already exists with schema
-            | column_name | data_type |
-            | id          | String    |
-            | name        | String    |
+  Scenario: Kafka to ClickHouse pipeline without deduplication or join
+    Given a Kafka topic "test_topic" with 1 partition
+    And the ClickHouse table "events_test" on database "default" already exists with schema
+      | column_name | data_type |
+      | id          | String    |
+      | name        | String    |
 
-        And I write these events to Kafka topic "test_topic":
-            | key | value                                   |
-            | 1   | {"id": "123", "name": "John Doe"}       |
-            | 2   | {"id": "123", "name": "Jane Smith"}     |
-            | 3   | {"id": "123", "name": "Bob Johnson"}    |
-            | 4   | {"id": "123", "name": "Ulm Petterson"}  |
-            | 5   | {"id": "567", "name": "Richard Miller"} |
+    And I write these events to Kafka topic "test_topic":
+      | key | value                                   |
+      | 1   | {"id": "123", "name": "John Doe"}       |
+      | 2   | {"id": "123", "name": "Jane Smith"}     |
+      | 3   | {"id": "123", "name": "Bob Johnson"}    |
+      | 4   | {"id": "123", "name": "Ulm Petterson"}  |
+      | 5   | {"id": "567", "name": "Richard Miller"} |
 
-        And a glassflow pipeline with next configuration:
+    And a glassflow pipeline with next configuration:
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00004",
@@ -509,27 +509,27 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "4s"
-        Then the ClickHouse table "default.events_test" should contain 5 rows
-        And the ClickHouse table "default.events_test" should contain:
-            | id  | COUNT |
-            | 123 | 4     |
-            | 567 | 1     |
+    And I shutdown the glassflow pipeline after "4s"
+    Then the ClickHouse table "default.events_test" should contain 5 rows
+    And the ClickHouse table "default.events_test" should contain:
+      | id  | COUNT |
+      | 123 | 4     |
+      | 567 | 1     |
 
-    Scenario: Insert LowCardinality(String) data type to ClickHouse from Kafka
-        Given a Kafka topic "test_measurments" with 1 partition
-        And the ClickHouse table "test" on database "default" already exists with schema
-            | column_name | data_type              |
-            | id          | String                 |
-            | measurment  | LowCardinality(String) |
+  Scenario: Insert LowCardinality(String) data type to ClickHouse from Kafka
+    Given a Kafka topic "test_measurments" with 1 partition
+    And the ClickHouse table "test" on database "default" already exists with schema
+      | column_name | data_type              |
+      | id          | String                 |
+      | measurment  | LowCardinality(String) |
 
-        And I write these events to Kafka topic "test_measurments":
-            | key | value                                |
-            | 1   | {"id": "123", "measurment": "red"}   |
-            | 2   | {"id": "124", "measurment": "blue"}  |
-            | 3   | {"id": "125", "measurment": "green"} |
+    And I write these events to Kafka topic "test_measurments":
+      | key | value                                |
+      | 1   | {"id": "123", "measurment": "red"}   |
+      | 2   | {"id": "124", "measurment": "blue"}  |
+      | 3   | {"id": "125", "measurment": "green"} |
 
-        And a glassflow pipeline with next configuration:
+    And a glassflow pipeline with next configuration:
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00005",
@@ -609,32 +609,32 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "4s"
+    And I shutdown the glassflow pipeline after "4s"
 
-        Then the ClickHouse table "default.test" should contain 3 rows
-        And the ClickHouse table "default.test" should contain:
-            | id  | measurment | COUNT |
-            | 123 | red        | 1     |
-            | 124 | blue       | 1     |
-            | 125 | green      | 1     |
+    Then the ClickHouse table "default.test" should contain 3 rows
+    And the ClickHouse table "default.test" should contain:
+      | id  | measurment | COUNT |
+      | 123 | red        | 1     |
+      | 124 | blue       | 1     |
+      | 125 | green      | 1     |
 
-    Scenario: Kafka topic with 3 partitions to ClickHouse with 3 replicas
-        Given a Kafka topic "test_topic" with 3 partitions
-        And the ClickHouse table "events_test" on database "default" already exists with schema
-            | column_name | data_type |
-            | id          | String    |
-            | name        | String    |
+  Scenario: Kafka topic with 3 partitions to ClickHouse with 3 replicas
+    Given a Kafka topic "test_topic" with 3 partitions
+    And the ClickHouse table "events_test" on database "default" already exists with schema
+      | column_name | data_type |
+      | id          | String    |
+      | name        | String    |
 
-        And I write these events to Kafka topic "test_topic":
-            | partition | key | value                                   |
-            | 0         | 1   | {"id": "123", "name": "John Doe"}       |
-            | 1         | 2   | {"id": "123", "name": "Jane Smith"}     |
-            | 2         | 3   | {"id": "123", "name": "Bob Johnson"}    |
-            | 0         | 4   | {"id": "123", "name": "Ulm Petterson"}  |
-            | 1         | 5   | {"id": "123", "name": "Richard Miller"} |
-            | 2         | 6   | {"id": "890", "name": "Alice Cooper"}   |
+    And I write these events to Kafka topic "test_topic":
+      | partition | key | value                                   |
+      | 0         | 1   | {"id": "123", "name": "John Doe"}       |
+      | 1         | 2   | {"id": "123", "name": "Jane Smith"}     |
+      | 2         | 3   | {"id": "123", "name": "Bob Johnson"}    |
+      | 0         | 4   | {"id": "123", "name": "Ulm Petterson"}  |
+      | 1         | 5   | {"id": "123", "name": "Richard Miller"} |
+      | 2         | 6   | {"id": "890", "name": "Alice Cooper"}   |
 
-        And a glassflow pipeline with next configuration:
+    And a glassflow pipeline with next configuration:
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00006",
@@ -712,30 +712,30 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "4s"
-        Then the ClickHouse table "default.events_test" should contain 6 rows
-        And the ClickHouse table "default.events_test" should contain:
-            | id  | COUNT |
-            | 123 | 5     |
-            | 890 | 1     |
+    And I shutdown the glassflow pipeline after "4s"
+    Then the ClickHouse table "default.events_test" should contain 6 rows
+    And the ClickHouse table "default.events_test" should contain:
+      | id  | COUNT |
+      | 123 | 5     |
+      | 890 | 1     |
 
-    Scenario: Kafka topic with 3 partitions to ClickHouse with 1 replica
-        Given a Kafka topic "test_topic" with 3 partitions
-        And the ClickHouse table "events_test" on database "default" already exists with schema
-            | column_name | data_type |
-            | id          | String    |
-            | name        | String    |
+  Scenario: Kafka topic with 3 partitions to ClickHouse with 1 replica
+    Given a Kafka topic "test_topic" with 3 partitions
+    And the ClickHouse table "events_test" on database "default" already exists with schema
+      | column_name | data_type |
+      | id          | String    |
+      | name        | String    |
 
-        And I write these events to Kafka topic "test_topic":
-            | partition | key | value                                   |
-            | 0         | 1   | {"id": "123", "name": "John Doe"}       |
-            | 1         | 2   | {"id": "123", "name": "Jane Smith"}     |
-            | 2         | 3   | {"id": "123", "name": "Bob Johnson"}    |
-            | 0         | 4   | {"id": "123", "name": "Ulm Petterson"}  |
-            | 1         | 5   | {"id": "123", "name": "Richard Miller"} |
-            | 2         | 6   | {"id": "890", "name": "Alice Cooper"}   |
+    And I write these events to Kafka topic "test_topic":
+      | partition | key | value                                   |
+      | 0         | 1   | {"id": "123", "name": "John Doe"}       |
+      | 1         | 2   | {"id": "123", "name": "Jane Smith"}     |
+      | 2         | 3   | {"id": "123", "name": "Bob Johnson"}    |
+      | 0         | 4   | {"id": "123", "name": "Ulm Petterson"}  |
+      | 1         | 5   | {"id": "123", "name": "Richard Miller"} |
+      | 2         | 6   | {"id": "890", "name": "Alice Cooper"}   |
 
-        And a glassflow pipeline with next configuration:
+    And a glassflow pipeline with next configuration:
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00007",
@@ -813,10 +813,9 @@ Feature: Kafka to CH pipeline
                 }
             }
             """
-        And I shutdown the glassflow pipeline after "4s"
-        Then the ClickHouse table "default.events_test" should contain 6 rows
-        And the ClickHouse table "default.events_test" should contain:
-            | id  | COUNT |
-            | 123 | 5     |
-            | 890 | 1     |
-
+    And I shutdown the glassflow pipeline after "4s"
+    Then the ClickHouse table "default.events_test" should contain 6 rows
+    And the ClickHouse table "default.events_test" should contain:
+      | id  | COUNT |
+      | 123 | 5     |
+      | 890 | 1     |

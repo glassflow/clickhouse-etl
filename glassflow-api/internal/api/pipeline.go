@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -204,6 +205,18 @@ type pipelineFilter struct {
 	Expression string `json:"expression"`
 }
 
+type schemaField struct {
+	SourceID   string `json:"source_id"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	ColumnName string `json:"column_name"`
+	ColumnType string `json:"column_type"`
+}
+
+type schema struct {
+	Fields []schemaField `json:"fields"`
+}
+
 type pipelineJSON struct {
 	PipelineID string                  `json:"pipeline_id"`
 	Name       string                  `json:"name"`
@@ -211,6 +224,7 @@ type pipelineJSON struct {
 	Join       pipelineJoin            `json:"join,omitempty"`
 	Filter     pipelineFilter          `json:"filter,omitempty"`
 	Sink       clickhouseSink          `json:"sink"`
+	Schema     schema                  `json:"schema"`
 	Metadata   models.PipelineMetadata `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
@@ -239,20 +253,23 @@ type sourceConnectionParams struct {
 type kafkaTopic struct {
 	ID                         string           `json:"id,omitempty"`
 	Topic                      string           `json:"name"`
-	Schema                     topicSchema      `json:"schema"`
 	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset,omitempty" default:"earliest"`
 	Replicas                   int              `json:"replicas,omitempty" default:"1"`
 	Deduplication              topicDedupConfig `json:"deduplication,omitempty"`
+	// Old format: schema fields nested in topic for migration
+	SchemaV1 *topicSchemaV1 `json:"schema,omitempty"`
 }
 
-type topicSchema struct {
-	Type   string             `json:"type"`
-	Fields []topicSchemaField `json:"fields"`
+// Old format: schema fields nested in topic for migration
+type topicSchemaV1 struct {
+	Type   string               `json:"type,omitempty"`
+	Fields []topicSchemaFieldV1 `json:"fields,omitempty"`
 }
 
-type topicSchemaField struct {
-	Name     string `json:"name"`
-	DataType string `json:"type"`
+// Old format: schema fields nested in topic for migration
+type topicSchemaFieldV1 struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type topicDedupConfig struct {
@@ -274,26 +291,27 @@ type clickhouseSink struct {
 	Kind     string `json:"type"`
 	Provider string `json:"provider,omitempty"`
 	// Add validation for null/empty values
-	Host     string                    `json:"host"`
-	Port     string                    `json:"port"`      // native port used in BE connection
-	HttpPort string                    `json:"http_port"` // http port used by UI for FE connection
-	Database string                    `json:"database"`
-	Username string                    `json:"username"`
-	Password string                    `json:"password"`
-	Table    string                    `json:"table"`
-	Secure   bool                      `json:"secure"`
-	Mapping  []clickhouseColumnMapping `json:"table_mapping"`
+	Host     string `json:"host"`
+	Port     string `json:"port"`      // native port used in BE connection
+	HttpPort string `json:"http_port"` // http port used by UI for FE connection
+	Database string `json:"database"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Table    string `json:"table"`
+	Secure   bool   `json:"secure"`
 
 	// Add validation for range
 	MaxBatchSize                int                 `json:"max_batch_size"`
 	MaxDelayTime                models.JSONDuration `json:"max_delay_time" format:"duration" doc:"Maximum delay time for batching (e.g., 60s, 1m, 5m)" example:"1m"`
 	SkipCertificateVerification bool                `json:"skip_certificate_verification,omitempty" default:"false"`
+	// Old format: table_mapping in sink
+	TableMappingV1 []tableMappingEntryV1 `json:"table_mapping,omitempty"`
 }
 
-type clickhouseColumnMapping struct {
-	Source    string `json:"source_id"`
-	FieldName string `json:"field_name"`
-
+// Old format for migration
+type tableMappingEntryV1 struct {
+	SourceID   string `json:"source_id"`
+	FieldName  string `json:"field_name"`
 	ColumnName string `json:"column_name"`
 	ColumnType string `json:"column_type"`
 }
@@ -439,61 +457,126 @@ func getSinkStreamID(p pipelineJSON) (string, error) {
 	return sinkStreamID, nil
 }
 
-func mapFieldsToStreamDataFields(fields []topicSchemaField) []models.StreamDataField {
-	var resp []models.StreamDataField
-	for _, f := range fields {
-		field := models.StreamDataField{
-			FieldName: f.Name,
-			FieldType: f.DataType,
+func validateJoinKeysInSchema(schema schema, joinSources []joinSource) error {
+	// Build a map of source_id -> field names for quick lookup
+	fieldsBySource := make(map[string]map[string]bool)
+	for _, field := range schema.Fields {
+		if fieldsBySource[field.SourceID] == nil {
+			fieldsBySource[field.SourceID] = make(map[string]bool)
 		}
-
-		resp = append(resp, field)
+		fieldsBySource[field.SourceID][field.Name] = true
 	}
 
-	return resp
+	// Validate each join source's join key exists in schema
+	for _, js := range joinSources {
+		sourceFields, exists := fieldsBySource[js.SourceID]
+		if !exists {
+			return fmt.Errorf("join source_id '%s' not found in schema fields", js.SourceID)
+		}
+		if !sourceFields[js.JoinKey] {
+			return fmt.Errorf("join key '%s' not found in schema fields for source_id '%s'", js.JoinKey, js.SourceID)
+		}
+	}
+
+	return nil
+}
+
+func validateDedupKeysInSchema(schema schema, topics []kafkaTopic) error {
+	// Build a map of topic name -> field names for quick lookup
+	fieldsBySource := make(map[string]map[string]bool)
+	for _, field := range schema.Fields {
+		if fieldsBySource[field.SourceID] == nil {
+			fieldsBySource[field.SourceID] = make(map[string]bool)
+		}
+		fieldsBySource[field.SourceID][field.Name] = true
+	}
+
+	// Validate each topic's dedup key exists in schema
+	for _, t := range topics {
+		if !t.Deduplication.Enabled {
+			continue
+		}
+		if t.Deduplication.ID == "" {
+			continue
+		}
+		sourceFields, exists := fieldsBySource[t.Topic]
+		if !exists {
+			return fmt.Errorf("deduplication source_id '%s' not found in schema fields", t.Topic)
+		}
+		if !sourceFields[t.Deduplication.ID] {
+			return fmt.Errorf("deduplication key '%s' not found in schema fields for source_id '%s'", t.Deduplication.ID, t.Topic)
+		}
+	}
+
+	return nil
 }
 
 func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) {
-	// NOTE: optimized for speed - dirty implementation mixing infra
-	// with domain logic and must be changed when schema mapper doesn't mix
-	// multiple components together.
-	streamsCfg := make(map[string]models.StreamSchemaConfig)
-	sinkCfg := make([]models.SinkMappingConfig, len(pipeline.Sink.Mapping))
-	for _, t := range pipeline.Source.Topics {
-		if len(t.Schema.Fields) == 0 {
-			return zero, fmt.Errorf("topic schema must have at least one value")
+	// Validate schema has fields
+	if len(pipeline.Schema.Fields) == 0 {
+		return zero, fmt.Errorf("schema must have at least one field")
+	}
+
+	// Validate join keys exist in schema
+	if pipeline.Join.Enabled && len(pipeline.Join.Sources) > 0 {
+		if err := validateJoinKeysInSchema(pipeline.Schema, pipeline.Join.Sources); err != nil {
+			return zero, fmt.Errorf("validate join keys: %w", err)
 		}
+	}
 
-		fields := mapFieldsToStreamDataFields(t.Schema.Fields)
+	// Validate dedup keys exist in schema
+	if err := validateDedupKeysInSchema(pipeline.Schema, pipeline.Source.Topics); err != nil {
+		return zero, fmt.Errorf("validate deduplication keys: %w", err)
+	}
 
-		//nolint: exhaustruct // join info will be filled later
-		streamsCfg[t.Topic] = models.StreamSchemaConfig{
+	// Group fields by source_id to build Streams
+	streamsCfg := make(map[string]models.StreamSchemaConfig)
+	fieldsBySource := make(map[string][]models.StreamDataField)
+
+	for _, field := range pipeline.Schema.Fields {
+		fieldsBySource[field.SourceID] = append(fieldsBySource[field.SourceID], models.StreamDataField{
+			FieldName: field.Name,
+			FieldType: field.Type,
+		})
+	}
+
+	// Build streams config with join info
+	for sourceID, fields := range fieldsBySource {
+		streamCfg := models.StreamSchemaConfig{
 			Fields: fields,
 		}
 
+		// Add join info if this source is part of a join
 		for _, js := range pipeline.Join.Sources {
-			if js.SourceID == t.Topic {
-				streamsCfg[t.Topic] = models.StreamSchemaConfig{
-					Fields:          fields,
-					JoinKeyField:    js.JoinKey,
-					JoinOrientation: js.Orientation,
-					JoinWindow:      js.Window,
-				}
+			if js.SourceID == sourceID {
+				streamCfg.JoinKeyField = js.JoinKey
+				streamCfg.JoinOrientation = js.Orientation
+				streamCfg.JoinWindow = js.Window
+				break
 			}
 		}
 
-		sinkCfg = make([]models.SinkMappingConfig, len(pipeline.Sink.Mapping))
+		streamsCfg[sourceID] = streamCfg
+	}
 
-		for i, m := range pipeline.Sink.Mapping {
-			mapping := models.SinkMappingConfig{
-				ColumnName: m.ColumnName,
-				StreamName: m.Source,
-				FieldName:  m.FieldName,
-				ColumnType: m.ColumnType,
-			}
-
-			sinkCfg[i] = mapping
+	// Build sink mapping from schema fields
+	sinkCfg := make([]models.SinkMappingConfig, 0, len(pipeline.Schema.Fields))
+	for _, field := range pipeline.Schema.Fields {
+		// Skip fields without column mapping (used only for validation/join keys)
+		if field.ColumnName == "" || field.ColumnType == "" {
+			continue
 		}
+		sinkCfg = append(sinkCfg, models.SinkMappingConfig{
+			ColumnName: field.ColumnName,
+			StreamName: field.SourceID,
+			FieldName:  field.Name,
+			ColumnType: field.ColumnType,
+		})
+	}
+
+	// Validate that at least one field has a column mapping
+	if len(sinkCfg) == 0 {
+		return zero, fmt.Errorf("at least one field must have column_name and column_type defined")
 	}
 
 	mapperConfig := models.MapperConfig{
@@ -515,7 +598,17 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 		return models.FilterComponentConfig{}, nil
 	}
 
-	fields := mapFieldsToStreamDataFields(pipeline.Source.Topics[0].Schema.Fields)
+	// Get fields for the first topic from unified schema
+	topicName := pipeline.Source.Topics[0].Topic
+	var fields []models.StreamDataField
+	for _, field := range pipeline.Schema.Fields {
+		if field.SourceID == topicName {
+			fields = append(fields, models.StreamDataField{
+				FieldName: field.Name,
+				FieldType: field.Type,
+			})
+		}
+	}
 
 	err := filter.ValidateFilterExpression(pipeline.Filter.Expression, fields)
 	if err != nil {
@@ -579,7 +672,6 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	topics := make([]kafkaTopic, 0, len(p.Ingestor.KafkaTopics))
 	for _, t := range p.Ingestor.KafkaTopics {
-		//nolint: exhaustruct // schema is added later
 		kt := kafkaTopic{
 			Topic:                      t.Name,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
@@ -591,36 +683,40 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 				Window:  t.Deduplication.Window,
 			},
 		}
-
-		for name, mapper := range p.Mapper.Streams {
-			var schemaFields []topicSchemaField
-
-			if name == t.Name {
-				for _, f := range mapper.Fields {
-					schemaFields = append(schemaFields, topicSchemaField{
-						Name:     f.FieldName,
-						DataType: f.FieldType,
-					})
-				}
-
-				kt.Schema = topicSchema{
-					Type:   "json",
-					Fields: schemaFields,
-				}
-			}
-		}
-
 		topics = append(topics, kt)
 	}
 
-	chMapping := make([]clickhouseColumnMapping, 0, len(p.Mapper.SinkMapping))
-	for _, m := range p.Mapper.SinkMapping {
-		chMapping = append(chMapping, clickhouseColumnMapping{
-			Source:     m.StreamName,
-			FieldName:  m.FieldName,
-			ColumnName: m.ColumnName,
-			ColumnType: m.ColumnType,
-		})
+	// Build unified schema from MapperConfig
+	schemaFields := make([]schemaField, 0)
+
+	// Create a map to track which fields we've added (to avoid duplicates)
+	fieldMap := make(map[string]bool)
+
+	// First, add all fields from streams with their types
+	for streamName, streamConfig := range p.Mapper.Streams {
+		for _, field := range streamConfig.Fields {
+			key := streamName + ":" + field.FieldName
+			if !fieldMap[key] {
+				// Find corresponding sink mapping for column info
+				var columnName, columnType string
+				for _, mapping := range p.Mapper.SinkMapping {
+					if mapping.StreamName == streamName && mapping.FieldName == field.FieldName {
+						columnName = mapping.ColumnName
+						columnType = mapping.ColumnType
+						break
+					}
+				}
+
+				schemaFields = append(schemaFields, schemaField{
+					SourceID:   streamName,
+					Name:       field.FieldName,
+					Type:       field.FieldType,
+					ColumnName: columnName,
+					ColumnType: columnType,
+				})
+				fieldMap[key] = true
+			}
+		}
 	}
 
 	var joinSources []joinSource
@@ -668,7 +764,6 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Password:                    p.Sink.ClickHouseConnectionParams.Password,
 			Table:                       p.Sink.ClickHouseConnectionParams.Table,
 			Secure:                      p.Sink.ClickHouseConnectionParams.Secure,
-			Mapping:                     chMapping,
 			MaxBatchSize:                p.Sink.Batch.MaxBatchSize,
 			MaxDelayTime:                p.Sink.Batch.MaxDelayTime,
 			SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
@@ -677,7 +772,11 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Enabled:    p.Filter.Enabled,
 			Expression: p.Filter.Expression,
 		},
+		Schema: schema{
+			Fields: schemaFields,
+		},
 		Metadata: p.Metadata,
+		Version:  "v2",
 	}
 }
 
@@ -743,4 +842,96 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 
 	h.log.InfoContext(r.Context(), "pipeline deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// MigratePipelineFromJSON converts pipeline JSON from NATS KV to PipelineConfig with a new UUID
+// NATS KV only contains pipelines in old format (schema in topics + table_mapping in sink)
+func MigratePipelineFromJSON(jsonData []byte, newPipelineID string) (models.PipelineConfig, error) {
+	var p pipelineJSON
+	if err := json.Unmarshal(jsonData, &p); err != nil {
+		return models.PipelineConfig{}, fmt.Errorf("unmarshal pipeline JSON: %w", err)
+	}
+
+	p.PipelineID = newPipelineID
+
+	// Always reconstruct schema from old format (NATS KV only has old format)
+	if err := reconstructSchemaFromOldFormat(&p); err != nil {
+		return models.PipelineConfig{}, fmt.Errorf("reconstruct schema from old format: %w", err)
+	}
+
+	return p.toModel()
+}
+
+// reconstructSchemaFromOldFormat converts old format (schema in topics + table_mapping in sink)
+// to new unified format (schema.fields at root)
+func reconstructSchemaFromOldFormat(p *pipelineJSON) error {
+	// Build a map of topic name -> schema fields
+	topicFieldsMap := make(map[string][]topicSchemaFieldV1)
+	for _, topic := range p.Source.Topics {
+		if topic.SchemaV1 != nil && len(topic.SchemaV1.Fields) > 0 {
+			topicFieldsMap[topic.Topic] = topic.SchemaV1.Fields
+		}
+	}
+
+	// Reconstruct unified schema.fields
+	schemaFields := make([]schemaField, 0)
+
+	// Iterate through table_mapping to get all fields that need to be mapped
+	for _, mapping := range p.Sink.TableMappingV1 {
+		// Find the field type from topic schema
+		var fieldType string
+		if topicFields, exists := topicFieldsMap[mapping.SourceID]; exists {
+			for _, field := range topicFields {
+				if field.Name == mapping.FieldName {
+					fieldType = field.Type
+					break
+				}
+			}
+		}
+		// Default to "string" if type not found
+		if fieldType == "" {
+			fieldType = "string"
+		}
+
+		schemaFields = append(schemaFields, schemaField{
+			SourceID:   mapping.SourceID,
+			Name:       mapping.FieldName,
+			Type:       fieldType,
+			ColumnName: mapping.ColumnName,
+			ColumnType: mapping.ColumnType,
+		})
+	}
+
+	// Also add fields from topic schemas that might not be in table_mapping
+	// (e.g., fields used for deduplication or joins but not mapped to columns)
+	for topicName, topicFields := range topicFieldsMap {
+		for _, field := range topicFields {
+			// Check if this field is already in schemaFields
+			found := false
+			for _, sf := range schemaFields {
+				if sf.SourceID == topicName && sf.Name == field.Name {
+					found = true
+					break
+				}
+			}
+			// If not found, add it without column mapping (used for validation/join keys)
+			if !found {
+				schemaFields = append(schemaFields, schemaField{
+					SourceID:   topicName,
+					Name:       field.Name,
+					Type:       field.Type,
+					ColumnName: "", // No column mapping
+					ColumnType: "", // No column mapping
+				})
+			}
+		}
+	}
+
+	if len(schemaFields) == 0 {
+		return fmt.Errorf("no schema fields found in old format (topics or table_mapping)")
+	}
+
+	p.Schema.Fields = schemaFields
+
+	return nil
 }

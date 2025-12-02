@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
-
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
@@ -63,6 +62,15 @@ func (h *handler) createPipeline(ctx context.Context, input *CreatePipelineInput
 				Message: "pipeline creation failed due to configuration error",
 				Details: map[string]any{
 					"error": err.Error(),
+				},
+			}
+		case errors.Is(err, models.ErrInvalidPipelineID):
+			return nil, &ErrorDetail{
+				Status:  http.StatusBadRequest,
+				Code:    "bad_request",
+				Message: "pipeline id is invalid",
+				Details: map[string]any{
+					"pipeline_id": pipeline.ID,
 				},
 			}
 		default:

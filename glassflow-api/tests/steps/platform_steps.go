@@ -56,9 +56,21 @@ func (p *PlatformSteps) SetupResources() error {
 }
 
 func (p *PlatformSteps) CleanupResources() error {
+	var errs []error
+
 	if err := p.cleanupNATS(); err != nil {
-		return fmt.Errorf("cleanup nats: %w", err)
+		errs = append(errs, fmt.Errorf("cleanup nats: %w", err))
 	}
+
+	if err := p.cleanupPostgres(); err != nil {
+		errs = append(errs, fmt.Errorf("cleanup postgres: %w", err))
+	}
+
+	err := testutils.CombineErrors(errs)
+	if err != nil {
+		return fmt.Errorf("cleanup resources: %w", err)
+	}
+
 	return nil
 }
 
@@ -73,10 +85,20 @@ func (p *PlatformSteps) aRunningGlassflowAPIServerWithK8sOrchestrator() error {
 }
 
 func (p *PlatformSteps) setupServices() error {
+	// Setup Postgres container if not already set up
+	if p.postgresContainer == nil {
+		postgresContainer, err := testutils.StartPostgresContainer(context.Background())
+		if err != nil {
+			return fmt.Errorf("start postgres container: %w", err)
+		}
+		p.postgresContainer = postgresContainer
+		// Migrations are automatically run in StartPostgresContainer()
+	}
+
 	// Create storage
-	db, err := storage.New(context.Background(), "test-pipelines", p.natsClient.JetStream())
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log)
 	if err != nil {
-		return fmt.Errorf("create storage: %w", err)
+		return fmt.Errorf("create postgres storage: %w", err)
 	}
 
 	// Create orchestrator based on type

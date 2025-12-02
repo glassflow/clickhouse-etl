@@ -66,6 +66,9 @@ type config struct {
 	NATSMaxStreamBytes int64         `default:"107374182400" split_words:"true"` // 100GB in bytes
 	NATSPipelineKV     string        `default:"glassflow-pipelines" split_words:"true"`
 
+	// Database configuration
+	DatabaseURL string `default:"" split_words:"true"`
+
 	K8sNamespace       string `default:"glassflow" split_words:"true"`
 	K8sResourceKind    string `default:"Pipeline" split_words:"true"`
 	K8sResourceName    string `default:"pipelines" split_words:"true"`
@@ -190,9 +193,26 @@ func mainEtl(
 	log *slog.Logger,
 	meter *observability.Meter,
 ) error {
-	db, err := storage.New(ctx, cfg.NATSPipelineKV, nc.JetStream())
+	if cfg.DatabaseURL == "" {
+		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
+	}
+
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log)
 	if err != nil {
-		return fmt.Errorf("create nats store for pipelines: %w", err)
+		return fmt.Errorf("create postgres store for pipelines: %w", err)
+	}
+
+	// Run data migration from NATS KV to Postgres
+	kvStoreName := cfg.NATSPipelineKV
+
+	if err = storage.MigratePipelinesFromNATSKV(ctx, nc, db, kvStoreName, log); err != nil {
+		// Log error but don't fail startup (data migration failures shouldn't block API)
+		log.Error("data migration from NATS KV failed",
+			slog.String("error", err.Error()),
+			slog.String("kv_store_name", kvStoreName))
+	} else {
+		log.Info("data migration from NATS KV completed",
+			slog.String("kv_store_name", kvStoreName))
 	}
 
 	dlq := dlq.NewClient(nc)

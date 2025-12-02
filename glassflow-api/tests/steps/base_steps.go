@@ -24,9 +24,10 @@ import (
 
 // BaseTestSuite provides common functionality for test suites
 type BaseTestSuite struct {
-	natsContainer  *testutils.NATSContainer
-	chContainer    *testutils.ClickHouseContainer
-	kafkaContainer *testutils.KafkaContainer
+	natsContainer     *testutils.NATSContainer
+	chContainer       *testutils.ClickHouseContainer
+	kafkaContainer    *testutils.KafkaContainer
+	postgresContainer *testutils.PostgresContainer
 
 	kWriter *testutils.KafkaWriter
 
@@ -99,6 +100,18 @@ func (b *BaseTestSuite) cleanupCH() error {
 			return fmt.Errorf("stop clickhouse container: %w", err)
 		}
 		b.chContainer = nil
+	}
+
+	return nil
+}
+
+func (b *BaseTestSuite) cleanupPostgres() error {
+	if b.postgresContainer != nil {
+		err := b.postgresContainer.Stop(context.Background())
+		if err != nil {
+			return fmt.Errorf("stop postgres container: %w", err)
+		}
+		b.postgresContainer = nil
 	}
 
 	return nil
