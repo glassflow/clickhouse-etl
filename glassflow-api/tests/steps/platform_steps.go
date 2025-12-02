@@ -56,9 +56,21 @@ func (p *PlatformSteps) SetupResources() error {
 }
 
 func (p *PlatformSteps) CleanupResources() error {
+	var errs []error
+
 	if err := p.cleanupNATS(); err != nil {
-		return fmt.Errorf("cleanup nats: %w", err)
+		errs = append(errs, fmt.Errorf("cleanup nats: %w", err))
 	}
+
+	if err := p.cleanupPostgres(); err != nil {
+		errs = append(errs, fmt.Errorf("cleanup postgres: %w", err))
+	}
+
+	err := testutils.CombineErrors(errs)
+	if err != nil {
+		return fmt.Errorf("cleanup resources: %w", err)
+	}
+
 	return nil
 }
 

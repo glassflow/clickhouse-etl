@@ -105,6 +105,18 @@ func (b *BaseTestSuite) cleanupCH() error {
 	return nil
 }
 
+func (b *BaseTestSuite) cleanupPostgres() error {
+	if b.postgresContainer != nil {
+		err := b.postgresContainer.Stop(context.Background())
+		if err != nil {
+			return fmt.Errorf("stop postgres container: %w", err)
+		}
+		b.postgresContainer = nil
+	}
+
+	return nil
+}
+
 func (b *BaseTestSuite) setupKafka() error {
 	kContainer, err := testutils.StartKafkaContainer(context.Background())
 	if err != nil {

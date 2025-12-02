@@ -222,6 +222,13 @@ func (p *PipelineSteps) CleanupResources() error {
 		}
 	}
 
+	if p.postgresContainer != nil {
+		err := p.cleanupPostgres()
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	err := testutils.CombineErrors(errs)
 	if err != nil {
 		return fmt.Errorf("cleanup resources: %w", err)
