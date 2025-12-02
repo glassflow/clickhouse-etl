@@ -6,6 +6,43 @@ import SingleColumnCard from '../SingleColumnCard'
 import { useStore } from '@/src/store'
 import { detectTransformationType } from '@/src/types/pipeline'
 
+// Filter card component to display filter configuration
+const FilterCard = ({
+  onStepClick,
+  disabled,
+  validation,
+  activeStep,
+}: {
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
+  disabled: boolean
+  validation: any
+  activeStep: StepKeys | null
+}) => {
+  const { filterStore } = useStore()
+  const filterConfig = filterStore.filterConfig
+  
+  // Only show if filter is enabled
+  if (!filterConfig.enabled || filterConfig.conditions.length === 0) {
+    return null
+  }
+
+  const conditionCount = filterConfig.conditions.length
+  const conditionLabel = conditionCount === 1 ? '1 condition' : `${conditionCount} conditions`
+
+  return (
+    <SingleCard
+      label={['Filter']}
+      value={[`${conditionLabel} (${filterConfig.combinator.toUpperCase()})`]}
+      orientation="center"
+      width="full"
+      onClick={() => onStepClick(StepKeys.FILTER_CONFIGURATOR)}
+      disabled={disabled}
+      validation={validation?.filterValidation}
+      selected={activeStep === StepKeys.FILTER_CONFIGURATOR}
+    />
+  )
+}
+
 // covers the case where there is a single topic and no join for deduplication or ingest only
 const DeduplicationCase = ({
   topic,
@@ -59,6 +96,14 @@ const DeduplicationCase = ({
             />
           )
         })()}
+
+      {/* Filter card (if filter is configured) */}
+      <FilterCard
+        onStepClick={onStepClick}
+        disabled={disabled}
+        validation={validation}
+        activeStep={activeStep}
+      />
 
       {/* Bottom card: Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -190,6 +235,14 @@ const JoinCase = ({
         />
       </div>
 
+      {/* Filter card (if filter is configured) */}
+      <FilterCard
+        onStepClick={onStepClick}
+        disabled={disabled}
+        validation={validation}
+        activeStep={activeStep}
+      />
+
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard
         label={['Destination Table', 'Schema Mapping']}
@@ -290,6 +343,14 @@ const JoinDeduplicationCase = ({
           selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
       </div>
+
+      {/* Filter card (if filter is configured) */}
+      <FilterCard
+        onStepClick={onStepClick}
+        disabled={disabled}
+        validation={validation}
+        activeStep={activeStep}
+      />
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard

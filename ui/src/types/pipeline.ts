@@ -160,6 +160,10 @@ export interface Pipeline {
       orientation: string
     }>
   }
+  filter?: {
+    enabled: boolean
+    expression: string
+  }
   sink: {
     type: string
     host: string

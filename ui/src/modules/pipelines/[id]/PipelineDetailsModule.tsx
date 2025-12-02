@@ -315,6 +315,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     StepKeys.DEDUPLICATION_CONFIGURATOR,
     StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1,
     StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2,
+    StepKeys.FILTER_CONFIGURATOR,
     StepKeys.JOIN_CONFIGURATOR,
     StepKeys.CLICKHOUSE_MAPPER,
   ])
