@@ -28,11 +28,3 @@ build: clickhouse-etl ui
 
 .PHONY: build-linux
 build-linux: nats-kafka-bridge-linux clickhouse-etl-linux ui
-
-.PHONY: run-local
-run-local: build
-	docker-compose -f ./dev/docker-compose.dev.yaml up
-
-.PHONY: run-local-linux
-run-local-linux: build-linux
-	docker-compose -f ./dev/docker-compose.dev.yaml up
