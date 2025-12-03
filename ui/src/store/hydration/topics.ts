@@ -192,6 +192,9 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         if (kafkaStore.saslPlain?.truststore?.certificates) {
           requestBody.certificate = kafkaStore.saslPlain.truststore.certificates
         }
+        if (kafkaStore.saslPlain?.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
+        }
         break
       case 'SASL/SCRAM-256':
         requestBody.username = kafkaStore.saslScram256.username
@@ -200,6 +203,9 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         if (kafkaStore.saslScram256?.truststore?.certificates) {
           requestBody.certificate = kafkaStore.saslScram256.truststore.certificates
         }
+        if (kafkaStore.saslScram256?.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
+        }
         break
       case 'SASL/SCRAM-512':
         requestBody.username = kafkaStore.saslScram512.username
@@ -207,15 +213,24 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         if (kafkaStore.saslScram512?.truststore?.certificates) {
           requestBody.certificate = kafkaStore.saslScram512.truststore.certificates
         }
+        if (kafkaStore.saslScram512?.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
+        }
         break
       case 'SASL/GSSAPI':
         if (kafkaStore.saslGssapi?.truststore?.certificates) {
           requestBody.certificate = kafkaStore.saslGssapi.truststore.certificates
         }
+        if (kafkaStore.saslGssapi?.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
+        }
         break
       case 'NO_AUTH':
         if (kafkaStore.noAuth?.truststore?.certificates) {
           requestBody.certificate = kafkaStore.noAuth.truststore.certificates
+        }
+        if (kafkaStore.noAuth?.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
         }
         break
       // Add other auth methods as needed
