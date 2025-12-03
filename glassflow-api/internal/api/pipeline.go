@@ -844,94 +844,15 @@ func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// MigratePipelineFromJSON converts pipeline JSON from NATS KV to PipelineConfig with a new UUID
-// NATS KV only contains pipelines in old format (schema in topics + table_mapping in sink)
-func MigratePipelineFromJSON(jsonData []byte, newPipelineID string) (models.PipelineConfig, error) {
-	var p pipelineJSON
+// MigratePipelineFromJSON converts pipeline JSON from NATS KV to PipelineConfig
+func MigratePipelineFromJSON(jsonData []byte, pipelineID string) (models.PipelineConfig, error) {
+	var p models.PipelineConfig
 	if err := json.Unmarshal(jsonData, &p); err != nil {
 		return models.PipelineConfig{}, fmt.Errorf("unmarshal pipeline JSON: %w", err)
 	}
 
-	p.PipelineID = newPipelineID
+	// Update the pipeline ID (using the same ID from NATS KV)
+	p.ID = pipelineID
 
-	// Always reconstruct schema from old format (NATS KV only has old format)
-	if err := reconstructSchemaFromOldFormat(&p); err != nil {
-		return models.PipelineConfig{}, fmt.Errorf("reconstruct schema from old format: %w", err)
-	}
-
-	return p.toModel()
-}
-
-// reconstructSchemaFromOldFormat converts old format (schema in topics + table_mapping in sink)
-// to new unified format (schema.fields at root)
-func reconstructSchemaFromOldFormat(p *pipelineJSON) error {
-	// Build a map of topic name -> schema fields
-	topicFieldsMap := make(map[string][]topicSchemaFieldV1)
-	for _, topic := range p.Source.Topics {
-		if topic.SchemaV1 != nil && len(topic.SchemaV1.Fields) > 0 {
-			topicFieldsMap[topic.Topic] = topic.SchemaV1.Fields
-		}
-	}
-
-	// Reconstruct unified schema.fields
-	schemaFields := make([]schemaField, 0)
-
-	// Iterate through table_mapping to get all fields that need to be mapped
-	for _, mapping := range p.Sink.TableMappingV1 {
-		// Find the field type from topic schema
-		var fieldType string
-		if topicFields, exists := topicFieldsMap[mapping.SourceID]; exists {
-			for _, field := range topicFields {
-				if field.Name == mapping.FieldName {
-					fieldType = field.Type
-					break
-				}
-			}
-		}
-		// Default to "string" if type not found
-		if fieldType == "" {
-			fieldType = "string"
-		}
-
-		schemaFields = append(schemaFields, schemaField{
-			SourceID:   mapping.SourceID,
-			Name:       mapping.FieldName,
-			Type:       fieldType,
-			ColumnName: mapping.ColumnName,
-			ColumnType: mapping.ColumnType,
-		})
-	}
-
-	// Also add fields from topic schemas that might not be in table_mapping
-	// (e.g., fields used for deduplication or joins but not mapped to columns)
-	for topicName, topicFields := range topicFieldsMap {
-		for _, field := range topicFields {
-			// Check if this field is already in schemaFields
-			found := false
-			for _, sf := range schemaFields {
-				if sf.SourceID == topicName && sf.Name == field.Name {
-					found = true
-					break
-				}
-			}
-			// If not found, add it without column mapping (used for validation/join keys)
-			if !found {
-				schemaFields = append(schemaFields, schemaField{
-					SourceID:   topicName,
-					Name:       field.Name,
-					Type:       field.Type,
-					ColumnName: "", // No column mapping
-					ColumnType: "", // No column mapping
-				})
-			}
-		}
-	}
-
-	if len(schemaFields) == 0 {
-		return fmt.Errorf("no schema fields found in old format (topics or table_mapping)")
-	}
-
-	p.Schema.Fields = schemaFields
-
-	return nil
+	return p, nil
 }
