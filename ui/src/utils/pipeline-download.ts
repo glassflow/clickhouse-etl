@@ -58,9 +58,13 @@ export const downloadPipelineConfig = async (
     const targetAdapter = getPipelineAdapter(sourceVersion)
     const exportConfig = targetAdapter.generate(internalConfig)
 
+    // Safely remove status field (it's runtime state, not configuration)
+    // Using destructuring with rest to safely exclude even if field doesn't exist
+    const { status: _status, ...configWithoutStatus } = exportConfig || {}
+
     // Add export metadata
     const downloadConfig = {
-      ...exportConfig,
+      ...configWithoutStatus,
       exported_at: new Date().toISOString(),
       exported_by: 'GlassFlow UI',
     }
@@ -122,9 +126,13 @@ export const downloadPipelineConfigAsYaml = async (
     const targetAdapter = getPipelineAdapter(sourceVersion)
     const exportConfig = targetAdapter.generate(internalConfig)
 
+    // Safely remove status field (it's runtime state, not configuration)
+    // Using destructuring with rest to safely exclude even if field doesn't exist
+    const { status: _status, ...configWithoutStatus } = exportConfig || {}
+
     // Add export metadata
     const configWithMetadata = {
-      ...exportConfig,
+      ...configWithoutStatus,
       metadata: {
         exported_at: new Date().toISOString(),
         exported_by: 'GlassFlow UI',
