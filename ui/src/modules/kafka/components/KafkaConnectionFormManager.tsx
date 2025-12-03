@@ -51,6 +51,11 @@ export const KafkaConnectionFormManager = ({
 
   // Check if we're returning to a previously filled form
   const isReturningToForm = !!bootstrapServers
+  
+  // Track the previous auth method to detect user-initiated changes
+  const previousAuthMethodRef = useRef<string | null>(authMethod || null)
+  // Track if we should skip auto-select on initial form load (when returning to form)
+  const skipAutoSelectRef = useRef(isReturningToForm)
 
   const formMethods = useForm<KafkaConnectionFormType>({
     resolver: zodResolver(KafkaConnectionFormSchema),
@@ -68,8 +73,17 @@ export const KafkaConnectionFormManager = ({
   const currentSecurityProtocol = watch('securityProtocol')
 
   // Auto-select security protocol based on auth method
+  // Only when user explicitly changes the auth method (not when returning to form)
   useEffect(() => {
-    if (currentAuthMethod) {
+    // Skip auto-select if we're returning to a form with existing values
+    if (skipAutoSelectRef.current) {
+      skipAutoSelectRef.current = false
+      previousAuthMethodRef.current = currentAuthMethod
+      return
+    }
+    
+    // Only auto-select if the auth method actually changed from a different value
+    if (currentAuthMethod && currentAuthMethod !== previousAuthMethodRef.current) {
       if (currentAuthMethod === 'SASL/SCRAM-256' || currentAuthMethod === 'SASL/SCRAM-512') {
         setValue('securityProtocol', 'SASL_SSL')
       } else if (currentAuthMethod === 'SASL/PLAIN') {
@@ -81,6 +95,7 @@ export const KafkaConnectionFormManager = ({
       } else if (currentAuthMethod === 'SASL/GSSAPI') {
         setValue('securityProtocol', 'SASL_GSSAPI')
       }
+      previousAuthMethodRef.current = currentAuthMethod
     }
   }, [currentAuthMethod, setValue])
 

@@ -39,32 +39,47 @@ export class KafkaApiClient {
       authMethod: kafka.authMethod,
     }
 
-    // Add certificate if using SSL (handles all auth methods that support certificates)
+    // Add certificate and skipTlsVerification if using SSL (handles all auth methods that support certificates)
     if (kafka.securityProtocol === 'SASL_SSL' || kafka.securityProtocol === 'SSL') {
       switch (kafka.authMethod) {
         case 'NO_AUTH':
           if (kafka.noAuth?.truststore?.certificates) {
             headers.certificate = kafka.noAuth.truststore.certificates
           }
+          if (kafka.noAuth?.truststore?.skipTlsVerification) {
+            headers.skipTlsVerification = true
+          }
           break
         case 'SASL/PLAIN':
           if (kafka.saslPlain?.truststore?.certificates) {
             headers.certificate = kafka.saslPlain.truststore.certificates
+          }
+          if (kafka.saslPlain?.truststore?.skipTlsVerification) {
+            headers.skipTlsVerification = true
           }
           break
         case 'SASL/GSSAPI':
           if (kafka.saslGssapi?.truststore?.certificates) {
             headers.certificate = kafka.saslGssapi.truststore.certificates
           }
+          if (kafka.saslGssapi?.truststore?.skipTlsVerification) {
+            headers.skipTlsVerification = true
+          }
           break
         case 'SASL/SCRAM-256':
           if (kafka.saslScram256?.truststore?.certificates) {
             headers.certificate = kafka.saslScram256.truststore.certificates
           }
+          if (kafka.saslScram256?.truststore?.skipTlsVerification) {
+            headers.skipTlsVerification = true
+          }
           break
         case 'SASL/SCRAM-512':
           if (kafka.saslScram512?.truststore?.certificates) {
             headers.certificate = kafka.saslScram512.truststore.certificates
+          }
+          if (kafka.saslScram512?.truststore?.skipTlsVerification) {
+            headers.skipTlsVerification = true
           }
           break
       }

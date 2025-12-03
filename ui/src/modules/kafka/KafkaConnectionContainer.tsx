@@ -271,6 +271,9 @@ export function KafkaConnectionContainer({
         if (connectionValues.noAuth.truststore?.certificates) {
           requestBody.certificate = connectionValues.noAuth.truststore.certificates
         }
+        if (connectionValues.noAuth.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
+        }
         break
 
       case 'SASL/PLAIN':
@@ -279,6 +282,9 @@ export function KafkaConnectionContainer({
         requestBody.consumerGroup = connectionValues.saslPlain.consumerGroup
         if (connectionValues.saslPlain.truststore?.certificates) {
           requestBody.certificate = connectionValues.saslPlain.truststore.certificates
+        }
+        if (connectionValues.saslPlain.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
         }
         break
 
@@ -295,6 +301,9 @@ export function KafkaConnectionContainer({
         requestBody.krb5Config = connectionValues.saslGssapi.krb5Config
         if (connectionValues.saslGssapi.truststore?.certificates) {
           requestBody.certificate = connectionValues.saslGssapi.truststore.certificates
+        }
+        if (connectionValues.saslGssapi.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
         }
         break
 
@@ -313,6 +322,9 @@ export function KafkaConnectionContainer({
         requestBody.consumerGroup = scramValues.consumerGroup
         if (scramValues.truststore?.certificates) {
           requestBody.certificate = scramValues.truststore.certificates
+        }
+        if (scramValues.truststore?.skipTlsVerification) {
+          requestBody.skipTlsVerification = true
         }
         break
 

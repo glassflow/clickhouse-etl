@@ -182,8 +182,10 @@ const KafkaConnectionFormSchema = z
 
     if (needsSSL) {
       // Check if the auth method supports truststore and if certificate is provided
+      // Skip certificate requirement if skipTlsVerification is enabled
       if (data.authMethod === 'SASL/PLAIN' && data.saslPlain) {
-        if (!data.saslPlain.truststore?.certificates || data.saslPlain.truststore.certificates.trim() === '') {
+        const skipVerification = data.saslPlain.truststore?.skipTlsVerification === true
+        if (!skipVerification && (!data.saslPlain.truststore?.certificates || data.saslPlain.truststore.certificates.trim() === '')) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Certificate is required when using SSL/TLS',
@@ -191,7 +193,8 @@ const KafkaConnectionFormSchema = z
           })
         }
       } else if (data.authMethod === 'NO_AUTH' && data.noAuth) {
-        if (!data.noAuth.truststore?.certificates || data.noAuth.truststore.certificates.trim() === '') {
+        const skipVerification = data.noAuth.truststore?.skipTlsVerification === true
+        if (!skipVerification && (!data.noAuth.truststore?.certificates || data.noAuth.truststore.certificates.trim() === '')) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Certificate is required when using SSL/TLS',
@@ -199,7 +202,8 @@ const KafkaConnectionFormSchema = z
           })
         }
       } else if (data.authMethod === 'SASL/GSSAPI' && data.saslGssapi) {
-        if (!data.saslGssapi.truststore?.certificates || data.saslGssapi.truststore.certificates.trim() === '') {
+        const skipVerification = data.saslGssapi.truststore?.skipTlsVerification === true
+        if (!skipVerification && (!data.saslGssapi.truststore?.certificates || data.saslGssapi.truststore.certificates.trim() === '')) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Certificate is required when using SSL/TLS',
@@ -207,7 +211,8 @@ const KafkaConnectionFormSchema = z
           })
         }
       } else if (data.authMethod === 'SASL/SCRAM-256' && data.saslScram256) {
-        if (!data.saslScram256.truststore?.certificates || data.saslScram256.truststore.certificates.trim() === '') {
+        const skipVerification = data.saslScram256.truststore?.skipTlsVerification === true
+        if (!skipVerification && (!data.saslScram256.truststore?.certificates || data.saslScram256.truststore.certificates.trim() === '')) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Certificate is required when using SSL/TLS',
@@ -215,7 +220,8 @@ const KafkaConnectionFormSchema = z
           })
         }
       } else if (data.authMethod === 'SASL/SCRAM-512' && data.saslScram512) {
-        if (!data.saslScram512.truststore?.certificates || data.saslScram512.truststore.certificates.trim() === '') {
+        const skipVerification = data.saslScram512.truststore?.skipTlsVerification === true
+        if (!skipVerification && (!data.saslScram512.truststore?.certificates || data.saslScram512.truststore.certificates.trim() === '')) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Certificate is required when using SSL/TLS',
