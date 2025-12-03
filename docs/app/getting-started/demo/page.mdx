@@ -1,0 +1,173 @@
+---
+title: 'Run a demo pipeline'
+description: 'Learn how to run a demo pipeline using the local demo environment'
+---
+import { Steps } from 'nextra/components'
+import { Tabs } from 'nextra/components'
+
+# Run a demo pipeline
+
+
+GlassFlow comes with a comprehensive demo environment that allows you to test its capabilities locally. This guide walks you through a **local installation using GlassFlow CLI**. GlassFlow CLI spins up a kind cluster and deploys Kafka, GlassFlow and ClickHouse. It sends some test events to Kafka and creates a pipeline in GlassFlow to deduplicate the events.
+
+## Demo Overview
+
+The demo environment provides two ways to interact with GlassFlow:
+
+1. **Through the GlassFlow UI**: Connect directly to local Kafka and ClickHouse instances
+2. **Through Python Scripts**: Use our Python SDK to automate pipeline management
+
+## Prerequisites
+
+Before starting, ensure you have installed GlassFlow CLI. See [Installation Guide](/installation/cli) for more details.
+
+## Setting Up the Demo Environment
+<Steps>
+
+### Start the demo
+
+```bash
+glassflow up --demo
+```
+
+This will:
+- Create a kind cluster
+- Deploy Kafka, GlassFlow and ClickHouse
+- Send some test events to Kafka
+- Create a pipeline in GlassFlow to ingest the events into ClickHouse
+
+The demo comes already with a pipeline created that is ingesting from the `demo_events` topic into the `demo_events` table in ClickHouse.
+
+The following steps will guide you through the process of creating a pipeline in the GlassFlow UI and the Python SDK.
+
+</Steps>
+
+## Option 1: Using the GlassFlow UI
+<Steps>
+
+### Create a new topic in Kafka
+
+```bash
+kubectl exec -n glassflow svc/kafka -- bash -c 'cat > /tmp/client.properties << EOF
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=SCRAM-SHA-256
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="user1" password="glassflow-demo-password";
+EOF
+kafka-topics.sh --bootstrap-server kafka.glassflow.svc.cluster.local:9092 \
+    --command-config /tmp/client.properties \
+    --create --topic duplicated-events \
+    --partitions 1 --replication-factor 1'
+```
+
+### Create a new table in ClickHouse
+
+```bash
+kubectl exec -n glassflow svc/clickhouse -- clickhouse-client \
+    --user default \
+    --password glassflow-demo-password \
+    --query "CREATE TABLE IF NOT EXISTS deduplicated_events (event_id UUID, type String, source String, created_at DateTime) ENGINE = MergeTree ORDER BY event_id"
+```
+
+### Configure Pipeline in UI
+
+Access the GlassFlow UI at `http://localhost:30080` and use these connection details to create a pipeline:
+
+**Kafka Connection**
+```yaml
+Authentication Method: SASL/PLAIN
+Security Protocol: SASL_PLAINTEXT
+Bootstrap Servers: kafka.glassflow.svc.cluster.local:9092
+Username: user1
+Password: glassflow-demo-password
+```
+
+**Kafka Topic**
+```yaml
+Topic Name: duplicated_events
+Consumer Group Initial Offset: latest
+Schema:
+{
+  "event_id": "ddccabe2-c673-4d8a-affc-8647db00f7b5",
+  "type": "page_view",
+  "source": "web",
+  "created_at": "2025-12-03T15:17:34.907877Z"
+}
+```
+
+**Deduplication**
+```yaml
+Enabled: true
+Deduplicate Key: event_id
+Deduplicate Key Type: string
+Time Window: 1h
+```
+
+**ClickHouse Connection**
+```yaml
+Host: clickhouse.glassflow.svc.cluster.local
+HTTP/S Port: 8123
+Native Port: 9000
+Username: default
+Password: glassflow-demo-password
+Use SSL: false
+```
+**ClickHouse Table**
+```yaml
+Table: deduplicated_events
+```
+
+### Send data to Kafka
+
+```bash
+# Send multiple JSON events to Kafka
+kubectl exec -n glassflow kafka-controller-0 -- bash -c 'cat > /tmp/events.json << "EOFEVENTS"
+{"event_id": "49a6fdd6f305428881f3436eb498fc9d", "type": "page_view", "source": "web", "created_at": "2025-03-20T10:00:00Z"}
+{"event_id": "49a6fdd6f305428881f3436eb498fc9d", "type": "page_view", "source": "web", "created_at": "2025-03-20T10:01:00Z"}
+{"event_id": "f0ed455046a543459d9a51502cdc756d", "type": "page_view", "source": "web", "created_at": "2025-03-20T10:03:00Z"}
+EOFEVENTS
+cat > /tmp/client.properties << EOF
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=PLAIN
+sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="user1" password="glassflow-demo-password";
+EOF
+cat /tmp/events.json | kafka-console-producer.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.glassflow.svc.cluster.local:9092 \
+    --producer.config /tmp/client.properties \
+    --topic duplicated-events'
+```
+
+
+### Verify Results
+
+After a few seconds (maximum delay time - default 1 minute), you should see the deduplicated events in ClickHouse:
+
+```bash
+kubectl exec -n glassflow svc/clickhouse -- clickhouse-client \
+    --user default \
+    --password glassflow-demo-password \
+    --format prettycompact \
+    --query "SELECT * FROM deduplicated_events"
+```
+
+```bash
+   ┌─event_id─────────────────────────────┬─type──────┬─source─┬──────────created_at─┐
+1. │ 49a6fdd6-f305-4288-81f3-436eb498fc9d │ page_view │ web    │ 2025-03-20 10:00:00 │
+2. │ f0ed4550-46a5-4345-9d9a-51502cdc756d │ page_view │ web    │ 2025-03-20 10:02:00 │
+   └──────────────────────────────────────┴───────────┴────────┴─────────────────────┘
+```
+To start creating your own pipelines with the UI, you can follow the [Web UI Usage guide](/usage-guide/web-ui).
+
+</Steps>
+
+## Cleaning Up
+
+To clean up the demo environment:
+
+```bash
+glassflow down
+```
+
+or force deletion by adding the `--force` flag:
+
+```bash
+glassflow down --force
+```
