@@ -164,6 +164,55 @@ export const buildInternalPipelineConfig = ({
         })
     : []
 
+  // Collect all field_names that are already in the mapping
+  const mappedFieldNames = new Set(tableMappings.map((m: any) => `${m.source_id}:${m.field_name}`))
+
+  // Add deduplication keys to mapping if they're not already included
+  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
+  // but the backend needs to know they're part of the Kafka schema
+  selectedTopics.forEach((topic: any, topicIndex: number) => {
+    const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex)
+    if (deduplicationConfig?.enabled && deduplicationConfig?.key) {
+      const dedupKey = deduplicationConfig.key
+      const topicName = topic.name
+      const fieldKey = `${topicName}:${dedupKey}`
+
+      // Only add if not already in the mapping
+      if (!mappedFieldNames.has(fieldKey)) {
+        tableMappings.push({
+          source_id: topicName,
+          field_name: dedupKey,
+          column_name: '',
+          column_type: '',
+        })
+        mappedFieldNames.add(fieldKey)
+      }
+    }
+  })
+
+  // Add join keys to mapping if they're not already included
+  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
+  // but the backend needs to know they're part of the Kafka schema
+  if (joinStore?.enabled && joinStore?.streams?.length > 0) {
+    joinStore.streams.forEach((stream: any) => {
+      if (stream.joinKey) {
+        const topicName = stream.topicName || stream.streamId
+        const fieldKey = `${topicName}:${stream.joinKey}`
+
+        // Only add if not already in the mapping
+        if (!mappedFieldNames.has(fieldKey)) {
+          tableMappings.push({
+            source_id: topicName,
+            field_name: stream.joinKey,
+            column_name: '',
+            column_type: '',
+          })
+          mappedFieldNames.add(fieldKey)
+        }
+      }
+    })
+  }
+
   // Normalize Kafka broker hosts when running inside Docker
   const runtimeEnv = getRuntimeEnv()
   const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
