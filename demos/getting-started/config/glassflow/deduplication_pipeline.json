@@ -1,110 +1,92 @@
 {
-    "pipeline_id": "deduplication-demo-pipeline",
-    "source": {
-      "type": "kafka",
-      "provider": "confluent",
-      "connection_params": {
-        "brokers": [
-          "kafka:9093"
-        ],
-        "protocol": "PLAINTEXT",
-        "mechanism": "NO_AUTH"
+  "version": "2.0.0",
+  "pipeline_id": "deduplication-demo-pipeline",
+  "name": "Deduplication Demo Pipeline",
+  "source": {
+    "type": "kafka",
+    "provider": "confluent",
+    "connection_params": {
+      "brokers": [
+        "kafka.glassflow.svc.cluster.local:9092"
+      ],
+      "protocol": "SASL_PLAINTEXT",
+      "mechanism": "PLAIN",
+      "username": "user1",
+      "password": "glassflow-demo-password"
+    },
+    "topics": [
+      {
+        "consumer_group_initial_offset": "latest",
+        "name": "users",
+        "deduplication": {
+          "enabled": true,
+          "id_field": "event_id",
+          "id_field_type": "string",
+          "time_window": "1h"
+        }
+      }
+    ]
+  },
+  "join": {
+    "enabled": false
+  },
+  "sink": {
+    "type": "clickhouse",
+    "host": "clickhouse.glassflow.svc.cluster.local",
+    "port": "9000",
+    "http_port": "8123",
+    "database": "default",
+    "username": "default",
+    "password": "Z2xhc3NmbG93LWRlbW8tcGFzc3dvcmQ=",
+    "secure": false,
+    "max_batch_size": 1000,
+    "max_delay_time": "10s",
+    "table": "users_dedup"
+  },
+  "schema": {
+    "fields": [
+      {
+        "source_id": "users",
+        "name": "event_id",
+        "type": "string",
+        "column_name": "event_id",
+        "column_type": "UUID"
       },
-      "topics": [
-        {
-          "consumer_group_initial_offset": "latest",
-          "name": "users",
-          "schema": {
-            "type": "json",
-            "fields": [
-              {
-                "name": "event_id",
-                "type": "string"
-              },
-              {
-                "name": "user.id",
-                "type": "string"
-              },
-              {
-                "name": "user.name",
-                "type": "string"
-              },
-              {
-                "name": "user.email",
-                "type": "string"
-              },
-              {
-                "name": "created_at",
-                "type": "string"
-              },
-              {
-                "name": "tags",
-                "type": "array"
-              }
-            ]
-          },
-          "deduplication": {
-            "enabled": true,
-            "id_field": "event_id",
-            "id_field_type": "string",
-            "time_window": "1h"
-          }
-        }
-      ]
-    },
-    "join": {
-      "enabled": false
-    },
-    "sink": {
-      "type": "clickhouse",
-      "provider": "localhost",
-      "host": "clickhouse",
-      "port": "9000",
-      "http_port": "8123",
-      "database": "default",
-      "username": "default",
-      "password": "c2VjcmV0",
-      "secure": false,
-      "max_batch_size": 1000,
-      "max_delay_time": "10s",
-      "table": "users_dedup",
-      "table_mapping": [
-        {
-          "source_id": "users",
-          "field_name": "event_id",
-          "column_name": "event_id",
-          "column_type": "UUID"
-        },
-        {
-          "source_id": "users",
-          "field_name": "user.id",
-          "column_name": "user_id",
-          "column_type": "UUID"
-        },
-        {
-          "source_id": "users",
-          "field_name": "created_at",
-          "column_name": "created_at",
-          "column_type": "DateTime"
-        },
-        {
-          "source_id": "users",
-          "field_name": "user.name",
-          "column_name": "name",
-          "column_type": "String"
-        },
-        {
-          "source_id": "users",
-          "field_name": "user.email",
-          "column_name": "email",
-          "column_type": "String"
-        },
-        {
-          "source_id": "users",
-          "field_name": "tags",
-          "column_name": "tags",
-          "column_type": "Array(String)"
-        }
-      ]
-    }
+      {
+        "source_id": "users",
+        "name": "user.id",
+        "type": "string",
+        "column_name": "user_id",
+        "column_type": "UUID"
+      },
+      {
+        "source_id": "users",
+        "name": "created_at",
+        "type": "string",
+        "column_name": "created_at",
+        "column_type": "DateTime"
+      },
+      {
+        "source_id": "users",
+        "name": "user.name",
+        "type": "string",
+        "column_name": "name",
+        "column_type": "String"
+      },
+      {
+        "source_id": "users",
+        "name": "user.email",
+        "type": "string",
+        "column_name": "email",
+        "column_type": "String"
+      },
+      {
+        "source_id": "users",
+        "name": "tags",
+        "type": "array",
+        "column_name": "tags",
+        "column_type": "Array(String)"
+      }
+    ]
   }
+}

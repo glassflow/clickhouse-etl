@@ -79,8 +79,10 @@ def generate_events(
     glassgen_config["generator"]["event_options"] = duplication_config
 
     kafka_params = {"topic": topic_config.name}
-    if source_connection_params.brokers[0] == "kafka:9093":
-        kafka_params["bootstrap.servers"] = "localhost:9092"
+    # Handle both docker-compose and Kubernetes service names
+    broker = source_connection_params.brokers[0]
+    if "kafka.glassflow.svc.cluster.local" in broker:
+        kafka_params["bootstrap.servers"] = "localhost:39092"
     else:
         kafka_params["bootstrap.servers"] = ",".join(source_connection_params.brokers)
     if not source_connection_params.mechanism == "NO_AUTH":
@@ -260,8 +262,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--glassflow-host",
         type=str,
-        default="http://localhost:8081",
-        help="GlassFlow host (default: http://localhost:8081)",
+        default="http://localhost:30180",
+        help="GlassFlow host (default: http://localhost:30180)",
     )
     parser.add_argument(
         "--left-num-records",

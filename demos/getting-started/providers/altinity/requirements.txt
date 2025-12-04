@@ -1,5 +1,0 @@
-rich
-kafka-python
-clickhouse-connect
-glassgen>=0.1.13
-glassflow>=3.0.0
