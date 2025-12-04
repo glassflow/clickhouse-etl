@@ -400,7 +400,7 @@ func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConf
 
 type FilterComponentConfig struct {
 	Enabled    bool   `json:"enabled"`
-	Expression string `json:"expression"`
+	Expression string `json:"expression,omitempty"`
 }
 
 type PipelineMetadata struct {
