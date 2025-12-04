@@ -1,21 +1,34 @@
 ---
-title: Release Notes v2.5.0
-sidebarTitle: v2.5.0
+title: Release Notes v2.5.x
+sidebarTitle: v2.5.x
 icon: FileIcon
-description: Release notes for the GlassFlow ClickHouse ETL v2.5.0 - Major architectural improvements with PostgreSQL metadata storage and enhanced deduplication.
+description: Release notes for the GlassFlow ClickHouse ETL v2.5.x series - Major architectural improvements with PostgreSQL metadata storage and enhanced deduplication.
 ---
 
-# Release Notes v2.5.0
+# Release Notes v2.5.x
 
-Version 2.5.0 represents a **major architectural upgrade** to GlassFlow, introducing PostgreSQL-based metadata storage, high-performance file-based deduplication, and a completely redesigned user interface. This release significantly improves scalability, performance, and user experience while maintaining the core functionality that makes GlassFlow powerful.
+The 2.5.x series represents a **major architectural upgrade** to GlassFlow, introducing PostgreSQL-based metadata storage, high-performance file-based deduplication, and a completely redesigned user interface. This release series significantly improves scalability, performance, and user experience while maintaining the core functionality that makes GlassFlow powerful.
+
+## Version History
+
+- **v2.5.1** - Patch release with bug fixes and improvements
+- **v2.5.0** - Major architectural upgrade with PostgreSQL metadata storage
+
+## 🆕 What's New in v2.5.1
+
+### Bug Fixes and Improvements
+
+- Fix issue with data persistance on postgresql chart 
+- UI fix on handling updated pipeline configuration
+- Migration script fixes for restarting deduplication enabled pipelines
 
 ## 🚀 Migration Required
 
-**Important**: Upgrading to v2.5.0 requires following specific migration steps due to architectural changes.
+**Important**: Upgrading to v2.5.x requires following specific migration steps due to architectural changes.
 
 👉 **[Complete Migration Guide →](/installation/migration/v2.5.0)** - Step-by-step instructions for upgrading from v2.4.x
 
-## What's New
+## What's New in v2.5.x
 
 ### 🗄️ PostgreSQL Metadata Storage
 
@@ -161,14 +174,14 @@ Enhanced configuration management capabilities:
 3. **Verify new chart version**:
    ```bash
    helm show chart glassflow/glassflow-etl
-   # Should show version: 0.4.0, appVersion: 2.5.0
+   # Should show version: 0.4.1, appVersion: 2.5.1
    ```
 
-4. **Upgrade to v2.5.0**:
+4. **Upgrade to v2.5.x**:
    ```bash
    helm upgrade your-release-name glassflow/glassflow-etl \
      --namespace glassflow \
-     --version 0.4.0 \
+     --version 0.4.1 \
      --wait --timeout 600s
    ```
 
@@ -208,7 +221,7 @@ INFO: Migration job completed successfully
 
 ### Rollback Considerations
 
-**⚠️ Important**: Rolling back from v2.5.0 to v2.4.x is **not supported** due to the architectural changes. Ensure you have:
+**⚠️ Important**: Rolling back from v2.5.x to v2.4.x is **not supported** due to the architectural changes. Ensure you have:
 
 - **Backup of NATS KV data** (if needed for disaster recovery)
 - **Pipeline configuration exports** (via API or SDK)
@@ -220,7 +233,7 @@ INFO: Migration job completed successfully
 
 For a complete list of all available Helm values and configuration options, see the [GlassFlow ETL Helm Chart README](https://github.com/glassflow/charts/tree/main/charts/glassflow-etl).
 
-Key new values in v2.5.0:
+Key new values in v2.5.x:
 
 ```yaml
 # PostgreSQL configuration
@@ -257,9 +270,9 @@ postgresql:
 
 ## Try It Out
 
-To experience the new features in v2.5.0:
+To experience the new features in v2.5.x:
 
-1. **Follow the migration guide** to upgrade from v2.4.x or install the version v2.5.0 on a cluster
+1. **Follow the migration guide** to upgrade from v2.4.x or install the latest version v2.5.1 on a cluster
 2. **Explore the new UI** - Create and manage pipelines with the redesigned interface
 3. **Test longer deduplication windows** - Configure deduplication for extended time periods
 4. **Use ConfigMap configuration** - Update cluster settings via Kubernetes ConfigMaps
@@ -267,7 +280,7 @@ To experience the new features in v2.5.0:
 
 ## CLI Support
 
-GlassFlow v2.5.0 includes CLI support for local development:
+GlassFlow v2.5.x includes CLI support for local development:
 
 ```bash
 # Install/upgrade CLI
@@ -279,6 +292,8 @@ glassflow up --demo
 
 ## Full Changelog
 
-For a complete list of all changes, improvements, and bug fixes in v2.5.0, see our [GitHub release v2.5.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.5.0).
+For a complete list of all changes, improvements, and bug fixes in the v2.5.x series, see our GitHub releases:
+- [v2.5.1](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.5.1)
+- [v2.5.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.5.0)
 
-*GlassFlow v2.5.0 represents a major step forward in making streaming ETL more scalable, performant, and user-friendly for enterprise production environments.*
+*GlassFlow v2.5.x represents a major step forward in making streaming ETL more scalable, performant, and user-friendly for enterprise production environments.*

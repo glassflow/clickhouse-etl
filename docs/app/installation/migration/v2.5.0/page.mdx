@@ -1,6 +1,6 @@
 ---
-title: 'Migration Guide: v2.4.x to v2.5.0'
-description: 'Complete guide for migrating from GlassFlow v2.4.x to v2.5.0 with PostgreSQL metadata storage'
+title: 'Migration Guide: v2.4.x to v2.5.x'
+description: 'Complete guide for migrating from GlassFlow v2.4.x to v2.5.x with PostgreSQL metadata storage'
 ---
 
 import { Callout } from 'nextra/components'
@@ -9,15 +9,15 @@ import { Tabs } from 'nextra/components'
 import { Cards } from 'nextra/components'
 import { GitHubIcon, DiscordIcon, GlobeIcon } from 'nextra/icons'
 
-# Migration Guide: v2.4.x to v2.5.0
+# Migration Guide: v2.4.x to v2.5.x
 
-This guide provides detailed instructions for migrating from GlassFlow v2.4.x to v2.5.0. This is a **major architectural upgrade** that introduces PostgreSQL metadata storage and requires careful migration planning.
+This guide provides detailed instructions for migrating from GlassFlow v2.4.x to v2.5.x. This is a **major architectural upgrade** that introduces PostgreSQL metadata storage and requires careful migration planning.
 
 <Callout type="warning" emoji="⚠️">
-**Breaking Change**: v2.5.0 introduces breaking changes that require migration. Rolling back from v2.5.0 to v2.4.x is not supported.
+**Breaking Change**: v2.5.x introduces breaking changes that require migration. Rolling back from v2.5.x to v2.4.x is not supported.
 </Callout>
 
-## What Changes in v2.5.0
+## What Changes in v2.5.x
 
 ### Major Architectural Changes
 
@@ -136,10 +136,10 @@ helm repo update
 helm search repo glassflow/glassflow-etl --versions
 ```
 
-Expected output should show version `0.4.0` with app version `2.5.0`:
+Expected output should show version `0.4.1` with app version `2.5.1`:
 ```
 NAME                    CHART VERSION   APP VERSION     DESCRIPTION
-glassflow/glassflow-etl 0.4.0          2.5.0           A Helm chart for Kubernetes
+glassflow/glassflow-etl 0.4.1          2.5.1           A Helm chart for Kubernetes
 ```
 
 ### Prepare Helm Values
@@ -147,9 +147,9 @@ glassflow/glassflow-etl 0.4.0          2.5.0           A Helm chart for Kubernet
 Create or update your Helm values file to include PostgreSQL configuration:
 
 ```yaml
-# values-v2.5.0.yaml
+# values-v2.5.x.yaml
 
-# PostgreSQL configuration (new in v2.5.0)
+# PostgreSQL configuration (new in v2.5.x)
 postgresql:
   enabled: true
   auth:
@@ -168,8 +168,8 @@ Run the Helm upgrade with extended timeout to allow for migration:
 ```bash
 helm upgrade your-release-name glassflow/glassflow-etl \
   --namespace glassflow \
-  --version 0.4.0 \
-  --values values-v2.5.0.yaml \
+  --version 0.4.1 \
+  --values values-v2.5.x.yaml \
   --wait \
   --timeout 600s
 ```
