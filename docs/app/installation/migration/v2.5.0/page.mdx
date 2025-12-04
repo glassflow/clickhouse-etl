@@ -1,0 +1,366 @@
+---
+title: 'Migration Guide: v2.4.x to v2.5.0'
+description: 'Complete guide for migrating from GlassFlow v2.4.x to v2.5.0 with PostgreSQL metadata storage'
+---
+
+import { Callout } from 'nextra/components'
+import { Steps } from 'nextra/components'
+import { Tabs } from 'nextra/components'
+import { Cards } from 'nextra/components'
+import { GitHubIcon, DiscordIcon, GlobeIcon } from 'nextra/icons'
+
+# Migration Guide: v2.4.x to v2.5.0
+
+This guide provides detailed instructions for migrating from GlassFlow v2.4.x to v2.5.0. This is a **major architectural upgrade** that introduces PostgreSQL metadata storage and requires careful migration planning.
+
+<Callout type="warning" emoji="⚠️">
+**Breaking Change**: v2.5.0 introduces breaking changes that require migration. Rolling back from v2.5.0 to v2.4.x is not supported.
+</Callout>
+
+## What Changes in v2.5.0
+
+### Major Architectural Changes
+
+1. **PostgreSQL Metadata Storage** - Replaces NATS KV for storing pipeline configurations, schemas, and state
+2. **File-Based Deduplication** - New BadgerDB-based deduplication service with persistent storage
+3. **Enhanced Pipeline Schema** - Improved pipeline configuration format and validation
+4. **New User Interface** - Completely redesigned UI with better user experience
+
+### Infrastructure Requirements
+
+- **Additional Storage** - PostgreSQL requires persistent storage (default: 10Gi)
+- **Deduplication Storage** - File-based deduplication requires persistent storage
+- **Memory Requirements** - For deduplication enabled pipelines, drastically reduced NATS memory requirements
+
+## Pre-Migration Checklist
+
+<Steps>
+
+### Backup Current Configuration
+
+Before starting migration, create backups of your current pipeline configurations:
+
+<Tabs items={['Via UI (Recommended)', 'Via API Script']} groupId="backup-method" storageKey="backup-method-tab">
+  <Tabs.Tab>
+    **Manual backup through the web interface:**
+
+    1. Access your GlassFlow UI at `http://your-glassflow-url`
+    2. Navigate to the pipelines list
+    3. For each pipeline, click **"Download config"** to save the `pipeline.json` file
+    4. Store all downloaded files in a backup directory
+
+    This method is recommended for users with a small number of pipelines or those who prefer a visual approach.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    **Automated backup using API calls:**
+
+    Create a backup script to automatically download all pipeline configurations:
+
+    ```bash
+    #!/bin/bash
+    # backup-pipelines.sh
+
+    API_BASE="http://your-glassflow-api"  # Replace with your API URL
+    BACKUP_DIR="./pipeline-backup-$(date +%Y%m%d-%H%M%S)"
+
+    mkdir -p "$BACKUP_DIR"
+
+    echo "Fetching pipeline list..."
+    curl -s "$API_BASE/api/v1/pipeline" | jq -r '.[].pipeline_id' > "$BACKUP_DIR/pipeline-ids.txt"
+
+    echo "Downloading pipeline configurations..."
+    while read -r pipeline_id; do
+        echo "Backing up pipeline: $pipeline_id"
+        curl -s "$API_BASE/api/v1/pipeline/$pipeline_id" > "$BACKUP_DIR/${pipeline_id}.json"
+    done < "$BACKUP_DIR/pipeline-ids.txt"
+
+    echo "Backup completed in: $BACKUP_DIR"
+    ```
+
+    ```bash
+    # Make script executable and run
+    chmod +x backup-pipelines.sh
+    ./backup-pipelines.sh
+    ```
+
+    This method is recommended for users with many pipelines or those who prefer automated solutions.
+  </Tabs.Tab>
+</Tabs>
+
+#### Additional Backups
+```bash
+# Export current Helm values
+helm get values your-release-name -n glassflow > current-values.yaml
+```
+
+### Verify System Requirements
+
+Ensure your Kubernetes cluster meets the requirements:
+
+```bash
+# Check available storage
+kubectl get storageclass
+
+# Verify node resources
+kubectl describe nodes
+
+# Check current GlassFlow version
+helm list -n glassflow
+kubectl get pods -n glassflow -o wide
+```
+
+### Stop All Running Pipelines
+
+**Critical**: All pipelines must be stopped before migration. You can stop them via the UI or API:
+
+```bash
+# Via API - Stop each pipeline individually
+curl -X POST http://your-glassflow-api/api/v1/pipeline/{pipeline-id}/stop
+
+# Verify all pipelines are stopped
+curl http://your-glassflow-api/api/v1/pipeline | jq '.[] | {id: .id, status: .status}'
+```
+
+</Steps>
+
+## Migration Process
+
+<Steps>
+
+### Update Helm Repository
+
+```bash
+helm repo update
+
+# Verify new chart version is available
+helm search repo glassflow/glassflow-etl --versions
+```
+
+Expected output should show version `0.4.0` with app version `2.5.0`:
+```
+NAME                    CHART VERSION   APP VERSION     DESCRIPTION
+glassflow/glassflow-etl 0.4.0          2.5.0           A Helm chart for Kubernetes
+```
+
+### Prepare Helm Values
+
+Create or update your Helm values file to include PostgreSQL configuration:
+
+```yaml
+# values-v2.5.0.yaml
+
+# PostgreSQL configuration (new in v2.5.0)
+postgresql:
+  enabled: true
+  auth:
+    database: "glassflow"
+    username: "glassflow"
+    password: "your-secure-password"  # Change this!
+
+# Existing configuration (preserve your current settings)
+# ... your existing Helm values ...
+```
+
+### Execute Helm Upgrade
+
+Run the Helm upgrade with extended timeout to allow for migration:
+
+```bash
+helm upgrade your-release-name glassflow/glassflow-etl \
+  --namespace glassflow \
+  --version 0.4.0 \
+  --values values-v2.5.0.yaml \
+  --wait \
+  --timeout 600s
+```
+
+### Monitor Migration Progress
+
+The migration process includes several automated steps. Monitor the progress:
+
+```bash
+# Watch overall upgrade progress
+kubectl get pods -n glassflow -w
+
+# Monitor migration job specifically
+kubectl get jobs -n glassflow | grep migration
+
+# Follow migration logs in real-time
+kubectl logs -n glassflow job/your-release-name-glassflow-etl-migration -f
+```
+
+### Verify Migration Completion
+
+Check that migration completed successfully:
+
+```bash
+# Verify migration job completed
+kubectl get jobs -n glassflow
+# Should show COMPLETIONS 1/1 for migration job
+
+# Check PostgreSQL is running
+kubectl get pods -n glassflow | grep postgresql
+
+# Verify API is responding
+kubectl port-forward -n glassflow svc/your-release-name-glassflow-etl 8080:8080 &
+curl http://localhost:8080/health
+```
+
+</Steps>
+
+## Post-Migration Verification
+
+<Steps>
+
+### Verify Pipeline Data Migration
+
+Check that all pipelines were migrated successfully:
+
+```bash
+# List pipelines via API
+curl http://localhost:8080/api/v1/pipeline | jq '.[] | {id: .pipeline_id, name: .name}'
+
+# Compare with pre-migration backup
+# Count should match the number of .json files in your backup directory
+ls ./pipeline-backup-*/pipeline-*.json | wc -l
+```
+
+### Test New UI
+
+Access the new user interface:
+
+```bash
+# Port forward to UI
+kubectl port-forward -n glassflow svc/your-release-name-glassflow-etl 8080:8080
+
+# Open browser to http://localhost:8080
+# Verify all pipelines are visible and manageable
+```
+
+### Resume Pipeline Operations
+
+Once verification is complete, resume your pipelines:
+
+```bash
+# Via new UI - Start pipelines individually
+# Or via API
+curl -X POST http://localhost:8080/api/v1/pipeline/{pipeline-id}/start
+```
+
+### Monitor System Health
+
+Monitor the system after migration:
+
+```bash
+# Check all pods are healthy
+kubectl get pods -n glassflow
+
+# Monitor PostgreSQL
+kubectl logs -n glassflow deployment/your-release-name-postgresql
+```
+
+</Steps>
+
+## Migration Logs Analysis
+
+### Successful Migration Example
+
+```log
+{"time":"2025-12-03T17:44:48.050Z","level":"INFO","msg":"Starting App","version":"2.5.0"}
+{"time":"2025-12-03T17:44:48.089Z","level":"INFO","msg":"postgres connection established","max_conns":25,"min_conns":5}
+{"time":"2025-12-03T17:44:48.089Z","level":"INFO","msg":"Starting data migration from NATS KV to PostgreSQL","kv_store_name":"glassflow-pipelines"}
+{"time":"2025-12-03T17:44:48.093Z","level":"INFO","msg":"Found pipelines in NATS KV store","store_name":"glassflow-pipelines","count":5}
+{"time":"2025-12-03T17:44:48.093Z","level":"INFO","msg":"Migrating pipeline with same ID","pipeline_id":"demo-pipeline-1","name":"demo-dedup"}
+{"time":"2025-12-03T17:44:48.095Z","level":"INFO","msg":"inserting pipeline","pipeline_id":"demo-pipeline-1","pipeline_name":"demo-dedup"}
+{"time":"2025-12-03T17:44:48.102Z","level":"INFO","msg":"pipeline inserted successfully","pipeline_id":"demo-pipeline-1","pipeline_name":"demo-dedup"}
+{"time":"2025-12-03T17:44:48.103Z","level":"INFO","msg":"Pipeline migrated successfully","pipeline_id":"demo-pipeline-1","name":"demo-dedup"}
+{"time":"2025-12-03T17:44:48.103Z","level":"INFO","msg":"Data migration completed","migrated":5,"skipped":0,"errors":0,"store_name":"glassflow-pipelines"}
+{"time":"2025-12-03T17:44:48.103Z","level":"INFO","msg":"data migration from NATS KV completed","kv_store_name":"glassflow-pipelines"}
+```
+
+### Key Migration Metrics
+
+- **migrated**: Number of pipelines successfully migrated
+- **skipped**: Number of pipelines skipped (already exist in PostgreSQL)
+- **errors**: Number of migration errors (should be 0)
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Migration Job Fails
+
+```bash
+# Check migration job logs
+kubectl logs -n glassflow job/your-release-name-glassflow-etl-migration
+
+# Common causes:
+# 1. Insufficient storage for PostgreSQL
+# 2. PostgreSQL connection issues
+# 3. NATS KV access problems
+```
+
+#### PostgreSQL Connection Issues
+
+```bash
+# Check PostgreSQL pod status
+kubectl get pods -n glassflow | grep postgresql
+
+# Check PostgreSQL logs
+kubectl logs -n glassflow deployment/your-release-name-postgresql
+
+# Verify PostgreSQL service
+kubectl get svc -n glassflow | grep postgresql
+```
+
+#### Pipeline Data Missing
+
+```bash
+# Verify migration job completed
+kubectl get jobs -n glassflow
+
+# Check if pipelines exist in PostgreSQL
+kubectl exec -n glassflow deployment/your-release-name-postgresql -- \
+  psql -U glassflow -d glassflow -c "SELECT id, name FROM pipelines;"
+```
+
+#### UI Not Loading
+
+```bash
+# Check UI pod status
+kubectl get pods -n glassflow | grep ui
+
+# Check UI logs
+kubectl logs -n glassflow deployment/your-release-name-ui
+
+# Verify UI service
+kubectl get svc -n glassflow | grep ui
+```
+
+## Getting Help
+
+If you encounter any issues during migration:
+
+<Cards>
+    <Cards.Card icon={<DiscordIcon />} title="Slack Community" href="https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg" />
+    <Cards.Card icon={<GlobeIcon />} title="Email Support" href="mailto:help@glassflow.dev" />
+    <Cards.Card icon={<GitHubIcon />} title="GitHub Issues" href="https://github.com/glassflow/clickhouse-etl/issues" />
+    <Cards.Card icon={<GitHubIcon />} title="GitHub Discussions" href="https://github.com/glassflow/clickhouse-etl/discussions" />
+</Cards>
+
+### Useful Commands for Support
+
+```bash
+# Collect migration information
+kubectl get all -n glassflow > glassflow-resources.txt
+kubectl logs -n glassflow job/migration-job > migration-logs.txt
+helm get values your-release-name -n glassflow > helm-values.txt
+
+# Check system resources
+kubectl top nodes > node-resources.txt
+kubectl top pods -n glassflow > pod-resources.txt
+```
+
+<Callout type="info">
+**Migration Support**: The GlassFlow team is available to help with migration issues. Contact us at help@glassflow.dev with your migration logs and system information.
+</Callout>

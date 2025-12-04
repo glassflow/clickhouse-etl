@@ -1,3 +1,4 @@
 export default {
-    'kubernetes': ''
+    'kubernetes': '',
+    'migration': ''
 }

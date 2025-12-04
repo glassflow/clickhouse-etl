@@ -1,0 +1,284 @@
+---
+title: Release Notes v2.5.0
+sidebarTitle: v2.5.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.5.0 - Major architectural improvements with PostgreSQL metadata storage and enhanced deduplication.
+---
+
+# Release Notes v2.5.0
+
+Version 2.5.0 represents a **major architectural upgrade** to GlassFlow, introducing PostgreSQL-based metadata storage, high-performance file-based deduplication, and a completely redesigned user interface. This release significantly improves scalability, performance, and user experience while maintaining the core functionality that makes GlassFlow powerful.
+
+## 🚀 Migration Required
+
+**Important**: Upgrading to v2.5.0 requires following specific migration steps due to architectural changes.
+
+👉 **[Complete Migration Guide →](/installation/migration/v2.5.0)** - Step-by-step instructions for upgrading from v2.4.x
+
+## What's New
+
+### 🗄️ PostgreSQL Metadata Storage
+
+GlassFlow now uses **PostgreSQL as the primary metadata store**, replacing NATS KV for pipeline storage:
+
+- **Robust metadata management** - Pipeline configurations, schemas, and state are now stored in PostgreSQL for better reliability and consistency
+- **Integrated PostgreSQL instance** - A PostgreSQL instance is included in the Helm installation and fully configurable via Helm values
+- **Automatic migration** - Existing pipeline data is automatically migrated from NATS KV to PostgreSQL during upgrade
+- **Enhanced data integrity** - Better transaction support and data consistency for pipeline metadata
+- **Scalable storage** - PostgreSQL provides better scalability for large numbers of pipelines and complex metadata
+
+This change provides a more robust foundation for pipeline management and enables future enhancements like advanced querying and reporting capabilities.
+
+### 🔄 High-Performance File-Based Deduplication
+
+The deduplication service has been **completely redesigned** for better performance and longer time windows:
+
+- **Persistent file storage** - Deduplication now uses [BadgerDB](https://github.com/dgraph-io/badger) for persistent state instead of memory-only storage
+- **Extended time windows** - Support for much longer deduplication windows (up to 7 days) with minimal infrastructure footprint
+- **Dedicated deduplication component** - New separate component optimized specifically for deduplication operations
+- **Lower memory usage** - Significantly reduced memory requirements while maintaining high performance
+
+**For end users**: The behavior remains exactly the same - you configure deduplication the same way, but now it's more efficient and supports longer time windows.
+
+### 📋 Restructured Pipeline Configuration Schema
+
+The `pipeline.json` structure has been **significantly reorganized** for better clarity and maintainability:
+
+#### Key Structural Changes
+
+**Schema Consolidation**: The schema definition has been moved from being scattered across source topics and sink table mappings to a **unified top-level `schema` section**.
+
+**Before (v2.4.x)**:
+```json
+{
+  "source": {
+    "topics": [
+      {
+        "schema": {
+          "fields": [
+            {"name": "event_id", "type": "string"},
+            {"name": "user_id", "type": "string"}
+          ]
+        }
+      }
+    ]
+  },
+  "sink": {
+    "table_mapping": [
+      {
+        "source_id": "topic1",
+        "field_name": "event_id",
+        "column_name": "event_id", 
+        "column_type": "UUID"
+      }
+    ]
+  }
+}
+```
+
+**After (v2.5.0)**:
+```json
+{
+  "source": {
+    "topics": [
+      {
+        "name": "topic1",
+        "deduplication": {...}
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "host": "...",
+    "max_batch_size": 100
+  },
+  "schema": {
+    "fields": [
+      {
+        "source_id": "topic1",
+        "name": "event_id",
+        "type": "string",
+        "column_name": "event_id",
+        "column_type": "UUID"
+      }
+    ]
+  }
+}
+```
+
+#### Benefits of New Structure
+
+- **Centralized schema management** - All field definitions and mappings in one place
+- **Cleaner separation of concerns** - Source, sink, and schema configurations are clearly separated
+- **Simplified field mapping** - Each field contains both source and destination information
+- **Better schema validation** - Enhanced validation with clearer error messages
+- **Improved maintainability** - Easier to understand and modify pipeline configurations
+
+### 🎨 Redesigned User Interface
+
+A **completely new user experience** has been introduced:
+
+- **Simplified pipeline creation** - More intuitive wizard-based pipeline creation process
+- **Enhanced pipeline management** - Better overview and management of existing pipelines
+- **Improved navigation** - Streamlined navigation and more logical information architecture
+- **Context-aware actions** - Actions and options are now more contextually relevant
+- **Enhanced error handling** - Better error messages and user feedback throughout the interface
+
+The new UI makes it easier for both new and experienced users to create, manage, and monitor their data pipelines.
+
+### ⚙️ Kubernetes Configuration Management
+
+Enhanced configuration management capabilities:
+
+- **ConfigMap-based configuration** - Cluster configuration can now be updated directly via Kubernetes ConfigMaps
+- **Dynamic configuration updates** - Configuration changes can be applied without full redeployment
+- **Better Helm integration** - Improved Helm values structure for easier configuration management
+- **Environment-specific configs** - Better support for different environment configurations
+
+## Migration Guide
+
+**⚠️ Important**: This release requires migration from v2.4.x. The migration is automated but requires following specific steps.
+
+### Prerequisites
+
+- GlassFlow v2.4.x currently installed
+- Helm 3.x
+- Kubernetes cluster with sufficient resources for PostgreSQL
+
+### Migration Steps
+
+1. **Stop all running pipelines** (via UI or API):
+   ```bash
+   # Via API (stop each pipeline individually)
+   curl -X POST http://your-glassflow-api/api/v1/pipeline/{pipeline-id}/stop
+   ```
+
+2. **Update Helm repository**:
+   ```bash
+   helm repo update
+   ```
+
+3. **Verify new chart version**:
+   ```bash
+   helm show chart glassflow/glassflow-etl
+   # Should show version: 0.4.0, appVersion: 2.5.0
+   ```
+
+4. **Upgrade to v2.5.0**:
+   ```bash
+   helm upgrade your-release-name glassflow/glassflow-etl \
+     --namespace glassflow \
+     --version 0.4.0 \
+     --wait --timeout 600s
+   ```
+
+5. **Verify migration completion**:
+   ```bash
+   # Check migration job completion
+   kubectl get jobs -n glassflow | grep migration
+   
+   # Check migration logs
+   kubectl logs -n glassflow job/your-release-name-glassflow-etl-migration
+   ```
+
+6. **Resume pipelines** (via UI or API):
+   Resume all pipelines that you stopped in the step 1. All the pipelines will then resume with the migrated configurations. 
+
+### What Happens During Migration
+
+The migration process automatically:
+
+- **Creates PostgreSQL database** - Configure PostgreSQL for metadata storage
+- **Runs database migrations** - Sets up the required database schema
+- **Migrates pipeline data** - Transfers all pipeline configurations from NATS KV to PostgreSQL
+- **Preserves pipeline IDs** - Maintains existing pipeline identifiers for continuity
+- **Migrates schemas** - Transfers all pipeline schemas and configurations
+- **Updates internal references** - Updates all internal references to use PostgreSQL
+
+### Migration Logs Example
+
+```
+INFO: Starting data migration from NATS KV to PostgreSQL
+INFO: Found pipelines in NATS KV store count=5
+INFO: Migrating pipeline pipeline_id=demo-pipeline-1 name=demo-dedup
+INFO: Pipeline migrated successfully pipeline_id=demo-pipeline-1
+INFO: Data migration completed migrated=5 skipped=0 errors=0
+INFO: Migration job completed successfully
+```
+
+### Rollback Considerations
+
+**⚠️ Important**: Rolling back from v2.5.0 to v2.4.x is **not supported** due to the architectural changes. Ensure you have:
+
+- **Backup of NATS KV data** (if needed for disaster recovery)
+- **Pipeline configuration exports** (via API or SDK)
+- **Test the migration** in a non-production environment first
+
+## Configuration Changes
+
+### New Helm Values
+
+For a complete list of all available Helm values and configuration options, see the [GlassFlow ETL Helm Chart README](https://github.com/glassflow/charts/tree/main/charts/glassflow-etl).
+
+Key new values in v2.5.0:
+
+```yaml
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    database: "glassflow"
+    username: "glassflow"
+    password: "your-secure-password"  
+
+```
+
+## Performance Improvements
+
+- **Faster pipeline operations** - PostgreSQL-based storage provides faster pipeline CRUD operations
+- **Improved deduplication performance** - File-based deduplication is more efficient for large datasets
+- **Better resource utilization** - Optimized memory usage across all components
+- **Enhanced throughput** - Better handling of high-volume data streams
+
+
+## Breaking Changes
+
+### For Existing Users
+
+- **Migration required** - Automatic migration from NATS KV to PostgreSQL
+- **New UI** - Completely redesigned user interface (functionality remains the same)
+- **Configuration changes** - New Helm values structure for PostgreSQL and deduplication
+
+### For Developers
+
+- **Schema format updates** - Internal pipeline schema format has been enhanced
+- **Database integration** - Applications integrating with GlassFlow metadata should use the API
+- **Configuration management** - Use ConfigMaps for cluster configuration updates
+
+## Try It Out
+
+To experience the new features in v2.5.0:
+
+1. **Follow the migration guide** to upgrade from v2.4.x or install the version v2.5.0 on a cluster
+2. **Explore the new UI** - Create and manage pipelines with the redesigned interface
+3. **Test longer deduplication windows** - Configure deduplication for extended time periods
+4. **Use ConfigMap configuration** - Update cluster settings via Kubernetes ConfigMaps
+5. **Monitor PostgreSQL** - Use standard PostgreSQL monitoring tools for metadata storage
+
+## CLI Support
+
+GlassFlow v2.5.0 includes CLI support for local development:
+
+```bash
+# Install/upgrade CLI
+brew upgrade glassflow
+
+# Start local development environment with new architecture
+glassflow up --demo
+```
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in v2.5.0, see our [GitHub release v2.5.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.5.0).
+
+*GlassFlow v2.5.0 represents a major step forward in making streaming ETL more scalable, performant, and user-friendly for enterprise production environments.*
