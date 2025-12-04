@@ -72,7 +72,7 @@ if ! command -v migrate &> /dev/null; then
 fi
 
 # Get absolute path to migrations directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Ensure we have a clean absolute path
 # Unset any environment variable that might interfere
