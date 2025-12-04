@@ -343,7 +343,7 @@ func (k *K8sOrchestrator) DeletePipeline(ctx context.Context, pipelineID string)
 }
 
 // ResumePipeline implements Orchestrator.
-func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string) error {
+func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string, pipelineCfg *models.PipelineConfig) error {
 	k.log.InfoContext(ctx, "resuming k8s pipeline", "pipeline_id", pipelineID)
 
 	// Get the pipeline CRD
@@ -371,7 +371,7 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 	}
 
 	// Build new spec using the same logic as SetupPipeline
-	specMap, err := k.buildPipelineSpec(ctx, pipelineConfig)
+	specMap, err := k.buildPipelineSpec(ctx, pipelineCfg)
 	if err != nil {
 		return err
 	}

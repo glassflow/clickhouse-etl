@@ -499,7 +499,7 @@ func (d *LocalOrchestrator) cleanupNATSResources(ctx context.Context, pipeline *
 }
 
 // ResumePipeline implements Orchestrator.
-func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string) error {
+func (d *LocalOrchestrator) ResumePipeline(ctx context.Context, pid string, pipelineCfg *models.PipelineConfig) error {
 	d.m.Lock()
 	defer d.m.Unlock()
 

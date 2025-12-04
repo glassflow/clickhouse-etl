@@ -17,7 +17,7 @@ type Orchestrator interface {
 	StopPipeline(ctx context.Context, pid string) error
 	TerminatePipeline(ctx context.Context, pid string) error
 	DeletePipeline(ctx context.Context, pid string) error
-	ResumePipeline(ctx context.Context, pid string) error
+	ResumePipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
 	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
 }
 
@@ -260,7 +260,7 @@ func (p *PipelineService) ResumePipeline(ctx context.Context, pid string) error 
 		return fmt.Errorf("update pipeline status: %w", err)
 	}
 
-	err = p.orchestrator.ResumePipeline(ctx, pid)
+	err = p.orchestrator.ResumePipeline(ctx, pid, pipeline)
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to resume pipeline in orchestrator", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("resume pipeline: %w", err)
