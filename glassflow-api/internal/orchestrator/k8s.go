@@ -370,6 +370,15 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 		return err
 	}
 
+	// Build new spec using the same logic as SetupPipeline
+	specMap, err := k.buildPipelineSpec(ctx, pipelineConfig)
+	if err != nil {
+		return err
+	}
+
+	// Replace the entire spec
+	customResource.Object["spec"] = specMap
+
 	annotations := customResource.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
