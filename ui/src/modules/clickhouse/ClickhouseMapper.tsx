@@ -14,6 +14,7 @@ import DownloadIconWhite from '@/src/images/download-white.svg'
 import Image from 'next/image'
 
 import { StepKeys } from '@/src/config/constants'
+import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
 
 import { cn } from '@/src/utils/common.client'
 import {
@@ -1226,7 +1227,7 @@ export function ClickhouseMapper({
         ...failedDeploymentConfig,
         exported_at: new Date().toISOString(),
         exported_by: 'GlassFlow UI',
-        version: '1.0.0',
+        version: LATEST_PIPELINE_VERSION,
         // TODO: Add more information about the failed deployment attempt such as the error message and the stack trace
         // note: 'This configuration was exported after a failed deployment attempt.',
       }
