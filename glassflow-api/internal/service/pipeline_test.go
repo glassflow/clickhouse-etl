@@ -45,7 +45,7 @@ func (m *mockOrchestrator) TerminatePipeline(ctx context.Context, pid string) er
 	return nil
 }
 
-func (m *mockOrchestrator) ResumePipeline(ctx context.Context, pid string) error {
+func (m *mockOrchestrator) ResumePipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
 	m.resumeCalled = true
 	m.resumePipelineID = pid
 	return m.resumeError
