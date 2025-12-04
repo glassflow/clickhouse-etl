@@ -108,7 +108,7 @@ create-clickhouse-tables:
 create-kafka-topics:
 	# Create all OpenTelemetry Kafka topics
 	@echo "Creating Kafka topics..."
-	@for topic in otel-logs otel-traces otel-metrics-sum otel-metrics-gauge otel-metrics-histogram otel-metrics-summary otel-metrics-exponential-histogram; do \
+	@for topic in otel-logs otel-traces otel-metrics-sum otel-metrics-gauge; do \
 		echo "Checking if topic $$topic exists..."; \
 		if kubectl exec -n $(KAFKA_NS) $(KAFKA_CHART_RELEASE)-controller-0 -- \
 			kafka-topics.sh --bootstrap-server $(KAFKA_CHART_RELEASE).$(KAFKA_NS).svc.cluster.local:9092 --list 2>/dev/null | grep -q "$$topic"; then \

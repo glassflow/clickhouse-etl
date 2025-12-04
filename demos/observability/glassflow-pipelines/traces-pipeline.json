@@ -1,4 +1,5 @@
 {
+  "version": "2.0.0",
   "pipeline_id": "traces-pipeline",
   "name": "Traces Pipeline",
   "source": {
@@ -17,99 +18,6 @@
         "name": "otel-traces",
         "id": "otel-traces",
         "replicas": 1,
-        "schema": {
-          "type": "json",
-          "fields": [
-            {
-              "name": "Timestamp",
-              "type": "string"
-            },
-            {
-              "name": "TraceId",
-              "type": "string"
-            },
-            {
-              "name": "SpanId",
-              "type": "string"
-            },
-            {
-              "name": "ParentSpanId",
-              "type": "string"
-            },
-            {
-              "name": "TraceState",
-              "type": "string"
-            },
-            {
-              "name": "SpanName",
-              "type": "string"
-            },
-            {
-              "name": "SpanKind",
-              "type": "string"
-            },
-            {
-              "name": "ServiceName",
-              "type": "string"
-            },
-            {
-              "name": "ResourceAttributes",
-              "type": "map"
-            },
-            {
-              "name": "ScopeName",
-              "type": "string"
-            },
-            {
-              "name": "ScopeVersion",
-              "type": "string"
-            },
-            {
-              "name": "SpanAttributes",
-              "type": "map"
-            },
-            {
-              "name": "Duration",
-              "type": "uint64"
-            },
-            {
-              "name": "StatusCode",
-              "type": "string"
-            },
-            {
-              "name": "StatusMessage",
-              "type": "string"
-            },
-            {
-              "name": "Events.Timestamp",
-              "type": "array"
-            },
-            {
-              "name": "Events.Name",
-              "type": "array"
-            },
-            {
-              "name": "Events.Attributes",
-              "type": "array"
-            },
-            {
-              "name": "Links.TraceId",
-              "type": "array"
-            },
-            {
-              "name": "Links.SpanId",
-              "type": "array"
-            },
-            {
-              "name": "Links.TraceState",
-              "type": "array"
-            },
-            {
-              "name": "Links.Attributes",
-              "type": "array"
-            }
-          ]
-        },
         "deduplication": {
           "enabled": true,
           "id_field": "TraceId",
@@ -131,137 +39,161 @@
     "max_batch_size": 1000,
     "max_delay_time": "30s",
     "table": "otel_traces",
-    "skip_certificate_verification": false,
-    "table_mapping": [
+    "skip_certificate_verification": false
+  },
+  "schema": {
+    "fields": [
       {
         "source_id": "otel-traces",
-        "field_name": "Timestamp",
+        "name": "Timestamp",
+        "type": "string",
         "column_name": "Timestamp",
         "column_type": "DateTime64"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "TraceId",
+        "name": "TraceId",
+        "type": "string",
         "column_name": "TraceId",
         "column_type": "String"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "SpanId",
+        "name": "SpanId",
+        "type": "string",
         "column_name": "SpanId",
         "column_type": "String"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "ParentSpanId",
+        "name": "ParentSpanId",
+        "type": "string",
         "column_name": "ParentSpanId",
         "column_type": "String"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "TraceState",
+        "name": "TraceState",
+        "type": "string",
         "column_name": "TraceState",
         "column_type": "String"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "SpanName",
+        "name": "SpanName",
+        "type": "string",
         "column_name": "SpanName",
         "column_type": "LowCardinality(String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "SpanKind",
+        "name": "SpanKind",
+        "type": "string",
         "column_name": "SpanKind",
         "column_type": "LowCardinality(String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "ServiceName",
+        "name": "ServiceName",
+        "type": "string",
         "column_name": "ServiceName",
         "column_type": "LowCardinality(String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "ResourceAttributes",
+        "name": "ResourceAttributes",
+        "type": "map",
         "column_name": "ResourceAttributes",
         "column_type": "Map(LowCardinality(String), String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "ScopeName",
+        "name": "ScopeName",
+        "type": "string",
         "column_name": "ScopeName",
         "column_type": "String"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "ScopeVersion",
+        "name": "ScopeVersion",
+        "type": "string",
         "column_name": "ScopeVersion",
         "column_type": "String"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "SpanAttributes",
+        "name": "SpanAttributes",
+        "type": "map",
         "column_name": "SpanAttributes",
         "column_type": "Map(LowCardinality(String), String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Duration",
+        "name": "Duration",
+        "type": "uint64",
         "column_name": "Duration",
         "column_type": "UInt64"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "StatusCode",
+        "name": "StatusCode",
+        "type": "string",
         "column_name": "StatusCode",
         "column_type": "LowCardinality(String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "StatusMessage",
+        "name": "StatusMessage",
+        "type": "string",
         "column_name": "StatusMessage",
         "column_type": "String"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Events.Timestamp",
+        "name": "Events.Timestamp",
+        "type": "array",
         "column_name": "Events.Timestamp",
         "column_type": "Array(DateTime64)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Events.Name",
+        "name": "Events.Name",
+        "type": "array",
         "column_name": "Events.Name",
         "column_type": "Array(LowCardinality(String))"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Events.Attributes",
+        "name": "Events.Attributes",
+        "type": "array",
         "column_name": "Events.Attributes",
         "column_type": "Array(Map(LowCardinality(String), String))"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Links.TraceId",
+        "name": "Links.TraceId",
+        "type": "array",
         "column_name": "Links.TraceId",
         "column_type": "Array(String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Links.SpanId",
+        "name": "Links.SpanId",
+        "type": "array",
         "column_name": "Links.SpanId",
         "column_type": "Array(String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Links.TraceState",
+        "name": "Links.TraceState",
+        "type": "array",
         "column_name": "Links.TraceState",
         "column_type": "Array(String)"
       },
       {
         "source_id": "otel-traces",
-        "field_name": "Links.Attributes",
+        "name": "Links.Attributes",
+        "type": "array",
         "column_name": "Links.Attributes",
         "column_type": "Array(Map(LowCardinality(String), String))"
       }
