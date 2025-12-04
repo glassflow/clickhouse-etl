@@ -9,12 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
-	"github.com/gorilla/mux"
 )
 
 //go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService
@@ -202,7 +203,7 @@ type pipelineJoin struct {
 
 type pipelineFilter struct {
 	Enabled    bool   `json:"enabled"`
-	Expression string `json:"expression"`
+	Expression string `json:"expression,omitempty"`
 }
 
 type schemaField struct {
