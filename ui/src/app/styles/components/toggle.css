@@ -1,0 +1,96 @@
+/* ================== Toggle/Switch Utilities ================== */
+
+.toggle {
+  /* Layout */
+  display: flex;
+  align-items: center;
+  gap: var(--toggle-gap);
+  height: 20px;
+  position: relative;
+}
+
+/* Toggle Track */
+.toggle-track {
+  position: relative;
+  width: var(--toggle-track-width);
+  height: var(--toggle-track-height);
+  border-radius: var(--toggle-border-radius);
+  background-color: var(--toggle-track-unchecked-bg);
+  transition: var(--toggle-transition);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-track:has(.toggle-thumb[data-checked='true']),
+.toggle-track[data-checked='true'] {
+  background-color: var(--toggle-track-checked-bg);
+}
+
+/* Toggle Thumb */
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--toggle-thumb-size);
+  height: var(--toggle-thumb-size);
+  border-radius: 50%;
+  background-color: var(--toggle-thumb-unchecked-bg);
+  transition: var(--toggle-transition);
+  transform: translateX(0);
+}
+
+.toggle-thumb[data-checked='true'],
+.toggle-track[data-checked='true'] .toggle-thumb {
+  background-color: var(--toggle-thumb-checked-bg);
+  transform: translateX(8px);
+}
+
+/* Toggle Label */
+.toggle-label {
+  font-family: var(--toggle-font-family);
+  font-size: var(--toggle-font-size);
+  font-weight: var(--toggle-font-weight);
+  line-height: var(--toggle-line-height);
+  letter-spacing: var(--toggle-letter-spacing);
+  color: var(--toggle-label-text);
+  transition: var(--toggle-transition);
+  user-select: none;
+}
+
+.toggle-label[data-checked='true'],
+.toggle[data-checked='true'] .toggle-label {
+  color: var(--toggle-label-text-checked);
+}
+
+/* Toggle without label - just the switch */
+.toggle--no-label {
+  width: var(--toggle-track-width);
+}
+
+/* Toggle with label */
+.toggle--with-label {
+  width: auto;
+  min-width: fit-content;
+}
+
+/* Disabled state */
+.toggle:disabled,
+.toggle-track:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle:disabled .toggle-track {
+  cursor: not-allowed;
+}
+
+/* Focus state */
+.toggle-track:focus-visible {
+  outline: 2px solid var(--interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Hover state */
+.toggle:not(:disabled):hover .toggle-track {
+  opacity: 0.9;
+}

@@ -1,27 +1,31 @@
 /* ================== Input utilities ================== */
 .input-regular {
-  background-color: #1e1e1f;
-  color: #ffffff;
-  border-radius: 6px;
-  padding: 8px 12px;
+  background-color: var(--color-black-600, #141414);
+  color: var(--color-white, #ffffff);
+  border-radius: var(--radius-small, 4px);
+  padding: var(--unit-x2, 8px) var(--unit-x3, 12px);
+  height: 36px;
+  font-family: var(--font-family-body-3, Inter, sans-serif);
+  font-size: var(--font-size-body-3, 0.875rem);
+  font-weight: var(--font-weight-regular, 400);
+  line-height: var(--line-height-body-3, 1.25rem);
   position: relative;
+  border: 1px solid #373737;
+  transition: border-color var(--duration-fast, 200ms) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
+/* Active state class for programmatic use - matches Figma design */
 .input-active {
-  border-radius: 6px;
-  border: 1px solid var(--color-background-primary);
-  box-shadow:
-    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-  position: relative;
+  border-color: var(--color-background-primary, #ffa24b);
 }
 
 .input-border-regular {
-  border: 1px solid var(--color-border-regular);
+  border: 1px solid #373737;
 }
 
+/* Error state - matching Figma design */
 .input-border-error {
-  border-color: #ef4444;
+  border-color: var(--color-foreground-critical, #e22c2c);
 }
 
 /* ==== Input Utilities ==== */
@@ -50,30 +54,52 @@
   pointer-events: none;
 }
 
-/* Custom focus style that matches card-gradient-active */
-.input-regular:focus-visible {
+/* Active/Focused state - matching Figma design */
+.input-regular:focus-visible,
+.input-regular:focus {
   outline: none;
-  border-color: var(--color-background-primary, #a5b9e4);
-  box-shadow: 0 0 0 2px rgba(165, 185, 228, 0.25);
+  border-color: var(--color-background-primary, #ffa24b);
 }
 
-/* Add a pseudo-element for the gradient border effect when focused */
-.input-regular:focus-visible::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 6px;
-  padding: 1px;
-  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 1;
+/* Error state takes precedence over focus state */
+.input-regular.input-border-error:focus-visible,
+.input-regular.input-border-error:focus {
+  border-color: var(--color-foreground-critical, #e22c2c);
+}
+
+/* Placeholder styling */
+.input-regular::placeholder {
+  color: var(--color-foreground-neutral-faded, #b6bac3);
+  font-family: var(--font-family-body-3, Inter, sans-serif);
+  font-size: var(--font-size-body-3, 0.875rem);
+  font-weight: var(--font-weight-regular, 400);
+  line-height: var(--line-height-body-3, 1.25rem);
+}
+
+/* Disabled state - matching Figma design */
+.input-regular:disabled {
+  background-color: #1a1a1a; /* gray-700 from Figma */
+  color: #8a8f9a; /* cool-gray-300 from Figma */
+  border-color: #373737; /* Same as regular state - input-field border */
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+/* Disabled placeholder styling */
+.input-regular:disabled::placeholder {
+  color: #8a8f9a; /* cool-gray-300 from Figma */
 }
 
 .input-description-error {
   color: var(--color-foreground-critical);
+}
+
+/* Input Label Styles - matching Figma design */
+.input-label {
+  font-family: var(--font-family-body-3, Inter, sans-serif);
+  font-size: var(--font-size-body-3, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--line-height-body-3, 1.25rem);
+  color: var(--color-foreground-neutral-faded, var(--color-gray-dark-100, #b6bac3));
+  margin-bottom: var(--unit-x1, 4px);
 }

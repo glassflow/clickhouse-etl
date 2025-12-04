@@ -59,7 +59,7 @@
   }
 
   .table-cell {
-    color: var(--color-foreground-neutral, #374151);
+    color: var(--color-foreground-neutral);
     font-size: 16px;
     font-weight: 400;
     line-height: 1.2;
@@ -73,7 +73,7 @@
     grid-column: 1 / -1;
     text-align: center;
     padding: 2rem;
-    color: var(--color-foreground-neutral-faded, #6b7280);
+    color: var(--color-foreground-neutral-faded);
     font-style: italic;
   }
 

@@ -5,9 +5,11 @@
 @tailwind utilities;
 
 /* Import base variables first, then theme-specific ones */
+/* Note: colors.css is now consolidated into base.css, but kept for reference */
+/* Note: Light theme removed - app only uses dark theme */
 @import '../themes/base.css';
 @import '../themes/dark/theme.css';
-@import '../themes/light/theme.css';
+@import '../themes/semantic.css';
 
 @import './styles/index.css';
 
@@ -17,8 +19,7 @@
     --font-sans: var(--font-family-body);
     --font-heading: var(--font-family-title);
 
-    /* Border radius */
-    --radius: var(--radius-medium);
+    /* Note: --radius is defined in dark/theme.css as a shadcn/ui variable */
 
     /* Animation */
     --transition-fast: var(--duration-fast);
@@ -30,34 +31,7 @@
     --shadow-sm: var(--shadow-raised);
     --shadow-md: var(--shadow-overlay);
 
-    /* shadcn/ui color mappings */
-    --background: var(--color-background-page);
-    --foreground: var(--color-foreground-neutral);
-
-    --card: var(--color-background-elevation-raised);
-    --card-foreground: var(--color-foreground-neutral);
-
-    --popover: var(--color-background-elevation-overlay);
-    --popover-foreground: var(--color-foreground-neutral);
-
-    --primary: var(--color-background-primary);
-    --primary-foreground: var(--color-on-background-primary);
-
-    --secondary: var(--color-background-neutral);
-    --secondary-foreground: var(--color-on-background-neutral);
-
-    --muted: var(--color-background-neutral-faded);
-    --muted-foreground: var(--color-foreground-neutral-faded);
-
-    --accent: var(--color-background-primary-faded);
-    --accent-foreground: var(--color-foreground-primary);
-
-    --destructive: var(--color-background-critical);
-    --destructive-foreground: var(--color-on-background-critical);
-
-    --border: var(--color-border-neutral);
-    --input: var(--color-border-neutral);
-    --ring: var(--color-background-primary);
+    /* Note: shadcn/ui color mappings are defined in dark/theme.css */
 
     /* Layout */
     --main-container-width: 1240px;

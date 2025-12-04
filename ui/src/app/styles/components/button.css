@@ -1,17 +1,53 @@
 /* ================== Button Utilities ================== */
 .btn-primary {
-  border-radius: var(--radius-medium);
-  background: linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%);
-  box-shadow: var(--shadow-pressed);
-  color: var(--color-on-background-primary);
+  /* Layout & Spacing */
+  padding: var(--button-primary-padding-y) var(--button-primary-padding-x);
+  border-radius: var(--button-primary-border-radius);
+  gap: var(--unit-x2);
+
+  /* Background - Orange gradient matching Figma design */
+  background: linear-gradient(
+    180deg,
+    var(--button-primary-bg-gradient-start) 0%,
+    var(--button-primary-bg-gradient-end) 100%
+  );
+
+  /* Shadow - matching Figma shadow */
+  box-shadow: var(--button-primary-shadow);
+
+  /* Typography - Body 3/Medium from Figma */
+  font-family: var(--button-primary-font-family);
+  font-size: var(--button-primary-font-size);
+  font-weight: var(--button-primary-font-weight);
+  line-height: var(--button-primary-line-height);
+  letter-spacing: var(--button-primary-letter-spacing);
+
+  /* Text color - black from Figma */
+  color: var(--button-primary-text);
+
+  /* Border */
+  border: none;
+
+  /* Transitions */
+  transition: all var(--duration-fast) var(--easing-standard);
 }
 
 .btn-primary:hover {
-  background-color: var(--color-background-primary-faded);
+  background: linear-gradient(
+    180deg,
+    var(--button-primary-bg-gradient-start) 0%,
+    var(--button-primary-bg-gradient-end) 100%
+  );
+  opacity: 0.9;
 }
 
 .btn-primary:active {
-  background-color: var(--color-background-primary-faded);
+  background: linear-gradient(
+    180deg,
+    var(--button-primary-bg-gradient-end) 0%,
+    var(--button-primary-bg-gradient-end) 100%
+  );
+  box-shadow: var(--shadow-raised);
 }
 
 .btn-neutral {
@@ -52,23 +88,60 @@
 }
 
 .btn-secondary {
-  background-color: var(--color-background-neutral);
-  color: var(--color-on-background-neutral);
-  border: none;
-  box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
+  /* Layout & Spacing */
+  padding: var(--button-secondary-padding-y) var(--button-secondary-padding-x);
+  border-radius: var(--button-secondary-border-radius);
+  gap: var(--unit-x2);
+
+  /* Background - Light gray gradient matching Figma design */
+  background: linear-gradient(
+    180deg,
+    var(--button-secondary-bg-gradient-start) 0%,
+    var(--button-secondary-bg-gradient-end) 100%
+  );
+
+  /* Shadow - matching Figma shadow */
+  box-shadow: var(--button-secondary-shadow);
+
+  /* Typography - Body 3/Medium from Figma */
+  font-family: var(--button-secondary-font-family);
+  font-size: var(--button-secondary-font-size);
+  font-weight: var(--button-secondary-font-weight);
+  line-height: var(--button-secondary-line-height);
+  letter-spacing: var(--button-secondary-letter-spacing);
+
+  /* Text color - black from Figma */
+  color: var(--button-secondary-text);
+
+  /* Border */
+  border: var(--button-secondary-border);
+
+  /* Transitions */
+  transition: all var(--duration-fast) var(--easing-standard);
 }
 
 .btn-secondary:hover {
-  background-color: var(--color-background-neutral-faded);
+  background: linear-gradient(
+    180deg,
+    var(--button-secondary-bg-gradient-start) 0%,
+    var(--button-secondary-bg-gradient-end) 100%
+  );
+  opacity: 0.9;
 }
 
 .btn-secondary:active {
-  background-color: var(--color-background-neutral-faded);
+  background: linear-gradient(
+    180deg,
+    var(--button-secondary-bg-gradient-end) 0%,
+    var(--button-secondary-bg-gradient-end) 100%
+  );
+  box-shadow: var(--shadow-raised);
 }
 
 .btn-secondary:disabled {
-  background-color: var(--color-background-neutral-faded);
-  color: var(--color-on-background-neutral-faded);
+  background: linear-gradient(180deg, var(--color-background-disabled) 0%, var(--color-background-disabled-faded) 100%);
+  color: var(--color-foreground-disabled);
+  opacity: 0.6;
 }
 
 /* ================== Action Icon Utilities ================== */
@@ -111,23 +184,211 @@
 }
 
 .btn-tertiary {
-  background-color: var(--color-background-neutral-black);
-  color: var(--color-on-background-neutral);
-  border: 1px solid var(--color-border-neutral);
-  box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
+  /* Layout & Spacing */
+  padding: var(--button-tertiary-padding-y) var(--button-tertiary-padding-x);
+  border-radius: var(--button-tertiary-border-radius);
+  gap: var(--unit-x2);
+
+  /* Background - Dark grey matching Figma design */
+  background-color: var(--button-tertiary-bg);
+
+  /* Shadow - matching Figma shadow (lighter than primary/secondary) */
+  box-shadow: var(--button-tertiary-shadow);
+
+  /* Typography - Body 3/Medium from Figma */
+  font-family: var(--button-tertiary-font-family);
+  font-size: var(--button-tertiary-font-size);
+  font-weight: var(--button-tertiary-font-weight);
+  line-height: var(--button-tertiary-line-height);
+  letter-spacing: var(--button-tertiary-letter-spacing);
+
+  /* Text color - light grey from Figma */
+  color: var(--button-tertiary-text);
+
+  /* Border */
+  border: var(--button-tertiary-border);
+
+  /* Transitions */
+  transition: all var(--duration-fast) var(--easing-standard);
 }
 
 .btn-tertiary:hover {
-  background-color: var(--color-background-neutral-faded);
+  background-color: var(--button-tertiary-hover);
+  opacity: 0.9;
 }
 
 .btn-tertiary:active {
-  background-color: var(--color-background-neutral-faded);
+  background-color: var(--button-tertiary-active);
+  box-shadow: var(--shadow-raised);
 }
 
 .btn-tertiary:disabled {
-  background-color: var(--color-background-neutral-faded);
-  color: var(--color-on-background-neutral-faded);
+  background-color: var(--color-background-disabled);
+  color: var(--color-foreground-disabled);
+  opacity: 0.6;
+}
+
+.btn-tertiary2 {
+  /* Layout & Spacing */
+  padding: var(--button-tertiary2-padding-y) var(--button-tertiary2-padding-x);
+  border-radius: var(--button-tertiary2-border-radius);
+  gap: var(--unit-x2);
+
+  /* Background - Dark grey matching Figma design */
+  background-color: var(--button-tertiary2-bg);
+
+  /* Border - matching Figma design (no shadow) */
+  border: var(--button-tertiary2-border);
+
+  /* Shadow - none for tertiary2 */
+  box-shadow: var(--button-tertiary2-shadow);
+
+  /* Typography - Body 3/Medium from Figma */
+  font-family: var(--button-tertiary2-font-family);
+  font-size: var(--button-tertiary2-font-size);
+  font-weight: var(--button-tertiary2-font-weight);
+  line-height: var(--button-tertiary2-line-height);
+  letter-spacing: var(--button-tertiary2-letter-spacing);
+
+  /* Text color - light grey from Figma */
+  color: var(--button-tertiary2-text);
+
+  /* Transitions */
+  transition: all var(--duration-fast) var(--easing-standard);
+}
+
+.btn-tertiary2:hover {
+  background-color: var(--button-tertiary2-hover);
+  border-color: var(--button-tertiary2-border-hover);
+  opacity: 0.9;
+}
+
+.btn-tertiary2:active {
+  background-color: var(--button-tertiary2-active);
+  border-color: var(--button-tertiary2-border-active);
+}
+
+.btn-tertiary2:disabled {
+  background-color: var(--color-background-disabled);
+  color: var(--color-foreground-disabled);
+  border-color: var(--color-border-disabled);
+  opacity: 0.6;
+}
+
+.btn-card {
+  /* Layout & Spacing */
+  display: flex;
+  align-items: center;
+  padding: var(--button-card-padding-y) var(--button-card-padding-x);
+  border-radius: var(--button-card-border-radius);
+  gap: var(--button-card-gap);
+  height: var(--button-card-height);
+  min-width: var(--button-card-min-width);
+
+  /* Background - Dark gradient matching Figma design */
+  background: linear-gradient(180deg, var(--button-card-bg-gradient-start) 0%, var(--button-card-bg-gradient-end) 100%);
+
+  /* Border - matching Figma design */
+  border: var(--button-card-border);
+
+  /* Shadow - matching Figma shadow */
+  box-shadow: var(--button-card-shadow);
+
+  /* Typography - Title 6 from Figma */
+  font-family: var(--button-card-font-family);
+  font-size: var(--button-card-font-size);
+  font-weight: var(--button-card-font-weight);
+  line-height: var(--button-card-line-height);
+  letter-spacing: var(--button-card-letter-spacing);
+
+  /* Text color - white from Figma */
+  color: var(--button-card-text);
+
+  /* Transitions */
+  transition: all var(--duration-fast) var(--easing-standard);
+}
+
+.btn-card:hover {
+  background: linear-gradient(180deg, var(--button-card-bg-gradient-start) 0%, var(--button-card-bg-gradient-end) 100%);
+  opacity: 0.9;
+  box-shadow:
+    0px 2px 8px -2px #161617,
+    0px 8px 16px 0px #161617,
+    0px 16px 32px 0px #161617;
+}
+
+.btn-card:active {
+  background: linear-gradient(180deg, var(--button-card-bg-gradient-end) 0%, var(--button-card-bg-gradient-end) 100%);
+  box-shadow: var(--shadow-raised);
+}
+
+.btn-card:disabled {
+  background: linear-gradient(180deg, var(--color-background-disabled) 0%, var(--color-background-disabled-faded) 100%);
+  color: var(--color-foreground-disabled);
+  border-color: var(--color-border-disabled);
+  opacity: 0.6;
+}
+
+.btn-card-secondary {
+  /* Layout & Spacing */
+  display: flex;
+  align-items: center;
+  padding: var(--button-card-secondary-padding-y) var(--button-card-secondary-padding-x);
+  border-radius: var(--button-card-secondary-border-radius);
+  gap: var(--button-card-secondary-gap);
+  height: var(--button-card-secondary-height);
+  min-width: var(--button-card-secondary-min-width);
+
+  /* Background - Dark gradient matching Figma design */
+  background: linear-gradient(
+    180deg,
+    var(--button-card-secondary-bg-gradient-start) 0%,
+    var(--button-card-secondary-bg-gradient-end) 100%
+  );
+
+  /* Border - Blue border matching Figma design */
+  border: var(--button-card-secondary-border);
+
+  /* Shadow - matching Figma shadow */
+  box-shadow: var(--button-card-secondary-shadow);
+
+  /* Typography - Title 6 from Figma */
+  font-family: var(--button-card-secondary-font-family);
+  font-size: var(--button-card-secondary-font-size);
+  font-weight: var(--button-card-secondary-font-weight);
+  line-height: var(--button-card-secondary-line-height);
+  letter-spacing: var(--button-card-secondary-letter-spacing);
+
+  /* Text color - white from Figma */
+  color: var(--button-card-secondary-text);
+
+  /* Transitions */
+  transition: all var(--duration-fast) var(--easing-standard);
+}
+
+.btn-card-secondary:hover {
+  background: linear-gradient(
+    180deg,
+    var(--button-card-secondary-bg-gradient-start) 0%,
+    var(--button-card-secondary-bg-gradient-end) 100%
+  );
+  opacity: 0.9;
+}
+
+.btn-card-secondary:active {
+  background: linear-gradient(
+    180deg,
+    var(--button-card-secondary-bg-gradient-end) 0%,
+    var(--button-card-secondary-bg-gradient-end) 100%
+  );
+  box-shadow: var(--shadow-raised);
+}
+
+.btn-card-secondary:disabled {
+  background: linear-gradient(180deg, var(--color-background-disabled) 0%, var(--color-background-disabled-faded) 100%);
+  color: var(--color-foreground-disabled);
+  border-color: var(--color-border-disabled);
+  opacity: 0.6;
 }
 
 .btn-home-lg {

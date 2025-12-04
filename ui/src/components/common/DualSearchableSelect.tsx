@@ -285,7 +285,7 @@ export function DualSearchableSelect({
         typeof window !== 'undefined' &&
         createPortal(
           <div
-            className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[#1e1e1f] flex"
+            className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[var(--color-black-300,#1e1e1f)] border border-[var(--color-border-regular,#373737)] flex"
             style={{
               top: dropdownCoordinates.top + 'px',
               left: dropdownCoordinates.left + 'px',

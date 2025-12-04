@@ -104,81 +104,106 @@
   --radius-small: 4px;
   --radius-medium: 8px;
   --radius-large: 12px;
+  --radius-extra-large: 16px;
+  --radius-full: 9999px;
 
   /* 🎨 Color Tokens - Base Values */
   /* These are the raw color values that get referenced in theme files */
+  /* Source of truth: Figma colors (colors.css) */
 
   /* Primary Colors */
-  --color-orange-200: #ffac5e;
-  --color-orange-300: #ffa24b; /* primary brand color */
-  --color-orange-600: #e7872e;
-  --color-orange-700: #e28024;
-  --color-orange-800: #332010;
-  --color-orange-900: #4b311b;
-  --color-orange-950: #69553d; /* used for border with gradient - start */
+  --color-orange-100: #fff4e6; /* Keep existing - missing from Figma */
+  --color-orange-200: #feac5e; /* Figma: orange-200 */
+  --color-orange-300: #ffa24b; /* primary brand color - Figma: orange-300 */
+  --color-orange-400: #ff9933; /* Keep existing - missing from Figma */
+  --color-orange-500: #ff8b1f; /* Figma: orange-500 - NEW */
+  --color-orange-600: #e28024; /* Figma: orange-600 (was orange-700) */
+  --color-orange-700: #e28024; /* Keep existing - missing from Figma */
+
+  /* Brown Colors */
+  --color-brown-750: #503319; /* Figma: orange-750 - NEW */
+  --color-brown-800: #332010; /* Keep existing for backward compatibility */
+  --color-brown-900: #4b311b; /* Keep existing */
+  --color-brown-950: #69553d; /* used for border with gradient - start */
 
   /* Red/Critical Colors */
-  --color-red-500: #cb2d2b;
-  --color-red-400: #e68075;
-  --color-red-600: #8e1d1d;
-  --color-red-100: #fef2f2;
-  --color-red-200: #fecaca;
-  --color-red-800: #391b18;
-  --color-red-900: #532a26;
+  --color-red-100: #fef2f2; /* Keep existing - missing from Figma */
+  --color-red-200: #fecaca; /* Keep existing - missing from Figma */
+  --color-red-300: #f8a8a8; /* Keep existing - missing from Figma */
+  --color-red-400: #e68075; /* Keep existing - missing from Figma */
+  --color-red-500: #e22c2c; /* Figma: red-500 (updated from #cb2d2b) */
+  --color-red-600: #8e1d1d; /* Keep existing - missing from Figma */
+  --color-red-750: #3d1919; /* Figma: red-750 - NEW */
+  --color-red-800: #391b18; /* Keep existing - missing from Figma */
+  --color-red-900: #532a26; /* Keep existing - missing from Figma */
+  --color-red-950: #2a1614; /* Keep existing - missing from Figma */
 
   /* Green/Positive Colors */
-  --color-green-500: #00d370;
-  --color-green-400: #57b17c;
-  --color-green-600: #0d7544;
-  --color-green-100: #ecfdf5;
-  --color-green-200: #a7f3d0;
-  --color-green-800: #152a1d;
-  --color-green-900: #223f2d;
+  --color-green-100: #ecfdf5; /* Keep existing - missing from Figma */
+  --color-green-200: #a7f3d0; /* Keep existing - missing from Figma */
+  --color-green-300: #77e6b3; /* Keep existing - missing from Figma */
+  --color-green-400: #57b17c; /* Keep existing - missing from Figma */
+  --color-green-500: #00d370; /* Figma: green-500 */
+  --color-green-600: #0d7544; /* Keep existing - missing from Figma */
+  --color-green-700: #0f5c36; /* Keep existing - missing from Figma */
+  --color-green-750: #13271e; /* Figma: green-750 - NEW */
+  --color-green-800: #152a1d; /* Keep existing - slightly different from Figma green-750 */
+  --color-green-900: #223f2d; /* Keep existing - missing from Figma */
+  --color-green-950: #1a241c; /* Keep existing - missing from Figma */
 
   /* Yellow/Warning Colors */
-  --color-yellow-500: #f59e0b;
-  --color-yellow-400: #eed58a;
-  --color-yellow-600: #d7ae06;
   --color-yellow-100: #fffbeb;
   --color-yellow-200: #fde68a;
+  --color-yellow-300: #f7d478; /* NEW */
+  --color-yellow-400: #eed58a;
+  --color-yellow-500: #f59e0b;
+  --color-yellow-600: #d7ae06;
+  --color-yellow-700: #a88508; /* NEW */
+  --color-yellow-750: #67520d; /* NEW */
   --color-yellow-800: #2b2410;
   --color-yellow-900: #40371b;
+  --color-yellow-950: #2a2214; /* NEW */
 
   /* Blue/Info Colors */
-  --color-blue-300: #3d4869; /* used for border with gradient - start */
-  --color-blue-500: #3b82f6;
-  --color-blue-400: #60a5fa;
-  --color-blue-600: #2563eb;
-  --color-blue-100: #dbeafe;
-  --color-blue-200: #bfdbfe;
-  --color-blue-800: #1e3a8a;
-  --color-blue-900: #1e40af;
+  /* Note: Figma uses "cobalt" naming, we use "blue" for consistency */
+  --color-blue-100: #dbeafe; /* Keep existing - missing from Figma */
+  --color-blue-200: #bfdbfe; /* Keep existing - missing from Figma */
+  --color-blue-300: #3d4869; /* Figma: slate-600 - used for border with gradient - start */
+  --color-blue-400: #60a5fa; /* Keep existing - missing from Figma */
+  --color-blue-500: #2495ff; /* Figma: cobalt-500 (updated from #3b82f6) */
+  --color-blue-600: #2563eb; /* Keep existing - missing from Figma */
+  --color-blue-750: #162737; /* Figma: cobalt-750 - NEW */
+  --color-blue-800: #1e3a8a; /* Keep existing - missing from Figma */
+  --color-blue-900: #1e40af; /* Keep existing - missing from Figma */
+  --color-blue-950: #141d33; /* NEW */
 
-  /* Neutral/Gray Colors */
-  --color-gray-50: #ffffff;
-  --color-gray-100: #f9fafb;
-  --color-gray-200: #f3f4f6;
-  --color-gray-300: #e5e7eb;
-  --color-gray-400: #d1d5db;
-  --color-gray-500: #9ca3af;
-  --color-gray-600: #6b7280;
-  --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
-  --color-gray-900: #111827;
-  --color-gray-950: #000000;
+  /* Slate Colors */
+  --color-slate-300: #a5b9e4; /* Figma: slate-300 - NEW */
+  --color-slate-500: #5b667e; /* Figma: slate-500 (also mapped to gray-dark-400) */
+  --color-slate-600: #3d4869; /* Figma: slate-600 (also mapped to blue-300) */
 
-  /* Dark Theme Specific Neutrals */
-  --color-gray-dark-50: #f3f3f5;
-  --color-gray-dark-100: #c7c9d1;
-  --color-gray-dark-200: #a8adb8;
-  --color-gray-dark-300: #6c6c6c;
-  --color-gray-dark-400: #5b667e;
-  --color-gray-dark-500: #494a4e;
-  --color-gray-dark-600: #393a42;
-  --color-gray-dark-700: #212227;
-  --color-gray-dark-800: #1b1b1d;
-  --color-gray-dark-900: #161617;
-  --color-gray-dark-950: #0e0e10;
+  /* Neutral/Gray Colors - Dark Theme Only */
+  --color-white: #ffffff; /* Pure white - on-background text in dark theme */
+  --color-black: #000000; /* Pure black - on-background text in dark theme */
+
+  /* Legacy aliases for backward compatibility (used in dark theme) */
+  --color-gray-50: var(--color-white); /* Alias for white */
+  --color-gray-950: var(--color-black); /* Alias for black */
+
+  /* 
+   * Dark Theme Gray Scale (for dark mode backgrounds, borders, text)
+   * These map to Figma's gray-cool scale
+   */
+  --color-gray-dark-50: #f3f3f5; /* Light text on dark backgrounds */
+  --color-gray-dark-100: #dfe2ea; /* Figma: gray-cool-100 - secondary text, icons */
+  --color-gray-dark-300: #6c6c6c; /* Borders, menu backgrounds */
+  --color-gray-dark-400: #5b667e; /* Figma: slate-500 - info borders */
+  --color-gray-dark-500: #494a4e; /* Disabled text/icons */
+  --color-gray-dark-600: #23232d; /* Figma: gray-cool-600 - neutral backgrounds */
+  --color-gray-dark-700: #1d1d26; /* Figma: gray-cool-700 - faded neutral backgrounds */
+  --color-gray-dark-800: #121214; /* Figma: gray-cool-800 - disabled/overlay backgrounds */
+  --color-gray-dark-900: #161617; /* Regular/elevation backgrounds, icon hover */
+  --color-gray-dark-950: #0e0e10; /* Page background */
 
   --color-gradient-grey-100: #bebebe;
   --color-gradient-grey-200: #a1a1a1;
