@@ -1,4 +1,10 @@
-import { FilterCondition, FilterConfig, FilterOperator } from '@/src/store/filter.store'
+import {
+  FilterCondition,
+  FilterConfig,
+  FilterOperator,
+  FilterRule,
+  FilterGroup,
+} from '@/src/store/filter.store'
 
 // Operator definitions with display labels and type compatibility
 export interface OperatorDefinition {
@@ -211,7 +217,35 @@ export const formatValueForExpr = (value: string | number | boolean, fieldType: 
 }
 
 /**
- * Convert a single condition to expr expression
+ * Convert a single rule to expr expression
+ */
+export const ruleToExpr = (rule: FilterRule): string => {
+  const operator = FILTER_OPERATORS.find((op) => op.value === rule.operator)
+  if (!operator) {
+    throw new Error(`Unknown operator: ${rule.operator}`)
+  }
+
+  const formattedValue = formatValueForExpr(rule.value, rule.fieldType)
+
+  let expr: string
+  // Handle function-style operators (contains, startsWith, endsWith)
+  if (['contains', 'startsWith', 'endsWith'].includes(rule.operator)) {
+    expr = `${rule.operator}(${rule.field}, ${formattedValue})`
+  } else {
+    // Handle comparison operators
+    expr = `${rule.field} ${operator.exprSymbol} ${formattedValue}`
+  }
+
+  // Wrap with NOT if needed
+  if (rule.not) {
+    return `!(${expr})`
+  }
+
+  return expr
+}
+
+/**
+ * Convert a single condition to expr expression (legacy support)
  */
 export const conditionToExpr = (condition: FilterCondition): string => {
   const operator = FILTER_OPERATORS.find((op) => op.value === condition.operator)
@@ -231,33 +265,91 @@ export const conditionToExpr = (condition: FilterCondition): string => {
 }
 
 /**
- * Convert filter config to expr expression string
+ * Check if a rule is complete (has all required fields)
  */
-export const toExprString = (config: FilterConfig): string => {
-  if (!config.enabled || config.conditions.length === 0) {
-    return ''
-  }
+export const isRuleComplete = (rule: FilterRule): boolean => {
+  return !!(rule.field && rule.operator && rule.value !== undefined && rule.value !== '')
+}
 
-  const expressions = config.conditions
-    .filter((c) => c.field && c.operator && c.value !== undefined && c.value !== '')
-    .map(conditionToExpr)
+/**
+ * Convert a group to expr expression (recursive)
+ */
+export const groupToExpr = (group: FilterGroup): string => {
+  const expressions: string[] = []
+
+  for (const child of group.children) {
+    if (child.type === 'rule') {
+      // Only include complete rules
+      if (isRuleComplete(child)) {
+        expressions.push(ruleToExpr(child))
+      }
+    } else {
+      // Recursively process nested groups
+      const groupExpr = groupToExpr(child)
+      if (groupExpr) {
+        expressions.push(groupExpr)
+      }
+    }
+  }
 
   if (expressions.length === 0) {
     return ''
   }
 
+  let result: string
   if (expressions.length === 1) {
-    return expressions[0]
+    result = expressions[0]
+  } else {
+    // Combine with combinator (and/or)
+    result = `(${expressions.join(` ${group.combinator} `)})`
   }
 
-  // Combine with combinator (and/or)
-  return expressions.join(` ${config.combinator} `)
+  // Wrap with NOT if needed
+  if (group.not) {
+    return `!(${result})`
+  }
+
+  return result
 }
 
 /**
- * Validation result for a single condition
+ * Convert filter config to expr expression string
  */
-export interface ConditionValidation {
+export const toExprString = (config: FilterConfig): string => {
+  if (!config.enabled) {
+    return ''
+  }
+
+  // Use new tree structure
+  if (config.root) {
+    return groupToExpr(config.root)
+  }
+
+  // Legacy support for flat conditions
+  if (config.conditions && config.conditions.length > 0) {
+    const expressions = config.conditions
+      .filter((c) => c.field && c.operator && c.value !== undefined && c.value !== '')
+      .map(conditionToExpr)
+
+    if (expressions.length === 0) {
+      return ''
+    }
+
+    if (expressions.length === 1) {
+      return expressions[0]
+    }
+
+    // Combine with combinator (and/or)
+    return expressions.join(` ${config.combinator || 'and'} `)
+  }
+
+  return ''
+}
+
+/**
+ * Validation result for a single rule
+ */
+export interface RuleValidation {
   isValid: boolean
   errors: {
     field?: string
@@ -266,8 +358,63 @@ export interface ConditionValidation {
   }
 }
 
+// Alias for backward compatibility
+export type ConditionValidation = RuleValidation
+
 /**
- * Validate a single filter condition locally (client-side)
+ * Validate a single filter rule locally (client-side)
+ */
+export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
+  const errors: RuleValidation['errors'] = {}
+
+  // Check field is selected
+  if (!rule.field) {
+    errors.field = 'Field is required'
+  }
+
+  // Check operator is selected
+  if (!rule.operator) {
+    errors.operator = 'Condition is required'
+  }
+
+  // Check value is provided
+  if (rule.value === undefined || rule.value === '') {
+    errors.value = 'Value is required'
+  }
+
+  // Type-specific validation
+  if (rule.fieldType && rule.value !== undefined && rule.value !== '') {
+    if (isNumericType(rule.fieldType)) {
+      const numValue = Number(rule.value)
+      if (isNaN(numValue)) {
+        errors.value = 'Value must be a number'
+      }
+    }
+
+    if (isBooleanType(rule.fieldType)) {
+      const strValue = String(rule.value).toLowerCase()
+      if (strValue !== 'true' && strValue !== 'false') {
+        errors.value = 'Value must be true or false'
+      }
+    }
+  }
+
+  // Check operator is compatible with field type
+  if (rule.operator && rule.fieldType) {
+    const validOperators = getOperatorsForType(rule.fieldType)
+    if (!validOperators.find((op) => op.value === rule.operator)) {
+      errors.operator = `Operator not supported for ${rule.fieldType} fields`
+    }
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
+}
+
+/**
+ * Validate a single filter condition locally (legacy support)
  */
 export const validateConditionLocally = (condition: FilterCondition): ConditionValidation => {
   const errors: ConditionValidation['errors'] = {}
@@ -323,26 +470,88 @@ export const validateConditionLocally = (condition: FilterCondition): ConditionV
  */
 export interface FilterConfigValidation {
   isValid: boolean
-  conditionErrors: Record<string, ConditionValidation['errors']>
+  conditionErrors: Record<string, RuleValidation['errors']>
   globalErrors: string[]
 }
 
+/**
+ * Recursively validate a group and all its children
+ */
+const validateGroupRecursively = (
+  group: FilterGroup,
+  conditionErrors: Record<string, RuleValidation['errors']>,
+): void => {
+  for (const child of group.children) {
+    if (child.type === 'rule') {
+      const validation = validateRuleLocally(child)
+      if (!validation.isValid) {
+        conditionErrors[child.id] = validation.errors
+      }
+    } else {
+      // Recursively validate nested groups
+      validateGroupRecursively(child, conditionErrors)
+    }
+  }
+}
+
+/**
+ * Count total rules in the tree
+ */
+export const countRulesInGroup = (group: FilterGroup): number => {
+  let count = 0
+  for (const child of group.children) {
+    if (child.type === 'rule') {
+      count++
+    } else {
+      count += countRulesInGroup(child)
+    }
+  }
+  return count
+}
+
+/**
+ * Get all rules from the tree (flattened)
+ */
+export const getAllRules = (group: FilterGroup): FilterRule[] => {
+  const rules: FilterRule[] = []
+  for (const child of group.children) {
+    if (child.type === 'rule') {
+      rules.push(child)
+    } else {
+      rules.push(...getAllRules(child))
+    }
+  }
+  return rules
+}
+
 export const validateFilterConfigLocally = (config: FilterConfig): FilterConfigValidation => {
-  const conditionErrors: Record<string, ConditionValidation['errors']> = {}
+  const conditionErrors: Record<string, RuleValidation['errors']> = {}
   const globalErrors: string[] = []
 
   if (!config.enabled) {
     return { isValid: true, conditionErrors, globalErrors }
   }
 
-  if (config.conditions.length === 0) {
-    globalErrors.push('At least one filter condition is required')
-  }
+  // Use new tree structure
+  if (config.root) {
+    const totalRules = countRulesInGroup(config.root)
 
-  for (const condition of config.conditions) {
-    const validation = validateConditionLocally(condition)
-    if (!validation.isValid) {
-      conditionErrors[condition.id] = validation.errors
+    if (totalRules === 0) {
+      globalErrors.push('At least one filter rule is required')
+    }
+
+    validateGroupRecursively(config.root, conditionErrors)
+  } else if (config.conditions) {
+    // Legacy support for flat conditions
+    if (config.conditions.length === 0) {
+      globalErrors.push('At least one filter condition is required')
+    }
+
+    for (const condition of config.conditions) {
+      const validation = validateConditionLocally(condition)
+      if (!validation.isValid) {
+        conditionErrors[condition.id] = validation.errors
+      }
     }
   }
 
