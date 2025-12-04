@@ -26,9 +26,9 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    - Add the upstream remote: `git remote add upstream https://github.com/glassflow/clickhouse-etl.git`
 
 2. **Set Up Development Environment**
-   - Install Docker and Docker Compose
    - Install Go (for API development)
    - Install Node.js and npm (for UI development)
+   - Set up a Kubernetes cluster for testing (local or cloud)
    - Follow the setup instructions in the main README.md
 
 3. **Understand the Architecture**

@@ -7,8 +7,7 @@ description: 'Learn how to install and set up GlassFlow for ClickHouse Streaming
 # Installation
 
 GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works with managed Kubernetes services like AWS EKS, GKE, AKS, and more.
-You can also run GlassFlow on your own Kubernetes cluster. 
-For local testing or a small POC, you can also use Docker and Docker Compose to run GlassFlow on your local machine.
+You can also run GlassFlow on your own Kubernetes cluster.
 
 ## Self-Hosting Options
 
@@ -16,25 +15,3 @@ For local testing or a small POC, you can also use Docker and Docker Compose to 
 
 To run GlassFlow in your Kubernetes cluster, use the Helm chart. This provides a Kubernetes deployment for running GlassFlow.
 
-### [Docker](/installation/docker)
-
-The easiest way to get started is to use Docker on your local machine. This will give you a local environment that you can use to create a pipeline and test the functionality.
-
-## Deployment types comparison
-
-Kubernetes is the recommended way to run GlassFlow in production. It is more scalable and has more features.
-Docker is a good option for local development and testing. It is easy to set up and use.
-
-<div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
-
-| Feature | Docker | Kubernetes |
-|---------|--------|----------|
-| **# Pipelines** | 1 | ∞ |
-| **Pipeline Management** | ✅ | ✅ |
-| **Dead Letter Queue (DLQ)** | ❌ | ✅ |
-| **Prometheus Metrics** | ❌ | ✅ |
-| **OpenTelemetry Logs** | ❌ | ✅ |
-| **# Ingestors** | 1 | Multiple |
-| **Scalability** | ❌ | ✅ |
-
-</div>

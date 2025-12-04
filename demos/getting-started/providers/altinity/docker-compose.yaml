@@ -1,8 +1,0 @@
-include:
- - ../../../docker-compose.yaml
-
-services:
-  kafka:
-    extends:
-      file: ../../docker-compose.yaml
-      service: kafka

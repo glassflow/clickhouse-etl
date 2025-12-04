@@ -35,60 +35,21 @@ GlassFlow is an open-source ETL tool that enables real-time data processing from
 - **Ingest only**: Direct data transfer from Kafka to ClickHouse without transformations
 
 ## ⚡️ Quick Start
-This guide walks you through a **local installation using Docker Compose** — perfect for development, testing, or trying out GlassFlow on your machine.
 
-Explore more demos and building pipeline via UI in our [docs](https://docs.glassflow.dev/getting-started/demo). To start creating your own pipelines, follow the [Usage Guide](https://docs.glassflow.dev/usage-guide)
+To get started with GlassFlow, you can:
 
-1. Clone the repository:
-```bash
-git clone https://github.com/glassflow/clickhouse-etl.git
-cd clickhouse-etl
-```
-1. Go to the demo folder and start the services
-
-```bash
-cd demos
-docker compose up -d
-```
-This will start GlassFlow, Kafka and Clickhouse inside of docker. 
-
-3. Once the services are up, run the demo script which will create a topic in kafka, a table in clickhouse and setup a pipeline on glassflow. 
-Since the script is in python, you will need python installed with the needed dependencies. 
-
-```bash
-python3 -m venv venv
-pip install -r requirements.txt 
-```
-```bash
-python demo_deduplication.py --num-records 10000 --duplication-rate 0.1
-```
-This will send 10000 records to the kafka topic (with 10% duplicates). 
-
-4. Access the web interface at `http://localhost:8080` to view the demo pipeline.
-
-5. View the logs:
-```bash
-# Follow logs in real-time for all containers
-docker compose logs -f
-
-# logs for the backend api
-docker compose logs api -f
-
-# logs for the UI
-docker compose logs ui -f
-```
+1. **Try the Live Demo**: Experience GlassFlow running on a live cluster at [demo.glassflow.dev](https://demo.glassflow.dev)
+2. **Install on Kubernetes**: Follow our [Kubernetes Installation Guide](https://docs.glassflow.dev/installation/kubernetes) for production deployment
+3. **Learn More**: Explore our [Usage Guide](https://docs.glassflow.dev/usage-guide) to start creating pipelines
 
 
 ## 🧭 Installation Options
 
 GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works with any managed Kubernetes services like AWS EKS, GKE, AKS, and more.
-For local testing or a small POC, you can also use Docker and Docker Compose to run GlassFlow on your local machine.
 
 | Method                         | Use Case                                | Docs Link                                                                 |
 |-------------------------------|------------------------------------------|---------------------------------------------------------------------------|
-| ☸️ **Kubernetes with Helm**         | Kubernetes deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/kubernetes) |
-| 🐳 **Local with Docker Compose**    | Quick evaluation and local testing         | [Local Docker Guide](https://docs.glassflow.dev/installation/docker)     |
-| ☁️ **AWS EC2 with Docker Compose** | Lightweight cloud deployment for testing   | [AWS EC2 Guide](https://docs.glassflow.dev/installation/docker/aws-ec2)               |
+| ☸️ **Kubernetes with Helm**         | Production and development deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/kubernetes) |
 
 
 ## 🎥 Demo
@@ -112,7 +73,7 @@ For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.de
 - [Installation Guide](https://docs.glassflow.dev/installation)
 - [Usage Guide](https://docs.glassflow.dev/usage-guide)
 - [Pipeline JSON Reference](https://docs.glassflow.dev/configuration/pipeline-json-reference)
-- [Run a demo pipeline](https://docs.glassflow.dev/getting-started/demo)
+- [Live Preview](https://docs.glassflow.dev/getting-started/live-preview)
 - [Architecture](https://docs.glassflow.dev/architecture)
 
 ## 🗺️ Roadmap

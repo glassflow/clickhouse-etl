@@ -74,15 +74,15 @@ Both approaches create the same underlying pipeline configuration and can be use
 
 3. **Monitor the Pipeline logs**
 
- Pipeline logs are available via docker logs. To follow the logs in real-time for all containers, run:
- ```bash
- docker compose logs -f
- ```
- To follow the logs in real-time for the backend app, run:
- ```bash
- docker compose logs app -f
- ```
- To follow the logs in real-time for the UI, run:
- ```bash
- docker compose logs ui -f
- ```
+Pipeline logs are available via kubectl. To monitor your GlassFlow deployment:
+
+```bash
+# View all GlassFlow pods
+kubectl get pods -n glassflow
+
+# Follow logs in real-time for the API
+kubectl logs -n glassflow deployment/glassflow-api -f
+
+# Follow logs in real-time for the UI
+kubectl logs -n glassflow deployment/glassflow-ui -f
+```
