@@ -5,6 +5,7 @@ import { StepKeys } from '@/src/config/constants'
 import SingleColumnCard from '../SingleColumnCard'
 import { useStore } from '@/src/store'
 import { detectTransformationType } from '@/src/types/pipeline'
+import { countRulesInGroup } from '@/src/modules/filter/utils'
 
 // Filter card component to display filter configuration
 const FilterCard = ({
@@ -20,19 +21,22 @@ const FilterCard = ({
 }) => {
   const { filterStore } = useStore()
   const filterConfig = filterStore.filterConfig
-  
-  // Only show if filter is enabled
-  if (!filterConfig.enabled || filterConfig.conditions.length === 0) {
+
+  // Count rules in the tree structure
+  const ruleCount = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
+
+  // Only show if filter is enabled and has rules
+  if (!filterConfig.enabled || ruleCount === 0) {
     return null
   }
 
-  const conditionCount = filterConfig.conditions.length
-  const conditionLabel = conditionCount === 1 ? '1 condition' : `${conditionCount} conditions`
+  const ruleLabel = ruleCount === 1 ? '1 rule' : `${ruleCount} rules`
+  const combinator = filterConfig.root?.combinator || 'and'
 
   return (
     <SingleCard
       label={['Filter']}
-      value={[`${conditionLabel} (${filterConfig.combinator.toUpperCase()})`]}
+      value={[`${ruleLabel} (${combinator.toUpperCase()})`]}
       orientation="center"
       width="full"
       onClick={() => onStepClick(StepKeys.FILTER_CONFIGURATOR)}
@@ -98,12 +102,7 @@ const DeduplicationCase = ({
         })()}
 
       {/* Filter card (if filter is configured) */}
-      <FilterCard
-        onStepClick={onStepClick}
-        disabled={disabled}
-        validation={validation}
-        activeStep={activeStep}
-      />
+      <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
 
       {/* Bottom card: Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -171,7 +170,9 @@ const JoinCase = ({
             onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1, 0)}
             disabled={disabled}
             validation={validation.topicsValidation}
-            selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || activeStep === StepKeys.TOPIC_SELECTION_1}
+            selected={
+              activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || activeStep === StepKeys.TOPIC_SELECTION_1
+            }
           />
         ) : (
           <SingleColumnCard
@@ -194,7 +195,9 @@ const JoinCase = ({
             onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2, 1)}
             disabled={disabled}
             validation={validation.topicsValidation}
-            selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2 || activeStep === StepKeys.TOPIC_SELECTION_2}
+            selected={
+              activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2 || activeStep === StepKeys.TOPIC_SELECTION_2
+            }
           />
         ) : (
           <SingleColumnCard
@@ -236,12 +239,7 @@ const JoinCase = ({
       </div>
 
       {/* Filter card (if filter is configured) */}
-      <FilterCard
-        onStepClick={onStepClick}
-        disabled={disabled}
-        validation={validation}
-        activeStep={activeStep}
-      />
+      <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -345,12 +343,7 @@ const JoinDeduplicationCase = ({
       </div>
 
       {/* Filter card (if filter is configured) */}
-      <FilterCard
-        onStepClick={onStepClick}
-        disabled={disabled}
-        validation={validation}
-        activeStep={activeStep}
-      />
+      <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard

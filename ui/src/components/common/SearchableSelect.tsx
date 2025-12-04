@@ -3,9 +3,25 @@
 import { useState, useEffect, useRef, KeyboardEvent } from 'react'
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
+import { Label } from '@/src/components/ui/label'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { cn } from '@/src/utils/common.client'
 import { createPortal } from 'react-dom'
+
+interface SearchableSelectProps {
+  availableOptions: string[]
+  selectedOption?: string
+  onSelect: (option: string | null) => void
+  placeholder?: string
+  className?: string
+  disabled?: boolean
+  clearable?: boolean
+  open?: boolean
+  onOpenChange?: (isOpen: boolean) => void
+  readOnly?: boolean
+  label?: string
+  error?: string
+}
 
 export function SearchableSelect({
   availableOptions,
@@ -19,19 +35,8 @@ export function SearchableSelect({
   onOpenChange,
   readOnly,
   label,
-}: {
-  availableOptions: string[]
-  selectedOption?: string
-  onSelect: (option: string | null) => void
-  placeholder?: string
-  className?: string
-  disabled?: boolean
-  clearable?: boolean
-  open?: boolean
-  onOpenChange?: (isOpen: boolean) => void
-  readOnly?: boolean
-  label?: string
-}) {
+  error,
+}: SearchableSelectProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -247,10 +252,15 @@ export function SearchableSelect({
   return (
     <div ref={containerRef} className={cn('relative w-full', className)} onKeyDown={handleKeyDown}>
       <div className="flex items-center">
-        <div className="flex flex-col items-left gap-2 w-full">
-          {label && <span className="text-sm text-content">{label}</span>}
+        <div className="flex flex-col items-left w-full">
+          {label && (
+            <Label htmlFor="searchable-select-input" className="text-xs text-content mb-1 block">
+              {label}
+            </Label>
+          )}
           <div className="relative w-full">
             <Input
+              id="searchable-select-input"
               ref={inputRef}
               type="text"
               placeholder={placeholder}
@@ -260,6 +270,7 @@ export function SearchableSelect({
               onFocus={() => !disabled && !readOnly && setOpen(true)}
               className={cn(
                 'w-full pr-10 input-regular input-border-regular text-content',
+                error && 'input-border-error',
                 disabled && 'opacity-60 cursor-not-allowed',
               )}
               disabled={disabled || readOnly}
@@ -301,6 +312,8 @@ export function SearchableSelect({
               />
             </div>
           </div>
+          {/* Reserve space for error message to prevent layout shift */}
+          <div className="h-5 mt-0.5">{error && <p className="input-description-error text-sm">{error}</p>}</div>
         </div>
       </div>
 

@@ -4,19 +4,17 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Label } from '@/src/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { PlusIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
-import { v4 as uuidv4 } from 'uuid'
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { StepKeys } from '@/src/config/constants'
 import FormActions from '@/src/components/shared/FormActions'
-import { FilterConditionRow } from './components/FilterConditionRow'
-import { FilterCondition, FilterOperator } from '@/src/store/filter.store'
+import { QueryGroup } from './components/QueryGroup'
+import { FilterRule, FilterGroup } from '@/src/store/filter.store'
 import {
   toExprString,
   validateFilterConfigLocally,
-  getDefaultValueForType,
-  getOperatorsForType,
   FilterConfigValidation,
+  countRulesInGroup,
+  getAllRules,
 } from './utils'
 import { validateFilterExpression, FilterValidationField } from '@/src/api/pipeline-api'
 
@@ -90,6 +88,12 @@ export function FilterConfigurator({
     globalErrors: [],
   })
 
+  // Track which conditions have been touched (interacted with by user)
+  const [touchedConditions, setTouchedConditions] = useState<Set<string>>(new Set())
+
+  // Track if save has been attempted (to show all validation errors)
+  const [saveAttempted, setSaveAttempted] = useState(false)
+
   // State for tracking save success in edit mode
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
@@ -97,18 +101,32 @@ export function FilterConfigurator({
   const prevConfigKeyRef = useRef<string>('')
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Create a stable key for the filter config - computed directly without useMemo
-  // to avoid dependency on array references
+  // Helper to serialize the filter tree for comparison
+  const serializeGroup = (group: FilterGroup): any => ({
+    id: group.id,
+    combinator: group.combinator,
+    not: group.not,
+    children: group.children.map((child) => {
+      if (child.type === 'rule') {
+        return {
+          type: 'rule',
+          id: child.id,
+          field: child.field,
+          fieldType: child.fieldType,
+          operator: child.operator,
+          value: child.value,
+          not: child.not,
+        }
+      } else {
+        return serializeGroup(child)
+      }
+    }),
+  })
+
+  // Create a stable key for the filter config
   const filterConfigKey = JSON.stringify({
     enabled: filterConfig.enabled,
-    combinator: filterConfig.combinator,
-    conditions: filterConfig.conditions.map((c) => ({
-      id: c.id,
-      field: c.field,
-      fieldType: c.fieldType,
-      operator: c.operator,
-      value: c.value,
-    })),
+    root: filterConfig.root ? serializeGroup(filterConfig.root) : null,
   })
 
   // Debounced backend validation - only run when filterConfigKey actually changes
@@ -125,14 +143,28 @@ export function FilterConfigurator({
       validationTimeoutRef.current = null
     }
 
-    if (!filterConfig.enabled || filterConfig.conditions.length === 0) {
+    const totalRules = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
+
+    if (!filterConfig.enabled || totalRules === 0) {
       setLocalValidation({ isValid: true, conditionErrors: {}, globalErrors: [] })
       return
     }
 
     // First do local validation
     const localResult = validateFilterConfigLocally(filterConfig)
-    setLocalValidation(localResult)
+
+    // Only show errors for touched conditions or if save was attempted
+    const filteredErrors: Record<string, any> = {}
+    for (const [id, errors] of Object.entries(localResult.conditionErrors)) {
+      if (touchedConditions.has(id) || saveAttempted) {
+        filteredErrors[id] = errors
+      }
+    }
+
+    setLocalValidation({
+      ...localResult,
+      conditionErrors: filteredErrors,
+    })
 
     if (!localResult.isValid) {
       return
@@ -165,41 +197,49 @@ export function FilterConfigurator({
         clearTimeout(validationTimeoutRef.current)
       }
     }
-  }, [filterConfigKey]) // Only depend on the stringified key
+  }, [filterConfigKey, touchedConditions, saveAttempted]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Add new condition
-  const handleAddCondition = useCallback(() => {
-    // Don't set default operator/value until field is selected
-    const newCondition: FilterCondition = {
-      id: uuidv4(),
-      field: '',
-      fieldType: '',
-      operator: '' as FilterOperator, // Will be set when field is selected
-      value: '',
-    }
-    filterStore.addCondition(newCondition)
-  }, [filterStore])
+  // Mark a condition as touched
+  const handleTouched = useCallback((id: string) => {
+    setTouchedConditions((prev) => new Set(prev).add(id))
+  }, [])
 
-  // Update condition
-  const handleUpdateCondition = useCallback(
-    (id: string, updates: Partial<FilterCondition>) => {
-      filterStore.updateCondition(id, updates)
+  // Add new rule to a group
+  const handleAddRule = useCallback(
+    (parentGroupId: string) => {
+      filterStore.addRule(parentGroupId)
     },
     [filterStore],
   )
 
-  // Remove condition
-  const handleRemoveCondition = useCallback(
-    (id: string) => {
-      filterStore.removeCondition(id)
+  // Add new group to a parent group
+  const handleAddGroup = useCallback(
+    (parentGroupId: string) => {
+      filterStore.addGroup(parentGroupId)
     },
     [filterStore],
   )
 
-  // Change combinator
-  const handleCombinatorChange = useCallback(
-    (value: string) => {
-      filterStore.setCombinator(value as 'and' | 'or')
+  // Update rule
+  const handleUpdateRule = useCallback(
+    (ruleId: string, updates: Partial<Omit<FilterRule, 'id' | 'type'>>) => {
+      filterStore.updateRule(ruleId, updates)
+    },
+    [filterStore],
+  )
+
+  // Update group
+  const handleUpdateGroup = useCallback(
+    (groupId: string, updates: Partial<Pick<FilterGroup, 'combinator' | 'not'>>) => {
+      filterStore.updateGroup(groupId, updates)
+    },
+    [filterStore],
+  )
+
+  // Remove item (rule or group)
+  const handleRemoveItem = useCallback(
+    (itemId: string) => {
+      filterStore.removeItem(itemId)
     },
     [filterStore],
   )
@@ -212,6 +252,15 @@ export function FilterConfigurator({
 
   // Save and continue
   const handleSave = useCallback(() => {
+    // Mark save as attempted to show all validation errors
+    setSaveAttempted(true)
+
+    // Mark all rules as touched
+    if (filterConfig.root) {
+      const allRules = getAllRules(filterConfig.root)
+      setTouchedConditions(new Set(allRules.map((r) => r.id)))
+    }
+
     // Validate locally
     const validation = validateFilterConfigLocally(filterConfig)
     setLocalValidation(validation)
@@ -239,7 +288,8 @@ export function FilterConfigurator({
 
   // Determine if we can continue
   const canContinue = useMemo(() => {
-    if (!filterConfig.enabled || filterConfig.conditions.length === 0) {
+    const totalRules = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
+    if (!filterConfig.enabled || totalRules === 0) {
       return true // Can skip filter
     }
     return localValidation.isValid && backendValidation.status === 'valid'
@@ -247,7 +297,8 @@ export function FilterConfigurator({
 
   // Render validation status badge
   const renderValidationStatus = () => {
-    if (!filterConfig.enabled || filterConfig.conditions.length === 0) {
+    const totalRules = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
+    if (!filterConfig.enabled || totalRules === 0) {
       return null
     }
 
@@ -281,6 +332,8 @@ export function FilterConfigurator({
     return null
   }
 
+  const totalRules = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
+
   return (
     <div className="flex flex-col gap-6">
       {/* Description */}
@@ -290,63 +343,37 @@ export function FilterConfigurator({
           : 'Select a topic and wait for event data to load to configure filtering.'}
       </div>
 
-      {/* Conditions */}
+      {/* Query Builder */}
       {availableFields.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label className="text-lg font-medium text-content">Filter Conditions</Label>
-            {filterConfig.conditions.length > 1 && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Combine with:</span>
-                <Select value={filterConfig.combinator} onValueChange={handleCombinatorChange} disabled={readOnly}>
-                  <SelectTrigger className="w-24 h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="and">AND</SelectItem>
-                    <SelectItem value="or">OR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
+          <Label className="text-lg font-medium text-content">Filter Rules</Label>
 
-          {/* Condition rows */}
-          <div className="space-y-4">
-            {filterConfig.conditions.map((condition, index) => (
-              <FilterConditionRow
-                key={condition.id}
-                condition={condition}
-                availableFields={availableFields}
-                onChange={handleUpdateCondition}
-                onRemove={handleRemoveCondition}
-                validation={localValidation.conditionErrors[condition.id]}
-                readOnly={readOnly}
-                isFirst={index === 0}
-              />
-            ))}
-          </div>
-
-          {/* Add condition button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddCondition}
-            disabled={readOnly}
-            className="flex items-center gap-2"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Filter
-          </Button>
+          {/* Query Group (recursive) */}
+          {filterConfig.root && (
+            <QueryGroup
+              group={filterConfig.root}
+              availableFields={availableFields}
+              onAddRule={handleAddRule}
+              onAddGroup={handleAddGroup}
+              onUpdateRule={handleUpdateRule}
+              onUpdateGroup={handleUpdateGroup}
+              onRemoveItem={handleRemoveItem}
+              onTouched={handleTouched}
+              conditionErrors={localValidation.conditionErrors}
+              readOnly={readOnly}
+              depth={0}
+              isRoot={true}
+            />
+          )}
 
           {/* Generated expression preview */}
-          {filterConfig.conditions.length > 0 && (
+          {totalRules > 0 && (
             <div className="mt-6 p-4 bg-muted/50 rounded-lg space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-muted-foreground">Generated Expression</Label>
                 {renderValidationStatus()}
               </div>
-              <code className="block text-sm font-mono p-2 bg-background rounded border">
+              <code className="block text-sm font-mono p-2 bg-background rounded border break-all">
                 {filterStore.expressionString || toExprString(filterConfig) || '(empty)'}
               </code>
             </div>
