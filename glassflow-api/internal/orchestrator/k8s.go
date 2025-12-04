@@ -343,7 +343,7 @@ func (k *K8sOrchestrator) DeletePipeline(ctx context.Context, pipelineID string)
 }
 
 // ResumePipeline implements Orchestrator.
-func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string) error {
+func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string, pipelineCfg *models.PipelineConfig) error {
 	k.log.InfoContext(ctx, "resuming k8s pipeline", "pipeline_id", pipelineID)
 
 	// Get the pipeline CRD
@@ -369,6 +369,15 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string)
 		k.log.ErrorContext(ctx, "pipeline status validation failed for resume", "pipeline_id", pipelineID, "current_status", pipelineConfig.Status.OverallStatus, "error", err)
 		return err
 	}
+
+	// Build new spec using the same logic as SetupPipeline
+	specMap, err := k.buildPipelineSpec(ctx, pipelineCfg)
+	if err != nil {
+		return err
+	}
+
+	// Replace the entire spec
+	customResource.Object["spec"] = specMap
 
 	annotations := customResource.GetAnnotations()
 	if annotations == nil {

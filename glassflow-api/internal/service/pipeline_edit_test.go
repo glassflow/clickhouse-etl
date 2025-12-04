@@ -43,8 +43,8 @@ func (m *MockOrchestrator) DeletePipeline(ctx context.Context, pid string) error
 	return args.Error(0)
 }
 
-func (m *MockOrchestrator) ResumePipeline(ctx context.Context, pid string) error {
-	args := m.Called(ctx, pid)
+func (m *MockOrchestrator) ResumePipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error {
+	args := m.Called(ctx, pid, newCfg)
 	return args.Error(0)
 }
 
