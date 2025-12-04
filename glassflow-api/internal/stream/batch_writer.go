@@ -32,27 +32,20 @@ func NewNatsBatchWriter(
 	}
 }
 
-func (w *NatsAsyncBatchWriter) WriteBatch(ctx context.Context, messages []jetstream.Msg) error {
+func (w *NatsAsyncBatchWriter) WriteNatsBatch(ctx context.Context, messages []*nats.Msg) error {
 	if len(messages) == 0 {
 		return nil
 	}
 
 	futures := make([]jetstream.PubAckFuture, 0, len(messages))
-
 	for _, msg := range messages {
-		natsMsgToPublish := &nats.Msg{
-			Subject: w.publisher.GetSubject(),
-			Data:    msg.Data(),
-			Header:  msg.Headers(),
-		}
-
-		fut, err := w.publisher.PublishNatsMsgAsync(natsMsgToPublish, w.pendingPublishesLimit)
+		fut, err := w.publisher.PublishNatsMsgAsync(msg, w.pendingPublishesLimit)
 		if err != nil {
 			w.log.Error("Failed to publish message async",
 				slog.Any("error", err),
-				slog.String("subject", natsMsgToPublish.Subject))
+				slog.String("subject", msg.Subject))
 
-			if dlqErr := w.pushMsgToDLQ(ctx, natsMsgToPublish.Data, err); dlqErr != nil {
+			if dlqErr := w.pushMsgToDLQ(ctx, msg.Data, err); dlqErr != nil {
 				return fmt.Errorf("failed to publish async: %w", err)
 			}
 
@@ -80,6 +73,22 @@ func (w *NatsAsyncBatchWriter) WriteBatch(ctx context.Context, messages []jetstr
 	}
 
 	return nil
+}
+
+func (w *NatsAsyncBatchWriter) WriteBatch(ctx context.Context, messages []jetstream.Msg) error {
+	natsMessagesToPublish := make([]*nats.Msg, 0, len(messages))
+
+	for _, msg := range messages {
+		natsMsgToPublish := &nats.Msg{
+			Subject: w.publisher.GetSubject(),
+			Data:    msg.Data(),
+			Header:  msg.Headers(),
+		}
+
+		natsMessagesToPublish = append(natsMessagesToPublish, natsMsgToPublish)
+	}
+
+	return w.WriteNatsBatch(ctx, natsMessagesToPublish)
 }
 
 func (w *NatsAsyncBatchWriter) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) error {
