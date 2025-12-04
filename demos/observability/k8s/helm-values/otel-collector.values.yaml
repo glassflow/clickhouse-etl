@@ -51,17 +51,11 @@ config:
           topic:
             name: otel-metrics-sum
         histogram:
-          enabled: true
-          topic:
-            name: otel-metrics-histogram
+          enabled: false
         summary:
-          enabled: true
-          topic:
-            name: otel-metrics-summary
+          enabled: false
         exponential_histogram:
-          enabled: true
-          topic:
-            name: otel-metrics-exponential-histogram
+          enabled: false
         gauge:
           enabled: true
           topic:
