@@ -1,0 +1,294 @@
+---
+title: 'Join'
+description: 'Learn how temporal joins work in GlassFlow and how to configure them'
+---
+
+# Join
+
+The **Join** transformation combines data from multiple Kafka topics based on join keys and time windows. This enables you to enrich your data by merging related events from different sources using a temporal join algorithm.
+
+## How It Works
+
+Join in GlassFlow uses a temporal join algorithm that matches events from different streams based on join keys within a configurable time window. The process maintains separate key-value stores for each stream to enable efficient matching.
+
+### Internal Process
+
+The join service maintains separate key-value (KV) stores for the left and right streams:
+
+#### Left Stream Processing
+
+1. When a message arrives from the left stream, the system looks up its join key in the right stream's KV store
+2. If a matching key is found in the right KV store, the messages are joined and sent to the output stream
+3. If no match is found, the message is stored in the left KV store using its join key
+4. After a joined message is successfully sent to the output stream, the related left-stream message is removed from the left KV store
+
+#### Right Stream Processing
+
+1. When a message arrives from the right stream, it is automatically stored in the right KV store
+2. The system then checks if a matching key exists in the left KV store
+3. If a match is found, the messages are joined and sent to the output stream
+4. The matched left-stream message is removed from the left KV store after successful join
+
+### Time Window and TTL
+
+- Both left and right KV stores have a configured time-to-live (TTL) for each key, based on the join time window
+- Entries are automatically evicted from the KV stores when their TTL expires
+- This ensures that only messages within the configured time window are considered for joining
+- Messages can be evicted only after they have been successfully joined and sent to the output stream, or when their TTL expires
+
+### Join Orientations
+
+GlassFlow supports two join orientations:
+
+- **Left Join**: All messages from the left stream are included, matched with right stream messages when available
+- **Right Join**: All messages from the right stream are included, matched with left stream messages when available
+
+For more details on the join algorithm, see the [Data Flow](/architecture/data-flow#stage-4-join-optional) documentation.
+
+## Configuration
+
+Join is configured at the pipeline level. Here's the configuration structure:
+
+```json
+{
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "orders-topic",
+        "join_key": "order_id",
+        "time_window": "1h",
+        "orientation": "left"
+      },
+      {
+        "source_id": "payments-topic",
+        "join_key": "order_id",
+        "time_window": "1h",
+        "orientation": "right"
+      }
+    ]
+  }
+}
+```
+
+### Configuration Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | Yes | Whether joining is enabled |
+| `type` | string | Yes | Join type. Currently only `"temporal"` is supported |
+| `sources` | array | Yes | List of sources to join. Must contain exactly 2 sources. See [Join Source Configuration](#join-source-configuration) |
+
+### Join Source Configuration
+
+Each source in the `sources` array has the following configuration:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source_id` | string | Yes | Name of the Kafka topic to join. Must match a topic name in the `source.topics` array |
+| `join_key` | string | Yes | Field name in the events used for joining records. Must exist in both source topics |
+| `time_window` | string | Yes | Time window for joining records (e.g., `"1h"` for one hour). See [Time Windows](#time-windows) |
+| `orientation` | string | Yes | Join orientation. Must be either `"left"` or `"right"` |
+
+### Time Windows
+
+Time windows specify the maximum time difference between events that can be joined. Supported formats:
+
+- `"30s"` - 30 seconds
+- `"1m"` - 1 minute
+- `"1h"` - 1 hour
+- `"24h"` - 24 hours
+- `"7d"` - 7 days
+
+The time window determines:
+- How long events are kept in the KV stores waiting for a match
+- The maximum time difference between events that will be joined
+- When unmatched events are evicted from the stores
+
+## Use Cases
+
+### Enriching Events with Related Data
+
+Join orders with payment information to create enriched order records:
+
+```json
+{
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "orders",
+        "join_key": "order_id",
+        "time_window": "5m",
+        "orientation": "left"
+      },
+      {
+        "source_id": "payments",
+        "join_key": "order_id",
+        "time_window": "5m",
+        "orientation": "right"
+      }
+    ]
+  }
+}
+```
+
+### Combining User Activity Streams
+
+Join user profile updates with user activity events:
+
+```json
+{
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "user-profiles",
+        "join_key": "user_id",
+        "time_window": "1h",
+        "orientation": "left"
+      },
+      {
+        "source_id": "user-activities",
+        "join_key": "user_id",
+        "time_window": "1h",
+        "orientation": "right"
+      }
+    ]
+  }
+}
+```
+
+### Merging Product Information
+
+Join product catalog updates with product sales events:
+
+```json
+{
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "product-catalog",
+        "join_key": "product_id",
+        "time_window": "24h",
+        "orientation": "left"
+      },
+      {
+        "source_id": "product-sales",
+        "join_key": "product_id",
+        "time_window": "24h",
+        "orientation": "right"
+      }
+    ]
+  }
+}
+```
+
+## Best Practices
+
+### Choosing Join Keys
+
+- **Use stable identifiers**: Join keys should be stable and consistent across both streams (e.g., order IDs, user IDs, product IDs)
+- **Avoid high-cardinality fields**: Very high-cardinality join keys can increase memory usage
+- **Ensure key presence**: The join key field must exist in both source topics
+
+### Setting Time Windows
+
+- **Match event arrival patterns**: Set the time window based on the expected time difference between related events
+- **Consider processing delays**: Account for potential delays in event processing or network latency
+- **Balance memory and coverage**: Longer windows use more memory but catch matches over longer periods
+- **Avoid excessive windows**: Very long windows may hold unmatched events unnecessarily
+
+### Join Orientation
+
+- **Left join**: Use when you want all events from the first source, with optional enrichment from the second
+- **Right join**: Use when you want all events from the second source, with optional enrichment from the first
+- **Choose based on data volume**: Consider which stream has higher volume and should be the primary stream
+
+### Performance Considerations
+
+- **Memory usage**: The KV stores size depends on the number of unique join keys within the time window
+- **Event ordering**: Join works best when events arrive in roughly chronological order
+- **Unmatched events**: Events that don't find a match within the time window are evicted and won't be joined
+
+## Example Configuration
+
+Here's a complete example of a pipeline with join enabled:
+
+```json
+{
+  "version": "v2",
+  "pipeline_id": "joined-pipeline",
+  "name": "Orders and Payments Join Pipeline",
+  "source": {
+    "type": "kafka",
+    "connection_params": {
+      "brokers": ["kafka:9092"]
+    },
+    "topics": [
+      {
+        "name": "orders-topic"
+      },
+      {
+        "name": "payments-topic"
+      }
+    ]
+  },
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "sources": [
+      {
+        "source_id": "orders-topic",
+        "join_key": "order_id",
+        "time_window": "1h",
+        "orientation": "left"
+      },
+      {
+        "source_id": "payments-topic",
+        "join_key": "order_id",
+        "time_window": "1h",
+        "orientation": "right"
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "connection_params": {
+      "host": "clickhouse:9000",
+      "database": "analytics",
+      "table": "joined_orders"
+    }
+  }
+}
+```
+
+## Combining with Other Transformations
+
+### Join + Deduplication
+
+You can combine join with deduplication to ensure unique joined results:
+
+1. Enable deduplication on the source topics
+2. Enable join to combine the deduplicated streams
+3. This ensures that duplicate events don't create duplicate joins
+
+### Filter + Join
+
+You can filter events before joining:
+
+1. Configure filters on the source topics
+2. Only filtered events participate in the join
+3. This reduces the number of events in the join stores
+
+## Related Documentation
+
+- [Data Flow - Join Stage](/architecture/data-flow#stage-4-join-optional)
+- [Pipeline JSON Reference - Join Configuration](/configuration/pipeline-json-reference#join-configuration)
+- [Transformations Overview](/usage-guide/transformations)
+
