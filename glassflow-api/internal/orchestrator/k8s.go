@@ -89,10 +89,8 @@ func (k *K8sOrchestrator) getPipelineConfigFromK8sResource(customResource *unstr
 		case "Failed":
 			currentStatus = internal.PipelineStatusFailed
 		default:
-			currentStatus = internal.PipelineStatusCreated
+			currentStatus = "Unknown"
 		}
-	} else {
-		currentStatus = internal.PipelineStatusCreated
 	}
 
 	return &models.PipelineConfig{
