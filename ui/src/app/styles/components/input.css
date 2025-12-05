@@ -32,10 +32,8 @@
 .input-gradient-active {
   border-radius: 6px;
   border: 1px solid var(--color-background-primary);
-  background: linear-gradient(180deg, #252527 0%, #1a1a1c 100%);
-  box-shadow:
-    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+  background: var(--card-bg-elevated);
+  box-shadow: var(--card-shadow);
   position: relative;
 }
 
@@ -45,7 +43,7 @@
   inset: -3px;
   border-radius: 6px;
   padding: 1px;
-  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
+  background: var(--card-active-glow);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
