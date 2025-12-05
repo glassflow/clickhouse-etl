@@ -6,10 +6,9 @@
 
 /* Import base variables first, then theme-specific ones */
 /* Note: colors.css is now consolidated into base.css, but kept for reference */
-/* Note: Light theme removed - app only uses dark theme */
 @import '../themes/base.css';
 @import '../themes/dark/theme.css';
-@import '../themes/semantic.css';
+@import '../themes/light/theme.css';
 
 @import './styles/index.css';
 
@@ -18,8 +17,6 @@
     /* Typography */
     --font-sans: var(--font-family-body);
     --font-heading: var(--font-family-title);
-
-    /* Note: --radius is defined in dark/theme.css as a shadcn/ui variable */
 
     /* Animation */
     --transition-fast: var(--duration-fast);
@@ -30,8 +27,6 @@
     /* Shadows */
     --shadow-sm: var(--shadow-raised);
     --shadow-md: var(--shadow-overlay);
-
-    /* Note: shadcn/ui color mappings are defined in dark/theme.css */
 
     /* Layout */
     --main-container-width: 1240px;

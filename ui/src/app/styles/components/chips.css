@@ -50,8 +50,8 @@
 
 /* Legacy chip variants (for backward compatibility) */
 .chip-positive {
-  background-color: var(--color-background-positive);
-  color: var(--color-foreground-positive);
+  background-color: var(--chip-bg-positive);
+  color: var(--chip-fg-positive);
   display: inline-flex;
   align-items: center;
   padding: var(--chip-padding-y) var(--chip-padding-x);
@@ -64,16 +64,16 @@
 }
 
 .chip-negative {
-  background-color: var(--color-background-critical);
-  color: var(--color-foreground-critical);
+  background-color: var(--chip-bg-negative);
+  color: var(--chip-fg-negative);
 }
 
 .chip-neutral {
-  background-color: var(--color-background-neutral);
-  color: var(--color-foreground-neutral);
+  background-color: var(--chip-bg-neutral);
+  color: var(--chip-fg-neutral);
 }
 
 .chip-neutral-faded {
-  background-color: var(--color-background-neutral-faded);
-  color: var(--color-foreground-neutral-faded);
+  background-color: var(--chip-bg-neutral-faded);
+  color: var(--chip-fg-neutral-faded);
 }

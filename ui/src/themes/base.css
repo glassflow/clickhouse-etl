@@ -194,8 +194,8 @@
    * Dark Theme Gray Scale (for dark mode backgrounds, borders, text)
    * These map to Figma's gray-cool scale
    */
-  --color-gray-dark-50: #f3f3f5; /* Light text on dark backgrounds */
-  --color-gray-dark-100: #dfe2ea; /* Figma: gray-cool-100 - secondary text, icons */
+  --color-gray-dark-50: #f1f2f6; /* Light text on dark backgrounds */
+  --color-gray-dark-100: #dfedf6; /* Figma: gray-cool-100 - secondary text, icons */
   --color-gray-dark-300: #6c6c6c; /* Borders, menu backgrounds */
   --color-gray-dark-400: #5b667e; /* Figma: slate-500 - info borders */
   --color-gray-dark-500: #494a4e; /* Disabled text/icons */
@@ -205,8 +205,35 @@
   --color-gray-dark-900: #161617; /* Regular/elevation backgrounds, icon hover */
   --color-gray-dark-950: #0e0e10; /* Page background */
 
-  --color-gradient-grey-100: #bebebe;
-  --color-gradient-grey-200: #a1a1a1;
+  /* Gray Colors */
+  --color-gray-100: #e6e6e6; /* Very light gray */
+  --color-gray-200: #b0b0b0; /* Light gray */
+  --color-gray-250: #a8adb8; /* Label and placeholder text */
+  --color-gray-300: #919191; /* Medium gray */
+  --color-gray-400: #757575; /* Dark gray */
+  --color-gray-500: #373737; /* Failed/disabled components background */
+  --color-gray-600: #242424; /* Used for background in table header, list header */
+  --color-gray-700: #1a1a1a; /* Used for background with gradient - start */
+  --color-gray-750: #141414; /* Used for background with gradient - end */
+
+  /* 
+   * Light Theme Gray Scale (for light mode backgrounds, borders, text)
+   * These map to standard neutral scale for light themes
+   */
+  --color-gray-light-50: #fafafa; /* Page background */
+  --color-gray-light-100: #f5f5f5; /* Elevation/card backgrounds */
+  --color-gray-light-200: #e5e5e5; /* Borders, dividers */
+  --color-gray-light-300: #d4d4d4; /* Subtle borders */
+  --color-gray-light-400: #a3a3a3; /* Placeholder text, icons */
+  --color-gray-light-500: #737373; /* Secondary text */
+  --color-gray-light-600: #525252; /* Primary text */
+  --color-gray-light-700: #404040; /* Headings */
+  --color-gray-light-800: #262626; /* Strong text */
+  --color-gray-light-900: #171717; /* Maximum contrast text */
+
+  /* Gradient Colors for secondary buttons with gradient */
+  --color-gradient-grey-100: #bebebe; /* Used for background with gradient - start */
+  --color-gradient-grey-200: #a1a1a1; /* Used for background with gradient - end */
 
   --color-black-100: #242424; /* used for background in table header, list header */
   --color-black-200: #2d2d2d; /* used for border with gradient - end */
@@ -248,4 +275,28 @@
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
+
+  /* Container Tokens */
+  --container-width: 100%;
+  --container-max-width: 1200px;
+  --container-padding-x: var(--unit-x4);
+  --container-padding-y: var(--unit-x4);
+  --container-gap: var(--unit-x4);
+  --container-border-radius: var(--radius-large);
+  --container-border: var(--color-border-neutral);
+  --container-shadow: var(--shadow-raised);
+  --container-background: var(--color-background-neutral);
+
+  --elevated-background: var(--color-background-elevation-base);
+
+  /* Page Tokens */
+  --page-width: 100%;
+  --page-max-width: 1200px;
+  --page-padding-x: var(--unit-x4);
+  --page-padding-y: var(--unit-x4);
+  --page-gap: var(--unit-x4);
+  --page-border-radius: var(--radius-large);
+  --page-border: var(--color-border-neutral);
+  --page-shadow: var(--shadow-raised);
+  --page-background: var(--color-background-regular);
 }

@@ -66,12 +66,8 @@
 }
 
 .btn-neutral:disabled {
-  background: linear-gradient(
-    134deg,
-    var(--color-background-disabled) 18.07%,
-    var(--color-background-disabled-faded) 76.51%
-  );
-  color: var(--color-on-background-disabled);
+  background: linear-gradient(134deg, var(--btn-bg-disabled) 18.07%, var(--btn-bg-disabled-faded) 76.51%);
+  color: var(--btn-fg-disabled);
 }
 
 .btn-critical {
@@ -139,8 +135,8 @@
 }
 
 .btn-secondary:disabled {
-  background: linear-gradient(180deg, var(--color-background-disabled) 0%, var(--color-background-disabled-faded) 100%);
-  color: var(--color-foreground-disabled);
+  background: linear-gradient(180deg, var(--btn-bg-disabled) 0%, var(--btn-bg-disabled-faded) 100%);
+  color: var(--btn-fg-disabled);
   opacity: 0.6;
 }
 
@@ -223,55 +219,55 @@
 }
 
 .btn-tertiary:disabled {
-  background-color: var(--color-background-disabled);
-  color: var(--color-foreground-disabled);
+  background-color: var(--btn-bg-disabled);
+  color: var(--btn-fg-disabled);
   opacity: 0.6;
 }
 
 .btn-tertiary2 {
   /* Layout & Spacing */
-  padding: var(--button-tertiary2-padding-y) var(--button-tertiary2-padding-x);
-  border-radius: var(--button-tertiary2-border-radius);
+  padding: var(--button-ghost-padding-y) var(--button-ghost-padding-x);
+  border-radius: var(--button-ghost-border-radius);
   gap: var(--unit-x2);
 
   /* Background - Dark grey matching Figma design */
-  background-color: var(--button-tertiary2-bg);
+  background-color: var(--button-ghost-bg);
 
   /* Border - matching Figma design (no shadow) */
-  border: var(--button-tertiary2-border);
+  border: var(--button-ghost-border);
 
   /* Shadow - none for tertiary2 */
-  box-shadow: var(--button-tertiary2-shadow);
+  box-shadow: var(--button-ghost-shadow);
 
   /* Typography - Body 3/Medium from Figma */
-  font-family: var(--button-tertiary2-font-family);
-  font-size: var(--button-tertiary2-font-size);
-  font-weight: var(--button-tertiary2-font-weight);
-  line-height: var(--button-tertiary2-line-height);
-  letter-spacing: var(--button-tertiary2-letter-spacing);
+  font-family: var(--button-ghost-font-family);
+  font-size: var(--button-ghost-font-size);
+  font-weight: var(--button-ghost-font-weight);
+  line-height: var(--button-ghost-line-height);
+  letter-spacing: var(--button-ghost-letter-spacing);
 
   /* Text color - light grey from Figma */
-  color: var(--button-tertiary2-text);
+  color: var(--button-ghost-text);
 
   /* Transitions */
   transition: all var(--duration-fast) var(--easing-standard);
 }
 
 .btn-tertiary2:hover {
-  background-color: var(--button-tertiary2-hover);
-  border-color: var(--button-tertiary2-border-hover);
+  background-color: var(--button-ghost-hover);
+  border-color: var(--button-ghost-border-hover);
   opacity: 0.9;
 }
 
 .btn-tertiary2:active {
-  background-color: var(--button-tertiary2-active);
-  border-color: var(--button-tertiary2-border-active);
+  background-color: var(--button-ghost-active);
+  border-color: var(--button-ghost-border-active);
 }
 
 .btn-tertiary2:disabled {
-  background-color: var(--color-background-disabled);
-  color: var(--color-foreground-disabled);
-  border-color: var(--color-border-disabled);
+  background-color: var(--btn-bg-disabled);
+  color: var(--btn-fg-disabled);
+  border-color: var(--btn-border-disabled);
   opacity: 0.6;
 }
 
@@ -311,10 +307,7 @@
 .btn-card:hover {
   background: linear-gradient(180deg, var(--button-card-bg-gradient-start) 0%, var(--button-card-bg-gradient-end) 100%);
   opacity: 0.9;
-  box-shadow:
-    0px 2px 8px -2px #161617,
-    0px 8px 16px 0px #161617,
-    0px 16px 32px 0px #161617;
+  box-shadow: var(--btn-shadow-hover);
 }
 
 .btn-card:active {
@@ -323,9 +316,9 @@
 }
 
 .btn-card:disabled {
-  background: linear-gradient(180deg, var(--color-background-disabled) 0%, var(--color-background-disabled-faded) 100%);
-  color: var(--color-foreground-disabled);
-  border-color: var(--color-border-disabled);
+  background: linear-gradient(180deg, var(--btn-bg-disabled) 0%, var(--btn-bg-disabled-faded) 100%);
+  color: var(--btn-fg-disabled);
+  border-color: var(--btn-border-disabled);
   opacity: 0.6;
 }
 
@@ -385,9 +378,9 @@
 }
 
 .btn-card-secondary:disabled {
-  background: linear-gradient(180deg, var(--color-background-disabled) 0%, var(--color-background-disabled-faded) 100%);
-  color: var(--color-foreground-disabled);
-  border-color: var(--color-border-disabled);
+  background: linear-gradient(180deg, var(--btn-bg-disabled) 0%, var(--btn-bg-disabled-faded) 100%);
+  color: var(--btn-fg-disabled);
+  border-color: var(--btn-border-disabled);
   opacity: 0.6;
 }
 
@@ -398,14 +391,14 @@
 
 .btn-action {
   background-color: var(--color-background-neutral-faded);
-  color: linear-gradient(180deg, var(--color-black-100) 0%, var(--color-black-200) 100%);
+  color: var(--surface-fg);
   border: none;
-  box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 0.1);
-  padding: 1.24rem 1.75rem;
+  box-shadow: var(--surface-shadow);
+  padding: var(--unit-x5) var(--unit-x7);
   border-radius: var(--radius-medium);
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1.25rem;
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-body-3);
   text-align: center;
   text-decoration: none;
 }

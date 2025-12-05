@@ -3,43 +3,55 @@
 .card-dark {
   display: flex;
   flex-direction: column;
-  gap: var(--unit-x9, 36px);
-  border-radius: var(--radius-large, 12px);
-  border: 1px solid var(--color-gray-dark-300, #6c6c6c);
-  background: var(--color-gray-dark-800, #121214);
-  padding-top: var(--unit-x4, 16px);
-  padding-bottom: var(--unit-x6, 24px);
-  padding-left: var(--unit-x4, 16px);
-  padding-right: var(--unit-x4, 16px);
-  box-shadow:
-    0px 0px 4px 0px #000000,
-    0px 4px 8px 0px #000000;
+  gap: var(--unit-x9);
+  border-radius: var(--radius-large);
+  border: 1px solid transparent;
+  background: var(--card-bg-dark);
+  background-clip: padding-box;
+  padding-top: var(--unit-x4);
+  padding-bottom: var(--unit-x6);
+  padding-left: var(--unit-x4);
+  padding-right: var(--unit-x4);
+  box-shadow: var(--card-shadow-dark);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   position: relative;
   transition: all var(--duration-medium) var(--easing-standard);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: var(--radius-large);
+    background: linear-gradient(180deg, var(--card-border-gradient-start) 0%, var(--card-border-gradient-end) 100%);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: all var(--duration-medium) var(--easing-standard);
+  }
 }
 
 .card-dark:hover {
   /* Enhanced shadow for more depth on hover */
-  box-shadow:
-    0px 2px 8px -2px #161617,
-    0px 8px 16px 0px #161617,
-    0px 16px 32px 0px #161617;
+  box-shadow: var(--card-shadow-hover);
 }
 
 .card {
   border-radius: var(--radius-large);
-  border: 1px solid var(--color-border-regular);
-  background: var(--color-background-regular);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-overlay);
+  box-shadow: var(--surface-shadow-overlay);
 }
 
 .card-regular {
-  background: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
+  background: var(--card-bg-elevated);
   border: 1px solid transparent;
   background-clip: padding-box;
   position: relative;
@@ -51,7 +63,7 @@
     inset: 0;
     padding: 1px;
     border-radius: var(--radius-large);
-    background: linear-gradient(180deg, var(--color-brown-950) 0%, var(--color-black-400) 100%);
+    background: linear-gradient(180deg, var(--card-border-warm-start) 0%, var(--card-border-warm-end) 100%);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
@@ -61,22 +73,16 @@
     transition: all var(--duration-medium) var(--easing-standard);
   }
 
-  box-shadow: var(--shadow-raised);
+  box-shadow: var(--card-shadow);
 }
 
 .card-regular:hover {
-  /* Slightly lighter background gradient for subtle prominence */
-  {{/* background: linear-gradient(180deg, var(--color-black-200) 0%, var(--color-black-500) 100%); */}}
-
   /* Enhanced shadow for more depth */
-  box-shadow:
-    0px 2px 8px -2px rgba(0, 0, 0, 0.6),
-    0px 8px 16px 0px rgba(0, 0, 0, 0.1),
-    0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--card-shadow-hover);
 }
 
 .card-elevated {
-  background: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
+  background: var(--card-bg-elevated);
   border: 1px solid transparent;
   background-clip: padding-box;
   position: relative;
@@ -88,7 +94,7 @@
     inset: 0;
     padding: 1px;
     border-radius: var(--radius-large);
-    background: linear-gradient(180deg, var(--color-brown-950) 0%, var(--color-black-400) 100%);
+    background: linear-gradient(180deg, var(--card-border-warm-start) 0%, var(--card-border-warm-end) 100%);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
@@ -98,36 +104,24 @@
     transition: all var(--duration-medium) var(--easing-standard);
   }
 
-  box-shadow: var(--shadow-raised);
+  box-shadow: var(--card-shadow);
 }
 
 .card-elevated:hover {
   /* Slightly lighter background gradient for subtle prominence */
-  background: linear-gradient(180deg, var(--color-black-200) 0%, var(--color-black-500) 100%);
+  background: var(--card-bg-elevated-hover);
 
   /* Enhanced shadow for more depth */
-  box-shadow: 
-    0px 2px 8px -2px rgba(0, 0, 0, 0.6),
-    0px 8px 16px 0px rgba(0, 0, 0, 0.1),
-    0px 16px 32px 0px rgba(0, 0, 0, 0.08);
-
-  /* Subtle scale effect */
-  {{/* transform: translateY(-1px); */}}
+  box-shadow: var(--card-shadow-hover);
 
   &::before {
     /* More pronounced border gradient */
-    background: linear-gradient(180deg, 
-      var(--color-orange-hover-light) 0%, 
-      var(--color-orange-hover-light) 100%
-    );
-
-    /* Slightly thicker border on hover */
-    {{/* padding: 1.5px; */}}
+    background: linear-gradient(180deg, var(--card-border-hover-warm) 0%, var(--card-border-hover-warm) 100%);
   }
 }
 
 .card-elevated-subtle {
-  background: var(--color-gray-dark-950);
+  background: var(--card-bg-subtle);
   border: 1px solid transparent;
   background-clip: padding-box;
   position: relative;
@@ -139,7 +133,7 @@
     inset: 0;
     padding: 1px;
     border-radius: var(--radius-large);
-    background: linear-gradient(180deg, var(--color-blue-300) 0%, var(--color-black-200) 100%);
+    background: linear-gradient(180deg, var(--card-border-cool-start) 0%, var(--card-border-cool-end) 100%);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
@@ -149,31 +143,25 @@
     transition: all var(--duration-medium) var(--easing-standard);
   }
 
-  box-shadow: var(--shadow-raised);
+  box-shadow: var(--card-shadow);
 }
 
 .card-elevated-subtle:hover {
   /* Slightly lighter background for subtle prominence */
-  background: var(--color-gray-dark-900);
+  background: var(--card-bg-subtle-hover);
 
   /* Enhanced shadow for more depth */
-  box-shadow: 
-    0px 2px 8px -2px rgba(0, 0, 0, 0.6),
-    0px 8px 16px 0px rgba(0, 0, 0, 0.1),
-    0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--card-shadow-hover);
 
   &::before {
     /* More pronounced blue border gradient */
-    background: linear-gradient(180deg, 
-      var(--color-blue-400) 0%, 
-      var(--color-blue-300) 100%
-    );
+    background: linear-gradient(180deg, var(--card-border-hover-cool) 0%, var(--card-border-cool-start) 100%);
   }
 }
 
 /* Active state for selected cards */
 .card:active {
-  box-shadow: var(--shadow-overlay);
+  box-shadow: var(--surface-shadow-overlay);
   position: relative;
 }
 
@@ -183,7 +171,7 @@
   inset: -3px;
   border-radius: 14px;
   padding: 1px;
-  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
+  background: var(--card-active-glow);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -194,37 +182,29 @@
 
 /* Configuration card style */
 .feedback-card {
-  border-radius: 12px;
-  border: 1px solid #a5b9e4;
-  background: linear-gradient(180deg, rgba(91, 102, 126, 0.15) 0%, rgba(165, 185, 228, 0.15) 100%);
-  box-shadow:
-    0px 0px 4px 0px rgba(0, 0, 0, 0.2),
-    0px 8px 16px 0px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-large);
+  border: 1px solid var(--card-feedback-border);
+  background: var(--card-feedback-bg);
+  box-shadow: var(--card-feedback-shadow);
   backdrop-filter: blur(10px);
 }
 
 .feedback-card:hover {
-  border-color: #c4d1f0;
-  background: linear-gradient(180deg, rgba(91, 102, 126, 0.25) 0%, rgba(165, 185, 228, 0.25) 100%);
-  box-shadow:
-    0px 0px 8px 0px rgba(0, 0, 0, 0.25),
-    0px 12px 24px 0px rgba(0, 0, 0, 0.35);
+  border-color: var(--card-feedback-border-hover);
+  background: var(--card-feedback-bg-hover);
+  box-shadow: var(--card-feedback-shadow-hover);
 }
 
 /* Content card style */
 .content-card {
-  border-radius: 12px;
-  border: 1px solid #3d4869;
-  background: linear-gradient(180deg, #1e1e1f 0%, #151517 100%);
-  box-shadow:
-    0px 0px 4px 0px rgba(0, 0, 0, 0.04),
-    0px 8px 16px 0px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-large);
+  border: 1px solid var(--card-content-border);
+  background: var(--card-content-bg);
+  box-shadow: var(--card-content-shadow);
 }
 
 .content-card:hover {
-  background: linear-gradient(180deg, #1a1a1b 0%, #121214 100%);
-  box-shadow:
-    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-  border-color: #4a5a80;
+  background: var(--card-content-bg-hover);
+  box-shadow: var(--card-content-shadow-hover);
+  border-color: var(--card-content-border-hover);
 }

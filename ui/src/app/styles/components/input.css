@@ -1,31 +1,31 @@
 /* ================== Input utilities ================== */
 .input-regular {
-  background-color: var(--color-black-600, #141414);
-  color: var(--color-white, #ffffff);
-  border-radius: var(--radius-small, 4px);
-  padding: var(--unit-x2, 8px) var(--unit-x3, 12px);
+  background-color: var(--control-bg);
+  color: var(--control-fg);
+  border-radius: var(--radius-small);
+  padding: var(--unit-x2) var(--unit-x3);
   height: 36px;
-  font-family: var(--font-family-body-3, Inter, sans-serif);
-  font-size: var(--font-size-body-3, 0.875rem);
-  font-weight: var(--font-weight-regular, 400);
-  line-height: var(--line-height-body-3, 1.25rem);
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
   position: relative;
-  border: 1px solid #373737;
-  transition: border-color var(--duration-fast, 200ms) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
+  border: 1px solid var(--control-border);
+  transition: border-color var(--duration-fast) var(--easing-standard);
 }
 
-/* Active state class for programmatic use - matches Figma design */
+/* Active state class for programmatic use */
 .input-active {
-  border-color: var(--color-background-primary, #ffa24b);
+  border-color: var(--control-border-focus);
 }
 
 .input-border-regular {
-  border: 1px solid #373737;
+  border: 1px solid var(--control-border);
 }
 
-/* Error state - matching Figma design */
+/* Error state */
 .input-border-error {
-  border-color: var(--color-foreground-critical, #e22c2c);
+  border-color: var(--control-border-error);
 }
 
 /* ==== Input Utilities ==== */
@@ -54,52 +54,52 @@
   pointer-events: none;
 }
 
-/* Active/Focused state - matching Figma design */
+/* Active/Focused state */
 .input-regular:focus-visible,
 .input-regular:focus {
   outline: none;
-  border-color: var(--color-background-primary, #ffa24b);
+  border-color: var(--control-border-focus);
 }
 
 /* Error state takes precedence over focus state */
 .input-regular.input-border-error:focus-visible,
 .input-regular.input-border-error:focus {
-  border-color: var(--color-foreground-critical, #e22c2c);
+  border-color: var(--control-border-error);
 }
 
 /* Placeholder styling */
 .input-regular::placeholder {
-  color: var(--color-foreground-neutral-faded, #b6bac3);
-  font-family: var(--font-family-body-3, Inter, sans-serif);
-  font-size: var(--font-size-body-3, 0.875rem);
-  font-weight: var(--font-weight-regular, 400);
-  line-height: var(--line-height-body-3, 1.25rem);
+  color: var(--control-fg-placeholder);
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
 }
 
-/* Disabled state - matching Figma design */
+/* Disabled state */
 .input-regular:disabled {
-  background-color: #1a1a1a; /* gray-700 from Figma */
-  color: #8a8f9a; /* cool-gray-300 from Figma */
-  border-color: #373737; /* Same as regular state - input-field border */
+  background-color: var(--control-bg-disabled);
+  color: var(--control-fg-disabled);
+  border-color: var(--control-border-disabled);
   cursor: not-allowed;
   opacity: 1;
 }
 
 /* Disabled placeholder styling */
 .input-regular:disabled::placeholder {
-  color: #8a8f9a; /* cool-gray-300 from Figma */
+  color: var(--control-fg-disabled);
 }
 
 .input-description-error {
   color: var(--color-foreground-critical);
 }
 
-/* Input Label Styles - matching Figma design */
+/* Input Label Styles */
 .input-label {
-  font-family: var(--font-family-body-3, Inter, sans-serif);
-  font-size: var(--font-size-body-3, 0.875rem);
-  font-weight: var(--font-weight-medium, 500);
-  line-height: var(--line-height-body-3, 1.25rem);
-  color: var(--color-foreground-neutral-faded, var(--color-gray-dark-100, #b6bac3));
-  margin-bottom: var(--unit-x1, 4px);
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-body-3);
+  color: var(--control-fg-placeholder);
+  margin-bottom: var(--unit-x1);
 }

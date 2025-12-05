@@ -107,7 +107,7 @@ export function FormModal({
           border: '1px solid rgba(255, 255, 255, 0.125)',
         }}
       />
-      <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
+      <DialogContent className="info-modal-container surface-gradient-border border-0 px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)]">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-4">{title}</DialogTitle>
           <DialogDescription className="modal-description mb-4">{description}</DialogDescription>

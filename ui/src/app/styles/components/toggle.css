@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   gap: var(--toggle-gap);
-  height: 20px;
+  height: var(--unit-x5);
   position: relative;
 }
 
@@ -86,8 +86,8 @@
 
 /* Focus state */
 .toggle-track:focus-visible {
-  outline: 2px solid var(--interactive-focus-ring);
-  outline-offset: 2px;
+  outline: 2px solid var(--control-border-focus);
+  outline-offset: var(--unit-x1);
 }
 
 /* Hover state */

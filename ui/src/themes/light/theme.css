@@ -1,106 +1,106 @@
 @import '../semantic-tokens.css';
 
-[data-theme='dark'] {
+[data-theme='light'] {
   /* Color system - referencing base color tokens */
 
   /* Primary */
   --color-background-primary: var(--color-orange-300);
-  --color-background-primary-faded: var(--color-brown-800);
+  --color-background-primary-faded: var(--color-orange-100);
   --color-border-primary: var(--color-orange-400);
-  --color-border-primary-faded: var(--color-brown-900);
-  --color-foreground-primary: var(--color-orange-300);
-  --color-foreground-primary-faded: var(--color-orange-700);
+  --color-border-primary-faded: var(--color-orange-200);
+  --color-foreground-primary: var(--color-orange-600);
+  --color-foreground-primary-faded: var(--color-orange-400);
 
   /* Critical */
-  --color-background-critical: var(--color-red-600);
-  --color-background-critical-faded: var(--color-red-800);
+  --color-background-critical: var(--color-red-500);
+  --color-background-critical-faded: var(--color-red-100);
   --color-border-critical: var(--color-red-400);
-  --color-border-critical-faded: var(--color-red-900);
+  --color-border-critical-faded: var(--color-red-200);
   --color-foreground-critical: var(--color-red-500);
-  --color-foreground-critical-faded: var(--color-red-600);
+  --color-foreground-critical-faded: var(--color-red-400);
 
   /* Warning */
-  --color-background-warning: var(--color-yellow-600);
-  --color-background-warning-faded: var(--color-yellow-700);
+  --color-background-warning: var(--color-yellow-500);
+  --color-background-warning-faded: var(--color-yellow-100);
   --color-border-warning: var(--color-yellow-400);
-  --color-border-warning-faded: var(--color-yellow-500);
-  --color-foreground-warning: var(--color-yellow-400);
-  --color-foreground-warning-faded: var(--color-yellow-500);
+  --color-border-warning-faded: var(--color-yellow-200);
+  --color-foreground-warning: var(--color-yellow-700);
+  --color-foreground-warning-faded: var(--color-yellow-600);
 
   /* Positive */
-  --color-background-positive: var(--color-green-600);
-  --color-background-positive-faded: var(--color-green-800);
+  --color-background-positive: var(--color-green-500);
+  --color-background-positive-faded: var(--color-green-100);
   --color-border-positive: var(--color-green-400);
-  --color-border-positive-faded: var(--color-green-900);
-  --color-foreground-positive: var(--color-green-500);
-  --color-foreground-positive-faded: var(--color-green-700);
+  --color-border-positive-faded: var(--color-green-200);
+  --color-foreground-positive: var(--color-green-600);
+  --color-foreground-positive-faded: var(--color-green-500);
 
   /* Neutral */
-  --color-background-neutral: var(--color-gray-dark-600);
-  --color-background-neutral-faded: var(--color-gray-dark-700);
-  --color-border-neutral: var(--color-white);
-  --color-border-neutral-faded: var(--color-gray-dark-300);
-  --color-foreground-neutral: var(--color-gray-dark-50);
-  --color-foreground-neutral-faded: var(--color-gray-250);
+  --color-background-neutral: var(--color-gray-light-100);
+  --color-background-neutral-faded: var(--color-gray-light-200);
+  --color-border-neutral: var(--color-gray-light-700);
+  --color-border-neutral-faded: var(--color-gray-light-300);
+  --color-foreground-neutral: var(--color-gray-light-800);
+  --color-foreground-neutral-faded: var(--color-gray-light-500);
 
   /* Disabled */
-  --color-background-disabled: var(--color-gray-dark-800);
-  --color-background-disabled-faded: var(--color-gray-dark-900);
-  --color-border-disabled: var(--color-gray-dark-800);
-  --color-border-disabled-faded: var(--color-gray-dark-800);
-  --color-foreground-disabled: var(--color-gray-dark-500);
-  --color-foreground-disabled-faded: var(--color-gray-dark-500);
+  --color-background-disabled: var(--color-gray-light-200);
+  --color-background-disabled-faded: var(--color-gray-light-100);
+  --color-border-disabled: var(--color-gray-light-300);
+  --color-border-disabled-faded: var(--color-gray-light-200);
+  --color-foreground-disabled: var(--color-gray-light-400);
+  --color-foreground-disabled-faded: var(--color-gray-light-400);
 
   /* Info */
-  --color-background-info: var(--color-gray-dark-600);
-  --color-background-info-faded: var(--color-gray-dark-700);
-  --color-border-info: var(--color-gray-dark-300);
-  --color-border-info-faded: var(--color-gray-dark-400);
-  --color-foreground-info: var(--color-blue-500);
-  --color-foreground-info-faded: var(--color-blue-800);
+  --color-background-info: var(--color-gray-light-100);
+  --color-background-info-faded: var(--color-gray-light-50);
+  --color-border-info: var(--color-gray-light-300);
+  --color-border-info-faded: var(--color-gray-light-200);
+  --color-foreground-info: var(--color-blue-600);
+  --color-foreground-info-faded: var(--color-blue-500);
 
   /* Regular */
-  --color-background-regular: var(--color-gray-dark-800);
-  --color-background-regular-faded: var(--color-gray-dark-950);
-  --color-border-regular: var(--color-gray-dark-300);
-  --color-border-regular-faded: var(--color-gray-dark-300);
-  --color-foreground-regular: var(--color-gray-50);
-  --color-foreground-regular-faded: var(--color-gray-50);
+  --color-background-regular: var(--color-white);
+  --color-background-regular-faded: var(--color-gray-light-50);
+  --color-border-regular: var(--color-gray-light-300);
+  --color-border-regular-faded: var(--color-gray-light-200);
+  --color-foreground-regular: var(--color-gray-light-800);
+  --color-foreground-regular-faded: var(--color-gray-light-600);
 
   /* Menu */
-  --color-menu-background: var(--color-gray-dark-300);
-  --color-menu-background-faded: var(--color-gray-dark-800);
-  --color-menu-background-overlay: var(--color-gray-dark-300);
-  --color-menu-background-page: var(--color-gray-dark-300);
-  --color-menu-background-page-faded: var(--color-gray-dark-800);
+  --color-menu-background: var(--color-white);
+  --color-menu-background-faded: var(--color-gray-light-50);
+  --color-menu-background-overlay: var(--color-white);
+  --color-menu-background-page: var(--color-white);
+  --color-menu-background-page-faded: var(--color-gray-light-50);
 
   /* Elevation */
-  --color-background-elevation-base: var(--color-black-500);
-  --color-background-elevation-raised: var(--color-gray-dark-900);
-  --color-background-elevation-raised-faded: var(--color-black-100);
-  --color-background-elevation-raised-faded-2: var(--color-black-600);
-  --color-background-elevation-overlay: var(--color-gray-dark-800);
-  --color-background-page: var(--color-gray-dark-600);
-  --color-background-page-faded: var(--color-gray-dark-800);
+  --color-background-elevation-base: var(--color-gray-light-50);
+  --color-background-elevation-raised: var(--color-white);
+  --color-background-elevation-raised-faded: var(--color-gray-light-100);
+  --color-background-elevation-raised-faded-2: var(--color-gray-light-50);
+  --color-background-elevation-overlay: var(--color-white);
+  --color-background-page: var(--color-gray-light-50);
+  --color-background-page-faded: var(--color-gray-light-100);
 
   /* On-color text */
-  --color-on-background-primary: var(--color-gray-950);
-  --color-on-background-critical: var(--color-gray-50);
-  --color-on-background-warning: var(--color-gray-950);
-  --color-on-background-positive: var(--color-gray-50);
-  --color-on-background-neutral: var(--color-gray-50);
-  --color-on-brand: var(--color-gray-950);
-  --color-rgb-positive: var(--color-green-500);
+  --color-on-background-primary: var(--color-gray-light-900);
+  --color-on-background-critical: var(--color-white);
+  --color-on-background-warning: var(--color-gray-light-900);
+  --color-on-background-positive: var(--color-white);
+  --color-on-background-neutral: var(--color-gray-light-800);
+  --color-on-brand: var(--color-gray-light-900);
+  --color-rgb-positive: var(--color-green-600);
   --color-rgb-negative: var(--color-red-500);
-  --color-rgb-warning: var(--color-yellow-500);
-  --color-rgb-info: var(--color-blue-500);
-  --color-rgb-regular: var(--color-gray-50);
+  --color-rgb-warning: var(--color-yellow-600);
+  --color-rgb-info: var(--color-blue-600);
+  --color-rgb-regular: var(--color-gray-light-800);
 
-  /* Icon colors for dark theme */
-  --icon-color-default: var(--color-gray-dark-100);
-  --icon-color-active: var(--color-orange-300);
-  --icon-color-hover: var(--color-gray-dark-900);
-  --icon-color-disabled: var(--color-gray-dark-500);
+  /* Icon colors for light theme */
+  --icon-color-default: var(--color-gray-light-600);
+  --icon-color-active: var(--color-orange-500);
+  --icon-color-hover: var(--color-gray-light-800);
+  --icon-color-disabled: var(--color-gray-light-400);
 
   /* shadcn/ui variables */
   --background: var(--color-background-page);
@@ -127,8 +127,8 @@
   --destructive: var(--color-background-critical);
   --destructive-foreground: var(--color-on-background-critical);
 
-  --border: var(--color-border-neutral);
-  --input: var(--color-border-neutral);
+  --border: var(--color-border-neutral-faded);
+  --input: var(--color-border-neutral-faded);
   --ring: var(--color-background-primary);
 
   --radius: var(--radius-medium);
@@ -138,16 +138,16 @@
   /* Button Tokens */
   --button-primary-bg: var(--color-background-primary);
   --button-primary-bg-gradient-start: var(--color-orange-200);
-  --button-primary-bg-gradient-end: var(--color-orange-600);
+  --button-primary-bg-gradient-end: var(--color-orange-500);
   --button-primary-text: var(--color-on-background-primary);
   --button-primary-hover: var(--color-background-primary-faded);
-  --button-primary-active: var(--color-orange-600);
+  --button-primary-active: var(--color-orange-500);
   --button-primary-border: var(--color-border-primary);
   --button-primary-border-hover: var(--color-border-primary-faded);
   --button-primary-border-active: var(--color-border-primary-faded);
-  --button-primary-border-disabled: var(--color-border-primary-faded);
-  --button-primary-border-focus: var(--color-border-primary-faded);
-  --button-primary-shadow: var(--shadow-pressed);
+  --button-primary-border-disabled: var(--color-border-disabled);
+  --button-primary-border-focus: var(--color-border-primary);
+  --button-primary-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1), 0px 2px 6px rgba(0, 0, 0, 0.05);
   --button-primary-padding-x: var(--unit-x2);
   --button-primary-padding-y: var(--unit-x3);
   --button-primary-font-family: var(--font-family-body-3);
@@ -157,14 +157,14 @@
   --button-primary-letter-spacing: var(--letter-spacing-body-3);
   --button-primary-border-radius: var(--radius-medium);
 
-  --button-secondary-bg: var(--color-background-neutral);
-  --button-secondary-bg-gradient-start: var(--color-gradient-grey-100);
-  --button-secondary-bg-gradient-end: var(--color-gradient-grey-200);
-  --button-secondary-text: var(--color-black);
-  --button-secondary-hover: var(--color-background-neutral-faded);
-  --button-secondary-active: var(--color-gradient-grey-200);
+  --button-secondary-bg: var(--color-gray-light-200);
+  --button-secondary-bg-gradient-start: var(--color-gray-light-100);
+  --button-secondary-bg-gradient-end: var(--color-gray-light-300);
+  --button-secondary-text: var(--color-gray-light-800);
+  --button-secondary-hover: var(--color-gray-light-300);
+  --button-secondary-active: var(--color-gray-light-400);
   --button-secondary-border: none;
-  --button-secondary-shadow: var(--shadow-pressed);
+  --button-secondary-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08), 0px 2px 6px rgba(0, 0, 0, 0.04);
   --button-secondary-padding-x: var(--unit-x2);
   --button-secondary-padding-y: var(--unit-x3);
   --button-secondary-font-family: var(--font-family-body-3);
@@ -174,12 +174,12 @@
   --button-secondary-letter-spacing: var(--letter-spacing-body-3);
   --button-secondary-border-radius: var(--radius-medium);
 
-  --button-tertiary-bg: var(--color-background-neutral);
-  --button-tertiary-text: var(--color-foreground-neutral-faded);
-  --button-tertiary-hover: var(--color-background-neutral-faded);
-  --button-tertiary-active: var(--color-background-neutral-faded);
+  --button-tertiary-bg: var(--color-gray-light-100);
+  --button-tertiary-text: var(--color-gray-light-600);
+  --button-tertiary-hover: var(--color-gray-light-200);
+  --button-tertiary-active: var(--color-gray-light-300);
   --button-tertiary-border: none;
-  --button-tertiary-shadow: 0px 0px 4px 0px var(--color-black), 0px 4px 8px 0px var(--color-black);
+  --button-tertiary-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
   --button-tertiary-padding-x: var(--unit-x2);
   --button-tertiary-padding-y: var(--unit-x3);
   --button-tertiary-font-family: var(--font-family-body-3);
@@ -189,13 +189,13 @@
   --button-tertiary-letter-spacing: var(--letter-spacing-body-3);
   --button-tertiary-border-radius: var(--radius-medium);
 
-  --button-ghost-bg: var(--color-background-neutral);
-  --button-ghost-text: var(--color-foreground-neutral-faded);
-  --button-ghost-hover: var(--color-background-neutral-faded);
-  --button-ghost-active: var(--color-background-neutral-faded);
+  --button-ghost-bg: transparent;
+  --button-ghost-text: var(--color-gray-light-600);
+  --button-ghost-hover: var(--color-gray-light-100);
+  --button-ghost-active: var(--color-gray-light-200);
   --button-ghost-border: 1px solid var(--color-border-regular);
-  --button-ghost-border-hover: var(--color-border-regular);
-  --button-ghost-border-active: var(--color-border-regular);
+  --button-ghost-border-hover: var(--color-gray-light-400);
+  --button-ghost-border-active: var(--color-gray-light-500);
   --button-ghost-shadow: none;
   --button-ghost-padding-x: var(--unit-x2);
   --button-ghost-padding-y: var(--unit-x3);
@@ -210,11 +210,11 @@
   --button-disabled-text: var(--color-foreground-disabled);
 
   /* Card Button Tokens */
-  --button-card-bg-gradient-start: var(--color-black-300);
-  --button-card-bg-gradient-end: var(--color-black-400);
-  --button-card-text: var(--color-white);
-  --button-card-border: 1px solid var(--color-brown-950);
-  --button-card-shadow: 0px 0px 4px 0px var(--color-black), 0px 8px 16px 0px var(--color-black);
+  --button-card-bg-gradient-start: var(--color-white);
+  --button-card-bg-gradient-end: var(--color-gray-light-100);
+  --button-card-text: var(--color-gray-light-800);
+  --button-card-border: 1px solid var(--color-gray-light-300);
+  --button-card-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08), 0px 4px 12px rgba(0, 0, 0, 0.04);
   --button-card-padding-x: var(--unit-x4);
   --button-card-padding-y: 27px;
   --button-card-gap: var(--unit-x4);
@@ -228,11 +228,11 @@
   --button-card-min-width: 255px;
 
   /* Card Secondary Button Tokens (Blue border variant) */
-  --button-card-secondary-bg-gradient-start: var(--color-black-300);
-  --button-card-secondary-bg-gradient-end: var(--color-black-400);
-  --button-card-secondary-text: var(--color-white);
-  --button-card-secondary-border: 1px solid var(--color-blue-300);
-  --button-card-secondary-shadow: 0px 0px 4px 0px var(--color-black), 0px 8px 16px 0px var(--color-black);
+  --button-card-secondary-bg-gradient-start: var(--color-white);
+  --button-card-secondary-bg-gradient-end: var(--color-gray-light-100);
+  --button-card-secondary-text: var(--color-gray-light-800);
+  --button-card-secondary-border: 1px solid var(--color-blue-400);
+  --button-card-secondary-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08), 0px 4px 12px rgba(0, 0, 0, 0.04);
   --button-card-secondary-padding-x: var(--unit-x4);
   --button-card-secondary-padding-y: 27px;
   --button-card-secondary-gap: var(--unit-x4);
@@ -247,13 +247,13 @@
 
   /* Card Tokens */
   --card-bg: var(--color-background-elevation-raised);
-  --card-border: var(--color-border-neutral);
+  --card-border: var(--color-border-neutral-faded);
   --card-text: var(--color-foreground-neutral);
   --card-title: var(--color-foreground-neutral);
 
   /* Input Tokens */
-  --input-bg: var(--color-background-regular);
-  --input-border: var(--color-border-neutral);
+  --input-bg: var(--color-white);
+  --input-border: var(--color-border-neutral-faded);
   --input-border-focus: var(--color-border-primary);
   --input-text: var(--color-foreground-neutral);
   --input-placeholder: var(--color-foreground-neutral-faded);
@@ -272,13 +272,13 @@
   --chip-letter-spacing: var(--letter-spacing-caption-1);
 
   /* Chip State Colors */
-  --chip-active-bg: var(--color-green-750);
-  --chip-active-text: var(--color-green-500);
-  --chip-paused-bg: var(--color-blue-750);
-  --chip-paused-text: var(--color-blue-500);
-  --chip-stopped-bg: var(--color-gray-500);
-  --chip-stopped-text: var(--color-white);
-  --chip-failed-bg: var(--color-red-750);
+  --chip-active-bg: var(--color-green-100);
+  --chip-active-text: var(--color-green-600);
+  --chip-paused-bg: var(--color-blue-100);
+  --chip-paused-text: var(--color-blue-600);
+  --chip-stopped-bg: var(--color-gray-light-200);
+  --chip-stopped-text: var(--color-gray-light-700);
+  --chip-failed-bg: var(--color-red-100);
   --chip-failed-text: var(--color-red-500);
 
   /* Badge/Tag Tokens */
@@ -294,7 +294,7 @@
   --text-secondary: var(--color-foreground-neutral-faded);
   --text-disabled: var(--color-foreground-disabled);
   --text-link: var(--color-foreground-primary);
-  --text-link-hover: var(--color-orange-200);
+  --text-link-hover: var(--color-orange-500);
   --text-heading: var(--color-foreground-neutral);
 
   /* Toggle/Switch Tokens */
@@ -302,11 +302,11 @@
   --toggle-track-height: 16px;
   --toggle-thumb-size: 12px;
   --toggle-track-checked-bg: var(--color-orange-300);
-  --toggle-track-unchecked-bg: var(--color-gray-500);
+  --toggle-track-unchecked-bg: var(--color-gray-light-300);
   --toggle-thumb-checked-bg: var(--color-white);
-  --toggle-thumb-unchecked-bg: var(--color-gray-dark-100);
+  --toggle-thumb-unchecked-bg: var(--color-white);
   --toggle-label-text: var(--color-foreground-neutral-faded);
-  --toggle-label-text-checked: var(--color-white);
+  --toggle-label-text-checked: var(--color-gray-light-800);
   --toggle-gap: var(--unit-x2);
   --toggle-font-family: var(--font-family-body-3);
   --toggle-font-size: var(--font-size-body-3);
@@ -318,21 +318,21 @@
 
   /* Loader/Spinner Tokens */
   --loader-size: 16px;
-  --loader-track-color: var(--color-gray-dark-300);
+  --loader-track-color: var(--color-gray-light-200);
   --loader-progress-color: var(--color-orange-300);
   --loader-track-width: 2px;
   --loader-animation-duration: 1s;
   --loader-animation-timing: linear;
 
   /* Interactive States */
-  --interactive-hover-bg: var(--color-background-neutral-faded);
-  --interactive-active-bg: var(--color-background-neutral);
+  --interactive-hover-bg: var(--color-gray-light-100);
+  --interactive-active-bg: var(--color-gray-light-200);
   --interactive-focus-ring: var(--color-background-primary);
 
   /* Select Content Tokens */
   --select-content-radius: var(--radius-small);
   --select-content-border: var(--color-border-neutral-faded);
-  --select-content-shadow: var(--shadow-pressed);
+  --select-content-shadow: 0px 4px 12px rgba(0, 0, 0, 0.08), 0px 2px 4px rgba(0, 0, 0, 0.04);
   --select-content-padding-vertical: var(--unit-x2);
   --select-content-padding-horizontal: var(--unit-x3);
   --select-content-margin: var(--unit-x1);
@@ -354,31 +354,27 @@
   --select-content-placeholder-color: var(--color-foreground-neutral-faded);
   --select-content-border-color-active: var(--color-border-primary);
   --select-content-border-color-error: var(--color-foreground-critical);
-  --select-content-trigger-color: var(--color-background-elevation-raised-faded-2);
-  --select-content-background-color: var(--color-black-300);
+  --select-content-trigger-color: var(--color-gray-light-100);
+  --select-content-background-color: var(--color-white);
   --select-content-border-color: var(--color-border-neutral-faded);
-  --select-content-background-color-disabled: var(--color-gradient-grey-100);
-  --select-content-foreground-color-disabled: var(--color-gray-300);
-  --select-content-border-color-disabled: var(--color-gray-500);
+  --select-content-background-color-disabled: var(--color-gray-light-200);
+  --select-content-foreground-color-disabled: var(--color-gray-light-400);
+  --select-content-border-color-disabled: var(--color-gray-light-300);
 }
 
-/* Surface gradient border utility class */
-/* NOTE: This class requires the element to have a non-static position (relative, absolute, fixed, or sticky) */
-/* The ::before pseudo-element positions itself relative to the nearest positioned ancestor */
-.surface-gradient-border {
-  /* Don't set position here - it overrides absolute/fixed positioned elements */
-  /* Elements using this class should already have positioning, or add 'relative' class separately */
-  border-radius: var(--radius-large); /* or inherit */
+/* Surface gradient border utility class for light theme */
+[data-theme='light'] .surface-gradient-border {
+  border-radius: var(--radius-large);
   background-clip: padding-box;
 }
 
-.surface-gradient-border::before {
+[data-theme='light'] .surface-gradient-border::before {
   content: '';
   position: absolute;
   inset: 0;
-  padding: 1px; /* border thickness */
+  padding: 1px;
   border-radius: inherit;
-  background: linear-gradient(180deg, var(--color-gray-dark-300) 0%, var(--color-gray-dark-600) 100%);
+  background: linear-gradient(180deg, var(--color-gray-light-300) 0%, var(--color-gray-light-200) 100%);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -387,7 +383,6 @@
   pointer-events: none;
 }
 
-.surface-gradient-border-hover:hover::before {
-  /* Orange hover effect */
-  background: linear-gradient(180deg, #ffcda2 0%, #ffcda2 100%);
+[data-theme='light'] .surface-gradient-border-hover:hover::before {
+  background: linear-gradient(180deg, var(--color-orange-200) 0%, var(--color-orange-200) 100%);
 }

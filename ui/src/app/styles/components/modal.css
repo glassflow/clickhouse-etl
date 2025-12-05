@@ -2,30 +2,27 @@
 .info-modal-container {
   /* Background - matching Figma design */
   background-color: var(--color-gray-dark-800);
-  
-  /* Border - matching Figma design */
-  border: 1px solid var(--color-gray-dark-300);
-  
+
   /* Border radius - matching Figma design */
   border-radius: var(--radius-large);
-  
+
   /* Shadow - matching Figma design */
-  box-shadow: 
+  box-shadow:
     0px 2px 5px 1px rgba(0, 0, 0, 0.25),
     0px -1px 0px 0px rgba(255, 255, 255, 0.15);
-  
+
   /* Padding - matching Figma design (48px horizontal, 36px vertical) */
   padding: var(--unit-x9) calc(12 * var(--unit-x1));
-  
+
   /* Layout - flex column with gap matching Figma design */
   display: flex;
   flex-direction: column;
   gap: var(--unit-x6);
-  
+
   /* Width - matching Figma design */
   width: 100%;
-  max-width: 396px;
-  
+  max-width: 568px;
+
   overflow: auto;
 }
 
@@ -37,7 +34,7 @@
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-featured-2);
   letter-spacing: var(--letter-spacing-featured-2);
-  
+
   /* Layout */
   margin: 0;
   padding: 0;
@@ -70,19 +67,16 @@
 .modal-input {
   /* Background - matching Figma design (#141414) */
   background-color: var(--color-black-600);
-  
-  /* Border - matching Figma design (#373737) */
-  border: 1px solid var(--color-border-regular);
-  
+
   /* Border radius - matching Figma design */
   border-radius: var(--radius-small);
-  
+
   /* Height - matching Figma design (36px) */
   height: 36px;
-  
+
   /* Padding - matching Figma design (4px 8px) */
   padding: var(--unit-x1) var(--unit-x2);
-  
+
   /* Typography - Body 3/Regular from Figma */
   color: var(--color-foreground-neutral);
   font-family: var(--font-family-body-3);
@@ -90,11 +84,11 @@
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-body-3);
   letter-spacing: var(--letter-spacing-body-3);
-  
+
   /* Layout */
   width: 100%;
   box-sizing: border-box;
-  
+
   /* Transitions */
   transition: all var(--duration-fast) var(--easing-standard);
 }
@@ -177,7 +171,7 @@
 }
 
 .step-title {
-  color: var(--color-foreground-neutral);
+  color: var(--color-foreground-neutral-faded);
   font-size: 24px;
   font-weight: 600;
   line-height: 2;

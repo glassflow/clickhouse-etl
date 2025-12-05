@@ -1,159 +1,156 @@
 /* ================== Select utilities ================== */
-/* Select Trigger - matching input styles */
+/* Select Trigger - uses control tokens for consistent form control styling */
 [data-slot='select-trigger'] {
-  background-color: var(--color-black-600, #141414);
-  color: var(--color-white, #ffffff);
-  border-radius: var(--radius-small, 4px);
-  padding: var(--unit-x2, 8px) var(--unit-x3, 12px);
+  background-color: var(--control-bg);
+  color: var(--control-fg);
+  border-radius: var(--radius-small);
+  padding: var(--unit-x2) var(--unit-x3);
   height: 36px;
-  font-family: var(--font-family-body-3, Inter, sans-serif);
-  font-size: var(--font-size-body-3, 0.875rem);
-  font-weight: var(--font-weight-regular, 400);
-  line-height: var(--line-height-body-3, 1.25rem);
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
   position: relative;
-  border: 1px solid #373737;
-  transition: border-color var(--duration-fast, 200ms) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
+  border: 1px solid var(--control-border);
+  transition: border-color var(--duration-fast) var(--easing-standard);
 }
 
 /* Select Trigger Placeholder */
 [data-slot='select-trigger'][data-placeholder] {
-  color: var(--color-foreground-neutral-faded, #b6bac3);
+  color: var(--control-fg-placeholder);
 }
 
 /* Select Trigger Focus/Active state */
 [data-slot='select-trigger']:focus-visible,
 [data-slot='select-trigger'][data-state='open'] {
   outline: none;
-  border-color: var(--color-background-primary, #ffa24b);
+  border-color: var(--control-border-focus);
 }
 
 /* Select Trigger Error state */
 [data-slot='select-trigger'][aria-invalid='true'] {
-  border-color: var(--color-foreground-critical, #e22c2c);
+  border-color: var(--control-border-error);
 }
 
 [data-slot='select-trigger'][aria-invalid='true']:focus-visible,
 [data-slot='select-trigger'][aria-invalid='true'][data-state='open'] {
-  border-color: var(--color-foreground-critical, #e22c2c);
+  border-color: var(--control-border-error);
 }
 
 /* Select Trigger Disabled state */
 [data-slot='select-trigger']:disabled,
 [data-slot='select-trigger'][data-disabled] {
-  background-color: #1a1a1a; /* gray-700 from Figma */
-  color: #8a8f9a; /* cool-gray-300 from Figma */
-  border-color: #373737;
+  background-color: var(--control-bg-disabled);
+  color: var(--control-fg-disabled);
+  border-color: var(--control-border-disabled);
   cursor: not-allowed;
   opacity: 1;
 }
 
-/* Select Content/Dropdown - matching Figma design */
+/* Select Content/Dropdown - uses surface tokens */
 [data-slot='select-content'] {
-  background-color: var(--color-black-300, #1e1e1f);
-  border: 1px solid var(--color-border-regular, #373737);
-  border-radius: var(--radius-small, 4px);
-  box-shadow:
-    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+  background-color: var(--surface-bg-overlay);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-small);
+  box-shadow: var(--surface-shadow-overlay);
   overflow: hidden;
   z-index: 40;
 }
 
 /* Select Content when open */
 [data-slot='select-content'][data-state='open'] {
-  border-color: var(--color-background-primary, #ffa24b);
+  border-color: var(--control-border-focus);
 }
 
-/* Select Item - matching Figma design */
+/* Select Item - uses option tokens */
 [data-slot='select-item'] {
-  color: var(--color-white, #ffffff);
-  padding: var(--unit-x2, 8px) var(--unit-x3, 12px);
-  font-family: var(--font-family-body-3, Inter, sans-serif);
-  font-size: var(--font-size-body-3, 0.875rem);
-  font-weight: var(--font-weight-regular, 400);
-  line-height: var(--line-height-body-3, 1.25rem);
+  color: var(--option-fg);
+  padding: var(--unit-x2) var(--unit-x3);
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
   cursor: pointer;
-  transition: background-color var(--duration-fast, 200ms) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
+  transition: background-color var(--duration-fast) var(--easing-standard);
 }
 
 /* Select Item Hover */
-[data-slot='select-item']:hover,
-[data-slot='select-item'][data-highlighted] {
-  background-color: rgba(255, 162, 75, 0.1); /* primary color with 10% opacity */
-  color: var(--color-white, #ffffff);
+[data-slot='select-item']:hover {
+  background-color: var(--option-bg-hover);
+  color: var(--option-fg-hover);
 }
 
 /* Select Item Focus/Highlighted */
 [data-slot='select-item'][data-highlighted] {
-  background-color: rgba(255, 162, 75, 0.2); /* primary color with 20% opacity */
-  color: var(--color-background-primary, #ffa24b);
+  background-color: var(--option-bg-highlighted);
+  color: var(--option-fg-highlighted);
 }
 
 /* Select Item Selected/Checked */
 [data-slot='select-item'][data-state='checked'] {
-  background-color: rgba(255, 162, 75, 0.15); /* primary color with 15% opacity */
-  color: var(--color-background-primary, #ffa24b);
-  font-weight: var(--font-weight-medium, 500);
+  background-color: var(--option-bg-selected);
+  color: var(--option-fg-selected);
+  font-weight: var(--font-weight-medium);
 }
 
 /* Select Item Disabled */
 [data-slot='select-item'][data-disabled] {
-  color: #8a8f9a; /* cool-gray-300 from Figma */
+  color: var(--option-fg-disabled);
   cursor: not-allowed;
   opacity: 0.5;
 }
 
 /* Select Label */
 [data-slot='select-label'] {
-  font-family: var(--font-family-body-3, Inter, sans-serif);
-  font-size: var(--font-size-body-3, 0.875rem);
-  font-weight: var(--font-weight-medium, 500);
-  line-height: var(--line-height-body-3, 1.25rem);
-  color: var(--color-foreground-neutral-faded, var(--color-gray-dark-100, #b6bac3));
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-body-3);
+  color: var(--control-fg-placeholder);
 }
 
 /* Select Separator */
 [data-slot='select-separator'] {
-  background-color: var(--color-border-regular, #373737);
+  background-color: var(--surface-border-subtle);
   height: 1px;
-  margin: var(--unit-x1, 4px) 0;
+  margin: var(--unit-x1) 0;
 }
 
 /* Legacy custom classes for backward compatibility */
 .select-content-custom {
-  background-color: var(--color-black-300, #1e1e1f);
-  border: 1px solid var(--color-border-regular, #373737);
-  border-radius: var(--radius-small, 4px);
+  background-color: var(--surface-bg-overlay);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-small);
   overflow: hidden;
   z-index: 40;
 }
 
 .select-content-custom[data-state='open'] {
-  border-color: var(--color-background-primary, #ffa24b);
+  border-color: var(--control-border-focus);
 }
 
 .select-item-custom {
-  color: var(--color-white, #ffffff);
-  padding: var(--unit-x2, 8px) var(--unit-x3, 12px);
-  font-family: var(--font-family-body-3, Inter, sans-serif);
-  font-size: var(--font-size-body-3, 0.875rem);
-  font-weight: var(--font-weight-regular, 400);
-  line-height: var(--line-height-body-3, 1.25rem);
+  color: var(--option-fg);
+  padding: var(--unit-x2) var(--unit-x3);
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
 }
 
 .select-item-custom:hover {
-  background-color: rgba(255, 162, 75, 0.1);
+  background-color: var(--option-bg-hover);
 }
 
 .select-item-custom[data-highlighted] {
-  background-color: rgba(255, 162, 75, 0.2);
-  color: var(--color-background-primary, #ffa24b);
+  background-color: var(--option-bg-highlighted);
+  color: var(--option-fg-highlighted);
 }
 
 .select-item-custom[data-state='checked'] {
-  background-color: rgba(255, 162, 75, 0.15);
-  color: var(--color-background-primary, #ffa24b);
-  font-weight: var(--font-weight-medium, 500);
+  background-color: var(--option-bg-selected);
+  color: var(--option-fg-selected);
+  font-weight: var(--font-weight-medium);
 }
 
 /* Override the default focus styles for the select trigger */
