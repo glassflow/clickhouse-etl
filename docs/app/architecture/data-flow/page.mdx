@@ -1,0 +1,144 @@
+---
+title: 'Data Flow'
+description: 'Understanding how data flows through GlassFlow pipelines'
+---
+
+# Data Flow
+
+This document explains how data flows through a GlassFlow pipeline and how the acknowledgment mechanism ensures reliable data processing from Kafka to ClickHouse.
+
+## Overview
+
+GlassFlow processes data through multiple stages, each with its own acknowledgment mechanism to ensure data reliability and prevent data loss. The pipeline uses a two-phase acknowledgment system:
+
+1. **Kafka Consumer Acknowledgment**: Commits offsets only after successful processing
+2. **NATS JetStream Acknowledgment**: Acknowledges messages after successful writes to downstream components
+
+## Data Flow Architecture
+
+A typical GlassFlow pipeline follows this flow:
+
+![Data Flow Architecture](/assets/architecture_data_flow.png)
+
+### Stage 1: Kafka to NATS JetStream (Ingestor)
+
+The **Ingestor** component consumes messages from Kafka topics and publishes them to NATS JetStream streams.
+
+#### Process
+
+1. Kafka consumer polls for messages in batches
+2. Each message is transformed and published to a NATS JetStream stream
+3. Kafka offsets are committed only after all messages in the batch are successfully published to NATS
+
+#### Acknowledgment
+
+- Kafka uses **manual offset commits** (auto-commit is disabled)
+- Offsets are committed only after the entire batch is successfully published to NATS JetStream
+- If publishing fails, the batch is not committed, and Kafka will redeliver the messages
+
+#### Failure Handling
+
+- If a message cannot be published to NATS, it is sent to the Dead Letter Queue (DLQ)
+- The Kafka offset is still committed for that message to prevent reprocessing
+- Failed messages can be retrieved from the DLQ for manual inspection or reprocessing
+
+### Stage 2: NATS JetStream Processing
+
+NATS JetStream acts as an internal message broker between pipeline components. It provides persistent storage and reliable message delivery.
+
+#### Consumer Configuration
+
+- All NATS JetStream consumers use the **AckAll** acknowledgment policy
+- This means acknowledging the last message in a batch automatically acknowledges all previous messages in that batch
+- Consumers have an `AckWait` timeout (default: 30 seconds) - if a message is not acknowledged within this time, NATS will redeliver it
+
+#### Acknowledgment Policy
+
+- **AckAll Policy**: When the last message in a batch is acknowledged, all previous messages in the batch are automatically acknowledged
+- This provides efficient batch processing while maintaining reliability
+
+### Stage 3: Deduplication (Optional)
+
+If deduplication is enabled, the **Deduplication Service** processes messages before they reach the sink.
+
+#### Process
+
+1. Messages are read from the ingestor output stream
+2. Duplicate detection is performed using a key-value store (BadgerDB)
+3. Only unique messages are forwarded to the sink
+4. Messages are acknowledged only after successful deduplication and forwarding
+
+#### Acknowledgment
+
+- Messages are acknowledged only after:
+  1. Successful deduplication check
+  2. Successful write to the downstream stream (sink or join)
+- The acknowledgment uses the AckAll policy - acknowledging the last message in a batch acknowledges all messages in that batch
+
+#### Failure Handling
+
+- If deduplication or forwarding fails during batch processing:
+  1. The BadgerDB transaction is **not committed** - no new keys are saved to the deduplication store
+  2. All messages in the batch are **NAKed** (negatively acknowledged), causing NATS to redeliver them
+  3. NATS JetStream will redeliver the messages after the `AckWait` timeout expires
+- This design ensures **no duplicates are produced** even when processing fails:
+  - Since the transaction was not committed, the deduplication keys were never saved
+  - When messages are redelivered and reprocessed, they will be correctly identified as duplicates (if they were already processed) or as new messages (if they weren't)
+  - This atomic transaction approach prevents the deduplication component from producing duplicate events
+
+### Stage 4: Join (Optional)
+
+If join is enabled, the **Join Service** combines messages from multiple streams based on join keys and time windows using a temporal join algorithm.
+
+#### Process
+
+The join service maintains separate key-value (KV) stores for the left and right streams to enable temporal matching:
+
+##### Left Stream Processing
+1. When a message arrives from the left stream, the system looks up its join key in the right stream's KV store
+2. If a matching key is found in the right KV store, the messages are joined and sent to the output stream
+3. If no match is found, the message is stored in the left KV store using its join key as the key
+4. After a joined message is successfully sent to the output stream, the related left-stream message is removed from the left KV store
+
+##### Right Stream Processing
+1. When a message arrives from the right stream, it is automatically stored in the right KV store
+2. The system then checks if a matching key exists in the left KV store
+3. If a match is found, the messages are joined and sent to the output stream
+4. The matched left-stream message is removed from the left KV store after successful join
+
+#### Time Window and TTL
+- Both left and right KV stores have a configured time-to-live (TTL) for each key, based on the join time window
+- Entries are automatically evicted from the KV stores when their TTL expires
+- This ensures that only messages within the configured time window are considered for joining
+
+#### Acknowledgment
+
+- Each message is **individually acknowledged** after it is successfully saved to the corresponding KV store
+- This ensures that messages are persisted before acknowledgment, preventing data loss
+- Messages can be evicted from the KV stores only after they have been successfully joined and sent to the output stream, or when their configured join time window (TTL) expires
+- If saving to the KV store fails, the message is NAKed, causing NATS to redeliver it
+
+### Stage 5: ClickHouse Sink
+
+The **Sink** component consumes messages from NATS JetStream and writes them to ClickHouse in batches.
+
+#### Process
+
+1. Messages are consumed from the NATS stream (either from ingestor, deduplication, or join output)
+2. Messages are batched according to `max_batch_size` and `max_delay_time` configuration
+3. Batches are written to ClickHouse using bulk insert operations
+4. Messages are acknowledged only after successful write to ClickHouse
+
+#### Acknowledgment
+
+- After a successful batch write to ClickHouse, the **last message in the batch** is acknowledged
+- Due to the AckAll policy, this acknowledges all messages in the batch
+- Acknowledgment is retried up to 3 times if it fails initially
+
+#### Failure Handling
+
+- If a batch write to ClickHouse fails:
+  1. All messages in the failed batch are sent to the DLQ
+  2. Each message is individually acknowledged after being written to the DLQ
+  3. This prevents message loss while allowing investigation of the failure
+- Messages in the DLQ can be retrieved and reprocessed later
