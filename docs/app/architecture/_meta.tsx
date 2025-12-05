@@ -1,3 +1,4 @@
 export default {
-    'kubernetes-components': ''
+    'kubernetes-components': '',
+    'data-flow': ''
 }
