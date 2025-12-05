@@ -13,7 +13,7 @@ The pipeline configuration is a JSON object that defines how data flows from Kaf
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `version` | string | No | Version of the pipeline configuration. Current supported version is "2.0.0". |
+| `version` | string | No | Version of the pipeline configuration. Current supported version is "v2". |
 | `pipeline_id` | string | Yes | Unique identifier for the pipeline. Must be non-empty. |
 | `name` | string | No | Name of the pipeline that will be displayed in the UI. |
 | `source` | object | Yes | Configuration for the Kafka source. See [Source Configuration](#source-configuration). |
@@ -217,6 +217,7 @@ Time windows use string format, for example:
 
 ```json
 {
+  "version": "v2",
   "pipeline_id": "kafka-to-clickhouse-pipeline",
   "source": {
     "type": "kafka",
