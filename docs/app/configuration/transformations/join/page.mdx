@@ -106,89 +106,6 @@ The time window determines:
 - The maximum time difference between events that will be joined
 - When unmatched events are evicted from the stores
 
-## Use Cases
-
-### Enriching Events with Related Data
-
-Join orders with payment information to create enriched order records:
-
-```json
-{
-  "join": {
-    "enabled": true,
-    "type": "temporal",
-    "sources": [
-      {
-        "source_id": "orders",
-        "join_key": "order_id",
-        "time_window": "5m",
-        "orientation": "left"
-      },
-      {
-        "source_id": "payments",
-        "join_key": "order_id",
-        "time_window": "5m",
-        "orientation": "right"
-      }
-    ]
-  }
-}
-```
-
-### Combining User Activity Streams
-
-Join user profile updates with user activity events:
-
-```json
-{
-  "join": {
-    "enabled": true,
-    "type": "temporal",
-    "sources": [
-      {
-        "source_id": "user-profiles",
-        "join_key": "user_id",
-        "time_window": "1h",
-        "orientation": "left"
-      },
-      {
-        "source_id": "user-activities",
-        "join_key": "user_id",
-        "time_window": "1h",
-        "orientation": "right"
-      }
-    ]
-  }
-}
-```
-
-### Merging Product Information
-
-Join product catalog updates with product sales events:
-
-```json
-{
-  "join": {
-    "enabled": true,
-    "type": "temporal",
-    "sources": [
-      {
-        "source_id": "product-catalog",
-        "join_key": "product_id",
-        "time_window": "24h",
-        "orientation": "left"
-      },
-      {
-        "source_id": "product-sales",
-        "join_key": "product_id",
-        "time_window": "24h",
-        "orientation": "right"
-      }
-    ]
-  }
-}
-```
-
 ## Best Practices
 
 ### Choosing Join Keys
@@ -268,27 +185,9 @@ Here's a complete example of a pipeline with join enabled:
 }
 ```
 
-## Combining with Other Transformations
-
-### Join + Deduplication
-
-You can combine join with deduplication to ensure unique joined results:
-
-1. Enable deduplication on the source topics
-2. Enable join to combine the deduplicated streams
-3. This ensures that duplicate events don't create duplicate joins
-
-### Filter + Join
-
-You can filter events before joining:
-
-1. Configure filters on the source topics
-2. Only filtered events participate in the join
-3. This reduces the number of events in the join stores
-
 ## Related Documentation
 
 - [Data Flow - Join Stage](/architecture/data-flow#stage-4-join-optional)
 - [Pipeline JSON Reference - Join Configuration](/configuration/pipeline-json-reference#join-configuration)
-- [Transformations Overview](/usage-guide/transformations)
+- [Transformations Overview](/configuration/transformations)
 

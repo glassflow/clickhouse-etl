@@ -10,41 +10,9 @@ GlassFlow supports several transformations that can be applied to your data as i
 
 ## Available Transformations
 
-### [Deduplication](/usage-guide/transformations/deduplication)
-
-The **Deduplication** transformation removes duplicate events from your data stream based on a unique identifier field. This is essential for ensuring data quality and preventing duplicate records in your ClickHouse tables.
-
-**Key Features:**
-- Removes duplicate events based on a configurable ID field
-- Uses a time window to determine duplicate detection scope
-- Ensures exactly-once semantics through atomic transactions
-- Prevents duplicate output even during processing failures
-
-[Learn more about Deduplication →](/usage-guide/transformations/deduplication)
-
-### [Join](/usage-guide/transformations/join)
-
-The **Join** transformation combines data from multiple Kafka topics based on join keys and time windows. This enables you to enrich your data by merging related events from different sources.
-
-**Key Features:**
-- Temporal join algorithm for time-based matching
-- Supports left and right join orientations
-- Configurable time windows for matching events
-- Automatic cleanup of matched entries
-
-[Learn more about Join →](/usage-guide/transformations/join)
-
-### [Filter](/usage-guide/transformations/filter)
-
-The **Filter** transformation allows you to selectively process events based on configurable expressions. Events that match the filter expression are processed, while non-matching events are filtered out.
-
-**Key Features:**
-- Expression-based filtering using field values
-- Supports complex logical operations (AND, OR, NOT)
-- Evaluates filters at the ingestor stage
-- Filtered events are not processed further in the pipeline
-
-[Learn more about Filter →](/usage-guide/transformations/filter)
+- [**Deduplication**](/configuration/transformations/deduplication) - Remove duplicate events from your data stream based on a unique identifier field
+- [**Join**](/configuration/transformations/join) - Combine data from multiple Kafka topics based on join keys and time windows
+- [**Filter**](/configuration/transformations/filter) - Selectively process events based on configurable expressions
 
 ## Transformation Order
 
@@ -58,21 +26,3 @@ This order ensures that:
 - Filtering happens early, reducing processing overhead
 - Deduplication works on clean, filtered data
 - Joins operate on deduplicated streams
-
-## Combining Transformations
-
-You can combine multiple transformations in a single pipeline:
-
-- **Filter + Deduplication**: Filter events first, then deduplicate the filtered results
-- **Filter + Join**: Filter events from multiple topics, then join them
-- **Deduplication + Join**: Deduplicate events, then join deduplicated streams
-- **All Three**: Apply filter, then deduplication, then join
-
-## Configuration
-
-Each transformation is configured in the pipeline JSON configuration. For detailed configuration options, see the [Pipeline JSON Reference](/configuration/pipeline-json-reference) documentation.
-
-## Data Flow
-
-Transformations are applied as data flows through the pipeline stages. For a detailed explanation of how data flows through transformations, see the [Data Flow](/architecture/data-flow) documentation.
-

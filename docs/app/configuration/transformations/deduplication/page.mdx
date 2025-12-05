@@ -9,7 +9,7 @@ The **Deduplication** transformation removes duplicate events from your data str
 
 ## How It Works
 
-Deduplication in GlassFlow uses a key-value store (BadgerDB) to track unique event identifiers. The process works as follows:
+Deduplication in GlassFlow uses a key-value store ([BadgerDB](https://docs.hypermode.com/badger/overview)) to track unique event identifiers. The process works as follows:
 
 ### Internal Process
 
@@ -84,53 +84,6 @@ The time window determines:
 - The maximum time between duplicate events that will be detected
 - When entries are automatically evicted from the store
 
-## Use Cases
-
-### Preventing Duplicate Events
-
-If your Kafka producer might send duplicate events (e.g., due to retries or network issues), deduplication ensures only one copy reaches ClickHouse:
-
-```json
-{
-  "deduplication": {
-    "enabled": true,
-    "id_field": "event_id",
-    "id_field_type": "string",
-    "time_window": "1h"
-  }
-}
-```
-
-### Idempotent Processing
-
-When processing events that should only be handled once (e.g., payment transactions, user registrations), deduplication provides idempotency:
-
-```json
-{
-  "deduplication": {
-    "enabled": true,
-    "id_field": "transaction_id",
-    "id_field_type": "uuid",
-    "time_window": "24h"
-  }
-}
-```
-
-### Data Quality Assurance
-
-For critical data pipelines where duplicate records would cause issues, deduplication acts as a safety net:
-
-```json
-{
-  "deduplication": {
-    "enabled": true,
-    "id_field": "record_id",
-    "id_field_type": "int64",
-    "time_window": "7d"
-  }
-}
-```
-
 ## Best Practices
 
 ### Choosing an ID Field
@@ -192,5 +145,5 @@ Here's a complete example of a pipeline with deduplication enabled:
 
 - [Data Flow - Deduplication Stage](/architecture/data-flow#stage-3-deduplication-optional)
 - [Pipeline JSON Reference - Deduplication Configuration](/configuration/pipeline-json-reference#deduplication-configuration)
-- [Transformations Overview](/usage-guide/transformations)
+- [Transformations Overview](/configuration/transformations)
 
