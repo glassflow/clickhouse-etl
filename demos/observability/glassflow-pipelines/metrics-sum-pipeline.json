@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "v2",
   "pipeline_id": "metrics-sum-pipeline",
   "name": "Metrics Sum Pipeline",
   "source": {

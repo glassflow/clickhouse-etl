@@ -37,7 +37,7 @@ helm repo add glassflow https://glassflow.github.io/charts
 helm repo update
 ```
 
-### Install the GlassFlow Helm chart:
+### Install the GlassFlow Helm chart
 ```bash
 helm install glassflow glassflow/glassflow-etl --create-namespace --namespace glassflow
 ```
@@ -49,7 +49,7 @@ By default, the deployment is **not publicly accessible**. To expose it, you mus
 </Callout>
 
 
-### Verify that the installation is successful:
+### Verify that the installation is successful
 ```bash
 helm list -n glassflow
 ```
@@ -66,11 +66,13 @@ kubectl get svc -n glassflow
 The output should look like this:
 ```bash
 NAME                                           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
-glassflow-api                                  ClusterIP   34.118.235.223   <none>        8081/TCP                     2m9s
-glassflow-controller-manager-metrics-service   ClusterIP   34.118.227.29    <none>        8443/TCP                     2m10s
-glassflow-nats                                 ClusterIP   34.118.237.53    <none>        4222/TCP                     2m10s
-glassflow-nats-headless                        ClusterIP   None             <none>        4222/TCP,6222/TCP,8222/TCP   2m10s
-glassflow-ui                                   ClusterIP   34.118.225.1     <none>        8080/TCP                     2m9s
+glassflow-api                        ClusterIP   10.96.252.167   <none>        8081/TCP                                       3m37s
+glassflow-nats                       ClusterIP   10.96.157.112   <none>        4222/TCP                                       3m37s
+glassflow-nats-headless              ClusterIP   None            <none>        4222/TCP,6222/TCP,8222/TCP                     3m37s
+glassflow-otel-collector             ClusterIP   10.96.223.30    <none>        4317/TCP,4318/TCP,9090/TCP                     3m37s
+glassflow-postgresql                 ClusterIP   10.96.217.168   <none>        5432/TCP                                       3m37s
+glassflow-prometheus-nats-exporter   ClusterIP   10.96.7.124     <none>        80/TCP                                         3m37s
+glassflow-ui                         ClusterIP   10.96.10.81     <none>        8080/TCP                                       3m37s
 ```
 
 List the pods that were deployed: 
@@ -81,13 +83,17 @@ The output should look like this:
 ```bash
 kubectl get pods -n glassflow
 NAME                                            READY   STATUS    RESTARTS      AGE
-glassflow-api-7f4bfd94b4-gdw5c                  1/1     Running   0             83s
-glassflow-controller-manager-7d5dd699f9-cgj2c   1/1     Running   0             83s
-glassflow-nats-0                                2/2     Running   0             82s
-glassflow-nats-1                                2/2     Running   0             82s
-glassflow-nats-2                                2/2     Running   0             82s
-glassflow-nats-box-784bcdcf64-gdwwq             1/1     Running   0             83s
-glassflow-ui-76bf46ff6d-lx4ng                   1/1     Running   0             83s
+glassflow-api-7445c785b5-2wgq2                       1/1     Running             0          3m22s
+glassflow-controller-manager-d8bb98457-nfqss         0/1     Init:0/2            0          3m22s
+glassflow-glassflow-etl-migration-1-7czwz            0/1     Completed           0          3m22s
+glassflow-nats-0                                     2/2     Running             0          3m22s
+glassflow-nats-1                                     2/2     Running             0          3m22s
+glassflow-nats-2                                     2/2     Running             0          3m22s
+glassflow-nats-box-5b49b6ff96-tk96l                  1/1     Running             0          3m22s
+glassflow-otel-collector-5c94d868d9-g6mt9            1/1     Running             0          3m22s
+glassflow-postgresql-0                               1/1     Running             0          3m22s
+glassflow-prometheus-nats-exporter-6fdd55688-cfwgw   1/1     Running             0          3m22s
+glassflow-ui-d9b777bcf-lszfz                         2/2     Running             0          3m22s
 ```
 
 ### Port forward the UI service
