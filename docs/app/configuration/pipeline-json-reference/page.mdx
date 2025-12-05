@@ -13,12 +13,12 @@ The pipeline configuration is a JSON object that defines how data flows from Kaf
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `version` | string | Yes | Version of the pipeline configuration. Current supported version is "2.0.0". |
+| `version` | string | No | Version of the pipeline configuration. Current supported version is "2.0.0". |
 | `pipeline_id` | string | Yes | Unique identifier for the pipeline. Must be non-empty. |
 | `name` | string | No | Name of the pipeline that will be displayed in the UI. |
 | `source` | object | Yes | Configuration for the Kafka source. See [Source Configuration](#source-configuration). |
 | `sink` | object | Yes | Configuration for the ClickHouse sink. See [Sink Configuration](#sink-configuration). |
-| `schema` | object | No | Configuration for the schema of the pipeline. See [Schema Configuration](#schema-configuration). |
+| `schema` | object | Yes | Configuration for the schema of the pipeline. See [Schema Configuration](#schema-configuration). |
 | `join` | object | No | Configuration for joining multiple Kafka topics. See [Join Configuration](#join-configuration). |
 | `filter` | object | No | Configuration for filtering the data. See [Filter Configuration](#filter-configuration). |
 | `metadata` | object | No | Metadata for the pipeline. See [Metadata Configuration](#metadata-configuration). |
