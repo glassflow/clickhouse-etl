@@ -12,7 +12,7 @@ The GlassFlow Python SDK provides a programmatic way to create and manage data p
 Install the GlassFlow Python SDK using pip:
 
 ```bash
-pip install glassflow>=3.0.0
+pip install glassflow>=3.6.0
 ```
 
 
@@ -27,10 +27,10 @@ from glassflow.etl import Client
 2. **Create a Client**
 
 ```python
-client = Client(host="http://localhost:8081")
+client = Client(host="http://localhost:30180")
 ```
 
-**Note**: The `host` parameter specifies the GlassFlow API host (if GlassFlow is running locally with docker compose, it is `http://localhost:8081`).
+**Note**: The `host` parameter specifies the GlassFlow API host (if GlassFlow is running locally with [GlassFlow CLI](/installation/cli), it is `http://localhost:30180`).
 
 3. **Create a Pipeline from JSON Config**
 
@@ -94,7 +94,11 @@ Output:
         "name": "<my-pipeline-name>", 
         "transformation_type": "Deduplication", 
         "created_at": "2025-09-04T15:20:24.327977208Z", 
-        "status": "Running"
+        "updated_at": "2025-09-04T15:20:24.327977208Z",
+        "status": "Running",
+        "metadata": {
+            "tags": ["demo"]
+        }
     }
 ]
 ```

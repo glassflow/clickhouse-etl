@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "v2",
   "pipeline_id": "logs-pipeline",
   "name": "Logs Pipeline",
   "source": {
