@@ -13,11 +13,16 @@ The pipeline configuration is a JSON object that defines how data flows from Kaf
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `version` | string | No | Version of the pipeline configuration. Current supported version is "v2". |
 | `pipeline_id` | string | Yes | Unique identifier for the pipeline. Must be non-empty. |
 | `name` | string | No | Name of the pipeline that will be displayed in the UI. |
 | `source` | object | Yes | Configuration for the Kafka source. See [Source Configuration](#source-configuration). |
 | `sink` | object | Yes | Configuration for the ClickHouse sink. See [Sink Configuration](#sink-configuration). |
+| `schema` | object | Yes | Configuration for the schema of the pipeline. See [Schema Configuration](#schema-configuration). |
 | `join` | object | No | Configuration for joining multiple Kafka topics. See [Join Configuration](#join-configuration). |
+| `filter` | object | No | Configuration for filtering the data. See [Filter Configuration](#filter-configuration). |
+| `metadata` | object | No | Metadata for the pipeline. See [Metadata Configuration](#metadata-configuration). |
+
 
 ## Source Configuration
 
@@ -44,7 +49,6 @@ The source configuration defines how to connect to and consume from Kafka topics
 | `kerberos_realm` | string | No | Kerberos realm. |
 | `kerberos_config` | string | No | Kerberos configuration file. |
 | `root_ca` | string | No | Cert. file for Kafka authentication. |
-| `skip_auth` | boolean | No | Deprecated: Use mechanism `NO_AUTH` instead. Skip Kafka authentication. Default is `false`. |
 | `skip_tls_verification` | boolean | No | Skip TLS verification. Default is `false`. |
 
 Supported Protocol:
@@ -69,33 +73,7 @@ Each topic in the `topics` array has the following configuration:
 | `name` | string | Yes | Name of the Kafka topic. |
 | `consumer_group_initial_offset` | string | No | Initial offset for the consumer group (`earliest` or `latest`). Defaults to `latest`. |
 | `replicas` | integer | No | Number of replicas for the Kafka topic. Defaults to 1. |
-| `schema` | object | Yes | Event schema definition. See [Schema Configuration](#schema-configuration). |
 | `deduplication` | object | Yes | Deduplication settings. See [Deduplication Configuration](#deduplication-configuration). |
-
-### Schema Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | Schema type (Currently only "json" is supported). |
-| `fields` | array | Yes | List of field definitions. See [Field Configuration](#field-configuration). |
-
-### Field Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Field name. Nested structures are supported by using a dot notation (e.g. `data.name`). |
-| `type` | string | Yes | Field type. |
-
-The `type` parameter accepts the following Kafka data types:
-
-- `'string'` - For text data, including datetime strings
-- `'int'`, `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
-- `'uint'`, `'uint8'`, `'uint16'`, `'uint32'`, `'uint64'` - For unsigned integer values
-- `'float'`, `'float32'`, `'float64'` - For floating-point numbers
-- `'bool'` - For boolean values
-- `'bytes'` - For binary data
-- `'array'` - For array data
-- `'map'` - For key-value pair data
 
 ### Deduplication Configuration
 
@@ -125,18 +103,36 @@ The sink configuration defines how to connect to and write to ClickHouse.
 | `skip_certificate_verification` | boolean | No | Whether to skip certificate verification. Defaults to false. |
 | `max_batch_size` | integer | No | Maximum number of records to batch before writing. Defaults to 1000. |
 | `max_delay_time` | string | No | Maximum delay time before the messages are flushed into the sink. Defaults to "10m". |
-| `table_mapping` | array | Yes | List of field to column mappings. See [Table Mapping Configuration](#table-mapping-configuration). |
 
-### Table Mapping Configuration
 
-Each mapping in the `table_mapping` array has the following configuration:
+## Schema Configuration
+
+The schema configuration defines the schema of the pipeline.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `source_id` | string | Yes | Name of the source topic. |
-| `field_name` | string | Yes | Source field name. |
-| `column_name` | string | Yes | Target column name. |
-| `column_type` | string | Yes | Target column type. |
+| `fields` | array | Yes | List of field definitions. See [Field Configuration](#field-configuration). |
+
+### Field Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source_id` | string | Yes | Source ID. This is the ID of the source topic. |
+| `name` | string | Yes | Source field name. Nested structures are supported by using a dot notation (e.g. `data.name`). |
+| `type` | string | Yes | Source field type. |
+| `column_name` | string | No | ClickHouse column name. |
+| `column_type` | string | No | ClickHouse column type. |
+
+The `type` parameter accepts the following Kafka data types:
+
+- `'string'` - For text data, including datetime strings
+- `'int'`, `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
+- `'uint'`, `'uint8'`, `'uint16'`, `'uint32'`, `'uint64'` - For unsigned integer values
+- `'float'`, `'float32'`, `'float64'` - For floating-point numbers
+- `'bool'` - For boolean values
+- `'bytes'` - For binary data
+- `'array'` - For array data
+- `'map'` - For key-value pair data
 
 The `column_type` parameter accepts the following ClickHouse data types:
 
@@ -193,6 +189,19 @@ Each source in the `sources` array has the following configuration:
 | `time_window` | string | Yes | Time window for joining records (e.g., "1h" for one hour). See [Time windows](#time-windows). |
 | `orientation` | string | Yes | Join orientation ("left" or "right"). |
 
+## Filter Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | Yes | Whether filtering is enabled. |
+| `expression` | string | Yes | Filter expression. |
+
+## Metadata Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tags` | array | No | List of tags for the pipeline. |
+
 ## Other configuration notes
 
 ### Time windows
@@ -208,10 +217,10 @@ Time windows use string format, for example:
 
 ```json
 {
+  "version": "v2",
   "pipeline_id": "kafka-to-clickhouse-pipeline",
   "source": {
     "type": "kafka",
-    "provider": "aiven",
     "connection_params": {
       "brokers": [
         "kafka-broker-0:9092",
@@ -227,23 +236,6 @@ Time windows use string format, for example:
       {
         "consumer_group_initial_offset": "earliest",
         "name": "user_logins",
-        "schema": {
-          "type": "json",
-          "fields": [
-            {
-              "name": "session_id",
-              "type": "string"
-            },
-            {
-              "name": "user_id",
-              "type": "string"
-            },
-            {
-              "name": "timestamp",
-              "type": "datetime"
-            }
-          ]
-        },
         "deduplication": {
           "enabled": true,
           "id_field": "session_id",
@@ -254,23 +246,6 @@ Time windows use string format, for example:
       {
         "consumer_group_initial_offset": "earliest",
         "name": "orders",
-        "schema": {
-          "type": "json",
-          "fields": [
-            {
-              "name": "user_id",
-              "type": "string"
-            },
-            {
-              "name": "order_id",
-              "type": "string"
-            },
-            {
-              "name": "timestamp",
-              "type": "datetime"
-            }
-          ]
-        },
         "deduplication": {
           "enabled": true,
           "id_field": "order_id",
@@ -309,35 +284,47 @@ Time windows use string format, for example:
     "secure": true,
     "max_batch_size": 1,
     "max_delay_time": "10m",
-    "table": "user_orders",
-    "table_mapping": [
+    "table": "user_orders"
+  },
+  "schema": {
+    "fields": [
       {
         "source_id": "user_logins",
-        "field_name": "session_id",
+        "name": "session_id",
+        "type": "string",
         "column_name": "session_id",
         "column_type": "UUID"
       },
       {
         "source_id": "user_logins",
-        "field_name": "user_id",
+        "name": "user_id",
+        "type": "string",
         "column_name": "user_id",
         "column_type": "UUID"
       },
       {
         "source_id": "orders",
-        "field_name": "order_id",
+        "name": "user_id",
+        "type": "string"
+      },
+      {
+        "source_id": "orders",
+        "name": "order_id",
+        "type": "string",
         "column_name": "order_id",
         "column_type": "UUID"
       },
       {
         "source_id": "user_logins",
-        "field_name": "timestamp",
+        "name": "timestamp",
+        "type": "datetime",
         "column_name": "login_at",
-        "column_type": "DataTime"
+        "column_type": "DateTime"
       },
       {
         "source_id": "orders",
-        "field_name": "timestamp",
+        "name": "timestamp",
+        "type": "datetime",
         "column_name": "order_placed_at",
         "column_type": "DateTime"
       }
