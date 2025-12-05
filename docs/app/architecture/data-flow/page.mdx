@@ -18,9 +18,7 @@ GlassFlow processes data through multiple stages, each with its own acknowledgme
 
 A typical GlassFlow pipeline follows this flow:
 
-```
-Kafka Topic → Ingestor → NATS JetStream → [Deduplication/Join] → NATS JetStream → Sink → ClickHouse
-```
+![Data Flow Architecture](/assets/architecture_data_flow.png)
 
 ### Stage 1: Kafka to NATS JetStream (Ingestor)
 
