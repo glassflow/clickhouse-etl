@@ -151,73 +151,6 @@ Filter expressions use field names from your event schema and support the follow
 }
 ```
 
-## Use Cases
-
-### Filtering by Status
-
-Only process events with a specific status:
-
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "status == 'completed'"
-  }
-}
-```
-
-### Age-Based Filtering
-
-Process events for users within a specific age range:
-
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "age >= 18 and age <= 65"
-  }
-}
-```
-
-### Premium User Filtering
-
-Only process events for premium users:
-
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "is_premium == true"
-  }
-}
-```
-
-### Multi-Condition Filtering
-
-Filter events based on multiple criteria:
-
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "status == 'active' and region == 'US' and score > 100"
-  }
-}
-```
-
-### Exclusion Filtering
-
-Exclude specific values:
-
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "status != 'deleted' and status != 'archived'"
-  }
-}
-```
-
 ## Best Practices
 
 ### Expression Design
@@ -225,13 +158,6 @@ Exclude specific values:
 - **Keep expressions simple**: Complex expressions can be harder to maintain and debug
 - **Use parentheses**: Explicitly group conditions with parentheses for clarity
 - **Test expressions**: Validate filter expressions before deploying to production
-- **Document intent**: Use clear field names and conditions that express business logic
-
-### Performance Considerations
-
-- **Filter early**: Filtering at the ingestor stage reduces processing overhead
-- **Index frequently filtered fields**: If possible, structure your data to support efficient filtering
-- **Avoid complex nested conditions**: Very complex expressions may impact performance
 
 ### Field Names
 
@@ -281,48 +207,10 @@ Here's a complete example of a pipeline with filtering enabled:
 }
 ```
 
-## Combining with Other Transformations
-
-### Filter + Deduplication
-
-Filter events first, then deduplicate the filtered results:
-
-1. Configure filter to select relevant events
-2. Enable deduplication on the filtered stream
-3. This reduces the number of events that need deduplication
-
-### Filter + Join
-
-Filter events from multiple topics before joining:
-
-1. Configure filters on source topics (if supported per-topic)
-2. Use pipeline-level filter for post-join filtering
-3. Only filtered events participate in the join
-
-### Filter + Deduplication + Join
-
-Combine all three transformations:
-
-1. Filter events to select relevant data
-2. Deduplicate filtered events
-3. Join deduplicated streams
-4. This provides a complete data processing pipeline
-
-## Expression Validation
-
-Filter expressions are validated when the pipeline is created or updated. The validation:
-
-- Checks expression syntax
-- Verifies that all field names exist in the event schema
-- Ensures expression evaluates to a boolean value
-- Validates type compatibility for comparisons
-
-If validation fails, the pipeline creation or update will fail with an error message indicating the issue.
-
 ## Related Documentation
 
 - [Data Flow - Ingestor Stage](/architecture/data-flow#stage-1-kafka-to-nats-jetstream-ingestor)
 - [Pipeline JSON Reference - Filter Configuration](/configuration/pipeline-json-reference#filter-configuration)
-- [Transformations Overview](/usage-guide/transformations)
+- [Transformations Overview](/configuration/transformations)
 - [expr Language Documentation](https://github.com/expr-lang/expr)
 
