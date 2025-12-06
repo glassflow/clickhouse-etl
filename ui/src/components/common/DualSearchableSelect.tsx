@@ -307,10 +307,13 @@ export function DualSearchableSelect({
                       <div
                         key={option}
                         className={cn(
-                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
-                          'hover:bg-accent hover:text-accent-foreground',
-                          selectedOption === option && 'bg-accent/50',
-                          highlightedIndex.list === 'primary' && highlightedIndex.index === index && 'bg-primary/20',
+                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150',
+                          'text-[var(--option-fg)] hover:bg-[var(--option-bg-hover)] hover:text-[var(--option-fg-highlighted)]',
+                          selectedOption === option &&
+                            'bg-[var(--option-bg-selected)] text-[var(--option-fg-selected)]',
+                          highlightedIndex.list === 'primary' &&
+                            highlightedIndex.index === index &&
+                            'bg-[var(--option-bg-highlighted)] text-[var(--option-fg-highlighted)]',
                         )}
                         onClick={() => {
                           onSelect(option, 'primary')
@@ -344,10 +347,13 @@ export function DualSearchableSelect({
                       <div
                         key={option}
                         className={cn(
-                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150 text-content',
-                          'hover:bg-accent hover:text-accent-foreground',
-                          selectedOption === option && 'bg-accent/50',
-                          highlightedIndex.list === 'secondary' && highlightedIndex.index === index && 'bg-primary/20',
+                          'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150',
+                          'text-[var(--option-fg)] hover:bg-[var(--option-bg-hover)] hover:text-[var(--option-fg-highlighted)]',
+                          selectedOption === option &&
+                            'bg-[var(--option-bg-selected)] text-[var(--option-fg-selected)]',
+                          highlightedIndex.list === 'secondary' &&
+                            highlightedIndex.index === index &&
+                            'bg-[var(--option-bg-highlighted)] text-[var(--option-fg-highlighted)]',
                         )}
                         onClick={() => {
                           onSelect(option, 'secondary')

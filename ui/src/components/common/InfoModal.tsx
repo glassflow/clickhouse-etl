@@ -34,14 +34,6 @@ export function InfoModal({
   pendingOperation?: string
   criticalOperation?: boolean
 }) {
-  console.log('InfoModal', visible)
-  console.log('InfoModal', title)
-  console.log('InfoModal', description)
-  console.log('InfoModal', okButtonText)
-  console.log('InfoModal', cancelButtonText)
-  console.log('InfoModal', onComplete)
-  console.log('InfoModal', pendingOperation)
-  console.log('InfoModal', criticalOperation)
   return (
     <Dialog
       open={visible}
@@ -50,7 +42,7 @@ export function InfoModal({
       }}
     >
       <DialogOverlay className="!fixed !inset-0 modal-overlay surface-gradient-border" aria-hidden="true" />
-      <DialogContent className="sm:max-w-[500px] info-modal-container surface-gradient-border">
+      <DialogContent className="sm:max-w-[500px] info-modal-container surface-gradient-border border-0">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">{title}</DialogTitle>
           <DialogDescription className="modal-description gap-2">{description}</DialogDescription>
