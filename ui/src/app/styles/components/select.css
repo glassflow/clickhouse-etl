@@ -126,7 +126,7 @@
 }
 
 .select-content-custom[data-state='open'] {
-  border-color: var(--control-border-focus);
+  border-color: var(--surface-border);
 }
 
 .select-item-custom {
