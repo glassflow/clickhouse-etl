@@ -122,6 +122,12 @@
   --card-border-selected-start: var(--color-orange-300);
   --card-border-selected-end: var(--color-orange-500);
 
+  /* Outline Card (simple solid border, no shadow) */
+  --card-outline-border: #393939;
+  --card-outline-border-hover: #4a4a4a;
+  --card-outline-bg: rgba(38, 38, 38, 0.2);
+  --card-outline-bg-hover: rgba(38, 38, 38, 0.3);
+
   /* Card Shadow */
   --card-shadow: var(--shadow-raised);
   --card-shadow-dark: 0px 0px 4px 0px var(--color-black), 0px 4px 8px 0px var(--color-black);
@@ -309,6 +315,12 @@
   /* Selected/Primary state gradient */
   --card-border-selected-start: var(--color-orange-300);
   --card-border-selected-end: var(--color-orange-500);
+
+  /* Outline Card (simple solid border, no shadow) */
+  --card-outline-border: var(--color-gray-light-300);
+  --card-outline-border-hover: var(--color-gray-light-400);
+  --card-outline-bg: rgba(245, 245, 245, 0.5);
+  --card-outline-bg-hover: rgba(240, 240, 240, 0.7);
 
   /* Card Shadow */
   --card-shadow: 0px 1px 3px rgba(0, 0, 0, 0.06), 0px 2px 8px rgba(0, 0, 0, 0.03);

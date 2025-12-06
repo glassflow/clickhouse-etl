@@ -29,11 +29,11 @@ function TitleCardWithIcon({
   return (
     <Card
       className={cn(
-        'p-6 h-48 items-center justify-center',
+        'card-outline p-6 h-48 items-center justify-center',
         isClickable && 'cursor-pointer hover:scale-[1.02]',
         disabled && 'opacity-50 cursor-not-allowed',
-        validation?.status === 'invalidated' && 'card-dark-error',
-        selected && 'card-dark-selected',
+        validation?.status === 'invalidated' && 'card-outline-error',
+        selected && 'card-outline-selected',
       )}
       onClick={handleClick}
     >

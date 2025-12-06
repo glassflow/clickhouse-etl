@@ -50,6 +50,32 @@
   background: linear-gradient(180deg, var(--card-border-selected-start) 0%, var(--card-border-selected-end) 100%);
 }
 
+/* Outline card - simple solid border, no shadow, semi-transparent background */
+/* Used for pipeline overview cards (Source, Transformation, Sink sections) */
+.card-outline {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-large);
+  border: 1px solid var(--card-outline-border);
+  background: var(--card-outline-bg);
+  transition: all var(--duration-medium) var(--easing-standard);
+}
+
+.card-outline:hover {
+  border-color: var(--card-outline-border-hover);
+  background: var(--card-outline-bg-hover);
+}
+
+/* Error state for outline cards */
+.card-outline-error {
+  border-color: var(--card-border-error-start);
+}
+
+/* Selected state for outline cards */
+.card-outline-selected {
+  border-color: var(--card-border-selected-start);
+}
+
 .card {
   border-radius: var(--radius-large);
   border: 1px solid var(--card-border);

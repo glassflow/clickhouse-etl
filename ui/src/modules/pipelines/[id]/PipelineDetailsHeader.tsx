@@ -916,7 +916,7 @@ function PipelineDetailsHeader({
         showHeader ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}
     >
-      <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4">
+      <Card className="card-outline py-2 px-6 mb-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-4 items-start">
             <div className="flex flex-row flex-start gap-2 items-center min-w-0 flex-1">

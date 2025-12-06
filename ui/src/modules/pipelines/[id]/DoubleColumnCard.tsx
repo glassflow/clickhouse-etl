@@ -30,11 +30,11 @@ function DoubleColumnCard({
   return (
     <Card
       className={cn(
-        'p-4',
+        'card-outline p-4',
         widthClass,
         disabled && 'opacity-50 cursor-not-allowed',
-        isInvalid && 'card-dark-error',
-        selected && 'card-dark-selected',
+        isInvalid && 'card-outline-error',
+        selected && 'card-outline-selected',
       )}
       onClick={onClick}
     >

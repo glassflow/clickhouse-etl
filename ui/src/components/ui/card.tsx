@@ -3,7 +3,7 @@ import * as React from 'react'
 import { cn } from '@/src/utils/common.client'
 
 function Card({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="card" className={cn('card-dark', className)} {...props} />
+  return <div data-slot="card" className={cn(className)} {...props} />
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
