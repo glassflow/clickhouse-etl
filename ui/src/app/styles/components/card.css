@@ -40,6 +40,16 @@
   box-shadow: var(--card-shadow-hover);
 }
 
+/* Error state modifier - overrides gradient border with red */
+.card-dark-error::before {
+  background: linear-gradient(180deg, var(--card-border-error-start) 0%, var(--card-border-error-end) 100%);
+}
+
+/* Selected state modifier - overrides gradient border with primary/orange */
+.card-dark-selected::before {
+  background: linear-gradient(180deg, var(--card-border-selected-start) 0%, var(--card-border-selected-end) 100%);
+}
+
 .card {
   border-radius: var(--radius-large);
   border: 1px solid var(--card-border);

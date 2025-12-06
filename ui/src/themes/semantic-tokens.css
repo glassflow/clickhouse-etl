@@ -115,6 +115,12 @@
   --card-border-cool-end: var(--color-black-200);
   --card-border-hover-warm: var(--color-orange-hover-light);
   --card-border-hover-cool: var(--color-blue-400);
+  /* Error/Critical state gradient */
+  --card-border-error-start: var(--color-red-400);
+  --card-border-error-end: var(--color-red-600);
+  /* Selected/Primary state gradient */
+  --card-border-selected-start: var(--color-orange-300);
+  --card-border-selected-end: var(--color-orange-500);
 
   /* Card Shadow */
   --card-shadow: var(--shadow-raised);
@@ -297,6 +303,12 @@
   --card-border-cool-end: var(--color-gray-light-200);
   --card-border-hover-warm: var(--color-orange-300);
   --card-border-hover-cool: var(--color-blue-400);
+  /* Error/Critical state gradient */
+  --card-border-error-start: var(--color-red-300);
+  --card-border-error-end: var(--color-red-500);
+  /* Selected/Primary state gradient */
+  --card-border-selected-start: var(--color-orange-300);
+  --card-border-selected-end: var(--color-orange-500);
 
   /* Card Shadow */
   --card-shadow: 0px 1px 3px rgba(0, 0, 0, 0.06), 0px 2px 8px rgba(0, 0, 0, 0.03);

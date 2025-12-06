@@ -29,20 +29,17 @@ function TitleCardWithIcon({
   return (
     <Card
       className={cn(
-        'border-[var(--color-border-neutral)] radius-large p-6 h-48 flex flex-col items-center justify-center',
-        isClickable &&
-          'cursor-pointer transition-all duration-200 hover:shadow-md hover:border-gray-300 hover:scale-[1.02]',
+        'p-6 h-48 items-center justify-center',
+        isClickable && 'cursor-pointer hover:scale-[1.02]',
         disabled && 'opacity-50 cursor-not-allowed',
-        validation?.status === 'invalidated' && 'border-red-500',
-        selected && 'border-primary',
+        validation?.status === 'invalidated' && 'card-dark-error',
+        selected && 'card-dark-selected',
       )}
       onClick={handleClick}
     >
       <div className="flex flex-col items-center justify-center gap-4">
         <div className="flex items-center justify-center">{children}</div>
-        <h3 className="text-lg font-bold text-center text-[var(--color-foreground-neutral-faded)]" text->
-          {title}
-        </h3>
+        <h3 className="text-lg font-bold text-center text-[var(--color-foreground-neutral-faded)]">{title}</h3>
         {isClickable && <p className="text-sm text-gray-500 text-center">Click to edit</p>}
       </div>
     </Card>
