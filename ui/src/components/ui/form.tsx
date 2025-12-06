@@ -189,7 +189,7 @@ const FormControlInput = <T extends FieldValues>({
 
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         <Input
           id={id}
@@ -249,7 +249,7 @@ function FormControlTextarea({
   const [isFocused, setIsFocused] = useState(false)
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         {/* @ts-expect-error - field is not typed */}
         <Textarea
@@ -321,7 +321,7 @@ function FormControlSelect({
 
   return (
     <div className={cn('space-y-2 w-full min-w-[200px] transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         <Controller
           name={name}
@@ -418,7 +418,7 @@ function FormControlSwitch({
 
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         <Controller
           name={name}

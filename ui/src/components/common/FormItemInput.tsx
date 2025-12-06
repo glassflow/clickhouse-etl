@@ -23,7 +23,7 @@ export function FormItemInput({
 
   return (
     <FormItem>
-      <FormLabel>{label}</FormLabel>
+      <FormLabel className="input-label">{label}</FormLabel>
       <FormControl>
         <Input
           type={type}
@@ -33,8 +33,7 @@ export function FormItemInput({
             'input-regular',
             'input-border-regular',
             form.formState.errors[field.name] && 'input-border-error',
-            // Use local state for focus
-            isFocused && 'card-gradient-active',
+            // Focus state is handled by CSS :focus-visible pseudo-class
           )}
           // Simplified focus/blur handlers
           onFocus={(e) => {

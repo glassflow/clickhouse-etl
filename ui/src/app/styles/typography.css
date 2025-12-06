@@ -5,7 +5,7 @@
   font-family: var(--font-family-title-1);
   font-weight: var(--font-weight-title-1);
   letter-spacing: var(--letter-spacing-title-1);
-  color: var(--color-foreground-accent);
+  color: var(--text-accent);
 }
 
 .title-2 {
@@ -72,64 +72,71 @@
 
 /* ================== Button ================== */
 .btn-text {
-  color: var(--color-black);
+  color: var(--text-inverse);
   font-family: var(--font-family-body);
-  font-size: var(--font-size-body-3, 14px);
+  font-size: var(--font-size-body-3);
   font-style: normal;
-  font-weight: var(--font-weight-medium, 500);
-  line-height: var(--line-height-body-3, 20px);
-  letter-spacing: var(--letter-spacing-body-3, 0px);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-body-3);
+  letter-spacing: var(--letter-spacing-body-3);
 }
 
 .btn-text-disabled {
-  color: var(--color-foreground-neutral-faded);
+  color: var(--text-secondary);
   font-family: var(--font-family-body);
-  font-size: var(--font-size-body-3, 14px);
+  font-size: var(--font-size-body-3);
   font-style: normal;
-  font-weight: var(--font-weight-medium, 500);
-  line-height: var(--line-height-body-3, 20px);
-  letter-spacing: var(--letter-spacing-body-3, 0px);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-body-3);
+  letter-spacing: var(--letter-spacing-body-3);
 }
 
 /* ================== Utilities ================== */
 .text-brand-gradient {
-  background: linear-gradient(283deg, #ffac5e 21.34%, #a5b9e4 102.9%);
+  background: var(--text-gradient-brand);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-normal {
-  color: var(--color-foreground-neutral);
+  color: var(--text-primary);
 }
 
 .text-content {
-  color: var(--color-foreground-neutral-faded);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.2;
+  color: var(--text-primary);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
+}
+
+.text-content-faded {
+  color: var(--text-secondary);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
 }
 
 .text-normal-accent {
-  color: var(--color-foreground-accent);
+  color: var(--text-accent);
 }
 
 .subtitle {
-  color: var(--color-foreground-neutral-faded);
+  color: var(--text-primary);
   font-family: var(--font-family-body);
-  font-size: var(--font-size-featured-2, 24px);
+  font-size: var(--font-size-featured-3);
   font-style: normal;
   font-weight: var(--font-weight-regular);
-  line-height: var(--line-height-featured-2, 32px);
-  letter-spacing: var(--letter-spacing-featured-2, 0px);
+  line-height: var(--line-height-featured-3);
+  letter-spacing: var(--letter-spacing-featured-3);
 }
 
 .subtitle-2 {
-  color: var(--color-foreground-neutral-faded);
+  color: var(--text-secondary);
   font-family: var(--font-family-body);
-  font-size: var(--font-size-title-6, 16px);
+  font-size: var(--font-size-title-6);
   font-style: normal;
   font-weight: var(--font-weight-regular);
-  line-height: var(--line-height-title-6, 24px);
-  letter-spacing: var(--letter-spacing-featured-2, 0px);
+  line-height: var(--line-height-title-6);
+  letter-spacing: var(--letter-spacing-title-6);
 }

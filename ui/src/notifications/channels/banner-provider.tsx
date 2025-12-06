@@ -31,7 +31,7 @@ export function BannerProvider({ children }: { children: React.ReactNode }) {
     <BannerContext.Provider value={{ showBanner, dismissBanner }}>
       {children}
       {banner?.visible && (
-        <div className="fixed top-0 right-0 z-50 p-4 animate-in slide-in-from-top">
+        <div className="fixed top-0 right-0 z-50 p-0 m-4 animate-in slide-in-from-top">
           <div className="max-w-7xl mx-auto">
             <Banner options={banner.options} onDismiss={dismissBanner} />
           </div>

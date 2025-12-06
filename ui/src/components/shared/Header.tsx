@@ -129,7 +129,7 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
       </Button>
 
       <div
-        className={`absolute right-0 mt-2 w-48 bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md shadow-lg py-1 background z-50 ${
+        className={`absolute right-0 mt-2 w-48 bg-[var(--color-background-elevation-raised-faded-2)] surface-gradient-border rounded-md shadow-lg py-1 background z-50 ${
           isOpen ? 'block' : 'hidden'
         }`}
       >

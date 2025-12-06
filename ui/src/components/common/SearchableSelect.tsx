@@ -311,7 +311,7 @@ export function SearchableSelect({
         createPortal(
           <div
             id="searchable-select-dropdown"
-            className="fixed z-50 shadow-md rounded-md border border-border overflow-hidden select-content-custom bg-[#1e1e1f]"
+            className="fixed z-50 shadow-md rounded-md border overflow-hidden select-content-custom"
             style={{
               width: dropdownPosition.width + 'px',
               top: dropdownPosition.top + 'px',
@@ -333,8 +333,9 @@ export function SearchableSelect({
                         'flex w-full items-center px-2 py-1.5 text-sm outline-none cursor-pointer transition-all duration-150',
                         'hover:bg-accent hover:text-accent-foreground',
                         selectedOption === option && 'bg-accent/50',
-                        highlightedIndex === index ? 'bg-primary/20 font-medium' : 'rounded-md',
-                        highlightedIndex === index && 'text-[var(--color-background-primary)]',
+                        highlightedIndex === index
+                          ? 'bg-primary/20 font-medium text-[var(--color-background-primary)]'
+                          : 'rounded-md',
                       )}
                       onClick={(e) => {
                         e.preventDefault()

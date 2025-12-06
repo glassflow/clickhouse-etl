@@ -49,7 +49,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       {children}
       {modal?.visible && (
         <Dialog open={modal.visible} onOpenChange={(open) => !open && dismissModal()}>
-          <DialogContent className="sm:max-w-[500px] bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md shadow-lg">
+          <DialogContent className="sm:max-w-[500px] bg-[var(--color-background-elevation-raised-faded-2)] surface-gradient-border rounded-md shadow-lg">
             <DialogHeader>
               <DialogTitle className="font-semibold text-lg leading-none text-[var(--color-foreground-neutral)]">
                 {modal.options.title}

@@ -157,7 +157,7 @@ export default function HomePageClient() {
         </h2>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-8 sm:mt-12 w-full max-w-[640px]">
-        <div className={cn('card card-elevated', topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+        <div className={cn('btn-card', topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
           <button
             className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
             onClick={() => handleTopicCountClick(1)}
@@ -168,7 +168,7 @@ export default function HomePageClient() {
             </span>
           </button>
         </div>
-        <div className={cn('card card-elevated', topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+        <div className={cn('btn-card', topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
           <button
             className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
             onClick={() => handleTopicCountClick(2)}

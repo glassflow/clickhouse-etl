@@ -1,0 +1,102 @@
+/* ================== Loader/Spinner Utilities ================== */
+
+.loader {
+  position: relative;
+  width: var(--loader-size);
+  height: var(--loader-size);
+  display: inline-block;
+}
+
+/* Loader Ring */
+.loader-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: var(--loader-track-width) solid var(--loader-track-color);
+  border-top-color: var(--loader-progress-color);
+  border-radius: 50%;
+  animation: loader-spin var(--loader-animation-duration) var(--loader-animation-timing) infinite;
+}
+
+/* Loader Animation */
+@keyframes loader-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Loader Variants */
+.loader--default {
+  /* Default variant - single ring */
+}
+
+.loader--variant2 .loader-ring {
+  animation-delay: -0.33s;
+}
+
+.loader--variant3 .loader-ring {
+  animation-delay: -0.66s;
+}
+
+/* Multiple rings stacked (for three-ring loader) */
+.loader--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.loader--stacked .loader-ring {
+  position: relative;
+}
+
+/* Size Variants */
+.loader--sm {
+  width: 12px;
+  height: 12px;
+}
+
+.loader--md {
+  width: var(--loader-size);
+  height: var(--loader-size);
+}
+
+.loader--lg {
+  width: 24px;
+  height: 24px;
+}
+
+.loader--xl {
+  width: 32px;
+  height: 32px;
+}
+
+/* Color Variants */
+.loader--primary .loader-ring {
+  border-top-color: var(--color-orange-300);
+}
+
+.loader--secondary .loader-ring {
+  border-top-color: var(--color-blue-500);
+}
+
+.loader--success .loader-ring {
+  border-top-color: var(--color-green-500);
+}
+
+.loader--error .loader-ring {
+  border-top-color: var(--color-red-500);
+}
+
+/* Accessibility */
+.loader[aria-label] {
+  /* Screen reader support */
+}
+
+.loader[aria-hidden='true'] {
+  /* Hide from screen readers when decorative */
+}

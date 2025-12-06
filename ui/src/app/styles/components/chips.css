@@ -1,34 +1,79 @@
+/* ================== Chip/Tag Utilities ================== */
+
 .chip {
+  /* Layout */
   display: inline-flex;
   align-items: center;
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  justify-content: center;
+  gap: var(--chip-gap);
+
+  /* Spacing */
+  padding: var(--chip-padding-y) var(--chip-padding-x);
+
+  /* Border */
+  border-radius: var(--chip-border-radius);
+  border: none;
+
+  /* Typography - Caption 1/Regular from Figma */
+  font-family: var(--chip-font-family);
+  font-size: var(--chip-font-size);
+  font-weight: var(--chip-font-weight);
+  line-height: var(--chip-line-height);
+  letter-spacing: var(--chip-letter-spacing);
+
+  /* Transitions */
+  transition: all var(--duration-fast) var(--easing-standard);
 }
 
+/* Chip State Variants */
+.chip-active {
+  background-color: var(--chip-active-bg);
+  color: var(--chip-active-text);
+}
+
+.chip-paused,
+.chip-pausing {
+  background-color: var(--chip-paused-bg);
+  color: var(--chip-paused-text);
+}
+
+.chip-stopped,
+.chip-stopping {
+  background-color: var(--chip-stopped-bg);
+  color: var(--chip-stopped-text);
+}
+
+.chip-failed {
+  background-color: var(--chip-failed-bg);
+  color: var(--chip-failed-text);
+}
+
+/* Legacy chip variants (for backward compatibility) */
 .chip-positive {
-  background-color: var(--color-background-positive);
-  color: var(--color-foreground-positive);
+  background-color: var(--chip-bg-positive);
+  color: var(--chip-fg-positive);
   display: inline-flex;
   align-items: center;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  padding: var(--chip-padding-y) var(--chip-padding-x);
+  border-radius: var(--chip-border-radius);
+  font-family: var(--chip-font-family);
+  font-size: var(--chip-font-size);
+  font-weight: var(--chip-font-weight);
+  line-height: var(--chip-line-height);
+  letter-spacing: var(--chip-letter-spacing);
 }
 
 .chip-negative {
-  background-color: var(--color-background-critical);
-  color: var(--color-foreground-critical);
+  background-color: var(--chip-bg-negative);
+  color: var(--chip-fg-negative);
 }
 
 .chip-neutral {
-  background-color: var(--color-background-neutral);
-  color: var(--color-foreground-neutral);
+  background-color: var(--chip-bg-neutral);
+  color: var(--chip-fg-neutral);
 }
 
 .chip-neutral-faded {
-  background-color: var(--color-background-neutral-faded);
-  color: var(--color-foreground-neutral-faded);
+  background-color: var(--chip-bg-neutral-faded);
+  color: var(--chip-fg-neutral-faded);
 }

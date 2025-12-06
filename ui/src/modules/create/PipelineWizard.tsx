@@ -323,17 +323,19 @@ function PipelineWizard() {
         {/* Main Content Area */}
         <div className="grow">
           {currentActiveStep && (
-            <Card className="card card-regular p-4">
+            <Card className="card-dark p-4">
               <CardHeader>
                 <CardTitle>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <span className="step-title">{getStepTitle(currentActiveStep as StepKeys)}</span>
+                      <span className="subtitle">{getStepTitle(currentActiveStep as StepKeys)}</span>
                     </div>
                     <ChevronDownIcon className="w-5 h-5" />
                   </div>
                 </CardTitle>
-                <CardDescription>{stepsMetadata[currentActiveStep as StepKeys]?.description || ''}</CardDescription>
+                <CardDescription className="subtitle-2">
+                  {stepsMetadata[currentActiveStep as StepKeys]?.description || ''}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {renderStepComponent(currentActiveStep, stepComponents, stepsMetadata, handleNext, validateStep)}

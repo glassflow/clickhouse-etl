@@ -130,7 +130,14 @@ function StepIcon({ state, stepKey }: StepIconProps) {
   )
 }
 
-export function WizardSidebar({ steps, completedSteps, activeStep, onStepClick, journey, deduplicationParent }: WizardSidebarProps) {
+export function WizardSidebar({
+  steps,
+  completedSteps,
+  activeStep,
+  onStepClick,
+  journey,
+  deduplicationParent,
+}: WizardSidebarProps) {
   // Separate top-level steps and substeps
   const topLevelSteps = steps.filter((step) => !step.parent)
   const substepsByParent = steps.reduce(
@@ -217,7 +224,7 @@ export function WizardSidebar({ steps, completedSteps, activeStep, onStepClick, 
     // - Gap to next main step: 8px
     // - Next main step icon center: 26px
     const verticalLineHeight = hasSubsteps
-      ? 8 + substeps.length * 60 + 8 + 26 // gap + substeps + gap + next icon center
+      ? 8 + substeps.length * 60 + 8 + 8 // gap + substeps + gap + next icon edge to edge
       : undefined
 
     return (
@@ -231,7 +238,7 @@ export function WizardSidebar({ steps, completedSteps, activeStep, onStepClick, 
             {/* Horizontal line starts at vertical line position (33px from container start) */}
             {/* Substep icon center is at: 40px (container padding) + 29px (from substep div) = 69px from container start */}
             {/* So horizontal line: left-[33px], width = 69px - 33px = 36px */}
-            <div className="absolute left-[33px] top-[26px] w-[36px] h-0.5 bg-[var(--color-border-neutral-faded)] z-0" />
+            <div className="absolute left-[33px] top-[26px] w-[27px] h-0.5 bg-[var(--color-border-neutral-faded)] z-0" />
             {substeps.map((substep, subIndex) =>
               renderStep(substep, true, isLastTopLevel && subIndex === substeps.length - 1),
             )}

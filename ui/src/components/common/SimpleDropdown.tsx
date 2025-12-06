@@ -53,7 +53,7 @@ export const SimpleDropdown = ({
             'input-regular',
             'input-border-regular',
             error && 'input-border-error',
-            isFocused && 'card-gradient-active',
+            isFocused && 'input-gradient-active',
           )}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
@@ -68,11 +68,11 @@ export const SimpleDropdown = ({
         </SelectTrigger>
         <SelectContent className="select-content-custom">
           {error ? (
-            <div className="p-2 text-red-500">{error}</div>
+            <div className="p-2 text-[var(--control-fg-error)]">{error}</div>
           ) : isLoading ? (
-            <div className="p-2">Loading options...</div>
+            <div className="p-2 text-[var(--surface-fg-muted)]">Loading options...</div>
           ) : !optionsList || optionsList.length === 0 ? (
-            <div className="p-2">No options found</div>
+            <div className="p-2 text-[var(--surface-fg-muted)]">No options found</div>
           ) : (
             optionsList.map((option: string) => (
               <SelectItem key={option} value={option} className="select-item-custom">
