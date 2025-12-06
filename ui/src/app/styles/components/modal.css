@@ -1,15 +1,13 @@
 /* ================== Modal utilities ================== */
 .info-modal-container {
-  /* Background - matching Figma design */
-  background-color: var(--color-gray-dark-800);
+  /* Background - uses surface overlay token */
+  background-color: var(--surface-bg-overlay);
 
   /* Border radius - matching Figma design */
   border-radius: var(--radius-large);
 
-  /* Shadow - matching Figma design */
-  box-shadow:
-    0px 2px 5px 1px rgba(0, 0, 0, 0.25),
-    0px -1px 0px 0px rgba(255, 255, 255, 0.15);
+  /* Shadow - uses surface shadow token */
+  box-shadow: var(--surface-shadow-overlay);
 
   /* Padding - matching Figma design (48px horizontal, 36px vertical) */
   padding: var(--unit-x9) calc(12 * var(--unit-x1));
@@ -24,6 +22,13 @@
   max-width: 568px;
 
   overflow: auto;
+}
+
+/* Modal overlay/backdrop */
+.modal-overlay {
+  background-color: var(--overlay-bg);
+  backdrop-filter: var(--overlay-backdrop-blur);
+  -webkit-backdrop-filter: var(--overlay-backdrop-blur);
 }
 
 .modal-title {
@@ -65,8 +70,8 @@
 
 /* Modal-specific input field - matching Figma design */
 .modal-input {
-  /* Background - matching Figma design (#141414) */
-  background-color: var(--color-black-600);
+  /* Background - uses control token */
+  background-color: var(--control-bg);
 
   /* Border radius - matching Figma design */
   border-radius: var(--radius-small);
@@ -100,6 +105,20 @@
 
 .modal-input::placeholder {
   color: var(--color-foreground-neutral-faded);
+}
+
+/* Modal input error state */
+.modal-input-error {
+  border-color: var(--control-border-error);
+}
+
+/* Modal error text */
+.modal-error-text {
+  color: var(--control-fg-error);
+  font-family: var(--font-family-caption-1);
+  font-size: var(--font-size-caption-1);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-caption-1);
 }
 
 /* Input field label - Body 3/Medium from Figma */

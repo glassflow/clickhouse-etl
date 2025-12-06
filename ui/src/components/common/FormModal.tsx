@@ -97,33 +97,24 @@ export function FormModal({
         if (!isOpen) handleCancel()
       }}
     >
-      <DialogOverlay
-        className="!fixed !inset-0"
-        aria-hidden="true"
-        style={{
-          backgroundColor: 'rgba(17, 25, 40, 0.25)',
-          backdropFilter: 'blur(4px) saturate(30%)',
-          WebkitBackdropFilter: 'blur(4px) saturate(30%)',
-          border: '1px solid rgba(255, 255, 255, 0.125)',
-        }}
-      />
-      <DialogContent className="info-modal-container surface-gradient-border border-0 px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)]">
+      <DialogOverlay className="!fixed !inset-0 modal-overlay" aria-hidden="true" />
+      <DialogContent className="info-modal-container surface-gradient-border border-0">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-4">{title}</DialogTitle>
           <DialogDescription className="modal-description mb-4">{description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">{inputLabel}</label>
+          <label className="modal-input-label">{inputLabel}</label>
           <Input
             value={inputValue}
             onChange={handleInputChange}
             placeholder={inputPlaceholder}
-            className={error ? 'border-red-500' : 'input-regular input-border-regular'}
+            className={error ? 'input-regular modal-input-error' : 'input-regular input-border-regular'}
             disabled={isLoading}
           />
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <label className="text-sm font-medium text-muted-foreground">{secondaryLabel}</label>
+          {error && <p className="text-sm modal-error-text">{error}</p>}
+          <label className="modal-input-label">{secondaryLabel}</label>
         </div>
 
         <DialogFooter className="mt-6">

@@ -57,6 +57,11 @@
   --surface-shadow: var(--shadow-raised);
   --surface-shadow-overlay: var(--shadow-overlay);
 
+  /* Overlay/Backdrop */
+  --overlay-bg: rgba(17, 25, 40, 0.25);
+  --overlay-backdrop-blur: blur(4px) saturate(30%);
+  --overlay-border: rgba(255, 255, 255, 0.125);
+
   /* ================== Option Tokens ================== */
   /* For dropdown items, menu items, list items */
 
@@ -235,6 +240,11 @@
   /* Surface Shadow */
   --surface-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08), 0px 2px 8px rgba(0, 0, 0, 0.04);
   --surface-shadow-overlay: 0px 4px 16px rgba(0, 0, 0, 0.08), 0px 8px 32px rgba(0, 0, 0, 0.04);
+
+  /* Overlay/Backdrop */
+  --overlay-bg: rgba(0, 0, 0, 0.15);
+  --overlay-backdrop-blur: blur(4px) saturate(30%);
+  --overlay-border: rgba(0, 0, 0, 0.1);
 
   /* ================== Option Tokens ================== */
   /* For dropdown items, menu items, list items */
