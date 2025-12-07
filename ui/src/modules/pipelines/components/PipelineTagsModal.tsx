@@ -121,7 +121,7 @@ export function PipelineTagsModal({
           border: '1px solid rgba(255, 255, 255, 0.125)',
         }}
       />
-      <DialogContent className="sm:max-w-[520px] info-modal-container px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
+      <DialogContent className="sm:max-w-[520px] info-modal-container surface-gradient-border border-0">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">
             <TagIcon className="h-4 w-4" />

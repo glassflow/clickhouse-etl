@@ -41,17 +41,8 @@ export function InfoModal({
         if (!isOpen) onComplete(ModalResult.NO, pendingOperation || '')
       }}
     >
-      <DialogOverlay
-        className="!fixed !inset-0"
-        aria-hidden="true"
-        style={{
-          backgroundColor: 'rgba(17, 25, 40, 0.25)',
-          backdropFilter: 'blur(4px) saturate(30%)',
-          WebkitBackdropFilter: 'blur(4px) saturate(30%)',
-          border: '1px solid rgba(255, 255, 255, 0.125)',
-        }}
-      />
-      <DialogContent className="sm:max-w-[500px] info-modal-container px-9 py-6 shadow-lg bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md">
+      <DialogOverlay className="!fixed !inset-0 modal-overlay surface-gradient-border" aria-hidden="true" />
+      <DialogContent className="sm:max-w-[500px] info-modal-container surface-gradient-border border-0">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">{title}</DialogTitle>
           <DialogDescription className="modal-description gap-2">{description}</DialogDescription>

@@ -84,7 +84,7 @@ export function StreamConfigurator({
               >
                 <SelectTrigger
                   id={`join-key-${streamIndex}`}
-                  className={`w-full input-regular select-content-custom text-content ${
+                  className={`w-full input-regular input-border-regular text-content ${
                     errors.joinKey ? 'border-red-500' : ''
                   }`}
                 >

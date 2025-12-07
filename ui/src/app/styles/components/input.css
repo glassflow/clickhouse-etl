@@ -1,37 +1,39 @@
 /* ================== Input utilities ================== */
 .input-regular {
-  background-color: #1e1e1f;
-  color: #ffffff;
-  border-radius: 6px;
-  padding: 8px 12px;
+  background-color: var(--control-bg);
+  color: var(--control-fg);
+  border-radius: var(--radius-small);
+  padding: var(--unit-x2) var(--unit-x3);
+  height: 36px;
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
   position: relative;
+  border: 1px solid var(--control-border);
+  transition: border-color var(--duration-fast) var(--easing-standard);
 }
 
+/* Active state class for programmatic use */
 .input-active {
-  border-radius: 6px;
-  border: 1px solid var(--color-background-primary);
-  box-shadow:
-    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
-  position: relative;
+  border-color: var(--control-border-focus);
 }
 
 .input-border-regular {
-  border: 1px solid var(--color-border-regular);
+  border: 1px solid var(--control-border);
 }
 
+/* Error state */
 .input-border-error {
-  border-color: #ef4444;
+  border-color: var(--control-border-error);
 }
 
 /* ==== Input Utilities ==== */
 .input-gradient-active {
   border-radius: 6px;
   border: 1px solid var(--color-background-primary);
-  background: linear-gradient(180deg, #252527 0%, #1a1a1c 100%);
-  box-shadow:
-    0px 0px 8px 0px rgba(0, 0, 0, 0.08),
-    0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+  background: var(--card-bg-elevated);
+  box-shadow: var(--card-shadow);
   position: relative;
 }
 
@@ -41,7 +43,7 @@
   inset: -3px;
   border-radius: 6px;
   padding: 1px;
-  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
+  background: var(--card-active-glow);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -50,30 +52,52 @@
   pointer-events: none;
 }
 
-/* Custom focus style that matches card-gradient-active */
-.input-regular:focus-visible {
+/* Active/Focused state */
+.input-regular:focus-visible,
+.input-regular:focus {
   outline: none;
-  border-color: var(--color-background-primary, #a5b9e4);
-  box-shadow: 0 0 0 2px rgba(165, 185, 228, 0.25);
+  border-color: var(--control-border-focus);
 }
 
-/* Add a pseudo-element for the gradient border effect when focused */
-.input-regular:focus-visible::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 6px;
-  padding: 1px;
-  background: linear-gradient(283deg, var(--color-background-primary) 21.34%, #a5b9e4 102.9%);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 1;
+/* Error state takes precedence over focus state */
+.input-regular.input-border-error:focus-visible,
+.input-regular.input-border-error:focus {
+  border-color: var(--control-border-error);
+}
+
+/* Placeholder styling */
+.input-regular::placeholder {
+  color: var(--control-fg-placeholder);
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body-3);
+}
+
+/* Disabled state */
+.input-regular:disabled {
+  background-color: var(--control-bg-disabled);
+  color: var(--control-fg-disabled);
+  border-color: var(--control-border-disabled);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+/* Disabled placeholder styling */
+.input-regular:disabled::placeholder {
+  color: var(--control-fg-disabled);
 }
 
 .input-description-error {
   color: var(--color-foreground-critical);
+}
+
+/* Input Label Styles */
+.input-label {
+  font-family: var(--font-family-body-3);
+  font-size: var(--font-size-body-3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-body-3);
+  color: var(--control-fg-placeholder);
+  margin-bottom: var(--unit-x1);
 }
