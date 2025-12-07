@@ -173,8 +173,8 @@ export function QueryRule({
   return (
     <div
       className={cn(
-        'rounded-lg p-3 border',
-        rule.not ? 'border-orange-500/50 bg-orange-500/5' : 'border-border bg-background/30',
+        'card-outline rounded-[var(--radius-medium)] p-3',
+        rule.not && 'border-[var(--color-border-primary)] bg-[var(--color-background-primary-faded)]/10',
       )}
     >
       <div className="flex flex-col gap-2">
@@ -186,9 +186,9 @@ export function QueryRule({
               checked={rule.not || false}
               onCheckedChange={handleNotToggle}
               disabled={readOnly}
-              className="data-[state=checked]:bg-orange-500"
+              className="data-[state=checked]:bg-[var(--color-background-primary)]"
             />
-            <Label htmlFor={`rule-not-${rule.id}`} className="text-xs text-muted-foreground cursor-pointer">
+            <Label htmlFor={`rule-not-${rule.id}`} className="text-xs text-[var(--text-secondary)] cursor-pointer">
               NOT
             </Label>
           </div>
@@ -197,7 +197,7 @@ export function QueryRule({
             size="icon"
             onClick={() => onRemove(rule.id)}
             disabled={readOnly}
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
           >
             <TrashIcon className="h-4 w-4" />
           </Button>

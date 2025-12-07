@@ -6,6 +6,8 @@ import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
 import { TrashIcon } from '@heroicons/react/24/outline'
 import { FilterCondition, FilterOperator } from '@/src/store/filter.store'
+import { SelectEnhanced } from '@/src/components/common/SelectEnhanced'
+import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import {
   getOperatorsForType,
   isNumericType,
@@ -14,6 +16,7 @@ import {
   getDefaultValueForType,
   ConditionValidation,
 } from '../utils'
+import { cn } from '@/src/utils/common.client'
 
 interface FilterConditionRowProps {
   condition: FilterCondition
@@ -40,10 +43,17 @@ export function FilterConditionRow({
     return getOperatorsForType(condition.fieldType)
   }, [condition.fieldType])
 
-  // Handle field selection - using native select
+  // Convert operators for SelectEnhanced
+  const operatorOptions = useMemo(() => {
+    return availableOperators.map((op) => ({
+      label: op.label,
+      value: op.value,
+    }))
+  }, [availableOperators])
+
+  // Handle field selection
   const handleFieldChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const fieldName = e.target.value
+    (fieldName: string | null) => {
       if (!fieldName) return
 
       const field = availableFields.find((f) => f.name === fieldName)
@@ -64,10 +74,9 @@ export function FilterConditionRow({
     [condition.id, availableFields, onChange],
   )
 
-  // Handle operator selection - using native select
+  // Handle operator selection
   const handleOperatorChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const operator = e.target.value
+    (operator: string) => {
       if (operator) {
         onChange(condition.id, { operator: operator as FilterOperator })
       }
@@ -86,8 +95,8 @@ export function FilterConditionRow({
 
   // Handle boolean value change
   const handleBooleanChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onChange(condition.id, { value: e.target.value === 'true' })
+    (value: string) => {
+      onChange(condition.id, { value: value === 'true' })
     },
     [condition.id, onChange],
   )
@@ -95,97 +104,102 @@ export function FilterConditionRow({
   // Render value input based on field type
   const renderValueInput = () => {
     if (!condition.field) {
-      return <Input type="text" placeholder="Enter a value" disabled={true} className="h-10" />
+      return (
+        <div>
+          <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Value</Label>
+          <div className="h-5 mt-0.5">
+            <Input type="text" placeholder="Enter a value" disabled={true} className="h-10 input-regular" />
+          </div>
+        </div>
+      )
     }
 
     if (isBooleanType(condition.fieldType)) {
       const boolValue = condition.value === true || condition.value === 'true' ? 'true' : 'false'
       return (
-        <select
-          value={boolValue}
-          onChange={handleBooleanChange}
+        <SelectEnhanced
+          label="Value"
+          defaultValue={boolValue}
+          onSelect={handleBooleanChange}
+          isLoading={false}
+          error={validation?.value || ''}
+          options={[
+            { label: 'true', value: 'true' },
+            { label: 'false', value: 'false' },
+          ]}
+          placeholder="Select value"
           disabled={readOnly}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
+        />
       )
     }
 
     return (
-      <Input
-        type={isNumericType(condition.fieldType) ? 'number' : 'text'}
-        value={String(condition.value ?? '')}
-        onChange={(e) => handleValueChange(e.target.value)}
-        placeholder="Enter a value"
-        disabled={readOnly}
-        className={`h-10 ${validation?.value ? 'border-red-500' : ''}`}
-      />
+      <div>
+        <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Value</Label>
+        <div className="space-y-0">
+          <Input
+            type={isNumericType(condition.fieldType) ? 'number' : 'text'}
+            value={String(condition.value ?? '')}
+            onChange={(e) => handleValueChange(e.target.value)}
+            placeholder="Enter a value"
+            disabled={readOnly}
+            className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
+          />
+          {/* Reserve space for error message to prevent layout shift */}
+          <div className="h-5 mt-0.5">
+            {validation?.value && <p className="input-description-error text-sm">{validation.value}</p>}
+          </div>
+        </div>
+      </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-end gap-3">
-        {/* Field Select - using native select to avoid Radix ref issues */}
+    <div className="card-outline rounded-[var(--radius-medium)] p-3">
+      <div className="flex items-start gap-3">
+        {/* Field Select */}
         <div className="flex-1 min-w-0">
-          <Label className="text-xs text-muted-foreground mb-1 block">Field</Label>
-          <select
-            value={condition.field || ''}
-            onChange={handleFieldChange}
+          <SearchableSelect
+            label="Field"
+            availableOptions={availableFields.map((f) => f.name)}
+            selectedOption={condition.field || undefined}
+            onSelect={handleFieldChange}
+            placeholder="Select field..."
             disabled={readOnly}
-            className={`h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${validation?.field ? 'border-red-500' : ''}`}
-          >
-            <option value="">Select...</option>
-            {availableFields.map((field) => (
-              <option key={field.name} value={field.name}>
-                {field.name} ({field.type})
-              </option>
-            ))}
-          </select>
+            error={validation?.field}
+          />
         </div>
 
-        {/* Operator Select - using native select */}
-        <div className="w-44">
-          <Label className="text-xs text-muted-foreground mb-1 block">Condition</Label>
-          <select
-            value={condition.operator || ''}
-            onChange={handleOperatorChange}
+        {/* Operator Select */}
+        <div className="w-48">
+          <SelectEnhanced
+            label="Condition"
+            defaultValue={condition.operator || ''}
+            onSelect={handleOperatorChange}
+            isLoading={false}
+            error={validation?.operator || ''}
+            options={operatorOptions}
+            placeholder="Select..."
             disabled={readOnly || !condition.field}
-            className={`h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${validation?.operator ? 'border-red-500' : ''}`}
-          >
-            <option value="">Select...</option>
-            {availableOperators.map((op) => (
-              <option key={op.value} value={op.value}>
-                {op.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         {/* Value Input */}
-        <div className="flex-1 min-w-0">
-          <Label className="text-xs text-muted-foreground mb-1 block">Value</Label>
-          {renderValueInput()}
-        </div>
+        <div className="flex-1 min-w-0">{renderValueInput()}</div>
 
         {/* Remove Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onRemove(condition.id)}
-          disabled={readOnly}
-          className="h-10 w-10 flex-shrink-0 text-muted-foreground hover:text-destructive"
-        >
-          <TrashIcon className="h-4 w-4" />
-        </Button>
+        <div className="pt-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onRemove(condition.id)}
+            disabled={readOnly}
+            className="h-10 w-10 flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
-
-      {/* Validation errors */}
-      {validation && Object.keys(validation).length > 0 && (
-        <div className="text-xs text-red-500 pl-1">{validation.field || validation.operator || validation.value}</div>
-      )}
     </div>
   )
 }

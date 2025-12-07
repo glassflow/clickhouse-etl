@@ -26,9 +26,6 @@ interface QueryGroupProps {
   isRoot?: boolean
 }
 
-// Background colors for different nesting levels
-const DEPTH_COLORS = ['bg-background/50', 'bg-slate-800/30', 'bg-slate-700/30']
-
 export function QueryGroup({
   group,
   availableFields,
@@ -65,9 +62,8 @@ export function QueryGroup({
   return (
     <div
       className={cn(
-        'rounded-lg border p-4',
-        DEPTH_COLORS[depth] || DEPTH_COLORS[DEPTH_COLORS.length - 1],
-        group.not ? 'border-orange-500/50' : 'border-border',
+        'card-outline rounded-[var(--radius-large)] p-4',
+        group.not && 'border-[var(--color-border-primary)]',
         !isRoot && 'ml-4',
       )}
     >
@@ -81,16 +77,16 @@ export function QueryGroup({
               checked={group.not || false}
               onCheckedChange={handleNotToggle}
               disabled={readOnly}
-              className="data-[state=checked]:bg-orange-500"
+              className="data-[state=checked]:bg-[var(--color-background-primary)]"
             />
-            <Label htmlFor={`group-not-${group.id}`} className="text-xs text-muted-foreground cursor-pointer">
+            <Label htmlFor={`group-not-${group.id}`} className="text-xs text-[var(--text-secondary)] cursor-pointer">
               NOT
             </Label>
           </div>
 
           {/* Combinator Select */}
           <Select value={group.combinator} onValueChange={handleCombinatorChange} disabled={readOnly}>
-            <SelectTrigger className="w-24 h-8 text-xs">
+            <SelectTrigger className="w-24 h-8 text-xs input-regular input-border-regular">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="select-content-custom">
@@ -111,7 +107,7 @@ export function QueryGroup({
             size="sm"
             onClick={() => onAddRule(group.id)}
             disabled={readOnly}
-            className="h-8 text-xs"
+            className="h-8 text-xs btn-tertiary"
           >
             <PlusIcon className="h-3 w-3 mr-1" />
             Add Rule
@@ -124,7 +120,7 @@ export function QueryGroup({
               size="sm"
               onClick={() => onAddGroup(group.id)}
               disabled={readOnly}
-              className="h-8 text-xs"
+              className="h-8 text-xs btn-tertiary"
             >
               <PlusIcon className="h-3 w-3 mr-1" />
               Add Group
@@ -138,7 +134,7 @@ export function QueryGroup({
               size="icon"
               onClick={() => onRemoveItem(group.id)}
               disabled={readOnly}
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              className="h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
             >
               <TrashIcon className="h-4 w-4" />
             </Button>
@@ -149,7 +145,7 @@ export function QueryGroup({
       {/* Group Children */}
       <div className="space-y-3">
         {group.children.length === 0 ? (
-          <div className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
+          <div className="text-sm text-[var(--text-secondary)] text-center py-4 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
             No rules yet. Click "Add Rule" to create one.
           </div>
         ) : (
@@ -159,7 +155,7 @@ export function QueryGroup({
                 <div key={child.id} className="relative">
                   {/* Combinator label between items */}
                   {index > 0 && (
-                    <div className="absolute -top-2 left-4 px-2 bg-background text-xs text-muted-foreground z-10">
+                    <div className="absolute -top-2 left-4 px-2 bg-[var(--surface-bg)] text-xs text-[var(--text-secondary)] z-10">
                       {group.combinator.toUpperCase()}
                     </div>
                   )}
@@ -181,7 +177,7 @@ export function QueryGroup({
                 <div key={child.id} className="relative">
                   {/* Combinator label between items */}
                   {index > 0 && (
-                    <div className="absolute -top-2 left-4 px-2 bg-background text-xs text-muted-foreground z-10">
+                    <div className="absolute -top-2 left-4 px-2 bg-[var(--surface-bg)] text-xs text-[var(--text-secondary)] z-10">
                       {group.combinator.toUpperCase()}
                     </div>
                   )}

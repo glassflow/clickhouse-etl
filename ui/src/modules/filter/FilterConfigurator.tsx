@@ -304,8 +304,8 @@ export function FilterConfigurator({
 
     if (backendValidation.status === 'validating') {
       return (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <div className="w-4 h-4 border-2 border-[var(--text-secondary)] border-t-transparent rounded-full animate-spin" />
           Validating...
         </div>
       )
@@ -313,7 +313,7 @@ export function FilterConfigurator({
 
     if (backendValidation.status === 'valid') {
       return (
-        <div className="flex items-center gap-2 text-sm text-green-600">
+        <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
           <CheckCircleIcon className="w-4 h-4" />
           Valid expression
         </div>
@@ -322,7 +322,7 @@ export function FilterConfigurator({
 
     if (backendValidation.status === 'invalid') {
       return (
-        <div className="flex items-center gap-2 text-sm text-red-500">
+        <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-critical)]">
           <XCircleIcon className="w-4 h-4" />
           {backendValidation.error || 'Invalid expression'}
         </div>
@@ -368,12 +368,12 @@ export function FilterConfigurator({
 
           {/* Generated expression preview */}
           {totalRules > 0 && (
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg space-y-2">
+            <div className="mt-6 p-4 card-outline rounded-[var(--radius-large)] space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-muted-foreground">Generated Expression</Label>
+                <Label className="text-sm font-medium text-[var(--text-secondary)]">Generated Expression</Label>
                 {renderValidationStatus()}
               </div>
-              <code className="block text-sm font-mono p-2 bg-background rounded border break-all">
+              <code className="block text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all text-[var(--text-primary)]">
                 {filterStore.expressionString || toExprString(filterConfig) || '(empty)'}
               </code>
             </div>
@@ -381,7 +381,7 @@ export function FilterConfigurator({
 
           {/* Global validation errors */}
           {localValidation.globalErrors.length > 0 && (
-            <div className="text-sm text-red-500">
+            <div className="text-sm text-[var(--color-foreground-critical)]">
               {localValidation.globalErrors.map((error, i) => (
                 <div key={i}>{error}</div>
               ))}
@@ -394,11 +394,7 @@ export function FilterConfigurator({
       <div className="flex gap-4 items-center">
         {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
         {!standalone && (
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
-          >
+          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
             Skip Transformation
           </Button>
         )}
