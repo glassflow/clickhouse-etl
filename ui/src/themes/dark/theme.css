@@ -46,7 +46,7 @@
   /* Disabled */
   --color-background-disabled: var(--color-gray-dark-800);
   --color-background-disabled-faded: var(--color-gray-dark-900);
-  --color-border-disabled: var(--color-gray-dark-800);
+  --color-border-disabled: var(--color-gray-dark-500);
   --color-border-disabled-faded: var(--color-gray-dark-800);
   --color-foreground-disabled: var(--color-gray-dark-500);
   --color-foreground-disabled-faded: var(--color-gray-dark-500);

@@ -196,7 +196,8 @@ const FormControlInput = <T extends FieldValues>({
           type={type}
           placeholder={placeholder}
           {...register(name as any, { required })}
-          readOnly={readOnly}
+          // readOnly={readOnly}
+          disabled={readOnly}
           className={cn(
             'w-full',
             'input-regular',
@@ -205,7 +206,7 @@ const FormControlInput = <T extends FieldValues>({
             'text-content',
             error && 'input-border-error',
             isFocused && 'input-active scale-[1.01]',
-            readOnly && 'opacity-50 cursor-not-allowed',
+            readOnly && 'cursor-not-allowed',
           )}
           onFocus={() => !readOnly && setIsFocused(true)}
           onBlur={() => {
@@ -354,7 +355,7 @@ function FormControlSelect({
                     'text-content',
                     error && 'input-border-error',
                     isFocused && 'input-active scale-[1.01]',
-                    readOnly && 'opacity-50 cursor-not-allowed',
+                    readOnly && 'cursor-not-allowed',
                   )}
                   onFocus={() => !readOnly && setIsFocused(true)}
                   onBlur={() => {
