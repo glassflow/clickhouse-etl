@@ -770,7 +770,7 @@ function PipelineDetailsHeader({
 
                 {/* Menu dropdown - using fixed positioning */}
                 <div
-                  className="fixed z-[110] w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+                  className="fixed z-[110] w-48 surface-gradient-border border-0 bg-[var(--color-background-elevation-raised-faded-2)] shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
                   style={{
                     top: `${menuPosition.top}px`,
                     right: `${menuPosition.right}px`,
