@@ -205,7 +205,7 @@ const FormControlInput = <T extends FieldValues>({
             'transition-all duration-200 ease-in-out',
             'text-content',
             error && 'input-border-error',
-            isFocused && 'input-active scale-[1.01]',
+            isFocused && 'input-active',
             readOnly && 'cursor-not-allowed',
           )}
           onFocus={() => !readOnly && setIsFocused(true)}
@@ -265,7 +265,7 @@ function FormControlTextarea({
             'transition-all duration-200 ease-in-out',
             'text-content',
             error && 'input-border-error',
-            isFocused && 'input-active scale-[1.01]',
+            isFocused && 'input-active',
             readOnly && 'opacity-50 cursor-not-allowed',
           )}
           onFocus={() => !readOnly && setIsFocused(true)}
@@ -354,7 +354,7 @@ function FormControlSelect({
                     'transition-all duration-200 ease-in-out',
                     'text-content',
                     error && 'input-border-error',
-                    isFocused && 'input-active scale-[1.01]',
+                    isFocused && 'input-active',
                     readOnly && 'cursor-not-allowed',
                   )}
                   onFocus={() => !readOnly && setIsFocused(true)}

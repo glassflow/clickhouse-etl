@@ -42,7 +42,7 @@ export function DatabaseSelect({
           <Select value={selectedDatabase} onValueChange={setSelectedDatabase} disabled={readOnly || isLoading}>
             <SelectTrigger
               id="database"
-              className="w-full text-content select-content-custom transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+              className="w-full text-content input-regular input-border-regular transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
             >
               <SelectValue placeholder={isLoading ? 'Loading databases...' : 'Select database'} />
             </SelectTrigger>
@@ -61,7 +61,7 @@ export function DatabaseSelect({
               placeholder="Enter database name"
               value={selectedDatabase}
               onChange={(e) => setSelectedDatabase(e.target.value)}
-              className="w-full text-content select-content-custom"
+              className="w-full text-content input-regular input-border-regular"
               disabled={readOnly}
             />
             {/* {renderTestAccessButton()} */}
