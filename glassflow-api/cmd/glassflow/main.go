@@ -28,6 +28,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
 )
 
 type config struct {
@@ -239,14 +240,26 @@ func mainEtl(
 		}
 	}
 
-	pipelineSvc := service.NewPipelineService(orch, db, log)
+	trackingClient := tracking.NewClient(
+		cfg.TrackingEndpoint,
+		cfg.TrackingUsername,
+		cfg.TrackingPassword,
+		cfg.TrackingInstallationID,
+		cfg.TrackingEnabled,
+		log,
+	)
+
+	pipelineSvc := service.NewPipelineService(orch, db, log, trackingClient)
 
 	err = pipelineSvc.CleanUpPipelines(ctx)
 	if err != nil {
 		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
 	}
 
-	handler := api.NewRouter(log, pipelineSvc, dlq, meter)
+	handler := api.NewRouter(log, pipelineSvc, dlq, meter, trackingClient)
+
+	metricsTracker := service.NewMetricsTracker(db, nc, dlq, trackingClient, log)
+	go metricsTracker.Start(ctx)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
