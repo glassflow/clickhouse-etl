@@ -78,8 +78,6 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/fxamacker/cbor/v2 v2.8.0 h1:fFtUGXUzXPHTIUdne5+zzMPTfffl3RD5qYnkY40vtxU=
 github.com/fxamacker/cbor/v2 v2.8.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
-github.com/glassflow/glassflow-etl-k8s-operator v1.3.2 h1:dZvMTRPAbLo8JPfAYEsF/uV96kNigLlKb+wosZuD+rw=
-github.com/glassflow/glassflow-etl-k8s-operator v1.3.2/go.mod h1:B5ROkchV+JmzlaeihTe7un2hE72xVxiKLHk/86q6dmo=
 github.com/glassflow/glassflow-etl-k8s-operator v1.3.3-0.20251202085924-1261136896b4 h1:F8lRHsb5wbtw2ihC/Q27uMcWXVd00SOM65Bzr5PEUeQ=
 github.com/glassflow/glassflow-etl-k8s-operator v1.3.3-0.20251202085924-1261136896b4/go.mod h1:B5ROkchV+JmzlaeihTe7un2hE72xVxiKLHk/86q6dmo=
 github.com/go-faster/city v1.0.1 h1:4WAxSZ3V2Ws4QRDrscLEDcibJY8uf41H6AhXDrNDcGw=
