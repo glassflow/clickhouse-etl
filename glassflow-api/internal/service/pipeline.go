@@ -12,6 +12,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
 )
 
+const routeContextKey = "route"
+
 type Orchestrator interface {
 	GetType() string
 	SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error
@@ -113,6 +115,8 @@ func (p *PipelineService) DeletePipeline(ctx context.Context, pid string) error 
 		}
 	}
 
+	p.trackPipelineOperation(ctx, "pipeline_delete", pid)
+
 	return nil
 }
 
@@ -148,6 +152,8 @@ func (p *PipelineService) TerminatePipeline(ctx context.Context, pid string) err
 		p.log.ErrorContext(ctx, "failed to terminate pipeline in orchestrator", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
+
+	p.trackPipelineEvent(ctx, "pipeline_terminate", pid, pipeline)
 
 	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
 	if p.orchestrator.GetType() == "local" {
@@ -271,6 +277,8 @@ func (p *PipelineService) ResumePipeline(ctx context.Context, pid string) error 
 		return fmt.Errorf("resume pipeline: %w", err)
 	}
 
+	p.trackPipelineEvent(ctx, "pipeline_resume", pid, pipeline)
+
 	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
 	if p.orchestrator.GetType() == "local" {
 		// Set status to Running
@@ -314,6 +322,8 @@ func (p *PipelineService) StopPipeline(ctx context.Context, pid string) error {
 		p.log.ErrorContext(ctx, "failed to update pipeline status to stopping", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("update pipeline status to stopping: %w", err)
 	}
+
+	p.trackPipelineEvent(ctx, "pipeline_stop", pid, pipeline)
 
 	// For Docker orchestrator, mark as failed if stop fails
 	if p.orchestrator.GetType() == "local" {
@@ -426,11 +436,9 @@ func (p *PipelineService) CleanUpPipelines(ctx context.Context) error {
 	return nil
 }
 
-// checkTransformations checks which transformations are enabled in the pipeline.
-// It returns boolean flags for deduplication, join, and filter transformations.
 // TODO: Add support for stateless transforms in the future.
 func checkTransformations(cfg *models.PipelineConfig) (hasDedup, hasJoin, hasFilter bool) {
-	// Check for deduplication transformation
+
 	for _, topic := range cfg.Ingestor.KafkaTopics {
 		if topic.Deduplication.Enabled {
 			hasDedup = true
@@ -438,23 +446,26 @@ func checkTransformations(cfg *models.PipelineConfig) (hasDedup, hasJoin, hasFil
 		}
 	}
 
-	// Check for join transformation
 	hasJoin = cfg.Join.Enabled
 
-	// Check for filter transformation
 	hasFilter = cfg.Filter.Enabled
 
 	return hasDedup, hasJoin, hasFilter
 }
 
+// getRouteFromContext extracts route from context if available
+func getRouteFromContext(ctx context.Context) string {
+	if route, ok := ctx.Value(routeContextKey).(string); ok {
+		return route
+	}
+	return ""
+}
+
 // trackPipelineEvent sends tracking events for pipeline operations.
-// It extracts relevant metrics from the pipeline configuration and sends them to the tracking service.
 func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName string, pipelineID string, cfg *models.PipelineConfig) {
 	if p.trackingClient == nil || !p.trackingClient.IsEnabled() {
 		return
 	}
-
-	replicaCount := 1 // default for each component
 
 	hasDedup, hasJoin, hasFilter := checkTransformations(cfg)
 
@@ -467,13 +478,42 @@ func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName stri
 		chSyncDelay = cfg.Sink.Batch.MaxDelayTime.String()
 	}
 
-	p.trackingClient.SendEvent(ctx, eventName, "api", map[string]interface{}{
+	properties := map[string]interface{}{
 		"pipeline_id_hash": tracking.HashPipelineID(pipelineID),
-		"replica_count":    replicaCount,
 		"has_dedup":        hasDedup,
 		"has_join":         hasJoin,
 		"has_filter":       hasFilter,
 		"ch_batch_size":    chBatchSize,
 		"ch_sync_delay":    chSyncDelay,
-	})
+	}
+
+	// Add ingestor replica counts for each topic
+	for i, topic := range cfg.Ingestor.KafkaTopics {
+		replicaKey := fmt.Sprintf("ingestor_replicas_t%d", i+1)
+		properties[replicaKey] = topic.Replicas
+	}
+
+	// Add route from context if available
+	if route := getRouteFromContext(ctx); route != "" {
+		properties["route"] = route
+	}
+
+	p.trackingClient.SendEvent(ctx, eventName, "api", properties)
+}
+
+func (p *PipelineService) trackPipelineOperation(ctx context.Context, eventName string, pipelineID string) {
+	if p.trackingClient == nil || !p.trackingClient.IsEnabled() {
+		return
+	}
+
+	properties := map[string]interface{}{
+		"pipeline_id_hash": tracking.HashPipelineID(pipelineID),
+	}
+
+	// Add route from context if available
+	if route := getRouteFromContext(ctx); route != "" {
+		properties["route"] = route
+	}
+
+	p.trackingClient.SendEvent(ctx, eventName, "api", properties)
 }
