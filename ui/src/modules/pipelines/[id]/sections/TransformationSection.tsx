@@ -21,22 +21,35 @@ const FilterCard = ({
 }) => {
   const { filterStore } = useStore()
   const filterConfig = filterStore.filterConfig
+  const expressionString = filterStore.expressionString
 
   // Count rules in the tree structure
   const ruleCount = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
 
-  // Only show if filter is enabled and has rules
-  if (!filterConfig.enabled || ruleCount === 0) {
-    return null
-  }
+  // Determine if filter is configured (either has rules in tree or has expression string from hydration)
+  const hasFilter = (filterConfig.enabled && ruleCount > 0) || (filterConfig.enabled && expressionString)
 
-  const ruleLabel = ruleCount === 1 ? '1 rule' : `${ruleCount} rules`
-  const combinator = filterConfig.root?.combinator || 'and'
+  // Determine the display value
+  let displayValue: string
+  if (hasFilter) {
+    if (ruleCount > 0) {
+      const ruleLabel = ruleCount === 1 ? '1 rule' : `${ruleCount} rules`
+      const combinator = filterConfig.root?.combinator || 'and'
+      displayValue = `${ruleLabel} (${combinator.toUpperCase()})`
+    } else if (expressionString) {
+      // Filter was hydrated from expression string but tree not reconstructed
+      displayValue = 'Expression configured'
+    } else {
+      displayValue = 'Configured'
+    }
+  } else {
+    displayValue = 'No filter configured'
+  }
 
   return (
     <SingleCard
       label={['Filter']}
-      value={[`${ruleLabel} (${combinator.toUpperCase()})`]}
+      value={[displayValue]}
       orientation="center"
       width="full"
       onClick={() => onStepClick(StepKeys.FILTER_CONFIGURATOR)}

@@ -73,6 +73,7 @@ export function ClickhouseMapper({
     topicsStore,
     coreStore,
     deduplicationStore,
+    filterStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
@@ -1119,6 +1120,7 @@ export function ClickhouseMapper({
       joinStore,
       kafkaStore,
       deduplicationStore,
+      filterStore,
       version: pipelineVersion, // Respect the original pipeline version
     })
 
@@ -1186,6 +1188,7 @@ export function ClickhouseMapper({
     coreStore,
     onCompleteStandaloneEditing,
     deduplicationStore,
+    filterStore,
     pipelineName,
     onCompleteStep,
     // deployPipelineAndNavigate is intentionally excluded - it's defined after this callback

@@ -86,12 +86,17 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
     items.push({ key: 'topic', label: 'Topic', stepKey: StepKeys.TOPIC_SELECTION_1, topicIndex: 0 })
 
     if (hasDeduplication) {
-      items.push({ key: 'deduplicate', label: 'Deduplicate', stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR, topicIndex: 0 })
+      items.push({
+        key: 'deduplicate',
+        label: 'Deduplicate',
+        stepKey: StepKeys.DEDUPLICATION_CONFIGURATOR,
+        topicIndex: 0,
+      })
     }
   }
 
-  // Add Filter section (placeholder for future)
-  items.push({ key: 'filter', label: 'Filter' })
+  // Add Filter section
+  items.push({ key: 'filter', label: 'Filter', stepKey: StepKeys.FILTER_CONFIGURATOR })
 
   // Add ClickHouse sections
   items.push({ key: 'clickhouse-connection', label: 'ClickHouse Connection', stepKey: StepKeys.CLICKHOUSE_CONNECTION })
@@ -115,21 +120,18 @@ export function PipelineDetailsSidebar({
           const isActive = activeSection === item.key
           // All items are clickable except when disabled (except monitor which is always clickable)
           const isClickable = !disabled || item.key === 'monitor'
-          // Filter is a placeholder, so it's not clickable
-          const isPlaceholder = item.key === 'filter'
 
           return (
             <button
               key={item.key}
-              onClick={() => !isPlaceholder && onSectionClick(item.key)}
-              disabled={(disabled && item.key !== 'monitor') || isPlaceholder}
+              onClick={() => onSectionClick(item.key)}
+              disabled={disabled && item.key !== 'monitor'}
               className={cn(
                 'relative flex items-center justify-between w-full py-2 px-3 rounded-md bg-transparent border-none cursor-default transition-all duration-150 ease-out text-left',
                 isActive && 'bg-[var(--color-background-elevation-raised)]',
-                !isActive && isClickable && !isPlaceholder && 'hover:bg-[var(--color-background-neutral-faded)]',
-                isClickable && !isPlaceholder && 'cursor-pointer',
+                !isActive && isClickable && 'hover:bg-[var(--color-background-neutral-faded)]',
+                isClickable && 'cursor-pointer',
                 disabled && item.key !== 'monitor' && 'opacity-60',
-                isPlaceholder && 'opacity-40 cursor-not-allowed',
               )}
             >
               <span

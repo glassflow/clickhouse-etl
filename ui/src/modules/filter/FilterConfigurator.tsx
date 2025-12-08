@@ -269,8 +269,9 @@ export function FilterConfigurator({
       return
     }
 
-    // Check backend validation passed
-    if (filterConfig.enabled && backendValidation.status !== 'valid') {
+    // Check backend validation passed (only if filter has rules)
+    const totalRules = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
+    if (filterConfig.enabled && totalRules > 0 && backendValidation.status !== 'valid') {
       return
     }
 
@@ -279,12 +280,14 @@ export function FilterConfigurator({
     filterStore.setExpressionString(expression)
 
     if (standalone && onCompleteStandaloneEditing) {
+      // CRITICAL: Mark configuration as dirty so it gets sent to backend on resume
+      coreStore.markAsDirty()
       setIsSaveSuccess(true)
       onCompleteStandaloneEditing()
     } else {
       onCompleteStep(StepKeys.FILTER_CONFIGURATOR)
     }
-  }, [filterConfig, backendValidation, filterStore, standalone, onCompleteStandaloneEditing, onCompleteStep])
+  }, [filterConfig, backendValidation, filterStore, standalone, onCompleteStandaloneEditing, onCompleteStep, coreStore])
 
   // Determine if we can continue
   const canContinue = useMemo(() => {
@@ -334,6 +337,59 @@ export function FilterConfigurator({
 
   const totalRules = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
 
+  // Check if we have a hydrated expression but no tree structure (view mode for existing filter)
+  const hasHydratedExpression = filterConfig.enabled && filterStore.expressionString && totalRules === 0
+  const hasNoFilter = !filterConfig.enabled && !filterStore.expressionString
+
+  // Render the hydrated expression view (read-only mode for existing filter)
+  const renderHydratedExpressionView = () => (
+    <div className="space-y-4">
+      <Label className="text-lg font-medium text-content">Current Filter Expression</Label>
+      <div className="p-4 card-outline rounded-[var(--radius-large)] space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium text-[var(--text-secondary)]">Filter Expression</Label>
+          <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
+            <CheckCircleIcon className="w-4 h-4" />
+            Active
+          </div>
+        </div>
+        <code className="block text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all text-[var(--text-primary)]">
+          {filterStore.expressionString}
+        </code>
+      </div>
+      {!readOnly && (
+        <div className="text-sm text-[var(--text-secondary)]">
+          To modify this filter, you can rebuild the filter rules using the query builder below.
+        </div>
+      )}
+    </div>
+  )
+
+  // Render the no filter view
+  const renderNoFilterView = () => (
+    <div className="space-y-4">
+      <div className="p-6 card-outline rounded-[var(--radius-large)] text-center">
+        <div className="text-[var(--color-foreground-neutral-faded)] mb-2">
+          <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+            />
+          </svg>
+          <p className="text-lg font-medium">No Filter Configured</p>
+          <p className="text-sm mt-1">All events from the topic will be processed without filtering.</p>
+        </div>
+        {!readOnly && availableFields.length > 0 && (
+          <p className="text-sm text-[var(--text-secondary)] mt-4">
+            Click &quot;Edit&quot; to add filter conditions and only process events that match your criteria.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-6">
       {/* Description */}
@@ -343,8 +399,14 @@ export function FilterConfigurator({
           : 'Select a topic and wait for event data to load to configure filtering.'}
       </div>
 
-      {/* Query Builder */}
-      {availableFields.length > 0 && (
+      {/* Show appropriate view based on state */}
+      {hasNoFilter && readOnly && renderNoFilterView()}
+
+      {/* Show hydrated expression in read-only mode */}
+      {hasHydratedExpression && readOnly && renderHydratedExpressionView()}
+
+      {/* Query Builder - show when we have fields and either: not read-only, or read-only with tree structure */}
+      {availableFields.length > 0 && (!readOnly || totalRules > 0) && (
         <div className="space-y-4">
           <Label className="text-lg font-medium text-content">Filter Rules</Label>
 
@@ -390,6 +452,13 @@ export function FilterConfigurator({
         </div>
       )}
 
+      {/* Show no filter message in edit mode when no fields available */}
+      {!readOnly && availableFields.length === 0 && hasNoFilter && (
+        <div className="p-4 card-outline rounded-[var(--radius-large)] text-center text-[var(--text-secondary)]">
+          <p>Waiting for topic data to configure filtering...</p>
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
         {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
@@ -406,9 +475,9 @@ export function FilterConfigurator({
           isLoading={false}
           isSuccess={isSaveSuccess}
           disabled={!canContinue}
-          successText="Add Transformation"
+          successText="Save Filter"
           loadingText="Validating..."
-          regularText="Add Transformation"
+          regularText="Save Filter"
           actionType="primary"
           showLoadingIcon={false}
           readOnly={readOnly}
