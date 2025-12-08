@@ -15,7 +15,7 @@
   "description": "",
   "dependencies": {
     "fathom-client": "^3.7.2",
-    "next": "^15.1.4",
+    "next": "^16.0.7",
     "nextra": "^4.2.17",
     "nextra-theme-docs": "^4.2.17",
     "react": "^18.2.0",
