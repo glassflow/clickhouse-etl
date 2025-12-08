@@ -9,6 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
 )
 
 type Orchestrator interface {
@@ -33,16 +34,18 @@ type PipelineStore interface {
 }
 
 type PipelineService struct {
-	orchestrator Orchestrator
-	db           PipelineStore
-	log          *slog.Logger
+	orchestrator   Orchestrator
+	db             PipelineStore
+	log            *slog.Logger
+	trackingClient *tracking.Client
 }
 
-func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger) *PipelineService {
+func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger, trackingClient *tracking.Client) *PipelineService {
 	return &PipelineService{
-		orchestrator: orch,
-		db:           db,
-		log:          log,
+		orchestrator:   orch,
+		db:             db,
+		log:            log,
+		trackingClient: trackingClient,
 	}
 }
 
@@ -85,6 +88,8 @@ func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 		p.log.ErrorContext(ctx, "failed to insert pipeline to database", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
+
+	p.trackPipelineEvent(ctx, "pipeline_create", cfg.ID, cfg)
 
 	return nil
 }
@@ -380,6 +385,8 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return fmt.Errorf("edit pipeline: %w", err)
 	}
 
+	p.trackPipelineEvent(ctx, "pipeline_update", pid, newCfg)
+
 	p.log.InfoContext(ctx, "pipeline edit initiated successfully", "pipeline_id", pid)
 	return nil
 }
@@ -417,4 +424,56 @@ func (p *PipelineService) CleanUpPipelines(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// checkTransformations checks which transformations are enabled in the pipeline.
+// It returns boolean flags for deduplication, join, and filter transformations.
+// TODO: Add support for stateless transforms in the future.
+func checkTransformations(cfg *models.PipelineConfig) (hasDedup, hasJoin, hasFilter bool) {
+	// Check for deduplication transformation
+	for _, topic := range cfg.Ingestor.KafkaTopics {
+		if topic.Deduplication.Enabled {
+			hasDedup = true
+			break
+		}
+	}
+
+	// Check for join transformation
+	hasJoin = cfg.Join.Enabled
+
+	// Check for filter transformation
+	hasFilter = cfg.Filter.Enabled
+
+	return hasDedup, hasJoin, hasFilter
+}
+
+// trackPipelineEvent sends tracking events for pipeline operations.
+// It extracts relevant metrics from the pipeline configuration and sends them to the tracking service.
+func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName string, pipelineID string, cfg *models.PipelineConfig) {
+	if p.trackingClient == nil || !p.trackingClient.IsEnabled() {
+		return
+	}
+
+	replicaCount := 1 // default for each component
+
+	hasDedup, hasJoin, hasFilter := checkTransformations(cfg)
+
+	chBatchSize := 0
+	chSyncDelay := ""
+	if cfg.Sink.Batch.MaxBatchSize > 0 {
+		chBatchSize = cfg.Sink.Batch.MaxBatchSize
+	}
+	if cfg.Sink.Batch.MaxDelayTime.Duration() > 0 {
+		chSyncDelay = cfg.Sink.Batch.MaxDelayTime.String()
+	}
+
+	p.trackingClient.SendEvent(ctx, eventName, "api", map[string]interface{}{
+		"pipeline_id_hash": tracking.HashPipelineID(pipelineID),
+		"replica_count":    replicaCount,
+		"has_dedup":        hasDedup,
+		"has_join":         hasJoin,
+		"has_filter":       hasFilter,
+		"ch_batch_size":    chBatchSize,
+		"ch_sync_delay":    chSyncDelay,
+	})
 }
