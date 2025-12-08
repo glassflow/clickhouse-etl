@@ -251,8 +251,7 @@ const JoinCase = ({
         />
       </div>
 
-      {/* Filter card (if filter is configured) */}
-      <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
+      {/* Note: Filter is not available for multi-topic journeys */}
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -355,8 +354,7 @@ const JoinDeduplicationCase = ({
         />
       </div>
 
-      {/* Filter card (if filter is configured) */}
-      <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
+      {/* Note: Filter is not available for multi-topic journeys */}
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard

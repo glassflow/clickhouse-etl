@@ -407,20 +407,23 @@ export const buildInternalPipelineConfig = ({
       table: clickhouseDestination?.table,
       table_mapping: tableMappings,
     } as any, // Type assertion to bypass strict checks on conditional properties for now
-    // Include filter configuration if provided and enabled
-    ...(filterStore?.filterConfig?.enabled && filterStore?.expressionString
-      ? {
-          filter: {
-            enabled: true,
-            expression: filterStore.expressionString,
-          },
-        }
-      : {
-          filter: {
-            enabled: false,
-            expression: '',
-          },
-        }),
+    // Include filter configuration only for single-topic pipelines
+    // Filter is not available for multi-topic journeys
+    ...(topicsConfig.length === 1
+      ? filterStore?.filterConfig?.enabled && filterStore?.expressionString
+        ? {
+            filter: {
+              enabled: true,
+              expression: filterStore.expressionString,
+            },
+          }
+        : {
+            filter: {
+              enabled: false,
+              expression: '',
+            },
+          }
+      : {}),
   }
 
   return config

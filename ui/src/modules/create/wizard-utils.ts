@@ -54,7 +54,7 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'key'>> = {
   },
   [StepKeys.FILTER_CONFIGURATOR]: {
     title: 'Filter',
-    parent: null,
+    parent: StepKeys.TOPIC_SELECTION_1, // substep of topic selection (only for single topic)
   },
   [StepKeys.CLICKHOUSE_CONNECTION]: {
     title: 'ClickHouse Connection',
@@ -161,8 +161,9 @@ export const getSingleTopicJourney = (): StepKeys[] => {
 }
 
 export const getTwoTopicJourney = (): StepKeys[] => {
-  // 2 Topics: Kafka Connection → Topic 1 Selection → Topic 2 Selection → Join Configurator → Filter → ClickHouse Connection → Mapper → Review (if preview mode)
-  // Deduplication is configured optionally per-topic, Filter is optional
+  // 2 Topics: Kafka Connection → Topic 1 Selection → Dedup 1 → Topic 2 Selection → Dedup 2 → Join → ClickHouse Connection → Mapper → Review (if preview mode)
+  // Deduplication is configured optionally per-topic
+  // Note: Filter is NOT available for multi-topic journeys (only single-topic)
   const steps: StepKeys[] = [
     StepKeys.KAFKA_CONNECTION,
     StepKeys.TOPIC_SELECTION_1,
@@ -170,7 +171,6 @@ export const getTwoTopicJourney = (): StepKeys[] => {
     StepKeys.TOPIC_SELECTION_2,
     StepKeys.DEDUPLICATION_CONFIGURATOR,
     StepKeys.JOIN_CONFIGURATOR,
-    StepKeys.FILTER_CONFIGURATOR,
     StepKeys.CLICKHOUSE_CONNECTION,
     StepKeys.CLICKHOUSE_MAPPER,
   ]
@@ -204,7 +204,7 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
 
     // For steps that can be substeps but need dynamic parent detection
     // (e.g., DEDUPLICATION_CONFIGURATOR appearing multiple times with different parents)
-    if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR) {
+    if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR || stepKey === StepKeys.FILTER_CONFIGURATOR) {
       // Find the most recent topic selection step before this one
       let parentStep: StepKeys | null = null
       for (let i = index - 1; i >= 0; i--) {
