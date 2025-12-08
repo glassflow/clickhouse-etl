@@ -42,6 +42,7 @@ export function SearchableSelect({
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const inputWrapperRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const [filteredOptions, setFilteredOptions] = useState<string[]>([])
   const [availableKeys, setAvailableKeys] = useState<string[]>([])
@@ -90,10 +91,10 @@ export function SearchableSelect({
 
   // Update dropdown position when container position changes
   useEffect(() => {
-    if (!open || !containerRef.current) return
+    if (!open || !inputWrapperRef.current) return
 
     const updatePosition = () => {
-      const rect = containerRef.current?.getBoundingClientRect()
+      const rect = inputWrapperRef.current?.getBoundingClientRect()
       if (!rect) return
 
       // Calculate actual dropdown height based on filtered options
@@ -125,7 +126,7 @@ export function SearchableSelect({
       setDropdownPlacement(placement)
 
       setDropdownPosition({
-        top: placement === 'above' ? rect.top - actualDropdownHeight - 8 : rect.bottom + 4,
+        top: placement === 'above' ? rect.top - actualDropdownHeight - 4 : rect.bottom + 2,
         left: rect.left,
         width: rect.width,
       })
@@ -252,15 +253,10 @@ export function SearchableSelect({
   return (
     <div ref={containerRef} className={cn('relative w-full', className)} onKeyDown={handleKeyDown}>
       <div className="flex items-center">
-        <div className="flex flex-col items-left w-full">
-          {label && (
-            <Label htmlFor="searchable-select-input" className="text-xs text-content mb-1 block">
-              {label}
-            </Label>
-          )}
-          <div className="relative w-full">
+        <div className="flex flex-col items-left gap-2 w-full">
+          {label && <span className="text-sm text-content">{label}</span>}
+          <div ref={inputWrapperRef} className="relative w-full">
             <Input
-              id="searchable-select-input"
               ref={inputRef}
               type="text"
               placeholder={placeholder}
@@ -270,8 +266,8 @@ export function SearchableSelect({
               onFocus={() => !disabled && !readOnly && setOpen(true)}
               className={cn(
                 'w-full pr-10 input-regular input-border-regular text-content',
-                error && 'input-border-error',
                 disabled && 'opacity-60 cursor-not-allowed',
+                error && 'input-border-error',
               )}
               disabled={disabled || readOnly}
               aria-expanded={open}
@@ -313,7 +309,7 @@ export function SearchableSelect({
             </div>
           </div>
           {/* Reserve space for error message to prevent layout shift */}
-          <div className="h-5 mt-0.5">{error && <p className="input-description-error text-sm">{error}</p>}</div>
+          {/* <div className="h-5 mt-0.5">{error && <p className="input-description-error text-sm">{error}</p>}</div> */}
         </div>
       </div>
 

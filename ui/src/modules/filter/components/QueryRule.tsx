@@ -205,17 +205,23 @@ export function QueryRule({
 
         {/* Rule inputs row */}
         <div className="flex items-start gap-3">
-          {/* Field Select */}
+          {/* Field Select - wrapped to match SelectEnhanced structure */}
           <div className="flex-1 min-w-0">
-            <SearchableSelect
-              label="Field"
-              availableOptions={availableFields.map((f) => f.name)}
-              selectedOption={rule.field || undefined}
-              onSelect={handleFieldChange}
-              placeholder="Select field..."
-              disabled={readOnly}
-              error={validation?.field}
-            />
+            <Label className="text-xs text-content mb-1 block">Field</Label>
+            <div className="space-y-0">
+              <SearchableSelect
+                availableOptions={availableFields.map((f) => f.name)}
+                selectedOption={rule.field || undefined}
+                onSelect={handleFieldChange}
+                placeholder="Select field..."
+                disabled={readOnly}
+                className={cn(validation?.field && '[&_input]:input-border-error')}
+              />
+              {/* Reserve space for error message to prevent layout shift */}
+              <div className="h-5 mt-0.5">
+                {validation?.field && <p className="input-description-error text-sm">{validation.field}</p>}
+              </div>
+            </div>
           </div>
 
           {/* Operator Select */}
