@@ -52,11 +52,24 @@ function mapBackendClickhouseDestinationToStore(sink: any) {
     }
   }
 
+  // Transform backend mapping format to UI format
+  // Backend format: { source_id, field_name, column_name, column_type }
+  // UI format: { name, type, eventField, sourceTopic, jsonType, isNullable }
+  const backendMapping = Array.isArray(sink.table_mapping) ? sink.table_mapping : []
+  const uiMapping = backendMapping.map((m: any) => ({
+    name: m.column_name || '',
+    type: m.column_type || '',
+    eventField: m.field_name || m.eventField || '',
+    sourceTopic: m.source_id || '',
+    jsonType: mapClickHouseTypeToJsonType(m.column_type || ''),
+    isNullable: (m.column_type || '').includes('Nullable'),
+  }))
+
   return {
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
     table: sink.table || '',
-    mapping: sink.table_mapping || [],
+    mapping: uiMapping,
     destinationColumns: [], // Will fill after fetching schema
     maxBatchSize: sink.max_batch_size || 1000,
     maxDelayTime,
