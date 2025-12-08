@@ -74,6 +74,12 @@ type config struct {
 	K8sResourceName    string `default:"pipelines" split_words:"true"`
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
+
+	TrackingEnabled        bool   `default:"false" split_words:"true"`
+	TrackingEndpoint       string `default:"" split_words:"true"`
+	TrackingUsername       string `default:"" split_words:"true"`
+	TrackingPassword       string `default:"" split_words:"true"`
+	TrackingInstallationID string `default:"" split_words:"true"`
 }
 
 var version = "dev"
