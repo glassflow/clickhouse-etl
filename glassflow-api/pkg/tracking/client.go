@@ -14,15 +14,15 @@ import (
 )
 
 type Client struct {
-	endpoint      string
-	username      string
-	password      string
+	endpoint       string
+	username       string
+	password       string
 	installationID string
-	
-	token      string
+
+	token       string
 	tokenExpiry time.Time
-	tokenMu    sync.RWMutex
-	
+	tokenMu     sync.RWMutex
+
 	httpClient *http.Client
 	log        *slog.Logger
 	enabled    bool
@@ -52,7 +52,7 @@ func NewClient(endpoint, username, password, installationID string, enabled bool
 	if !enabled {
 		return &Client{enabled: false}
 	}
-	
+
 	return &Client{
 		endpoint:       endpoint,
 		username:       username,
@@ -72,46 +72,46 @@ func (c *Client) IsEnabled() bool {
 
 func (c *Client) authenticate(ctx context.Context) error {
 	url := fmt.Sprintf("%s/api/v1/auth/login", c.endpoint)
-	
+
 	reqBody := map[string]string{
 		"username": c.username,
 		"password": c.password,
 	}
-	
+
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("marshal auth request: %w", err)
 	}
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("create auth request: %w", err)
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("accept", "application/json")
-	
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("auth request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("auth failed with status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	var authResp AuthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
 		return fmt.Errorf("decode auth response: %w", err)
 	}
-	
+
 	c.tokenMu.Lock()
 	c.token = authResp.AccessToken
 	c.tokenExpiry = time.Now().Add(time.Duration(authResp.ExpiresIn) * time.Second)
 	c.tokenMu.Unlock()
-	
+
 	return nil
 }
 
@@ -120,19 +120,19 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 	token := c.token
 	expiry := c.tokenExpiry
 	c.tokenMu.RUnlock()
-	
+
 	if token != "" && time.Now().Before(expiry.Add(-30*time.Second)) {
 		return token, nil
 	}
-	
+
 	if err := c.authenticate(ctx); err != nil {
 		return "", err
 	}
-	
+
 	c.tokenMu.RLock()
 	token = c.token
 	c.tokenMu.RUnlock()
-	
+
 	return token, nil
 }
 
@@ -140,7 +140,7 @@ func (c *Client) SendEvent(ctx context.Context, eventName, eventSource string, p
 	if !c.enabled {
 		return
 	}
-	
+
 	go func() {
 		if err := c.sendEventSync(ctx, eventName, eventSource, properties); err != nil {
 			c.log.Debug("tracking event send failed", "event", eventName, "error", err)
@@ -153,7 +153,7 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 	if err != nil {
 		return fmt.Errorf("get token: %w", err)
 	}
-	
+
 	event := Event{
 		InstallationID: c.installationID,
 		EventName:      eventName,
@@ -161,25 +161,25 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 		Timestamp:      time.Now().UTC().Format(time.RFC3339),
 		Properties:     properties,
 	}
-	
+
 	jsonData, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshal event: %w", err)
 	}
-	
+
 	url := fmt.Sprintf("%s/api/v1/track", c.endpoint)
-	
+
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return fmt.Errorf("create request: %w", err)
 		}
-		
+
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("accept", "application/json")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-		
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			if attempt < maxRetries {
@@ -188,19 +188,19 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 			}
 			return fmt.Errorf("request failed: %w", err)
 		}
-		
+
 		if resp.StatusCode == http.StatusUnauthorized {
 			resp.Body.Close()
-			
+
 			if err := c.authenticate(ctx); err != nil {
 				return fmt.Errorf("re-authenticate: %w", err)
 			}
-			
+
 			token, err = c.getToken(ctx)
 			if err != nil {
 				return fmt.Errorf("get new token: %w", err)
 			}
-			
+
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 			resp, err = c.httpClient.Do(req)
 			if err != nil {
@@ -211,9 +211,9 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 				return fmt.Errorf("retry request failed: %w", err)
 			}
 		}
-		
+
 		defer resp.Body.Close()
-		
+
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			if attempt < maxRetries {
@@ -222,15 +222,15 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 			}
 			return fmt.Errorf("tracking failed with status %d: %s", resp.StatusCode, string(body))
 		}
-		
+
 		var trackResp TrackResponse
 		if err := json.NewDecoder(resp.Body).Decode(&trackResp); err != nil {
 			return fmt.Errorf("decode response: %w", err)
 		}
-		
+
 		return nil
 	}
-	
+
 	return fmt.Errorf("max retries exceeded")
 }
 
@@ -238,4 +238,3 @@ func HashPipelineID(pipelineID string) string {
 	hash := md5.Sum([]byte(pipelineID))
 	return fmt.Sprintf("%x", hash)
 }
-
