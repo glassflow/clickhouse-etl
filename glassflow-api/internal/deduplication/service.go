@@ -72,16 +72,7 @@ func (c *DedupService) Start(ctx context.Context) error {
 			defer shutdownCancel()
 			return c.handleShutdown(shutdownCtx)
 		default:
-			batchMessages, err := c.reader.ReadBatch(
-				ctx,
-				c.batchSize,
-				jetstream.FetchMaxWait(c.maxWait),
-			)
-			if err != nil {
-				return fmt.Errorf("read batch: %w", err)
-			}
-
-			err = c.processMessages(ctx, batchMessages)
+			err := c.Process(ctx)
 			if err != nil {
 				// Don't log context cancellation errors (shutdown)
 				if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
@@ -90,6 +81,21 @@ func (c *DedupService) Start(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (c *DedupService) Process(ctx context.Context) error {
+	batchMessages, err := c.reader.ReadBatch(
+		ctx,
+		c.batchSize,
+		jetstream.FetchMaxWait(c.maxWait),
+	)
+	if err != nil {
+		return fmt.Errorf("read batch: %w", err)
+	}
+
+	err = c.processMessages(ctx, batchMessages)
+
+	return err
 }
 
 // handleShutdown handles the shutdown logic
