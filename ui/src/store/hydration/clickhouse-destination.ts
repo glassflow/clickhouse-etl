@@ -1,7 +1,8 @@
 import { useStore } from '../index'
 
 // Helper: Map backend config to your store's destination shape
-function mapBackendClickhouseDestinationToStore(sink: any) {
+// schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
+function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[]) {
   // Parse max_delay_time from Go duration format (e.g., "1m", "30s", "2h", "55h0m0s")
   let maxDelayTime = 1
   let maxDelayTimeUnit = 'm'
@@ -53,9 +54,24 @@ function mapBackendClickhouseDestinationToStore(sink: any) {
   }
 
   // Transform backend mapping format to UI format
+  // Support both V1 format (sink.table_mapping) and V2 format (schema.fields)
   // Backend format: { source_id, field_name, column_name, column_type }
   // UI format: { name, type, eventField, sourceTopic, jsonType, isNullable }
-  const backendMapping = Array.isArray(sink.table_mapping) ? sink.table_mapping : []
+  let backendMapping: any[] = []
+  if (Array.isArray(sink.table_mapping) && sink.table_mapping.length > 0) {
+    // V1 format: mapping is in sink.table_mapping
+    backendMapping = sink.table_mapping
+  } else if (Array.isArray(schemaFields) && schemaFields.length > 0) {
+    // V2 format: mapping is in schema.fields
+    // Transform V2 schema.fields to the same format as V1 table_mapping
+    backendMapping = schemaFields.map((field: any) => ({
+      source_id: field.source_id,
+      field_name: field.name, // In V2, 'name' is the Kafka field name
+      column_name: field.column_name,
+      column_type: field.column_type,
+    }))
+  }
+
   const uiMapping = backendMapping.map((m: any) => ({
     name: m.column_name || '',
     type: m.column_type || '',
@@ -118,8 +134,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     decodedPassword = sink.password || ''
   }
 
-  // 1. Set the basic destination config
-  const destination = mapBackendClickhouseDestinationToStore(sink)
+  // 1. Set the basic destination config (pass schema.fields for V2 format support)
+  const destination = mapBackendClickhouseDestinationToStore(sink, pipelineConfig?.schema?.fields)
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination(destination)
 
   // 2. Fetch databases
@@ -203,8 +219,22 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const { filterUserMappableColumns } = await import('@/src/modules/clickhouse/utils')
   const mappableColumns = filterUserMappableColumns(schemaColumns as any)
 
-  // 5. Transform backend mapping (sink.table_mapping) into UI mapping shape aligned with schema
-  const backendMapping = Array.isArray(sink.table_mapping) ? sink.table_mapping : []
+  // 5. Transform backend mapping into UI mapping shape aligned with schema
+  // Support both V1 format (sink.table_mapping) and V2 format (schema.fields)
+  let backendMapping: any[] = []
+  if (Array.isArray(sink.table_mapping) && sink.table_mapping.length > 0) {
+    // V1 format: mapping is in sink.table_mapping
+    backendMapping = sink.table_mapping
+  } else if (Array.isArray(pipelineConfig?.schema?.fields) && pipelineConfig.schema.fields.length > 0) {
+    // V2 format: mapping is in schema.fields
+    // Transform V2 schema.fields to the same format as V1 table_mapping
+    backendMapping = pipelineConfig.schema.fields.map((field: any) => ({
+      source_id: field.source_id,
+      field_name: field.name, // In V2, 'name' is the Kafka field name
+      column_name: field.column_name,
+      column_type: field.column_type,
+    }))
+  }
 
   const uiMapping = mappableColumns.map((col) => {
     const found = backendMapping.find((m: any) => (m.column_name || m.name) === col.name)
