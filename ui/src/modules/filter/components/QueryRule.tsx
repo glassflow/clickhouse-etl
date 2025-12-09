@@ -15,6 +15,8 @@ import {
   isBooleanType,
   parseValueForType,
   getDefaultValueForType,
+  isNoValueOperator,
+  isArrayValueOperator,
   RuleValidation,
 } from '../utils'
 import { cn } from '@/src/utils/common.client'
@@ -117,14 +119,48 @@ export function QueryRule({
     [rule.id, onChange, onTouched],
   )
 
-  // Render value input based on field type
+  // Render value input based on field type and operator
   const renderValueInput = () => {
+    // No value input needed for null check operators
+    if (isNoValueOperator(rule.operator)) {
+      return (
+        <div className="flex-1 min-w-0">
+          <Label className="text-xs text-content mb-1 block">Value</Label>
+          <div className="h-10 flex items-center text-sm text-[var(--text-secondary)] italic">No value needed</div>
+          <div className="h-5 mt-0.5" />
+        </div>
+      )
+    }
+
     if (!rule.field) {
       return (
         <div>
           <Label className="text-xs text-content mb-1 block">Value</Label>
           <div className="h-5 mt-0.5">
             <Input type="text" placeholder="Enter a value" disabled={true} className="h-10 input-regular" />
+          </div>
+        </div>
+      )
+    }
+
+    // Array value input for in/notIn operators
+    if (isArrayValueOperator(rule.operator)) {
+      return (
+        <div>
+          <Label className="text-xs text-content mb-1 block">Values (comma-separated)</Label>
+          <div className="space-y-0">
+            <Input
+              type="text"
+              value={String(rule.value ?? '')}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={isNumericType(rule.fieldType) ? 'e.g., 1, 2, 3' : 'e.g., active, pending'}
+              disabled={readOnly}
+              className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
+            />
+            {/* Reserve space for error message to prevent layout shift */}
+            <div className="h-5 mt-0.5">
+              {validation?.value && <p className="input-description-error text-sm">{validation.value}</p>}
+            </div>
           </div>
         </div>
       )

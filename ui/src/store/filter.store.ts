@@ -9,7 +9,9 @@ import {
 } from '@/src/types/validation'
 
 // Filter operator types based on expr-lang supported operations
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'startsWith' | 'endsWith'
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'notIn' | 'isNull' | 'isNotNull'
+// Future: Reserved for stateless transformations
+// | 'contains' | 'startsWith' | 'endsWith'
 
 // Logic operator for combining rules/groups
 export type LogicOperator = 'and' | 'or'

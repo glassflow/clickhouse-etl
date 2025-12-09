@@ -1,10 +1,4 @@
-import {
-  FilterCondition,
-  FilterConfig,
-  FilterOperator,
-  FilterRule,
-  FilterGroup,
-} from '@/src/store/filter.store'
+import { FilterCondition, FilterConfig, FilterOperator, FilterRule, FilterGroup } from '@/src/store/filter.store'
 
 // Operator definitions with display labels and type compatibility
 export interface OperatorDefinition {
@@ -14,149 +8,121 @@ export interface OperatorDefinition {
   supportedTypes: string[] // Field types that support this operator
 }
 
+// All supported field types for operators
+const ALL_TYPES = [
+  'string',
+  'int',
+  'int8',
+  'int16',
+  'int32',
+  'int64',
+  'uint',
+  'uint8',
+  'uint16',
+  'uint32',
+  'uint64',
+  'float',
+  'float32',
+  'float64',
+  'bool',
+]
+
+const NUMERIC_TYPES = [
+  'int',
+  'int8',
+  'int16',
+  'int32',
+  'int64',
+  'uint',
+  'uint8',
+  'uint16',
+  'uint32',
+  'uint64',
+  'float',
+  'float32',
+  'float64',
+]
+
 export const FILTER_OPERATORS: OperatorDefinition[] = [
   {
     value: 'eq',
     label: 'equals',
     exprSymbol: '==',
-    supportedTypes: [
-      'string',
-      'int',
-      'int8',
-      'int16',
-      'int32',
-      'int64',
-      'uint',
-      'uint8',
-      'uint16',
-      'uint32',
-      'uint64',
-      'float',
-      'float32',
-      'float64',
-      'bool',
-    ],
+    supportedTypes: ALL_TYPES,
   },
   {
     value: 'neq',
     label: 'not equals',
     exprSymbol: '!=',
-    supportedTypes: [
-      'string',
-      'int',
-      'int8',
-      'int16',
-      'int32',
-      'int64',
-      'uint',
-      'uint8',
-      'uint16',
-      'uint32',
-      'uint64',
-      'float',
-      'float32',
-      'float64',
-      'bool',
-    ],
+    supportedTypes: ALL_TYPES,
   },
   {
     value: 'gt',
     label: 'greater than',
     exprSymbol: '>',
-    supportedTypes: [
-      'int',
-      'int8',
-      'int16',
-      'int32',
-      'int64',
-      'uint',
-      'uint8',
-      'uint16',
-      'uint32',
-      'uint64',
-      'float',
-      'float32',
-      'float64',
-    ],
+    supportedTypes: NUMERIC_TYPES,
   },
   {
     value: 'gte',
     label: 'greater than or equals',
     exprSymbol: '>=',
-    supportedTypes: [
-      'int',
-      'int8',
-      'int16',
-      'int32',
-      'int64',
-      'uint',
-      'uint8',
-      'uint16',
-      'uint32',
-      'uint64',
-      'float',
-      'float32',
-      'float64',
-    ],
+    supportedTypes: NUMERIC_TYPES,
   },
   {
     value: 'lt',
     label: 'less than',
     exprSymbol: '<',
-    supportedTypes: [
-      'int',
-      'int8',
-      'int16',
-      'int32',
-      'int64',
-      'uint',
-      'uint8',
-      'uint16',
-      'uint32',
-      'uint64',
-      'float',
-      'float32',
-      'float64',
-    ],
+    supportedTypes: NUMERIC_TYPES,
   },
   {
     value: 'lte',
     label: 'less than or equals',
     exprSymbol: '<=',
-    supportedTypes: [
-      'int',
-      'int8',
-      'int16',
-      'int32',
-      'int64',
-      'uint',
-      'uint8',
-      'uint16',
-      'uint32',
-      'uint64',
-      'float',
-      'float32',
-      'float64',
-    ],
+    supportedTypes: NUMERIC_TYPES,
   },
   {
-    value: 'contains',
-    label: 'contains',
-    exprSymbol: 'contains',
-    supportedTypes: ['string'],
+    value: 'in',
+    label: 'in',
+    exprSymbol: 'in',
+    supportedTypes: ALL_TYPES,
   },
   {
-    value: 'startsWith',
-    label: 'starts with',
-    exprSymbol: 'startsWith',
-    supportedTypes: ['string'],
+    value: 'notIn',
+    label: 'not in',
+    exprSymbol: 'not in',
+    supportedTypes: ALL_TYPES,
   },
   {
-    value: 'endsWith',
-    label: 'ends with',
-    exprSymbol: 'endsWith',
-    supportedTypes: ['string'],
+    value: 'isNull',
+    label: 'is null',
+    exprSymbol: '== nil',
+    supportedTypes: ALL_TYPES,
   },
+  {
+    value: 'isNotNull',
+    label: 'is not null',
+    exprSymbol: '!= nil',
+    supportedTypes: ALL_TYPES,
+  },
+  // DISABLED: Reserved for future stateless transformations
+  // {
+  //   value: 'contains',
+  //   label: 'contains',
+  //   exprSymbol: 'contains',
+  //   supportedTypes: ['string'],
+  // },
+  // {
+  //   value: 'startsWith',
+  //   label: 'starts with',
+  //   exprSymbol: 'startsWith',
+  //   supportedTypes: ['string'],
+  // },
+  // {
+  //   value: 'endsWith',
+  //   label: 'ends with',
+  //   exprSymbol: 'endsWith',
+  //   supportedTypes: ['string'],
+  // },
 ]
 
 /**
@@ -170,22 +136,21 @@ export const getOperatorsForType = (fieldType: string): OperatorDefinition[] => 
  * Check if a field type is numeric
  */
 export const isNumericType = (fieldType: string): boolean => {
-  const numericTypes = [
-    'int',
-    'int8',
-    'int16',
-    'int32',
-    'int64',
-    'uint',
-    'uint8',
-    'uint16',
-    'uint32',
-    'uint64',
-    'float',
-    'float32',
-    'float64',
-  ]
-  return numericTypes.includes(fieldType)
+  return NUMERIC_TYPES.includes(fieldType)
+}
+
+/**
+ * Check if an operator requires no value (null checks)
+ */
+export const isNoValueOperator = (operator: FilterOperator): boolean => {
+  return operator === 'isNull' || operator === 'isNotNull'
+}
+
+/**
+ * Check if an operator requires array value (in/notIn)
+ */
+export const isArrayValueOperator = (operator: FilterOperator): boolean => {
+  return operator === 'in' || operator === 'notIn'
 }
 
 /**
@@ -217,6 +182,31 @@ export const formatValueForExpr = (value: string | number | boolean, fieldType: 
 }
 
 /**
+ * Format array value for expr expression (for in/notIn operators)
+ */
+export const formatArrayValueForExpr = (value: string | number | boolean, fieldType: string): string => {
+  // Value should be a comma-separated string or already an array
+  const stringValue = String(value)
+  const items = stringValue
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item !== '')
+
+  const formattedItems = items.map((item) => {
+    if (isBooleanType(fieldType)) {
+      return item.toLowerCase() === 'true' ? 'true' : 'false'
+    }
+    if (isNumericType(fieldType)) {
+      return item
+    }
+    // String type - wrap in quotes
+    return `"${item.replace(/"/g, '\\"')}"`
+  })
+
+  return `[${formattedItems.join(', ')}]`
+}
+
+/**
  * Convert a single rule to expr expression
  */
 export const ruleToExpr = (rule: FilterRule): string => {
@@ -225,14 +215,25 @@ export const ruleToExpr = (rule: FilterRule): string => {
     throw new Error(`Unknown operator: ${rule.operator}`)
   }
 
-  const formattedValue = formatValueForExpr(rule.value, rule.fieldType)
-
   let expr: string
-  // Handle function-style operators (contains, startsWith, endsWith)
-  if (['contains', 'startsWith', 'endsWith'].includes(rule.operator)) {
-    expr = `${rule.operator}(${rule.field}, ${formattedValue})`
-  } else {
+
+  // Handle null check operators (no value needed)
+  if (isNoValueOperator(rule.operator)) {
+    expr = `${rule.field} ${operator.exprSymbol}`
+  }
+  // Handle in/notIn operators (array value)
+  else if (isArrayValueOperator(rule.operator)) {
+    const formattedValue = formatArrayValueForExpr(rule.value, rule.fieldType)
+    expr = `${rule.field} ${operator.exprSymbol} ${formattedValue}`
+  }
+  // Handle function-style operators (contains, startsWith, endsWith) - reserved for future
+  // else if (['contains', 'startsWith', 'endsWith'].includes(rule.operator)) {
+  //   const formattedValue = formatValueForExpr(rule.value, rule.fieldType)
+  //   expr = `${rule.operator}(${rule.field}, ${formattedValue})`
+  // }
+  else {
     // Handle comparison operators
+    const formattedValue = formatValueForExpr(rule.value, rule.fieldType)
     expr = `${rule.field} ${operator.exprSymbol} ${formattedValue}`
   }
 
@@ -253,14 +254,25 @@ export const conditionToExpr = (condition: FilterCondition): string => {
     throw new Error(`Unknown operator: ${condition.operator}`)
   }
 
-  const formattedValue = formatValueForExpr(condition.value, condition.fieldType)
-
-  // Handle function-style operators (contains, startsWith, endsWith)
-  if (['contains', 'startsWith', 'endsWith'].includes(condition.operator)) {
-    return `${condition.operator}(${condition.field}, ${formattedValue})`
+  // Handle null check operators (no value needed)
+  if (isNoValueOperator(condition.operator)) {
+    return `${condition.field} ${operator.exprSymbol}`
   }
 
+  // Handle in/notIn operators (array value)
+  if (isArrayValueOperator(condition.operator)) {
+    const formattedValue = formatArrayValueForExpr(condition.value, condition.fieldType)
+    return `${condition.field} ${operator.exprSymbol} ${formattedValue}`
+  }
+
+  // Handle function-style operators (contains, startsWith, endsWith) - reserved for future
+  // if (['contains', 'startsWith', 'endsWith'].includes(condition.operator)) {
+  //   const formattedValue = formatValueForExpr(condition.value, condition.fieldType)
+  //   return `${condition.operator}(${condition.field}, ${formattedValue})`
+  // }
+
   // Handle comparison operators
+  const formattedValue = formatValueForExpr(condition.value, condition.fieldType)
   return `${condition.field} ${operator.exprSymbol} ${formattedValue}`
 }
 
@@ -268,6 +280,10 @@ export const conditionToExpr = (condition: FilterCondition): string => {
  * Check if a rule is complete (has all required fields)
  */
 export const isRuleComplete = (rule: FilterRule): boolean => {
+  // Null check operators don't need a value
+  if (isNoValueOperator(rule.operator)) {
+    return !!(rule.field && rule.operator)
+  }
   return !!(rule.field && rule.operator && rule.value !== undefined && rule.value !== '')
 }
 
@@ -377,24 +393,51 @@ export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
     errors.operator = 'Condition is required'
   }
 
-  // Check value is provided
-  if (rule.value === undefined || rule.value === '') {
-    errors.value = 'Value is required'
+  // Check value is provided (not required for null check operators)
+  if (!isNoValueOperator(rule.operator)) {
+    if (rule.value === undefined || rule.value === '') {
+      errors.value = 'Value is required'
+    }
   }
 
-  // Type-specific validation
-  if (rule.fieldType && rule.value !== undefined && rule.value !== '') {
-    if (isNumericType(rule.fieldType)) {
-      const numValue = Number(rule.value)
-      if (isNaN(numValue)) {
-        errors.value = 'Value must be a number'
+  // Type-specific validation (skip for null check operators)
+  if (!isNoValueOperator(rule.operator) && rule.fieldType && rule.value !== undefined && rule.value !== '') {
+    // For in/notIn operators, validate each item in the comma-separated list
+    if (isArrayValueOperator(rule.operator)) {
+      const items = String(rule.value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item !== '')
+      if (items.length === 0) {
+        errors.value = 'At least one value is required'
+      } else if (isNumericType(rule.fieldType)) {
+        const hasInvalidNumber = items.some((item) => isNaN(Number(item)))
+        if (hasInvalidNumber) {
+          errors.value = 'All values must be numbers'
+        }
+      } else if (isBooleanType(rule.fieldType)) {
+        const hasInvalidBool = items.some((item) => {
+          const lower = item.toLowerCase()
+          return lower !== 'true' && lower !== 'false'
+        })
+        if (hasInvalidBool) {
+          errors.value = 'All values must be true or false'
+        }
       }
-    }
+    } else {
+      // Standard single-value validation
+      if (isNumericType(rule.fieldType)) {
+        const numValue = Number(rule.value)
+        if (isNaN(numValue)) {
+          errors.value = 'Value must be a number'
+        }
+      }
 
-    if (isBooleanType(rule.fieldType)) {
-      const strValue = String(rule.value).toLowerCase()
-      if (strValue !== 'true' && strValue !== 'false') {
-        errors.value = 'Value must be true or false'
+      if (isBooleanType(rule.fieldType)) {
+        const strValue = String(rule.value).toLowerCase()
+        if (strValue !== 'true' && strValue !== 'false') {
+          errors.value = 'Value must be true or false'
+        }
       }
     }
   }
@@ -429,24 +472,56 @@ export const validateConditionLocally = (condition: FilterCondition): ConditionV
     errors.operator = 'Condition is required'
   }
 
-  // Check value is provided
-  if (condition.value === undefined || condition.value === '') {
-    errors.value = 'Value is required'
+  // Check value is provided (not required for null check operators)
+  if (!isNoValueOperator(condition.operator)) {
+    if (condition.value === undefined || condition.value === '') {
+      errors.value = 'Value is required'
+    }
   }
 
-  // Type-specific validation
-  if (condition.fieldType && condition.value !== undefined && condition.value !== '') {
-    if (isNumericType(condition.fieldType)) {
-      const numValue = Number(condition.value)
-      if (isNaN(numValue)) {
-        errors.value = 'Value must be a number'
+  // Type-specific validation (skip for null check operators)
+  if (
+    !isNoValueOperator(condition.operator) &&
+    condition.fieldType &&
+    condition.value !== undefined &&
+    condition.value !== ''
+  ) {
+    // For in/notIn operators, validate each item in the comma-separated list
+    if (isArrayValueOperator(condition.operator)) {
+      const items = String(condition.value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item !== '')
+      if (items.length === 0) {
+        errors.value = 'At least one value is required'
+      } else if (isNumericType(condition.fieldType)) {
+        const hasInvalidNumber = items.some((item) => isNaN(Number(item)))
+        if (hasInvalidNumber) {
+          errors.value = 'All values must be numbers'
+        }
+      } else if (isBooleanType(condition.fieldType)) {
+        const hasInvalidBool = items.some((item) => {
+          const lower = item.toLowerCase()
+          return lower !== 'true' && lower !== 'false'
+        })
+        if (hasInvalidBool) {
+          errors.value = 'All values must be true or false'
+        }
       }
-    }
+    } else {
+      // Standard single-value validation
+      if (isNumericType(condition.fieldType)) {
+        const numValue = Number(condition.value)
+        if (isNaN(numValue)) {
+          errors.value = 'Value must be a number'
+        }
+      }
 
-    if (isBooleanType(condition.fieldType)) {
-      const strValue = String(condition.value).toLowerCase()
-      if (strValue !== 'true' && strValue !== 'false') {
-        errors.value = 'Value must be true or false'
+      if (isBooleanType(condition.fieldType)) {
+        const strValue = String(condition.value).toLowerCase()
+        if (strValue !== 'true' && strValue !== 'false') {
+          errors.value = 'Value must be true or false'
+        }
       }
     }
   }
