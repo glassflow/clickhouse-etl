@@ -102,7 +102,7 @@ export const TableContextMenu = ({
 
           {/* Menu dropdown */}
           <div
-            className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-background-regular)] border border-[var(--color-border-neutral)] rounded-md shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+            className="absolute right-0 top-full mt-1 z-20 w-48 surface-gradient-border border-0 bg-[var(--color-background-elevation-raised-faded-2)] shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
             onClick={(e) => e.stopPropagation()} // Prevent any clicks in the menu from bubbling to parent
           >
             {/* Stop Button */}

@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "v2",
   "pipeline_id": "metrics-gauge-pipeline",
   "name": "Metrics Gauge Pipeline",
   "source": {

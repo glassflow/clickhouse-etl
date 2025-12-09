@@ -20,20 +20,21 @@ function DoubleColumnCard({
 }) {
   const widthClass = width === 'full' ? 'w-full' : 'w-1/2'
 
+  const isInvalid =
+    validation?.topicsValidation?.status === 'invalidated' ||
+    validation?.joinValidation?.status === 'invalidated' ||
+    validation?.deduplicationValidation?.status === 'invalidated' ||
+    validation?.clickhouseDestinationValidation?.status === 'invalidated' ||
+    validation?.status === 'invalidated'
+
   return (
     <Card
       className={cn(
-        'border-[var(--color-border-neutral)] radius-large p-4',
+        'card-outline p-4',
         widthClass,
-        disabled ? 'opacity-50 cursor-not-allowed' : '',
-        validation?.topicsValidation?.status === 'invalidated' ||
-          validation?.joinValidation?.status === 'invalidated' ||
-          validation?.deduplicationValidation?.status === 'invalidated' ||
-          validation?.clickhouseDestinationValidation?.status === 'invalidated' ||
-          validation?.status === 'invalidated'
-          ? 'border-red-500'
-          : '',
-        selected && 'border-primary',
+        disabled && 'opacity-50 cursor-not-allowed',
+        isInvalid && 'card-outline-error',
+        selected && 'card-outline-selected',
       )}
       onClick={onClick}
     >

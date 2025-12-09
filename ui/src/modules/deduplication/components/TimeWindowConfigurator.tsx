@@ -123,7 +123,7 @@ export function TimeWindowConfigurator({
           </div>
           <div className="w-[65%] max-w-[65%]">
             <Select value={windowUnit} onValueChange={handleUnitChange} disabled={readOnly}>
-              <SelectTrigger id="window-unit" className="w-full input-regular select-content-custom text-content">
+              <SelectTrigger id="window-unit" className="w-full input-regular input-border-regular text-content">
                 <SelectValue placeholder="Select unit" />
               </SelectTrigger>
               <SelectContent className="select-content-custom">

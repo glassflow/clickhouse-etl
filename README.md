@@ -57,10 +57,6 @@ GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works w
 ### Live Preview
 Log in and see a working demo of GlassFlow running on a GPC cluster at [demo.glassflow.dev](https://demo.glassflow.dev). You will see a Grafana dashboard and the setup that we used.
 
-![GlassFlow Pipeline Data Flow](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/glassflow_demo.png)
-
-*GlassFlow Pipeline showing real-time streaming from Kafka through GlassFlow to ClickHouse*
-
 ### Demo Video
 
 [![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/getting-started#demo-video)

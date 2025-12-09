@@ -89,7 +89,7 @@ func (d *Deduplicator) deduplicateMessages(
 
 		deduplicatedMessages = append(deduplicatedMessages, msg)
 
-		entry := badger.NewEntry(key, []byte{1}).WithTTL(d.ttl)
+		entry := badger.NewEntry(key, []byte{}).WithTTL(d.ttl)
 		if err := txn.SetEntry(entry); err != nil {
 			return nil, fmt.Errorf("failed to set entry: %w", err)
 		}

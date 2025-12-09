@@ -18,13 +18,13 @@ function PipelineStatusOverviewSection({
         showStatusOverview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}
     >
-      <Card className="py-0 px-0 mb-4 border-none">
-        <div className="flex flex-row gap-4 items-start">
-          {/* <PipelineHealthCard status="stable" /> */}
-          <DeadLetterQueueCard pipelineId={pipeline.pipeline_id} />
-          <ClickHouseTableMetricsCard pipeline={pipeline} />
-        </div>
-      </Card>
+      {/* <Card className="py-0 px-0 mb-4 border-none"> */}
+      <div className="flex flex-row gap-4 items-start">
+        {/* <PipelineHealthCard status="stable" /> */}
+        <DeadLetterQueueCard pipelineId={pipeline.pipeline_id} />
+        <ClickHouseTableMetricsCard pipeline={pipeline} />
+      </div>
+      {/* </Card> */}
     </div>
   )
 }

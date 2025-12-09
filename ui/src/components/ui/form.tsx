@@ -189,14 +189,15 @@ const FormControlInput = <T extends FieldValues>({
 
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         <Input
           id={id}
           type={type}
           placeholder={placeholder}
           {...register(name as any, { required })}
-          readOnly={readOnly}
+          // readOnly={readOnly}
+          disabled={readOnly}
           className={cn(
             'w-full',
             'input-regular',
@@ -204,8 +205,8 @@ const FormControlInput = <T extends FieldValues>({
             'transition-all duration-200 ease-in-out',
             'text-content',
             error && 'input-border-error',
-            isFocused && 'input-active scale-[1.01]',
-            readOnly && 'opacity-50 cursor-not-allowed',
+            isFocused && 'input-active',
+            readOnly && 'cursor-not-allowed',
           )}
           onFocus={() => !readOnly && setIsFocused(true)}
           onBlur={() => {
@@ -249,7 +250,7 @@ function FormControlTextarea({
   const [isFocused, setIsFocused] = useState(false)
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         {/* @ts-expect-error - field is not typed */}
         <Textarea
@@ -264,7 +265,7 @@ function FormControlTextarea({
             'transition-all duration-200 ease-in-out',
             'text-content',
             error && 'input-border-error',
-            isFocused && 'input-active scale-[1.01]',
+            isFocused && 'input-active',
             readOnly && 'opacity-50 cursor-not-allowed',
           )}
           onFocus={() => !readOnly && setIsFocused(true)}
@@ -321,7 +322,7 @@ function FormControlSelect({
 
   return (
     <div className={cn('space-y-2 w-full min-w-[200px] transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         <Controller
           name={name}
@@ -353,8 +354,8 @@ function FormControlSelect({
                     'transition-all duration-200 ease-in-out',
                     'text-content',
                     error && 'input-border-error',
-                    isFocused && 'input-active scale-[1.01]',
-                    readOnly && 'opacity-50 cursor-not-allowed',
+                    isFocused && 'input-active',
+                    readOnly && 'cursor-not-allowed',
                   )}
                   onFocus={() => !readOnly && setIsFocused(true)}
                   onBlur={() => {
@@ -418,7 +419,7 @@ function FormControlSwitch({
 
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content">{label}</FormLabel>}
+      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
       <FormControl>
         <Controller
           name={name}

@@ -27,11 +27,11 @@ function SingleColumnCard({
   return (
     <Card
       className={cn(
-        'border-[var(--color-border-neutral)] radius-large p-4',
+        'card-outline p-4',
         widthClass,
-        disabled ? 'opacity-50 cursor-not-allowed' : '',
-        validation?.status === 'invalidated' && 'border-red-500',
-        selected && 'border-primary',
+        disabled && 'opacity-50 cursor-not-allowed',
+        validation?.status === 'invalidated' && 'card-outline-error',
+        selected && 'card-outline-selected',
       )}
       onClick={onClick}
     >

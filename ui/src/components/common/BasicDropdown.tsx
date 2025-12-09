@@ -63,26 +63,26 @@ export const BasicDropdown = ({
             'input-regular',
             'input-border-regular',
             error && 'input-border-error',
-            isOpen && 'card-gradient-active',
+            isOpen && 'input-gradient-active',
           )}
           onClick={() => setIsOpen(!isOpen)}
         >
           {selectedValue || placeholder}
         </button>
         {isOpen && (
-          <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-10 w-full mt-1 rounded-md max-h-60 overflow-auto select-content-custom">
             {error ? (
-              <div className="p-2 text-red-500">{error}</div>
+              <div className="p-2 text-[var(--control-fg-error)]">{error}</div>
             ) : isLoading ? (
-              <div className="p-2">Loading options...</div>
+              <div className="p-2 text-[var(--surface-fg-muted)]">Loading options...</div>
             ) : !optionsList || optionsList.length === 0 ? (
-              <div className="p-2">No options found</div>
+              <div className="p-2 text-[var(--surface-fg-muted)]">No options found</div>
             ) : (
               <>
                 {optionsList.map((option: string, index: number) => (
                   <div
                     key={`${option}-${index}`}
-                    className="p-2 hover:bg-gray-100 cursor-pointer"
+                    className="select-item-custom cursor-pointer"
                     onClick={() => handleSelect(option)}
                   >
                     {option}

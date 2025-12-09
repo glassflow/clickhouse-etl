@@ -51,7 +51,7 @@ export function OffsetSelect({
             'transition-all duration-200 ease-in-out',
             'text-content',
             error && 'input-border-error',
-            isFocused && 'input-active scale-[1.01]',
+            isFocused && 'input-active',
           )}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
