@@ -2,6 +2,7 @@ import { StepKeys } from '@/src/config/constants'
 import { KafkaConnectionContainer } from '../kafka/KafkaConnectionContainer'
 import { KafkaTopicSelector } from '../kafka/KafkaTopicSelector'
 import { DeduplicationConfigurator } from '../deduplication/DeduplicationConfigurator'
+import { FilterConfigurator } from '../filter/FilterConfigurator'
 import { ClickhouseConnectionContainer } from '../clickhouse/ClickhouseConnectionContainer'
 import { ClickhouseMapper } from '../clickhouse/ClickhouseMapper'
 import { ReviewConfiguration } from '../review/ReviewConfiguration'
@@ -50,6 +51,10 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'key'>> = {
   [StepKeys.JOIN_CONFIGURATOR]: {
     title: 'Join Configuration',
     parent: null,
+  },
+  [StepKeys.FILTER_CONFIGURATOR]: {
+    title: 'Filter',
+    parent: StepKeys.TOPIC_SELECTION_1, // substep of topic selection (only for single topic)
   },
   [StepKeys.CLICKHOUSE_CONNECTION]: {
     title: 'ClickHouse Connection',
@@ -136,12 +141,13 @@ export const deduplicateJoinJourney = getDeduplicateJoinJourney()
 
 // New topic count-based journeys
 export const getSingleTopicJourney = (): StepKeys[] => {
-  // 1 Topic: Kafka Connection → Topic Selection → ClickHouse Connection → Mapper → Review (if preview mode)
-  // Deduplication is configured optionally within the topic selector
+  // 1 Topic: Kafka Connection → Topic Selection → Deduplication → Filter → ClickHouse Connection → Mapper → Review (if preview mode)
+  // Deduplication and Filter are configured optionally
   const steps: StepKeys[] = [
     StepKeys.KAFKA_CONNECTION,
     StepKeys.TOPIC_SELECTION_1,
     StepKeys.DEDUPLICATION_CONFIGURATOR,
+    StepKeys.FILTER_CONFIGURATOR,
     StepKeys.CLICKHOUSE_CONNECTION,
     StepKeys.CLICKHOUSE_MAPPER,
   ]
@@ -155,8 +161,9 @@ export const getSingleTopicJourney = (): StepKeys[] => {
 }
 
 export const getTwoTopicJourney = (): StepKeys[] => {
-  // 2 Topics: Kafka Connection → Topic 1 Selection → Topic 2 Selection → Join Configurator → ClickHouse Connection → Mapper → Review (if preview mode)
-  // Deduplication is configured optionally per-topic within each topic selector
+  // 2 Topics: Kafka Connection → Topic 1 Selection → Dedup 1 → Topic 2 Selection → Dedup 2 → Join → ClickHouse Connection → Mapper → Review (if preview mode)
+  // Deduplication is configured optionally per-topic
+  // Note: Filter is NOT available for multi-topic journeys (only single-topic)
   const steps: StepKeys[] = [
     StepKeys.KAFKA_CONNECTION,
     StepKeys.TOPIC_SELECTION_1,
@@ -197,7 +204,7 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
 
     // For steps that can be substeps but need dynamic parent detection
     // (e.g., DEDUPLICATION_CONFIGURATOR appearing multiple times with different parents)
-    if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR) {
+    if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR || stepKey === StepKeys.FILTER_CONFIGURATOR) {
       // Find the most recent topic selection step before this one
       let parentStep: StepKeys | null = null
       for (let i = index - 1; i >= 0; i--) {
@@ -281,6 +288,7 @@ export const componentsMap = {
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: KafkaTopicSelector,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: KafkaTopicSelector,
+  [StepKeys.FILTER_CONFIGURATOR]: FilterConfigurator,
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfigurator,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionContainer,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
