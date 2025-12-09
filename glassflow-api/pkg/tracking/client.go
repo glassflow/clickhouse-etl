@@ -71,7 +71,7 @@ func (c *Client) IsEnabled() bool {
 }
 
 func (c *Client) authenticate(ctx context.Context) error {
-	url := fmt.Sprintf("%s/api/v1/auth/login", c.endpoint)
+	url := fmt.Sprintf("%s/auth/login", c.endpoint)
 
 	reqBody := map[string]string{
 		"username": c.username,
@@ -218,7 +218,7 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 		return fmt.Errorf("marshal event: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/v1/track", c.endpoint)
+	url := fmt.Sprintf("%s/track", c.endpoint)
 
 	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
 		c.log.Debug("tracking: sending event request", "url", url, "event", eventName, "installation_id", c.installationID, "payload_size", len(jsonData))
