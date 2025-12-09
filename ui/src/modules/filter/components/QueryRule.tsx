@@ -5,8 +5,13 @@ import { Label } from '@/src/components/ui/label'
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
 import { Switch } from '@/src/components/ui/switch'
-import { TrashIcon } from '@heroicons/react/24/outline'
-import { FilterRule, FilterOperator } from '@/src/store/filter.store'
+import { TrashIcon, CalculatorIcon } from '@heroicons/react/24/outline'
+import {
+  FilterRule,
+  FilterOperator,
+  ArithmeticExpressionNode,
+  createEmptyArithmeticExpression,
+} from '@/src/store/filter.store'
 import { SelectEnhanced } from '@/src/components/common/SelectEnhanced'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import {
@@ -17,9 +22,12 @@ import {
   getDefaultValueForType,
   isNoValueOperator,
   isArrayValueOperator,
+  getArithmeticExpressionType,
+  FILTER_OPERATORS,
   RuleValidation,
 } from '../utils'
 import { cn } from '@/src/utils/common.client'
+import { ArithmeticComposer } from './ArithmeticComposer'
 
 interface QueryRuleProps {
   rule: FilterRule
@@ -42,11 +50,19 @@ export function QueryRule({
   readOnly = false,
   depth = 0,
 }: QueryRuleProps) {
-  // Get available operators based on selected field type
+  // Check if using arithmetic expression mode
+  const isExpressionMode = rule.useArithmeticExpression || false
+
+  // Get available operators based on selected field type or expression mode
   const availableOperators = useMemo(() => {
+    if (isExpressionMode) {
+      // For arithmetic expressions, only numeric comparison operators make sense
+      const numericType = getArithmeticExpressionType()
+      return getOperatorsForType(numericType)
+    }
     if (!rule.fieldType) return []
     return getOperatorsForType(rule.fieldType)
-  }, [rule.fieldType])
+  }, [rule.fieldType, isExpressionMode])
 
   // Convert operators for SelectEnhanced
   const operatorOptions = useMemo(() => {
@@ -56,11 +72,59 @@ export function QueryRule({
     }))
   }, [availableOperators])
 
+  // Check if there are numeric fields available (for arithmetic mode)
+  const hasNumericFields = useMemo(() => {
+    return availableFields.some((f) => isNumericType(f.type))
+  }, [availableFields])
+
   // Handle NOT toggle
   const handleNotToggle = useCallback(
     (checked: boolean) => {
       onChange(rule.id, { not: checked })
       onTouched?.(rule.id)
+    },
+    [rule.id, onChange, onTouched],
+  )
+
+  // Handle expression mode toggle
+  const handleExpressionModeToggle = useCallback(
+    (checked: boolean) => {
+      onTouched?.(rule.id)
+      if (checked) {
+        // Switch to expression mode
+        const defaultExpr = createEmptyArithmeticExpression()
+        const numericType = getArithmeticExpressionType()
+        const validOperators = getOperatorsForType(numericType)
+        const defaultOperator = validOperators.length > 0 ? validOperators[0].value : 'eq'
+
+        onChange(rule.id, {
+          useArithmeticExpression: true,
+          arithmeticExpression: defaultExpr,
+          field: '', // Clear simple field
+          fieldType: numericType,
+          operator: defaultOperator,
+          value: 0,
+        })
+      } else {
+        // Switch to simple mode
+        onChange(rule.id, {
+          useArithmeticExpression: false,
+          arithmeticExpression: undefined,
+          field: '',
+          fieldType: '',
+          operator: 'eq',
+          value: '',
+        })
+      }
+    },
+    [rule.id, onChange, onTouched],
+  )
+
+  // Handle arithmetic expression change
+  const handleArithmeticExpressionChange = useCallback(
+    (expression: ArithmeticExpressionNode) => {
+      onTouched?.(rule.id)
+      onChange(rule.id, { arithmeticExpression: expression })
     },
     [rule.id, onChange, onTouched],
   )
@@ -119,6 +183,9 @@ export function QueryRule({
     [rule.id, onChange, onTouched],
   )
 
+  // Determine effective field type (for expression mode, it's always numeric)
+  const effectiveFieldType = isExpressionMode ? getArithmeticExpressionType() : rule.fieldType
+
   // Render value input based on field type and operator
   const renderValueInput = () => {
     // No value input needed for null check operators
@@ -128,6 +195,50 @@ export function QueryRule({
           <Label className="text-xs text-content mb-1 block">Value</Label>
           <div className="h-10 flex items-center text-sm text-[var(--text-secondary)] italic">No value needed</div>
           <div className="h-5 mt-0.5" />
+        </div>
+      )
+    }
+
+    // For expression mode, always show numeric input
+    if (isExpressionMode) {
+      // Array value input for in/notIn operators
+      if (isArrayValueOperator(rule.operator)) {
+        return (
+          <div>
+            <Label className="text-xs text-content mb-1 block">Values (comma-separated)</Label>
+            <div className="space-y-0">
+              <Input
+                type="text"
+                value={String(rule.value ?? '')}
+                onChange={(e) => handleValueChange(e.target.value)}
+                placeholder="e.g., 1, 2, 3"
+                disabled={readOnly}
+                className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
+              />
+              <div className="h-5 mt-0.5">
+                {validation?.value && <p className="input-description-error text-sm">{validation.value}</p>}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      return (
+        <div>
+          <Label className="text-xs text-content mb-1 block">Value</Label>
+          <div className="space-y-0">
+            <Input
+              type="number"
+              value={String(rule.value ?? '')}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder="Enter a number"
+              disabled={readOnly}
+              className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
+            />
+            <div className="h-5 mt-0.5">
+              {validation?.value && <p className="input-description-error text-sm">{validation.value}</p>}
+            </div>
+          </div>
         </div>
       )
     }
@@ -153,7 +264,7 @@ export function QueryRule({
               type="text"
               value={String(rule.value ?? '')}
               onChange={(e) => handleValueChange(e.target.value)}
-              placeholder={isNumericType(rule.fieldType) ? 'e.g., 1, 2, 3' : 'e.g., active, pending'}
+              placeholder={isNumericType(effectiveFieldType) ? 'e.g., 1, 2, 3' : 'e.g., active, pending'}
               disabled={readOnly}
               className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
             />
@@ -166,7 +277,7 @@ export function QueryRule({
       )
     }
 
-    if (isBooleanType(rule.fieldType)) {
+    if (isBooleanType(effectiveFieldType)) {
       const boolValue = rule.value === true || rule.value === 'true' ? 'true' : 'false'
       return (
         <SelectEnhanced
@@ -190,7 +301,7 @@ export function QueryRule({
         <Label className="text-xs text-content mb-1 block">Value</Label>
         <div className="space-y-0">
           <Input
-            type={isNumericType(rule.fieldType) ? 'number' : 'text'}
+            type={isNumericType(effectiveFieldType) ? 'number' : 'text'}
             value={String(rule.value ?? '')}
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder="Enter a value"
@@ -206,6 +317,9 @@ export function QueryRule({
     )
   }
 
+  // Determine if operator selector should be enabled
+  const isOperatorEnabled = isExpressionMode || !!rule.field
+
   return (
     <div
       className={cn(
@@ -214,19 +328,42 @@ export function QueryRule({
       )}
     >
       <div className="flex flex-col gap-2">
-        {/* NOT toggle and delete button row */}
+        {/* NOT toggle, Expression toggle, and delete button row */}
         <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <Switch
-              id={`rule-not-${rule.id}`}
-              checked={rule.not || false}
-              onCheckedChange={handleNotToggle}
-              disabled={readOnly}
-              className="data-[state=checked]:bg-[var(--color-background-primary)]"
-            />
-            <Label htmlFor={`rule-not-${rule.id}`} className="text-xs text-[var(--text-secondary)] cursor-pointer">
-              NOT
-            </Label>
+          <div className="flex items-center gap-4">
+            {/* NOT toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                id={`rule-not-${rule.id}`}
+                checked={rule.not || false}
+                onCheckedChange={handleNotToggle}
+                disabled={readOnly}
+                className="data-[state=checked]:bg-[var(--color-background-primary)]"
+              />
+              <Label htmlFor={`rule-not-${rule.id}`} className="text-xs text-[var(--text-secondary)] cursor-pointer">
+                NOT
+              </Label>
+            </div>
+
+            {/* Expression mode toggle - only show if there are numeric fields */}
+            {hasNumericFields && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={`rule-expr-${rule.id}`}
+                  checked={isExpressionMode}
+                  onCheckedChange={handleExpressionModeToggle}
+                  disabled={readOnly}
+                  className="data-[state=checked]:bg-[var(--color-background-primary)]"
+                />
+                <Label
+                  htmlFor={`rule-expr-${rule.id}`}
+                  className="text-xs text-[var(--text-secondary)] cursor-pointer flex items-center gap-1"
+                >
+                  <CalculatorIcon className="h-3.5 w-3.5" />
+                  Expression
+                </Label>
+              </div>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -239,44 +376,78 @@ export function QueryRule({
           </Button>
         </div>
 
-        {/* Rule inputs row */}
-        <div className="flex items-start gap-3">
-          {/* Field Select - wrapped to match SelectEnhanced structure */}
-          <div className="flex-1 min-w-0">
-            <Label className="text-xs text-content mb-1 block">Field</Label>
-            <div className="space-y-0">
-              <SearchableSelect
-                availableOptions={availableFields.map((f) => f.name)}
-                selectedOption={rule.field || undefined}
-                onSelect={handleFieldChange}
-                placeholder="Select field..."
-                disabled={readOnly}
-                className={cn(validation?.field && '[&_input]:input-border-error')}
-              />
-              {/* Reserve space for error message to prevent layout shift */}
-              <div className="h-5 mt-0.5">
-                {validation?.field && <p className="input-description-error text-sm">{validation.field}</p>}
+        {/* Expression mode: Show ArithmeticComposer */}
+        {isExpressionMode ? (
+          <div className="space-y-3">
+            {/* Arithmetic expression composer */}
+            <ArithmeticComposer
+              expression={rule.arithmeticExpression}
+              availableFields={availableFields}
+              onChange={handleArithmeticExpressionChange}
+              disabled={readOnly}
+              error={validation?.field || validation?.expression}
+            />
+
+            {/* Operator and Value row */}
+            <div className="flex items-start gap-3">
+              {/* Operator Select */}
+              <div className="w-48">
+                <SelectEnhanced
+                  label="Condition"
+                  defaultValue={rule.operator || ''}
+                  onSelect={handleOperatorChange}
+                  isLoading={false}
+                  error={validation?.operator || ''}
+                  options={operatorOptions}
+                  placeholder="Select..."
+                  disabled={readOnly}
+                />
               </div>
+
+              {/* Value Input */}
+              <div className="flex-1 min-w-0">{renderValueInput()}</div>
             </div>
           </div>
+        ) : (
+          /* Simple mode: Field, Operator, Value row */
+          <div className="flex items-start gap-3">
+            {/* Field Select - wrapped to match SelectEnhanced structure */}
+            <div className="flex-1 min-w-0">
+              <Label className="text-xs text-content mb-1 block">Field</Label>
+              <div className="space-y-0">
+                <SearchableSelect
+                  availableOptions={availableFields.map((f) => f.name)}
+                  selectedOption={rule.field || undefined}
+                  onSelect={handleFieldChange}
+                  placeholder="Select field..."
+                  disabled={readOnly}
+                  className={cn(validation?.field && '[&_input]:input-border-error')}
+                />
+                {/* Reserve space for error message to prevent layout shift */}
+                <div className="h-5 mt-0.5">
+                  {validation?.field && <p className="input-description-error text-sm">{validation.field}</p>}
+                </div>
+              </div>
+            </div>
 
-          {/* Operator Select */}
-          <div className="w-48">
-            <SelectEnhanced
-              label="Condition"
-              defaultValue={rule.operator || ''}
-              onSelect={handleOperatorChange}
-              isLoading={false}
-              error={validation?.operator || ''}
-              options={operatorOptions}
-              placeholder="Select..."
-              disabled={readOnly || !rule.field}
-            />
+            {/* Operator Select */}
+            <div className="w-48">
+              <SelectEnhanced
+                label="Condition"
+                defaultValue={rule.operator || ''}
+                onSelect={handleOperatorChange}
+                isLoading={false}
+                error={validation?.operator || ''}
+                options={operatorOptions}
+                placeholder="Select..."
+                disabled={readOnly || !isOperatorEnabled}
+              />
+            </div>
+
+            {/* Value Input */}
+            <div className="flex-1 min-w-0">{renderValueInput()}</div>
           </div>
-
-          {/* Value Input */}
-          <div className="flex-1 min-w-0">{renderValueInput()}</div>
-        </div>
+        )}
       </div>
     </div>
   )

@@ -1,4 +1,13 @@
-import { FilterCondition, FilterConfig, FilterOperator, FilterRule, FilterGroup } from '@/src/store/filter.store'
+import {
+  FilterCondition,
+  FilterConfig,
+  FilterOperator,
+  FilterRule,
+  FilterGroup,
+  ArithmeticExpressionNode,
+  ArithmeticOperand,
+  isArithmeticExpressionNode,
+} from '@/src/store/filter.store'
 
 // Operator definitions with display labels and type compatibility
 export interface OperatorDefinition {
@@ -182,6 +191,61 @@ export const formatValueForExpr = (value: string | number | boolean, fieldType: 
 }
 
 /**
+ * Convert an arithmetic operand to expr string
+ */
+export const arithmeticOperandToExpr = (operand: ArithmeticOperand | ArithmeticExpressionNode): string => {
+  if (isArithmeticExpressionNode(operand)) {
+    // Recursively convert nested expressions
+    return arithmeticExpressionToExpr(operand)
+  }
+
+  if (operand.type === 'field') {
+    return operand.field
+  }
+
+  // Literal value
+  return String(operand.value)
+}
+
+/**
+ * Convert an arithmetic expression to expr string
+ */
+export const arithmeticExpressionToExpr = (expr: ArithmeticExpressionNode): string => {
+  const left = arithmeticOperandToExpr(expr.left)
+  const right = arithmeticOperandToExpr(expr.right)
+
+  // Wrap in parentheses to ensure correct operator precedence
+  return `(${left} ${expr.operator} ${right})`
+}
+
+/**
+ * Check if an arithmetic expression is complete (has all required fields)
+ */
+export const isArithmeticExpressionComplete = (expr: ArithmeticExpressionNode | undefined): boolean => {
+  if (!expr) return false
+
+  // Check left operand
+  const leftComplete = isArithmeticExpressionNode(expr.left)
+    ? isArithmeticExpressionComplete(expr.left)
+    : expr.left.type === 'literal' || (expr.left.type === 'field' && expr.left.field !== '')
+
+  // Check right operand
+  const rightComplete = isArithmeticExpressionNode(expr.right)
+    ? isArithmeticExpressionComplete(expr.right)
+    : expr.right.type === 'literal' || (expr.right.type === 'field' && expr.right.field !== '')
+
+  return leftComplete && rightComplete && !!expr.operator
+}
+
+/**
+ * Get the resulting type of an arithmetic expression (always numeric)
+ */
+export const getArithmeticExpressionType = (): string => {
+  // Arithmetic expressions always result in a numeric type
+  return 'float64'
+}
+
+/**
  * Format array value for expr expression (for in/notIn operators)
  */
 export const formatArrayValueForExpr = (value: string | number | boolean, fieldType: string): string => {
@@ -215,26 +279,36 @@ export const ruleToExpr = (rule: FilterRule): string => {
     throw new Error(`Unknown operator: ${rule.operator}`)
   }
 
+  // Determine the left-hand side (field or arithmetic expression)
+  const leftSide =
+    rule.useArithmeticExpression && rule.arithmeticExpression
+      ? arithmeticExpressionToExpr(rule.arithmeticExpression)
+      : rule.field
+
+  // For arithmetic expressions, the "field type" for value formatting is always numeric
+  const valueType =
+    rule.useArithmeticExpression && rule.arithmeticExpression ? getArithmeticExpressionType() : rule.fieldType
+
   let expr: string
 
   // Handle null check operators (no value needed)
   if (isNoValueOperator(rule.operator)) {
-    expr = `${rule.field} ${operator.exprSymbol}`
+    expr = `${leftSide} ${operator.exprSymbol}`
   }
   // Handle in/notIn operators (array value)
   else if (isArrayValueOperator(rule.operator)) {
-    const formattedValue = formatArrayValueForExpr(rule.value, rule.fieldType)
-    expr = `${rule.field} ${operator.exprSymbol} ${formattedValue}`
+    const formattedValue = formatArrayValueForExpr(rule.value, valueType)
+    expr = `${leftSide} ${operator.exprSymbol} ${formattedValue}`
   }
   // Handle function-style operators (contains, startsWith, endsWith) - reserved for future
   // else if (['contains', 'startsWith', 'endsWith'].includes(rule.operator)) {
-  //   const formattedValue = formatValueForExpr(rule.value, rule.fieldType)
-  //   expr = `${rule.operator}(${rule.field}, ${formattedValue})`
+  //   const formattedValue = formatValueForExpr(rule.value, valueType)
+  //   expr = `${rule.operator}(${leftSide}, ${formattedValue})`
   // }
   else {
     // Handle comparison operators
-    const formattedValue = formatValueForExpr(rule.value, rule.fieldType)
-    expr = `${rule.field} ${operator.exprSymbol} ${formattedValue}`
+    const formattedValue = formatValueForExpr(rule.value, valueType)
+    expr = `${leftSide} ${operator.exprSymbol} ${formattedValue}`
   }
 
   // Wrap with NOT if needed
@@ -280,11 +354,16 @@ export const conditionToExpr = (condition: FilterCondition): string => {
  * Check if a rule is complete (has all required fields)
  */
 export const isRuleComplete = (rule: FilterRule): boolean => {
+  // Check left side (either field or arithmetic expression)
+  const hasLeftSide = rule.useArithmeticExpression
+    ? isArithmeticExpressionComplete(rule.arithmeticExpression)
+    : !!rule.field
+
   // Null check operators don't need a value
   if (isNoValueOperator(rule.operator)) {
-    return !!(rule.field && rule.operator)
+    return hasLeftSide && !!rule.operator
   }
-  return !!(rule.field && rule.operator && rule.value !== undefined && rule.value !== '')
+  return hasLeftSide && !!rule.operator && rule.value !== undefined && rule.value !== ''
 }
 
 /**
@@ -371,6 +450,7 @@ export interface RuleValidation {
     field?: string
     operator?: string
     value?: string
+    expression?: string // Error in arithmetic expression
   }
 }
 
@@ -378,14 +458,68 @@ export interface RuleValidation {
 export type ConditionValidation = RuleValidation
 
 /**
+ * Validation result for arithmetic expression
+ */
+export interface ArithmeticExpressionValidation {
+  isValid: boolean
+  error?: string
+}
+
+/**
+ * Validate an arithmetic expression
+ */
+export const validateArithmeticExpression = (
+  expr: ArithmeticExpressionNode | undefined,
+): ArithmeticExpressionValidation => {
+  if (!expr) {
+    return { isValid: false, error: 'Expression is required' }
+  }
+
+  // Validate left operand
+  if (isArithmeticExpressionNode(expr.left)) {
+    const leftValidation = validateArithmeticExpression(expr.left)
+    if (!leftValidation.isValid) {
+      return leftValidation
+    }
+  } else if (expr.left.type === 'field' && !expr.left.field) {
+    return { isValid: false, error: 'Field is required in expression' }
+  }
+
+  // Validate right operand
+  if (isArithmeticExpressionNode(expr.right)) {
+    const rightValidation = validateArithmeticExpression(expr.right)
+    if (!rightValidation.isValid) {
+      return rightValidation
+    }
+  } else if (expr.right.type === 'field' && !expr.right.field) {
+    return { isValid: false, error: 'Field is required in expression' }
+  }
+
+  // Validate operator
+  if (!expr.operator) {
+    return { isValid: false, error: 'Operator is required in expression' }
+  }
+
+  return { isValid: true }
+}
+
+/**
  * Validate a single filter rule locally (client-side)
  */
 export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
   const errors: RuleValidation['errors'] = {}
 
-  // Check field is selected
-  if (!rule.field) {
-    errors.field = 'Field is required'
+  // Check left side (field or arithmetic expression)
+  if (rule.useArithmeticExpression) {
+    const exprValidation = validateArithmeticExpression(rule.arithmeticExpression)
+    if (!exprValidation.isValid) {
+      errors.field = exprValidation.error || 'Invalid expression'
+    }
+  } else {
+    // Check field is selected
+    if (!rule.field) {
+      errors.field = 'Field is required'
+    }
   }
 
   // Check operator is selected
@@ -400,8 +534,12 @@ export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
     }
   }
 
+  // Determine the effective field type for validation
+  // Arithmetic expressions always produce numeric results
+  const effectiveFieldType = rule.useArithmeticExpression ? getArithmeticExpressionType() : rule.fieldType
+
   // Type-specific validation (skip for null check operators)
-  if (!isNoValueOperator(rule.operator) && rule.fieldType && rule.value !== undefined && rule.value !== '') {
+  if (!isNoValueOperator(rule.operator) && effectiveFieldType && rule.value !== undefined && rule.value !== '') {
     // For in/notIn operators, validate each item in the comma-separated list
     if (isArrayValueOperator(rule.operator)) {
       const items = String(rule.value)
@@ -410,12 +548,12 @@ export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
         .filter((item) => item !== '')
       if (items.length === 0) {
         errors.value = 'At least one value is required'
-      } else if (isNumericType(rule.fieldType)) {
+      } else if (isNumericType(effectiveFieldType)) {
         const hasInvalidNumber = items.some((item) => isNaN(Number(item)))
         if (hasInvalidNumber) {
           errors.value = 'All values must be numbers'
         }
-      } else if (isBooleanType(rule.fieldType)) {
+      } else if (isBooleanType(effectiveFieldType)) {
         const hasInvalidBool = items.some((item) => {
           const lower = item.toLowerCase()
           return lower !== 'true' && lower !== 'false'
@@ -426,14 +564,14 @@ export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
       }
     } else {
       // Standard single-value validation
-      if (isNumericType(rule.fieldType)) {
+      if (isNumericType(effectiveFieldType)) {
         const numValue = Number(rule.value)
         if (isNaN(numValue)) {
           errors.value = 'Value must be a number'
         }
       }
 
-      if (isBooleanType(rule.fieldType)) {
+      if (isBooleanType(effectiveFieldType)) {
         const strValue = String(rule.value).toLowerCase()
         if (strValue !== 'true' && strValue !== 'false') {
           errors.value = 'Value must be true or false'
@@ -442,8 +580,8 @@ export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
     }
   }
 
-  // Check operator is compatible with field type
-  if (rule.operator && rule.fieldType) {
+  // Check operator is compatible with field type (skip for arithmetic expressions which are always numeric)
+  if (!rule.useArithmeticExpression && rule.operator && rule.fieldType) {
     const validOperators = getOperatorsForType(rule.fieldType)
     if (!validOperators.find((op) => op.value === rule.operator)) {
       errors.operator = `Operator not supported for ${rule.fieldType} fields`

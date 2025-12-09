@@ -16,6 +16,38 @@ export type FilterOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' |
 // Logic operator for combining rules/groups
 export type LogicOperator = 'and' | 'or'
 
+// Arithmetic operator types
+export type ArithmeticOperator = '+' | '-' | '*' | '/' | '%'
+
+// Arithmetic operand - either a field reference or a literal number
+export interface ArithmeticFieldOperand {
+  type: 'field'
+  field: string // Field name from schema
+  fieldType: string // Field type from schema
+}
+
+export interface ArithmeticLiteralOperand {
+  type: 'literal'
+  value: number
+}
+
+export type ArithmeticOperand = ArithmeticFieldOperand | ArithmeticLiteralOperand
+
+// Arithmetic expression - a binary tree of operands and operators
+export interface ArithmeticExpressionNode {
+  id: string
+  left: ArithmeticOperand | ArithmeticExpressionNode
+  operator: ArithmeticOperator
+  right: ArithmeticOperand | ArithmeticExpressionNode
+}
+
+// Helper type to check if something is an expression node
+export const isArithmeticExpressionNode = (
+  node: ArithmeticOperand | ArithmeticExpressionNode,
+): node is ArithmeticExpressionNode => {
+  return 'operator' in node && 'left' in node && 'right' in node
+}
+
 // Maximum nesting depth for groups (3 levels: root + 2 sub-levels)
 export const MAX_GROUP_DEPTH = 3
 
@@ -23,8 +55,13 @@ export const MAX_GROUP_DEPTH = 3
 export interface FilterRule {
   id: string
   type: 'rule'
+  // Simple mode: single field
   field: string // Field name from schema
   fieldType: string // Field type from schema (string, int, float64, bool, etc.)
+  // Expression mode: arithmetic expression on left side
+  useArithmeticExpression?: boolean // Toggle between simple field and arithmetic expression
+  arithmeticExpression?: ArithmeticExpressionNode // Arithmetic expression (e.g., price + discount)
+  // Comparison
   operator: FilterOperator
   value: string | number | boolean
   not?: boolean // NOT for individual rules
@@ -118,9 +155,32 @@ export const createEmptyRule = (): FilterRule => ({
   type: 'rule',
   field: '',
   fieldType: '',
+  useArithmeticExpression: false,
+  arithmeticExpression: undefined,
   operator: 'eq',
   value: '',
   not: false,
+})
+
+// Helper to create an empty arithmetic expression
+export const createEmptyArithmeticExpression = (): ArithmeticExpressionNode => ({
+  id: uuidv4(),
+  left: { type: 'field', field: '', fieldType: '' },
+  operator: '+',
+  right: { type: 'literal', value: 0 },
+})
+
+// Helper to create a field operand
+export const createFieldOperand = (field: string, fieldType: string): ArithmeticFieldOperand => ({
+  type: 'field',
+  field,
+  fieldType,
+})
+
+// Helper to create a literal operand
+export const createLiteralOperand = (value: number): ArithmeticLiteralOperand => ({
+  type: 'literal',
+  value,
 })
 
 // Helper to create an empty group
