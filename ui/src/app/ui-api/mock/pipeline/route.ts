@@ -2,54 +2,6 @@ import { NextResponse } from 'next/server'
 import { mockPipelines as mockPipelinesData, getMockPipelinesList, type BackendPipeline } from '../data/pipelines'
 import { registerPipeline, unregisterPipeline } from '../data/mock-state'
 
-// Helper function to validate filter expression in mock mode
-// This simulates the backend's filter validation
-async function validateFilterIfEnabled(
-  filter: { enabled: boolean; expression: string } | undefined,
-  topics: Array<{ schema?: { fields?: Array<{ name: string; type: string }> } }> | undefined,
-): Promise<{ valid: boolean; error?: string }> {
-  if (!filter?.enabled || !filter?.expression) {
-    return { valid: true }
-  }
-
-  // Get fields from the first topic for validation (matching backend behavior)
-  const firstTopic = topics?.[0]
-  if (!firstTopic?.schema?.fields) {
-    return { valid: true } // No schema means we can't validate
-  }
-
-  const fields = firstTopic.schema.fields.map((f) => ({
-    field_name: f.name,
-    field_type: f.type,
-  }))
-
-  // Use the mock filter validation endpoint logic
-  try {
-    // Basic validation checks (simplified version of what the validation endpoint does)
-    const expression = filter.expression.trim()
-    if (!expression) {
-      return { valid: false, error: 'empty expression' }
-    }
-
-    // Check for balanced parentheses
-    let parenCount = 0
-    for (const char of expression) {
-      if (char === '(') parenCount++
-      if (char === ')') parenCount--
-      if (parenCount < 0) {
-        return { valid: false, error: 'unmatched parentheses' }
-      }
-    }
-    if (parenCount !== 0) {
-      return { valid: false, error: 'unmatched parentheses' }
-    }
-
-    return { valid: true }
-  } catch (error: any) {
-    return { valid: false, error: error.message || 'Filter validation failed' }
-  }
-}
-
 // GET /ui-api/mock/pipeline - Returns list of pipelines (matches backend ListPipelineConfig)
 export async function GET() {
   return NextResponse.json({
@@ -65,18 +17,6 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-
-    // Validate filter expression if enabled
-    const filterValidation = await validateFilterIfEnabled(body.filter, body.source?.topics)
-    if (!filterValidation.valid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Filter validation error: ${filterValidation.error}`,
-        },
-        { status: 400 },
-      )
-    }
 
     // Generate a unique pipeline ID using timestamp + random string
     const timestamp = Date.now()
@@ -107,11 +47,6 @@ export async function POST(request: Request) {
         type: 'temporal',
         enabled: false,
         sources: [],
-      },
-      // Handle filter config - preserve from request body or default to disabled
-      filter: body.filter || {
-        enabled: false,
-        expression: '',
       },
       sink: body.sink || {
         type: 'clickhouse',

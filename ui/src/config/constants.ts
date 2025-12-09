@@ -5,7 +5,6 @@ export enum StepKeys {
   DEDUPLICATION_CONFIGURATOR = 'deduplication-configurator',
   TOPIC_DEDUPLICATION_CONFIGURATOR_1 = 'topic-deduplication-configurator-1',
   TOPIC_DEDUPLICATION_CONFIGURATOR_2 = 'topic-deduplication-configurator-2',
-  FILTER_CONFIGURATOR = 'filter-configurator',
   JOIN_CONFIGURATOR = 'join-configurator',
   CLICKHOUSE_CONNECTION = 'clickhouse-connection',
   CLICKHOUSE_MAPPER = 'clickhouse-mapper',
@@ -223,13 +222,6 @@ export const stepsMetadata = {
     description: '',
     formTitle: 'Define Join Key',
     formDescription: '',
-  },
-  [StepKeys.FILTER_CONFIGURATOR]: {
-    key: StepKeys.FILTER_CONFIGURATOR,
-    title: 'Define Filter Conditions',
-    description: 'Filter events based on field conditions before processing.',
-    formTitle: 'Define Filter Conditions',
-    formDescription: 'Filter events based on field conditions before processing.',
   },
   [StepKeys.CLICKHOUSE_CONNECTION]: {
     title: 'Setup ClickHouse Connection',

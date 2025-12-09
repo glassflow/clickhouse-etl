@@ -4,12 +4,8 @@ import type { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { detectTransformationType } from '@/src/types/pipeline'
 
 // Backend response format (what the API returns)
-export type BackendPipeline = Omit<Pipeline, 'sink' | 'filter'> & {
+export type BackendPipeline = Omit<Pipeline, 'sink'> & {
   state: string // Backend pipeline state (active, paused, stopped, error)
-  filter?: {
-    enabled: boolean
-    expression: string
-  }
   sink: Omit<Pipeline['sink'], 'httpPort' | 'nativePort'> & {
     http_port: string
     port: string
@@ -101,11 +97,6 @@ export const mockPipelines: BackendPipeline[] = [
       type: 'temporal',
       enabled: false,
       sources: [],
-    },
-    // Example: Pipeline with a simple filter (transaction_amount > 100)
-    filter: {
-      enabled: true,
-      expression: 'transaction_amount > 100',
     },
     sink: {
       type: 'clickhouse',
@@ -336,11 +327,6 @@ export const mockPipelines: BackendPipeline[] = [
       enabled: false,
       sources: [],
     },
-    // Example: Pipeline with complex filter (multiple conditions with AND)
-    filter: {
-      enabled: true,
-      expression: '(transaction_amount >= 50 and transaction_amount <= 1000) and contains(category, "retail")',
-    },
     sink: {
       type: 'clickhouse',
       host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || '',
@@ -463,11 +449,6 @@ export const mockPipelines: BackendPipeline[] = [
           orientation: 'right',
         },
       ],
-    },
-    // Example: Pipeline with filter explicitly disabled
-    filter: {
-      enabled: false,
-      expression: '',
     },
     sink: {
       type: 'clickhouse',
@@ -611,11 +592,6 @@ export const mockPipelines: BackendPipeline[] = [
           orientation: 'right',
         },
       ],
-    },
-    // Example: Pipeline with string-based filter
-    filter: {
-      enabled: true,
-      expression: 'startsWith(currency, "USD") or currency == "EUR"',
     },
     sink: {
       type: 'clickhouse',

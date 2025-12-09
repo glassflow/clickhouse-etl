@@ -40,7 +40,9 @@ export function PipelineTransitionOverlay({ visible, title, description }: Pipel
           className={cn(
             'fixed top-[50%] left-[50%] z-50 grid w-full max-w-[500px]',
             'translate-x-[-50%] translate-y-[-50%]',
-            'info-modal-container surface-gradient-border border-0',
+            'px-9 py-8 shadow-lg rounded-md',
+            'bg-[var(--color-background-elevation-raised-faded-2)]',
+            'border border-[var(--color-border-neutral)]',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
@@ -55,7 +57,7 @@ export function PipelineTransitionOverlay({ visible, title, description }: Pipel
           </DialogHeader>
 
           <div className="flex flex-col items-center justify-center py-6">
-            <LoadingSpinner size="lg" color="gray" className="mb-4" />
+            <LoadingSpinner size="lg" color="blue" className="mb-4" />
             <p className="text-sm text-muted-foreground text-center">Please wait while the pipeline transitions...</p>
           </div>
 

@@ -27,7 +27,7 @@ export class DistributedValidationEngine {
     // Mark current section as valid
     const currentSlices = this.getStoreSliceForSection(section)
     if (currentSlices && currentSlices.length > 0) {
-      currentSlices.forEach((slice: any) => {
+      currentSlices.forEach((slice) => {
         if (slice?.markAsValid) {
           slice.markAsValid()
         }
@@ -39,7 +39,7 @@ export class DistributedValidationEngine {
     dependentSections.forEach((dependentSection) => {
       const dependentSlice = this.getStoreSliceForSection(dependentSection)
       if (dependentSlice && dependentSlice.length > 0) {
-        dependentSlice.forEach((slice: any) => {
+        dependentSlice.forEach((slice) => {
           if (slice?.markAsInvalidated) {
             slice.markAsInvalidated(section)
           }
@@ -54,7 +54,7 @@ export class DistributedValidationEngine {
   onSectionReset(section: StepKeys) {
     const currentSlice = this.getStoreSliceForSection(section)
     if (currentSlice && currentSlice.length > 0) {
-      currentSlice.forEach((slice: any) => {
+      currentSlice.forEach((slice) => {
         if (slice?.markAsNotConfigured) {
           slice.markAsNotConfigured()
         }
@@ -66,7 +66,7 @@ export class DistributedValidationEngine {
     dependentSections.forEach((dependentSection) => {
       const dependentSlice = this.getStoreSliceForSection(dependentSection)
       if (dependentSlice && dependentSlice.length > 0) {
-        dependentSlice.forEach((slice: any) => {
+        dependentSlice.forEach((slice) => {
           if (slice?.markAsNotConfigured) {
             slice.markAsNotConfigured()
           }
@@ -81,7 +81,7 @@ export class DistributedValidationEngine {
   invalidateSection(section: StepKeys, invalidatedBy: string) {
     const slice = this.getStoreSliceForSection(section)
     if (slice && slice.length > 0) {
-      slice.forEach((slice: any) => {
+      slice.forEach((slice) => {
         if (slice?.markAsInvalidated) {
           slice.markAsInvalidated(invalidatedBy)
         }
@@ -97,7 +97,7 @@ export class DistributedValidationEngine {
   markSectionAsValid(section: StepKeys) {
     const slices = this.getStoreSliceForSection(section)
     if (slices && slices.length > 0) {
-      slices.forEach((slice: any) => {
+      slices.forEach((slice) => {
         if (slice?.markAsValid) {
           slice.markAsValid()
         }
@@ -111,7 +111,7 @@ export class DistributedValidationEngine {
   getSectionValidation(section: StepKeys) {
     const slice = this.getStoreSliceForSection(section)
     if (slice && slice.length > 0) {
-      return slice.map((slice: any) => slice?.validation || { status: 'not-configured' })
+      return slice.map((slice) => slice?.validation || { status: 'not-configured' })
     }
     return { status: 'not-configured' }
   }
@@ -123,7 +123,7 @@ export class DistributedValidationEngine {
     Object.values(StepKeys).forEach((section) => {
       const slice = this.getStoreSliceForSection(section as StepKeys)
       if (slice && slice.length > 0) {
-        slice.forEach((slice: any) => {
+        slice.forEach((slice) => {
           if (slice?.resetValidation) {
             slice.resetValidation()
           }
@@ -168,7 +168,7 @@ export class DistributedValidationEngine {
       [StepKeys.DEPLOY_PIPELINE]: [this.store.coreStore], // Deploy uses config store
     }
 
-    return mapping[section as keyof typeof mapping]
+    return mapping[section]
   }
 
   /**
@@ -182,7 +182,6 @@ export class DistributedValidationEngine {
       [StepKeys.DEDUPLICATION_CONFIGURATOR]: 'deduplication-configurator',
       [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: 'deduplication-configurator',
       [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: 'deduplication-configurator',
-      [StepKeys.FILTER_CONFIGURATOR]: 'filter-configurator',
       [StepKeys.JOIN_CONFIGURATOR]: 'join-configurator',
       [StepKeys.CLICKHOUSE_CONNECTION]: 'clickhouse-connection',
       [StepKeys.CLICKHOUSE_MAPPER]: 'clickhouse-mapper',

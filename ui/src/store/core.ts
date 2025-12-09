@@ -8,7 +8,6 @@ import { hydrateKafkaTopics } from './hydration/topics'
 import { hydrateClickhouseConnection } from './hydration/clickhouse-connection'
 import { hydrateClickhouseDestination } from './hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from './hydration/join-configuration'
-import { hydrateFilter } from './hydration/filter'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -529,9 +528,6 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'join':
             hydrateJoinConfiguration(config)
             break
-          case 'filter':
-            hydrateFilter(config)
-            break
           case 'clickhouse-connection':
             hydrateClickhouseConnection(config)
             break
@@ -545,7 +541,6 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             hydrateClickhouseConnection(config)
             await hydrateClickhouseDestination(config) // This is also async
             hydrateJoinConfiguration(config)
-            hydrateFilter(config)
             break
           default:
             console.warn(`Unknown section for hydration: ${section}`)

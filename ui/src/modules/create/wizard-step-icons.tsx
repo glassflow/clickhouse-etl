@@ -9,7 +9,6 @@ import KafkaIcon from '@/src/images/kafka.svg'
 import LeftTopicIcon from '@/src/images/left-topic.svg'
 import RightTopicIcon from '@/src/images/right-topic.svg'
 import DeduplicateIcon from '@/src/images/deduplicate.svg'
-import FilterIcon from '@/src/images/filter.svg'
 import JoinIcon from '@/src/images/join.svg'
 import ClickhouseIcon from '@/src/images/clickhouse.svg'
 import MapDestinationIcon from '@/src/images/map-destination.svg'
@@ -45,7 +44,6 @@ export const stepIcons: Record<StepKeys, StepIconComponent> = {
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: createIconComponent(DeduplicateIcon, 'Deduplicate'),
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: createIconComponent(LeftTopicIcon, 'Left Topic'),
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: createIconComponent(RightTopicIcon, 'Right Topic'),
-  [StepKeys.FILTER_CONFIGURATOR]: createIconComponent(FilterIcon, 'Filter'),
   [StepKeys.JOIN_CONFIGURATOR]: createIconComponent(JoinIcon, 'Join'),
   [StepKeys.CLICKHOUSE_CONNECTION]: createIconComponent(ClickhouseIcon, 'ClickHouse'),
   [StepKeys.CLICKHOUSE_MAPPER]: createIconComponent(MapDestinationIcon, 'Destination'),
