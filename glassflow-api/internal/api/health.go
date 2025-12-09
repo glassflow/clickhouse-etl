@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -26,19 +25,9 @@ func HealthzSwaggerDocs() huma.Operation {
 }
 
 func (h *handler) healthz(w http.ResponseWriter, r *http.Request) {
-	if h.trackingClient != nil && h.trackingClient.IsEnabled() {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		defer cancel()
-		h.trackingClient.SendEvent(ctx, "readiness_ping", "api", map[string]interface{}{})
-	}
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *handler) healthzV2(ctx context.Context, _ *struct{}) (*HealthResponse, error) {
-	if h.trackingClient != nil && h.trackingClient.IsEnabled() {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		h.trackingClient.SendEvent(ctx, "readiness_ping", "api", map[string]interface{}{})
-	}
 	return &HealthResponse{Body: HealthStatus{Status: "ok"}}, nil
 }

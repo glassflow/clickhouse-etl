@@ -463,9 +463,6 @@ func getRouteFromContext(ctx context.Context) string {
 
 // trackPipelineEvent sends tracking events for pipeline operations.
 func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName string, pipelineID string, cfg *models.PipelineConfig) {
-	if p.trackingClient == nil || !p.trackingClient.IsEnabled() {
-		return
-	}
 
 	hasDedup, hasJoin, hasFilter := checkTransformations(cfg)
 
@@ -502,9 +499,6 @@ func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName stri
 }
 
 func (p *PipelineService) trackPipelineOperation(ctx context.Context, eventName string, pipelineID string) {
-	if p.trackingClient == nil || !p.trackingClient.IsEnabled() {
-		return
-	}
 
 	properties := map[string]interface{}{
 		"pipeline_id_hash": tracking.HashPipelineID(pipelineID),

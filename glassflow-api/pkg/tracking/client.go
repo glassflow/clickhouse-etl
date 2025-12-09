@@ -172,9 +172,6 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 
 func (c *Client) SendEvent(ctx context.Context, eventName, eventSource string, properties map[string]interface{}) {
 	if !c.enabled {
-		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: event not sent, tracking disabled", "event", eventName, "source", eventSource)
-		}
 		return
 	}
 
