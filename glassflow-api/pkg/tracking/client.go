@@ -171,7 +171,7 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 }
 
 func (c *Client) SendEvent(ctx context.Context, eventName, eventSource string, properties map[string]interface{}) {
-	if !c.enabled {
+	if c == nil || !c.enabled {
 		return
 	}
 
