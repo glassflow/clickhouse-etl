@@ -1,4 +1,5 @@
 import { useStore } from '../index'
+import { parseExprToFilterTree } from '@/src/modules/filter/parser/exprParser'
 
 /**
  * Hydrate filter configuration from pipeline config
@@ -22,13 +23,32 @@ export function hydrateFilter(pipelineConfig: any) {
     filterStore.setExpressionString(filter.expression)
     // Mark backend validation as valid since this is a saved/validated expression
     filterStore.setBackendValidation({ status: 'valid' })
+
+    // Try to parse the expression and reconstruct the tree structure
+    const parseResult = parseExprToFilterTree(filter.expression)
+
+    if (parseResult.success && parseResult.filterGroup) {
+      // Successfully parsed - set the full filter config with reconstructed tree
+      filterStore.setFilterConfig({
+        enabled: true,
+        root: parseResult.filterGroup,
+      })
+
+      // Log any unsupported features for debugging
+      if (parseResult.unsupportedFeatures && parseResult.unsupportedFeatures.length > 0) {
+        console.warn('[Filter Hydration] Expression parsed with unsupported features:', parseResult.unsupportedFeatures)
+      }
+    } else {
+      // Failed to parse - keep expression string for read-only display
+      // The UI will show the expression in read-only mode
+      console.warn(
+        '[Filter Hydration] Could not parse expression into tree structure:',
+        parseResult.error,
+        'Expression will be shown in read-only mode.',
+      )
+    }
   } else {
     filterStore.setExpressionString('')
     filterStore.setBackendValidation({ status: 'idle' })
   }
-
-  // Note: We don't reconstruct the tree structure from the expression string
-  // because that would require a full expression parser.
-  // The expression string is sufficient for the backend.
-  // If the user wants to edit the filter, they can rebuild it using the UI.
 }

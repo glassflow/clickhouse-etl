@@ -17,6 +17,9 @@ importers:
       '@clickhouse/client':
         specifier: ^1.11.0
         version: 1.11.2
+      '@exprlang/parser':
+        specifier: ^1.0.3
+        version: 1.0.3
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.0)
@@ -26,6 +29,9 @@ importers:
       '@jm18457/kafkajs-msk-iam-authentication-mechanism':
         specifier: ^3.1.2
         version: 3.1.2
+      '@lezer/common':
+        specifier: ^1.4.0
+        version: 1.4.0
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.0
@@ -601,6 +607,9 @@ packages:
     resolution: {integrity: sha512-Ul5l+lHEcw3L5+k8POx6r74mxEYKG5kOb6Xpy2gCRW6zweT6TEhAf8vhxGgjhqrd/VO/Dirhsb+1hNpD1ue9hw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@exprlang/parser@1.0.3':
+    resolution: {integrity: sha512-Un4gXovXuZQTIaaKCg+02hw7FeYapHrslCA4oPhtoYelHUM++eR9EwWOwYqLyPpCRPOoZnbEdy5SlLEI2DqZew==}
+
   '@floating-ui/core@1.7.2':
     resolution: {integrity: sha512-wNB5ooIKHQc+Kui96jE/n69rHFWAVoxn5CAzL1Xdd8FG03cgY3MLO+GF9U3W737fYDSgPWA6MReKhBQBop6Pcw==}
 
@@ -845,6 +854,15 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@lezer/common@1.4.0':
+    resolution: {integrity: sha512-DVeMRoGrgn/k45oQNu189BoW4SZwgZFzJ1+1TV5j2NJ/KFC83oa/enRqZSGshyeMk5cPWMhsKs9nx+8o0unwGg==}
+
+  '@lezer/highlight@1.2.3':
+    resolution: {integrity: sha512-qXdH7UqTvGfdVBINrgKhDsVTJTxactNNxLk7+UMwZhU13lMHaOBlJe9Vqp907ya56Y3+ed2tlqzys7jDkTmW0g==}
+
+  '@lezer/lr@1.4.5':
+    resolution: {integrity: sha512-/YTRKP5yPPSo1xImYQk7AZZMAgap0kegzqCSYHjAL9x1AZ0ZQW+IpcEzMKagCsbTsLnVeWkxYrCNeXG8xEPrjg==}
 
   '@mswjs/interceptors@0.39.3':
     resolution: {integrity: sha512-9bw/wBL7pblsnOCIqvn1788S9o4h+cC5HWXg0Xhh0dOzsZ53IyfmBM+FYqpDDPbm0xjCqEqvCITloF3Dm4TXRQ==}
@@ -5144,6 +5162,12 @@ snapshots:
       '@eslint/core': 0.15.1
       levn: 0.4.1
 
+  '@exprlang/parser@1.0.3':
+    dependencies:
+      '@lezer/common': 1.4.0
+      '@lezer/highlight': 1.2.3
+      '@lezer/lr': 1.4.5
+
   '@floating-ui/core@1.7.2':
     dependencies:
       '@floating-ui/utils': 0.2.10
@@ -5346,6 +5370,16 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.4
 
   '@js-sdsl/ordered-map@4.4.2': {}
+
+  '@lezer/common@1.4.0': {}
+
+  '@lezer/highlight@1.2.3':
+    dependencies:
+      '@lezer/common': 1.4.0
+
+  '@lezer/lr@1.4.5':
+    dependencies:
+      '@lezer/common': 1.4.0
 
   '@mswjs/interceptors@0.39.3':
     dependencies:

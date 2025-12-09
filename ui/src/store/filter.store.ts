@@ -132,6 +132,7 @@ export interface FilterStore extends FilterStoreProps, ValidationMethods {
   setExpressionString: (expression: string) => void
   setBackendValidation: (status: FilterStoreProps['backendValidation']) => void
   getFilterConfig: () => FilterConfig
+  setFilterConfig: (config: FilterConfig) => void
   skipFilter: () => void
   resetFilterStore: () => void
 }
@@ -614,6 +615,14 @@ export const createFilterSlice: StateCreator<FilterSlice> = (set, get) => ({
       })),
 
     getFilterConfig: () => get().filterStore.filterConfig,
+
+    setFilterConfig: (config: FilterConfig) =>
+      set((state) => ({
+        filterStore: {
+          ...state.filterStore,
+          filterConfig: config,
+        },
+      })),
 
     skipFilter: () =>
       set((state) => ({
