@@ -114,7 +114,7 @@ const PipelineDeploymentProgress = ({
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header Section */}
-          <Card className="border-[var(--color-border-neutral)] shadow-sm">
+          <Card className="card-outline">
             <div className="flex flex-col items-center p-8 text-center">
               <h1 className="text-3xl font-bold text-gray-900 mb-4">{pipelineName}</h1>
               <Badge variant={getStatusVariant(deploymentPhase)} className="text-lg px-4 py-2 rounded-xl">
@@ -127,7 +127,7 @@ const PipelineDeploymentProgress = ({
           </Card>
 
           {/* Progress Section */}
-          <Card className="border-[var(--color-border-neutral)] shadow-sm">
+          <Card className="card-outline">
             <div className="p-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Deployment Progress</h2>
 

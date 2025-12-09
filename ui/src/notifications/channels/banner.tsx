@@ -14,7 +14,7 @@ export function Banner({ options, onDismiss }: BannerProps) {
   const { title, description, action, reportLink, documentationLink } = options
 
   return (
-    <div className="flex flex-col min-w-[320px] max-w-[500px] bg-[var(--color-background-elevation-raised-faded-2)] border border-[var(--color-border-neutral)] rounded-md shadow-lg">
+    <div className="flex flex-col min-w-[320px] max-w-[500px] bg-[var(--color-background-elevation-raised-faded-2)] surface-gradient-border rounded-md shadow-lg">
       {/* Header with title and close button */}
       <div className="flex items-start justify-between gap-3 px-4 py-4">
         <h4 className="font-semibold text-lg leading-none pr-2 text-[var(--color-foreground-neutral)]">{title}</h4>

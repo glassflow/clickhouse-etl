@@ -99,7 +99,7 @@ const PipelineDeploymentProgress = ({
     <div className={cn('transition-opacity duration-500', showTransition && 'opacity-0')}>
       <div className="flex flex-col gap-4">
         {/* Main Header Card - Similar to PipelineDetailsHeader */}
-        <Card className="border-[var(--color-border-neutral)] radius-large py-2 px-6 mb-4">
+        <Card className="card-outline py-2 px-6 mb-4">
           <div className="flex flex-col gap-2">
             <div className="flex flex-col flex-start gap-2">
               <h2 className="text-2xl font-bold">{pipelineName}</h2>

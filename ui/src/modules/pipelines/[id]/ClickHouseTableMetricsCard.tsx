@@ -235,7 +235,7 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
 
   if (loading) {
     return (
-      <Card className="border-[var(--color-border-neutral)] radius-large py-4 px-6 mb-4 w-full">
+      <Card className="card-outline py-4 px-6 mb-4 w-full">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2 items-center">
             <div className="flex flex-start flex-row gap-2 items-center">
@@ -252,7 +252,7 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
 
   if (error) {
     return (
-      <Card className="border-[var(--color-border-neutral)] radius-large py-4 px-6 mb-4 w-full">
+      <Card className="card-outline py-4 px-6 mb-4 w-full">
         <div className="flex flex-col gap-4">
           <div className="flex flex-row justify-between gap-2 items-center">
             <div className="flex flex-start flex-row gap-2 items-center">
@@ -268,7 +268,7 @@ function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
   }
 
   return (
-    <Card className="border-[var(--color-border-neutral)] radius-large py-4 px-6 mb-4 w-full">
+    <Card className="card-outline py-4 px-6 mb-4 w-full">
       <div className="flex flex-col gap-4">
         <div className="flex flex-row justify-between gap-2 items-center">
           <div className="flex flex-start flex-row gap-2 items-center">

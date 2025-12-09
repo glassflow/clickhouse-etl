@@ -1457,13 +1457,13 @@ export function ClickhouseMapper({
 
         {combinedError && (
           <div className="space-y-3">
-            <div className="p-3 bg-background-neutral-faded text-red-700 rounded-md flex items-center border border-[var(--color-border-neutral)]">
+            <div className="p-3 bg-background-neutral-faded text-[var(--text-error)] rounded-md flex items-center border border-[var(--color-border-neutral-faded)]">
               <XCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" />
               <span>{combinedError}</span>
             </div>
             {/* Show download button when deployment fails */}
             {failedDeploymentConfig && (
-              <div className="flex items-center gap-3 p-3 bg-background-neutral-faded rounded-md border border-[var(--color-border-neutral)] text-content">
+              <div className="flex items-center gap-3 p-3 bg-background-neutral-faded rounded-md border border-[var(--color-border-neutral-faded)] text-content">
                 <span className="text-sm text-muted-foreground">
                   You can download the configuration to save your work and try again later.
                 </span>

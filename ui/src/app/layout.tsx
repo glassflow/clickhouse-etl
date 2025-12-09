@@ -33,12 +33,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${archivo.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable} ${archivo.variable} bg-[var(--page-background)]`}
+      suppressHydrationWarning
+    >
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="shortcut icon" href="/favicon.svg" />
       </head>
-      <body className="background text-foreground">
+      <body className="page-background">
         <Script src="/env.js" strategy="beforeInteractive" />
         <ThemeProvider>
           <ObservabilityProvider>

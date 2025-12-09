@@ -203,7 +203,7 @@ export function FieldColumnMapper({
                       disabled={readOnly}
                     >
                       <SelectTrigger
-                        className={`w-full bg-[var(--color-gray-dark-900)] border-[var(--color-border-neutral)] hover:bg-[var(--color-gray-dark-950)] transition-colors text-content select-content-custom ${readOnly ? 'opacity-50 cursor-not-allowed' : ''} ${hasTypeError ? 'border-red-500 border-2' : ''}`}
+                        className={`w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content ${readOnly ? 'opacity-50 cursor-not-allowed' : ''} ${hasTypeError ? 'border-red-500 border-2' : ''}`}
                       >
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
