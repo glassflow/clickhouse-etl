@@ -1,0 +1,33 @@
+## Component Rules
+
+- **Hierarchy**: Use layers consistently:
+  - `components/ui/`: shadcn/radix primitives. Do not customize behaviors; only extend when aligning with upstream updates.
+  - `components/common/`: reusable, domain-neutral patterns used in 2+ places.
+  - `components/shared/`: app-wide/shared with light domain context (layout, providers).
+  - `modules/*/components/`: feature-specific components with domain logic.
+
+- **Structure**: Prefer Container → Presenter. Containers handle data/state/effects; presenters render UI.
+
+- **Forms**: Use Manager → Renderer split. Manager owns `useForm` + submit; Renderer renders fields.
+
+- **Client Boundary**: Add `'use client'` only when React hooks/DOM APIs are required.
+
+- **Props**:
+  - Define `ComponentNameProps`; keep props minimal and typed.
+  - Prefer controlled components for form inputs.
+
+- **Naming**: PascalCase files/components; keep directories kebab/lowercase where applicable.
+
+- **Composition**:
+  - Extract reusable pieces to `common/` before duplicating.
+  - Keep side effects and store access out of presentational components.
+
+- **Styling**:
+  - Use Tailwind for layout/spacing/typography.
+  - Use theme tokens; avoid hardcoded colors.
+
+- **Imports**: External libs first, then internal aliases, then relative.
+
+## References
+
+- Component Architecture: `.cursor/architecture/COMPONENT_ARCHITECTURE.md`

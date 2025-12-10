@@ -1,0 +1,32 @@
+## State Management Rules
+
+- **Slices**: Keep domain logic in its own slice (kafka, topics, clickhouse-connection, destination, deduplication, join, filter, steps, core).
+
+- **Actions only**: Mutate state through slice actions; avoid direct state mutation.
+
+- **Mode awareness**: Respect `coreStore.mode` (`create | edit | view`). Disable mutations in view mode; gate actions in UI.
+
+- **Dirty tracking**:
+  - Mark dirty on user edits (`coreStore.markAsDirty`).
+  - Mark clean on successful save/hydration (`markAsClean` + update lastSaved).
+  - Use `isDirtyComparedToBase` for comparisons.
+
+- **Hydration**:
+  - Use `hydrateFromConfig` for full loads.
+  - Use `hydrateSection` for partial updates (`kafka`, `topics`, `deduplication`, `join`, `filter`, `clickhouse-connection`, `clickhouse-destination`, `all`).
+  - Discard with `discardSection(s)` or `discardToLastSaved`.
+
+- **Resets**:
+  - New pipeline: `resetForNewPipeline` or `resetAllPipelineState(topicCount, true)`.
+  - Validation-only reset: `resetFormValidationStates`.
+  - Nuclear: `clearAllUserData`.
+
+- **Selectors**: Use `useStore((s) => s.slice.field)` to limit re-renders.
+
+- **DevTools**: Enabled in dev; keep action names descriptive.
+
+- **Persistence**: `isDirty` tracked in cookie; avoid adding broader persistence without review.
+
+## References
+
+- State Management Architecture: `.cursor/architecture/STATE_MANAGEMENT.md`
