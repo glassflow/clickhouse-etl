@@ -74,6 +74,7 @@ export function ClickhouseMapper({
     coreStore,
     deduplicationStore,
     filterStore,
+    transformationStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
@@ -1121,6 +1122,7 @@ export function ClickhouseMapper({
       kafkaStore,
       deduplicationStore,
       filterStore,
+      transformationStore,
       version: pipelineVersion, // Respect the original pipeline version
     })
 
@@ -1420,6 +1422,7 @@ export function ClickhouseMapper({
               secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
               isJoinMapping={mode !== 'single'}
               readOnly={readOnly}
+              typesReadOnly={true} // Types are verified in the earlier type verification step
               unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
               unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
               onRefreshTableSchema={handleRefreshTableSchema}
