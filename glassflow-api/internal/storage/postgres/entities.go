@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 // getSource retrieves a source and its connection
@@ -267,7 +268,7 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 	var newTransformationIDs []uuid.UUID
 	updatedIDs := make(map[uuid.UUID]bool)
 
-	// Process deduplication transformation
+	// ProcessBatch deduplication transformation
 	for _, topic := range p.Ingestor.KafkaTopics {
 		if topic.Deduplication.Enabled {
 			if oldID, exists := oldByType["deduplication"]; exists {
@@ -345,6 +346,32 @@ func (s *PostgresStorage) updateTransformationsFromPipeline(ctx context.Context,
 				return nil, fmt.Errorf("insert filter transformation: %w", err)
 			}
 			newTransformationIDs = append(newTransformationIDs, filterID)
+		}
+	}
+
+	// Process stateless transformation
+	if p.StatelessTransformation.Enabled {
+		if oldID, exists := oldByType["stateless_transformation"]; exists {
+			// Update existing transformation
+			err := s.updateTransformation(ctx, tx, oldID, p.StatelessTransformation)
+			if err != nil {
+				s.logger.ErrorContext(ctx, "failed to update stateless transformation",
+					slog.String("pipeline_id", pipelineID),
+					slog.String("error", err.Error()))
+				return nil, fmt.Errorf("update stateless transformation: %w", err)
+			}
+			newTransformationIDs = append(newTransformationIDs, oldID)
+			updatedIDs[oldID] = true
+		} else {
+			// Insert new transformation
+			statelessID, err := s.insertTransformation(ctx, tx, "stateless_transformation", p.StatelessTransformation)
+			if err != nil {
+				s.logger.ErrorContext(ctx, "failed to insert stateless transformation",
+					slog.String("pipeline_id", pipelineID),
+					slog.String("error", err.Error()))
+				return nil, fmt.Errorf("insert stateless transformation: %w", err)
+			}
+			newTransformationIDs = append(newTransformationIDs, statelessID)
 		}
 	}
 
@@ -445,6 +472,18 @@ func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context,
 			return nil, fmt.Errorf("insert filter transformation: %w", err)
 		}
 		transformationIDs = append(transformationIDs, filterID)
+	}
+
+	// Stateless transformation
+	if p.StatelessTransformation.Enabled {
+		statelessID, err := s.insertTransformation(ctx, tx, "stateless_transformation", p.StatelessTransformation)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "failed to insert stateless transformation",
+				slog.String("pipeline_id", p.ID),
+				slog.String("error", err.Error()))
+			return nil, fmt.Errorf("insert stateless transformation: %w", err)
+		}
+		transformationIDs = append(transformationIDs, statelessID)
 	}
 
 	return transformationIDs, nil

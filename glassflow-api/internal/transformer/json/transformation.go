@@ -7,21 +7,17 @@ import (
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/spf13/cast"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-type TransformationConfig struct {
-	Expression string `json:"expression"`
-	OutputName string `json:"output_name"`
-	OutputType string `json:"output_type"`
-}
-
 type Transformer struct {
-	Transformations     []TransformationConfig
+	Transformations     []models.Transform
 	compiledExpressions []*vm.Program
 }
 
 // NewTransformer creates a new Transformer and compiles all expressions
-func NewTransformer(transformations []TransformationConfig) (*Transformer, error) {
+func NewTransformer(transformations []models.Transform) (*Transformer, error) {
 	compiledExpressions := make([]*vm.Program, len(transformations))
 	for i, transformation := range transformations {
 		program, err := expr.Compile(
@@ -46,7 +42,7 @@ func NewTransformer(transformations []TransformationConfig) (*Transformer, error
 			expr.Function("toFloat", toFloat),
 			expr.Function("parseUserAgent", parseUserAgent),
 			expr.Function("waterfall", waterfall),
-			expr.Function("extractTaggrsPathType", extractPathType),
+			expr.Function("extractPathType", extractPathType),
 			expr.Function("hasKeyPrefix", hasKeyPrefix),
 			expr.Function("hasAnyKey", hasAnyKey),
 			expr.Function("keys", keys),

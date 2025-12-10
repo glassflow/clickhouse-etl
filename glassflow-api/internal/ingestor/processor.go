@@ -7,10 +7,11 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/twmb/franz-go/pkg/kgo"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -135,7 +136,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			slog.Int64("offset", msg.Offset),
 			slog.String("partition", strconv.Itoa(int(msg.Partition))))
 
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrValidateSchema); dlqErr != nil {
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrValidateSchema, err)); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil

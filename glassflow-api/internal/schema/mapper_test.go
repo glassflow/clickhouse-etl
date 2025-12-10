@@ -858,3 +858,138 @@ func TestWholeArrayMapping(t *testing.T) {
 		assert.Equal(t, "laptops", arrayVal[2])
 	})
 }
+
+func TestGetOrderedColumnsStreamAndPrepareValuesStream(t *testing.T) {
+	// Setup: Create a mapper with multiple source streams (like stateless transformation scenario)
+	streamsConfig := map[string]models.StreamSchemaConfig{
+		"stateless_transformation": {
+			Fields: []models.StreamDataField{
+				{FieldName: "event_id", FieldType: "string"},
+				{FieldName: "name_upper", FieldType: "string"},
+			},
+			JoinKeyField: "",
+		},
+		"nnaumov_ingest_only": {
+			Fields: []models.StreamDataField{
+				{FieldName: "event_id", FieldType: "string"},
+				{FieldName: "name", FieldType: "string"},
+			},
+			JoinKeyField: "",
+		},
+	}
+
+	sinkMappingConfig := []models.SinkMappingConfig{
+		// Columns from stateless_transformation source
+		{ColumnName: "event_id", StreamName: "stateless_transformation", FieldName: "event_id", ColumnType: "String"},
+		{ColumnName: "name", StreamName: "stateless_transformation", FieldName: "name_upper", ColumnType: "String"},
+		// Columns from nnaumov_ingest_only source (not used when filtering by stateless_transformation)
+		{ColumnName: "original_event_id", StreamName: "nnaumov_ingest_only", FieldName: "event_id", ColumnType: "String"},
+		{ColumnName: "original_name", StreamName: "nnaumov_ingest_only", FieldName: "name", ColumnType: "String"},
+	}
+
+	mapper, err := NewJSONToClickHouseMapper(streamsConfig, sinkMappingConfig)
+	require.NoError(t, err)
+
+	t.Run("GetOrderedColumnsStream filters by source_id", func(t *testing.T) {
+		// When filtering by stateless_transformation, should only get those columns
+		columns := mapper.GetOrderedColumnsStream("stateless_transformation")
+		assert.Len(t, columns, 2)
+		assert.Equal(t, []string{"event_id", "name"}, columns)
+
+		// When filtering by nnaumov_ingest_only, should only get those columns
+		columns = mapper.GetOrderedColumnsStream("nnaumov_ingest_only")
+		assert.Len(t, columns, 2)
+		assert.Equal(t, []string{"original_event_id", "original_name"}, columns)
+	})
+
+	t.Run("PrepareValuesStream filters by source_id", func(t *testing.T) {
+		// JSON data from stateless_transformation (unprefixed)
+		jsonData := []byte(`{
+			"event_id": "evt-123",
+			"name_upper": "JOHN DOE"
+		}`)
+
+		// When filtering by stateless_transformation, should only get those values
+		values, err := mapper.PrepareValuesStream("stateless_transformation", jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 2)
+		assert.Equal(t, "evt-123", values[0])
+		assert.Equal(t, "JOHN DOE", values[1])
+
+		// JSON data from nnaumov_ingest_only (unprefixed)
+		jsonData2 := []byte(`{
+			"event_id": "evt-456",
+			"name": "john doe"
+		}`)
+
+		// When filtering by nnaumov_ingest_only, should only get those values
+		values, err = mapper.PrepareValuesStream("nnaumov_ingest_only", jsonData2)
+		require.NoError(t, err)
+		assert.Len(t, values, 2)
+		assert.Equal(t, "evt-456", values[0])
+		assert.Equal(t, "john doe", values[1])
+	})
+
+	t.Run("PrepareValuesStream with single stream data", func(t *testing.T) {
+		// Test with data from only one stream (stateless_transformation output)
+		// This simulates the actual use case where stateless transformation produces output
+		singleStreamMapper, err := NewJSONToClickHouseMapper(
+			map[string]models.StreamSchemaConfig{
+				"stateless_transformation": {
+					Fields: []models.StreamDataField{
+						{FieldName: "event_id", FieldType: "string"},
+						{FieldName: "name_upper", FieldType: "string"},
+					},
+					JoinKeyField: "",
+				},
+			},
+			[]models.SinkMappingConfig{
+				{ColumnName: "event_id", StreamName: "stateless_transformation", FieldName: "event_id", ColumnType: "String"},
+				{ColumnName: "name", StreamName: "stateless_transformation", FieldName: "name_upper", ColumnType: "String"},
+			},
+		)
+		require.NoError(t, err)
+
+		jsonData := []byte(`{
+			"event_id": "evt-789",
+			"name_upper": "JANE SMITH"
+		}`)
+
+		values, err := singleStreamMapper.PrepareValuesStream("stateless_transformation", jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 2)
+		assert.Equal(t, "evt-789", values[0])
+		assert.Equal(t, "JANE SMITH", values[1])
+	})
+
+	t.Run("PrepareValuesStream with missing fields", func(t *testing.T) {
+		jsonData := []byte(`{
+			"event_id": "evt-123"
+		}`)
+
+		values, err := mapper.PrepareValuesStream("stateless_transformation", jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 2)
+		assert.Equal(t, "evt-123", values[0])
+		assert.Nil(t, values[1]) // Missing name_upper field
+	})
+
+	t.Run("PrepareValuesStream with invalid JSON", func(t *testing.T) {
+		jsonData := []byte(`invalid_json`)
+
+		_, err := mapper.PrepareValuesStream("stateless_transformation", jsonData)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to prepare values for ClickHouse")
+	})
+
+	t.Run("PrepareValuesStream returns empty for non-existent source", func(t *testing.T) {
+		jsonData := []byte(`{
+			"stateless_transformation.event_id": "evt-123",
+			"stateless_transformation.name_upper": "JOHN DOE"
+		}`)
+
+		values, err := mapper.PrepareValuesStream("non_existent_source", jsonData)
+		require.NoError(t, err)
+		assert.Len(t, values, 0)
+	})
+}

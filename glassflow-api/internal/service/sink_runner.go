@@ -77,6 +77,11 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		},
 	)
 
+	var streamSourceID string
+	if s.pipelineCfg.StatelessTransformation.Enabled {
+		streamSourceID = s.pipelineCfg.StatelessTransformation.ID
+	}
+
 	sinkComponent, err := component.NewSinkComponent(
 		s.pipelineCfg.Sink,
 		consumer,
@@ -85,6 +90,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		s.log,
 		s.meter,
 		dlqStreamPublisher,
+		streamSourceID,
 	)
 	if err != nil {
 		s.log.ErrorContext(ctx, "failed to create ClickHouse sink: ", "error", err)

@@ -403,21 +403,40 @@ type FilterComponentConfig struct {
 	Expression string `json:"expression,omitempty"`
 }
 
+type StatelessTransformation struct {
+	ID      string                         `json:"id,omitempty"`
+	Type    string                         `json:"type,omitempty"`
+	Enabled bool                           `json:"enabled,omitempty"`
+	Config  StatelessTransformationsConfig `json:"config,omitempty"`
+}
+
+type StatelessTransformationsConfig struct {
+	//Source    string      `json:"source,omitempty"` // we don't need it for now
+	Transform []Transform `json:"transform"`
+}
+
+type Transform struct {
+	Expression string `json:"expression"`
+	OutputName string `json:"output_name"`
+	OutputType string `json:"output_type"`
+}
+
 type PipelineMetadata struct {
 	Tags []string `json:"tags"`
 }
 
 type PipelineConfig struct {
-	ID        string                  `json:"pipeline_id"`
-	Name      string                  `json:"name"`
-	Mapper    MapperConfig            `json:"mapper"`
-	Ingestor  IngestorComponentConfig `json:"ingestor"`
-	Join      JoinComponentConfig     `json:"join"`
-	Sink      SinkComponentConfig     `json:"sink"`
-	Filter    FilterComponentConfig   `json:"filter"`
-	CreatedAt time.Time               `json:"created_at"`
-	Metadata  PipelineMetadata        `json:"metadata"`
-	Status    PipelineHealth          `json:"status,omitempty"`
+	ID                      string                  `json:"pipeline_id"`
+	Name                    string                  `json:"name"`
+	Mapper                  MapperConfig            `json:"mapper"`
+	Ingestor                IngestorComponentConfig `json:"ingestor"`
+	Join                    JoinComponentConfig     `json:"join"`
+	Sink                    SinkComponentConfig     `json:"sink"`
+	Filter                  FilterComponentConfig   `json:"filter"`
+	StatelessTransformation StatelessTransformation `json:"stateless_transformation,omitempty"`
+	CreatedAt               time.Time               `json:"created_at"`
+	Metadata                PipelineMetadata        `json:"metadata"`
+	Status                  PipelineHealth          `json:"status,omitempty"`
 }
 
 func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
@@ -480,17 +499,19 @@ func NewPipelineConfig(
 	jc JoinComponentConfig,
 	sc SinkComponentConfig,
 	filterConfig FilterComponentConfig,
+	statelessTransformation StatelessTransformation,
 ) PipelineConfig {
 	return PipelineConfig{
-		ID:        id,
-		Name:      name,
-		Mapper:    mc,
-		Ingestor:  ic,
-		Join:      jc,
-		Sink:      sc,
-		Filter:    filterConfig,
-		CreatedAt: time.Now().UTC(),
-		Status:    NewPipelineHealth(id, name),
+		ID:                      id,
+		Name:                    name,
+		Mapper:                  mc,
+		Ingestor:                ic,
+		Join:                    jc,
+		Sink:                    sc,
+		Filter:                  filterConfig,
+		StatelessTransformation: statelessTransformation,
+		CreatedAt:               time.Now().UTC(),
+		Status:                  NewPipelineHealth(id, name),
 	}
 }
 

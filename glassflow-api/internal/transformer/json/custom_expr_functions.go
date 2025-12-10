@@ -194,7 +194,10 @@ func parseISO8601(args ...any) (any, error) {
 	if len(args) == 0 {
 		return 0, fmt.Errorf("parseISO8601 requires 1 argument, got %d", len(args))
 	}
-	timestamp := cast.ToString(args[0])
+	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 
 	formats := []string{
 		"2006-01-02 15:04:05.000000",
@@ -204,7 +207,7 @@ func parseISO8601(args ...any) (any, error) {
 	}
 
 	for _, format := range formats {
-		if t, err := time.Parse(format, timestamp); err == nil {
+		if t, err := time.Parse(format, input); err == nil {
 			return t.Unix(), nil
 		}
 	}
@@ -228,7 +231,8 @@ func toDate(args ...any) (any, error) {
 	case float64:
 		return time.Unix(int64(v), 0).Format("2006-01-02"), nil
 	}
-	return "", nil
+
+	return "", fmt.Errorf("input is invalid, expected int or time.Time")
 }
 
 func parseUserAgent(args ...any) (any, error) {
@@ -236,11 +240,11 @@ func parseUserAgent(args ...any) (any, error) {
 		return "", fmt.Errorf("parseUserAgent requires 2 arguments, got %d", len(args))
 	}
 	userAgent := cast.ToString(args[0])
-	field := cast.ToString(args[1])
-
 	if userAgent == "" {
-		return "", nil
+		return false, fmt.Errorf("userAgent is empty")
 	}
+
+	field := cast.ToString(args[1])
 
 	switch field {
 	case "device":
@@ -332,17 +336,25 @@ func detectOS(userAgent string) string {
 	return "Unknown"
 }
 
-// urlDecode decodes URL-encoded string
 func urlDecode(args ...any) (any, error) {
-	if len(args) == 0 {
-		return "", fmt.Errorf("urlDecode requires 1 argument, got %d", len(args))
-	}
-	s := cast.ToString(args[0])
-	decoded, err := url.QueryUnescape(s)
-	if err != nil {
-		return s, nil
+	if len(args) != 1 {
+		return "", fmt.Errorf("urlDecode: expected 1 argument, got %d", len(args))
 	}
 
+	str, ok := args[0].(string)
+	if !ok {
+		return "", fmt.Errorf("urlDecode: expected string, got %T", args[0])
+	}
+
+	// Handle empty string
+	if str == "" {
+		return "", nil
+	}
+
+	decoded, err := url.QueryUnescape(str)
+	if err != nil {
+		return "", err
+	}
 	return decoded, nil
 }
 
@@ -350,9 +362,12 @@ func toString(args ...any) (any, error) {
 	if len(args) == 0 {
 		return "", fmt.Errorf("toString requires 1 argument, got %d", len(args))
 	}
-	s := cast.ToString(args[0])
+	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 
-	return s, nil
+	return input, nil
 }
 
 func containsStr(args ...any) (any, error) {
@@ -360,6 +375,9 @@ func containsStr(args ...any) (any, error) {
 		return false, fmt.Errorf("containsStr requires 2 arguments, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 	str := cast.ToString(args[1])
 
 	return strings.Contains(input, str), nil
@@ -370,6 +388,9 @@ func hasPrefix(args ...any) (any, error) {
 		return false, fmt.Errorf("hasPrefix requires 2 arguments, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 	str := cast.ToString(args[1])
 
 	return strings.HasPrefix(input, str), nil
@@ -380,6 +401,9 @@ func hasSuffix(args ...any) (any, error) {
 		return false, fmt.Errorf("hasSuffix requires 2 arguments, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 	str := cast.ToString(args[1])
 
 	return strings.HasSuffix(input, str), nil
@@ -390,6 +414,9 @@ func upper(args ...any) (any, error) {
 		return "", fmt.Errorf("upper requires 1 argument, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 
 	return strings.ToUpper(input), nil
 }
@@ -399,6 +426,9 @@ func lower(args ...any) (any, error) {
 		return "", fmt.Errorf("lower requires 1 argument, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 
 	return strings.ToLower(input), nil
 }
@@ -408,6 +438,9 @@ func trimSpaces(args ...any) (any, error) {
 		return "", fmt.Errorf("trimSpaces requires 1 argument, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 
 	return strings.TrimSpace(input), nil
 }
@@ -417,6 +450,9 @@ func splitStr(args ...any) (any, error) {
 		return []string{}, fmt.Errorf("splitStr requires 2 arguments, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 	sep := cast.ToString(args[1])
 
 	return strings.Split(input, sep), nil
@@ -446,6 +482,10 @@ func replace(args ...any) (any, error) {
 		return "", fmt.Errorf("replace requires 3 arguments, got %d", len(args))
 	}
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
+
 	oldStr := cast.ToString(args[1])
 	newStr := cast.ToString(args[2])
 
@@ -458,6 +498,9 @@ func toInt(args ...any) (any, error) {
 	}
 
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 	result, err := strconv.Atoi(input)
 	if err != nil {
 		return 0, nil
@@ -472,6 +515,9 @@ func toFloat(args ...any) (any, error) {
 	}
 
 	input := cast.ToString(args[0])
+	if input == "" {
+		return false, fmt.Errorf("input is empty")
+	}
 	result, err := strconv.ParseFloat(input, 64)
 	if err != nil {
 		return 0.0, nil

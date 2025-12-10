@@ -38,8 +38,9 @@ func TestNewPipelineConfig(t *testing.T) {
 	join := JoinComponentConfig{Type: internal.TemporalJoinType}
 	sink := SinkComponentConfig{Type: internal.ClickHouseSinkType}
 	filter := FilterComponentConfig{Enabled: false}
+	statelessTransformation := StatelessTransformation{Enabled: false}
 
-	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter)
+	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter, statelessTransformation)
 
 	if config.ID != id {
 		t.Errorf("Expected ID %s, got %s", id, config.ID)
