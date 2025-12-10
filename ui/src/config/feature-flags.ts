@@ -71,3 +71,13 @@ export const isDemoMode = (): boolean => {
 export const isPreviewModeEnabled = (): boolean => {
   return getFeatureFlag('NEXT_PUBLIC_PREVIEW_MODE')
 }
+
+/**
+ * Check if transformations feature is enabled.
+ * Controls visibility of the transformation configurator in pipeline creation and editing.
+ *
+ * @env NEXT_PUBLIC_TRANSFORMATIONS_ENABLED - Set to 'true' to enable transformations
+ */
+export const isTransformationsEnabled = (): boolean => {
+  return getFeatureFlag('NEXT_PUBLIC_TRANSFORMATIONS_ENABLED')
+}

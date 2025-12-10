@@ -32,6 +32,7 @@ interface FieldColumnMapperProps {
   secondaryTopicName?: string
   isJoinMapping?: boolean
   readOnly?: boolean
+  typesReadOnly?: boolean // NEW: Make data types read-only (for when types are verified in earlier step)
   unmappedNonNullableColumns?: string[]
   unmappedDefaultColumns?: string[] // NEW: columns with DEFAULT that are unmapped
   onRefreshTableSchema: () => void
@@ -50,6 +51,7 @@ export function FieldColumnMapper({
   secondaryTopicName = 'Secondary Topic',
   isJoinMapping = false,
   readOnly,
+  typesReadOnly = false, // NEW: Make data types read-only
   unmappedNonNullableColumns = [],
   unmappedDefaultColumns = [], // NEW
   onRefreshTableSchema,
@@ -197,24 +199,34 @@ export function FieldColumnMapper({
                 </TableCell>
                 <TableCell className="w-[25%]">
                   <div>
-                    <Select
-                      value={column.jsonType || ''}
-                      onValueChange={(value) => updateColumnMapping(index, 'jsonType', value)}
-                      disabled={readOnly}
-                    >
-                      <SelectTrigger
-                        className={`w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content ${readOnly ? 'opacity-50 cursor-not-allowed' : ''} ${hasTypeError ? 'border-red-500 border-2' : ''}`}
+                    {typesReadOnly ? (
+                      // Read-only display when types are verified in earlier step
+                      <div
+                        className={`w-full h-10 px-3 flex items-center rounded-md bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)] text-content ${hasTypeError ? 'border-red-500 border-2' : ''}`}
                       >
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] shadow-md text-content select-content-custom">
-                        {JSON_DATA_TYPES.map((type) => (
-                          <SelectItem key={type} value={type} className="text-content select-item-custom">
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        {column.jsonType || 'auto'}
+                      </div>
+                    ) : (
+                      // Editable dropdown when types can be changed
+                      <Select
+                        value={column.jsonType || ''}
+                        onValueChange={(value) => updateColumnMapping(index, 'jsonType', value)}
+                        disabled={readOnly}
+                      >
+                        <SelectTrigger
+                          className={`w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content ${readOnly ? 'opacity-50 cursor-not-allowed' : ''} ${hasTypeError ? 'border-red-500 border-2' : ''}`}
+                        >
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] shadow-md text-content select-content-custom">
+                          {JSON_DATA_TYPES.map((type) => (
+                            <SelectItem key={type} value={type} className="text-content select-item-custom">
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     {/* Show error text or transparent placeholder to maintain alignment */}
                     {hasAnyIssue && (
                       <div className="text-xs font-medium leading-tight overflow-hidden mt-1">

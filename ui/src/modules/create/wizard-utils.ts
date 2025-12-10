@@ -1,15 +1,17 @@
 import { StepKeys } from '@/src/config/constants'
 import { KafkaConnectionContainer } from '../kafka/KafkaConnectionContainer'
 import { KafkaTopicSelector } from '../kafka/KafkaTopicSelector'
+import { KafkaTypeVerification } from '../kafka/KafkaTypeVerification'
 import { DeduplicationConfigurator } from '../deduplication/DeduplicationConfigurator'
 import { FilterConfigurator } from '../filter/FilterConfigurator'
+import { TransformationConfigurator } from '../transformation/TransformationConfigurator'
 import { ClickhouseConnectionContainer } from '../clickhouse/ClickhouseConnectionContainer'
 import { ClickhouseMapper } from '../clickhouse/ClickhouseMapper'
 import { ReviewConfiguration } from '../review/ReviewConfiguration'
 import { JoinConfigurator } from '../join/JoinConfigurator'
 import { OperationKeys } from '@/src/config/constants'
 import type { SidebarStep } from './WizardSidebar'
-import { isPreviewModeEnabled, isFiltersEnabled } from '@/src/config/feature-flags'
+import { isPreviewModeEnabled, isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 
 // Re-export step icons for external use
 export { getStepIcon, stepIcons, type StepIconComponent } from './wizard-step-icons'
@@ -30,9 +32,13 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'key'>> = {
     title: 'Select Right Topic',
     parent: null,
   },
+  [StepKeys.KAFKA_TYPE_VERIFICATION]: {
+    title: 'Verify Field Types',
+    parent: null,
+  },
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
     title: 'Deduplicate',
-    parent: StepKeys.TOPIC_SELECTION_1, // substep of topic selection
+    parent: StepKeys.KAFKA_TYPE_VERIFICATION, // substep of type verification
   },
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
     title: 'Select Left Topic',
@@ -48,14 +54,18 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'key'>> = {
   },
   [StepKeys.FILTER_CONFIGURATOR]: {
     title: 'Filter',
-    parent: StepKeys.TOPIC_SELECTION_1, // substep of topic selection (only for single topic)
+    parent: StepKeys.KAFKA_TYPE_VERIFICATION, // substep of type verification (only for single topic)
+  },
+  [StepKeys.TRANSFORMATION_CONFIGURATOR]: {
+    title: 'Transform',
+    parent: StepKeys.KAFKA_TYPE_VERIFICATION, // substep of type verification
   },
   [StepKeys.CLICKHOUSE_CONNECTION]: {
     title: 'ClickHouse Connection',
     parent: null,
   },
   [StepKeys.CLICKHOUSE_MAPPER]: {
-    title: 'Select Destination',
+    title: 'Mapping',
     parent: null,
   },
   [StepKeys.REVIEW_CONFIGURATION]: {
@@ -135,13 +145,25 @@ export const deduplicateJoinJourney = getDeduplicateJoinJourney()
 
 // New topic count-based journeys
 export const getSingleTopicJourney = (): StepKeys[] => {
-  // 1 Topic: Kafka Connection → Topic Selection → Deduplication → Filter (if enabled) → ClickHouse Connection → Mapper → Review (if preview mode)
-  // Deduplication and Filter are configured optionally
-  const steps: StepKeys[] = [StepKeys.KAFKA_CONNECTION, StepKeys.TOPIC_SELECTION_1, StepKeys.DEDUPLICATION_CONFIGURATOR]
+  // 1 Topic: Kafka Connection → Topic Selection → Type Verification → Deduplication → Filter → Transformation → ClickHouse Connection → Mapping → Review
+  // Type Verification is mandatory, Deduplication/Filter/Transformation are optional substeps
+  const steps: StepKeys[] = [
+    StepKeys.KAFKA_CONNECTION,
+    StepKeys.TOPIC_SELECTION_1,
+    StepKeys.KAFKA_TYPE_VERIFICATION,
+    StepKeys.DEDUPLICATION_CONFIGURATOR,
+  ]
 
   // Only include Filter step if filters feature is enabled
   if (isFiltersEnabled()) {
     steps.push(StepKeys.FILTER_CONFIGURATOR)
+  }
+
+  // Only include Transformation step if transformations feature is enabled
+  if (isTransformationsEnabled()) {
+    steps.push(StepKeys.TRANSFORMATION_CONFIGURATOR)
+  } else {
+    console.log('Transformations feature is disabled')
   }
 
   steps.push(StepKeys.CLICKHOUSE_CONNECTION, StepKeys.CLICKHOUSE_MAPPER)
@@ -198,12 +220,19 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
 
     // For steps that can be substeps but need dynamic parent detection
     // (e.g., DEDUPLICATION_CONFIGURATOR appearing multiple times with different parents)
-    if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR || stepKey === StepKeys.FILTER_CONFIGURATOR) {
-      // Find the most recent topic selection step before this one
+    if (
+      stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR ||
+      stepKey === StepKeys.FILTER_CONFIGURATOR ||
+      stepKey === StepKeys.TRANSFORMATION_CONFIGURATOR
+    ) {
+      // Find the most recent parent step before this one
+      // For single topic journey, the parent is KAFKA_TYPE_VERIFICATION
+      // For multi-topic journey, the parent can be topic selection steps
       let parentStep: StepKeys | null = null
       for (let i = index - 1; i >= 0; i--) {
         const prevStep = journey[i]
         if (
+          prevStep === StepKeys.KAFKA_TYPE_VERIFICATION ||
           prevStep === StepKeys.TOPIC_SELECTION_1 ||
           prevStep === StepKeys.TOPIC_SELECTION_2 ||
           prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
@@ -215,7 +244,7 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
       }
 
       if (parentStep) {
-        // This is a substep of the topic selection
+        // This is a substep of the parent step
         substeps.push({
           key: stepKey,
           title: config.title,
@@ -279,10 +308,12 @@ export const componentsMap = {
   [StepKeys.KAFKA_CONNECTION]: KafkaConnectionContainer,
   [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelector,
   [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelector,
+  [StepKeys.KAFKA_TYPE_VERIFICATION]: KafkaTypeVerification,
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: KafkaTopicSelector,
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: KafkaTopicSelector,
   [StepKeys.FILTER_CONFIGURATOR]: FilterConfigurator,
+  [StepKeys.TRANSFORMATION_CONFIGURATOR]: TransformationConfigurator,
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfigurator,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionContainer,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,

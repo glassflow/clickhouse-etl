@@ -10,6 +10,7 @@ import LeftTopicIcon from '@/src/images/left-topic.svg'
 import RightTopicIcon from '@/src/images/right-topic.svg'
 import DeduplicateIcon from '@/src/images/deduplicate.svg'
 import FilterIcon from '@/src/images/filter.svg'
+import ModifyIcon from '@/src/images/modify.svg'
 import JoinIcon from '@/src/images/join.svg'
 import ClickhouseIcon from '@/src/images/clickhouse.svg'
 import MapDestinationIcon from '@/src/images/map-destination.svg'
@@ -20,18 +21,9 @@ import CheckPrimaryIcon from '@/src/images/check-primary.svg'
 export type StepIconComponent = React.FC<{ className?: string }>
 
 // Create wrapper components for SVG icons to ensure consistent sizing
-const createIconComponent = (
-  SvgIcon: string,
-  alt: string,
-): StepIconComponent => {
+const createIconComponent = (SvgIcon: string, alt: string): StepIconComponent => {
   const IconComponent: StepIconComponent = ({ className }) => (
-    <Image
-      src={SvgIcon}
-      alt={alt}
-      width={18}
-      height={18}
-      className={className}
-    />
+    <Image src={SvgIcon} alt={alt} width={18} height={18} className={className} />
   )
   IconComponent.displayName = `${alt}Icon`
   return IconComponent
@@ -42,10 +34,12 @@ export const stepIcons: Record<StepKeys, StepIconComponent> = {
   [StepKeys.KAFKA_CONNECTION]: createIconComponent(KafkaIcon, 'Kafka'),
   [StepKeys.TOPIC_SELECTION_1]: createIconComponent(LeftTopicIcon, 'Topic'),
   [StepKeys.TOPIC_SELECTION_2]: createIconComponent(RightTopicIcon, 'Right Topic'),
+  [StepKeys.KAFKA_TYPE_VERIFICATION]: createIconComponent(IconCheck, 'Verify Types'),
   [StepKeys.DEDUPLICATION_CONFIGURATOR]: createIconComponent(DeduplicateIcon, 'Deduplicate'),
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: createIconComponent(LeftTopicIcon, 'Left Topic'),
   [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: createIconComponent(RightTopicIcon, 'Right Topic'),
   [StepKeys.FILTER_CONFIGURATOR]: createIconComponent(FilterIcon, 'Filter'),
+  [StepKeys.TRANSFORMATION_CONFIGURATOR]: createIconComponent(ModifyIcon, 'Transform'),
   [StepKeys.JOIN_CONFIGURATOR]: createIconComponent(JoinIcon, 'Join'),
   [StepKeys.CLICKHOUSE_CONNECTION]: createIconComponent(ClickhouseIcon, 'ClickHouse'),
   [StepKeys.CLICKHOUSE_MAPPER]: createIconComponent(MapDestinationIcon, 'Destination'),
@@ -60,12 +54,5 @@ export const getStepIcon = (stepKey: StepKeys): StepIconComponent => {
 
 // Completed state checkmark icon with primary color
 export const CompletedCheckIcon: StepIconComponent = ({ className }) => (
-  <Image
-    src={CheckPrimaryIcon}
-    alt="Completed"
-    width={18}
-    height={18}
-    className={className}
-  />
+  <Image src={CheckPrimaryIcon} alt="Completed" width={18} height={18} className={className} />
 )
-
