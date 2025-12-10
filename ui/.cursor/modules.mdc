@@ -1,0 +1,23 @@
+## Module Rules
+
+- **Scope**: Keep domain-specific UI/logic inside its module (`src/modules/<domain>`).
+
+- **Structure**: Use `components/`, `hooks/`, `types.ts`, `utils.ts`, and containers/managers as needed.
+
+- **Dependencies**:
+  - Avoid cross-module imports of internal components; share via `components/common` or `components/shared` if reused.
+  - Use services/api helpers for side effects; keep module components lean.
+
+- **Containers/Presenters**: Containers orchestrate store/API; presenters render UI.
+
+- **State**: Interact with Zustand slices via `useStore`; do not create hidden module-level state when shared state is needed.
+
+- **Forms**: Use Manager/Renderer split; follow schema/config-driven approach.
+
+- **Theming/Styling**: Use theme tokens + Tailwind; avoid hardcoded colors.
+
+- **New Modules**: Create a new module when domain is distinct; otherwise extend existing module to reduce duplication.
+
+## References
+
+- Module Architecture: `.cursor/architecture/MODULE_ARCHITECTURE.md`
