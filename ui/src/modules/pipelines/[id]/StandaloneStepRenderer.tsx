@@ -22,7 +22,7 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { usePipelineState } from '@/src/hooks/usePipelineState'
 import { PipelineStatus } from '@/src/types/pipeline'
 import { PipelineTransitionOverlay } from '@/src/components/common/PipelineTransitionOverlay'
-import { isDemoMode } from '@/src/utils/common.client'
+import { isDemoMode, isFiltersEnabled } from '@/src/config/feature-flags'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
@@ -151,6 +151,11 @@ function StandaloneStepRenderer({
         },
       })
     } else if (stepKey === StepKeys.FILTER_CONFIGURATOR) {
+      // Guard: If filters feature is disabled, close the renderer
+      if (!isFiltersEnabled()) {
+        onClose()
+        return
+      }
       setSteps({
         [StepKeys.FILTER_CONFIGURATOR]: {
           component: FilterConfigurator,
@@ -175,7 +180,7 @@ function StandaloneStepRenderer({
         },
       })
     }
-  }, [stepKey])
+  }, [stepKey, onClose])
 
   const handleNext = (nextStep: StepKeys) => {
     setCurrentStep(nextStep)

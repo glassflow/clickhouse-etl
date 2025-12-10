@@ -9,16 +9,10 @@ import { ReviewConfiguration } from '../review/ReviewConfiguration'
 import { JoinConfigurator } from '../join/JoinConfigurator'
 import { OperationKeys } from '@/src/config/constants'
 import type { SidebarStep } from './WizardSidebar'
-import { getRuntimeEnv } from '@/src/utils/common.client'
+import { isPreviewModeEnabled, isFiltersEnabled } from '@/src/config/feature-flags'
 
 // Re-export step icons for external use
 export { getStepIcon, stepIcons, type StepIconComponent } from './wizard-step-icons'
-
-// Check if preview mode is enabled (shows the Review & Deploy step)
-const isPreviewModeEnabled = (): boolean => {
-  const runtimeEnv = getRuntimeEnv()
-  return runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
-}
 
 // Sidebar step configuration for display in the wizard sidebar
 // Maps step keys to display titles and hierarchy information
@@ -141,16 +135,16 @@ export const deduplicateJoinJourney = getDeduplicateJoinJourney()
 
 // New topic count-based journeys
 export const getSingleTopicJourney = (): StepKeys[] => {
-  // 1 Topic: Kafka Connection → Topic Selection → Deduplication → Filter → ClickHouse Connection → Mapper → Review (if preview mode)
+  // 1 Topic: Kafka Connection → Topic Selection → Deduplication → Filter (if enabled) → ClickHouse Connection → Mapper → Review (if preview mode)
   // Deduplication and Filter are configured optionally
-  const steps: StepKeys[] = [
-    StepKeys.KAFKA_CONNECTION,
-    StepKeys.TOPIC_SELECTION_1,
-    StepKeys.DEDUPLICATION_CONFIGURATOR,
-    StepKeys.FILTER_CONFIGURATOR,
-    StepKeys.CLICKHOUSE_CONNECTION,
-    StepKeys.CLICKHOUSE_MAPPER,
-  ]
+  const steps: StepKeys[] = [StepKeys.KAFKA_CONNECTION, StepKeys.TOPIC_SELECTION_1, StepKeys.DEDUPLICATION_CONFIGURATOR]
+
+  // Only include Filter step if filters feature is enabled
+  if (isFiltersEnabled()) {
+    steps.push(StepKeys.FILTER_CONFIGURATOR)
+  }
+
+  steps.push(StepKeys.CLICKHOUSE_CONNECTION, StepKeys.CLICKHOUSE_MAPPER)
 
   // Only include Review step if preview mode is enabled
   if (isPreviewModeEnabled()) {

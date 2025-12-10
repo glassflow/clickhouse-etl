@@ -4,6 +4,7 @@ import React from 'react'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
 import { Pipeline } from '@/src/types/pipeline'
+import { isFiltersEnabled } from '@/src/config/feature-flags'
 
 // Define the section types for the sidebar
 export type SidebarSection =
@@ -95,8 +96,10 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
     }
   }
 
-  // Add Filter section
-  items.push({ key: 'filter', label: 'Filter', stepKey: StepKeys.FILTER_CONFIGURATOR })
+  // Add Filter section (only if filters feature is enabled)
+  if (isFiltersEnabled()) {
+    items.push({ key: 'filter', label: 'Filter', stepKey: StepKeys.FILTER_CONFIGURATOR })
+  }
 
   // Add ClickHouse sections
   items.push({ key: 'clickhouse-connection', label: 'ClickHouse Connection', stepKey: StepKeys.CLICKHOUSE_CONNECTION })

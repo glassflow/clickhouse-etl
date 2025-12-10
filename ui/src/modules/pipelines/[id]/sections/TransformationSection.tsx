@@ -6,6 +6,7 @@ import SingleColumnCard from '../SingleColumnCard'
 import { useStore } from '@/src/store'
 import { detectTransformationType } from '@/src/types/pipeline'
 import { countRulesInGroup } from '@/src/modules/filter/utils'
+import { isFiltersEnabled } from '@/src/config/feature-flags'
 
 // Filter card component to display filter configuration
 const FilterCard = ({
@@ -114,8 +115,10 @@ const DeduplicationCase = ({
           )
         })()}
 
-      {/* Filter card (if filter is configured) */}
-      <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
+      {/* Filter card (only if filters feature is enabled) */}
+      {isFiltersEnabled() && (
+        <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
+      )}
 
       {/* Bottom card: Destination Table and Schema Mapping */}
       <DoubleColumnCard
