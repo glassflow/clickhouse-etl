@@ -14,6 +14,7 @@ import (
 	badgerDeduplication "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication/badger"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
@@ -43,10 +44,6 @@ func mainDeduplicator(
 
 	if topicConfig == nil {
 		return fmt.Errorf("topic %s not found in pipeline config", cfg.DedupTopic)
-	}
-
-	if !topicConfig.Deduplication.Enabled {
-		return fmt.Errorf("deduplication is not enabled for topic %s", cfg.DedupTopic)
 	}
 
 	// Input: read from ingestor's output stream
@@ -113,22 +110,34 @@ func mainDeduplicator(
 		},
 	)
 
-	badgerOpts := badger.DefaultOptions("/data/badger").
-		WithLogger(nil)
+	// Create deduplicator only if deduplication is enabled
+	var badgerDedup deduplication.Dedup
+	var db *badger.DB
+	if topicConfig.Deduplication.Enabled {
+		badgerOpts := badger.DefaultOptions("/data/badger").
+			WithLogger(nil)
 
-	db, err := badger.Open(badgerOpts)
-	if err != nil {
-		log.ErrorContext(ctx, "failed to open BadgerDB", "path", "/data/badger", "error", err)
-		return fmt.Errorf("open BadgerDB: %w", err)
-	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.ErrorContext(ctx, "failed to close BadgerDB", "error", err)
+		db, err = badger.Open(badgerOpts)
+		if err != nil {
+			log.ErrorContext(ctx, "failed to open BadgerDB", "path", "/data/badger", "error", err)
+			return fmt.Errorf("open BadgerDB: %w", err)
 		}
-	}()
+		defer func() {
+			if err := db.Close(); err != nil {
+				log.ErrorContext(ctx, "failed to close BadgerDB", "error", err)
+			}
+		}()
 
-	ttl := topicConfig.Deduplication.Window.Duration()
-	badgerDedup := badgerDeduplication.NewDeduplicator(db, ttl)
+		ttl := topicConfig.Deduplication.Window.Duration()
+		badgerDedup = badgerDeduplication.NewDeduplicator(db, ttl)
+
+		log.InfoContext(ctx, "Deduplication enabled",
+			slog.Duration("ttl", ttl))
+	}
+
+	if !topicConfig.Deduplication.Enabled {
+		log.InfoContext(ctx, "Deduplication disabled, running transformations only")
+	}
 
 	batchReader := stream.NewBatchReader(consumer, log)
 	batchWriter := stream.NewNatsBatchWriter(
@@ -137,10 +146,30 @@ func mainDeduplicator(
 		log,
 		pendingPublishesLimit,
 	)
+	dlqWriter := stream.NewNatsBatchWriter(
+		dlqPublisher,
+		nil,
+		log,
+		pendingPublishesLimit,
+	)
+
+	// Create stateless transformer if enabled
+	var statelessTransformer *json.Transformer
+	if pipelineCfg.StatelessTransformation.Enabled {
+		statelessTransformer, err = json.NewTransformer(pipelineCfg.StatelessTransformation.Config.Transform)
+		if err != nil {
+			return fmt.Errorf("create stateless transformer: %w", err)
+		}
+
+		log.InfoContext(ctx, "Stateless transformer enabled",
+			slog.Int("transformations_count", len(pipelineCfg.StatelessTransformation.Config.Transform)))
+	}
 
 	dedupService, err := deduplication.NewDedupService(
 		batchReader,
 		batchWriter,
+		dlqWriter,
+		statelessTransformer,
 		badgerDedup,
 		log,
 		batchSize,

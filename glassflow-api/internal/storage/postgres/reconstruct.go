@@ -46,18 +46,20 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 
 	joinConfig := reconstructJoinConfig(data.transformations)
 	filterConfig := reconstructFilterConfig(data.transformations)
+	statelessTransformationConfig := reconstructStatelessTransformationConfig(data.transformations)
 
 	id := data.pipelineID
 	cfg := &models.PipelineConfig{
-		ID:        id,
-		Name:      data.name,
-		Mapper:    mapperConfig,
-		Ingestor:  ingestorConfig,
-		Join:      joinConfig,
-		Sink:      sinkComponentConfig,
-		Filter:    filterConfig,
-		CreatedAt: data.createdAt,
-		Metadata:  metadata,
+		ID:                      id,
+		Name:                    data.name,
+		Mapper:                  mapperConfig,
+		Ingestor:                ingestorConfig,
+		Join:                    joinConfig,
+		Sink:                    sinkComponentConfig,
+		Filter:                  filterConfig,
+		StatelessTransformation: statelessTransformationConfig,
+		CreatedAt:               data.createdAt,
+		Metadata:                metadata,
 		Status: models.PipelineHealth{
 			PipelineID:    id,
 			PipelineName:  data.name,
@@ -126,4 +128,13 @@ func reconstructFilterConfig(transformations map[string]Transformation) models.F
 		_ = json.Unmarshal(filterTrans.Config, &filterConfig)
 	}
 	return filterConfig
+}
+
+// reconstructStatelessTransformationConfig reconstructs StatelessTransformation from transformations
+func reconstructStatelessTransformationConfig(transformations map[string]Transformation) models.StatelessTransformation {
+	statelessConfig := models.StatelessTransformation{Enabled: false}
+	if statelessTrans, ok := transformations["stateless_transformation"]; ok {
+		_ = json.Unmarshal(statelessTrans.Config, &statelessConfig)
+	}
+	return statelessConfig
 }

@@ -25,75 +25,78 @@ func NewDeduplicator(
 	}
 }
 
-// Deduplicate filters out messages that have already been seen
-func (d *Deduplicator) Deduplicate(
+// FilterDuplicates returns only messages that haven't been seen before (read-only check)
+func (d *Deduplicator) FilterDuplicates(
 	ctx context.Context,
 	messages []jetstream.Msg,
-	sendBatch func(ctx context.Context, messages []jetstream.Msg) error,
-) error {
+) ([]jetstream.Msg, error) {
 	if len(messages) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	err := d.db.Update(func(txn *badger.Txn) error {
-		deduplicatedMessages, err := d.deduplicateMessages(ctx, txn, messages)
-		if err != nil {
-			return fmt.Errorf("deduplicate messages: %w", err)
-		}
+	var filtered []jetstream.Msg
+	err := d.db.View(func(txn *badger.Txn) error {
+		filtered = make([]jetstream.Msg, 0, len(messages))
+		for _, msg := range messages {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
 
-		err = sendBatch(ctx, deduplicatedMessages)
-		if err != nil {
-			return fmt.Errorf("send batch: %w", err)
+			msgID := msg.Headers().Get("Nats-Msg-Id")
+			if msgID == "" {
+				filtered = append(filtered, msg)
+				continue
+			}
+
+			_, err := txn.Get([]byte(msgID))
+			if err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
+				return fmt.Errorf("failed to check key: %w", err)
+			}
+
+			// Key not found means not a duplicate
+			if errors.Is(err, badger.ErrKeyNotFound) {
+				filtered = append(filtered, msg)
+			}
 		}
 
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("deduplication transaction failed: %w", err)
+		return nil, err
 	}
 
-	return nil
+	return filtered, nil
 }
 
-func (d *Deduplicator) deduplicateMessages(
+// SaveKeys marks message IDs as seen with TTL
+func (d *Deduplicator) SaveKeys(
 	ctx context.Context,
-	txn *badger.Txn,
 	messages []jetstream.Msg,
-) ([]jetstream.Msg, error) {
-	deduplicatedMessages := make([]jetstream.Msg, 0, len(messages))
-	for _, msg := range messages {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		// Get the Nats-Msg-Id header set by the ingestor
-		msgID := msg.Headers().Get("Nats-Msg-Id")
-		if msgID == "" {
-			deduplicatedMessages = append(deduplicatedMessages, msg)
-			continue
-		}
-
-		key := []byte(msgID)
-
-		_, err := txn.Get(key)
-		if err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
-			return nil, fmt.Errorf("failed to check key existence: %w", err)
-		}
-
-		// If key exists (no error), it's a duplicate - skip it
-		if err == nil {
-			continue
-		}
-
-		deduplicatedMessages = append(deduplicatedMessages, msg)
-
-		entry := badger.NewEntry(key, []byte{}).WithTTL(d.ttl)
-		if err := txn.SetEntry(entry); err != nil {
-			return nil, fmt.Errorf("failed to set entry: %w", err)
-		}
+) error {
+	if len(messages) == 0 {
+		return nil
 	}
 
-	return deduplicatedMessages, nil
+	return d.db.Update(func(txn *badger.Txn) error {
+		for _, msg := range messages {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			msgID := msg.Headers().Get("Nats-Msg-Id")
+			if msgID == "" {
+				continue
+			}
+
+			entry := badger.NewEntry([]byte(msgID), []byte{}).WithTTL(d.ttl)
+			if err := txn.SetEntry(entry); err != nil {
+				return fmt.Errorf("failed to set entry: %w", err)
+			}
+		}
+		return nil
+	})
 }

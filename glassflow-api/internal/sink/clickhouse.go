@@ -11,6 +11,8 @@ import (
 
 	"github.com/avast/retry-go"
 
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -18,7 +20,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
-	"github.com/nats-io/nats.go/jetstream"
 )
 
 type ClickHouseSink struct {
@@ -29,6 +30,7 @@ type ClickHouseSink struct {
 	shutdownOnce          sync.Once
 	sinkConfig            models.SinkComponentConfig
 	clickhouseQueryConfig models.ClickhouseQueryConfig
+	streamSourceID        string
 	log                   *slog.Logger
 	meter                 *observability.Meter
 	dlqPublisher          stream.Publisher
@@ -42,6 +44,7 @@ func NewClickHouseSink(
 	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
 	clickhouseQueryConfig models.ClickhouseQueryConfig,
+	streamSourceID string,
 ) (*ClickHouseSink, error) {
 	clickhouseClient, err := client.NewClickHouseClient(context.Background(), sinkConfig.ClickHouseConnectionParams)
 	if err != nil {
@@ -61,6 +64,7 @@ func NewClickHouseSink(
 		meter:                 meter,
 		dlqPublisher:          dlqPublisher,
 		clickhouseQueryConfig: clickhouseQueryConfig,
+		streamSourceID:        streamSourceID,
 	}, nil
 }
 
@@ -304,12 +308,22 @@ func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (batch.Batch, error) {
-	query := fmt.Sprintf(
-		"INSERT INTO %s.%s (%s)",
-		ch.client.GetDatabase(),
-		ch.client.GetTableName(),
-		strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
-	)
+	var query string
+	if ch.streamSourceID != "" {
+		query = fmt.Sprintf(
+			"INSERT INTO %s.%s (%s)",
+			ch.client.GetDatabase(),
+			ch.client.GetTableName(),
+			strings.Join(ch.schemaMapper.GetOrderedColumnsStream(ch.streamSourceID), ", "),
+		)
+	} else {
+		query = fmt.Sprintf(
+			"INSERT INTO %s.%s (%s)",
+			ch.client.GetDatabase(),
+			ch.client.GetTableName(),
+			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
+		)
+	}
 
 	ch.log.Debug("Insert query", "query", query)
 
@@ -325,7 +339,12 @@ func (ch *ClickHouseSink) createCHBatch(
 			return nil, fmt.Errorf("failed to get message metadata: %w", err)
 		}
 
-		values, err := ch.schemaMapper.PrepareValues(msg.Data())
+		var values []any
+		if ch.streamSourceID != "" {
+			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
+		} else {
+			values, err = ch.schemaMapper.PrepareValues(msg.Data())
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
 		}

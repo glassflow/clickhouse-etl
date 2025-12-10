@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,7 +17,9 @@ type Mapper interface {
 	GetJoinKey(streamSchemaName string, data []byte) (any, error)
 	GetKey(streamSchemaName, keyName string, data []byte) (any, error)
 	GetOrderedColumns() []string
+	GetOrderedColumnsStream(streamSchemaName string) []string
 	PrepareValues(data []byte) ([]any, error)
+	PrepareValuesStream(streamSchemaName string, data []byte) ([]any, error)
 	GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error)
 	JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error)
 	ValidateSchema(streamSchemaName string, data []byte) error
@@ -68,6 +71,32 @@ type JsonToClickHouseMapper struct {
 
 	leftStream  string
 	rightStream string
+}
+
+func (m *JsonToClickHouseMapper) GetOrderedColumnsStream(streamSchemaName string) []string {
+	var columns []string
+	for _, column := range m.Columns {
+		if column.StreamName == streamSchemaName {
+			columns = append(columns, column.ColumnName)
+		}
+	}
+	return columns
+}
+
+func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, data []byte) ([]any, error) {
+	mappedData, err := m.prepareForClickHouseStream(streamSchemaName, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
+	}
+
+	var values []any
+	for _, column := range m.Columns {
+		if column.StreamName == streamSchemaName {
+			values = append(values, mappedData[column.ColumnName])
+		}
+	}
+
+	return values, nil
 }
 
 func convertStreams(streams map[string]models.StreamSchemaConfig) map[string]Stream {
@@ -241,6 +270,41 @@ func (m *JsonToClickHouseMapper) GetKey(streamSchemaName, keyName string, data [
 	return m.getKey(streamSchemaName, keyName, data)
 }
 
+// prepareForClickHouseStream prepares data for a specific stream without stream name prefixing.
+// This is used for single-stream data like transformation output: {"event_id": "123", "name": "John"}
+func (m *JsonToClickHouseMapper) prepareForClickHouseStream(streamSchemaName string, data []byte) (map[string]any, error) {
+	var jsonData map[string]any
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
+	}
+
+	result := make(map[string]any)
+
+	for _, column := range m.Columns {
+		if column.StreamName != streamSchemaName {
+			continue
+		}
+
+		// Look for field without stream name prefix (single-stream data)
+		fieldName := column.FieldName
+		value, exists := getNestedValue(jsonData, fieldName)
+		if !exists {
+			continue
+		}
+
+		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
+
+		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
+		}
+
+		result[column.ColumnName] = convertedValue
+	}
+
+	return result, nil
+}
+
 func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]any, error) {
 	var jsonData map[string]any
 	if err := json.Unmarshal(data, &jsonData); err != nil {
@@ -327,7 +391,15 @@ func (m *JsonToClickHouseMapper) ValidateSchema(streamSchemaName string, data []
 		return fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
-	for key := range m.Streams[streamSchemaName].Fields {
+	// Get all field names and sort them for deterministic validation order
+	fieldNames := make([]string, 0, len(m.Streams[streamSchemaName].Fields))
+	for fieldName := range m.Streams[streamSchemaName].Fields {
+		fieldNames = append(fieldNames, fieldName)
+	}
+	sort.Strings(fieldNames)
+
+	// Check fields in sorted order
+	for _, key := range fieldNames {
 		if _, exists := getNestedValue(jsonData, key); !exists {
 			return fmt.Errorf("field '%s' not found in data for stream '%s'", key, streamSchemaName)
 		}

@@ -473,7 +473,7 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 			DedupWindow:  s.Deduplication.Window.Duration(),
 			Replicas:     s.Replicas,
 			Deduplication: &operator.Deduplication{
-				Enabled:          s.Deduplication.Enabled,
+				Enabled:          s.Deduplication.Enabled || cfg.StatelessTransformation.Enabled,
 				OutputStream:     models.GetDedupOutputStreamName(cfg.ID, s.Name),
 				NATSConsumerName: models.GetNATSDedupConsumerName(cfg.ID),
 			},

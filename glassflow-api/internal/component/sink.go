@@ -6,13 +6,14 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
-	"github.com/nats-io/nats.go/jetstream"
 )
 
 type Sink interface {
@@ -36,6 +37,7 @@ func NewSinkComponent(
 	log *slog.Logger,
 	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
+	streamSourceID string,
 ) (Component, error) {
 	if sinkConfig.Type != internal.ClickHouseSinkType {
 		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
@@ -51,6 +53,7 @@ func NewSinkComponent(
 		models.ClickhouseQueryConfig{
 			WaitForAsyncInsert: true,
 		},
+		streamSourceID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sink: %w", err)
