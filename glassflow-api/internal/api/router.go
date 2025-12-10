@@ -43,8 +43,8 @@ func NewRouter(
 	config.DocsPath = ""
 
 	huma.NewError = func(status int, message string, errs ...error) huma.StatusError {
-		log.Error("error happened", "status", status, "message", message, "errors", errs)
 		if len(errs) >= 1 {
+			log.Error("error happened", "status", status, "message", message, "errors", errs)
 			message = fmt.Sprintf("%s: %s", message, errs[0])
 		}
 		return &ErrorDetail{
@@ -74,6 +74,7 @@ func NewRouter(
 	registerHumaHandler("/api/v1/pipeline/{id}/metadata", h.updatePipelineMetadata, log, UpdatePipelineMetadataDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}/health", h.getPipelineHealth, log, GetPipelineHealthDocs(), humaAPI)
 	registerHumaHandler("/api/v1/filter/validate", h.validateFilter, log, ValidateFilterDocs(), humaAPI)
+	registerHumaHandler("/api/v1/transform/expression/evaluate", h.evaluateTransform, log, EvaluateTransformDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline", h.getPipelines, log, GetPipelinesDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}", h.getPipeline, log, GetPipelineDocs(), humaAPI)
 

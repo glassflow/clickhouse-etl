@@ -39,6 +39,9 @@ func (w *NatsAsyncBatchWriter) WriteNatsBatch(ctx context.Context, messages []*n
 
 	futures := make([]jetstream.PubAckFuture, 0, len(messages))
 	for _, msg := range messages {
+		if msg.Subject == "" {
+			msg.Subject = w.publisher.GetSubject()
+		}
 		fut, err := w.publisher.PublishNatsMsgAsync(msg, w.pendingPublishesLimit)
 		if err != nil {
 			w.log.Error("Failed to publish message async",

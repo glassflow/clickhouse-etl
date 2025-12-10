@@ -5,19 +5,21 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 func TestTransformer_Transform(t *testing.T) {
 	tests := []struct {
 		name            string
-		transformations []TransformationConfig
+		transformations []models.Transform
 		input           string
 		expected        string
 		wantErr         bool
 	}{
 		{
 			name: "complete mapping with all field types",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseISO8601(_x40timestamp)`,
 					OutputName: "timestamp",
@@ -74,7 +76,7 @@ func TestTransformer_Transform(t *testing.T) {
 					OutputType: "string",
 				},
 				{
-					Expression: `extractTaggrsPathType(path)`,
+					Expression: `extractPathType(path)`,
 					OutputName: "event_request_type",
 					OutputType: "string",
 				},
@@ -206,13 +208,13 @@ func TestTransformer_Transform(t *testing.T) {
 func TestCustomFunctions(t *testing.T) {
 	tests := []struct {
 		name            string
-		transformations []TransformationConfig
+		transformations []models.Transform
 		input           string
 		expected        string
 	}{
 		{
 			name: "toString",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `toString(num)`,
 					OutputName: "result",
@@ -224,7 +226,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "containsStr",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `containsStr(text, "world")`,
 					OutputName: "result",
@@ -236,7 +238,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "hasPrefix",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `hasPrefix(text, "hello")`,
 					OutputName: "result",
@@ -248,7 +250,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "hasSuffix",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `hasSuffix(text, "world")`,
 					OutputName: "result",
@@ -260,7 +262,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "upper",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `upper(text)`,
 					OutputName: "result",
@@ -272,7 +274,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "lower",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `lower(text)`,
 					OutputName: "result",
@@ -284,7 +286,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "trim",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `trim(text)`,
 					OutputName: "result",
@@ -296,7 +298,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "split",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `split(text, ",")`,
 					OutputName: "result",
@@ -308,7 +310,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "join",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `join(items, ",")`,
 					OutputName: "result",
@@ -320,7 +322,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "replace",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `replace(text, "world", "universe")`,
 					OutputName: "result",
@@ -332,7 +334,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "toInt - valid",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `toInt(text)`,
 					OutputName: "result",
@@ -344,7 +346,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "toInt - invalid",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `toInt(text)`,
 					OutputName: "result",
@@ -356,7 +358,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "toFloat - valid",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `toFloat(text)`,
 					OutputName: "result",
@@ -368,7 +370,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "toFloat - invalid",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `toFloat(text)`,
 					OutputName: "result",
@@ -380,7 +382,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "toDate - from unix timestamp int",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `toDate(timestamp)`,
 					OutputName: "result",
@@ -392,7 +394,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "toDate - from unix timestamp int64",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `toDate(parseISO8601(ts))`,
 					OutputName: "result",
@@ -404,7 +406,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - device Mobile",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "device")`,
 					OutputName: "result",
@@ -416,7 +418,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - device Tablet",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "device")`,
 					OutputName: "result",
@@ -428,7 +430,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - device Desktop",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "device")`,
 					OutputName: "result",
@@ -440,7 +442,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - browser Chrome",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "browser")`,
 					OutputName: "result",
@@ -452,7 +454,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - browser Firefox",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "browser")`,
 					OutputName: "result",
@@ -464,7 +466,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - browser Safari",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "browser")`,
 					OutputName: "result",
@@ -476,7 +478,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - browser Edge",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "browser")`,
 					OutputName: "result",
@@ -488,7 +490,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - os Windows",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "os")`,
 					OutputName: "result",
@@ -500,7 +502,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - os macOS",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "os")`,
 					OutputName: "result",
@@ -512,7 +514,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - os iOS",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "os")`,
 					OutputName: "result",
@@ -524,7 +526,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - os Android",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "os")`,
 					OutputName: "result",
@@ -536,7 +538,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseUserAgent - os Linux",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseUserAgent(ua, "os")`,
 					OutputName: "result",
@@ -548,7 +550,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "keys",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `keys(parseQuery(query))`,
 					OutputName: "result",
@@ -560,7 +562,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseQuery - single key",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseQuery(query)["a"]`,
 					OutputName: "result",
@@ -572,7 +574,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "parseQuery - nested params",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `parseQuery(query)["ep.event_id"]`,
 					OutputName: "event_id",
@@ -589,7 +591,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "len of array",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `len(items)`,
 					OutputName: "result",
@@ -601,7 +603,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "passthrough - direct field access",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `name`,
 					OutputName: "name",
@@ -613,7 +615,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "is_image",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `hasSuffix(filename, ".png") || hasSuffix(filename, ".jpg") ? 1 : 0`,
 					OutputName: "is_image",
@@ -625,7 +627,7 @@ func TestCustomFunctions(t *testing.T) {
 		},
 		{
 			name: "is_image bool",
-			transformations: []TransformationConfig{
+			transformations: []models.Transform{
 				{
 					Expression: `hasSuffix(filename, ".png") || hasSuffix(filename, ".jpg") ? true : false`,
 					OutputName: "is_image",

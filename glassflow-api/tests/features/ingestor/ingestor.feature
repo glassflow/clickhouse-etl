@@ -324,8 +324,8 @@ Feature: Kafka Ingestor
             | 456 | Bob   |
 
         And I check DLQ stream with content
-            | component | error                   | original_message |
-            | ingestor  | failed to validate data | {"key": "value"} |
+            | component | error                                                                         | original_message |
+            | ingestor  | failed to validate data: field 'id' not found in data for stream 'test_topic' | {"key": "value"} |
 
     Scenario: Run 2 ingestor from 2 separate pipelines for the one kafka topic
         Given a Kafka topic "test_topic" with 1 partition

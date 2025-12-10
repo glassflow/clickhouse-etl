@@ -210,8 +210,8 @@ type schemaField struct {
 	SourceID   string `json:"source_id"`
 	Name       string `json:"name"`
 	Type       string `json:"type"`
-	ColumnName string `json:"column_name"`
-	ColumnType string `json:"column_type"`
+	ColumnName string `json:"column_name,omitempty"`
+	ColumnType string `json:"column_type,omitempty"`
 }
 
 type schema struct {
@@ -219,14 +219,15 @@ type schema struct {
 }
 
 type pipelineJSON struct {
-	PipelineID string                  `json:"pipeline_id"`
-	Name       string                  `json:"name"`
-	Source     pipelineSource          `json:"source"`
-	Join       pipelineJoin            `json:"join,omitempty"`
-	Filter     pipelineFilter          `json:"filter,omitempty"`
-	Sink       clickhouseSink          `json:"sink"`
-	Schema     schema                  `json:"schema"`
-	Metadata   models.PipelineMetadata `json:"metadata,omitempty"`
+	PipelineID              string                         `json:"pipeline_id"`
+	Name                    string                         `json:"name"`
+	Source                  pipelineSource                 `json:"source"`
+	Join                    pipelineJoin                   `json:"join,omitempty"`
+	Filter                  pipelineFilter                 `json:"filter,omitempty"`
+	StatelessTransformation models.StatelessTransformation `json:"stateless_transformation,omitempty"`
+	Sink                    clickhouseSink                 `json:"sink"`
+	Schema                  schema                         `json:"schema"`
+	Metadata                models.PipelineMetadata        `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -369,7 +370,11 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 	// Create a map of topic names to their deduplication status for quick lookup
 	topicDedupMap := make(map[string]bool)
 	for _, topic := range p.Source.Topics {
-		topicDedupMap[topic.Topic] = topic.Deduplication.Enabled
+		isDedupEnabled := topic.Deduplication.Enabled
+		if p.StatelessTransformation.Enabled {
+			isDedupEnabled = true
+		}
+		topicDedupMap[topic.Topic] = isDedupEnabled
 	}
 
 	var sources []models.JoinSourceConfig
@@ -445,7 +450,7 @@ func getSinkStreamID(p pipelineJSON) (string, error) {
 		if len(p.Source.Topics) > 0 {
 			firstTopic := p.Source.Topics[0]
 			// If deduplication is enabled for this topic, use the dedup output stream
-			if firstTopic.Deduplication.Enabled {
+			if firstTopic.Deduplication.Enabled || p.StatelessTransformation.Enabled {
 				sinkStreamID = models.GetDedupOutputStreamName(p.PipelineID, firstTopic.Topic)
 			} else {
 				sinkStreamID = models.GetIngestorStreamName(p.PipelineID, firstTopic.Topic)
@@ -624,6 +629,12 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 	return filterConfig, nil
 }
 
+func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTransformation, error) {
+	// Directly return the StatelessTransformation from the pipeline JSON
+	// since it's already the correct model type
+	return pipeline.StatelessTransformation, nil
+}
+
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	if len(strings.TrimSpace(pipeline.PipelineID)) == 0 {
 		return zero, fmt.Errorf("pipeline ID cannot be empty")
@@ -659,6 +670,11 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		return zero, fmt.Errorf("create filter config: %w", err)
 	}
 
+	statelessTransformationConfig, err := newStatelessTransformationConfig(pipeline)
+	if err != nil {
+		return zero, fmt.Errorf("create stateless transformation config: %w", err)
+	}
+
 	return models.NewPipelineConfig(
 		pipeline.PipelineID,
 		pipeline.Name,
@@ -667,6 +683,7 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		joinComponentConfig,
 		sinkComponentConfig,
 		filterConfig,
+		statelessTransformationConfig,
 	), nil
 }
 
@@ -773,6 +790,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Enabled:    p.Filter.Enabled,
 			Expression: p.Filter.Expression,
 		},
+		StatelessTransformation: p.StatelessTransformation,
 		Schema: schema{
 			Fields: schemaFields,
 		},
