@@ -199,6 +199,10 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 		return fmt.Errorf("get token: %w", err)
 	}
 
+	if properties == nil {
+		properties = make(map[string]interface{})
+	}
+
 	event := Event{
 		InstallationID: c.installationID,
 		EventName:      eventName,
