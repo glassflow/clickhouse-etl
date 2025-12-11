@@ -24,10 +24,10 @@ func HealthzSwaggerDocs() huma.Operation {
 	}
 }
 
-func (h *handler) healthz(w http.ResponseWriter, r *http.Request) {
+func (*handler) healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *handler) healthzV2(ctx context.Context, _ *struct{}) (*HealthResponse, error) {
+func (h *handler) healthzV2(_ context.Context, _ *struct{}) (*HealthResponse, error) {
 	return &HealthResponse{Body: HealthStatus{Status: "ok"}}, nil
 }
