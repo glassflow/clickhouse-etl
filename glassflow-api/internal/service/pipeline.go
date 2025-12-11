@@ -395,7 +395,7 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return fmt.Errorf("edit pipeline: %w", err)
 	}
 
-	p.trackPipelineEvent(ctx, "pipeline_update", pid, newCfg)
+	p.trackPipelineEvent(ctx, "pipeline_edit", pid, newCfg)
 
 	p.log.InfoContext(ctx, "pipeline edit initiated successfully", "pipeline_id", pid)
 	return nil
