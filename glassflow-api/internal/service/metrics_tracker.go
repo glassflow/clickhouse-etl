@@ -102,28 +102,28 @@ func (m *MetricsTracker) sendPipelineMetrics(ctx context.Context, pipeline model
 
 	// Collect ingestor stream metrics
 	ingestorMetrics := []map[string]interface{}{}
-	for _, topic := range pipeline.Ingestor.KafkaTopics {
+	for i, topic := range pipeline.Ingestor.KafkaTopics {
 		streamName := topic.OutputStreamID
 		if streamName == "" {
 			// If OutputStreamID is not present, send null
 			ingestorMetrics = append(ingestorMetrics, map[string]interface{}{
-				"topic_name":    topic.Name,
-				"stream_name":   nil,
+				"component":     "ingestor",
+				"topic_index":   i + 1,
 				"message_count": nil,
 				"size":          nil,
 				"last_received": nil,
 			})
 		} else {
 			metrics := getStreamMetrics(streamName)
-			metrics["topic_name"] = topic.Name
-			metrics["stream_name"] = streamName
+			metrics["component"] = "ingestor"
+			metrics["topic_index"] = i + 1
 			ingestorMetrics = append(ingestorMetrics, metrics)
 		}
 	}
 
 	// Collect dedup stream metrics
 	dedupMetrics := []map[string]interface{}{}
-	for _, topic := range pipeline.Ingestor.KafkaTopics {
+	for i, topic := range pipeline.Ingestor.KafkaTopics {
 		if !topic.Deduplication.Enabled {
 			continue
 		}
@@ -132,16 +132,16 @@ func (m *MetricsTracker) sendPipelineMetrics(ctx context.Context, pipeline model
 		if streamName == "" {
 			// If stream name cannot be generated, send null
 			dedupMetrics = append(dedupMetrics, map[string]interface{}{
-				"topic_name":    topic.Name,
-				"stream_name":   nil,
+				"component":     "dedup",
+				"topic_index":   i + 1,
 				"message_count": nil,
 				"size":          nil,
 				"last_received": nil,
 			})
 		} else {
 			metrics := getStreamMetrics(streamName)
-			metrics["topic_name"] = topic.Name
-			metrics["stream_name"] = streamName
+			metrics["component"] = "dedup"
+			metrics["topic_index"] = i + 1
 			dedupMetrics = append(dedupMetrics, metrics)
 		}
 	}
@@ -151,7 +151,7 @@ func (m *MetricsTracker) sendPipelineMetrics(ctx context.Context, pipeline model
 	if pipeline.Join.Enabled {
 		joinedStreamName := models.GetJoinedStreamName(pipelineID)
 		joinMetrics = getStreamMetrics(joinedStreamName)
-		joinMetrics["stream_name"] = joinedStreamName
+		joinMetrics["component"] = "join"
 	} else {
 		joinMetrics = nil
 	}
@@ -159,6 +159,7 @@ func (m *MetricsTracker) sendPipelineMetrics(ctx context.Context, pipeline model
 	// Collect DLQ stream metrics
 	dlqStreamName := models.GetDLQStreamName(pipelineID)
 	dlqMetrics := map[string]interface{}{
+		"component":     "dlq",
 		"message_count": 0,
 		"size":          0,
 		"last_received": nil,
