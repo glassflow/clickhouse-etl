@@ -28,6 +28,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
 )
 
 type config struct {
@@ -74,6 +75,12 @@ type config struct {
 	K8sResourceName    string `default:"pipelines" split_words:"true"`
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
+
+	TrackingEnabled        bool   `default:"false" split_words:"true"`
+	TrackingEndpoint       string `default:"" split_words:"true"`
+	TrackingUsername       string `default:"" split_words:"true"`
+	TrackingPassword       string `default:"" split_words:"true"`
+	TrackingInstallationID string `default:"" split_words:"true"`
 }
 
 var version = "dev"
@@ -233,14 +240,19 @@ func mainEtl(
 		}
 	}
 
-	pipelineSvc := service.NewPipelineService(orch, db, log)
+	trackingClient := newTrackingClient(cfg, log)
+
+	pipelineSvc := service.NewPipelineService(orch, db, log, trackingClient)
 
 	err = pipelineSvc.CleanUpPipelines(ctx)
 	if err != nil {
 		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
 	}
 
-	handler := api.NewRouter(log, pipelineSvc, dlq, meter)
+	handler := api.NewRouter(log, pipelineSvc, dlq, meter, trackingClient)
+
+	metricsTracker := service.NewMetricsTracker(db, nc, dlq, trackingClient, log)
+	go metricsTracker.Start(ctx)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
@@ -259,6 +271,13 @@ func mainEtl(
 	go func() {
 		defer wg.Done()
 		serverErr <- apiServer.Start()
+	}()
+
+	go func() {
+		time.Sleep(2 * time.Second) // small delay to wait for server to start
+		pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		trackingClient.SendEvent(pingCtx, "readiness_ping", "api", nil)
 	}()
 
 	select {
@@ -319,11 +338,14 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		meter,
 	)
 
+	trackingClient := newTrackingClient(cfg, log)
+
 	return runWithGracefulShutdown(
 		ctx,
 		sinkRunner,
 		log,
 		internal.RoleSink,
+		trackingClient,
 	)
 }
 
@@ -369,11 +391,14 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 
 	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
 
+	trackingClient := newTrackingClient(cfg, log)
+
 	return runWithGracefulShutdown(
 		ctx,
 		joinRunner,
 		log,
 		internal.RoleJoin,
+		trackingClient,
 	)
 }
 
@@ -394,11 +419,14 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 
 	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
 
+	trackingClient := newTrackingClient(cfg, log)
+
 	return runWithGracefulShutdown(
 		ctx,
 		ingestorRunner,
 		log,
 		internal.RoleIngestor,
+		trackingClient,
 	)
 }
 
@@ -407,6 +435,7 @@ func runWithGracefulShutdown(
 	runner service.Runner,
 	log *slog.Logger,
 	serviceName string,
+	trackingClient *tracking.Client,
 ) error {
 	serverErr := make(chan error, 1)
 	wg := sync.WaitGroup{}
@@ -425,13 +454,28 @@ func runWithGracefulShutdown(
 			if err != nil {
 				return fmt.Errorf("%s runner failed: %w", serviceName, err)
 			}
+			// Send readiness ping after successful startup
+			eventName := serviceName + "_ready"
+			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			trackingClient.SendEvent(pingCtx, eventName, serviceName, nil)
 		case <-runner.Done():
 			log.Warn("Component has crashed!", slog.String("service", serviceName))
 			wg.Wait()
+			// Send crashed ping
+			eventName := serviceName + "_crashed"
+			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			trackingClient.SendEvent(pingCtx, eventName, serviceName, nil)
 			return fmt.Errorf("%s component stopped by itself", serviceName)
 		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 			wg.Add(1)
+			// Send terminated ping
+			eventName := serviceName + "_terminated"
+			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			trackingClient.SendEvent(pingCtx, eventName, serviceName, nil)
 			go func() {
 				defer wg.Done()
 				runner.Shutdown()
@@ -456,6 +500,17 @@ func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ er
 	}
 
 	return pipelineCfg, nil
+}
+
+func newTrackingClient(cfg *config, log *slog.Logger) *tracking.Client {
+	return tracking.NewClient(
+		cfg.TrackingEndpoint,
+		cfg.TrackingUsername,
+		cfg.TrackingPassword,
+		cfg.TrackingInstallationID,
+		cfg.TrackingEnabled,
+		log,
+	)
 }
 
 func cleanUp(nc *client.NATSClient, log *slog.Logger) {
