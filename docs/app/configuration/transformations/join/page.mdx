@@ -2,6 +2,7 @@
 title: 'Join'
 description: 'Learn how temporal joins work in GlassFlow and how to configure them'
 ---
+import { Callout, Tabs } from 'nextra/components'
 
 # Join
 
@@ -49,62 +50,36 @@ For more details on the join algorithm, see the [Data Flow](/architecture/data-f
 
 Join is configured at the pipeline level. Here's the configuration structure:
 
-```json
-{
-  "join": {
-    "enabled": true,
-    "type": "temporal",
-    "sources": [
-      {
-        "source_id": "orders-topic",
-        "join_key": "order_id",
-        "time_window": "1h",
-        "orientation": "left"
-      },
-      {
-        "source_id": "payments-topic",
-        "join_key": "order_id",
-        "time_window": "1h",
-        "orientation": "right"
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Join Configuration" src="/assets/ui_join_configuration.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "join": {
+        "enabled": true,
+        "type": "temporal",
+        "sources": [
+          {
+            "source_id": "orders-topic",
+            "join_key": "user_id",
+            "time_window": "1h",
+            "orientation": "left"
+          },
+          {
+            "source_id": "users-topic",
+            "join_key": "user_id",
+            "time_window": "1h",
+            "orientation": "right"
+          }
+        ]
       }
-    ]
-  }
-}
-```
-
-### Configuration Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `enabled` | boolean | Yes | Whether joining is enabled |
-| `type` | string | Yes | Join type. Currently only `"temporal"` is supported |
-| `sources` | array | Yes | List of sources to join. Must contain exactly 2 sources. See [Join Source Configuration](#join-source-configuration) |
-
-### Join Source Configuration
-
-Each source in the `sources` array has the following configuration:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `source_id` | string | Yes | Name of the Kafka topic to join. Must match a topic name in the `source.topics` array |
-| `join_key` | string | Yes | Field name in the events used for joining records. Must exist in both source topics |
-| `time_window` | string | Yes | Time window for joining records (e.g., `"1h"` for one hour). See [Time Windows](#time-windows) |
-| `orientation` | string | Yes | Join orientation. Must be either `"left"` or `"right"` |
-
-### Time Windows
-
-Time windows specify the maximum time difference between events that can be joined. Supported formats:
-
-- `"30s"` - 30 seconds
-- `"1m"` - 1 minute
-- `"1h"` - 1 hour
-- `"24h"` - 24 hours
-- `"7d"` - 7 days
-
-The time window determines:
-- How long events are kept in the KV stores waiting for a match
-- The maximum time difference between events that will be joined
-- When unmatched events are evicted from the stores
+    }
+    ```
+    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#join-configuration) for more details.
+  </Tabs.Tab>
+</Tabs>
 
 ## Best Practices
 

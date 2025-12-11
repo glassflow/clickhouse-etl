@@ -2,6 +2,7 @@
 title: 'Filter'
 description: 'Learn how filtering works in GlassFlow and how to configure filter expressions'
 ---
+import { Callout, Tabs } from 'nextra/components'
 
 # Filter
 
@@ -30,35 +31,26 @@ GlassFlow uses the [expr](https://github.com/expr-lang/expr) expression language
 - Logical operators (`and`, `or`, `not`)
 - Type-safe evaluation based on field types
 
-### Filtered Events
-
-Events that don't match the filter expression are:
-- Not processed further in the pipeline
-- Not sent to deduplication, join, or sink components
-- Not written to ClickHouse
-- Not counted in pipeline metrics (except filtered message metrics)
-
-This early filtering reduces processing overhead and storage costs by eliminating unwanted events early in the pipeline.
-
 ## Configuration
 
 Filter is configured at the pipeline level. Here's the configuration structure:
 
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "age > 18 and status == 'active'"
-  }
-}
-```
-
-### Configuration Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `enabled` | boolean | Yes | Whether filtering is enabled |
-| `expression` | string | Yes | Filter expression that evaluates to a boolean. See [Expression Syntax](#expression-syntax) |
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Filter Configuration" src="/assets/ui_filter_configuration.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "age > 18 and status == 'active'"
+      }
+    }
+    ```
+    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#filter-configuration) for more details.
+  </Tabs.Tab>
+</Tabs>
 
 ### Expression Syntax
 

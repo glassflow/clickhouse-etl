@@ -2,6 +2,7 @@
 title: 'Deduplication'
 description: 'Learn how deduplication works in GlassFlow and how to configure it'
 ---
+import { Callout, Tabs } from 'nextra/components'
 
 # Deduplication
 
@@ -42,47 +43,32 @@ For more details on how deduplication handles failures, see the [Data Flow](/arc
 
 Deduplication is configured per Kafka topic in the pipeline configuration. Here's the configuration structure:
 
-```json
-{
-  "source": {
-    "topics": [
-      {
-        "name": "my-topic",
-        "deduplication": {
-          "enabled": true,
-          "id_field": "event_id",
-          "id_field_type": "string",
-          "time_window": "24h"
-        }
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Deduplication Configuration" src="/assets/ui_dedup_configuration.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+   
+    ```json
+    {
+      "source": {
+        "topics": [
+          {
+            "name": "orders",
+            "deduplication": {
+              "enabled": true,
+              "id_field": "order_id",
+              "id_field_type": "string",
+              "time_window": "1h"
+            }
+          }
+        ]
       }
-    ]
-  }
-}
-```
-
-### Configuration Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `enabled` | boolean | Yes | Whether deduplication is enabled for this topic |
-| `id_field` | string | Yes | The field name in your events that contains the unique identifier |
-| `id_field_type` | string | Yes | The data type of the ID field (e.g., `"string"`, `"int"`, `"uuid"`) |
-| `time_window` | string | Yes | Time window for deduplication (e.g., `"1h"`, `"24h"`). See [Time Windows](#time-windows) |
-
-### Time Windows
-
-Time windows specify how long duplicate detection should be active. Supported formats:
-
-- `"30s"` - 30 seconds
-- `"1m"` - 1 minute
-- `"1h"` - 1 hour
-- `"24h"` - 24 hours
-- `"7d"` - 7 days
-
-The time window determines:
-- How long an event ID is remembered in the deduplication store
-- The maximum time between duplicate events that will be detected
-- When entries are automatically evicted from the store
+    }
+    ```
+    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#deduplication-configuration) for more details.
+  </Tabs.Tab>
+</Tabs>
 
 ## Best Practices
 
