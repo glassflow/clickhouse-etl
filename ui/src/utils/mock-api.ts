@@ -71,6 +71,8 @@ export const generateMockPipeline = (id: string = `pipeline-${Date.now()}`) => {
     pipeline_id: id,
     name: `Mock Pipeline ${id}`,
     state: state,
+    // Include filter from the random base pipeline, or default to disabled
+    filter: randomPipeline.filter || { enabled: false, expression: '' },
   }
 }
 

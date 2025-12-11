@@ -13,6 +13,7 @@ require (
 	github.com/expr-lang/expr v1.17.6
 	github.com/glassflow/glassflow-etl-k8s-operator v1.3.3-0.20251202085924-1261136896b4
 	github.com/golang-migrate/migrate/v4 v4.19.1
+	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jackc/pgx/v5 v5.7.6
@@ -21,6 +22,7 @@ require (
 	github.com/lmittmann/tint v1.0.7
 	github.com/nats-io/nats-server/v2 v2.12.1
 	github.com/nats-io/nats.go v1.47.0
+	github.com/spf13/cast v1.10.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
 	github.com/testcontainers/testcontainers-go/modules/clickhouse v0.35.0
@@ -79,7 +81,6 @@ require (
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/flatbuffers v25.2.10+incompatible // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-tpm v0.9.6 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect

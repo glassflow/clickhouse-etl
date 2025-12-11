@@ -5,6 +5,61 @@ import { StepKeys } from '@/src/config/constants'
 import SingleColumnCard from '../SingleColumnCard'
 import { useStore } from '@/src/store'
 import { detectTransformationType } from '@/src/types/pipeline'
+import { countRulesInGroup } from '@/src/modules/filter/utils'
+import { isFiltersEnabled } from '@/src/config/feature-flags'
+
+// Filter card component to display filter configuration
+const FilterCard = ({
+  onStepClick,
+  disabled,
+  validation,
+  activeStep,
+}: {
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
+  disabled: boolean
+  validation: any
+  activeStep: StepKeys | null
+}) => {
+  const { filterStore } = useStore()
+  const filterConfig = filterStore.filterConfig
+  const expressionString = filterStore.expressionString
+
+  // Count rules in the tree structure
+  const ruleCount = filterConfig.root ? countRulesInGroup(filterConfig.root) : 0
+
+  // Determine if filter is configured (either has rules in tree or has expression string from hydration)
+  const hasFilter = (filterConfig.enabled && ruleCount > 0) || (filterConfig.enabled && expressionString)
+
+  // Determine the display value
+  let displayValue: string
+  if (hasFilter) {
+    if (ruleCount > 0) {
+      const ruleLabel = ruleCount === 1 ? '1 rule' : `${ruleCount} rules`
+      const combinator = filterConfig.root?.combinator || 'and'
+      displayValue = `${ruleLabel} (${combinator.toUpperCase()})`
+    } else if (expressionString) {
+      // Filter was hydrated from expression string but tree not reconstructed
+      displayValue = 'Expression configured'
+    } else {
+      displayValue = 'Configured'
+    }
+  } else {
+    displayValue = 'No filter configured'
+  }
+
+  return (
+    <SingleCard
+      label={['Filter']}
+      value={[displayValue]}
+      orientation="center"
+      width="full"
+      onClick={() => onStepClick(StepKeys.FILTER_CONFIGURATOR)}
+      disabled={disabled}
+      validation={validation?.filterValidation}
+      selected={activeStep === StepKeys.FILTER_CONFIGURATOR}
+    />
+  )
+}
 
 // covers the case where there is a single topic and no join for deduplication or ingest only
 const DeduplicationCase = ({
@@ -59,6 +114,11 @@ const DeduplicationCase = ({
             />
           )
         })()}
+
+      {/* Filter card (only if filters feature is enabled) */}
+      {isFiltersEnabled() && (
+        <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
+      )}
 
       {/* Bottom card: Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -126,7 +186,9 @@ const JoinCase = ({
             onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1, 0)}
             disabled={disabled}
             validation={validation.topicsValidation}
-            selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || activeStep === StepKeys.TOPIC_SELECTION_1}
+            selected={
+              activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || activeStep === StepKeys.TOPIC_SELECTION_1
+            }
           />
         ) : (
           <SingleColumnCard
@@ -149,7 +211,9 @@ const JoinCase = ({
             onClick={() => onStepClick(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2, 1)}
             disabled={disabled}
             validation={validation.topicsValidation}
-            selected={activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2 || activeStep === StepKeys.TOPIC_SELECTION_2}
+            selected={
+              activeStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2 || activeStep === StepKeys.TOPIC_SELECTION_2
+            }
           />
         ) : (
           <SingleColumnCard
@@ -189,6 +253,8 @@ const JoinCase = ({
           selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
       </div>
+
+      {/* Note: Filter is not available for multi-topic journeys */}
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -290,6 +356,8 @@ const JoinDeduplicationCase = ({
           selected={activeStep === StepKeys.JOIN_CONFIGURATOR}
         />
       </div>
+
+      {/* Note: Filter is not available for multi-topic journeys */}
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard

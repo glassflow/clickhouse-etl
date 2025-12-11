@@ -1,0 +1,21 @@
+## Styling Rules
+
+- **Theme**: Dark-only. Do not add light theme variants unless explicitly required.
+
+- **Tokens**: Use semantic tokens from theme CSS; avoid hardcoded colors. If a new color is needed, add a semantic token rather than inline hex.
+
+- **Tailwind**: Use Tailwind for layout, spacing, typography. Keep class lists concise; avoid deeply nested utility chains.
+
+- **Base components**: `components/ui/*` should remain theme-compliant; avoid per-component hardcoded colors.
+
+- **Global CSS**: Place shared styles in `src/app/globals.css` or `src/app/styles/*`; avoid scattering ad-hoc styles in components.
+
+- **Responsiveness**: Use Tailwind responsive utilities; test key breakpoints.
+
+- **Animations/Transitions**: Keep subtle; prefer CSS utilities defined under `styles/animations.css` when possible.
+
+- **Consistency**: Reuse spacing/typography scale; avoid one-off sizes unless justified.
+
+## References
+
+- Theming Architecture: `.cursor/architecture/THEMING_ARCHITECTURE.md`

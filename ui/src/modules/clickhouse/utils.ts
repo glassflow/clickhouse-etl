@@ -44,6 +44,7 @@ export const buildInternalPipelineConfig = ({
   joinStore,
   kafkaStore,
   deduplicationStore,
+  filterStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -55,6 +56,7 @@ export const buildInternalPipelineConfig = ({
   joinStore: any
   kafkaStore: any
   deduplicationStore: any
+  filterStore?: any
 }): InternalPipelineConfig => {
   // Generate a new pipeline ID if one doesn't exist
   let finalPipelineId = pipelineId
@@ -405,6 +407,23 @@ export const buildInternalPipelineConfig = ({
       table: clickhouseDestination?.table,
       table_mapping: tableMappings,
     } as any, // Type assertion to bypass strict checks on conditional properties for now
+    // Include filter configuration only for single-topic pipelines
+    // Filter is not available for multi-topic journeys
+    ...(topicsConfig.length === 1
+      ? filterStore?.filterConfig?.enabled && filterStore?.expressionString
+        ? {
+            filter: {
+              enabled: true,
+              expression: filterStore.expressionString,
+            },
+          }
+        : {
+            filter: {
+              enabled: false,
+              expression: '',
+            },
+          }
+      : {}),
   }
 
   return config
@@ -422,6 +441,7 @@ export const generateApiConfig = ({
   joinStore,
   kafkaStore,
   deduplicationStore,
+  filterStore,
   version, // New optional parameter
 }: {
   pipelineId: string
@@ -434,6 +454,7 @@ export const generateApiConfig = ({
   joinStore: any
   kafkaStore: any
   deduplicationStore: any
+  filterStore?: any
   version?: string
 }) => {
   try {
@@ -449,6 +470,7 @@ export const generateApiConfig = ({
       joinStore,
       kafkaStore,
       deduplicationStore,
+      filterStore,
     })
 
     // 2. Get the appropriate adapter

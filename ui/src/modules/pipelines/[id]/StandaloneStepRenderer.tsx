@@ -11,6 +11,7 @@ import {
 import { StepKeys, OperationKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { JoinConfigurator } from '../../join/JoinConfigurator'
+import { FilterConfigurator } from '../../filter/FilterConfigurator'
 import StepRendererModal from './StepRendererModal'
 import StepRendererPageComponent from './StepRendererPageComponent'
 import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
@@ -21,7 +22,7 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { usePipelineState } from '@/src/hooks/usePipelineState'
 import { PipelineStatus } from '@/src/types/pipeline'
 import { PipelineTransitionOverlay } from '@/src/components/common/PipelineTransitionOverlay'
-import { isDemoMode } from '@/src/utils/common.client'
+import { isDemoMode, isFiltersEnabled } from '@/src/config/feature-flags'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
@@ -31,7 +32,13 @@ interface StandaloneStepRendererProps {
   topicIndex?: number // Topic index for multi-topic deduplication (0 = left, 1 = right)
 }
 
-function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUpdate, topicIndex = 0 }: StandaloneStepRendererProps) {
+function StandaloneStepRenderer({
+  stepKey,
+  onClose,
+  pipeline,
+  onPipelineStatusUpdate,
+  topicIndex = 0,
+}: StandaloneStepRendererProps) {
   const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
   const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
   const [steps, setSteps] = useState<any>({})
@@ -143,6 +150,19 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
           description: 'Configure join settings',
         },
       })
+    } else if (stepKey === StepKeys.FILTER_CONFIGURATOR) {
+      // Guard: If filters feature is disabled, close the renderer
+      if (!isFiltersEnabled()) {
+        onClose()
+        return
+      }
+      setSteps({
+        [StepKeys.FILTER_CONFIGURATOR]: {
+          component: FilterConfigurator,
+          title: 'Filter Configuration',
+          description: 'Define filter conditions for events',
+        },
+      })
     } else if (stepKey === StepKeys.CLICKHOUSE_CONNECTION) {
       setSteps({
         [StepKeys.CLICKHOUSE_CONNECTION]: {
@@ -160,7 +180,7 @@ function StandaloneStepRenderer({ stepKey, onClose, pipeline, onPipelineStatusUp
         },
       })
     }
-  }, [stepKey])
+  }, [stepKey, onClose])
 
   const handleNext = (nextStep: StepKeys) => {
     setCurrentStep(nextStep)

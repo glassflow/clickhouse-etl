@@ -153,6 +153,7 @@ function PipelineDetailsHeader({
               clickhouseDestinationStore,
               joinStore,
               deduplicationStore,
+              filterStore,
             } = useStore.getState()
             // Log all deduplication configs
             // const topicIndices = Object.keys(topicsStore.topics || {})
@@ -174,6 +175,7 @@ function PipelineDetailsHeader({
               joinStore,
               kafkaStore,
               deduplicationStore,
+              filterStore,
               version: coreStore.pipelineVersion, // Respect the original pipeline version
             })
 

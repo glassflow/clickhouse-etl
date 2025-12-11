@@ -1,0 +1,23 @@
+## API Rules
+
+- **Routing**: Use Next.js route handlers under `app/ui-api/*` as proxy; keep them thin.
+
+- **Flow**: UI → client API (`src/api/*`) → `/ui-api/*` → backend. Avoid direct backend calls from UI.
+
+- **Normalization**: Normalize payloads in routes (e.g., broker host mapping, port handling). Return `{ success: boolean, ... }` with proper HTTP status codes.
+
+- **Error handling**: Catch backend errors in routes; map to JSON error with status. In client API, surface meaningful errors; avoid swallowing.
+
+- **Mocking**: Respect `isMockMode`/`NEXT_PUBLIC_USE_MOCK_API`; use mock routes under `/ui-api/mock/*`.
+
+- **Services**: Place orchestration logic in `src/services/*` (Kafka/ClickHouse operations, state managers); keep client API simple.
+
+- **Typing**: Use shared types from `src/types`/`src/scheme`; avoid `any`. Parse backend statuses (e.g., `parsePipelineStatus`).
+
+- **HTTP**: Prefer `fetch` in client API; axios acceptable in route handlers where already used.
+
+- **Auth**: Auth0 handled via app routes; avoid manual cookie parsing in middleware.
+
+## References
+
+- API Architecture: `.cursor/architecture/API_ARCHITECTURE.md`

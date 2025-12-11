@@ -140,6 +140,10 @@ export function WizardSidebar({
 }: WizardSidebarProps) {
   // Separate top-level steps and substeps
   const topLevelSteps = steps.filter((step) => !step.parent)
+
+  // Detect if this is a multi-topic journey (has topic-selection-2)
+  const isMultiTopicJourney = topLevelSteps.some((step) => step.key === 'topic-selection-2')
+
   const substepsByParent = steps.reduce(
     (acc, step) => {
       if (step.parent) {
@@ -217,14 +221,17 @@ export function WizardSidebar({
     const hasSubsteps = substeps.length > 0
 
     // Calculate vertical line height for main step: extend past all substeps to connect to next main step
-    // Each step (including substeps) takes: ~60px (button with icon + padding + gap)
-    // From parent icon bottom (44px) to next main step icon center:
-    // - Gap to first substep: 8px
-    // - Substeps: substeps.length * 60px
+    // Each substep button takes: 52px (36px icon + 8px py-2 top + 8px py-2 bottom)
+    // From parent icon bottom (44px) to next main step icon edge:
+    // - Gap to substeps container: 8px
+    // - Substeps: substeps.length * height (no gap between substeps inside container)
     // - Gap to next main step: 8px
-    // - Next main step icon center: 26px
+    // - To next main step icon top edge: 8px
+    // Multi-topic journey has more flex gaps accumulating, requiring 60px increment
+    // Single-topic journey uses 56px increment
+    const substepHeightIncrement = isMultiTopicJourney ? 60 : 56
     const verticalLineHeight = hasSubsteps
-      ? 8 + substeps.length * 60 + 8 + 8 // gap + substeps + gap + next icon edge to edge
+      ? 8 + substeps.length * substepHeightIncrement + 8 + 8 // gap + substeps + gap + next icon edge
       : undefined
 
     return (
@@ -238,10 +245,21 @@ export function WizardSidebar({
             {/* Horizontal line starts at vertical line position (33px from container start) */}
             {/* Substep icon center is at: 40px (container padding) + 29px (from substep div) = 69px from container start */}
             {/* So horizontal line: left-[33px], width = 69px - 33px = 36px */}
-            <div className="absolute left-[33px] top-[26px] w-[27px] h-0.5 bg-[var(--color-border-neutral-faded)] z-0" />
-            {substeps.map((substep, subIndex) =>
-              renderStep(substep, true, isLastTopLevel && subIndex === substeps.length - 1),
-            )}
+            {substeps.map((substep, subIndex) => {
+              // Each substep button is 52px tall (36px icon + 8px padding top + 8px padding bottom)
+              // Horizontal lines align with icon centers within the substeps container
+              // First substep: 26px (center of icon), subsequent ones: 26px + (index * 52px)
+              const horizontalLineTop = 26 + subIndex * 52
+              return (
+                <React.Fragment key={substep.key}>
+                  <div
+                    className="absolute left-[33px] w-[27px] h-0.5 bg-[var(--color-border-neutral-faded)] z-0"
+                    style={{ top: `${horizontalLineTop}px` }}
+                  />
+                  {renderStep(substep, true, isLastTopLevel && subIndex === substeps.length - 1)}
+                </React.Fragment>
+              )
+            })}
           </div>
         )}
       </React.Fragment>

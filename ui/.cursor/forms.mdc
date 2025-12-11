@@ -1,0 +1,29 @@
+## Form Rules
+
+- **Schema-first**: Define Zod schema; infer types; keep messages user-friendly.
+
+- **Config-driven**: Define fields/groups in `src/config/*-form-config.ts`; render via `useRenderFormFields` or RHF primitives.
+
+- **Manager/Renderer**: Managers own `useForm`, resolver, defaults, submit/discard logic; Renderers just render fields.
+
+- **Validation**:
+  - Use `zodResolver`.
+  - Use discriminated unions for auth modes or similar.
+  - Keep `mode` (`onBlur`/`onChange`) intentional; avoid excessive revalidation.
+  - For async checks, gate at submit or `refine` with clear errors.
+
+- **Errors**: Use `<FormMessage>`; use `getFieldError` for nested paths when passing to custom inputs (e.g., `InputFile`).
+
+- **Read-only**: Respect `readOnly` derived from store mode; disable inputs/actions accordingly.
+
+- **Controlled inputs**: Prefer controlled components; avoid mixing uncontrolled/controlled.
+
+- **File inputs**: Use shared `InputFile` patterns; validate types/sizes; surface errors in form state.
+
+- **Submission**: On success, update store and mark clean; handle notifications for success/error.
+
+- **Defaults/Hydration**: Load defaults from store/hydration; rehydrate sections on discard (`coreStore.hydrateSection`).
+
+## References
+
+- Form Architecture: `.cursor/architecture/FORM_ARCHITECTURE.md`
