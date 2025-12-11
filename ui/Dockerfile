@@ -20,14 +20,16 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Set build-time environment variables for Auth0
-# These must be set at build time for the SDK to use them
-# IMPORTANT: For cloud deployments with Auth0, build with:
-#   docker build --build-arg NEXT_PUBLIC_AUTH0_ENABLED=true ...
-# For local development without Auth0, use the default (false)
+# Set build-time environment variables
+# These must be set at build time for Next.js to inline them into the build
+# IMPORTANT: For deployments, provide these via --build-arg:
+#   docker build --build-arg NEXT_PUBLIC_API_URL=http://api:8081 \
+#                --build-arg NEXT_PUBLIC_AUTH0_ENABLED=true ...
+ARG NEXT_PUBLIC_API_URL=http://api:8081
 ARG NEXT_PUBLIC_PROFILE_ROUTE=/api/auth/me
 ARG NEXT_PUBLIC_AUTH0_ENABLED=true
 ARG NEXT_PUBLIC_FILTERS_ENABLED=false
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE}
 ENV NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED}
 ENV NEXT_PUBLIC_FILTERS_ENABLED=${NEXT_PUBLIC_FILTERS_ENABLED}
