@@ -395,7 +395,7 @@ export function FilterConfigurator({
       {/* Description */}
       <div className="text-sm text-content">
         {availableFields.length > 0
-          ? "Define filter conditions to include only events that match your criteria. Events that don't match will be excluded from the pipeline."
+          ? "Define filter conditions to exclude events that match your criteria. Events that don't match will pass through the pipeline."
           : 'Select a topic and wait for event data to load to configure filtering.'}
       </div>
 
