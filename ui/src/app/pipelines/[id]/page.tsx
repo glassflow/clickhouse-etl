@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth0 } from '@/src/lib/auth0'
+import { getSessionSafely } from '@/src/lib/auth0'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import PipelineDetailsModule from '@/src/modules/pipelines/[id]/PipelineDetailsModule'
 import { getPipeline } from '@/src/api/pipeline-api'
@@ -19,7 +19,7 @@ async function PipelinePage({
   const authEnabled = isAuthEnabled()
 
   if (authEnabled) {
-    const session = await auth0.getSession()
+    const session = await getSessionSafely()
 
     if (!session?.user) {
       redirect('/')

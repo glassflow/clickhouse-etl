@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { auth0 } from '@/src/lib/auth0'
+import { getSessionSafely } from '@/src/lib/auth0'
 import { redirect } from 'next/navigation'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import PipelinesPageClient from '@/src/components/pipelines/PipelinesPageClient'
@@ -9,7 +9,7 @@ export default async function PipelinesPage() {
   const authEnabled = isAuthEnabled()
 
   if (authEnabled) {
-    const session = await auth0.getSession()
+    const session = await getSessionSafely()
     if (!session?.user) {
       redirect('/')
     }

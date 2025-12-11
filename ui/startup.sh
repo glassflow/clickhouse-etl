@@ -89,6 +89,7 @@ echo "};" >> /app/public/env.js
 # Generate runtime configuration for server-side
 # Apply the same ensureApiV1Suffix logic here that we have in TypeScript
 mkdir -p /app/.next/server/app/api
+mkdir -p /app/.next/server/app/ui-api
 
 # Function to ensure /api/v1 suffix
 ensure_api_v1_suffix() {
@@ -112,11 +113,14 @@ ensure_api_v1_suffix() {
 # Apply the suffix logic to the API URL
 PROCESSED_API_URL=$(ensure_api_v1_suffix "$NEXT_PUBLIC_API_URL")
 
-echo "export const runtimeConfig = {" > /app/.next/server/app/api/config.js
-echo "  apiUrl: \"$PROCESSED_API_URL\"," >> /app/.next/server/app/api/config.js
-echo "  previewMode: \"$NEXT_PUBLIC_PREVIEW_MODE\"," >> /app/.next/server/app/api/config.js
-echo "  analyticsEnabled: \"$NEXT_PUBLIC_ANALYTICS_ENABLED\"" >> /app/.next/server/app/api/config.js
-echo "};" >> /app/.next/server/app/api/config.js
+# Create config at both locations (api and ui-api) for compatibility
+for config_path in /app/.next/server/app/api/config.js /app/.next/server/app/ui-api/config.js; do
+  echo "export const runtimeConfig = {" > "$config_path"
+  echo "  apiUrl: \"$PROCESSED_API_URL\"," >> "$config_path"
+  echo "  previewMode: \"$NEXT_PUBLIC_PREVIEW_MODE\"," >> "$config_path"
+  echo "  analyticsEnabled: \"$NEXT_PUBLIC_ANALYTICS_ENABLED\"" >> "$config_path"
+  echo "};" >> "$config_path"
+done
 
 echo "🔧 Processed API URL: $NEXT_PUBLIC_API_URL -> $PROCESSED_API_URL"
 
@@ -150,6 +154,8 @@ echo "Contents of /app/public/env.js:"
 cat /app/public/env.js
 echo "Contents of /app/.next/server/app/api/config.js:"
 cat /app/.next/server/app/api/config.js
+echo "Contents of /app/.next/server/app/ui-api/config.js:"
+cat /app/.next/server/app/ui-api/config.js
 
 # Set environment variables for the Node.js process
 export NODE_ENV=production

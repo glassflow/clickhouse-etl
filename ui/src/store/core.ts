@@ -539,13 +539,14 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             await hydrateClickhouseDestination(config)
             break
           case 'all':
-            // Hydrate all sections with proper sequencing
+            // Hydrate sync sections first (including filter - doesn't need event schema)
             hydrateKafkaConnection(config)
-            await hydrateKafkaTopics(config) // Wait for Kafka topics after connection is set
             hydrateClickhouseConnection(config)
-            await hydrateClickhouseDestination(config) // This is also async
             hydrateJoinConfiguration(config)
             hydrateFilter(config)
+            // Then async sections that require network calls
+            await hydrateKafkaTopics(config)
+            await hydrateClickhouseDestination(config)
             break
           default:
             console.warn(`Unknown section for hydration: ${section}`)

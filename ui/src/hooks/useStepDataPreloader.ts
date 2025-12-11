@@ -89,6 +89,14 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
           description: 'Loading source data for schema mapping...',
         }
 
+      case StepKeys.FILTER_CONFIGURATOR:
+        // Filter needs topic event for field schema
+        return {
+          needsTopicEvents: true,
+          topicIndices: [0], // Filter applies to first topic
+          description: 'Loading event data for filter configuration...',
+        }
+
       // Steps that don't need event pre-loading
       case StepKeys.KAFKA_CONNECTION:
       case StepKeys.CLICKHOUSE_CONNECTION:

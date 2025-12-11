@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth0 } from '@/src/lib/auth0'
+import { getSessionSafely } from '@/src/lib/auth0'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import LoginButton from '@/src/components/auth/LoginButton'
 import axios from 'axios'
@@ -41,8 +41,8 @@ export default async function Home() {
     }
   }
 
-  // Server-side: Get session using auth0.getSession()
-  const session = await auth0.getSession()
+  // Server-side: Get session using getSessionSafely() which handles decryption errors gracefully
+  const session = await getSessionSafely()
   const user = session?.user
 
   // If user is authenticated, check for pipelines and redirect accordingly

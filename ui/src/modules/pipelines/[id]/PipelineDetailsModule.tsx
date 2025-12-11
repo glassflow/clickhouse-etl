@@ -248,11 +248,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   }
 
   // close the standalone step renderer
-  const handleCloseStep = () => {
+  const handleCloseStep = useCallback(() => {
     setActiveStep(null)
     // When closing a step, go back to monitor view
     setActiveSection('monitor')
-  }
+  }, [])
 
   // redirect to pipelines list after deletion
   const handlePipelineDeleted = () => {

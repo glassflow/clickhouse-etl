@@ -10,6 +10,59 @@ const encodeBase64 = (password: string) => {
 }
 
 /**
+ * Recursively extracts all field names used in a filter tree
+ * Handles both simple field references and arithmetic expressions
+ */
+const extractFilterFields = (node: any): string[] => {
+  const fields: string[] = []
+
+  if (!node) return fields
+
+  if (node.type === 'rule') {
+    // Simple field reference
+    if (node.field) {
+      fields.push(node.field)
+    }
+
+    // Arithmetic expression fields
+    if (node.useArithmeticExpression && node.arithmeticExpression) {
+      fields.push(...extractArithmeticFields(node.arithmeticExpression))
+    }
+  } else if (node.type === 'group' && Array.isArray(node.children)) {
+    // Recursively process group children
+    node.children.forEach((child: any) => {
+      fields.push(...extractFilterFields(child))
+    })
+  }
+
+  return fields
+}
+
+/**
+ * Extracts field names from an arithmetic expression node
+ */
+const extractArithmeticFields = (node: any): string[] => {
+  const fields: string[] = []
+
+  if (!node) return fields
+
+  // Check if it's a field operand
+  if (node.type === 'field' && node.field) {
+    fields.push(node.field)
+  }
+
+  // Recursively process left and right operands
+  if (node.left) {
+    fields.push(...extractArithmeticFields(node.left))
+  }
+  if (node.right) {
+    fields.push(...extractArithmeticFields(node.right))
+  }
+
+  return fields
+}
+
+/**
  * Check if a column is ALIAS or MATERIALIZED (should be hidden from UI)
  */
 export const shouldExcludeColumn = (column: TableColumn): boolean => {
@@ -211,6 +264,30 @@ export const buildInternalPipelineConfig = ({
           })
           mappedFieldNames.add(fieldKey)
         }
+      }
+    })
+  }
+
+  // Add filter fields to mapping if they're not already included
+  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
+  // but the backend needs to know they're part of the Kafka schema
+  if (filterStore?.filterConfig?.enabled && filterStore?.filterConfig?.root) {
+    const filterFields = extractFilterFields(filterStore.filterConfig.root)
+    // For single-topic pipelines, use the first topic as the source
+    const topicName = selectedTopics[0]?.name
+
+    filterFields.forEach((fieldName: string) => {
+      const fieldKey = `${topicName}:${fieldName}`
+
+      // Only add if not already in the mapping
+      if (!mappedFieldNames.has(fieldKey)) {
+        tableMappings.push({
+          source_id: topicName,
+          field_name: fieldName,
+          column_name: '',
+          column_type: '',
+        })
+        mappedFieldNames.add(fieldKey)
       }
     })
   }
