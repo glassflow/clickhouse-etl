@@ -74,74 +74,123 @@ Filter expressions use field names from your event schema and support the follow
 #### Examples
 
 **String comparison:**
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "status == 'active'"
-  }
-}
-```
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "status == 'active'"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 **Numeric comparison:**
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "age > 18"
-  }
-}
-```
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "age > 18"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 **Boolean field:**
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "is_premium == true"
-  }
-}
-```
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "is_premium == true"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 **Multiple conditions with AND:**
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "age > 18 and status == 'active'"
-  }
-}
-```
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "age > 18 and status == 'active'"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 **Multiple conditions with OR:**
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "status == 'active' or status == 'pending'"
-  }
-}
-```
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "status == 'active' or status == 'pending'"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 **Complex expression with parentheses:**
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "(age > 18 and age < 65) or is_student == true"
-  }
-}
-```
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "(age > 18 and age < 65) or is_student == true"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 **Nested field access:**
-```json
-{
-  "filter": {
-    "enabled": true,
-    "expression": "user.age > 18"
-  }
-}
-```
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "user.age > 18"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 ## Best Practices
 
