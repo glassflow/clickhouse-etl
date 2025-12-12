@@ -99,6 +99,11 @@ func TestParseFloat32(t *testing.T) {
 			input:       float32(-3.14),
 			expected:    -3.14,
 			expectError: false,
+		}, {
+			name:        "Negative value",
+			input:       float64(-3.14),
+			expected:    -3.14,
+			expectError: false,
 		},
 		{
 			name:        "Max float32",
@@ -168,6 +173,12 @@ func TestParseFloat64(t *testing.T) {
 			name:        "Valid []byte",
 			input:       []byte("3.14159"),
 			expected:    3.14159,
+			expectError: false,
+		},
+		{
+			name:        "Valid negative float []byte",
+			input:       []byte("-3.14159"),
+			expected:    -3.14159,
 			expectError: false,
 		},
 		{

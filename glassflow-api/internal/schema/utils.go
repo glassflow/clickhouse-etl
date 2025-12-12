@@ -208,7 +208,7 @@ func ParseUint64(data any) (zero uint64, _ error) {
 func ParseFloat32(data any) (zero float32, _ error) {
 	switch value := data.(type) {
 	case float64:
-		if value < float64(math.SmallestNonzeroFloat32) || value > float64(math.MaxFloat32) {
+		if value < -float64(math.MaxFloat32) || value > float64(math.MaxFloat32) {
 			return zero, fmt.Errorf("float32 out of range: %f", value)
 		}
 		return float32(value), nil
@@ -226,7 +226,7 @@ func ParseFloat64(data any) (zero float64, _ error) {
 		if err != nil {
 			return zero, fmt.Errorf("failed to parse float64: %w", err)
 		}
-		if f < math.SmallestNonzeroFloat64 || f > math.MaxFloat64 {
+		if f < -math.MaxFloat64 || f > math.MaxFloat64 {
 			return zero, fmt.Errorf("float64 out of range: %f", f)
 		}
 		return f, nil
