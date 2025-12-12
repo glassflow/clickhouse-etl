@@ -13,8 +13,8 @@ GlassFlow consists of the following components running as Kubernetes pods in the
 - **Pod Name**: `glassflow-api-*`
 - **Purpose**: Core ETL engine that provides an API and orchestrates the pipeline
 - **Features**:
-  - Interface to the UI and python client for pipeline management  
-  - Provides CRUD operations and REST API for Pipeline    
+  - Interface to the UI and python client for pipeline management
+  - Provides CRUD operations and REST API for Pipeline
 
 ### 2. GlassFlow UI
 - **Pod Name**: `glassflow-ui-*`
@@ -34,9 +34,13 @@ GlassFlow consists of the following components running as Kubernetes pods in the
   - Handles scaling and updates
   - Integrates with Kubernetes API server
 
+### 4. GlassFlow Postgres
+- **Pod Name**: `glassflow-postgresql-*`
+- **Purpose**: PostgreSQL database for storing pipeline configuration
+
 ## NATS Cluster
 
-### 4. NATS Server Cluster
+### 5. NATS Server Cluster
 - **Pod Names**: `glassflow-nats-0`, `glassflow-nats-1`, `glassflow-nats-2`, `glassflow-nats-3`, `glassflow-nats-4`
 - **Purpose**: Distributed message broker and key-value store
 - **Features**:
@@ -46,7 +50,7 @@ GlassFlow consists of the following components running as Kubernetes pods in the
   - Automatic failover capabilities
   - 5-node cluster for redundancy
 
-### 5. NATS Box
+### 6. NATS Box
 - **Pod Name**: `glassflow-nats-box-*`
 - **Purpose**: NATS utility container for debugging and management
 - **Features**:
@@ -57,7 +61,7 @@ GlassFlow consists of the following components running as Kubernetes pods in the
 
 ## Monitoring and Observability
 
-### 6. OpenTelemetry Collector
+### 7. OpenTelemetry Collector
 - **Pod Name**: `glassflow-otel-collector-*`
 - **Purpose**: Collects, processes, and exports telemetry data
 - **Features**:
@@ -66,7 +70,7 @@ GlassFlow consists of the following components running as Kubernetes pods in the
   - Export to monitoring backends
   - Provides promentheus metrics on `/metrics` endpoint at port `9090`
 
-### 7. Prometheus NATS Exporter
+### 8. Prometheus NATS Exporter
 - **Pod Name**: `glassflow-prometheus-nats-exporter-*`
 - **Purpose**: Exports NATS metrics for Prometheus monitoring
 - **Features**:
@@ -77,7 +81,7 @@ GlassFlow consists of the following components running as Kubernetes pods in the
 
 ## Custom Resources
 
-### 8. Pipeline Custom Resource Definition (CRD)
+### 9. Pipeline Custom Resource Definition (CRD)
 - **CRD Name**: `pipelines.etl.glassflow.io`
 - **Purpose**: Defines the schema for pipeline resources in Kubernetes
 - **Features**:
@@ -88,12 +92,12 @@ GlassFlow consists of the following components running as Kubernetes pods in the
 
 ## Per-Pipeline Resources
 
-### 9. Pipeline-Specific Namespaces
+### 10. Pipeline-Specific Namespaces
 - **Namespace Pattern**: `pipeline-{pipeline-name}-{unique-id}`
 - **Example**: `pipeline-load-pipeline-1-7c8e`
 - **Purpose**: Isolates each pipeline's resources for better management and security
 
-### 10. Ingestor Deployment
+### 11. Ingestor Deployment
 - **Deployment Name**: `ingestor-{partition-id}`
 - **Purpose**: Consumes data from external sources (Kafka, etc.)
 - **Features**:
@@ -101,8 +105,15 @@ GlassFlow consists of the following components running as Kubernetes pods in the
   - Partition-based processing
   - Fault tolerance with multiple replicas
 
-### 11. Sink Deployment
-- **Deployment Name**: `sink`
+### 12. Deduplicator Deployment
+- **Deployment Name**: `dedup-{partition-id}`
+- **Purpose**: Deduplicates data
+- **Features**:
+  - Single replica
+  - Uses BadgerDB for deduplication in disk and memory
+
+### 13. Sink Deployment
+- **Deployment Name**: `sink-{partition-id}`
 - **Purpose**: Writes processed data to ClickHouse
 - **Features**:
   - Single replica for consistency
@@ -110,7 +121,7 @@ GlassFlow consists of the following components running as Kubernetes pods in the
   - Error handling and retry logic
   - Connection pooling for efficiency
 
-### 12. ReplicaSets
+### 14. ReplicaSets
 - **Purpose**: Manages the desired number of pod replicas
 - **Features**:
   - Automatic pod replacement on failure
