@@ -11,7 +11,7 @@ description: 'Frequently asked questions about GlassFlow'
 
 ## Q: How does GlassFlow's deduplication work?
 
-GlassFlow's deduplication is powered by [NATS JetStream](https://docs.nats.io/nats-concepts/jetstream) and is based on a **user-defined key** (e.g. `user_id`) and a **time window** (e.g. 1 hour) to identify duplicates. When multiple events with the same key arrive within the configured time window, only the **first event** is written to ClickHouse. Any subsequent events with the same key during that window are discarded. This mechanism ensures that only unique events are persisted, avoiding duplicates caused by retries or upstream noise.
+GlassFlow uses BadgerDB for deduplication in disk and memory. For more details, see [Deduplication](/configuration/transformations/deduplication).
 
 ## Q: Why do duplicates happen in Kafka pipelines at all?
 
