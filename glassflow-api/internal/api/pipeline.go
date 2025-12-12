@@ -684,6 +684,7 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		sinkComponentConfig,
 		filterConfig,
 		statelessTransformationConfig,
+		pipeline.Metadata,
 	), nil
 }
 
