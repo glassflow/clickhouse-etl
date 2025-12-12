@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Label } from '@/src/components/ui/label'
-import { CheckCircleIcon, XCircleIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, XCircleIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { StepKeys } from '@/src/config/constants'
 import FormActions from '@/src/components/shared/FormActions'
 import { TransformationFieldRow } from './components/TransformationFieldRow'
@@ -69,6 +69,42 @@ export function TransformationConfigurator({
   // State for tracking save success in edit mode
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
+  // Track if auto-population has been attempted (to prevent re-triggering)
+  const [hasAutoPopulated, setHasAutoPopulated] = useState(false)
+
+  // Auto-populate fields from Kafka schema if not already configured
+  // This runs once when entering the step with available fields but no existing config
+  useEffect(() => {
+    // Don't auto-populate if:
+    // - Already auto-populated in this session
+    // - In read-only mode (viewing existing pipeline)
+    // - In standalone mode (editing existing pipeline)
+    // - No available fields from Kafka schema
+    // - Already has transformation fields configured (e.g., from hydration)
+    if (
+      hasAutoPopulated ||
+      readOnly ||
+      standalone ||
+      availableFields.length === 0 ||
+      transformationConfig.fields.length > 0 ||
+      transformationConfig.enabled
+    ) {
+      return
+    }
+
+    // Auto-populate all fields as pass-through
+    transformationStore.addAllFieldsAsPassthrough(availableFields)
+    setHasAutoPopulated(true)
+  }, [
+    availableFields,
+    hasAutoPopulated,
+    readOnly,
+    standalone,
+    transformationConfig.fields.length,
+    transformationConfig.enabled,
+    transformationStore,
+  ])
+
   // Validate configuration when it changes
   useEffect(() => {
     const validation = validateTransformationConfig(transformationConfig)
@@ -116,6 +152,23 @@ export function TransformationConfigurator({
     },
     [transformationStore],
   )
+
+  // Clear all fields
+  const handleClearAllFields = useCallback(() => {
+    transformationStore.clearFields()
+  }, [transformationStore])
+
+  const handleRestoreSourceFields = useCallback(() => {
+    if (readOnly || standalone || availableFields.length === 0) {
+      return
+    }
+
+    transformationStore.clearFields()
+
+    // Auto-populate all fields as pass-through
+    transformationStore.addAllFieldsAsPassthrough(availableFields)
+    setHasAutoPopulated(true)
+  }, [transformationStore, availableFields])
 
   // Skip transformation
   const handleSkip = useCallback(() => {
@@ -210,7 +263,9 @@ export function TransformationConfigurator({
       {/* Description */}
       <div className="text-sm text-content">
         {availableFields.length > 0
-          ? 'Define transformations to create computed fields or pass through existing fields. The resulting schema will be used for mapping to ClickHouse.'
+          ? transformationConfig.fields.length > 0
+            ? "All fields from your Kafka event have been added as pass-through fields. Remove fields you don't need, convert them to computed transformations, or add new fields."
+            : 'Define transformations to create computed fields or pass through existing fields. The resulting schema will be used for mapping to ClickHouse.'
           : 'Select a topic and verify field types to configure transformations.'}
       </div>
 
@@ -221,24 +276,40 @@ export function TransformationConfigurator({
       {availableFields.length > 0 && (!readOnly || transformationConfig.fields.length > 0) && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label className="text-lg font-medium text-content">
-              Transformation Fields
-              {totalFieldCount > 0 && (
-                <span className="ml-2 text-sm font-normal text-[var(--text-secondary)]">
-                  ({completeFieldCount}/{totalFieldCount} complete)
-                </span>
-              )}
-            </Label>
-
+            <div className="flex items-center gap-2">
+              <Label className="text-lg font-medium text-content">
+                Transformation Fields
+                {totalFieldCount > 0 && (
+                  <span className="ml-2 text-sm font-normal text-[var(--text-secondary)]">
+                    ({completeFieldCount}/{totalFieldCount} complete)
+                  </span>
+                )}
+              </Label>
+              <Button variant="outline" size="sm" onClick={handleRestoreSourceFields} className="btn-tertiary">
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Restore Source Fields
+              </Button>
+            </div>
             {!readOnly && (
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleAddPassthroughField} className="btn-tertiary">
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Pass Through Field
-                </Button>
+                {transformationConfig.fields.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAllFields}
+                    className="btn-tertiary text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-subtle)]"
+                  >
+                    <TrashIcon className="h-4 w-4 mr-1" />
+                    Clear All
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={handleAddComputedField} className="btn-tertiary">
                   <PlusIcon className="h-4 w-4 mr-1" />
                   Computed Field
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleAddPassthroughField} className="btn-tertiary">
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Pass Through Field
                 </Button>
               </div>
             )}
@@ -247,7 +318,7 @@ export function TransformationConfigurator({
           {/* Field List */}
           {transformationConfig.fields.length === 0 ? (
             <div className="text-sm text-[var(--text-secondary)] text-center py-8 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
-              No transformation fields yet. Click the buttons above to add fields.
+              No fields configured. Add pass-through or computed fields using the buttons above.
             </div>
           ) : (
             <div className="space-y-3">

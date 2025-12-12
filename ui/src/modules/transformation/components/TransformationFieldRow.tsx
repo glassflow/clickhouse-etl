@@ -12,6 +12,10 @@ import { getFunctionByName, TransformationFunctionDef } from '../functions'
 import { inferOutputType, createFieldArg, createLiteralArg } from '../utils'
 import { FieldValidation } from '../utils'
 import { cn } from '@/src/utils/common.client'
+import OutputField from './OutputField'
+import TypeToggle from './TypeToggle'
+import SourceFieldSelect from './SourceFieldSelect'
+import TransformFunctionSelect from './TransformFunctionSelect'
 
 interface TransformationFieldRowProps {
   field: TransformationField
@@ -138,169 +142,84 @@ export function TransformationFieldRow({
   return (
     <div
       className={cn(
-        'p-4 card-outline rounded-[var(--radius-large)]',
+        'p-3 card-outline rounded-[var(--radius-large)]',
         errors && Object.keys(errors).length > 0 && 'border-[var(--color-border-critical)]',
       )}
     >
-      <div className="flex items-start gap-4">
-        {/* Field number indicator */}
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--surface-bg-sunken)] flex items-center justify-center text-sm font-medium text-[var(--text-secondary)]">
-          {index + 1}
+      <div className="flex justify-between items-center p-0 mb-3">
+        <span className="text-sm text-[var(--text-secondary)]">Field {index + 1}</span>
+        <div className="flex justify-end">
+          {/* Remove button */}
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRemove}
+              className="flex-shrink-0 flex-end h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* First row - Type toggle and source/function select */}
+      <div className="flex items-center gap-2 mb-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+        <div className="flex-1">
+          <TypeToggle field={field} handleTypeChange={handleTypeChange} readOnly={readOnly} />
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 space-y-4">
-          {/* First row: Type selector and output name */}
-          <div className="flex gap-4">
-            {/* Type selector */}
-            <div className="w-40">
-              <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Type</Label>
-              <Select value={field.type} onValueChange={handleTypeChange} disabled={readOnly}>
-                <SelectTrigger className="input-regular input-border-regular">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="select-content-custom">
-                  <SelectItem value="passthrough" className="select-item-custom">
-                    Pass Through
-                  </SelectItem>
-                  <SelectItem value="computed" className="select-item-custom">
-                    Computed
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Output field name */}
-            <div className="flex-1">
-              <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Output Field Name</Label>
-              <Input
-                value={field.outputFieldName}
-                onChange={handleOutputNameChange}
-                placeholder="Enter field name"
-                disabled={readOnly}
-                className={cn(
-                  'input-regular input-border-regular',
-                  errors?.outputFieldName && 'border-[var(--color-border-critical)]',
-                )}
-              />
-              {errors?.outputFieldName && (
-                <p className="text-xs text-[var(--color-foreground-critical)] mt-1">{errors.outputFieldName}</p>
-              )}
-            </div>
-
-            {/* Output type (read-only) */}
-            <div className="w-32">
-              <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Output Type</Label>
-              <div className="input-regular input-border-regular h-10 flex items-center px-3 text-[var(--text-secondary)] bg-[var(--surface-bg-sunken)]">
-                {field.outputFieldType || 'auto'}
-              </div>
-            </div>
-          </div>
-
-          {/* Second row: Type-specific configuration */}
+        <div className="flex-3">
           {field.type === 'passthrough' ? (
-            // Passthrough configuration
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Source Field</Label>
-                <Select value={field.sourceField || ''} onValueChange={handleSourceFieldChange} disabled={readOnly}>
-                  <SelectTrigger
-                    className={cn(
-                      'input-regular input-border-regular',
-                      errors?.sourceField && 'border-[var(--color-border-critical)]',
-                    )}
-                  >
-                    <SelectValue placeholder="Select source field" />
-                  </SelectTrigger>
-                  <SelectContent className="select-content-custom">
-                    {availableFields.map((f) => (
-                      <SelectItem key={f.name} value={f.name} className="select-item-custom">
-                        <span>{f.name}</span>
-                        <span className="ml-2 text-[var(--text-secondary)]">({f.type})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors?.sourceField && (
-                  <p className="text-xs text-[var(--color-foreground-critical)] mt-1">{errors.sourceField}</p>
-                )}
-              </div>
+            <div className="flex-1">
+              <SourceFieldSelect
+                field={field}
+                handleSourceFieldChange={handleSourceFieldChange}
+                readOnly={readOnly}
+                errors={errors}
+                availableFields={availableFields}
+              />
             </div>
           ) : (
-            // Computed configuration
-            <div className="space-y-3">
-              <div className="flex gap-4">
-                <div className="w-64">
-                  <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Function</Label>
-                  <FunctionSelector
-                    value={field.functionName || ''}
-                    onSelect={handleFunctionChange}
-                    disabled={readOnly}
-                    error={errors?.functionName}
-                  />
-                  {errors?.functionName && (
-                    <p className="text-xs text-[var(--color-foreground-critical)] mt-1">{errors.functionName}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Function arguments */}
-              {functionDef && functionDef.args.length > 0 && (
-                <div className="pl-4 border-l-2 border-[var(--surface-border)] space-y-2">
-                  <Label className="text-xs text-[var(--text-secondary)] block">Arguments</Label>
-                  {functionDef.args.map((argDef, argIndex) => (
-                    <div key={argIndex} className="flex gap-2 items-center">
-                      <span className="text-xs text-[var(--text-secondary)] w-24">{argDef.name}:</span>
-                      {argDef.type === 'field' ? (
-                        <Select
-                          value={getArgValue(argIndex)}
-                          onValueChange={(v) => handleArgChange(argIndex, v, 'field')}
-                          disabled={readOnly}
-                        >
-                          <SelectTrigger className="flex-1 input-regular input-border-regular h-8 text-sm">
-                            <SelectValue placeholder="Select field" />
-                          </SelectTrigger>
-                          <SelectContent className="select-content-custom">
-                            {availableFields
-                              .filter((f) => !argDef.fieldTypes || argDef.fieldTypes.includes(f.type))
-                              .map((f) => (
-                                <SelectItem key={f.name} value={f.name} className="select-item-custom text-sm">
-                                  {f.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input
-                          value={getArgValue(argIndex)}
-                          onChange={(e) => handleArgChange(argIndex, e.target.value, 'literal')}
-                          placeholder={argDef.description}
-                          disabled={readOnly}
-                          className="flex-1 input-regular input-border-regular h-8 text-sm"
-                        />
-                      )}
-                    </div>
-                  ))}
-                  {errors?.functionArgs && (
-                    <p className="text-xs text-[var(--color-foreground-critical)]">{errors.functionArgs}</p>
-                  )}
-                </div>
-              )}
+            <div className="flex-1">
+              <TransformFunctionSelect
+                field={field}
+                handleFunctionChange={handleFunctionChange}
+                readOnly={readOnly}
+                errors={errors}
+                availableFields={availableFields}
+                functionDef={
+                  functionDef || {
+                    name: '',
+                    category: 'utility',
+                    description: '',
+                    args: [],
+                    returnType: '',
+                    example: { input: '', output: '' },
+                  }
+                }
+                getArgValue={getArgValue}
+                handleArgChange={handleArgChange}
+              />
             </div>
           )}
         </div>
+      </div>
 
-        {/* Remove button */}
-        {!readOnly && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRemove}
-            className="flex-shrink-0 h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </Button>
-        )}
+      {/* Second row - Output field and remove button */}
+      <div className="flex items-start gap-4">
+        {/* Field number indicator */}
+        {/* <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--surface-bg-sunken)] flex items-center justify-center text-sm font-medium text-[var(--text-secondary)]">
+          {index + 1}
+        </div> */}
+
+        {/* Main content */}
+        <OutputField
+          field={field}
+          handleOutputNameChange={handleOutputNameChange}
+          readOnly={readOnly}
+          errors={errors}
+        />
       </div>
     </div>
   )
