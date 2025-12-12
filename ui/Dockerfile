@@ -21,15 +21,15 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Set build-time environment variables
-# These must be set at build time for Next.js to inline them into the build
-# IMPORTANT: For deployments, provide these via --build-arg:
-#   docker build --build-arg NEXT_PUBLIC_API_URL=http://api:8081 \
-#                --build-arg NEXT_PUBLIC_AUTH0_ENABLED=true ...
-ARG NEXT_PUBLIC_API_URL=http://api:8081
+# IMPORTANT: NEXT_PUBLIC_API_URL is NOT set here - it must be provided at runtime
+# via environment variables. The startup.sh script and config.ts getters handle
+# runtime configuration. Setting it here would bake it into the build.
+#
+# For Auth0 and other build-time flags, provide via --build-arg if needed:
+#   docker build --build-arg NEXT_PUBLIC_AUTH0_ENABLED=true ...
 ARG NEXT_PUBLIC_PROFILE_ROUTE=/api/auth/me
 ARG NEXT_PUBLIC_AUTH0_ENABLED=true
 ARG NEXT_PUBLIC_FILTERS_ENABLED=false
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE}
 ENV NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED}
 ENV NEXT_PUBLIC_FILTERS_ENABLED=${NEXT_PUBLIC_FILTERS_ENABLED}

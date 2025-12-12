@@ -1,6 +1,11 @@
 // Server-side environment variable configuration for API routes
 // API routes run on the server, so we can access process.env directly
 // The startup.sh script sets these environment variables at runtime
+//
+// IMPORTANT: We use non-prefixed environment variables (API_URL) for server-side code.
+// Next.js inlines all NEXT_PUBLIC_* variables at build time, making them impossible
+// to override at runtime. Non-prefixed variables are read from process.env at runtime.
+// This follows the same pattern as AUTH0_ENABLED in auth-config.server.ts.
 
 /**
  * Helper function to ensure API URL has the correct /api/v1 suffix
@@ -22,10 +27,21 @@ const ensureApiV1Suffix = (baseUrl: string): string => {
   return `${cleanUrl}/api/v1`
 }
 
+/**
+ * Runtime configuration for server-side API routes.
+ * Uses non-prefixed environment variables to ensure they are read at runtime,
+ * not inlined at build time by Next.js.
+ */
 export const runtimeConfig = {
-  // apiUrl: 'http://api:8081/api/v1', // Direct URL for Docker environment
-  apiUrl: ensureApiV1Suffix(process.env.NEXT_PUBLIC_API_URL || 'http://api:8081'),
-  previewMode: process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true' || false,
+  get apiUrl(): string {
+    // Use non-prefixed API_URL - NOT inlined by Next.js, read at runtime
+    // Falls back to NEXT_PUBLIC_API_URL for backward compatibility
+    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://api:8081'
+    return ensureApiV1Suffix(apiUrl)
+  },
+  get previewMode(): boolean {
+    return process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
+  },
 }
 
 // This configuration will be available at runtime
