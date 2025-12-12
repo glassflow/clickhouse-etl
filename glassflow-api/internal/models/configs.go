@@ -500,6 +500,7 @@ func NewPipelineConfig(
 	sc SinkComponentConfig,
 	filterConfig FilterComponentConfig,
 	statelessTransformation StatelessTransformation,
+	metadata PipelineMetadata,
 ) PipelineConfig {
 	return PipelineConfig{
 		ID:                      id,
@@ -511,6 +512,7 @@ func NewPipelineConfig(
 		Filter:                  filterConfig,
 		StatelessTransformation: statelessTransformation,
 		CreatedAt:               time.Now().UTC(),
+		Metadata:                metadata,
 		Status:                  NewPipelineHealth(id, name),
 	}
 }
