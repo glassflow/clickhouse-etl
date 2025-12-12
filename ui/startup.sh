@@ -30,6 +30,9 @@ echo "===================================================="
 # Set default values for environment variables
 # Note: Docker environment variables take precedence over .env.local
 export NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+# API_URL is the non-prefixed version for server-side code (not inlined by Next.js)
+# This ensures server-side API routes can read the URL at runtime
+export API_URL=${NEXT_PUBLIC_API_URL}
 export NEXT_PUBLIC_IN_DOCKER=${NEXT_PUBLIC_IN_DOCKER:-true}
 export NEXT_PUBLIC_PREVIEW_MODE=${NEXT_PUBLIC_PREVIEW_MODE:-false}
 export NEXT_PUBLIC_USE_MOCK_API=${NEXT_PUBLIC_USE_MOCK_API:-false}
@@ -126,6 +129,7 @@ echo "🔧 Processed API URL: $NEXT_PUBLIC_API_URL -> $PROCESSED_API_URL"
 
 # Print configuration for debugging
 echo "=== Runtime Configuration (After Export) ==="
+echo "API_URL: $API_URL"
 echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
 echo "NEXT_PUBLIC_IN_DOCKER: $NEXT_PUBLIC_IN_DOCKER"
 echo "NEXT_PUBLIC_PREVIEW_MODE: $NEXT_PUBLIC_PREVIEW_MODE"
