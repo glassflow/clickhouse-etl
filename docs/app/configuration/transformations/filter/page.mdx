@@ -1,0 +1,257 @@
+---
+title: 'Filter'
+description: 'Learn how filtering works in GlassFlow and how to configure filter expressions'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Filter
+
+The **Filter** transformation allows you to selectively process events based on configurable expressions. Events that match the filter expression are processed further in the pipeline, while non-matching events are filtered out and not processed.
+
+## How It Works
+
+Filtering in GlassFlow is applied at the ingestor stage, before any other processing. The filter uses expression-based evaluation to determine whether an event should be processed.
+
+### Internal Process
+
+1. **Event Reception**: Events are received from Kafka topics
+2. **Expression Evaluation**: Each event is evaluated against the configured filter expression
+3. **Filtering Decision**: 
+   - If the expression evaluates to `true`, the event is processed further
+   - If the expression evaluates to `false`, the event is filtered out
+4. **Processing**: Only matching events continue through the pipeline (deduplication, join, sink)
+
+### Expression Language
+
+GlassFlow uses the [expr](https://github.com/expr-lang/expr) expression language for filter expressions. This provides a simple, safe way to evaluate conditions on your event data.
+
+**Key Features:**
+- Field-based evaluation using event field names
+- Support for common comparison operators (`==`, `!=`, `>`, `<`, `>=`, `<=`)
+- Logical operators (`and`, `or`, `not`)
+- Type-safe evaluation based on field types
+
+## Configuration
+
+Filter is configured at the pipeline level. Here's the configuration structure:
+
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Filter Configuration" src="/assets/ui_filter_configuration.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "age > 18 and status == 'active'"
+      }
+    }
+    ```
+    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#filter-configuration) for more details.
+  </Tabs.Tab>
+</Tabs>
+
+### Expression Syntax
+
+Filter expressions use field names from your event schema and support the following operations:
+
+#### Comparison Operators
+
+- `==` - Equality
+- `!=` - Inequality
+- `>` - Greater than
+- `<` - Less than
+- `>=` - Greater than or equal
+- `<=` - Less than or equal
+
+#### Logical Operators
+
+- `and` - Logical AND
+- `or` - Logical OR
+- `not` - Logical NOT
+
+#### Examples
+
+**String comparison:**
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "status == 'active'"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+**Numeric comparison:**
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "age > 18"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+**Boolean field:**
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "is_premium == true"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+**Multiple conditions with AND:**
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "age > 18 and status == 'active'"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+**Multiple conditions with OR:**
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "status == 'active' or status == 'pending'"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+**Complex expression with parentheses:**
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "(age > 18 and age < 65) or is_student == true"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+**Nested field access:**
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "filter": {
+        "enabled": true,
+        "expression": "user.age > 18"
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Best Practices
+
+### Expression Design
+
+- **Keep expressions simple**: Complex expressions can be harder to maintain and debug
+- **Use parentheses**: Explicitly group conditions with parentheses for clarity
+- **Test expressions**: Validate filter expressions before deploying to production
+
+### Field Names
+
+- **Use exact field names**: Field names in expressions must match exactly with your event schema
+- **Case sensitivity**: Field names are case-sensitive
+- **Nested fields**: Use dot notation for nested fields (e.g., `user.age`)
+
+### Type Safety
+
+- **Match field types**: Ensure comparison values match the field types in your schema
+- **String literals**: Use single quotes for string literals in expressions
+- **Numeric values**: Use numeric literals without quotes for numeric comparisons
+- **Boolean values**: Use `true` or `false` (lowercase) for boolean comparisons
+
+## Example Configuration
+
+Here's a complete example of a pipeline with filtering enabled:
+
+```json
+{
+  "version": "v2",
+  "pipeline_id": "filtered-pipeline",
+  "name": "Filtered Events Pipeline",
+  "source": {
+    "type": "kafka",
+    "connection_params": {
+      "brokers": ["kafka:9092"]
+    },
+    "topics": [
+      {
+        "name": "user-events"
+      }
+    ]
+  },
+  "filter": {
+    "enabled": true,
+    "expression": "age > 18 and status == 'active'"
+  },
+  "sink": {
+    "type": "clickhouse",
+    "connection_params": {
+      "host": "clickhouse:9000",
+      "database": "analytics",
+      "table": "active_users"
+    }
+  }
+}
+```
+
+## Related Documentation
+
+- [Data Flow - Ingestor Stage](/architecture/data-flow#stage-1-kafka-to-nats-jetstream-ingestor)
+- [Pipeline JSON Reference - Filter Configuration](/configuration/pipeline-json-reference#filter-configuration)
+- [Transformations Overview](/configuration/transformations)
+- [expr Language Documentation](https://github.com/expr-lang/expr)
+
