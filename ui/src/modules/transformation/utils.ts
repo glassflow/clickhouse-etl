@@ -109,6 +109,20 @@ export const computedFieldToExpr = (field: TransformationField): string => {
     return ''
   }
 
+  // Handle raw expressions (complex expressions that couldn't be parsed)
+  if (field.functionName === '__raw_expression__') {
+    const rawExpr = (field as any).rawExpression
+    if (rawExpr) {
+      return rawExpr
+    }
+    // Fallback: try to extract from first literal argument
+    const firstArg = field.functionArgs[0]
+    if (isLiteralArg(firstArg)) {
+      return String(firstArg.value)
+    }
+    return ''
+  }
+
   const args = field.functionArgs.map(formatArgForExpr)
   return `${field.functionName}(${args.join(', ')})`
 }
@@ -178,6 +192,19 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
     // Validate computed field
     if (!field.functionName) {
       errors.functionName = 'Function is required for computed fields'
+    } else if (field.functionName === '__raw_expression__') {
+      // Special case: raw expression (complex expressions that can't be parsed)
+      // These are valid - they come from hydrated configs with complex expressions
+      // Check that we have the raw expression stored (either in rawExpression or in functionArgs)
+      const rawExpr = (field as any).rawExpression
+      const hasRawExprInArgs =
+        field.functionArgs &&
+        field.functionArgs.length > 0 &&
+        isLiteralArg(field.functionArgs[0]) &&
+        field.functionArgs[0].value
+      if (!rawExpr && !hasRawExprInArgs) {
+        errors.general = 'Raw expression is missing'
+      }
     } else {
       const funcDef = getFunctionByName(field.functionName)
       if (!funcDef) {
@@ -220,6 +247,7 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
     if (!field.sourceField) {
       errors.sourceField = 'Source field is required for passthrough fields'
     }
+    // Note: sourceFieldType is optional - if not provided, we'll infer it
   }
 
   return {

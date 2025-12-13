@@ -109,7 +109,17 @@ export interface DLQState {
 
 // Defines the internal structure of a pipeline configuration used by the UI
 // This should remain stable even if the backend API format changes
-export type InternalPipelineConfig = Pipeline
+export type InternalPipelineConfig = Pipeline & {
+  /**
+   * Legacy / internal transformation config used by the UI.
+   * Newer API versions may use `stateless_transformation` instead.
+   */
+  transformation?: {
+    enabled?: boolean
+    expression?: string
+    fields?: any[]
+  }
+}
 
 export interface Pipeline {
   pipeline_id: string

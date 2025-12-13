@@ -955,7 +955,7 @@ export function ClickhouseMapper({
         fieldValue = eventData ? getNestedValue(eventData, eventField) : undefined
       }
 
-      inferredType = eventField ? inferJsonType(fieldValue) : updatedColumns[index].jsonType
+      inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
 
       // Ensure we have a type - default to string if we couldn't infer a type from the data
       if (!inferredType && eventField) {
