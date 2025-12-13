@@ -59,14 +59,14 @@ export function hydrateTransformation(pipelineConfig: any) {
         // Handle nested function calls by finding the outermost function call
         // Pattern: functionName(possibly nested args)
         const functionMatch = expression.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/)
-        
+
         // Check if this is a complex expression (ternary, comparison operators, etc.)
         const hasComplexOperators = /[?:!=<>]/.test(expression)
-        
+
         if (functionMatch && !hasComplexOperators) {
           const functionName = functionMatch[1]
           const argsString = functionMatch[2]
-          
+
           // Parse arguments - simplified parser
           const args: any[] = []
           const argParts = parseFunctionArgsString(argsString)
@@ -191,9 +191,6 @@ export function hydrateTransformation(pipelineConfig: any) {
       // We have an expression but no field definitions
       // This could happen if the pipeline was created with an older version
       // For now, just keep the expression string and mark as valid
-      console.warn(
-        '[Transformation Hydration] Expression present but no field definitions. Expression will be shown in read-only mode.',
-      )
       transformationStore.setTransformationConfig({
         enabled: true,
         fields: [],

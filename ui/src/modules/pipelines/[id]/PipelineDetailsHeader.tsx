@@ -154,6 +154,7 @@ function PipelineDetailsHeader({
               joinStore,
               deduplicationStore,
               filterStore,
+              transformationStore,
             } = useStore.getState()
             // Log all deduplication configs
             // const topicIndices = Object.keys(topicsStore.topics || {})
@@ -176,6 +177,7 @@ function PipelineDetailsHeader({
               kafkaStore,
               deduplicationStore,
               filterStore,
+              transformationStore,
               version: coreStore.pipelineVersion, // Respect the original pipeline version
             })
 

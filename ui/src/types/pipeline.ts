@@ -174,6 +174,23 @@ export interface Pipeline {
     enabled: boolean
     expression: string
   }
+  transformation?: {
+    enabled?: boolean
+    expression?: string
+    fields?: any[]
+  }
+  stateless_transformation?: {
+    id?: string
+    type?: string
+    enabled?: boolean
+    config?: {
+      transform?: Array<{
+        expression: string
+        output_name: string
+        output_type: string
+      }>
+    }
+  }
   sink: {
     type: string
     host: string
