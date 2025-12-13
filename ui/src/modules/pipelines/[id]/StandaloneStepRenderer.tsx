@@ -12,6 +12,7 @@ import { StepKeys, OperationKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { JoinConfigurator } from '../../join/JoinConfigurator'
 import { FilterConfigurator } from '../../filter/FilterConfigurator'
+import { TransformationConfigurator } from '../../transformation/TransformationConfigurator'
 import StepRendererModal from './StepRendererModal'
 import StepRendererPageComponent from './StepRendererPageComponent'
 import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
@@ -161,6 +162,14 @@ function StandaloneStepRenderer({
           component: FilterConfigurator,
           title: 'Filter Configuration',
           description: 'Define filter conditions for events',
+        },
+      })
+    } else if (stepKey === StepKeys.TRANSFORMATION_CONFIGURATOR) {
+      setSteps({
+        [StepKeys.TRANSFORMATION_CONFIGURATOR]: {
+          component: TransformationConfigurator,
+          title: 'Define Transformations',
+          description: 'Transform event fields using functions or pass them through unchanged.',
         },
       })
     } else if (stepKey === StepKeys.CLICKHOUSE_CONNECTION) {

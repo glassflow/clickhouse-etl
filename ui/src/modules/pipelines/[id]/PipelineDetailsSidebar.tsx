@@ -14,6 +14,7 @@ export type SidebarSection =
   | 'left-topic'
   | 'right-topic'
   | 'filter'
+  | 'transformation'
   | 'deduplicate'
   | 'left-deduplicate'
   | 'right-deduplicate'
@@ -99,6 +100,23 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
   // Add Filter section (only if filters feature is enabled)
   if (isFiltersEnabled()) {
     items.push({ key: 'filter', label: 'Filter', stepKey: StepKeys.FILTER_CONFIGURATOR })
+  }
+
+  // Add Transformation section (if stateless transformations are enabled)
+  // Note: After hydration, stateless_transformation is converted to transformation format
+  // So we check both for raw API response and hydrated config
+  const hasStatelessTransformation =
+    pipeline?.transformation?.enabled === true || pipeline?.stateless_transformation?.enabled === true
+  const hasTransformationFields =
+    (pipeline?.transformation?.fields?.length ?? 0) > 0 ||
+    (pipeline?.stateless_transformation?.config?.transform?.length ?? 0) > 0
+
+  if (hasStatelessTransformation && hasTransformationFields) {
+    items.push({
+      key: 'transformation',
+      label: 'Transformations',
+      stepKey: StepKeys.TRANSFORMATION_CONFIGURATOR,
+    })
   }
 
   // Add ClickHouse sections
