@@ -16,6 +16,8 @@ import {
   getIntermediarySchema,
 } from './utils'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
+import { extractEventFields } from '@/src/utils/common.client'
+import { inferJsonType, getNestedValue } from '@/src/modules/clickhouse/utils'
 
 export interface TransformationConfiguratorProps {
   onCompleteStep: (stepName: string) => void
@@ -43,18 +45,49 @@ export function TransformationConfigurator({
   // Get topic data for available fields
   const topic = topicsStore.getTopic(0) // Transformation applies to the first topic
   const selectedEvent = topic?.selectedEvent
-  const schema = (topic as any)?.schema?.fields || []
+  const eventData = selectedEvent?.event?.event || selectedEvent?.event
 
-  // Extract available fields from verified schema
+  // Extract available fields from event data OR from existing transformation fields
+  // This ensures that when viewing/editing an existing pipeline, the field dropdowns are populated
   const availableFields = useMemo((): Array<{ name: string; type: string }> => {
-    if (schema && schema.length > 0) {
-      return schema.map((f: any) => ({
-        name: f.name,
-        type: f.userType || f.type,
+    // First, try to get fields from the actual event data
+    if (eventData && typeof eventData === 'object') {
+      const fieldNames = extractEventFields(eventData)
+      return fieldNames.map((fieldName) => ({
+        name: fieldName,
+        type: inferJsonType(getNestedValue(eventData, fieldName)),
       }))
     }
+
+    // Fallback: Extract source fields from existing passthrough transformations
+    // This allows editing when the event data isn't loaded yet
+    if (transformationConfig.fields.length > 0) {
+      const fieldsFromTransformations = new Map<string, string>()
+
+      transformationConfig.fields.forEach((field) => {
+        if (field.type === 'passthrough' && field.sourceField) {
+          fieldsFromTransformations.set(field.sourceField, field.sourceFieldType || 'string')
+        }
+        // Also extract field references from computed field arguments
+        if (field.type === 'computed' && field.functionArgs) {
+          field.functionArgs.forEach((arg) => {
+            if (arg.type === 'field' && arg.fieldName) {
+              fieldsFromTransformations.set(arg.fieldName, arg.fieldType || 'string')
+            }
+          })
+        }
+      })
+
+      if (fieldsFromTransformations.size > 0) {
+        return Array.from(fieldsFromTransformations.entries()).map(([name, type]) => ({
+          name,
+          type,
+        }))
+      }
+    }
+
     return []
-  }, [schema])
+  }, [eventData, transformationConfig.fields])
 
   // Local validation state
   const [localValidation, setLocalValidation] = useState<TransformationConfigValidation>({
@@ -273,114 +306,118 @@ export function TransformationConfigurator({
       {hasNoTransformation && readOnly && renderNoTransformationView()}
 
       {/* Transformation Fields */}
-      {availableFields.length > 0 && (!readOnly || transformationConfig.fields.length > 0) && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Label className="text-lg font-medium text-content">
-                Transformation Fields
-                {totalFieldCount > 0 && (
-                  <span className="ml-2 text-sm font-normal text-[var(--text-secondary)]">
-                    ({completeFieldCount}/{totalFieldCount} complete)
-                  </span>
-                )}
-              </Label>
-              <Button variant="outline" size="sm" onClick={handleRestoreSourceFields} className="btn-tertiary">
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Restore Source Fields
-              </Button>
-            </div>
-            {!readOnly && (
-              <div className="flex gap-2">
-                {transformationConfig.fields.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearAllFields}
-                    className="btn-tertiary text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-subtle)]"
-                  >
-                    <TrashIcon className="h-4 w-4 mr-1" />
-                    Clear All
+      {/* Show fields if we have available fields OR if we have transformation fields (from hydration) */}
+      {(availableFields.length > 0 || transformationConfig.fields.length > 0) &&
+        (!readOnly || transformationConfig.fields.length > 0) && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-lg font-medium text-content">
+                  Transformation Fields
+                  {totalFieldCount > 0 && (
+                    <span className="ml-2 text-sm font-normal text-[var(--text-secondary)]">
+                      ({completeFieldCount}/{totalFieldCount} complete)
+                    </span>
+                  )}
+                </Label>
+                <Button variant="outline" size="sm" onClick={handleRestoreSourceFields} className="btn-tertiary">
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Restore Source Fields
+                </Button>
+              </div>
+              {!readOnly && (
+                <div className="flex gap-2">
+                  {transformationConfig.fields.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearAllFields}
+                      className="btn-tertiary text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-subtle)]"
+                    >
+                      <TrashIcon className="h-4 w-4 mr-1" />
+                      Clear All
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={handleAddComputedField} className="btn-tertiary">
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Computed Field
                   </Button>
-                )}
-                <Button variant="outline" size="sm" onClick={handleAddComputedField} className="btn-tertiary">
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Computed Field
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleAddPassthroughField} className="btn-tertiary">
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Pass Through Field
-                </Button>
+                  <Button variant="outline" size="sm" onClick={handleAddPassthroughField} className="btn-tertiary">
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Pass Through Field
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Field List */}
+            {transformationConfig.fields.length === 0 ? (
+              <div className="text-sm text-[var(--text-secondary)] text-center py-8 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
+                No fields configured. Add pass-through or computed fields using the buttons above.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transformationConfig.fields.map((field, index) => (
+                  <TransformationFieldRow
+                    key={field.id}
+                    field={field}
+                    availableFields={availableFields}
+                    onUpdate={handleUpdateField}
+                    onRemove={handleRemoveField}
+                    errors={localValidation.fieldErrors[field.id]}
+                    readOnly={readOnly}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Expression Preview */}
+            {transformationConfig.fields.length > 0 && completeFieldCount > 0 && (
+              <div className="mt-6 p-4 card-outline rounded-[var(--radius-large)] space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-[var(--text-secondary)]">
+                    Intermediary Schema Preview
+                  </Label>
+                  {localValidation.isValid ? (
+                    <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
+                      <CheckCircleIcon className="w-4 h-4" />
+                      Valid configuration
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-critical)]">
+                      <XCircleIcon className="w-4 h-4" />
+                      Invalid configuration
+                    </div>
+                  )}
+                </div>
+                <div className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)]">
+                  {getIntermediarySchema(transformationConfig).map((field, idx) => (
+                    <div key={idx} className="text-[var(--text-primary)]">
+                      <span className="text-[var(--color-foreground-primary)]">{field.name}</span>
+                      <span className="text-[var(--text-secondary)]">: {field.type}</span>
+                      {field.sourceField && (
+                        <span className="text-[var(--text-secondary)]"> (from {field.sourceField})</span>
+                      )}
+                      {field.functionName && (
+                        <span className="text-[var(--text-secondary)]"> (computed via {field.functionName})</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Global validation errors */}
+            {localValidation.globalErrors.length > 0 && (
+              <div className="text-sm text-[var(--color-foreground-critical)]">
+                {localValidation.globalErrors.map((error, i) => (
+                  <div key={i}>{error}</div>
+                ))}
               </div>
             )}
           </div>
-
-          {/* Field List */}
-          {transformationConfig.fields.length === 0 ? (
-            <div className="text-sm text-[var(--text-secondary)] text-center py-8 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
-              No fields configured. Add pass-through or computed fields using the buttons above.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {transformationConfig.fields.map((field, index) => (
-                <TransformationFieldRow
-                  key={field.id}
-                  field={field}
-                  availableFields={availableFields}
-                  onUpdate={handleUpdateField}
-                  onRemove={handleRemoveField}
-                  errors={localValidation.fieldErrors[field.id]}
-                  readOnly={readOnly}
-                  index={index}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Expression Preview */}
-          {transformationConfig.fields.length > 0 && completeFieldCount > 0 && (
-            <div className="mt-6 p-4 card-outline rounded-[var(--radius-large)] space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-[var(--text-secondary)]">Intermediary Schema Preview</Label>
-                {localValidation.isValid ? (
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
-                    <CheckCircleIcon className="w-4 h-4" />
-                    Valid configuration
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-critical)]">
-                    <XCircleIcon className="w-4 h-4" />
-                    Invalid configuration
-                  </div>
-                )}
-              </div>
-              <div className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)]">
-                {getIntermediarySchema(transformationConfig).map((field, idx) => (
-                  <div key={idx} className="text-[var(--text-primary)]">
-                    <span className="text-[var(--color-foreground-primary)]">{field.name}</span>
-                    <span className="text-[var(--text-secondary)]">: {field.type}</span>
-                    {field.sourceField && (
-                      <span className="text-[var(--text-secondary)]"> (from {field.sourceField})</span>
-                    )}
-                    {field.functionName && (
-                      <span className="text-[var(--text-secondary)]"> (computed via {field.functionName})</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Global validation errors */}
-          {localValidation.globalErrors.length > 0 && (
-            <div className="text-sm text-[var(--color-foreground-critical)]">
-              {localValidation.globalErrors.map((error, i) => (
-                <div key={i}>{error}</div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
       {/* No fields available message */}
       {!readOnly && availableFields.length === 0 && hasNoTransformation && (
