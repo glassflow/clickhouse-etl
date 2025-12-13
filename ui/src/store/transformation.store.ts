@@ -23,11 +23,30 @@ export interface FunctionArgLiteral {
 
 export interface FunctionArgArray {
   type: 'array'
-  values: (string | number)[]
-  elementType: 'string' | 'number'
+  values: (string | number | FunctionArg)[]
+  elementType: 'string' | 'number' | 'nested_function'
 }
 
-export type FunctionArg = FunctionArgField | FunctionArgLiteral | FunctionArgArray
+// New: A function argument can itself be a nested function call
+export interface FunctionArgNestedFunction {
+  type: 'nested_function'
+  functionName: string
+  functionArgs: FunctionArg[]
+}
+
+export type FunctionArg = FunctionArgField | FunctionArgLiteral | FunctionArgArray | FunctionArgNestedFunction
+
+// Expression mode for computed fields
+export type ExpressionMode = 'simple' | 'nested' | 'raw'
+
+// Arithmetic operator types for transformations
+export type TransformArithmeticOperator = '+' | '-' | '*' | '/' | '%'
+
+// Arithmetic expression to apply on top of function result
+export interface TransformArithmeticExpression {
+  operator: TransformArithmeticOperator
+  operand: number // Right-hand operand (e.g., 1000000 in "* 1000000")
+}
 
 // A transformation field - either computed or passthrough
 export interface TransformationField {
@@ -41,6 +60,12 @@ export interface TransformationField {
   // For passthrough:
   sourceField?: string // Original Kafka field name
   sourceFieldType?: string // Type of the source field
+  // Expression mode for computed fields (simple, nested, or raw)
+  expressionMode?: ExpressionMode
+  // Raw expression for complex cases (ternary, comparisons, etc.)
+  rawExpression?: string
+  // Arithmetic expression to apply on function result (e.g., * 1000000)
+  arithmeticExpression?: TransformArithmeticExpression
 }
 
 // Transformation configuration state
@@ -112,13 +137,15 @@ export const createEmptyPassthroughField = (): TransformationField => ({
 })
 
 // Helper to create an empty computed field
-export const createEmptyComputedField = (): TransformationField => ({
+export const createEmptyComputedField = (expressionMode: ExpressionMode = 'simple'): TransformationField => ({
   id: uuidv4(),
   type: 'computed',
   outputFieldName: '',
   outputFieldType: '',
   functionName: '',
   functionArgs: [],
+  expressionMode,
+  rawExpression: '',
 })
 
 // Helper to create a passthrough field from source
@@ -159,10 +186,35 @@ export const isFieldComplete = (field: TransformationField): boolean => {
   }
 
   if (field.type === 'computed') {
+    // Raw expression mode - just needs the expression
+    if (field.expressionMode === 'raw') {
+      return !!field.rawExpression && field.rawExpression.trim().length > 0
+    }
+    // Simple or nested mode - needs function name and args
     return !!field.functionName && (field.functionArgs?.length ?? 0) > 0
   }
 
   return false
+}
+
+// Helper to check if a function argument is a nested function
+export const isNestedFunctionArg = (arg: FunctionArg): arg is FunctionArgNestedFunction => {
+  return arg.type === 'nested_function'
+}
+
+// Helper to check if a nested function argument is complete
+export const isNestedFunctionComplete = (arg: FunctionArgNestedFunction): boolean => {
+  if (!arg.functionName) return false
+  // Recursively check nested args
+  for (const nestedArg of arg.functionArgs) {
+    if (nestedArg.type === 'nested_function') {
+      if (!isNestedFunctionComplete(nestedArg)) return false
+    } else if (nestedArg.type === 'field') {
+      if (!nestedArg.fieldName) return false
+    }
+    // Literals and arrays are always considered complete if they exist
+  }
+  return true
 }
 
 // Helper to count complete fields
@@ -211,6 +263,9 @@ export const createTransformationSlice: StateCreator<TransformationSlice> = (set
           sourceFieldType: field?.sourceFieldType,
           functionName: field?.functionName,
           functionArgs: field?.functionArgs,
+          expressionMode: field?.expressionMode || 'simple',
+          rawExpression: field?.rawExpression,
+          arithmeticExpression: field?.arithmeticExpression,
         }
 
         return {

@@ -12,7 +12,10 @@ import {
   FunctionArgField,
   FunctionArgLiteral,
   FunctionArgArray,
+  FunctionArgNestedFunction,
+  TransformArithmeticExpression,
   isFieldComplete,
+  isNestedFunctionArg,
 } from '@/src/store/transformation.store'
 import { getFunctionByName, TransformationFunctionDef } from './functions'
 
@@ -26,6 +29,8 @@ export interface FieldValidation {
     functionName?: string
     functionArgs?: string
     sourceField?: string
+    rawExpression?: string
+    arithmeticExpression?: string
     general?: string
   }
 }
@@ -71,7 +76,14 @@ export const isArrayArg = (arg: FunctionArg): arg is FunctionArgArray => {
 }
 
 /**
- * Format a function argument for the expression
+ * Check if a function argument is a nested function call
+ */
+export const isNestedFunctionArgUtil = (arg: FunctionArg): arg is FunctionArgNestedFunction => {
+  return arg.type === 'nested_function'
+}
+
+/**
+ * Format a function argument for the expression (supports nested functions)
  */
 export const formatArgForExpr = (arg: FunctionArg): string => {
   if (isFieldArg(arg)) {
@@ -88,8 +100,12 @@ export const formatArgForExpr = (arg: FunctionArg): string => {
   }
 
   if (isArrayArg(arg)) {
-    // Array value
+    // Array value - can contain nested functions
     const formattedValues = arg.values.map((v) => {
+      // Check if value is a nested function argument
+      if (typeof v === 'object' && v !== null && 'type' in v) {
+        return formatArgForExpr(v as FunctionArg)
+      }
       if (arg.elementType === 'string') {
         return `"${String(v).replace(/"/g, '\\"')}"`
       }
@@ -98,33 +114,76 @@ export const formatArgForExpr = (arg: FunctionArg): string => {
     return `[${formattedValues.join(', ')}]`
   }
 
+  if (isNestedFunctionArgUtil(arg)) {
+    // Nested function call - recursively generate expression
+    return nestedFunctionToExpr(arg)
+  }
+
   return ''
+}
+
+/**
+ * Generate expression for a nested function argument
+ */
+export const nestedFunctionToExpr = (arg: FunctionArgNestedFunction): string => {
+  if (!arg.functionName) {
+    return ''
+  }
+  const args = arg.functionArgs.map(formatArgForExpr)
+  return `${arg.functionName}(${args.join(', ')})`
+}
+
+/**
+ * Format arithmetic expression suffix
+ */
+export const formatArithmeticExpr = (arithmetic: TransformArithmeticExpression): string => {
+  return ` ${arithmetic.operator} ${arithmetic.operand}`
 }
 
 /**
  * Generate expression for a computed field
  */
 export const computedFieldToExpr = (field: TransformationField): string => {
-  if (field.type !== 'computed' || !field.functionName || !field.functionArgs) {
+  if (field.type !== 'computed') {
     return ''
   }
 
-  // Handle raw expressions (complex expressions that couldn't be parsed)
+  // Handle raw expression mode
+  if (field.expressionMode === 'raw' && field.rawExpression) {
+    return field.rawExpression
+  }
+
+  // Handle legacy raw expressions (complex expressions that couldn't be parsed)
   if (field.functionName === '__raw_expression__') {
-    const rawExpr = (field as any).rawExpression
+    const rawExpr = field.rawExpression
     if (rawExpr) {
       return rawExpr
     }
     // Fallback: try to extract from first literal argument
-    const firstArg = field.functionArgs[0]
-    if (isLiteralArg(firstArg)) {
-      return String(firstArg.value)
+    if (field.functionArgs && field.functionArgs.length > 0) {
+      const firstArg = field.functionArgs[0]
+      if (isLiteralArg(firstArg)) {
+        return String(firstArg.value)
+      }
     }
     return ''
   }
 
+  // Need function name and args for simple/nested modes
+  if (!field.functionName || !field.functionArgs) {
+    return ''
+  }
+
+  // Generate the function call expression (handles nested functions via formatArgForExpr)
   const args = field.functionArgs.map(formatArgForExpr)
-  return `${field.functionName}(${args.join(', ')})`
+  let expr = `${field.functionName}(${args.join(', ')})`
+
+  // Apply arithmetic expression if present
+  if (field.arithmeticExpression) {
+    expr = expr + formatArithmeticExpr(field.arithmeticExpression)
+  }
+
+  return expr
 }
 
 /**
@@ -175,6 +234,44 @@ export const toTransformationExpr = (config: TransformationConfig): string => {
 }
 
 /**
+ * Validate a nested function argument recursively
+ */
+export const validateNestedFunctionArg = (arg: FunctionArgNestedFunction): { isValid: boolean; error?: string } => {
+  if (!arg.functionName) {
+    return { isValid: false, error: 'Nested function name is required' }
+  }
+
+  const funcDef = getFunctionByName(arg.functionName)
+  if (!funcDef) {
+    return { isValid: false, error: `Unknown nested function: ${arg.functionName}` }
+  }
+
+  // Validate nested function arguments
+  const requiredArgs = funcDef.args.filter((a) => a.required !== false)
+  if (!arg.functionArgs || arg.functionArgs.length < requiredArgs.length) {
+    return { isValid: false, error: `Nested function ${arg.functionName} requires ${requiredArgs.length} argument(s)` }
+  }
+
+  // Recursively validate each nested argument
+  for (let i = 0; i < arg.functionArgs.length; i++) {
+    const nestedArg = arg.functionArgs[i]
+    if (isNestedFunctionArgUtil(nestedArg)) {
+      const nestedValidation = validateNestedFunctionArg(nestedArg)
+      if (!nestedValidation.isValid) {
+        return nestedValidation
+      }
+    } else if (isFieldArg(nestedArg)) {
+      if (!nestedArg.fieldName) {
+        return { isValid: false, error: `Field selection required for argument ${i + 1}` }
+      }
+    }
+    // Literals and arrays are considered valid if they exist
+  }
+
+  return { isValid: true }
+}
+
+/**
  * Validate a single transformation field
  */
 export const validateFieldLocally = (field: TransformationField): FieldValidation => {
@@ -189,14 +286,16 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
   }
 
   if (field.type === 'computed') {
-    // Validate computed field
-    if (!field.functionName) {
-      errors.functionName = 'Function is required for computed fields'
-    } else if (field.functionName === '__raw_expression__') {
-      // Special case: raw expression (complex expressions that can't be parsed)
-      // These are valid - they come from hydrated configs with complex expressions
-      // Check that we have the raw expression stored (either in rawExpression or in functionArgs)
-      const rawExpr = (field as any).rawExpression
+    // Handle raw expression mode
+    if (field.expressionMode === 'raw') {
+      if (!field.rawExpression || field.rawExpression.trim() === '') {
+        errors.rawExpression = 'Expression is required'
+      }
+      // Raw expressions are assumed valid if non-empty (backend will validate)
+    }
+    // Handle legacy raw expression marker
+    else if (field.functionName === '__raw_expression__') {
+      const rawExpr = field.rawExpression
       const hasRawExprInArgs =
         field.functionArgs &&
         field.functionArgs.length > 0 &&
@@ -205,40 +304,58 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
       if (!rawExpr && !hasRawExprInArgs) {
         errors.general = 'Raw expression is missing'
       }
-    } else {
-      const funcDef = getFunctionByName(field.functionName)
-      if (!funcDef) {
-        errors.functionName = `Unknown function: ${field.functionName}`
+    }
+    // Handle simple and nested modes
+    else {
+      if (!field.functionName) {
+        errors.functionName = 'Function is required for computed fields'
       } else {
-        // Validate function arguments
-        const requiredArgs = funcDef.args.filter((a) => a.required !== false)
-        if (!field.functionArgs || field.functionArgs.length < requiredArgs.length) {
-          errors.functionArgs = `Function ${field.functionName} requires ${requiredArgs.length} argument(s)`
+        const funcDef = getFunctionByName(field.functionName)
+        if (!funcDef) {
+          errors.functionName = `Unknown function: ${field.functionName}`
         } else {
-          // Check each argument
-          for (let i = 0; i < requiredArgs.length; i++) {
-            const argDef = requiredArgs[i]
-            const argValue = field.functionArgs[i]
+          // Validate function arguments
+          const requiredArgs = funcDef.args.filter((a) => a.required !== false)
+          if (!field.functionArgs || field.functionArgs.length < requiredArgs.length) {
+            errors.functionArgs = `Function ${field.functionName} requires ${requiredArgs.length} argument(s)`
+          } else {
+            // Check each argument (including nested functions)
+            for (let i = 0; i < requiredArgs.length; i++) {
+              const argDef = requiredArgs[i]
+              const argValue = field.functionArgs[i]
 
-            if (!argValue) {
-              errors.functionArgs = `Argument "${argDef.name}" is required`
-              break
-            }
-
-            if (argDef.type === 'field' && isFieldArg(argValue)) {
-              if (!argValue.fieldName) {
-                errors.functionArgs = `Field selection required for argument "${argDef.name}"`
+              if (!argValue) {
+                errors.functionArgs = `Argument "${argDef.name}" is required`
                 break
               }
-            }
 
-            if (argDef.type === 'literal' && isLiteralArg(argValue)) {
-              if (argValue.value === undefined || argValue.value === '') {
-                errors.functionArgs = `Value required for argument "${argDef.name}"`
-                break
+              // Validate nested function arguments recursively
+              if (isNestedFunctionArgUtil(argValue)) {
+                const nestedValidation = validateNestedFunctionArg(argValue)
+                if (!nestedValidation.isValid) {
+                  errors.functionArgs = nestedValidation.error
+                  break
+                }
+              } else if (argDef.type === 'field' && isFieldArg(argValue)) {
+                if (!argValue.fieldName) {
+                  errors.functionArgs = `Field selection required for argument "${argDef.name}"`
+                  break
+                }
+              } else if (argDef.type === 'literal' && isLiteralArg(argValue)) {
+                if (argValue.value === undefined || argValue.value === '') {
+                  errors.functionArgs = `Value required for argument "${argDef.name}"`
+                  break
+                }
               }
             }
           }
+        }
+      }
+
+      // Validate arithmetic expression if present
+      if (field.arithmeticExpression) {
+        if (isNaN(field.arithmeticExpression.operand)) {
+          errors.arithmeticExpression = 'Arithmetic operand must be a valid number'
         }
       }
     }
@@ -351,10 +468,36 @@ export const createLiteralArg = (
 /**
  * Create an array argument
  */
-export const createArrayArg = (values: (string | number)[], elementType: 'string' | 'number'): FunctionArgArray => ({
+export const createArrayArg = (
+  values: (string | number | FunctionArg)[],
+  elementType: 'string' | 'number' | 'nested_function',
+): FunctionArgArray => ({
   type: 'array',
   values,
   elementType,
+})
+
+/**
+ * Create a nested function argument
+ */
+export const createNestedFunctionArg = (
+  functionName: string,
+  functionArgs: FunctionArg[],
+): FunctionArgNestedFunction => ({
+  type: 'nested_function',
+  functionName,
+  functionArgs,
+})
+
+/**
+ * Create an arithmetic expression
+ */
+export const createArithmeticExpr = (
+  operator: '+' | '-' | '*' | '/' | '%',
+  operand: number,
+): TransformArithmeticExpression => ({
+  operator,
+  operand,
 })
 
 /**
