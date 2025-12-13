@@ -1,10 +1,38 @@
-import { TransformationField } from '@/src/store/transformation.store'
+'use client'
+
+import { useCallback } from 'react'
+import {
+  TransformationField,
+  FunctionArg,
+  ExpressionMode,
+  TransformArithmeticExpression,
+} from '@/src/store/transformation.store'
 import { FieldValidation } from '../utils'
 import { Label } from '@/src/components/ui/label'
 import { FunctionSelector } from './FunctionSelector'
 import { Input } from '@/src/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { TransformationFunctionDef } from '../functions'
+import { ExpressionModeToggle } from './ExpressionModeToggle'
+import { NestedFunctionComposer } from './NestedFunctionComposer'
+import { RawExpressionEditor } from './RawExpressionEditor'
+import { ArithmeticModifier } from './ArithmeticModifier'
+
+interface TransformFunctionSelectProps {
+  field: TransformationField
+  handleFunctionChange: (value: string) => void
+  readOnly: boolean
+  errors: FieldValidation['errors']
+  availableFields: Array<{ name: string; type: string }>
+  functionDef: TransformationFunctionDef
+  getArgValue: (argIndex: number) => string
+  handleArgChange: (argIndex: number, value: string, argType: 'field' | 'literal' | 'array') => void
+  // New props for extended functionality
+  onExpressionModeChange?: (mode: ExpressionMode) => void
+  onFunctionArgsChange?: (args: FunctionArg[]) => void
+  onRawExpressionChange?: (expression: string) => void
+  onArithmeticChange?: (arithmetic: TransformArithmeticExpression | undefined) => void
+}
 
 function TransformFunctionSelect({
   field,
@@ -15,17 +43,66 @@ function TransformFunctionSelect({
   functionDef,
   getArgValue,
   handleArgChange,
-}: {
-  field: TransformationField
-  handleFunctionChange: (value: string) => void
-  readOnly: boolean
-  errors: FieldValidation['errors']
-  availableFields: Array<{ name: string; type: string }>
-  functionDef: TransformationFunctionDef
-  getArgValue: (argIndex: number) => string
-  handleArgChange: (argIndex: number, value: string, argType: 'field' | 'literal' | 'array') => void
-}) {
-  return (
+  onExpressionModeChange,
+  onFunctionArgsChange,
+  onRawExpressionChange,
+  onArithmeticChange,
+}: TransformFunctionSelectProps) {
+  const expressionMode = field.expressionMode || 'simple'
+
+  // Handle mode change
+  const handleModeChange = useCallback(
+    (mode: ExpressionMode) => {
+      if (onExpressionModeChange) {
+        onExpressionModeChange(mode)
+      }
+    },
+    [onExpressionModeChange],
+  )
+
+  // Handle function args change for nested mode
+  const handleNestedArgsChange = useCallback(
+    (args: FunctionArg[]) => {
+      if (onFunctionArgsChange) {
+        onFunctionArgsChange(args)
+      }
+    },
+    [onFunctionArgsChange],
+  )
+
+  // Handle raw expression change
+  const handleRawChange = useCallback(
+    (expression: string) => {
+      if (onRawExpressionChange) {
+        onRawExpressionChange(expression)
+      }
+    },
+    [onRawExpressionChange],
+  )
+
+  // Handle arithmetic enabled/expression change
+  const handleArithmeticEnabledChange = useCallback(
+    (enabled: boolean) => {
+      if (onArithmeticChange) {
+        if (!enabled) {
+          onArithmeticChange(undefined)
+        }
+      }
+    },
+    [onArithmeticChange],
+  )
+
+  const handleArithmeticExprChange = useCallback(
+    (arithmetic: TransformArithmeticExpression | undefined) => {
+      if (onArithmeticChange) {
+        onArithmeticChange(arithmetic)
+      }
+    },
+    [onArithmeticChange],
+  )
+
+  // Render simple mode (original behavior)
+  const renderSimpleMode = () => (
     <div className="flex gap-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
       <div className="flex-1">
         <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Function</Label>
@@ -45,7 +122,6 @@ function TransformFunctionSelect({
         <div className="flex gap-2">
           {functionDef.args.map((argDef, argIndex) => (
             <div key={argIndex} className="flex-1 gap-2 items-center">
-              {/* <span className="text-xs text-[var(--text-secondary)] w-24">{argDef.name}:</span> */}
               {argDef.type === 'field' ? (
                 <div className="flex-1">
                   <Select
@@ -85,6 +161,65 @@ function TransformFunctionSelect({
           )}
         </div>
       </div>
+    </div>
+  )
+
+  // Render nested mode
+  const renderNestedMode = () => (
+    <div className="space-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+      <NestedFunctionComposer
+        functionName={field.functionName || ''}
+        functionArgs={field.functionArgs || []}
+        availableFields={availableFields}
+        onFunctionChange={handleFunctionChange}
+        onArgsChange={handleNestedArgsChange}
+        disabled={readOnly}
+        error={errors?.functionName}
+      />
+    </div>
+  )
+
+  // Render raw expression mode
+  const renderRawMode = () => (
+    <div className="space-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+      <RawExpressionEditor
+        expression={field.rawExpression || ''}
+        availableFields={availableFields}
+        onChange={handleRawChange}
+        disabled={readOnly}
+        error={errors?.rawExpression}
+      />
+    </div>
+  )
+
+  // Check if extended mode handlers are available
+  const hasExtendedHandlers = onExpressionModeChange && onFunctionArgsChange && onRawExpressionChange
+
+  return (
+    <div className="space-y-4">
+      {/* Expression mode toggle - only show if handlers are provided */}
+      {hasExtendedHandlers && (
+        <div className="flex items-center gap-4">
+          <ExpressionModeToggle mode={expressionMode} onChange={handleModeChange} disabled={readOnly} />
+        </div>
+      )}
+
+      {/* Render content based on mode */}
+      {expressionMode === 'simple' && renderSimpleMode()}
+      {expressionMode === 'nested' && hasExtendedHandlers && renderNestedMode()}
+      {expressionMode === 'raw' && hasExtendedHandlers && renderRawMode()}
+
+      {/* Arithmetic modifier - only for simple and nested modes with extended handlers */}
+      {hasExtendedHandlers && onArithmeticChange && expressionMode !== 'raw' && (
+        <ArithmeticModifier
+          enabled={!!field.arithmeticExpression}
+          expression={field.arithmeticExpression}
+          onEnabledChange={handleArithmeticEnabledChange}
+          onExpressionChange={handleArithmeticExprChange}
+          disabled={readOnly}
+          error={errors?.arithmeticExpression}
+        />
+      )}
     </div>
   )
 }

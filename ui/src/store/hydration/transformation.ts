@@ -1,5 +1,12 @@
 import { useStore } from '../index'
-import { TransformationConfig, TransformationField } from '../transformation.store'
+import {
+  TransformationConfig,
+  TransformationField,
+  FunctionArg,
+  FunctionArgNestedFunction,
+  TransformArithmeticExpression,
+  ExpressionMode,
+} from '../transformation.store'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -55,80 +62,22 @@ export function hydrateTransformation(pipelineConfig: any) {
           sourceFieldType: outputType,
         }
       } else {
-        // Computed field - try to extract function name and args
-        // Handle nested function calls by finding the outermost function call
-        // Pattern: functionName(possibly nested args)
-        const functionMatch = expression.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/)
+        // Computed field - determine expression mode and parse accordingly
+        const expressionMode = determineExpressionMode(expression)
 
-        // Check if this is a complex expression (ternary, comparison operators, etc.)
-        const hasComplexOperators = /[?:!=<>]/.test(expression)
+        // Check for arithmetic modifier first
+        const { baseExpr, arithmetic } = parseArithmeticModifier(expression)
 
-        if (functionMatch && !hasComplexOperators) {
-          const functionName = functionMatch[1]
-          const argsString = functionMatch[2]
-
-          // Parse arguments - simplified parser
-          const args: any[] = []
-          const argParts = parseFunctionArgsString(argsString)
-          argParts.forEach((arg: string) => {
-            const trimmed = arg.trim()
-            // Check if it's a string literal
-            if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-              args.push({
-                type: 'literal' as const,
-                value: trimmed.slice(1, -1),
-                literalType: 'string' as const,
-              })
-            } else if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-              // Array literal
-              const arrayContent = trimmed.slice(1, -1)
-              const arrayValues = parseFunctionArgsString(arrayContent).map((v: string) =>
-                v.trim().replace(/^"|"$/g, ''),
-              )
-              args.push({
-                type: 'array' as const,
-                values: arrayValues,
-                elementType: 'string' as const,
-              })
-            } else if (/^-?\d+\.?\d*$/.test(trimmed)) {
-              // Number literal (integer or float)
-              const numValue = trimmed.includes('.') ? parseFloat(trimmed) : parseInt(trimmed, 10)
-              args.push({
-                type: 'literal' as const,
-                value: numValue,
-                literalType: 'number' as const,
-              })
-            } else {
-              // Could be a field reference or nested function call
-              // For now, treat nested function calls as field references
-              // The UI will need to handle these, but at least validation will pass
-              args.push({
-                type: 'field' as const,
-                fieldName: trimmed,
-                fieldType: 'string',
-              })
-            }
-          })
-
+        if (expressionMode === 'raw') {
+          // Complex expression - store as raw
           return {
             id: transform.id || `field-${index}`,
             type: 'computed' as const,
             outputFieldName: outputName,
             outputFieldType: outputType,
-            functionName: functionName,
-            functionArgs: args,
-          }
-        } else {
-          // Complex expression - store as computed with raw expression
-          // For complex expressions that can't be parsed (nested calls, ternaries, etc.),
-          // we store the raw expression and mark it as complete so validation passes
-          // The UI will need to handle these specially, but for now we preserve them
-          return {
-            id: transform.id || `field-${index}`,
-            type: 'computed' as const,
-            outputFieldName: outputName,
-            outputFieldType: outputType,
-            functionName: '__raw_expression__', // Special marker for raw expressions
+            expressionMode: 'raw' as const,
+            rawExpression: expression,
+            functionName: '__raw_expression__', // Legacy marker for backward compatibility
             functionArgs: [
               {
                 type: 'literal' as const,
@@ -136,8 +85,49 @@ export function hydrateTransformation(pipelineConfig: any) {
                 literalType: 'string' as const,
               },
             ],
-            rawExpression: expression, // Store raw expression for complex cases
-          } as any
+          }
+        }
+
+        // Parse function call (simple or nested)
+        const exprToParse = arithmetic ? baseExpr : expression
+        const functionMatch = exprToParse.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/)
+
+        if (functionMatch) {
+          const functionName = functionMatch[1]
+          const argsString = functionMatch[2]
+
+          // Parse arguments with support for nested functions
+          const argParts = parseFunctionArgsString(argsString)
+          const args: FunctionArg[] = argParts.map(parseArgument)
+
+          return {
+            id: transform.id || `field-${index}`,
+            type: 'computed' as const,
+            outputFieldName: outputName,
+            outputFieldType: outputType,
+            expressionMode,
+            functionName,
+            functionArgs: args,
+            arithmeticExpression: arithmetic,
+          }
+        } else {
+          // Fallback - store as raw expression
+          return {
+            id: transform.id || `field-${index}`,
+            type: 'computed' as const,
+            outputFieldName: outputName,
+            outputFieldType: outputType,
+            expressionMode: 'raw' as const,
+            rawExpression: expression,
+            functionName: '__raw_expression__',
+            functionArgs: [
+              {
+                type: 'literal' as const,
+                value: expression,
+                literalType: 'string' as const,
+              },
+            ],
+          }
         }
       }
     })
@@ -252,10 +242,196 @@ function parseFunctionArgsString(argsString: string): string[] {
 }
 
 /**
+ * Check if an expression contains a nested function call
+ */
+function isNestedFunctionCall(expr: string): boolean {
+  // Check for pattern: functionName(args)
+  return /^[a-zA-Z_][a-zA-Z0-9_]*\s*\(.*\)$/.test(expr.trim())
+}
+
+/**
+ * Parse a single argument string into a FunctionArg
+ * Handles nested function calls recursively
+ */
+function parseArgument(argStr: string): FunctionArg {
+  const trimmed = argStr.trim()
+
+  // String literal
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return {
+      type: 'literal' as const,
+      value: trimmed.slice(1, -1),
+      literalType: 'string' as const,
+    }
+  }
+
+  // Array literal - may contain nested function calls
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    const arrayContent = trimmed.slice(1, -1)
+    const arrayArgs = parseFunctionArgsString(arrayContent)
+    const values: (string | number | FunctionArg)[] = arrayArgs.map((v) => {
+      const itemTrimmed = v.trim()
+      // Check if array item is a nested function call
+      if (isNestedFunctionCall(itemTrimmed)) {
+        return parseNestedFunction(itemTrimmed)
+      }
+      // String literal in array
+      if (itemTrimmed.startsWith('"') && itemTrimmed.endsWith('"')) {
+        return itemTrimmed.slice(1, -1)
+      }
+      // Number
+      if (/^-?\d+\.?\d*$/.test(itemTrimmed)) {
+        return parseFloat(itemTrimmed)
+      }
+      return itemTrimmed
+    })
+
+    // Determine element type
+    const hasNestedFunction = values.some((v) => typeof v === 'object' && v !== null && 'type' in v)
+    const elementType = hasNestedFunction ? ('nested_function' as const) : ('string' as const)
+
+    return {
+      type: 'array' as const,
+      values,
+      elementType,
+    }
+  }
+
+  // Number literal
+  if (/^-?\d+\.?\d*$/.test(trimmed)) {
+    const numValue = trimmed.includes('.') ? parseFloat(trimmed) : parseInt(trimmed, 10)
+    return {
+      type: 'literal' as const,
+      value: numValue,
+      literalType: 'number' as const,
+    }
+  }
+
+  // Nested function call
+  if (isNestedFunctionCall(trimmed)) {
+    return parseNestedFunction(trimmed)
+  }
+
+  // Field reference
+  return {
+    type: 'field' as const,
+    fieldName: trimmed,
+    fieldType: 'string',
+  }
+}
+
+/**
+ * Parse a nested function call expression
+ */
+function parseNestedFunction(expr: string): FunctionArgNestedFunction {
+  const match = expr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/)
+  if (!match) {
+    // Fallback - treat as a field reference wrapped in a function
+    return {
+      type: 'nested_function',
+      functionName: '',
+      functionArgs: [],
+    }
+  }
+
+  const functionName = match[1]
+  const argsString = match[2]
+  const argStrings = parseFunctionArgsString(argsString)
+  const functionArgs = argStrings.map(parseArgument)
+
+  return {
+    type: 'nested_function',
+    functionName,
+    functionArgs,
+  }
+}
+
+/**
+ * Check if expression has arithmetic modifier at the end
+ * Pattern: expr * number, expr / number, etc.
+ */
+function parseArithmeticModifier(expr: string): { baseExpr: string; arithmetic?: TransformArithmeticExpression } {
+  // Match pattern: (expression) operator number OR functionCall(...) operator number
+  // We need to be careful not to match operators inside function calls
+  const arithmeticMatch = expr.match(/^(.+?)\s*([+\-*/%])\s*(\d+\.?\d*)$/)
+
+  if (arithmeticMatch) {
+    const baseExpr = arithmeticMatch[1].trim()
+    const operator = arithmeticMatch[2] as TransformArithmeticExpression['operator']
+    const operand = parseFloat(arithmeticMatch[3])
+
+    // Make sure the base expression is complete (balanced parentheses)
+    let depth = 0
+    for (const char of baseExpr) {
+      if (char === '(') depth++
+      if (char === ')') depth--
+    }
+
+    if (depth === 0) {
+      return {
+        baseExpr,
+        arithmetic: { operator, operand },
+      }
+    }
+  }
+
+  return { baseExpr: expr }
+}
+
+/**
+ * Determine the expression mode based on the expression complexity
+ */
+function determineExpressionMode(expression: string): ExpressionMode {
+  // Check for ternary operators - always raw
+  if (/\?.*:/.test(expression)) {
+    return 'raw'
+  }
+
+  // Check for comparison operators outside function calls - raw
+  if (/[!=<>]/.test(expression)) {
+    // Check if the comparison is outside of any function call
+    let depth = 0
+    for (let i = 0; i < expression.length; i++) {
+      const char = expression[i]
+      if (char === '(') depth++
+      if (char === ')') depth--
+      if (depth === 0 && (char === '!' || char === '=' || char === '<' || char === '>')) {
+        return 'raw'
+      }
+    }
+  }
+
+  // Check for nested function calls
+  const funcMatch = expression.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/)
+  if (funcMatch) {
+    const argsString = funcMatch[2]
+    // Check if any argument contains a function call
+    const args = parseFunctionArgsString(argsString)
+    for (const arg of args) {
+      if (isNestedFunctionCall(arg.trim())) {
+        return 'nested'
+      }
+      // Check for arrays with nested functions
+      if (arg.trim().startsWith('[')) {
+        const arrayContent = arg.trim().slice(1, -1)
+        const arrayItems = parseFunctionArgsString(arrayContent)
+        for (const item of arrayItems) {
+          if (isNestedFunctionCall(item.trim())) {
+            return 'nested'
+          }
+        }
+      }
+    }
+  }
+
+  return 'simple'
+}
+
+/**
  * Parse hydrated function arguments into the correct format
  */
-function parseHydratedArgs(args: any[]): any[] {
-  return args.map((arg) => {
+function parseHydratedArgs(args: any[]): FunctionArg[] {
+  return args.map((arg): FunctionArg => {
     if (arg.type === 'field') {
       return {
         type: 'field' as const,
@@ -269,11 +445,20 @@ function parseHydratedArgs(args: any[]): any[] {
         literalType: arg.literalType || 'string',
       }
     } else if (arg.type === 'array') {
+      // Parse array values, including nested functions
+      const values = (arg.values || []).map((v: any) => {
+        if (typeof v === 'object' && v !== null && v.type === 'nested_function') {
+          return parseHydratedNestedFunction(v)
+        }
+        return v
+      })
       return {
         type: 'array' as const,
-        values: arg.values || [],
+        values,
         elementType: arg.elementType || 'string',
       }
+    } else if (arg.type === 'nested_function') {
+      return parseHydratedNestedFunction(arg)
     }
     // Default to literal
     return {
@@ -282,6 +467,54 @@ function parseHydratedArgs(args: any[]): any[] {
       literalType: 'string',
     }
   })
+}
+
+/**
+ * Parse a hydrated nested function argument
+ */
+function parseHydratedNestedFunction(arg: any): FunctionArgNestedFunction {
+  return {
+    type: 'nested_function' as const,
+    functionName: arg.functionName || '',
+    functionArgs: parseHydratedArgs(arg.functionArgs || []),
+  }
+}
+
+/**
+ * Export a function argument for saving
+ */
+function exportFunctionArg(arg: FunctionArg): any {
+  if (arg.type === 'field') {
+    return {
+      type: 'field',
+      fieldName: arg.fieldName,
+      fieldType: arg.fieldType,
+    }
+  } else if (arg.type === 'literal') {
+    return {
+      type: 'literal',
+      value: arg.value,
+      literalType: arg.literalType,
+    }
+  } else if (arg.type === 'array') {
+    return {
+      type: 'array',
+      values: arg.values.map((v) => {
+        if (typeof v === 'object' && v !== null && 'type' in v) {
+          return exportFunctionArg(v as FunctionArg)
+        }
+        return v
+      }),
+      elementType: arg.elementType,
+    }
+  } else if (arg.type === 'nested_function') {
+    return {
+      type: 'nested_function',
+      functionName: arg.functionName,
+      functionArgs: arg.functionArgs.map(exportFunctionArg),
+    }
+  }
+  return arg
 }
 
 /**
@@ -308,28 +541,11 @@ export function exportTransformationConfig(): any {
             sourceFieldType: field.sourceFieldType,
           }
         : {
+            expressionMode: field.expressionMode,
+            rawExpression: field.rawExpression,
+            arithmeticExpression: field.arithmeticExpression,
             functionName: field.functionName,
-            functionArgs: field.functionArgs?.map((arg) => {
-              if (arg.type === 'field') {
-                return {
-                  type: 'field',
-                  fieldName: arg.fieldName,
-                  fieldType: arg.fieldType,
-                }
-              } else if (arg.type === 'literal') {
-                return {
-                  type: 'literal',
-                  value: arg.value,
-                  literalType: arg.literalType,
-                }
-              } else {
-                return {
-                  type: 'array',
-                  values: arg.values,
-                  elementType: arg.elementType,
-                }
-              }
-            }),
+            functionArgs: field.functionArgs?.map(exportFunctionArg),
           }),
     })),
   }

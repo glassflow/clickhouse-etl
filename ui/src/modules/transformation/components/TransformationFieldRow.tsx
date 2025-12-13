@@ -6,7 +6,12 @@ import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { TrashIcon } from '@heroicons/react/24/outline'
-import { TransformationField, FunctionArg } from '@/src/store/transformation.store'
+import {
+  TransformationField,
+  FunctionArg,
+  ExpressionMode,
+  TransformArithmeticExpression,
+} from '@/src/store/transformation.store'
 import { FunctionSelector } from './FunctionSelector'
 import { getFunctionByName, TransformationFunctionDef } from '../functions'
 import { inferOutputType, createFieldArg, createLiteralArg } from '../utils'
@@ -58,6 +63,10 @@ export function TransformationFieldRow({
         functionArgs: newType === 'computed' ? [] : undefined,
         sourceField: newType === 'passthrough' ? '' : undefined,
         sourceFieldType: newType === 'passthrough' ? '' : undefined,
+        // Set default expression mode for computed fields
+        expressionMode: newType === 'computed' ? 'simple' : undefined,
+        rawExpression: undefined,
+        arithmeticExpression: undefined,
       })
     },
     [field.id, onUpdate],
@@ -123,6 +132,43 @@ export function TransformationFieldRow({
       onUpdate(field.id, { functionArgs: args })
     },
     [field.id, field.functionName, field.functionArgs, availableFields, onUpdate],
+  )
+
+  // Handle expression mode change
+  const handleExpressionModeChange = useCallback(
+    (mode: ExpressionMode) => {
+      onUpdate(field.id, {
+        expressionMode: mode,
+        // Reset mode-specific fields when switching
+        ...(mode === 'raw' ? { functionName: '', functionArgs: [] } : {}),
+        ...(mode !== 'raw' ? { rawExpression: '' } : {}),
+      })
+    },
+    [field.id, onUpdate],
+  )
+
+  // Handle function args change (for nested mode)
+  const handleFunctionArgsChange = useCallback(
+    (args: FunctionArg[]) => {
+      onUpdate(field.id, { functionArgs: args })
+    },
+    [field.id, onUpdate],
+  )
+
+  // Handle raw expression change
+  const handleRawExpressionChange = useCallback(
+    (expression: string) => {
+      onUpdate(field.id, { rawExpression: expression })
+    },
+    [field.id, onUpdate],
+  )
+
+  // Handle arithmetic expression change
+  const handleArithmeticChange = useCallback(
+    (arithmetic: TransformArithmeticExpression | undefined) => {
+      onUpdate(field.id, { arithmeticExpression: arithmetic })
+    },
+    [field.id, onUpdate],
   )
 
   // Handle remove
@@ -200,6 +246,10 @@ export function TransformationFieldRow({
                 }
                 getArgValue={getArgValue}
                 handleArgChange={handleArgChange}
+                onExpressionModeChange={handleExpressionModeChange}
+                onFunctionArgsChange={handleFunctionArgsChange}
+                onRawExpressionChange={handleRawExpressionChange}
+                onArithmeticChange={handleArithmeticChange}
               />
             </div>
           )}
