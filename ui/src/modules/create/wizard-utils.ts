@@ -177,14 +177,16 @@ export const getSingleTopicJourney = (): StepKeys[] => {
 }
 
 export const getTwoTopicJourney = (): StepKeys[] => {
-  // 2 Topics: Kafka Connection → Topic 1 Selection → Dedup 1 → Topic 2 Selection → Dedup 2 → Join → ClickHouse Connection → Mapper → Review (if preview mode)
-  // Deduplication is configured optionally per-topic
+  // 2 Topics: Kafka Connection → Topic 1 Selection → Type Verification 1 → Dedup 1 → Topic 2 Selection → Type Verification 2 → Dedup 2 → Join → ClickHouse Connection → Mapper → Review (if preview mode)
+  // Type Verification is mandatory, Deduplication is configured optionally per-topic
   // Note: Filter is NOT available for multi-topic journeys (only single-topic)
   const steps: StepKeys[] = [
     StepKeys.KAFKA_CONNECTION,
     StepKeys.TOPIC_SELECTION_1,
+    StepKeys.KAFKA_TYPE_VERIFICATION,
     StepKeys.DEDUPLICATION_CONFIGURATOR,
     StepKeys.TOPIC_SELECTION_2,
+    StepKeys.KAFKA_TYPE_VERIFICATION,
     StepKeys.DEDUPLICATION_CONFIGURATOR,
     StepKeys.JOIN_CONFIGURATOR,
     StepKeys.CLICKHOUSE_CONNECTION,
@@ -218,6 +220,33 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
       title = 'Select Left Topic'
     }
 
+    // For KAFKA_TYPE_VERIFICATION in multi-topic journeys, customize the title
+    // based on which topic it belongs to
+    if (stepKey === StepKeys.KAFKA_TYPE_VERIFICATION && topicCount === 2) {
+      // Find which topic selection precedes this type verification
+      let isSecondTopic = false
+      for (let i = index - 1; i >= 0; i--) {
+        const prevStep = journey[i]
+        if (prevStep === StepKeys.TOPIC_SELECTION_2) {
+          isSecondTopic = true
+          break
+        }
+        if (prevStep === StepKeys.TOPIC_SELECTION_1) {
+          break
+        }
+      }
+      title = isSecondTopic ? 'Verify Right Topic Types' : 'Verify Left Topic Types'
+
+      // In multi-topic journeys, type verification is a substep of topic selection
+      const parentStep = isSecondTopic ? StepKeys.TOPIC_SELECTION_2 : StepKeys.TOPIC_SELECTION_1
+      substeps.push({
+        key: stepKey,
+        title,
+        parent: parentStep,
+      })
+      return
+    }
+
     // For steps that can be substeps but need dynamic parent detection
     // (e.g., DEDUPLICATION_CONFIGURATOR appearing multiple times with different parents)
     if (
@@ -227,19 +256,33 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
     ) {
       // Find the most recent parent step before this one
       // For single topic journey, the parent is KAFKA_TYPE_VERIFICATION
-      // For multi-topic journey, the parent can be topic selection steps
+      // For multi-topic journey, the parent should be topic selection (not type verification, to avoid nested substeps)
       let parentStep: StepKeys | null = null
       for (let i = index - 1; i >= 0; i--) {
         const prevStep = journey[i]
-        if (
-          prevStep === StepKeys.KAFKA_TYPE_VERIFICATION ||
-          prevStep === StepKeys.TOPIC_SELECTION_1 ||
-          prevStep === StepKeys.TOPIC_SELECTION_2 ||
-          prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
-          prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-        ) {
-          parentStep = prevStep
-          break
+        // For multi-topic journeys, use topic selection as parent (type verification is already a substep)
+        if (topicCount === 2) {
+          if (
+            prevStep === StepKeys.TOPIC_SELECTION_1 ||
+            prevStep === StepKeys.TOPIC_SELECTION_2 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+          ) {
+            parentStep = prevStep
+            break
+          }
+        } else {
+          // For single topic journey, type verification is a main step, so use it as parent
+          if (
+            prevStep === StepKeys.KAFKA_TYPE_VERIFICATION ||
+            prevStep === StepKeys.TOPIC_SELECTION_1 ||
+            prevStep === StepKeys.TOPIC_SELECTION_2 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+          ) {
+            parentStep = prevStep
+            break
+          }
         }
       }
 
