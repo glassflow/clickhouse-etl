@@ -8,6 +8,7 @@ import {
   ClickhouseConnectionContainer,
   ClickhouseMapper,
 } from '@/src/modules'
+import { KafkaTypeVerification } from '../../kafka/KafkaTypeVerification'
 import { StepKeys, OperationKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { JoinConfigurator } from '../../join/JoinConfigurator'
@@ -188,6 +189,14 @@ function StandaloneStepRenderer({
           description: 'Configure ClickHouse table mapping',
         },
       })
+    } else if (stepKey === StepKeys.KAFKA_TYPE_VERIFICATION) {
+      setSteps({
+        [StepKeys.KAFKA_TYPE_VERIFICATION]: {
+          component: KafkaTypeVerification,
+          title: 'Verify Field Types',
+          description: 'Review and adjust the inferred data types for Kafka event fields.',
+        },
+      })
     }
   }, [stepKey, onClose])
 
@@ -311,6 +320,9 @@ function StandaloneStepRenderer({
   // Determine if this is a deduplication configurator step (standalone dedup, not topic+dedup combined)
   const isDeduplicationConfiguratorStep = stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR
 
+  // Determine if this is a type verification step
+  const isKafkaTypeVerificationStep = stepKey === StepKeys.KAFKA_TYPE_VERIFICATION
+
   // Determine if this is a topic+deduplication combined step
   const isTopicDeduplicationStep =
     stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
@@ -348,7 +360,12 @@ function StandaloneStepRenderer({
           ...baseProps,
           index: topicIndex, // Pass topic index for multi-topic deduplication
         }
-      : baseProps
+      : isKafkaTypeVerificationStep
+        ? {
+            ...baseProps,
+            index: topicIndex, // Pass topic index for type verification
+          }
+        : baseProps
 
   return (
     <>
