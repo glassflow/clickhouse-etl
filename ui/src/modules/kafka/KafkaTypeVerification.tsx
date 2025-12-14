@@ -112,7 +112,7 @@ export function KafkaTypeVerification({
     topicsStore.updateTopic({
       ...topic,
       schema,
-    } as any)
+    })
 
     // Mark this section as valid
     validationEngine.onSectionConfigured(StepKeys.KAFKA_TYPE_VERIFICATION)

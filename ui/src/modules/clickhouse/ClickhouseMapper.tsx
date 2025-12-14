@@ -56,6 +56,22 @@ interface ClickhouseMapperProps {
 const runtimeEnv = getRuntimeEnv()
 const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
+/**
+ * Gets the verified type for a field from the topic's schema (set during KafkaTypeVerification step).
+ * Falls back to undefined if no verified type is available.
+ * @param topic - The topic object (from topicsStore)
+ * @param fieldName - The field name to look up
+ * @returns The verified type string or undefined if not found
+ */
+const getVerifiedTypeFromTopic = (topic: any, fieldName: string): string | undefined => {
+  if (!topic?.schema?.fields || !Array.isArray(topic.schema.fields)) {
+    return undefined
+  }
+  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName)
+  // Prefer userType (explicitly set by user) over type
+  return schemaField?.userType || schemaField?.type
+}
+
 export function ClickhouseMapper({
   onCompleteStep,
   standalone,
@@ -696,11 +712,16 @@ export function ClickhouseMapper({
 
       if (matchingField && sourceData) {
         const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+        const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
+
+        // Use verified type from topic schema if available, otherwise infer from event data
+        const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
+        const jsonType = verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
 
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
-          jsonType: inferJsonType(getNestedValue(sourceData, matchingField)),
+          jsonType,
           sourceTopic: sourceTopic,
         }
         hasChanges = true
@@ -721,8 +742,8 @@ export function ClickhouseMapper({
     clickhouseDestination,
     primaryEventData,
     secondaryTopic?.selectedEvent?.event,
-    primaryTopic?.name,
-    secondaryTopic?.name,
+    primaryTopic,
+    secondaryTopic,
     setClickhouseDestination,
     mode,
   ])
@@ -891,11 +912,16 @@ export function ClickhouseMapper({
 
       if (matchingField && sourceData) {
         const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+        const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
+
+        // Use verified type from topic schema if available, otherwise infer from event data
+        const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
+        const jsonType = verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
 
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
-          jsonType: inferJsonType(getNestedValue(sourceData, matchingField)),
+          jsonType,
           sourceTopic: sourceTopic,
         }
         hasChanges = true
@@ -918,8 +944,8 @@ export function ClickhouseMapper({
     mappedColumns,
     primaryEventData,
     secondaryTopic?.selectedEvent?.event,
-    primaryTopic?.name,
-    secondaryTopic?.name,
+    primaryTopic,
+    secondaryTopic,
     clickhouseDestination,
     setClickhouseDestination,
   ])
@@ -942,20 +968,28 @@ export function ClickhouseMapper({
       const schemaField = intermediarySchema.find((field) => field.name === eventField)
       inferredType = schemaField?.type || 'string'
     } else {
-      // For original fields, infer type from event data
-      // Get the appropriate event data based on mode and source
-      let fieldValue: any
+      // For original fields, first check verified type from topic schema, then infer from event data
       if (mode === 'single') {
-        fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+        // Single mode: infer from event data
+        const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+        inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
       } else {
-        const eventData =
-          source === 'secondary'
-            ? secondaryTopic?.selectedEvent?.event?.event
-            : primaryTopic?.selectedEvent?.event?.event
-        fieldValue = eventData ? getNestedValue(eventData, eventField) : undefined
-      }
+        // Multi-topic mode: use verified type from topic schema if available
+        const topicForSchema = source === 'secondary' ? secondaryTopic : primaryTopic
+        const verifiedType = eventField ? getVerifiedTypeFromTopic(topicForSchema, eventField) : undefined
 
-      inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
+        if (verifiedType) {
+          inferredType = verifiedType
+        } else {
+          // Fallback to inferring from event data
+          const sourceEventData =
+            source === 'secondary'
+              ? secondaryTopic?.selectedEvent?.event?.event
+              : primaryTopic?.selectedEvent?.event?.event
+          const fieldValue = sourceEventData ? getNestedValue(sourceEventData, eventField) : undefined
+          inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
+        }
+      }
 
       // Ensure we have a type - default to string if we couldn't infer a type from the data
       if (!inferredType && eventField) {
@@ -1423,15 +1457,33 @@ export function ClickhouseMapper({
       let changed = false
       const updated = mappedColumns.map((col) => {
         if (col.eventField && (!col.jsonType || col.jsonType === '')) {
-          // pick source based on sourceTopic if available
+          // Determine the source topic for this field
+          let topicForSchema: any = null
           let sourceData: any | null = null
+
           if (col.sourceTopic) {
-            if (primaryTopic?.name && col.sourceTopic === primaryTopic.name) sourceData = primaryData
-            else if (secondaryTopic?.name && col.sourceTopic === secondaryTopic.name) sourceData = secondaryData
+            if (primaryTopic?.name && col.sourceTopic === primaryTopic.name) {
+              topicForSchema = primaryTopic
+              sourceData = primaryData
+            } else if (secondaryTopic?.name && col.sourceTopic === secondaryTopic.name) {
+              topicForSchema = secondaryTopic
+              sourceData = secondaryData
+            }
           }
           // fallback: try primary then secondary
-          if (!sourceData) sourceData = primaryData || secondaryData
+          if (!topicForSchema) {
+            topicForSchema = primaryTopic || secondaryTopic
+            sourceData = primaryData || secondaryData
+          }
 
+          // First try to get verified type from topic schema
+          const verifiedType = getVerifiedTypeFromTopic(topicForSchema, col.eventField)
+          if (verifiedType) {
+            changed = true
+            return { ...col, jsonType: verifiedType }
+          }
+
+          // Fallback: infer type from event data
           const value = sourceData ? getNestedValue(sourceData, col.eventField) : undefined
           const inferred = inferJsonType(value)
           if (inferred) {
@@ -1456,8 +1508,8 @@ export function ClickhouseMapper({
     primaryEventData,
     secondaryTopic?.selectedEvent?.event,
     mappedColumns,
-    primaryTopic?.name,
-    secondaryTopic?.name,
+    primaryTopic,
+    secondaryTopic,
     transformationStore,
   ])
 
