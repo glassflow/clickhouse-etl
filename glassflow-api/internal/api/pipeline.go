@@ -35,46 +35,6 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	CleanUpPipelines(ctx context.Context) error
 }
 
-func (h *handler) resumePipeline(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-	if !ok {
-		h.log.ErrorContext(r.Context(), "Cannot get id param")
-		serverError(w)
-		return
-	}
-
-	if len(strings.TrimSpace(id)) == 0 {
-		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
-		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
-		return
-	}
-
-	err := h.pipelineService.ResumePipeline(r.Context(), id)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			h.log.ErrorContext(r.Context(), "pipeline not found for resume", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotFound, "no pipeline with given id to resume", nil)
-		case errors.Is(err, service.ErrNotImplemented):
-			h.log.ErrorContext(r.Context(), "resume pipeline feature not implemented", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
-		default:
-			// Check if it's a status validation error
-			if statusErr, ok := status.GetStatusValidationError(err); ok {
-				jsonStatusValidationError(w, statusErr)
-				return
-			}
-			h.log.ErrorContext(r.Context(), "failed to resume pipeline", "pipeline_id", id, "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	h.log.InfoContext(r.Context(), "pipeline resumed", "pipeline_id", id)
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func (h *handler) editPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
@@ -140,51 +100,6 @@ func (h *handler) editPipeline(w http.ResponseWriter, r *http.Request) {
 
 	h.log.InfoContext(r.Context(), "pipeline edit initiated", "pipeline_id", id)
 	w.WriteHeader(http.StatusNoContent)
-}
-
-type updatePipelineNameRequest struct {
-	Name string `json:"name"`
-}
-
-func (h *handler) updatePipelineName(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-	if !ok {
-		h.log.ErrorContext(r.Context(), "Cannot get id param")
-		serverError(w)
-	}
-
-	if len(strings.TrimSpace(id)) == 0 {
-		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
-		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
-		return
-	}
-
-	req, err := parseRequest[updatePipelineNameRequest](w, r)
-	if err != nil {
-		var jsonErr invalidJSONError
-		switch {
-		case errors.As(err, &jsonErr):
-			jsonError(w, http.StatusBadRequest, err.Error(), nil)
-		default:
-			h.log.ErrorContext(r.Context(), "failed to read update pipeline request", "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	err = h.pipelineService.UpdatePipelineName(r.Context(), id, req.Name)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			h.log.ErrorContext(r.Context(), "pipeline not found for name update", "pipeline_id", id, "new_name", req.Name, "error", err)
-			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
-		default:
-			h.log.ErrorContext(r.Context(), "failed to update pipeline name", "error", err)
-			serverError(w)
-		}
-		return
-	}
 }
 
 type pipelineSource struct {
@@ -798,70 +713,6 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		Metadata: p.Metadata,
 		Version:  "v2",
 	}
-}
-
-func (h *handler) deletePipeline(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-	if !ok {
-		h.log.ErrorContext(r.Context(), "Cannot get id param")
-		serverError(w)
-		return
-	}
-
-	if len(strings.TrimSpace(id)) == 0 {
-		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
-		jsonError(w, http.StatusBadRequest, "pipeline id cannot be empty", nil)
-		return
-	}
-
-	// Get the pipeline to check its status
-	pipeline, err := h.pipelineService.GetPipeline(r.Context(), id)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			h.log.ErrorContext(r.Context(), "pipeline not found for deletion", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
-		default:
-			h.log.ErrorContext(r.Context(), "failed to get pipeline for deletion", "pipeline_id", id, "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	// Check if pipeline is in a deletable state (stopped)
-	currentStatus := string(pipeline.Status.OverallStatus)
-	if currentStatus != internal.PipelineStatusStopped && currentStatus != internal.PipelineStatusFailed {
-		h.log.ErrorContext(r.Context(), "pipeline cannot be deleted due to invalid status", "pipeline_id", id, "current_status", currentStatus)
-		jsonError(w, http.StatusBadRequest,
-			fmt.Sprintf("pipeline can only be deleted if it's stopped, current status: %s", currentStatus),
-			map[string]string{"current_status": currentStatus})
-		return
-	}
-
-	err = h.pipelineService.DeletePipeline(r.Context(), id)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			h.log.ErrorContext(r.Context(), "pipeline not found for deletion", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotFound, fmt.Sprintf("pipeline with id %q does not exist", id), nil)
-		case errors.Is(err, service.ErrNotImplemented):
-			h.log.ErrorContext(r.Context(), "delete pipeline feature not implemented", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
-		default:
-			// Check if it's a status validation error
-			if statusErr, ok := status.GetStatusValidationError(err); ok {
-				jsonStatusValidationError(w, statusErr)
-				return
-			}
-			h.log.ErrorContext(r.Context(), "failed to delete pipeline", "pipeline_id", id, "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	h.log.InfoContext(r.Context(), "pipeline deleted")
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // MigratePipelineFromJSON converts pipeline JSON from NATS KV to PipelineConfig

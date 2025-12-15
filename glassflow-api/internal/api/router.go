@@ -73,16 +73,16 @@ func NewRouter(
 	registerHumaHandler("/api/v1/transform/expression/evaluate", h.evaluateTransform, log, EvaluateTransformDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline", h.getPipelines, log, GetPipelinesDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}", h.getPipeline, log, GetPipelineDocs(), humaAPI)
+	registerHumaHandler("/api/v1/pipeline/{id}", h.updatePipelineName, log, UpdatePipelineNameDocs(), humaAPI)
+	registerHumaHandler("/api/v1/pipeline/{id}", h.deletePipeline, log, DeletePipelineDocs(), humaAPI)
+	registerHumaHandler("/api/v1/pipeline/{id}/resume", h.resumePipeline, log, ResumePipelineDocs(), humaAPI)
 
 	r.HandleFunc("/api/v1/docs", h.docs)
 	r.HandleFunc("/api/v1/openapi.json", h.swaggerDocsJSON)
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/{id}", h.updatePipelineName).Methods("PATCH")
-	r.HandleFunc("/api/v1/pipeline/{id}", h.deletePipeline).Methods("DELETE")
 	r.HandleFunc("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ).Methods("GET")
 	r.HandleFunc("/api/v1/pipeline/{id}/dlq/state", h.getDLQState).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/{id}/resume", h.resumePipeline).Methods("POST")
 	r.HandleFunc("/api/v1/pipeline/{id}/edit", h.editPipeline).Methods("POST")
 
 	r.Use(Recovery(log), RequestLogging(log), RequestMetrics(meter))
