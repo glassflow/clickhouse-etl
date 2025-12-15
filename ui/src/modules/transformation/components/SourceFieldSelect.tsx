@@ -10,22 +10,25 @@ function SourceFieldSelect({
   readOnly,
   errors,
   availableFields,
+  className,
 }: {
   field: TransformationField
   handleSourceFieldChange: (value: string) => void
   readOnly: boolean
   errors: FieldValidation['errors']
   availableFields: Array<{ name: string; type: string }>
+  className?: string
 }) {
   return (
     <div className="flex gap-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-      <div className="flex-1">
+      <div className={cn('flex-1', className)}>
         <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Source Field</Label>
         <Select value={field.sourceField || ''} onValueChange={handleSourceFieldChange} disabled={readOnly}>
           <SelectTrigger
             className={cn(
               'input-regular input-border-regular',
               errors?.sourceField && 'border-[var(--color-border-critical)]',
+              className || 'w-full',
             )}
           >
             <SelectValue placeholder="Select source field" />

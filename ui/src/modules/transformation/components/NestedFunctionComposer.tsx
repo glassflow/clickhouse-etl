@@ -288,14 +288,14 @@ export function NestedFunctionComposer({
   return (
     <div className="space-y-4">
       {/* Source field selection */}
-      <div className="space-y-1">
+      <div className="space-y-1 w-1/2">
         <Label className="text-xs text-[var(--text-secondary)] block">Source Field</Label>
         <Select
           value={sourceArg.type === 'field' ? (sourceArg as FunctionArgField).fieldName : ''}
           onValueChange={handleSourceChange}
           disabled={disabled}
         >
-          <SelectTrigger className="input-regular input-border-regular">
+          <SelectTrigger className="input-regular input-border-regular w-full">
             <SelectValue placeholder="Select source field" />
           </SelectTrigger>
           <SelectContent className="select-content-custom">
@@ -317,7 +317,7 @@ export function NestedFunctionComposer({
 
         {chain.length === 0 ? (
           <div className="text-xs text-[var(--text-secondary)] italic p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)]">
-            No functions added yet. Click "Add Function" to start building the chain.
+            No functions added yet. Click &quot;Add Function&quot; to start building the chain.
           </div>
         ) : (
           <div className="space-y-2">
