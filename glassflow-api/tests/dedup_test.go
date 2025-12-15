@@ -244,6 +244,85 @@ func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 	}
 }
 
+func TestDeduplication_TransformationMisspelledReturnsDefault(t *testing.T) {
+	// Arrange
+	suite := steps.NewDedupTestSuite()
+	require.NoError(t, suite.SetupResources())
+	defer suite.CleanupResources()
+
+	ctx := context.Background()
+	js := suite.GetNATSClient().JetStream()
+	inputSubject, outputSubject, dlqSubject := "test.dlq.input", "test.dlq.output", "test.dlq.dead"
+
+	setupStreams(t, js, ctx, inputSubject, outputSubject)
+
+	// Create DLQ stream
+	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
+		Name:       "test-dlq",
+		Subjects:   []string{dlqSubject},
+		Storage:    jetstream.MemoryStorage,
+		Duplicates: 0,
+	})
+	require.NoError(t, err)
+
+	// Create service with transformer that will fail
+	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-input", jetstream.ConsumerConfig{
+		Name:          "test-consumer",
+		FilterSubject: inputSubject,
+	})
+	require.NoError(t, err)
+
+	reader := stream.NewBatchReader(consumer, slog.Default())
+	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
+	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
+	dlqPublisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: dlqSubject})
+	dlqWriter := stream.NewNatsBatchWriter(dlqPublisher, nil, slog.Default(), 1000)
+	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
+
+	// Create transformer that will fail - tries to convert string to int
+	transformer, err := jsonTransformer.NewTransformer([]models.Transform{
+		{
+			Expression: `containsStr(tet, "qwe")`, // misspelled should return ok
+			OutputName: "number",
+			OutputType: "bool",
+		},
+	})
+	require.NoError(t, err)
+
+	service, err := deduplication.NewDedupService(
+		reader,
+		writer,
+		dlqWriter,
+		transformer,
+		deduplicator,
+		slog.Default(),
+		100,
+		time.Millisecond,
+	)
+	require.NoError(t, err)
+
+	// Publish messages that will fail transformation
+	for _, msgID := range []string{"msg-1", "msg-2"} {
+		msg := &nats.Msg{
+			Subject: inputSubject,
+			Data:    []byte(`{"text": "hello world"}`),
+			Header:  nats.Header{"Nats-Msg-Id": []string{msgID}},
+		}
+		_, err := js.PublishMsg(ctx, msg)
+		require.NoError(t, err)
+	}
+
+	// Act
+	require.NoError(t, service.Process(ctx))
+
+	// Assert
+	outputMessages := readOutput(t, js, ctx, outputSubject)
+	require.Len(t, outputMessages, 2, "no messages should be in output stream")
+
+	dlqMessages := readDLQ(t, js, ctx, dlqSubject)
+	require.Len(t, dlqMessages, 0, "all failed messages should be in DLQ")
+}
+
 func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 	// Arrange
 	suite := steps.NewDedupTestSuite()
@@ -282,7 +361,7 @@ func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 	// Create transformer that will fail - tries to convert string to int
 	transformer, err := jsonTransformer.NewTransformer([]models.Transform{
 		{
-			Expression: `containsStr(tet, "qwe")`, // misspelled
+			Expression: `containsStr(tet)`, // not enough arguments
 			OutputName: "number",
 			OutputType: "bool",
 		},

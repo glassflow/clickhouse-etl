@@ -54,12 +54,12 @@ func getNestedParam(args ...any) (any, error) {
 
 	parsed, err := parseQueryString(queryStr)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse query string: %w", err)
+		return "", nil
 	}
 
 	parsedMap, ok := parsed.(map[string]any)
 	if !ok {
-		return "", fmt.Errorf("parseQueryString returned unexpected type: %T", parsed)
+		return "", nil
 	}
 
 	if val, ok := parsedMap[param]; ok {
@@ -196,7 +196,7 @@ func parseISO8601(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return 0, nil
 	}
 
 	formats := []string{
@@ -232,7 +232,7 @@ func toDate(args ...any) (any, error) {
 		return time.Unix(int64(v), 0).Format("2006-01-02"), nil
 	}
 
-	return "", fmt.Errorf("input is invalid, expected int or time.Time")
+	return 0, nil
 }
 
 func parseUserAgent(args ...any) (any, error) {
@@ -241,7 +241,7 @@ func parseUserAgent(args ...any) (any, error) {
 	}
 	userAgent := cast.ToString(args[0])
 	if userAgent == "" {
-		return false, fmt.Errorf("userAgent is empty")
+		return "", nil
 	}
 
 	field := cast.ToString(args[1])
@@ -343,7 +343,7 @@ func urlDecode(args ...any) (any, error) {
 
 	str, ok := args[0].(string)
 	if !ok {
-		return "", fmt.Errorf("urlDecode: expected string, got %T", args[0])
+		return "", nil
 	}
 
 	// Handle empty string
@@ -364,7 +364,7 @@ func toString(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return "", nil
 	}
 
 	return input, nil
@@ -376,7 +376,7 @@ func containsStr(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return false, nil
 	}
 	str := cast.ToString(args[1])
 
@@ -389,7 +389,7 @@ func hasPrefix(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return false, nil
 	}
 	str := cast.ToString(args[1])
 
@@ -402,7 +402,7 @@ func hasSuffix(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return false, nil
 	}
 	str := cast.ToString(args[1])
 
@@ -415,7 +415,7 @@ func upper(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return "", nil
 	}
 
 	return strings.ToUpper(input), nil
@@ -427,7 +427,7 @@ func lower(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return "", nil
 	}
 
 	return strings.ToLower(input), nil
@@ -439,7 +439,7 @@ func trimSpaces(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return "", nil
 	}
 
 	return strings.TrimSpace(input), nil
@@ -451,7 +451,7 @@ func splitStr(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return "", nil
 	}
 	sep := cast.ToString(args[1])
 
@@ -483,7 +483,7 @@ func replace(args ...any) (any, error) {
 	}
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return "", nil
 	}
 
 	oldStr := cast.ToString(args[1])
@@ -499,7 +499,7 @@ func toInt(args ...any) (any, error) {
 
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return 0, nil
 	}
 	result, err := strconv.Atoi(input)
 	if err != nil {
@@ -516,7 +516,7 @@ func toFloat(args ...any) (any, error) {
 
 	input := cast.ToString(args[0])
 	if input == "" {
-		return false, fmt.Errorf("input is empty")
+		return 0.0, nil
 	}
 	result, err := strconv.ParseFloat(input, 64)
 	if err != nil {
