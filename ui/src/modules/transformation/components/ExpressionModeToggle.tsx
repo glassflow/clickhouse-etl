@@ -60,9 +60,9 @@ interface ExpressionModeToggleProps {
 
 export function ExpressionModeToggle({ mode, onChange, disabled = false }: ExpressionModeToggleProps) {
   const modes: { value: ExpressionMode; label: string; icon: React.FC<{ className?: string }> }[] = [
-    { value: 'simple', label: 'Simple', icon: SimpleIcon },
-    { value: 'nested', label: 'Nested', icon: NestedIcon },
-    { value: 'raw', label: 'Expression', icon: CodeIcon },
+    // { value: 'simple', label: 'Simple', icon: SimpleIcon },
+    { value: 'nested', label: 'Functions', icon: NestedIcon },
+    { value: 'raw', label: 'Raw Expression', icon: CodeIcon },
   ]
 
   // Calculate position for sliding indicator

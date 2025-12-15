@@ -88,7 +88,7 @@ export function ArithmeticModifier({
 
       {/* Arithmetic inputs */}
       {enabled && (
-        <div className="flex items-end gap-2 ml-6 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+        <div className="flex items-end gap-2 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
           {/* Operator select */}
           <div className="w-32">
             <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Operator</Label>
@@ -123,7 +123,7 @@ export function ArithmeticModifier({
 
       {/* Preview */}
       {enabled && expression && (
-        <div className="ml-6 text-xs text-[var(--text-secondary)]">
+        <div className="text-xs text-[var(--text-secondary)]">
           Result will be:{' '}
           <code className="font-mono bg-[var(--surface-bg-sunken)] px-1 rounded">
             result {expression.operator} {expression.operand}

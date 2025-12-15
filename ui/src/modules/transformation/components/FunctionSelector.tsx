@@ -25,9 +25,10 @@ interface FunctionSelectorProps {
   onSelect: (functionName: string) => void
   disabled?: boolean
   error?: string
+  className?: string
 }
 
-export function FunctionSelector({ value, onSelect, disabled = false, error }: FunctionSelectorProps) {
+export function FunctionSelector({ value, onSelect, disabled = false, error, className }: FunctionSelectorProps) {
   // Get all categories
   const categories = useMemo(() => getCategories(), [])
 
@@ -49,7 +50,8 @@ export function FunctionSelector({ value, onSelect, disabled = false, error }: F
     <Select value={value} onValueChange={onSelect} disabled={disabled}>
       <SelectTrigger
         className={cn(
-          'input-regular input-border-regular w-full',
+          'input-regular input-border-regular',
+          className || 'w-full',
           error && 'border-[var(--color-border-critical)]',
           disabled && 'opacity-50 cursor-not-allowed',
         )}

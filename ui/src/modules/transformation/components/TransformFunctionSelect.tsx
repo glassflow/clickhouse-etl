@@ -17,6 +17,7 @@ import { ExpressionModeToggle } from './ExpressionModeToggle'
 import { NestedFunctionComposer } from './NestedFunctionComposer'
 import { RawExpressionEditor } from './RawExpressionEditor'
 import { ArithmeticModifier } from './ArithmeticModifier'
+import { cn } from '@/src/utils/common.client'
 
 interface TransformFunctionSelectProps {
   field: TransformationField
@@ -48,7 +49,7 @@ function TransformFunctionSelect({
   onRawExpressionChange,
   onArithmeticChange,
 }: TransformFunctionSelectProps) {
-  const expressionMode = field.expressionMode || 'simple'
+  const expressionMode = field.expressionMode || 'nested'
 
   // Handle mode change
   const handleModeChange = useCallback(
@@ -101,23 +102,24 @@ function TransformFunctionSelect({
     [onArithmeticChange],
   )
 
-  // Render simple mode (original behavior)
-  const renderSimpleMode = () => (
+  // Render simple mode (original behavior) - COMMENTED OUT: Using nested mode for all function-based transformations
+  const renderSimpleMode = ({ className }: { className?: string }) => (
     <div className="flex gap-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-      <div className="flex-1">
+      <div className={cn('flex-1', className)}>
         <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Function</Label>
         <FunctionSelector
           value={field.functionName || ''}
           onSelect={handleFunctionChange}
           disabled={readOnly}
           error={errors?.functionName}
+          className="w-full"
         />
         {errors?.functionName && (
           <p className="text-xs text-[var(--color-foreground-critical)] mt-1">{errors.functionName}</p>
         )}
       </div>
 
-      <div className="border-[var(--surface-border)] flex-2">
+      <div className="border-[var(--surface-border)] flex-1">
         <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Arguments</Label>
         <div className="flex gap-2">
           {functionDef.args.map((argDef, argIndex) => (
@@ -198,18 +200,20 @@ function TransformFunctionSelect({
   return (
     <div className="space-y-4">
       {/* Expression mode toggle - only show if handlers are provided */}
-      {hasExtendedHandlers && (
+      {/* {hasExtendedHandlers && (
         <div className="flex items-center gap-4">
           <ExpressionModeToggle mode={expressionMode} onChange={handleModeChange} disabled={readOnly} />
         </div>
-      )}
+      )} */}
 
       {/* Render content based on mode */}
-      {expressionMode === 'simple' && renderSimpleMode()}
-      {expressionMode === 'nested' && hasExtendedHandlers && renderNestedMode()}
+      {/* Simple mode - COMMENTED OUT: Using nested mode for all function-based transformations */}
+      {/* {expressionMode === 'simple' && renderSimpleMode({ className: 'w-1/2' })} */}
+      {/* Nested mode - handles both single and multiple functions */}
+      {(expressionMode === 'simple' || expressionMode === 'nested') && hasExtendedHandlers && renderNestedMode()}
       {expressionMode === 'raw' && hasExtendedHandlers && renderRawMode()}
 
-      {/* Arithmetic modifier - only for simple and nested modes with extended handlers */}
+      {/* Arithmetic modifier - only for nested mode (which replaces simple mode) with extended handlers */}
       {hasExtendedHandlers && onArithmeticChange && expressionMode !== 'raw' && (
         <ArithmeticModifier
           enabled={!!field.arithmeticExpression}

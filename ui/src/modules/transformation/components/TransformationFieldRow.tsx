@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
@@ -21,6 +21,7 @@ import OutputField from './OutputField'
 import TypeToggle from './TypeToggle'
 import SourceFieldSelect from './SourceFieldSelect'
 import TransformFunctionSelect from './TransformFunctionSelect'
+import { ExpressionModeToggle } from './ExpressionModeToggle'
 
 interface TransformationFieldRowProps {
   field: TransformationField
@@ -44,6 +45,8 @@ export function TransformationFieldRow({
   // Get function definition if computed field
   const functionDef = field.type === 'computed' && field.functionName ? getFunctionByName(field.functionName) : null
 
+  const [fieldTypeMode, setFieldTypeMode] = useState<'computed' | 'passthrough' | null>(null)
+
   // Handle output field name change
   const handleOutputNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,6 +59,7 @@ export function TransformationFieldRow({
   const handleTypeChange = useCallback(
     (value: string) => {
       const newType = value as 'passthrough' | 'computed'
+      setFieldTypeMode(newType)
       onUpdate(field.id, {
         type: newType,
         // Clear type-specific fields when switching
@@ -63,8 +67,8 @@ export function TransformationFieldRow({
         functionArgs: newType === 'computed' ? [] : undefined,
         sourceField: newType === 'passthrough' ? '' : undefined,
         sourceFieldType: newType === 'passthrough' ? '' : undefined,
-        // Set default expression mode for computed fields
-        expressionMode: newType === 'computed' ? 'simple' : undefined,
+        // Set default expression mode for computed fields (using nested mode which handles both simple and complex cases)
+        expressionMode: newType === 'computed' ? 'nested' : undefined,
         rawExpression: undefined,
         arithmeticExpression: undefined,
       })
@@ -192,40 +196,52 @@ export function TransformationFieldRow({
         errors && Object.keys(errors).length > 0 && 'border-[var(--color-border-critical)]',
       )}
     >
-      <div className="flex justify-between items-center p-0 mb-3">
-        <span className="text-sm text-[var(--text-secondary)]">Field {index + 1}</span>
-        <div className="flex justify-end">
+      <div className="flex flex-col gap-2 mb-4">
+        <div className="flex justify-between">
+          <div className="flex justify-start gap-2 items-center p-0 mb-3">
+            <span className="text-sm text-[var(--text-secondary)]">Field {index + 1}</span>
+          </div>
           {/* Remove button */}
-          {!readOnly && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRemove}
-              className="flex-shrink-0 flex-end h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex">
+            {!readOnly && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRemove}
+                className="flex-shrink-0 flex-end h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="flex">
+          <div className="flex flex-1 flex-start gap-4">
+            <TypeToggle field={field} handleTypeChange={handleTypeChange} readOnly={readOnly} />
+
+            {fieldTypeMode === 'computed' && (
+              <ExpressionModeToggle
+                mode={field.expressionMode || 'nested'}
+                onChange={handleExpressionModeChange}
+                disabled={readOnly}
+              />
+            )}
+          </div>
         </div>
       </div>
 
       {/* First row - Type toggle and source/function select */}
       <div className="flex items-center gap-2 mb-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
         <div className="flex-1">
-          <TypeToggle field={field} handleTypeChange={handleTypeChange} readOnly={readOnly} />
-        </div>
-
-        <div className="flex-3">
           {field.type === 'passthrough' ? (
-            <div className="flex-1">
-              <SourceFieldSelect
-                field={field}
-                handleSourceFieldChange={handleSourceFieldChange}
-                readOnly={readOnly}
-                errors={errors}
-                availableFields={availableFields}
-              />
-            </div>
+            <SourceFieldSelect
+              field={field}
+              handleSourceFieldChange={handleSourceFieldChange}
+              readOnly={readOnly}
+              errors={errors}
+              availableFields={availableFields}
+              className="w-1/2"
+            />
           ) : (
             <div className="flex-1">
               <TransformFunctionSelect
