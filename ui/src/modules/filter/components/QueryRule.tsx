@@ -323,7 +323,7 @@ export function QueryRule({
   return (
     <div
       className={cn(
-        'card-outline rounded-[var(--radius-medium)] p-3',
+        'card-outline rounded-[var(--radius-large)] p-3',
         rule.not && 'border-[var(--color-border-primary)] bg-[var(--color-background-primary-faded)]/10',
       )}
     >
