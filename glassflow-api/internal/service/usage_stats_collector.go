@@ -8,37 +8,37 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
-type MetricsTracker struct {
-	db             PipelineStore
-	nc             *client.NATSClient
-	dlqClient      *dlq.Client
-	trackingClient *tracking.Client
-	log            *slog.Logger
-	interval       time.Duration
+type UsageStatsCollector struct {
+	db               PipelineStore
+	nc               *client.NATSClient
+	dlqClient        *dlq.Client
+	usageStatsClient *usagestats.Client
+	log              *slog.Logger
+	interval         time.Duration
 }
 
-func NewMetricsTracker(
+func NewUsageStatsCollector(
 	db PipelineStore,
 	nc *client.NATSClient,
 	dlqClient *dlq.Client,
-	trackingClient *tracking.Client,
+	usageStatsClient *usagestats.Client,
 	log *slog.Logger,
-) *MetricsTracker {
-	return &MetricsTracker{
-		db:             db,
-		nc:             nc,
-		dlqClient:      dlqClient,
-		trackingClient: trackingClient,
-		log:            log,
-		interval:       5 * time.Minute,
+) *UsageStatsCollector {
+	return &UsageStatsCollector{
+		db:               db,
+		nc:               nc,
+		dlqClient:        dlqClient,
+		usageStatsClient: usageStatsClient,
+		log:              log,
+		interval:         5 * time.Minute,
 	}
 }
 
-func (m *MetricsTracker) Start(ctx context.Context) {
-	if m.trackingClient == nil || !m.trackingClient.IsEnabled() {
+func (m *UsageStatsCollector) Start(ctx context.Context) {
+	if m.usageStatsClient == nil || !m.usageStatsClient.IsEnabled() {
 		return
 	}
 
@@ -57,10 +57,10 @@ func (m *MetricsTracker) Start(ctx context.Context) {
 	}
 }
 
-func (m *MetricsTracker) sendMetrics(ctx context.Context) {
+func (m *UsageStatsCollector) sendMetrics(ctx context.Context) {
 	pipelines, err := m.db.GetPipelines(ctx)
 	if err != nil {
-		m.log.Debug("failed to get pipelines for metrics tracking", "error", err)
+		m.log.Debug("failed to get pipelines for metrics usage stats", "error", err)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (m *MetricsTracker) sendMetrics(ctx context.Context) {
 	}
 }
 
-func (m *MetricsTracker) sendPipelineMetrics(ctx context.Context, pipeline models.PipelineConfig) {
+func (m *UsageStatsCollector) sendPipelineMetrics(ctx context.Context, pipeline models.PipelineConfig) {
 	js := m.nc.JetStream()
 	pipelineID := pipeline.ID
 
@@ -188,8 +188,8 @@ func (m *MetricsTracker) sendPipelineMetrics(ctx context.Context, pipeline model
 		}
 	}
 
-	m.trackingClient.SendEvent(ctx, "pipeline_metrics", "api", map[string]interface{}{
-		"pipeline_id_hash": tracking.HashPipelineID(pipelineID),
+	m.usageStatsClient.SendEvent(ctx, "pipeline_metrics", "api", map[string]interface{}{
+		"pipeline_id_hash": usagestats.HashPipelineID(pipelineID),
 		"ingestor_metrics": ingestorMetrics,
 		"dedup_metrics":    dedupMetrics,
 		"join_metrics":     joinMetrics,

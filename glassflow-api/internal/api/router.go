@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
 type handler struct {
@@ -21,7 +21,7 @@ type handler struct {
 	pipelineService PipelineService
 	dlqSvc          DLQ
 	api             huma.API
-	trackingClient  *tracking.Client
+	usageStatsClient *usagestats.Client
 }
 
 func NewRouter(
@@ -29,7 +29,7 @@ func NewRouter(
 	pipelineService PipelineService,
 	dlqService DLQ,
 	meter *observability.Meter,
-	trackingClient *tracking.Client,
+	usageStatsClient *usagestats.Client,
 ) http.Handler {
 	r := mux.NewRouter()
 
@@ -60,7 +60,7 @@ func NewRouter(
 		pipelineService: pipelineService,
 		dlqSvc:          dlqService,
 		api:             humaAPI,
-		trackingClient:  trackingClient,
+		usageStatsClient: usageStatsClient,
 	}
 
 	// we need to support v1 and v2 for healthz since it's backward incompatible

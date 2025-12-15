@@ -14,7 +14,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -111,11 +111,11 @@ func (p *PlatformSteps) setupServices() error {
 	}
 
 	// Create pipeline manager
-	trackingClient := tracking.NewClient("", "", "", "", false, p.log)
-	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log, trackingClient)
+	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log)
+	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log, usageStatsClient)
 
 	// Create HTTP router
-	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil, trackingClient)
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil, usageStatsClient)
 
 	return nil
 }

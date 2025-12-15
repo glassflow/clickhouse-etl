@@ -1,4 +1,4 @@
-package tracking
+package usagestats
 
 import (
 	"bytes"
@@ -81,19 +81,19 @@ func (c *Client) authenticate(ctx context.Context) error {
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking auth: failed to marshal request", "error", err)
+			c.log.Debug("usage stats auth: failed to marshal request", "error", err)
 		}
 		return fmt.Errorf("marshal auth request: %w", err)
 	}
 
 	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("tracking auth: sending authentication request", "url", url, "endpoint", c.endpoint)
+		c.log.Debug("usage stats auth: sending authentication request", "url", url, "endpoint", c.endpoint)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking auth: failed to create request", "error", err)
+			c.log.Debug("usage stats auth: failed to create request", "error", err)
 		}
 		return fmt.Errorf("create auth request: %w", err)
 	}
@@ -104,7 +104,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking auth: request failed", "error", err, "url", url)
+			c.log.Debug("usage stats auth: request failed", "error", err, "url", url)
 		}
 		return fmt.Errorf("auth request failed: %w", err)
 	}
@@ -114,7 +114,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 		body, _ := io.ReadAll(resp.Body)
 		err := fmt.Errorf("auth failed with status %d: %s", resp.StatusCode, string(body))
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking auth: authentication failed", "status", resp.StatusCode, "response", string(body), "error", err)
+			c.log.Debug("usage stats auth: authentication failed", "status", resp.StatusCode, "response", string(body), "error", err)
 		}
 		return err
 	}
@@ -122,7 +122,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 	var authResp AuthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking auth: failed to decode response", "error", err)
+			c.log.Debug("usage stats auth: failed to decode response", "error", err)
 		}
 		return fmt.Errorf("decode auth response: %w", err)
 	}
@@ -133,7 +133,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 	c.tokenMu.Unlock()
 
 	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("tracking auth: authentication successful", "token_expires_in", authResp.ExpiresIn)
+		c.log.Debug("usage stats auth: authentication successful", "token_expires_in", authResp.ExpiresIn)
 	}
 
 	return nil
@@ -147,18 +147,18 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 
 	if token != "" && time.Now().Before(expiry.Add(-30*time.Second)) {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: using cached token", "expires_at", expiry)
+			c.log.Debug("usage stats: using cached token", "expires_at", expiry)
 		}
 		return token, nil
 	}
 
 	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("tracking: token expired or missing, authenticating")
+		c.log.Debug("usage stats: token expired or missing, authenticating")
 	}
 
 	if err := c.authenticate(ctx); err != nil {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: authentication failed", "error", err)
+			c.log.Debug("usage stats: authentication failed", "error", err)
 		}
 		return "", err
 	}
@@ -176,19 +176,19 @@ func (c *Client) SendEvent(ctx context.Context, eventName, eventSource string, p
 	}
 
 	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("tracking: sending event", "event", eventName, "source", eventSource, "properties", properties)
+		c.log.Debug("usage stats: sending event", "event", eventName, "source", eventSource, "properties", properties)
 	}
 
 	go func() {
-		trackingCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		usageStatsCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		if err := c.sendEventSync(trackingCtx, eventName, eventSource, properties); err != nil {
+		if err := c.sendEventSync(usageStatsCtx, eventName, eventSource, properties); err != nil {
 			if c.log != nil {
-				c.log.Debug("tracking event send failed", "event", eventName, "source", eventSource, "error", err)
+				c.log.Debug("usage stats event send failed", "event", eventName, "source", eventSource, "error", err)
 			}
 		} else if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: event sent successfully", "event", eventName, "source", eventSource)
+			c.log.Debug("usage stats: event sent successfully", "event", eventName, "source", eventSource)
 		}
 	}()
 }
@@ -197,7 +197,7 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 	token, err := c.getToken(ctx)
 	if err != nil {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: failed to get token", "event", eventName, "error", err)
+			c.log.Debug("usage stats: failed to get token", "event", eventName, "error", err)
 		}
 		return fmt.Errorf("get token: %w", err)
 	}
@@ -217,7 +217,7 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 	jsonData, err := json.Marshal(event)
 	if err != nil {
 		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: failed to marshal event", "event", eventName, "error", err)
+			c.log.Debug("usage stats: failed to marshal event", "event", eventName, "error", err)
 		}
 		return fmt.Errorf("marshal event: %w", err)
 	}
@@ -225,19 +225,19 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 	url := fmt.Sprintf("%s/track", c.endpoint)
 
 	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("tracking: sending event request", "url", url, "event", eventName, "installation_id", c.installationID, "payload_size", len(jsonData))
+		c.log.Debug("usage stats: sending event request", "url", url, "event", eventName, "installation_id", c.installationID, "payload_size", len(jsonData))
 	}
 
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if attempt > 1 && c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: retrying event send", "event", eventName, "attempt", attempt, "max_retries", maxRetries)
+			c.log.Debug("usage stats: retrying event send", "event", eventName, "attempt", attempt, "max_retries", maxRetries)
 		}
 
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 		if err != nil {
 			if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-				c.log.Debug("tracking: failed to create request", "event", eventName, "error", err)
+				c.log.Debug("usage stats: failed to create request", "event", eventName, "error", err)
 			}
 			return fmt.Errorf("create request: %w", err)
 		}
@@ -250,26 +250,26 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 		if err != nil {
 			if attempt < maxRetries {
 				if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-					c.log.Debug("tracking: request failed, will retry", "event", eventName, "attempt", attempt, "error", err, "retry_after", attempt)
+					c.log.Debug("usage stats: request failed, will retry", "event", eventName, "attempt", attempt, "error", err, "retry_after", attempt)
 				}
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
 			if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-				c.log.Debug("tracking: request failed after max retries", "event", eventName, "attempt", attempt, "error", err)
+				c.log.Debug("usage stats: request failed after max retries", "event", eventName, "attempt", attempt, "error", err)
 			}
 			return fmt.Errorf("request failed: %w", err)
 		}
 
 		if resp.StatusCode == http.StatusUnauthorized {
 			if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-				c.log.Debug("tracking: received unauthorized, re-authenticating", "event", eventName, "attempt", attempt)
+				c.log.Debug("usage stats: received unauthorized, re-authenticating", "event", eventName, "attempt", attempt)
 			}
 			resp.Body.Close()
 
 			if err := c.authenticate(ctx); err != nil {
 				if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-					c.log.Debug("tracking: re-authentication failed", "event", eventName, "error", err)
+					c.log.Debug("usage stats: re-authentication failed", "event", eventName, "error", err)
 				}
 				return fmt.Errorf("re-authenticate: %w", err)
 			}
@@ -277,7 +277,7 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 			token, err = c.getToken(ctx)
 			if err != nil {
 				if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-					c.log.Debug("tracking: failed to get new token after re-auth", "event", eventName, "error", err)
+					c.log.Debug("usage stats: failed to get new token after re-auth", "event", eventName, "error", err)
 				}
 				return fmt.Errorf("get new token: %w", err)
 			}
@@ -287,13 +287,13 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 			if err != nil {
 				if attempt < maxRetries {
 					if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-						c.log.Debug("tracking: retry request failed, will retry again", "event", eventName, "attempt", attempt, "error", err)
+						c.log.Debug("usage stats: retry request failed, will retry again", "event", eventName, "attempt", attempt, "error", err)
 					}
 					time.Sleep(time.Duration(attempt) * time.Second)
 					continue
 				}
 				if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-					c.log.Debug("tracking: retry request failed after max retries", "event", eventName, "attempt", attempt, "error", err)
+					c.log.Debug("usage stats: retry request failed after max retries", "event", eventName, "attempt", attempt, "error", err)
 				}
 				return fmt.Errorf("retry request failed: %w", err)
 			}
@@ -305,34 +305,34 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 			body, _ := io.ReadAll(resp.Body)
 			if attempt < maxRetries {
 				if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-					c.log.Debug("tracking: non-OK status, will retry", "event", eventName, "status", resp.StatusCode, "response", string(body), "attempt", attempt)
+					c.log.Debug("usage stats: non-OK status, will retry", "event", eventName, "status", resp.StatusCode, "response", string(body), "attempt", attempt)
 				}
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
 			if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-				c.log.Debug("tracking: failed after max retries", "event", eventName, "status", resp.StatusCode, "response", string(body), "attempt", attempt)
+				c.log.Debug("usage stats: failed after max retries", "event", eventName, "status", resp.StatusCode, "response", string(body), "attempt", attempt)
 			}
-			return fmt.Errorf("tracking failed with status %d: %s", resp.StatusCode, string(body))
+			return fmt.Errorf("usage stats failed with status %d: %s", resp.StatusCode, string(body))
 		}
 
 		var trackResp TrackResponse
 		if err := json.NewDecoder(resp.Body).Decode(&trackResp); err != nil {
-			if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-				c.log.Debug("tracking: failed to decode response", "event", eventName, "error", err)
-			}
+		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
+			c.log.Debug("usage stats: failed to decode response", "event", eventName, "error", err)
+		}
 			return fmt.Errorf("decode response: %w", err)
 		}
 
-		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("tracking: event sent successfully", "event", eventName, "response", trackResp, "status", resp.StatusCode)
-		}
+	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
+		c.log.Debug("usage stats: event sent successfully", "event", eventName, "response", trackResp, "status", resp.StatusCode)
+	}
 
 		return nil
 	}
 
 	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("tracking: max retries exceeded", "event", eventName, "max_retries", maxRetries)
+		c.log.Debug("usage stats: max retries exceeded", "event", eventName, "max_retries", maxRetries)
 	}
 	return fmt.Errorf("max retries exceeded")
 }

@@ -28,7 +28,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
 type config struct {
@@ -76,11 +76,11 @@ type config struct {
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
 
-	TrackingEnabled        bool   `default:"false" split_words:"true"`
-	TrackingEndpoint       string `default:"" split_words:"true"`
-	TrackingUsername       string `default:"" split_words:"true"`
-	TrackingPassword       string `default:"" split_words:"true"`
-	TrackingInstallationID string `default:"" split_words:"true"`
+	UsageStatsEnabled        bool   `default:"false" split_words:"true"`
+	UsageStatsEndpoint       string `default:"" split_words:"true"`
+	UsageStatsUsername       string `default:"" split_words:"true"`
+	UsageStatsPassword       string `default:"" split_words:"true"`
+	UsageStatsInstallationID string `default:"" split_words:"true"`
 }
 
 var version = "dev"
@@ -240,19 +240,19 @@ func mainEtl(
 		}
 	}
 
-	trackingClient := newTrackingClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log)
 
-	pipelineSvc := service.NewPipelineService(orch, db, log, trackingClient)
+	pipelineSvc := service.NewPipelineService(orch, db, log, usageStatsClient)
 
 	err = pipelineSvc.CleanUpPipelines(ctx)
 	if err != nil {
 		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
 	}
 
-	handler := api.NewRouter(log, pipelineSvc, dlq, meter, trackingClient)
+	handler := api.NewRouter(log, pipelineSvc, dlq, meter, usageStatsClient)
 
-	metricsTracker := service.NewMetricsTracker(db, nc, dlq, trackingClient, log)
-	go metricsTracker.Start(ctx)
+	usageStatsCollector := service.NewUsageStatsCollector(db, nc, dlq, usageStatsClient, log)
+	go usageStatsCollector.Start(ctx)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
@@ -277,7 +277,7 @@ func mainEtl(
 		time.Sleep(2 * time.Second) // small delay to wait for server to start
 		pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		trackingClient.SendEvent(pingCtx, "readiness_ping", "api", nil)
+		usageStatsClient.SendEvent(pingCtx, "readiness_ping", "api", nil)
 	}()
 
 	select {
@@ -338,14 +338,14 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		meter,
 	)
 
-	trackingClient := newTrackingClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log)
 
 	return runWithGracefulShutdown(
 		ctx,
 		sinkRunner,
 		log,
 		internal.RoleSink,
-		trackingClient,
+		usageStatsClient,
 	)
 }
 
@@ -391,14 +391,14 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 
 	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
 
-	trackingClient := newTrackingClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log)
 
 	return runWithGracefulShutdown(
 		ctx,
 		joinRunner,
 		log,
 		internal.RoleJoin,
-		trackingClient,
+		usageStatsClient,
 	)
 }
 
@@ -419,14 +419,14 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 
 	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
 
-	trackingClient := newTrackingClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log)
 
 	return runWithGracefulShutdown(
 		ctx,
 		ingestorRunner,
 		log,
 		internal.RoleIngestor,
-		trackingClient,
+		usageStatsClient,
 	)
 }
 
@@ -435,7 +435,7 @@ func runWithGracefulShutdown(
 	runner service.Runner,
 	log *slog.Logger,
 	serviceName string,
-	trackingClient *tracking.Client,
+	usageStatsClient *usagestats.Client,
 ) error {
 	serverErr := make(chan error, 1)
 	wg := sync.WaitGroup{}
@@ -458,7 +458,7 @@ func runWithGracefulShutdown(
 			eventName := serviceName + "_ready"
 			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			trackingClient.SendEvent(pingCtx, eventName, serviceName, nil)
+			usageStatsClient.SendEvent(pingCtx, eventName, serviceName, nil)
 		case <-runner.Done():
 			log.Warn("Component has crashed!", slog.String("service", serviceName))
 			wg.Wait()
@@ -466,7 +466,7 @@ func runWithGracefulShutdown(
 			eventName := serviceName + "_crashed"
 			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			trackingClient.SendEvent(pingCtx, eventName, serviceName, nil)
+			usageStatsClient.SendEvent(pingCtx, eventName, serviceName, nil)
 			return fmt.Errorf("%s component stopped by itself", serviceName)
 		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
@@ -475,7 +475,7 @@ func runWithGracefulShutdown(
 			eventName := serviceName + "_terminated"
 			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			trackingClient.SendEvent(pingCtx, eventName, serviceName, nil)
+			usageStatsClient.SendEvent(pingCtx, eventName, serviceName, nil)
 			go func() {
 				defer wg.Done()
 				runner.Shutdown()
@@ -502,13 +502,13 @@ func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ er
 	return pipelineCfg, nil
 }
 
-func newTrackingClient(cfg *config, log *slog.Logger) *tracking.Client {
-	return tracking.NewClient(
-		cfg.TrackingEndpoint,
-		cfg.TrackingUsername,
-		cfg.TrackingPassword,
-		cfg.TrackingInstallationID,
-		cfg.TrackingEnabled,
+func newUsageStatsClient(cfg *config, log *slog.Logger) *usagestats.Client {
+	return usagestats.NewClient(
+		cfg.UsageStatsEndpoint,
+		cfg.UsageStatsUsername,
+		cfg.UsageStatsPassword,
+		cfg.UsageStatsInstallationID,
+		cfg.UsageStatsEnabled,
 		log,
 	)
 }

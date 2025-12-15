@@ -150,7 +150,7 @@ func mainDeduplicator(
 		return fmt.Errorf("create deduplication service: %w", err)
 	}
 
-	trackingClient := newTrackingClient(cfg, log)
+	trackingClient := newUsageStatsClient(cfg, log)
 
 	return runWithGracefulShutdown(
 		ctx,

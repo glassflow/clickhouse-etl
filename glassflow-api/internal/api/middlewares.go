@@ -143,7 +143,7 @@ func extractRoute(r *http.Request) string {
 	return routeStr
 }
 
-// RouteContext adds the route to the request context for tracking purposes
+// RouteContext adds the route to the request context for usage stats purposes
 func RouteContext() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

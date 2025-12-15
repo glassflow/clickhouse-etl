@@ -9,7 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/tracking"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
 const routeContextKey = "route"
@@ -36,18 +36,18 @@ type PipelineStore interface {
 }
 
 type PipelineService struct {
-	orchestrator   Orchestrator
-	db             PipelineStore
-	log            *slog.Logger
-	trackingClient *tracking.Client
+	orchestrator     Orchestrator
+	db               PipelineStore
+	log              *slog.Logger
+	usageStatsClient *usagestats.Client
 }
 
-func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger, trackingClient *tracking.Client) *PipelineService {
+func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger, usageStatsClient *usagestats.Client) *PipelineService {
 	return &PipelineService{
-		orchestrator:   orch,
-		db:             db,
-		log:            log,
-		trackingClient: trackingClient,
+		orchestrator:     orch,
+		db:               db,
+		log:              log,
+		usageStatsClient: usageStatsClient,
 	}
 }
 
@@ -91,7 +91,7 @@ func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
 
-	p.trackPipelineEvent(ctx, "pipeline_create", cfg.ID, cfg)
+	p.recordPipelineEvent(ctx, "pipeline_create", cfg.ID, cfg)
 
 	return nil
 }
@@ -115,7 +115,7 @@ func (p *PipelineService) DeletePipeline(ctx context.Context, pid string) error 
 		}
 	}
 
-	p.trackPipelineOperation(ctx, "pipeline_delete", pid)
+	p.recordPipelineOperation(ctx, "pipeline_delete", pid)
 
 	return nil
 }
@@ -153,7 +153,7 @@ func (p *PipelineService) TerminatePipeline(ctx context.Context, pid string) err
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
 
-	p.trackPipelineEvent(ctx, "pipeline_terminate", pid, pipeline)
+	p.recordPipelineEvent(ctx, "pipeline_terminate", pid, pipeline)
 
 	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
 	if p.orchestrator.GetType() == "local" {
@@ -277,7 +277,7 @@ func (p *PipelineService) ResumePipeline(ctx context.Context, pid string) error 
 		return fmt.Errorf("resume pipeline: %w", err)
 	}
 
-	p.trackPipelineEvent(ctx, "pipeline_resume", pid, pipeline)
+	p.recordPipelineEvent(ctx, "pipeline_resume", pid, pipeline)
 
 	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
 	if p.orchestrator.GetType() == "local" {
@@ -323,7 +323,7 @@ func (p *PipelineService) StopPipeline(ctx context.Context, pid string) error {
 		return fmt.Errorf("update pipeline status to stopping: %w", err)
 	}
 
-	p.trackPipelineEvent(ctx, "pipeline_stop", pid, pipeline)
+	p.recordPipelineEvent(ctx, "pipeline_stop", pid, pipeline)
 
 	// For Docker orchestrator, mark as failed if stop fails
 	if p.orchestrator.GetType() == "local" {
@@ -395,7 +395,7 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return fmt.Errorf("edit pipeline: %w", err)
 	}
 
-	p.trackPipelineEvent(ctx, "pipeline_edit", pid, newCfg)
+	p.recordPipelineEvent(ctx, "pipeline_edit", pid, newCfg)
 
 	p.log.InfoContext(ctx, "pipeline edit initiated successfully", "pipeline_id", pid)
 	return nil
@@ -461,8 +461,8 @@ func getRouteFromContext(ctx context.Context) string {
 	return ""
 }
 
-// trackPipelineEvent sends tracking events for pipeline operations.
-func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName string, pipelineID string, cfg *models.PipelineConfig) {
+// recordPipelineEvent sends usage stats events for pipeline operations.
+func (p *PipelineService) recordPipelineEvent(ctx context.Context, eventName string, pipelineID string, cfg *models.PipelineConfig) {
 
 	hasDedup, hasJoin, hasFilter := checkTransformations(cfg)
 
@@ -476,7 +476,7 @@ func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName stri
 	}
 
 	properties := map[string]interface{}{
-		"pipeline_id_hash": tracking.HashPipelineID(pipelineID),
+		"pipeline_id_hash": usagestats.HashPipelineID(pipelineID),
 		"has_dedup":        hasDedup,
 		"has_join":         hasJoin,
 		"has_filter":       hasFilter,
@@ -495,13 +495,13 @@ func (p *PipelineService) trackPipelineEvent(ctx context.Context, eventName stri
 		properties["route"] = route
 	}
 
-	p.trackingClient.SendEvent(ctx, eventName, "api", properties)
+	p.usageStatsClient.SendEvent(ctx, eventName, "api", properties)
 }
 
-func (p *PipelineService) trackPipelineOperation(ctx context.Context, eventName string, pipelineID string) {
+func (p *PipelineService) recordPipelineOperation(ctx context.Context, eventName string, pipelineID string) {
 
 	properties := map[string]interface{}{
-		"pipeline_id_hash": tracking.HashPipelineID(pipelineID),
+		"pipeline_id_hash": usagestats.HashPipelineID(pipelineID),
 	}
 
 	// Add route from context if available
@@ -509,5 +509,5 @@ func (p *PipelineService) trackPipelineOperation(ctx context.Context, eventName 
 		properties["route"] = route
 	}
 
-	p.trackingClient.SendEvent(ctx, eventName, "api", properties)
+	p.usageStatsClient.SendEvent(ctx, eventName, "api", properties)
 }
