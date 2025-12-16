@@ -21,6 +21,7 @@ The pipeline configuration is a JSON object that defines how data flows from Kaf
 | `schema` | object | Yes | Configuration for the schema of the pipeline. See [Schema Configuration](#schema-configuration). |
 | `join` | object | No | Configuration for joining multiple Kafka topics. See [Join Configuration](#join-configuration). |
 | `filter` | object | No | Configuration for filtering the data. See [Filter Configuration](#filter-configuration). |
+| `stateless_transformation` | object | No | Configuration for stateless JSON transformations. See [Stateless Transformation Configuration](#stateless-transformation-configuration). |
 | `metadata` | object | No | Metadata for the pipeline. See [Metadata Configuration](#metadata-configuration). |
 
 
@@ -117,7 +118,7 @@ The schema configuration defines the schema of the pipeline.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `source_id` | string | Yes | Source ID. This is the ID of the source topic. |
+| `source_id` | string | Yes | Source ID. This is the ID of the source topic or transformation. |
 | `name` | string | Yes | Source field name. Nested structures are supported by using a dot notation (e.g. `data.name`). |
 | `type` | string | Yes | Source field type. |
 | `column_name` | string | No | ClickHouse column name. |
@@ -195,6 +196,36 @@ Each source in the `sources` array has the following configuration:
 |-------|------|----------|-------------|
 | `enabled` | boolean | Yes | Whether filtering is enabled. |
 | `expression` | string | Yes | Filter expression. |
+
+## Stateless Transformation Configuration
+
+The `stateless_transformation` section defines expression-based, per-event JSON transformations that are applied before data is mapped to ClickHouse.
+These transformations are stateless and operate on each event independently.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | No | Whether stateless transformations are enabled. Defaults to `false` when omitted. |
+| `id` | string | Yes | Optional identifier for the transformation configuration. |
+| `type` | string | No | Transformation type identifier. Reserved for future use. Default is `expr_lang_transform`. |
+| `config` | object | Yes (when `enabled` is `true`) | Stateless transformation configuration. See [Stateless Transformations Config](#stateless-transformations-config). |
+
+### Stateless Transformations Config
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `transform` | array | Yes | List of individual stateless transformations. See [Transform Definition](#transform-definition). |
+
+### Transform Definition
+
+Each entry in the `transform` array defines one derived field computed from the input JSON using an expression:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `expression` | string | Yes | Expression evaluated against the input JSON event (using the `expr` engine and GlassFlow helper functions). |
+| `output_name` | string | Yes | Name of the field in the transformed payload that will be produced by this expression. |
+| `output_type` | string | Yes | Expected output type. Supported values: `"string"`, `"int"`, `"int64"`, `"float64"`, `"bool"`, `"[]string"`. |
+
+> 💡 **Note**: For a conceptual overview, examples, and the list of helper functions (e.g. `parseQuery`, `parseISO8601`, `parseUserAgent`), see the [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation.
 
 ## Metadata Configuration
 
