@@ -92,7 +92,7 @@ If stateless transformations are configured, the **Stateless Transformation** st
 
 #### Process
 
-1. Messages are read from the upstream NATS stream (ingestor or join output, depending on the pipeline).
+1. Messages are read from the upstream NATS stream (ingestor).
 2. Each message payload is parsed as JSON and passed through a list of expressions.
 3. For every configured transformation:
    - The expression is evaluated against the input JSON (using the `expr` engine and helper functions).
@@ -105,8 +105,8 @@ If no stateless transformations are configured, the original JSON payload is pas
 
 - Messages are acknowledged only after all configured stateless transformations for the batch have been evaluated successfully.
 - If evaluation or type conversion fails for any message in the batch:
-  - The batch is **not acknowledged**, causing NATS JetStream to redeliver the messages after the `AckWait` timeout.
-  - No partial transformations are committed, ensuring consistent, all-or-nothing behavior per batch.
+  - The batch is sent to the DLQ
+  - The batch is acknowledged
 
 > For details on configuring stateless transformations and available helper functions, see the [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation.
 
