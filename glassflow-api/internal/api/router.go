@@ -18,9 +18,9 @@ import (
 type handler struct {
 	log *slog.Logger
 
-	pipelineService PipelineService
-	dlqSvc          DLQ
-	api             huma.API
+	pipelineService  PipelineService
+	dlqSvc           DLQ
+	api              huma.API
 	usageStatsClient *usagestats.Client
 }
 
@@ -56,10 +56,10 @@ func NewRouter(
 	humaAPI := humamux.New(r, config)
 
 	h := handler{
-		log:             log,
-		pipelineService: pipelineService,
-		dlqSvc:          dlqService,
-		api:             humaAPI,
+		log:              log,
+		pipelineService:  pipelineService,
+		dlqSvc:           dlqService,
+		api:              humaAPI,
 		usageStatsClient: usageStatsClient,
 	}
 

@@ -318,15 +318,15 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 
 		var trackResp TrackResponse
 		if err := json.NewDecoder(resp.Body).Decode(&trackResp); err != nil {
-		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("usage stats: failed to decode response", "event", eventName, "error", err)
-		}
+			if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
+				c.log.Debug("usage stats: failed to decode response", "event", eventName, "error", err)
+			}
 			return fmt.Errorf("decode response: %w", err)
 		}
 
-	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("usage stats: event sent successfully", "event", eventName, "response", trackResp, "status", resp.StatusCode)
-	}
+		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
+			c.log.Debug("usage stats: event sent successfully", "event", eventName, "response", trackResp, "status", resp.StatusCode)
+		}
 
 		return nil
 	}
