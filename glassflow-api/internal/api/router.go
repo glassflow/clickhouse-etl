@@ -64,6 +64,8 @@ func NewRouter(
 	registerHumaHandler("/api/v2/healthz", h.healthzV2, log, HealthzSwaggerDocs(), humaAPI)
 	registerHumaHandler("/api/v1/platform", h.platform, log, PlatformSwaggerDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}/dlq/purge", h.purgeDLQ, log, PurgeDLQDocs(), humaAPI)
+	registerHumaHandler("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ, log, ConsumeDLQDocs(), humaAPI)
+	registerHumaHandler("/api/v1/pipeline/{id}/dlq/state", h.getDLQState, log, GetDLQStateDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline", h.createPipeline, log, CreatePipelineDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}/stop", h.stopPipeline, log, StopPipelineDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}/terminate", h.terminatePipeline, log, TerminatePipelineDocs(), humaAPI)
@@ -76,14 +78,12 @@ func NewRouter(
 	registerHumaHandler("/api/v1/pipeline/{id}", h.updatePipelineName, log, UpdatePipelineNameDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}", h.deletePipeline, log, DeletePipelineDocs(), humaAPI)
 	registerHumaHandler("/api/v1/pipeline/{id}/resume", h.resumePipeline, log, ResumePipelineDocs(), humaAPI)
+	registerHumaHandler("/api/v1/pipeline/{id}/edit", h.editPipeline, log, EditPipelineDocs(), humaAPI)
 
 	r.HandleFunc("/api/v1/docs", h.docs)
 	r.HandleFunc("/api/v1/openapi.json", h.swaggerDocsJSON)
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/{id}/dlq/state", h.getDLQState).Methods("GET")
-	r.HandleFunc("/api/v1/pipeline/{id}/edit", h.editPipeline).Methods("POST")
 
 	r.Use(Recovery(log), RequestLogging(log), RequestMetrics(meter))
 

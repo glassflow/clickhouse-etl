@@ -3,19 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
-
-	"github.com/gorilla/mux"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
 
 //go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService
@@ -33,73 +27,6 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
 	GetOrchestratorType() string
 	CleanUpPipelines(ctx context.Context) error
-}
-
-func (h *handler) editPipeline(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["id"]
-	if !ok {
-		h.log.ErrorContext(r.Context(), "Cannot get id param")
-		serverError(w)
-		return
-	}
-
-	if len(strings.TrimSpace(id)) == 0 {
-		h.log.ErrorContext(r.Context(), "pipeline id cannot be empty")
-		jsonError(w, http.StatusUnprocessableEntity, "pipeline id cannot be empty", nil)
-		return
-	}
-
-	req, err := parseRequest[pipelineJSON](w, r)
-	if err != nil {
-		var jsonErr invalidJSONError
-		switch {
-		case errors.As(err, &jsonErr):
-			jsonError(w, http.StatusBadRequest, err.Error(), nil)
-		default:
-			h.log.ErrorContext(r.Context(), "failed to read edit pipeline request", "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	// Validate that pipeline_id in JSON matches the route parameter
-	if req.PipelineID != id {
-		h.log.ErrorContext(r.Context(), "pipeline ID mismatch", "route_id", id, "json_id", req.PipelineID)
-		jsonError(w, http.StatusBadRequest, "pipeline ID in request body must match the route parameter", nil)
-		return
-	}
-
-	pipeline, err := req.toModel()
-	if err != nil {
-		h.log.ErrorContext(r.Context(), "failed to convert request to pipeline model", "error", err)
-		jsonError(w, http.StatusUnprocessableEntity, err.Error(), nil)
-		return
-	}
-
-	err = h.pipelineService.EditPipeline(r.Context(), id, &pipeline)
-	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPipelineNotExists):
-			h.log.ErrorContext(r.Context(), "pipeline not found for edit", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotFound, "no pipeline with given id to edit", nil)
-		case errors.Is(err, service.ErrNotImplemented):
-			h.log.ErrorContext(r.Context(), "edit pipeline feature not implemented", "pipeline_id", id, "error", err)
-			jsonError(w, http.StatusNotImplemented, "feature not implemented for this version", nil)
-		default:
-			// Check if it's a status validation error
-			if statusErr, ok := status.GetStatusValidationError(err); ok {
-				jsonStatusValidationError(w, statusErr)
-				return
-			}
-			h.log.ErrorContext(r.Context(), "failed to edit pipeline", "pipeline_id", id, "error", err)
-			serverError(w)
-		}
-		return
-	}
-
-	h.log.InfoContext(r.Context(), "pipeline edit initiated", "pipeline_id", id)
-	w.WriteHeader(http.StatusNoContent)
 }
 
 type pipelineSource struct {
