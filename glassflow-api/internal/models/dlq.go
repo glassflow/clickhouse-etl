@@ -61,7 +61,7 @@ var ErrDLQMaxBatchSize = fmt.Errorf("DLQ batch size cannot be greater than %d", 
 func NewDLQBatchSize(n int) (zero DLQBatchSize, _ error) {
 	switch {
 	case n == 0:
-		return DLQBatchSize{Int: internal.DLQMaxBatchSize}, nil
+		return DLQBatchSize{Int: internal.DLQDefaultBatchSize}, nil
 	case n > internal.DLQMaxBatchSize:
 		return zero, ErrDLQMaxBatchSize
 	default:

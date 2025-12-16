@@ -18,11 +18,11 @@ func TestDLQNewBatchForEmptySizeSuccess(t *testing.T) {
 	bs, err := NewDLQBatchSize(0)
 	require.NoError(t, err)
 
-	require.Equal(t, 100, bs.Int)
+	require.Equal(t, 1, bs.Int)
 }
 
 func TestDLQNewBatchGreaterThanMaxAllowedFail(t *testing.T) {
-	s, err := NewDLQBatchSize(1000)
+	s, err := NewDLQBatchSize(1001)
 	require.EqualError(t, err, ErrDLQMaxBatchSize.Error())
 
 	require.Empty(t, s)

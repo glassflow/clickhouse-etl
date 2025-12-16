@@ -25,7 +25,7 @@ type GetPipelinesResponse struct {
 	Body []models.ListPipelineConfig
 }
 
-func (h *handler) getPipelines(ctx context.Context, input *GetPipelinesInput) (*GetPipelinesResponse, error) {
+func (h *handler) getPipelines(ctx context.Context, _ *GetPipelinesInput) (*GetPipelinesResponse, error) {
 	pipelines, err := h.pipelineService.GetPipelines(ctx)
 	if err != nil {
 		return nil, &ErrorDetail{

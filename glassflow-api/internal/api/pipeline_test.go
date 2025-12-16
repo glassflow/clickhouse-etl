@@ -1,19 +1,18 @@
 package api
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"log/slog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api/mocks"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-	"github.com/gorilla/mux"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 )
 
 func TestEditPipeline_Success(t *testing.T) {
@@ -30,7 +29,7 @@ func TestEditPipeline_Success(t *testing.T) {
 
 	// Test data - use a simple valid pipeline JSON
 	pipelineID := "test-pipeline-123"
-	editRequest := map[string]interface{}{
+	editRequestData := map[string]interface{}{
 		"pipeline_id": pipelineID,
 		"name":        "Updated Pipeline",
 		"source": map[string]interface{}{
@@ -78,26 +77,27 @@ func TestEditPipeline_Success(t *testing.T) {
 		},
 	}
 
+	// Convert to pipelineJSON
+	jsonBytes, _ := json.Marshal(editRequestData)
+	var pipelineBody pipelineJSON
+	err := json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
 	// Setup mock expectations
 	mockPipelineService.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(nil)
 
-	// Create request
-	reqBody, _ := json.Marshal(editRequest)
-	req := httptest.NewRequest("POST", "/api/v1/pipeline/"+pipelineID+"/edit", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
+	// Create input
+	input := &EditPipelineInput{
+		ID:   pipelineID,
+		Body: pipelineBody,
+	}
 
-	// Create response recorder
-	w := httptest.NewRecorder()
-
-	// Create router and add route
-	router := mux.NewRouter()
-	router.HandleFunc("/api/v1/pipeline/{id}/edit", handler.editPipeline).Methods("POST")
-
-	// Execute request
-	router.ServeHTTP(w, req)
+	// Call handler
+	response, err := handler.editPipeline(context.Background(), input)
 
 	// Assertions
-	assert.Equal(t, http.StatusNoContent, w.Code)
+	require.NoError(t, err)
+	require.NotNil(t, response)
 }
 
 func TestEditPipeline_PipelineNotFound(t *testing.T) {
@@ -113,7 +113,7 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 	}
 
 	pipelineID := "non-existent-pipeline"
-	editRequest := map[string]interface{}{
+	editRequestData := map[string]interface{}{
 		"pipeline_id": pipelineID,
 		"name":        "Updated Pipeline",
 		"source": map[string]interface{}{
@@ -161,26 +161,33 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 		},
 	}
 
+	// Convert to pipelineJSON
+	jsonBytes, _ := json.Marshal(editRequestData)
+	var pipelineBody pipelineJSON
+	err := json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
 	// Setup mock expectations
 	mockPipelineService.EXPECT().EditPipeline(gomock.Any(), pipelineID, gomock.Any()).Return(service.ErrPipelineNotExists)
 
-	// Create request
-	reqBody, _ := json.Marshal(editRequest)
-	req := httptest.NewRequest("POST", "/api/v1/pipeline/"+pipelineID+"/edit", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
+	// Create input
+	input := &EditPipelineInput{
+		ID:   pipelineID,
+		Body: pipelineBody,
+	}
 
-	// Create response recorder
-	w := httptest.NewRecorder()
-
-	// Create router and add route
-	router := mux.NewRouter()
-	router.HandleFunc("/api/v1/pipeline/{id}/edit", handler.editPipeline).Methods("POST")
-
-	// Execute request
-	router.ServeHTTP(w, req)
+	// Call handler
+	response, err := handler.editPipeline(context.Background(), input)
 
 	// Assertions
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	require.Error(t, err)
+	require.Nil(t, response)
+
+	// Check error details
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusNotFound, errDetail.Status)
+	assert.Equal(t, "not_found", errDetail.Code)
 }
 
 func TestEditPipeline_IDMismatch(t *testing.T) {
@@ -197,31 +204,39 @@ func TestEditPipeline_IDMismatch(t *testing.T) {
 
 	// Test data with mismatched pipeline ID
 	pipelineID := "test-pipeline-123"
-	editRequest := map[string]interface{}{
+	editRequestData := map[string]interface{}{
 		"pipeline_id": "different-pipeline-id",
 		"name":        "Updated Pipeline",
 	}
 
-	// Create request
-	reqBody, _ := json.Marshal(editRequest)
-	req := httptest.NewRequest("POST", "/api/v1/pipeline/"+pipelineID+"/edit", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
+	// Convert to pipelineJSON
+	jsonBytes, _ := json.Marshal(editRequestData)
+	var pipelineBody pipelineJSON
+	err := json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
 
-	// Create response recorder
-	w := httptest.NewRecorder()
+	// Create input
+	input := &EditPipelineInput{
+		ID:   pipelineID,
+		Body: pipelineBody,
+	}
 
-	// Create router and add route
-	router := mux.NewRouter()
-	router.HandleFunc("/api/v1/pipeline/{id}/edit", handler.editPipeline).Methods("POST")
-
-	// Execute request
-	router.ServeHTTP(w, req)
+	// Call handler (should not call EditPipeline on service due to ID mismatch)
+	response, err := handler.editPipeline(context.Background(), input)
 
 	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	require.Error(t, err)
+	require.Nil(t, response)
+
+	// Check error details
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusBadRequest, errDetail.Status)
+	assert.Equal(t, "bad_request", errDetail.Code)
+	assert.Contains(t, errDetail.Message, "pipeline ID in request body must match")
 }
 
-func TestEditPipeline_InvalidJSON(t *testing.T) {
+func TestEditPipeline_InvalidPipelineData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockPipelineService := mocks.NewMockPipelineService(ctrl)
@@ -233,24 +248,31 @@ func TestEditPipeline_InvalidJSON(t *testing.T) {
 		pipelineService: mockPipelineService,
 	}
 
-	// Test data with invalid JSON
+	// Test data with incomplete/invalid pipeline data
 	pipelineID := "test-pipeline-123"
-	invalidJSON := `{"pipeline_id": "test-pipeline-123", "name": "Updated Pipeline", "invalid": }`
 
-	// Create request
-	req := httptest.NewRequest("POST", "/api/v1/pipeline/"+pipelineID+"/edit", bytes.NewBufferString(invalidJSON))
-	req.Header.Set("Content-Type", "application/json")
+	// Create a minimal/invalid pipeline body that will fail toModel() conversion
+	var pipelineBody pipelineJSON
+	pipelineBody.PipelineID = pipelineID
+	pipelineBody.Name = "Test"
+	// Missing required fields like source, sink, schema will cause toModel() to fail
 
-	// Create response recorder
-	w := httptest.NewRecorder()
+	// Create input
+	input := &EditPipelineInput{
+		ID:   pipelineID,
+		Body: pipelineBody,
+	}
 
-	// Create router and add route
-	router := mux.NewRouter()
-	router.HandleFunc("/api/v1/pipeline/{id}/edit", handler.editPipeline).Methods("POST")
-
-	// Execute request
-	router.ServeHTTP(w, req)
+	// Call handler
+	response, err := handler.editPipeline(context.Background(), input)
 
 	// Assertions
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	require.Error(t, err)
+	require.Nil(t, response)
+
+	// Check error details
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Equal(t, "unprocessable_entity", errDetail.Code)
 }

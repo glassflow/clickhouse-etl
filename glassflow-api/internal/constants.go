@@ -50,10 +50,10 @@ const (
 	RoleETL          = ""
 
 	// DLQ constants
-	DLQMaxBatchSize     = 100
+	DLQDefaultBatchSize = 1
+	DLQMaxBatchSize     = 1000
 	DLQSuffix           = "DLQ"
 	DLQSubjectName      = "failed"
-	DLQDefaultBatchSize = 1
 
 	// JSON schema data types formats
 	JSONTypeString  = "string"
