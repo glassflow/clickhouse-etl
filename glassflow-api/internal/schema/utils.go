@@ -89,6 +89,8 @@ func ParseInt64(data any) (zero int64, _ error) {
 		return value, nil
 	case int:
 		return int64(value), nil
+	case int32:
+		return int64(value), nil
 	case float64:
 		if value < float64(math.MinInt64) || value > float64(math.MaxInt64) {
 			return zero, fmt.Errorf("value out of range of int64: %f", value)
@@ -232,6 +234,8 @@ func ParseFloat64(data any) (zero float64, _ error) {
 		return f, nil
 	case float64:
 		return value, nil
+	case float32:
+		return float64(value), nil
 	default:
 		return zero, fmt.Errorf("failed to parse float64: %v, type is: %v", data, reflect.TypeOf(data))
 	}
