@@ -466,6 +466,14 @@ func TestConvertValue(t *testing.T) {
 			want:       time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 			wantErr:    false,
 		},
+		{
+			name:       "int64 to DateTime64(6, 'UTC')",
+			columnType: "DateTime64(6, 'UTC')",
+			fieldType:  internal.KafkaTypeInt64,
+			input:      int64(1609459200),
+			want:       time.Unix(1609459200, 0),
+			wantErr:    false,
+		},
 		// Test LowCardinality(DateTime) with various types
 		{
 			name:       "int64 to LCDateTime",
