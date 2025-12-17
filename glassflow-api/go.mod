@@ -10,7 +10,7 @@ require (
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/dgraph-io/badger/v4 v4.8.0
 	github.com/docker/go-connections v0.6.0
-	github.com/expr-lang/expr v1.17.6
+	github.com/expr-lang/expr v1.17.7
 	github.com/glassflow/glassflow-etl-k8s-operator v1.3.3-0.20251202085924-1261136896b4
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
