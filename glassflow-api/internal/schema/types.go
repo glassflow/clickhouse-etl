@@ -150,6 +150,19 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 			return zero, fmt.Errorf("mismatched types: expected int, float or string type for DateTime, got %s", fieldType)
 		}
 	default:
+		// Handle DateTime64 with parameters (e.g., "DateTime64(6, 'UTC')")
+		if strings.HasPrefix(string(columnType), "DateTime") {
+			switch fieldType {
+			case internal.KafkaTypeInt, internal.KafkaTypeInt32, internal.KafkaTypeInt64:
+				return ParseDateTimeFromInt64(data)
+			case internal.KafkaTypeFloat, internal.KafkaTypeFloat32, internal.KafkaTypeFloat64:
+				return ParseDateTimeFromFloat64(data)
+			case internal.KafkaTypeString:
+				return ParseDateTimeFromString(data)
+			default:
+				return zero, fmt.Errorf("mismatched types: expected int, float or string type for DateTime64, got %s", fieldType)
+			}
+		}
 		// Handle any ClickHouse Map type
 		if strings.HasPrefix(string(columnType), "Map(") {
 			if fieldType == internal.KafkaTypeMap {
