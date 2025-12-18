@@ -14,7 +14,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/clickhouse"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -307,7 +307,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
-) (batch.Batch, error) {
+) (clickhouse.Batch, error) {
 	var query string
 	if ch.streamSourceID != "" {
 		query = fmt.Sprintf(
@@ -327,7 +327,7 @@ func (ch *ClickHouseSink) createCHBatch(
 
 	ch.log.Debug("Insert query", "query", query)
 
-	resultBatch, err := batch.NewClickHouseBatch(ctx, ch.client, query)
+	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
@@ -351,7 +351,7 @@ func (ch *ClickHouseSink) createCHBatch(
 
 		err = resultBatch.Append(metadata.Sequence.Stream, values...)
 		if err != nil {
-			if errors.Is(err, batch.ErrAlreadyExists) {
+			if errors.Is(err, clickhouse.ErrAlreadyExists) {
 				continue
 			}
 			return nil, fmt.Errorf("failed to append values to batch: %w", err)
