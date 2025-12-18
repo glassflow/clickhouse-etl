@@ -16,36 +16,40 @@ type Transformer struct {
 	compiledExpressions []*vm.Program
 }
 
+var predefinedTransfromations = []expr.Option{
+	expr.Function("parseQuery", parseQueryString),
+	expr.Function("getQueryParam", getQueryParam),
+	expr.Function("getNestedParam", getNestedParam),
+	expr.Function("parseISO8601", parseISO8601),
+	expr.Function("toDate", toDate),
+	expr.Function("urlDecode", urlDecode),
+	expr.Function("toString", toString),
+	expr.Function("containsStr", containsStr),
+	expr.Function("hasPrefix", hasPrefix),
+	expr.Function("hasSuffix", hasSuffix),
+	expr.Function("upper", upper),
+	expr.Function("lower", lower),
+	expr.Function("trim", trimSpaces),
+	expr.Function("split", splitStr),
+	expr.Function("join", join),
+	expr.Function("replace", replace),
+	expr.Function("toInt", toInt),
+	expr.Function("toFloat", toFloat),
+	expr.Function("parseUserAgent", parseUserAgent),
+	expr.Function("waterfall", waterfall),
+	expr.Function("extractPathType", extractPathType),
+	expr.Function("hasKeyPrefix", hasKeyPrefix),
+	expr.Function("hasAnyKey", hasAnyKey),
+	expr.Function("keys", keys),
+}
+
 // NewTransformer creates a new Transformer and compiles all expressions
 func NewTransformer(transformations []models.Transform) (*Transformer, error) {
 	compiledExpressions := make([]*vm.Program, len(transformations))
 	for i, transformation := range transformations {
 		program, err := expr.Compile(
 			transformation.Expression,
-			expr.Function("parseQuery", parseQueryString),
-			expr.Function("getQueryParam", getQueryParam),
-			expr.Function("getNestedParam", getNestedParam),
-			expr.Function("parseISO8601", parseISO8601),
-			expr.Function("toDate", toDate),
-			expr.Function("urlDecode", urlDecode),
-			expr.Function("toString", toString),
-			expr.Function("containsStr", containsStr),
-			expr.Function("hasPrefix", hasPrefix),
-			expr.Function("hasSuffix", hasSuffix),
-			expr.Function("upper", upper),
-			expr.Function("lower", lower),
-			expr.Function("trim", trimSpaces),
-			expr.Function("split", splitStr),
-			expr.Function("join", join),
-			expr.Function("replace", replace),
-			expr.Function("toInt", toInt),
-			expr.Function("toFloat", toFloat),
-			expr.Function("parseUserAgent", parseUserAgent),
-			expr.Function("waterfall", waterfall),
-			expr.Function("extractPathType", extractPathType),
-			expr.Function("hasKeyPrefix", hasKeyPrefix),
-			expr.Function("hasAnyKey", hasAnyKey),
-			expr.Function("keys", keys),
+			predefinedTransfromations...,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("compile transformation %d expression: %w", i, err)

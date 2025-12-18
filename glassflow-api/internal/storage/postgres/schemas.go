@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 // buildSchemaJSON reconstructs the schema JSON from PipelineConfig.Mapper
