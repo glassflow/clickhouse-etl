@@ -16,22 +16,7 @@ type SchemaRegistryClient struct {
 	client *sr.Client
 }
 
-type ClientConfig struct {
-	URL       string `json:"url"`
-	APIKey    string `json:"api_key,omitempty"`
-	APISecret string `json:"api_secret,omitempty"`
-}
-
-type Field struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
-}
-
-type SchemaFields struct {
-	Fields []Field `json:"fields"`
-}
-
-func NewSchemaRegistryClient(config ClientConfig) (*SchemaRegistryClient, error) {
+func NewSchemaRegistryClient(config models.SchemaRegistryConfig) (*SchemaRegistryClient, error) {
 	opts := []sr.ClientOpt{sr.URLs(config.URL)}
 
 	if config.APIKey != "" && config.APISecret != "" {
@@ -48,7 +33,7 @@ func NewSchemaRegistryClient(config ClientConfig) (*SchemaRegistryClient, error)
 	}, nil
 }
 
-func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zero SchemaFields, _ error) {
+func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zero models.SchemaFields, _ error) {
 	schema, err := s.client.SchemaByID(ctx, schemaID)
 	if err != nil {
 		if errors.Is(err, sr.ErrSchemaNotFound) {
@@ -64,7 +49,7 @@ func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zer
 	return parseJSONSchema(schema.Schema)
 }
 
-func parseJSONSchema(schema string) (zero SchemaFields, _ error) {
+func parseJSONSchema(schema string) (zero models.SchemaFields, _ error) {
 	schemaType := gjson.Get(schema, "type")
 	if !schemaType.Exists() || schemaType.String() != "object" {
 		return zero, models.ErrInvalidSchema
@@ -76,7 +61,7 @@ func parseJSONSchema(schema string) (zero SchemaFields, _ error) {
 		return zero, models.ErrInvalidSchema
 	}
 
-	var fields SchemaFields
+	var fields models.SchemaFields
 	if properties.Exists() {
 		propertiesFields := extractFieldTypes(properties)
 		fields.Fields = append(fields.Fields, propertiesFields.Fields...)
@@ -90,8 +75,8 @@ func parseJSONSchema(schema string) (zero SchemaFields, _ error) {
 	return fields, nil
 }
 
-func extractFieldTypes(properties gjson.Result) SchemaFields {
-	var fields SchemaFields
+func extractFieldTypes(properties gjson.Result) models.SchemaFields {
+	var fields models.SchemaFields
 	properties.ForEach(func(key, value gjson.Result) bool {
 		fieldType := value.Get("type")
 		if !fieldType.Exists() {
@@ -109,13 +94,13 @@ func extractFieldTypes(properties gjson.Result) SchemaFields {
 
 			for _, field := range nestedFields.Fields {
 				combinedName := fmt.Sprintf("%s.%s", key.String(), field.Name)
-				fields.Fields = append(fields.Fields, Field{Name: combinedName, Type: field.Type})
+				fields.Fields = append(fields.Fields, models.Field{Name: combinedName, Type: field.Type})
 			}
 
 			return true
 		}
 
-		fields.Fields = append(fields.Fields, Field{
+		fields.Fields = append(fields.Fields, models.Field{
 			Name: key.String(),
 			Type: dataType,
 		})
