@@ -1,4 +1,4 @@
-package batch
+package clickhouse
 
 import (
 	"context"
