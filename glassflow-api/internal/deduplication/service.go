@@ -146,6 +146,7 @@ func (ds *DedupService) PostProcessTransformations(
 	)
 	// No transformer - pass through original messages
 	if ds.statelessTransformer == nil {
+		ds.log.InfoContext(ctx, "Stateless transformer disabled")
 		for _, msg := range batchMessages {
 			transformedMessages = append(transformedMessages, &nats.Msg{
 				Data:   msg.Data(),
@@ -155,7 +156,10 @@ func (ds *DedupService) PostProcessTransformations(
 		return transformedMessages, nil, nil
 	}
 
+	ds.log.InfoContext(ctx, "Stateless transformer enabled")
+
 	for _, originalMessage := range batchMessages {
+		ds.log.InfoContext(ctx, "calling transform")
 		transformedBytes, err := ds.statelessTransformer.Transform(originalMessage.Data())
 		if err != nil {
 			ds.log.WarnContext(ctx, "Transformation failed, sending to DLQ",
