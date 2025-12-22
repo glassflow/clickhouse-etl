@@ -154,7 +154,7 @@ func mainDeduplicator(
 	)
 
 	// Create stateless transformer if enabled
-	var statelessTransformer *json.Transformer
+	var statelessTransformer deduplication.StatelessTransformer
 	if pipelineCfg.StatelessTransformation.Enabled {
 		statelessTransformer, err = json.NewTransformer(pipelineCfg.StatelessTransformation.Config.Transform)
 		if err != nil {
