@@ -1,0 +1,191 @@
+---
+title: 'Stateless Transformations'
+description: 'Learn how stateless JSON transformations work in GlassFlow and how to configure them'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Stateless Transformations
+
+The **Stateless Transformation** feature lets you reshape event payloads on the fly using expression-based mappings.  
+It is called *stateless* because each event is transformed independently, without relying on any stored state or history.
+
+Use stateless transformations when you need to:
+
+- **Normalize fields** (e.g., parse URLs, user agents, or timestamps)
+- **Derive new fields** from existing ones
+- **Clean up or reformat data** before it lands in ClickHouse
+- **Map nested JSON structures** into a flat schema
+
+## How It Works
+
+Internally, stateless transformations are powered by the [`expr`](https://github.com/expr-lang/expr) expression engine and a set of custom helper functions.
+Each transformation defines:
+
+- **`expression`**: how to compute the new value, using the input JSON as context
+- **`output_name`**: the resulting field name in the transformed payload
+- **`output_type`**: the expected type of the result (e.g., `string`, `int`, `float`, `bool`)
+
+### Internal Process
+
+1. **Input Parsing**: The original Kafka event is parsed as a JSON object (`map[string]any`).
+2. **Expression Evaluation**:  
+   For each configured transformation, GlassFlow evaluates the `expression` against the input object.
+3. **Type Conversion**:  
+   The result of the expression is converted to the configured `output_type` (string, int, float64, bool, or `[]string`).
+4. **Output Assembly**:  
+   All transformed fields are collected into a new JSON object keyed by `output_name`.
+5. **Downstream Processing**:  
+   The transformed JSON is then used for schema mapping and written to ClickHouse.
+
+If no stateless transformations are configured, the input JSON is passed through unchanged.
+
+### Expression Context
+
+Inside an expression, you can reference any field from the input JSON by its name, for example:
+
+- `url`, `user_agent`, `status`, `age`
+- Nested fields using dot notation, e.g. `user.id`, `payload.metadata.referrer`
+
+The expression engine is type-aware and supports arithmetic, string operations, conditionals, and logical operators.
+
+## Helper Functions
+
+In addition to standard `expr` operators, GlassFlow provides helper functions useful for web / event data pipelines.
+Some of the most commonly used helpers are:
+
+- **`parseQuery(queryString)`**:  
+  Parses a query string into a map of key/value pairs.
+- **`getQueryParam(queryString, key)` / `getNestedParam(queryString, key)`**:  
+  Returns the value of a specific query parameter.
+- **`urlDecode(value)`**:  
+  URL-decodes an encoded string.
+- **`parseISO8601(timestamp)`**:  
+  Parses common ISO-8601 timestamp formats and returns a Unix timestamp (seconds).
+- **`toDate(unixSeconds)`**:  
+  Converts a Unix timestamp (seconds) into a `YYYY-MM-DD` date string.
+- **`parseUserAgent(ua, field)`**:  
+  Extracts `device`, `browser`, or `os` from a user agent string.
+- **`containsStr(str, substr)`**, **`hasPrefix(str, prefix)`**, **`hasSuffix(str, suffix)`**:  
+  Basic string search/validation.
+- **`upper(str)`**, **`lower(str)`**, **`trim(str)`**:  
+  String normalization helpers.
+- **`split(str, sep)`**, **`join(values, sep)`**, **`replace(str, old, new)`**:  
+  Advanced string manipulation.
+- **`toInt(value)`**, **`toFloat(value)`**, **`toString(value)`**:  
+  Safe type conversion helpers.
+- **`keys(map)`**:  
+  Returns all keys in a JSON object, sorted.
+- **`waterfall(values...)`**:  
+  Returns the first non-empty value from a list (or array) of candidates.
+
+> These helpers are available directly inside the expression, e.g. `upper(status)`, `parseUserAgent(user_agent, "device")`.
+
+## Configuration
+
+Stateless transformations are configured as part of the pipeline’s transformation section.  
+They are typically surfaced through the UI as *derived fields* or *expression-based mappings*.
+
+### Configuration Structure
+
+In JSON terms, each transformation looks like:
+
+```json
+{
+  "expression": "upper(status)",
+  "output_name": "status_normalized",
+  "output_type": "string"
+}
+```
+
+In a full pipeline configuration, this is represented as an array of transformations under the transformation section for a source (or as part of the schema mapping UI, depending on your version).
+
+<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+  <Tabs.Tab>
+    <img alt="Stateless Transformation Configuration" src="/assets/ui_stateless_transformation_configuration.png" />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "stateless_transformation": {
+        "enabled": true,
+        "id": "my-stateless-transformation",
+        "type": "expr_lang_transform",
+        "config": {
+            "transform": [
+                {
+                    "expression": "upper(status)",
+                    "output_name": "status_normalized",
+                    "output_type": "string"
+                }
+                {
+                    "expression": "parseUserAgent(user_agent, 'device')",
+                    "output_name": "device_type",
+                    "output_type": "string"
+                }
+            ]
+        }
+      }
+    }
+    ```
+    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#stateless-transformation-configuration) for more details.
+  </Tabs.Tab>
+</Tabs>
+
+## Examples
+
+### Example 1: Normalizing Status and Extracting Device
+
+```json
+{
+  "expression": "upper(status)",
+  "output_name": "status_normalized",
+  "output_type": "string"
+}
+```
+
+```json
+{
+  "expression": "parseUserAgent(user_agent, 'device')",
+  "output_name": "device_type",
+  "output_type": "string"
+}
+```
+
+Used together, these transformations produce fields like `status_normalized = 'ACTIVE'` and `device_type = 'Mobile'` from the raw event.
+
+### Example 2: Parsing Timestamp and URL Parameters
+
+```json
+{
+  "expression": "parseISO8601(timestamp)",
+  "output_name": "event_ts",
+  "output_type": "int64"
+}
+```
+
+```json
+{
+  "expression": "getQueryParam(query_string, 'utm_source')",
+  "output_name": "utm_source",
+  "output_type": "string"
+}
+```
+
+These expressions convert a string timestamp into a numeric Unix timestamp and extract marketing parameters from a query string.
+
+## Best Practices
+
+- **Keep expressions focused**:  
+  Prefer several small, clear transformations over one very complex expression.
+- **Validate transformations with sample data**:  
+  Use the UI or SDK evaluation helpers (where available) to test expressions before deploying.
+- **Align `output_type` with ClickHouse schema**:  
+  Make sure the type you choose matches the target ClickHouse column type to avoid conversion errors.
+- **Use helpers for common patterns**:  
+  Offload parsing and normalization (timestamps, user agents, query strings) to the provided helper functions instead of re-implementing logic inside expressions.
+
+## Related Documentation
+
+- [Transformations Overview](/configuration/transformations)
+- [Pipeline JSON Reference](/configuration/pipeline-json-reference)
+- [Data Flow](/architecture/data-flow)

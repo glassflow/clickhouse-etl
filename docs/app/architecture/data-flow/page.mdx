@@ -86,7 +86,31 @@ If deduplication is enabled, the **Deduplication Service** processes messages be
   - When messages are redelivered and reprocessed, they will be correctly identified as duplicates (if they were already processed) or as new messages (if they weren't)
   - This atomic transaction approach prevents the deduplication component from producing duplicate events
 
-### Stage 4: Join (Optional)
+### Stage 4: Stateless Transformations (Optional)
+
+If stateless transformations are configured, the **Stateless Transformation** stage reshapes each event payload using expression-based mappings before it is mapped to ClickHouse.
+
+#### Process
+
+1. Messages are read from the upstream NATS stream (ingestor).
+2. Each message payload is parsed as JSON and passed through a list of expressions.
+3. For every configured transformation:
+   - The expression is evaluated against the input JSON (using the `expr` engine and helper functions).
+   - The result is converted to the configured `output_type` and written under `output_name` in a new JSON object.
+4. The transformed JSON becomes the payload used for schema mapping and ClickHouse insertion.
+
+If no stateless transformations are configured, the original JSON payload is passed through unchanged.
+
+#### Acknowledgment
+
+- Messages are acknowledged only after all configured stateless transformations for the batch have been evaluated successfully.
+- If evaluation or type conversion fails for any message in the batch:
+  - The batch is sent to the DLQ
+  - The batch is acknowledged
+
+> For details on configuring stateless transformations and available helper functions, see the [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation.
+
+### Stage 5: Join (Optional)
 
 If join is enabled, the **Join Service** combines messages from multiple streams based on join keys and time windows using a temporal join algorithm.
 
@@ -118,7 +142,7 @@ The join service maintains separate key-value (KV) stores for the left and right
 - Messages can be evicted from the KV stores only after they have been successfully joined and sent to the output stream, or when their configured join time window (TTL) expires
 - If saving to the KV store fails, the message is NAKed, causing NATS to redeliver it
 
-### Stage 5: ClickHouse Sink
+### Stage 6: ClickHouse Sink
 
 The **Sink** component consumes messages from NATS JetStream and writes them to ClickHouse in batches.
 
