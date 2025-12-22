@@ -24,7 +24,7 @@ type batchWriter interface {
 	WriteNatsBatch(ctx context.Context, messages []*nats.Msg) error
 }
 
-type statelessTransformer interface {
+type StatelessTransformer interface {
 	Transform(inputBytes []byte) ([]byte, error)
 }
 
@@ -37,7 +37,7 @@ type DedupService struct {
 	reader               batchReader
 	writer               batchWriter
 	dlqWriter            batchWriter
-	statelessTransformer statelessTransformer
+	statelessTransformer StatelessTransformer
 	deduplicator         Dedup
 	cancel               context.CancelFunc
 	shutdownOnce         sync.Once
@@ -52,7 +52,7 @@ func NewDedupService(
 	reader batchReader,
 	writer batchWriter,
 	dlqWriter batchWriter,
-	statelessTransformer statelessTransformer,
+	statelessTransformer StatelessTransformer,
 	deduplicator Dedup,
 	log *slog.Logger,
 	batchSize int,
