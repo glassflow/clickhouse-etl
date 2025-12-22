@@ -24,7 +24,7 @@ type batchWriter interface {
 	WriteNatsBatch(ctx context.Context, messages []*nats.Msg) error
 }
 
-type statelessTransformer interface {
+type StatelessTransformer interface {
 	Transform(inputBytes []byte) ([]byte, error)
 }
 
@@ -37,7 +37,7 @@ type DedupService struct {
 	reader               batchReader
 	writer               batchWriter
 	dlqWriter            batchWriter
-	statelessTransformer statelessTransformer
+	statelessTransformer StatelessTransformer
 	deduplicator         Dedup
 	cancel               context.CancelFunc
 	shutdownOnce         sync.Once
@@ -52,7 +52,7 @@ func NewDedupService(
 	reader batchReader,
 	writer batchWriter,
 	dlqWriter batchWriter,
-	statelessTransformer statelessTransformer,
+	statelessTransformer StatelessTransformer,
 	deduplicator Dedup,
 	log *slog.Logger,
 	batchSize int,
@@ -146,7 +146,6 @@ func (ds *DedupService) PostProcessTransformations(
 	)
 	// No transformer - pass through original messages
 	if ds.statelessTransformer == nil {
-		ds.log.InfoContext(ctx, "Stateless transformer disabled")
 		for _, msg := range batchMessages {
 			transformedMessages = append(transformedMessages, &nats.Msg{
 				Data:   msg.Data(),
@@ -156,10 +155,7 @@ func (ds *DedupService) PostProcessTransformations(
 		return transformedMessages, nil, nil
 	}
 
-	ds.log.InfoContext(ctx, "Stateless transformer enabled")
-
 	for _, originalMessage := range batchMessages {
-		ds.log.InfoContext(ctx, "calling transform")
 		transformedBytes, err := ds.statelessTransformer.Transform(originalMessage.Data())
 		if err != nil {
 			ds.log.WarnContext(ctx, "Transformation failed, sending to DLQ",
