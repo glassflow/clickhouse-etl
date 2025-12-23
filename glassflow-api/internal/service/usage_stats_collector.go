@@ -33,7 +33,7 @@ func NewUsageStatsCollector(
 		dlqClient:        dlqClient,
 		usageStatsClient: usageStatsClient,
 		log:              log,
-		interval:         5 * time.Minute,
+		interval:         10 * time.Minute,
 	}
 }
 
