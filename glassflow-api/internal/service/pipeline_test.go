@@ -214,7 +214,7 @@ func TestPipelineService_ResumePipeline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup
 			ctx := context.Background()
-			manager := NewPipelineService(tt.orchestrator, tt.store, slog.Default())
+			manager := NewPipelineService(tt.orchestrator, tt.store, slog.Default(), nil)
 
 			// Create test pipeline if needed
 			if tt.initialStatus != "" {
@@ -371,9 +371,10 @@ func TestPipelineService_DeletePipeline(t *testing.T) {
 			}
 
 			manager := &PipelineService{
-				orchestrator: tt.orchestrator,
-				db:           tt.store,
-				log:          slog.Default(),
+				orchestrator:     tt.orchestrator,
+				db:               tt.store,
+				log:              slog.Default(),
+				usageStatsClient: nil,
 			}
 
 			err := manager.DeletePipeline(ctx, tt.pipelineID)
