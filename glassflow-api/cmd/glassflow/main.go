@@ -76,7 +76,7 @@ type config struct {
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
 
-	UsageStatsEnabled        bool   `default:"false" split_words:"true"`
+	UsageStatsEnabled        bool   `default:"true" split_words:"true"`
 	UsageStatsEndpoint       string `default:"" split_words:"true"`
 	UsageStatsUsername       string `default:"" split_words:"true"`
 	UsageStatsPassword       string `default:"" split_words:"true"`
@@ -251,9 +251,6 @@ func mainEtl(
 
 	handler := api.NewRouter(log, pipelineSvc, dlq, meter, usageStatsClient)
 
-	usageStatsCollector := service.NewUsageStatsCollector(db, nc, dlq, usageStatsClient, log)
-	go usageStatsCollector.Start(ctx)
-
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
 		cfg.ServerReadTimeout,
@@ -276,6 +273,8 @@ func mainEtl(
 	go func() {
 		time.Sleep(2 * time.Second) // small delay to wait for server to start
 		usageStatsClient.SendEvent("ready", "api", nil)
+		usageStatsCollector := service.NewUsageStatsCollector(db, nc, dlq, usageStatsClient, log)
+		usageStatsCollector.Start(ctx)
 	}()
 
 	select {
