@@ -88,14 +88,12 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 	c.tokenMu.RUnlock()
 
 	if token != "" && time.Now().Before(expiry.Add(-30*time.Second)) {
-		c.log.Debug("usage stats: using cached token", "expires_at", expiry)
 		return token, nil
 	}
 
 	c.log.Debug("usage stats: token expired or missing, authenticating")
 
 	if err := c.authenticate(ctx); err != nil {
-		c.log.Debug("usage stats: authentication failed", "error", err)
 		return "", err
 	}
 
