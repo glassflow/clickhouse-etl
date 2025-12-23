@@ -65,21 +65,19 @@ func (c *Client) SendEvent(ctx context.Context, eventName, eventSource string, p
 		return
 	}
 
-	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("usage stats: sending event", "event", eventName, "source", eventSource, "properties", properties)
-	}
+	c.log.Debug("usage stats: sending event", "event", eventName, "source", eventSource, "properties", properties)
 
 	go func() {
 		usageStatsCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		if err := c.sendEventSync(usageStatsCtx, eventName, eventSource, properties); err != nil {
-			if c.log != nil {
-				c.log.Debug("usage stats event send failed", "event", eventName, "source", eventSource, "error", err)
-			}
-		} else if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("usage stats: event sent successfully", "event", eventName, "source", eventSource)
+			c.log.Debug("usage stats event send failed", "event", eventName, "source", eventSource, "error", err)
+			return
 		}
+
+		c.log.Debug("usage stats: event sent successfully", "event", eventName, "source", eventSource)
+
 	}()
 }
 
@@ -90,20 +88,14 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 	c.tokenMu.RUnlock()
 
 	if token != "" && time.Now().Before(expiry.Add(-30*time.Second)) {
-		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("usage stats: using cached token", "expires_at", expiry)
-		}
+		c.log.Debug("usage stats: using cached token", "expires_at", expiry)
 		return token, nil
 	}
 
-	if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-		c.log.Debug("usage stats: token expired or missing, authenticating")
-	}
+	c.log.Debug("usage stats: token expired or missing, authenticating")
 
 	if err := c.authenticate(ctx); err != nil {
-		if c.log != nil && c.log.Enabled(ctx, slog.LevelDebug) {
-			c.log.Debug("usage stats: authentication failed", "error", err)
-		}
+		c.log.Debug("usage stats: authentication failed", "error", err)
 		return "", err
 	}
 
