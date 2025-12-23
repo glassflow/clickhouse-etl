@@ -476,7 +476,7 @@ func (p *PipelineService) recordPipelineEvent(ctx context.Context, eventName str
 	}
 
 	properties := map[string]interface{}{
-		"pipeline_id_hash": usagestats.HashPipelineID(pipelineID),
+		"pipeline_id_hash": usagestats.MaskPipelineID(pipelineID),
 		"has_dedup":        hasDedup,
 		"has_join":         hasJoin,
 		"has_filter":       hasFilter,
@@ -501,7 +501,7 @@ func (p *PipelineService) recordPipelineEvent(ctx context.Context, eventName str
 func (p *PipelineService) recordPipelineOperation(ctx context.Context, eventName string, pipelineID string) {
 
 	properties := map[string]interface{}{
-		"pipeline_id_hash": usagestats.HashPipelineID(pipelineID),
+		"pipeline_id_hash": usagestats.MaskPipelineID(pipelineID),
 	}
 
 	// Add route from context if available
