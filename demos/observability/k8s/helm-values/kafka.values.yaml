@@ -11,8 +11,8 @@ global:
     allowInsecureImages: true
 
 image:
-  repository: bitnamilegacy/kafka
-  tag: 4.0.0-debian-12-r10
+  repository: soldevelo/kafka
+  tag: 4.0.0
 
 rbac:
   create: true
