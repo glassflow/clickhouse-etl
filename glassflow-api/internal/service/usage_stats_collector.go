@@ -188,7 +188,7 @@ func (m *UsageStatsCollector) sendPipelineMetrics(ctx context.Context, pipeline 
 		}
 	}
 
-	m.usageStatsClient.SendEvent(ctx, "pipeline_metrics", "api", map[string]interface{}{
+	m.usageStatsClient.SendEvent("pipeline_metrics", "api", map[string]interface{}{
 		"pipeline_id_hash": usagestats.MaskPipelineID(pipelineID),
 		"ingestor_metrics": ingestorMetrics,
 		"dedup_metrics":    dedupMetrics,

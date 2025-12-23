@@ -60,7 +60,7 @@ func MaskPipelineID(pipelineID string) string {
 	return fmt.Sprintf("%x", hash)
 }
 
-func (c *Client) SendEvent(ctx context.Context, eventName, eventSource string, properties map[string]interface{}) {
+func (c *Client) SendEvent(eventName, eventSource string, properties map[string]interface{}) {
 	if c == nil || !c.enabled {
 		return
 	}

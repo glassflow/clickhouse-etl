@@ -495,7 +495,7 @@ func (p *PipelineService) recordPipelineEvent(ctx context.Context, eventName str
 		properties["route"] = route
 	}
 
-	p.usageStatsClient.SendEvent(ctx, eventName, "api", properties)
+	p.usageStatsClient.SendEvent(eventName, "api", properties)
 }
 
 func (p *PipelineService) recordPipelineOperation(ctx context.Context, eventName string, pipelineID string) {
@@ -509,5 +509,5 @@ func (p *PipelineService) recordPipelineOperation(ctx context.Context, eventName
 		properties["route"] = route
 	}
 
-	p.usageStatsClient.SendEvent(ctx, eventName, "api", properties)
+	p.usageStatsClient.SendEvent(eventName, "api", properties)
 }

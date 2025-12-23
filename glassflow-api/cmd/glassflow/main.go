@@ -275,9 +275,7 @@ func mainEtl(
 
 	go func() {
 		time.Sleep(2 * time.Second) // small delay to wait for server to start
-		pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		usageStatsClient.SendEvent(pingCtx, "readiness_ping", "api", nil)
+		usageStatsClient.SendEvent("readiness_ping", "api", nil)
 	}()
 
 	select {
@@ -456,26 +454,20 @@ func runWithGracefulShutdown(
 			}
 			// Send readiness ping after successful startup
 			eventName := serviceName + "_ready"
-			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			usageStatsClient.SendEvent(pingCtx, eventName, serviceName, nil)
+			usageStatsClient.SendEvent(eventName, serviceName, nil)
 		case <-runner.Done():
 			log.Warn("Component has crashed!", slog.String("service", serviceName))
 			wg.Wait()
 			// Send crashed ping
 			eventName := serviceName + "_crashed"
-			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			usageStatsClient.SendEvent(pingCtx, eventName, serviceName, nil)
+			usageStatsClient.SendEvent(eventName, serviceName, nil)
 			return fmt.Errorf("%s component stopped by itself", serviceName)
 		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 			wg.Add(1)
 			// Send terminated ping
 			eventName := serviceName + "_terminated"
-			pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			usageStatsClient.SendEvent(pingCtx, eventName, serviceName, nil)
+			usageStatsClient.SendEvent(eventName, serviceName, nil)
 			go func() {
 				defer wg.Done()
 				runner.Shutdown()
