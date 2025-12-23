@@ -156,11 +156,10 @@ func mainDeduplicator(
 	// Create stateless transformer if enabled
 	var statelessTransformer deduplication.StatelessTransformer
 	if pipelineCfg.StatelessTransformation.Enabled {
-		transformer, err := json.NewTransformer(pipelineCfg.StatelessTransformation.Config.Transform)
+		statelessTransformer, err = json.NewTransformer(pipelineCfg.StatelessTransformation.Config.Transform)
 		if err != nil {
 			return fmt.Errorf("create stateless transformer: %w", err)
 		}
-		statelessTransformer = transformer
 
 		log.InfoContext(ctx, "Stateless transformer enabled",
 			slog.Int("transformations_count", len(pipelineCfg.StatelessTransformation.Config.Transform)))
