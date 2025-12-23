@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/avast/retry-go/v4"
 )
 
 func (c *Client) authenticate(ctx context.Context) error {
@@ -27,7 +29,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return fmt.Errorf("create auth request: %w", err)
+		return fmt.Errorf("create auth request: %s", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -35,7 +37,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("auth request failed: %w", err)
+		return fmt.Errorf("auth request failed: %s", err)
 	}
 	defer resp.Body.Close()
 
@@ -47,7 +49,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 
 	var authResp AuthResponse
 	if err = json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
-		return fmt.Errorf("decode auth response: %w", err)
+		return fmt.Errorf("decode auth response: %s", err)
 	}
 
 	c.tokenMu.Lock()
@@ -61,10 +63,6 @@ func (c *Client) authenticate(ctx context.Context) error {
 }
 
 func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource string, properties map[string]interface{}) error {
-	token, err := c.getToken(ctx)
-	if err != nil {
-		return fmt.Errorf("get token: %w", err)
-	}
 
 	if properties == nil {
 		properties = make(map[string]interface{})
@@ -80,20 +78,22 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 
 	jsonData, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("marshal event: %w", err)
+		return fmt.Errorf("marshal event: %s", err)
 	}
 
 	url := fmt.Sprintf("%s/track", c.endpoint)
 
-	c.log.Debug("usage stats: sending event request", "url", url, "event", eventName, "installation_id", c.installationID, "payload_size", len(jsonData))
+	c.log.Debug("usage stats: sending event request")
 
-	maxRetries := 3
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		c.log.Debug("usage stats: retrying event send", "event", eventName, "attempt", attempt, "max_retries", maxRetries)
+	err = retry.Do(func() error {
+		token, err := c.getToken(ctx)
+		if err != nil {
+			return fmt.Errorf("get token: %s", err)
+		}
 
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			return fmt.Errorf("create request: %w", err)
+			return fmt.Errorf("create request: %s", err)
 		}
 
 		req.Header.Set("Content-Type", "application/json")
@@ -102,63 +102,40 @@ func (c *Client) sendEventSync(ctx context.Context, eventName, eventSource strin
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			if attempt < maxRetries {
-				c.log.Debug("usage stats: request failed, will retry", "event", eventName, "attempt", attempt, "error", err, "retry_after", attempt)
-				time.Sleep(time.Duration(attempt) * time.Second)
-				continue
-			}
-			return fmt.Errorf("request failed: %w", err)
-		}
-
-		if resp.StatusCode == http.StatusUnauthorized {
-			c.log.Debug("usage stats: received unauthorized, re-authenticating", "event", eventName, "attempt", attempt)
-			resp.Body.Close()
-
-			if err := c.authenticate(ctx); err != nil {
-				return fmt.Errorf("re-authenticate: %w", err)
-			}
-
-			token, err = c.getToken(ctx)
-			if err != nil {
-				return fmt.Errorf("get new token: %w", err)
-			}
-
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-			resp, err = c.httpClient.Do(req)
-			if err != nil {
-				if attempt < maxRetries {
-					c.log.Debug("usage stats: retry request failed, will retry again", "event", eventName, "attempt", attempt, "error", err)
-					time.Sleep(time.Duration(attempt) * time.Second)
-					continue
-				}
-
-				return fmt.Errorf("retry request failed: %w", err)
-			}
+			return fmt.Errorf("request failed: %s", err)
 		}
 
 		defer resp.Body.Close()
-
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			if attempt < maxRetries {
-				time.Sleep(time.Duration(attempt) * time.Second)
-				continue
-			}
 			return fmt.Errorf("usage stats failed with status %d: %s", resp.StatusCode, string(body))
 		}
 
 		var trackResp TrackResponse
 		if err := json.NewDecoder(resp.Body).Decode(&trackResp); err != nil {
-			return fmt.Errorf("decode response: %w", err)
+			return fmt.Errorf("decode response: %s", err)
 		}
 
 		c.log.Debug("usage stats: event sent successfully", "event", eventName, "response", trackResp, "status", resp.StatusCode)
 
 		return nil
-	}
+	},
+		retry.OnRetry(func(n uint, err error) {
+			c.log.Debug("usage stats: retrying event send", "event", eventName, "attempt", n+1, "error", err)
+		}),
+		retry.Attempts(retryAttempts),
+		retry.Delay(retryDelay),
+		retry.DelayType(retry.BackOffDelay),
+		retry.LastErrorOnly(true),
+	)
 
-	return fmt.Errorf("max retries exceeded")
+	return err
 }
+
+const (
+	retryAttempts = 3
+	retryDelay    = 10 * time.Second
+)
 
 type AuthResponse struct {
 	AccessToken string `json:"access_token"`
