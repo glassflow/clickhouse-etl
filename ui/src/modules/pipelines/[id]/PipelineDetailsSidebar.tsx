@@ -13,7 +13,11 @@ export type SidebarSection =
   | 'topic'
   | 'left-topic'
   | 'right-topic'
+  | 'type-verification'
+  | 'left-type-verification'
+  | 'right-type-verification'
   | 'filter'
+  | 'transformation'
   | 'deduplicate'
   | 'left-deduplicate'
   | 'right-deduplicate'
@@ -63,6 +67,14 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
       topicIndex: 0,
     })
 
+    // Add type verification for left topic
+    items.push({
+      key: 'left-type-verification',
+      label: 'Left Topic Types',
+      stepKey: StepKeys.KAFKA_TYPE_VERIFICATION,
+      topicIndex: 0,
+    })
+
     // Check if right topic has deduplication
     const rightTopicHasDedup = topics[1]?.deduplication?.enabled === true
 
@@ -71,6 +83,14 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
       key: 'right-topic',
       label: rightTopicHasDedup ? 'Right Topic & Dedup' : 'Right Topic',
       stepKey: rightTopicHasDedup ? StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2 : StepKeys.TOPIC_SELECTION_2,
+      topicIndex: 1,
+    })
+
+    // Add type verification for right topic
+    items.push({
+      key: 'right-type-verification',
+      label: 'Right Topic Types',
+      stepKey: StepKeys.KAFKA_TYPE_VERIFICATION,
       topicIndex: 1,
     })
 
@@ -86,6 +106,14 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
     // For single topic, keep Topic and Deduplicate as separate items
     items.push({ key: 'topic', label: 'Topic', stepKey: StepKeys.TOPIC_SELECTION_1, topicIndex: 0 })
 
+    // Add type verification for single-topic pipelines
+    items.push({
+      key: 'type-verification',
+      label: 'Verify Field Types',
+      stepKey: StepKeys.KAFKA_TYPE_VERIFICATION,
+      topicIndex: 0,
+    })
+
     if (hasDeduplication) {
       items.push({
         key: 'deduplicate',
@@ -99,6 +127,23 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
   // Add Filter section (only if filters feature is enabled)
   if (isFiltersEnabled()) {
     items.push({ key: 'filter', label: 'Filter', stepKey: StepKeys.FILTER_CONFIGURATOR })
+  }
+
+  // Add Transformation section (if stateless transformations are enabled)
+  // Note: After hydration, stateless_transformation is converted to transformation format
+  // So we check both for raw API response and hydrated config
+  const hasStatelessTransformation =
+    pipeline?.transformation?.enabled === true || pipeline?.stateless_transformation?.enabled === true
+  const hasTransformationFields =
+    (pipeline?.transformation?.fields?.length ?? 0) > 0 ||
+    (pipeline?.stateless_transformation?.config?.transform?.length ?? 0) > 0
+
+  if (hasStatelessTransformation && hasTransformationFields) {
+    items.push({
+      key: 'transformation',
+      label: 'Transformations',
+      stepKey: StepKeys.TRANSFORMATION_CONFIGURATOR,
+    })
   }
 
   // Add ClickHouse sections
