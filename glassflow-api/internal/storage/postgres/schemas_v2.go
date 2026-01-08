@@ -339,3 +339,35 @@ func (s *PostgresStorage) SaveSchemaVersion(ctx context.Context, schemaID, versi
 
 	return nil
 }
+
+func (s *PostgresStorage) GetMapping(ctx context.Context, pipelineID, mappingType string) (*models.Mapping, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var sm schemaMapping
+	err = tx.QueryRow(ctx, `
+		SELECT id, mapping_type, mapping_fields, created_at, updated_at
+		FROM schema_mappings
+		WHERE pipeline_id = $1 AND mapping_type = $2
+	`, pipelineID, mappingType).Scan(&sm.id, &sm.mappingType, &sm.mappingFields, &sm.createdAt, &sm.updatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("get mapping: %w", err)
+	}
+
+	var mappingFields []models.MappingField
+	err = json.Unmarshal(sm.mappingFields, &mappingFields)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal mapping fields: %w", err)
+	}
+
+	return &models.Mapping{
+		ID:        sm.id.String(),
+		Type:      sm.mappingType,
+		Fields:    mappingFields,
+		CreatedAt: sm.createdAt,
+		UpdatedAt: sm.updatedAt,
+	}, nil
+}
