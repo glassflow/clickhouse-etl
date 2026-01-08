@@ -13,13 +13,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
-// contextKey is a type for context keys to avoid collisions
-type contextKey string
-
-// routeContextKey is the context key for storing route information
-// Using string constant to avoid import cycles with service package
-const routeContextKey contextKey = "route"
-
 func Recovery(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

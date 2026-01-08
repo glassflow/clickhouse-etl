@@ -165,8 +165,6 @@ func usageStatsReporting(usageStatsClient *usagestats.Client, op huma.Operation,
 	usageStatsClient.RecordPipelineEvent(id, op.OperationID)
 }
 
-const ()
-
 func extractPipelineID(op huma.Operation, input any) (string, error) {
 	reqBytes, err := json.Marshal(input)
 	if err != nil {
