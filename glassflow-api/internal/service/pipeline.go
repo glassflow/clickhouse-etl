@@ -9,10 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
-
-const routeContextKey = "route"
 
 type Orchestrator interface {
 	GetType() string
@@ -36,18 +33,16 @@ type PipelineStore interface {
 }
 
 type PipelineService struct {
-	orchestrator     Orchestrator
-	db               PipelineStore
-	log              *slog.Logger
-	usageStatsClient *usagestats.Client
+	orchestrator Orchestrator
+	db           PipelineStore
+	log          *slog.Logger
 }
 
-func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger, usageStatsClient *usagestats.Client) *PipelineService {
+func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger) *PipelineService {
 	return &PipelineService{
-		orchestrator:     orch,
-		db:               db,
-		log:              log,
-		usageStatsClient: usageStatsClient,
+		orchestrator: orch,
+		db:           db,
+		log:          log,
 	}
 }
 
@@ -91,8 +86,6 @@ func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
 
-	p.recordPipelineEvent(ctx, "pipeline_create", cfg.ID, cfg)
-
 	return nil
 }
 
@@ -114,8 +107,6 @@ func (p *PipelineService) DeletePipeline(ctx context.Context, pid string) error 
 			return fmt.Errorf("delete pipeline from database: %w", err)
 		}
 	}
-
-	p.recordPipelineOperation(ctx, "pipeline_delete", pid)
 
 	return nil
 }
@@ -152,8 +143,6 @@ func (p *PipelineService) TerminatePipeline(ctx context.Context, pid string) err
 		p.log.ErrorContext(ctx, "failed to terminate pipeline in orchestrator", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("shutdown pipeline: %w", err)
 	}
-
-	p.recordPipelineEvent(ctx, "pipeline_terminate", pid, pipeline)
 
 	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
 	if p.orchestrator.GetType() == "local" {
@@ -277,8 +266,6 @@ func (p *PipelineService) ResumePipeline(ctx context.Context, pid string) error 
 		return fmt.Errorf("resume pipeline: %w", err)
 	}
 
-	p.recordPipelineEvent(ctx, "pipeline_resume", pid, pipeline)
-
 	// in case of k8 orchestrator the operator controller-manager takes care of updating this status
 	if p.orchestrator.GetType() == "local" {
 		// Set status to Running
@@ -322,8 +309,6 @@ func (p *PipelineService) StopPipeline(ctx context.Context, pid string) error {
 		p.log.ErrorContext(ctx, "failed to update pipeline status to stopping", "pipeline_id", pid, "error", err)
 		return fmt.Errorf("update pipeline status to stopping: %w", err)
 	}
-
-	p.recordPipelineEvent(ctx, "pipeline_stop", pid, pipeline)
 
 	// For Docker orchestrator, mark as failed if stop fails
 	if p.orchestrator.GetType() == "local" {
@@ -395,8 +380,6 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return fmt.Errorf("edit pipeline: %w", err)
 	}
 
-	p.recordPipelineEvent(ctx, "pipeline_edit", pid, newCfg)
-
 	p.log.InfoContext(ctx, "pipeline edit initiated successfully", "pipeline_id", pid)
 	return nil
 }
@@ -434,80 +417,4 @@ func (p *PipelineService) CleanUpPipelines(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// TODO: Add support for stateless transforms in the future.
-func checkTransformations(cfg *models.PipelineConfig) (hasDedup, hasJoin, hasFilter bool) {
-
-	for _, topic := range cfg.Ingestor.KafkaTopics {
-		if topic.Deduplication.Enabled {
-			hasDedup = true
-			break
-		}
-	}
-
-	hasJoin = cfg.Join.Enabled
-
-	hasFilter = cfg.Filter.Enabled
-
-	return hasDedup, hasJoin, hasFilter
-}
-
-// getRouteFromContext extracts route from context if available
-func getRouteFromContext(ctx context.Context) string {
-	if route, ok := ctx.Value(routeContextKey).(string); ok {
-		return route
-	}
-	return ""
-}
-
-// recordPipelineEvent sends usage stats events for pipeline operations.
-func (p *PipelineService) recordPipelineEvent(ctx context.Context, eventName string, pipelineID string, cfg *models.PipelineConfig) {
-
-	hasDedup, hasJoin, hasFilter := checkTransformations(cfg)
-
-	chBatchSize := 0
-	chSyncDelay := ""
-	if cfg.Sink.Batch.MaxBatchSize > 0 {
-		chBatchSize = cfg.Sink.Batch.MaxBatchSize
-	}
-	if cfg.Sink.Batch.MaxDelayTime.Duration() > 0 {
-		chSyncDelay = cfg.Sink.Batch.MaxDelayTime.String()
-	}
-
-	properties := map[string]interface{}{
-		"pipeline_id_hash": usagestats.MaskPipelineID(pipelineID),
-		"has_dedup":        hasDedup,
-		"has_join":         hasJoin,
-		"has_filter":       hasFilter,
-		"ch_batch_size":    chBatchSize,
-		"ch_sync_delay":    chSyncDelay,
-	}
-
-	// Add ingestor replica counts for each topic
-	for i, topic := range cfg.Ingestor.KafkaTopics {
-		replicaKey := fmt.Sprintf("ingestor_replicas_t%d", i+1)
-		properties[replicaKey] = topic.Replicas
-	}
-
-	// Add route from context if available
-	if route := getRouteFromContext(ctx); route != "" {
-		properties["route"] = route
-	}
-
-	p.usageStatsClient.SendEvent(eventName, "api", properties)
-}
-
-func (p *PipelineService) recordPipelineOperation(ctx context.Context, eventName string, pipelineID string) {
-
-	properties := map[string]interface{}{
-		"pipeline_id_hash": usagestats.MaskPipelineID(pipelineID),
-	}
-
-	// Add route from context if available
-	if route := getRouteFromContext(ctx); route != "" {
-		properties["route"] = route
-	}
-
-	p.usageStatsClient.SendEvent(eventName, "api", properties)
 }
