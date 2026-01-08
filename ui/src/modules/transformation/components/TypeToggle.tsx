@@ -37,7 +37,7 @@ function TypeToggle({
 
   return (
     <div>
-      <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Type</Label>
+      <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Type of Field</Label>
       <div className="relative inline-flex rounded-[var(--radius-large)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)]">
         {/* Sliding background indicator */}
         <div

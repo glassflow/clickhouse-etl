@@ -1,23 +1,19 @@
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { TrashIcon } from '@heroicons/react/24/outline'
+import { TrashIcon, PencilIcon, ChevronUpIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import {
   TransformationField,
   FunctionArg,
   ExpressionMode,
   TransformArithmeticExpression,
 } from '@/src/store/transformation.store'
-import { FunctionSelector } from './FunctionSelector'
-import { getFunctionByName, TransformationFunctionDef } from '../functions'
-import { inferOutputType, createFieldArg, createLiteralArg } from '../utils'
-import { FieldValidation } from '../utils'
+import { FieldValidation, inferOutputType, createFieldArg, createLiteralArg } from '../utils'
+import { getFunctionByName } from '../functions'
 import { cn } from '@/src/utils/common.client'
-import OutputField from './OutputField'
 import TypeToggle from './TypeToggle'
 import SourceFieldSelect from './SourceFieldSelect'
 import TransformFunctionSelect from './TransformFunctionSelect'
@@ -33,6 +29,43 @@ interface TransformationFieldRowProps {
   index: number
 }
 
+// Helper function to format function expression for display
+function formatFunctionExpression(field: TransformationField): string {
+  // Raw expression mode
+  if (field.expressionMode === 'raw' && field.rawExpression) {
+    // Truncate if too long
+    const maxLen = 50
+    if (field.rawExpression.length > maxLen) {
+      return field.rawExpression.substring(0, maxLen) + '...'
+    }
+    return field.rawExpression
+  }
+
+  // Nested/function mode
+  if (field.functionName) {
+    const args =
+      field.functionArgs
+        ?.map((arg) => {
+          if (arg.type === 'field') return arg.fieldName || '?'
+          if (arg.type === 'literal') return `"${arg.value}"`
+          if (arg.type === 'array') return `[${arg.values.join(', ')}]`
+          return '?'
+        })
+        .join(', ') || ''
+
+    let expression = `${field.functionName}(${args})`
+
+    // Add arithmetic modifier if present
+    if (field.arithmeticExpression) {
+      expression += ` ${field.arithmeticExpression.operator} ${field.arithmeticExpression.operand}`
+    }
+
+    return expression
+  }
+
+  return 'Not configured'
+}
+
 export function TransformationFieldRow({
   field,
   availableFields,
@@ -42,12 +75,53 @@ export function TransformationFieldRow({
   readOnly = false,
   index,
 }: TransformationFieldRowProps) {
+  // Expanded state
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  // Local state for editing when expanded
+  const [localField, setLocalField] = useState<Omit<TransformationField, 'id'>>({
+    type: field.type,
+    outputFieldName: field.outputFieldName,
+    outputFieldType: field.outputFieldType,
+    functionName: field.functionName,
+    functionArgs: field.functionArgs,
+    sourceField: field.sourceField,
+    sourceFieldType: field.sourceFieldType,
+    expressionMode: field.expressionMode,
+    rawExpression: field.rawExpression,
+    arithmeticExpression: field.arithmeticExpression,
+  })
+
   // Get function definition if computed field
-  const functionDef = field.type === 'computed' && field.functionName ? getFunctionByName(field.functionName) : null
+  const functionDef =
+    localField.type === 'computed' && localField.functionName ? getFunctionByName(localField.functionName) : null
 
-  const [fieldTypeMode, setFieldTypeMode] = useState<'computed' | 'passthrough' | null>(null)
+  // Toggle expanded state
+  const handleToggleExpand = useCallback(() => {
+    if (!isExpanded) {
+      // Reset local state when expanding
+      setLocalField({
+        type: field.type,
+        outputFieldName: field.outputFieldName,
+        outputFieldType: field.outputFieldType,
+        functionName: field.functionName,
+        functionArgs: field.functionArgs,
+        sourceField: field.sourceField,
+        sourceFieldType: field.sourceFieldType,
+        expressionMode: field.expressionMode,
+        rawExpression: field.rawExpression,
+        arithmeticExpression: field.arithmeticExpression,
+      })
+    }
+    setIsExpanded(!isExpanded)
+  }, [isExpanded, field])
 
-  // Handle output field name change
+  // Update local field state
+  const updateLocalField = useCallback((updates: Partial<Omit<TransformationField, 'id'>>) => {
+    setLocalField((prev) => ({ ...prev, ...updates }))
+  }, [])
+
+  // Handle output field name change (inline in header)
   const handleOutputNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       onUpdate(field.id, { outputFieldName: e.target.value })
@@ -55,40 +129,47 @@ export function TransformationFieldRow({
     [field.id, onUpdate],
   )
 
+  // Handle output field name change in expanded view
+  const handleLocalOutputNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateLocalField({ outputFieldName: e.target.value })
+    },
+    [updateLocalField],
+  )
+
   // Handle type change (passthrough vs computed)
   const handleTypeChange = useCallback(
     (value: string) => {
       const newType = value as 'passthrough' | 'computed'
-      setFieldTypeMode(newType)
-      onUpdate(field.id, {
+      updateLocalField({
         type: newType,
         // Clear type-specific fields when switching
         functionName: newType === 'computed' ? '' : undefined,
         functionArgs: newType === 'computed' ? [] : undefined,
         sourceField: newType === 'passthrough' ? '' : undefined,
         sourceFieldType: newType === 'passthrough' ? '' : undefined,
-        // Set default expression mode for computed fields (using nested mode which handles both simple and complex cases)
+        // Set default expression mode for computed fields
         expressionMode: newType === 'computed' ? 'nested' : undefined,
         rawExpression: undefined,
         arithmeticExpression: undefined,
       })
     },
-    [field.id, onUpdate],
+    [updateLocalField],
   )
 
   // Handle source field change (for passthrough)
   const handleSourceFieldChange = useCallback(
     (value: string) => {
       const sourceField = availableFields.find((f) => f.name === value)
-      onUpdate(field.id, {
+      updateLocalField({
         sourceField: value,
         sourceFieldType: sourceField?.type || 'string',
         outputFieldType: sourceField?.type || 'string',
         // Default output name to source field name if empty
-        outputFieldName: field.outputFieldName || value,
+        outputFieldName: localField.outputFieldName || value,
       })
     },
-    [field.id, field.outputFieldName, availableFields, onUpdate],
+    [availableFields, localField.outputFieldName, updateLocalField],
   )
 
   // Handle function selection (for computed)
@@ -110,142 +191,263 @@ export function TransformationFieldRow({
           })
         : []
 
-      onUpdate(field.id, {
+      updateLocalField({
         functionName,
         functionArgs: initialArgs,
         outputFieldType: outputType,
       })
     },
-    [field.id, onUpdate],
+    [updateLocalField],
   )
 
   // Handle function argument change
   const handleArgChange = useCallback(
     (argIndex: number, value: string, argType: 'field' | 'literal' | 'array') => {
-      const args = [...(field.functionArgs || [])]
+      const args = [...(localField.functionArgs || [])]
 
       if (argType === 'field') {
         const sourceField = availableFields.find((f) => f.name === value)
         args[argIndex] = createFieldArg(value, sourceField?.type || 'string')
       } else if (argType === 'literal') {
-        const funcDef = getFunctionByName(field.functionName || '')
+        const funcDef = getFunctionByName(localField.functionName || '')
         const argDef = funcDef?.args[argIndex]
         args[argIndex] = createLiteralArg(value, argDef?.literalType || 'string')
       }
 
-      onUpdate(field.id, { functionArgs: args })
+      updateLocalField({ functionArgs: args })
     },
-    [field.id, field.functionName, field.functionArgs, availableFields, onUpdate],
+    [localField.functionName, localField.functionArgs, availableFields, updateLocalField],
   )
 
   // Handle expression mode change
   const handleExpressionModeChange = useCallback(
     (mode: ExpressionMode) => {
-      onUpdate(field.id, {
+      updateLocalField({
         expressionMode: mode,
         // Reset mode-specific fields when switching
         ...(mode === 'raw' ? { functionName: '', functionArgs: [] } : {}),
         ...(mode !== 'raw' ? { rawExpression: '' } : {}),
       })
     },
-    [field.id, onUpdate],
+    [updateLocalField],
   )
 
   // Handle function args change (for nested mode)
   const handleFunctionArgsChange = useCallback(
     (args: FunctionArg[]) => {
-      onUpdate(field.id, { functionArgs: args })
+      updateLocalField({ functionArgs: args })
     },
-    [field.id, onUpdate],
+    [updateLocalField],
   )
 
   // Handle raw expression change
   const handleRawExpressionChange = useCallback(
     (expression: string) => {
-      onUpdate(field.id, { rawExpression: expression })
+      updateLocalField({ rawExpression: expression })
     },
-    [field.id, onUpdate],
+    [updateLocalField],
   )
 
   // Handle arithmetic expression change
   const handleArithmeticChange = useCallback(
     (arithmetic: TransformArithmeticExpression | undefined) => {
-      onUpdate(field.id, { arithmeticExpression: arithmetic })
+      updateLocalField({ arithmeticExpression: arithmetic })
     },
-    [field.id, onUpdate],
+    [updateLocalField],
   )
-
-  // Handle remove
-  const handleRemove = useCallback(() => {
-    onRemove(field.id)
-  }, [field.id, onRemove])
 
   // Get current argument value
   const getArgValue = (argIndex: number): string => {
-    const arg = field.functionArgs?.[argIndex]
+    const arg = localField.functionArgs?.[argIndex]
     if (!arg) return ''
     if (arg.type === 'field') return arg.fieldName
     if (arg.type === 'literal') return String(arg.value)
     return ''
   }
 
+  // Handle save
+  const handleSave = useCallback(() => {
+    onUpdate(field.id, localField)
+    setIsExpanded(false)
+  }, [field.id, localField, onUpdate])
+
+  // Handle cancel
+  const handleCancel = useCallback(() => {
+    setIsExpanded(false)
+  }, [])
+
+  // Handle remove
+  const handleRemove = useCallback(() => {
+    onRemove(field.id)
+  }, [field.id, onRemove])
+
+  // Get source indicator text for the header
+  const getSourceIndicator = (): string => {
+    if (field.type === 'computed') {
+      return 'Computed'
+    }
+    return field.sourceField || 'Not set'
+  }
+
+  // Check if computed field has a function configured
+  const isComputedField = field.type === 'computed'
+  const functionExpression = isComputedField ? formatFunctionExpression(field) : ''
+
   return (
     <div
       className={cn(
-        'p-3 card-outline rounded-[var(--radius-large)]',
+        'card-outline rounded-[var(--radius-large)] overflow-hidden transition-all duration-200',
         errors && Object.keys(errors).length > 0 && 'border-[var(--color-border-critical)]',
+        isExpanded && 'ring-1 ring-[var(--color-border-accent)]',
       )}
     >
-      <div className="flex flex-col gap-2 mb-4">
-        <div className="flex justify-between">
-          <div className="flex justify-start gap-2 items-center p-0 mb-3">
-            <span className="text-sm text-[var(--text-secondary)]">Field {index + 1}</span>
-          </div>
-          {/* Remove button */}
-          <div className="flex">
-            {!readOnly && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRemove}
-                className="flex-shrink-0 flex-end h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+      {/* Compact Header Row */}
+      <div className="flex items-center gap-3 p-3">
+        {/* Field Index Badge - fixed width */}
+        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--surface-bg-sunken)] flex items-center justify-center text-xs font-medium text-[var(--text-secondary)]">
+          {index + 1}
         </div>
-        <div className="flex">
-          <div className="flex flex-1 flex-start gap-4">
-            <TypeToggle field={field} handleTypeChange={handleTypeChange} readOnly={readOnly} />
 
-            {fieldTypeMode === 'computed' && (
-              <ExpressionModeToggle
-                mode={field.expressionMode || 'nested'}
-                onChange={handleExpressionModeChange}
-                disabled={readOnly}
-              />
+        {/* Output Field Name Input - 40% width */}
+        <div className="w-[40%] flex-shrink-0 min-w-0">
+          <Input
+            value={field.outputFieldName}
+            onChange={handleOutputNameChange}
+            placeholder="Field name"
+            disabled={readOnly || isExpanded}
+            className={cn(
+              'input-regular input-border-regular h-8 text-sm w-full truncate',
+              errors?.outputFieldName && 'border-[var(--color-border-critical)]',
             )}
-          </div>
+          />
+        </div>
+
+        {/* Output Type Badge - 15% width */}
+        <div className="w-[15%] flex-shrink-0 min-w-0 px-2 py-1 rounded-[var(--radius-small)] bg-[var(--surface-bg-sunken)] text-xs text-[var(--text-secondary)] font-medium truncate text-center">
+          {field.outputFieldType || 'auto'}
+        </div>
+
+        {/* Source Indicator - 20% width */}
+        <div
+          className={cn(
+            'w-[20%] flex-shrink-0 min-w-0 px-2 py-1 rounded-[var(--radius-small)] text-xs font-medium truncate text-center',
+            field.type === 'computed'
+              ? 'bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)]'
+              : 'bg-[var(--surface-bg-sunken)] text-[var(--text-secondary)]',
+          )}
+          title={getSourceIndicator()}
+        >
+          {getSourceIndicator()}
+        </div>
+
+        {/* Action Buttons - fixed width */}
+        <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+          {/* Edit/Collapse Button */}
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleToggleExpand}
+              className={cn(
+                'h-8 w-8 transition-colors',
+                isExpanded
+                  ? 'text-[var(--text-accent)] hover:text-[var(--text-accent)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+              )}
+            >
+              {isExpanded ? <ChevronUpIcon className="h-4 w-4" /> : <PencilIcon className="h-4 w-4" />}
+            </Button>
+          )}
+
+          {/* Delete Button */}
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRemove}
+              className="h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--color-foreground-critical)]"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* First row - Type toggle and source/function select */}
-      <div className="flex items-center gap-2 mb-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-        <div className="flex-1">
-          {field.type === 'passthrough' ? (
-            <SourceFieldSelect
-              field={field}
-              handleSourceFieldChange={handleSourceFieldChange}
+      {/* Second Row - Function Expression (for computed fields only, when collapsed) */}
+      {isComputedField && !isExpanded && (
+        <div className="px-3 pb-3 pt-0 border-t border-[var(--surface-border)]">
+          <div className="flex items-center gap-2 pt-2">
+            <span className="text-xs text-[var(--text-disabled)] font-medium">fn:</span>
+            <code
+              className={cn(
+                'text-xs font-mono px-2 py-1 rounded-[var(--radius-small)]',
+                functionExpression === 'Not configured'
+                  ? 'text-[var(--text-disabled)] bg-[var(--surface-bg-sunken)]'
+                  : 'text-[var(--text-accent)] bg-[var(--color-bg-accent-muted)]',
+              )}
+            >
+              {functionExpression}
+            </code>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Section */}
+      {isExpanded && (
+        <div className="border-t border-[var(--surface-border)] p-4 space-y-4 bg-[var(--surface-bg-sunken)] animate-[fadeIn_0.2s_ease-in-out]">
+          {/* Type and Expression Mode Row */}
+          <div className="flex items-center gap-3">
+            {/* Type Toggle */}
+            <TypeToggle
+              field={{ ...field, ...localField } as TransformationField}
+              handleTypeChange={handleTypeChange}
               readOnly={readOnly}
-              errors={errors}
-              availableFields={availableFields}
-              className="w-1/2"
             />
-          ) : (
-            <div className="flex-1">
+
+            {/* Expression Mode Toggle (for computed fields) */}
+            {localField.type === 'computed' && (
+              <div className="flex-1">
+                <ExpressionModeToggle
+                  mode={localField.expressionMode || 'nested'}
+                  onChange={handleExpressionModeChange}
+                  disabled={readOnly}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Output Field Name */}
+          <div className="space-y-2">
+            <Label className="text-xs text-[var(--text-secondary)]">Output Field Name</Label>
+            <Input
+              value={localField.outputFieldName}
+              onChange={handleLocalOutputNameChange}
+              placeholder="Enter field name"
+              disabled={readOnly}
+              className={cn(
+                'input-regular input-border-regular',
+                errors?.outputFieldName && 'border-[var(--color-border-critical)]',
+              )}
+            />
+            {errors?.outputFieldName && (
+              <p className="text-xs text-[var(--color-foreground-critical)]">{errors.outputFieldName}</p>
+            )}
+          </div>
+
+          {/* Source Field or Function Configuration */}
+          <div className="space-y-2">
+            {localField.type === 'passthrough' ? (
+              <SourceFieldSelect
+                field={{ ...field, ...localField } as TransformationField}
+                handleSourceFieldChange={handleSourceFieldChange}
+                readOnly={readOnly}
+                errors={errors}
+                availableFields={availableFields}
+                className="w-full"
+              />
+            ) : (
               <TransformFunctionSelect
-                field={field}
+                field={{ ...field, ...localField } as TransformationField}
                 handleFunctionChange={handleFunctionChange}
                 readOnly={readOnly}
                 errors={errors}
@@ -267,26 +469,29 @@ export function TransformationFieldRow({
                 onRawExpressionChange={handleRawExpressionChange}
                 onArithmeticChange={handleArithmeticChange}
               />
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" className="btn-tertiary" onClick={handleCancel}>
+              <XMarkIcon className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+            <Button size="sm" className="btn-primary" onClick={handleSave} disabled={readOnly}>
+              <CheckIcon className="h-4 w-4 mr-1" />
+              Save
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Second row - Output field and remove button */}
-      <div className="flex items-start gap-4">
-        {/* Field number indicator */}
-        {/* <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--surface-bg-sunken)] flex items-center justify-center text-sm font-medium text-[var(--text-secondary)]">
-          {index + 1}
-        </div> */}
-
-        {/* Main content */}
-        <OutputField
-          field={field}
-          handleOutputNameChange={handleOutputNameChange}
-          readOnly={readOnly}
-          errors={errors}
-        />
-      </div>
+      {/* Error message display (when collapsed) */}
+      {!isExpanded && errors?.outputFieldName && (
+        <div className="px-3 pb-2">
+          <p className="text-xs text-[var(--color-foreground-critical)]">{errors.outputFieldName}</p>
+        </div>
+      )}
     </div>
   )
 }
