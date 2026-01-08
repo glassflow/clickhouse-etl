@@ -230,4 +230,8 @@ const (
 	SyncMode             ProcessorMode = "sync"
 	AsyncMode            ProcessorMode = "async"
 	DefaultProcessorMode               = AsyncMode
+
+	SchemaStatusActive   = "Active"
+	SchemaStatusInactive = "Inactive"
+	SchemaStatusInvalid  = "Invalid"
 )

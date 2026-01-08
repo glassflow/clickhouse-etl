@@ -10,100 +10,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-func TestValidateSchemaToMapping(t *testing.T) {
-	tests := []struct {
-		name          string
-		sourceID      string
-		schema        models.SchemaFields
-		schemaMapping *models.Mapping
-		wantError     bool
-		errorMsg      string
-	}{
-		{
-			name:     "valid field mapping matches schema",
-			sourceID: "source1",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "id", Type: internal.KafkaTypeInt},
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
-			},
-			schemaMapping: &models.Mapping{
-				Type: "field",
-				Fields: []models.MappingField{
-					{SourceID: "source1", SourceField: "id", SourceType: internal.KafkaTypeInt},
-					{SourceID: "source1", SourceField: "name", SourceType: internal.KafkaTypeString},
-				},
-			},
-			wantError: false,
-		},
-		{
-			name:     "mapping field absent in schema",
-			sourceID: "source1",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "id", Type: internal.KafkaTypeInt},
-				},
-			},
-			schemaMapping: &models.Mapping{
-				Type: "field",
-				Fields: []models.MappingField{
-					{SourceID: "source1", SourceField: "name", SourceType: internal.KafkaTypeString},
-				},
-			},
-			wantError: true,
-			errorMsg:  "field name is absent in the source schema",
-		},
-		{
-			name:     "type mismatch between schema and mapping",
-			sourceID: "source1",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "id", Type: internal.KafkaTypeString},
-				},
-			},
-			schemaMapping: &models.Mapping{
-				Type: "field",
-				Fields: []models.MappingField{
-					{SourceID: "source1", SourceField: "id", SourceType: internal.KafkaTypeInt},
-				},
-			},
-			wantError: true,
-			errorMsg:  "field id type mismatch: schema has string, mapping has int",
-		},
-		{
-			name:     "mapping with different source ID is ignored",
-			sourceID: "source1",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "id", Type: internal.KafkaTypeInt},
-				},
-			},
-			schemaMapping: &models.Mapping{
-				Type: "field",
-				Fields: []models.MappingField{
-					{SourceID: "source2", SourceField: "name", SourceType: internal.KafkaTypeString},
-				},
-			},
-			wantError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateSchemaToMapping(tt.sourceID, tt.schema, tt.schemaMapping)
-			if tt.wantError {
-				assert.Error(t, err)
-				if tt.errorMsg != "" {
-					assert.Contains(t, err.Error(), tt.errorMsg)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestValidateJSONToSchema(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -299,6 +205,162 @@ func TestValidateFieldType(t *testing.T) {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
 					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateSchemaToSchema(t *testing.T) {
+	tests := []struct {
+		name               string
+		newSchemaFields    models.SchemaFields
+		previousSchemaFields models.SchemaFields
+		wantError          bool
+		errorContains      []string
+	}{
+		{
+			name: "valid schema - same fields",
+			previousSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+				},
+			},
+			newSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid schema - new schema has additional fields",
+			previousSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+				},
+			},
+			newSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+					{Name: "email", Type: internal.KafkaTypeString},
+					{Name: "age", Type: internal.KafkaTypeInt},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid - missing field in new schema",
+			previousSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+				},
+			},
+			newSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+				},
+			},
+			wantError: true,
+			errorContains: []string{
+				"field name from previous schema is missing in the new schema",
+			},
+		},
+		{
+			name: "invalid - type changed",
+			previousSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+				},
+			},
+			newSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeString},
+					{Name: "name", Type: internal.KafkaTypeString},
+				},
+			},
+			wantError: true,
+			errorContains: []string{
+				"field id type changed",
+				"previous schema has int",
+				"new schema has string",
+			},
+		},
+		{
+			name: "invalid - multiple errors: missing fields and type changes",
+			previousSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+					{Name: "active", Type: internal.KafkaTypeBool},
+				},
+			},
+			newSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeString},
+					{Name: "email", Type: internal.KafkaTypeString},
+				},
+			},
+			wantError: true,
+			errorContains: []string{
+				"field id type changed",
+				"field name from previous schema is missing",
+				"field active from previous schema is missing",
+			},
+		},
+		{
+			name: "valid - empty previous schema",
+			previousSchemaFields: models.SchemaFields{
+				Fields: []models.Field{},
+			},
+			newSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "name", Type: internal.KafkaTypeString},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid - multiple type changes",
+			previousSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeInt},
+					{Name: "count", Type: internal.KafkaTypeInt},
+					{Name: "active", Type: internal.KafkaTypeBool},
+				},
+			},
+			newSchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "id", Type: internal.KafkaTypeString},
+					{Name: "count", Type: internal.KafkaTypeString},
+					{Name: "active", Type: internal.KafkaTypeString},
+				},
+			},
+			wantError: true,
+			errorContains: []string{
+				"field id type changed",
+				"field count type changed",
+				"field active type changed",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSchemaToSchema(tt.newSchemaFields, tt.previousSchemaFields)
+			if tt.wantError {
+				assert.Error(t, err)
+				for _, msg := range tt.errorContains {
+					assert.Contains(t, err.Error(), msg)
 				}
 			} else {
 				assert.NoError(t, err)

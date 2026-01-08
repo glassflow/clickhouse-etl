@@ -56,34 +56,19 @@ func (mr *MockDBClientMockRecorder) GetLatestSchemaVersion(ctx, schemaID any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestSchemaVersion", reflect.TypeOf((*MockDBClient)(nil).GetLatestSchemaVersion), ctx, schemaID)
 }
 
-// GetMappingsBySchema mocks base method.
-func (m *MockDBClient) GetMappingsBySchema(ctx context.Context, sourceID, schemaID string, orientation models.MappingOrintation) ([]*models.Mapping, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMappingsBySchema", ctx, sourceID, schemaID, orientation)
-	ret0, _ := ret[0].([]*models.Mapping)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMappingsBySchema indicates an expected call of GetMappingsBySchema.
-func (mr *MockDBClientMockRecorder) GetMappingsBySchema(ctx, sourceID, schemaID, orientation any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMappingsBySchema", reflect.TypeOf((*MockDBClient)(nil).GetMappingsBySchema), ctx, sourceID, schemaID, orientation)
-}
-
 // GetSchema mocks base method.
-func (m *MockDBClient) GetSchema(ctx context.Context, schemaID string) (*models.SchemaV2, error) {
+func (m *MockDBClient) GetSchema(ctx context.Context, pipelineID, sourceName string) (*models.SchemaV2, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSchema", ctx, schemaID)
+	ret := m.ctrl.Call(m, "GetSchema", ctx, pipelineID, sourceName)
 	ret0, _ := ret[0].(*models.SchemaV2)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSchema indicates an expected call of GetSchema.
-func (mr *MockDBClientMockRecorder) GetSchema(ctx, schemaID any) *gomock.Call {
+func (mr *MockDBClientMockRecorder) GetSchema(ctx, pipelineID, sourceName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSchema", reflect.TypeOf((*MockDBClient)(nil).GetSchema), ctx, schemaID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSchema", reflect.TypeOf((*MockDBClient)(nil).GetSchema), ctx, pipelineID, sourceName)
 }
 
 // GetSchemaVersion mocks base method.
@@ -102,15 +87,15 @@ func (mr *MockDBClientMockRecorder) GetSchemaVersion(ctx, schemaID, version any)
 }
 
 // SaveSchemaVersion mocks base method.
-func (m *MockDBClient) SaveSchemaVersion(ctx context.Context, schemaVersion models.SchemaVersion, sourceMappings, destinationMappings []*models.Mapping) error {
+func (m *MockDBClient) SaveSchemaVersion(ctx context.Context, schemaID, versionID string, schemaFields models.SchemaFields) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSchemaVersion", ctx, schemaVersion, sourceMappings, destinationMappings)
+	ret := m.ctrl.Call(m, "SaveSchemaVersion", ctx, schemaID, versionID, schemaFields)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SaveSchemaVersion indicates an expected call of SaveSchemaVersion.
-func (mr *MockDBClientMockRecorder) SaveSchemaVersion(ctx, schemaVersion, sourceMappings, destinationMappings any) *gomock.Call {
+func (mr *MockDBClientMockRecorder) SaveSchemaVersion(ctx, schemaID, versionID, schemaFields any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSchemaVersion", reflect.TypeOf((*MockDBClient)(nil).SaveSchemaVersion), ctx, schemaVersion, sourceMappings, destinationMappings)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSchemaVersion", reflect.TypeOf((*MockDBClient)(nil).SaveSchemaVersion), ctx, schemaID, versionID, schemaFields)
 }

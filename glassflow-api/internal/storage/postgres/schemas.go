@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
@@ -96,7 +97,7 @@ func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineI
 
 	if commandTag.RowsAffected() == 0 {
 		// Schema with v0 doesn't exist, insert it
-		err = s.insertSchema(ctx, tx, pipelineID, schemaJSON, "v0", schemaStatusActive)
+		err = s.insertSchema(ctx, tx, pipelineID, schemaJSON, "v0", internal.SchemaStatusActive)
 		if err != nil {
 			return fmt.Errorf("insert schema: %w", err)
 		}

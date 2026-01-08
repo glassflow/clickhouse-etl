@@ -2,9 +2,8 @@ package schemav2
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,82 +13,71 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2/mocks"
 )
 
+func TestNewSchemaStore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockDB := mocks.NewMockDBClient(ctrl)
+	pipelineID := "test-pipeline"
+	sourceName := "test-source"
+
+	store := NewSchemaStore(mockDB, pipelineID, sourceName)
+
+	assert.NotNil(t, store)
+	schemaStore, ok := store.(*SchemaStore)
+	require.True(t, ok)
+	assert.Equal(t, pipelineID, schemaStore.pipelineID)
+	assert.Equal(t, sourceName, schemaStore.sourceName)
+	assert.NotNil(t, schemaStore.versions)
+	assert.Empty(t, schemaStore.versions)
+}
+
 func TestSchemaStore_GetSchema(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-	store := NewSchemaStore(mockDBClient)
-
+	mockDB := mocks.NewMockDBClient(ctrl)
+	pipelineID := "test-pipeline"
+	sourceName := "test-source"
 	ctx := context.Background()
-	schemaID := "schema-1"
-	expectedSchema := &models.SchemaV2{
-		ID:         schemaID,
-		SourceName: "test-schema",
-	}
 
-	t.Run("get from cache when available", func(t *testing.T) {
-		// Pre-populate cache
-		store.(*SchemaStore).schemas[schemaID] = expectedSchema
-
-		// No DB call expected
-		result, err := store.GetSchema(ctx, schemaID)
-
-		require.NoError(t, err)
-		assert.Equal(t, expectedSchema, result)
-	})
-
-	t.Run("get from DB and cache when not in cache", func(t *testing.T) {
-		newSchemaID := "schema-2"
-		newSchema := &models.SchemaV2{
-			ID:         newSchemaID,
-			SourceName: "test-schema-2",
+	t.Run("success", func(t *testing.T) {
+		expectedSchema := &models.SchemaV2{
+			ID:         "schema-1",
+			SourceName: sourceName,
+			ConfigType: models.SchemaConfigTypeInternal,
+			DataFormat: models.SchemaDataFormatJSON,
+			SchemaType: models.SchemaTypeKafka,
 		}
 
-		mockDBClient.EXPECT().
-			GetSchema(ctx, newSchemaID).
-			Return(newSchema, nil).
-			Times(1)
+		mockDB.EXPECT().
+			GetSchema(ctx, pipelineID, sourceName).
+			Return(expectedSchema, nil)
 
-		result, err := store.GetSchema(ctx, newSchemaID)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schema, err := store.GetSchema(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, newSchema, result)
+		assert.Equal(t, expectedSchema, schema)
 
-		// Verify it was cached
-		cachedSchema := store.(*SchemaStore).schemas[newSchemaID]
-		assert.Equal(t, newSchema, cachedSchema)
+		// Verify schema is cached
+		schemaStore := store.(*SchemaStore)
+		assert.Equal(t, expectedSchema, schemaStore.schema)
 	})
 
-	t.Run("return error when DB call fails", func(t *testing.T) {
-		errorSchemaID := "error-schema"
-		expectedError := fmt.Errorf("database error")
+	t.Run("database error", func(t *testing.T) {
+		expectedErr := errors.New("database error")
 
-		mockDBClient.EXPECT().
-			GetSchema(ctx, errorSchemaID).
-			Return(nil, expectedError).
-			Times(1)
+		mockDB.EXPECT().
+			GetSchema(ctx, pipelineID, sourceName).
+			Return(nil, expectedErr)
 
-		result, err := store.GetSchema(ctx, errorSchemaID)
-
-		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "failed to get schema from DB")
-	})
-
-	t.Run("return error when schema not found in DB", func(t *testing.T) {
-		notFoundSchemaID := "not-found-schema"
-
-		mockDBClient.EXPECT().
-			GetSchema(ctx, notFoundSchemaID).
-			Return(nil, nil).
-			Times(1)
-
-		result, err := store.GetSchema(ctx, notFoundSchemaID)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schema, err := store.GetSchema(ctx)
 
 		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "schema not found for ID")
+		assert.Nil(t, schema)
+		assert.Contains(t, err.Error(), "get schema")
 	})
 }
 
@@ -97,86 +85,96 @@ func TestSchemaStore_GetSchemaVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-	store := NewSchemaStore(mockDBClient)
-
+	mockDB := mocks.NewMockDBClient(ctrl)
+	pipelineID := "test-pipeline"
+	sourceName := "test-source"
 	ctx := context.Background()
+
 	schemaID := "schema-1"
 	version := "v1"
-	expectedSchemaVersion := &models.SchemaVersion{
-		ID:       "sv-1",
-		SchemaID: schemaID,
-		Version:  version,
-	}
 
-	t.Run("get from cache when available", func(t *testing.T) {
-		// Pre-populate cache
-		store.(*SchemaStore).schemaVersions[schemaID] = map[string]*models.SchemaVersion{
-			version: expectedSchemaVersion,
+	t.Run("success from database", func(t *testing.T) {
+		expectedVersion := &models.SchemaVersion{
+			ID:       "version-1",
+			SchemaID: schemaID,
+			Version:  version,
+			Status:   "active",
+			SchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "field1", Type: "string"},
+				},
+			},
 		}
 
-		// No DB call expected
-		result, err := store.GetSchemaVersion(ctx, schemaID, version)
+		mockDB.EXPECT().
+			GetSchemaVersion(ctx, schemaID, version).
+			Return(expectedVersion, nil)
+
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+
+		schemaVersion, err := store.GetSchemaVersion(ctx, version)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedSchemaVersion, result)
+		assert.Equal(t, expectedVersion, schemaVersion)
+
+		// Verify version is cached
+		assert.Equal(t, expectedVersion, schemaStore.versions[version])
 	})
 
-	t.Run("get from DB and cache when not in cache", func(t *testing.T) {
-		newSchemaID := "schema-2"
-		newVersion := "v2"
-		newSchemaVersion := &models.SchemaVersion{
-			ID:       "sv-2",
-			SchemaID: newSchemaID,
-			Version:  newVersion,
+	t.Run("success from cache", func(t *testing.T) {
+		cachedVersion := &models.SchemaVersion{
+			ID:       "version-1",
+			SchemaID: schemaID,
+			Version:  version,
+			Status:   "active",
 		}
 
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, newSchemaID, newVersion).
-			Return(newSchemaVersion, nil).
-			Times(1)
+		// No DB call expected since version is in cache
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+		schemaStore.versions[version] = cachedVersion
 
-		result, err := store.GetSchemaVersion(ctx, newSchemaID, newVersion)
+		schemaVersion, err := store.GetSchemaVersion(ctx, version)
 
 		require.NoError(t, err)
-		assert.Equal(t, newSchemaVersion, result)
-
-		// Verify it was cached
-		cachedVersion := store.(*SchemaStore).schemaVersions[newSchemaID][newVersion]
-		assert.Equal(t, newSchemaVersion, cachedVersion)
+		assert.Equal(t, cachedVersion, schemaVersion)
 	})
 
-	t.Run("return error when DB call fails", func(t *testing.T) {
-		errorSchemaID := "error-schema"
-		errorVersion := "v1"
-		expectedError := fmt.Errorf("database error")
+	t.Run("version not found", func(t *testing.T) {
+		mockDB.EXPECT().
+			GetSchemaVersion(ctx, schemaID, version).
+			Return(nil, models.ErrRecordNotFound)
 
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, errorSchemaID, errorVersion).
-			Return(nil, expectedError).
-			Times(1)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
 
-		result, err := store.GetSchemaVersion(ctx, errorSchemaID, errorVersion)
+		schemaVersion, err := store.GetSchemaVersion(ctx, version)
 
 		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "failed to get schema version from DB")
+		assert.Nil(t, schemaVersion)
+		assert.ErrorIs(t, err, ErrSchemaVerionNotFound)
 	})
 
-	t.Run("return ErrSchemaVersionNotFound when schema version not found in DB", func(t *testing.T) {
-		notFoundSchemaID := "not-found-schema"
-		notFoundVersion := "v999"
+	t.Run("database error", func(t *testing.T) {
+		expectedErr := errors.New("database error")
 
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, notFoundSchemaID, notFoundVersion).
-			Return(nil, nil).
-			Times(1)
+		mockDB.EXPECT().
+			GetSchemaVersion(ctx, schemaID, version).
+			Return(nil, expectedErr)
 
-		result, err := store.GetSchemaVersion(ctx, notFoundSchemaID, notFoundVersion)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+
+		schemaVersion, err := store.GetSchemaVersion(ctx, version)
 
 		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Equal(t, ErrSchemaVerionNotFound, err)
+		assert.Nil(t, schemaVersion)
+		assert.Contains(t, err.Error(), "get schema version")
 	})
 }
 
@@ -184,86 +182,107 @@ func TestSchemaStore_GetLatestSchemaVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-	store := NewSchemaStore(mockDBClient)
-
+	mockDB := mocks.NewMockDBClient(ctrl)
+	pipelineID := "test-pipeline"
+	sourceName := "test-source"
 	ctx := context.Background()
+
 	schemaID := "schema-1"
-	latestVersion := "v3"
-	expectedSchemaVersion := &models.SchemaVersion{
-		ID:       "sv-3",
-		SchemaID: schemaID,
-		Version:  latestVersion,
-	}
+	latestVersionID := "v2"
 
-	t.Run("get from cache when latest version is cached", func(t *testing.T) {
-		// Pre-populate cache
-		store.(*SchemaStore).latestVersions[schemaID] = latestVersion
-		store.(*SchemaStore).schemaVersions[schemaID] = map[string]*models.SchemaVersion{
-			latestVersion: expectedSchemaVersion,
+	t.Run("success from database", func(t *testing.T) {
+		expectedVersion := &models.SchemaVersion{
+			ID:       "version-2",
+			SchemaID: schemaID,
+			Version:  latestVersionID,
+			Status:   "active",
+			SchemaFields: models.SchemaFields{
+				Fields: []models.Field{
+					{Name: "field1", Type: "string"},
+					{Name: "field2", Type: "int"},
+				},
+			},
 		}
 
-		// No DB call expected
-		result, err := store.GetLatestSchemaVersion(ctx, schemaID)
+		mockDB.EXPECT().
+			GetLatestSchemaVersion(ctx, schemaID).
+			Return(expectedVersion, nil)
+
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+
+		schemaVersion, err := store.GetLatestSchemaVersion(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedSchemaVersion, result)
+		assert.Equal(t, expectedVersion, schemaVersion)
+
+		// Verify version is cached
+		assert.Equal(t, latestVersionID, schemaStore.latestVersion)
+		assert.Equal(t, expectedVersion, schemaStore.versions[latestVersionID])
 	})
 
-	t.Run("get from DB and cache when not in cache", func(t *testing.T) {
-		newSchemaID := "schema-2"
-		newLatestVersion := "v5"
-		newSchemaVersion := &models.SchemaVersion{
-			ID:       "sv-5",
-			SchemaID: newSchemaID,
-			Version:  newLatestVersion,
+	t.Run("success from cache with latest version set", func(t *testing.T) {
+		cachedVersion := &models.SchemaVersion{
+			ID:       "version-2",
+			SchemaID: schemaID,
+			Version:  latestVersionID,
+			Status:   "active",
 		}
 
-		mockDBClient.EXPECT().
-			GetLatestSchemaVersion(ctx, newSchemaID).
-			Return(newSchemaVersion, nil).
-			Times(1)
+		// No DB call expected since latest version is cached
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+		schemaStore.latestVersion = latestVersionID
+		schemaStore.versions[latestVersionID] = cachedVersion
 
-		result, err := store.GetLatestSchemaVersion(ctx, newSchemaID)
+		schemaVersion, err := store.GetLatestSchemaVersion(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, newSchemaVersion, result)
-
-		// Verify it was cached
-		cachedVersion := store.(*SchemaStore).schemaVersions[newSchemaID][newLatestVersion]
-		assert.Equal(t, newSchemaVersion, cachedVersion)
-		assert.Equal(t, newLatestVersion, store.(*SchemaStore).latestVersions[newSchemaID])
+		assert.Equal(t, cachedVersion, schemaVersion)
 	})
 
-	t.Run("return error when DB call fails", func(t *testing.T) {
-		errorSchemaID := "error-schema"
-		expectedError := fmt.Errorf("database error")
+	t.Run("success with latest version set but version not cached", func(t *testing.T) {
+		expectedVersion := &models.SchemaVersion{
+			ID:       "version-2",
+			SchemaID: schemaID,
+			Version:  latestVersionID,
+			Status:   "active",
+		}
 
-		mockDBClient.EXPECT().
-			GetLatestSchemaVersion(ctx, errorSchemaID).
-			Return(nil, expectedError).
-			Times(1)
+		mockDB.EXPECT().
+			GetLatestSchemaVersion(ctx, schemaID).
+			Return(expectedVersion, nil)
 
-		result, err := store.GetLatestSchemaVersion(ctx, errorSchemaID)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+		schemaStore.latestVersion = "v1" // Different version
 
-		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "failed to get latest schema version from DB")
+		schemaVersion, err := store.GetLatestSchemaVersion(ctx)
+
+		require.NoError(t, err)
+		assert.Equal(t, expectedVersion, schemaVersion)
+		assert.Equal(t, latestVersionID, schemaStore.latestVersion)
 	})
 
-	t.Run("return ErrSchemaVersionNotFound when latest version not found in DB", func(t *testing.T) {
-		notFoundSchemaID := "not-found-schema"
+	t.Run("database error", func(t *testing.T) {
+		expectedErr := errors.New("database error")
 
-		mockDBClient.EXPECT().
-			GetLatestSchemaVersion(ctx, notFoundSchemaID).
-			Return(nil, nil).
-			Times(1)
+		mockDB.EXPECT().
+			GetLatestSchemaVersion(ctx, schemaID).
+			Return(nil, expectedErr)
 
-		result, err := store.GetLatestSchemaVersion(ctx, notFoundSchemaID)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+
+		schemaVersion, err := store.GetLatestSchemaVersion(ctx)
 
 		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Equal(t, ErrSchemaVerionNotFound, err)
+		assert.Nil(t, schemaVersion)
+		assert.Contains(t, err.Error(), "get latest schema version")
 	})
 }
 
@@ -271,389 +290,96 @@ func TestSchemaStore_SaveSchemaVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-	store := NewSchemaStore(mockDBClient)
-
+	mockDB := mocks.NewMockDBClient(ctrl)
+	pipelineID := "test-pipeline"
+	sourceName := "test-source"
 	ctx := context.Background()
+
 	schemaID := "schema-1"
-	version := "v1"
-	schemaVersion := models.SchemaVersion{
-		ID:       "sv-1",
-		SchemaID: schemaID,
-		Version:  version,
-	}
-	sourceMappings := []*models.Mapping{
-		{ID: "mapping-1", Type: "field"},
-	}
-	destinationMappings := []*models.Mapping{
-		{ID: "mapping-2", Type: "field"},
+	version := "v3"
+	schemaFields := models.SchemaFields{
+		Fields: []models.Field{
+			{Name: "field1", Type: "string"},
+			{Name: "field2", Type: "int"},
+			{Name: "field3", Type: "bool"},
+		},
 	}
 
-	t.Run("save successfully to DB and cache", func(t *testing.T) {
-		mockDBClient.EXPECT().
-			SaveSchemaVersion(ctx, schemaVersion, sourceMappings, destinationMappings).
-			Return(nil).
-			Times(1)
+	t.Run("success", func(t *testing.T) {
+		mockDB.EXPECT().
+			SaveSchemaVersion(ctx, schemaID, version, schemaFields).
+			Return(nil)
 
-		err := store.SaveSchemaVersion(ctx, schemaVersion, sourceMappings, destinationMappings)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+
+		err := store.SaveSchemaVersion(ctx, version, schemaFields)
 
 		require.NoError(t, err)
 
-		// Verify it was cached
-		cachedVersion := store.(*SchemaStore).schemaVersions[schemaID][version]
-		assert.Equal(t, &schemaVersion, cachedVersion)
+		// Verify version is cached
+		cachedVersion, ok := schemaStore.versions[version]
+		require.True(t, ok)
+		assert.Equal(t, schemaID, cachedVersion.SchemaID)
+		assert.Equal(t, version, cachedVersion.Version)
+		assert.Equal(t, schemaFields, cachedVersion.SchemaFields)
 	})
 
-	t.Run("return error when DB save fails", func(t *testing.T) {
-		errorSchemaVersion := models.SchemaVersion{
-			ID:       "sv-error",
-			SchemaID: "error-schema",
-			Version:  "v1",
-		}
-		expectedError := fmt.Errorf("database save error")
+	t.Run("database error", func(t *testing.T) {
+		expectedErr := errors.New("database error")
 
-		mockDBClient.EXPECT().
-			SaveSchemaVersion(ctx, errorSchemaVersion, sourceMappings, destinationMappings).
-			Return(expectedError).
-			Times(1)
+		mockDB.EXPECT().
+			SaveSchemaVersion(ctx, schemaID, version, schemaFields).
+			Return(expectedErr)
 
-		err := store.SaveSchemaVersion(ctx, errorSchemaVersion, sourceMappings, destinationMappings)
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+
+		err := store.SaveSchemaVersion(ctx, version, schemaFields)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to save schema version to DB")
+		assert.Contains(t, err.Error(), "save schema version")
+
+		// Verify version is not cached on error
+		_, ok := schemaStore.versions[version]
+		assert.False(t, ok)
 	})
 
-	t.Run("cache schema version even when it's a new schema", func(t *testing.T) {
-		newSchemaID := "new-schema"
-		newVersion := "v1"
-		newSchemaVersion := models.SchemaVersion{
-			ID:       "sv-new",
-			SchemaID: newSchemaID,
-			Version:  newVersion,
+	t.Run("overwrites existing cached version", func(t *testing.T) {
+		oldFields := models.SchemaFields{
+			Fields: []models.Field{
+				{Name: "old_field", Type: "string"},
+			},
 		}
 
-		mockDBClient.EXPECT().
-			SaveSchemaVersion(ctx, newSchemaVersion, sourceMappings, destinationMappings).
-			Return(nil).
-			Times(1)
+		newFields := models.SchemaFields{
+			Fields: []models.Field{
+				{Name: "new_field", Type: "int"},
+			},
+		}
 
-		err := store.SaveSchemaVersion(ctx, newSchemaVersion, sourceMappings, destinationMappings)
+		mockDB.EXPECT().
+			SaveSchemaVersion(ctx, schemaID, version, newFields).
+			Return(nil)
+
+		store := NewSchemaStore(mockDB, pipelineID, sourceName)
+		schemaStore := store.(*SchemaStore)
+		schemaStore.schema = &models.SchemaV2{ID: schemaID}
+		schemaStore.versions[version] = &models.SchemaVersion{
+			SchemaID:     schemaID,
+			Version:      version,
+			SchemaFields: oldFields,
+		}
+
+		err := store.SaveSchemaVersion(ctx, version, newFields)
 
 		require.NoError(t, err)
 
-		// Verify it was cached
-		cachedVersion := store.(*SchemaStore).schemaVersions[newSchemaID][newVersion]
-		assert.Equal(t, &newSchemaVersion, cachedVersion)
+		// Verify version is updated in cache
+		cachedVersion, ok := schemaStore.versions[version]
+		require.True(t, ok)
+		assert.Equal(t, newFields, cachedVersion.SchemaFields)
 	})
-}
-
-func TestSchemaStore_GetSourceMappings(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-	store := NewSchemaStore(mockDBClient)
-
-	ctx := context.Background()
-	schemaID := "schema-1"
-	version := "v1"
-	schemaVersionID := "sv-1"
-	schemaVersion := &models.SchemaVersion{
-		ID:       schemaVersionID,
-		SchemaID: schemaID,
-		Version:  version,
-	}
-	expectedMappings := []*models.Mapping{
-		{ID: "mapping-1", Type: "field"},
-		{ID: "mapping-2", Type: "transformation"},
-	}
-
-	t.Run("get from cache when available", func(t *testing.T) {
-		// Pre-populate cache
-		store.(*SchemaStore).schemaVersions[schemaID] = map[string]*models.SchemaVersion{
-			version: schemaVersion,
-		}
-		store.(*SchemaStore).sourceMappings[schemaVersionID] = expectedMappings
-
-		// No DB call expected for mappings
-		result, err := store.GetSourceMapppings(ctx, schemaID, version)
-
-		require.NoError(t, err)
-		assert.Equal(t, expectedMappings, result)
-	})
-
-	t.Run("get from DB and cache when not in cache", func(t *testing.T) {
-		newSchemaID := "schema-2"
-		newVersion := "v2"
-		newSchemaVersionID := "sv-2"
-		newSchemaVersion := &models.SchemaVersion{
-			ID:       newSchemaVersionID,
-			SchemaID: newSchemaID,
-			Version:  newVersion,
-		}
-		newMappings := []*models.Mapping{
-			{ID: "mapping-3", Type: "field"},
-		}
-
-		// First, GetSchemaVersion will be called
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, newSchemaID, newVersion).
-			Return(newSchemaVersion, nil).
-			Times(1)
-
-		mockDBClient.EXPECT().
-			GetMappingsBySchema(ctx, newSchemaID, newVersion, models.MappingOrientationSource).
-			Return(newMappings, nil).
-			Times(1)
-
-		result, err := store.GetSourceMapppings(ctx, newSchemaID, newVersion)
-
-		require.NoError(t, err)
-		assert.Equal(t, newMappings, result)
-
-		// Verify it was cached
-		cachedMappings := store.(*SchemaStore).sourceMappings[newSchemaVersionID]
-		assert.Equal(t, newMappings, cachedMappings)
-	})
-
-	t.Run("return error when GetSchemaVersion fails", func(t *testing.T) {
-		errorSchemaID := "error-schema"
-		errorVersion := "v1"
-		expectedError := fmt.Errorf("schema version error")
-
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, errorSchemaID, errorVersion).
-			Return(nil, expectedError).
-			Times(1)
-
-		result, err := store.GetSourceMapppings(ctx, errorSchemaID, errorVersion)
-
-		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "get schema version")
-	})
-
-	t.Run("return error when GetMappingsBySchema fails", func(t *testing.T) {
-		errorSchemaID := "error-schema-2"
-		errorVersion := "v1"
-		errorSchemaVersionID := "sv-error"
-		errorSchemaVersion := &models.SchemaVersion{
-			ID:       errorSchemaVersionID,
-			SchemaID: errorSchemaID,
-			Version:  errorVersion,
-		}
-		expectedError := fmt.Errorf("mappings error")
-
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, errorSchemaID, errorVersion).
-			Return(errorSchemaVersion, nil).
-			Times(1)
-
-		mockDBClient.EXPECT().
-			GetMappingsBySchema(ctx, errorSchemaID, errorVersion, models.MappingOrientationSource).
-			Return(nil, expectedError).
-			Times(1)
-
-		result, err := store.GetSourceMapppings(ctx, errorSchemaID, errorVersion)
-
-		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "failed to get source schema mapping from DB")
-	})
-}
-
-func TestSchemaStore_GetDestinationMappings(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-	store := NewSchemaStore(mockDBClient)
-
-	ctx := context.Background()
-	schemaID := "schema-1"
-	version := "v1"
-	schemaVersionID := "sv-1"
-	schemaVersion := &models.SchemaVersion{
-		ID:       schemaVersionID,
-		SchemaID: schemaID,
-		Version:  version,
-	}
-	expectedMappings := []*models.Mapping{
-		{ID: "mapping-1", Type: "field"},
-		{ID: "mapping-2", Type: "transformation"},
-	}
-
-	t.Run("get from cache when available", func(t *testing.T) {
-		// Pre-populate cache
-		store.(*SchemaStore).schemaVersions[schemaID] = map[string]*models.SchemaVersion{
-			version: schemaVersion,
-		}
-		store.(*SchemaStore).destinationMappings[schemaVersionID] = expectedMappings
-
-		// No DB call expected for mappings
-		result, err := store.GetDestinationMappings(ctx, schemaID, version)
-
-		require.NoError(t, err)
-		assert.Equal(t, expectedMappings, result)
-	})
-
-	t.Run("get from DB and cache when not in cache", func(t *testing.T) {
-		newSchemaID := "schema-2"
-		newVersion := "v2"
-		newSchemaVersionID := "sv-2"
-		newSchemaVersion := &models.SchemaVersion{
-			ID:       newSchemaVersionID,
-			SchemaID: newSchemaID,
-			Version:  newVersion,
-		}
-		newMappings := []*models.Mapping{
-			{ID: "mapping-3", Type: "field"},
-		}
-
-		// First, GetSchemaVersion will be called
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, newSchemaID, newVersion).
-			Return(newSchemaVersion, nil).
-			Times(1)
-
-		mockDBClient.EXPECT().
-			GetMappingsBySchema(ctx, newSchemaID, newVersion, models.MappingOrientationDestination).
-			Return(newMappings, nil).
-			Times(1)
-
-		result, err := store.GetDestinationMappings(ctx, newSchemaID, newVersion)
-
-		require.NoError(t, err)
-		assert.Equal(t, newMappings, result)
-
-		// Verify it was cached
-		cachedMappings := store.(*SchemaStore).destinationMappings[newSchemaVersionID]
-		assert.Equal(t, newMappings, cachedMappings)
-	})
-
-	t.Run("return error when GetSchemaVersion fails", func(t *testing.T) {
-		errorSchemaID := "error-schema"
-		errorVersion := "v1"
-		expectedError := fmt.Errorf("schema version error")
-
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, errorSchemaID, errorVersion).
-			Return(nil, expectedError).
-			Times(1)
-
-		result, err := store.GetDestinationMappings(ctx, errorSchemaID, errorVersion)
-
-		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "get schema version")
-	})
-
-	t.Run("return error when GetMappingsBySchema fails", func(t *testing.T) {
-		errorSchemaID := "error-schema-2"
-		errorVersion := "v1"
-		errorSchemaVersionID := "sv-error"
-		errorSchemaVersion := &models.SchemaVersion{
-			ID:       errorSchemaVersionID,
-			SchemaID: errorSchemaID,
-			Version:  errorVersion,
-		}
-		expectedError := fmt.Errorf("mappings error")
-
-		mockDBClient.EXPECT().
-			GetSchemaVersion(ctx, errorSchemaID, errorVersion).
-			Return(errorSchemaVersion, nil).
-			Times(1)
-
-		mockDBClient.EXPECT().
-			GetMappingsBySchema(ctx, errorSchemaID, errorVersion, models.MappingOrientationDestination).
-			Return(nil, expectedError).
-			Times(1)
-
-		result, err := store.GetDestinationMappings(ctx, errorSchemaID, errorVersion)
-
-		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "failed to get destination schema mapping from DB")
-	})
-}
-
-func TestNewSchemaStore(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-
-	store := NewSchemaStore(mockDBClient)
-
-	require.NotNil(t, store)
-
-	schemaStore, ok := store.(*SchemaStore)
-	require.True(t, ok)
-
-	assert.NotNil(t, schemaStore.schemas)
-	assert.NotNil(t, schemaStore.schemaVersions)
-	assert.NotNil(t, schemaStore.latestVersions)
-	assert.NotNil(t, schemaStore.sourceMappings)
-	assert.NotNil(t, schemaStore.destinationMappings)
-	assert.Equal(t, mockDBClient, schemaStore.dbStoreClient)
-}
-
-// Integration test to verify cache consistency across multiple operations
-func TestSchemaStore_CacheConsistency(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockDBClient := mocks.NewMockDBClient(ctrl)
-	store := NewSchemaStore(mockDBClient)
-
-	ctx := context.Background()
-	schemaID := "schema-1"
-	version := "v1"
-	schemaVersionID := "sv-1"
-
-	schemaVersion := &models.SchemaVersion{
-		ID:        schemaVersionID,
-		SchemaID:  schemaID,
-		Version:   version,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	sourceMappings := []*models.Mapping{
-		{ID: "src-mapping-1", Type: "field"},
-	}
-
-	destinationMappings := []*models.Mapping{
-		{ID: "dst-mapping-1", Type: "field"},
-	}
-
-	// Save schema version
-	mockDBClient.EXPECT().
-		SaveSchemaVersion(ctx, *schemaVersion, sourceMappings, destinationMappings).
-		Return(nil).
-		Times(1)
-
-	err := store.SaveSchemaVersion(ctx, *schemaVersion, sourceMappings, destinationMappings)
-	require.NoError(t, err)
-
-	// Get schema version should return from cache without DB call
-	result, err := store.GetSchemaVersion(ctx, schemaID, version)
-	require.NoError(t, err)
-	assert.Equal(t, schemaVersion, result)
-
-	// Prepare for mappings retrieval
-	mockDBClient.EXPECT().
-		GetMappingsBySchema(ctx, schemaID, version, models.MappingOrientationSource).
-		Return(sourceMappings, nil).
-		Times(1)
-
-	// Get source mappings - should fetch from DB first time
-	srcMaps, err := store.GetSourceMapppings(ctx, schemaID, version)
-	require.NoError(t, err)
-	assert.Equal(t, sourceMappings, srcMaps)
-
-	// Second call should use cache, no DB call
-	srcMaps2, err := store.GetSourceMapppings(ctx, schemaID, version)
-	require.NoError(t, err)
-	assert.Equal(t, sourceMappings, srcMaps2)
 }

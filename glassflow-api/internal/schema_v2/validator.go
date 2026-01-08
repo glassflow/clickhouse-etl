@@ -1,6 +1,7 @@
 package schemav2
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -9,31 +10,31 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-// validateSchemaToMapping - validate schema fields against schema mapping
-func validateSchemaToMapping(sourceID string, schema models.SchemaFields, mapping *models.Mapping) error {
-	return validateSchemaToFieldMapping(sourceID, schema, mapping)
-}
-
-// validateSchemaToFieldMapping - validate that mapping fields exist in the schema and types match
-func validateSchemaToFieldMapping(sourceID string, schema models.SchemaFields, mapping *models.Mapping) error {
-	sourceSchema := make(map[string]string)
-	for _, field := range schema.Fields {
-		sourceSchema[field.Name] = field.Type
+// validate schema to schema - validate that all schema fields from previous schema exist in the new schema with the same types
+func validateSchemaToSchema(newSchemaFields, previousSchemaFields models.SchemaFields) error {
+	// Create a map of new schema fields for quick lookup
+	newSchema := make(map[string]string)
+	for _, field := range newSchemaFields.Fields {
+		newSchema[field.Name] = field.Type
 	}
 
-	for _, field := range mapping.Fields {
-		if field.SourceID != sourceID {
+	// Check that all previous fields exist in new schema with same types
+	var errs []error
+	for _, previousField := range previousSchemaFields.Fields {
+		newType, exists := newSchema[previousField.Name]
+		if !exists {
+			errs = append(errs, fmt.Errorf("field %s from previous schema is missing in the new schema", previousField.Name))
 			continue
 		}
 
-		fieldType, exists := sourceSchema[field.SourceField]
-		if !exists {
-			return fmt.Errorf("field %s is absent in the source schema", field.SourceField)
+		if newType != previousField.Type {
+			errs = append(errs, fmt.Errorf("field %s type changed: previous schema has %s, new schema has %s",
+				previousField.Name, previousField.Type, newType))
 		}
+	}
 
-		if fieldType != field.SourceType {
-			return fmt.Errorf("field %s type mismatch: schema has %s, mapping has %s", field.SourceField, fieldType, field.SourceType)
-		}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 
 	return nil

@@ -8,18 +8,13 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/validation"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-)
-
-const (
-	schemaStatusActive   = "Active"
-	schemaStatusInactive = "Inactive"
-	schemaStatusInvalid  = "Invalid"
 )
 
 // Transformation represents a pipeline transformation with its type and configuration
@@ -179,7 +174,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return fmt.Errorf("build schema JSON: %w", err)
 	}
 
-	err = s.insertSchema(ctx, tx, insertData.pipelineID, schemaJSON, "v0", schemaStatusActive)
+	err = s.insertSchema(ctx, tx, insertData.pipelineID, schemaJSON, "v0", internal.SchemaStatusActive)
 	if err != nil {
 		return fmt.Errorf("insert schema: %w", err)
 	}
@@ -860,7 +855,7 @@ func (s *PostgresStorage) updateSchemaData(ctx context.Context, tx pgx.Tx, pipel
 	// 4. Mark invalid versions as "Invalid"
 	if len(invalidVersionIDs) > 0 {
 		for _, versionID := range invalidVersionIDs {
-			err = s.setStatusToSchemaVersion(ctx, tx, versionID, schemaStatusInvalid)
+			err = s.setStatusToSchemaVersion(ctx, tx, versionID, internal.SchemaStatusInvalid)
 			if err != nil {
 				return fmt.Errorf("mark schema version invalid: %w", err)
 			}
@@ -917,7 +912,7 @@ func (s *PostgresStorage) insertSchemaVersions(ctx context.Context, tx pgx.Tx, s
 
 		status := version.Status
 		if status == "" {
-			status = schemaStatusActive
+			status = internal.SchemaStatusActive
 		}
 
 		_, err = s.insertSchemaVersion(ctx, tx, schemaID, version.Version, status, fieldsJSON)
