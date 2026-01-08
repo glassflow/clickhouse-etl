@@ -15,7 +15,7 @@ func TestValidateSchemaToMapping(t *testing.T) {
 		name          string
 		sourceID      string
 		schema        models.SchemaFields
-		schemaMapping *models.SchemaMapping
+		schemaMapping *models.Mapping
 		wantError     bool
 		errorMsg      string
 	}{
@@ -28,13 +28,11 @@ func TestValidateSchemaToMapping(t *testing.T) {
 					{Name: "name", Type: internal.KafkaTypeString},
 				},
 			},
-			schemaMapping: &models.SchemaMapping{
-				MappingType: "field",
-				Mapping: models.Mapping{
-					Fields: []models.MappingField{
-						{SourceID: "source1", SourceField: "id", SourceType: internal.KafkaTypeInt},
-						{SourceID: "source1", SourceField: "name", SourceType: internal.KafkaTypeString},
-					},
+			schemaMapping: &models.Mapping{
+				Type: "field",
+				Fields: []models.MappingField{
+					{SourceID: "source1", SourceField: "id", SourceType: internal.KafkaTypeInt},
+					{SourceID: "source1", SourceField: "name", SourceType: internal.KafkaTypeString},
 				},
 			},
 			wantError: false,
@@ -47,12 +45,10 @@ func TestValidateSchemaToMapping(t *testing.T) {
 					{Name: "id", Type: internal.KafkaTypeInt},
 				},
 			},
-			schemaMapping: &models.SchemaMapping{
-				MappingType: "field",
-				Mapping: models.Mapping{
-					Fields: []models.MappingField{
-						{SourceID: "source1", SourceField: "name", SourceType: internal.KafkaTypeString},
-					},
+			schemaMapping: &models.Mapping{
+				Type: "field",
+				Fields: []models.MappingField{
+					{SourceID: "source1", SourceField: "name", SourceType: internal.KafkaTypeString},
 				},
 			},
 			wantError: true,
@@ -66,12 +62,10 @@ func TestValidateSchemaToMapping(t *testing.T) {
 					{Name: "id", Type: internal.KafkaTypeString},
 				},
 			},
-			schemaMapping: &models.SchemaMapping{
-				MappingType: "field",
-				Mapping: models.Mapping{
-					Fields: []models.MappingField{
-						{SourceID: "source1", SourceField: "id", SourceType: internal.KafkaTypeInt},
-					},
+			schemaMapping: &models.Mapping{
+				Type: "field",
+				Fields: []models.MappingField{
+					{SourceID: "source1", SourceField: "id", SourceType: internal.KafkaTypeInt},
 				},
 			},
 			wantError: true,
@@ -85,66 +79,13 @@ func TestValidateSchemaToMapping(t *testing.T) {
 					{Name: "id", Type: internal.KafkaTypeInt},
 				},
 			},
-			schemaMapping: &models.SchemaMapping{
-				MappingType: "field",
-				Mapping: models.Mapping{
-					Fields: []models.MappingField{
-						{SourceID: "source2", SourceField: "name", SourceType: internal.KafkaTypeString},
-					},
+			schemaMapping: &models.Mapping{
+				Type: "field",
+				Fields: []models.MappingField{
+					{SourceID: "source2", SourceField: "name", SourceType: internal.KafkaTypeString},
 				},
 			},
 			wantError: false,
-		},
-		{
-			name:     "valid transformation mapping",
-			sourceID: "source1",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "id", Type: internal.KafkaTypeString},
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
-			},
-			schemaMapping: &models.SchemaMapping{
-				MappingType: "stateless_transformation",
-				Mapping: models.Mapping{
-					Transformations: []models.Transform{
-						{
-							Expression: `upper(name)`,
-							OutputName: "upper_name",
-							OutputType: internal.KafkaTypeString,
-						},
-						{
-							Expression: `toInt(id)`,
-							OutputName: "id",
-							OutputType: internal.KafkaTypeInt,
-						},
-					},
-				},
-			},
-			wantError: false,
-		},
-		{
-			name:     "missed fields in transformation mapping",
-			sourceID: "source1",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "id", Type: internal.KafkaTypeString},
-				},
-			},
-			schemaMapping: &models.SchemaMapping{
-				MappingType: "stateless_transformation",
-				Mapping: models.Mapping{
-					Transformations: []models.Transform{
-						{
-							Expression: `lower(name)`,
-							OutputName: "upper_name",
-							OutputType: internal.KafkaTypeString,
-						},
-					},
-				},
-			},
-			wantError: true,
-			errorMsg:  "upper_name",
 		},
 	}
 

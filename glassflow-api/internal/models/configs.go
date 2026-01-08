@@ -437,6 +437,9 @@ type PipelineConfig struct {
 	CreatedAt               time.Time               `json:"created_at"`
 	Metadata                PipelineMetadata        `json:"metadata"`
 	Status                  PipelineHealth          `json:"status,omitempty"`
+	Schemas                 []SchemaV2              `json:"schemas,omitempty"`
+	SchemaVersions          []SchemaVersion         `json:"schema_versions,omitempty"`
+	Mapping                 Mapping                 `json:"mapping"`
 }
 
 func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
@@ -500,6 +503,9 @@ func NewPipelineConfig(
 	sc SinkComponentConfig,
 	filterConfig FilterComponentConfig,
 	statelessTransformation StatelessTransformation,
+	schemas []SchemaV2,
+	schemaVersions []SchemaVersion,
+	mapping Mapping,
 	metadata PipelineMetadata,
 ) PipelineConfig {
 	return PipelineConfig{
@@ -511,6 +517,9 @@ func NewPipelineConfig(
 		Sink:                    sc,
 		Filter:                  filterConfig,
 		StatelessTransformation: statelessTransformation,
+		Schemas:                 schemas,
+		SchemaVersions:          schemaVersions,
+		Mapping:                 mapping,
 		CreatedAt:               time.Now().UTC(),
 		Metadata:                metadata,
 		Status:                  NewPipelineHealth(id, name),

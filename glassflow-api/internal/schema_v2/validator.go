@@ -7,31 +7,15 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	tj "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 )
 
 // validateSchemaToMapping - validate schema fields against schema mapping
-func validateSchemaToMapping(sourceID string, schema models.SchemaFields, schemaMapping *models.SchemaMapping) error {
-	switch schemaMapping.MappingType {
-	case "stateless_transformation":
-		return validateSchemaToExpressionMapping(sourceID, schema, schemaMapping.Mapping)
-	default:
-		return validateSchemaToFieldMapping(sourceID, schema, schemaMapping.Mapping)
-	}
-}
-
-// validateSchemaToExpressionMapping - validate that transformations can be applied to the schema fields
-func validateSchemaToExpressionMapping(sourceID string, schema models.SchemaFields, mapping models.Mapping) error {
-	err := tj.ValidateTransformationAgainstSchema(mapping.Transformations, schema)
-	if err != nil {
-		return fmt.Errorf("validate transformations for source %s: %w", sourceID, err)
-	}
-
-	return nil
+func validateSchemaToMapping(sourceID string, schema models.SchemaFields, mapping *models.Mapping) error {
+	return validateSchemaToFieldMapping(sourceID, schema, mapping)
 }
 
 // validateSchemaToFieldMapping - validate that mapping fields exist in the schema and types match
-func validateSchemaToFieldMapping(sourceID string, schema models.SchemaFields, mapping models.Mapping) error {
+func validateSchemaToFieldMapping(sourceID string, schema models.SchemaFields, mapping *models.Mapping) error {
 	sourceSchema := make(map[string]string)
 	for _, field := range schema.Fields {
 		sourceSchema[field.Name] = field.Type

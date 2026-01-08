@@ -39,9 +39,12 @@ func TestNewPipelineConfig(t *testing.T) {
 	sink := SinkComponentConfig{Type: internal.ClickHouseSinkType}
 	filter := FilterComponentConfig{Enabled: false}
 	statelessTransformation := StatelessTransformation{Enabled: false}
+	schemas := []SchemaV2{}
+	versions := []SchemaVersion{}
+	mapping := Mapping{}
 	metadata := PipelineMetadata{}
 
-	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter, statelessTransformation, metadata)
+	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter, statelessTransformation, schemas, versions, mapping, metadata)
 
 	if config.ID != id {
 		t.Errorf("Expected ID %s, got %s", id, config.ID)

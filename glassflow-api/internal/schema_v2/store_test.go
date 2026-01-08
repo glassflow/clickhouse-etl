@@ -24,8 +24,8 @@ func TestSchemaStore_GetSchema(t *testing.T) {
 	ctx := context.Background()
 	schemaID := "schema-1"
 	expectedSchema := &models.SchemaV2{
-		ID:   schemaID,
-		Name: "test-schema",
+		ID:         schemaID,
+		SourceName: "test-schema",
 	}
 
 	t.Run("get from cache when available", func(t *testing.T) {
@@ -42,8 +42,8 @@ func TestSchemaStore_GetSchema(t *testing.T) {
 	t.Run("get from DB and cache when not in cache", func(t *testing.T) {
 		newSchemaID := "schema-2"
 		newSchema := &models.SchemaV2{
-			ID:   newSchemaID,
-			Name: "test-schema-2",
+			ID:         newSchemaID,
+			SourceName: "test-schema-2",
 		}
 
 		mockDBClient.EXPECT().
@@ -282,11 +282,11 @@ func TestSchemaStore_SaveSchemaVersion(t *testing.T) {
 		SchemaID: schemaID,
 		Version:  version,
 	}
-	sourceMappings := []*models.SchemaMapping{
-		{ID: "mapping-1", MappingType: "field"},
+	sourceMappings := []*models.Mapping{
+		{ID: "mapping-1", Type: "field"},
 	}
-	destinationMappings := []*models.SchemaMapping{
-		{ID: "mapping-2", MappingType: "field"},
+	destinationMappings := []*models.Mapping{
+		{ID: "mapping-2", Type: "field"},
 	}
 
 	t.Run("save successfully to DB and cache", func(t *testing.T) {
@@ -363,9 +363,9 @@ func TestSchemaStore_GetSourceMappings(t *testing.T) {
 		SchemaID: schemaID,
 		Version:  version,
 	}
-	expectedMappings := []*models.SchemaMapping{
-		{ID: "mapping-1", MappingType: "field"},
-		{ID: "mapping-2", MappingType: "transformation"},
+	expectedMappings := []*models.Mapping{
+		{ID: "mapping-1", Type: "field"},
+		{ID: "mapping-2", Type: "transformation"},
 	}
 
 	t.Run("get from cache when available", func(t *testing.T) {
@@ -391,8 +391,8 @@ func TestSchemaStore_GetSourceMappings(t *testing.T) {
 			SchemaID: newSchemaID,
 			Version:  newVersion,
 		}
-		newMappings := []*models.SchemaMapping{
-			{ID: "mapping-3", MappingType: "field"},
+		newMappings := []*models.Mapping{
+			{ID: "mapping-3", Type: "field"},
 		}
 
 		// First, GetSchemaVersion will be called
@@ -478,9 +478,9 @@ func TestSchemaStore_GetDestinationMappings(t *testing.T) {
 		SchemaID: schemaID,
 		Version:  version,
 	}
-	expectedMappings := []*models.SchemaMapping{
-		{ID: "mapping-1", MappingType: "field"},
-		{ID: "mapping-2", MappingType: "transformation"},
+	expectedMappings := []*models.Mapping{
+		{ID: "mapping-1", Type: "field"},
+		{ID: "mapping-2", Type: "transformation"},
 	}
 
 	t.Run("get from cache when available", func(t *testing.T) {
@@ -506,8 +506,8 @@ func TestSchemaStore_GetDestinationMappings(t *testing.T) {
 			SchemaID: newSchemaID,
 			Version:  newVersion,
 		}
-		newMappings := []*models.SchemaMapping{
-			{ID: "mapping-3", MappingType: "field"},
+		newMappings := []*models.Mapping{
+			{ID: "mapping-3", Type: "field"},
 		}
 
 		// First, GetSchemaVersion will be called
@@ -619,12 +619,12 @@ func TestSchemaStore_CacheConsistency(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	sourceMappings := []*models.SchemaMapping{
-		{ID: "src-mapping-1", MappingType: "field"},
+	sourceMappings := []*models.Mapping{
+		{ID: "src-mapping-1", Type: "field"},
 	}
 
-	destinationMappings := []*models.SchemaMapping{
-		{ID: "dst-mapping-1", MappingType: "field"},
+	destinationMappings := []*models.Mapping{
+		{ID: "dst-mapping-1", Type: "field"},
 	}
 
 	// Save schema version

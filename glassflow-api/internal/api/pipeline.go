@@ -30,10 +30,11 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 }
 
 type pipelineSource struct {
-	Kind             string                 `json:"type"`
-	Provider         string                 `json:"provider,omitempty"`
-	ConnectionParams sourceConnectionParams `json:"connection_params"`
-	Topics           []kafkaTopic           `json:"topics"`
+	Kind                 string                 `json:"type"`
+	Provider             string                 `json:"provider,omitempty"`
+	ConnectionParams     sourceConnectionParams `json:"connection_params"`
+	SchemaRegistryConfig schemaRegistryConfig   `json:"schema_registry_config"`
+	Topics               []kafkaTopic           `json:"topics"`
 }
 
 type pipelineJoin struct {
@@ -60,6 +61,32 @@ type schema struct {
 	Fields []schemaField `json:"fields"`
 }
 
+type Field struct {
+	Name string `json:"name,omitempty"`
+	Type string `json:"type,omitempty"`
+}
+
+type SchemaSource struct {
+	ID            string  `json:"id,omitempty"`
+	DataType      string  `json:"data_type,omitempty"`
+	SchemaType    string  `json:"schema_type,omitempty"`
+	SchemaVersion string  `json:"schema_version,omitempty"`
+	Schema        string  `json:"schema_id,omitempty"`
+	Fields        []Field `json:"fields,omitempty"`
+}
+
+type SchemaMapping struct {
+	SourceID   string `json:"source_id,omitempty"`
+	Name       string `json:"name,omitempty"`
+	ColumnName string `json:"column_name,omitempty"`
+	ColumnType string `json:"column_type,omitempty"`
+}
+
+type pipelineSchema struct {
+	Sources  []SchemaSource  `json:"sources,omitempty"`
+	Mappings []SchemaMapping `json:"mappings,omitempty"`
+}
+
 type pipelineJSON struct {
 	PipelineID              string                         `json:"pipeline_id"`
 	Name                    string                         `json:"name"`
@@ -69,12 +96,19 @@ type pipelineJSON struct {
 	StatelessTransformation models.StatelessTransformation `json:"stateless_transformation,omitempty"`
 	Sink                    clickhouseSink                 `json:"sink"`
 	Schema                  schema                         `json:"schema"`
+	SchemaV2                pipelineSchema                 `json:"schema_v2,omitempty"`
 	Metadata                models.PipelineMetadata        `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
 	ExportedAt string `json:"exported_at,omitempty"`
 	ExportedBy string `json:"exported_by,omitempty"`
+}
+
+type schemaRegistryConfig struct {
+	URL    string `json:"url"`
+	Key    string `json:"key,omitempty"`
+	Secret string `json:"secret,omitempty"`
 }
 
 type sourceConnectionParams struct {
@@ -478,6 +512,9 @@ func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTr
 }
 
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
+	var schemaConfig models.SchemaConfig
+	var mapping models.Mapping
+
 	if len(strings.TrimSpace(pipeline.PipelineID)) == 0 {
 		return zero, fmt.Errorf("pipeline ID cannot be empty")
 	}
@@ -517,6 +554,13 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		return zero, fmt.Errorf("create stateless transformation config: %w", err)
 	}
 
+	if len(pipeline.SchemaV2.Sources) > 0 {
+		schemaConfig, mapping, err = newSchemaConfig(pipeline)
+		if err != nil {
+			return zero, fmt.Errorf("create schema config: %w", err)
+		}
+	}
+
 	return models.NewPipelineConfig(
 		pipeline.PipelineID,
 		pipeline.Name,
@@ -526,6 +570,9 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		sinkComponentConfig,
 		filterConfig,
 		statelessTransformationConfig,
+		schemaConfig.Schemas,
+		schemaConfig.Versions,
+		mapping,
 		pipeline.Metadata,
 	), nil
 }
@@ -592,6 +639,11 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		}
 	}
 
+	var schemaV2 pipelineSchema
+	if len(p.Schemas) > 0 {
+		schemaV2 = buildPipelineSchemaV2(p.Schemas, p.SchemaVersions, p.Mapping)
+	}
+
 	return pipelineJSON{
 		PipelineID: p.ID,
 		Name:       p.Name,
@@ -637,8 +689,66 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		Schema: schema{
 			Fields: schemaFields,
 		},
+		SchemaV2: schemaV2,
 		Metadata: p.Metadata,
 		Version:  "v2",
+	}
+}
+
+// / buildPipelineSchemaV2 converts schema v2 models to API pipelineSchema format
+func buildPipelineSchemaV2(schemas []models.SchemaV2, versions []models.SchemaVersion, mapping models.Mapping) pipelineSchema {
+	// Create version lookup map
+	versionMap := make(map[string]models.SchemaVersion)
+	for _, v := range versions {
+		versionMap[v.SchemaID] = v
+	}
+
+	// Build sources from schemas and versions
+	sources := make([]SchemaSource, 0)
+	for _, schema := range schemas {
+		version, ok := versionMap[schema.ID]
+		if !ok {
+			continue
+		}
+
+		fields := make([]Field, 0, len(version.SchemaFields.Fields))
+		for _, f := range version.SchemaFields.Fields {
+			fields = append(fields, Field{
+				Name: f.Name,
+				Type: f.Type,
+			})
+		}
+
+		schemaType := "internal"
+		if schema.ConfigType == models.SchemaConfigTypeExternal {
+			schemaType = "external"
+		}
+
+		source := SchemaSource{
+			ID:            schema.SourceName,
+			DataType:      string(schema.DataFormat),
+			SchemaType:    schemaType,
+			SchemaVersion: version.Version,
+			Fields:        fields,
+		}
+
+		sources = append(sources, source)
+	}
+
+	// Build mappings from mapping.Fields
+	mappings := make([]SchemaMapping, 0, len(mapping.Fields))
+	for _, field := range mapping.Fields {
+		mappings = append(mappings, SchemaMapping{
+			SourceID:   field.SourceID,
+			Name:       field.SourceField,
+			ColumnName: field.DestinationField,
+			ColumnType: field.DestinationType,
+		})
+	}
+
+	return pipelineSchema{
+		Sources:  sources,
+		Mappings: mappings,
 	}
 }
 

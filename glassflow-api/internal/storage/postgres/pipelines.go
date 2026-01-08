@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/google/uuid"
@@ -181,6 +182,20 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 	err = s.insertSchema(ctx, tx, insertData.pipelineID, schemaJSON, "v0", schemaStatusActive)
 	if err != nil {
 		return fmt.Errorf("insert schema: %w", err)
+	}
+
+	if p.Schemas != nil {
+		err = s.insertSchemaData(ctx, tx, p)
+		if err != nil {
+			return fmt.Errorf("insert schema data: %w", err)
+		}
+	}
+
+	if p.Mapping.Fields != nil {
+		err = s.insertMappings(ctx, tx, p.Mapping)
+		if err != nil {
+			return fmt.Errorf("insert mappings: %w", err)
+		}
 	}
 
 	// Insert pipeline history event
@@ -379,6 +394,13 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	err = s.updateSchema(ctx, tx, existingData.pipelineID, schemaJSON)
 	if err != nil {
 		return fmt.Errorf("update schema: %w", err)
+	}
+
+	if newCfg.Schemas != nil {
+		err = s.updateSchemaData(ctx, tx, existingData.pipelineID, newCfg)
+		if err != nil {
+			return fmt.Errorf("update schema data: %w", err)
+		}
 	}
 
 	// Insert pipeline history event
@@ -770,6 +792,150 @@ func (s *PostgresStorage) preparePipelineUpdateData(p models.PipelineConfig, sou
 	}, nil
 }
 
+// insertSchemaData inserts schemas and schema versions
+func (s *PostgresStorage) insertSchemaData(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) error {
+	if len(p.Schemas) == 0 {
+		return nil
+	}
+
+	// 1. Insert all schemas
+	schemaIDs, err := s.insertSchemas(ctx, tx, p.ID, p.Schemas)
+	if err != nil {
+		return fmt.Errorf("insert schemas: %w", err)
+	}
+
+	// 2. Insert all schema versions
+	err = s.insertSchemaVersions(ctx, tx, schemaIDs, p.SchemaVersions)
+	if err != nil {
+		return fmt.Errorf("insert schema versions: %w", err)
+	}
+
+	return nil
+}
+
+// updateSchemaData updates existing schemas, validates and marks invalid versions, and creates new ones
+func (s *PostgresStorage) updateSchemaData(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig) error {
+	if len(p.Schemas) == 0 {
+		return nil
+	}
+
+	var invalidVersionIDs []uuid.UUID
+
+	// 1. Get all existing schema IDs for this pipeline
+	existingSchemaIDs, err := s.getSchemaIDsByPipelineID(ctx, tx, pipelineID)
+	if err != nil && !errors.Is(err, models.ErrRecordNotFound) {
+		return fmt.Errorf("get existing schema IDs: %w", err)
+	}
+
+	// 2. Load all existing schema versions for the existing schemas
+	existingVersions := make(map[string][]*schemaVersion)
+	for sourceName, schemaID := range existingSchemaIDs {
+		versions, err := s.getSchemaVersionsBySchemaID(ctx, tx, schemaID.String())
+		if err != nil && !errors.Is(err, models.ErrRecordNotFound) {
+			return fmt.Errorf("get schema versions for schema %s: %w", sourceName, err)
+		}
+
+		// Convert schemaVersion to existingSchemaVersionData
+		existingVersions[sourceName] = versions
+
+	}
+	// 3. Validate existing versions against new config
+	for sourceName, versions := range existingVersions {
+		invalidSchemaVerionsIDs, err := s.validateExistingSchemaVersions(ctx, sourceName, versions, p)
+		if err != nil {
+			return fmt.Errorf("validate existing schema versions: %w", err)
+		}
+
+		invalidVersionIDs = append(invalidVersionIDs, invalidSchemaVerionsIDs...)
+	}
+
+	// 4. Mark invalid versions as "Invalid"
+	if len(invalidVersionIDs) > 0 {
+		for _, versionID := range invalidVersionIDs {
+			err = s.setStatusToSchemaVersion(ctx, tx, versionID, schemaStatusInvalid)
+			if err != nil {
+				return fmt.Errorf("mark schema version invalid: %w", err)
+			}
+		}
+	}
+
+	// 5. Insert/update schemas and schema versions
+	err = s.insertSchemaData(ctx, tx, p)
+	if err != nil {
+		return fmt.Errorf("insert schema data: %w", err)
+	}
+
+	// 6. Insert/update mappings
+	if p.Mapping.Fields != nil {
+		err = s.insertMappings(ctx, tx, p.Mapping)
+		if err != nil {
+			return fmt.Errorf("insert mappings: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// insertSchemas inserts all schemas and returns a map of schema name to UUID
+func (s *PostgresStorage) insertSchemas(ctx context.Context, tx pgx.Tx, pipelineID string, schemas []models.SchemaV2) (map[string]uuid.UUID, error) {
+	schemaUUIDs := make(map[string]uuid.UUID, len(schemas))
+
+	for _, schema := range schemas {
+		configJSON, err := json.Marshal(schema.ExternalSchemaConfig)
+		if err != nil {
+			return nil, fmt.Errorf("marshal config for schema %s: %w", schema.SourceName, err)
+		}
+
+		schemaUUID, err := s.insertSchemaV2(ctx, tx, pipelineID, schema.SourceName, string(schema.ConfigType), string(schema.DataFormat), string(schema.SchemaType), configJSON)
+		if err != nil {
+			return nil, fmt.Errorf("insert schema %s: %w", schema.SourceName, err)
+		}
+
+		schemaUUIDs[schema.SourceName] = schemaUUID
+	}
+
+	return schemaUUIDs, nil
+}
+
+// insertSchemaVersions inserts all schema versions
+func (s *PostgresStorage) insertSchemaVersions(ctx context.Context, tx pgx.Tx, schemaIDs map[string]uuid.UUID, versions []models.SchemaVersion) error {
+	for _, version := range versions {
+		schemaID := schemaIDs[version.SchemaID]
+
+		fieldsJSON, err := json.Marshal(version.SchemaFields)
+		if err != nil {
+			return fmt.Errorf("marshal fields for version %s: %w", version.Version, err)
+		}
+
+		status := version.Status
+		if status == "" {
+			status = schemaStatusActive
+		}
+
+		_, err = s.insertSchemaVersion(ctx, tx, schemaID, version.Version, status, fieldsJSON)
+		if err != nil {
+			return fmt.Errorf("insert version %s for schema %s: %w", version.Version, version.SchemaID, err)
+		}
+	}
+
+	return nil
+}
+
+// insertMappings inserts pipeline mappings
+func (s *PostgresStorage) insertMappings(ctx context.Context, tx pgx.Tx, mapping models.Mapping) error {
+	// Insert the mapping
+	fieldsJSON, err := json.Marshal(mapping.Fields)
+	if err != nil {
+		return fmt.Errorf("marshal mapping fields: %w", err)
+	}
+	_, err = s.insertMapping(ctx, tx, mapping.PipelineID, mapping.Type, fieldsJSON)
+	if err != nil {
+		return fmt.Errorf("insert mapping: %w", err)
+	}
+
+	return nil
+}
+
 // preparePipelineInsertData prepares data for pipeline insertion
 func (s *PostgresStorage) preparePipelineInsertData(p models.PipelineConfig, sourceID, sinkID uuid.UUID, transformationIDs []uuid.UUID) (*pipelineInsertData, error) {
 	pipelineID, err := parsePipelineID(p.ID)
@@ -926,4 +1092,81 @@ func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID strin
 	}
 
 	return s.buildPipelineData(ctx, row)
+}
+
+// ------------------------------------------------------------------------------------------------
+// Schema Update Helper Functions
+// ------------------------------------------------------------------------------------------------
+
+// validateExistingSchemaVersions validates existing schema versions against the new config
+// and returns IDs of versions that fail validation
+func (s *PostgresStorage) validateExistingSchemaVersions(ctx context.Context, sourceName string, existingVersions []*schemaVersion, newCfg models.PipelineConfig) ([]uuid.UUID, error) {
+	// Build a map of source names to new schema versions for quick lookup
+	newVersionMap := make(map[string]models.SchemaVersion)
+	for _, version := range newCfg.SchemaVersions {
+		newVersionMap[version.SchemaID] = version
+	}
+
+	// Build a map of deduplication keys by topic/source
+	dedupKeyMap := make(map[string]string)
+	for _, topic := range newCfg.Ingestor.KafkaTopics {
+		if topic.Deduplication.Enabled {
+			dedupKeyMap[topic.Name] = topic.Deduplication.ID
+		}
+	}
+
+	// Build a map of join keys by source
+	joinKeyMap := make(map[string]string)
+	if newCfg.Join.Enabled {
+		for _, joinSource := range newCfg.Join.Sources {
+			joinKeyMap[joinSource.SourceID] = joinSource.JoinKey
+		}
+	}
+
+	var invalidVersionIDs []uuid.UUID
+
+	for _, existingVersion := range existingVersions {
+		// Parse existing schema fields
+		var existingFields models.SchemaFields
+		err := json.Unmarshal(existingVersion.schemaFields, &existingFields)
+		if err != nil {
+			invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
+			continue
+		}
+
+		// Validate deduplication key if configured for this source
+		dedupKey, hasDedupKey := dedupKeyMap[sourceName]
+		if hasDedupKey && !existingFields.HasField(dedupKey) {
+			invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
+			continue
+		}
+
+		// Validate join key if configured for this source
+		joinKey, hasJoinKey := joinKeyMap[sourceName]
+		if hasJoinKey && !existingFields.HasField(joinKey) {
+			invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
+			continue
+		}
+
+		// Validate filter expression if enabled and this is the filter source
+		if newCfg.Filter.Enabled && len(newCfg.Ingestor.KafkaTopics) == 1 {
+			if newCfg.Ingestor.KafkaTopics[0].Name == sourceName {
+				err := filter.ValidateFilterExpressionOnSourceSchema(newCfg.Filter.Expression, existingFields)
+				if err != nil {
+					invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
+					continue
+				}
+			}
+		}
+
+		// Validate mapping fields exist in schema
+		for _, mappingField := range newCfg.Mapping.Fields {
+			if mappingField.SourceID == sourceName && !existingFields.HasField(mappingField.SourceField) {
+				invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
+				break
+			}
+		}
+	}
+
+	return invalidVersionIDs, nil
 }

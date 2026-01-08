@@ -14,25 +14,25 @@ type DBClient interface {
 	GetSchema(ctx context.Context, schemaID string) (*models.SchemaV2, error)
 	GetSchemaVersion(ctx context.Context, schemaID, version string) (*models.SchemaVersion, error)
 	GetLatestSchemaVersion(ctx context.Context, schemaID string) (*models.SchemaVersion, error)
-	SaveSchemaVersion(ctx context.Context, schemaVersion models.SchemaVersion, sourceMappings, destinationMappings []*models.SchemaMapping) error
-	GetMappingsBySchema(ctx context.Context, sourceID, schemaID string, orientation models.MappingOrintation) ([]*models.SchemaMapping, error)
+	SaveSchemaVersion(ctx context.Context, schemaVersion models.SchemaVersion, sourceMappings, destinationMappings []*models.Mapping) error
+	GetMappingsBySchema(ctx context.Context, sourceID, schemaID string, orientation models.MappingOrintation) ([]*models.Mapping, error)
 }
 
 type Store interface {
 	GetSchema(ctx context.Context, schemaID string) (*models.SchemaV2, error)
 	GetSchemaVersion(ctx context.Context, name, version string) (*models.SchemaVersion, error)
 	GetLatestSchemaVersion(ctx context.Context, name string) (*models.SchemaVersion, error)
-	SaveSchemaVersion(ctx context.Context, schemaVersion models.SchemaVersion, sourceMappings, destinationMappings []*models.SchemaMapping) error
-	GetSourceMapppings(ctx context.Context, schemaID, version string) ([]*models.SchemaMapping, error)
-	GetDestinationMappings(ctx context.Context, schemaID, version string) ([]*models.SchemaMapping, error)
+	SaveSchemaVersion(ctx context.Context, schemaVersion models.SchemaVersion, sourceMappings, destinationMappings []*models.Mapping) error
+	GetSourceMapppings(ctx context.Context, schemaID, version string) ([]*models.Mapping, error)
+	GetDestinationMappings(ctx context.Context, schemaID, version string) ([]*models.Mapping, error)
 }
 
 type SchemaStore struct {
 	schemas             map[string]*models.SchemaV2
 	schemaVersions      map[string]map[string]*models.SchemaVersion
 	latestVersions      map[string]string
-	sourceMappings      map[string][]*models.SchemaMapping
-	destinationMappings map[string][]*models.SchemaMapping
+	sourceMappings      map[string][]*models.Mapping
+	destinationMappings map[string][]*models.Mapping
 	dbStoreClient       DBClient
 }
 
@@ -41,8 +41,8 @@ func NewSchemaStore(dbClient DBClient) Store {
 		schemas:             make(map[string]*models.SchemaV2),
 		schemaVersions:      make(map[string]map[string]*models.SchemaVersion),
 		latestVersions:      make(map[string]string),
-		sourceMappings:      make(map[string][]*models.SchemaMapping),
-		destinationMappings: make(map[string][]*models.SchemaMapping),
+		sourceMappings:      make(map[string][]*models.Mapping),
+		destinationMappings: make(map[string][]*models.Mapping),
 		dbStoreClient:       dbClient,
 	}
 }
@@ -129,7 +129,7 @@ func (s *SchemaStore) GetLatestSchemaVersion(ctx context.Context, schemaID strin
 }
 
 // SaveSchemaVersion saves a schema version to both the database and local cache
-func (s *SchemaStore) SaveSchemaVersion(ctx context.Context, schemaVersion models.SchemaVersion, srcMappings []*models.SchemaMapping, dstMappings []*models.SchemaMapping) error {
+func (s *SchemaStore) SaveSchemaVersion(ctx context.Context, schemaVersion models.SchemaVersion, srcMappings []*models.Mapping, dstMappings []*models.Mapping) error {
 	// Save to database
 	err := s.dbStoreClient.SaveSchemaVersion(ctx, schemaVersion, srcMappings, dstMappings)
 	if err != nil {
@@ -146,7 +146,7 @@ func (s *SchemaStore) SaveSchemaVersion(ctx context.Context, schemaVersion model
 }
 
 // GetSourceMappping retrieves a schema mapping for a given ID and schema ID and source orientation
-func (s *SchemaStore) GetSourceMapppings(ctx context.Context, schemaID, version string) ([]*models.SchemaMapping, error) {
+func (s *SchemaStore) GetSourceMapppings(ctx context.Context, schemaID, version string) ([]*models.Mapping, error) {
 	schemaVersion, err := s.GetSchemaVersion(ctx, schemaID, version)
 	if err != nil {
 		return nil, fmt.Errorf("get schema version: %w", err)
@@ -168,7 +168,7 @@ func (s *SchemaStore) GetSourceMapppings(ctx context.Context, schemaID, version 
 }
 
 // GetDestinationMapping retrieves a schema mapping for a given ID and schema ID and destination orientation
-func (s *SchemaStore) GetDestinationMappings(ctx context.Context, schemaID, version string) ([]*models.SchemaMapping, error) {
+func (s *SchemaStore) GetDestinationMappings(ctx context.Context, schemaID, version string) ([]*models.Mapping, error) {
 	schemaVersion, err := s.GetSchemaVersion(ctx, schemaID, version)
 	if err != nil {
 		return nil, fmt.Errorf("get schema version: %w", err)

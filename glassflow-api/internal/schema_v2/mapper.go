@@ -123,7 +123,7 @@ func (m *Mapper) validateAndSaveNewSchemaVersion(ctx context.Context, schema *mo
 		return fmt.Errorf("failed to get latest schema version for schema %s: %w", schema.ID, err)
 	}
 
-	var mappings []*models.SchemaMapping
+	var mappings []*models.Mapping
 	srcMappings, err := m.store.GetSourceMapppings(ctx, schema.ID, latestSchemaVersion.Version)
 	if err != nil {
 		return fmt.Errorf("failed to get mapping for schema %s version %s: %w", schema.ID, latestSchemaVersion.Version, err)
@@ -140,7 +140,7 @@ func (m *Mapper) validateAndSaveNewSchemaVersion(ctx context.Context, schema *mo
 
 	for _, mapping := range mappings {
 		// Validate schema against mapping
-		if err := validateSchemaToMapping(schema.Name, schemaFields, mapping); err != nil {
+		if err := validateSchemaToMapping(schema.SourceName, schemaFields, mapping); err != nil {
 			return fmt.Errorf("schema validation failed: %w", err)
 		}
 	}

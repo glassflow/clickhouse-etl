@@ -63,7 +63,7 @@ type SchemaRegistryConfig struct {
 
 type SchemaV2 struct {
 	ID                   string               `json:"id" db:"id"`
-	Name                 string               `json:"name" db:"name"`
+	SourceName           string               `json:"source_name" db:"Source_name"`
 	ConfigType           SchemaConfigType     `json:"config_type" db:"config_type"`
 	ExternalSchemaConfig SchemaRegistryConfig `json:"external_schema_config" db:"external_schema_config"`
 	DataFormat           SchemaDataFormat     `json:"data_format" db:"data_format"`
@@ -81,13 +81,13 @@ type SchemaVersion struct {
 	UpdatedAt    time.Time    `json:"updated_at" db:"updated_at"`
 }
 
-type SchemaMapping struct {
-	ID          string    `json:"id" db:"id"`
-	MappingType string    `json:"mapping_type" db:"mapping_type"`
-	Key         string    `json:"key" db:"key"`
-	Mapping     Mapping   `json:"mapping" db:"mapping"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+type Mapping struct {
+	ID         string         `json:"id" db:"id"`
+	Type       string         `json:"mapping_type" db:"mapping_type"`
+	Fields     []MappingField `json:"mapping_fields" db:"mapping_fields"`
+	PipelineID string         `json:"pipeline_id" db:"pipeline_id"`
+	CreatedAt  time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 type Field struct {
@@ -99,6 +99,25 @@ type SchemaFields struct {
 	Fields []Field `json:"fields"`
 }
 
+func (sf SchemaFields) HasField(name string) bool {
+	for _, field := range sf.Fields {
+		if field.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (sf SchemaFields) GetField(name string) (*Field, bool) {
+	for _, field := range sf.Fields {
+		if field.Name == name {
+			return &field, true
+		}
+	}
+
+	return nil, false
+}
+
 type MappingField struct {
 	SourceID         string `json:"source_id"`
 	SourceField      string `json:"source_field"`
@@ -107,7 +126,7 @@ type MappingField struct {
 	DestinationType  string `json:"destination_type"`
 }
 
-type Mapping struct {
-	Fields          []MappingField `json:"fields"`
-	Transformations []Transform    `json:"transformations"`
+type SchemaConfig struct {
+	Schemas  []SchemaV2      `json:"schemas"`
+	Versions []SchemaVersion `json:"versions"`
 }
