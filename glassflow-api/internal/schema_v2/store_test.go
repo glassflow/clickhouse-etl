@@ -156,7 +156,7 @@ func TestSchemaStore_GetSchemaVersion(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, schemaVersion)
-		assert.ErrorIs(t, err, ErrSchemaVerionNotFound)
+		assert.ErrorIs(t, err, models.ErrSchemaVerionNotFound)
 	})
 
 	t.Run("database error", func(t *testing.T) {

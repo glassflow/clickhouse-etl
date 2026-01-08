@@ -8,8 +8,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-var ErrSchemaVerionNotFound = fmt.Errorf("schema version not found")
-
 //go:generate mockgen -destination ./mocks/dbclient_mock.go -package mocks . DBClient
 type DBClient interface {
 	GetSchema(ctx context.Context, pipelineID, sourceName string) (*models.SchemaV2, error)
@@ -61,7 +59,7 @@ func (s *SchemaStore) GetSchemaVersion(ctx context.Context, version string) (*mo
 	schemaVersion, err := s.dbClient.GetSchemaVersion(ctx, s.schema.ID, version)
 	if err != nil {
 		if errors.Is(err, models.ErrRecordNotFound) {
-			return nil, ErrSchemaVerionNotFound
+			return nil, models.ErrSchemaVerionNotFound
 		}
 		return nil, fmt.Errorf("get schema version: %w", err)
 	}

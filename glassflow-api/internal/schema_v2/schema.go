@@ -59,7 +59,7 @@ func (s *Schema) validateMsgWithExternalSchema(ctx context.Context, msg []byte) 
 
 	schemaVersion, err := s.store.GetSchemaVersion(ctx, fmt.Sprintf("%d", version))
 	if err != nil {
-		if errors.Is(err, ErrSchemaVerionNotFound) {
+		if errors.Is(err, models.ErrSchemaVerionNotFound) {
 			return s.validateAndSaveNewSchemaVersion(ctx, version)
 		}
 
