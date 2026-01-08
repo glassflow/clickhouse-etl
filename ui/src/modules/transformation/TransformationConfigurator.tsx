@@ -391,19 +391,30 @@ export function TransformationConfigurator({
                     </div>
                   )}
                 </div>
-                <div className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)]">
-                  {getIntermediarySchema(transformationConfig).map((field, idx) => (
-                    <div key={idx} className="text-[var(--text-primary)]">
-                      <span className="text-[var(--color-foreground-primary)]">{field.name}</span>
-                      <span className="text-[var(--text-secondary)]">: {field.type}</span>
-                      {field.sourceField && (
-                        <span className="text-[var(--text-secondary)]"> (from {field.sourceField})</span>
-                      )}
-                      {field.functionName && (
-                        <span className="text-[var(--text-secondary)]"> (computed via {field.functionName})</span>
-                      )}
-                    </div>
-                  ))}
+                <div className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="text-xs text-[var(--text-disabled)] border-b border-[var(--surface-border)]">
+                        <th className="text-left py-1 pr-4 font-medium w-[35%]">Field Name</th>
+                        <th className="text-left py-1 pr-4 font-medium w-[20%]">Type</th>
+                        <th className="text-left py-1 font-medium w-[45%]">Source</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getIntermediarySchema(transformationConfig).map((field, idx) => (
+                        <tr key={idx} className="border-b border-[var(--surface-border)] last:border-b-0">
+                          <td className="py-1.5 pr-4 text-[var(--color-foreground-primary)]">{field.name}</td>
+                          <td className="py-1.5 pr-4 text-[var(--text-secondary)]">{field.type}</td>
+                          <td className="py-1.5 text-[var(--text-secondary)]">
+                            {field.sourceField && <span>← {field.sourceField}</span>}
+                            {field.functionName && (
+                              <span className="text-[var(--text-accent)]">fn: {field.functionName}()</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
