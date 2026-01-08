@@ -240,9 +240,9 @@ func mainEtl(
 		}
 	}
 
-	usageStatsClient := newUsageStatsClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log, db)
 
-	pipelineSvc := service.NewPipelineService(orch, db, log, usageStatsClient)
+	pipelineSvc := service.NewPipelineService(orch, db, log)
 
 	err = pipelineSvc.CleanUpPipelines(ctx)
 	if err != nil {
@@ -335,7 +335,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		meter,
 	)
 
-	usageStatsClient := newUsageStatsClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
 	return runWithGracefulShutdown(
 		ctx,
@@ -388,7 +388,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 
 	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
 
-	usageStatsClient := newUsageStatsClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
 	return runWithGracefulShutdown(
 		ctx,
@@ -416,7 +416,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 
 	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
 
-	usageStatsClient := newUsageStatsClient(cfg, log)
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
 	return runWithGracefulShutdown(
 		ctx,
@@ -487,7 +487,7 @@ func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ er
 	return pipelineCfg, nil
 }
 
-func newUsageStatsClient(cfg *config, log *slog.Logger) *usagestats.Client {
+func newUsageStatsClient(cfg *config, log *slog.Logger, db service.PipelineStore) *usagestats.Client {
 	return usagestats.NewClient(
 		cfg.UsageStatsEndpoint,
 		cfg.UsageStatsUsername,
@@ -495,6 +495,7 @@ func newUsageStatsClient(cfg *config, log *slog.Logger) *usagestats.Client {
 		cfg.UsageStatsInstallationID,
 		cfg.UsageStatsEnabled,
 		log,
+		db,
 	)
 }
 

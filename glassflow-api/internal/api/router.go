@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +15,16 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
+
+// trackedOperationIDs contains the set of operation IDs that should trigger usage stats tracking
+var trackedOperationIDs = map[string]bool{
+	"create-pipeline":    true,
+	"delete-pipeline":    true,
+	"terminate-pipeline": true,
+	"resume-pipeline":    true,
+	"stop-pipeline":      true,
+	"edit-pipeline":      true,
+}
 
 type handler struct {
 	log *slog.Logger
@@ -65,31 +76,31 @@ func NewRouter(
 
 	// we need to support v1 and v2 for healthz since it's backward incompatible
 	// TODO delete v1 when Vlad migrates to v2 on FE
-	registerHumaHandler("/api/v2/healthz", h.healthzV2, log, HealthzSwaggerDocs(), humaAPI)
-	registerHumaHandler("/api/v1/platform", h.platform, log, PlatformSwaggerDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/dlq/purge", h.purgeDLQ, log, PurgeDLQDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ, log, ConsumeDLQDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/dlq/state", h.getDLQState, log, GetDLQStateDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline", h.createPipeline, log, CreatePipelineDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/stop", h.stopPipeline, log, StopPipelineDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/terminate", h.terminatePipeline, log, TerminatePipelineDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/metadata", h.updatePipelineMetadata, log, UpdatePipelineMetadataDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/health", h.getPipelineHealth, log, GetPipelineHealthDocs(), humaAPI)
-	registerHumaHandler("/api/v1/filter/validate", h.validateFilter, log, ValidateFilterDocs(), humaAPI)
-	registerHumaHandler("/api/v1/transform/expression/evaluate", h.evaluateTransform, log, EvaluateTransformDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline", h.getPipelines, log, GetPipelinesDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}", h.getPipeline, log, GetPipelineDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}", h.updatePipelineName, log, UpdatePipelineNameDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}", h.deletePipeline, log, DeletePipelineDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/resume", h.resumePipeline, log, ResumePipelineDocs(), humaAPI)
-	registerHumaHandler("/api/v1/pipeline/{id}/edit", h.editPipeline, log, EditPipelineDocs(), humaAPI)
+	registerHumaHandler("/api/v2/healthz", h.healthzV2, log, HealthzSwaggerDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/platform", h.platform, log, PlatformSwaggerDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/dlq/purge", h.purgeDLQ, log, PurgeDLQDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ, log, ConsumeDLQDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/dlq/state", h.getDLQState, log, GetDLQStateDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline", h.createPipeline, log, CreatePipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/stop", h.stopPipeline, log, StopPipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/terminate", h.terminatePipeline, log, TerminatePipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/metadata", h.updatePipelineMetadata, log, UpdatePipelineMetadataDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/health", h.getPipelineHealth, log, GetPipelineHealthDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/filter/validate", h.validateFilter, log, ValidateFilterDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/transform/expression/evaluate", h.evaluateTransform, log, EvaluateTransformDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline", h.getPipelines, log, GetPipelinesDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}", h.getPipeline, log, GetPipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}", h.updatePipelineName, log, UpdatePipelineNameDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}", h.deletePipeline, log, DeletePipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/resume", h.resumePipeline, log, ResumePipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/edit", h.editPipeline, log, EditPipelineDocs(), humaAPI, h.usageStatsClient)
 
 	r.HandleFunc("/api/v1/docs", h.docs)
 	r.HandleFunc("/api/v1/openapi.json", h.swaggerDocsJSON)
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
 
-	r.Use(Recovery(log), RouteContext(), RequestLogging(log), RequestMetrics(meter))
+	r.Use(Recovery(log), RequestLogging(log), RequestMetrics(meter))
 
 	return r
 }
@@ -101,10 +112,12 @@ func registerHumaHandler[I, O any](
 	log *slog.Logger,
 	op huma.Operation,
 	api huma.API,
+	usageStatsClient *usagestats.Client,
 ) {
 	op.Path = path
 	huma.Register(api, op, func(ctx context.Context, input *I) (*O, error) {
 		output, err := handler(ctx, input)
+		usageStatsReporting(usageStatsClient, op, input)
 		if err == nil {
 			return output, nil
 		}
@@ -131,4 +144,50 @@ func registerHumaHandler[I, O any](
 
 		return output, err
 	})
+}
+
+func usageStatsReporting(usageStatsClient *usagestats.Client, op huma.Operation, input any) {
+	if usageStatsClient == nil {
+		return
+	}
+
+	// Check if this operation should be tracked
+	if !trackedOperationIDs[op.OperationID] {
+		return
+	}
+
+	id, err := extractPipelineID(op, input)
+	if err != nil {
+		return
+	}
+
+	// Send pipeline event to usage stats client channel
+	usageStatsClient.RecordPipelineEvent(id, op.OperationID)
+}
+
+const ()
+
+func extractPipelineID(op huma.Operation, input any) (string, error) {
+	reqBytes, err := json.Marshal(input)
+	if err != nil {
+		return "", err
+	}
+
+	if op.OperationID == "create-pipeline" {
+		var reqBody CreatePipelineInput
+		err = json.Unmarshal(reqBytes, &reqBody)
+		if err != nil || reqBody.Body.PipelineID == "" {
+			return "", err
+		}
+		return reqBody.Body.PipelineID, nil
+	}
+
+	var reqBody struct {
+		ID string
+	}
+	err = json.Unmarshal(reqBytes, &reqBody)
+	if err != nil || reqBody.ID == "" {
+		return "", err
+	}
+	return reqBody.ID, nil
 }

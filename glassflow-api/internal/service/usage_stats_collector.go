@@ -18,6 +18,7 @@ type UsageStatsCollector struct {
 	usageStatsClient *usagestats.Client
 	log              *slog.Logger
 	interval         time.Duration
+	eventChan        <-chan usagestats.PipelineEvent
 }
 
 func NewUsageStatsCollector(
@@ -27,6 +28,10 @@ func NewUsageStatsCollector(
 	usageStatsClient *usagestats.Client,
 	log *slog.Logger,
 ) *UsageStatsCollector {
+	var eventChan <-chan usagestats.PipelineEvent
+	if usageStatsClient != nil {
+		eventChan = usageStatsClient.GetEventChannel()
+	}
 	return &UsageStatsCollector{
 		db:               db,
 		nc:               nc,
@@ -34,6 +39,7 @@ func NewUsageStatsCollector(
 		usageStatsClient: usageStatsClient,
 		log:              log,
 		interval:         10 * time.Minute,
+		eventChan:        eventChan,
 	}
 }
 
@@ -53,8 +59,14 @@ func (m *UsageStatsCollector) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			m.sendMetrics(ctx)
+		case event := <-m.eventChan:
+			m.processAPIEvent(ctx, event)
 		}
 	}
+}
+
+func (m *UsageStatsCollector) processAPIEvent(ctx context.Context, event usagestats.PipelineEvent) {
+	m.usageStatsClient.ProcessPipelineEvent(ctx, event)
 }
 
 func (m *UsageStatsCollector) sendMetrics(ctx context.Context) {
