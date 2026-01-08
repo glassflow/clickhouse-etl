@@ -47,7 +47,7 @@ func (a *APISteps) CleanupResources() error {
 
 func (a *APISteps) aRunningGlassflowAPIServer() error {
 	// Create a minimal router for API-only tests
-	usageStatsClient := usagestats.NewClient("", "", "", "", false, a.log)
+	usageStatsClient := usagestats.NewClient("", "", "", "", false, a.log, nil)
 	a.httpRouter = api.NewRouter(a.log, nil, nil, nil, usageStatsClient)
 	return nil
 }

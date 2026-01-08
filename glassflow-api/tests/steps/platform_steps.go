@@ -111,8 +111,8 @@ func (p *PlatformSteps) setupServices() error {
 	}
 
 	// Create pipeline manager
-	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log)
-	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log, usageStatsClient)
+	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log, db)
+	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log)
 
 	// Create HTTP router
 	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil, usageStatsClient)

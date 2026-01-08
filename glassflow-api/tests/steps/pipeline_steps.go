@@ -382,13 +382,12 @@ func (p *PipelineSteps) setupPipelineService() error {
 	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
-	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log)
+	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log, db)
 
 	p.pipelineService = service.NewPipelineService(
 		orch,
 		db,
 		p.log,
-		usageStatsClient,
 	)
 
 	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil, usageStatsClient)
