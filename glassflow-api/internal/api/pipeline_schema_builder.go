@@ -3,8 +3,8 @@ package api
 import (
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/validation"
 )
 
 // SchemaConfigBuilder provides an optimized way to build schema configurations
@@ -37,7 +37,7 @@ func (b *SchemaConfigBuilder) Build() (zero1 models.SchemaConfig, zero2 models.M
 	}
 
 	// Build schemas in order
-	if err := b.buildKafkaSchemas(); err != nil {
+	if err := b.buildSourceSchemas(); err != nil {
 		return zero1, zero2, fmt.Errorf("build kafka schemas: %w", err)
 	}
 
@@ -58,8 +58,8 @@ func (b *SchemaConfigBuilder) Build() (zero1 models.SchemaConfig, zero2 models.M
 	}, mapping, nil
 }
 
-// buildKafkaSchemas processes all Kafka source schemas
-func (b *SchemaConfigBuilder) buildKafkaSchemas() error {
+// buildSourceSchemas processes all Kafka source schemas
+func (b *SchemaConfigBuilder) buildSourceSchemas() error {
 	for _, src := range b.pipeline.SchemaV2.Sources {
 		schema := models.SchemaV2{
 			SourceName: src.ID,
@@ -107,56 +107,97 @@ func (b *SchemaConfigBuilder) buildKafkaSchemas() error {
 
 // validateFields performs all field validations in a single pass
 func (b *SchemaConfigBuilder) validateFields() error {
-	// Validate deduplication keys
-	for _, topic := range b.pipeline.Source.Topics {
-		if !topic.Deduplication.Enabled {
-			continue
-		}
-
-		version, ok := b.versionMap[topic.ID]
-		if !ok {
-			return fmt.Errorf("topic '%s' not found in schemas", topic.ID)
-		}
-
-		if !version.SchemaFields.HasField(topic.Deduplication.ID) {
-			return fmt.Errorf("deduplication key '%s' not found in schema fields for source_id '%s'",
-				topic.Deduplication.ID, topic.ID)
-		}
+	// Validate filter configuration
+	if b.pipeline.Filter.Enabled && len(b.pipeline.Source.Topics) > 1 {
+		return fmt.Errorf("filtering supports only one source topic, but %d topics were configured", len(b.pipeline.Source.Topics))
 	}
 
-	// Validate join keys (only if enabled)
-	if b.pipeline.Join.Enabled {
-		for _, js := range b.pipeline.Join.Sources {
-			version, ok := b.versionMap[js.SourceID]
-			if !ok {
-				return fmt.Errorf("join source with id '%s' not found in schemas", js.SourceID)
-			}
+	// Build validator from pipeline configuration
+	validator := b.buildValidator()
 
-			if !version.SchemaFields.HasField(js.JoinKey) {
-				return fmt.Errorf("join key '%s' not found in schema fields for source_id '%s'",
-					js.JoinKey, js.SourceID)
-			}
-		}
-	}
-
-	// Validate filter expression (only if enabled)
-	if b.pipeline.Filter.Enabled {
-		if len(b.pipeline.Source.Topics) != 1 {
-			return fmt.Errorf("filtering supports only one source topic")
-		}
-
-		versionsKey := b.pipeline.Source.Topics[0].ID
-		sourceVersion, ok := b.versionMap[versionsKey]
-		if !ok {
-			return fmt.Errorf("filter source_id '%s' not found in schemas", versionsKey)
-		}
-
-		if err := filter.ValidateFilterExpressionOnSourceSchema(b.pipeline.Filter.Expression, sourceVersion.SchemaFields); err != nil {
-			return fmt.Errorf("validate filter expression: %w", err)
+	// Validate each source's fields
+	for sourceName, version := range b.versionMap {
+		if err := validator.ValidateSourceFields(sourceName, version.SchemaFields); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+// buildValidator creates a validator from the pipeline configuration
+func (b *SchemaConfigBuilder) buildValidator() *validation.SchemaFieldValidator {
+	// Build dedup configs from topics
+	var dedupConfigs []validation.DedupKeyConfig
+	for _, topic := range b.pipeline.Source.Topics {
+		if topic.Deduplication.Enabled {
+			dedupConfigs = append(dedupConfigs, validation.DedupKeyConfig{
+				SourceName: topic.ID,
+				KeyField:   topic.Deduplication.ID,
+			})
+		}
+	}
+
+	// Build join configs
+	var joinConfigs []validation.JoinKeyConfig
+	if b.pipeline.Join.Enabled {
+		for _, js := range b.pipeline.Join.Sources {
+			joinConfigs = append(joinConfigs, validation.JoinKeyConfig{
+				SourceID: js.SourceID,
+				JoinKey:  js.JoinKey,
+			})
+		}
+	}
+
+	// Determine filter source name
+	filterSourceName := ""
+	if b.pipeline.Filter.Enabled && len(b.pipeline.Source.Topics) == 1 {
+		filterSourceName = b.pipeline.Source.Topics[0].ID
+	}
+
+	// Build mapping fields slice
+	var mappingFields []models.MappingField
+	for _, m := range b.pipeline.SchemaV2.Mappings {
+		// Lookup source version to get field type
+		sourceVersion, ok := b.versionMap[m.SourceID]
+		if !ok {
+			if b.pipeline.StatelessTransformation.Enabled && b.pipeline.StatelessTransformation.ID == m.SourceID {
+				// Skip validation for stateless transformation source
+				continue
+			}
+			// Field will be validated later and will fail with proper error
+			continue
+		}
+
+		sourceField, found := sourceVersion.SchemaFields.GetField(m.Name)
+		if !found {
+			// Field will be validated later and will fail with proper error
+			continue
+		}
+
+		mappingFields = append(mappingFields, models.MappingField{
+			SourceID:         m.SourceID,
+			SourceField:      sourceField.Name,
+			SourceType:       sourceField.Type,
+			DestinationField: m.Name,
+			DestinationType:  m.ColumnType,
+		})
+	}
+
+	stTransformations := make(map[string][]models.Transform)
+	if b.pipeline.StatelessTransformation.Enabled {
+		stTransformations[b.pipeline.Source.Topics[0].Topic] = b.pipeline.StatelessTransformation.Config.Transform
+	}
+
+	return validation.NewSchemaFieldValidator(
+		dedupConfigs,
+		joinConfigs,
+		b.pipeline.Filter.Enabled,
+		b.pipeline.Filter.Expression,
+		filterSourceName,
+		stTransformations,
+		mappingFields,
+	)
 }
 
 // buildSinkSchemaAndMapping creates the sink schema and mapping configuration

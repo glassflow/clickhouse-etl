@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/validation"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -819,34 +819,42 @@ func (s *PostgresStorage) updateSchemaData(ctx context.Context, tx pgx.Tx, pipel
 		return nil
 	}
 
-	var invalidVersionIDs []uuid.UUID
-
 	// 1. Get all existing schema IDs for this pipeline
 	existingSchemaIDs, err := s.getSchemaIDsByPipelineID(ctx, tx, pipelineID)
 	if err != nil && !errors.Is(err, models.ErrRecordNotFound) {
 		return fmt.Errorf("get existing schema IDs: %w", err)
 	}
 
-	// 2. Load all existing schema versions for the existing schemas
-	existingVersions := make(map[string][]*schemaVersion)
+	// 2. Build validator from new pipeline config
+	validator := validation.NewValidatorFromPipelineConfig(p)
+
+	// 3. Load and validate all existing schema versions
+	var invalidVersionIDs []uuid.UUID
 	for sourceName, schemaID := range existingSchemaIDs {
 		versions, err := s.getSchemaVersionsBySchemaID(ctx, tx, schemaID.String())
 		if err != nil && !errors.Is(err, models.ErrRecordNotFound) {
 			return fmt.Errorf("get schema versions for schema %s: %w", sourceName, err)
 		}
 
-		// Convert schemaVersion to existingSchemaVersionData
-		existingVersions[sourceName] = versions
+		// Validate each version
+		for _, version := range versions {
+			var fields models.SchemaFields
+			err := json.Unmarshal(version.schemaFields, &fields)
+			if err != nil {
+				s.logger.WarnContext(ctx, "failed to unmarshal schema fields, marking as invalid",
+					slog.String("version_id", version.id.String()),
+					slog.String("source_name", sourceName),
+					slog.String("error", err.Error()))
+				invalidVersionIDs = append(invalidVersionIDs, version.id)
+				continue
+			}
 
-	}
-	// 3. Validate existing versions against new config
-	for sourceName, versions := range existingVersions {
-		invalidSchemaVerionsIDs, err := s.validateExistingSchemaVersions(ctx, sourceName, versions, p)
-		if err != nil {
-			return fmt.Errorf("validate existing schema versions: %w", err)
+			// Validate fields against pipeline configuration
+			err = validator.ValidateSourceFields(sourceName, fields)
+			if err != nil {
+				invalidVersionIDs = append(invalidVersionIDs, version.id)
+			}
 		}
-
-		invalidVersionIDs = append(invalidVersionIDs, invalidSchemaVerionsIDs...)
 	}
 
 	// 4. Mark invalid versions as "Invalid"
@@ -1092,81 +1100,4 @@ func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID strin
 	}
 
 	return s.buildPipelineData(ctx, row)
-}
-
-// ------------------------------------------------------------------------------------------------
-// Schema Update Helper Functions
-// ------------------------------------------------------------------------------------------------
-
-// validateExistingSchemaVersions validates existing schema versions against the new config
-// and returns IDs of versions that fail validation
-func (s *PostgresStorage) validateExistingSchemaVersions(ctx context.Context, sourceName string, existingVersions []*schemaVersion, newCfg models.PipelineConfig) ([]uuid.UUID, error) {
-	// Build a map of source names to new schema versions for quick lookup
-	newVersionMap := make(map[string]models.SchemaVersion)
-	for _, version := range newCfg.SchemaVersions {
-		newVersionMap[version.SchemaID] = version
-	}
-
-	// Build a map of deduplication keys by topic/source
-	dedupKeyMap := make(map[string]string)
-	for _, topic := range newCfg.Ingestor.KafkaTopics {
-		if topic.Deduplication.Enabled {
-			dedupKeyMap[topic.Name] = topic.Deduplication.ID
-		}
-	}
-
-	// Build a map of join keys by source
-	joinKeyMap := make(map[string]string)
-	if newCfg.Join.Enabled {
-		for _, joinSource := range newCfg.Join.Sources {
-			joinKeyMap[joinSource.SourceID] = joinSource.JoinKey
-		}
-	}
-
-	var invalidVersionIDs []uuid.UUID
-
-	for _, existingVersion := range existingVersions {
-		// Parse existing schema fields
-		var existingFields models.SchemaFields
-		err := json.Unmarshal(existingVersion.schemaFields, &existingFields)
-		if err != nil {
-			invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
-			continue
-		}
-
-		// Validate deduplication key if configured for this source
-		dedupKey, hasDedupKey := dedupKeyMap[sourceName]
-		if hasDedupKey && !existingFields.HasField(dedupKey) {
-			invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
-			continue
-		}
-
-		// Validate join key if configured for this source
-		joinKey, hasJoinKey := joinKeyMap[sourceName]
-		if hasJoinKey && !existingFields.HasField(joinKey) {
-			invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
-			continue
-		}
-
-		// Validate filter expression if enabled and this is the filter source
-		if newCfg.Filter.Enabled && len(newCfg.Ingestor.KafkaTopics) == 1 {
-			if newCfg.Ingestor.KafkaTopics[0].Name == sourceName {
-				err := filter.ValidateFilterExpressionOnSourceSchema(newCfg.Filter.Expression, existingFields)
-				if err != nil {
-					invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
-					continue
-				}
-			}
-		}
-
-		// Validate mapping fields exist in schema
-		for _, mappingField := range newCfg.Mapping.Fields {
-			if mappingField.SourceID == sourceName && !existingFields.HasField(mappingField.SourceField) {
-				invalidVersionIDs = append(invalidVersionIDs, existingVersion.id)
-				break
-			}
-		}
-	}
-
-	return invalidVersionIDs, nil
 }
