@@ -26,25 +26,45 @@ interface FunctionSelectorProps {
   disabled?: boolean
   error?: string
   className?: string
+  // Optional filter function to customize available functions
+  filterFunctions?: (functions: TransformationFunctionDef[]) => TransformationFunctionDef[]
 }
 
-export function FunctionSelector({ value, onSelect, disabled = false, error, className }: FunctionSelectorProps) {
-  // Get all categories
-  const categories = useMemo(() => getCategories(), [])
+export function FunctionSelector({
+  value,
+  onSelect,
+  disabled = false,
+  error,
+  className,
+  filterFunctions,
+}: FunctionSelectorProps) {
+  // Get filtered functions if filter is provided
+  const availableFunctions = useMemo(() => {
+    if (filterFunctions) {
+      return filterFunctions(TRANSFORMATION_FUNCTIONS)
+    }
+    return TRANSFORMATION_FUNCTIONS
+  }, [filterFunctions])
+
+  // Get all categories from available functions
+  const categories = useMemo(() => {
+    const cats = [...new Set(availableFunctions.map((fn) => fn.category))]
+    return cats as FunctionCategory[]
+  }, [availableFunctions])
 
   // Group functions by category
   const functionsByCategory = useMemo(() => {
     const grouped: Record<FunctionCategory, TransformationFunctionDef[]> = {} as any
     categories.forEach((cat) => {
-      grouped[cat] = getFunctionsByCategory(cat)
+      grouped[cat] = availableFunctions.filter((fn) => fn.category === cat)
     })
     return grouped
-  }, [categories])
+  }, [categories, availableFunctions])
 
   // Get the selected function's display info
   const selectedFunction = useMemo(() => {
-    return TRANSFORMATION_FUNCTIONS.find((f) => f.name === value)
-  }, [value])
+    return availableFunctions.find((f) => f.name === value)
+  }, [value, availableFunctions])
 
   return (
     <Select value={value} onValueChange={onSelect} disabled={disabled}>

@@ -13,6 +13,8 @@ import {
   FunctionArgLiteral,
   FunctionArgArray,
   FunctionArgNestedFunction,
+  FunctionArgWaterfallArray,
+  WaterfallSlot,
   TransformArithmeticExpression,
   isFieldComplete,
   isNestedFunctionArg,
@@ -83,6 +85,13 @@ export const isNestedFunctionArgUtil = (arg: FunctionArg): arg is FunctionArgNes
 }
 
 /**
+ * Check if a function argument is a waterfall array
+ */
+export const isWaterfallArrayArg = (arg: FunctionArg): arg is FunctionArgWaterfallArray => {
+  return arg.type === 'waterfall_array'
+}
+
+/**
  * Format a function argument for the expression (supports nested functions)
  */
 export const formatArgForExpr = (arg: FunctionArg): string => {
@@ -119,7 +128,43 @@ export const formatArgForExpr = (arg: FunctionArg): string => {
     return nestedFunctionToExpr(arg)
   }
 
+  if (isWaterfallArrayArg(arg)) {
+    // Waterfall array - convert slots to expressions
+    return waterfallArrayToExpr(arg)
+  }
+
   return ''
+}
+
+/**
+ * Convert a waterfall slot to its expression string
+ */
+export const waterfallSlotToExpr = (slot: WaterfallSlot): string => {
+  switch (slot.slotType) {
+    case 'field':
+      return slot.fieldName || ''
+    case 'literal':
+      if (slot.literalType === 'number') {
+        return slot.literalValue || '0'
+      }
+      // String literal - escape quotes
+      const escaped = (slot.literalValue || '').replace(/"/g, '\\"')
+      return `"${escaped}"`
+    case 'function':
+      if (!slot.functionName) return ''
+      const args = (slot.functionArgs || []).map(formatArgForExpr)
+      return `${slot.functionName}(${args.join(', ')})`
+    default:
+      return ''
+  }
+}
+
+/**
+ * Convert a waterfall array argument to its expression string
+ */
+export const waterfallArrayToExpr = (arg: FunctionArgWaterfallArray): string => {
+  const slotExprs = arg.slots.map(waterfallSlotToExpr).filter(Boolean)
+  return `[${slotExprs.join(', ')}]`
 }
 
 /**
@@ -272,6 +317,78 @@ export const validateNestedFunctionArg = (arg: FunctionArgNestedFunction): { isV
 }
 
 /**
+ * Validate a single waterfall slot
+ */
+export const validateWaterfallSlot = (slot: WaterfallSlot, index: number): { isValid: boolean; error?: string } => {
+  switch (slot.slotType) {
+    case 'field':
+      if (!slot.fieldName) {
+        return { isValid: false, error: `Slot ${index + 1}: Field selection required` }
+      }
+      break
+    case 'literal':
+      if (slot.literalValue === undefined || slot.literalValue === '') {
+        return { isValid: false, error: `Slot ${index + 1}: Literal value required` }
+      }
+      break
+    case 'function':
+      if (!slot.functionName) {
+        return { isValid: false, error: `Slot ${index + 1}: Function selection required` }
+      }
+      const funcDef = getFunctionByName(slot.functionName)
+      if (!funcDef) {
+        return { isValid: false, error: `Slot ${index + 1}: Unknown function: ${slot.functionName}` }
+      }
+      // Validate function arguments
+      const requiredArgs = funcDef.args.filter((a) => a.required !== false)
+      if (!slot.functionArgs || slot.functionArgs.length < requiredArgs.length) {
+        return {
+          isValid: false,
+          error: `Slot ${index + 1}: Function ${slot.functionName} requires ${requiredArgs.length} argument(s)`,
+        }
+      }
+      // Check each argument
+      for (let i = 0; i < requiredArgs.length; i++) {
+        const argDef = requiredArgs[i]
+        const argValue = slot.functionArgs[i]
+        if (!argValue) {
+          return { isValid: false, error: `Slot ${index + 1}: Argument "${argDef.name}" is required` }
+        }
+        if (argDef.type === 'field' && isFieldArg(argValue) && !argValue.fieldName) {
+          return { isValid: false, error: `Slot ${index + 1}: Field selection required for "${argDef.name}"` }
+        }
+        if (
+          argDef.type === 'literal' &&
+          isLiteralArg(argValue) &&
+          (argValue.value === undefined || argValue.value === '')
+        ) {
+          return { isValid: false, error: `Slot ${index + 1}: Value required for "${argDef.name}"` }
+        }
+      }
+      break
+  }
+  return { isValid: true }
+}
+
+/**
+ * Validate a waterfall array argument
+ */
+export const validateWaterfallArrayArg = (arg: FunctionArgWaterfallArray): { isValid: boolean; error?: string } => {
+  if (!arg.slots || arg.slots.length < 2) {
+    return { isValid: false, error: 'Waterfall requires at least 2 expressions' }
+  }
+
+  for (let i = 0; i < arg.slots.length; i++) {
+    const slotValidation = validateWaterfallSlot(arg.slots[i], i)
+    if (!slotValidation.isValid) {
+      return slotValidation
+    }
+  }
+
+  return { isValid: true }
+}
+
+/**
  * Validate a single transformation field
  */
 export const validateFieldLocally = (field: TransformationField): FieldValidation => {
@@ -329,8 +446,16 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
                 break
               }
 
+              // Validate waterfall array arguments
+              if (isWaterfallArrayArg(argValue)) {
+                const waterfallValidation = validateWaterfallArrayArg(argValue)
+                if (!waterfallValidation.isValid) {
+                  errors.functionArgs = waterfallValidation.error
+                  break
+                }
+              }
               // Validate nested function arguments recursively
-              if (isNestedFunctionArgUtil(argValue)) {
+              else if (isNestedFunctionArgUtil(argValue)) {
                 const nestedValidation = validateNestedFunctionArg(argValue)
                 if (!nestedValidation.isValid) {
                   errors.functionArgs = nestedValidation.error

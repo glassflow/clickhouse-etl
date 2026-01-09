@@ -30,6 +30,32 @@ interface TransformationFieldRowProps {
   index: number
 }
 
+// Helper function to format a single waterfall slot for display
+function formatWaterfallSlot(slot: import('@/src/store/transformation.store').WaterfallSlot): string {
+  switch (slot.slotType) {
+    case 'field':
+      return slot.fieldName || '<field>'
+    case 'literal':
+      if (slot.literalType === 'number') {
+        return slot.literalValue || '0'
+      }
+      return slot.literalValue ? `"${slot.literalValue}"` : '<value>'
+    case 'function':
+      if (!slot.functionName) return '<function>'
+      const funcDef = getFunctionByName(slot.functionName)
+      const args =
+        slot.functionArgs
+          ?.map((arg, idx) => {
+            const argDef = funcDef?.args[idx]
+            return formatFunctionArg(arg, argDef)
+          })
+          .join(', ') || ''
+      return `${slot.functionName}(${args})`
+    default:
+      return '<expr>'
+  }
+}
+
 // Helper function to format a single function argument for display
 function formatFunctionArg(arg: FunctionArg, argDef?: { name: string }): string {
   if (arg.type === 'field') {
@@ -67,6 +93,14 @@ function formatFunctionArg(arg: FunctionArg, argDef?: { name: string }): string 
       return `${arg.functionName}(${nestedArgs})`
     }
     return argDef?.name ? `<${argDef.name}>` : '<function>'
+  }
+  if (arg.type === 'waterfall_array') {
+    // Format waterfall array slots
+    if (arg.slots && arg.slots.length > 0) {
+      const formattedSlots = arg.slots.map(formatWaterfallSlot)
+      return `[${formattedSlots.join(', ')}]`
+    }
+    return argDef?.name ? `<${argDef.name}>` : '<expressions>'
   }
   return '<arg>'
 }
