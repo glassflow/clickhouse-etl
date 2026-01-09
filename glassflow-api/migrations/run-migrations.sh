@@ -13,7 +13,12 @@ POSTGRES_USER="${POSTGRES_USER:-postgres}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 POSTGRES_DB="${POSTGRES_DB:-glassflow}"
 POSTGRES_ADMIN_DB="${POSTGRES_ADMIN_DB:-postgres}"
+POSTGRES_SSL_MODE="${POSTGRES_SSL_MODE:-disable}"
+
 MIGRATIONS_PATH="${MIGRATIONS_PATH:-./migrations}"
+
+# Optional: Allow full connection URL to override individual parameters
+POSTGRES_CONNECTION_STRING="${POSTGRES_CONNECTION_STRING:-}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -26,8 +31,8 @@ echo -e "${GREEN}Starting database migration...${NC}"
 # Step 1: Check if database exists and create if it doesn't
 echo -e "${YELLOW}Checking if database '${POSTGRES_DB}' exists...${NC}"
 
-# If password is not set, prompt for it (only in interactive mode)
-if [ -z "${POSTGRES_PASSWORD}" ]; then
+# If password is not set, prompt for it (only in interactive mode), unless using POSTGRES_CONNECTION_STRING
+if [ -z "${POSTGRES_PASSWORD}" ] && [ -z "${POSTGRES_CONNECTION_STRING}" ]; then
     if [ -t 0 ]; then
         # Interactive mode - prompt for password
         echo -e "${YELLOW}PostgreSQL password not set in POSTGRES_PASSWORD environment variable.${NC}"
@@ -41,23 +46,57 @@ if [ -z "${POSTGRES_PASSWORD}" ]; then
     fi
 fi
 
-# Export password for psql commands
-export PGPASSWORD="${POSTGRES_PASSWORD}"
-
 # Build connection strings (after password is set)
-ADMIN_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_ADMIN_DB}?sslmode=disable"
-APP_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable"
-DB_EXISTS=$(psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_ADMIN_DB}" -tAc "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'" 2>/dev/null || echo "")
-
-if [ -z "$DB_EXISTS" ]; then
-    echo -e "${YELLOW}Database '${POSTGRES_DB}' does not exist. Creating...${NC}"
-    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_ADMIN_DB}" -c "CREATE DATABASE ${POSTGRES_DB};" || {
-        echo -e "${RED}Failed to create database${NC}"
-        exit 1
-    }
-    echo -e "${GREEN}Database '${POSTGRES_DB}' created successfully${NC}"
+if [ -n "${POSTGRES_CONNECTION_STRING}" ]; then
+    # Use provided connection URL
+    echo -e "${GREEN}Using provided POSTGRES_CONNECTION_STRING${NC}"
+    APP_DSN="${POSTGRES_CONNECTION_STRING}"
+    # Extract database name from URL for display purposes
+    # Match after port number (e.g., :5432/) and capture database name before ? or end
+    POSTGRES_DB=$(echo "${POSTGRES_CONNECTION_STRING}" | sed 's|.*:[0-9]*/\([^?]*\).*|\1|')
+    if [ -z "${POSTGRES_DB}" ]; then
+        POSTGRES_DB="glassflow"  # fallback
+    fi
 else
-    echo -e "${GREEN}Database '${POSTGRES_DB}' already exists${NC}"
+    # Build connection URL from individual parameters
+    APP_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${POSTGRES_SSL_MODE}"
+fi
+
+# Check if we can connect to the target database
+echo -e "${YELLOW}Attempting to connect to database '${POSTGRES_DB}'...${NC}"
+if psql "${APP_DSN}" -c "SELECT 1" &>/dev/null; then
+    echo -e "${GREEN}Database '${POSTGRES_DB}' exists and is accessible${NC}"
+else
+    echo -e "${YELLOW}Cannot connect to database '${POSTGRES_DB}'. It may not exist or credentials may be incorrect.${NC}"
+    echo -e "${YELLOW}Attempting to create database...${NC}"
+
+    # Build admin connection string for database creation
+    if [ -n "${POSTGRES_CONNECTION_STRING}" ]; then
+        # Replace database name in URL with admin database (usually 'postgres')
+        # Match: protocol://credentials@host:port/dbname and optionally ?params
+        # Replace only the dbname part while preserving everything else
+        ADMIN_DSN=$(echo "${POSTGRES_CONNECTION_STRING}" | sed 's|\(.*://.*:[0-9]*/\)[^?]*\(.*\)$|\1'"${POSTGRES_ADMIN_DB}"'\2|')
+    else
+        # Build admin connection URL from individual parameters
+        ADMIN_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_ADMIN_DB}?sslmode=${POSTGRES_SSL_MODE}"
+    fi
+
+    # Try to create the database
+    if psql "${ADMIN_DSN}" -c "CREATE DATABASE ${POSTGRES_DB};" 2>/dev/null; then
+        echo -e "${GREEN}Database '${POSTGRES_DB}' created successfully${NC}"
+    else
+        # Database might already exist, or user might not have CREATE DATABASE privileges
+        # Try connecting again to confirm
+        if psql "${APP_DSN}" -c "SELECT 1" &>/dev/null; then
+            echo -e "${GREEN}Database '${POSTGRES_DB}' is now accessible (it may have existed already)${NC}"
+        else
+            echo -e "${RED}Failed to create or connect to database '${POSTGRES_DB}'${NC}"
+            echo -e "${RED}Please ensure:${NC}"
+            echo -e "${RED}  1. The database exists, OR${NC}"
+            echo -e "${RED}  2. The user has CREATE DATABASE privileges${NC}"
+            exit 1
+        fi
+    fi
 fi
 
 # Step 2: Run migrations using golang-migrate
