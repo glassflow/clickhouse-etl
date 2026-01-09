@@ -18,7 +18,7 @@ POSTGRES_SSL_MODE="${POSTGRES_SSL_MODE:-disable}"
 MIGRATIONS_PATH="${MIGRATIONS_PATH:-./migrations}"
 
 # Optional: Allow full connection URL to override individual parameters
-POSTGRES_CONNECTION_STRING="${POSTGRES_CONNECTION_STRING:-}"
+POSTGRES_CONNECTION_URL="${POSTGRES_CONNECTION_URL:-}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -31,8 +31,8 @@ echo -e "${GREEN}Starting database migration...${NC}"
 # Step 1: Check if database exists and create if it doesn't
 echo -e "${YELLOW}Checking if database '${POSTGRES_DB}' exists...${NC}"
 
-# If password is not set, prompt for it (only in interactive mode), unless using POSTGRES_CONNECTION_STRING
-if [ -z "${POSTGRES_PASSWORD}" ] && [ -z "${POSTGRES_CONNECTION_STRING}" ]; then
+# If password is not set, prompt for it (only in interactive mode), unless using POSTGRES_CONNECTION_URL
+if [ -z "${POSTGRES_PASSWORD}" ] && [ -z "${POSTGRES_CONNECTION_URL}" ]; then
     if [ -t 0 ]; then
         # Interactive mode - prompt for password
         echo -e "${YELLOW}PostgreSQL password not set in POSTGRES_PASSWORD environment variable.${NC}"
@@ -47,13 +47,13 @@ if [ -z "${POSTGRES_PASSWORD}" ] && [ -z "${POSTGRES_CONNECTION_STRING}" ]; then
 fi
 
 # Build connection strings (after password is set)
-if [ -n "${POSTGRES_CONNECTION_STRING}" ]; then
+if [ -n "${POSTGRES_CONNECTION_URL}" ]; then
     # Use provided connection URL
-    echo -e "${GREEN}Using provided POSTGRES_CONNECTION_STRING${NC}"
-    APP_DSN="${POSTGRES_CONNECTION_STRING}"
+    echo -e "${GREEN}Using provided POSTGRES_CONNECTION_URL${NC}"
+    APP_DSN="${POSTGRES_CONNECTION_URL}"
     # Extract database name from URL for display purposes
     # Match after port number (e.g., :5432/) and capture database name before ? or end
-    POSTGRES_DB=$(echo "${POSTGRES_CONNECTION_STRING}" | sed 's|.*:[0-9]*/\([^?]*\).*|\1|')
+    POSTGRES_DB=$(echo "${POSTGRES_CONNECTION_URL}" | sed 's|.*:[0-9]*/\([^?]*\).*|\1|')
     if [ -z "${POSTGRES_DB}" ]; then
         POSTGRES_DB="glassflow"  # fallback
     fi
@@ -71,11 +71,11 @@ else
     echo -e "${YELLOW}Attempting to create database...${NC}"
 
     # Build admin connection string for database creation
-    if [ -n "${POSTGRES_CONNECTION_STRING}" ]; then
+    if [ -n "${POSTGRES_CONNECTION_URL}" ]; then
         # Replace database name in URL with admin database (usually 'postgres')
         # Match: protocol://credentials@host:port/dbname and optionally ?params
         # Replace only the dbname part while preserving everything else
-        ADMIN_DSN=$(echo "${POSTGRES_CONNECTION_STRING}" | sed 's|\(.*://.*:[0-9]*/\)[^?]*\(.*\)$|\1'"${POSTGRES_ADMIN_DB}"'\2|')
+        ADMIN_DSN=$(echo "${POSTGRES_CONNECTION_URL}" | sed 's|\(.*://.*:[0-9]*/\)[^?]*\(.*\)$|\1'"${POSTGRES_ADMIN_DB}"'\2|')
     else
         # Build admin connection URL from individual parameters
         ADMIN_DSN="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_ADMIN_DB}?sslmode=${POSTGRES_SSL_MODE}"
