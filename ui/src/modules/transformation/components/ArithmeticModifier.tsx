@@ -110,7 +110,7 @@ export function ArithmeticModifier({
           <div className="flex-1">
             <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Value</Label>
             <Input
-              type="number"
+              // type="number"
               value={expression?.operand ?? ''}
               onChange={(e) => handleOperandChange(e.target.value)}
               placeholder="Enter number"
@@ -118,16 +118,6 @@ export function ArithmeticModifier({
               className={cn('input-regular input-border-regular', error && 'border-[var(--color-border-critical)]')}
             />
           </div>
-        </div>
-      )}
-
-      {/* Preview */}
-      {enabled && expression && (
-        <div className="text-xs text-[var(--text-secondary)]">
-          Result will be:{' '}
-          <code className="font-mono bg-[var(--surface-bg-sunken)] px-1 rounded">
-            result {expression.operator} {expression.operand}
-          </code>
         </div>
       )}
 

@@ -398,7 +398,7 @@ export const createTransformationSlice: StateCreator<TransformationSlice> = (set
         },
       })),
 
-    // Add all source fields as passthrough fields
+    // Add all source fields as passthrough fields (replaces existing fields)
     addAllFieldsAsPassthrough: (fields: Array<{ name: string; type: string }>) =>
       set((state) => {
         const passthroughFields = fields.map((f) => createPassthroughField(f.name, f.type))
@@ -409,7 +409,7 @@ export const createTransformationSlice: StateCreator<TransformationSlice> = (set
             transformationConfig: {
               ...state.transformationStore.transformationConfig,
               enabled: true,
-              fields: [...state.transformationStore.transformationConfig.fields, ...passthroughFields],
+              fields: passthroughFields,
             },
             validation: createValidValidation(),
           },

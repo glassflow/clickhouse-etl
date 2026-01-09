@@ -34,8 +34,10 @@ interface NestedFunctionComposerProps {
   availableFields: Array<{ name: string; type: string }>
   onFunctionChange: (functionName: string) => void
   onArgsChange: (args: FunctionArg[]) => void
+  onExpressionChange?: (expression: string) => void // Callback to pass preview expression to parent
   disabled?: boolean
   error?: string
+  hidePreview?: boolean // Option to hide the internal preview (when parent handles it)
 }
 
 let idCounter = 0
@@ -144,8 +146,10 @@ export function NestedFunctionComposer({
   availableFields,
   onFunctionChange,
   onArgsChange,
+  onExpressionChange,
   disabled = false,
   error,
+  hidePreview = false,
 }: NestedFunctionComposerProps) {
   // Local state for the chain - allows for placeholder functions
   const [chain, setChain] = useState<ChainedFunction[]>([])
@@ -269,7 +273,7 @@ export function NestedFunctionComposer({
   // Generate preview expression
   const previewExpr = useMemo(() => {
     const validChain = chain.filter((f) => f.functionName)
-    if (validChain.length === 0) return '(select a function)'
+    if (validChain.length === 0) return ''
 
     // Build expression string manually for preview
     let expr =
@@ -282,6 +286,13 @@ export function NestedFunctionComposer({
 
     return expr
   }, [chain, sourceArg])
+
+  // Notify parent of expression changes
+  useEffect(() => {
+    if (onExpressionChange) {
+      onExpressionChange(previewExpr)
+    }
+  }, [previewExpr, onExpressionChange])
 
   const maxChainLength = 5
 
@@ -430,8 +441,8 @@ export function NestedFunctionComposer({
         </Button>
       )}
 
-      {/* Preview */}
-      {chain.some((f) => f.functionName) && (
+      {/* Preview - only show if not hidden by parent */}
+      {!hidePreview && chain.some((f) => f.functionName) && previewExpr && (
         <div className="space-y-1">
           <Label className="text-xs text-[var(--text-secondary)] block">Expression Preview</Label>
           <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all">
