@@ -11,8 +11,11 @@ import {
   FunctionArgField,
   FunctionArgLiteral,
   FunctionArgNestedFunction,
+  FunctionArgWaterfallArray,
+  WaterfallSlot,
 } from '@/src/store/transformation.store'
 import { FunctionSelector } from './FunctionSelector'
+import { WaterfallExpressionBuilder } from './WaterfallExpressionBuilder'
 import { getFunctionByName } from '../functions'
 import { formatArgForExpr } from '../utils'
 
@@ -151,6 +154,9 @@ export function NestedFunctionComposer({
   error,
   hidePreview = false,
 }: NestedFunctionComposerProps) {
+  // Check if we're in waterfall mode
+  const isWaterfallMode = functionName === 'waterfall'
+
   // Local state for the chain - allows for placeholder functions
   const [chain, setChain] = useState<ChainedFunction[]>([])
   const [sourceArg, setSourceArg] = useState<FunctionArg>({
@@ -159,14 +165,25 @@ export function NestedFunctionComposer({
     fieldType: '',
   } as FunctionArgField)
 
+  // State for waterfall slots
+  const [waterfallSlots, setWaterfallSlots] = useState<WaterfallSlot[]>([])
+
   // Initialize from props on mount and when props change significantly
   useEffect(() => {
-    const extracted = extractFunctionChain(functionName, functionArgs)
-    if (extracted.chain.length > 0) {
-      setChain(extracted.chain)
-    }
-    if (extracted.sourceArg) {
-      setSourceArg(extracted.sourceArg)
+    if (isWaterfallMode) {
+      // Extract waterfall slots from functionArgs
+      const waterfallArg = functionArgs?.[0]
+      if (waterfallArg && waterfallArg.type === 'waterfall_array') {
+        setWaterfallSlots((waterfallArg as FunctionArgWaterfallArray).slots)
+      }
+    } else {
+      const extracted = extractFunctionChain(functionName, functionArgs)
+      if (extracted.chain.length > 0) {
+        setChain(extracted.chain)
+      }
+      if (extracted.sourceArg) {
+        setSourceArg(extracted.sourceArg)
+      }
     }
   }, []) // Only on mount - we manage state locally after that
 
@@ -220,6 +237,23 @@ export function NestedFunctionComposer({
   // Handle changing a function in the chain
   const handleFunctionChange = useCallback(
     (index: number, newFunctionName: string) => {
+      // Special case: if waterfall is selected, switch to waterfall mode
+      if (newFunctionName === 'waterfall') {
+        // Initialize with empty waterfall slots and notify parent
+        onFunctionChange('waterfall')
+        const initialSlots: WaterfallSlot[] = [
+          { id: `slot-${Date.now()}-1`, slotType: 'field', fieldName: '', fieldType: '' },
+          { id: `slot-${Date.now()}-2`, slotType: 'field', fieldName: '', fieldType: '' },
+        ]
+        setWaterfallSlots(initialSlots)
+        const waterfallArg: FunctionArgWaterfallArray = {
+          type: 'waterfall_array',
+          slots: initialSlots,
+        }
+        onArgsChange([waterfallArg])
+        return
+      }
+
       const funcDef = getFunctionByName(newFunctionName)
       // Initialize additional args based on function definition (skip first arg which is piped)
       const additionalArgDefs = funcDef?.args.slice(1) || []
@@ -237,7 +271,7 @@ export function NestedFunctionComposer({
       setChain(newChain)
       syncToParent(newChain, sourceArg)
     },
-    [chain, sourceArg, syncToParent],
+    [chain, sourceArg, syncToParent, onFunctionChange, onArgsChange],
   )
 
   // Handle changing additional args for a function
@@ -289,12 +323,61 @@ export function NestedFunctionComposer({
 
   // Notify parent of expression changes
   useEffect(() => {
-    if (onExpressionChange) {
+    if (onExpressionChange && !isWaterfallMode) {
       onExpressionChange(previewExpr)
     }
-  }, [previewExpr, onExpressionChange])
+  }, [previewExpr, onExpressionChange, isWaterfallMode])
+
+  // Handle waterfall slots change
+  const handleWaterfallSlotsChange = useCallback(
+    (newSlots: WaterfallSlot[]) => {
+      setWaterfallSlots(newSlots)
+      // Sync to parent via functionArgs
+      const waterfallArg: FunctionArgWaterfallArray = {
+        type: 'waterfall_array',
+        slots: newSlots,
+      }
+      onArgsChange([waterfallArg])
+    },
+    [onArgsChange],
+  )
+
+  // Handle waterfall expression change
+  const handleWaterfallExpressionChange = useCallback(
+    (expr: string) => {
+      if (onExpressionChange) {
+        onExpressionChange(expr)
+      }
+    },
+    [onExpressionChange],
+  )
+
+  // Handle switching from waterfall back to regular mode
+  const handleSwitchToRegularMode = useCallback(() => {
+    // Reset to empty state
+    setChain([])
+    setSourceArg({ type: 'field', fieldName: '', fieldType: '' } as FunctionArgField)
+    setWaterfallSlots([])
+    onFunctionChange('')
+    onArgsChange([])
+  }, [onFunctionChange, onArgsChange])
 
   const maxChainLength = 5
+
+  // Render waterfall mode
+  if (isWaterfallMode) {
+    return (
+      <WaterfallExpressionBuilder
+        slots={waterfallSlots}
+        availableFields={availableFields}
+        onSlotsChange={handleWaterfallSlotsChange}
+        onExpressionChange={handleWaterfallExpressionChange}
+        onSwitchToRegularMode={handleSwitchToRegularMode}
+        disabled={disabled}
+        error={error}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">

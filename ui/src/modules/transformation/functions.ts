@@ -12,7 +12,7 @@ export type FunctionCategory = 'url' | 'string' | 'type' | 'datetime' | 'boolean
 export interface FunctionArgDef {
   name: string
   description: string
-  type: 'field' | 'literal' | 'array'
+  type: 'field' | 'literal' | 'array' | 'waterfall_array'
   literalType?: 'string' | 'number' | 'boolean' // For literal arguments
   fieldTypes?: string[] // Compatible input field types (if type is 'field')
   required?: boolean
@@ -609,19 +609,20 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
   {
     name: 'waterfall',
     category: 'utility',
-    description: 'Return the first non-empty value from an array',
+    description: 'Return the first non-empty value from an array of expressions (fields, functions, or literals)',
     args: [
       {
-        name: 'values',
-        description: 'Array of values to check',
-        type: 'array',
+        name: 'expressions',
+        description:
+          'Array of expressions to evaluate - each can be a field reference, function call, or literal value',
+        type: 'waterfall_array',
         required: true,
       },
     ],
-    returnType: 'string',
+    returnType: 'string', // Default, but can be overridden by user
     example: {
-      input: 'waterfall(["", "USD", "EUR"])',
-      output: '"USD"',
+      input: "waterfall([getNestedParam(request_query, 'ep.value'), getQueryParam(request_query, 'value'), '0'])",
+      output: 'First non-empty value from the expressions',
     },
   },
 ]

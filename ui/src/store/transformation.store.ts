@@ -27,6 +27,29 @@ export interface FunctionArgArray {
   elementType: 'string' | 'number' | 'nested_function'
 }
 
+// Waterfall expression slot - each element in a waterfall array
+export type WaterfallSlotType = 'field' | 'function' | 'literal'
+
+export interface WaterfallSlot {
+  id: string
+  slotType: WaterfallSlotType
+  // For field type
+  fieldName?: string
+  fieldType?: string
+  // For function type (simple function, not nested chains)
+  functionName?: string
+  functionArgs?: FunctionArg[]
+  // For literal type
+  literalValue?: string
+  literalType?: 'string' | 'number'
+}
+
+// Waterfall-specific array argument
+export interface FunctionArgWaterfallArray {
+  type: 'waterfall_array'
+  slots: WaterfallSlot[]
+}
+
 // New: A function argument can itself be a nested function call
 export interface FunctionArgNestedFunction {
   type: 'nested_function'
@@ -34,7 +57,12 @@ export interface FunctionArgNestedFunction {
   functionArgs: FunctionArg[]
 }
 
-export type FunctionArg = FunctionArgField | FunctionArgLiteral | FunctionArgArray | FunctionArgNestedFunction
+export type FunctionArg =
+  | FunctionArgField
+  | FunctionArgLiteral
+  | FunctionArgArray
+  | FunctionArgNestedFunction
+  | FunctionArgWaterfallArray
 
 // Expression mode for computed fields
 export type ExpressionMode = 'simple' | 'nested' | 'raw'
