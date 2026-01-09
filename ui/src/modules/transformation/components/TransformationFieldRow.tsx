@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useRef, useEffect } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { TrashIcon, PencilIcon, ChevronUpIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import {
   TransformationField,
@@ -29,6 +30,47 @@ interface TransformationFieldRowProps {
   index: number
 }
 
+// Helper function to format a single function argument for display
+function formatFunctionArg(arg: FunctionArg, argDef?: { name: string }): string {
+  if (arg.type === 'field') {
+    if (arg.fieldName) return arg.fieldName
+    return argDef?.name ? `<${argDef.name}>` : '<field>'
+  }
+  if (arg.type === 'literal') {
+    if (arg.value !== undefined && arg.value !== '') return `"${arg.value}"`
+    return argDef?.name ? `<${argDef.name}>` : '<value>'
+  }
+  if (arg.type === 'array') {
+    if (arg.values && arg.values.length > 0) {
+      const formattedValues = arg.values.map((v) => {
+        if (typeof v === 'object' && v !== null && 'type' in v) {
+          // It's a nested FunctionArg
+          return formatFunctionArg(v as FunctionArg)
+        }
+        return String(v)
+      })
+      return `[${formattedValues.join(', ')}]`
+    }
+    return argDef?.name ? `<${argDef.name}>` : '<array>'
+  }
+  if (arg.type === 'nested_function') {
+    // Recursively format nested function
+    if (arg.functionName) {
+      const nestedFuncDef = getFunctionByName(arg.functionName)
+      const nestedArgs =
+        arg.functionArgs
+          ?.map((nestedArg, idx) => {
+            const nestedArgDef = nestedFuncDef?.args[idx]
+            return formatFunctionArg(nestedArg, nestedArgDef)
+          })
+          .join(', ') || ''
+      return `${arg.functionName}(${nestedArgs})`
+    }
+    return argDef?.name ? `<${argDef.name}>` : '<function>'
+  }
+  return '<arg>'
+}
+
 // Helper function to format function expression for display
 function formatFunctionExpression(field: TransformationField): string {
   // Raw expression mode
@@ -43,13 +85,14 @@ function formatFunctionExpression(field: TransformationField): string {
 
   // Nested/function mode
   if (field.functionName) {
+    // Get function definition to show argument names as placeholders
+    const funcDef = getFunctionByName(field.functionName)
+
     const args =
       field.functionArgs
-        ?.map((arg) => {
-          if (arg.type === 'field') return arg.fieldName || '?'
-          if (arg.type === 'literal') return `"${arg.value}"`
-          if (arg.type === 'array') return `[${arg.values.join(', ')}]`
-          return '?'
+        ?.map((arg, index) => {
+          const argDef = funcDef?.args[index]
+          return formatFunctionArg(arg, argDef)
         })
         .join(', ') || ''
 
@@ -77,6 +120,21 @@ export function TransformationFieldRow({
 }: TransformationFieldRowProps) {
   // Expanded state
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Ref for auto-focusing the output field name input
+  const outputNameInputRef = useRef<HTMLInputElement>(null)
+
+  // Auto-focus the output field name input when expanding
+  useEffect(() => {
+    if (isExpanded && outputNameInputRef.current) {
+      // Small delay to ensure the animation has started
+      const timeoutId = setTimeout(() => {
+        outputNameInputRef.current?.focus()
+        outputNameInputRef.current?.select()
+      }, 100)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isExpanded])
 
   // Local state for editing when expanded
   const [localField, setLocalField] = useState<Omit<TransformationField, 'id'>>({
@@ -256,6 +314,37 @@ export function TransformationFieldRow({
     [updateLocalField],
   )
 
+  // Handle output type override
+  const handleOutputTypeChange = useCallback(
+    (type: string) => {
+      updateLocalField({ outputFieldType: type })
+    },
+    [updateLocalField],
+  )
+
+  // Available output types for type override dropdown
+  const OUTPUT_TYPE_OPTIONS = [
+    { value: 'string', label: 'String' },
+    { value: 'int', label: 'Int32' },
+    { value: 'int64', label: 'Int64' },
+    { value: 'float64', label: 'Float64' },
+    { value: 'bool', label: 'Boolean' },
+    { value: 'time.Time', label: 'DateTime' },
+    { value: '[]string', label: 'Array (String)' },
+    { value: 'object', label: 'Object/Map' },
+  ]
+
+  // Get the inferred type based on function or source field
+  const getInferredType = (): string => {
+    if (localField.type === 'passthrough') {
+      return localField.sourceFieldType || 'string'
+    }
+    if (localField.type === 'computed' && localField.functionName) {
+      return inferOutputType(localField.functionName)
+    }
+    return 'string'
+  }
+
   // Get current argument value
   const getArgValue = (argIndex: number): string => {
     const arg = localField.functionArgs?.[argIndex]
@@ -323,14 +412,14 @@ export function TransformationFieldRow({
         </div>
 
         {/* Output Type Badge - 15% width */}
-        <div className="w-[15%] flex-shrink-0 min-w-0 px-2 py-1 rounded-[var(--radius-small)] bg-[var(--surface-bg-sunken)] text-xs text-[var(--text-secondary)] font-medium truncate text-center">
+        <div className="w-[15%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-small)] bg-[var(--surface-bg-sunken)] text-xs text-[var(--text-secondary)] font-medium truncate text-start">
           {field.outputFieldType || 'auto'}
         </div>
 
         {/* Source Indicator - 20% width */}
         <div
           className={cn(
-            'w-[20%] flex-shrink-0 min-w-0 px-2 py-1 rounded-[var(--radius-small)] text-xs font-medium truncate text-center',
+            'w-[20%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-small)] text-xs font-medium truncate text-start',
             field.type === 'computed'
               ? 'bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)]'
               : 'bg-[var(--surface-bg-sunken)] text-[var(--text-secondary)]',
@@ -375,9 +464,9 @@ export function TransformationFieldRow({
 
       {/* Second Row - Function Expression (for computed fields only, when collapsed) */}
       {isComputedField && !isExpanded && (
-        <div className="px-3 pb-3 pt-0 border-t border-[var(--surface-border)]">
-          <div className="flex items-center gap-2 pt-2">
-            <span className="text-xs text-[var(--text-disabled)] font-medium">fn:</span>
+        <div className="px-3 pb-3 pt-0 border-t border-[var(--surface-border-subtle)]">
+          <div className="flex items-center gap-2 pt-3">
+            <span className="text-xs text-[var(--text-disabled)] font-medium pl-2">Transformation Expression:</span>
             <code
               className={cn(
                 'text-xs font-mono px-2 py-1 rounded-[var(--radius-small)]',
@@ -395,6 +484,58 @@ export function TransformationFieldRow({
       {/* Expanded Section */}
       {isExpanded && (
         <div className="border-t border-[var(--surface-border)] p-4 space-y-4 bg-[var(--surface-bg-sunken)] animate-[fadeIn_0.2s_ease-in-out]">
+          <div className="flex items-start gap-4">
+            {/* Output Field Name */}
+            <div className="space-y-1.5 flex-1">
+              <Label className="text-xs text-[var(--text-secondary)]">
+                Output Field Name <span className="text-[var(--color-foreground-critical)]">*</span>
+              </Label>
+              <Input
+                ref={outputNameInputRef}
+                value={localField.outputFieldName}
+                onChange={handleLocalOutputNameChange}
+                placeholder="Enter output field name"
+                disabled={readOnly}
+                className={cn(
+                  'input-regular input-border-regular',
+                  errors?.outputFieldName && 'border-[var(--color-border-critical)]',
+                )}
+              />
+              {errors?.outputFieldName && (
+                <p className="text-xs text-[var(--color-foreground-critical)]">{errors.outputFieldName}</p>
+              )}
+            </div>
+
+            {/* Output Type Override (for computed fields) */}
+            {localField.type === 'computed' && (
+              <div className="space-y-1.5 w-48">
+                <Label className="text-xs text-[var(--text-secondary)]">
+                  Output Type
+                  <span className="ml-1 text-[var(--text-disabled)]">(inferred: {getInferredType()})</span>
+                </Label>
+                <Select
+                  value={localField.outputFieldType || getInferredType()}
+                  onValueChange={handleOutputTypeChange}
+                  disabled={readOnly}
+                >
+                  <SelectTrigger className="input-regular input-border-regular w-full">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent className="select-content-custom">
+                    {OUTPUT_TYPE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="select-item-custom">
+                        {opt.label}
+                        {opt.value === getInferredType() && (
+                          <span className="ml-2 text-xs text-[var(--text-secondary)]">(inferred)</span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
           {/* Type and Expression Mode Row */}
           <div className="flex items-center gap-3">
             {/* Type Toggle */}
@@ -413,24 +554,6 @@ export function TransformationFieldRow({
                   disabled={readOnly}
                 />
               </div>
-            )}
-          </div>
-
-          {/* Output Field Name */}
-          <div className="space-y-2">
-            <Label className="text-xs text-[var(--text-secondary)]">Output Field Name</Label>
-            <Input
-              value={localField.outputFieldName}
-              onChange={handleLocalOutputNameChange}
-              placeholder="Enter field name"
-              disabled={readOnly}
-              className={cn(
-                'input-regular input-border-regular',
-                errors?.outputFieldName && 'border-[var(--color-border-critical)]',
-              )}
-            />
-            {errors?.outputFieldName && (
-              <p className="text-xs text-[var(--color-foreground-critical)]">{errors.outputFieldName}</p>
             )}
           </div>
 

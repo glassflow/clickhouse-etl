@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState, useMemo } from 'react'
 import {
   TransformationField,
   FunctionArg,
@@ -9,6 +9,7 @@ import {
 } from '@/src/store/transformation.store'
 import { FieldValidation } from '../utils'
 import { Label } from '@/src/components/ui/label'
+import { Button } from '@/src/components/ui/button'
 import { FunctionSelector } from './FunctionSelector'
 import { Input } from '@/src/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
@@ -18,6 +19,7 @@ import { NestedFunctionComposer } from './NestedFunctionComposer'
 import { RawExpressionEditor } from './RawExpressionEditor'
 import { ArithmeticModifier } from './ArithmeticModifier'
 import { cn } from '@/src/utils/common.client'
+import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline'
 
 interface TransformFunctionSelectProps {
   field: TransformationField
@@ -50,6 +52,47 @@ function TransformFunctionSelect({
   onArithmeticChange,
 }: TransformFunctionSelectProps) {
   const expressionMode = field.expressionMode || 'nested'
+
+  // State for tracking the function expression from NestedFunctionComposer
+  const [functionExpression, setFunctionExpression] = useState('')
+
+  // State for copy-to-clipboard feedback
+  const [copied, setCopied] = useState(false)
+
+  // Handle expression change from NestedFunctionComposer
+  const handleFunctionExpressionChange = useCallback((expr: string) => {
+    setFunctionExpression(expr)
+  }, [])
+
+  // Build the full expression including arithmetic
+  const fullExpression = useMemo(() => {
+    if (expressionMode === 'raw') {
+      return field.rawExpression || ''
+    }
+
+    let expr = functionExpression
+    if (!expr) return ''
+
+    // Add arithmetic modifier if present
+    if (field.arithmeticExpression) {
+      expr = `${expr} ${field.arithmeticExpression.operator} ${field.arithmeticExpression.operand}`
+    }
+
+    return expr
+  }, [functionExpression, field.arithmeticExpression, field.rawExpression, expressionMode])
+
+  // Copy expression to clipboard
+  const handleCopyExpression = useCallback(async () => {
+    if (!fullExpression) return
+
+    try {
+      await navigator.clipboard.writeText(fullExpression)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy expression:', err)
+    }
+  }, [fullExpression])
 
   // Handle mode change
   const handleModeChange = useCallback(
@@ -175,8 +218,10 @@ function TransformFunctionSelect({
         availableFields={availableFields}
         onFunctionChange={handleFunctionChange}
         onArgsChange={handleNestedArgsChange}
+        onExpressionChange={handleFunctionExpressionChange}
         disabled={readOnly}
         error={errors?.functionName}
+        hidePreview={true} // Hide internal preview - we'll show unified preview below
       />
     </div>
   )
@@ -223,6 +268,47 @@ function TransformFunctionSelect({
           disabled={readOnly}
           error={errors?.arithmeticExpression}
         />
+      )}
+
+      {/* Unified Expression Preview with Copy Button */}
+      {fullExpression && (
+        <div className="space-y-2 pt-2 border-t border-[var(--surface-border)]">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-[var(--text-secondary)] font-medium">Full Expression Preview</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyExpression}
+              className={cn(
+                'h-7 px-2 text-xs',
+                copied
+                  ? 'text-[var(--color-foreground-positive)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+              )}
+              title="Copy expression to clipboard"
+            >
+              {copied ? (
+                <>
+                  <CheckIcon className="h-3.5 w-3.5 mr-1" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <ClipboardDocumentIcon className="h-3.5 w-3.5 mr-1" />
+                  Copy
+                </>
+              )}
+            </Button>
+          </div>
+          <code className="block text-sm font-mono p-3 bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)] rounded-[var(--radius-medium)] border border-[var(--color-border-accent)] break-all">
+            {fullExpression}
+          </code>
+          {field.arithmeticExpression && (
+            <p className="text-xs text-[var(--text-secondary)]">
+              Includes arithmetic operation: {field.arithmeticExpression.operator} {field.arithmeticExpression.operand}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )

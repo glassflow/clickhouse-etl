@@ -196,12 +196,10 @@ export function TransformationConfigurator({
       return
     }
 
-    transformationStore.clearFields()
-
-    // Auto-populate all fields as pass-through
+    // Auto-populate all fields as pass-through (replaces existing fields)
     transformationStore.addAllFieldsAsPassthrough(availableFields)
     setHasAutoPopulated(true)
-  }, [transformationStore, availableFields])
+  }, [transformationStore, availableFields, readOnly, standalone])
 
   // Skip transformation
   const handleSkip = useCallback(() => {
@@ -293,13 +291,27 @@ export function TransformationConfigurator({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Description */}
-      <div className="text-sm text-content">
-        {availableFields.length > 0
-          ? transformationConfig.fields.length > 0
-            ? "All fields from your Kafka event have been added as pass-through fields. Remove fields you don't need, convert them to computed transformations, or add new fields."
-            : 'Define transformations to create computed fields or pass through existing fields. The resulting schema will be used for mapping to ClickHouse.'
-          : 'Select a topic and verify field types to configure transformations.'}
+      {/* Header with Description and Skip Button */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="text-sm text-content flex-1">
+          {availableFields.length > 0
+            ? transformationConfig.fields.length > 0
+              ? "All fields from your Kafka event have been added as pass-through fields. Remove fields you don't need, convert them to computed transformations, or add new fields."
+              : 'Define transformations to create computed fields or pass through existing fields. The resulting schema will be used for mapping to ClickHouse.'
+            : 'Select a topic and verify field types to configure transformations.'}
+        </div>
+
+        {/* Skip button - prominently placed at top */}
+        {!standalone && !readOnly && (
+          <Button
+            variant="outline"
+            onClick={handleSkip}
+            className="btn-tertiary flex-shrink-0 border-dashed hover:border-solid"
+          >
+            Skip Transformation
+            <span className="ml-2 text-xs text-[var(--text-secondary)]">(pass all fields unchanged)</span>
+          </Button>
+        )}
       </div>
 
       {/* Show no transformation view if empty and in read-only mode */}
@@ -439,13 +451,6 @@ export function TransformationConfigurator({
 
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
-        {/* Skip button - only shown in creation mode */}
-        {!standalone && (
-          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
-            Skip Transformation
-          </Button>
-        )}
-
         <FormActions
           standalone={standalone}
           onSubmit={handleSave}
