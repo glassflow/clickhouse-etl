@@ -373,7 +373,7 @@ func (p *PipelineSteps) setupPipelineService() error {
 		// Migrations are automatically run in StartPostgresContainer()
 	}
 
-	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log)
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil)
 	if err != nil {
 		return fmt.Errorf("create postgres pipeline storage: %w", err)
 	}
