@@ -176,8 +176,6 @@ func encryptClickHouseFields(encryptionService *encryption.Service, config *mode
 		if err != nil {
 			return fmt.Errorf("encrypt password: %w", err)
 		}
-		// TODO KIRAN DEBUG - remove this
-		fmt.Println(string(encrypted))
 		config.ClickHouseConnectionParams.Password = base64.StdEncoding.EncodeToString(encrypted)
 	}
 
