@@ -69,6 +69,10 @@ type config struct {
 	// Database configuration
 	DatabaseURL string `default:"" split_words:"true"`
 
+	// Encryption configuration
+	EncryptionKeyPath string `default:"/etc/glassflow/secrets/encryption-key" split_words:"true"`
+	EncryptionKey     string `default:"" split_words:"true"`
+
 	K8sNamespace       string `default:"glassflow" split_words:"true"`
 	K8sResourceKind    string `default:"Pipeline" split_words:"true"`
 	K8sResourceName    string `default:"pipelines" split_words:"true"`
@@ -197,7 +201,12 @@ func mainEtl(
 		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
 	}
 
-	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log)
+	encryptionKey, err := loadEncryptionKey(cfg, log)
+	if err != nil {
+		return fmt.Errorf("load encryption key: %w", err)
+	}
+
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey)
 	if err != nil {
 		return fmt.Errorf("create postgres store for pipelines: %w", err)
 	}
