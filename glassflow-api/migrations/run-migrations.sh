@@ -26,6 +26,20 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Validate POSTGRES_SSL_MODE if not using POSTGRES_CONNECTION_URL
+if [ -z "${POSTGRES_CONNECTION_URL}" ]; then
+    case "${POSTGRES_SSL_MODE}" in
+        disable|allow|prefer|require|verify-ca|verify-full)
+            # Valid SSL mode
+            ;;
+        *)
+            echo -e "${RED}Error: Invalid POSTGRES_SSL_MODE value: '${POSTGRES_SSL_MODE}'${NC}"
+            echo -e "${RED}Valid values are: disable, allow, prefer, require, verify-ca, verify-full${NC}"
+            exit 1
+            ;;
+    esac
+fi
+
 echo -e "${GREEN}Starting database migration...${NC}"
 
 # Step 1: Check if database exists and create if it doesn't
