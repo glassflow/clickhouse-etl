@@ -4,19 +4,10 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
-)
 
-const (
-	aesKeySize   = 32
-	gcmNonceSize = 12
-)
-
-var (
-	ErrInvalidKeySize   = errors.New("encryption key must be exactly 32 bytes for AES-256")
-	ErrDecryptionFailed = errors.New("decryption failed: invalid ciphertext or authentication failed")
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
 type Service struct {
@@ -24,8 +15,8 @@ type Service struct {
 }
 
 func NewService(key []byte) (*Service, error) {
-	if len(key) != aesKeySize {
-		return nil, fmt.Errorf("%w: got %d bytes", ErrInvalidKeySize, len(key))
+	if len(key) != internal.AESKeySize {
+		return nil, fmt.Errorf("%w: got %d bytes", internal.ErrInvalidKeySize, len(key))
 	}
 
 	block, err := aes.NewCipher(key)
@@ -42,7 +33,7 @@ func NewService(key []byte) (*Service, error) {
 }
 
 func (s *Service) Encrypt(plaintext []byte) ([]byte, error) {
-	nonce := make([]byte, gcmNonceSize)
+	nonce := make([]byte, internal.GCMNonceSize)
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, fmt.Errorf("generate nonce: %w", err)
 	}
@@ -52,14 +43,14 @@ func (s *Service) Encrypt(plaintext []byte) ([]byte, error) {
 }
 
 func (s *Service) Decrypt(ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) < gcmNonceSize {
-		return nil, ErrDecryptionFailed
+	if len(ciphertext) < internal.GCMNonceSize {
+		return nil, internal.ErrDecryptionFailed
 	}
 
-	nonce, ciphertext := ciphertext[:gcmNonceSize], ciphertext[gcmNonceSize:]
+	nonce, ciphertext := ciphertext[:internal.GCMNonceSize], ciphertext[internal.GCMNonceSize:]
 	plaintext, err := s.aead.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrDecryptionFailed, err)
+		return nil, fmt.Errorf("%w: %v", internal.ErrDecryptionFailed, err)
 	}
 
 	return plaintext, nil
