@@ -172,6 +172,185 @@ export const compareEventSchemas = (oldEvent: any, newEvent: any): boolean => {
   }
 }
 
+/**
+ * Schema field type used in KafkaTypeVerification
+ */
+export interface SchemaField {
+  name: string
+  type: string
+  inferredType?: string
+  userType?: string
+  isManuallyAdded?: boolean
+  isRemoved?: boolean
+}
+
+/**
+ * Get a type-appropriate placeholder value for a field type
+ */
+const getPlaceholderForType = (type: string): any => {
+  switch (type.toLowerCase()) {
+    case 'string':
+      return '<added_field>'
+    case 'number':
+    case 'integer':
+    case 'float':
+    case 'double':
+      return 0
+    case 'boolean':
+      return false
+    case 'array':
+      return []
+    case 'object':
+      return {}
+    case 'date':
+    case 'datetime':
+      return '<date>'
+    default:
+      return '<added_field>'
+  }
+}
+
+/**
+ * Delete a nested field from an object using dot notation path
+ * e.g., deleteNestedField(obj, 'user.address.city') will delete obj.user.address.city
+ */
+const deleteNestedField = (obj: Record<string, any>, path: string): void => {
+  const parts = path.split('.')
+  let current = obj
+
+  // Navigate to the parent of the field to delete
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (current && typeof current === 'object' && parts[i] in current) {
+      current = current[parts[i]]
+    } else {
+      // Path doesn't exist, nothing to delete
+      return
+    }
+  }
+
+  // Delete the final field
+  if (current && typeof current === 'object') {
+    delete current[parts[parts.length - 1]]
+  }
+}
+
+/**
+ * Set a nested field in an object using dot notation path
+ * e.g., setNestedField(obj, 'user.address.city', 'NYC') will set obj.user.address.city = 'NYC'
+ * Creates intermediate objects if they don't exist
+ */
+const setNestedField = (obj: Record<string, any>, path: string, value: any): void => {
+  const parts = path.split('.')
+  let current = obj
+
+  // Navigate/create path to the parent of the field to set
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (!(parts[i] in current) || typeof current[parts[i]] !== 'object') {
+      current[parts[i]] = {}
+    }
+    current = current[parts[i]]
+  }
+
+  // Set the final field
+  current[parts[parts.length - 1]] = value
+}
+
+/**
+ * Deep clone an object to avoid mutating the original
+ */
+const deepClone = <T>(obj: T): T => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj
+  }
+  return JSON.parse(JSON.stringify(obj))
+}
+
+/**
+ * Build an effective event object that reflects schema modifications from KafkaTypeVerification.
+ * This creates a "virtual" event that:
+ * - Removes fields marked as isRemoved
+ * - Adds placeholder values for fields marked as isManuallyAdded
+ *
+ * @param originalEvent - The original Kafka event data
+ * @param schemaFields - The schema fields from topic.schema.fields (from KafkaTypeVerification)
+ * @returns A new event object with modifications applied
+ */
+export const buildEffectiveEvent = (
+  originalEvent: Record<string, any> | null,
+  schemaFields: SchemaField[] | undefined,
+): Record<string, any> | null => {
+  if (!originalEvent) {
+    return null
+  }
+
+  // If no schema fields, return the original event as-is
+  if (!schemaFields || schemaFields.length === 0) {
+    return originalEvent
+  }
+
+  // Deep clone to avoid mutating the original
+  const effectiveEvent = deepClone(originalEvent)
+
+  // Remove _metadata if present
+  delete effectiveEvent._metadata
+
+  // Remove fields marked as removed
+  schemaFields
+    .filter((f) => f.isRemoved)
+    .forEach((f) => {
+      deleteNestedField(effectiveEvent, f.name)
+    })
+
+  // Add manually added fields with placeholder values
+  schemaFields
+    .filter((f) => f.isManuallyAdded && !f.isRemoved)
+    .forEach((f) => {
+      const placeholder = getPlaceholderForType(f.userType || f.type || 'string')
+      setNestedField(effectiveEvent, f.name, placeholder)
+    })
+
+  return effectiveEvent
+}
+
+/**
+ * Get the list of effective field names from schema fields.
+ * This returns only the active (non-removed) fields.
+ *
+ * @param schemaFields - The schema fields from topic.schema.fields
+ * @returns Array of field names that are active (not removed)
+ */
+export const getEffectiveFieldNames = (schemaFields: SchemaField[] | undefined): string[] => {
+  if (!schemaFields || schemaFields.length === 0) {
+    return []
+  }
+
+  return schemaFields.filter((f) => !f.isRemoved).map((f) => f.name)
+}
+
+/**
+ * Check if the schema has any modifications (added or removed fields)
+ *
+ * @param schemaFields - The schema fields from topic.schema.fields
+ * @returns Object indicating if there are added or removed fields
+ */
+export const getSchemaModifications = (
+  schemaFields: SchemaField[] | undefined,
+): { hasAddedFields: boolean; hasRemovedFields: boolean; addedCount: number; removedCount: number } => {
+  if (!schemaFields || schemaFields.length === 0) {
+    return { hasAddedFields: false, hasRemovedFields: false, addedCount: 0, removedCount: 0 }
+  }
+
+  const addedFields = schemaFields.filter((f) => f.isManuallyAdded && !f.isRemoved)
+  const removedFields = schemaFields.filter((f) => f.isRemoved)
+
+  return {
+    hasAddedFields: addedFields.length > 0,
+    hasRemovedFields: removedFields.length > 0,
+    addedCount: addedFields.length,
+    removedCount: removedFields.length,
+  }
+}
+
 export const generatePipelineId = (pipelineName: string, existingIds: string[] = []): string => {
   // Convert pipeline name to lowercase and replace spaces/special chars with dashes
   const baseId = pipelineName

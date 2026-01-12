@@ -67,7 +67,8 @@ const getVerifiedTypeFromTopic = (topic: any, fieldName: string): string | undef
   if (!topic?.schema?.fields || !Array.isArray(topic.schema.fields)) {
     return undefined
   }
-  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName)
+  // Filter out removed fields and find the matching field
+  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName && !f.isRemoved)
   // Prefer userType (explicitly set by user) over type
   return schemaField?.userType || schemaField?.type
 }
@@ -626,10 +627,12 @@ export function ClickhouseMapper({
             // Try to find a matching field by name similarity
             const matchingField = findBestMatchingField(col.name, fields)
             if (matchingField) {
+              // Use verified type from topic schema if available, fallback to inference
+              const verifiedType = getVerifiedTypeFromTopic(selectedTopic, matchingField)
               updatedColumns[index] = {
                 ...col,
                 eventField: matchingField,
-                jsonType: inferJsonType(getNestedValue(eventData, matchingField)),
+                jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
               }
             } else {
               console.log(`No match found for column "${col.name}"`)
@@ -970,9 +973,15 @@ export function ClickhouseMapper({
     } else {
       // For original fields, first check verified type from topic schema, then infer from event data
       if (mode === 'single') {
-        // Single mode: infer from event data
-        const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
-        inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
+        // Single mode: use verified type from topic schema if available
+        const verifiedType = eventField ? getVerifiedTypeFromTopic(selectedTopic, eventField) : undefined
+        if (verifiedType) {
+          inferredType = verifiedType
+        } else {
+          // Fallback to inferring from event data
+          const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+          inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
+        }
       } else {
         // Multi-topic mode: use verified type from topic schema if available
         const topicForSchema = source === 'secondary' ? secondaryTopic : primaryTopic
@@ -1428,7 +1437,13 @@ export function ClickhouseMapper({
               return { ...col, jsonType: schemaField.type }
             }
           } else {
-            // For original fields, infer type from event data
+            // For original fields, first check verified type from topic schema, then infer from event data
+            const verifiedType = getVerifiedTypeFromTopic(selectedTopic, col.eventField)
+            if (verifiedType) {
+              changed = true
+              return { ...col, jsonType: verifiedType }
+            }
+            // Fallback to inferring from event data
             if (!eventData) return col
             const value = getNestedValue(eventData, col.eventField)
             const inferred = inferJsonType(value)

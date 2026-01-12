@@ -63,7 +63,9 @@ export class V2PipelineAdapter implements PipelineAdapter {
                 } else if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
                   // Array literal
                   const arrayContent = trimmed.slice(1, -1)
-                  const arrayValues = this.parseFunctionArgs(arrayContent).map((v: string) => v.trim().replace(/^"|"$/g, ''))
+                  const arrayValues = this.parseFunctionArgs(arrayContent).map((v: string) =>
+                    v.trim().replace(/^"|"$/g, ''),
+                  )
                   args.push({
                     type: 'array',
                     values: arrayValues,
@@ -274,7 +276,10 @@ export class V2PipelineAdapter implements PipelineAdapter {
       // But we want just the base name: "taggrs" -> "taggrs-transform"
       // For now, use pipeline_id or name, removing any existing "-transform" suffix
       const baseName = internalConfig.name || internalConfig.pipeline_id || 'transform'
-      const cleanName = baseName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-transform$/, '')
+      const cleanName = baseName
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-transform$/, '')
       transformationId = `${cleanName}-transform`
 
       // Convert transformation fields to stateless_transformation format
@@ -375,16 +380,14 @@ export class V2PipelineAdapter implements PipelineAdapter {
       }
     })
 
-    // Add all source topic fields to schema
+    // Add all source topic fields to schema (excluding removed fields)
     topics.forEach((topic: any) => {
-      const topicFields = topic.schema?.fields || []
+      const topicFields = (topic.schema?.fields || []).filter((f: any) => !f.isRemoved)
       const mappedFields = mappedFieldNamesByTopic[topic.name] || new Set()
 
       topicFields.forEach((field: any) => {
         const isMapped = mappedFields.has(field.name)
-        const mapping = tableMapping.find(
-          (m: any) => m.source_id === topic.name && m.field_name === field.name,
-        )
+        const mapping = tableMapping.find((m: any) => m.source_id === topic.name && m.field_name === field.name)
 
         v2Fields.push({
           source_id: topic.name,
@@ -404,15 +407,13 @@ export class V2PipelineAdapter implements PipelineAdapter {
     // (This handles edge cases where mappings exist but transformation fields don't)
     tableMapping.forEach((mapping: any) => {
       // Skip if already added (either as transformed field or topic field)
-      const alreadyAdded = v2Fields.some(
-        (f: any) => f.source_id === mapping.source_id && f.name === mapping.field_name,
-      )
+      const alreadyAdded = v2Fields.some((f: any) => f.source_id === mapping.source_id && f.name === mapping.field_name)
 
       if (!alreadyAdded) {
         // This is a mapping that doesn't correspond to a known field
-        // Try to find type from topic schema
+        // Try to find type from topic schema (excluding removed fields)
         const topic = topics.find((t: any) => t.name === mapping.source_id)
-        const topicField = topic?.schema?.fields?.find((f: any) => f.name === mapping.field_name)
+        const topicField = topic?.schema?.fields?.find((f: any) => f.name === mapping.field_name && !f.isRemoved)
 
         v2Fields.push({
           source_id: mapping.source_id,

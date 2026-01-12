@@ -16,7 +16,12 @@ import {
   getIntermediarySchema,
 } from './utils'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
-import { extractEventFields } from '@/src/utils/common.client'
+import {
+  extractEventFields,
+  buildEffectiveEvent,
+  getSchemaModifications,
+  type SchemaField,
+} from '@/src/utils/common.client'
 import { inferJsonType, getNestedValue } from '@/src/modules/clickhouse/utils'
 
 export interface TransformationConfiguratorProps {
@@ -47,15 +52,39 @@ export function TransformationConfigurator({
   const selectedEvent = topic?.selectedEvent
   const eventData = selectedEvent?.event?.event || selectedEvent?.event
 
-  // Extract available fields from event data OR from existing transformation fields
-  // This ensures that when viewing/editing an existing pipeline, the field dropdowns are populated
+  // Get schema fields from KafkaTypeVerification step (if configured)
+  const schemaFields = (topic as any)?.schema?.fields as SchemaField[] | undefined
+
+  // Build effective event that reflects schema modifications (added/removed fields)
+  const effectiveEventData = useMemo(() => {
+    return buildEffectiveEvent(eventData, schemaFields)
+  }, [eventData, schemaFields])
+
+  // Get schema modification info for displaying notices
+  const schemaModifications = useMemo(() => {
+    return getSchemaModifications(schemaFields)
+  }, [schemaFields])
+
+  // Extract available fields from schema OR event data OR from existing transformation fields
+  // Priority: 1) Schema fields (from KafkaTypeVerification), 2) Effective event data, 3) Existing transformations
   const availableFields = useMemo((): Array<{ name: string; type: string }> => {
-    // First, try to get fields from the actual event data
-    if (eventData && typeof eventData === 'object') {
-      const fieldNames = extractEventFields(eventData)
+    // First priority: Use schema fields from KafkaTypeVerification if available
+    // This ensures we respect added/removed fields from the type verification step
+    if (schemaFields && schemaFields.length > 0) {
+      return schemaFields
+        .filter((f) => !f.isRemoved) // Only include active (non-removed) fields
+        .map((f) => ({
+          name: f.name,
+          type: f.userType || f.type || 'string',
+        }))
+    }
+
+    // Second priority: Extract fields from the effective event data
+    if (effectiveEventData && typeof effectiveEventData === 'object') {
+      const fieldNames = extractEventFields(effectiveEventData)
       return fieldNames.map((fieldName) => ({
         name: fieldName,
-        type: inferJsonType(getNestedValue(eventData, fieldName)),
+        type: inferJsonType(getNestedValue(effectiveEventData, fieldName)),
       }))
     }
 
@@ -87,7 +116,7 @@ export function TransformationConfigurator({
     }
 
     return []
-  }, [eventData, transformationConfig.fields])
+  }, [schemaFields, effectiveEventData, transformationConfig.fields])
 
   // Local validation state
   const [localValidation, setLocalValidation] = useState<TransformationConfigValidation>({
@@ -291,6 +320,25 @@ export function TransformationConfigurator({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Schema modification notice */}
+      {(schemaModifications.hasAddedFields || schemaModifications.hasRemovedFields) && (
+        <div className="text-sm text-[var(--color-foreground-neutral-faded)] bg-[var(--surface-bg-sunken)] rounded-md px-4 py-3">
+          <span className="font-medium">Schema modified:</span>{' '}
+          {schemaModifications.hasAddedFields && (
+            <span className="text-[var(--color-foreground-primary)]">
+              {schemaModifications.addedCount} field{schemaModifications.addedCount !== 1 ? 's' : ''} added
+            </span>
+          )}
+          {schemaModifications.hasAddedFields && schemaModifications.hasRemovedFields && ', '}
+          {schemaModifications.hasRemovedFields && (
+            <span className="text-[var(--color-foreground-negative)]">
+              {schemaModifications.removedCount} field{schemaModifications.removedCount !== 1 ? 's' : ''} removed
+            </span>
+          )}
+          <span className="ml-1">from the original Kafka event.</span>
+        </div>
+      )}
+
       {/* Header with Description and Skip Button */}
       <div className="flex items-start justify-between gap-4">
         <div className="text-sm text-content flex-1">
