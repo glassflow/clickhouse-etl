@@ -232,6 +232,5 @@ const (
 	DefaultProcessorMode               = AsyncMode
 
 	// Encryption constants
-	AESKeySize   = 32
-	GCMNonceSize = 12
+	AESKeySize = 32
 )

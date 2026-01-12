@@ -33,7 +33,7 @@ func NewService(key []byte) (*Service, error) {
 }
 
 func (s *Service) Encrypt(plaintext []byte) ([]byte, error) {
-	nonce := make([]byte, internal.GCMNonceSize)
+	nonce := make([]byte, s.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, fmt.Errorf("generate nonce: %w", err)
 	}
@@ -43,11 +43,12 @@ func (s *Service) Encrypt(plaintext []byte) ([]byte, error) {
 }
 
 func (s *Service) Decrypt(ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) < internal.GCMNonceSize {
+	nonceSize := s.aead.NonceSize()
+	if len(ciphertext) < nonceSize {
 		return nil, internal.ErrDecryptionFailed
 	}
 
-	nonce, ciphertext := ciphertext[:internal.GCMNonceSize], ciphertext[internal.GCMNonceSize:]
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	plaintext, err := s.aead.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", internal.ErrDecryptionFailed, err)
