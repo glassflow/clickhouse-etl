@@ -16,6 +16,8 @@ const KafkaFieldSchemaSchema = z.object({
   type: z.string(), // user-selected type (or inferred if not changed)
   inferredType: z.string().optional(), // originally inferred type
   userType: z.string().optional(), // explicitly set by user (same as type when set)
+  isManuallyAdded: z.boolean().optional(), // true for user-added fields (not inferred from event)
+  isRemoved: z.boolean().optional(), // true for fields marked for removal (used during editing)
 })
 
 const KafkaTopicSchemaSchema = z.object({
