@@ -11,7 +11,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication"
-	badgerDeduplication "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication/badger"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
@@ -129,7 +128,7 @@ func mainDeduplicator(
 		}()
 
 		ttl := topicConfig.Deduplication.Window.Duration()
-		badgerDedup = badgerDeduplication.NewDeduplicator(db, ttl)
+		//badgerDedup = badgerDeduplication.NewDeduplicator(db, ttl)
 
 		log.InfoContext(ctx, "Deduplication enabled",
 			slog.Duration("ttl", ttl))

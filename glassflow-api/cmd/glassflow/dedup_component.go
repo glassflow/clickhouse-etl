@@ -21,7 +21,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
-// nolint:unused
 func mainDeduplicatorV2(
 	ctx context.Context,
 	nc *client.NATSClient,
