@@ -442,7 +442,7 @@ export function FilterConfigurator({
               </div>
               <Textarea
                 readOnly
-                value={filterStore.expressionString || toExprString(filterConfig) || '(empty)'}
+                value={toExprString(filterConfig) || '(empty)'}
                 className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
                 rows={3}
                 wrap="soft"

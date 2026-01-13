@@ -119,15 +119,6 @@ export function ArithmeticComposer({
     }
   }, [currentExpression, onChange, onClear])
 
-  // Generate preview string
-  const previewString = useMemo(() => {
-    try {
-      return arithmeticExpressionToExpr(currentExpression)
-    } catch {
-      return '(incomplete)'
-    }
-  }, [currentExpression])
-
   // Check if we can remove operands (has nested expression or can clear)
   const canRemove = isArithmeticExpressionNode(currentExpression.left) || onClear
 
@@ -209,18 +200,6 @@ export function ArithmeticComposer({
             </Button>
           )}
         </div>
-      </div>
-
-      {/* Preview */}
-      <div className="space-y-1 w-full">
-        <span className="text-xs text-[var(--text-secondary)]">Preview:</span>
-        <Textarea
-          readOnly
-          value={previewString}
-          className="w-full text-xs font-mono px-2 py-1 bg-[var(--surface-bg-sunken)] rounded border border-[var(--surface-border)] resize-none cursor-default min-h-[40px] max-h-[120px] overflow-y-auto whitespace-pre-wrap break-words"
-          rows={2}
-          wrap="soft"
-        />
       </div>
 
       {/* Error message */}
