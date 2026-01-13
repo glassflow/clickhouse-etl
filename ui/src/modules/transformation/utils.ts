@@ -53,7 +53,8 @@ export interface IntermediarySchemaField {
   name: string
   type: string
   sourceField?: string // For passthrough fields
-  functionName?: string // For computed fields
+  functionName?: string // For computed fields (function composer mode)
+  rawExpression?: string // For computed fields (raw expression mode)
 }
 
 /**
@@ -551,7 +552,13 @@ export const getIntermediarySchema = (config: TransformationConfig): Intermediar
     if (field.type === 'passthrough') {
       schemaField.sourceField = field.sourceField
     } else {
-      schemaField.functionName = field.functionName
+      // Check if it's a raw expression mode
+      if (field.expressionMode === 'raw' && field.rawExpression) {
+        schemaField.rawExpression = field.rawExpression
+      } else {
+        // Function composer mode
+        schemaField.functionName = field.functionName
+      }
     }
 
     return schemaField

@@ -4,6 +4,7 @@ import React, { useState, useCallback } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { Textarea } from '@/src/components/ui/textarea'
 import { Button } from '@/src/components/ui/button'
+import { Badge } from '@/src/components/ui/badge'
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { TRANSFORMATION_FUNCTIONS, getCategoryLabel, getCategories } from '../functions'
 import { cn } from '@/src/utils/common.client'
@@ -130,15 +131,17 @@ export function RawExpressionEditor({
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {availableFields.map((field) => (
-                    <button
+                    <Badge
                       key={field.name}
-                      type="button"
-                      onClick={() => handleInsertField(field.name)}
-                      disabled={disabled}
-                      className="text-xs px-2 py-1 bg-[var(--surface-bg-sunken)] rounded border border-[var(--surface-border)] hover:bg-[var(--surface-bg-hover)] font-mono"
+                      onClick={() => !disabled && handleInsertField(field.name)}
+                      className={cn(
+                        'chip chip-neutral-faded font-mono cursor-pointer',
+                        disabled && 'opacity-50 cursor-not-allowed',
+                        !disabled && 'hover:opacity-80',
+                      )}
                     >
                       {field.name}
-                    </button>
+                    </Badge>
                   ))}
                 </div>
               )}
@@ -167,16 +170,18 @@ export function RawExpressionEditor({
                     </Label>
                     <div className="flex flex-wrap gap-1">
                       {funcs.map((func) => (
-                        <button
+                        <Badge
                           key={func.name}
-                          type="button"
-                          onClick={() => handleInsertFunction(func.name, func.args.length)}
-                          disabled={disabled}
+                          onClick={() => !disabled && handleInsertFunction(func.name, func.args.length)}
                           title={func.description}
-                          className="text-xs px-2 py-1 bg-[var(--surface-bg-sunken)] rounded border border-[var(--surface-border)] hover:bg-[var(--surface-bg-hover)] font-mono"
+                          className={cn(
+                            'chip chip-neutral-faded font-mono cursor-pointer',
+                            disabled && 'opacity-50 cursor-not-allowed',
+                            !disabled && 'hover:opacity-80',
+                          )}
                         >
                           {func.name}()
-                        </button>
+                        </Badge>
                       ))}
                     </div>
                   </div>

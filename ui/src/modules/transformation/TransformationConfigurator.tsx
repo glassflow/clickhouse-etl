@@ -348,22 +348,24 @@ export function TransformationConfigurator({
               : 'Define transformations to create computed fields or pass through existing fields. The resulting schema will be used for mapping to ClickHouse.'
             : 'Select a topic and verify field types to configure transformations.'}
         </div>
-
-        {/* Skip button - prominently placed at top */}
-        {!standalone && !readOnly && (
-          <Button
-            variant="outline"
-            onClick={handleSkip}
-            className="btn-tertiary flex-shrink-0 border-dashed hover:border-solid"
-          >
-            Skip Transformation
-            <span className="ml-2 text-xs text-[var(--text-secondary)]">(pass all fields unchanged)</span>
-          </Button>
-        )}
       </div>
 
       {/* Show no transformation view if empty and in read-only mode */}
       {hasNoTransformation && readOnly && renderNoTransformationView()}
+
+      {/* Skip button - prominently placed at top */}
+      {!standalone && !readOnly && availableFields.length > 0 && (
+        <div className="flex justify-start">
+          <Button
+            variant="outline"
+            onClick={handleSkip}
+            className="flex-shrink-0 border-dashed hover:border-solid btn-tertiary text-primary hover:text-primary-faded"
+          >
+            Skip Transformation
+            <span className="ml-2 text-xs text-primary">(pass all fields unchanged)</span>
+          </Button>
+        </div>
+      )}
 
       {/* Transformation Fields */}
       {/* Show fields if we have available fields OR if we have transformation fields (from hydration) */}
@@ -380,34 +382,39 @@ export function TransformationConfigurator({
                     </span>
                   )}
                 </Label>
-                <Button variant="outline" size="sm" onClick={handleRestoreSourceFields} className="btn-tertiary">
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Restore Source Fields
-                </Button>
               </div>
-              {!readOnly && (
-                <div className="flex gap-2">
-                  {transformationConfig.fields.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClearAllFields}
-                      className="btn-tertiary text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-subtle)]"
-                    >
-                      <TrashIcon className="h-4 w-4 mr-1" />
-                      Clear All
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" onClick={handleAddComputedField} className="btn-tertiary">
+              <div className="flex gap-2">
+                {!readOnly && (
+                  <>
+                    <div className="flex gap-2">
+                      {transformationConfig.fields.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleClearAllFields}
+                          className="btn-tertiary text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-subtle)]"
+                        >
+                          <TrashIcon className="h-4 w-4 mr-1" />
+                          Clear All
+                        </Button>
+                      )}
+                      {/* <Button variant="outline" size="sm" onClick={handleAddComputedField} className="btn-tertiary">
                     <PlusIcon className="h-4 w-4 mr-1" />
                     Computed Field
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleAddPassthroughField} className="btn-tertiary">
+                  </Button> */}
+                      {/* <Button variant="outline" size="sm" onClick={handleAddPassthroughField} className="btn-tertiary">
                     <PlusIcon className="h-4 w-4 mr-1" />
-                    Pass Through Field
-                  </Button>
-                </div>
-              )}
+                    Add Field
+                  </Button> */}
+                    </div>
+
+                    <Button variant="outline" size="sm" onClick={handleRestoreSourceFields} className="btn-tertiary">
+                      <PlusIcon className="h-4 w-4 mr-1" />
+                      Restore Source Fields
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Field List */}
@@ -431,6 +438,13 @@ export function TransformationConfigurator({
                 ))}
               </div>
             )}
+
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={handleAddPassthroughField} className="btn-tertiary">
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Add Field
+              </Button>
+            </div>
 
             {/* Expression Preview */}
             {transformationConfig.fields.length > 0 && completeFieldCount > 0 && (
@@ -469,6 +483,14 @@ export function TransformationConfigurator({
                             {field.sourceField && <span>← {field.sourceField}</span>}
                             {field.functionName && (
                               <span className="text-[var(--text-accent)]">fn: {field.functionName}()</span>
+                            )}
+                            {field.rawExpression && (
+                              <span className="text-[var(--text-accent)] font-mono text-xs" title={field.rawExpression}>
+                                raw:{' '}
+                                {field.rawExpression.length > 40
+                                  ? `${field.rawExpression.substring(0, 40)}...`
+                                  : field.rawExpression}
+                              </span>
                             )}
                           </td>
                         </tr>
