@@ -212,6 +212,9 @@ const (
 	SinkDefaultShutdownTimeout      = 5 * time.Second
 	DefaultComponentShutdownTimeout = 5 * time.Second
 
+	DefaultDedupComponentBatchSize = 50000
+	DefaultDedupMaxWaitTime        = 100 * time.Millisecond
+
 	// Kafka session timeout in milliseconds
 	KafkaSessionTimeout = 30000 * time.Millisecond
 	// Kafka heartbeat interval in milliseconds

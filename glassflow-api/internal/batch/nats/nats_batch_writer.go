@@ -47,7 +47,7 @@ func (w *BatchWriter) WriteBatch(_ context.Context, messages []models.Message) [
 		if err != nil {
 			// Failed to queue for async publishing - treat as failed message
 			failedMessages = append(failedMessages, models.FailedMessage{
-				Message: &models.Message{
+				Message: models.Message{
 					Type:            models.MessageTypeNatsMsg,
 					NatsMsgOriginal: natsMsg,
 				},
@@ -72,7 +72,7 @@ func (w *BatchWriter) WriteBatch(_ context.Context, messages []models.Message) [
 			continue
 		case err := <-future.Err():
 			failedMessages = append(failedMessages, models.FailedMessage{
-				Message: &models.Message{
+				Message: models.Message{
 					Type:            models.MessageTypeNatsMsg,
 					NatsMsgOriginal: future.Msg(),
 				},

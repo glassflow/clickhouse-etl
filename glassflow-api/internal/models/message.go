@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -186,6 +187,22 @@ func (m *Message) Headers() map[string][]string {
 }
 
 type FailedMessage struct {
-	Message *Message
+	Message Message
 	Error   error
+}
+
+func FailedMessageToMessage(failedMessage FailedMessage, role string, err error) (Message, error) {
+	dlqMessage, dlqErr := NewDLQMessage(
+		role,
+		err.Error(),
+		failedMessage.Message.Payload(),
+	).ToJSON()
+	if dlqErr != nil {
+		return Message{}, fmt.Errorf("new dlq message")
+	}
+
+	return Message{
+		Type:            MessageTypeNatsMsg,
+		NatsMsgOriginal: &nats.Msg{Data: dlqMessage, Header: failedMessage.Message.Headers()},
+	}, nil
 }
