@@ -16,6 +16,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+
+	batchNats "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
 )
 
 func mainDeduplicator(
@@ -96,20 +98,6 @@ func mainDeduplicator(
 		return fmt.Errorf("create deduplication consumer: %w", err)
 	}
 
-	outputPublisher := stream.NewNATSPublisher(
-		nc.JetStream(),
-		stream.PublisherConfig{
-			Subject: models.GetNATSSubjectNameDefault(outputStreamID),
-		},
-	)
-
-	dlqPublisher := stream.NewNATSPublisher(
-		nc.JetStream(),
-		stream.PublisherConfig{
-			Subject: models.GetDLQStreamSubjectName(pipelineCfg.ID),
-		},
-	)
-
 	// Create deduplicator only if deduplication is enabled
 	var badgerDedup deduplication.Dedup
 	var db *badger.DB
@@ -139,18 +127,16 @@ func mainDeduplicator(
 		log.InfoContext(ctx, "Deduplication disabled, running transformations only")
 	}
 
-	batchReader := stream.NewBatchReader(consumer, log)
-	batchWriter := stream.NewNatsBatchWriter(
-		outputPublisher,
-		dlqPublisher,
-		log,
-		pendingPublishesLimit,
+	batchReader := batchNats.NewBatchReader(consumer)
+
+	batchWriter := batchNats.NewBatchWriter(
+		nc.JetStream(),
+		models.GetNATSSubjectNameDefault(outputStreamID),
 	)
-	dlqWriter := stream.NewNatsBatchWriter(
-		dlqPublisher,
-		nil,
-		log,
-		pendingPublishesLimit,
+
+	dlqWriter := batchNats.NewBatchWriter(
+		nc.JetStream(),
+		models.GetDLQStreamSubjectName(pipelineCfg.ID),
 	)
 
 	// Create stateless transformer if enabled

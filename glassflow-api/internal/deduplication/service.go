@@ -9,34 +9,25 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
-
-type batchReader interface {
-	ReadBatchNoWait(ctx context.Context, batchSize int) ([]jetstream.Msg, error)
-	ReadBatch(ctx context.Context, batchSize int, opts ...jetstream.FetchOpt) ([]jetstream.Msg, error)
-}
-
-type batchWriter interface {
-	WriteNatsBatch(ctx context.Context, messages []*nats.Msg) error
-}
 
 type StatelessTransformer interface {
 	Transform(inputBytes []byte) ([]byte, error)
 }
 
 type Dedup interface {
-	FilterDuplicates(ctx context.Context, messages []jetstream.Msg) ([]jetstream.Msg, error)
-	SaveKeys(ctx context.Context, messages []jetstream.Msg) error
+	FilterDuplicates(ctx context.Context, messages []models.Message) ([]models.Message, error)
+	SaveKeys(ctx context.Context, messages []models.Message) error
 }
 
 type DedupService struct {
-	reader               batchReader
-	writer               batchWriter
-	dlqWriter            batchWriter
+	reader               batch.BatchReader
+	writer               batch.BatchWriter
+	dlqWriter            batch.BatchWriter
 	statelessTransformer StatelessTransformer
 	deduplicator         Dedup
 	cancel               context.CancelFunc
@@ -49,9 +40,9 @@ type DedupService struct {
 
 // NewDedupService creates a new deduplication consumer
 func NewDedupService(
-	reader batchReader,
-	writer batchWriter,
-	dlqWriter batchWriter,
+	reader batch.BatchReader,
+	writer batch.BatchWriter,
+	dlqWriter batch.BatchWriter,
 	statelessTransformer StatelessTransformer,
 	deduplicator Dedup,
 	log *slog.Logger,
@@ -102,8 +93,8 @@ func (ds *DedupService) Start(ctx context.Context) error {
 func (ds *DedupService) Process(ctx context.Context) error {
 	batchMessages, err := ds.reader.ReadBatch(
 		ctx,
-		ds.batchSize,
-		jetstream.FetchMaxWait(ds.maxWait),
+		models.WithBatchSize(ds.batchSize),
+		models.WithTimeout(ds.maxWait),
 	)
 	if err != nil {
 		return fmt.Errorf("read batch: %w", err)
@@ -118,7 +109,7 @@ func (ds *DedupService) Process(ctx context.Context) error {
 func (ds *DedupService) handleShutdown(ctx context.Context) error {
 	ds.log.InfoContext(ctx, "Deduplication consumer shutting down")
 
-	batchMessages, err := ds.reader.ReadBatchNoWait(ctx, ds.batchSize)
+	batchMessages, err := ds.reader.ReadBatchNoWait(ctx, models.WithBatchSize(ds.batchSize))
 	if err != nil {
 		return fmt.Errorf("read batch: %w", err)
 	}
@@ -135,57 +126,62 @@ func (ds *DedupService) handleShutdown(ctx context.Context) error {
 // Ideally we need some kind of wrapper around deduplication to avoid having transform logic here.
 // first batch  - successfully transformed data
 // second batch - original messages that failed
-// output is nats.Msg because it's impossible to create jetstream.Msg
 func (ds *DedupService) PostProcessTransformations(
 	ctx context.Context,
-	batchMessages []jetstream.Msg,
-) ([]*nats.Msg, []*nats.Msg, error) {
+	batchMessages []models.Message,
+) ([]models.Message, []models.Message, error) {
 	var (
-		transformedMessages []*nats.Msg
-		failedMessages      []*nats.Msg
+		transformedMessages []models.Message
+		failedMessages      []models.Message
 	)
 	// No transformer - pass through original messages
 	if ds.statelessTransformer == nil {
-		for _, msg := range batchMessages {
-			transformedMessages = append(transformedMessages, &nats.Msg{
-				Data:   msg.Data(),
-				Header: msg.Headers(),
-			})
-		}
-		return transformedMessages, nil, nil
+		return batchMessages, nil, nil
 	}
 
 	for _, originalMessage := range batchMessages {
-		transformedBytes, err := ds.statelessTransformer.Transform(originalMessage.Data())
+		transformedBytes, err := ds.statelessTransformer.Transform(originalMessage.Payload())
 		if err != nil {
 			ds.log.WarnContext(ctx, "Transformation failed, sending to DLQ",
 				"error", err,
-				"message_id", originalMessage.Headers().Get("Nats-Msg-ID"))
+				"message_id", originalMessage.GetHeader("Nats-Msg-ID"))
 
 			dlqMessage, dlqErr := models.NewDLQMessage(
 				internal.RoleDeduplicator,
 				err.Error(),
-				originalMessage.Data(),
+				originalMessage.Payload(),
 			).ToJSON()
 			if dlqErr != nil {
 				return nil, nil, fmt.Errorf("NewDLQMessage: %w", dlqErr)
 			}
 
-			failedMessages = append(failedMessages, &nats.Msg{Data: dlqMessage, Header: originalMessage.Headers()})
+			failedMessages = append(
+				failedMessages,
+				models.Message{
+					Type:            models.MessageTypeNatsMsg,
+					NatsMsgOriginal: &nats.Msg{Data: dlqMessage, Header: originalMessage.Headers()},
+				},
+			)
 			continue
 		}
 
-		transformedMessages = append(transformedMessages, &nats.Msg{
-			Data:   transformedBytes,
-			Header: originalMessage.Headers(),
-		})
+		transformedMessages = append(
+			transformedMessages,
+			models.Message{
+				Type: models.MessageTypeNatsMsg,
+				NatsMsgOriginal: &nats.Msg{
+					Data:   transformedBytes,
+					Header: originalMessage.Headers(),
+				},
+			},
+		)
 	}
 
 	return transformedMessages, failedMessages, nil
 }
 
 // ProcessBatch reads, deduplicates, and writes messages
-func (ds *DedupService) ProcessBatch(ctx context.Context, batchMessages []jetstream.Msg) (err error) {
+func (ds *DedupService) ProcessBatch(ctx context.Context, batchMessages []models.Message) (err error) {
 	if len(batchMessages) == 0 {
 		return nil
 	}
@@ -219,13 +215,18 @@ func (ds *DedupService) ProcessBatch(ctx context.Context, batchMessages []jetstr
 	}
 
 	if len(dlqBatch) > 0 {
-		if err := ds.dlqWriter.WriteNatsBatch(ctx, dlqBatch); err != nil {
-			return fmt.Errorf("write dlq batch: %w", err)
+		failedDlqBatch := ds.dlqWriter.WriteBatch(ctx, dlqBatch)
+		if len(failedDlqBatch) > 0 {
+			return fmt.Errorf("write dlq batch: %w", failedDlqBatch[0].Error)
 		}
 	}
 
-	if err := ds.writer.WriteNatsBatch(ctx, outgoingBatch); err != nil {
-		return fmt.Errorf("write batch: %w", err)
+	failedBatch := ds.writer.WriteBatch(ctx, outgoingBatch)
+	if len(failedBatch) > 0 {
+		failedDlqBatch := ds.dlqWriter.WriteBatch(ctx, dlqBatch)
+		if len(failedDlqBatch) > 0 {
+			return fmt.Errorf("write dlq batch: %w", failedDlqBatch[0].Error)
+		}
 	}
 
 	if ds.deduplicator != nil {
@@ -246,22 +247,20 @@ func (ds *DedupService) ProcessBatch(ctx context.Context, batchMessages []jetstr
 	return nil
 }
 
-func (ds *DedupService) nakMessages(ctx context.Context, messages []jetstream.Msg) {
-	for _, msg := range messages {
-		if err := msg.Nak(); err != nil {
-			ds.log.ErrorContext(ctx, "failed to nak message", "error", err)
-		}
+func (ds *DedupService) nakMessages(ctx context.Context, messages []models.Message) {
+	err := ds.reader.Nak(ctx, messages)
+	if err != nil {
+		ds.log.ErrorContext(ctx, "failed to nak message", "error", err)
 	}
 }
 
-func (ds *DedupService) ackMessages(_ context.Context, messages []jetstream.Msg) error {
+func (ds *DedupService) ackMessages(ctx context.Context, messages []models.Message) error {
 	if len(messages) == 0 {
 		return nil
 	}
 
-	// Ack the last message which acks all previous messages in the batch (AckAll policy)
-	lastMsg := messages[len(messages)-1]
-	if err := lastMsg.Ack(); err != nil {
+	err := ds.reader.Ack(ctx, messages)
+	if err != nil {
 		return fmt.Errorf("failed to ack batch: %w", err)
 	}
 

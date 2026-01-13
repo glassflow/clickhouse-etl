@@ -11,10 +11,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
 
+	batchNats "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication"
 	dedupBadger "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication/badger"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
@@ -69,8 +69,8 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	// Verify messages still in input stream (not acked)
 	consumer, err := js.Consumer(ctx, "test-input", "test-consumer")
 	require.NoError(t, err)
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	availableMessages, err := reader.ReadBatchNoWait(ctx, 10)
+	reader := batchNats.NewBatchReader(consumer)
+	availableMessages, err := reader.ReadBatchNoWait(ctx, models.WithBatchSize(10))
 	require.NoError(t, err)
 	require.Len(t, availableMessages, 2, "messages should still be in input stream")
 
@@ -104,9 +104,8 @@ func createService(t *testing.T, suite *steps.DedupTestSuite, js jetstream.JetSt
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
+	reader := batchNats.NewBatchReader(consumer)
+	writer := batchNats.NewBatchWriter(js, outputSubject)
 	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
 
 	service, err := deduplication.NewDedupService(
@@ -135,28 +134,28 @@ func publishMessages(t *testing.T, js jetstream.JetStream, ctx context.Context, 
 	}
 }
 
-func readOutput(t *testing.T, js jetstream.JetStream, ctx context.Context, outputSubject string) []jetstream.Msg {
+func readOutput(t *testing.T, js jetstream.JetStream, ctx context.Context, outputSubject string) []models.Message {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-output", jetstream.ConsumerConfig{
 		Name:          "output-consumer",
 		FilterSubject: outputSubject,
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	messages, err := reader.ReadBatchNoWait(ctx, 10)
+	reader := batchNats.NewBatchReader(consumer)
+	messages, err := reader.ReadBatchNoWait(ctx, models.WithBatchSize(10))
 	require.NoError(t, err)
 	return messages
 }
 
-func readDLQ(t *testing.T, js jetstream.JetStream, ctx context.Context, dlqSubject string) []jetstream.Msg {
+func readDLQ(t *testing.T, js jetstream.JetStream, ctx context.Context, dlqSubject string) []models.Message {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-dlq", jetstream.ConsumerConfig{
 		Name:          "dlq-consumer",
 		FilterSubject: dlqSubject,
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	messages, err := reader.ReadBatchNoWait(ctx, 10)
+	reader := batchNats.NewBatchReader(consumer)
+	messages, err := reader.ReadBatchNoWait(ctx, models.WithBatchSize(10))
 	require.NoError(t, err)
 	return messages
 }
@@ -180,9 +179,8 @@ func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
+	reader := batchNats.NewBatchReader(consumer)
+	writer := batchNats.NewBatchWriter(js, outputSubject)
 	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
 
 	// Create transformer using hasPrefix and upper functions
@@ -238,7 +236,7 @@ func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 
 	for _, msg := range outputMessages {
 		var actualOutput map[string]any
-		err := json.Unmarshal(msg.Data(), &actualOutput)
+		err := json.Unmarshal(msg.Payload(), &actualOutput)
 		require.NoError(t, err, "should unmarshal output JSON")
 		require.Equal(t, expectedOutput, actualOutput, "transformed output should match expected")
 	}
@@ -272,11 +270,9 @@ func TestDeduplication_TransformationMisspelledReturnsDefault(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
-	dlqPublisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: dlqSubject})
-	dlqWriter := stream.NewNatsBatchWriter(dlqPublisher, nil, slog.Default(), 1000)
+	reader := batchNats.NewBatchReader(consumer)
+	writer := batchNats.NewBatchWriter(js, outputSubject)
+	dlqWriter := batchNats.NewBatchWriter(js, dlqSubject)
 	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
 
 	// Create transformer that will fail - tries to convert string to int
@@ -351,11 +347,9 @@ func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
-	dlqPublisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: dlqSubject})
-	dlqWriter := stream.NewNatsBatchWriter(dlqPublisher, nil, slog.Default(), 1000)
+	reader := batchNats.NewBatchReader(consumer)
+	writer := batchNats.NewBatchWriter(js, outputSubject)
+	dlqWriter := batchNats.NewBatchWriter(js, dlqSubject)
 	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
 
 	// Create transformer that will fail - tries to convert string to int

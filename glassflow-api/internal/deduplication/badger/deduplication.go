@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v4"
-	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type Deduplicator struct {
@@ -28,15 +29,15 @@ func NewDeduplicator(
 // FilterDuplicates returns only messages that haven't been seen before (read-only check)
 func (d *Deduplicator) FilterDuplicates(
 	ctx context.Context,
-	messages []jetstream.Msg,
-) ([]jetstream.Msg, error) {
+	messages []models.Message,
+) ([]models.Message, error) {
 	if len(messages) == 0 {
 		return nil, nil
 	}
 
-	var filtered []jetstream.Msg
+	var filtered []models.Message
 	err := d.db.View(func(txn *badger.Txn) error {
-		filtered = make([]jetstream.Msg, 0, len(messages))
+		filtered = make([]models.Message, 0, len(messages))
 		for _, msg := range messages {
 			select {
 			case <-ctx.Done():
@@ -44,7 +45,7 @@ func (d *Deduplicator) FilterDuplicates(
 			default:
 			}
 
-			msgID := msg.Headers().Get("Nats-Msg-Id")
+			msgID := msg.GetHeader("Nats-Msg-Id")
 			if msgID == "" {
 				filtered = append(filtered, msg)
 				continue
@@ -73,7 +74,7 @@ func (d *Deduplicator) FilterDuplicates(
 // SaveKeys marks message IDs as seen with TTL
 func (d *Deduplicator) SaveKeys(
 	ctx context.Context,
-	messages []jetstream.Msg,
+	messages []models.Message,
 ) error {
 	if len(messages) == 0 {
 		return nil
@@ -87,7 +88,7 @@ func (d *Deduplicator) SaveKeys(
 			default:
 			}
 
-			msgID := msg.Headers().Get("Nats-Msg-Id")
+			msgID := msg.GetHeader("Nats-Msg-Id")
 			if msgID == "" {
 				continue
 			}
