@@ -971,7 +971,7 @@ export function ClickhouseMapper({
       ...col,
       eventField: '', // Clear existing mapping
       jsonType: '', // Clear existing type
-      sourceTopic: undefined, // Clear source topic for join mode
+      sourceTopic: undefined as string | undefined, // Clear source topic for join mode
     }))
 
     let hasChanges = false

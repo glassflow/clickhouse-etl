@@ -6,6 +6,7 @@ import {
   FilterGroup,
   ArithmeticExpressionNode,
   ArithmeticOperand,
+  ArithmeticOperator,
   isArithmeticExpressionNode,
 } from '@/src/store/filter.store'
 
@@ -209,6 +210,7 @@ export const arithmeticOperandToExpr = (operand: ArithmeticOperand | ArithmeticE
 
 /**
  * Convert an arithmetic expression to expr string
+ * Always wraps in parentheses for backend safety
  */
 export const arithmeticExpressionToExpr = (expr: ArithmeticExpressionNode): string => {
   const left = arithmeticOperandToExpr(expr.left)
@@ -216,6 +218,128 @@ export const arithmeticExpressionToExpr = (expr: ArithmeticExpressionNode): stri
 
   // Wrap in parentheses to ensure correct operator precedence
   return `(${left} ${expr.operator} ${right})`
+}
+
+// =============================================================================
+// Smart Display Rendering (Parentheses Flattening)
+// =============================================================================
+
+/**
+ * Operator precedence for arithmetic operators (higher = binds tighter)
+ */
+const OPERATOR_PRECEDENCE: Record<ArithmeticOperator, number> = {
+  '+': 1,
+  '-': 1,
+  '*': 2,
+  '/': 2,
+  '%': 2,
+}
+
+/**
+ * Associative operators that can be flattened when chained
+ * Note: Only + and * are truly associative
+ * - and / are NOT associative: (a - b) - c ≠ a - (b - c)
+ */
+const ASSOCIATIVE_OPERATORS: ArithmeticOperator[] = ['+', '*']
+
+/**
+ * Display symbol mapping for operators
+ */
+const OPERATOR_DISPLAY_SYMBOLS: Record<ArithmeticOperator, string> = {
+  '+': '+',
+  '-': '-',
+  '*': '×',
+  '/': '÷',
+  '%': '%',
+}
+
+/**
+ * Convert an arithmetic operand to display string
+ */
+const arithmeticOperandToDisplayString = (
+  operand: ArithmeticOperand | ArithmeticExpressionNode,
+  parentOperator?: ArithmeticOperator,
+  isRightOperand?: boolean,
+): string => {
+  if (isArithmeticExpressionNode(operand)) {
+    return arithmeticExpressionToDisplayString(operand, parentOperator, isRightOperand)
+  }
+
+  if (operand.type === 'field') {
+    return operand.field
+  }
+
+  // Literal value
+  return String(operand.value)
+}
+
+/**
+ * Convert an arithmetic expression to a human-readable display string
+ * with smart parentheses flattening.
+ *
+ * Rules:
+ * 1. Associative operators (+, *): Flatten when chaining the same operator
+ *    - a + b + c instead of ((a + b) + c)
+ * 2. Non-associative operators (-, /, %): Keep parentheses to preserve semantics
+ *    - (a - b) - c is different from a - (b - c)
+ * 3. Mixed precedence: Add parentheses only when needed for correct evaluation
+ *    - a + b × c needs no extra parens (standard precedence)
+ *    - (a + b) × c needs parens around addition
+ *
+ * @param expr - The expression to convert
+ * @param parentOperator - The operator of the parent expression (if any)
+ * @param isRightOperand - Whether this expression is the right operand of the parent
+ */
+export const arithmeticExpressionToDisplayString = (
+  expr: ArithmeticExpressionNode,
+  parentOperator?: ArithmeticOperator,
+  isRightOperand?: boolean,
+): string => {
+  const currentOp = expr.operator
+  const currentPrecedence = OPERATOR_PRECEDENCE[currentOp]
+
+  // Convert operands recursively
+  const leftStr = arithmeticOperandToDisplayString(expr.left, currentOp, false)
+  const rightStr = arithmeticOperandToDisplayString(expr.right, currentOp, true)
+
+  // Build the expression string with display symbols
+  const displayOp = OPERATOR_DISPLAY_SYMBOLS[currentOp]
+  const innerExpr = `${leftStr} ${displayOp} ${rightStr}`
+
+  // Determine if we need parentheses around this expression
+  if (!parentOperator) {
+    // Top-level expression: no parentheses needed
+    return innerExpr
+  }
+
+  const parentPrecedence = OPERATOR_PRECEDENCE[parentOperator]
+  const isAssociative = ASSOCIATIVE_OPERATORS.includes(currentOp)
+  const sameOperator = currentOp === parentOperator
+
+  // Case 1: Same associative operator - flatten (no parens)
+  // e.g., a + b + c instead of (a + b) + c
+  if (sameOperator && isAssociative) {
+    return innerExpr
+  }
+
+  // Case 2: Current has lower precedence than parent - needs parens
+  // e.g., (a + b) × c
+  if (currentPrecedence < parentPrecedence) {
+    return `(${innerExpr})`
+  }
+
+  // Case 3: Same precedence but different operators
+  // For non-associative operators on the right side, we need parens
+  // e.g., a - (b - c), a / (b / c)
+  if (currentPrecedence === parentPrecedence && isRightOperand) {
+    const parentIsAssociative = ASSOCIATIVE_OPERATORS.includes(parentOperator)
+    if (!parentIsAssociative) {
+      return `(${innerExpr})`
+    }
+  }
+
+  // Case 4: Higher or equal precedence, no special cases - no parens needed
+  return innerExpr
 }
 
 /**
@@ -463,41 +587,64 @@ export type ConditionValidation = RuleValidation
 export interface ArithmeticExpressionValidation {
   isValid: boolean
   error?: string
+  /** Which operand has the error: 'left', 'right', or 'operator' */
+  errorLocation?: 'left' | 'right' | 'operator'
 }
 
 /**
- * Validate an arithmetic expression
+ * Validate an arithmetic expression with context-aware error messages
+ * @param expr - The expression to validate
+ * @param isChained - Whether this is a chained expression (affects error message wording)
  */
 export const validateArithmeticExpression = (
   expr: ArithmeticExpressionNode | undefined,
+  isChained: boolean = false,
 ): ArithmeticExpressionValidation => {
   if (!expr) {
-    return { isValid: false, error: 'Expression is required' }
+    return {
+      isValid: false,
+      error: 'Complete both operands to continue building the expression',
+    }
   }
+
+  // Determine if current expression level is chained (left side is an expression)
+  const isCurrentLevelChained = isArithmeticExpressionNode(expr.left)
 
   // Validate left operand
   if (isArithmeticExpressionNode(expr.left)) {
-    const leftValidation = validateArithmeticExpression(expr.left)
+    const leftValidation = validateArithmeticExpression(expr.left, true)
     if (!leftValidation.isValid) {
       return leftValidation
     }
   } else if (expr.left.type === 'field' && !expr.left.field) {
-    return { isValid: false, error: 'Field is required in expression' }
+    return {
+      isValid: false,
+      error: isChained ? 'Select a field for the current expression' : 'Select a field for the left operand',
+      errorLocation: 'left',
+    }
   }
 
   // Validate right operand
   if (isArithmeticExpressionNode(expr.right)) {
-    const rightValidation = validateArithmeticExpression(expr.right)
+    const rightValidation = validateArithmeticExpression(expr.right, true)
     if (!rightValidation.isValid) {
       return rightValidation
     }
   } else if (expr.right.type === 'field' && !expr.right.field) {
-    return { isValid: false, error: 'Field is required in expression' }
+    return {
+      isValid: false,
+      error: isCurrentLevelChained ? 'Select a field for the next operand' : 'Select a field for the right operand',
+      errorLocation: 'right',
+    }
   }
 
   // Validate operator
   if (!expr.operator) {
-    return { isValid: false, error: 'Operator is required in expression' }
+    return {
+      isValid: false,
+      error: isCurrentLevelChained ? 'Select an operator for the next operation' : 'Select an operator',
+      errorLocation: 'operator',
+    }
   }
 
   return { isValid: true }
