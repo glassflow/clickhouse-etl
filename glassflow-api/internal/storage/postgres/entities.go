@@ -10,17 +10,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/encryption"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 // getSource retrieves a source and its connection
 func (s *PostgresStorage) getSource(ctx context.Context, sourceID uuid.UUID) (json.RawMessage, json.RawMessage, error) {
-	return getEntityWithConnection(ctx, s.pool, s.logger, "sources", "id", sourceID)
+	return getEntityWithConnection(ctx, s.pool, s.logger, "sources", "id", sourceID, s.encryptionService)
 }
 
 // getSink retrieves a sink and its connection
 func (s *PostgresStorage) getSink(ctx context.Context, sinkID uuid.UUID) (json.RawMessage, json.RawMessage, error) {
-	return getEntityWithConnection(ctx, s.pool, s.logger, "sinks", "id", sinkID)
+	return getEntityWithConnection(ctx, s.pool, s.logger, "sinks", "id", sinkID, s.encryptionService)
 }
 
 // getEntityWithConnection is a generic helper to get an entity (source/sink) and its connection
@@ -30,6 +31,7 @@ func getEntityWithConnection(
 	logger *slog.Logger,
 	entityTable, entityIDColumn string,
 	entityID uuid.UUID,
+	encryptionService *encryption.Service,
 ) (entityConfig json.RawMessage, connConfig json.RawMessage, err error) {
 	var (
 		connID           uuid.UUID
@@ -50,13 +52,14 @@ func getEntityWithConnection(
 		return nil, nil, fmt.Errorf("get %s: %w", entityTable, err)
 	}
 
-	// Query connection
+	// Query connection (type and config)
+	var connType string
 	var connConfigJSON []byte
 	err = pool.QueryRow(ctx, `
-		SELECT config
+		SELECT type, config
 		FROM connections
 		WHERE id = $1
-	`, connID).Scan(&connConfigJSON)
+	`, connID).Scan(&connType, &connConfigJSON)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to query connection",
 			slog.String("entity_table", entityTable),
@@ -65,8 +68,30 @@ func getEntityWithConnection(
 		return nil, nil, fmt.Errorf("get connection: %w", err)
 	}
 
+	// Decrypt sensitive fields if encryption is enabled
+	if encryptionService != nil {
+		decrypted, err := decryptSensitiveFields(encryptionService, connType, connConfigJSON)
+		if err != nil {
+			// Try to unmarshal as plaintext JSON (backward compatibility - old unencrypted data)
+			var testJSON interface{}
+			if json.Unmarshal(connConfigJSON, &testJSON) == nil {
+				logger.WarnContext(ctx, "failed to decrypt sensitive fields, treating as unencrypted",
+					slog.String("entity_table", entityTable),
+					slog.String("connection_id", connID.String()),
+					slog.String("error", err.Error()))
+				return entityConfigJSON, connConfigJSON, nil
+			}
+			logger.ErrorContext(ctx, "failed to decrypt sensitive fields",
+				slog.String("entity_table", entityTable),
+				slog.String("connection_id", connID.String()),
+				slog.String("error", err.Error()))
+			return nil, nil, fmt.Errorf("decrypt sensitive fields: %w", err)
+		}
+		connConfigJSON = decrypted
+	}
+
 	// Return raw JSON for direct unmarshaling into typed structs
-	return json.RawMessage(entityConfigJSON), json.RawMessage(connConfigJSON), nil
+	return entityConfigJSON, connConfigJSON, nil
 }
 
 // ------------------------------------------------------------------------------------------------

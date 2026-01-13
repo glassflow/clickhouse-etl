@@ -649,7 +649,7 @@ func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafk
 		return fmt.Errorf("marshal kafka connection config: %w", err)
 	}
 
-	err = s.updateConnectionWithConfig(ctx, tx, kafkaConnID, connBytes)
+	err = s.updateConnectionWithConfig(ctx, tx, kafkaConnID, "kafka", connBytes)
 	if err != nil {
 		return fmt.Errorf("update kafka connection: %w", err)
 	}
@@ -705,7 +705,7 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 		return fmt.Errorf("marshal clickhouse connection config: %w", err)
 	}
 
-	err = s.updateConnectionWithConfig(ctx, tx, chConnID, connBytes)
+	err = s.updateConnectionWithConfig(ctx, tx, chConnID, "clickhouse", connBytes)
 	if err != nil {
 		return fmt.Errorf("update clickhouse connection: %w", err)
 	}

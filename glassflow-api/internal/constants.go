@@ -230,4 +230,7 @@ const (
 	SyncMode             ProcessorMode = "sync"
 	AsyncMode            ProcessorMode = "async"
 	DefaultProcessorMode               = AsyncMode
+
+	// Encryption constants
+	AESKeySize = 32
 )
