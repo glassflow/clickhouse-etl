@@ -953,6 +953,130 @@ export function ClickhouseMapper({
     setClickhouseDestination,
   ])
 
+  // Unified auto-mapping function that works for both single and join modes
+  // This can be triggered on demand via the Auto-Map button
+  const performAutoMapping = useCallback(() => {
+    if (mappedColumns.length === 0) {
+      return false
+    }
+
+    // Check if transformations are enabled (only for single mode)
+    const isTransformationEnabled =
+      mode === 'single' &&
+      transformationStore.transformationConfig.enabled &&
+      transformationStore.transformationConfig.fields.length > 0
+
+    // Clear existing mappings and perform fresh auto-mapping
+    const updatedColumns = mappedColumns.map((col) => ({
+      ...col,
+      eventField: '', // Clear existing mapping
+      jsonType: '', // Clear existing type
+      sourceTopic: undefined, // Clear source topic for join mode
+    }))
+
+    let hasChanges = false
+
+    if (mode === 'single') {
+      // Single mode auto-mapping
+      if (isTransformationEnabled) {
+        // Use intermediary schema for transformed fields
+        const intermediarySchema = transformationStore.getIntermediarySchema()
+        if (intermediarySchema.length > 0) {
+          const transformedFields = intermediarySchema.map((field) => field.name)
+          const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
+
+          updatedColumns.forEach((col, index) => {
+            const matchingField = findBestMatchingField(col.name, transformedFields)
+            if (matchingField) {
+              const fieldType = fieldTypeMap.get(matchingField) || 'string'
+              updatedColumns[index] = {
+                ...col,
+                eventField: matchingField,
+                jsonType: fieldType,
+              }
+              hasChanges = true
+            }
+          })
+        }
+      } else {
+        // Use event fields for non-transformed mode
+        if (eventFields.length > 0 && eventData) {
+          updatedColumns.forEach((col, index) => {
+            const matchingField = findBestMatchingField(col.name, eventFields)
+            if (matchingField) {
+              const verifiedType = getVerifiedTypeFromTopic(selectedTopic, matchingField)
+              updatedColumns[index] = {
+                ...col,
+                eventField: matchingField,
+                jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
+              }
+              hasChanges = true
+            }
+          })
+        }
+      }
+    } else {
+      // Join/dedup mode auto-mapping
+      if (primaryEventFields.length === 0 && secondaryEventFields.length === 0) {
+        return false
+      }
+
+      updatedColumns.forEach((col, index) => {
+        // First try to find matching field in primary (left) topic
+        let matchingField = findBestMatchingField(col.name, primaryEventFields)
+        let source: 'primary' | 'secondary' = 'primary'
+        let sourceData = primaryEventData
+
+        // If no match in primary, try secondary (right) topic
+        if (!matchingField) {
+          matchingField = findBestMatchingField(col.name, secondaryEventFields)
+          source = 'secondary'
+          sourceData = secondaryTopic?.selectedEvent?.event
+        }
+
+        if (matchingField && sourceData) {
+          const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+          const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
+
+          const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
+          const jsonType = verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+
+          updatedColumns[index] = {
+            ...col,
+            eventField: matchingField,
+            jsonType,
+            sourceTopic: sourceTopic,
+          }
+          hasChanges = true
+        }
+      })
+    }
+
+    if (hasChanges) {
+      setMappedColumns(updatedColumns)
+      setClickhouseDestination({
+        ...clickhouseDestination,
+        mapping: updatedColumns,
+      })
+    }
+
+    return hasChanges
+  }, [
+    mode,
+    mappedColumns,
+    eventFields,
+    eventData,
+    selectedTopic,
+    primaryEventFields,
+    secondaryEventFields,
+    primaryEventData,
+    primaryTopic,
+    secondaryTopic,
+    clickhouseDestination,
+    setClickhouseDestination,
+    transformationStore,
+  ])
+
   // Map event field to column
   const mapEventFieldToColumn = (index: number, eventField: string, source?: 'primary' | 'secondary') => {
     const updatedColumns = [...mappedColumns]
@@ -1579,6 +1703,7 @@ export function ClickhouseMapper({
               unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
               unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
               onRefreshTableSchema={handleRefreshTableSchema}
+              onAutoMap={performAutoMapping}
               selectedDatabase={selectedDatabase}
               selectedTable={selectedTable}
             />
