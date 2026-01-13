@@ -11,10 +11,13 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
+	batchNats "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
 	dedupBadger "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication/badger"
+	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
@@ -30,12 +33,34 @@ func TestDeduplication_BasicDeduplication(t *testing.T) {
 	inputSubject, outputSubject := "test.input", "test.output"
 
 	setupStreams(t, jetStream, ctx, inputSubject, outputSubject)
-	dedupService := createService(t, suite, jetStream, ctx, inputSubject, outputSubject)
 
-	publishMessages(t, jetStream, ctx, inputSubject, []string{"msg-1", "msg-2", "msg-1", "msg-3", "msg-2"})
+	dedupConfig := &models.DeduplicationConfig{
+		Enabled: true,
+		Window:  *models.NewJSONDuration(time.Hour),
+	}
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		jetStream,
+		inputSubject,
+		outputSubject,
+		dedupConfig,
+		nil, // statelessTransform
+		nil, // filterConfig
+		nil, // dlq
+	)
+
+	publishMessages(
+		t,
+		jetStream,
+		ctx,
+		inputSubject,
+		[]string{"msg-1", "msg-2", "msg-1", "msg-3", "msg-2"},
+	)
 
 	// Act
-	require.NoError(t, dedupService.Process(ctx))
+	require.NoError(t, component.Process(ctx))
 
 	// Assert
 	outputMessages := readOutput(t, jetStream, ctx, outputSubject)
@@ -53,7 +78,23 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	inputSubject, outputSubject := "test.failure.input", "test.failure.output"
 
 	setupStreams(t, js, ctx, inputSubject, outputSubject)
-	dedupService := createService(t, suite, js, ctx, inputSubject, outputSubject)
+
+	dedupConfig := &models.DeduplicationConfig{
+		Enabled: true,
+		Window:  *models.NewJSONDuration(time.Hour),
+	}
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		js,
+		inputSubject,
+		outputSubject,
+		dedupConfig,
+		nil, // statelessTransform
+		nil, // filterConfig
+		nil, // dlq
+	)
 
 	publishMessages(t, js, ctx, inputSubject, []string{"msg-1", "msg-2"})
 
@@ -61,7 +102,7 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	require.NoError(t, suite.GetBadgerDB().Close())
 
 	// Act
-	err := dedupService.Process(ctx)
+	err := component.Process(ctx)
 
 	// Assert
 	require.Error(t, err)
@@ -69,8 +110,8 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	// Verify messages still in input stream (not acked)
 	consumer, err := js.Consumer(ctx, "test-input", "test-consumer")
 	require.NoError(t, err)
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	availableMessages, err := reader.ReadBatchNoWait(ctx, 10)
+	reader := batchNats.NewBatchReader(consumer)
+	availableMessages, err := reader.ReadBatchNoWait(ctx, models.WithBatchSize(10))
 	require.NoError(t, err)
 	require.Len(t, availableMessages, 2, "messages should still be in input stream")
 
@@ -79,7 +120,12 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	require.Len(t, outputMessages, 0, "no messages should be in output stream")
 }
 
-func setupStreams(t *testing.T, js jetstream.JetStream, ctx context.Context, inputSubject, outputSubject string) {
+func setupStreams(
+	t *testing.T,
+	js jetstream.JetStream,
+	ctx context.Context,
+	inputSubject, outputSubject string,
+) {
 	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:       "test-input",
 		Subjects:   []string{inputSubject},
@@ -97,30 +143,87 @@ func setupStreams(t *testing.T, js jetstream.JetStream, ctx context.Context, inp
 	require.NoError(t, err)
 }
 
-func createService(t *testing.T, suite *steps.DedupTestSuite, js jetstream.JetStream, ctx context.Context, inputSubject, outputSubject string) *deduplication.DedupService {
+func createComponent(
+	ctx context.Context,
+	t *testing.T,
+	suite *steps.DedupTestSuite,
+	js jetstream.JetStream,
+	inputSubject, outputSubject string,
+	dedupConfig *models.DeduplicationConfig,
+	statelessTransform *models.StatelessTransformation,
+	filterConfig *models.FilterComponentConfig,
+	dlqSubject *string,
+) *processor.Component {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-input", jetstream.ConsumerConfig{
 		Name:          "test-consumer",
+		Durable:       "test-consumer",
 		FilterSubject: inputSubject,
+		AckPolicy:     jetstream.AckAllPolicy,
+		AckWait:       internal.NatsDefaultAckWait,
+		MaxAckPending: -1,
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
-	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
+	reader := batchNats.NewBatchReader(consumer)
+	writer := batchNats.NewBatchWriter(js, outputSubject)
 
-	service, err := deduplication.NewDedupService(
+	var dlqWriter batch.BatchWriter
+	if dlqSubject != nil {
+		dlqWriter = batchNats.NewBatchWriter(js, *dlqSubject)
+	}
+
+	role := internal.RoleDeduplicator
+
+	// Build dedup processor
+	var dedupProcessor processor.Processor
+	if dedupConfig != nil && dedupConfig.Enabled {
+		ttl := dedupConfig.Window.Duration()
+		badgerDedup := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), ttl)
+		dedupProcessor = processor.NewDedupProcessor(badgerDedup)
+	} else {
+		dedupProcessor = &processor.NoopProcessor{}
+	}
+
+	// Build stateless transformer processor
+	var statelessTransformerProcessor processor.Processor
+	if statelessTransform != nil && statelessTransform.Enabled {
+		transformer, err := jsonTransformer.NewTransformer(statelessTransform.Config.Transform)
+		require.NoError(t, err)
+		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
+		statelessTransformerProcessor = processor.ChainProcessors(
+			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+			statelessTransformerProcessorBase,
+		)
+	} else {
+		statelessTransformerProcessor = &processor.NoopProcessor{}
+	}
+
+	// Build filter processor
+	var filterProcessor processor.Processor
+	if filterConfig != nil && filterConfig.Enabled {
+		filterJson, err := filterJSON.New(filterConfig.Expression, filterConfig.Enabled)
+		require.NoError(t, err)
+		filterProcessorBase := processor.NewFilterProcessor(filterJson, nil) // nil meter for tests
+		filterProcessor = processor.ChainProcessors(
+			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+			filterProcessorBase,
+		)
+	} else {
+		filterProcessor = &processor.NoopProcessor{}
+	}
+
+	return processor.NewComponent(
 		reader,
 		writer,
-		nil, // no dlqWriter for basic tests
-		nil, // no transformer for basic tests
-		deduplicator,
+		dlqWriter,
 		slog.Default(),
-		100,
-		time.Millisecond,
+		role,
+		[]processor.Processor{
+			filterProcessor,
+			dedupProcessor,
+			statelessTransformerProcessor,
+		},
 	)
-	require.NoError(t, err)
-	return service
 }
 
 func publishMessages(t *testing.T, js jetstream.JetStream, ctx context.Context, subject string, msgIDs []string) {
@@ -135,28 +238,28 @@ func publishMessages(t *testing.T, js jetstream.JetStream, ctx context.Context, 
 	}
 }
 
-func readOutput(t *testing.T, js jetstream.JetStream, ctx context.Context, outputSubject string) []jetstream.Msg {
+func readOutput(t *testing.T, js jetstream.JetStream, ctx context.Context, outputSubject string) []models.Message {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-output", jetstream.ConsumerConfig{
 		Name:          "output-consumer",
 		FilterSubject: outputSubject,
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	messages, err := reader.ReadBatchNoWait(ctx, 10)
+	reader := batchNats.NewBatchReader(consumer)
+	messages, err := reader.ReadBatchNoWait(ctx, models.WithBatchSize(10))
 	require.NoError(t, err)
 	return messages
 }
 
-func readDLQ(t *testing.T, js jetstream.JetStream, ctx context.Context, dlqSubject string) []jetstream.Msg {
+func readDLQ(t *testing.T, js jetstream.JetStream, ctx context.Context, dlqSubject string) []models.Message {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-dlq", jetstream.ConsumerConfig{
 		Name:          "dlq-consumer",
 		FilterSubject: dlqSubject,
 	})
 	require.NoError(t, err)
 
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	messages, err := reader.ReadBatchNoWait(ctx, 10)
+	reader := batchNats.NewBatchReader(consumer)
+	messages, err := reader.ReadBatchNoWait(ctx, models.WithBatchSize(10))
 	require.NoError(t, err)
 	return messages
 }
@@ -173,44 +276,26 @@ func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 
 	setupStreams(t, js, ctx, inputSubject, outputSubject)
 
-	// Create service with transformer using hasPrefix function
-	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-input", jetstream.ConsumerConfig{
-		Name:          "test-consumer",
-		FilterSubject: inputSubject,
-	})
-	require.NoError(t, err)
-
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
-	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
-
 	// Create transformer using hasPrefix and upper functions
-	transformer, err := jsonTransformer.NewTransformer([]models.Transform{
-		{
-			Expression: `hasPrefix(text, "hello")`,
-			OutputName: "has_hello_prefix",
-			OutputType: "bool",
+	statelessTransform := &models.StatelessTransformation{
+		Enabled: true,
+		Config: models.StatelessTransformationsConfig{
+			Transform: []models.Transform{
+				{
+					Expression: `hasPrefix(text, "hello")`,
+					OutputName: "has_hello_prefix",
+					OutputType: "bool",
+				},
+				{
+					Expression: `upper(text)`,
+					OutputName: "uppercase_text",
+					OutputType: "string",
+				},
+			},
 		},
-		{
-			Expression: `upper(text)`,
-			OutputName: "uppercase_text",
-			OutputType: "string",
-		},
-	})
-	require.NoError(t, err)
+	}
 
-	service, err := deduplication.NewDedupService(
-		reader,
-		writer,
-		nil, // no dlqWriter for this test
-		transformer,
-		deduplicator,
-		slog.Default(),
-		100,
-		time.Millisecond,
-	)
-	require.NoError(t, err)
+	component := createComponent(ctx, t, suite, js, inputSubject, outputSubject, nil, statelessTransform, nil, nil)
 
 	// Publish messages with custom data
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -224,7 +309,7 @@ func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 	}
 
 	// Act
-	require.NoError(t, service.Process(ctx))
+	require.NoError(t, component.Process(ctx))
 
 	// Assert
 	outputMessages := readOutput(t, js, ctx, outputSubject)
@@ -238,7 +323,7 @@ func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 
 	for _, msg := range outputMessages {
 		var actualOutput map[string]any
-		err := json.Unmarshal(msg.Data(), &actualOutput)
+		err := json.Unmarshal(msg.Payload(), &actualOutput)
 		require.NoError(t, err, "should unmarshal output JSON")
 		require.Equal(t, expectedOutput, actualOutput, "transformed output should match expected")
 	}
@@ -265,41 +350,32 @@ func TestDeduplication_TransformationMisspelledReturnsDefault(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create service with transformer that will fail
-	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-input", jetstream.ConsumerConfig{
-		Name:          "test-consumer",
-		FilterSubject: inputSubject,
-	})
-	require.NoError(t, err)
-
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
-	dlqPublisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: dlqSubject})
-	dlqWriter := stream.NewNatsBatchWriter(dlqPublisher, nil, slog.Default(), 1000)
-	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
-
-	// Create transformer that will fail - tries to convert string to int
-	transformer, err := jsonTransformer.NewTransformer([]models.Transform{
-		{
-			Expression: `containsStr(tet, "qwe")`, // misspelled should return ok
-			OutputName: "number",
-			OutputType: "bool",
+	// Create transformer that will fail - misspelled field should return default
+	statelessTransform := &models.StatelessTransformation{
+		Enabled: true,
+		Config: models.StatelessTransformationsConfig{
+			Transform: []models.Transform{
+				{
+					Expression: `containsStr(tet, "qwe")`, // misspelled should return ok
+					OutputName: "number",
+					OutputType: "bool",
+				},
+			},
 		},
-	})
-	require.NoError(t, err)
+	}
 
-	service, err := deduplication.NewDedupService(
-		reader,
-		writer,
-		dlqWriter,
-		transformer,
-		deduplicator,
-		slog.Default(),
-		100,
-		time.Millisecond,
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		js,
+		inputSubject,
+		outputSubject,
+		nil, // dedup
+		statelessTransform,
+		nil, // filterConfig
+		&dlqSubject,
 	)
-	require.NoError(t, err)
 
 	// Publish messages that will fail transformation
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -313,7 +389,7 @@ func TestDeduplication_TransformationMisspelledReturnsDefault(t *testing.T) {
 	}
 
 	// Act
-	require.NoError(t, service.Process(ctx))
+	require.NoError(t, component.Process(ctx))
 
 	// Assert
 	outputMessages := readOutput(t, js, ctx, outputSubject)
@@ -344,41 +420,21 @@ func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create service with transformer that will fail
-	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-input", jetstream.ConsumerConfig{
-		Name:          "test-consumer",
-		FilterSubject: inputSubject,
-	})
-	require.NoError(t, err)
-
-	reader := stream.NewBatchReader(consumer, slog.Default())
-	publisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: outputSubject})
-	writer := stream.NewNatsBatchWriter(publisher, nil, slog.Default(), 1000)
-	dlqPublisher := stream.NewNATSPublisher(js, stream.PublisherConfig{Subject: dlqSubject})
-	dlqWriter := stream.NewNatsBatchWriter(dlqPublisher, nil, slog.Default(), 1000)
-	deduplicator := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), time.Hour)
-
-	// Create transformer that will fail - tries to convert string to int
-	transformer, err := jsonTransformer.NewTransformer([]models.Transform{
-		{
-			Expression: `containsStr(tet)`, // not enough arguments
-			OutputName: "number",
-			OutputType: "bool",
+	// Create transformer that will fail - not enough arguments
+	statelessTransform := &models.StatelessTransformation{
+		Enabled: true,
+		Config: models.StatelessTransformationsConfig{
+			Transform: []models.Transform{
+				{
+					Expression: `containsStr(tet)`, // not enough arguments
+					OutputName: "number",
+					OutputType: "bool",
+				},
+			},
 		},
-	})
-	require.NoError(t, err)
+	}
 
-	service, err := deduplication.NewDedupService(
-		reader,
-		writer,
-		dlqWriter,
-		transformer,
-		deduplicator,
-		slog.Default(),
-		100,
-		time.Millisecond,
-	)
-	require.NoError(t, err)
+	component := createComponent(ctx, t, suite, js, inputSubject, outputSubject, nil, statelessTransform, nil, &dlqSubject)
 
 	// Publish messages that will fail transformation
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -392,7 +448,7 @@ func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 	}
 
 	// Act
-	require.NoError(t, service.Process(ctx))
+	require.NoError(t, component.Process(ctx))
 
 	// Assert
 	outputMessages := readOutput(t, js, ctx, outputSubject)
@@ -400,4 +456,159 @@ func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 
 	dlqMessages := readDLQ(t, js, ctx, dlqSubject)
 	require.Len(t, dlqMessages, 2, "all failed messages should be in DLQ")
+}
+
+func TestDeduplication_BasicFiltering(t *testing.T) {
+	// Arrange
+	suite := steps.NewDedupTestSuite()
+	require.NoError(t, suite.SetupResources())
+	defer suite.CleanupResources()
+
+	ctx := context.Background()
+	js := suite.GetNATSClient().JetStream()
+	inputSubject, outputSubject := "test.filter.input", "test.filter.output"
+
+	setupStreams(t, js, ctx, inputSubject, outputSubject)
+
+	filterConfig := &models.FilterComponentConfig{
+		Enabled:    true,
+		Expression: `age < 18`, // Filter out minors
+	}
+
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		js,
+		inputSubject,
+		outputSubject,
+		nil,          // dedup
+		nil,          // statelessTransform
+		filterConfig, // filter
+		nil,          // dlq
+	)
+
+	// Publish 3 messages: 2 match filter (dropped), 1 doesn't match (passes through)
+	for _, data := range []string{`{"age": 15}`, `{"age": 25}`, `{"age": 10}`} {
+		msg := &nats.Msg{
+			Subject: inputSubject,
+			Data:    []byte(data),
+		}
+		_, err := js.PublishMsg(ctx, msg)
+		require.NoError(t, err)
+	}
+
+	// Act
+	require.NoError(t, component.Process(ctx))
+
+	// Assert
+	outputMessages := readOutput(t, js, ctx, outputSubject)
+	require.Len(t, outputMessages, 1, "should have 1 message (age >= 18)")
+
+	// Verify it's the correct message
+	var payload map[string]any
+	err := json.Unmarshal(outputMessages[0].Payload(), &payload)
+	require.NoError(t, err)
+	require.Equal(t, float64(25), payload["age"], "output should be the age:25 message")
+}
+
+func TestDeduplication_FilterWithDedupAndTransform(t *testing.T) {
+	// Arrange
+	suite := steps.NewDedupTestSuite()
+	require.NoError(t, suite.SetupResources())
+	defer suite.CleanupResources()
+
+	ctx := context.Background()
+	js := suite.GetNATSClient().JetStream()
+	inputSubject, outputSubject := "test.combined.input", "test.combined.output"
+
+	setupStreams(t, js, ctx, inputSubject, outputSubject)
+
+	// Filter: keep only adults (age >= 18)
+	filterConfig := &models.FilterComponentConfig{
+		Enabled:    true,
+		Expression: `age < 18`, // Filter out minors
+	}
+
+	// Deduplication: enabled with 1 hour window
+	dedupConfig := &models.DeduplicationConfig{
+		Enabled: true,
+		Window:  *models.NewJSONDuration(time.Hour),
+	}
+
+	// Transformation: uppercase the name field
+	statelessTransform := &models.StatelessTransformation{
+		Enabled: true,
+		Config: models.StatelessTransformationsConfig{
+			Transform: []models.Transform{
+				{
+					Expression: `upper(name)`,
+					OutputName: "uppercase_name",
+					OutputType: "string",
+				},
+			},
+		},
+	}
+
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		js,
+		inputSubject,
+		outputSubject,
+		dedupConfig,
+		statelessTransform,
+		filterConfig,
+		nil, // dlq
+	)
+
+	// Publish test messages
+	testMessages := []struct {
+		msgID string
+		data  string
+	}{
+		{"msg-1", `{"age": 15, "name": "alice"}`},  // Filtered out (age < 18)
+		{"msg-2", `{"age": 25, "name": "bob"}`},    // Passes filter, deduped, transformed
+		{"msg-2", `{"age": 25, "name": "bob"}`},    // Duplicate (deduped)
+		{"msg-3", `{"age": 30, "name": "charlie"}`}, // Passes filter, deduped, transformed
+		{"msg-4", `{"age": 10, "name": "dave"}`},   // Filtered out (age < 18)
+	}
+
+	for _, tm := range testMessages {
+		msg := &nats.Msg{
+			Subject: inputSubject,
+			Data:    []byte(tm.data),
+			Header:  nats.Header{"Nats-Msg-Id": []string{tm.msgID}},
+		}
+		_, err := js.PublishMsg(ctx, msg)
+		require.NoError(t, err)
+	}
+
+	// Act
+	require.NoError(t, component.Process(ctx))
+
+	// Assert
+	outputMessages := readOutput(t, js, ctx, outputSubject)
+	require.Len(t, outputMessages, 2, "should have 2 messages (bob and charlie)")
+
+	// Verify transformations
+	expectedNames := map[string]bool{"BOB": false, "CHARLIE": false}
+	for _, msg := range outputMessages {
+		var payload map[string]any
+		err := json.Unmarshal(msg.Payload(), &payload)
+		require.NoError(t, err)
+
+		uppercaseName, ok := payload["uppercase_name"].(string)
+		require.True(t, ok, "uppercase_name field should exist and be a string")
+
+		_, expectedName := expectedNames[uppercaseName]
+		require.True(t, expectedName, "unexpected name in output: %s", uppercaseName)
+		expectedNames[uppercaseName] = true
+	}
+
+	// Verify all expected names were found
+	for name, found := range expectedNames {
+		require.True(t, found, "expected name %s not found in output", name)
+	}
 }
