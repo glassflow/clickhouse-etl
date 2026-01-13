@@ -41,7 +41,7 @@ export const EventEditor = ({
   const [manualEvent, setManualEvent] = useState(event)
   const [isValid, setIsValid] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-  
+
   // Track the original event from Kafka to detect modifications
   const originalEventRef = useRef<string>(event)
   const [isModified, setIsModified] = useState(false)
