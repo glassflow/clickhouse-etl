@@ -32,9 +32,30 @@ func TestDeduplication_BasicDeduplication(t *testing.T) {
 	inputSubject, outputSubject := "test.input", "test.output"
 
 	setupStreams(t, jetStream, ctx, inputSubject, outputSubject)
-	component := createComponent(t, suite, jetStream, ctx, inputSubject, outputSubject, nil, nil, true)
 
-	publishMessages(t, jetStream, ctx, inputSubject, []string{"msg-1", "msg-2", "msg-1", "msg-3", "msg-2"})
+	dedupConfig := &models.DeduplicationConfig{
+		Enabled: true,
+		Window:  *models.NewJSONDuration(time.Hour),
+	}
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		jetStream,
+		inputSubject,
+		outputSubject,
+		dedupConfig,
+		nil, // statelessTransform
+		nil, // dlq
+	)
+
+	publishMessages(
+		t,
+		jetStream,
+		ctx,
+		inputSubject,
+		[]string{"msg-1", "msg-2", "msg-1", "msg-3", "msg-2"},
+	)
 
 	// Act
 	require.NoError(t, component.Process(ctx))
@@ -55,7 +76,22 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	inputSubject, outputSubject := "test.failure.input", "test.failure.output"
 
 	setupStreams(t, js, ctx, inputSubject, outputSubject)
-	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, nil, nil, true)
+
+	dedupConfig := &models.DeduplicationConfig{
+		Enabled: true,
+		Window:  *models.NewJSONDuration(time.Hour),
+	}
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		js,
+		inputSubject,
+		outputSubject,
+		dedupConfig,
+		nil, // statelessTransform
+		nil, // dlq
+	)
 
 	publishMessages(t, js, ctx, inputSubject, []string{"msg-1", "msg-2"})
 
@@ -81,7 +117,12 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	require.Len(t, outputMessages, 0, "no messages should be in output stream")
 }
 
-func setupStreams(t *testing.T, js jetstream.JetStream, ctx context.Context, inputSubject, outputSubject string) {
+func setupStreams(
+	t *testing.T,
+	js jetstream.JetStream,
+	ctx context.Context,
+	inputSubject, outputSubject string,
+) {
 	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:       "test-input",
 		Subjects:   []string{inputSubject},
@@ -100,14 +141,14 @@ func setupStreams(t *testing.T, js jetstream.JetStream, ctx context.Context, inp
 }
 
 func createComponent(
+	ctx context.Context,
 	t *testing.T,
 	suite *steps.DedupTestSuite,
 	js jetstream.JetStream,
-	ctx context.Context,
 	inputSubject, outputSubject string,
-	transforms []models.Transform,
+	dedupConfig *models.DeduplicationConfig,
+	statelessTransform *models.StatelessTransformation,
 	dlqSubject *string,
-	dedupEnabled bool,
 ) *processor.Component {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-input", jetstream.ConsumerConfig{
 		Name:          "test-consumer",
@@ -131,8 +172,8 @@ func createComponent(
 
 	// Build dedup processor
 	var dedupProcessor processor.Processor
-	if dedupEnabled {
-		ttl := time.Hour
+	if dedupConfig != nil && dedupConfig.Enabled {
+		ttl := dedupConfig.Window.Duration()
 		badgerDedup := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), ttl)
 		dedupProcessor = processor.NewDedupProcessor(badgerDedup)
 	} else {
@@ -141,8 +182,8 @@ func createComponent(
 
 	// Build stateless transformer processor
 	var statelessTransformerProcessor processor.Processor
-	if transforms != nil {
-		transformer, err := jsonTransformer.NewTransformer(transforms)
+	if statelessTransform != nil && statelessTransform.Enabled {
+		transformer, err := jsonTransformer.NewTransformer(statelessTransform.Config.Transform)
 		require.NoError(t, err)
 		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
 		statelessTransformerProcessor = processor.ChainProcessors(
@@ -221,20 +262,25 @@ func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 	setupStreams(t, js, ctx, inputSubject, outputSubject)
 
 	// Create transformer using hasPrefix and upper functions
-	transforms := []models.Transform{
-		{
-			Expression: `hasPrefix(text, "hello")`,
-			OutputName: "has_hello_prefix",
-			OutputType: "bool",
-		},
-		{
-			Expression: `upper(text)`,
-			OutputName: "uppercase_text",
-			OutputType: "string",
+	statelessTransform := &models.StatelessTransformation{
+		Enabled: true,
+		Config: models.StatelessTransformationsConfig{
+			Transform: []models.Transform{
+				{
+					Expression: `hasPrefix(text, "hello")`,
+					OutputName: "has_hello_prefix",
+					OutputType: "bool",
+				},
+				{
+					Expression: `upper(text)`,
+					OutputName: "uppercase_text",
+					OutputType: "string",
+				},
+			},
 		},
 	}
 
-	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, transforms, nil, false)
+	component := createComponent(ctx, t, suite, js, inputSubject, outputSubject, nil, statelessTransform, nil)
 
 	// Publish messages with custom data
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -290,15 +336,30 @@ func TestDeduplication_TransformationMisspelledReturnsDefault(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create transformer that will fail - misspelled field should return default
-	transforms := []models.Transform{
-		{
-			Expression: `containsStr(tet, "qwe")`, // misspelled should return ok
-			OutputName: "number",
-			OutputType: "bool",
+	statelessTransform := &models.StatelessTransformation{
+		Enabled: true,
+		Config: models.StatelessTransformationsConfig{
+			Transform: []models.Transform{
+				{
+					Expression: `containsStr(tet, "qwe")`, // misspelled should return ok
+					OutputName: "number",
+					OutputType: "bool",
+				},
+			},
 		},
 	}
 
-	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, transforms, &dlqSubject, false)
+	component := createComponent(
+		ctx,
+		t,
+		suite,
+		js,
+		inputSubject,
+		outputSubject,
+		nil, // dedup
+		statelessTransform,
+		&dlqSubject,
+	)
 
 	// Publish messages that will fail transformation
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -344,15 +405,20 @@ func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create transformer that will fail - not enough arguments
-	transforms := []models.Transform{
-		{
-			Expression: `containsStr(tet)`, // not enough arguments
-			OutputName: "number",
-			OutputType: "bool",
+	statelessTransform := &models.StatelessTransformation{
+		Enabled: true,
+		Config: models.StatelessTransformationsConfig{
+			Transform: []models.Transform{
+				{
+					Expression: `containsStr(tet)`, // not enough arguments
+					OutputName: "number",
+					OutputType: "bool",
+				},
+			},
 		},
 	}
 
-	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, transforms, &dlqSubject, false)
+	component := createComponent(ctx, t, suite, js, inputSubject, outputSubject, nil, statelessTransform, &dlqSubject)
 
 	// Publish messages that will fail transformation
 	for _, msgID := range []string{"msg-1", "msg-2"} {
