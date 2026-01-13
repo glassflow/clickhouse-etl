@@ -90,10 +90,10 @@ export function ArithmeticModifier({
       {enabled && (
         <div className="flex items-end gap-2 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
           {/* Operator select */}
-          <div className="w-32">
+          <div className="w-48">
             <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Operator</Label>
             <Select value={expression?.operator || '*'} onValueChange={handleOperatorChange} disabled={disabled}>
-              <SelectTrigger className="input-regular input-border-regular">
+              <SelectTrigger className="input-regular input-border-regular w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="select-content-custom">
