@@ -21,7 +21,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
 
-func TestDeduplicationV2_BasicDeduplication(t *testing.T) {
+func TestDeduplication_BasicDeduplication(t *testing.T) {
 	// Arrange
 	suite := steps.NewDedupTestSuite()
 	require.NoError(t, suite.SetupResources())
@@ -31,20 +31,20 @@ func TestDeduplicationV2_BasicDeduplication(t *testing.T) {
 	jetStream := suite.GetNATSClient().JetStream()
 	inputSubject, outputSubject := "test.input", "test.output"
 
-	setupStreamsV2(t, jetStream, ctx, inputSubject, outputSubject)
-	component := createComponentV2(t, suite, jetStream, ctx, inputSubject, outputSubject, nil, nil, true)
+	setupStreams(t, jetStream, ctx, inputSubject, outputSubject)
+	component := createComponent(t, suite, jetStream, ctx, inputSubject, outputSubject, nil, nil, true)
 
-	publishMessagesV2(t, jetStream, ctx, inputSubject, []string{"msg-1", "msg-2", "msg-1", "msg-3", "msg-2"})
+	publishMessages(t, jetStream, ctx, inputSubject, []string{"msg-1", "msg-2", "msg-1", "msg-3", "msg-2"})
 
 	// Act
 	require.NoError(t, component.Process(ctx))
 
 	// Assert
-	outputMessages := readOutputV2(t, jetStream, ctx, outputSubject)
+	outputMessages := readOutput(t, jetStream, ctx, outputSubject)
 	require.Len(t, outputMessages, 3, "should deduplicate 5 messages to 3 unique")
 }
 
-func TestDeduplicationV2_FailureDoesNotAckMessages(t *testing.T) {
+func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	// Arrange
 	suite := steps.NewDedupTestSuite()
 	require.NoError(t, suite.SetupResources())
@@ -54,10 +54,10 @@ func TestDeduplicationV2_FailureDoesNotAckMessages(t *testing.T) {
 	js := suite.GetNATSClient().JetStream()
 	inputSubject, outputSubject := "test.failure.input", "test.failure.output"
 
-	setupStreamsV2(t, js, ctx, inputSubject, outputSubject)
-	component := createComponentV2(t, suite, js, ctx, inputSubject, outputSubject, nil, nil, true)
+	setupStreams(t, js, ctx, inputSubject, outputSubject)
+	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, nil, nil, true)
 
-	publishMessagesV2(t, js, ctx, inputSubject, []string{"msg-1", "msg-2"})
+	publishMessages(t, js, ctx, inputSubject, []string{"msg-1", "msg-2"})
 
 	// Close Badger DB to cause deduplication failure
 	require.NoError(t, suite.GetBadgerDB().Close())
@@ -77,11 +77,11 @@ func TestDeduplicationV2_FailureDoesNotAckMessages(t *testing.T) {
 	require.Len(t, availableMessages, 2, "messages should still be in input stream")
 
 	// Verify no messages in output stream
-	outputMessages := readOutputV2(t, js, ctx, outputSubject)
+	outputMessages := readOutput(t, js, ctx, outputSubject)
 	require.Len(t, outputMessages, 0, "no messages should be in output stream")
 }
 
-func setupStreamsV2(t *testing.T, js jetstream.JetStream, ctx context.Context, inputSubject, outputSubject string) {
+func setupStreams(t *testing.T, js jetstream.JetStream, ctx context.Context, inputSubject, outputSubject string) {
 	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:       "test-input",
 		Subjects:   []string{inputSubject},
@@ -99,7 +99,7 @@ func setupStreamsV2(t *testing.T, js jetstream.JetStream, ctx context.Context, i
 	require.NoError(t, err)
 }
 
-func createComponentV2(
+func createComponent(
 	t *testing.T,
 	suite *steps.DedupTestSuite,
 	js jetstream.JetStream,
@@ -170,7 +170,7 @@ func createComponentV2(
 	)
 }
 
-func publishMessagesV2(t *testing.T, js jetstream.JetStream, ctx context.Context, subject string, msgIDs []string) {
+func publishMessages(t *testing.T, js jetstream.JetStream, ctx context.Context, subject string, msgIDs []string) {
 	for _, msgID := range msgIDs {
 		msg := &nats.Msg{
 			Subject: subject,
@@ -182,7 +182,7 @@ func publishMessagesV2(t *testing.T, js jetstream.JetStream, ctx context.Context
 	}
 }
 
-func readOutputV2(t *testing.T, js jetstream.JetStream, ctx context.Context, outputSubject string) []models.Message {
+func readOutput(t *testing.T, js jetstream.JetStream, ctx context.Context, outputSubject string) []models.Message {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-output", jetstream.ConsumerConfig{
 		Name:          "output-consumer",
 		FilterSubject: outputSubject,
@@ -195,7 +195,7 @@ func readOutputV2(t *testing.T, js jetstream.JetStream, ctx context.Context, out
 	return messages
 }
 
-func readDLQV2(t *testing.T, js jetstream.JetStream, ctx context.Context, dlqSubject string) []models.Message {
+func readDLQ(t *testing.T, js jetstream.JetStream, ctx context.Context, dlqSubject string) []models.Message {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-dlq", jetstream.ConsumerConfig{
 		Name:          "dlq-consumer",
 		FilterSubject: dlqSubject,
@@ -208,7 +208,7 @@ func readDLQV2(t *testing.T, js jetstream.JetStream, ctx context.Context, dlqSub
 	return messages
 }
 
-func TestDeduplicationV2_SuccessfulTransformation(t *testing.T) {
+func TestDeduplication_SuccessfulTransformation(t *testing.T) {
 	// Arrange
 	suite := steps.NewDedupTestSuite()
 	require.NoError(t, suite.SetupResources())
@@ -218,7 +218,7 @@ func TestDeduplicationV2_SuccessfulTransformation(t *testing.T) {
 	js := suite.GetNATSClient().JetStream()
 	inputSubject, outputSubject := "test.transform.input", "test.transform.output"
 
-	setupStreamsV2(t, js, ctx, inputSubject, outputSubject)
+	setupStreams(t, js, ctx, inputSubject, outputSubject)
 
 	// Create transformer using hasPrefix and upper functions
 	transforms := []models.Transform{
@@ -234,7 +234,7 @@ func TestDeduplicationV2_SuccessfulTransformation(t *testing.T) {
 		},
 	}
 
-	component := createComponentV2(t, suite, js, ctx, inputSubject, outputSubject, transforms, nil, false)
+	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, transforms, nil, false)
 
 	// Publish messages with custom data
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -251,7 +251,7 @@ func TestDeduplicationV2_SuccessfulTransformation(t *testing.T) {
 	require.NoError(t, component.Process(ctx))
 
 	// Assert
-	outputMessages := readOutputV2(t, js, ctx, outputSubject)
+	outputMessages := readOutput(t, js, ctx, outputSubject)
 	require.Len(t, outputMessages, 2, "should have 2 transformed messages")
 
 	// Verify transformation was applied correctly
@@ -268,7 +268,7 @@ func TestDeduplicationV2_SuccessfulTransformation(t *testing.T) {
 	}
 }
 
-func TestDeduplicationV2_TransformationMisspelledReturnsDefault(t *testing.T) {
+func TestDeduplication_TransformationMisspelledReturnsDefault(t *testing.T) {
 	// Arrange
 	suite := steps.NewDedupTestSuite()
 	require.NoError(t, suite.SetupResources())
@@ -278,7 +278,7 @@ func TestDeduplicationV2_TransformationMisspelledReturnsDefault(t *testing.T) {
 	js := suite.GetNATSClient().JetStream()
 	inputSubject, outputSubject, dlqSubject := "test.dlq.input", "test.dlq.output", "test.dlq.dead"
 
-	setupStreamsV2(t, js, ctx, inputSubject, outputSubject)
+	setupStreams(t, js, ctx, inputSubject, outputSubject)
 
 	// Create DLQ stream
 	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
@@ -298,7 +298,7 @@ func TestDeduplicationV2_TransformationMisspelledReturnsDefault(t *testing.T) {
 		},
 	}
 
-	component := createComponentV2(t, suite, js, ctx, inputSubject, outputSubject, transforms, &dlqSubject, false)
+	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, transforms, &dlqSubject, false)
 
 	// Publish messages that will fail transformation
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -315,14 +315,14 @@ func TestDeduplicationV2_TransformationMisspelledReturnsDefault(t *testing.T) {
 	require.NoError(t, component.Process(ctx))
 
 	// Assert
-	outputMessages := readOutputV2(t, js, ctx, outputSubject)
+	outputMessages := readOutput(t, js, ctx, outputSubject)
 	require.Len(t, outputMessages, 2, "no messages should be in output stream")
 
-	dlqMessages := readDLQV2(t, js, ctx, dlqSubject)
+	dlqMessages := readDLQ(t, js, ctx, dlqSubject)
 	require.Len(t, dlqMessages, 0, "all failed messages should be in DLQ")
 }
 
-func TestDeduplicationV2_TransformationErrorsGoToDLQ(t *testing.T) {
+func TestDeduplication_TransformationErrorsGoToDLQ(t *testing.T) {
 	// Arrange
 	suite := steps.NewDedupTestSuite()
 	require.NoError(t, suite.SetupResources())
@@ -332,7 +332,7 @@ func TestDeduplicationV2_TransformationErrorsGoToDLQ(t *testing.T) {
 	js := suite.GetNATSClient().JetStream()
 	inputSubject, outputSubject, dlqSubject := "test.dlq.input", "test.dlq.output", "test.dlq.dead"
 
-	setupStreamsV2(t, js, ctx, inputSubject, outputSubject)
+	setupStreams(t, js, ctx, inputSubject, outputSubject)
 
 	// Create DLQ stream
 	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
@@ -352,7 +352,7 @@ func TestDeduplicationV2_TransformationErrorsGoToDLQ(t *testing.T) {
 		},
 	}
 
-	component := createComponentV2(t, suite, js, ctx, inputSubject, outputSubject, transforms, &dlqSubject, false)
+	component := createComponent(t, suite, js, ctx, inputSubject, outputSubject, transforms, &dlqSubject, false)
 
 	// Publish messages that will fail transformation
 	for _, msgID := range []string{"msg-1", "msg-2"} {
@@ -369,9 +369,9 @@ func TestDeduplicationV2_TransformationErrorsGoToDLQ(t *testing.T) {
 	require.NoError(t, component.Process(ctx))
 
 	// Assert
-	outputMessages := readOutputV2(t, js, ctx, outputSubject)
+	outputMessages := readOutput(t, js, ctx, outputSubject)
 	require.Len(t, outputMessages, 0, "no messages should be in output stream")
 
-	dlqMessages := readDLQV2(t, js, ctx, dlqSubject)
+	dlqMessages := readDLQ(t, js, ctx, dlqSubject)
 	require.Len(t, dlqMessages, 2, "all failed messages should be in DLQ")
 }
