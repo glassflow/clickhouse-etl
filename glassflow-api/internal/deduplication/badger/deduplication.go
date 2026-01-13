@@ -100,3 +100,7 @@ func (d *Deduplicator) SaveKeys(
 		return nil
 	})
 }
+
+func (d *Deduplicator) Close(_ context.Context) error {
+	return d.db.Close()
+}
