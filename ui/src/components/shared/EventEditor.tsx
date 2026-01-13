@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 
 // Dynamically import AceEditor to avoid SSR issues
@@ -41,8 +41,19 @@ export const EventEditor = ({
   const [manualEvent, setManualEvent] = useState(event)
   const [isValid, setIsValid] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  
+  // Track the original event from Kafka to detect modifications
+  const originalEventRef = useRef<string>(event)
+  const [isModified, setIsModified] = useState(false)
 
+  // Update original event reference when a new event is fetched from Kafka
   useEffect(() => {
+    // Only update the original reference when we receive a new event from Kafka
+    // (not when the user modifies it manually)
+    if (event && event !== manualEvent) {
+      originalEventRef.current = event
+      setIsModified(false)
+    }
     setManualEvent(event)
   }, [event])
 
@@ -58,6 +69,9 @@ export const EventEditor = ({
       setIsValid(false)
       setErrorMessage('Invalid JSON format')
     }
+
+    // Check if the event has been modified from the original
+    setIsModified(value !== originalEventRef.current)
 
     // Always propagate the change to parent
     if (onManualEventChange) {
@@ -80,6 +94,18 @@ export const EventEditor = ({
             <div className="bg-amber-500/20 p-3 mb-3 rounded-md text-amber-500 text-sm">
               This topic has no events. Please select a different topic with events or enter event schema manually to
               proceed.
+            </div>
+          )}
+
+          {/* Modified indicator */}
+          {isModified && !isEmptyTopic && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                Schema Modified
+              </span>
+              <span className="text-xs text-[var(--color-foreground-neutral-faded)]">
+                Event schema has been edited from the original Kafka event
+              </span>
             </div>
           )}
 
