@@ -65,7 +65,7 @@ func mainDeduplicator(
 	maxWait := pipelineCfg.Sink.Batch.MaxDelayTime.Duration()
 
 	// Calculate pending publishes limit
-	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs/topicConfig.Replicas)
+	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs)
 
 	log.InfoContext(ctx, "Starting deduplicator",
 		slog.String("topic", cfg.DedupTopic),
