@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	operator "github.com/glassflow/glassflow-etl-k8s-operator/api/v1alpha1"
@@ -22,7 +24,8 @@ import (
 )
 
 type K8sOrchestrator struct {
-	client         *dynamic.DynamicClient
+	client         *dynamic.DynamicClient // for CRDs
+	clientSet      *kubernetes.Clientset  // regular k8 resources
 	log            *slog.Logger
 	customResource CustomResourceAPIGroupVersion
 	namespace      string
@@ -54,8 +57,15 @@ func NewK8sOrchestrator(
 		return nil, fmt.Errorf("new k8s client: %w", err)
 	}
 
+	clientSet, err := kubernetes.NewForConfig(kcfg)
+	if err != nil {
+		log.Error("failed to create k8s clientSet", "error", err)
+		return nil, fmt.Errorf("new k8s clientSet: %w", err)
+	}
+
 	return &K8sOrchestrator{
 		client:         client,
+		clientSet:      clientSet,
 		log:            log,
 		namespace:      namespace,
 		customResource: agv,
@@ -112,8 +122,16 @@ func (k *K8sOrchestrator) GetType() string {
 
 // SetupPipeline implements Orchestrator.
 func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.PipelineConfig) error {
+	// Create the pipeline config secret in the glassflow namespace FIRST
+	err := k.createPipelineConfigSecret(ctx, cfg)
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to create pipeline config secret", "pipeline_id", cfg.ID, "error", err)
+		return fmt.Errorf("create pipeline config secret: %w", err)
+	}
+
 	specMap, err := k.buildPipelineSpec(ctx, cfg)
 	if err != nil {
+		_ = k.deletePipelineConfigSecret(ctx, cfg.ID)
 		return err
 	}
 
@@ -144,7 +162,8 @@ func (k *K8sOrchestrator) SetupPipeline(ctx context.Context, cfg *models.Pipelin
 		Namespace(k.namespace).
 		Create(ctx, obj, metav1.CreateOptions{})
 	if err != nil {
-		k.log.ErrorContext(ctx, "failed to create custom resource", "pipeline_id", cfg.ID, "namespace", k.namespace, "error", err)
+		k.log.ErrorContext(ctx, "failed to create custom resource, cleaning up secret", "pipeline_id", cfg.ID, "namespace", k.namespace, "error", err)
+		_ = k.deletePipelineConfigSecret(ctx, cfg.ID)
 		return fmt.Errorf("create custom resource: %w", err)
 	}
 
@@ -333,6 +352,12 @@ func (k *K8sOrchestrator) DeletePipeline(ctx context.Context, pipelineID string)
 		return fmt.Errorf("update pipeline CRD with termination annotation: %w", err)
 	}
 
+	err = k.deletePipelineConfigSecret(ctx, pipelineID)
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to delete pipeline config secret", "pipeline_id", pipelineID, "error", err)
+		// Continue with deletion process
+	}
+
 	k.log.InfoContext(ctx, "requested deletion of k8s pipeline",
 		"pipeline_id", pipelineID,
 		"deletion_timestamp", customResource.GetDeletionTimestamp(),
@@ -430,6 +455,12 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(pipelineConfig.Status.OverallStatus))
 	}
 
+	err = k.updatePipelineConfigSecret(ctx, newCfg)
+	if err != nil {
+		k.log.ErrorContext(ctx, "failed to update pipeline config secret", "pipeline_id", pipelineID, "error", err)
+		return fmt.Errorf("update pipeline config secret: %w", err)
+	}
+
 	// Build new spec using the same logic as SetupPipeline
 	specMap, err := k.buildPipelineSpec(ctx, newCfg)
 	if err != nil {
@@ -480,14 +511,6 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 		})
 	}
 
-	// Marshal config to JSON string
-	configJSON, err := json.Marshal(cfg)
-	if err != nil {
-		k.log.ErrorContext(ctx, "failed to marshal pipeline config", "pipeline_id", cfg.ID, "error", err)
-		return nil, fmt.Errorf("marshal pipeline config: %w", err)
-	}
-
-	// Create complete spec
 	spec := operator.PipelineSpec{
 		ID:  cfg.ID,
 		DLQ: models.GetDLQStreamName(cfg.ID),
@@ -510,7 +533,7 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 			Replicas:         internal.DefaultReplicasCount,
 			NATSConsumerName: cfg.Sink.NATSConsumerName,
 		},
-		Config: string(configJSON),
+		// Config field is intentionally omitted - stored in secret instead
 	}
 
 	// Convert spec to map[string]interface{}
@@ -528,4 +551,102 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 	}
 
 	return specMap, nil
+}
+
+// getPipelineConfigSecretName returns the name of the secret for a pipeline
+func (k *K8sOrchestrator) getPipelineConfigSecretName(pipelineID string) string {
+	return fmt.Sprintf("pipeline-config-%s", pipelineID)
+}
+
+// createPipelineConfigSecret creates a secret in the glassflow namespace with pipeline.json
+func (k *K8sOrchestrator) createPipelineConfigSecret(ctx context.Context, cfg *models.PipelineConfig) error {
+	// Marshal config to JSON string
+	configJSON, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshal pipeline config: %w", err)
+	}
+
+	secretName := k.getPipelineConfigSecretName(cfg.ID)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: k.namespace,
+			Labels: map[string]string{
+				"etl.glassflow.io/pipeline-id": cfg.ID,
+				"etl.glassflow.io/managed-by":  "glassflow-api",
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
+		StringData: map[string]string{
+			"pipeline.json": string(configJSON),
+		},
+	}
+
+	_, err = k.clientSet.CoreV1().Secrets(k.namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			// Secret already exists, update it instead
+			return k.updatePipelineConfigSecret(ctx, cfg)
+		}
+		return fmt.Errorf("create pipeline config secret: %w", err)
+	}
+
+	return nil
+}
+
+// updatePipelineConfigSecret updates the secret in the glassflow namespace with new pipeline.json
+func (k *K8sOrchestrator) updatePipelineConfigSecret(ctx context.Context, cfg *models.PipelineConfig) error {
+	// Marshal config to JSON string
+	configJSON, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshal pipeline config: %w", err)
+	}
+
+	secretName := k.getPipelineConfigSecretName(cfg.ID)
+
+	// Get existing secret
+	existingSecret, err := k.clientSet.CoreV1().Secrets(k.namespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Secret doesn't exist, create it
+			return k.createPipelineConfigSecret(ctx, cfg)
+		}
+		return fmt.Errorf("get pipeline config secret: %w", err)
+	}
+
+	// Update the secret data
+	existingSecret.StringData = map[string]string{
+		"pipeline.json": string(configJSON),
+	}
+
+	// Ensure labels are up to date
+	if existingSecret.Labels == nil {
+		existingSecret.Labels = make(map[string]string)
+	}
+	existingSecret.Labels["etl.glassflow.io/pipeline-id"] = cfg.ID
+	existingSecret.Labels["etl.glassflow.io/managed-by"] = "glassflow-api"
+
+	// Update the secret
+	_, err = k.clientSet.CoreV1().Secrets(k.namespace).Update(ctx, existingSecret, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("update pipeline config secret: %w", err)
+	}
+
+	return nil
+}
+
+// deletePipelineConfigSecret deletes the secret from the glassflow namespace
+func (k *K8sOrchestrator) deletePipelineConfigSecret(ctx context.Context, pipelineID string) error {
+	secretName := k.getPipelineConfigSecretName(pipelineID)
+
+	err := k.clientSet.CoreV1().Secrets(k.namespace).Delete(ctx, secretName, metav1.DeleteOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Secret already deleted, that's fine
+			return nil
+		}
+		return fmt.Errorf("delete pipeline config secret: %w", err)
+	}
+
+	return nil
 }
