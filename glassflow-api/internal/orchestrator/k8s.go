@@ -619,32 +619,17 @@ func (k *K8sOrchestrator) updatePipelineConfigSecret(ctx context.Context, cfg *m
 		"pipeline.json": string(configJSON),
 	}
 
-	// delete existing
-	err = k.clientSet.CoreV1().Secrets(k.namespace).Delete(ctx, secretName, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete existing pipeline config secret: %w", err)
+	// Ensure labels are up to date
+	if existingSecret.Labels == nil {
+		existingSecret.Labels = make(map[string]string)
 	}
+	existingSecret.Labels["etl.glassflow.io/pipeline-id"] = cfg.ID
+	existingSecret.Labels["etl.glassflow.io/managed-by"] = "glassflow-api"
 
-	// recreate
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: k.namespace,
-			Labels: map[string]string{
-				"etl.glassflow.io/pipeline-id": cfg.ID,
-				"etl.glassflow.io/managed-by":  "glassflow-api",
-			},
-		},
-		Type: corev1.SecretTypeOpaque,
-		StringData: map[string]string{
-			"pipeline.json": string(configJSON),
-		},
-	}
-
-	_, err = k.clientSet.CoreV1().Secrets(k.namespace).Create(ctx, secret, metav1.CreateOptions{})
+	// Update the secret
+	_, err = k.clientSet.CoreV1().Secrets(k.namespace).Update(ctx, existingSecret, metav1.UpdateOptions{})
 	if err != nil {
-		k.log.ErrorContext(ctx, "failed to recreate pipeline config secret", "pipeline_id", cfg.ID, "namespace", k.namespace, "error", err)
-		return fmt.Errorf("recreate pipeline config secret: %w", err)
+		return fmt.Errorf("update pipeline config secret: %w", err)
 	}
 
 	return nil
