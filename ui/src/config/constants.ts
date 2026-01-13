@@ -49,26 +49,7 @@ export const MAX_DELAY_TIME_UNITS = Object.entries(TIME_UNITS).filter(
   ([key]) => key !== 'MILLISECONDS' && key !== 'DAYS' && key !== 'MONTHS' && key !== 'YEARS',
 )
 
-export const JSON_DATA_TYPES = [
-  'string',
-  'bool',
-  'uint',
-  'uint8',
-  'uint16',
-  'uint32',
-  'uint64',
-  'int',
-  'int8',
-  'int16',
-  'int32',
-  'int64',
-  'float',
-  'float32',
-  'float64',
-  'bytes',
-  'array',
-  'object',
-]
+export const JSON_DATA_TYPES = ['string', 'bool', 'int', 'float', 'bytes', 'array']
 
 export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int']
 

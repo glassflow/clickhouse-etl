@@ -3,13 +3,12 @@ import { TYPE_COMPATIBILITY_MAP } from '../utils'
 import { Button } from '@/src/components/ui/button'
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline'
 
-type TypeCategory = 'Kafka' | 'JSON' | 'JavaScript'
+type TypeCategory = 'Primary' | 'Legacy'
 
-// Define which types belong to which category
+// Define which types belong to which category (simplified to basic types)
 const typeCategorizations: Record<TypeCategory, string[]> = {
-  Kafka: ['string', 'int8', 'int16', 'int32', 'int64', 'float32', 'float64', 'bool', 'bytes'],
-  JSON: ['int', 'float', 'uint8', 'uint16', 'uint32', 'uint64', 'uint'],
-  JavaScript: ['number', 'boolean', 'object', 'array', 'null', 'undefined'],
+  Primary: ['string', 'bool', 'int', 'float', 'bytes', 'array'],
+  Legacy: ['int8', 'int16', 'int32', 'int64', 'uint', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64'],
 }
 
 export const TypeCompatibilityInfo: React.FC = () => {
