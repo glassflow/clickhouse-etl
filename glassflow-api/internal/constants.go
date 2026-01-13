@@ -129,7 +129,7 @@ const (
 	PublisherMaxPendingAcks = 4000
 
 	DefaultDedupComponentBatchSize = 50000
-	DefaultDedupMaxWaitTime = 100 * time.Millisecond
+	DefaultDedupMaxWaitTime        = 100 * time.Millisecond
 
 	// Stream consumer constants
 	ConsumerRetries           = 10
