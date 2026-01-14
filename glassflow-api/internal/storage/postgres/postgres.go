@@ -8,17 +8,19 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/encryption"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // PostgresStorage implements PipelineStore using PostgreSQL
 type PostgresStorage struct {
-	pool   *pgxpool.Pool
-	logger *slog.Logger
+	pool              *pgxpool.Pool
+	logger            *slog.Logger
+	encryptionService *encryption.Service
 }
 
 // NewPostgres creates a new PostgresStorage instance with retry logic
-func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*PostgresStorage, error) {
+func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptionKey []byte) (*PostgresStorage, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -90,7 +92,21 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*Postgre
 		slog.Int("max_conns", 25),
 		slog.Int("min_conns", 5))
 
-	return &PostgresStorage{pool: pool, logger: logger}, nil
+	var encService *encryption.Service
+	if len(encryptionKey) > 0 {
+		var err error
+		encService, err = encryption.NewService(encryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("initialize encryption service: %w", err)
+		}
+		logger.InfoContext(ctx, "encryption enabled for connection credentials")
+	}
+
+	return &PostgresStorage{
+		pool:              pool,
+		logger:            logger,
+		encryptionService: encService,
+	}, nil
 }
 
 // Close closes the database connection pool

@@ -97,7 +97,7 @@ func (p *PlatformSteps) setupServices() error {
 	}
 
 	// Create storage
-	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log)
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil)
 	if err != nil {
 		return fmt.Errorf("create postgres storage: %w", err)
 	}

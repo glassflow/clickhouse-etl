@@ -21,6 +21,6 @@ func MigratePipelinesFromNATSKV(
 }
 
 // NewPipelineStore creates a new PipelineStore implementation.
-func NewPipelineStore(ctx context.Context, dsn string, logger *slog.Logger) (service.PipelineStore, error) {
-	return postgres.NewPostgres(ctx, dsn, logger)
+func NewPipelineStore(ctx context.Context, dsn string, logger *slog.Logger, encryptionKey []byte) (service.PipelineStore, error) {
+	return postgres.NewPostgres(ctx, dsn, logger, encryptionKey)
 }

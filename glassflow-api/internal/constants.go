@@ -209,7 +209,8 @@ const (
 	// SinkDefaultBatchMaxDelayTime is the maximum time to wait before flushing a partial batch to ClickHouse.
 	SinkDefaultBatchMaxDelayTime = 60 * time.Second
 	// SinkDefaultShutdownTimeout is the maximum time allowed for graceful shutdown and final batch flush.
-	SinkDefaultShutdownTimeout = 5 * time.Second
+	SinkDefaultShutdownTimeout      = 5 * time.Second
+	DefaultComponentShutdownTimeout = 5 * time.Second
 
 	// Kafka session timeout in milliseconds
 	KafkaSessionTimeout = 30000 * time.Millisecond
@@ -230,4 +231,7 @@ const (
 	SyncMode             ProcessorMode = "sync"
 	AsyncMode            ProcessorMode = "async"
 	DefaultProcessorMode               = AsyncMode
+
+	// Encryption constants
+	AESKeySize = 32
 )
