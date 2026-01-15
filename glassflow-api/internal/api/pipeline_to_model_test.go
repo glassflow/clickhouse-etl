@@ -575,6 +575,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 	assert.Equal(t, 1*time.Hour, eventsTopic.Deduplication.Window.Duration())
 
 	// Verify Join component config
+	assert.Equal(t, "join-1", result.Join.ID)
 	assert.True(t, result.Join.Enabled)
 	assert.Equal(t, internal.TemporalJoinType, result.Join.Type)
 	require.Len(t, result.Join.Sources, 2)
