@@ -7,6 +7,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -46,6 +47,7 @@ func (a *APISteps) CleanupResources() error {
 
 func (a *APISteps) aRunningGlassflowAPIServer() error {
 	// Create a minimal router for API-only tests
-	a.httpRouter = api.NewRouter(a.log, nil, nil, nil)
+	usageStatsClient := usagestats.NewClient("", "", "", "", false, a.log, nil)
+	a.httpRouter = api.NewRouter(a.log, nil, nil, nil, usageStatsClient)
 	return nil
 }

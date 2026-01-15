@@ -28,6 +28,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
 type config struct {
@@ -78,6 +79,12 @@ type config struct {
 	K8sResourceName    string `default:"pipelines" split_words:"true"`
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
+
+	UsageStatsEnabled        bool   `default:"true" split_words:"true"`
+	UsageStatsEndpoint       string `default:"" split_words:"true"`
+	UsageStatsUsername       string `default:"" split_words:"true"`
+	UsageStatsPassword       string `default:"" split_words:"true"`
+	UsageStatsInstallationID string `default:"" split_words:"true"`
 }
 
 var version = "dev"
@@ -242,6 +249,8 @@ func mainEtl(
 		}
 	}
 
+	usageStatsClient := newUsageStatsClient(cfg, log, db)
+
 	pipelineSvc := service.NewPipelineService(orch, db, log)
 
 	err = pipelineSvc.CleanUpPipelines(ctx)
@@ -249,7 +258,7 @@ func mainEtl(
 		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
 	}
 
-	handler := api.NewRouter(log, pipelineSvc, dlq, meter)
+	handler := api.NewRouter(log, pipelineSvc, dlq, meter, usageStatsClient)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
@@ -268,6 +277,13 @@ func mainEtl(
 	go func() {
 		defer wg.Done()
 		serverErr <- apiServer.Start()
+	}()
+
+	go func() {
+		time.Sleep(2 * time.Second) // small delay to wait for server to start
+		usageStatsClient.SendEvent("ready", "api", nil)
+		usageStatsCollector := service.NewUsageStatsCollector(db, nc, dlq, usageStatsClient, log)
+		usageStatsCollector.Start(ctx)
 	}()
 
 	select {
@@ -328,11 +344,14 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		meter,
 	)
 
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
+
 	return runWithGracefulShutdown(
 		ctx,
 		sinkRunner,
 		log,
 		internal.RoleSink,
+		usageStatsClient,
 	)
 }
 
@@ -378,11 +397,14 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 
 	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
 
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
+
 	return runWithGracefulShutdown(
 		ctx,
 		joinRunner,
 		log,
 		internal.RoleJoin,
+		usageStatsClient,
 	)
 }
 
@@ -403,11 +425,14 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 
 	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
 
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
+
 	return runWithGracefulShutdown(
 		ctx,
 		ingestorRunner,
 		log,
 		internal.RoleIngestor,
+		usageStatsClient,
 	)
 }
 
@@ -416,6 +441,7 @@ func runWithGracefulShutdown(
 	runner service.Runner,
 	log *slog.Logger,
 	serviceName string,
+	usageStatsClient *usagestats.Client,
 ) error {
 	serverErr := make(chan error, 1)
 	wg := sync.WaitGroup{}
@@ -434,13 +460,16 @@ func runWithGracefulShutdown(
 			if err != nil {
 				return fmt.Errorf("%s runner failed: %w", serviceName, err)
 			}
+			usageStatsClient.SendEvent("ready", serviceName, nil)
 		case <-runner.Done():
 			log.Warn("Component has crashed!", slog.String("service", serviceName))
 			wg.Wait()
+			usageStatsClient.SendEvent("crashed", serviceName, nil)
 			return fmt.Errorf("%s component stopped by itself", serviceName)
 		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 			wg.Add(1)
+			usageStatsClient.SendEvent("terminated", serviceName, nil)
 			go func() {
 				defer wg.Done()
 				runner.Shutdown()
@@ -465,6 +494,18 @@ func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ er
 	}
 
 	return pipelineCfg, nil
+}
+
+func newUsageStatsClient(cfg *config, log *slog.Logger, db service.PipelineStore) *usagestats.Client {
+	return usagestats.NewClient(
+		cfg.UsageStatsEndpoint,
+		cfg.UsageStatsUsername,
+		cfg.UsageStatsPassword,
+		cfg.UsageStatsInstallationID,
+		cfg.UsageStatsEnabled,
+		log,
+		db,
+	)
 }
 
 func cleanUp(nc *client.NATSClient, log *slog.Logger) {

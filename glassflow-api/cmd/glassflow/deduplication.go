@@ -179,10 +179,13 @@ func mainDeduplicator(
 		return fmt.Errorf("create deduplication service: %w", err)
 	}
 
+	trackingClient := newUsageStatsClient(cfg, log, nil)
+
 	return runWithGracefulShutdown(
 		ctx,
 		dedupService,
 		log,
 		internal.RoleDeduplicator,
+		trackingClient,
 	)
 }

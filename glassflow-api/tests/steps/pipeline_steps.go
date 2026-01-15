@@ -21,6 +21,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 
 	"github.com/cucumber/godog"
@@ -381,13 +382,15 @@ func (p *PipelineSteps) setupPipelineService() error {
 	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
+	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log, db)
+
 	p.pipelineService = service.NewPipelineService(
 		orch,
 		db,
 		p.log,
 	)
 
-	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil)
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil, usageStatsClient)
 
 	return nil
 }
