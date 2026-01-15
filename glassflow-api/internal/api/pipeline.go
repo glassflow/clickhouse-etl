@@ -270,7 +270,7 @@ func newJoinComponentConfig(p pipelineJSON, schemaVersions []models.SchemaVersio
 		})
 	}
 
-	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, sources, p.Join.Rules)
+	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, p.Join.ID, sources, p.Join.Rules)
 	if err != nil {
 		return zero, schemaVersions, fmt.Errorf("create join config: %w", err)
 	}
@@ -816,6 +816,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Topics: topics,
 		},
 		Join: pipelineJoin{
+			ID:      p.Join.ID,
 			Kind:    internal.TemporalJoinType,
 			Enabled: p.Join.Enabled,
 			Sources: joinSources,
