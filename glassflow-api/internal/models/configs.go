@@ -98,11 +98,12 @@ type DeduplicationConfig struct {
 }
 
 type KafkaTopicsConfig struct {
-	Name                       string `json:"name"`
-	ID                         string `json:"id"`
-	ConsumerGroupInitialOffset string `json:"consumer_group_initial_offset" default:"earliest"`
-	ConsumerGroupName          string `json:"consumer_group_name"`
-	Replicas                   int    `json:"replicas" default:"1"`
+	Name                       string               `json:"name"`
+	ID                         string               `json:"id"`
+	ConsumerGroupInitialOffset string               `json:"consumer_group_initial_offset" default:"earliest"`
+	ConsumerGroupName          string               `json:"consumer_group_name"`
+	Replicas                   int                  `json:"replicas" default:"1"`
+	SchemaRegistryConfig       SchemaRegistryConfig `json:"schema_registry_config,omitempty"`
 
 	Deduplication DeduplicationConfig `json:"deduplication,omitempty"`
 }
@@ -207,9 +208,11 @@ type JoinSourceConfig struct {
 }
 
 type JoinComponentConfig struct {
-	Type    string             `json:"type"`
-	Enabled bool               `json:"enabled"`
-	Sources []JoinSourceConfig `json:"sources"`
+	Type           string             `json:"type"`
+	Enabled        bool               `json:"enabled"`
+	Sources        []JoinSourceConfig `json:"sources"`
+	OutputStreamID string             `json:"output_stream_id"`
+	Config         []JoinRule         `json:"config,omitempty"`
 
 	LeftBufferTTL  JSONDuration `json:"left_buffer_ttl"`
 	RightBufferTTL JSONDuration `json:"right_buffer_ttl"`
@@ -232,7 +235,7 @@ func NewJoinOrder(s string) (zero JoinOrder, _ error) {
 	}
 }
 
-func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinComponentConfig, _ error) {
+func NewJoinComponentConfig(kind string, sources []JoinSourceConfig, joinRules []JoinRule) (zero JoinComponentConfig, _ error) {
 	if kind != strings.ToLower(strings.TrimSpace(internal.TemporalJoinType)) {
 		return zero, PipelineConfigError{Msg: "invalid join type; only temporal joins are supported"}
 	}
@@ -280,6 +283,7 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinC
 		Enabled:        true,
 		LeftBufferTTL:  leftBufferTTL,
 		RightBufferTTL: rightBufferTTL,
+		Config:         joinRules,
 	}, nil
 }
 
@@ -305,8 +309,10 @@ type BatchConfig struct {
 }
 
 type SinkComponentConfig struct {
-	Type  string      `json:"type"`
-	Batch BatchConfig `json:"batch"`
+	Type     string      `json:"type"`
+	Batch    BatchConfig `json:"batch"`
+	SourceID string      `json:"source_id"`
+	Config   []Mapping   `json:"config,omitempty"`
 
 	NATSConsumerName string `json:"nats_consumer_name"`
 
@@ -325,6 +331,7 @@ type ClickhouseSinkArgs struct {
 	MaxBatchSize         int
 	MaxDelayTime         JSONDuration
 	SkipCertificateCheck bool
+	Mappings             []Mapping
 }
 
 func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConfig, _ error) {
@@ -387,10 +394,11 @@ type FilterComponentConfig struct {
 }
 
 type StatelessTransformation struct {
-	ID      string                         `json:"id,omitempty"`
-	Type    string                         `json:"type,omitempty"`
-	Enabled bool                           `json:"enabled"`
-	Config  StatelessTransformationsConfig `json:"config,omitempty"`
+	ID       string                         `json:"id,omitempty"`
+	Type     string                         `json:"type,omitempty"`
+	Enabled  bool                           `json:"enabled,omitempty"`
+	SourceID string                         `json:"source_id,omitempty"`
+	Config   StatelessTransformationsConfig `json:"config,omitempty"`
 }
 
 type StatelessTransformationsConfig struct {
@@ -417,10 +425,12 @@ type PipelineConfig struct {
 	Sink                    SinkComponentConfig     `json:"sink"`
 	Filter                  FilterComponentConfig   `json:"filter"`
 	StatelessTransformation StatelessTransformation `json:"stateless_transformation,omitempty"`
-	CreatedAt               time.Time               `json:"created_at"`
-	Metadata                PipelineMetadata        `json:"metadata"`
-	Status                  PipelineHealth          `json:"status,omitempty"`
 	PipelineResources       PipelineResources       `json:"pipeline_resources,omitempty"`
+	SchemaVersions          []SchemaVersion         `json:"schema_versions,omitempty"`
+
+	CreatedAt time.Time        `json:"created_at"`
+	Metadata  PipelineMetadata `json:"metadata"`
+	Status    PipelineHealth   `json:"status,omitempty"`
 }
 
 func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
@@ -486,6 +496,7 @@ func NewPipelineConfig(
 	statelessTransformation StatelessTransformation,
 	metadata PipelineMetadata,
 	resources PipelineResources,
+	schemaVersions []SchemaVersion,
 ) PipelineConfig {
 	return PipelineConfig{
 		ID:                      id,
@@ -500,6 +511,7 @@ func NewPipelineConfig(
 		Metadata:                metadata,
 		Status:                  NewPipelineHealth(id, name),
 		PipelineResources:       resources,
+		SchemaVersions:          schemaVersions,
 	}
 }
 
@@ -705,4 +717,17 @@ func GetDedupOutputStreamName(pipelineID, topicName string) string {
 	}
 
 	return dedupStreamName
+}
+
+type JoinRule struct {
+	SourceID   string `json:"source_id"`
+	SourceName string `json:"source_name"`
+	OutputName string `json:"output_name"`
+}
+
+type Mapping struct {
+	SourceField      string `json:"source_field"`
+	SourceType       string `json:"source_type"`
+	DestinationField string `json:"destination_field"`
+	DestinationType  string `json:"destination_type"`
 }

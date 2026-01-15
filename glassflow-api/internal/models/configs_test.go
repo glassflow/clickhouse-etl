@@ -52,6 +52,7 @@ func TestNewPipelineConfig(t *testing.T) {
 		statelessTransformation,
 		metadata,
 		PipelineResources{},
+		nil,
 	)
 
 	if config.ID != id {
