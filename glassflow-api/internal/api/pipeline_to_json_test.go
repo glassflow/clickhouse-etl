@@ -481,6 +481,7 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 		},
 		Join: models.JoinComponentConfig{
 			Type:    internal.TemporalJoinType,
+			ID:      "join-1",
 			Enabled: true,
 			Sources: []models.JoinSourceConfig{
 				{
@@ -652,6 +653,9 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 	assert.True(t, result.Join.Enabled)
 	assert.Equal(t, internal.TemporalJoinType, result.Join.Kind)
 
+	// Verify Join ID
+	assert.Equal(t, "join-1", result.Join.ID)
+
 	// Verify join sources
 	require.Len(t, result.Join.Sources, 2)
 
@@ -713,9 +717,10 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 
 	var usersTopic, eventsTopic *kafkaTopic
 	for i := range result.Source.Topics {
-		if result.Source.Topics[i].Topic == "users" {
+		switch result.Source.Topics[i].Topic {
+		case "users":
 			usersTopic = &result.Source.Topics[i]
-		} else if result.Source.Topics[i].Topic == "events" {
+		case "events":
 			eventsTopic = &result.Source.Topics[i]
 		}
 	}
