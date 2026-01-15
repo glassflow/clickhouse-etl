@@ -12,14 +12,14 @@ import (
 // It doesn't take affect on transformation business logic
 func ValidateTransformationAgainstSchema(
 	transformations []models.Transform,
-	schema models.SchemaFields,
+	fields []models.Field,
 ) error {
 	if len(transformations) == 0 {
 		return nil
 	}
 
 	env := make(map[string]any)
-	for _, field := range schema.Fields {
+	for _, field := range fields {
 		// Create sample values based on type
 		switch field.Type {
 		case internal.KafkaTypeString:
