@@ -211,6 +211,7 @@ type JoinSourceConfig struct {
 }
 
 type JoinComponentConfig struct {
+	ID             string             `json:"id"`
 	Type           string             `json:"type"`
 	Enabled        bool               `json:"enabled"`
 	Sources        []JoinSourceConfig `json:"sources"`
@@ -240,7 +241,7 @@ func NewJoinOrder(s string) (zero JoinOrder, _ error) {
 	}
 }
 
-func NewJoinComponentConfig(kind string, sources []JoinSourceConfig, joinRules []JoinRule) (zero JoinComponentConfig, _ error) {
+func NewJoinComponentConfig(kind, joinID string, sources []JoinSourceConfig, joinRules []JoinRule) (zero JoinComponentConfig, _ error) {
 	if kind != strings.ToLower(strings.TrimSpace(internal.TemporalJoinType)) {
 		return zero, PipelineConfigError{Msg: "invalid join type; only temporal joins are supported"}
 	}
@@ -287,6 +288,7 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig, joinRules [
 	}
 
 	return JoinComponentConfig{
+		ID:             joinID,
 		Sources:        sources,
 		Type:           internal.TemporalJoinType,
 		Enabled:        true,
