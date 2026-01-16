@@ -50,7 +50,13 @@ func TestClient_RecordPipelineEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := NewClient("", "", "", "", tt.enabled, slog.Default(), nil)
+			var client *Client
+			if tt.enabled {
+				// Provide valid values for enabled client
+				client = NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", tt.enabled, slog.Default(), nil)
+			} else {
+				client = NewClient("", "", "", "", tt.enabled, slog.Default(), nil)
+			}
 			if !tt.enabled {
 				assert.False(t, client.IsEnabled())
 				client.RecordPipelineEvent(tt.pipelineID, tt.eventName)
@@ -76,7 +82,7 @@ func TestClient_RecordPipelineEvent(t *testing.T) {
 }
 
 func TestClient_RecordPipelineEvent_ChannelFull(t *testing.T) {
-	client := NewClient("", "", "", "", true, slog.Default(), nil)
+	client := NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), nil)
 
 	// Fill the channel to capacity
 	for i := 0; i < 100; i++ {
@@ -96,7 +102,7 @@ func TestClient_RecordPipelineEvent_ChannelFull(t *testing.T) {
 }
 
 func TestClient_checkTransformations(t *testing.T) {
-	client := NewClient("", "", "", "", true, slog.Default(), nil)
+	client := NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), nil)
 
 	// Test with minimal config - no transformations
 	cfg1 := &models.PipelineConfig{
@@ -214,7 +220,7 @@ func TestClient_buildPipelineEventProperties(t *testing.T) {
 	}
 	cfg.Sink.Batch.MaxDelayTime = *models.NewJSONDuration(5 * time.Second)
 
-	client := NewClient("", "", "", "", true, slog.Default(), nil)
+	client := NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), nil)
 	properties := client.buildPipelineEventProperties(cfg, "test-pipeline")
 
 	assert.NotNil(t, properties)
@@ -230,7 +236,7 @@ func TestClient_buildPipelineEventProperties(t *testing.T) {
 }
 
 func TestClient_ProcessPipelineEvent_DeletePipeline(t *testing.T) {
-	client := NewClient("", "", "", "", true, slog.Default(), nil)
+	client := NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), nil)
 
 	event := PipelineEvent{
 		PipelineID: "test-pipeline",
@@ -247,7 +253,7 @@ func TestClient_ProcessPipelineEvent_DeletePipeline(t *testing.T) {
 
 func TestClient_ProcessPipelineEvent_WithPipelineStore(t *testing.T) {
 	mockStore := new(MockPipelineGetter)
-	client := NewClient("", "", "", "", true, slog.Default(), mockStore)
+	client := NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), mockStore)
 
 	pipelineID := "test-pipeline"
 	cfg := &models.PipelineConfig{
@@ -279,7 +285,7 @@ func TestClient_ProcessPipelineEvent_WithPipelineStore(t *testing.T) {
 
 func TestClient_ProcessPipelineEvent_PipelineNotFound(t *testing.T) {
 	mockStore := new(MockPipelineGetter)
-	client := NewClient("", "", "", "", true, slog.Default(), mockStore)
+	client := NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), mockStore)
 
 	pipelineID := "non-existent-pipeline"
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(nil, assert.AnError)
@@ -310,7 +316,7 @@ func TestClient_ProcessPipelineEvent_DisabledClient(t *testing.T) {
 }
 
 func TestClient_ProcessPipelineEvent_NoPipelineStore(t *testing.T) {
-	client := NewClient("", "", "", "", true, slog.Default(), nil)
+	client := NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), nil)
 
 	event := PipelineEvent{
 		PipelineID: "test-pipeline",
