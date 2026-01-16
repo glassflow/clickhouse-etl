@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../../config'
+import { getNotification, deleteNotification } from '../../mock/data/notifications-state'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -16,7 +17,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Notifications feature is disabled' }, { status: 403 })
   }
 
+  // Check if we should use mock mode
+  const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
   const { id } = await params
+
+  if (useMockApi) {
+    const notification = getNotification(id)
+    if (!notification) {
+      return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
+    }
+    return NextResponse.json(notification)
+  }
 
   try {
     const url = `${runtimeConfig.notifierUrl}/api/notifications/${id}`
@@ -48,7 +60,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Notifications feature is disabled' }, { status: 403 })
   }
 
+  // Check if we should use mock mode
+  const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
   const { id } = await params
+
+  if (useMockApi) {
+    const result = deleteNotification(id)
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || 'Notification not found' }, { status: 404 })
+    }
+    return NextResponse.json({ message: 'Notification deleted successfully' })
+  }
 
   try {
     const url = `${runtimeConfig.notifierUrl}/api/notifications/${id}`

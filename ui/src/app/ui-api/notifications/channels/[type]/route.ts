@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../../../config'
+import { getChannel, updateChannel, deleteChannel } from '../../../mock/data/notifications-state'
+import type { ChannelType } from '@/src/services/notifications-api'
 
 interface RouteParams {
   params: Promise<{ type: string }>
@@ -16,7 +18,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Notifications feature is disabled' }, { status: 403 })
   }
 
+  // Check if we should use mock mode
+  const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
   const { type } = await params
+
+  if (useMockApi) {
+    const channel = getChannel(type as ChannelType)
+    if (!channel) {
+      return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+    }
+    return NextResponse.json(channel)
+  }
 
   try {
     const url = `${runtimeConfig.notifierUrl}/api/channels/${type}`
@@ -48,7 +61,34 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Notifications feature is disabled' }, { status: 403 })
   }
 
+  // Check if we should use mock mode
+  const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
   const { type } = await params
+
+  if (useMockApi) {
+    try {
+      const body = await request.json()
+      const result = updateChannel(type as ChannelType, {
+        enabled: body.enabled,
+        config: body.config,
+      })
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error || 'Channel not found' },
+          { status: 404 },
+        )
+      }
+
+      return NextResponse.json(result.channel)
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: error.message || 'Failed to update channel' },
+        { status: 400 },
+      )
+    }
+  }
 
   try {
     const body = await request.json()
@@ -83,7 +123,21 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Notifications feature is disabled' }, { status: 403 })
   }
 
+  // Check if we should use mock mode
+  const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
   const { type } = await params
+
+  if (useMockApi) {
+    const result = deleteChannel(type as ChannelType)
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || 'Channel not found' },
+        { status: 404 },
+      )
+    }
+    return new NextResponse(null, { status: 204 })
+  }
 
   try {
     const url = `${runtimeConfig.notifierUrl}/api/channels/${type}`
