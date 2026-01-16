@@ -12,7 +12,7 @@ import (
 
 func TestUsageStatsCollector_ProcessAPIEvent(t *testing.T) {
 	mockStore := new(mockPipelineStore)
-	usageStatsClient := usagestats.NewClient("", "", "", "", true, slog.Default(), mockStore)
+	usageStatsClient := usagestats.NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), mockStore)
 
 	collector := NewUsageStatsCollector(
 		mockStore,
@@ -95,7 +95,7 @@ func TestUsageStatsCollector_Start_NilClient(t *testing.T) {
 
 func TestUsageStatsCollector_NewUsageStatsCollector(t *testing.T) {
 	mockStore := new(mockPipelineStore)
-	usageStatsClient := usagestats.NewClient("", "", "", "", true, slog.Default(), mockStore)
+	usageStatsClient := usagestats.NewClient("http://test-endpoint", "test-user", "test-password", "test-installation-id", true, slog.Default(), mockStore)
 
 	collector := NewUsageStatsCollector(
 		mockStore,
