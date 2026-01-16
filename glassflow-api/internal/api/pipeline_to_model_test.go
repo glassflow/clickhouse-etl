@@ -96,7 +96,7 @@ func TestPipelineJSON_ToModel_BasicConfig(t *testing.T) {
 	require.Len(t, result.SchemaVersions, 1)
 
 	// Verify source schema version
-	sourceSchema := result.SchemaVersions[0]
+	sourceSchema := result.SchemaVersions[pipelineJSON.Source.Topics[0].Topic]
 	assert.Equal(t, "users", sourceSchema.SourceID)
 	assert.Equal(t, "1101", sourceSchema.VersionID)
 	require.Len(t, sourceSchema.Fields, 3)
@@ -224,7 +224,7 @@ func TestPipelineJSON_ToModel_WithSchemaRegistry(t *testing.T) {
 	// Verify SchemaVersions were created
 	require.Len(t, result.SchemaVersions, 1)
 
-	sourceSchema := result.SchemaVersions[0]
+	sourceSchema := result.SchemaVersions[pipelineJSON.Source.Topics[0].Topic]
 	assert.Equal(t, "events", sourceSchema.SourceID)
 	assert.Equal(t, "2001", sourceSchema.VersionID)
 	require.Len(t, sourceSchema.Fields, 2)
@@ -348,7 +348,7 @@ func TestPipelineJSON_ToModel_WithStatelessTransformation(t *testing.T) {
 	require.Len(t, result.SchemaVersions, 2)
 
 	// Verify source schema version
-	sourceSchema, found := models.GetSchemaVersion(result.SchemaVersions, "users")
+	sourceSchema, found := result.SchemaVersions["users"]
 	require.True(t, found)
 	assert.Equal(t, "1101", sourceSchema.VersionID)
 	require.Len(t, sourceSchema.Fields, 3)
@@ -357,7 +357,7 @@ func TestPipelineJSON_ToModel_WithStatelessTransformation(t *testing.T) {
 	assert.Equal(t, "name", sourceSchema.Fields[2].Name)
 
 	// Verify transformation schema version
-	transformSchema, found := models.GetSchemaVersion(result.SchemaVersions, "transform-1")
+	transformSchema, found := result.SchemaVersions["transform-1"]
 	require.True(t, found)
 	require.Len(t, transformSchema.Fields, 3)
 	assert.Equal(t, "user_id", transformSchema.Fields[0].Name)
@@ -521,7 +521,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 	require.Len(t, result.SchemaVersions, 3)
 
 	// Verify users schema version
-	usersSchema, found := models.GetSchemaVersion(result.SchemaVersions, "users")
+	usersSchema, found := result.SchemaVersions["users"]
 	require.True(t, found)
 	assert.Equal(t, "1101", usersSchema.VersionID)
 	require.Len(t, usersSchema.Fields, 3)
@@ -530,7 +530,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 	assert.Equal(t, "name", usersSchema.Fields[2].Name)
 
 	// Verify events schema version
-	eventsSchema, found := models.GetSchemaVersion(result.SchemaVersions, "events")
+	eventsSchema, found := result.SchemaVersions["events"]
 	require.True(t, found)
 	assert.Equal(t, "2001", eventsSchema.VersionID)
 	require.Len(t, eventsSchema.Fields, 2)
@@ -538,7 +538,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 	assert.Equal(t, "name", eventsSchema.Fields[1].Name)
 
 	// Verify join schema version
-	joinSchema, found := models.GetSchemaVersion(result.SchemaVersions, "join-1")
+	joinSchema, found := result.SchemaVersions["join-1"]
 	require.True(t, found)
 	require.Len(t, joinSchema.Fields, 3)
 	assert.Equal(t, "event_name", joinSchema.Fields[0].Name)

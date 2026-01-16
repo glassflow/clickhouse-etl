@@ -419,16 +419,16 @@ type PipelineMetadata struct {
 }
 
 type PipelineConfig struct {
-	ID                      string                  `json:"pipeline_id"`
-	Name                    string                  `json:"name"`
-	Mapper                  MapperConfig            `json:"mapper"`
-	Ingestor                IngestorComponentConfig `json:"ingestor"`
-	Join                    JoinComponentConfig     `json:"join"`
-	Sink                    SinkComponentConfig     `json:"sink"`
-	Filter                  FilterComponentConfig   `json:"filter"`
-	StatelessTransformation StatelessTransformation `json:"stateless_transformation,omitempty"`
-	PipelineResources       PipelineResources       `json:"pipeline_resources,omitempty"`
-	SchemaVersions          []SchemaVersion         `json:"schema_versions,omitempty"`
+	ID                      string                   `json:"pipeline_id"`
+	Name                    string                   `json:"name"`
+	Mapper                  MapperConfig             `json:"mapper"`
+	Ingestor                IngestorComponentConfig  `json:"ingestor"`
+	Join                    JoinComponentConfig      `json:"join"`
+	Sink                    SinkComponentConfig      `json:"sink"`
+	Filter                  FilterComponentConfig    `json:"filter"`
+	StatelessTransformation StatelessTransformation  `json:"stateless_transformation,omitempty"`
+	PipelineResources       PipelineResources        `json:"pipeline_resources,omitempty"`
+	SchemaVersions          map[string]SchemaVersion `json:"schema_versions,omitempty"`
 
 	CreatedAt time.Time        `json:"created_at"`
 	Metadata  PipelineMetadata `json:"metadata"`
@@ -498,7 +498,7 @@ func NewPipelineConfig(
 	statelessTransformation StatelessTransformation,
 	metadata PipelineMetadata,
 	resources PipelineResources,
-	schemaVersions []SchemaVersion,
+	schemaVersions map[string]SchemaVersion,
 ) PipelineConfig {
 	return PipelineConfig{
 		ID:                      id,
