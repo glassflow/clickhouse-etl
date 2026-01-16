@@ -4,7 +4,7 @@ CREATE TYPE schema_data_format AS ENUM (
 );
 
 -- Create new schema_versions table
-CREATE TABLE schema_verions (
+CREATE TABLE schema_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     source_id TEXT NOT NULL,
@@ -22,6 +22,7 @@ CREATE TABLE transformation_configs (
     pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     source_id TEXT NOT NULL,
     schema_version_id TEXT NOT NULL,
+    output_schema_version_id TEXT NOT NULL,
     config JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -34,6 +35,7 @@ CREATE TABLE join_configs (
     pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     source_id TEXT NOT NULL,
     schema_version_id TEXT NOT NULL,
+    output_schema_version_id TEXT NOT NULL,
     config JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
