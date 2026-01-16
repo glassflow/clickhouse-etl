@@ -15,10 +15,10 @@ RUN apk add --no-cache curl postgresql-client && \
     rm -rf /tmp/*
 
 # Copy migration SQL files (only up migrations)
-COPY *.up.sql /migrations/
+COPY glassflow-api/migrations/*.up.sql /migrations/
 
 # Copy entrypoint script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY glassflow-api/migrations/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Set working directory
