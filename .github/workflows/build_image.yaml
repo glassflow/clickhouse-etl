@@ -24,6 +24,8 @@ jobs:
       glassflow-sink-arm64: ${{ steps.gen-output.outputs.glassflow-sink-arm64 }}
       glassflow-dedup-amd64: ${{ steps.gen-output.outputs.glassflow-dedup-amd64 }}
       glassflow-dedup-arm64: ${{ steps.gen-output.outputs.glassflow-dedup-arm64 }}
+      glassflow-migration-amd64: ${{ steps.gen-output.outputs.glassflow-migration-amd64 }}
+      glassflow-migration-arm64: ${{ steps.gen-output.outputs.glassflow-migration-arm64 }}
     permissions:
       contents: read
       packages: write
@@ -40,6 +42,8 @@ jobs:
             image_name: glassflow-etl-sink
           - name: glassflow-dedup
             image_name: glassflow-etl-dedup
+          - name: glassflow-migration
+            image_name: glassflow-etl-migration
         platform:
           - os: linux
             arch: amd64
@@ -59,19 +63,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Download etl artifact
+        if: matrix.component.name != 'glassflow-migration'
         uses: actions/download-artifact@v4
         with:
           name: glassflow-api-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
           path: glassflow-api/bin
       - name: Make artifacts executable
+        if: matrix.component.name != 'glassflow-migration'
         run: chmod +x glassflow-api/bin/*
+      - name: Set Dockerfile path
+        id: set-dockerfile
+        run: |
+          if [ "${{ matrix.component.name }}" = "glassflow-migration" ]; then
+            echo "dockerfile=glassflow-api/migrations/Dockerfile" >> $GITHUB_OUTPUT
+          else
+            echo "dockerfile=glassflow-api/docker/${{ matrix.component.name }}/Dockerfile" >> $GITHUB_OUTPUT
+          fi
       - name: Build & push Docker image
         uses: docker/build-push-action@v6
         id: build-arch-image
         with:
           platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
           context: .
-          file: glassflow-api/docker/${{ matrix.component.name }}/Dockerfile
+          file: ${{ steps.set-dockerfile.outputs.dockerfile }}
           push: ${{ inputs.push }}
           provenance: false
           outputs: push-by-digest=true,type=image
@@ -84,6 +98,16 @@ jobs:
           ARCH: ${{ matrix.platform.arch }}
           DIGEST: ${{ steps.build-arch-image.outputs.digest }}
           COMPONENT: ${{ matrix.component.name }}
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "### Built Component Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Component**: ${{ matrix.component.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ghcr.io/glassflow/${{ matrix.component.image_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Architecture**: ${{ matrix.platform.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Digest**: \`${{ steps.build-arch-image.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
 
   push-docker-manifest:
     name: Push API Image
@@ -108,6 +132,9 @@ jobs:
           - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-amd64 }}
             arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-arm64 }}
             repository: glassflow-etl-dedup
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-migration-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-migration-arm64 }}
+            repository: glassflow-etl-migration
     if: ${{ inputs.push }}
     needs: build-docker-image
     steps:
