@@ -126,8 +126,6 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           }
         }
 
-        console.log('[PipelineDetailsModule] Hydrating pipeline:', currentPipelineKey)
-
         try {
           // 1. Detect version and get appropriate adapter
           // Use pipeline.version if available, or fallback to V1 (handled by factory) but added here for safety
@@ -316,6 +314,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1,
     StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2,
     StepKeys.FILTER_CONFIGURATOR,
+    StepKeys.TRANSFORMATION_CONFIGURATOR,
     StepKeys.JOIN_CONFIGURATOR,
     StepKeys.CLICKHOUSE_MAPPER,
   ])

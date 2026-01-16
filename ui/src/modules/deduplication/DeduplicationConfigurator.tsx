@@ -1,9 +1,14 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import { useStore } from '@/src/store'
 import { EventEditor } from '@/src/components/shared/EventEditor'
-import { parseForCodeEditor } from '@/src/utils/common.client'
+import {
+  parseForCodeEditor,
+  buildEffectiveEvent,
+  getSchemaModifications,
+  type SchemaField,
+} from '@/src/utils/common.client'
 import { StepKeys } from '@/src/config/constants'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
@@ -46,6 +51,19 @@ export function DeduplicationConfigurator({
 
   // Extract event data
   const eventData = selectedEvent?.event || null
+
+  // Get schema fields from KafkaTypeVerification step (if configured)
+  const schemaFields = (topic as any)?.schema?.fields as SchemaField[] | undefined
+
+  // Build effective event that reflects schema modifications (added/removed fields)
+  const effectiveEventData = useMemo(() => {
+    return buildEffectiveEvent(eventData, schemaFields)
+  }, [eventData, schemaFields])
+
+  // Get schema modification info for displaying notices
+  const schemaModifications = useMemo(() => {
+    return getSchemaModifications(schemaFields)
+  }, [schemaFields])
 
   // Track page view when component loads
   useEffect(() => {
@@ -167,7 +185,7 @@ export function DeduplicationConfigurator({
     return <div>No topic data available for index {index}</div>
   }
 
-  if (!eventData) {
+  if (!effectiveEventData) {
     return (
       <div>
         No event data available for topic &quot;{topic.name}&quot;. Please ensure the topic has been configured with
@@ -178,6 +196,25 @@ export function DeduplicationConfigurator({
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Schema modification notice */}
+      {(schemaModifications.hasAddedFields || schemaModifications.hasRemovedFields) && (
+        <div className="text-sm text-[var(--color-foreground-neutral-faded)] bg-[var(--surface-bg-sunken)] rounded-md px-4 py-3">
+          <span className="font-medium">Schema modified:</span>{' '}
+          {schemaModifications.hasAddedFields && (
+            <span className="text-[var(--color-foreground-primary)]">
+              {schemaModifications.addedCount} field{schemaModifications.addedCount !== 1 ? 's' : ''} added
+            </span>
+          )}
+          {schemaModifications.hasAddedFields && schemaModifications.hasRemovedFields && ', '}
+          {schemaModifications.hasRemovedFields && (
+            <span className="text-[var(--color-foreground-negative)]">
+              {schemaModifications.removedCount} field{schemaModifications.removedCount !== 1 ? 's' : ''} removed
+            </span>
+          )}
+          <span className="ml-1">from the original Kafka event.</span>
+        </div>
+      )}
+
       {/* Topic Configuration */}
       <div className="flex gap-4 w-full">
         <div className="flex flex-col gap-12 flex-[2] min-w-0">
@@ -187,13 +224,14 @@ export function DeduplicationConfigurator({
             index={index}
             onChange={handleDeduplicationConfigChange}
             disabled={!topic?.name}
-            eventData={eventData}
+            eventData={effectiveEventData}
             readOnly={readOnly}
+            schemaFields={schemaFields}
           />
         </div>
         <div className="flex-[3] min-w-0 min-h-[400px]">
           <EventEditor
-            event={parseForCodeEditor(eventData)}
+            event={parseForCodeEditor(effectiveEventData)}
             topic={topic?.name}
             isLoadingEvent={false}
             eventError={''}

@@ -56,6 +56,23 @@ interface ClickhouseMapperProps {
 const runtimeEnv = getRuntimeEnv()
 const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
+/**
+ * Gets the verified type for a field from the topic's schema (set during KafkaTypeVerification step).
+ * Falls back to undefined if no verified type is available.
+ * @param topic - The topic object (from topicsStore)
+ * @param fieldName - The field name to look up
+ * @returns The verified type string or undefined if not found
+ */
+const getVerifiedTypeFromTopic = (topic: any, fieldName: string): string | undefined => {
+  if (!topic?.schema?.fields || !Array.isArray(topic.schema.fields)) {
+    return undefined
+  }
+  // Filter out removed fields and find the matching field
+  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName && !f.isRemoved)
+  // Prefer userType (explicitly set by user) over type
+  return schemaField?.userType || schemaField?.type
+}
+
 export function ClickhouseMapper({
   onCompleteStep,
   standalone,
@@ -74,6 +91,7 @@ export function ClickhouseMapper({
     coreStore,
     deduplicationStore,
     filterStore,
+    transformationStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
@@ -535,6 +553,57 @@ export function ClickhouseMapper({
   useEffect(() => {
     if (mode !== 'single') return
 
+    // Check if transformations are enabled
+    const isTransformationEnabled =
+      transformationStore.transformationConfig.enabled && transformationStore.transformationConfig.fields.length > 0
+
+    // If transformations are enabled, use intermediary schema
+    if (isTransformationEnabled) {
+      const intermediarySchema = transformationStore.getIntermediarySchema()
+      if (intermediarySchema.length > 0) {
+        // Extract field names from intermediary schema
+        const transformedFields = intermediarySchema.map((field) => field.name)
+        setEventFields(transformedFields)
+
+        // Create a map of field names to types for quick lookup
+        const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
+
+        // Try to auto-map fields if we have mapping data
+        if (clickhouseDestination?.mapping?.length > 0) {
+          // Mapping already exists, keep it
+          return
+        } else if (mappedColumns.length > 0 && transformedFields.length > 0) {
+          // Try to auto-map based on field names using transformed field names
+          const updatedColumns = [...mappedColumns]
+          updatedColumns.forEach((col, index) => {
+            // Try to find a matching field by name similarity in transformed fields
+            const matchingField = findBestMatchingField(col.name, transformedFields)
+            if (matchingField) {
+              // Use type from intermediary schema instead of inferring from event data
+              const fieldType = fieldTypeMap.get(matchingField) || 'string'
+              updatedColumns[index] = {
+                ...col,
+                eventField: matchingField,
+                jsonType: fieldType,
+              }
+            } else {
+              console.log(`No match found for column "${col.name}"`)
+            }
+          })
+
+          setMappedColumns(updatedColumns)
+          setClickhouseDestination({
+            ...clickhouseDestination,
+            mapping: updatedColumns,
+          })
+
+          // Track auto-mapping success (only track once when it happens)
+          const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
+        }
+      }
+      return
+    }
+
     // FIX: Check for selectedEvent.event directly, don't require topicEvents array
     // The topicEvents array might be empty during hydration, but selectedEvent.event can still be populated
     if (selectedEvent?.event) {
@@ -558,10 +627,12 @@ export function ClickhouseMapper({
             // Try to find a matching field by name similarity
             const matchingField = findBestMatchingField(col.name, fields)
             if (matchingField) {
+              // Use verified type from topic schema if available, fallback to inference
+              const verifiedType = getVerifiedTypeFromTopic(selectedTopic, matchingField)
               updatedColumns[index] = {
                 ...col,
                 eventField: matchingField,
-                jsonType: inferJsonType(getNestedValue(eventData, matchingField)),
+                jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
               }
             } else {
               console.log(`No match found for column "${col.name}"`)
@@ -581,7 +652,7 @@ export function ClickhouseMapper({
         console.log('No event data found')
       }
     }
-  }, [selectedEvent?.event, clickhouseDestination, mappedColumns, setClickhouseDestination, mode])
+  }, [selectedEvent?.event, clickhouseDestination, mappedColumns, setClickhouseDestination, mode, transformationStore])
 
   // Load event fields for join/dedup mode
   useEffect(() => {
@@ -644,11 +715,16 @@ export function ClickhouseMapper({
 
       if (matchingField && sourceData) {
         const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+        const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
+
+        // Use verified type from topic schema if available, otherwise infer from event data
+        const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
+        const jsonType = verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
 
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
-          jsonType: inferJsonType(getNestedValue(sourceData, matchingField)),
+          jsonType,
           sourceTopic: sourceTopic,
         }
         hasChanges = true
@@ -669,8 +745,8 @@ export function ClickhouseMapper({
     clickhouseDestination,
     primaryEventData,
     secondaryTopic?.selectedEvent?.event,
-    primaryTopic?.name,
-    secondaryTopic?.name,
+    primaryTopic,
+    secondaryTopic,
     setClickhouseDestination,
     mode,
   ])
@@ -839,11 +915,16 @@ export function ClickhouseMapper({
 
       if (matchingField && sourceData) {
         const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+        const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
+
+        // Use verified type from topic schema if available, otherwise infer from event data
+        const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
+        const jsonType = verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
 
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
-          jsonType: inferJsonType(getNestedValue(sourceData, matchingField)),
+          jsonType,
           sourceTopic: sourceTopic,
         }
         hasChanges = true
@@ -866,31 +947,187 @@ export function ClickhouseMapper({
     mappedColumns,
     primaryEventData,
     secondaryTopic?.selectedEvent?.event,
-    primaryTopic?.name,
-    secondaryTopic?.name,
+    primaryTopic,
+    secondaryTopic,
     clickhouseDestination,
     setClickhouseDestination,
+  ])
+
+  // Unified auto-mapping function that works for both single and join modes
+  // This can be triggered on demand via the Auto-Map button
+  const performAutoMapping = useCallback(() => {
+    if (mappedColumns.length === 0) {
+      return false
+    }
+
+    // Check if transformations are enabled (only for single mode)
+    const isTransformationEnabled =
+      mode === 'single' &&
+      transformationStore.transformationConfig.enabled &&
+      transformationStore.transformationConfig.fields.length > 0
+
+    // Clear existing mappings and perform fresh auto-mapping
+    const updatedColumns = mappedColumns.map((col) => ({
+      ...col,
+      eventField: '', // Clear existing mapping
+      jsonType: '', // Clear existing type
+      sourceTopic: undefined as string | undefined, // Clear source topic for join mode
+    }))
+
+    let hasChanges = false
+
+    if (mode === 'single') {
+      // Single mode auto-mapping
+      if (isTransformationEnabled) {
+        // Use intermediary schema for transformed fields
+        const intermediarySchema = transformationStore.getIntermediarySchema()
+        if (intermediarySchema.length > 0) {
+          const transformedFields = intermediarySchema.map((field) => field.name)
+          const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
+
+          updatedColumns.forEach((col, index) => {
+            const matchingField = findBestMatchingField(col.name, transformedFields)
+            if (matchingField) {
+              const fieldType = fieldTypeMap.get(matchingField) || 'string'
+              updatedColumns[index] = {
+                ...col,
+                eventField: matchingField,
+                jsonType: fieldType,
+              }
+              hasChanges = true
+            }
+          })
+        }
+      } else {
+        // Use event fields for non-transformed mode
+        if (eventFields.length > 0 && eventData) {
+          updatedColumns.forEach((col, index) => {
+            const matchingField = findBestMatchingField(col.name, eventFields)
+            if (matchingField) {
+              const verifiedType = getVerifiedTypeFromTopic(selectedTopic, matchingField)
+              updatedColumns[index] = {
+                ...col,
+                eventField: matchingField,
+                jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
+              }
+              hasChanges = true
+            }
+          })
+        }
+      }
+    } else {
+      // Join/dedup mode auto-mapping
+      if (primaryEventFields.length === 0 && secondaryEventFields.length === 0) {
+        return false
+      }
+
+      updatedColumns.forEach((col, index) => {
+        // First try to find matching field in primary (left) topic
+        let matchingField = findBestMatchingField(col.name, primaryEventFields)
+        let source: 'primary' | 'secondary' = 'primary'
+        let sourceData = primaryEventData
+
+        // If no match in primary, try secondary (right) topic
+        if (!matchingField) {
+          matchingField = findBestMatchingField(col.name, secondaryEventFields)
+          source = 'secondary'
+          sourceData = secondaryTopic?.selectedEvent?.event
+        }
+
+        if (matchingField && sourceData) {
+          const sourceTopic = source === 'primary' ? primaryTopic?.name : secondaryTopic?.name
+          const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
+
+          const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
+          const jsonType = verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+
+          updatedColumns[index] = {
+            ...col,
+            eventField: matchingField,
+            jsonType,
+            sourceTopic: sourceTopic,
+          }
+          hasChanges = true
+        }
+      })
+    }
+
+    if (hasChanges) {
+      setMappedColumns(updatedColumns)
+      setClickhouseDestination({
+        ...clickhouseDestination,
+        mapping: updatedColumns,
+      })
+    }
+
+    return hasChanges
+  }, [
+    mode,
+    mappedColumns,
+    eventFields,
+    eventData,
+    selectedTopic,
+    primaryEventFields,
+    secondaryEventFields,
+    primaryEventData,
+    primaryTopic,
+    secondaryTopic,
+    clickhouseDestination,
+    setClickhouseDestination,
+    transformationStore,
   ])
 
   // Map event field to column
   const mapEventFieldToColumn = (index: number, eventField: string, source?: 'primary' | 'secondary') => {
     const updatedColumns = [...mappedColumns]
 
-    // Get the appropriate event data based on mode and source
-    let fieldValue: any
-    if (mode === 'single') {
-      fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+    // Check if transformations are enabled (only for single mode)
+    const isTransformationEnabled =
+      mode === 'single' &&
+      transformationStore.transformationConfig.enabled &&
+      transformationStore.transformationConfig.fields.length > 0
+
+    let inferredType: string
+
+    if (isTransformationEnabled && eventField) {
+      // For transformed fields, use type from intermediary schema
+      const intermediarySchema = transformationStore.getIntermediarySchema()
+      const schemaField = intermediarySchema.find((field) => field.name === eventField)
+      inferredType = schemaField?.type || 'string'
     } else {
-      const eventData =
-        source === 'secondary' ? secondaryTopic?.selectedEvent?.event?.event : primaryTopic?.selectedEvent?.event?.event
-      fieldValue = eventData ? getNestedValue(eventData, eventField) : undefined
-    }
+      // For original fields, first check verified type from topic schema, then infer from event data
+      if (mode === 'single') {
+        // Single mode: use verified type from topic schema if available
+        const verifiedType = eventField ? getVerifiedTypeFromTopic(selectedTopic, eventField) : undefined
+        if (verifiedType) {
+          inferredType = verifiedType
+        } else {
+          // Fallback to inferring from event data
+          const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
+          inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
+        }
+      } else {
+        // Multi-topic mode: use verified type from topic schema if available
+        const topicForSchema = source === 'secondary' ? secondaryTopic : primaryTopic
+        const verifiedType = eventField ? getVerifiedTypeFromTopic(topicForSchema, eventField) : undefined
 
-    let inferredType = eventField ? inferJsonType(fieldValue) : updatedColumns[index].jsonType
+        if (verifiedType) {
+          inferredType = verifiedType
+        } else {
+          // Fallback to inferring from event data
+          const sourceEventData =
+            source === 'secondary'
+              ? secondaryTopic?.selectedEvent?.event?.event
+              : primaryTopic?.selectedEvent?.event?.event
+          const fieldValue = sourceEventData ? getNestedValue(sourceEventData, eventField) : undefined
+          inferredType = eventField ? inferJsonType(fieldValue) : (updatedColumns[index].jsonType ?? 'string')
+        }
+      }
 
-    // Ensure we have a type - default to string if we couldn't infer a type from the data
-    if (!inferredType && eventField) {
-      inferredType = 'string'
+      // Ensure we have a type - default to string if we couldn't infer a type from the data
+      if (!inferredType && eventField) {
+        inferredType = 'string'
+      }
     }
 
     // Determine which topic this field belongs to (for join/dedup mode)
@@ -1121,6 +1358,7 @@ export function ClickhouseMapper({
       kafkaStore,
       deduplicationStore,
       filterStore,
+      transformationStore,
       version: pipelineVersion, // Respect the original pipeline version
     })
 
@@ -1305,16 +1543,38 @@ export function ClickhouseMapper({
   // Infers and fills missing jsonType for already-mapped event fields after hydration
   useEffect(() => {
     if (mode === 'single') {
-      if (!eventData || mappedColumns.length === 0) return
+      // Check if transformations are enabled
+      const isTransformationEnabled =
+        transformationStore.transformationConfig.enabled && transformationStore.transformationConfig.fields.length > 0
+
+      if (mappedColumns.length === 0) return
 
       let changed = false
       const updated = mappedColumns.map((col) => {
         if (col.eventField && (!col.jsonType || col.jsonType === '')) {
-          const value = getNestedValue(eventData, col.eventField)
-          const inferred = inferJsonType(value)
-          if (inferred) {
-            changed = true
-            return { ...col, jsonType: inferred }
+          if (isTransformationEnabled) {
+            // For transformed fields, use type from intermediary schema
+            const intermediarySchema = transformationStore.getIntermediarySchema()
+            const schemaField = intermediarySchema.find((field) => field.name === col.eventField)
+            if (schemaField?.type) {
+              changed = true
+              return { ...col, jsonType: schemaField.type }
+            }
+          } else {
+            // For original fields, first check verified type from topic schema, then infer from event data
+            const verifiedType = getVerifiedTypeFromTopic(selectedTopic, col.eventField)
+            if (verifiedType) {
+              changed = true
+              return { ...col, jsonType: verifiedType }
+            }
+            // Fallback to inferring from event data
+            if (!eventData) return col
+            const value = getNestedValue(eventData, col.eventField)
+            const inferred = inferJsonType(value)
+            if (inferred) {
+              changed = true
+              return { ...col, jsonType: inferred }
+            }
           }
         }
         return col
@@ -1336,15 +1596,33 @@ export function ClickhouseMapper({
       let changed = false
       const updated = mappedColumns.map((col) => {
         if (col.eventField && (!col.jsonType || col.jsonType === '')) {
-          // pick source based on sourceTopic if available
+          // Determine the source topic for this field
+          let topicForSchema: any = null
           let sourceData: any | null = null
+
           if (col.sourceTopic) {
-            if (primaryTopic?.name && col.sourceTopic === primaryTopic.name) sourceData = primaryData
-            else if (secondaryTopic?.name && col.sourceTopic === secondaryTopic.name) sourceData = secondaryData
+            if (primaryTopic?.name && col.sourceTopic === primaryTopic.name) {
+              topicForSchema = primaryTopic
+              sourceData = primaryData
+            } else if (secondaryTopic?.name && col.sourceTopic === secondaryTopic.name) {
+              topicForSchema = secondaryTopic
+              sourceData = secondaryData
+            }
           }
           // fallback: try primary then secondary
-          if (!sourceData) sourceData = primaryData || secondaryData
+          if (!topicForSchema) {
+            topicForSchema = primaryTopic || secondaryTopic
+            sourceData = primaryData || secondaryData
+          }
 
+          // First try to get verified type from topic schema
+          const verifiedType = getVerifiedTypeFromTopic(topicForSchema, col.eventField)
+          if (verifiedType) {
+            changed = true
+            return { ...col, jsonType: verifiedType }
+          }
+
+          // Fallback: infer type from event data
           const value = sourceData ? getNestedValue(sourceData, col.eventField) : undefined
           const inferred = inferJsonType(value)
           if (inferred) {
@@ -1369,8 +1647,9 @@ export function ClickhouseMapper({
     primaryEventData,
     secondaryTopic?.selectedEvent?.event,
     mappedColumns,
-    primaryTopic?.name,
-    secondaryTopic?.name,
+    primaryTopic,
+    secondaryTopic,
+    transformationStore,
   ])
 
   return (
@@ -1420,9 +1699,11 @@ export function ClickhouseMapper({
               secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
               isJoinMapping={mode !== 'single'}
               readOnly={readOnly}
+              typesReadOnly={true} // Types are verified in the earlier type verification step
               unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
               unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
               onRefreshTableSchema={handleRefreshTableSchema}
+              onAutoMap={performAutoMapping}
               selectedDatabase={selectedDatabase}
               selectedTable={selectedTable}
             />

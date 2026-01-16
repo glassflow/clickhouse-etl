@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Label } from '@/src/components/ui/label'
+import { Textarea } from '@/src/components/ui/textarea'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { StepKeys } from '@/src/config/constants'
 import FormActions from '@/src/components/shared/FormActions'
@@ -353,9 +354,13 @@ export function FilterConfigurator({
             Active
           </div>
         </div>
-        <code className="block text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all text-[var(--text-primary)]">
-          {filterStore.expressionString}
-        </code>
+        <Textarea
+          readOnly
+          value={filterStore.expressionString || ''}
+          className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+          rows={3}
+          wrap="soft"
+        />
       </div>
       {!readOnly && (
         <div className="text-sm text-[var(--text-secondary)]">
@@ -435,9 +440,13 @@ export function FilterConfigurator({
                 <Label className="text-sm font-medium text-[var(--text-secondary)]">Generated Expression</Label>
                 {renderValidationStatus()}
               </div>
-              <code className="block text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all text-[var(--text-primary)]">
-                {filterStore.expressionString || toExprString(filterConfig) || '(empty)'}
-              </code>
+              <Textarea
+                readOnly
+                value={toExprString(filterConfig) || '(empty)'}
+                className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+                rows={3}
+                wrap="soft"
+              />
             </div>
           )}
 

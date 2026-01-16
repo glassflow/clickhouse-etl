@@ -14,6 +14,9 @@ import { isTypeCompatible } from '../utils'
 import Image from 'next/image'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { CacheRefreshButton } from './CacheRefreshButton'
+import { SparklesIcon } from '@heroicons/react/24/outline'
+import { Button } from '@/src/components/ui/button'
+import { cn } from '@/src/utils/common.client'
 
 // Import topic icons
 import deduplicateIcon from '@/src/images/deduplicate.svg'
@@ -32,9 +35,11 @@ interface FieldColumnMapperProps {
   secondaryTopicName?: string
   isJoinMapping?: boolean
   readOnly?: boolean
+  typesReadOnly?: boolean // NEW: Make data types read-only (for when types are verified in earlier step)
   unmappedNonNullableColumns?: string[]
   unmappedDefaultColumns?: string[] // NEW: columns with DEFAULT that are unmapped
   onRefreshTableSchema: () => void
+  onAutoMap: () => boolean // Trigger automatic field-to-column mapping
   selectedDatabase: string
   selectedTable: string
 }
@@ -50,9 +55,11 @@ export function FieldColumnMapper({
   secondaryTopicName = 'Secondary Topic',
   isJoinMapping = false,
   readOnly,
+  typesReadOnly = false, // NEW: Make data types read-only
   unmappedNonNullableColumns = [],
   unmappedDefaultColumns = [], // NEW
   onRefreshTableSchema,
+  onAutoMap,
   selectedDatabase,
   selectedTable,
 }: FieldColumnMapperProps) {
@@ -111,15 +118,45 @@ export function FieldColumnMapper({
           Map incoming event fields to ClickHouse table columns.
           {readOnly && <span className="text-sm text-gray-500 ml-2">(Read-only)</span>}
         </h3>
-        <CacheRefreshButton
-          type="tableSchema"
-          database={selectedDatabase}
-          table={selectedTable}
-          onRefresh={async () => onRefreshTableSchema()}
-          size="sm"
-          variant="outline"
-          disabled={readOnly}
-        />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAutoMap}
+            disabled={readOnly}
+            className={cn(
+              'transition-all duration-200',
+              {
+                'opacity-50 cursor-not-allowed': readOnly,
+                'text-muted-foreground': readOnly,
+              },
+              'btn-neutral',
+            )}
+            title="Auto-map event fields to columns by name"
+          >
+            <SparklesIcon
+              className={cn('h-4 w-4', {
+                'text-muted-foreground opacity-50': readOnly,
+              })}
+            />
+            <span
+              className={cn({
+                'text-muted-foreground opacity-50': readOnly,
+              })}
+            >
+              Auto-Map
+            </span>
+          </Button>
+          <CacheRefreshButton
+            type="tableSchema"
+            database={selectedDatabase}
+            table={selectedTable}
+            onRefresh={async () => onRefreshTableSchema()}
+            size="sm"
+            variant="outline"
+            disabled={readOnly}
+          />
+        </div>
         {/* TypeCompatibilityInfo is temporarily hidden */}
         {/* <TypeCompatibilityInfo /> */}
       </div>
@@ -197,24 +234,34 @@ export function FieldColumnMapper({
                 </TableCell>
                 <TableCell className="w-[25%]">
                   <div>
-                    <Select
-                      value={column.jsonType || ''}
-                      onValueChange={(value) => updateColumnMapping(index, 'jsonType', value)}
-                      disabled={readOnly}
-                    >
-                      <SelectTrigger
-                        className={`w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content ${readOnly ? 'opacity-50 cursor-not-allowed' : ''} ${hasTypeError ? 'border-red-500 border-2' : ''}`}
+                    {typesReadOnly ? (
+                      // Read-only display when types are verified in earlier step
+                      <div
+                        className={`w-full h-10 px-3 flex items-center rounded-md bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)] text-content ${hasTypeError ? 'border-red-500 border-2' : ''}`}
                       >
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] shadow-md text-content select-content-custom">
-                        {JSON_DATA_TYPES.map((type) => (
-                          <SelectItem key={type} value={type} className="text-content select-item-custom">
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        {column.jsonType || 'auto'}
+                      </div>
+                    ) : (
+                      // Editable dropdown when types can be changed
+                      <Select
+                        value={column.jsonType || ''}
+                        onValueChange={(value) => updateColumnMapping(index, 'jsonType', value)}
+                        disabled={readOnly}
+                      >
+                        <SelectTrigger
+                          className={`w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content ${readOnly ? 'opacity-50 cursor-not-allowed' : ''} ${hasTypeError ? 'border-red-500 border-2' : ''}`}
+                        >
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] shadow-md text-content select-content-custom">
+                          {JSON_DATA_TYPES.map((type) => (
+                            <SelectItem key={type} value={type} className="text-content select-item-custom">
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     {/* Show error text or transparent placeholder to maintain alignment */}
                     {hasAnyIssue && (
                       <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
