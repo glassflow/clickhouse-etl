@@ -158,6 +158,97 @@ To start creating your own pipelines with the UI, you can follow the [Web UI Usa
 
 </Steps>
 
+## Option 2: Using the Python SDK
+
+The Python demos automate the entire process, including:
+
+- Creating Kafka topics
+- Setting up ClickHouse tables
+- Creating and configuring pipelines
+- Generating and sending test events
+
+<Steps>
+
+### Create Python Environment
+
+Inside the [clickhouse-etl repository](https://github.com/glassflow/clickhouse-etl), navigate to the demo directory:
+
+```bash
+cd demos/getting-started
+```
+
+Create and activate a virtual environment:
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+# .\venv\Scripts\activate
+```
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Run the demo
+
+<Tabs items={['Deduplication', 'Join']}>
+<Tabs.Tab>
+    Tests GlassFlow's deduplication capabilities:
+    ```bash
+    # Run with default options
+    python demo_deduplication.py
+
+    # Run with custom options
+    python demo_deduplication.py \
+    --num_records 100000 \
+    --duplication-rate 0.5
+    ```
+    Options:
+    - `--num-records`: Number of records to generate (default: 10000)
+    - `--duplication-rate`: Rate of duplication (default: 0.1)
+    - `--rps`: Records per second (default: 1000)
+    - `--config`: Path to pipeline configuration file
+    - `--generator-schema`: Path to generator schema file
+    - `--print-n-rows` or `-p`: Number of rows to print from results
+    - `--yes` or `-y`: Skip confirmation prompts
+    - `--cleanup` or `-c`: Cleanup ClickHouse table before running
+</Tabs.Tab>
+<Tabs.Tab>
+    
+    Tests GlassFlow's temporal join capabilities:
+
+    ```bash
+    # Run with default options
+    python demo_join.py
+
+    # Run with custom options
+    python demo_join.py \
+    --left-num-records 100000 \
+    --right-num-records 1000 \
+    -p 100
+    ```
+
+    Options:
+    - `--left-num-records`: Number of left events (default: 10000)
+    - `--right-num-records`: Number of right events (default: 10000)
+    - `--rps`: Records per second (default: 1000)
+    - `--config`: Path to pipeline configuration file
+    - `--left-schema`: Path to left events schema
+    - `--right-schema`: Path to right events schema
+    - `--print-n-rows` or `-p`: Number of rows to print
+    - `--yes` or `-y`: Skip confirmation prompts
+    - `--cleanup` or `-c`: Cleanup ClickHouse table
+</Tabs.Tab>
+</Tabs>
+</Steps>
+
 ## Cleaning Up
 
 To clean up the demo environment:
