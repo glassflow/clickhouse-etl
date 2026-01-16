@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../../../config'
+import { markNotificationAsRead } from '../../../mock/data/notifications-state'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -16,7 +17,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Notifications feature is disabled' }, { status: 403 })
   }
 
+  // Check if we should use mock mode
+  const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true'
+
   const { id } = await params
+
+  if (useMockApi) {
+    const result = markNotificationAsRead(id)
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || 'Notification not found' },
+        { status: 404 },
+      )
+    }
+    return NextResponse.json(result.notification)
+  }
 
   try {
     const url = `${runtimeConfig.notifierUrl}/api/notifications/${id}/read`
