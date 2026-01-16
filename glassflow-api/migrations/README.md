@@ -6,6 +6,10 @@ This directory contains database migration files for the GlassFlow ETL PostgreSQ
 
 - `000001_initial_schema.up.sql` - Creates the initial database schema
 - `000001_initial_schema.down.sql` - Rollback script (currently empty)
+- `000002_add_stateless_transformation_type.up.sql` - Adds stateless transformation type
+- `000002_add_stateless_transformation_type.down.sql` - Rollback script
+
+**Note**: Only `.up.sql` files are included in the migration container. Down migrations are kept for rollback purposes.
 
 ## Running Migrations Locally
 
@@ -86,11 +90,38 @@ The default database name is `glassflow`. This can be changed via the `POSTGRES_
 
 ## Kubernetes Deployment
 
-Migrations are automatically run in Kubernetes via a Job that:
-1. Clones the repository
-2. Creates the database if it doesn't exist
-3. Runs all pending migrations
-4. Waits for Postgres to be ready before starting
+Migrations are automatically run in Kubernetes via an initContainer that uses the `glassflow-etl-migration` container image.
 
-See the Helm chart templates for the migration Job configuration.
+### Migration Container
+
+The migration container (`glassflow-etl-migration`) includes:
+- Pre-installed `golang-migrate` (v4.19.1)
+- Pre-installed `postgresql-client` (for connection testing)
+- All migration SQL files (`.up.sql` files only)
+
+The container image is built as part of the CI/CD pipeline and uses the same version tag as the API image to ensure compatibility.
+
+### How It Works
+
+1. The migration initContainer runs before the API container starts
+2. It receives `POSTGRES_CONNECTION_URL` as an environment variable (includes SSL mode)
+3. It attempts to connect to the database directly
+4. If connection fails, it exits with an error (database should already exist - created by PostgreSQL chart or pre-created for external postgres)
+5. If connection succeeds, it runs all pending migrations using `golang-migrate`
+6. The API container starts only after migrations complete successfully
+
+### Connection URL
+
+The connection URL is automatically configured:
+- **Internal PostgreSQL** (when `postgresql.enabled: true`): Retrieved from `glassflow-postgresql` secret, includes SSL mode
+- **External PostgreSQL**: Provided via `global.postgres.connection_url` or `global.postgres.secret.name`
+
+The connection URL format: `postgresql://username:password@host:port/database?sslmode={sslmode=disable|allow|prefer|require}`
+
+### Database Creation
+
+- **Internal PostgreSQL**: The database is automatically created by the PostgreSQL chart via the `POSTGRES_DB` environment variable (official postgres image behavior)
+- **External PostgreSQL**: The database must be pre-created before running migrations
+
+See the Helm chart templates (`charts/charts/glassflow-etl/templates/deployment.yaml`) for the migration initContainer configuration.
 
