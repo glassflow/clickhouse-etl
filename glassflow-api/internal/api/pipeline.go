@@ -181,7 +181,7 @@ type tableMappingEntry struct {
 	ColumnType string `json:"column_type"`
 }
 
-func newIngestorComponentConfig(p pipelineJSON, schemaVersions []models.SchemaVersion) (zero models.IngestorComponentConfig, _ []models.SchemaVersion, _ error) {
+func newIngestorComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.IngestorComponentConfig, _ error) {
 	kafkaConfig := models.KafkaConnectionParamsConfig{
 		Brokers:             p.Source.ConnectionParams.Brokers,
 		SkipAuth:            p.Source.ConnectionParams.SkipAuth,
@@ -218,25 +218,25 @@ func newIngestorComponentConfig(p pipelineJSON, schemaVersions []models.SchemaVe
 		})
 
 		if len(t.SchemaFields) > 0 {
-			schemaVersions = append(schemaVersions, models.SchemaVersion{
+			schemaVersions[t.Topic] = models.SchemaVersion{
 				SourceID:  t.Topic,
 				VersionID: t.SchemaVersion,
 				Fields:    t.SchemaFields,
-			})
+			}
 		}
 	}
 
 	ingestorComponentConfig, err := models.NewIngestorComponentConfig(p.Source.Provider, kafkaConfig, topics)
 	if err != nil {
-		return zero, nil, fmt.Errorf("create ingestor config: %w", err)
+		return zero, fmt.Errorf("create ingestor config: %w", err)
 	}
 
-	return ingestorComponentConfig, schemaVersions, nil
+	return ingestorComponentConfig, nil
 }
 
-func newJoinComponentConfig(p pipelineJSON, schemaVersions []models.SchemaVersion) (zero models.JoinComponentConfig, _ []models.SchemaVersion, _ error) {
+func newJoinComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.JoinComponentConfig, _ error) {
 	if !p.Join.Enabled {
-		return zero, schemaVersions, nil
+		return zero, nil
 	}
 
 	// Create a map of topic names to their deduplication status for quick lookup
@@ -272,7 +272,7 @@ func newJoinComponentConfig(p pipelineJSON, schemaVersions []models.SchemaVersio
 
 	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, p.Join.ID, sources, p.Join.Rules)
 	if err != nil {
-		return zero, schemaVersions, fmt.Errorf("create join config: %w", err)
+		return zero, fmt.Errorf("create join config: %w", err)
 	}
 	joinComponentConfig.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
 	joinComponentConfig.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(p.PipelineID)
@@ -280,14 +280,14 @@ func newJoinComponentConfig(p pipelineJSON, schemaVersions []models.SchemaVersio
 
 	joinSchemaFields := make([]models.Field, 0)
 	for _, rule := range p.Join.Rules {
-		schemaVersion, found := models.GetSchemaVersion(schemaVersions, rule.SourceID)
+		schemaVersion, found := schemaVersions[rule.SourceID]
 		if !found {
-			return zero, nil, fmt.Errorf("schema version for join source_id '%s' not found", rule.SourceID)
+			return zero, fmt.Errorf("schema version for join source_id '%s' not found", rule.SourceID)
 		}
 
 		sourceField, found := schemaVersion.GetField(rule.SourceName)
 		if !found {
-			return zero, nil, fmt.Errorf("join rule field '%s' not found in schema for source '%s'", rule.SourceName, rule.SourceID)
+			return zero, fmt.Errorf("join rule field '%s' not found in schema for source '%s'", rule.SourceName, rule.SourceID)
 		}
 
 		joinSchemaFields = append(joinSchemaFields, models.Field{
@@ -297,18 +297,18 @@ func newJoinComponentConfig(p pipelineJSON, schemaVersions []models.SchemaVersio
 	}
 
 	if len(joinSchemaFields) > 0 {
-		schemaVersions = append(schemaVersions, models.SchemaVersion{
+		schemaVersions[p.Join.ID] = models.SchemaVersion{
 			SourceID: p.Join.ID,
 			Fields:   joinSchemaFields,
-		})
+		}
 	}
 
-	return joinComponentConfig, schemaVersions, nil
+	return joinComponentConfig, nil
 }
 
 func newSinkComponentConfig(
 	p pipelineJSON,
-	schemaVersions []models.SchemaVersion,
+	schemaVersions map[string]models.SchemaVersion,
 	sinkStreamID string,
 ) (zero models.SinkComponentConfig, _ error) {
 	mappings := make([]models.Mapping, 0)
@@ -318,7 +318,7 @@ func newSinkComponentConfig(
 	}
 
 	if len(p.Sink.TableMapping) > 0 {
-		sourceSchemaVersion, found := models.GetSchemaVersion(schemaVersions, p.Sink.SourceID)
+		sourceSchemaVersion, found := schemaVersions[p.Sink.SourceID]
 		if !found {
 			return zero, fmt.Errorf("schema version for sink source_id '%s' not found", p.Sink.SourceID)
 		}
@@ -528,7 +528,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 	return mapperConfig, nil
 }
 
-func newFilterConfig(pipeline pipelineJSON, schemaVersions []models.SchemaVersion) (models.FilterComponentConfig, error) {
+func newFilterConfig(pipeline pipelineJSON, schemaVersions map[string]models.SchemaVersion) (models.FilterComponentConfig, error) {
 	if !pipeline.Filter.Enabled {
 		return models.FilterComponentConfig{}, nil
 	}
@@ -557,7 +557,7 @@ func newFilterConfig(pipeline pipelineJSON, schemaVersions []models.SchemaVersio
 
 	if len(schemaVersions) != 0 {
 		// Validate that schema version for the source topic exists
-		topicSchema, found := models.GetSchemaVersion(schemaVersions, topicName)
+		topicSchema, found := schemaVersions[topicName]
 		if !found {
 			return models.FilterComponentConfig{}, fmt.Errorf("schema version for filter source_id '%s' not found", topicName)
 		}
@@ -576,17 +576,17 @@ func newFilterConfig(pipeline pipelineJSON, schemaVersions []models.SchemaVersio
 	return filterConfig, nil
 }
 
-func newStatelessTransformationConfig(pipeline pipelineJSON, schemaVersions []models.SchemaVersion) (models.StatelessTransformation, []models.SchemaVersion, error) {
+func newStatelessTransformationConfig(pipeline pipelineJSON, schemaVersions map[string]models.SchemaVersion) (models.StatelessTransformation, error) {
 	if pipeline.StatelessTransformation.Enabled {
 		// Validate transformation config
-		sourceSchemaVersion, found := models.GetSchemaVersion(schemaVersions, pipeline.StatelessTransformation.SourceID)
+		sourceSchemaVersion, found := schemaVersions[pipeline.StatelessTransformation.SourceID]
 		if !found {
-			return models.StatelessTransformation{}, nil, fmt.Errorf("schema version for stateless transformation source_id '%s' not found", pipeline.StatelessTransformation.SourceID)
+			return models.StatelessTransformation{}, fmt.Errorf("schema version for stateless transformation source_id '%s' not found", pipeline.StatelessTransformation.SourceID)
 		}
 
 		err := jsonTransformer.ValidateTransformationAgainstSchema(pipeline.StatelessTransformation.Config.Transform, sourceSchemaVersion.Fields)
 		if err != nil {
-			return models.StatelessTransformation{}, nil, fmt.Errorf("validate stateless transformation: %w", err)
+			return models.StatelessTransformation{}, fmt.Errorf("validate stateless transformation: %w", err)
 		}
 	}
 
@@ -599,13 +599,13 @@ func newStatelessTransformationConfig(pipeline pipelineJSON, schemaVersions []mo
 	}
 
 	if len(schemaFields) > 0 {
-		schemaVersions = append(schemaVersions, models.SchemaVersion{
+		schemaVersions[pipeline.StatelessTransformation.ID] = models.SchemaVersion{
 			SourceID: pipeline.StatelessTransformation.ID,
 			Fields:   schemaFields,
-		})
+		}
 	}
 
-	return pipeline.StatelessTransformation, schemaVersions, nil
+	return pipeline.StatelessTransformation, nil
 }
 
 // statelessTransformValidationError returns a human-readable error for transform validation failures.
@@ -629,7 +629,7 @@ func statelessTransformValidationError(err error) error {
 const minPipelineIDLength = 5
 
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
-	schemaVersions := make([]models.SchemaVersion, 0)
+	schemaVersions := make(map[string]models.SchemaVersion)
 
 	id := strings.TrimSpace(pipeline.PipelineID)
 	if len(id) == 0 {
@@ -656,17 +656,17 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		}
 	}
 
-	ingestorComponentConfig, schemaVersions, err := newIngestorComponentConfig(pipeline, schemaVersions)
+	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline, schemaVersions)
 	if err != nil {
 		return zero, fmt.Errorf("create ingestor component config: %w", err)
 	}
 
-	joinComponentConfig, schemaVersions, err := newJoinComponentConfig(pipeline, schemaVersions)
+	joinComponentConfig, err := newJoinComponentConfig(pipeline, schemaVersions)
 	if err != nil {
 		return zero, fmt.Errorf("create join component config: %w", err)
 	}
 
-	statelessTransformationConfig, schemaVersions, err := newStatelessTransformationConfig(pipeline, schemaVersions)
+	statelessTransformationConfig, err := newStatelessTransformationConfig(pipeline, schemaVersions)
 	if err != nil {
 		return zero, fmt.Errorf("create stateless transformation config: %w", err)
 	}
@@ -710,7 +710,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	for _, t := range p.Ingestor.KafkaTopics {
 		var version string
 		var schemaFields []models.Field
-		schema, found := models.GetSchemaVersion(p.SchemaVersions, t.Name)
+		schema, found := p.SchemaVersions[t.Name]
 		if found {
 			version = schema.VersionID
 			schemaFields = schema.Fields
