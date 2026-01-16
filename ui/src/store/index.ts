@@ -17,6 +17,7 @@ import { createJoinSlice, JoinSlice } from './join.store'
 import { createFilterSlice, FilterSlice } from './filter.store'
 import { createTransformationSlice, TransformationSlice } from './transformation.store'
 import { createCoreSlice, CoreSlice } from './core'
+import { createNotificationsSlice, NotificationsSlice } from './notifications.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -29,7 +30,8 @@ interface Store
     JoinSlice,
     FilterSlice,
     TransformationSlice,
-    CoreSlice {
+    CoreSlice,
+    NotificationsSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -53,6 +55,7 @@ const useActualStore = create<Store>()(
       ...createFilterSlice(set, get, store),
       ...createTransformationSlice(set, get, store),
       ...createCoreSlice(set, get, store),
+      ...createNotificationsSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
