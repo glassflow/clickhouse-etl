@@ -83,8 +83,8 @@ func TestToPipelineJSON_BasicConfig(t *testing.T) {
 		StatelessTransformation: models.StatelessTransformation{
 			Enabled: false,
 		},
-		SchemaVersions: []models.SchemaVersion{
-			{
+		SchemaVersions: map[string]models.SchemaVersion{
+			"users": {
 				SourceID:  "users",
 				VersionID: "1101",
 				DataType:  models.SchemaDataFormatJSON,
@@ -221,8 +221,8 @@ func TestToPipelineJSON_WithSchemaRegistry(t *testing.T) {
 		StatelessTransformation: models.StatelessTransformation{
 			Enabled: false,
 		},
-		SchemaVersions: []models.SchemaVersion{
-			{
+		SchemaVersions: map[string]models.SchemaVersion{
+			"events": {
 				SourceID:  "events",
 				VersionID: "2001",
 				DataType:  models.SchemaDataFormatJSON,
@@ -375,8 +375,8 @@ func TestToPipelineJSON_WithStatelessTransformation(t *testing.T) {
 				},
 			},
 		},
-		SchemaVersions: []models.SchemaVersion{
-			{
+		SchemaVersions: map[string]models.SchemaVersion{
+			"users": {
 				SourceID:  "users",
 				VersionID: "1101",
 				DataType:  models.SchemaDataFormatJSON,
@@ -386,7 +386,7 @@ func TestToPipelineJSON_WithStatelessTransformation(t *testing.T) {
 					{Name: "name", Type: "string"},
 				},
 			},
-			{
+			"transform-1": {
 				SourceID:  "transform-1",
 				VersionID: "1",
 				DataType:  models.SchemaDataFormatJSON,
@@ -419,13 +419,13 @@ func TestToPipelineJSON_WithStatelessTransformation(t *testing.T) {
 	assert.Len(t, pipelineConfig.SchemaVersions, 2)
 
 	// Source schema
-	sourceSchema, found := models.GetSchemaVersion(pipelineConfig.SchemaVersions, "users")
+	sourceSchema, found := pipelineConfig.SchemaVersions["users"]
 	require.True(t, found)
 	assert.Equal(t, "1101", sourceSchema.VersionID)
 	assert.Len(t, sourceSchema.Fields, 3)
 
 	// Transformation schema
-	transformSchema, found := models.GetSchemaVersion(pipelineConfig.SchemaVersions, "transform-1")
+	transformSchema, found := pipelineConfig.SchemaVersions["transform-1"]
 	require.True(t, found)
 	assert.Equal(t, "1", transformSchema.VersionID)
 	assert.Len(t, transformSchema.Fields, 3)
@@ -614,8 +614,8 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 		StatelessTransformation: models.StatelessTransformation{
 			Enabled: false,
 		},
-		SchemaVersions: []models.SchemaVersion{
-			{
+		SchemaVersions: map[string]models.SchemaVersion{
+			"users": {
 				SourceID:  "users",
 				VersionID: "1101",
 				DataType:  models.SchemaDataFormatJSON,
@@ -625,7 +625,7 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 					{Name: "name", Type: "string"},
 				},
 			},
-			{
+			"events": {
 				SourceID:  "events",
 				VersionID: "2001",
 				DataType:  models.SchemaDataFormatJSON,
@@ -634,7 +634,7 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 					{Name: "name", Type: "string"},
 				},
 			},
-			{
+			"join-1": {
 				SourceID:  "join-1",
 				VersionID: "1",
 				DataType:  models.SchemaDataFormatJSON,
@@ -695,19 +695,19 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 	assert.Len(t, pipelineConfig.SchemaVersions, 3)
 
 	// Users schema
-	usersSchema, found := models.GetSchemaVersion(pipelineConfig.SchemaVersions, "users")
+	usersSchema, found := pipelineConfig.SchemaVersions["users"]
 	require.True(t, found)
 	assert.Equal(t, "1101", usersSchema.VersionID)
 	assert.Len(t, usersSchema.Fields, 3)
 
 	// Events schema
-	eventsSchema, found := models.GetSchemaVersion(pipelineConfig.SchemaVersions, "events")
+	eventsSchema, found := pipelineConfig.SchemaVersions["events"]
 	require.True(t, found)
 	assert.Equal(t, "2001", eventsSchema.VersionID)
 	assert.Len(t, eventsSchema.Fields, 2)
 
 	// Join schema
-	joinSchema, found := models.GetSchemaVersion(pipelineConfig.SchemaVersions, "join-1")
+	joinSchema, found := pipelineConfig.SchemaVersions["join-1"]
 	require.True(t, found)
 	assert.Equal(t, "1", joinSchema.VersionID)
 	assert.Len(t, joinSchema.Fields, 3)
@@ -824,7 +824,7 @@ func TestToPipelineJSON_EmptySchemaVersion(t *testing.T) {
 		StatelessTransformation: models.StatelessTransformation{
 			Enabled: false,
 		},
-		SchemaVersions: []models.SchemaVersion{}, // Empty schema versions
+		SchemaVersions: nil, // Empty schema versions
 	}
 
 	result := toPipelineJSON(pipelineConfig)
