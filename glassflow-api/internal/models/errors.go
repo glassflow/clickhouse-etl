@@ -25,3 +25,7 @@ func IsUnsupportedDataTypeErr(err error) bool { return errors.Is(err, ErrUnsuppo
 var ErrInvalidPipelineID = errors.New("invalid pipeline ID format")
 
 func IsInvalidPipelineID(err error) bool { return errors.Is(err, ErrInvalidPipelineID) }
+
+var ErrRecordNotFound = errors.New("record not found")
+
+func IsRecordNotFoundErr(err error) bool { return errors.Is(err, ErrRecordNotFound) }

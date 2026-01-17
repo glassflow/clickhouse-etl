@@ -1,0 +1,227 @@
+package postgres
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/jackc/pgx/v5"
+)
+
+// TransformationConfig represents a transformation configuration with metadata
+type TransformationConfig struct {
+	SourceID              string
+	SourceSchemaVersionID string
+	OutputSchemaVersionID string
+	Config                []models.Transform
+}
+
+// JoinConfig represents a join configuration with metadata
+type JoinConfig struct {
+	SourceID              string
+	SourceSchemaVersionID string
+	OutputSchemaVersionID string
+	Config                []models.JoinRule
+}
+
+// SinkConfig represents a sink configuration with metadata
+type SinkConfig struct {
+	SourceID              string
+	SourceSchemaVersionID string
+	Config                []models.Mapping
+}
+
+func (s *PostgresStorage) insertStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID string, config []models.Transform) error {
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshal transformation config: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO transformation_configs (pipeline_id, source_id, schema_version_id, output_schema_version_id, config)
+		VALUES ($1, $2, $3, $4, $5)
+	`, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID, configJSON)
+	if err != nil {
+		return fmt.Errorf("insert transformation config: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresStorage) updateStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.Transform) error {
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshal transformation config: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE transformation_configs
+		SET config = $1, updated_at = NOW()
+		WHERE pipeline_id = $2 AND source_id = $3 AND schema_version_id = $4
+	`, configJSON, pipelineID, sourceID, sourceSchemaVersionID)
+	if err != nil {
+		return fmt.Errorf("update transformation config: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresStorage) getStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*TransformationConfig, error) {
+	var (
+		result     TransformationConfig
+		configJSON []byte
+	)
+
+	err := tx.QueryRow(ctx, `
+		SELECT source_id, schema_version_id, output_schema_version_id, config
+		FROM transformation_configs
+		WHERE pipeline_id = $1 AND source_id = $2 AND schema_version_id = $3
+	`, pipelineID, sourceID, sourceSchemaVersion).Scan(
+		&result.SourceID,
+		&result.SourceSchemaVersionID,
+		&result.OutputSchemaVersionID,
+		&configJSON,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, models.ErrRecordNotFound
+		}
+		return nil, fmt.Errorf("get transformation config: %w", err)
+	}
+
+	if err := json.Unmarshal(configJSON, &result.Config); err != nil {
+		return nil, fmt.Errorf("unmarshal transformation config: %w", err)
+	}
+
+	return &result, nil
+}
+
+func (s *PostgresStorage) insertJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID string, config []models.JoinRule) error {
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshal join config: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO join_configs (pipeline_id, source_id, schema_version_id, output_schema_version_id, config)
+		VALUES ($1, $2, $3, $4, $5)
+	`, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID, configJSON)
+	if err != nil {
+		return fmt.Errorf("insert join config: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresStorage) updateJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.JoinRule) error {
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshal join config: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE join_configs
+		SET config = $1, updated_at = NOW()
+		WHERE pipeline_id = $2 AND source_id = $3 AND schema_version_id = $4
+	`, configJSON, pipelineID, sourceID, sourceSchemaVersionID)
+	if err != nil {
+		return fmt.Errorf("update join config: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresStorage) getJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*JoinConfig, error) {
+	var (
+		result     JoinConfig
+		configJSON []byte
+	)
+
+	err := tx.QueryRow(ctx, `
+		SELECT source_id, schema_version_id, output_schema_version_id, config
+		FROM join_configs
+		WHERE pipeline_id = $1 AND source_id = $2 AND schema_version_id = $3
+	`, pipelineID, sourceID, sourceSchemaVersion).Scan(
+		&result.SourceID,
+		&result.SourceSchemaVersionID,
+		&result.OutputSchemaVersionID,
+		&configJSON,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, models.ErrRecordNotFound
+		}
+		return nil, fmt.Errorf("get join config: %w", err)
+	}
+
+	if err := json.Unmarshal(configJSON, &result.Config); err != nil {
+		return nil, fmt.Errorf("unmarshal join config: %w", err)
+	}
+
+	return &result, nil
+}
+
+func (s *PostgresStorage) insertSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.Mapping) error {
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshal sink config: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO sink_configs (pipeline_id, source_id, schema_version_id, config)
+		VALUES ($1, $2, $3, $4)
+	`, pipelineID, sourceID, sourceSchemaVersionID, configJSON)
+	if err != nil {
+		return fmt.Errorf("insert sink config: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresStorage) updateSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.Mapping) error {
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshal sink config: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE sink_configs
+		SET config = $1, updated_at = NOW()
+		WHERE pipeline_id = $2 AND source_id = $3 AND schema_version_id = $4
+	`, configJSON, pipelineID, sourceID, sourceSchemaVersionID)
+	if err != nil {
+		return fmt.Errorf("update sink config: %w", err)
+	}
+
+	return nil
+}
+
+func (s *PostgresStorage) getSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*SinkConfig, error) {
+	var (
+		result     SinkConfig
+		configJSON []byte
+	)
+
+	err := tx.QueryRow(ctx, `
+		SELECT source_id, schema_version_id, config
+		FROM sink_configs
+		WHERE pipeline_id = $1 AND source_id = $2 AND schema_version_id = $3
+	`, pipelineID, sourceID, sourceSchemaVersion).Scan(
+		&result.SourceID,
+		&result.SourceSchemaVersionID,
+		&configJSON,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, models.ErrRecordNotFound
+		}
+		return nil, fmt.Errorf("get sink config: %w", err)
+	}
+
+	if err := json.Unmarshal(configJSON, &result.Config); err != nil {
+		return nil, fmt.Errorf("unmarshal sink config: %w", err)
+	}
+
+	return &result, nil
+}
