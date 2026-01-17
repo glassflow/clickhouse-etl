@@ -61,8 +61,8 @@ func mainDeduplicator(
 	}
 
 	// Get batch configuration from sink
-	batchSize := pipelineCfg.Sink.Batch.MaxBatchSize
-	maxWait := pipelineCfg.Sink.Batch.MaxDelayTime.Duration()
+	batchSize := internal.DefaultDedupComponentBatchSize
+	maxWait := internal.DefaultDedupMaxWaitTime
 
 	// Calculate pending publishes limit
 	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs)
