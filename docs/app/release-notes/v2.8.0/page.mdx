@@ -1,0 +1,182 @@
+---
+title: Release Notes v2.8.0
+sidebarTitle: v2.8.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.8.0 - Usage analytics, improved migrations, and enhanced PostgreSQL support.
+---
+
+# Release Notes v2.8.0
+
+Version 2.8.0 introduces **usage analytics collection**, improved database migration capabilities with enhanced PostgreSQL support, and better error handling for production environments. This release focuses on improving operational visibility, database management, and system reliability.
+
+## What's New
+
+### 📊 Usage Analytics Collection
+
+GlassFlow now includes **asynchronous usage analytics collection** for better product insights:
+
+- **Non-blocking collection** - Usage statistics are collected asynchronously to avoid impacting pipeline performance
+- **Event-based tracking** - Pipeline operations and component state changes are tracked via events
+- **Configurable collection** - Usage stats collection can be enabled or disabled via configuration
+- **Retry mechanism** - Built-in retry mechanism for reliable usage data collection
+- **Error isolation** - Usage collection failures are isolated and don't affect pipeline operations
+
+Usage analytics help the GlassFlow team understand how the product is being used, which features are most valuable, and where improvements can be made. All data collection respects privacy and can be disabled if required.
+
+### 🗄️ Enhanced Database Migration Support
+
+Database migration capabilities have been significantly improved:
+
+- **Migration container** - New dedicated migration container for running database migrations
+- **SSL mode support** - Full support for PostgreSQL SSL modes (require, verify-full, etc.)
+- **Connection string support** - Support for PostgreSQL connection strings in addition to individual parameters
+- **Database validation** - Improved database existence validation methods
+- **Migration script improvements** - Enhanced migration script with better error handling and validation
+- **CI/CD integration** - Migration container can be built and deployed as part of CI/CD pipelines
+
+These improvements make it easier to manage database migrations in various deployment scenarios, including those with strict SSL requirements.
+
+### 🔒 PostgreSQL SSL Configuration
+
+Enhanced PostgreSQL connection security with comprehensive SSL support:
+
+- **SSL mode validation** - Validation for `POSTGRES_SSL_MODE` environment variable
+- **Multiple SSL modes** - Support for require, verify-full, and other PostgreSQL SSL modes
+- **Connection string SSL** - SSL configuration via connection strings
+- **Better error messages** - Improved error messages for SSL configuration issues
+
+### 🛡️ Usage Stats Safeguards
+
+Usage statistics collection includes multiple safeguards to ensure reliability:
+
+- **Failure isolation** - Usage collection failures don't impact pipeline operations
+- **Async processing** - Usage events are processed asynchronously via channels
+- **Retry mechanism** - Automatic retry with configurable intervals
+- **Error logging** - Comprehensive error logging for troubleshooting
+
+### 🛠️ Infrastructure Improvements
+
+Several infrastructure and operational improvements:
+
+- **Migration workflow** - New build workflow for migration container images
+- **Docker script improvements** - Enhanced Docker script for running database revisions
+- **Code cleanup** - Removed unused constants and middleware
+- **Test improvements** - Updated unit tests to use mock values properly
+- **CI/CD fixes** - Fixed entry point script path for CI environments
+
+### 🐛 Bug Fixes
+
+- Fixed incorrect transformer argument sent to deduplication service
+- Fixed entry point script path for CI
+- Fixed variable name consistency in migration scripts
+- Fixed various documentation and code cleanup issues
+
+## Configuration Changes
+
+### Usage Statistics Configuration
+
+Usage statistics collection can be configured in the Helm chart via the `values.yaml` file:
+
+```yaml
+global:
+  usageStats:
+    enabled: true
+```
+
+> 💡 **Note**: Usage statistics collection is enabled by default.
+
+### PostgreSQL SSL Configuration
+
+PostgreSQL SSL mode can be configured when using an external PostgreSQL instance. For internal PostgreSQL (deployed via the Helm chart), SSL configuration is handled automatically.
+
+#### External PostgreSQL with SSL
+
+When using an external PostgreSQL instance, configure SSL via the global PostgreSQL settings:
+
+```yaml
+global:
+  postgres:
+    # Option 1: Use connection string with SSL mode
+    connection_url: "postgresql://user:password@host:5432/dbname?sslmode=require"
+    
+    # Option 2: Use individual parameters with SSL mode
+    host: "postgres.example.com"
+    port: 5432
+    database: "glassflow"
+    username: "glassflow"
+    password: "your-password"
+    ssl_mode: "require"  # Options: disable, allow, prefer, require, verify-ca, verify-full
+```
+
+#### Internal PostgreSQL
+
+When using the internal PostgreSQL chart (default), SSL configuration is managed automatically. To enable SSL for internal PostgreSQL:
+
+```yaml
+postgresql:
+  enabled: true
+  auth:
+    database: "glassflow"
+    username: "glassflow"
+    password: "your-secure-password"
+  # SSL configuration for internal PostgreSQL
+  tls:
+    enabled: true
+    autoGenerated: true  # Auto-generate certificates
+    # Or provide custom certificates
+    # certificatesSecret: "postgresql-tls-secret"
+```
+
+> 💡 **Reference**: For complete Helm chart configuration options, see the [GlassFlow Helm Charts repository](https://github.com/glassflow/charts/tree/main) and the [Helm Values Configuration](/installation/kubernetes/helm-values) documentation.
+
+### Migration Container
+
+The migration container can be built and deployed separately for custom migration scenarios:
+
+```bash
+# Build migration container
+docker build -f docker/migrate/Dockerfile -t glassflow-migrate:latest .
+
+# Run migrations with SSL configuration
+docker run --rm \
+  -e POSTGRES_HOST=postgres \
+  -e POSTGRES_SSL_MODE=require \
+  glassflow-migrate:latest
+```
+
+## Migration Notes
+
+### For Existing Users
+
+- **No breaking changes** - This release is fully backward compatible
+- **Usage stats enabled by default** - Usage statistics collection is enabled by default but can be disabled
+- **Migration improvements** - Database migrations will benefit from improved SSL and connection string support
+- **No action required** - Existing deployments will continue to work without changes
+
+### Configuration Updates
+
+- **Usage stats** - New optional configuration for usage statistics collection
+- **PostgreSQL SSL** - Enhanced SSL configuration options for PostgreSQL connections
+- **Migration container** - New migration container available for separate deployment
+
+## Performance Improvements
+
+- **Non-blocking analytics** - Usage statistics collection doesn't impact pipeline performance
+- **Async processing** - Asynchronous event processing for better system responsiveness
+- **Improved migrations** - Faster and more reliable database migrations
+
+## Try It Out
+
+To experience the new features in v2.8.0:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes)
+2. **Review usage stats** - Check usage statistics collection settings and configure as needed
+3. **Test migrations** - Use the new migration container for database migrations
+4. **Configure SSL** - Set up PostgreSQL SSL connections if required
+5. **Monitor operations** - Observe improved error handling and system reliability
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in v2.8.0, see our [GitHub release v2.8.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.8.0).
+
+*GlassFlow v2.8.0 continues our commitment to making streaming ETL more observable, manageable, and reliable for enterprise production environments.*

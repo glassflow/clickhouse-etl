@@ -1,0 +1,167 @@
+---
+title: Release Notes v2.7.0
+sidebarTitle: v2.7.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.7.0 - Enterprise-grade encryption, improved security, and enhanced schema validation.
+---
+
+# Release Notes v2.7.0
+
+Version 2.7.0 introduces **enterprise-grade encryption** for sensitive pipeline data, improved security architecture with Kubernetes secrets integration, and enhanced schema validation capabilities. This release focuses on making GlassFlow more secure and compliant for enterprise environments while improving data integrity and validation.
+
+## What's New
+
+### 🔐 Enterprise-Grade Encryption
+
+GlassFlow now provides **AES-256-GCM encryption** for sensitive pipeline data stored in PostgreSQL:
+
+- **Encryption at rest** - Sensitive fields like Kafka and ClickHouse credentials are encrypted before being stored in the database
+- **AES-256-GCM encryption** - Industry-standard encryption algorithm for secure data storage
+- **Encryption key management** - Encryption keys can be provided via Kubernetes secrets or environment variables
+- **Automatic encryption/decryption** - Transparent encryption and decryption at the storage layer
+- **Secure credential storage** - No more base64-encoded credentials in plain text in the database
+
+This enhancement ensures that sensitive credentials are protected even if database access is compromised, meeting enterprise security and compliance requirements.
+
+### 🔒 Kubernetes Secrets Integration
+
+Pipeline configurations have been moved from Kubernetes CRDs to **Kubernetes Secrets** for better security:
+
+- **Pipeline config as secrets** - Pipeline JSON configurations are now stored as Kubernetes secrets instead of CRDs
+- **Improved RBAC** - Better access control through Kubernetes RBAC policies for secret access
+- **Operator integration** - The Kubernetes operator reads pipeline configurations from secrets
+- **API-managed secrets** - The API manages secret creation and updates automatically
+- **Reduced exposure** - Pipeline configurations are no longer visible in CRD definitions
+
+This change provides better security isolation and allows organizations to enforce stricter access controls on pipeline configurations.
+
+### 📋 Enhanced Schema Validation
+
+Schema validation has been significantly improved for better data integrity:
+
+- **Comprehensive validation** - Enhanced validation of pipeline schemas and field mappings
+- **Datetime64 support** - Better handling of DateTime64 parameters in field mappings
+- **Type validation** - Improved type checking and conversion validation
+- **Error messages** - More descriptive error messages for validation failures
+- **Mapping store improvements** - Better persistence and retrieval of field mappings
+
+### 🔄 Stateless Transformations Improvements
+
+Stateless transformations have been enhanced with:
+
+- **Improved error handling** - Better error handling and default value handling for transformations
+- **Expression engine updates** - Updated to expr-lang/expr v1.17.7 for improved performance and features
+- **Type conversion improvements** - Better support for int and float types in datetime conversions
+
+### 📚 API Documentation
+
+The backend API now includes comprehensive **Swagger documentation**:
+
+- **Interactive API docs** - Full Swagger/OpenAPI documentation for all API endpoints
+- **Complete endpoint reference** - Detailed documentation of request/response formats
+- **Easy API exploration** - Interactive API exploration through Swagger UI
+- **Better developer experience** - Improved developer experience for API integration
+
+![Swagger documentation](/assets/swagger-documentation.png)
+
+### 🛠️ Infrastructure Improvements
+
+Several infrastructure improvements have been made:
+
+- **Build cache optimization** - Reduced build cache size for faster CI/CD pipelines
+- **Deduplication async publish** - Fixed async publish limits for better deduplication performance
+- **NATS write abstraction** - Abstracted NATS write batch operations for better code organization
+- **ClickHouse batch organization** - Moved ClickHouse batch logic into dedicated folder structure
+- **Code refactoring** - Various code cleanup and refactoring for better maintainability
+
+### 🐛 Bug Fixes
+
+- Fixed incorrect transformer argument sent to deduplication service
+- Fixed deduplication async publish limit issues
+- Fixed datetime64 parameter handling in mappings
+- Fixed default value handling for empty transform inputs
+- Fixed tag persistence on pipeline creation
+
+## Configuration Changes
+
+### Encryption Configuration
+
+Encryption can be configured via Kubernetes secrets or environment variables:
+
+```yaml
+# Kubernetes secret for encryption key
+apiVersion: v1
+kind: Secret
+metadata:
+  name: glassflow-encryption-key
+type: Opaque
+data:
+  key: <base64-encoded-encryption-key>
+```
+
+Or via environment variable for local development:
+
+```bash
+GLASSFLOW_ENCRYPTION_KEY=<encryption-key>
+```
+
+### Pipeline Configuration Storage
+
+Pipeline configurations are now stored as Kubernetes secrets:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pipeline-<pipeline-id>
+  namespace: glassflow
+type: Opaque
+data:
+  config.json: <base64-encoded-pipeline-config>
+```
+
+The API automatically manages these secrets when pipelines are created or updated.
+
+## Migration Notes
+
+### For Existing Users
+
+- **No breaking changes** - This release is fully backward compatible
+- **Encryption for new pipelines only** - Encryption applies only to new pipelines created after enabling encryption. Existing pipelines will remain unencrypted in the database
+- **No automatic migration** - Migration from non-encrypted to encrypted format is not supported. Existing pipeline credentials will remain stored in their current format
+- **Secret migration** - Pipeline configurations will be automatically migrated to secrets format
+- **No action required** - The upgrade happens automatically, but existing pipelines will continue to use their current storage format
+
+### Security Considerations
+
+- **Encryption key required** - Ensure encryption keys are properly configured before upgrading
+- **Secret access** - Ensure proper RBAC policies are in place for secret access
+- **Backup encryption keys** - Ensure encryption keys are backed up securely
+
+### Configuration Updates
+
+- **Encryption key** - New optional encryption key configuration via secrets or environment variables
+- **Secret management** - Pipeline configurations are now managed as Kubernetes secrets
+- **RBAC policies** - May need to update RBAC policies for secret access
+
+## Performance Improvements
+
+- **Faster builds** - Reduced build cache size results in faster CI/CD pipeline execution
+- **Better deduplication** - Fixed async publish limits improve deduplication throughput
+- **Improved validation** - Enhanced schema validation with better error handling
+
+## Try It Out
+
+To experience the new features in v2.7.0:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes)
+2. **Configure encryption** - Set up encryption keys via Kubernetes secrets or environment variables
+3. **Explore Swagger docs** - Access the interactive API documentation
+4. **Test schema validation** - Create pipelines with enhanced schema validation
+5. **Review security** - Verify that pipeline configurations are stored as secrets
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in v2.7.0, see our [GitHub release v2.7.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.7.0).
+
+*GlassFlow v2.7.0 continues our commitment to making streaming ETL more secure, compliant, and reliable for enterprise production environments.*
