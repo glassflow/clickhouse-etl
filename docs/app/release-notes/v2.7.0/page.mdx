@@ -27,9 +27,8 @@ This enhancement ensures that sensitive credentials are protected even if databa
 
 Pipeline configurations have been moved from Kubernetes CRDs to **Kubernetes Secrets** for better security:
 
-- **Pipeline config as secrets** - Pipeline JSON configurations are now stored as Kubernetes secrets instead of CRDs
+- **Pipeline config as secrets** - Pipeline JSON configurations are now stored as Kubernetes secrets instead of in CRDs, and the Kubernetes operator reads pipeline configurations from these secrets
 - **Improved RBAC** - Better access control through Kubernetes RBAC policies for secret access
-- **Operator integration** - The Kubernetes operator reads pipeline configurations from secrets
 - **API-managed secrets** - The API manages secret creation and updates automatically
 - **Reduced exposure** - Pipeline configurations are no longer visible in CRD definitions
 
