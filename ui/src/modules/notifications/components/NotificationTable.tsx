@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   Check,
   Trash2,
@@ -12,30 +12,25 @@ import {
   ChevronRight,
   RefreshCw,
   Bell,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/src/components/ui/table'
 import { cn } from '@/src/utils/common.client'
 import type { Notification, NotificationSeverity } from '@/src/services/notifications-api'
 
 /**
  * Get the severity badge variant
+ * Matches the badge styling used in pipelines table for consistency
  */
 const getSeverityBadge = (severity: NotificationSeverity) => {
   switch (severity) {
     case 'critical':
-      return { variant: 'destructive' as const, icon: XCircle, label: 'Critical' }
+      return { variant: 'error' as const, icon: XCircle, label: 'Critical' }
     case 'error':
-      return { variant: 'destructive' as const, icon: AlertCircle, label: 'Error' }
+      return { variant: 'error' as const, icon: AlertCircle, label: 'Error' }
     case 'warning':
       return { variant: 'warning' as const, icon: AlertTriangle, label: 'Warning' }
     case 'info':
@@ -94,6 +89,28 @@ export function NotificationTable() {
   const hasSelection = selectedIds.size > 0
   const allSelected = notifications.length > 0 && notifications.every((n) => selectedIds.has(n.notification_id))
 
+  // Track expanded rows
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+
+  // Clear expanded rows when notifications change (page change, filter change, etc.)
+  useEffect(() => {
+    setExpandedRows(new Set())
+  }, [notifications])
+
+  const toggleRowExpansion = (notificationId: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(notificationId)) {
+        next.delete(notificationId)
+      } else {
+        next.add(notificationId)
+      }
+      return next
+    })
+  }
+
+  // Grid template is handled by CSS class for responsive behavior
+
   // Page numbers to display
   const pageNumbers = useMemo(() => {
     const pages: number[] = []
@@ -143,10 +160,22 @@ export function NotificationTable() {
 
   if (error) {
     return (
-      <div className="p-8 text-center border border-border rounded-lg">
-        <AlertCircle className="h-12 w-12 mx-auto text-destructive/50" />
-        <p className="mt-2 text-sm text-destructive">{error}</p>
-        <Button variant="outline" size="sm" onClick={fetchNotifications} className="mt-4">
+      <div
+        className={cn(
+          'card-outline p-8 text-center',
+          'transition-all duration-200'
+        )}
+      >
+        <div className="p-4 rounded-full bg-[var(--color-background-critical-faded)] w-fit mx-auto">
+          <AlertCircle className="h-10 w-10 text-[var(--color-foreground-critical)]" />
+        </div>
+        <p className="mt-4 text-sm text-[var(--text-error)]">{error}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchNotifications}
+          className="mt-4 btn-neutral transition-all duration-200"
+        >
           Try again
         </Button>
       </div>
@@ -155,10 +184,17 @@ export function NotificationTable() {
 
   if (!isLoading && notifications.length === 0) {
     return (
-      <div className="p-12 text-center border border-border rounded-lg">
-        <Bell className="h-16 w-16 mx-auto text-muted-foreground/30" />
-        <p className="mt-4 text-lg text-muted-foreground">No notifications found</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <div
+        className={cn(
+          'card-outline p-12 text-center',
+          'transition-all duration-200'
+        )}
+      >
+        <div className="p-5 rounded-full bg-[var(--color-background-neutral-faded)] w-fit mx-auto">
+          <Bell className="h-12 w-12 text-[var(--text-secondary)] opacity-50" />
+        </div>
+        <p className="mt-6 text-lg font-medium text-[var(--text-primary)]">No notifications found</p>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
           Try adjusting your filters or check back later
         </p>
       </div>
@@ -166,11 +202,19 @@ export function NotificationTable() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Bulk Actions Bar */}
       {hasSelection && (
-        <div className="flex items-center justify-between p-3 bg-accent/30 rounded-lg border border-border">
-          <span className="text-sm text-muted-foreground">
+        <div
+          className={cn(
+            'flex items-center justify-between p-4',
+            'rounded-[var(--radius-large)]',
+            'bg-[var(--color-background-primary-faded)] border border-[var(--color-border-primary-faded)]',
+            'animate-slideDown',
+            'transition-all duration-200'
+          )}
+        >
+          <span className="text-sm text-[var(--text-primary)] font-medium">
             {selectedIds.size} notification{selectedIds.size !== 1 ? 's' : ''} selected
           </span>
           <div className="flex items-center gap-2">
@@ -178,18 +222,27 @@ export function NotificationTable() {
               variant="outline"
               size="sm"
               onClick={handleMarkSelectedAsRead}
-              className="h-8"
+              className={cn(
+                'h-8 btn-neutral',
+                'transition-all duration-200'
+              )}
             >
-              <Check className="h-4 w-4 mr-1" />
+              <Check className="h-4 w-4 mr-1.5" />
               Mark as Read
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleDeleteSelected}
-              className="h-8 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+              className={cn(
+                'h-8',
+                'text-[var(--color-foreground-critical)] hover:text-[var(--color-foreground-critical)]',
+                'border-[var(--color-border-critical-faded)] hover:border-[var(--color-border-critical)]',
+                'hover:bg-[var(--color-background-critical-faded)]',
+                'transition-all duration-200'
+              )}
             >
-              <Trash2 className="h-4 w-4 mr-1" />
+              <Trash2 className="h-4 w-4 mr-1.5" />
               Delete
             </Button>
           </div>
@@ -197,61 +250,85 @@ export function NotificationTable() {
       )}
 
       {/* Table */}
-      <div className="border border-border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="w-12">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={handleSelectAll}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                  aria-label="Select all"
-                  disabled={notifications.length === 0}
-                />
-              </TableHead>
-              <TableHead className="w-24">Severity</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead className="hidden md:table-cell">Pipeline</TableHead>
-              <TableHead className="hidden lg:table-cell">Date</TableHead>
-              <TableHead className="w-20">Status</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && notifications.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center">
-                  <RefreshCw className="h-6 w-6 mx-auto animate-spin text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">Loading notifications...</p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              notifications.map((notification) => (
-                <NotificationTableRow
-                  key={notification.notification_id}
-                  notification={notification}
-                  isSelected={selectedIds.has(notification.notification_id)}
-                  onToggleSelect={() => toggleSelection(notification.notification_id)}
-                  onMarkAsRead={() => markAsRead(notification.notification_id)}
-                  onDelete={() => deleteNotification(notification.notification_id)}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <div className="table-container">
+        {/* Table Header */}
+        <div className="table-header">
+          <div className="table-header-row notifications-table-row">
+            <div className="table-header-cell">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={handleSelectAll}
+                className={cn(
+                  'h-4 w-4 rounded cursor-pointer',
+                  'border-[var(--control-border)] text-primary',
+                  'focus:ring-primary focus:ring-offset-0'
+                )}
+                aria-label="Select all"
+                disabled={notifications.length === 0}
+              />
+            </div>
+            <div className="table-header-cell">Severity</div>
+            <div className="table-header-cell">Title</div>
+            <div className="table-header-cell">Pipeline</div>
+            <div className="table-header-cell">Date</div>
+            <div className="table-header-cell">Status</div>
+            <div className="table-header-cell text-right">Actions</div>
+          </div>
+        </div>
+
+        {/* Table Body */}
+        <div className="table-body">
+          {isLoading && notifications.length === 0 ? (
+            <div className="table-cell-empty">
+              <RefreshCw className="h-6 w-6 mx-auto animate-spin text-[var(--text-secondary)]" />
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">Loading notifications...</p>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="table-cell-empty">
+              <Bell className="h-8 w-8 mx-auto text-[var(--text-secondary)] opacity-50" />
+              <p className="mt-4 text-sm text-[var(--text-secondary)]">No notifications found</p>
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <NotificationTableRow
+                key={notification.notification_id}
+                notification={notification}
+                isSelected={selectedIds.has(notification.notification_id)}
+                isExpanded={expandedRows.has(notification.notification_id)}
+                onToggleSelect={() => toggleSelection(notification.notification_id)}
+                onToggleExpand={() => toggleRowExpansion(notification.notification_id)}
+                onMarkAsRead={() => markAsRead(notification.notification_id)}
+                onDelete={() => deleteNotification(notification.notification_id)}
+              />
+            ))
+          )}
+        </div>
       </div>
 
       {/* Pagination */}
       {totalPages > 0 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div
+          className={cn(
+            'flex items-center justify-between',
+            'p-4 rounded-[var(--radius-large)]',
+            'bg-[var(--surface-bg)] border border-[var(--surface-border)]',
+            'transition-all duration-200'
+          )}
+        >
+          <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <span>Show</span>
             <select
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className="h-8 px-2 border border-border rounded-md bg-background text-foreground"
+              className={cn(
+                'h-8 px-2 rounded-[var(--radius-medium)]',
+                'bg-[var(--control-bg)] border border-[var(--control-border)]',
+                'text-[var(--text-primary)]',
+                'hover:border-[var(--control-border-hover)]',
+                'focus:border-[var(--control-border-focus)] focus:outline-none focus:shadow-[var(--control-shadow-focus)]',
+                'transition-all duration-200'
+              )}
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
@@ -259,7 +336,7 @@ export function NotificationTable() {
               <option value={100}>100</option>
             </select>
             <span>per page</span>
-            <span className="ml-4">
+            <span className="ml-4 text-[var(--text-primary)]">
               Showing {(currentPage - 1) * pageSize + 1}-
               {Math.min(currentPage * pageSize, totalCount)} of {totalCount}
             </span>
@@ -271,7 +348,7 @@ export function NotificationTable() {
               size="sm"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 btn-neutral transition-all duration-200"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -282,7 +359,11 @@ export function NotificationTable() {
                 variant={page === currentPage ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => handlePageChange(page)}
-                className="h-8 w-8 p-0"
+                className={cn(
+                  'h-8 w-8 p-0',
+                  page !== currentPage && 'btn-neutral',
+                  'transition-all duration-200'
+                )}
               >
                 {page}
               </Button>
@@ -293,7 +374,7 @@ export function NotificationTable() {
               size="sm"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 btn-neutral transition-all duration-200"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -310,13 +391,17 @@ export function NotificationTable() {
 function NotificationTableRow({
   notification,
   isSelected,
+  isExpanded,
   onToggleSelect,
+  onToggleExpand,
   onMarkAsRead,
   onDelete,
 }: {
   notification: Notification
   isSelected: boolean
+  isExpanded: boolean
   onToggleSelect: () => void
+  onToggleExpand: () => void
   onMarkAsRead: () => void
   onDelete: () => void
 }) {
@@ -325,78 +410,193 @@ function NotificationTableRow({
   const SeverityIcon = severityInfo.icon
 
   return (
-    <TableRow
-      className={cn(
-        !read && 'bg-accent/10',
-        isSelected && 'bg-accent/30',
-      )}
-    >
-      <TableCell>
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggleSelect}
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-          aria-label={`Select notification: ${title}`}
-        />
-      </TableCell>
-      <TableCell>
-        <Badge variant={severityInfo.variant} className="gap-1">
-          <SeverityIcon className="h-3 w-3" />
-          {severityInfo.label}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        <div className="space-y-1">
-          <p className={cn('font-medium', !read && 'text-foreground', read && 'text-muted-foreground')}>
-            {title}
-          </p>
-          <p className="text-xs text-muted-foreground line-clamp-1">{message}</p>
+    <>
+      <div
+        className={cn(
+          'table-row notifications-table-row',
+          !read && 'bg-[var(--color-background-primary)]/10',
+          isSelected && 'bg-[var(--option-bg-highlighted)]'
+        )}
+      >
+        <div className="table-cell">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              'h-4 w-4 rounded cursor-pointer',
+              'border-[var(--control-border)] text-primary',
+              'focus:ring-primary focus:ring-offset-0'
+            )}
+            aria-label={`Select notification: ${title}`}
+          />
         </div>
-      </TableCell>
-      <TableCell className="hidden md:table-cell">
-        {pipeline_id ? (
-          <span className="font-mono text-xs">{pipeline_id}</span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-        {formatDate(timestamp)}
-      </TableCell>
-      <TableCell>
-        {read ? (
-          <span className="text-xs text-muted-foreground">Read</span>
-        ) : (
-          <Badge variant="secondary" className="text-xs">
-            Unread
+        <div className="table-cell">
+          <Badge variant={severityInfo.variant} className="rounded-xl gap-1">
+            <SeverityIcon className="h-3 w-3" />
+            {severityInfo.label}
           </Badge>
-        )}
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center justify-end gap-1">
-          {!read && (
+        </div>
+        <div
+          className="table-cell min-w-0 cursor-pointer"
+          onClick={onToggleExpand}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onToggleExpand()
+            }
+          }}
+          aria-expanded={isExpanded}
+        >
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <p className={cn(
+                  'font-medium',
+                  !read && 'text-[var(--text-primary)]',
+                  read && 'text-[var(--text-secondary)]',
+                  !isExpanded && 'line-clamp-2',
+                  'break-words'
+                )}>
+                  {title}
+                </p>
+                <p className={cn(
+                  'text-xs text-[var(--text-secondary)]',
+                  !isExpanded && 'line-clamp-1',
+                  'break-words mt-1'
+                )}>
+                  {message}
+                </p>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleExpand()
+                }}
+                className={cn(
+                  'flex-shrink-0 p-1 rounded hover:bg-[var(--color-background-neutral-faded)]',
+                  'transition-all duration-200',
+                  'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                )}
+                aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
+              >
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="table-cell">
+          {pipeline_id ? (
+            <span className="font-mono text-xs text-[var(--text-primary)]">{pipeline_id}</span>
+          ) : (
+            <span className="text-[var(--text-secondary)]">—</span>
+          )}
+        </div>
+        <div className="table-cell text-sm text-[var(--text-secondary)]">
+          {formatDate(timestamp)}
+        </div>
+        <div className="table-cell">
+          {read ? (
+            <span className="text-xs text-[var(--text-secondary)]">Read</span>
+          ) : (
+            <Badge variant="secondary" className="rounded-xl text-xs">
+              Unread
+            </Badge>
+          )}
+        </div>
+        <div className="table-cell text-right">
+          <div className="flex items-center justify-end gap-4">
+            {!read && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMarkAsRead()
+                }}
+                className={cn(
+                  'h-7 w-7 p-0',
+                  'hover:bg-[var(--color-background-positive-faded)] hover:text-[var(--color-foreground-positive)]',
+                  'transition-all duration-200'
+                )}
+                title="Mark as read"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
-              onClick={onMarkAsRead}
-              className="h-7 w-7 p-0"
-              title="Mark as read"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              className={cn(
+                'h-7 w-7 p-0',
+                'text-[var(--color-foreground-critical)] hover:text-[var(--color-foreground-critical)]',
+                'hover:bg-[var(--color-background-critical-faded)]',
+                'transition-all duration-200'
+              )}
+              title="Delete"
             >
-              <Check className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          </div>
         </div>
-      </TableCell>
-    </TableRow>
+      </div>
+      {/* Expanded details row */}
+      {isExpanded && (
+        <div
+          className="table-row notifications-table-row bg-[var(--color-background-primary-faded)]]"
+          style={{ gridColumn: '1 / -1' }}
+        >
+          <div className="table-cell text-left" style={{ gridColumn: '1 / -1', padding: 'var(--table-padding)' }}>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-medium text-[var(--text-secondary)] mb-1">Title</p>
+                <p className={cn(
+                  'text-sm break-words',
+                  !read && 'text-[var(--text-primary)]',
+                  read && 'text-[var(--text-secondary)]'
+                )}>
+                  {title}
+                </p>
+              </div>
+              {message && (
+                <div>
+                  <p className="text-xs font-medium text-[var(--text-secondary)] mb-1">Message</p>
+                  <p className="text-sm text-[var(--text-secondary)] break-words whitespace-pre-wrap">
+                    {message}
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-end gap-4 text-xs text-[var(--text-secondary)] mt-6">
+                {pipeline_id && (
+                  <div>
+                    <span className="font-medium">Pipeline:</span>{' '}
+                    <span className="font-mono">{pipeline_id}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="font-medium">Date:</span>{' '}
+                  <span>{formatDate(timestamp)}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Status:</span>{' '}
+                  <span>{read ? 'Read' : 'Unread'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

@@ -37,22 +37,25 @@ export function NotificationSettingsPanel() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       {/* Mute Toggle Section */}
       <div
         className={cn(
-          'p-6 border rounded-lg',
-          isMuted
-            ? 'border-yellow-500/30 bg-yellow-500/5'
-            : 'border-border bg-card',
+          'card-outline relative p-6',
+          'transition-all duration-200',
+          'hover:shadow-[var(--card-shadow-hover)]',
+          isMuted && 'border-[var(--color-border-warning)] bg-[var(--color-background-warning-faded)]/10'
         )}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
             <div
               className={cn(
-                'p-3 rounded-lg',
-                isMuted ? 'bg-yellow-500/10 text-yellow-500' : 'bg-primary/10 text-primary',
+                'p-3 rounded-[var(--radius-medium)]',
+                'transition-all duration-200',
+                isMuted
+                  ? 'bg-[var(--color-background-warning-faded)] text-[var(--color-foreground-warning)]'
+                  : 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]'
               )}
             >
               {isMuted ? (
@@ -62,16 +65,16 @@ export function NotificationSettingsPanel() {
               )}
             </div>
             <div>
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">
                 {isMuted ? 'Notifications Muted' : 'Notifications Active'}
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-[var(--text-secondary)] mt-1 max-w-lg">
                 {isMuted
                   ? 'You will not receive any notification alerts. The notification system is still running in the background.'
                   : 'You will receive notification alerts based on your channel and severity settings below.'}
               </p>
               {isMuted && (
-                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                <p className="text-xs text-[var(--color-foreground-warning)] mt-2">
                   Note: Notifications are still being recorded and can be viewed in the notifications list.
                 </p>
               )}
@@ -79,7 +82,7 @@ export function NotificationSettingsPanel() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-[var(--text-secondary)]">
               {isMuted ? 'Muted' : 'Active'}
             </span>
             {isHydrated && (
@@ -94,19 +97,39 @@ export function NotificationSettingsPanel() {
       </div>
 
       {/* Channel Settings */}
-      <div className={cn(isMuted && 'opacity-60 pointer-events-none')}>
+      <div
+        className={cn(
+          'animate-fadeIn animate-delay-100',
+          'transition-all duration-300',
+          isMuted && 'opacity-50 pointer-events-none'
+        )}
+      >
         <ChannelSettings />
       </div>
 
       {/* Severity Mappings */}
-      <div className={cn(isMuted && 'opacity-60 pointer-events-none')}>
+      <div
+        className={cn(
+          'animate-fadeIn animate-delay-200',
+          'transition-all duration-300',
+          isMuted && 'opacity-50 pointer-events-none'
+        )}
+      >
         <SeverityMappings />
       </div>
 
       {/* Muted overlay message */}
       {isMuted && (
-        <div className="p-4 border border-yellow-500/30 bg-yellow-500/5 rounded-lg">
-          <p className="text-sm text-yellow-600 dark:text-yellow-400">
+        <div
+          className={cn(
+            'p-4 rounded-[var(--radius-large)]',
+            'border border-[var(--color-border-warning)]',
+            'bg-[var(--color-background-warning-faded)]/10',
+            'animate-slideDown',
+            'transition-all duration-200'
+          )}
+        >
+          <p className="text-sm text-[var(--color-foreground-warning)]">
             <strong>Notifications are muted.</strong> The settings above are dimmed but your
             configuration will be preserved. Toggle the mute switch above to resume receiving
             notifications.

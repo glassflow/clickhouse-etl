@@ -97,17 +97,31 @@ export function NotificationsPanel() {
     <Sheet open={isPanelOpen} onOpenChange={(open) => !open && closePanel()}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-md flex flex-col p-0 bg-[var(--color-background-elevation-raised)]"
+        className={cn(
+          'w-full sm:max-w-md flex flex-col p-0',
+          'bg-[var(--surface-bg-overlay)]',
+          'border-l border-[var(--surface-border)]'
+        )}
         aria-describedby={undefined}
       >
         {/* Header */}
-        <SheetHeader className="px-4 py-3 border-b border-border space-y-0">
+        <SheetHeader
+          className={cn(
+            'px-5 py-4 space-y-0',
+            'border-b border-[var(--surface-border)]',
+            'bg-[var(--surface-bg)]'
+          )}
+        >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              <SheetTitle className="text-lg font-semibold">Notifications</SheetTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-[var(--radius-medium)] bg-[var(--color-background-primary-faded)]">
+                <Bell className="h-5 w-5 text-[var(--color-foreground-primary)]" />
+              </div>
+              <SheetTitle className="text-lg font-semibold text-[var(--text-primary)]">
+                Notifications
+              </SheetTitle>
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-1">
+                <Badge variant="destructive" className="ml-1 font-medium">
                   {unreadCount} new
                 </Badge>
               )}
@@ -117,18 +131,31 @@ export function NotificationsPanel() {
               size="sm"
               onClick={handleRefresh}
               disabled={isLoading}
-              className="h-8 w-8 p-0"
+              className={cn(
+                'h-8 w-8 p-0',
+                'hover:bg-[var(--color-background-neutral-faded)]',
+                'transition-all duration-200'
+              )}
               title="Refresh notifications"
             >
-              <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+              <RefreshCw className={cn('h-4 w-4 text-[var(--text-secondary)]', isLoading && 'animate-spin')} />
               <span className="sr-only">Refresh</span>
             </Button>
           </div>
         </SheetHeader>
 
         {/* Filter tabs */}
-        <div className="px-4 py-2 border-b border-border flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
+        <div
+          className={cn(
+            'px-5 py-3',
+            'border-b border-[var(--surface-border)]',
+            'bg-[var(--surface-bg-sunken)]',
+            'flex items-center gap-3'
+          )}
+        >
+          <div className="p-1.5 rounded-md bg-[var(--color-background-neutral-faded)]">
+            <Filter className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
+          </div>
           <div className="flex gap-1">
             {(['all', 'unread', 'read'] as FilterOption[]).map((option) => (
               <Button
@@ -136,11 +163,17 @@ export function NotificationsPanel() {
                 variant={filter === option ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setFilter(option)}
-                className="h-7 px-2 text-xs capitalize"
+                className={cn(
+                  'h-7 px-3 text-xs capitalize',
+                  'transition-all duration-200',
+                  filter === option
+                    ? 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]'
+                )}
               >
                 {option}
                 {option === 'unread' && unreadCount > 0 && (
-                  <span className="ml-1 text-muted-foreground">({unreadCount})</span>
+                  <span className="ml-1.5 text-[var(--text-secondary)]">({unreadCount})</span>
                 )}
               </Button>
             ))}
@@ -149,16 +182,28 @@ export function NotificationsPanel() {
 
         {/* Bulk actions bar - visible when items are selected */}
         {hasSelection && (
-          <div className="px-4 py-2 border-b border-border bg-accent/30 flex items-center justify-between">
+          <div
+            className={cn(
+              'px-5 py-3',
+              'border-b border-[var(--color-border-primary-faded)]',
+              'bg-[var(--color-background-primary-faded)]',
+              'flex items-center justify-between',
+              'animate-slideDown'
+            )}
+          >
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={handleSelectAll}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                className={cn(
+                  'h-4 w-4 rounded cursor-pointer',
+                  'border-[var(--control-border)] text-primary',
+                  'focus:ring-primary focus:ring-offset-0'
+                )}
                 aria-label="Select all"
               />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-[var(--text-primary)] font-medium">
                 {selectedIds.size} selected
               </span>
             </div>
@@ -167,7 +212,12 @@ export function NotificationsPanel() {
                 variant="ghost"
                 size="sm"
                 onClick={handleMarkSelectedAsRead}
-                className="h-7 px-2 text-xs"
+                className={cn(
+                  'h-7 px-2 text-xs',
+                  'text-[var(--text-primary)]',
+                  'hover:bg-[var(--color-background-positive-faded)] hover:text-[var(--color-foreground-positive)]',
+                  'transition-all duration-200'
+                )}
                 title="Mark selected as read"
               >
                 <Check className="h-3 w-3 mr-1" />
@@ -177,7 +227,12 @@ export function NotificationsPanel() {
                 variant="ghost"
                 size="sm"
                 onClick={handleDeleteSelected}
-                className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                className={cn(
+                  'h-7 px-2 text-xs',
+                  'text-[var(--color-foreground-critical)]',
+                  'hover:text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-faded)]',
+                  'transition-all duration-200'
+                )}
                 title="Delete selected"
               >
                 <Trash2 className="h-3 w-3 mr-1" />
@@ -189,90 +244,136 @@ export function NotificationsPanel() {
 
         {/* Select all row - visible when no selection but has notifications */}
         {!hasSelection && filteredNotifications.length > 0 && (
-          <div className="px-4 py-2 border-b border-border flex items-center gap-2">
+          <div
+            className={cn(
+              'px-5 py-2.5',
+              'border-b border-[var(--surface-border)]',
+              'flex items-center gap-2',
+              'bg-[var(--surface-bg-sunken)]'
+            )}
+          >
             <input
               type="checkbox"
               checked={false}
               onChange={handleSelectAll}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              className={cn(
+                'h-4 w-4 rounded cursor-pointer',
+                'border-[var(--control-border)] text-primary',
+                'focus:ring-primary focus:ring-offset-0'
+              )}
               aria-label="Select all"
             />
-            <span className="text-xs text-muted-foreground">Select all</span>
+            <span className="text-xs text-[var(--text-secondary)]">Select all</span>
           </div>
         )}
 
         {/* Notifications list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-[var(--surface-bg-sunken)]">
           {error && (
-            <div className="p-4 text-center">
-              <p className="text-sm text-destructive">{error}</p>
-              <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-2">
+            <div className="p-6 text-center animate-fadeIn">
+              <div className="p-3 rounded-full bg-[var(--color-background-critical-faded)] w-fit mx-auto">
+                <Bell className="h-6 w-6 text-[var(--color-foreground-critical)]" />
+              </div>
+              <p className="mt-3 text-sm text-[var(--text-error)]">{error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                className="mt-3 btn-neutral transition-all duration-200"
+              >
                 Try again
               </Button>
             </div>
           )}
 
           {!error && isLoading && notifications.length === 0 && (
-            <div className="p-8 text-center">
-              <RefreshCw className="h-8 w-8 mx-auto text-muted-foreground animate-spin" />
-              <p className="mt-2 text-sm text-muted-foreground">Loading notifications...</p>
+            <div className="p-8 text-center animate-fadeIn">
+              <RefreshCw className="h-8 w-8 mx-auto text-[var(--text-secondary)] animate-spin" />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">Loading notifications...</p>
             </div>
           )}
 
           {!error && !isLoading && filteredNotifications.length === 0 && (
-            <div className="p-8 text-center">
-              <Bell className="h-12 w-12 mx-auto text-muted-foreground/50" />
-              <p className="mt-2 text-sm text-muted-foreground">
+            <div className="p-10 text-center animate-fadeIn">
+              <div className="p-4 rounded-full bg-[var(--color-background-neutral-faded)] w-fit mx-auto">
+                <Bell className="h-10 w-10 text-[var(--text-secondary)] opacity-50" />
+              </div>
+              <p className="mt-4 text-sm font-medium text-[var(--text-primary)]">
                 {filter === 'all'
                   ? 'No notifications yet'
                   : filter === 'unread'
                     ? 'No unread notifications'
                     : 'No read notifications'}
               </p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                {filter === 'all'
+                  ? "You're all caught up!"
+                  : 'Try changing your filter'}
+              </p>
             </div>
           )}
 
           {!error && filteredNotifications.length > 0 && (
-            <div className="divide-y divide-border">
-              {filteredNotifications.map((notification) => (
-                <NotificationItem
+            <div className="divide-y divide-[var(--surface-border)]">
+              {filteredNotifications.map((notification, index) => (
+                <div
                   key={notification.notification_id}
-                  notification={notification}
-                  isSelected={selectedIds.has(notification.notification_id)}
-                  onSelect={() => toggleSelection(notification.notification_id)}
-                  onMarkAsRead={() => markAsRead(notification.notification_id)}
-                  onDelete={() => deleteNotification(notification.notification_id)}
-                />
+                  className="animate-fadeIn"
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  <NotificationItem
+                    notification={notification}
+                    isSelected={selectedIds.has(notification.notification_id)}
+                    onSelect={() => toggleSelection(notification.notification_id)}
+                    onMarkAsRead={() => markAsRead(notification.notification_id)}
+                    onDelete={() => deleteNotification(notification.notification_id)}
+                  />
+                </div>
               ))}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-border flex items-center justify-between">
+        <div
+          className={cn(
+            'px-5 py-4',
+            'border-t border-[var(--surface-border)]',
+            'bg-[var(--surface-bg)]',
+            'flex items-center justify-between'
+          )}
+        >
           {totalCount > 0 ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-[var(--text-secondary)]">
               Showing {filteredNotifications.length} of {totalCount}
             </p>
           ) : (
             <div />
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Link
               href="/notifications/settings"
               onClick={closePanel}
-              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+              className={cn(
+                'text-xs flex items-center gap-1.5',
+                'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                'transition-colors duration-200'
+              )}
             >
-              <Settings className="h-3 w-3" />
+              <Settings className="h-3.5 w-3.5" />
               Settings
             </Link>
             <Link
               href="/notifications"
               onClick={closePanel}
-              className="text-xs text-primary hover:underline flex items-center gap-1"
+              className={cn(
+                'text-xs flex items-center gap-1.5',
+                'text-[var(--color-foreground-primary)] hover:text-[var(--text-link-hover)]',
+                'transition-colors duration-200'
+              )}
             >
               View all
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>

@@ -43,23 +43,28 @@ function ChannelCard({ channel, channelType, isLoading, onToggle }: ChannelCardP
   return (
     <div
       className={cn(
-        'p-4 border border-border rounded-lg',
-        isEnabled && 'border-primary/30 bg-primary/5',
+        'content-card relative p-5',
+        'transition-all duration-200',
+        'hover:shadow-[var(--card-shadow-hover)]',
+        isEnabled && 'border-[var(--color-border-primary-faded)] bg-[var(--color-background-primary-faded)]/10'
       )}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3">
           <div
             className={cn(
-              'p-2 rounded-lg',
-              isEnabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+              'p-2.5 rounded-[var(--radius-medium)]',
+              'transition-all duration-200',
+              isEnabled
+                ? 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]'
+                : 'bg-[var(--color-background-neutral-faded)] text-[var(--text-secondary)]'
             )}
           >
             <Icon className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-medium">{title}</h3>
+              <h3 className="font-medium text-[var(--text-primary)]">{title}</h3>
               {isConfigured ? (
                 <Badge variant={isEnabled ? 'default' : 'secondary'} className="text-xs">
                   {isEnabled ? 'Enabled' : 'Disabled'}
@@ -70,11 +75,11 @@ function ChannelCard({ channel, channelType, isLoading, onToggle }: ChannelCardP
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground mt-1">{description}</p>
+            <p className="text-sm text-[var(--text-secondary)] mt-1">{description}</p>
 
             {/* Configuration status */}
             {isConfigured && channel && (
-              <div className="mt-2 text-xs text-muted-foreground">
+              <div className="mt-2 text-xs text-[var(--text-secondary)]">
                 {isSlack ? (
                   <span>Webhook configured</span>
                 ) : (
@@ -152,11 +157,11 @@ export function ChannelSettings() {
   const emailChannel = channels.find((ch) => ch.channel_type === 'email') || null
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Notification Channels</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Notification Channels</h2>
+          <p className="text-sm text-[var(--text-secondary)]">
             Configure how you receive notifications
           </p>
         </div>
@@ -165,7 +170,7 @@ export function ChannelSettings() {
           size="sm"
           onClick={fetchChannels}
           disabled={isLoading}
-          className="gap-2"
+          className="gap-2 btn-neutral transition-all duration-200"
         >
           <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           Refresh
@@ -173,9 +178,21 @@ export function ChannelSettings() {
       </div>
 
       {error && (
-        <div className="p-4 border border-destructive/30 bg-destructive/10 rounded-lg">
-          <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" size="sm" onClick={fetchChannels} className="mt-2">
+        <div
+          className={cn(
+            'p-4 rounded-[var(--radius-large)]',
+            'border border-[var(--color-border-critical-faded)]',
+            'bg-[var(--color-background-critical-faded)]/20',
+            'animate-slideDown'
+          )}
+        >
+          <p className="text-sm text-[var(--text-error)]">{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchChannels}
+            className="mt-2 btn-neutral transition-all duration-200"
+          >
             Try again
           </Button>
         </div>
@@ -197,8 +214,13 @@ export function ChannelSettings() {
       </div>
 
       {!isLoading && channels.length === 0 && !error && (
-        <div className="p-6 text-center border border-border rounded-lg">
-          <p className="text-muted-foreground">
+        <div
+          className={cn(
+            'card-outline p-6 text-center',
+            'transition-all duration-200'
+          )}
+        >
+          <p className="text-[var(--text-secondary)]">
             No channels configured. Contact your administrator to set up notification channels.
           </p>
         </div>

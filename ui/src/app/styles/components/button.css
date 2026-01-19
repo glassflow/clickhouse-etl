@@ -55,19 +55,30 @@
   color: var(--color-on-background-neutral);
   border: none;
   box-shadow: var(--shadow-neutral);
+  transition: all var(--duration-fast) var(--easing-standard);
+  cursor: pointer;
 }
 
 .btn-neutral:hover {
-  background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
+  background: linear-gradient(134deg, var(--color-background-neutral-faded) 18.07%, var(--color-background-neutral) 76.51%);
+  box-shadow: var(--shadow-overlay);
+  color: var(--color-on-background-neutral);
+  transform: translateY(-1px);
 }
 
 .btn-neutral:active {
-  background: linear-gradient(134deg, var(--color-background-neutral) 18.07%, var(--color-background-neutral) 76.51%);
+  background: linear-gradient(134deg, var(--color-background-neutral-faded) 18.07%, var(--color-background-neutral-faded) 76.51%);
+  box-shadow: var(--shadow-pressed);
+  transform: translateY(0);
+  color: var(--color-on-background-neutral-faded);
 }
 
 .btn-neutral:disabled {
   background: linear-gradient(134deg, var(--btn-bg-disabled) 18.07%, var(--btn-bg-disabled-faded) 76.51%);
   color: var(--btn-fg-disabled);
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-critical {

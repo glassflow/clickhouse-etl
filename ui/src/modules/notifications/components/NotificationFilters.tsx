@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
+import { cn } from '@/src/utils/common.client'
 import type { NotificationSeverity } from '@/src/services/notifications-api'
 
 const SEVERITY_OPTIONS: { value: NotificationSeverity | 'all'; label: string }[] = [
@@ -85,85 +86,160 @@ export function NotificationFilters() {
     filters.pipeline_id || filters.severity || filters.start_date || filters.end_date
 
   return (
-    <div className="space-y-4 p-4 border border-border rounded-lg bg-card">
+    <div
+      className={cn(
+        'card-outline relative',
+        'space-y-4 p-5',
+        'transition-all duration-200',
+        'hover:shadow-[var(--card-shadow-hover)]'
+      )}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Filters</span>
+          <div className="p-1.5 rounded-md bg-[var(--color-background-neutral-faded)]">
+            <Filter className="h-4 w-4 text-[var(--text-secondary)]" />
+          </div>
+          <span className="text-sm font-medium text-[var(--text-primary)]">Filters</span>
         </div>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearFilters}
-            className="h-7 px-2 text-xs"
+        <div className="flex items-center justify-end gap-2 w-full">
+          <div
+            className={cn(
+              'space-y-1.5 flex-shrink-0 w-[100px] overflow-hidden transition-all duration-200',
+              hasActiveFilters
+                ? 'opacity-100 max-h-[200px] translate-y-0'
+                : 'opacity-0 max-h-0 -translate-y-4 pointer-events-none'
+            )}
           >
-            <X className="h-3 w-3 mr-1" />
-            Clear all
-          </Button>
-        )}
+            <label className="text-xs text-[var(--text-secondary)] invisible font-medium">Clear all</label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearFilters}
+              className={cn(
+                'px-2 text-xs',
+                'text-[var(--text-secondary)] hover:text-[var(--text-secondary-faded)]',
+                'transition-colors duration-200',
+                'btn-secondary',
+                'w-full'
+              )}
+            >
+              Clear all
+            </Button>
+          </div>
+          <div
+            className={cn(
+              'space-y-1.5 flex-shrink-0 w-[100px] overflow-hidden transition-all duration-200',
+              hasActiveFilters
+                ? 'opacity-100 max-h-[200px] translate-y-0'
+                : 'opacity-0 max-h-0 -translate-y-4 pointer-events-none'
+            )}
+          >
+            <label className="text-xs text-[var(--text-secondary)] invisible font-medium">Apply</label>
+            <Button
+              onClick={handleApplyFilters}
+              className={cn(
+                'px-2 text-xs',
+                'text-[var(--text-primary)] hover:text-[var(--text-primary-faded)]',
+                'transition-all duration-200',
+                'btn-primary',
+                'w-full'
+              )}
+            >
+              Apply
+            </Button>
+          </div>
+        </div>
+
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {/* Pipeline ID Search */}
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">Pipeline ID</label>
-          <Input
-            placeholder="Search by pipeline ID..."
-            value={filters.pipeline_id || ''}
-            onChange={handlePipelineIdChange}
-            className="h-9"
-          />
-        </div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 w-full">
+          {/* Pipeline ID Search */}
+          <div className="flex-1 space-y-1.5">
+            <label className="text-xs text-[var(--text-secondary)] font-medium">Pipeline ID</label>
+            <Input
+              placeholder="Search by pipeline ID..."
+              value={filters.pipeline_id || ''}
+              onChange={handlePipelineIdChange}
+              className={cn(
+                'h-9',
+                'bg-[var(--control-bg)] border-[var(--control-border)]',
+                'hover:border-[var(--control-border-hover)]',
+                'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
+                'transition-all duration-200'
+              )}
+            />
+          </div>
 
-        {/* Severity Filter */}
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">Severity</label>
-          <Select
-            value={filters.severity || 'all'}
-            onValueChange={handleSeverityChange}
-          >
-            <SelectTrigger className="h-9 w-full px-3 border border-border rounded-md bg-background">
-              <SelectValue placeholder="All Severities" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover border border-border rounded-md shadow-md">
-              {SEVERITY_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Severity Filter */}
+          <div className="flex-1 space-y-1.5">
+            <label className="text-xs text-[var(--text-secondary)] font-medium">Severity</label>
+            <Select
+              value={filters.severity || 'all'}
+              onValueChange={handleSeverityChange}
+            >
+              <SelectTrigger
+                className={cn(
+                  'h-9 w-full px-3 rounded-[var(--radius-medium)]',
+                  'bg-[var(--control-bg)] border border-[var(--control-border)]',
+                  'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
+                  'transition-all duration-200'
+                )}
+              >
+                <SelectValue placeholder="All Severities" />
+              </SelectTrigger>
+              <SelectContent
+                className={cn(
+                  'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
+                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                )}
+              >
+                {SEVERITY_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="text-[var(--text-primary)] hover:bg-[var(--option-bg-hover)]"
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        {/* Start Date */}
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">From Date</label>
-          <Input
-            type="date"
-            value={filters.start_date ? filters.start_date.split('T')[0] : ''}
-            onChange={handleStartDateChange}
-            className="h-9"
-          />
-        </div>
+          {/* Start Date */}
+          <div className="flex-1 space-y-1.5">
+            <label className="text-xs text-[var(--text-secondary)] font-medium">From Date</label>
+            <Input
+              type="date"
+              value={filters.start_date ? filters.start_date.split('T')[0] : ''}
+              onChange={handleStartDateChange}
+              className={cn(
+                'h-9',
+                'bg-[var(--control-bg)] border-[var(--control-border)]',
+                'hover:border-[var(--control-border-hover)]',
+                'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
+                'transition-all duration-200'
+              )}
+            />
+          </div>
 
-        {/* End Date */}
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">To Date</label>
-          <Input
-            type="date"
-            value={filters.end_date ? filters.end_date.split('T')[0] : ''}
-            onChange={handleEndDateChange}
-            className="h-9"
-          />
-        </div>
-
-        {/* Apply Button */}
-        <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground invisible">Action</label>
-          <Button onClick={handleApplyFilters} className="h-9 w-full">
-            Apply Filters
-          </Button>
+          {/* End Date */}
+          <div className="flex-1 space-y-1.5">
+            <label className="text-xs text-[var(--text-secondary)] font-medium">To Date</label>
+            <Input
+              type="date"
+              value={filters.end_date ? filters.end_date.split('T')[0] : ''}
+              onChange={handleEndDateChange}
+              className={cn(
+                'h-9',
+                'bg-[var(--control-bg)] border-[var(--control-border)]',
+                'hover:border-[var(--control-border-hover)]',
+                'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
+                'transition-all duration-200'
+              )}
+            />
+          </div>
         </div>
       </div>
     </div>

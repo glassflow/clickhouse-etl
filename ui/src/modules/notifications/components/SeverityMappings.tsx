@@ -24,13 +24,38 @@ import {
 
 const SEVERITY_CONFIG: Record<
   SeverityLevel,
-  { icon: typeof AlertCircle; label: string; color: string; bgColor: string }
+  { icon: typeof AlertCircle; label: string; colorVar: string; bgColorVar: string }
 > = {
-  debug: { icon: Bug, label: 'Debug', color: 'text-gray-500', bgColor: 'bg-gray-500/10' },
-  info: { icon: Info, label: 'Info', color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  warn: { icon: AlertTriangle, label: 'Warning', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' },
-  error: { icon: AlertCircle, label: 'Error', color: 'text-red-400', bgColor: 'bg-red-400/10' },
-  fatal: { icon: XCircle, label: 'Fatal', color: 'text-red-600', bgColor: 'bg-red-600/10' },
+  debug: {
+    icon: Bug,
+    label: 'Debug',
+    colorVar: 'var(--text-secondary)',
+    bgColorVar: 'var(--color-background-neutral-faded)'
+  },
+  info: {
+    icon: Info,
+    label: 'Info',
+    colorVar: 'var(--color-foreground-info)',
+    bgColorVar: 'var(--color-background-info-faded)'
+  },
+  warn: {
+    icon: AlertTriangle,
+    label: 'Warning',
+    colorVar: 'var(--color-foreground-warning)',
+    bgColorVar: 'var(--color-background-warning-faded)'
+  },
+  error: {
+    icon: AlertCircle,
+    label: 'Error',
+    colorVar: 'var(--color-foreground-critical)',
+    bgColorVar: 'var(--color-background-critical-faded)'
+  },
+  fatal: {
+    icon: XCircle,
+    label: 'Fatal',
+    colorVar: 'var(--color-foreground-critical)',
+    bgColorVar: 'var(--color-background-critical-faded)'
+  },
 }
 
 const SEVERITY_ORDER: SeverityLevel[] = ['debug', 'info', 'warn', 'error', 'fatal']
@@ -60,15 +85,28 @@ function SeverityRow({ severity, channels, onChange, disabled }: SeverityRowProp
   }
 
   return (
-    <div className="flex items-center justify-between p-3 border border-border rounded-lg">
+    <div
+      className={cn(
+        'flex items-center justify-between p-4',
+        'card-outline',
+        'transition-all duration-200',
+        'hover:shadow-[var(--card-shadow-hover)]'
+      )}
+    >
       <div className="flex items-center gap-3">
-        <div className={cn('p-2 rounded-lg', config.bgColor)}>
-          <Icon className={cn('h-4 w-4', config.color)} />
+        <div
+          className="p-2 rounded-[var(--radius-medium)]"
+          style={{ backgroundColor: config.bgColorVar }}
+        >
+          <Icon
+            className="h-4 w-4"
+            style={{ color: config.colorVar }}
+          />
         </div>
         <div>
-          <span className="font-medium">{config.label}</span>
+          <span className="font-medium text-[var(--text-primary)]">{config.label}</span>
           {channels.length === 0 && (
-            <p className="text-xs text-muted-foreground">No channels selected</p>
+            <p className="text-xs text-[var(--text-secondary)]">No channels selected</p>
           )}
         </div>
       </div>
@@ -81,7 +119,8 @@ function SeverityRow({ severity, channels, onChange, disabled }: SeverityRowProp
           disabled={disabled}
           className={cn(
             'h-8 gap-1.5',
-            hasSlack && 'bg-primary hover:bg-primary/90',
+            'transition-all duration-200',
+            !hasSlack && 'btn-neutral'
           )}
         >
           <MessageSquare className="h-3.5 w-3.5" />
@@ -94,7 +133,8 @@ function SeverityRow({ severity, channels, onChange, disabled }: SeverityRowProp
           disabled={disabled}
           className={cn(
             'h-8 gap-1.5',
-            hasEmail && 'bg-primary hover:bg-primary/90',
+            'transition-all duration-200',
+            !hasEmail && 'btn-neutral'
           )}
         >
           <Mail className="h-3.5 w-3.5" />
@@ -199,17 +239,23 @@ export function SeverityMappings() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Severity Routing</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Severity Routing</h2>
+          <p className="text-sm text-[var(--text-secondary)]">
             Choose which channels receive notifications for each severity level
           </p>
         </div>
         <div className="flex items-center gap-2">
           {hasChanges && (
-            <Button variant="outline" size="sm" onClick={handleReset} disabled={isSaving}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              disabled={isSaving}
+              className="btn-neutral transition-all duration-200"
+            >
               Reset
             </Button>
           )}
@@ -218,7 +264,7 @@ export function SeverityMappings() {
             size="sm"
             onClick={fetchMappings}
             disabled={isLoading || isSaving}
-            className="gap-2"
+            className="gap-2 btn-neutral transition-all duration-200"
           >
             <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
             Refresh
@@ -227,28 +273,52 @@ export function SeverityMappings() {
       </div>
 
       {error && (
-        <div className="p-4 border border-destructive/30 bg-destructive/10 rounded-lg">
-          <p className="text-sm text-destructive">{error}</p>
+        <div
+          className={cn(
+            'p-4 rounded-[var(--radius-large)]',
+            'border border-[var(--color-border-critical-faded)]',
+            'bg-[var(--color-background-critical-faded)]/20',
+            'animate-slideDown'
+          )}
+        >
+          <p className="text-sm text-[var(--text-error)]">{error}</p>
         </div>
       )}
 
-      <div className="space-y-2">
-        {SEVERITY_ORDER.map((severity) => (
-          <SeverityRow
+      <div className="flex flex-col gap-2">
+        {SEVERITY_ORDER.map((severity, index) => (
+          <div
             key={severity}
-            severity={severity}
-            channels={localMappings[severity]}
-            onChange={handleChange}
-            disabled={isLoading || isSaving}
-          />
+            className="animate-fadeIn"
+            style={{ animationDelay: `${index * 50}ms` }}
+          >
+            <SeverityRow
+              severity={severity}
+              channels={localMappings[severity]}
+              onChange={handleChange}
+              disabled={isLoading || isSaving}
+            />
+          </div>
         ))}
       </div>
 
       {/* Save bar */}
       {hasChanges && (
-        <div className="flex items-center justify-between p-4 bg-accent/30 rounded-lg border border-border">
-          <p className="text-sm text-muted-foreground">You have unsaved changes</p>
-          <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+        <div
+          className={cn(
+            'flex items-center justify-between p-4',
+            'rounded-[var(--radius-large)]',
+            'bg-[var(--color-background-primary-faded)] border border-[var(--color-border-primary-faded)]',
+            'animate-slideDown',
+            'transition-all duration-200'
+          )}
+        >
+          <p className="text-sm text-[var(--text-primary)] font-medium">You have unsaved changes</p>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="gap-2 transition-all duration-200"
+          >
             {isSaving ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
@@ -260,9 +330,16 @@ export function SeverityMappings() {
       )}
 
       {/* Legend */}
-      <div className="p-4 border border-border rounded-lg bg-muted/30">
-        <p className="text-xs text-muted-foreground">
-          <strong>Tip:</strong> Select which channels should receive notifications for each severity level.
+      <div
+        className={cn(
+          'p-4 rounded-[var(--radius-large)]',
+          'border border-[var(--surface-border)]',
+          'bg-[var(--color-background-neutral-faded)]',
+          'transition-all duration-200'
+        )}
+      >
+        <p className="text-xs text-[var(--text-secondary)]">
+          <strong className="text-[var(--text-primary)]">Tip:</strong> Select which channels should receive notifications for each severity level.
           Notifications will only be sent to enabled channels. If no channels are selected for a severity,
           those notifications will not be delivered.
         </p>

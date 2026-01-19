@@ -14,37 +14,36 @@ interface NotificationItemProps {
 }
 
 /**
- * Get the icon component for a notification severity
+ * Severity configuration with semantic color variables
  */
-const getSeverityIcon = (severity: NotificationSeverity) => {
-  switch (severity) {
-    case 'critical':
-      return <XCircle className="h-4 w-4 text-red-500" />
-    case 'error':
-      return <AlertCircle className="h-4 w-4 text-red-400" />
-    case 'warning':
-      return <AlertTriangle className="h-4 w-4 text-yellow-500" />
-    case 'info':
-    default:
-      return <Info className="h-4 w-4 text-blue-400" />
-  }
-}
-
-/**
- * Get the border color class for a notification severity
- */
-const getSeverityBorderClass = (severity: NotificationSeverity) => {
-  switch (severity) {
-    case 'critical':
-      return 'border-l-red-500'
-    case 'error':
-      return 'border-l-red-400'
-    case 'warning':
-      return 'border-l-yellow-500'
-    case 'info':
-    default:
-      return 'border-l-blue-400'
-  }
+const SEVERITY_CONFIG: Record<
+  NotificationSeverity,
+  { icon: typeof AlertCircle; colorVar: string; borderColorVar: string; bgColorVar: string }
+> = {
+  critical: {
+    icon: XCircle,
+    colorVar: 'var(--color-foreground-critical)',
+    borderColorVar: 'var(--color-border-critical)',
+    bgColorVar: 'var(--color-background-critical-faded)',
+  },
+  error: {
+    icon: AlertCircle,
+    colorVar: 'var(--color-foreground-critical)',
+    borderColorVar: 'var(--color-border-critical-faded)',
+    bgColorVar: 'var(--color-background-critical-faded)',
+  },
+  warning: {
+    icon: AlertTriangle,
+    colorVar: 'var(--color-foreground-warning)',
+    borderColorVar: 'var(--color-border-warning)',
+    bgColorVar: 'var(--color-background-warning-faded)',
+  },
+  info: {
+    icon: Info,
+    colorVar: 'var(--color-foreground-info)',
+    borderColorVar: 'var(--color-border-info)',
+    bgColorVar: 'var(--color-background-info-faded)',
+  },
 }
 
 /**
@@ -100,16 +99,22 @@ export function NotificationItem({
   onDelete,
 }: NotificationItemProps) {
   const { notification_id, title, message, severity, timestamp, read, pipeline_id } = notification
+  const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.info
+  const SeverityIcon = config.icon
 
   return (
     <div
       className={cn(
-        'group relative flex gap-3 p-3 border-l-4 rounded-r-md transition-colors',
-        'hover:bg-accent/50',
-        getSeverityBorderClass(severity),
-        !read && 'bg-accent/20',
-        isSelected && 'bg-accent/40 ring-1 ring-primary',
+        'group relative flex gap-3 p-4',
+        'border-l-4 rounded-r-[var(--radius-medium)]',
+        'transition-all duration-200',
+        'hover:bg-[var(--option-bg-hover)]',
+        !read && 'bg-[var(--option-bg-selected)]',
+        isSelected && 'bg-[var(--option-bg-highlighted)] ring-1 ring-[var(--color-border-primary)]'
       )}
+      style={{
+        borderLeftColor: config.borderColorVar,
+      }}
     >
       {/* Checkbox for selection */}
       <div className="flex items-start pt-0.5">
@@ -117,13 +122,26 @@ export function NotificationItem({
           type="checkbox"
           checked={isSelected}
           onChange={onSelect}
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+          className={cn(
+            'h-4 w-4 rounded cursor-pointer',
+            'border-[var(--control-border)] text-primary',
+            'focus:ring-primary focus:ring-offset-0',
+            'transition-all duration-200'
+          )}
           aria-label={`Select notification: ${title}`}
         />
       </div>
 
       {/* Severity icon */}
-      <div className="flex-shrink-0 pt-0.5">{getSeverityIcon(severity)}</div>
+      <div
+        className="flex-shrink-0 pt-0.5 p-1.5 rounded-[var(--radius-small)]"
+        style={{ backgroundColor: config.bgColorVar }}
+      >
+        <SeverityIcon
+          className="h-4 w-4"
+          style={{ color: config.colorVar }}
+        />
+      </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0 space-y-1">
@@ -131,24 +149,29 @@ export function NotificationItem({
           <h4
             className={cn(
               'text-sm font-medium truncate',
-              !read && 'text-foreground',
-              read && 'text-muted-foreground',
+              !read && 'text-[var(--text-primary)]',
+              read && 'text-[var(--text-secondary)]'
             )}
           >
             {title}
           </h4>
-          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+          <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap flex-shrink-0">
             {formatTimestamp(timestamp)}
           </span>
         </div>
 
-        <p className={cn('text-sm line-clamp-2', read ? 'text-muted-foreground' : 'text-foreground/80')}>
+        <p
+          className={cn(
+            'text-sm line-clamp-2',
+            read ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)] opacity-80'
+          )}
+        >
           {message}
         </p>
 
         {pipeline_id && (
-          <p className="text-xs text-muted-foreground">
-            Pipeline: <span className="font-mono">{pipeline_id}</span>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Pipeline: <span className="font-mono text-[var(--text-primary)]">{pipeline_id}</span>
           </p>
         )}
       </div>
@@ -156,15 +179,20 @@ export function NotificationItem({
       {/* Action buttons - visible on hover or when focused */}
       <div
         className={cn(
-          'flex flex-col gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
-          'transition-opacity duration-150',
+          'flex flex-col gap-1',
+          'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+          'transition-opacity duration-200'
         )}
       >
         {!read && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0"
+            className={cn(
+              'h-7 w-7 p-0',
+              'hover:bg-[var(--color-background-positive-faded)] hover:text-[var(--color-foreground-positive)]',
+              'transition-all duration-200'
+            )}
             onClick={(e) => {
               e.stopPropagation()
               onMarkAsRead()
@@ -178,7 +206,12 @@ export function NotificationItem({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className={cn(
+            'h-7 w-7 p-0',
+            'text-[var(--color-foreground-critical)]',
+            'hover:text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-faded)]',
+            'transition-all duration-200'
+          )}
           onClick={(e) => {
             e.stopPropagation()
             onDelete()
@@ -193,7 +226,12 @@ export function NotificationItem({
       {/* Unread indicator dot */}
       {!read && (
         <div
-          className="absolute top-3 right-3 w-2 h-2 rounded-full bg-primary"
+          className={cn(
+            'absolute top-4 right-4',
+            'w-2 h-2 rounded-full',
+            'bg-[var(--color-background-primary)]',
+            'shadow-[0_0_4px_var(--color-background-primary)]'
+          )}
           aria-label="Unread"
         />
       )}
