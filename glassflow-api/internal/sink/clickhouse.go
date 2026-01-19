@@ -77,15 +77,11 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 
 	ch.log.InfoContext(ctx, "ClickHouse sink started with batch processing",
 		"max_batch_size", maxBatchSize,
-		"clickhouse_timer_interval", ch.sinkConfig.Batch.MaxDelayTime.Duration(),
-		"mode", "batched_nats_reading",
-		"note", "NATS and ClickHouse use same batch size and timeout values")
+		"max_delay_time", maxDelayTime,
+		"mode", "blocking_fetch")
 
 	defer ch.log.InfoContext(ctx, "ClickHouse sink stopped")
 	defer ch.clearConn()
-
-	ticker := time.NewTicker(maxDelayTime)
-	defer ticker.Stop()
 
 	ctx, cancel := context.WithCancel(ctx)
 	ch.cancel = cancel
@@ -94,55 +90,21 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), internal.SinkDefaultShutdownTimeout)
-			defer shutdownCancel()
-			return ch.handleShutdown(shutdownCtx)
-		case <-ticker.C:
-			err := ch.fetchAndFlush(ctx)
+			return ch.shutdownWithTimeout()
+		default:
+			err := ch.fetchAndFlush(ctx, maxDelayTime)
 			if err != nil {
 				if errors.Is(err, models.ErrNoNewMessages) {
 					continue
 				}
 				ch.log.ErrorContext(ctx, "failed to fetch and flush", "error", err)
 			}
-		default:
-			hasEnoughEvents, err := ch.hasBatchSizeReached(ctx, ch.sinkConfig.Batch.MaxBatchSize)
-			if err != nil {
-				ch.log.ErrorContext(ctx, "hasEnoughEvents", "error", err)
-				time.Sleep(internal.FetchRetryDelay)
-				continue
-			}
-
-			if !hasEnoughEvents {
-				time.Sleep(internal.FetchRetryDelay)
-				continue
-			}
-
-			err = ch.fetchAndFlush(ctx)
-			if err != nil {
-				ch.log.ErrorContext(ctx, "fetchAndFlush", "error", err)
-				continue
-			}
-			ticker.Reset(maxDelayTime)
 		}
 	}
 }
 
-// hasBatchSizeReached returns true if the consumer has at least batchSize pending messages.
-func (ch *ClickHouseSink) hasBatchSizeReached(ctx context.Context, batchSize int) (bool, error) {
-	consumerInfo, err := ch.streamConsumer.Info(ctx)
-	if err != nil {
-		return false, fmt.Errorf("get consumer info: %w", err)
-	}
-	if consumerInfo.NumPending >= uint64(batchSize) {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context) error {
-	messages, err := ch.fetchMessages(ctx)
+func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context, maxWait time.Duration) error {
+	messages, err := ch.fetchMessages(ctx, maxWait)
 	if err != nil {
 		return fmt.Errorf("fetch messages: %w", err)
 	}
@@ -155,30 +117,53 @@ func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context) error {
 	return nil
 }
 
-// shutdown handles the shutdown logic
+func (ch *ClickHouseSink) shutdownWithTimeout() error {
+	ctx, cancel := context.WithTimeout(context.Background(), internal.SinkDefaultShutdownTimeout)
+	defer cancel()
+	return ch.handleShutdown(ctx)
+}
+
 func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 	ch.log.InfoContext(ctx, "ClickHouse sink shutting down")
 
-	err := ch.fetchAndFlush(ctx)
-	if err != nil && !errors.Is(err, models.ErrNoNewMessages) {
+	messages, err := ch.fetchMessagesNoWait(ctx)
+	if err != nil {
+		if errors.Is(err, models.ErrNoNewMessages) {
+			return nil
+		}
+		return fmt.Errorf("fetch pending messages: %w", err)
+	}
+
+	err = ch.flushEvents(ctx, messages)
+	if err != nil {
 		return fmt.Errorf("flush pending messages: %w", err)
 	}
 
 	return nil
 }
 
-func (ch *ClickHouseSink) fetchMessages(ctx context.Context) ([]jetstream.Msg, error) {
+func (ch *ClickHouseSink) fetchMessages(ctx context.Context, maxWait time.Duration) ([]jetstream.Msg, error) {
+	msgBatch, err := ch.streamConsumer.Fetch(ch.sinkConfig.Batch.MaxBatchSize, jetstream.FetchMaxWait(maxWait))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch messages: %w", err)
+	}
+	return ch.collectMessagesFromBatch(ctx, msgBatch)
+}
+
+func (ch *ClickHouseSink) fetchMessagesNoWait(ctx context.Context) ([]jetstream.Msg, error) {
 	msgBatch, err := ch.streamConsumer.FetchNoWait(ch.sinkConfig.Batch.MaxBatchSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch messages: %w", err)
 	}
+	return ch.collectMessagesFromBatch(ctx, msgBatch)
+}
 
+func (ch *ClickHouseSink) collectMessagesFromBatch(ctx context.Context, msgBatch jetstream.MessageBatch) ([]jetstream.Msg, error) {
 	messages := make([]jetstream.Msg, 0, ch.sinkConfig.Batch.MaxBatchSize)
 	for msg := range msgBatch.Messages() {
 		if msg == nil {
 			break
 		}
-
 		messages = append(messages, msg)
 	}
 
@@ -190,12 +175,9 @@ func (ch *ClickHouseSink) fetchMessages(ctx context.Context) ([]jetstream.Msg, e
 		return nil, fmt.Errorf("failed to fetch messages: %w", msgBatch.Error())
 	}
 
-	// Only log success if we actually got messages
-	if len(messages) > 0 {
-		ch.log.DebugContext(ctx, "Successfully fetched batch from NATS",
-			"message_count", len(messages),
-			"max_batch_size", ch.sinkConfig.Batch.MaxBatchSize)
-	}
+	ch.log.DebugContext(ctx, "Successfully fetched batch from NATS",
+		"message_count", len(messages),
+		"max_batch_size", ch.sinkConfig.Batch.MaxBatchSize)
 
 	return messages, nil
 }
