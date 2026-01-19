@@ -15,6 +15,7 @@ import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createDeduplicationSlice, DeduplicationSlice } from './deduplication.store'
 import { createJoinSlice, JoinSlice } from './join.store'
 import { createFilterSlice, FilterSlice } from './filter.store'
+import { createTransformationSlice, TransformationSlice } from './transformation.store'
 import { createCoreSlice, CoreSlice } from './core'
 import Cookies from 'js-cookie'
 
@@ -27,6 +28,7 @@ interface Store
     DeduplicationSlice,
     JoinSlice,
     FilterSlice,
+    TransformationSlice,
     CoreSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
@@ -49,6 +51,7 @@ const useActualStore = create<Store>()(
       ...createDeduplicationSlice(set, get, store),
       ...createJoinSlice(set, get, store),
       ...createFilterSlice(set, get, store),
+      ...createTransformationSlice(set, get, store),
       ...createCoreSlice(set, get, store),
 
       // Global reset function that resets all slices
@@ -64,6 +67,7 @@ const useActualStore = create<Store>()(
           state.deduplicationStore.resetDeduplicationStore()
           state.joinStore.resetJoinStore()
           state.filterStore.resetFilterStore()
+          state.transformationStore.resetTransformationStore()
           state.clickhouseConnectionStore.resetClickhouseStore()
           state.clickhouseDestinationStore.resetDestinationStore()
           state.stepsStore.resetStepsStore()
@@ -113,6 +117,7 @@ const useActualStore = create<Store>()(
         state.deduplicationStore.resetValidation()
         state.joinStore.resetValidation()
         state.filterStore.resetValidation()
+        state.transformationStore.resetValidation()
         state.clickhouseConnectionStore.resetValidation()
         state.clickhouseDestinationStore.resetValidation()
       },
@@ -127,6 +132,7 @@ const useActualStore = create<Store>()(
         state.deduplicationStore.resetDeduplicationStore()
         state.joinStore.resetJoinStore()
         state.filterStore.resetFilterStore()
+        state.transformationStore.resetTransformationStore()
         state.clickhouseConnectionStore.resetClickhouseStore()
         state.clickhouseDestinationStore.resetDestinationStore()
         state.stepsStore.resetStepsStore()

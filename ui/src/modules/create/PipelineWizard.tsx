@@ -59,27 +59,36 @@ function PipelineWizard() {
 
   const handleNext = (stepName: StepKeys) => {
     // Find the index of the CURRENTLY ACTIVE step in the journey
-    // For duplicate step keys (like DEDUPLICATION_CONFIGURATOR), find the correct occurrence
+    // For duplicate step keys (like DEDUPLICATION_CONFIGURATOR or KAFKA_TYPE_VERIFICATION), find the correct occurrence
     let currentStepIndex = currentJourney.indexOf(currentActiveStep as StepKeys)
 
-    // If we found a duplicate step key, determine which occurrence we're actually on
-    if (currentActiveStep === StepKeys.DEDUPLICATION_CONFIGURATOR && currentStepIndex !== -1) {
-      // Find all occurrences of DEDUPLICATION_CONFIGURATOR
-      const dedupIndices: number[] = []
+    // Helper function to find correct occurrence for duplicate steps
+    const findCorrectOccurrence = (stepKey: StepKeys): number => {
+      const stepIndices: number[] = []
       currentJourney.forEach((step, index) => {
-        if (step === StepKeys.DEDUPLICATION_CONFIGURATOR) {
-          dedupIndices.push(index)
+        if (step === stepKey) {
+          stepIndices.push(index)
         }
       })
 
       // Determine which occurrence we're on based on completed steps or parent info
-      if (deduplicationParent === StepKeys.TOPIC_SELECTION_2 && dedupIndices.length > 1) {
-        currentStepIndex = dedupIndices[dedupIndices.length - 1] // Second occurrence
-      } else if (completedSteps.includes(StepKeys.TOPIC_SELECTION_2) && dedupIndices.length > 1) {
-        currentStepIndex = dedupIndices[dedupIndices.length - 1] // Second occurrence
-      } else if (dedupIndices.length > 0) {
-        currentStepIndex = dedupIndices[0] // First occurrence
+      if (deduplicationParent === StepKeys.TOPIC_SELECTION_2 && stepIndices.length > 1) {
+        return stepIndices[stepIndices.length - 1] // Second occurrence
+      } else if (completedSteps.includes(StepKeys.TOPIC_SELECTION_2) && stepIndices.length > 1) {
+        return stepIndices[stepIndices.length - 1] // Second occurrence
+      } else if (stepIndices.length > 0) {
+        return stepIndices[0] // First occurrence
       }
+      return currentStepIndex
+    }
+
+    // Handle duplicate step keys
+    if (
+      (currentActiveStep === StepKeys.DEDUPLICATION_CONFIGURATOR ||
+        currentActiveStep === StepKeys.KAFKA_TYPE_VERIFICATION) &&
+      currentStepIndex !== -1
+    ) {
+      currentStepIndex = findCorrectOccurrence(currentActiveStep as StepKeys)
     }
 
     if (currentStepIndex !== -1) {
@@ -98,9 +107,9 @@ function PipelineWizard() {
       if (nextStep) {
         setActiveStep(nextStep)
 
-        // If navigating TO a deduplication step, set the parent based on journey position
-        if (nextStep === StepKeys.DEDUPLICATION_CONFIGURATOR) {
-          // Find which topic selection step precedes this deduplication step
+        // If navigating TO a deduplication or type verification step, set the parent based on journey position
+        if (nextStep === StepKeys.DEDUPLICATION_CONFIGURATOR || nextStep === StepKeys.KAFKA_TYPE_VERIFICATION) {
+          // Find which topic selection step precedes this step
           for (let i = currentStepIndex; i >= 0; i--) {
             const prevStep = currentJourney[i]
             if (prevStep === StepKeys.TOPIC_SELECTION_1) {
@@ -112,7 +121,7 @@ function PipelineWizard() {
             }
           }
         } else {
-          // Clear deduplication parent when moving to non-deduplication step
+          // Clear deduplication parent when moving to non-deduplication/type-verification step
           setDeduplicationParent(null)
         }
       }
@@ -128,11 +137,14 @@ function PipelineWizard() {
   // Handle step click from sidebar - navigate to completed steps for editing
   const handleStepClick = (stepName: string, parent?: string | null) => {
     if (completedStepsArray.includes(stepName)) {
-      // For duplicate step keys (like DEDUPLICATION_CONFIGURATOR), store parent info
-      if (stepName === StepKeys.DEDUPLICATION_CONFIGURATOR && parent) {
+      // For duplicate step keys (like DEDUPLICATION_CONFIGURATOR or KAFKA_TYPE_VERIFICATION), store parent info
+      if (
+        (stepName === StepKeys.DEDUPLICATION_CONFIGURATOR || stepName === StepKeys.KAFKA_TYPE_VERIFICATION) &&
+        parent
+      ) {
         setDeduplicationParent(parent)
       } else {
-        // Clear parent info for non-deduplication steps
+        // Clear parent info for non-duplicate steps
         setDeduplicationParent(null)
       }
 
@@ -148,27 +160,31 @@ function PipelineWizard() {
   // Use the first step as default if activeStep is not set
   const currentActiveStep = activeStep || firstStep
 
-  // Determine the topic index for a DEDUPLICATION_CONFIGURATOR step based on its position in the journey
-  const getDeduplicationTopicIndex = (stepKey: string, activeStepKey: string): number => {
-    if (stepKey !== StepKeys.DEDUPLICATION_CONFIGURATOR) {
+  // Determine the topic index for a step (DEDUPLICATION_CONFIGURATOR or KAFKA_TYPE_VERIFICATION)
+  // based on its position in the journey
+  const getTopicIndexForStep = (stepKey: string, activeStepKey: string): number => {
+    if (stepKey !== StepKeys.DEDUPLICATION_CONFIGURATOR && stepKey !== StepKeys.KAFKA_TYPE_VERIFICATION) {
       return 0 // Default, shouldn't be used
     }
 
     // If we have parent information from clicking, use it to determine the index
     if (deduplicationParent) {
-      if (deduplicationParent === StepKeys.TOPIC_SELECTION_1) {
-        return 0 // First topic's deduplication
+      if (
+        deduplicationParent === StepKeys.TOPIC_SELECTION_1 ||
+        deduplicationParent === StepKeys.KAFKA_TYPE_VERIFICATION
+      ) {
+        return 0 // First topic
       }
       if (deduplicationParent === StepKeys.TOPIC_SELECTION_2) {
-        return 1 // Second topic's deduplication
+        return 1 // Second topic
       }
     }
 
-    // Find all occurrences of DEDUPLICATION_CONFIGURATOR in the journey
-    const dedupIndices: number[] = []
+    // Find all occurrences of this step key in the journey
+    const stepIndices: number[] = []
     currentJourney.forEach((step, index) => {
-      if (step === StepKeys.DEDUPLICATION_CONFIGURATOR) {
-        dedupIndices.push(index)
+      if (step === stepKey) {
+        stepIndices.push(index)
       }
     })
 
@@ -176,34 +192,34 @@ function PipelineWizard() {
     // We need to find which specific occurrence is active, not just the first one
     let activeStepIndex = -1
 
-    // If active step is DEDUPLICATION_CONFIGURATOR, we need to determine which occurrence
-    if (activeStepKey === StepKeys.DEDUPLICATION_CONFIGURATOR && dedupIndices.length > 0) {
-      // If TOPIC_SELECTION_2 is completed, we must be on the second deduplication (or beyond)
-      // If TOPIC_SELECTION_2 is not completed, we must be on the first deduplication
+    // If active step is the same as the step key we're checking, we need to determine which occurrence
+    if (activeStepKey === stepKey && stepIndices.length > 0) {
+      // If TOPIC_SELECTION_2 is completed, we must be on the second occurrence (or beyond)
+      // If TOPIC_SELECTION_2 is not completed, we must be on the first occurrence
       if (completedSteps.includes(StepKeys.TOPIC_SELECTION_2)) {
-        // We've completed the second topic selection, so we're on the second deduplication
-        activeStepIndex = dedupIndices[dedupIndices.length - 1] // Second occurrence
+        // We've completed the second topic selection, so we're on the second occurrence
+        activeStepIndex = stepIndices[stepIndices.length - 1] // Second occurrence
       } else {
-        // TOPIC_SELECTION_2 is not completed, so we must be on first deduplication
-        activeStepIndex = dedupIndices[0] // First occurrence
+        // TOPIC_SELECTION_2 is not completed, so we must be on first occurrence
+        activeStepIndex = stepIndices[0] // First occurrence
       }
     } else {
-      // Active step is not a deduplication step, use indexOf
+      // Active step is not this step type, use indexOf
       activeStepIndex = currentJourney.indexOf(activeStepKey as StepKeys)
     }
 
     // If we found the active step, determine which occurrence it is
-    if (activeStepIndex !== -1 && dedupIndices.length > 0) {
-      // Check if active step is one of the deduplication occurrences
-      if (dedupIndices.includes(activeStepIndex)) {
+    if (activeStepIndex !== -1 && stepIndices.length > 0) {
+      // Check if active step is one of the step occurrences
+      if (stepIndices.includes(activeStepIndex)) {
         // Determine which occurrence based on position
-        if (dedupIndices.length > 1 && activeStepIndex === dedupIndices[dedupIndices.length - 1]) {
+        if (stepIndices.length > 1 && activeStepIndex === stepIndices[stepIndices.length - 1]) {
           return 1 // Second occurrence (after TOPIC_SELECTION_2)
         }
         return 0 // First occurrence (after TOPIC_SELECTION_1)
       }
 
-      // If active step is not a deduplication step, look backwards to find the most recent topic selection
+      // If active step is not this step type, look backwards to find the most recent topic selection
       for (let i = activeStepIndex - 1; i >= 0; i--) {
         const prevStep = currentJourney[i]
         if (prevStep === StepKeys.TOPIC_SELECTION_2) {
@@ -215,9 +231,9 @@ function PipelineWizard() {
       }
     }
 
-    // Fallback: if TOPIC_SELECTION_2 is completed, assume second deduplication
+    // Fallback: if TOPIC_SELECTION_2 is completed, assume second occurrence
     if (completedSteps.includes(StepKeys.TOPIC_SELECTION_2)) {
-      return 1 // Second topic's deduplication
+      return 1 // Second topic
     }
 
     return 0 // Default to first topic
@@ -263,7 +279,13 @@ function PipelineWizard() {
 
     // For DeduplicationConfigurator, pass the correct topic index
     if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR) {
-      const topicIndex = getDeduplicationTopicIndex(stepKey, currentActiveStep)
+      const topicIndex = getTopicIndexForStep(stepKey, currentActiveStep)
+      return <StepComponent onCompleteStep={(step: StepKeys) => handleNext(step)} index={topicIndex} />
+    }
+
+    // For KafkaTypeVerification, pass the correct topic index (for multi-topic journeys)
+    if (stepKey === StepKeys.KAFKA_TYPE_VERIFICATION) {
+      const topicIndex = getTopicIndexForStep(stepKey, currentActiveStep)
       return <StepComponent onCompleteStep={(step: StepKeys) => handleNext(step)} index={topicIndex} />
     }
 

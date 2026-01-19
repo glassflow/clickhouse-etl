@@ -10,6 +10,20 @@ const KafkaEventSchema = z.object({
   isManualEvent: z.boolean().optional(),
 })
 
+// Schema field type for verified field types from KafkaTypeVerification
+const KafkaFieldSchemaSchema = z.object({
+  name: z.string(),
+  type: z.string(), // user-selected type (or inferred if not changed)
+  inferredType: z.string().optional(), // originally inferred type
+  userType: z.string().optional(), // explicitly set by user (same as type when set)
+  isManuallyAdded: z.boolean().optional(), // true for user-added fields (not inferred from event)
+  isRemoved: z.boolean().optional(), // true for fields marked for removal (used during editing)
+})
+
+const KafkaTopicSchemaSchema = z.object({
+  fields: z.array(KafkaFieldSchemaSchema),
+})
+
 const KafkaTopicSchema = z.object({
   name: z.string(), // name of the topic
   index: z.number(), // index of the topic in the topics array - joins have multiple topics
@@ -18,6 +32,7 @@ const KafkaTopicSchema = z.object({
   initialOffset: z.enum(['earliest', 'latest']), // current offset
   replicas: z.number().optional(), // number of replicas for this topic
   partitionCount: z.number().optional(), // number of partitions for this topic
+  schema: KafkaTopicSchemaSchema.optional(), // verified field types from type verification step
 })
 
 const KafkaTopicsSchema = z.record(z.number(), KafkaTopicSchema)
@@ -48,6 +63,8 @@ type AvailableTopics = z.infer<typeof AvailableTopicsSchema>
 type KafkaTopicDeduplication = z.infer<typeof KafkaTopicDeduplicationSchema>
 type KafkaTopicSelector = z.infer<typeof KafkaTopicSelectorSchema>
 type KafkaTopicSelectorWithEvent = z.infer<typeof KafkaTopicSelectorWithEventSchema>
+type KafkaFieldSchema = z.infer<typeof KafkaFieldSchemaSchema>
+type KafkaTopicSchemaType = z.infer<typeof KafkaTopicSchemaSchema>
 
 export {
   KafkaEventSchema,
@@ -57,6 +74,8 @@ export {
   KafkaTopicDeduplicationSchema,
   KafkaTopicSelectorSchema,
   KafkaTopicSelectorWithEventSchema,
+  KafkaFieldSchemaSchema,
+  KafkaTopicSchemaSchema,
 }
 
 export type {
@@ -67,4 +86,6 @@ export type {
   KafkaTopicDeduplication as KafkaTopicDeduplicationType,
   KafkaTopicSelector as KafkaTopicSelectorType,
   KafkaTopicSelectorWithEvent as KafkaTopicSelectorWithEventType,
+  KafkaFieldSchema as KafkaFieldSchemaType,
+  KafkaTopicSchemaType,
 }

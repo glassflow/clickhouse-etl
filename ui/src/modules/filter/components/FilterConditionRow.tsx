@@ -138,7 +138,7 @@ export function FilterConditionRow({
         <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Value</Label>
         <div className="space-y-0">
           <Input
-            type={isNumericType(condition.fieldType) ? 'number' : 'text'}
+            // type={isNumericType(condition.fieldType) ? 'number' : 'text'}
             value={String(condition.value ?? '')}
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder="Enter a value"

@@ -330,7 +330,7 @@ export function KafkaTopicSelector({
             onManualEventChange={handleManualEventChange}
             availableTopics={availableTopics}
             additionalContent={renderDeduplicationSection()}
-            isEditingEnabled={manualEvent !== '' || storedTopic?.selectedEvent?.isManualEvent || false}
+            isEditingEnabled={!readOnly}
             readOnly={readOnly}
             disableTopicChange={false} // Allow topic selection in edit mode to enable topic changes
             topicName={topicName}

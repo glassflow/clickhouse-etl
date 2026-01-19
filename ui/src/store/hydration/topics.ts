@@ -3,6 +3,22 @@ import { useStore } from '../index'
 // Helper to map backend topic config to your store's topic shape (without deduplication)
 function mapBackendTopicToStore(topicConfig: any, index: number) {
   const initialOffset = topicConfig.consumer_group_initial_offset || 'latest'
+
+  // Map backend schema to store schema format (for verified types from type verification step)
+  // Backend format: { type: 'json', fields: [{ name, type }] }
+  // Store format: { fields: [{ name, type, inferredType?, userType? }] }
+  let schema = undefined
+  if (topicConfig.schema?.fields && Array.isArray(topicConfig.schema.fields)) {
+    schema = {
+      fields: topicConfig.schema.fields.map((f: any) => ({
+        name: f.name,
+        type: f.type || 'string',
+        // userType is same as type when loaded from backend (user verified this)
+        userType: f.type || 'string',
+      })),
+    }
+  }
+
   return {
     index,
     name: topicConfig.name,
@@ -15,6 +31,7 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
     },
     replicas: topicConfig.replicas || 1,
     partitionCount: topicConfig.partition_count || 1,
+    schema, // Include verified schema types from backend
   }
 }
 

@@ -228,10 +228,10 @@ export function QueryRule({
           <Label className="text-xs text-content mb-1 block">Value</Label>
           <div className="space-y-0">
             <Input
-              type="number"
+              type="text"
               value={String(rule.value ?? '')}
               onChange={(e) => handleValueChange(e.target.value)}
-              placeholder="Enter a number"
+              placeholder="Enter a value"
               disabled={readOnly}
               className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
             />
@@ -301,8 +301,9 @@ export function QueryRule({
         <Label className="text-xs text-content mb-1 block">Value</Label>
         <div className="space-y-0">
           <Input
-            type={isNumericType(effectiveFieldType) ? 'number' : 'text'}
-            value={String(rule.value ?? '')}
+            // type={isNumericType(effectiveFieldType) ? 'number' : 'text'}
+            type="text"
+            value={String(rule.value ?? ' ')} // force validation to force user input
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder="Enter a value"
             disabled={readOnly}
@@ -323,7 +324,7 @@ export function QueryRule({
   return (
     <div
       className={cn(
-        'card-outline rounded-[var(--radius-medium)] p-3',
+        'card-outline rounded-[var(--radius-large)] p-3',
         rule.not && 'border-[var(--color-border-primary)] bg-[var(--color-background-primary-faded)]/10',
       )}
     >

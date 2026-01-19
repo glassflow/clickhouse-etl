@@ -7,6 +7,7 @@ import { useStore } from '@/src/store'
 import { detectTransformationType } from '@/src/types/pipeline'
 import { countRulesInGroup } from '@/src/modules/filter/utils'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
+import { getIntermediarySchema } from '@/src/modules/transformation/utils'
 
 // Filter card component to display filter configuration
 const FilterCard = ({
@@ -61,6 +62,116 @@ const FilterCard = ({
   )
 }
 
+// Type Verification card component to display Kafka event field types
+const TypeVerificationCard = ({
+  onStepClick,
+  disabled,
+  activeStep,
+  topicIndex = 0,
+  label = 'Verify Field Types',
+}: {
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
+  disabled: boolean
+  activeStep: StepKeys | null
+  topicIndex?: number
+  label?: string
+}) => {
+  const { topicsStore } = useStore()
+  const topic = topicsStore.getTopic(topicIndex)
+
+  // Get schema from topic if available
+  const schema = (topic as any)?.schema?.fields || []
+  const fieldCount = schema.length
+
+  // Determine display value
+  let displayValue: string
+  if (fieldCount > 0) {
+    const fieldLabel = fieldCount === 1 ? '1 field' : `${fieldCount} fields`
+    // Check if any types were modified from inferred
+    const modifiedCount = schema.filter((f: any) => f.userType !== f.inferredType).length
+    if (modifiedCount > 0) {
+      displayValue = `${fieldLabel} (${modifiedCount} modified)`
+    } else {
+      displayValue = `${fieldLabel} verified`
+    }
+  } else {
+    displayValue = 'Not configured'
+  }
+
+  return (
+    <SingleCard
+      label={[label]}
+      value={[displayValue]}
+      orientation="center"
+      width="full"
+      onClick={() => onStepClick(StepKeys.KAFKA_TYPE_VERIFICATION, topicIndex)}
+      disabled={disabled}
+      selected={activeStep === StepKeys.KAFKA_TYPE_VERIFICATION}
+    />
+  )
+}
+
+// Transformation card component to display stateless transformation configuration
+const TransformationCard = ({
+  onStepClick,
+  disabled,
+  activeStep,
+  pipeline,
+}: {
+  onStepClick: (step: StepKeys, topicIndex?: number) => void
+  disabled: boolean
+  activeStep: StepKeys | null
+  pipeline: any
+}) => {
+  const { transformationStore } = useStore()
+  const transformationConfig = transformationStore.transformationConfig
+
+  // Check if transformations are enabled (from store or pipeline)
+  // Note: After hydration, stateless_transformation is converted to transformation format
+  // So we check store first, then hydrated pipeline, then raw API format
+  const hasStatelessTransformation =
+    transformationConfig.enabled ||
+    pipeline?.transformation?.enabled === true ||
+    pipeline?.stateless_transformation?.enabled === true
+
+  // Get field count from store or pipeline (prioritize store, then hydrated, then raw API)
+  const fieldCount =
+    transformationConfig.fields?.length ||
+    pipeline?.transformation?.fields?.length ||
+    pipeline?.stateless_transformation?.config?.transform?.length ||
+    0
+
+  // Get intermediary schema for display
+  const intermediarySchema =
+    hasStatelessTransformation && transformationConfig.enabled ? getIntermediarySchema(transformationConfig) : []
+
+  // Determine the display value
+  let displayValue: string
+  if (hasStatelessTransformation && fieldCount > 0) {
+    const fieldLabel = fieldCount === 1 ? '1 field' : `${fieldCount} fields`
+    displayValue = fieldLabel
+  } else {
+    displayValue = 'No transformations configured'
+  }
+
+  // Only show card if transformations are enabled and have fields
+  if (!hasStatelessTransformation || fieldCount === 0) {
+    return null
+  }
+
+  return (
+    <SingleCard
+      label={['Transformations']}
+      value={[displayValue]}
+      orientation="center"
+      width="full"
+      onClick={() => onStepClick(StepKeys.TRANSFORMATION_CONFIGURATOR)}
+      disabled={disabled}
+      selected={activeStep === StepKeys.TRANSFORMATION_CONFIGURATOR}
+    />
+  )
+}
+
 // covers the case where there is a single topic and no join for deduplication or ingest only
 const DeduplicationCase = ({
   topic,
@@ -72,6 +183,7 @@ const DeduplicationCase = ({
   disabled,
   validation,
   activeStep,
+  pipeline,
 }: {
   topic: any
   hasDedup: boolean
@@ -82,6 +194,7 @@ const DeduplicationCase = ({
   disabled: boolean
   validation: any
   activeStep: StepKeys | null
+  pipeline: any
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -96,6 +209,9 @@ const DeduplicationCase = ({
         validation={validation}
         selected={activeStep === StepKeys.TOPIC_SELECTION_1}
       />
+
+      {/* Type Verification card */}
+      <TypeVerificationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} topicIndex={0} />
 
       {/* Middle card: Deduplication Key (only if dedup is enabled) */}
       {hasDedup &&
@@ -119,6 +235,9 @@ const DeduplicationCase = ({
       {isFiltersEnabled() && (
         <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
       )}
+
+      {/* Transformation card (if stateless transformations are enabled) */}
+      <TransformationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} pipeline={pipeline} />
 
       {/* Bottom card: Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -148,6 +267,7 @@ const JoinCase = ({
   activeStep,
   leftHasDedup = false,
   rightHasDedup = false,
+  pipeline,
 }: {
   leftTopic: any
   rightTopic: any
@@ -162,6 +282,7 @@ const JoinCase = ({
   activeStep: StepKeys | null
   leftHasDedup?: boolean
   rightHasDedup?: boolean
+  pipeline: any
 }) => {
   // Get dedup keys from store for display
   const leftDedupKey = (() => {
@@ -229,6 +350,25 @@ const JoinCase = ({
         )}
       </div>
 
+      {/* Type Verification - Left and Right */}
+      <div className="flex flex-row gap-4">
+        <TypeVerificationCard
+          onStepClick={onStepClick}
+          disabled={disabled}
+          activeStep={activeStep}
+          topicIndex={0}
+          label="Left Topic Types"
+        />
+
+        <TypeVerificationCard
+          onStepClick={onStepClick}
+          disabled={disabled}
+          activeStep={activeStep}
+          topicIndex={1}
+          label="Right Topic Types"
+        />
+      </div>
+
       {/* Join Keys - Left and Right */}
       <div className="flex flex-row gap-4">
         <SingleColumnCard
@@ -256,6 +396,9 @@ const JoinCase = ({
 
       {/* Note: Filter is not available for multi-topic journeys */}
 
+      {/* Transformation card (if stateless transformations are enabled) */}
+      <TransformationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} pipeline={pipeline} />
+
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard
         label={['Destination Table', 'Schema Mapping']}
@@ -282,6 +425,7 @@ const JoinDeduplicationCase = ({
   disabled,
   validation,
   activeStep,
+  pipeline,
 }: {
   leftTopic: any
   rightTopic: any
@@ -294,6 +438,7 @@ const JoinDeduplicationCase = ({
   disabled: boolean
   validation: any
   activeStep: StepKeys | null
+  pipeline: any
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -332,6 +477,25 @@ const JoinDeduplicationCase = ({
         />
       </div>
 
+      {/* Type Verification - Left and Right */}
+      <div className="flex flex-row gap-4">
+        <TypeVerificationCard
+          onStepClick={onStepClick}
+          disabled={disabled}
+          activeStep={activeStep}
+          topicIndex={0}
+          label="Left Topic Types"
+        />
+
+        <TypeVerificationCard
+          onStepClick={onStepClick}
+          disabled={disabled}
+          activeStep={activeStep}
+          topicIndex={1}
+          label="Right Topic Types"
+        />
+      </div>
+
       {/* Join Keys - Left and Right */}
       <div className="flex flex-row gap-4">
         <SingleColumnCard
@@ -358,6 +522,9 @@ const JoinDeduplicationCase = ({
       </div>
 
       {/* Note: Filter is not available for multi-topic journeys */}
+
+      {/* Transformation card (if stateless transformations are enabled) */}
+      <TransformationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} pipeline={pipeline} />
 
       {/* Destination Table and Schema Mapping */}
       <DoubleColumnCard
@@ -509,6 +676,7 @@ function TransformationSection({
         disabled={disabled}
         validation={validation}
         activeStep={activeStep}
+        pipeline={pipeline}
       />
     )
   }
@@ -537,6 +705,7 @@ function TransformationSection({
         activeStep={activeStep}
         leftHasDedup={leftTopicDeduplication}
         rightHasDedup={rightTopicDeduplication}
+        pipeline={pipeline}
       />
     )
   }
@@ -556,6 +725,7 @@ function TransformationSection({
         disabled={disabled}
         validation={validation}
         activeStep={activeStep}
+        pipeline={pipeline}
       />
     )
   }
@@ -571,6 +741,7 @@ function TransformationSection({
           width="full"
           disabled={disabled}
         />
+        <TransformationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} pipeline={pipeline} />
         <DoubleColumnCard
           label={['Destination Table', 'Schema Mapping']}
           value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}

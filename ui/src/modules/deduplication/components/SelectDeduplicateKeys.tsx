@@ -3,7 +3,7 @@ import { Label } from '@/src/components/ui/label'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { JSONDateTypesSelector } from '@/src/components/shared/JSONDateTypesSelector'
 import { useStore } from '@/src/store'
-import { extractEventFields } from '@/src/utils/common.client'
+import { extractEventFields, getEffectiveFieldNames, type SchemaField } from '@/src/utils/common.client'
 import { TimeWindowConfigurator } from './TimeWindowConfigurator'
 import { TIME_WINDOW_UNIT_OPTIONS } from '../../../config/constants'
 
@@ -13,9 +13,18 @@ interface SelectDeduplicateKeysProps {
   onChange: (keyConfig: { key: string; keyType: string }, windowConfig: { window: number; unit: string }) => void
   eventData: Record<string, any>
   readOnly?: boolean
+  /** Optional schema fields from KafkaTypeVerification - if provided, will use these for field names */
+  schemaFields?: SchemaField[]
 }
 
-function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, readOnly }: SelectDeduplicateKeysProps) {
+function SelectDeduplicateKeys({
+  index,
+  disabled = false,
+  onChange,
+  eventData,
+  readOnly,
+  schemaFields,
+}: SelectDeduplicateKeysProps) {
   const [selectedKey, setSelectedKey] = useState('')
   const [selectedKeyType, setSelectedKeyType] = useState('string')
   const [localWindow, setLocalWindow] = useState(1)
@@ -40,31 +49,36 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
       setLocalWindowUnit(deduplicationConfig.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
     }
 
-    // Process event data
-    if (eventData) {
-      setIsLoading(true)
-      setError(null)
+    // Process event data - prefer schema fields if available (from KafkaTypeVerification)
+    setIsLoading(true)
+    setError(null)
 
-      try {
-        // Extract the actual event data
+    try {
+      let keys: string[] = []
+
+      // If schema fields are provided (from KafkaTypeVerification), use them
+      // This ensures we respect added/removed fields from the type verification step
+      if (schemaFields && schemaFields.length > 0) {
+        keys = getEffectiveFieldNames(schemaFields)
+      } else if (eventData) {
+        // Fallback: extract fields from the event data
+        // Note: eventData should already be the "effective" event with modifications applied
         const actualEventData = eventData || {}
-
-        // Use the nested event keys function to get all available fields including nested ones
-        const keys = extractEventFields(actualEventData)
-
-        if (keys.length > 0) {
-          setAvailableKeys(keys)
-        } else {
-          setError('No keys found in event data')
-        }
-      } catch (error) {
-        console.error('Error processing event data:', error)
-        setError('Error processing event data')
-      } finally {
-        setIsLoading(false)
+        keys = extractEventFields(actualEventData)
       }
+
+      if (keys.length > 0) {
+        setAvailableKeys(keys)
+      } else {
+        setError('No keys found in event data')
+      }
+    } catch (err) {
+      console.error('Error processing event data:', err)
+      setError('Error processing event data')
+    } finally {
+      setIsLoading(false)
     }
-  }, [deduplicationConfig, eventData])
+  }, [deduplicationConfig, eventData, schemaFields])
 
   // Simplified getAvailableKeys - no need to filter out selected keys
   const getAvailableKeys = useCallback(() => {

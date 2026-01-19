@@ -98,6 +98,7 @@ export const buildInternalPipelineConfig = ({
   kafkaStore,
   deduplicationStore,
   filterStore,
+  transformationStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -110,6 +111,7 @@ export const buildInternalPipelineConfig = ({
   kafkaStore: any
   deduplicationStore: any
   filterStore?: any
+  transformationStore?: any
 }): InternalPipelineConfig => {
   // Generate a new pipeline ID if one doesn't exist
   let finalPipelineId = pipelineId
@@ -501,6 +503,40 @@ export const buildInternalPipelineConfig = ({
             },
           }
       : {}),
+    // Include transformation configuration only for single-topic pipelines
+    // Transformation is not available for multi-topic journeys
+    ...(topicsConfig.length === 1
+      ? transformationStore?.transformationConfig?.enabled &&
+        transformationStore?.transformationConfig?.fields?.length > 0
+        ? {
+            transformation: {
+              enabled: true,
+              expression: transformationStore.expressionString || '',
+              fields: transformationStore.transformationConfig.fields.map((field: any) => ({
+                id: field.id,
+                type: field.type,
+                outputFieldName: field.outputFieldName,
+                outputFieldType: field.outputFieldType,
+                ...(field.type === 'passthrough'
+                  ? {
+                      sourceField: field.sourceField,
+                      sourceFieldType: field.sourceFieldType,
+                    }
+                  : {
+                      functionName: field.functionName,
+                      functionArgs: field.functionArgs,
+                    }),
+              })),
+            },
+          }
+        : {
+            transformation: {
+              enabled: false,
+              expression: '',
+              fields: [],
+            },
+          }
+      : {}),
   }
 
   return config
@@ -519,6 +555,7 @@ export const generateApiConfig = ({
   kafkaStore,
   deduplicationStore,
   filterStore,
+  transformationStore,
   version, // New optional parameter
 }: {
   pipelineId: string
@@ -532,6 +569,7 @@ export const generateApiConfig = ({
   kafkaStore: any
   deduplicationStore: any
   filterStore?: any
+  transformationStore?: any
   version?: string
 }) => {
   try {
@@ -548,6 +586,7 @@ export const generateApiConfig = ({
       kafkaStore,
       deduplicationStore,
       filterStore,
+      transformationStore,
     })
 
     // 2. Get the appropriate adapter
