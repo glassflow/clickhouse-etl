@@ -104,6 +104,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 }
 
 func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context, maxWait time.Duration) error {
+	ch.log.InfoContext(ctx, "starting to fetch messages")
 	messages, err := ch.fetchMessages(ctx, maxWait)
 	if err != nil {
 		return fmt.Errorf("fetch messages: %w", err)
@@ -142,6 +143,7 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 		return fmt.Errorf("fetch pending messages: %w", err)
 	}
 
+	ch.log.InfoContext(ctx, "started writing data to clickhouse")
 	err = ch.flushEvents(ctx, messages)
 	if err != nil {
 		return fmt.Errorf("flush pending messages: %w", err)
@@ -160,6 +162,7 @@ func (ch *ClickHouseSink) fetchMessages(ctx context.Context, maxWait time.Durati
 
 func (ch *ClickHouseSink) fetchMessagesNoWait(ctx context.Context) ([]jetstream.Msg, error) {
 	msgBatch, err := ch.streamConsumer.FetchNoWait(ch.sinkConfig.Batch.MaxBatchSize)
+	ch.log.InfoContext(ctx, "got batch from nats")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch messages: %w", err)
 	}
