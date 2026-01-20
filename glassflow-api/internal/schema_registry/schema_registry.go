@@ -33,50 +33,50 @@ func NewSchemaRegistryClient(config models.SchemaRegistryConfig) (*SchemaRegistr
 	}, nil
 }
 
-func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) (zero models.SchemaFields, _ error) {
+func (s *SchemaRegistryClient) GetSchema(ctx context.Context, schemaID int) ([]models.Field, error) {
 	schema, err := s.client.SchemaByID(ctx, schemaID)
 	if err != nil {
 		if errors.Is(err, sr.ErrSchemaNotFound) {
-			return zero, models.ErrSchemaNotFound
+			return nil, models.ErrSchemaNotFound
 		}
-		return zero, fmt.Errorf("failed to get schema by id %d: %w", schemaID, err)
+		return nil, fmt.Errorf("failed to get schema by id %d: %w", schemaID, err)
 	}
 
 	if schema.Type != sr.TypeJSON {
-		return zero, fmt.Errorf("%w: expected %s, got %s", models.ErrUnexpectedSchemaFormat, sr.TypeJSON, schema.Type)
+		return nil, fmt.Errorf("%w: expected %s, got %s", models.ErrUnexpectedSchemaFormat, sr.TypeJSON, schema.Type)
 	}
 
 	return parseJSONSchema(schema.Schema)
 }
 
-func parseJSONSchema(schema string) (zero models.SchemaFields, _ error) {
+func parseJSONSchema(schema string) ([]models.Field, error) {
 	schemaType := gjson.Get(schema, "type")
 	if !schemaType.Exists() || schemaType.String() != "object" {
-		return zero, models.ErrInvalidSchema
+		return nil, models.ErrInvalidSchema
 	}
 
 	properties := gjson.Get(schema, "properties")
 	additionalProperties := gjson.Get(schema, "additionalProperties")
 	if !properties.Exists() && !additionalProperties.Exists() {
-		return zero, models.ErrInvalidSchema
+		return nil, models.ErrInvalidSchema
 	}
 
-	var fields models.SchemaFields
+	fields := make([]models.Field, 0)
 	if properties.Exists() {
 		propertiesFields := extractFieldTypes(properties)
-		fields.Fields = append(fields.Fields, propertiesFields.Fields...)
+		fields = append(fields, propertiesFields...)
 	}
 
 	if additionalProperties.Exists() {
 		additionalFields := extractFieldTypes(additionalProperties)
-		fields.Fields = append(fields.Fields, additionalFields.Fields...)
+		fields = append(fields, additionalFields...)
 	}
 
 	return fields, nil
 }
 
-func extractFieldTypes(properties gjson.Result) models.SchemaFields {
-	var fields models.SchemaFields
+func extractFieldTypes(properties gjson.Result) []models.Field {
+	fields := make([]models.Field, 0)
 	properties.ForEach(func(key, value gjson.Result) bool {
 		fieldType := value.Get("type")
 		if !fieldType.Exists() {
@@ -92,15 +92,15 @@ func extractFieldTypes(properties gjson.Result) models.SchemaFields {
 				return true
 			}
 
-			for _, field := range nestedFields.Fields {
+			for _, field := range nestedFields {
 				combinedName := fmt.Sprintf("%s.%s", key.String(), field.Name)
-				fields.Fields = append(fields.Fields, models.Field{Name: combinedName, Type: field.Type})
+				fields = append(fields, models.Field{Name: combinedName, Type: field.Type})
 			}
 
 			return true
 		}
 
-		fields.Fields = append(fields.Fields, models.Field{
+		fields = append(fields, models.Field{
 			Name: key.String(),
 			Type: dataType,
 		})
