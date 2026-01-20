@@ -29,3 +29,7 @@ func IsInvalidPipelineID(err error) bool { return errors.Is(err, ErrInvalidPipel
 var ErrRecordNotFound = errors.New("record not found")
 
 func IsRecordNotFoundErr(err error) bool { return errors.Is(err, ErrRecordNotFound) }
+
+var ErrSchemaVerionNotFound = errors.New("schema version not found")
+
+func IsSchemaVersionNotFoundErr(err error) bool { return errors.Is(err, ErrSchemaVerionNotFound) }
