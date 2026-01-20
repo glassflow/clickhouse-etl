@@ -98,7 +98,7 @@ export function NotificationsPanel() {
       <SheetContent
         side="right"
         className={cn(
-          'w-full sm:max-w-md flex flex-col p-0',
+          'w-full sm:max-w-lg flex flex-col p-0',
           'bg-[var(--surface-bg-overlay)]',
           'border-l border-[var(--surface-border)]'
         )}
@@ -314,7 +314,7 @@ export function NotificationsPanel() {
           )}
 
           {!error && filteredNotifications.length > 0 && (
-            <div className="divide-y divide-[var(--surface-border)]">
+            <div className="flex flex-col gap-3 p-4">
               {filteredNotifications.map((notification, index) => (
                 <div
                   key={notification.notification_id}
@@ -327,6 +327,7 @@ export function NotificationsPanel() {
                     onSelect={() => toggleSelection(notification.notification_id)}
                     onMarkAsRead={() => markAsRead(notification.notification_id)}
                     onDelete={() => deleteNotification(notification.notification_id)}
+                    onClosePanel={closePanel}
                   />
                 </div>
               ))}

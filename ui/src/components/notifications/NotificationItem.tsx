@@ -1,6 +1,8 @@
 'use client'
 
-import { Check, Trash2, AlertCircle, AlertTriangle, Info, XCircle } from 'lucide-react'
+import { useState } from 'react'
+import Link from 'next/link'
+import { Check, Trash2, AlertCircle, AlertTriangle, Info, XCircle, Copy, ExternalLink } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import { Button } from '@/src/components/ui/button'
 import type { Notification, NotificationSeverity } from '@/src/services/notifications-api'
@@ -11,6 +13,7 @@ interface NotificationItemProps {
   onSelect: () => void
   onMarkAsRead: () => void
   onDelete: () => void
+  onClosePanel?: () => void
 }
 
 /**
@@ -97,18 +100,40 @@ export function NotificationItem({
   onSelect,
   onMarkAsRead,
   onDelete,
+  onClosePanel,
 }: NotificationItemProps) {
-  const { notification_id, title, message, severity, timestamp, read, pipeline_id } = notification
+  const { notification_id, title, message, severity, timestamp, read, pipeline_id, event_type } = notification
   const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.info
   const SeverityIcon = config.icon
+
+  // State for copy feedback
+  const [copied, setCopied] = useState(false)
+
+  // Check if we should show the "Go to pipeline" button (not for deleted pipelines)
+  const showGoToPipeline = pipeline_id && event_type !== 'pipeline_deleted'
+
+  const handleCopyPipelineId = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!pipeline_id) return
+
+    try {
+      await navigator.clipboard.writeText(pipeline_id)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy pipeline ID:', err)
+    }
+  }
 
   return (
     <div
       className={cn(
         'group relative flex gap-3 p-4',
-        'border-l-4 rounded-r-[var(--radius-medium)]',
+        // 'border-l-1 rounded-[var(--radius-medium)]',
+        'border-0 rounded-[var(--radius-medium)]',
         'transition-all duration-200',
-        'hover:bg-[var(--option-bg-hover)]',
+        'bg-[var(--surface-bg)]',
+        'hover:bg-[var(--option-bg-hover)] hover:shadow-md',
         !read && 'bg-[var(--option-bg-selected)]',
         isSelected && 'bg-[var(--option-bg-highlighted)] ring-1 ring-[var(--color-border-primary)]'
       )}
@@ -116,7 +141,7 @@ export function NotificationItem({
         borderLeftColor: config.borderColorVar,
       }}
     >
-      {/* Checkbox for selection */}
+      {/* Checkbox */}
       <div className="flex items-start pt-0.5">
         <input
           type="checkbox"
@@ -132,32 +157,41 @@ export function NotificationItem({
         />
       </div>
 
-      {/* Severity icon */}
-      <div
-        className="flex-shrink-0 pt-0.5 p-1.5 rounded-[var(--radius-small)]"
-        style={{ backgroundColor: config.bgColorVar }}
-      >
-        <SeverityIcon
-          className="h-4 w-4"
-          style={{ color: config.colorVar }}
-        />
-      </div>
-
       {/* Content */}
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-start justify-between gap-2">
-          <h4
-            className={cn(
-              'text-sm font-medium truncate',
-              !read && 'text-[var(--text-primary)]',
-              read && 'text-[var(--text-secondary)]'
+          <div className="flex items-center gap-2">
+            {/* Unread indicator dot - inline with title */}
+            {!read && (
+              <div
+                className={cn(
+                  'w-2 h-2 rounded-full flex-shrink-0',
+                  'bg-[var(--color-background-primary)]',
+                  'shadow-[0_0_4px_var(--color-background-primary)]'
+                )}
+                aria-label="Unread"
+              />
             )}
-          >
-            {title}
-          </h4>
-          <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap flex-shrink-0">
-            {formatTimestamp(timestamp)}
-          </span>
+            <h4
+              className={cn(
+                'text-sm font-medium truncate',
+                !read && 'text-[var(--text-primary)]',
+                read && 'text-[var(--text-secondary)]'
+              )}
+            >
+              {title}
+            </h4>
+          </div>
+          {/* Severity icon and timestamp - top right */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap mr-2">
+              {formatTimestamp(timestamp)}
+            </span>
+            <SeverityIcon
+              className="h-4 w-4"
+              style={{ color: config.colorVar }}
+            />
+          </div>
         </div>
 
         <p
@@ -169,72 +203,100 @@ export function NotificationItem({
           {message}
         </p>
 
-        {pipeline_id && (
-          <p className="text-xs text-[var(--text-secondary)]">
-            Pipeline: <span className="font-mono text-[var(--text-primary)]">{pipeline_id}</span>
-          </p>
-        )}
-      </div>
+        {/* Bottom row: pipeline info and action buttons */}
+        <div className="flex items-center justify-between gap-2 pt-1">
+          {pipeline_id ? (
+            <div className="flex items-center gap-1.5 group/pipeline">
+              <p className="text-xs text-[var(--text-secondary)]">
+                Pipeline: <span className="font-mono text-[var(--text-primary)]">{pipeline_id}</span>
+              </p>
+              <button
+                onClick={handleCopyPipelineId}
+                className={cn(
+                  'p-0.5 rounded transition-all duration-200',
+                  'opacity-0 group-hover/pipeline:opacity-100',
+                  copied
+                    ? 'text-[var(--color-foreground-positive)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]'
+                )}
+                title={copied ? 'Copied!' : 'Copy pipeline ID'}
+              >
+                {copied ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </button>
+              {showGoToPipeline && (
+                <Link
+                  href={`/pipelines/${pipeline_id}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClosePanel?.()
+                  }}
+                  className={cn(
+                    'p-0.5 rounded transition-all duration-200',
+                    'opacity-0 group-hover/pipeline:opacity-100',
+                    'text-[var(--text-secondary)] hover:text-[var(--color-foreground-primary)] hover:bg-[var(--color-background-primary-faded)]'
+                  )}
+                  title="Go to pipeline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div />
+          )}
 
-      {/* Action buttons - visible on hover or when focused */}
-      <div
-        className={cn(
-          'flex flex-col gap-1',
-          'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
-          'transition-opacity duration-200'
-        )}
-      >
-        {!read && (
-          <Button
-            variant="ghost"
-            size="sm"
+          {/* Action buttons - horizontal, bottom right */}
+          <div
             className={cn(
-              'h-7 w-7 p-0',
-              'hover:bg-[var(--color-background-positive-faded)] hover:text-[var(--color-foreground-positive)]',
-              'transition-all duration-200'
+              'flex items-center gap-1',
+              'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+              'transition-opacity duration-200'
             )}
-            onClick={(e) => {
-              e.stopPropagation()
-              onMarkAsRead()
-            }}
-            title="Mark as read"
           >
-            <Check className="h-4 w-4" />
-            <span className="sr-only">Mark as read</span>
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            'h-7 w-7 p-0',
-            'text-[var(--color-foreground-critical)]',
-            'hover:text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-faded)]',
-            'transition-all duration-200'
-          )}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          title="Delete notification"
-        >
-          <Trash2 className="h-4 w-4" />
-          <span className="sr-only">Delete</span>
-        </Button>
+            {!read && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-6 w-6 p-0',
+                  'hover:bg-[var(--color-background-positive-faded)] hover:text-[var(--color-foreground-positive)]',
+                  'transition-all duration-200'
+                )}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMarkAsRead()
+                }}
+                title="Mark as read"
+              >
+                <Check className="h-3.5 w-3.5" />
+                <span className="sr-only">Mark as read</span>
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-6 w-6 p-0',
+                'text-[var(--color-foreground-critical)]',
+                'hover:text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-faded)]',
+                'transition-all duration-200'
+              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              title="Delete notification"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="sr-only">Delete</span>
+            </Button>
+          </div>
+        </div>
       </div>
-
-      {/* Unread indicator dot */}
-      {!read && (
-        <div
-          className={cn(
-            'absolute top-4 right-4',
-            'w-2 h-2 rounded-full',
-            'bg-[var(--color-background-primary)]',
-            'shadow-[0_0_4px_var(--color-background-primary)]'
-          )}
-          aria-label="Unread"
-        />
-      )}
     </div>
   )
 }
