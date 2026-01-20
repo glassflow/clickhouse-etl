@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -18,7 +19,7 @@ func (s *PostgresStorage) upsertSchemaVersion(ctx context.Context, tx pgx.Tx, pi
 		err := tx.QueryRow(ctx, `
 			SELECT version_id FROM schema_versions 
 			WHERE pipeline_id = $1 AND source_id = $2 
-			ORDER BY CAST(version_id AS INTEGER) DESC LIMIT 1
+			ORDER BY created_at DESC LIMIT 1
 		`, pipelineID, sourceID).Scan(&latestVersion)
 
 		if err != nil && err != pgx.ErrNoRows {
@@ -26,7 +27,7 @@ func (s *PostgresStorage) upsertSchemaVersion(ctx context.Context, tx pgx.Tx, pi
 		}
 
 		// If no previous version exists, start with "1"
-		if err == pgx.ErrNoRows || latestVersion == "" {
+		if errors.Is(err, pgx.ErrNoRows) || latestVersion == "" {
 			version = "1"
 		} else {
 			// Parse and increment
@@ -76,7 +77,7 @@ func (s *PostgresStorage) getSchemaVersion(ctx context.Context, tx pgx.Tx, pipel
 		&fieldsJSON,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return zero, models.ErrRecordNotFound
 		}
 		return zero, fmt.Errorf("get schema version: %w", err)
@@ -111,7 +112,7 @@ func (s *PostgresStorage) getLatestSchemaVersion(ctx context.Context, tx pgx.Tx,
 		&fieldsJSON,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return zero, models.ErrRecordNotFound
 		}
 		return zero, fmt.Errorf("get latest schema version: %w", err)
