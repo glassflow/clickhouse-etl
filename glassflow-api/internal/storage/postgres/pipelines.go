@@ -160,7 +160,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return err
 	}
 
-	err = s.insertKafkaSourceSchemaVersions(ctx, tx, p.ID, p)
+	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, p.ID, p)
 	if err != nil {
 		return err
 	}
@@ -363,7 +363,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	}
 
 	// Update Kafka source schema versions
-	err = s.updateKafkaSourceSchemaVersions(ctx, tx, existingData.pipelineID, newCfg)
+	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, existingData.pipelineID, newCfg)
 	if err != nil {
 		return err
 	}
@@ -689,33 +689,12 @@ func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafk
 }
 
 // insertKafkaSourceSchemaVersions inserts schema versions for Kafka topics
-func (s *PostgresStorage) insertKafkaSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig) error {
+func (s *PostgresStorage) upsertKafkaSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig) error {
 	// backward compatibility check
 	if p.SchemaVersions == nil {
 		return nil
 	}
 
-	for _, topic := range p.Ingestor.KafkaTopics {
-		// schemaVersion, found := models.GetSchemaVersion(p.SchemaVersions, topic.Name)
-		schema, found := p.SchemaVersions[topic.Name]
-		if !found {
-			return fmt.Errorf("schema version for topic '%s' not found", topic.Name)
-		}
-
-		versionID, err := s.upsertSchemaVersion(ctx, tx, pipelineID, topic.Name, schema.VersionID, schema.Fields)
-		if err != nil {
-			return fmt.Errorf("upsert schema version for topic '%s': %w", topic.Name, err)
-		}
-
-		schema.VersionID = versionID
-		p.SchemaVersions[topic.Name] = schema
-	}
-
-	return nil
-}
-
-// updateKafkaSourceSchemaVersions updates schema versions for Kafka topics
-func (s *PostgresStorage) updateKafkaSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig) error {
 	for _, topic := range p.Ingestor.KafkaTopics {
 		schema, found := p.SchemaVersions[topic.Name]
 		if !found {

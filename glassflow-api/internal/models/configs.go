@@ -746,3 +746,23 @@ type Mapping struct {
 	DestinationField string `json:"destination_field"`
 	DestinationType  string `json:"destination_type"`
 }
+
+type TransformationConfig struct {
+	SourceID              string
+	SourceSchemaVersionID string
+	OutputSchemaVersionID string
+	Config                []Transform
+}
+
+type JoinConfig struct {
+	SourceID              string
+	SourceSchemaVersionID string
+	OutputSchemaVersionID string
+	Config                []JoinRule
+}
+
+type SinkConfig struct {
+	SourceID              string
+	SourceSchemaVersionID string
+	Config                []Mapping
+}

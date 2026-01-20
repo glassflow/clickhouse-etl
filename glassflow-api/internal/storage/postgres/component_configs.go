@@ -3,34 +3,12 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/jackc/pgx/v5"
 )
-
-// TransformationConfig represents a transformation configuration with metadata
-type TransformationConfig struct {
-	SourceID              string
-	SourceSchemaVersionID string
-	OutputSchemaVersionID string
-	Config                []models.Transform
-}
-
-// JoinConfig represents a join configuration with metadata
-type JoinConfig struct {
-	SourceID              string
-	SourceSchemaVersionID string
-	OutputSchemaVersionID string
-	Config                []models.JoinRule
-}
-
-// SinkConfig represents a sink configuration with metadata
-type SinkConfig struct {
-	SourceID              string
-	SourceSchemaVersionID string
-	Config                []models.Mapping
-}
 
 func (s *PostgresStorage) insertStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID string, config []models.Transform) error {
 	configJSON, err := json.Marshal(config)
@@ -67,9 +45,9 @@ func (s *PostgresStorage) updateStatelessTransformationConfig(ctx context.Contex
 	return nil
 }
 
-func (s *PostgresStorage) getStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*TransformationConfig, error) {
+func (s *PostgresStorage) getStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error) {
 	var (
-		result     TransformationConfig
+		result     models.TransformationConfig
 		configJSON []byte
 	)
 
@@ -84,7 +62,7 @@ func (s *PostgresStorage) getStatelessTransformationConfig(ctx context.Context, 
 		&configJSON,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("get transformation config: %w", err)
@@ -132,9 +110,9 @@ func (s *PostgresStorage) updateJoinConfig(ctx context.Context, tx pgx.Tx, pipel
 	return nil
 }
 
-func (s *PostgresStorage) getJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*JoinConfig, error) {
+func (s *PostgresStorage) getJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*models.JoinConfig, error) {
 	var (
-		result     JoinConfig
+		result     models.JoinConfig
 		configJSON []byte
 	)
 
@@ -149,7 +127,7 @@ func (s *PostgresStorage) getJoinConfig(ctx context.Context, tx pgx.Tx, pipeline
 		&configJSON,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("get join config: %w", err)
@@ -197,9 +175,9 @@ func (s *PostgresStorage) updateSinkConfig(ctx context.Context, tx pgx.Tx, pipel
 	return nil
 }
 
-func (s *PostgresStorage) getSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*SinkConfig, error) {
+func (s *PostgresStorage) getSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
 	var (
-		result     SinkConfig
+		result     models.SinkConfig
 		configJSON []byte
 	)
 
@@ -213,7 +191,7 @@ func (s *PostgresStorage) getSinkConfig(ctx context.Context, tx pgx.Tx, pipeline
 		&configJSON,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, models.ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("get sink config: %w", err)
