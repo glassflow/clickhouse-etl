@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -289,8 +288,6 @@ func GetMapperConfig() models.MapperConfig {
 
 // MetricsCollector collects benchmark metrics
 type MetricsCollector struct {
-	mu sync.Mutex
-
 	// Producer metrics
 	publishedCount int64
 	publishErrors  int64
