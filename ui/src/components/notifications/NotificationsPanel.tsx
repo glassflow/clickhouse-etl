@@ -112,7 +112,7 @@ export function NotificationsPanel() {
             'bg-[var(--surface-bg)]'
           )}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pr-8">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-[var(--radius-medium)] bg-[var(--color-background-primary-faded)]">
                 <Bell className="h-5 w-5 text-[var(--color-foreground-primary)]" />
@@ -125,22 +125,24 @@ export function NotificationsPanel() {
                   {unreadCount} new
                 </Badge>
               )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className={cn(
+                  'h-8 w-8 p-0',
+                  'hover:bg-[var(--color-background-neutral-faded)]',
+                  'transition-all duration-200'
+                )}
+                title="Refresh notifications"
+              >
+                <RefreshCw className={cn('h-4 w-4 text-[var(--text-secondary)]', isLoading && 'animate-spin')} />
+                <span className="sr-only">Refresh</span>
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className={cn(
-                'h-8 w-8 p-0',
-                'hover:bg-[var(--color-background-neutral-faded)]',
-                'transition-all duration-200'
-              )}
-              title="Refresh notifications"
-            >
-              <RefreshCw className={cn('h-4 w-4 text-[var(--text-secondary)]', isLoading && 'animate-spin')} />
-              <span className="sr-only">Refresh</span>
-            </Button>
+
           </div>
         </SheetHeader>
 
