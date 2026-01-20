@@ -5,6 +5,7 @@
 NEXT_PUBLIC_USE_MOCK_API=false
 NEXT_PUBLIC_ANALYTICS_ENABLED=true
 NEXT_PUBLIC_FILTERS_ENABLED=false
+NEXT_PUBLIC_NOTIFICATIONS_ENABLED=false
 
 # Real API Configuration (used when mock mode is disabled)
 NEXT_PUBLIC_API_URL=http://app:8081

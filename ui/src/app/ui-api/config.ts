@@ -42,6 +42,25 @@ export const runtimeConfig = {
   get previewMode(): boolean {
     return process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
   },
+  /**
+   * Get the notifier service URL for the shared notification system.
+   * Uses non-prefixed NOTIFIER_URL for runtime configuration.
+   * Falls back to NEXT_PUBLIC_NOTIFIER_URL for backward compatibility.
+   * Default: http://notifier:8080 (Docker internal network)
+   */
+  get notifierUrl(): string {
+    // Use non-prefixed NOTIFIER_URL - NOT inlined by Next.js, read at runtime
+    // Falls back to NEXT_PUBLIC_NOTIFIER_URL for backward compatibility
+    const notifierUrl = process.env.NOTIFIER_URL || process.env.NEXT_PUBLIC_NOTIFIER_URL || 'http://notifier:8080'
+    // Remove trailing slash if present
+    return notifierUrl.replace(/\/$/, '')
+  },
+  /**
+   * Check if notifications feature is enabled.
+   */
+  get notificationsEnabled(): boolean {
+    return process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED === 'true'
+  },
 }
 
 // This configuration will be available at runtime

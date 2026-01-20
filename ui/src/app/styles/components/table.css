@@ -69,6 +69,23 @@
     text-align: right;
   }
 
+  /* Notifications table specific cell constraints */
+  .notifications-table-row .table-cell:nth-child(3) {
+    /* Title column - prevent excessive expansion */
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .notifications-table-row .table-cell:last-child {
+    /* Actions column - fixed width, always reserve space for both buttons */
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
   .table-cell-empty {
     grid-column: 1 / -1;
     text-align: center;
@@ -96,6 +113,63 @@
     /* Hide table on mobile - will use separate mobile component */
     .table-container {
       display: none;
+    }
+  }
+
+  /* Notifications table specific responsive grid */
+  .notifications-table-row {
+    display: grid !important;
+    grid-template-columns: 40px 100px minmax(150px, 1fr) 0 0 80px 120px;
+    gap: var(--table-gap);
+    align-items: center;
+  }
+
+  /* Hide columns on smaller screens but keep them in grid flow */
+  .notifications-table-row .table-header-cell:nth-child(4),
+  .notifications-table-row .table-cell:nth-child(4) {
+    visibility: hidden;
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .notifications-table-row .table-header-cell:nth-child(5),
+  .notifications-table-row .table-cell:nth-child(5) {
+    visibility: hidden;
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  @media (min-width: 768px) {
+    .notifications-table-row {
+      grid-template-columns: 40px 100px minmax(200px, 1fr) 150px 0 80px 120px;
+    }
+
+    .notifications-table-row .table-header-cell:nth-child(4),
+    .notifications-table-row .table-cell:nth-child(4) {
+      visibility: visible;
+      width: auto;
+      min-width: 0;
+      padding: inherit;
+      overflow: visible;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .notifications-table-row {
+      grid-template-columns: 40px 100px minmax(200px, 1fr) 150px 180px 80px 120px;
+    }
+
+    .notifications-table-row .table-header-cell:nth-child(5),
+    .notifications-table-row .table-cell:nth-child(5) {
+      visibility: visible;
+      width: auto;
+      min-width: 0;
+      padding: inherit;
+      overflow: visible;
     }
   }
 }

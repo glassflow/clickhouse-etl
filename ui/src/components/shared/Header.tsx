@@ -18,6 +18,7 @@ import { Button } from '@/src/components/ui/button'
 import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 import { PlatformBadge } from './PlatformBadge'
+import { NotificationBadge } from './NotificationBadge'
 import { getRuntimeEnv } from '@/src/utils/common.client'
 import { UserSection } from './UserSection'
 
@@ -359,10 +360,11 @@ export function Header() {
             </nav>
           </div>
 
-          {/* Right Section: Platform Badge + Auth + Help Menu */}
+          {/* Right Section: Platform Badge + Auth + Notifications + Help Menu */}
           <div className="flex items-center gap-3">
             <PlatformBadge />
             {isAuthEnabled && <UserSection />}
+            <NotificationBadge />
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>
