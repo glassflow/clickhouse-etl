@@ -118,6 +118,7 @@ func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context, maxWait time.Durati
 		defer cancel()
 	}
 
+	ch.log.InfoContext(ctx, "started writing data to clickhouse")
 	err = ch.flushEvents(flushCtx, messages)
 	if err != nil {
 		return fmt.Errorf("flush events: %w", err)
