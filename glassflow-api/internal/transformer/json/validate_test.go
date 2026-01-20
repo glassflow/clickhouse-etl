@@ -11,18 +11,16 @@ import (
 func TestValidateTransformationAgainstSchema(t *testing.T) {
 	tests := []struct {
 		name            string
-		schema          models.SchemaFields
+		schema          []models.Field
 		transformations []models.Transform
 		wantErr         bool
 		errContains     string
 	}{
 		{
 			name: "valid transformation with existing field",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "name", Type: internal.KafkaTypeString},
-					{Name: "age", Type: internal.KafkaTypeInt32},
-				},
+			schema: []models.Field{
+				{Name: "name", Type: internal.KafkaTypeString},
+				{Name: "age", Type: internal.KafkaTypeInt32},
 			},
 			transformations: []models.Transform{
 				{
@@ -35,12 +33,10 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with multiple fields",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "first_name", Type: internal.KafkaTypeString},
-					{Name: "last_name", Type: internal.KafkaTypeString},
-					{Name: "age", Type: internal.KafkaTypeInt32},
-				},
+			schema: []models.Field{
+				{Name: "first_name", Type: internal.KafkaTypeString},
+				{Name: "last_name", Type: internal.KafkaTypeString},
+				{Name: "age", Type: internal.KafkaTypeInt32},
 			},
 			transformations: []models.Transform{
 				{
@@ -63,11 +59,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with string concatenation",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "first_name", Type: internal.KafkaTypeString},
-					{Name: "last_name", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "first_name", Type: internal.KafkaTypeString},
+				{Name: "last_name", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -80,11 +74,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with custom functions",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "text", Type: internal.KafkaTypeString},
-					{Name: "number", Type: internal.KafkaTypeInt32},
-				},
+			schema: []models.Field{
+				{Name: "text", Type: internal.KafkaTypeString},
+				{Name: "number", Type: internal.KafkaTypeInt32},
 			},
 			transformations: []models.Transform{
 				{
@@ -102,10 +94,8 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "invalid transformation - unknown field",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -119,11 +109,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "invalid transformation - field not in schema",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "id", Type: internal.KafkaTypeInt32},
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "id", Type: internal.KafkaTypeInt32},
+				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -137,10 +125,8 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "invalid transformation - syntax error",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -153,31 +139,25 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "empty transformations - should pass",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{},
 			wantErr:         false,
 		},
 		{
 			name: "nil transformations - should pass",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			transformations: nil,
 			wantErr:         false,
 		},
 		{
 			name: "valid transformation with nested field access",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "user", Type: internal.KafkaTypeString},
-					{Name: "data", Type: internal.KafkaTypeMap},
-				},
+			schema: []models.Field{
+				{Name: "user", Type: internal.KafkaTypeString},
+				{Name: "data", Type: internal.KafkaTypeMap},
 			},
 			transformations: []models.Transform{
 				{
@@ -190,11 +170,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with waterfall function",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "primary", Type: internal.KafkaTypeString},
-					{Name: "secondary", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "primary", Type: internal.KafkaTypeString},
+				{Name: "secondary", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -207,11 +185,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with type conversion",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "number_str", Type: internal.KafkaTypeString},
-					{Name: "value", Type: internal.KafkaTypeInt32},
-				},
+			schema: []models.Field{
+				{Name: "number_str", Type: internal.KafkaTypeString},
+				{Name: "value", Type: internal.KafkaTypeInt32},
 			},
 			transformations: []models.Transform{
 				{
@@ -229,11 +205,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with boolean fields",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "is_active", Type: internal.KafkaTypeBool},
-					{Name: "count", Type: internal.KafkaTypeInt32},
-				},
+			schema: []models.Field{
+				{Name: "is_active", Type: internal.KafkaTypeBool},
+				{Name: "count", Type: internal.KafkaTypeInt32},
 			},
 			transformations: []models.Transform{
 				{
@@ -246,22 +220,20 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with all supported types",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "str_field", Type: internal.KafkaTypeString},
-					{Name: "int_field", Type: internal.KafkaTypeInt},
-					{Name: "int32_field", Type: internal.KafkaTypeInt32},
-					{Name: "int64_field", Type: internal.KafkaTypeInt64},
-					{Name: "uint_field", Type: internal.KafkaTypeUint},
-					{Name: "uint32_field", Type: internal.KafkaTypeUint32},
-					{Name: "float_field", Type: internal.KafkaTypeFloat},
-					{Name: "float32_field", Type: internal.KafkaTypeFloat32},
-					{Name: "float64_field", Type: internal.KafkaTypeFloat64},
-					{Name: "bool_field", Type: internal.KafkaTypeBool},
-					{Name: "bytes_field", Type: internal.KafkaTypeBytes},
-					{Name: "array_field", Type: internal.KafkaTypeArray},
-					{Name: "map_field", Type: internal.KafkaTypeMap},
-				},
+			schema: []models.Field{
+				{Name: "str_field", Type: internal.KafkaTypeString},
+				{Name: "int_field", Type: internal.KafkaTypeInt},
+				{Name: "int32_field", Type: internal.KafkaTypeInt32},
+				{Name: "int64_field", Type: internal.KafkaTypeInt64},
+				{Name: "uint_field", Type: internal.KafkaTypeUint},
+				{Name: "uint32_field", Type: internal.KafkaTypeUint32},
+				{Name: "float_field", Type: internal.KafkaTypeFloat},
+				{Name: "float32_field", Type: internal.KafkaTypeFloat32},
+				{Name: "float64_field", Type: internal.KafkaTypeFloat64},
+				{Name: "bool_field", Type: internal.KafkaTypeBool},
+				{Name: "bytes_field", Type: internal.KafkaTypeBytes},
+				{Name: "array_field", Type: internal.KafkaTypeArray},
+				{Name: "map_field", Type: internal.KafkaTypeMap},
 			},
 			transformations: []models.Transform{
 				{
@@ -289,12 +261,10 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with array and map types",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "tags", Type: internal.KafkaTypeArray},
-					{Name: "metadata", Type: internal.KafkaTypeMap},
-					{Name: "name", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "tags", Type: internal.KafkaTypeArray},
+				{Name: "metadata", Type: internal.KafkaTypeMap},
+				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -312,11 +282,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with split and join",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "csv_data", Type: internal.KafkaTypeString},
-					{Name: "items", Type: internal.KafkaTypeArray},
-				},
+			schema: []models.Field{
+				{Name: "csv_data", Type: internal.KafkaTypeString},
+				{Name: "items", Type: internal.KafkaTypeArray},
 			},
 			transformations: []models.Transform{
 				{
@@ -329,11 +297,9 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with hasPrefix and hasSuffix",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "filename", Type: internal.KafkaTypeString},
-					{Name: "url", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "filename", Type: internal.KafkaTypeString},
+				{Name: "url", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -351,10 +317,8 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 		},
 		{
 			name: "valid transformation with replace",
-			schema: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "text", Type: internal.KafkaTypeString},
-				},
+			schema: []models.Field{
+				{Name: "text", Type: internal.KafkaTypeString},
 			},
 			transformations: []models.Transform{
 				{
@@ -369,7 +333,7 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateTransformationAgainstSchema(tt.transformations, tt.schema.Fields)
+			err := ValidateTransformationAgainstSchema(tt.transformations, tt.schema)
 
 			if tt.wantErr {
 				if err == nil {

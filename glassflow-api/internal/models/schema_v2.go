@@ -53,35 +53,3 @@ type Field struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 }
-
-type SchemaFields struct {
-	Fields []Field `json:"fields"`
-}
-
-func (s SchemaFields) HasField(fieldName string) bool {
-	for _, field := range s.Fields {
-		if field.Name == fieldName {
-			return true
-		}
-	}
-	return false
-}
-
-func (s SchemaFields) GetField(name string) (*Field, bool) {
-	for _, field := range s.Fields {
-		if field.Name == name {
-			return &field, true
-		}
-	}
-	return nil, false
-}
-
-// helper function to get schema version with given source ID from list of schema versions
-func GetSchemaVersion(schemaVersions []SchemaVersion, sourceID string) (*SchemaVersion, bool) {
-	for _, sv := range schemaVersions {
-		if sv.SourceID == sourceID {
-			return &sv, true
-		}
-	}
-	return nil, false
-}
