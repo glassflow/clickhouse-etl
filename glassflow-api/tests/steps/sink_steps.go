@@ -76,11 +76,6 @@ func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
 		return fmt.Errorf("unmarshal stream consumer config: %w", err)
 	}
 
-	ackWaitDuration, err := time.ParseDuration(cfg.AckWait)
-	if err != nil {
-		return fmt.Errorf("parse ack time: %w", err)
-	}
-
 	s.streamConfig = jetstream.StreamConfig{
 		Name:     cfg.StreamName,
 		Subjects: []string{cfg.SubjectName},
@@ -90,7 +85,7 @@ func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
 		Name:          cfg.ConsumerName,
 		Durable:       cfg.ConsumerName,
 		FilterSubject: cfg.SubjectName,
-		AckWait:       ackWaitDuration,
+		AckWait:       internal.NatsDefaultAckWait,
 		AckPolicy:     jetstream.AckAllPolicy,
 	}
 

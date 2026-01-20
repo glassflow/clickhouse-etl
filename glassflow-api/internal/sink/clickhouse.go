@@ -109,7 +109,15 @@ func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context, maxWait time.Durati
 		return fmt.Errorf("fetch messages: %w", err)
 	}
 
-	err = ch.flushEvents(ctx, messages)
+	// If context was cancelled during fetch, use a fresh context for flushing
+	flushCtx := ctx
+	if ctx.Err() != nil {
+		var cancel context.CancelFunc
+		flushCtx, cancel = context.WithTimeout(context.Background(), internal.SinkDefaultShutdownTimeout)
+		defer cancel()
+	}
+
+	err = ch.flushEvents(flushCtx, messages)
 	if err != nil {
 		return fmt.Errorf("flush events: %w", err)
 	}
@@ -160,17 +168,24 @@ func (ch *ClickHouseSink) fetchMessagesNoWait(ctx context.Context) ([]jetstream.
 
 func (ch *ClickHouseSink) collectMessagesFromBatch(ctx context.Context, msgBatch jetstream.MessageBatch) ([]jetstream.Msg, error) {
 	messages := make([]jetstream.Msg, 0, ch.sinkConfig.Batch.MaxBatchSize)
-	for msg := range msgBatch.Messages() {
-		if msg == nil {
-			break
+	msgChan := msgBatch.Messages()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Context cancelled, return what we have
+		case msg, ok := <-msgChan:
+			if ok && msg != nil {
+				messages = append(messages, msg)
+				continue
+			}
 		}
-		messages = append(messages, msg)
+		break
 	}
 
 	if len(messages) == 0 {
 		return nil, models.ErrNoNewMessages
 	}
-
 	if msgBatch.Error() != nil {
 		return nil, fmt.Errorf("failed to fetch messages: %w", msgBatch.Error())
 	}
