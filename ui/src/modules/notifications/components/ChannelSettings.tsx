@@ -1,24 +1,26 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Mail, MessageSquare, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+import { Mail, MessageSquare, RefreshCw, Settings, Plus } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
 import { Switch } from '@/src/components/ui/switch'
 import { Badge } from '@/src/components/ui/badge'
 import { cn } from '@/src/utils/common.client'
 import { notificationsApi, type Channel, type ChannelType } from '@/src/services/notifications-api'
+import { ChannelConfigDialog } from './ChannelConfigDialog'
 
 interface ChannelCardProps {
   channel: Channel | null
   channelType: ChannelType
   isLoading: boolean
   onToggle: (enabled: boolean) => Promise<void>
+  onConfigure: () => void
 }
 
 /**
  * Individual channel card component
  */
-function ChannelCard({ channel, channelType, isLoading, onToggle }: ChannelCardProps) {
+function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }: ChannelCardProps) {
   const [toggling, setToggling] = useState(false)
 
   const isSlack = channelType === 'slack'
@@ -37,6 +39,20 @@ function ChannelCard({ channel, channelType, isLoading, onToggle }: ChannelCardP
       await onToggle(checked)
     } finally {
       setToggling(false)
+    }
+  }
+
+  // Get configuration summary
+  const getConfigSummary = () => {
+    if (!channel) return null
+
+    if (isSlack) {
+      const config = channel.config as { webhook_url?: string; default_channel?: string }
+      return config.default_channel || 'Webhook configured'
+    } else {
+      const config = channel.config as { smtp_host?: string; to_addresses?: string }
+      const recipients = config.to_addresses?.split(',').length || 0
+      return `${config.smtp_host || 'SMTP configured'} • ${recipients} recipient${recipients !== 1 ? 's' : ''}`
     }
   }
 
@@ -62,7 +78,7 @@ function ChannelCard({ channel, channelType, isLoading, onToggle }: ChannelCardP
           >
             <Icon className="h-5 w-5" />
           </div>
-          <div>
+          <div className="flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-medium text-[var(--text-primary)]">{title}</h3>
               {isConfigured ? (
@@ -77,20 +93,36 @@ function ChannelCard({ channel, channelType, isLoading, onToggle }: ChannelCardP
             </div>
             <p className="text-sm text-[var(--text-secondary)] mt-1">{description}</p>
 
-            {/* Configuration status */}
-            {isConfigured && channel && (
-              <div className="mt-2 text-xs text-[var(--text-secondary)]">
-                {isSlack ? (
-                  <span>Webhook configured</span>
-                ) : (
-                  <span>SMTP: {(channel.config as any)?.smtp_host || 'configured'}</span>
-                )}
-              </div>
+            {/* Configuration summary */}
+            {isConfigured && (
+              <p className="mt-2 text-xs text-[var(--text-secondary)]">{getConfigSummary()}</p>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Configure/Edit button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onConfigure}
+            disabled={isLoading}
+            className="gap-1.5 btn-neutral transition-all duration-200"
+          >
+            {isConfigured ? (
+              <>
+                <Settings className="h-3.5 w-3.5" />
+                Edit
+              </>
+            ) : (
+              <>
+                <Plus className="h-3.5 w-3.5" />
+                Configure
+              </>
+            )}
+          </Button>
+
+          {/* Enable/Disable toggle - only show if configured */}
           {isConfigured && (
             <Switch
               checked={isEnabled}
@@ -115,6 +147,10 @@ export function ChannelSettings() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingChannelType, setEditingChannelType] = useState<ChannelType>('slack')
 
   const fetchChannels = useCallback(async () => {
     setIsLoading(true)
@@ -152,6 +188,16 @@ export function ChannelSettings() {
     },
     [fetchChannels],
   )
+
+  const handleConfigureChannel = (channelType: ChannelType) => {
+    setEditingChannelType(channelType)
+    setDialogOpen(true)
+  }
+
+  const handleDialogSuccess = () => {
+    // Refetch channels to get updated configuration
+    fetchChannels()
+  }
 
   const slackChannel = channels.find((ch) => ch.channel_type === 'slack') || null
   const emailChannel = channels.find((ch) => ch.channel_type === 'email') || null
@@ -204,12 +250,14 @@ export function ChannelSettings() {
           channelType="slack"
           isLoading={isLoading}
           onToggle={(enabled) => handleToggleChannel('slack', enabled)}
+          onConfigure={() => handleConfigureChannel('slack')}
         />
         <ChannelCard
           channel={emailChannel}
           channelType="email"
           isLoading={isLoading}
           onToggle={(enabled) => handleToggleChannel('email', enabled)}
+          onConfigure={() => handleConfigureChannel('email')}
         />
       </div>
 
@@ -220,11 +268,42 @@ export function ChannelSettings() {
             'transition-all duration-200'
           )}
         >
-          <p className="text-[var(--text-secondary)]">
-            No channels configured. Contact your administrator to set up notification channels.
+          <p className="text-[var(--text-secondary)] mb-4">
+            No channels configured yet. Configure a channel to start receiving notifications.
           </p>
+          <div className="flex justify-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleConfigureChannel('slack')}
+              className="gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Configure Slack
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleConfigureChannel('email')}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Configure Email
+            </Button>
+          </div>
         </div>
       )}
+
+      {/* Channel Configuration Dialog */}
+      <ChannelConfigDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        channelType={editingChannelType}
+        existingChannel={
+          editingChannelType === 'slack' ? slackChannel : emailChannel
+        }
+        onSuccess={handleDialogSuccess}
+      />
     </div>
   )
 }
