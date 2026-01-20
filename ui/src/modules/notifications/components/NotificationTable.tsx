@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
+import Link from 'next/link'
 import {
   Check,
   Trash2,
@@ -14,10 +15,13 @@ import {
   Bell,
   ChevronDown,
   ChevronUp,
+  Copy,
+  ExternalLink,
 } from 'lucide-react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { cn } from '@/src/utils/common.client'
 import type { Notification, NotificationSeverity } from '@/src/services/notifications-api'
 
@@ -318,23 +322,30 @@ export function NotificationTable() {
         >
           <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <span>Show</span>
-            <select
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className={cn(
-                'h-8 px-2 rounded-[var(--radius-medium)]',
-                'bg-[var(--control-bg)] border border-[var(--control-border)]',
-                'text-[var(--text-primary)]',
-                'hover:border-[var(--control-border-hover)]',
-                'focus:border-[var(--control-border-focus)] focus:outline-none focus:shadow-[var(--control-shadow-focus)]',
-                'transition-all duration-200'
-              )}
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => handlePageSizeChange(Number(value))}
             >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
+              <SelectTrigger
+                size="sm"
+                className={cn(
+                  'h-8 px-2 rounded-[var(--radius-medium)]',
+                  'bg-[var(--control-bg)] border border-[var(--control-border)]',
+                  'text-[var(--text-primary)]',
+                  'hover:border-[var(--control-border-hover)]',
+                  'focus:border-[var(--control-border-focus)] focus:outline-none focus:shadow-[var(--control-shadow-focus)]',
+                  'transition-all duration-200'
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="select-content-custom">
+                <SelectItem value="10" className="select-item-custom">10</SelectItem>
+                <SelectItem value="20" className="select-item-custom">20</SelectItem>
+                <SelectItem value="50" className="select-item-custom">50</SelectItem>
+                <SelectItem value="100" className="select-item-custom">100</SelectItem>
+              </SelectContent>
+            </Select>
             <span>per page</span>
             <span className="ml-4 text-[var(--text-primary)]">
               Showing {(currentPage - 1) * pageSize + 1}-
@@ -405,9 +416,28 @@ function NotificationTableRow({
   onMarkAsRead: () => void
   onDelete: () => void
 }) {
-  const { notification_id, title, message, severity, timestamp, read, pipeline_id } = notification
+  const { notification_id, title, message, severity, timestamp, read, pipeline_id, event_type } = notification
   const severityInfo = getSeverityBadge(severity)
   const SeverityIcon = severityInfo.icon
+
+  // State for copy feedback
+  const [copied, setCopied] = useState(false)
+
+  // Check if we should show the "Go to pipeline" button (not for deleted pipelines)
+  const showGoToPipeline = pipeline_id && event_type !== 'pipeline_deleted'
+
+  const handleCopyPipelineId = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!pipeline_id) return
+
+    try {
+      await navigator.clipboard.writeText(pipeline_id)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy pipeline ID:', err)
+    }
+  }
 
   return (
     <>
@@ -494,7 +524,38 @@ function NotificationTableRow({
         </div>
         <div className="table-cell">
           {pipeline_id ? (
-            <span className="font-mono text-xs text-[var(--text-primary)]">{pipeline_id}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-xs text-[var(--text-primary)]">{pipeline_id}</span>
+              <button
+                onClick={handleCopyPipelineId}
+                className={cn(
+                  'p-0.5 rounded transition-all duration-200',
+                  copied
+                    ? 'text-[var(--color-foreground-positive)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]'
+                )}
+                title={copied ? 'Copied!' : 'Copy pipeline ID'}
+              >
+                {copied ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </button>
+              {showGoToPipeline && (
+                <Link
+                  href={`/pipelines/${pipeline_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(
+                    'p-0.5 rounded transition-all duration-200',
+                    'text-[var(--text-secondary)] hover:text-[var(--color-foreground-primary)] hover:bg-[var(--color-background-primary-faded)]'
+                  )}
+                  title="Go to pipeline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
           ) : (
             <span className="text-[var(--text-secondary)]">—</span>
           )}
@@ -554,10 +615,10 @@ function NotificationTableRow({
       {/* Expanded details row */}
       {isExpanded && (
         <div
-          className="table-row notifications-table-row bg-[var(--color-background-primary-faded)]]"
-          style={{ gridColumn: '1 / -1' }}
+          className="table-row bg-[var(--color-background-primary-faded)]"
+          style={{ gridColumn: '1 / -1', display: 'block' }}
         >
-          <div className="table-cell text-left" style={{ gridColumn: '1 / -1', padding: 'var(--table-padding)' }}>
+          <div className="p-4">
             <div className="space-y-3">
               <div>
                 <p className="text-xs font-medium text-[var(--text-secondary)] mb-1">Title</p>
@@ -577,11 +638,40 @@ function NotificationTableRow({
                   </p>
                 </div>
               )}
-              <div className="flex flex-wrap justify-end gap-4 text-xs text-[var(--text-secondary)] mt-6">
+              <div className="flex flex-wrap justify-end items-center gap-4 text-xs text-[var(--text-secondary)] mt-6">
                 {pipeline_id && (
-                  <div>
-                    <span className="font-medium">Pipeline:</span>{' '}
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium">Pipeline:</span>
                     <span className="font-mono">{pipeline_id}</span>
+                    <button
+                      onClick={handleCopyPipelineId}
+                      className={cn(
+                        'p-0.5 rounded transition-all duration-200',
+                        copied
+                          ? 'text-[var(--color-foreground-positive)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]'
+                      )}
+                      title={copied ? 'Copied!' : 'Copy pipeline ID'}
+                    >
+                      {copied ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                    {showGoToPipeline && (
+                      <Link
+                        href={`/pipelines/${pipeline_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          'p-0.5 rounded transition-all duration-200',
+                          'text-[var(--text-secondary)] hover:text-[var(--color-foreground-primary)] hover:bg-[var(--color-background-primary-faded)]'
+                        )}
+                        title="Go to pipeline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    )}
                   </div>
                 )}
                 <div>

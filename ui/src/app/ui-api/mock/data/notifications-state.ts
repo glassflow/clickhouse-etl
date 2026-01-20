@@ -62,6 +62,7 @@ export const getNotificationsFiltered = (
   filters: {
     pipeline_id?: string
     severity?: NotificationSeverity
+    read_status?: 'read' | 'unread'
     start_date?: string
     end_date?: string
     include_deleted?: boolean
@@ -76,6 +77,13 @@ export const getNotificationsFiltered = (
   }
   if (filters.severity) {
     filtered = filtered.filter((n) => n.severity === filters.severity)
+  }
+  if (filters.read_status) {
+    if (filters.read_status === 'read') {
+      filtered = filtered.filter((n) => n.read === true)
+    } else if (filters.read_status === 'unread') {
+      filtered = filtered.filter((n) => !n.read)
+    }
   }
   if (filters.start_date) {
     const startDate = new Date(filters.start_date)

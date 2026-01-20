@@ -60,6 +60,7 @@ export interface NotificationListResponse {
 export interface NotificationFilters {
   pipeline_id?: string
   severity?: NotificationSeverity
+  read_status?: 'read' | 'unread'
   start_date?: string
   end_date?: string
   limit?: number
@@ -148,6 +149,7 @@ export class NotificationsApiClient {
 
       if (filters?.pipeline_id) params.set('pipeline_id', filters.pipeline_id)
       if (filters?.severity) params.set('severity', filters.severity)
+      if (filters?.read_status) params.set('read_status', filters.read_status)
       if (filters?.start_date) params.set('start_date', filters.start_date)
       if (filters?.end_date) params.set('end_date', filters.end_date)
       if (filters?.limit) params.set('limit', filters.limit.toString())

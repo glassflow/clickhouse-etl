@@ -69,6 +69,23 @@
     text-align: right;
   }
 
+  /* Notifications table specific cell constraints */
+  .notifications-table-row .table-cell:nth-child(3) {
+    /* Title column - prevent excessive expansion */
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .notifications-table-row .table-cell:last-child {
+    /* Actions column - fixed width, always reserve space for both buttons */
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
   .table-cell-empty {
     grid-column: 1 / -1;
     text-align: center;
@@ -102,7 +119,7 @@
   /* Notifications table specific responsive grid */
   .notifications-table-row {
     display: grid !important;
-    grid-template-columns: 40px 100px minmax(150px, 1fr) 0 0 80px 100px;
+    grid-template-columns: 40px 100px minmax(150px, 1fr) 0 0 80px 120px;
     gap: var(--table-gap);
     align-items: center;
   }
@@ -128,7 +145,7 @@
 
   @media (min-width: 768px) {
     .notifications-table-row {
-      grid-template-columns: 40px 100px minmax(200px, 1fr) 150px 0 80px 100px;
+      grid-template-columns: 40px 100px minmax(200px, 1fr) 150px 0 80px 120px;
     }
 
     .notifications-table-row .table-header-cell:nth-child(4),
@@ -143,7 +160,7 @@
 
   @media (min-width: 1024px) {
     .notifications-table-row {
-      grid-template-columns: 40px 100px minmax(200px, 400px) 150px 180px 80px 100px;
+      grid-template-columns: 40px 100px minmax(200px, 1fr) 150px 180px 80px 120px;
     }
 
     .notifications-table-row .table-header-cell:nth-child(5),

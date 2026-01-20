@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       // Parse query parameters
       const pipelineId = searchParams.get('pipeline_id') || undefined
       const severity = searchParams.get('severity') as NotificationSeverity | null
+      const readStatus = searchParams.get('read_status') as 'read' | 'unread' | null
       const startDate = searchParams.get('start_date') || undefined
       const endDate = searchParams.get('end_date') || undefined
       const limit = parseInt(searchParams.get('limit') || '20', 10)
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
         {
           pipeline_id: pipelineId,
           severity: severity || undefined,
+          read_status: readStatus || undefined,
           start_date: startDate,
           end_date: endDate,
           include_deleted: includeDeleted,
@@ -52,6 +54,7 @@ export async function GET(request: NextRequest) {
         filters: {
           ...(pipelineId && { pipeline_id: pipelineId }),
           ...(severity && { severity }),
+          ...(readStatus && { read_status: readStatus }),
           ...(startDate && { start_date: startDate }),
           ...(endDate && { end_date: endDate }),
         },

@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback } from 'react'
-import { Filter, X } from 'lucide-react'
+import { Filter, X, CalendarIcon } from 'lucide-react'
+import { format } from 'date-fns'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
@@ -12,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/src/components/ui/select'
+import { Calendar } from '@/src/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { cn } from '@/src/utils/common.client'
 import type { NotificationSeverity } from '@/src/services/notifications-api'
 
@@ -42,6 +45,10 @@ export function NotificationFilters() {
   const { notificationsStore } = useStore()
   const { filters, setFilters, clearFilters, fetchNotifications } = notificationsStore
 
+  // Convert ISO strings to Date objects for calendar
+  const startDate = filters.start_date ? new Date(filters.start_date) : undefined
+  const endDate = filters.end_date ? new Date(filters.end_date) : undefined
+
   const handlePipelineIdChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value.trim()
@@ -57,18 +64,23 @@ export function NotificationFilters() {
     [setFilters],
   )
 
-  const handleStartDateChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value
-      setFilters({ start_date: value ? new Date(value).toISOString() : undefined })
+  const handleStartDateSelect = useCallback(
+    (date: Date | undefined) => {
+      setFilters({ start_date: date ? date.toISOString() : undefined })
     },
     [setFilters],
   )
 
-  const handleEndDateChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value
-      setFilters({ end_date: value ? new Date(value).toISOString() : undefined })
+  const handleEndDateSelect = useCallback(
+    (date: Date | undefined) => {
+      setFilters({ end_date: date ? date.toISOString() : undefined })
+    },
+    [setFilters],
+  )
+
+  const handleReadStatusChange = useCallback(
+    (value: string) => {
+      setFilters({ read_status: value === 'all' ? undefined : (value as 'read' | 'unread') })
     },
     [setFilters],
   )
@@ -83,7 +95,7 @@ export function NotificationFilters() {
   }, [clearFilters, fetchNotifications])
 
   const hasActiveFilters =
-    filters.pipeline_id || filters.severity || filters.start_date || filters.end_date
+    filters.pipeline_id || filters.severity || filters.start_date || filters.end_date || filters.read_status
 
   return (
     <div
@@ -153,7 +165,7 @@ export function NotificationFilters() {
       </div>
 
       <div className="flex items-center justify-between gap-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-5 gap-4 w-full">
           {/* Pipeline ID Search */}
           <div className="flex-1 space-y-1.5">
             <label className="text-xs text-[var(--text-secondary)] font-medium">Pipeline ID</label>
@@ -207,38 +219,118 @@ export function NotificationFilters() {
             </Select>
           </div>
 
+          {/* Read Status Filter */}
+          <div className="flex-1 space-y-1.5">
+            <label className="text-xs text-[var(--text-secondary)] font-medium">Status</label>
+            <Select
+              value={filters.read_status || 'all'}
+              onValueChange={handleReadStatusChange}
+            >
+              <SelectTrigger
+                className={cn(
+                  'h-9 w-full px-3 rounded-[var(--radius-medium)]',
+                  'bg-[var(--control-bg)] border border-[var(--control-border)]',
+                  'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
+                  'transition-all duration-200'
+                )}
+              >
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent
+                className={cn(
+                  'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
+                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                )}
+              >
+                {READ_STATUS_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="text-[var(--text-primary)] hover:bg-[var(--option-bg-hover)]"
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Start Date */}
           <div className="flex-1 space-y-1.5">
             <label className="text-xs text-[var(--text-secondary)] font-medium">From Date</label>
-            <Input
-              type="date"
-              value={filters.start_date ? filters.start_date.split('T')[0] : ''}
-              onChange={handleStartDateChange}
-              className={cn(
-                'h-9',
-                'bg-[var(--control-bg)] border-[var(--control-border)]',
-                'hover:border-[var(--control-border-hover)]',
-                'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
-                'transition-all duration-200'
-              )}
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    'h-9 w-full justify-start text-left font-normal',
+                    'bg-[var(--control-bg)] border-[var(--control-border)]',
+                    'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
+                    'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
+                    !startDate && 'text-[var(--text-secondary)]',
+                    'transition-all duration-200'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, 'PPP') : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className={cn(
+                  'w-auto p-0',
+                  'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
+                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                )}
+                align="start"
+              >
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={handleStartDateSelect}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* End Date */}
           <div className="flex-1 space-y-1.5">
             <label className="text-xs text-[var(--text-secondary)] font-medium">To Date</label>
-            <Input
-              type="date"
-              value={filters.end_date ? filters.end_date.split('T')[0] : ''}
-              onChange={handleEndDateChange}
-              className={cn(
-                'h-9',
-                'bg-[var(--control-bg)] border-[var(--control-border)]',
-                'hover:border-[var(--control-border-hover)]',
-                'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
-                'transition-all duration-200'
-              )}
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    'h-9 w-full justify-start text-left font-normal',
+                    'bg-[var(--control-bg)] border-[var(--control-border)]',
+                    'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
+                    'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
+                    !endDate && 'text-[var(--text-secondary)]',
+                    'transition-all duration-200'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, 'PPP') : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className={cn(
+                  'w-auto p-0',
+                  'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
+                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                )}
+                align="start"
+              >
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={handleEndDateSelect}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
