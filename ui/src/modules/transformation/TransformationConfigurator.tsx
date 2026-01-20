@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Label } from '@/src/components/ui/label'
-import { CheckCircleIcon, XCircleIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, XCircleIcon, PlusIcon, TrashIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { StepKeys } from '@/src/config/constants'
 import FormActions from '@/src/components/shared/FormActions'
 import { TransformationFieldRow } from './components/TransformationFieldRow'
@@ -133,6 +133,9 @@ export function TransformationConfigurator({
 
   // Track if auto-population has been attempted (to prevent re-triggering)
   const [hasAutoPopulated, setHasAutoPopulated] = useState(false)
+
+  // Track if validation details are expanded
+  const [isValidationExpanded, setIsValidationExpanded] = useState(false)
 
   // Auto-populate fields from Kafka schema if not already configured
   // This runs once when entering the step with available fields but no existing config
@@ -292,6 +295,31 @@ export function TransformationConfigurator({
 
   // Check if transformation is configured (has fields)
   const hasNoTransformation = !transformationConfig.enabled && transformationConfig.fields.length === 0
+
+  // Get validation error details for the expandable section
+  const validationErrorDetails = useMemo(() => {
+    const details: Array<{ fieldName: string; errors: string[] }> = []
+
+    // Collect field-specific errors
+    Object.entries(localValidation.fieldErrors).forEach(([fieldId, errors]) => {
+      const field = transformationConfig.fields.find((f) => f.id === fieldId)
+      const fieldName = field?.outputFieldName || `Field ${fieldId.slice(0, 8)}`
+      const errorMessages = Object.values(errors).filter(Boolean) as string[]
+      if (errorMessages.length > 0) {
+        details.push({ fieldName, errors: errorMessages })
+      }
+    })
+
+    return details
+  }, [localValidation.fieldErrors, transformationConfig.fields])
+
+  // Total error count for display
+  const totalErrorCount = useMemo(() => {
+    return (
+      validationErrorDetails.reduce((sum, detail) => sum + detail.errors.length, 0) +
+      localValidation.globalErrors.length
+    )
+  }, [validationErrorDetails, localValidation.globalErrors])
 
   // Render no transformation view
   const renderNoTransformationView = () => (
@@ -459,9 +487,20 @@ export function TransformationConfigurator({
                       Valid configuration
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-critical)]">
-                      <XCircleIcon className="w-4 h-4" />
-                      Invalid configuration
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsValidationExpanded(!isValidationExpanded)}
+                        className="flex items-center gap-2 text-sm text-[var(--color-foreground-critical)] hover:text-[var(--color-foreground-critical-hover)] transition-colors cursor-pointer"
+                      >
+                        <XCircleIcon className="w-4 h-4" />
+                        <span>
+                          {totalErrorCount} {totalErrorCount === 1 ? 'issue' : 'issues'} found
+                        </span>
+                        <ChevronDownIcon
+                          className={`w-4 h-4 transition-transform duration-200 ${isValidationExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -498,6 +537,67 @@ export function TransformationConfigurator({
                     </tbody>
                   </table>
                 </div>
+
+                {/* Expandable validation error details */}
+                {!localValidation.isValid && isValidationExpanded && (
+                  <div className="mt-3 p-3 bg-[var(--color-background-critical-subtle)] border border-[var(--color-border-critical)] rounded-[var(--radius-medium)] animate-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-3">
+                      {/* Global errors */}
+                      {localValidation.globalErrors.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-[var(--color-foreground-critical)] uppercase tracking-wide mb-1.5">
+                            Configuration Errors
+                          </div>
+                          <ul className="space-y-1">
+                            {localValidation.globalErrors.map((error, i) => (
+                              <li
+                                key={i}
+                                className="text-sm text-[var(--color-foreground-critical)] flex items-start gap-2"
+                              >
+                                <span className="text-[var(--color-foreground-critical)] mt-0.5">•</span>
+                                <span>{error}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Field-specific errors */}
+                      {validationErrorDetails.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-[var(--color-foreground-critical)] uppercase tracking-wide mb-1.5">
+                            Field Errors
+                          </div>
+                          <div className="space-y-2">
+                            {validationErrorDetails.map((detail, idx) => (
+                              <div
+                                key={idx}
+                                className="pl-3 border-l-2 border-[var(--color-border-critical)]"
+                              >
+                                <div className="text-sm font-medium text-[var(--text-primary)]">
+                                  {detail.fieldName}
+                                </div>
+                                <ul className="mt-0.5 space-y-0.5">
+                                  {detail.errors.map((error, errorIdx) => (
+                                    <li
+                                      key={errorIdx}
+                                      className="text-sm text-[var(--color-foreground-critical)] flex items-start gap-2"
+                                    >
+                                      <span className="text-[var(--color-foreground-critical)] mt-0.5">
+                                        →
+                                      </span>
+                                      <span>{error}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
