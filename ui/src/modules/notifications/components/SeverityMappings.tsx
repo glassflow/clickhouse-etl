@@ -11,6 +11,8 @@ import {
   Save,
   Mail,
   MessageSquare,
+  Check,
+  BellOff,
 } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
@@ -60,7 +62,90 @@ const SEVERITY_CONFIG: Record<
 
 const SEVERITY_ORDER: SeverityLevel[] = ['debug', 'info', 'warn', 'error', 'fatal']
 
-interface SeverityRowProps {
+interface ChannelToggleButtonProps {
+  channel: ChannelType
+  isEnabled: boolean
+  onClick: () => void
+  disabled: boolean
+}
+
+/**
+ * Large channel toggle button with clear enabled/disabled visual states
+ */
+function ChannelToggleButton({ channel, isEnabled, onClick, disabled }: ChannelToggleButtonProps) {
+  const isSlack = channel === 'slack'
+  const Icon = isSlack ? MessageSquare : Mail
+  const label = isSlack ? 'Slack' : 'Email'
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'w-full flex items-center justify-between p-3',
+        'rounded-[var(--radius-medium)]',
+        'border transition-all duration-200',
+        'focus:outline-none focus:ring-2 focus:ring-[var(--color-border-primary)] focus:ring-offset-1',
+        disabled && 'opacity-50 cursor-not-allowed',
+        isEnabled
+          ? [
+            'bg-[var(--color-background-primary-faded)]',
+            'border-[var(--color-border-primary)]',
+            'hover:bg-[var(--color-background-primary-faded)]/80',
+          ]
+          : [
+            'bg-[var(--color-background-neutral-faded)]/50',
+            'border-[var(--surface-border)]',
+            'hover:bg-[var(--color-background-neutral-faded)]',
+            'hover:border-[var(--card-outline-border-hover)]',
+          ]
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            'p-2 rounded-[var(--radius-small)]',
+            'transition-all duration-200',
+            isEnabled
+              ? 'bg-[var(--color-background-primary)] text-white'
+              : 'bg-[var(--color-background-neutral-faded)] text-[var(--text-secondary)]'
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        <span
+          className={cn(
+            'font-medium transition-colors duration-200',
+            isEnabled ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
+          )}
+        >
+          {label}
+        </span>
+      </div>
+      <div
+        className={cn(
+          'flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium',
+          'transition-all duration-200',
+          isEnabled
+            ? 'bg-[var(--color-background-primary)] text-white'
+            : 'bg-transparent text-[var(--text-secondary)]'
+        )}
+      >
+        {isEnabled ? (
+          <>
+            <Check className="h-3 w-3" />
+            Enabled
+          </>
+        ) : (
+          'Disabled'
+        )}
+      </div>
+    </button>
+  )
+}
+
+interface SeverityCardProps {
   severity: SeverityLevel
   channels: ChannelType[]
   onChange: (severity: SeverityLevel, channels: ChannelType[]) => void
@@ -68,14 +153,15 @@ interface SeverityRowProps {
 }
 
 /**
- * Individual severity mapping row
+ * Individual severity card with vertical layout
  */
-function SeverityRow({ severity, channels, onChange, disabled }: SeverityRowProps) {
+function SeverityCard({ severity, channels, onChange, disabled }: SeverityCardProps) {
   const config = SEVERITY_CONFIG[severity]
   const Icon = config.icon
 
   const hasSlack = channels.includes('slack')
   const hasEmail = channels.includes('email')
+  const isFullyDisabled = channels.length === 0
 
   const toggleChannel = (channel: ChannelType) => {
     const newChannels = channels.includes(channel)
@@ -87,59 +173,62 @@ function SeverityRow({ severity, channels, onChange, disabled }: SeverityRowProp
   return (
     <div
       className={cn(
-        'flex items-center justify-between p-4',
-        'card-outline',
+        'content-card relative p-5 flex flex-col gap-4',
         'transition-all duration-200',
-        'hover:shadow-[var(--card-shadow-hover)]'
+        'hover:shadow-[var(--card-shadow-hover)]',
+        // Card-level disabled styling when no channels are selected
+        isFullyDisabled && [
+          'bg-[var(--color-background-neutral-faded)]/40',
+          'border-[var(--surface-border)]',
+          'opacity-75',
+        ]
       )}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className="p-2 rounded-[var(--radius-medium)]"
-          style={{ backgroundColor: config.bgColorVar }}
-        >
-          <Icon
-            className="h-4 w-4"
-            style={{ color: config.colorVar }}
-          />
+      {/* Header section */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              'p-2.5 rounded-[var(--radius-medium)]',
+              'transition-all duration-200'
+            )}
+            style={{ backgroundColor: config.bgColorVar }}
+          >
+            <Icon
+              className="h-5 w-5"
+              style={{ color: config.colorVar }}
+            />
+          </div>
+          <div>
+            <h3 className="font-semibold text-[var(--text-primary)]">{config.label}</h3>
+            <p className="text-xs text-[var(--text-secondary)]">
+              {isFullyDisabled
+                ? 'No notifications'
+                : `${channels.length} channel${channels.length !== 1 ? 's' : ''} enabled`}
+            </p>
+          </div>
         </div>
-        <div>
-          <span className="font-medium text-[var(--text-primary)]">{config.label}</span>
-          {channels.length === 0 && (
-            <p className="text-xs text-[var(--text-secondary)]">No channels selected</p>
-          )}
-        </div>
+        {isFullyDisabled && (
+          <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+            <BellOff className="h-4 w-4" />
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant={hasSlack ? 'default' : 'outline'}
-          size="sm"
+      {/* Channel toggle buttons section */}
+      <div className="flex flex-col gap-2">
+        <ChannelToggleButton
+          channel="slack"
+          isEnabled={hasSlack}
           onClick={() => toggleChannel('slack')}
           disabled={disabled}
-          className={cn(
-            'h-8 gap-1.5',
-            'transition-all duration-200',
-            !hasSlack && 'btn-neutral'
-          )}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          Slack
-        </Button>
-        <Button
-          variant={hasEmail ? 'default' : 'outline'}
-          size="sm"
+        />
+        <ChannelToggleButton
+          channel="email"
+          isEnabled={hasEmail}
           onClick={() => toggleChannel('email')}
           disabled={disabled}
-          className={cn(
-            'h-8 gap-1.5',
-            'transition-all duration-200',
-            !hasEmail && 'btn-neutral'
-          )}
-        >
-          <Mail className="h-3.5 w-3.5" />
-          Email
-        </Button>
+        />
       </div>
     </div>
   )
@@ -285,14 +374,15 @@ export function SeverityMappings() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      {/* Responsive grid of severity cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {SEVERITY_ORDER.map((severity, index) => (
           <div
             key={severity}
             className="animate-fadeIn"
             style={{ animationDelay: `${index * 50}ms` }}
           >
-            <SeverityRow
+            <SeverityCard
               severity={severity}
               channels={localMappings[severity]}
               onChange={handleChange}
