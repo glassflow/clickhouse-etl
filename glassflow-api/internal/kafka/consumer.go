@@ -26,16 +26,17 @@ type MessageProcessor interface {
 }
 
 type Consumer struct {
-	client    *kgo.Client
-	topic     string
-	groupID   string
-	timeout   time.Duration
-	batch     []*kgo.Record
-	processor MessageProcessor
-	meter     *observability.Meter
-	log       *slog.Logger
-	cancel    context.CancelFunc
-	closeCh   chan struct{}
+	client       *kgo.Client
+	topic        string
+	groupID      string
+	batch        []*kgo.Record
+	processor    MessageProcessor
+	meter        *observability.Meter
+	log          *slog.Logger
+	cancel       context.CancelFunc
+	closeCh      chan struct{}
+	batchSize    int           // Max batch size before flush
+	batchMaxWait time.Duration // Max time before flush
 }
 
 type kgoLogger struct {
@@ -86,16 +87,17 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 	}
 
 	return &Consumer{
-		client:    client,
-		topic:     topic.Name,
-		groupID:   topic.ConsumerGroupName,
-		log:       log,
-		timeout:   internal.DefaultKafkaBatchTimeout,
-		meter:     meter,
-		batch:     make([]*kgo.Record, 0),
-		closeCh:   make(chan struct{}),
-		processor: nil,
-		cancel:    nil,
+		client:       client,
+		topic:        topic.Name,
+		groupID:      topic.ConsumerGroupName,
+		log:          log,
+		meter:        meter,
+		batch:        make([]*kgo.Record, 0, internal.KafkaBatchSize),
+		closeCh:      make(chan struct{}),
+		processor:    nil,
+		cancel:       nil,
+		batchSize:    internal.KafkaBatchSize,
+		batchMaxWait: internal.KafkaBatchMaxWait,
 	}, nil
 }
 
@@ -228,38 +230,60 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 	c.log.Debug("Consuming messages in batch mode",
 		slog.String("topic", c.topic),
 		slog.String("group", c.groupID),
-		slog.Duration("timeout", c.timeout))
+		slog.Int("batchSize", c.batchSize),
+		slog.Duration("batchMaxWait", c.batchMaxWait))
 
-	defer func() {
-		close(c.closeCh)
-	}()
+	defer close(c.closeCh)
 
-	handleCtx, handleCancel := context.WithCancel(ctx)
-	defer handleCancel()
+	flushTimer := time.NewTimer(c.batchMaxWait)
+	defer flushTimer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			// Process remaining batch before shutdown with a fresh context
+			if len(c.batch) > 0 {
+				c.log.Info("Processing remaining batch before shutdown", slog.Int("batchSize", len(c.batch)))
+				shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), internal.DefaultComponentShutdownTimeout)
+				if err := c.processBatch(shutdownCtx); err != nil {
+					c.log.Error("Failed to process remaining batch on shutdown", slog.Any("error", err))
+				}
+				shutdownCancel()
+			}
 			return nil
 
+		case <-flushTimer.C:
+			// Time-based flush
+			if len(c.batch) > 0 {
+				c.log.Info("Time-based flush triggered", slog.Int("batchSize", len(c.batch)))
+				if err := c.processBatch(ctx); err != nil {
+					return err
+				}
+			}
+			flushTimer.Reset(c.batchMaxWait)
+
 		default:
-			if err := c.handleBatchMessages(handleCtx); err != nil {
+			// Continuous polling with short timeout
+			if err := c.pollAndAccumulate(ctx, flushTimer); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (c *Consumer) handleBatchMessages(ctx context.Context) error {
-	// Poll for messages
-	pollCtx, cancel := context.WithTimeout(ctx, c.timeout)
+func (c *Consumer) pollAndAccumulate(ctx context.Context, flushTimer *time.Timer) error {
+	// Poll with short timeout for responsiveness
+	pollCtx, cancel := context.WithTimeout(ctx, internal.KafkaPollTimeout)
 	defer cancel()
 
-	fetches := c.client.PollRecords(pollCtx, internal.KafkaMaxPollRecords)
+	// Request only enough records to fill the batch
+	remainingCapacity := c.batchSize - len(c.batch)
+	fetches := c.client.PollRecords(pollCtx, remainingCapacity)
+
+	// Handle errors (ignore timeout errors)
 	if errs := fetches.Errors(); len(errs) > 0 {
 		for _, err := range errs {
 			if errors.Is(err.Err, context.Canceled) {
-				c.log.Info("Received context cancel, abort fetching...")
 				return nil
 			} else if !errors.Is(err.Err, context.DeadlineExceeded) {
 				c.log.Error("Error fetching messages", slog.Any("error", err))
@@ -267,15 +291,25 @@ func (c *Consumer) handleBatchMessages(ctx context.Context) error {
 		}
 	}
 
-	if !fetches.Empty() {
-		fetches.EachRecord(func(record *kgo.Record) {
-			c.batch = append(c.batch, record)
-		})
+	// Accumulate records
+	fetches.EachRecord(func(record *kgo.Record) {
+		c.batch = append(c.batch, record)
+	})
 
+	// Size-based flush
+	if len(c.batch) >= c.batchSize {
+		c.log.Info("Size-based flush triggered", slog.Int("batchSize", len(c.batch)))
 		if err := c.processBatch(ctx); err != nil {
-			return fmt.Errorf("process batch: %w", err)
+			return err
 		}
-		return nil
+		// Reset timer after processing
+		if !flushTimer.Stop() {
+			select {
+			case <-flushTimer.C:
+			default:
+			}
+		}
+		flushTimer.Reset(c.batchMaxWait)
 	}
 
 	return nil

@@ -232,6 +232,11 @@ const (
 	// KafkaMaxPollRecords is the maximum number of records to fetch per poll
 	KafkaMaxPollRecords = 5000
 
+	// Kafka batching configuration
+	KafkaBatchSize    = 5000                   // Max messages per batch before flush
+	KafkaBatchMaxWait = 5 * time.Second        // Max time before flush
+	KafkaPollTimeout  = 100 * time.Millisecond // Short poll for responsiveness
+
 	// Kafka message processor modes
 	SyncMode             ProcessorMode = "sync"
 	AsyncMode            ProcessorMode = "async"
