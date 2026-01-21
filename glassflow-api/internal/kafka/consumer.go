@@ -272,13 +272,9 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 }
 
 func (c *Consumer) pollAndAccumulate(ctx context.Context, flushTimer *time.Timer) {
-	// Poll with short timeout for responsiveness
-	pollCtx, cancel := context.WithTimeout(ctx, internal.KafkaPollTimeout)
-	defer cancel()
-
 	// Request only enough records to fill the batch
 	remainingCapacity := c.batchSize - len(c.batch)
-	fetches := c.client.PollRecords(pollCtx, remainingCapacity)
+	fetches := c.client.PollRecords(ctx, remainingCapacity)
 
 	// Handle errors (ignore timeout errors)
 	if errs := fetches.Errors(); len(errs) > 0 {
