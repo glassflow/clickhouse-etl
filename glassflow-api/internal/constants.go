@@ -238,9 +238,9 @@ const (
 	KafkaPollTimeout  = 100 * time.Millisecond // Short poll for responsiveness
 
 	// Kafka retry configuration
-	KafkaBatchRetryAttempts = 3                    // Number of retry attempts for batch processing
-	KafkaBatchRetryDelay    = 500 * time.Millisecond // Delay between retries
-	KafkaCommitRetryAttempts = 3                   // Number of retry attempts for commit
+	KafkaBatchRetryAttempts  = 3                      // Number of retry attempts for batch processing
+	KafkaBatchRetryDelay     = 500 * time.Millisecond // Delay between retries
+	KafkaCommitRetryAttempts = 3                      // Number of retry attempts for commit
 	KafkaCommitRetryDelay    = 200 * time.Millisecond // Delay between commit retries
 
 	// Kafka message processor modes
