@@ -114,8 +114,8 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 		kgo.DisableAutoCommit(),
 
 		// Fetch configuration
-		kgo.FetchMinBytes(internal.KafkaMinFetchBytes),
-		kgo.FetchMaxBytes(internal.KafkaMaxFetchBytes),
+		//kgo.FetchMinBytes(internal.KafkaMinFetchBytes),
+		//kgo.FetchMaxBytes(internal.KafkaMaxFetchBytes),
 		//kgo.FetchMaxWait(internal.KafkaMaxWait),
 	}
 
