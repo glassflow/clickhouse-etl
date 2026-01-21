@@ -229,6 +229,8 @@ const (
 	DefaultKafkaBatchTimeout = 1 * time.Second
 	// KafkaMaxWait is the maximum time to wait for messages from Kafka
 	KafkaMaxWait = 750 * time.Millisecond
+	// KafkaMaxPollRecords is the maximum number of records to fetch per poll
+	KafkaMaxPollRecords = 5000
 
 	// Kafka message processor modes
 	SyncMode             ProcessorMode = "sync"

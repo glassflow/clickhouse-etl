@@ -255,7 +255,7 @@ func (c *Consumer) handleBatchMessages(ctx context.Context) error {
 	pollCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	fetches := c.client.PollFetches(pollCtx)
+	fetches := c.client.PollRecords(pollCtx, internal.KafkaMaxPollRecords)
 	if errs := fetches.Errors(); len(errs) > 0 {
 		for _, err := range errs {
 			if errors.Is(err.Err, context.Canceled) {
