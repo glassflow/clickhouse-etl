@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	krb5client "github.com/jcmturner/gokrb5/v8/client"
 	krb5config "github.com/jcmturner/gokrb5/v8/config"
 	krb5keytab "github.com/jcmturner/gokrb5/v8/keytab"
@@ -257,21 +258,20 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 			if len(c.batch) > 0 {
 				c.log.Info("Time-based flush triggered", slog.Int("batchSize", len(c.batch)))
 				if err := c.processBatch(ctx); err != nil {
-					return err
+					c.log.Error("Failed to process batch, clearing batch for redelivery", slog.Any("error", err), slog.Int("droppedMessages", len(c.batch)))
+					c.batch = c.batch[:0] // Clear batch; Kafka will redeliver since offsets weren't committed
 				}
 			}
 			flushTimer.Reset(c.batchMaxWait)
 
 		default:
 			// Continuous polling with short timeout
-			if err := c.pollAndAccumulate(ctx, flushTimer); err != nil {
-				return err
-			}
+			c.pollAndAccumulate(ctx, flushTimer)
 		}
 	}
 }
 
-func (c *Consumer) pollAndAccumulate(ctx context.Context, flushTimer *time.Timer) error {
+func (c *Consumer) pollAndAccumulate(ctx context.Context, flushTimer *time.Timer) {
 	// Poll with short timeout for responsiveness
 	pollCtx, cancel := context.WithTimeout(ctx, internal.KafkaPollTimeout)
 	defer cancel()
@@ -284,7 +284,7 @@ func (c *Consumer) pollAndAccumulate(ctx context.Context, flushTimer *time.Timer
 	if errs := fetches.Errors(); len(errs) > 0 {
 		for _, err := range errs {
 			if errors.Is(err.Err, context.Canceled) {
-				return nil
+				return
 			} else if !errors.Is(err.Err, context.DeadlineExceeded) {
 				c.log.Error("Error fetching messages", slog.Any("error", err))
 			}
@@ -300,9 +300,10 @@ func (c *Consumer) pollAndAccumulate(ctx context.Context, flushTimer *time.Timer
 	if len(c.batch) >= c.batchSize {
 		c.log.Info("Size-based flush triggered", slog.Int("batchSize", len(c.batch)))
 		if err := c.processBatch(ctx); err != nil {
-			return err
+			c.log.Error("Failed to process batch, clearing batch for redelivery", slog.Any("error", err), slog.Int("droppedMessages", len(c.batch)))
+			c.batch = c.batch[:0] // Clear batch; Kafka will redeliver since offsets weren't committed
 		}
-		// Reset timer after processing
+		// Reset timer after processing (success or failure)
 		if !flushTimer.Stop() {
 			select {
 			case <-flushTimer.C:
@@ -311,8 +312,6 @@ func (c *Consumer) pollAndAccumulate(ctx context.Context, flushTimer *time.Timer
 		}
 		flushTimer.Reset(c.batchMaxWait)
 	}
-
-	return nil
 }
 
 func (c *Consumer) processBatch(ctx context.Context) error {
@@ -324,13 +323,42 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	c.log.Info("Processing batch of messages", slog.Int("batchSize", size))
 	start := time.Now()
 
-	err := c.processor.ProcessBatch(ctx, c.batch)
+	// Retry batch processing
+	err := retry.Do(
+		func() error {
+			return c.processor.ProcessBatch(ctx, c.batch)
+		},
+		retry.Attempts(internal.KafkaBatchRetryAttempts),
+		retry.Delay(internal.KafkaBatchRetryDelay),
+		retry.DelayType(retry.FixedDelay),
+		retry.Context(ctx),
+		retry.OnRetry(func(n uint, err error) {
+			c.log.Warn("Retrying batch processing",
+				slog.Uint64("attempt", uint64(n+1)),
+				slog.Any("error", err),
+				slog.Int("batchSize", size))
+		}),
+	)
 	if err != nil {
-		c.log.Error("Batch processing failed", slog.Any("error", err), slog.Int("batchSize", size))
+		c.log.Error("Batch processing failed after retries", slog.Any("error", err), slog.Int("batchSize", size))
 		return fmt.Errorf("batch processing failed: %w", err)
 	}
 
-	err = c.commitBatch(ctx)
+	// Retry commit
+	err = retry.Do(
+		func() error {
+			return c.commitBatch(ctx)
+		},
+		retry.Attempts(internal.KafkaCommitRetryAttempts),
+		retry.Delay(internal.KafkaCommitRetryDelay),
+		retry.DelayType(retry.FixedDelay),
+		retry.Context(ctx),
+		retry.OnRetry(func(n uint, err error) {
+			c.log.Warn("Retrying commit",
+				slog.Uint64("attempt", uint64(n+1)),
+				slog.Any("error", err))
+		}),
+	)
 	if err != nil {
 		return fmt.Errorf("batch processing failed on commit offsets: %w", err)
 	}
