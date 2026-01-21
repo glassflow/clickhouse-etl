@@ -107,8 +107,8 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 		kgo.ClientID(internal.ClientID),
 
 		// Session configuration
-		kgo.SessionTimeout(internal.KafkaSessionTimeout),
-		kgo.HeartbeatInterval(internal.KafkaHeartbeatInterval),
+		//kgo.SessionTimeout(internal.KafkaSessionTimeout),
+		//kgo.HeartbeatInterval(internal.KafkaHeartbeatInterval),
 
 		// Disable auto commit - we handle commits manually
 		kgo.DisableAutoCommit(),
