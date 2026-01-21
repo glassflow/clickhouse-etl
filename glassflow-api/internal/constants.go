@@ -220,13 +220,13 @@ const (
 	// Kafka heartbeat interval in milliseconds
 	KafkaHeartbeatInterval = 10000 * time.Millisecond
 	// Kafka MinFetchBytes is the minimum amount of data the server should return for a fetch request.
-	KafkaMinFetchBytes = 5242880 // 5 MB
+	KafkaMinFetchBytes = 524288 // 512KB
 	// Kafka MaxFetchBytes is the maximum amount of data the server should return for a fetch request.
 	KafkaMaxFetchBytes = 20971520 // 20 MB
 	// KafkaMaxQueuedMessagesSize is the maximum number of messages that can be queued in the consumer
 	KafkaMaxMessagesInQueueSize = 1048576
 	// DefaultKafkaBatchTimeout is default delay of batch collection in kafka ingestor component
-	DefaultKafkaBatchTimeout = 5 * time.Second
+	DefaultKafkaBatchTimeout = 3 * time.Second
 	// KafkaMaxWait is the maximum time to wait for messages from Kafka
 	KafkaMaxWait = 750 * time.Millisecond
 	// KafkaMaxPollRecords is the maximum number of records to fetch per poll
