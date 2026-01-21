@@ -116,7 +116,7 @@ func buildClientOptions(conn models.KafkaConnectionParamsConfig, topic models.Ka
 		// Fetch configuration
 		kgo.FetchMinBytes(internal.KafkaMinFetchBytes),
 		kgo.FetchMaxBytes(internal.KafkaMaxFetchBytes),
-		kgo.FetchMaxWait(internal.KafkaMaxWait),
+		//kgo.FetchMaxWait(internal.KafkaMaxWait),
 	}
 
 	// Set initial offset
