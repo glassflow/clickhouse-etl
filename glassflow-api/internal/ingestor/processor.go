@@ -45,6 +45,8 @@ type KafkaMsgProcessor struct {
 	filter Filter
 
 	pendingPublishesLimit int
+
+	bucketCache map[string]jetstream.ObjectStore
 }
 
 func NewKafkaMsgProcessor(
@@ -71,6 +73,7 @@ func NewKafkaMsgProcessor(
 		log:                   log,
 		meter:                 meter,
 		filter:                filter,
+		bucketCache:           make(map[string]jetstream.ObjectStore),
 	}
 }
 
@@ -214,6 +217,32 @@ func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context, batch []*kgo.Recor
 	return nil
 }
 
+func (k *KafkaMsgProcessor) getOrCreateBucket(ctx context.Context, bucketName string) (jetstream.ObjectStore, error) {
+	if bucket, ok := k.bucketCache[bucketName]; ok {
+		return bucket, nil
+	}
+
+	bucket, err := k.Jetstream.ObjectStore(ctx, bucketName)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrBucketNotFound) {
+			bucket, err = k.Jetstream.CreateObjectStore(ctx, jetstream.ObjectStoreConfig{
+				Bucket:      bucketName,
+				Description: bucketName,
+				TTL:         time.Hour * 6,
+				Replicas:    3,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("Jetstream.CreateObjectStore: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("get bucket: %w", err)
+		}
+	}
+
+	k.bucketCache[bucketName] = bucket
+	return bucket, nil
+}
+
 func (k *KafkaMsgProcessor) ProcessBatchNatsKV(ctx context.Context, batch []*kgo.Record) error {
 	kvBatch, err := k.PrepareMessages(ctx, batch)
 	if err != nil {
@@ -226,22 +255,9 @@ func (k *KafkaMsgProcessor) ProcessBatchNatsKV(ctx context.Context, batch []*kgo
 
 	bucketName := models.Buckets[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(models.Buckets))]
 
-	bucket, err := k.Jetstream.ObjectStore(ctx, bucketName)
+	bucket, err := k.getOrCreateBucket(ctx, bucketName)
 	if err != nil {
-		if errors.Is(err, jetstream.ErrBucketNotFound) {
-			bucket, err = k.Jetstream.CreateObjectStore(ctx, jetstream.ObjectStoreConfig{
-				Bucket:      bucketName,
-				Description: bucketName,
-				TTL:         time.Hour * 6,
-				Replicas:    3,
-				//Compression: true,
-			})
-			if err != nil {
-				return fmt.Errorf("Jetstream.CreateObjectStore: %w", err)
-			}
-		} else {
-			return fmt.Errorf("get bucket: %w", err)
-		}
+		return fmt.Errorf("get or create bucket: %w", err)
 	}
 
 	keyID := uuid.New().String()
