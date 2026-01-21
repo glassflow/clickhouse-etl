@@ -367,6 +367,7 @@ func (s *PostgresStorage) upsertStatelessTransformationSchemaAndConfig(
 			p.ID,
 			p.StatelessTransformation.SourceID,
 			sourceSchema.VersionID,
+			p.StatelessTransformation.ID,
 			outputSchemaVersionID,
 			p.StatelessTransformation.Config.Transform,
 		)
@@ -468,6 +469,7 @@ func (s *PostgresStorage) upsertJoinTransformationSchemaAndConfig(
 				p.ID,
 				src.SourceID,
 				sourceSchema.VersionID,
+				p.Join.ID,
 				outputSchemaVersionID,
 				p.Join.Config,
 			)
@@ -778,6 +780,7 @@ func (s *PostgresStorage) insertStatelessTransformationSchemaAndConfig(
 		p.ID,
 		p.StatelessTransformation.SourceID,
 		sourceSchemaVersion.VersionID,
+		p.StatelessTransformation.ID,
 		outputSchemaVersionID,
 		p.StatelessTransformation.Config.Transform,
 	)
@@ -830,6 +833,7 @@ func (s *PostgresStorage) insertJoinSchemaAndConfig(
 			p.ID,
 			sourceSchemaVersion.SourceID,
 			sourceSchemaVersion.VersionID,
+			p.Join.ID,
 			outputSchemaVersionID,
 			p.Join.Config,
 		)

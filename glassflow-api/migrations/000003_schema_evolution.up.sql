@@ -18,10 +18,10 @@ CREATE TABLE schema_versions (
 
 -- Create new transfromation_configs
 CREATE TABLE transformation_configs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     source_id TEXT NOT NULL,
     schema_version_id TEXT NOT NULL,
+    transformation_id TEXT NOT NULL,
     output_schema_version_id TEXT NOT NULL,
     config JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -31,10 +31,10 @@ CREATE TABLE transformation_configs (
 
 -- Create new join_configs table
 CREATE TABLE join_configs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     source_id TEXT NOT NULL,
     schema_version_id TEXT NOT NULL,
+    join_id TEXT NOT NULL,
     output_schema_version_id TEXT NOT NULL,
     config JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -44,7 +44,6 @@ CREATE TABLE join_configs (
 
 -- Create new sink_configs table
 CREATE TABLE sink_configs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
     source_id TEXT NOT NULL,
     schema_version_id TEXT NOT NULL,
