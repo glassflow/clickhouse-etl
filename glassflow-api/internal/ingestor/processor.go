@@ -257,7 +257,7 @@ func (k *KafkaMsgProcessor) ProcessBatchNatsKV(ctx context.Context, batch []*kgo
 		return fmt.Errorf("json marshal: %w", err)
 	}
 
-	nMsg := nats.NewMsg("buckets")
+	nMsg := nats.NewMsg(models.GetNATSSubjectName(k.topic.OutputStreamID, "buckets"))
 	nMsg.Data = referenceBytes
 
 	err = k.publisher.PublishNatsMsg(ctx, nMsg, stream.WithUntilAck())
