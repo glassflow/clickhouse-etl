@@ -64,6 +64,7 @@ func NewKafkaMsgProcessor(
 	return &KafkaMsgProcessor{
 		publisher:             publisher,
 		dlqPublisher:          dlqPublisher,
+		Jetstream:             Jetstream,
 		schemaMapper:          schemaMapper,
 		topic:                 topic,
 		pendingPublishesLimit: pendingPublishesLimit,
