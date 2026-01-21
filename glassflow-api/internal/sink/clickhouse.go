@@ -2,6 +2,7 @@ package sink
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -25,6 +26,7 @@ import (
 type ClickHouseSink struct {
 	client                *client.ClickHouseClient
 	streamConsumer        jetstream.Consumer
+	jetstream             jetstream.JetStream
 	schemaMapper          schema.Mapper
 	cancel                context.CancelFunc
 	shutdownOnce          sync.Once
@@ -39,6 +41,7 @@ type ClickHouseSink struct {
 func NewClickHouseSink(
 	sinkConfig models.SinkComponentConfig,
 	streamConsumer jetstream.Consumer,
+	js jetstream.JetStream,
 	schemaMapper schema.Mapper,
 	log *slog.Logger,
 	meter *observability.Meter,
@@ -58,6 +61,7 @@ func NewClickHouseSink(
 	return &ClickHouseSink{
 		client:                clickhouseClient,
 		streamConsumer:        streamConsumer,
+		jetstream:             js,
 		schemaMapper:          schemaMapper,
 		sinkConfig:            sinkConfig,
 		log:                   log,
@@ -104,11 +108,36 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 }
 
 func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context, maxWait time.Duration) error {
-	ch.log.InfoContext(ctx, "starting to fetch messages")
-	messages, err := ch.fetchMessages(ctx, maxWait)
+	ch.log.InfoContext(ctx, "starting to fetch reference message")
+
+	// Fetch 1 reference message from NATS
+	refMsg, err := ch.streamConsumer.Next(jetstream.FetchMaxWait(maxWait))
 	if err != nil {
-		return fmt.Errorf("fetch messages: %w", err)
+		if errors.Is(err, jetstream.ErrMsgNotFound) {
+			return models.ErrNoNewMessages
+		}
+		return fmt.Errorf("fetch reference message: %w", err)
 	}
+
+	// Parse the reference
+	var ref models.KVBatchReference
+	if err := json.Unmarshal(refMsg.Data(), &ref); err != nil {
+		return fmt.Errorf("unmarshal reference: %w", err)
+	}
+
+	ch.log.InfoContext(ctx, "fetched reference message",
+		"bucket_id", ref.BucketID,
+		"key_id", ref.KeyID,
+		"size", ref.Size)
+
+	// Fetch batch from Object Storage
+	kvBatch, bucket, err := ch.fetchBatchFromObjectStorage(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("fetch batch from object storage: %w", err)
+	}
+
+	ch.log.InfoContext(ctx, "fetched batch from object storage",
+		"message_count", len(kvBatch.Messages))
 
 	// If context was cancelled during fetch, use a fresh context for flushing
 	flushCtx := ctx
@@ -119,9 +148,15 @@ func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context, maxWait time.Durati
 	}
 
 	ch.log.InfoContext(ctx, "started writing data to clickhouse")
-	err = ch.flushEvents(flushCtx, messages)
+	err = ch.flushEventsKV(flushCtx, refMsg, kvBatch.Messages)
 	if err != nil {
 		return fmt.Errorf("flush events: %w", err)
+	}
+
+	// Delete the object from Object Storage after successful write
+	if err := bucket.Delete(ctx, ref.KeyID); err != nil {
+		ch.log.Warn("failed to delete object from storage", "error", err, "key", ref.KeyID)
+		// Don't fail - object will be cleaned by TTL anyway
 	}
 
 	return nil
@@ -153,6 +188,7 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 	return nil
 }
 
+// nolint
 func (ch *ClickHouseSink) fetchMessages(ctx context.Context, maxWait time.Duration) ([]jetstream.Msg, error) {
 	msgBatch, err := ch.streamConsumer.Fetch(ch.sinkConfig.Batch.MaxBatchSize, jetstream.FetchMaxWait(maxWait))
 	if err != nil {
@@ -201,6 +237,28 @@ func (ch *ClickHouseSink) collectMessagesFromBatch(ctx context.Context, msgBatch
 	return messages, nil
 }
 
+func (ch *ClickHouseSink) fetchBatchFromObjectStorage(
+	ctx context.Context,
+	ref models.KVBatchReference,
+) (*models.KVBatch, jetstream.ObjectStore, error) {
+	bucket, err := ch.jetstream.ObjectStore(ctx, ref.BucketID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get object store: %w", err)
+	}
+
+	data, err := bucket.GetBytes(ctx, ref.KeyID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get bytes from bucket: %w", err)
+	}
+
+	var batch models.KVBatch
+	if err := json.Unmarshal(data, &batch); err != nil {
+		return nil, nil, fmt.Errorf("unmarshal batch: %w", err)
+	}
+
+	return &batch, bucket, nil
+}
+
 func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.Msg) error {
 	err := ch.sendBatch(ctx, messages)
 	if err == nil {
@@ -209,6 +267,33 @@ func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.
 	ch.log.Error("failed to send CH batch, writing to dlq", "error", err, "batch_size", len(messages))
 
 	err = ch.flushFailedBatch(ctx, messages, err)
+	if err != nil {
+		return fmt.Errorf("flush bad batch: %w", err)
+	}
+
+	return nil
+}
+
+func (ch *ClickHouseSink) flushEventsKV(ctx context.Context, refMsg jetstream.Msg, messages []models.Msg) error {
+	err := ch.sendBatchKV(ctx, messages)
+	if err == nil {
+		// Ack the reference message after successful write
+		ackErr := retry.Do(
+			func() error {
+				return refMsg.Ack()
+			},
+			retry.Attempts(3),
+			retry.DelayType(retry.FixedDelay),
+		)
+		if ackErr != nil {
+			return fmt.Errorf("acknowledge reference message: %w", ackErr)
+		}
+		return nil
+	}
+
+	ch.log.Error("failed to send CH batch, writing to dlq", "error", err, "batch_size", len(messages))
+
+	err = ch.flushFailedBatchKV(ctx, refMsg, messages, err)
 	if err != nil {
 		return fmt.Errorf("flush bad batch: %w", err)
 	}
@@ -239,6 +324,35 @@ func (ch *ClickHouseSink) flushFailedBatch(
 		if err != nil {
 			return fmt.Errorf("acknowledge message: %w", err)
 		}
+	}
+
+	return nil
+}
+
+// write failed KV batch to dlq
+func (ch *ClickHouseSink) flushFailedBatchKV(
+	ctx context.Context,
+	refMsg jetstream.Msg,
+	messages []models.Msg,
+	batchErr error,
+) error {
+	for _, msg := range messages {
+		err := ch.pushMsgToDLQ(ctx, msg, batchErr)
+		if err != nil {
+			return fmt.Errorf("push message to DLQ: %w", err)
+		}
+	}
+
+	// Ack the reference message after all messages are written to DLQ
+	err := retry.Do(
+		func() error {
+			return refMsg.Ack()
+		},
+		retry.Attempts(3),
+		retry.DelayType(retry.FixedDelay),
+	)
+	if err != nil {
+		return fmt.Errorf("acknowledge reference message: %w", err)
 	}
 
 	return nil
@@ -305,6 +419,46 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 	return nil
 }
 
+func (ch *ClickHouseSink) sendBatchKV(ctx context.Context, messages []models.Msg) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	chBatch, err := ch.createCHBatchKV(ctx, messages)
+	if err != nil {
+		return fmt.Errorf("create CH batch: %w", err)
+	}
+
+	size := chBatch.Size()
+	start := time.Now()
+
+	// Send batch to ClickHouse
+	err = chBatch.Send(ctx)
+	if err != nil {
+		return fmt.Errorf("send the batch: %w", err)
+	}
+	ch.log.DebugContext(ctx, "Batch sent to clickhouse", "message_count", size)
+
+	// Record ClickHouse write metrics
+	if ch.meter != nil {
+		ch.meter.RecordClickHouseWrite(ctx, int64(size))
+
+		// Calculate and record write rate
+		duration := time.Since(start).Seconds()
+		if duration > 0 {
+			rate := float64(size) / duration
+			ch.meter.RecordSinkRate(ctx, rate)
+		}
+	}
+
+	ch.log.InfoContext(ctx, "KV Batch processing completed successfully",
+		"status", "success",
+		"sent_messages", size,
+	)
+
+	return nil
+}
+
 func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
@@ -351,6 +505,58 @@ func (ch *ClickHouseSink) createCHBatch(
 		}
 
 		err = resultBatch.Append(metadata.Sequence.Stream, values...)
+		if err != nil {
+			if errors.Is(err, clickhouse.ErrAlreadyExists) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to append values to batch: %w", err)
+		}
+	}
+
+	return resultBatch, nil
+}
+
+func (ch *ClickHouseSink) createCHBatchKV(
+	ctx context.Context,
+	messages []models.Msg,
+) (clickhouse.Batch, error) {
+	var query string
+	if ch.streamSourceID != "" {
+		query = fmt.Sprintf(
+			"INSERT INTO %s.%s (%s)",
+			ch.client.GetDatabase(),
+			ch.client.GetTableName(),
+			strings.Join(ch.schemaMapper.GetOrderedColumnsStream(ch.streamSourceID), ", "),
+		)
+	} else {
+		query = fmt.Sprintf(
+			"INSERT INTO %s.%s (%s)",
+			ch.client.GetDatabase(),
+			ch.client.GetTableName(),
+			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
+		)
+	}
+
+	ch.log.Debug("Insert query", "query", query)
+
+	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
+	}
+
+	for i, msg := range messages {
+		var values []any
+		if ch.streamSourceID != "" {
+			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg)
+		} else {
+			values, err = ch.schemaMapper.PrepareValues(msg)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
+		}
+
+		// Use index as dedup ID since messages were already deduplicated at ingestor
+		err = resultBatch.Append(uint64(i), values...)
 		if err != nil {
 			if errors.Is(err, clickhouse.ErrAlreadyExists) {
 				continue

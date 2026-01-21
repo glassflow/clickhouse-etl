@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/nats-io/nats.go/jetstream"
+
 	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kafka"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -27,6 +29,7 @@ type KafkaIngestor struct {
 
 func NewKafkaIngestor(
 	config models.PipelineConfig,
+	Jetstream jetstream.JetStream,
 	topicName string,
 	natsPub, dlqPub stream.Publisher,
 	schema schema.Mapper,
@@ -68,6 +71,7 @@ func NewKafkaIngestor(
 	msgProcessor := NewKafkaMsgProcessor(
 		natsPub,
 		dlqPub,
+		Jetstream,
 		schema,
 		topic,
 		log,

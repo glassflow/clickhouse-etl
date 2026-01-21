@@ -85,6 +85,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	sinkComponent, err := component.NewSinkComponent(
 		s.pipelineCfg.Sink,
 		consumer,
+		s.nc.JetStream(),
 		s.schemaMapper,
 		s.doneCh,
 		s.log,

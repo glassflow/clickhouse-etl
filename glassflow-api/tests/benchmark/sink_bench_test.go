@@ -73,11 +73,12 @@ func TestSinkBenchmark(t *testing.T) {
 	chSink, err := sink.NewClickHouseSink(
 		sinkConfig,
 		consumer,
+		resources.NATSClient.JetStream(),
 		schemaMapper,
 		logger,
 		nil, // No observability meter for benchmark
 		dlqPublisher,
-		models.ClickhouseQueryConfig{WaitForAsyncInsert: true},
+		models.ClickhouseQueryConfig{},
 		GetStreamName(),
 	)
 	if err != nil {
@@ -327,6 +328,7 @@ func runBenchmarkWithConfig(t *testing.T, cfg *BenchConfig) {
 	chSink, err := sink.NewClickHouseSink(
 		sinkConfig,
 		consumer,
+		resources.NATSClient.JetStream(),
 		schemaMapper,
 		logger,
 		nil,

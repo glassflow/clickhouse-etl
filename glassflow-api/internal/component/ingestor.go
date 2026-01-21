@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -29,6 +31,7 @@ type IngestorComponent struct {
 
 func NewIngestorComponent(
 	config models.PipelineConfig,
+	Jetstream jetstream.JetStream,
 	topicName string,
 	streamPublisher stream.Publisher,
 	dlqStreamPublisher stream.Publisher,
@@ -43,6 +46,7 @@ func NewIngestorComponent(
 
 	ingestor, err := ingestor.NewKafkaIngestor(
 		config,
+		Jetstream,
 		topicName,
 		streamPublisher,
 		dlqStreamPublisher,

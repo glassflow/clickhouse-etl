@@ -254,6 +254,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 			Ingestor: s.ingestorCfg,
 			Filter:   s.filterCfg,
 		},
+		nc.JetStream(),
 		s.topicName,
 		streamConsumer,
 		dlqStreamPublisher,

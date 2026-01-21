@@ -80,6 +80,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 
 	component, err := component.NewIngestorComponent(
 		i.pipelineCfg,
+		i.nc.JetStream(),
 		i.topicName,
 		streamPublisher,
 		dlqStreamPublisher,

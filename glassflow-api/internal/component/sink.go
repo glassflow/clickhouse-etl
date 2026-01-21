@@ -32,6 +32,7 @@ type SinkComponent struct {
 func NewSinkComponent(
 	sinkConfig models.SinkComponentConfig,
 	streamCon jetstream.Consumer,
+	js jetstream.JetStream,
 	schemaMapper schema.Mapper,
 	doneCh chan struct{},
 	log *slog.Logger,
@@ -46,6 +47,7 @@ func NewSinkComponent(
 	chSink, err := sink.NewClickHouseSink(
 		sinkConfig,
 		streamCon,
+		js,
 		schemaMapper,
 		log,
 		meter,

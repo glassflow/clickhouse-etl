@@ -2,11 +2,15 @@ package ingestor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"strconv"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -32,6 +36,7 @@ type Filter interface {
 type KafkaMsgProcessor struct {
 	publisher    stream.Publisher
 	dlqPublisher stream.Publisher
+	Jetstream    jetstream.JetStream
 	schemaMapper schema.Mapper
 	topic        models.KafkaTopicsConfig
 	log          *slog.Logger
@@ -44,6 +49,7 @@ type KafkaMsgProcessor struct {
 
 func NewKafkaMsgProcessor(
 	publisher, dlqPublisher stream.Publisher,
+	Jetstream jetstream.JetStream,
 	schemaMapper schema.Mapper,
 	topic models.KafkaTopicsConfig,
 	log *slog.Logger,
@@ -187,23 +193,100 @@ func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context, batch []*kgo.Recor
 		return nil
 	}
 
-	var err error
+	err := k.ProcessBatchNatsKV(ctx, batch)
+	if err != nil {
+		return fmt.Errorf("ProcessBatchNatsKV: %w", err)
+	}
 
-	if internal.DefaultProcessorMode == internal.SyncMode {
-		err = k.processBatchSync(ctx, batch)
-		if err != nil {
-			return fmt.Errorf("failed to process sync batch: %w", err)
+	//if internal.DefaultProcessorMode == internal.SyncMode {
+	//	err = k.processBatchSync(ctx, batch)
+	//	if err != nil {
+	//		return fmt.Errorf("failed to process sync batch: %w", err)
+	//	}
+	//} else {
+	//	err = k.processBatchAsync(ctx, batch)
+	//	if err != nil {
+	//		return fmt.Errorf("failed to process async batch: %w", err)
+	//	}
+	//}
+
+	return nil
+}
+
+func (k *KafkaMsgProcessor) ProcessBatchNatsKV(ctx context.Context, batch []*kgo.Record) error {
+	kvBatch, err := k.PrepareMessages(ctx, batch)
+	if err != nil {
+		return fmt.Errorf("prepare message: %w", err)
+	}
+	kvBatchBytes, err := json.Marshal(kvBatch)
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+
+	bucketName := models.Buckets[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(models.Buckets))]
+
+	bucket, err := k.Jetstream.ObjectStore(ctx, bucketName)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrBucketNotFound) {
+			bucket, err = k.Jetstream.CreateObjectStore(ctx, jetstream.ObjectStoreConfig{
+				Bucket:      bucketName,
+				Description: bucketName,
+				TTL:         time.Hour * 6,
+				Replicas:    3,
+				//Compression: true,
+			})
+			if err != nil {
+				return fmt.Errorf("Jetstream.CreateObjectStore: %w", err)
+			}
+		} else {
+			return fmt.Errorf("get bucket: %w", err)
 		}
-	} else {
-		err = k.processBatchAsync(ctx, batch)
-		if err != nil {
-			return fmt.Errorf("failed to process async batch: %w", err)
-		}
+	}
+
+	keyID := uuid.New().String()
+
+	_, err = bucket.PutBytes(ctx, keyID, kvBatchBytes)
+	if err != nil {
+		return fmt.Errorf("put bytes: %w", err)
+	}
+
+	kvBatchReference := models.KVBatchReference{BucketID: bucketName, KeyID: keyID, Size: int64(len(batch))}
+	referenceBytes, err := json.Marshal(kvBatchReference)
+	if err != nil {
+		return fmt.Errorf("json marshal: %w", err)
+	}
+
+	nMsg := nats.NewMsg("buckets")
+	nMsg.Data = referenceBytes
+
+	err = k.publisher.PublishNatsMsg(ctx, nMsg, stream.WithUntilAck())
+	if err != nil {
+		return fmt.Errorf("publish nats msg: %w", err)
 	}
 
 	return nil
 }
 
+func (k *KafkaMsgProcessor) PrepareMessages(ctx context.Context, batch []*kgo.Record) (*models.KVBatch, error) {
+	outputBatch := make([]models.Msg, 0, len(batch))
+	for _, msg := range batch {
+		natsMsg, err := k.prepareMesssage(ctx, msg)
+		if err != nil {
+			k.log.Error("Failed to prepare message",
+				slog.Any("error", err),
+				slog.String("topic", msg.Topic),
+				slog.Int("partition", int(msg.Partition)))
+
+			return nil, fmt.Errorf("failed to prepare message: %w", err)
+		}
+
+		outputBatch = append(outputBatch, natsMsg.Data)
+	}
+
+	return &models.KVBatch{Messages: outputBatch}, nil
+}
+
+// nolint
 func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.Record) error {
 	for _, msg := range batch {
 		natsMsg, err := k.prepareMesssage(ctx, msg)
@@ -240,6 +323,7 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 	return nil
 }
 
+// nolint
 func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Record) error {
 	ctx := context.Background()
 	futures := make([]jetstream.PubAckFuture, 0, len(batch))

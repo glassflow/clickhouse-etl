@@ -285,6 +285,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 	sink, err := component.NewSinkComponent(
 		s.sinkConfig,
 		streamConsumer,
+		s.natsClient.JetStream(),
 		schemaMapper,
 		make(chan struct{}),
 		logger,
