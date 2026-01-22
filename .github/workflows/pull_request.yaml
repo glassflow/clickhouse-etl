@@ -10,12 +10,23 @@ jobs:
   build-binary:
     uses: ./.github/workflows/build_binary.yaml
   test:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'build-only') }}
     needs:
       - build-binary
     uses: ./.github/workflows/test.yaml
   build:
     needs:
       - test
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'build-only') }}
+    uses: ./.github/workflows/build_image.yaml
+    with:
+      push: true
+      rc_tag: "rc-PR-${{ github.event.number }}"
+    secrets: inherit
+  build-build-only:
+    needs:
+      - build-binary
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'build-only') }}
     uses: ./.github/workflows/build_image.yaml
     with:
       push: true
