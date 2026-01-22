@@ -39,48 +39,28 @@ func NewSinkComponent(
 	dlqPublisher stream.Publisher,
 	streamSourceID string,
 ) (Component, error) {
-	var sinkImpl Sink
-
-	switch sinkConfig.Type {
-	case internal.ClickHouseSinkType:
-		chSink, err := sink.NewClickHouseSink(
-			sinkConfig,
-			streamCon,
-			schemaMapper,
-			log,
-			meter,
-			dlqPublisher,
-			models.ClickhouseQueryConfig{
-				WaitForAsyncInsert: true,
-			},
-			streamSourceID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create clickhouse sink: %w", err)
-		}
-		sinkImpl = chSink
-
-	case internal.ClickHouseNoOpSinkType:
-		noOpSink, err := sink.NewClickHouseNoOpSink(
-			sinkConfig,
-			streamCon,
-			schemaMapper,
-			log,
-			meter,
-			dlqPublisher,
-			streamSourceID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create clickhouse noop sink: %w", err)
-		}
-		sinkImpl = noOpSink
-
-	default:
+	if sinkConfig.Type != internal.ClickHouseSinkType {
 		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
 	}
 
+	chSink, err := sink.NewClickHouseSink(
+		sinkConfig,
+		streamCon,
+		schemaMapper,
+		log,
+		meter,
+		dlqPublisher,
+		models.ClickhouseQueryConfig{
+			WaitForAsyncInsert: true,
+		},
+		streamSourceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sink: %w", err)
+	}
+
 	return &SinkComponent{
-		sink:   sinkImpl,
+		sink:   chSink,
 		log:    log,
 		wg:     sync.WaitGroup{},
 		doneCh: doneCh,

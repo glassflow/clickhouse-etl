@@ -26,10 +26,6 @@ type Meter struct {
 	ClickHouseRecordsWritten metric.Int64Counter
 	SinkRecordsPerSec        metric.Float64Gauge
 
-	// NATS-only metrics (for benchmark/noop sink)
-	NATSRecordsConsumed metric.Int64Counter
-	NATSConsumptionRate metric.Float64Gauge
-
 	// Common metrics
 	ProcessingDuration metric.Float64Histogram
 
@@ -101,10 +97,6 @@ func NewMeter(component, pipelineID string) *Meter {
 			"Total number of records written to ClickHouse"),
 		SinkRecordsPerSec: mustCreateGauge(meter, GfMetricPrefix+"_"+"clickhouse_records_written_per_second",
 			"Number of records written to ClickHouse per second"),
-		NATSRecordsConsumed: mustCreateCounter(meter, GfMetricPrefix+"_"+"nats_records_consumed_total",
-			"Total number of records consumed from NATS (without ClickHouse write)"),
-		NATSConsumptionRate: mustCreateGauge(meter, GfMetricPrefix+"_"+"nats_records_consumed_per_second",
-			"Number of records consumed from NATS per second (without ClickHouse write)"),
 		ProcessingDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"processing_duration_seconds",
 			"Processing duration in seconds"),
 		HTTPRequestCount: mustCreateCounter(meter, GfMetricPrefix+"_"+"http_server_request_count",
@@ -159,22 +151,6 @@ func (m *Meter) RecordClickHouseWrite(ctx context.Context, count int64) {
 // RecordSinkRate records the current sink write rate
 func (m *Meter) RecordSinkRate(ctx context.Context, rate float64) {
 	m.SinkRecordsPerSec.Record(ctx, rate, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordNATSConsumption records a record consumed from NATS (without ClickHouse write)
-func (m *Meter) RecordNATSConsumption(ctx context.Context, count int64) {
-	m.NATSRecordsConsumed.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordNATSConsumptionRate records the current NATS consumption rate (without ClickHouse write)
-func (m *Meter) RecordNATSConsumptionRate(ctx context.Context, rate float64) {
-	m.NATSConsumptionRate.Record(ctx, rate, metric.WithAttributes(
 		attribute.String("component", m.component),
 		attribute.String("pipeline_id", m.pipelineID),
 	))
