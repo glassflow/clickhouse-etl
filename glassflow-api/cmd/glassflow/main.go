@@ -28,7 +28,9 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/profiling"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type config struct {
@@ -156,6 +158,15 @@ func mainErr(cfg *config, role models.Role) error {
 	log.Info("Starting App", slog.String("version", version))
 
 	meter := observability.ConfigureMeter(obsConfig, log)
+	tracer := observability.ConfigureTracer(obsConfig, log)
+
+	// Start profiler if metrics are enabled
+	var profiler *profiling.Profiler
+	if obsConfig.MetricsEnabled {
+		profiler = profiling.NewProfiler(log)
+		profiler.Start()
+		defer profiler.Stop()
+	}
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -183,7 +194,7 @@ func mainErr(cfg *config, role models.Role) error {
 
 	switch role {
 	case internal.RoleSink:
-		return mainSink(ctx, nc, cfg, log, meter)
+		return mainSink(ctx, nc, cfg, log, meter, tracer)
 	case internal.RoleJoin:
 		return mainJoin(ctx, nc, cfg, log, meter)
 	case internal.RoleIngestor:
@@ -321,7 +332,7 @@ func mainEtl(
 	return nil
 }
 
-func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter, tracer trace.Tracer) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
@@ -342,6 +353,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		pipelineCfg,
 		schemaMapper,
 		meter,
+		tracer,
 	)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)

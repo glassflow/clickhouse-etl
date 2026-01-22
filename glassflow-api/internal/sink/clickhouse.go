@@ -12,6 +12,8 @@ import (
 	"github.com/avast/retry-go"
 
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/clickhouse"
@@ -34,6 +36,7 @@ type ClickHouseSink struct {
 	log                   *slog.Logger
 	meter                 *observability.Meter
 	dlqPublisher          stream.Publisher
+	tracer                trace.Tracer
 }
 
 func NewClickHouseSink(
@@ -45,6 +48,7 @@ func NewClickHouseSink(
 	dlqPublisher stream.Publisher,
 	clickhouseQueryConfig models.ClickhouseQueryConfig,
 	streamSourceID string,
+	tracer trace.Tracer,
 ) (*ClickHouseSink, error) {
 	clickhouseClient, err := client.NewClickHouseClient(context.Background(), sinkConfig.ClickHouseConnectionParams)
 	if err != nil {
@@ -65,6 +69,7 @@ func NewClickHouseSink(
 		dlqPublisher:          dlqPublisher,
 		clickhouseQueryConfig: clickhouseQueryConfig,
 		streamSourceID:        streamSourceID,
+		tracer:                tracer,
 	}, nil
 }
 
@@ -168,8 +173,16 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 }
 
 func (ch *ClickHouseSink) fetchMessages(ctx context.Context) ([]jetstream.Msg, error) {
+	// Start trace span
+	ctx, span := ch.tracer.Start(ctx, "nats.fetch_messages")
+	defer span.End()
+
+	// Custom timing
+	start := time.Now()
+
 	msgBatch, err := ch.streamConsumer.FetchNoWait(ch.sinkConfig.Batch.MaxBatchSize)
 	if err != nil {
+		span.RecordError(err)
 		return nil, fmt.Errorf("failed to fetch messages: %w", err)
 	}
 
@@ -187,8 +200,24 @@ func (ch *ClickHouseSink) fetchMessages(ctx context.Context) ([]jetstream.Msg, e
 	}
 
 	if msgBatch.Error() != nil {
+		span.RecordError(msgBatch.Error())
 		return nil, fmt.Errorf("failed to fetch messages: %w", msgBatch.Error())
 	}
+
+	duration := time.Since(start)
+
+	// Set span attributes
+	span.SetAttributes(
+		attribute.Int("batch.size", len(messages)),
+		attribute.Int64("duration_ms", duration.Milliseconds()),
+	)
+
+	// Log custom timing
+	ch.log.InfoContext(ctx, "NATS fetch timing",
+		"operation", "nats.fetch_messages",
+		"duration_ms", duration.Milliseconds(),
+		"message_count", len(messages),
+	)
 
 	// Only log success if we actually got messages
 	if len(messages) > 0 {
@@ -248,32 +277,59 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		return nil
 	}
 
+	// Start parent trace span
+	ctx, span := ch.tracer.Start(ctx, "clickhouse.send_batch")
+	defer span.End()
+
 	chBatch, err := ch.createCHBatch(ctx, messages)
 	if err != nil {
+		span.RecordError(err)
 		return fmt.Errorf("create CH batch: %w", err)
 	}
 
 	size := chBatch.Size()
-	start := time.Now()
+	span.SetAttributes(attribute.Int("batch.size", size))
+
+	// ClickHouse send span
+	_, sendSpan := ch.tracer.Start(ctx, "clickhouse.prepare_batch")
+	sendStart := time.Now()
 
 	// Send batch to ClickHouse
 	err = chBatch.Send(ctx)
+	sendDuration := time.Since(sendStart)
 	if err != nil {
+		sendSpan.RecordError(err)
+		sendSpan.End()
+		span.RecordError(err)
 		return fmt.Errorf("send the batch: %w", err)
 	}
+	sendSpan.SetAttributes(attribute.Int64("duration_ms", sendDuration.Milliseconds()))
+	sendSpan.End()
+
 	ch.log.DebugContext(ctx, "Batch sent to clickhouse", "message_count", size)
+
+	// Log custom timing for ClickHouse send
+	ch.log.InfoContext(ctx, "ClickHouse send timing",
+		"operation", "clickhouse.prepare_batch",
+		"duration_ms", sendDuration.Milliseconds(),
+		"message_count", size,
+	)
 
 	// Record ClickHouse write metrics
 	if ch.meter != nil {
 		ch.meter.RecordClickHouseWrite(ctx, int64(size))
 
 		// Calculate and record write rate
-		duration := time.Since(start).Seconds()
+		duration := sendDuration.Seconds()
 		if duration > 0 {
 			rate := float64(size) / duration
 			ch.meter.RecordSinkRate(ctx, rate)
 		}
 	}
+
+	// NATS acknowledgment span
+	_, ackSpan := ch.tracer.Start(ctx, "nats.acknowledge")
+	ackStart := time.Now()
 
 	// Acknowledge all using last message from the batch
 	lastMsg := messages[len(messages)-1]
@@ -285,9 +341,21 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		retry.Attempts(3),
 		retry.DelayType(retry.FixedDelay),
 	)
+	ackDuration := time.Since(ackStart)
 	if err != nil {
+		ackSpan.RecordError(err)
+		ackSpan.End()
+		span.RecordError(err)
 		return fmt.Errorf("acknowledge messages: %w", err)
 	}
+	ackSpan.SetAttributes(attribute.Int64("duration_ms", ackDuration.Milliseconds()))
+	ackSpan.End()
+
+	// Log custom timing for NATS ack
+	ch.log.InfoContext(ctx, "NATS acknowledge timing",
+		"operation", "nats.acknowledge",
+		"duration_ms", ackDuration.Milliseconds(),
+	)
 
 	mdata, err := lastMsg.Metadata()
 	if err != nil {
@@ -296,9 +364,17 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		ch.log.DebugContext(ctx, "Message acked by JetStream", "stream", mdata.Sequence.Stream)
 	}
 
+	totalDuration := sendDuration + ackDuration
+	span.SetAttributes(
+		attribute.Int64("total.duration_ms", totalDuration.Milliseconds()),
+		attribute.Int64("clickhouse.send.duration_ms", sendDuration.Milliseconds()),
+		attribute.Int64("nats.ack.duration_ms", ackDuration.Milliseconds()),
+	)
+
 	ch.log.InfoContext(ctx, "Batch processing completed successfully",
 		"status", "success",
 		"sent_messages", size,
+		"total_duration_ms", totalDuration.Milliseconds(),
 	)
 
 	return nil
@@ -308,6 +384,13 @@ func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (clickhouse.Batch, error) {
+	// Start trace span
+	ctx, span := ch.tracer.Start(ctx, "clickhouse.create_batch")
+	defer span.End()
+
+	// Custom timing for batch creation
+	batchStart := time.Now()
+
 	var query string
 	if ch.streamSourceID != "" {
 		query = fmt.Sprintf(
@@ -329,13 +412,26 @@ func (ch *ClickHouseSink) createCHBatch(
 
 	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
 	if err != nil {
+		span.RecordError(err)
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
 
-	for _, msg := range messages {
+	// Set span attributes
+	span.SetAttributes(
+		attribute.Int("batch.message_count", len(messages)),
+		attribute.String("query", query),
+	)
+
+	for i, msg := range messages {
+		// Per-message schema mapping span
+		_, msgSpan := ch.tracer.Start(ctx, "schema.map_message")
+		msgStart := time.Now()
+
 		var metadata *jetstream.MsgMetadata
 		metadata, err = msg.Metadata()
 		if err != nil {
+			msgSpan.RecordError(err)
+			msgSpan.End()
 			return nil, fmt.Errorf("failed to get message metadata: %w", err)
 		}
 
@@ -346,17 +442,46 @@ func (ch *ClickHouseSink) createCHBatch(
 			values, err = ch.schemaMapper.PrepareValues(msg.Data())
 		}
 		if err != nil {
+			msgSpan.RecordError(err)
+			msgSpan.End()
 			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
 		}
+
+		msgDuration := time.Since(msgStart)
+		msgSpan.SetAttributes(
+			attribute.Int("message.index", i),
+			attribute.Int64("duration_ms", msgDuration.Milliseconds()),
+		)
+		if ch.streamSourceID != "" {
+			msgSpan.SetAttributes(attribute.String("stream.source_id", ch.streamSourceID))
+		}
+		msgSpan.End()
+
+		// Log custom timing for schema mapping
+		ch.log.DebugContext(ctx, "Schema mapping timing",
+			"operation", "schema.map_message",
+			"message_index", i,
+			"duration_ms", msgDuration.Milliseconds(),
+		)
 
 		err = resultBatch.Append(metadata.Sequence.Stream, values...)
 		if err != nil {
 			if errors.Is(err, clickhouse.ErrAlreadyExists) {
 				continue
 			}
+			span.RecordError(err)
 			return nil, fmt.Errorf("failed to append values to batch: %w", err)
 		}
 	}
+
+	batchDuration := time.Since(batchStart)
+	span.SetAttributes(attribute.Int64("batch.duration_ms", batchDuration.Milliseconds()))
+
+	ch.log.InfoContext(ctx, "Batch creation timing",
+		"operation", "clickhouse.create_batch",
+		"duration_ms", batchDuration.Milliseconds(),
+		"message_count", len(messages),
+	)
 
 	return resultBatch, nil
 }
