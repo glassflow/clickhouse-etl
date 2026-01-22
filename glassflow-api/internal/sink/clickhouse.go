@@ -350,38 +350,119 @@ func (ch *ClickHouseSink) createCHBatch(
 	}
 	batchCreateDuration := time.Since(batchCreateStartTime)
 
-	// Step 3: Process messages (metadata + schema mapping + append)
+	// Step 3: Process messages in parallel (metadata + schema mapping)
+	const numWorkers = 10
+	messageCount := len(messages)
+
+	// Split messages into chunks for workers
+	chunkSize := (messageCount + numWorkers - 1) / numWorkers // Ceiling division
+
+	type processedMessage struct {
+		index      int
+		sequence   uint64
+		values     []any
+		err        error
+		metadataMs int64
+		schemaMs   int64
+	}
+
+	// Channel to collect processed messages
+	resultsChan := make(chan processedMessage, messageCount)
+
+	// Worker function
+	worker := func(workerID int, msgChunk []jetstream.Msg, startIdx int) {
+		for i, msg := range msgChunk {
+			msgIdx := startIdx + i
+			result := processedMessage{index: msgIdx}
+
+			// Get metadata
+			metadataStartTime := time.Now()
+			metadata, err := msg.Metadata()
+			if err != nil {
+				result.err = fmt.Errorf("failed to get message metadata: %w", err)
+				resultsChan <- result
+				continue
+			}
+			result.sequence = metadata.Sequence.Stream
+			result.metadataMs = time.Since(metadataStartTime).Milliseconds()
+
+			// Schema mapping
+			schemaStartTime := time.Now()
+			var values []any
+			if ch.streamSourceID != "" {
+				values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
+			} else {
+				values, err = ch.schemaMapper.PrepareValues(msg.Data())
+			}
+			if err != nil {
+				result.err = fmt.Errorf("failed to prepare values for message: %w", err)
+				resultsChan <- result
+				continue
+			}
+			result.values = values
+			result.schemaMs = time.Since(schemaStartTime).Milliseconds()
+
+			resultsChan <- result
+		}
+	}
+
+	// Start workers
+	var wg sync.WaitGroup
+	for w := 0; w < numWorkers; w++ {
+		startIdx := w * chunkSize
+		endIdx := startIdx + chunkSize
+		if endIdx > messageCount {
+			endIdx = messageCount
+		}
+		if startIdx >= messageCount {
+			break
+		}
+
+		wg.Add(1)
+		go func(workerID int, chunk []jetstream.Msg, idx int) {
+			defer wg.Done()
+			worker(workerID, chunk, idx)
+		}(w, messages[startIdx:endIdx], startIdx)
+	}
+
+	// Close results channel when all workers are done
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	// Collect results and maintain order
+	processedResults := make([]processedMessage, messageCount)
 	metadataTotalTime := time.Duration(0)
 	schemaMappingTotalTime := time.Duration(0)
+	collectedCount := 0
+
+	for result := range resultsChan {
+		if result.err != nil {
+			return nil, fmt.Errorf("worker error at index %d: %w", result.index, result.err)
+		}
+		processedResults[result.index] = result
+		collectedCount++
+		metadataTotalTime += time.Duration(result.metadataMs) * time.Millisecond
+		schemaMappingTotalTime += time.Duration(result.schemaMs) * time.Millisecond
+	}
+
+	// Verify all messages were processed
+	if collectedCount != messageCount {
+		return nil, fmt.Errorf("not all messages were processed: expected %d, got %d", messageCount, collectedCount)
+	}
+
+	// Step 4: Append to batch sequentially (maintains order and thread safety)
 	appendTotalTime := time.Duration(0)
 	skippedCount := 0
 
-	for i, msg := range messages {
-		// Get metadata
-		metadataStartTime := time.Now()
-		var metadata *jetstream.MsgMetadata
-		metadata, err = msg.Metadata()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get message metadata: %w", err)
+	for i, result := range processedResults {
+		// Safety check: ensure result was properly collected
+		if result.values == nil {
+			return nil, fmt.Errorf("missing values for message at index %d", i)
 		}
-		metadataTotalTime += time.Since(metadataStartTime)
-
-		// Schema mapping
-		schemaStartTime := time.Now()
-		var values []any
-		if ch.streamSourceID != "" {
-			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
-		} else {
-			values, err = ch.schemaMapper.PrepareValues(msg.Data())
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
-		}
-		schemaMappingTotalTime += time.Since(schemaStartTime)
-
-		// Append to batch
 		appendStartTime := time.Now()
-		err = resultBatch.Append(metadata.Sequence.Stream, values...)
+		err = resultBatch.Append(result.sequence, result.values...)
 		if err != nil {
 			if errors.Is(err, clickhouse.ErrAlreadyExists) {
 				skippedCount++
@@ -391,11 +472,11 @@ func (ch *ClickHouseSink) createCHBatch(
 		}
 		appendTotalTime += time.Since(appendStartTime)
 
-		// Log progress for every 10k messages to track if there are slowdowns
+		// Log progress for every 10k messages
 		if (i+1)%10000 == 0 {
 			ch.log.DebugContext(ctx, "Preparation progress",
 				"processed_messages", i+1,
-				"total_messages", len(messages),
+				"total_messages", messageCount,
 				"elapsed_ms", time.Since(prepStartTime).Milliseconds())
 		}
 	}
