@@ -177,7 +177,6 @@ func (ch *ClickHouseNoOpSink) flushEvents(ctx context.Context, messages []jetstr
 	ch.log.Error("failed to ack batch", "error", err, "batch_size", len(messages))
 
 	// Even on error, try to ack messages to avoid redelivery
-	// (in real scenario, you might want to handle this differently)
 	for _, msg := range messages {
 		_ = msg.Ack()
 	}
