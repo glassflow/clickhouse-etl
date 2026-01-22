@@ -142,6 +142,33 @@ func (s *PostgresStorage) getJoinConfig(ctx context.Context, tx pgx.Tx, pipeline
 	return &result, nil
 }
 
+func (s *PostgresStorage) getJoinConfigsByOutputVersion(ctx context.Context, tx pgx.Tx, pipelineID, joinID, outputSchemaVersionID string) ([]models.JoinConfig, error) {
+	rows, err := tx.Query(ctx, `
+        SELECT source_id, schema_version_id, join_id, output_schema_version_id, config
+        FROM join_configs
+        WHERE pipeline_id = $1 AND join_id = $2 AND output_schema_version_id = $3
+    `, pipelineID, joinID, outputSchemaVersionID)
+	if err != nil {
+		return nil, fmt.Errorf("query join configs: %w", err)
+	}
+	defer rows.Close()
+
+	var configs []models.JoinConfig
+	for rows.Next() {
+		var cfg models.JoinConfig
+		var configJSON []byte
+		if err := rows.Scan(&cfg.SourceID, &cfg.SourceSchemaVersionID, &cfg.JoinID, &cfg.OutputSchemaVersionID, &configJSON); err != nil {
+			return nil, fmt.Errorf("scan join config: %w", err)
+		}
+		if err := json.Unmarshal(configJSON, &cfg.Config); err != nil {
+			return nil, fmt.Errorf("unmarshal join config: %w", err)
+		}
+		configs = append(configs, cfg)
+	}
+
+	return configs, nil
+}
+
 func (s *PostgresStorage) insertSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.Mapping) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
