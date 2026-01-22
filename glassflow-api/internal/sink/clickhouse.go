@@ -358,12 +358,10 @@ func (ch *ClickHouseSink) createCHBatch(
 	chunkSize := (messageCount + numWorkers - 1) / numWorkers // Ceiling division
 
 	type processedMessage struct {
-		index      int
-		sequence   uint64
-		values     []any
-		err        error
-		metadataMs int64
-		schemaMs   int64
+		index    int
+		sequence uint64
+		values   []any
+		err      error
 	}
 
 	// Channel to collect processed messages
@@ -376,7 +374,6 @@ func (ch *ClickHouseSink) createCHBatch(
 			result := processedMessage{index: msgIdx}
 
 			// Get metadata
-			metadataStartTime := time.Now()
 			metadata, err := msg.Metadata()
 			if err != nil {
 				result.err = fmt.Errorf("failed to get message metadata: %w", err)
@@ -384,10 +381,8 @@ func (ch *ClickHouseSink) createCHBatch(
 				continue
 			}
 			result.sequence = metadata.Sequence.Stream
-			result.metadataMs = time.Since(metadataStartTime).Milliseconds()
 
 			// Schema mapping
-			schemaStartTime := time.Now()
 			var values []any
 			if ch.streamSourceID != "" {
 				values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
@@ -400,11 +395,13 @@ func (ch *ClickHouseSink) createCHBatch(
 				continue
 			}
 			result.values = values
-			result.schemaMs = time.Since(schemaStartTime).Milliseconds()
 
 			resultsChan <- result
 		}
 	}
+
+	// Measure parallel processing wall-clock time
+	parallelStartTime := time.Now()
 
 	// Start workers
 	var wg sync.WaitGroup
@@ -433,8 +430,6 @@ func (ch *ClickHouseSink) createCHBatch(
 
 	// Collect results and maintain order
 	processedResults := make([]processedMessage, messageCount)
-	metadataTotalTime := time.Duration(0)
-	schemaMappingTotalTime := time.Duration(0)
 	collectedCount := 0
 
 	for result := range resultsChan {
@@ -443,9 +438,10 @@ func (ch *ClickHouseSink) createCHBatch(
 		}
 		processedResults[result.index] = result
 		collectedCount++
-		metadataTotalTime += time.Duration(result.metadataMs) * time.Millisecond
-		schemaMappingTotalTime += time.Duration(result.schemaMs) * time.Millisecond
 	}
+
+	parallelDuration := time.Since(parallelStartTime)
+	schemaMappingTotalTime := parallelDuration // Wall-clock time for parallel processing
 
 	// Verify all messages were processed
 	if collectedCount != messageCount {
@@ -489,10 +485,10 @@ func (ch *ClickHouseSink) createCHBatch(
 		"total_prep_duration_ms", totalPrepDuration.Milliseconds(),
 		"query_creation_ms", queryDuration.Milliseconds(),
 		"batch_creation_ms", batchCreateDuration.Milliseconds(),
-		"metadata_total_ms", metadataTotalTime.Milliseconds(),
 		"schema_mapping_total_ms", schemaMappingTotalTime.Milliseconds(),
 		"append_total_ms", appendTotalTime.Milliseconds(),
 		"avg_per_message_us", totalPrepDuration.Microseconds()/int64(len(messages)),
+		"parallel_workers", numWorkers,
 		"status", "preparation_completed")
 
 	return resultBatch, nil
