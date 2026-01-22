@@ -378,7 +378,7 @@ func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConf
 	}
 
 	return SinkComponentConfig{
-		Type:     internal.ClickHouseNoOpSinkType,
+		Type:     internal.ClickHouseSinkType,
 		StreamID: args.StreamID,
 		Batch: BatchConfig{
 			MaxBatchSize: args.MaxBatchSize,
