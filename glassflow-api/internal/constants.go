@@ -14,6 +14,7 @@ const (
 	TemporalJoinType         = "temporal"
 	SchemaMapperJSONToCHType = "jsonToClickhouse"
 	ClickHouseSinkType       = "clickhouse"
+	ClickHouseNoOpSinkType   = "clickhouse-noop" // Benchmark sink: reads from NATS and acks without writing to ClickHouse
 
 	// Stream naming constants
 	MaxStreamNameLength  = 32
