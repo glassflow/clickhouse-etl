@@ -71,6 +71,11 @@ func NewClickHouseSink(
 		maxDelayTime = sinkConfig.Batch.MaxDelayTime.Duration()
 	}
 
+	// Set logger on mapper for detailed profiling (if it's a JsonToClickHouseMapper)
+	if jsonMapper, ok := schemaMapper.(*schema.JsonToClickHouseMapper); ok {
+		jsonMapper.SetLogger(log)
+	}
+
 	return &ClickHouseSink{
 		client:                clickhouseClient,
 		streamConsumer:        streamConsumer,
