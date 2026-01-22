@@ -188,6 +188,10 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 }
 
 func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.Msg) error {
+	ch.log.InfoContext(ctx, "All messages read from NATS, starting batch processing",
+		"message_count", len(messages),
+		"status", "messages_read")
+
 	err := ch.sendBatch(ctx, messages)
 	if err == nil {
 		return nil
@@ -248,6 +252,9 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 	if err != nil {
 		return fmt.Errorf("send the batch: %w", err)
 	}
+	ch.log.InfoContext(ctx, "Data sent successfully to ClickHouse",
+		"message_count", size,
+		"status", "clickhouse_write_success")
 	ch.log.DebugContext(ctx, "Batch sent to clickhouse", "message_count", size)
 
 	// Record ClickHouse write metrics
@@ -338,6 +345,10 @@ func (ch *ClickHouseSink) createCHBatch(
 			return nil, fmt.Errorf("failed to append values to batch: %w", err)
 		}
 	}
+
+	ch.log.InfoContext(ctx, "Preparation inside sink code completed, batch ready for ClickHouse",
+		"message_count", len(messages),
+		"status", "preparation_completed")
 
 	return resultBatch, nil
 }
