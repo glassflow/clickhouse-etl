@@ -38,12 +38,13 @@ type ClickHouseSink struct {
 	dlqPublisher          stream.Publisher
 
 	// Batch accumulation
-	messageBuffer     []jetstream.Msg
-	bufferMu          sync.Mutex
-	bufferFlushTicker *time.Ticker
-	maxBatchSize      int
-	maxDelayTime      time.Duration
-	consumeContext    jetstream.ConsumeContext
+	messageBuffer      []jetstream.Msg
+	bufferMu           sync.Mutex
+	bufferFlushTicker  *time.Ticker
+	maxBatchSize       int
+	maxDelayTime       time.Duration
+	consumeContext     jetstream.ConsumeContext
+	lastBatchStartTime time.Time
 }
 
 func NewClickHouseSink(
@@ -109,9 +110,20 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	// Message handler - called by Consume() as messages arrive
 	messageHandler := func(msg jetstream.Msg) {
 		ch.bufferMu.Lock()
+		wasEmpty := len(ch.messageBuffer) == 0
 		ch.messageBuffer = append(ch.messageBuffer, msg)
-		shouldFlush := len(ch.messageBuffer) >= ch.maxBatchSize
+		bufferSize := len(ch.messageBuffer)
+		shouldFlush := bufferSize >= ch.maxBatchSize
 		ch.bufferMu.Unlock()
+
+		// Log when starting to accumulate a new batch (buffer was empty, first message arrived)
+		if wasEmpty {
+			ch.bufferMu.Lock()
+			ch.lastBatchStartTime = time.Now()
+			ch.bufferMu.Unlock()
+			ch.log.InfoContext(ctx, "Starting to accumulate new batch from NATS",
+				"status", "nats_read_started")
+		}
 
 		// Flush immediately if batch size reached
 		if shouldFlush {
@@ -188,8 +200,18 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 }
 
 func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.Msg) error {
+	// Calculate NATS read time if we tracked the start time
+	var natsReadDuration time.Duration
+	ch.bufferMu.Lock()
+	if !ch.lastBatchStartTime.IsZero() {
+		natsReadDuration = time.Since(ch.lastBatchStartTime)
+		ch.lastBatchStartTime = time.Time{} // Reset
+	}
+	ch.bufferMu.Unlock()
+
 	ch.log.InfoContext(ctx, "All messages read from NATS, starting batch processing",
 		"message_count", len(messages),
+		"nats_read_duration_ms", natsReadDuration.Milliseconds(),
 		"status", "messages_read")
 
 	err := ch.sendBatch(ctx, messages)
@@ -296,6 +318,10 @@ func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (clickhouse.Batch, error) {
+	prepStartTime := time.Now()
+
+	// Step 1: Query creation
+	queryStartTime := time.Now()
 	var query string
 	if ch.streamSourceID != "" {
 		query = fmt.Sprintf(
@@ -312,21 +338,36 @@ func (ch *ClickHouseSink) createCHBatch(
 			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
 		)
 	}
+	queryDuration := time.Since(queryStartTime)
 
 	ch.log.Debug("Insert query", "query", query)
 
+	// Step 2: Batch creation
+	batchCreateStartTime := time.Now()
 	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
+	batchCreateDuration := time.Since(batchCreateStartTime)
 
-	for _, msg := range messages {
+	// Step 3: Process messages (metadata + schema mapping + append)
+	metadataTotalTime := time.Duration(0)
+	schemaMappingTotalTime := time.Duration(0)
+	appendTotalTime := time.Duration(0)
+	skippedCount := 0
+
+	for i, msg := range messages {
+		// Get metadata
+		metadataStartTime := time.Now()
 		var metadata *jetstream.MsgMetadata
 		metadata, err = msg.Metadata()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get message metadata: %w", err)
 		}
+		metadataTotalTime += time.Since(metadataStartTime)
 
+		// Schema mapping
+		schemaStartTime := time.Now()
 		var values []any
 		if ch.streamSourceID != "" {
 			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
@@ -336,18 +377,41 @@ func (ch *ClickHouseSink) createCHBatch(
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
 		}
+		schemaMappingTotalTime += time.Since(schemaStartTime)
 
+		// Append to batch
+		appendStartTime := time.Now()
 		err = resultBatch.Append(metadata.Sequence.Stream, values...)
 		if err != nil {
 			if errors.Is(err, clickhouse.ErrAlreadyExists) {
+				skippedCount++
 				continue
 			}
 			return nil, fmt.Errorf("failed to append values to batch: %w", err)
 		}
+		appendTotalTime += time.Since(appendStartTime)
+
+		// Log progress for every 10k messages to track if there are slowdowns
+		if (i+1)%10000 == 0 {
+			ch.log.DebugContext(ctx, "Preparation progress",
+				"processed_messages", i+1,
+				"total_messages", len(messages),
+				"elapsed_ms", time.Since(prepStartTime).Milliseconds())
+		}
 	}
+
+	totalPrepDuration := time.Since(prepStartTime)
 
 	ch.log.InfoContext(ctx, "Preparation inside sink code completed, batch ready for ClickHouse",
 		"message_count", len(messages),
+		"skipped_count", skippedCount,
+		"total_prep_duration_ms", totalPrepDuration.Milliseconds(),
+		"query_creation_ms", queryDuration.Milliseconds(),
+		"batch_creation_ms", batchCreateDuration.Milliseconds(),
+		"metadata_total_ms", metadataTotalTime.Milliseconds(),
+		"schema_mapping_total_ms", schemaMappingTotalTime.Milliseconds(),
+		"append_total_ms", appendTotalTime.Milliseconds(),
+		"avg_per_message_us", totalPrepDuration.Microseconds()/int64(len(messages)),
 		"status", "preparation_completed")
 
 	return resultBatch, nil
