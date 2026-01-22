@@ -275,10 +275,24 @@ func (s *PostgresStorage) SaveNewSchemaVersion(ctx context.Context, pipelineID, 
 				return fmt.Errorf("create new schema version for join %s: %w", componentSourceID, err)
 			}
 
-			// SCreate new join config
-			err = s.insertJoinConfig(ctx, tx, pipelineID, item.sourceID, item.newVersionID, componentSourceID, newOutputVersionID, jCfg.Config)
+			// Find ALL join_configs for this join component with the same output version
+			allJoinConfigs, err := s.getJoinConfigsByOutputVersion(ctx, tx, pipelineID, componentSourceID, jCfg.OutputSchemaVersionID)
 			if err != nil {
-				return fmt.Errorf("create new join config for source %s: %w", item.sourceID, err)
+				return fmt.Errorf("get all join configs for join %s: %w", componentSourceID, err)
+			}
+
+			// Create new join_config for each source
+			for _, jc := range allJoinConfigs {
+				newInputVersionID := jc.SourceSchemaVersionID
+				if jc.SourceID == item.sourceID {
+					// This is the source that triggered the change
+					newInputVersionID = item.newVersionID
+				}
+
+				err = s.insertJoinConfig(ctx, tx, pipelineID, jc.SourceID, newInputVersionID, componentSourceID, newOutputVersionID, jc.Config)
+				if err != nil {
+					return fmt.Errorf("create new join config for source %s: %w", jc.SourceID, err)
+				}
 			}
 
 			// Step 4: Continue propagation with the component's output
