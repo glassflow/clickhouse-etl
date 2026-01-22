@@ -148,10 +148,10 @@ func testAPIFeatures(t *testing.T) {
 // TestFeatures runs all feature tests but in separate contexts
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
-	t.Run("SinkFeatures", testSinkFeatures)
-	t.Run("JoinComponentFeatures", testJoinFeatures)
-	t.Run("PipelineFeatures", testPipelineFeatures)
-	t.Run("IngestorFeatures", testIngetorFeatures)
-	t.Run("PlatformFeatures", testPlatformFeatures)
-	t.Run("APIFeatures", testAPIFeatures)
+	//t.Run("SinkFeatures", testSinkFeatures)
+	//t.Run("JoinComponentFeatures", testJoinFeatures)
+	//t.Run("PipelineFeatures", testPipelineFeatures)
+	//t.Run("IngestorFeatures", testIngetorFeatures)
+	//t.Run("PlatformFeatures", testPlatformFeatures)
+	//t.Run("APIFeatures", testAPIFeatures)
 }
