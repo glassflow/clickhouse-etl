@@ -10,16 +10,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *PostgresStorage) insertStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID string, config []models.Transform) error {
+func (s *PostgresStorage) insertStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, transformationID, outputSchemaVersionID string, config []models.Transform) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("marshal transformation config: %w", err)
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO transformation_configs (pipeline_id, source_id, schema_version_id, output_schema_version_id, config)
-		VALUES ($1, $2, $3, $4, $5)
-	`, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID, configJSON)
+		INSERT INTO transformation_configs (pipeline_id, source_id, schema_version_id, transformation_id, output_schema_version_id, config)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, pipelineID, sourceID, sourceSchemaVersionID, transformationID, outputSchemaVersionID, configJSON)
 	if err != nil {
 		return fmt.Errorf("insert transformation config: %w", err)
 	}
@@ -52,12 +52,13 @@ func (s *PostgresStorage) getStatelessTransformationConfig(ctx context.Context, 
 	)
 
 	err := tx.QueryRow(ctx, `
-		SELECT source_id, schema_version_id, output_schema_version_id, config
+		SELECT source_id, schema_version_id, transformation_id, output_schema_version_id, config
 		FROM transformation_configs
 		WHERE pipeline_id = $1 AND source_id = $2 AND schema_version_id = $3
 	`, pipelineID, sourceID, sourceSchemaVersion).Scan(
 		&result.SourceID,
 		&result.SourceSchemaVersionID,
+		&result.TransfromationID,
 		&result.OutputSchemaVersionID,
 		&configJSON,
 	)
@@ -75,16 +76,16 @@ func (s *PostgresStorage) getStatelessTransformationConfig(ctx context.Context, 
 	return &result, nil
 }
 
-func (s *PostgresStorage) insertJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID string, config []models.JoinRule) error {
+func (s *PostgresStorage) insertJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID string, config []models.JoinRule) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("marshal join config: %w", err)
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO join_configs (pipeline_id, source_id, schema_version_id, output_schema_version_id, config)
-		VALUES ($1, $2, $3, $4, $5)
-	`, pipelineID, sourceID, sourceSchemaVersionID, outputSchemaVersionID, configJSON)
+		INSERT INTO join_configs (pipeline_id, source_id, schema_version_id, join_id, output_schema_version_id, config)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID, configJSON)
 	if err != nil {
 		return fmt.Errorf("insert join config: %w", err)
 	}
@@ -117,12 +118,13 @@ func (s *PostgresStorage) getJoinConfig(ctx context.Context, tx pgx.Tx, pipeline
 	)
 
 	err := tx.QueryRow(ctx, `
-		SELECT source_id, schema_version_id, output_schema_version_id, config
+		SELECT source_id, schema_version_id, join_id, output_schema_version_id, config
 		FROM join_configs
 		WHERE pipeline_id = $1 AND source_id = $2 AND schema_version_id = $3
 	`, pipelineID, sourceID, sourceSchemaVersion).Scan(
 		&result.SourceID,
 		&result.SourceSchemaVersionID,
+		&result.JoinID,
 		&result.OutputSchemaVersionID,
 		&configJSON,
 	)
@@ -138,6 +140,33 @@ func (s *PostgresStorage) getJoinConfig(ctx context.Context, tx pgx.Tx, pipeline
 	}
 
 	return &result, nil
+}
+
+func (s *PostgresStorage) getJoinConfigsByOutputVersion(ctx context.Context, tx pgx.Tx, pipelineID, joinID, outputSchemaVersionID string) ([]models.JoinConfig, error) {
+	rows, err := tx.Query(ctx, `
+        SELECT source_id, schema_version_id, join_id, output_schema_version_id, config
+        FROM join_configs
+        WHERE pipeline_id = $1 AND join_id = $2 AND output_schema_version_id = $3
+    `, pipelineID, joinID, outputSchemaVersionID)
+	if err != nil {
+		return nil, fmt.Errorf("query join configs: %w", err)
+	}
+	defer rows.Close()
+
+	var configs []models.JoinConfig
+	for rows.Next() {
+		var cfg models.JoinConfig
+		var configJSON []byte
+		if err := rows.Scan(&cfg.SourceID, &cfg.SourceSchemaVersionID, &cfg.JoinID, &cfg.OutputSchemaVersionID, &configJSON); err != nil {
+			return nil, fmt.Errorf("scan join config: %w", err)
+		}
+		if err := json.Unmarshal(configJSON, &cfg.Config); err != nil {
+			return nil, fmt.Errorf("unmarshal join config: %w", err)
+		}
+		configs = append(configs, cfg)
+	}
+
+	return configs, nil
 }
 
 func (s *PostgresStorage) insertSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.Mapping) error {
