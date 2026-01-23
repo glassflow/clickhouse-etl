@@ -100,10 +100,14 @@ func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, da
 		return []any{}, nil // No columns for this stream
 	}
 
+	// Build values array in column order, including nil for missing fields
 	values := make([]any, 0, len(columns))
 	for _, column := range columns {
+		// Append value if exists, otherwise nil (preserves original behavior)
 		if val, ok := mappedData[column.ColumnName]; ok {
 			values = append(values, val)
+		} else {
+			values = append(values, nil)
 		}
 	}
 
