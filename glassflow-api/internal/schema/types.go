@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/tidwall/gjson"
 )
 
 type (
@@ -210,6 +211,54 @@ func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
 	}
 
 	return zeroValue, nil
+}
+
+// ConvertValueFromGjson converts a gjson.Result to the appropriate ClickHouse type.
+// This avoids the overhead of unmarshaling to map[string]any first.
+func ConvertValueFromGjson(columnType ClickHouseDataType, fieldType KafkaDataType, result gjson.Result) (any, error) {
+	if !result.Exists() {
+		return nil, nil
+	}
+
+	// Extract value based on field type, directly from gjson.Result
+	var value any
+	switch fieldType {
+	case internal.KafkaTypeString:
+		value = result.String()
+	case internal.KafkaTypeBytes:
+		value = result.String()
+	case internal.KafkaTypeBool:
+		value = result.Bool()
+	case internal.KafkaTypeInt, internal.KafkaTypeInt64:
+		value = result.Int()
+	case internal.KafkaTypeInt8:
+		value = int8(result.Int())
+	case internal.KafkaTypeInt16:
+		value = int16(result.Int())
+	case internal.KafkaTypeInt32:
+		value = int32(result.Int())
+	case internal.KafkaTypeUint, internal.KafkaTypeUint64:
+		value = result.Uint()
+	case internal.KafkaTypeUint8:
+		value = uint8(result.Uint())
+	case internal.KafkaTypeUint16:
+		value = uint16(result.Uint())
+	case internal.KafkaTypeUint32:
+		value = uint32(result.Uint())
+	case internal.KafkaTypeFloat, internal.KafkaTypeFloat64:
+		value = result.Float()
+	case internal.KafkaTypeFloat32:
+		value = float32(result.Float())
+	case internal.KafkaTypeArray, internal.KafkaTypeMap:
+		// For complex types, fall back to Value() which returns any
+		value = result.Value()
+	default:
+		// Fallback for unknown types
+		value = result.Value()
+	}
+
+	// Now convert to ClickHouse type
+	return ConvertValue(columnType, fieldType, value)
 }
 
 // convertMapToStringMap converts map[string]any to map[string]string for ClickHouse compatibility

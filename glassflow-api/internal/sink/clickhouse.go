@@ -343,7 +343,7 @@ func (ch *ClickHouseSink) createCHBatch(
 		if ch.streamSourceID != "" {
 			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
 		} else {
-			values, err = ch.schemaMapper.PrepareValues(msg.Data())
+			values, err = ch.schemaMapper.PrepareValuesV2(msg.Data())
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
