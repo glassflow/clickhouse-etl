@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -192,6 +194,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		*pi,
 		schemaMapper,
 		nil, // nil meter for docker orchestrator
+		trace.NewNoopTracerProvider().Tracer("glassflow-etl"), // no-op tracer for docker orchestrator
 	)
 
 	err = d.sinkRunner.Start(ctx)

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -23,6 +24,7 @@ type SinkRunner struct {
 	pipelineCfg  models.PipelineConfig
 	schemaMapper schema.Mapper
 	meter        *observability.Meter
+	tracer       trace.Tracer
 
 	component component.Component
 	c         chan error
@@ -35,6 +37,7 @@ func NewSinkRunner(
 	pipelineCfg models.PipelineConfig,
 	schemaMapper schema.Mapper,
 	meter *observability.Meter,
+	tracer trace.Tracer,
 ) *SinkRunner {
 	return &SinkRunner{
 		nc:  nc,
@@ -43,6 +46,7 @@ func NewSinkRunner(
 		pipelineCfg:  pipelineCfg,
 		schemaMapper: schemaMapper,
 		meter:        meter,
+		tracer:       tracer,
 
 		component: nil,
 	}
@@ -91,6 +95,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		s.meter,
 		dlqStreamPublisher,
 		streamSourceID,
+		s.tracer,
 	)
 	if err != nil {
 		s.log.ErrorContext(ctx, "failed to create ClickHouse sink: ", "error", err)

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -38,6 +39,7 @@ func NewSinkComponent(
 	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
 	streamSourceID string,
+	tracer trace.Tracer,
 ) (Component, error) {
 	if sinkConfig.Type != internal.ClickHouseSinkType {
 		return nil, fmt.Errorf("unsupported sink type: %s", sinkConfig.Type)
@@ -54,6 +56,7 @@ func NewSinkComponent(
 			WaitForAsyncInsert: true,
 		},
 		streamSourceID,
+		tracer,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sink: %w", err)
