@@ -86,32 +86,16 @@ func (m *JsonToClickHouseMapper) GetOrderedColumnsStream(streamSchemaName string
 }
 
 func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, data []byte) ([]any, error) {
-	methodStartTime := time.Now()
-
 	mappedData, err := m.prepareForClickHouseStream(streamSchemaName, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
 	}
 
-	// Build values array
-	valuesBuildStart := time.Now()
 	var values []any
 	for _, column := range m.Columns {
 		if column.StreamName == streamSchemaName {
 			values = append(values, mappedData[column.ColumnName])
 		}
-	}
-	valuesBuildDuration := time.Since(valuesBuildStart)
-
-	totalMethodDuration := time.Since(methodStartTime)
-
-	// Log method-level timing if logger is available
-	if m.log != nil {
-		m.log.Info("PrepareValuesStream method timing",
-			"stream_name", streamSchemaName,
-			"values_build_ms", valuesBuildDuration.Milliseconds(),
-			"total_method_ms", totalMethodDuration.Milliseconds(),
-			"values_count", len(values))
 	}
 
 	return values, nil
@@ -296,129 +280,65 @@ func (m *JsonToClickHouseMapper) GetKey(streamSchemaName, keyName string, data [
 // prepareForClickHouseStream prepares data for a specific stream without stream name prefixing.
 // This is used for single-stream data like transformation output: {"event_id": "123", "name": "John"}
 func (m *JsonToClickHouseMapper) prepareForClickHouseStream(streamSchemaName string, data []byte) (map[string]any, error) {
-	prepStartTime := time.Now()
-
-	// Step 1: JSON Unmarshaling
-	jsonUnmarshalStart := time.Now()
 	var jsonData map[string]any
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
-	jsonUnmarshalDuration := time.Since(jsonUnmarshalStart)
 
 	result := make(map[string]any)
-
-	// Step 2: Process columns (field extraction + type conversion)
-	fieldExtractionTotalTime := time.Duration(0)
-	typeConversionTotalTime := time.Duration(0)
-	columnCount := 0
 
 	for _, column := range m.Columns {
 		if column.StreamName != streamSchemaName {
 			continue
 		}
-		columnCount++
 
 		// Look for field without stream name prefix (single-stream data)
 		fieldName := column.FieldName
-
-		// Field extraction
-		fieldExtractStart := time.Now()
 		value, exists := getNestedValue(jsonData, fieldName)
-		fieldExtractionTotalTime += time.Since(fieldExtractStart)
 		if !exists {
 			continue
 		}
 
 		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
 
-		// Type conversion
-		typeConvertStart := time.Now()
 		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
-		typeConversionTotalTime += time.Since(typeConvertStart)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
 		}
 
 		result[column.ColumnName] = convertedValue
-	}
-
-	totalDuration := time.Since(prepStartTime)
-
-	// Log detailed timing if logger is available
-	if m.log != nil {
-		m.log.Info("Schema mapping detailed timing",
-			"stream_name", streamSchemaName,
-			"json_unmarshal_ms", jsonUnmarshalDuration.Milliseconds(),
-			"field_extraction_total_ms", fieldExtractionTotalTime.Milliseconds(),
-			"type_conversion_total_ms", typeConversionTotalTime.Milliseconds(),
-			"total_duration_ms", totalDuration.Milliseconds(),
-			"column_count", columnCount,
-			"avg_per_column_us", totalDuration.Microseconds()/int64(maxInt(columnCount, 1)),
-			"data_size_bytes", len(data))
 	}
 
 	return result, nil
 }
 
 func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]any, error) {
-	prepStartTime := time.Now()
-
-	// Step 1: JSON Unmarshaling
-	jsonUnmarshalStart := time.Now()
 	var jsonData map[string]any
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
-	jsonUnmarshalDuration := time.Since(jsonUnmarshalStart)
 
 	result := make(map[string]any)
 
-	// Step 2: Process columns (field extraction + type conversion)
-	fieldExtractionTotalTime := time.Duration(0)
-	typeConversionTotalTime := time.Duration(0)
-	columnCount := 0
-
 	for _, column := range m.Columns {
-		columnCount++
 		fieldName := column.FieldName
 		if len(m.Streams) > 1 {
 			fieldName = column.StreamName + "." + fieldName
 		}
 
-		// Field extraction
-		fieldExtractStart := time.Now()
 		value, exists := getNestedValue(jsonData, fieldName)
-		fieldExtractionTotalTime += time.Since(fieldExtractStart)
 		if !exists {
 			continue
 		}
 
 		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
 
-		// Type conversion
-		typeConvertStart := time.Now()
 		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
-		typeConversionTotalTime += time.Since(typeConvertStart)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
 		}
 
 		result[column.ColumnName] = convertedValue
-	}
-
-	totalDuration := time.Since(prepStartTime)
-
-	// Log detailed timing if logger is available
-	if m.log != nil {
-		m.log.Info("Schema mapping detailed timing",
-			"json_unmarshal_ms", jsonUnmarshalDuration.Milliseconds(),
-			"field_extraction_total_ms", fieldExtractionTotalTime.Milliseconds(),
-			"type_conversion_total_ms", typeConversionTotalTime.Milliseconds(),
-			"total_duration_ms", totalDuration.Milliseconds(),
-			"column_count", columnCount,
-			"avg_per_column_us", totalDuration.Microseconds()/int64(maxInt(columnCount, 1)),
-			"data_size_bytes", len(data))
 	}
 
 	return result, nil
@@ -441,27 +361,12 @@ func (m *JsonToClickHouseMapper) GetOrderedColumns() []string {
 }
 
 func (m *JsonToClickHouseMapper) PrepareValues(data []byte) ([]any, error) {
-	methodStartTime := time.Now()
-
 	mappedData, err := m.prepareForClickHouse(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
 	}
 
-	// Build ordered values array
-	valuesBuildStart := time.Now()
 	values := m.getMappedValues(mappedData)
-	valuesBuildDuration := time.Since(valuesBuildStart)
-
-	totalMethodDuration := time.Since(methodStartTime)
-
-	// Log method-level timing if logger is available
-	if m.log != nil {
-		m.log.Info("PrepareValues method timing",
-			"values_build_ms", valuesBuildDuration.Milliseconds(),
-			"total_method_ms", totalMethodDuration.Milliseconds(),
-			"values_count", len(values))
-	}
 
 	return values, nil
 }
