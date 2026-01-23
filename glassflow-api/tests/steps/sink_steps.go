@@ -11,7 +11,7 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/nats-io/nats.go/jetstream"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
@@ -292,7 +292,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		nil, // nil meter for e2e tests
 		dlqStreamPublisher,
 		"",
-		trace.NewNoopTracerProvider().Tracer("glassflow-etl"), // no-op tracer for e2e tests
+		noop.NewTracerProvider().Tracer("glassflow-etl"), // no-op tracer for e2e tests
 	)
 	if err != nil {
 		return fmt.Errorf("create ClickHouse sink: %w", err)

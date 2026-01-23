@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // ConfigureTracer creates and configures tracing based on the provided configuration
@@ -16,7 +17,7 @@ import (
 func ConfigureTracer(cfg *Config, log *slog.Logger) trace.Tracer {
 	if !cfg.MetricsEnabled {
 		// Return no-op tracer when metrics are disabled
-		return trace.NewNoopTracerProvider().Tracer("glassflow-etl")
+		return noop.NewTracerProvider().Tracer("glassflow-etl")
 	}
 
 	// Set up OTLP trace exporter
@@ -27,7 +28,7 @@ func ConfigureTracer(cfg *Config, log *slog.Logger) trace.Tracer {
 	exporter, err := otlptracehttp.New(ctx)
 	if err != nil {
 		log.Error("Failed to create OTLP trace exporter", "error", err)
-		return trace.NewNoopTracerProvider().Tracer("glassflow-etl")
+		return noop.NewTracerProvider().Tracer("glassflow-etl")
 	}
 
 	// Create resource with service information
@@ -36,7 +37,7 @@ func ConfigureTracer(cfg *Config, log *slog.Logger) trace.Tracer {
 	res, err := resource.New(ctx, resource.WithAttributes(attrs...))
 	if err != nil {
 		log.Error("Failed to create resource", "error", err)
-		return trace.NewNoopTracerProvider().Tracer("glassflow-etl")
+		return noop.NewTracerProvider().Tracer("glassflow-etl")
 	}
 
 	// Create TracerProvider with OTLP exporter
