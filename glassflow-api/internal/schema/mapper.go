@@ -37,6 +37,10 @@ type SinkMapping struct {
 	StreamName string
 	FieldName  string
 	ColumnType ClickHouseDataType
+
+	// Pre-computed during initialization for performance
+	FieldType     KafkaDataType // Cache to avoid map lookup on every message
+	FullFieldPath string        // Pre-computed field path (with or without stream prefix)
 }
 
 func NewMapper(cfg models.MapperConfig) (Mapper, error) {
@@ -71,6 +75,9 @@ type JsonToClickHouseMapper struct {
 
 	leftStream  string
 	rightStream string
+
+	// Optimization: cache whether we have multiple streams to avoid len() check on every column
+	hasMultipleStreams bool
 }
 
 func (m *JsonToClickHouseMapper) GetOrderedColumnsStream(streamSchemaName string) []string {
@@ -135,6 +142,9 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 
 	m.Streams = convertStreams(streamsConfig)
 
+	// Optimization: cache whether we have multiple streams
+	m.hasMultipleStreams = len(m.Streams) > 1
+
 	for name, stream := range m.Streams {
 		switch stream.JoinOrientation {
 		case "left":
@@ -148,7 +158,18 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 		return nil, err
 	}
 
+	// Pre-compute static values for each column to avoid per-message calculations
 	for _, column := range m.Columns {
+		// Pre-compute fieldType (static map lookup)
+		column.FieldType = m.Streams[column.StreamName].Fields[column.FieldName]
+
+		// Pre-compute fullFieldPath (static string concatenation)
+		if m.hasMultipleStreams {
+			column.FullFieldPath = column.StreamName + "." + column.FieldName
+		} else {
+			column.FullFieldPath = column.FieldName
+		}
+
 		m.fieldColumnMap[column.FieldName] = column
 	}
 
@@ -314,19 +335,14 @@ func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]a
 	result := make(map[string]any)
 
 	for _, column := range m.Columns {
-		fieldName := column.FieldName
-		if len(m.Streams) > 1 {
-			fieldName = column.StreamName + "." + fieldName
-		}
-
-		value, exists := getNestedValue(jsonData, fieldName)
+		// Optimization: use pre-computed FullFieldPath instead of building it per message
+		value, exists := getNestedValue(jsonData, column.FullFieldPath)
 		if !exists {
 			continue
 		}
 
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
-
-		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
+		// Optimization: use pre-computed FieldType instead of map lookup per message
+		convertedValue, err := ConvertValue(column.ColumnType, column.FieldType, value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
 		}
