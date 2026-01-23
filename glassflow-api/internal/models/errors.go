@@ -33,3 +33,7 @@ func IsRecordNotFoundErr(err error) bool { return errors.Is(err, ErrRecordNotFou
 var ErrSchemaVerionNotFound = errors.New("schema version not found")
 
 func IsSchemaVersionNotFoundErr(err error) bool { return errors.Is(err, ErrSchemaVerionNotFound) }
+
+var ErrConfigNotFound = errors.New("config not found")
+
+func IsConfigNotFoundErr(err error) bool { return errors.Is(err, ErrConfigNotFound) }
