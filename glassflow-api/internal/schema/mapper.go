@@ -34,10 +34,12 @@ type Stream struct {
 }
 
 type SinkMapping struct {
-	ColumnName string
-	StreamName string
-	FieldName  string
-	ColumnType ClickHouseDataType
+	ColumnName     string
+	StreamName     string
+	FieldName      string
+	ColumnType     ClickHouseDataType
+	FieldType      KafkaDataType     // Cached field type to avoid repeated map lookups
+	ParsedTypeInfo *ParsedColumnType // Pre-parsed type info to avoid string operations
 }
 
 func NewMapper(cfg models.MapperConfig) (Mapper, error) {
@@ -69,6 +71,7 @@ type JsonToClickHouseMapper struct {
 	fieldColumnMap map[string]*SinkMapping
 	orderedColumns []string
 	columnOrderMap map[string]int
+	streamColumns  map[string][]*SinkMapping // Pre-indexed columns by stream name
 
 	leftStream  string
 	rightStream string
@@ -91,10 +94,16 @@ func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, da
 		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
 	}
 
-	var values []any
-	for _, column := range m.Columns {
-		if column.StreamName == streamSchemaName {
-			values = append(values, mappedData[column.ColumnName])
+	// Use pre-indexed columns for this stream (optimization: avoid iterating all columns)
+	columns, exists := m.streamColumns[streamSchemaName]
+	if !exists {
+		return []any{}, nil // No columns for this stream
+	}
+
+	values := make([]any, 0, len(columns))
+	for _, column := range columns {
+		if val, ok := mappedData[column.ColumnName]; ok {
+			values = append(values, val)
 		}
 	}
 
@@ -133,6 +142,7 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 		Columns:        columnMappings,
 		fieldColumnMap: make(map[string]*SinkMapping),
 		columnOrderMap: make(map[string]int),
+		streamColumns:  make(map[string][]*SinkMapping),
 	}
 
 	m.Streams = convertStreams(streamsConfig)
@@ -150,8 +160,22 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 		return nil, err
 	}
 
+	// Cache field types and build stream columns index
 	for _, column := range m.Columns {
 		m.fieldColumnMap[column.FieldName] = column
+
+		// Cache field type to avoid repeated map lookups
+		if stream, ok := m.Streams[column.StreamName]; ok {
+			if fieldType, ok := stream.Fields[column.FieldName]; ok {
+				column.FieldType = fieldType
+			}
+		}
+
+		// Pre-parse column type to avoid string operations during conversion
+		column.ParsedTypeInfo = parseColumnType(column.ColumnType)
+
+		// Pre-index columns by stream name
+		m.streamColumns[column.StreamName] = append(m.streamColumns[column.StreamName], column)
 	}
 
 	m.buildColumnOrder()
@@ -287,11 +311,13 @@ func (m *JsonToClickHouseMapper) prepareForClickHouseStream(streamSchemaName str
 
 	result := make(map[string]any)
 
-	for _, column := range m.Columns {
-		if column.StreamName != streamSchemaName {
-			continue
-		}
+	// Use pre-indexed columns for this stream (optimization: avoid iterating all columns)
+	columns, exists := m.streamColumns[streamSchemaName]
+	if !exists {
+		return result, nil // No columns for this stream
+	}
 
+	for _, column := range columns {
 		// Look for field without stream name prefix (single-stream data)
 		fieldName := column.FieldName
 		value, exists := getNestedValue(jsonData, fieldName)
@@ -299,9 +325,8 @@ func (m *JsonToClickHouseMapper) prepareForClickHouseStream(streamSchemaName str
 			continue
 		}
 
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
-
-		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
+		// Use cached field type and parsed type info (optimization: avoid map lookup and string operations)
+		convertedValue, err := ConvertValueWithParsedType(column.ParsedTypeInfo, column.ColumnType, column.FieldType, value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
 		}
@@ -331,9 +356,8 @@ func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]a
 			continue
 		}
 
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
-
-		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
+		// Use cached field type (optimization: avoid map lookup)
+		convertedValue, err := ConvertValueWithParsedType(column.ParsedTypeInfo, column.ColumnType, column.FieldType, value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
 		}
@@ -449,14 +473,6 @@ func (m *JsonToClickHouseMapper) JoinData(leftStreamName string, leftData []byte
 	}
 
 	return resultData, nil
-}
-
-// maxInt returns the maximum of two integers
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // getNestedValue extracts a value from a nested JSON object using dot notation

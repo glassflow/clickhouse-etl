@@ -9,10 +9,59 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
 
+// parseColumnType pre-parses a ClickHouse column type to cache type information
+// This is a helper function used by both mapper and types packages
+func parseColumnType(columnType ClickHouseDataType) *ParsedColumnType {
+	parsed := &ParsedColumnType{
+		FullType: columnType,
+		BaseType: columnType,
+	}
+
+	typeStr := string(columnType)
+
+	// Check for DateTime types
+	if strings.HasPrefix(typeStr, "DateTime") {
+		parsed.IsDateTime = true
+		// Extract base type (DateTime, DateTime64, etc.)
+		if idx := strings.Index(typeStr, "("); idx > 0 {
+			parsed.BaseType = ClickHouseDataType(typeStr[:idx])
+		}
+		return parsed
+	}
+
+	// Check for Array types
+	if strings.HasPrefix(typeStr, "Array(") {
+		parsed.IsArray = true
+		if strings.Contains(typeStr, "Map(") {
+			parsed.IsArrayOfMap = true
+		}
+		return parsed
+	}
+
+	// Check for Map types
+	if strings.HasPrefix(typeStr, "Map(") {
+		parsed.IsMap = true
+		return parsed
+	}
+
+	return parsed
+}
+
 type (
 	KafkaDataType      string
 	ClickHouseDataType string
 )
+
+// ParsedColumnType caches parsed information about a ClickHouse column type
+// to avoid repeated string operations during conversion
+type ParsedColumnType struct {
+	BaseType     ClickHouseDataType // The base type (e.g., "Int64", "String")
+	IsDateTime   bool               // True if type is DateTime or DateTime64
+	IsMap        bool               // True if type is Map(...)
+	IsArray      bool               // True if type is Array(...)
+	IsArrayOfMap bool               // True if type is Array(Map(...))
+	FullType     ClickHouseDataType // The full original type string
+}
 
 var (
 	ErrUnknownFieldType = errors.New("unknown field type")
@@ -65,141 +114,156 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 	}
 }
 
-func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data any) (zero any, _ error) {
+// ConvertValueWithParsedType is the optimized version that uses pre-parsed type info
+// to avoid string operations and double type checking
+func ConvertValueWithParsedType(parsedType *ParsedColumnType, columnType ClickHouseDataType, fieldType KafkaDataType, data any) (zero any, _ error) {
 	// If data is nil, pass it through to let ClickHouse handle null validation
 	// HOTFIX: This is a temporary, will be moved up and sent to DLQ as a proper solution.
 	if data == nil {
 		return nil, nil
 	}
 
+	// Use pre-parsed type info to avoid string operations
+	if parsedType != nil {
+		if parsedType.IsDateTime {
+			return convertDateTimeValue(fieldType, data)
+		}
+		if parsedType.IsArray {
+			return convertArrayValue(parsedType, fieldType, data)
+		}
+		if parsedType.IsMap {
+			return convertMapValue(fieldType, data)
+		}
+		// Use base type for switch
+		columnType = parsedType.BaseType
+	}
+
+	// Optimized conversion: combine type validation and extraction to avoid double checking
 	switch columnType {
 	case internal.CHTypeBool:
 		if fieldType != internal.KafkaTypeBool {
 			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeBool, fieldType)
 		}
-		return ExtractEventValue(internal.KafkaTypeBool, data)
+		// Optimized: direct parse instead of ExtractEventValue to avoid double switch
+		return ParseBool(data)
 	case internal.CHTypeInt8, internal.CHTypeLCInt8:
 		if fieldType == internal.KafkaTypeInt8 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt8, data)
+			return ParseInt8(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt8, internal.KafkaTypeInt, fieldType)
 	case internal.CHTypeInt16, internal.CHTypeLCInt16:
 		if fieldType == internal.KafkaTypeInt16 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt16, data)
+			return ParseInt16(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt16, internal.KafkaTypeInt, fieldType)
 	case internal.CHTypeInt32, internal.CHTypeLCInt32:
 		if fieldType == internal.KafkaTypeInt32 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt32, data)
+			return ParseInt32(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt32, internal.KafkaTypeInt, fieldType)
 	case internal.CHTypeInt64, internal.CHTypeLCInt64:
 		if fieldType == internal.KafkaTypeInt64 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt64, data)
+			return ParseInt64(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt64, internal.KafkaTypeInt, fieldType)
 	case internal.CHTypeUInt8, internal.CHTypeLCUInt8:
 		if fieldType == internal.KafkaTypeUint8 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint8, data)
+			return ParseUint8(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint8, internal.KafkaTypeUint, fieldType)
 	case internal.CHTypeUInt16, internal.CHTypeLCUInt16:
 		if fieldType == internal.KafkaTypeUint16 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint16, data)
+			return ParseUint16(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint16, internal.KafkaTypeUint, fieldType)
 	case internal.CHTypeUInt32, internal.CHTypeLCUInt32:
 		if fieldType == internal.KafkaTypeUint32 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint32, data)
+			return ParseUint32(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint32, internal.KafkaTypeUint, fieldType)
 	case internal.CHTypeUInt64, internal.CHTypeLCUInt64:
 		if fieldType == internal.KafkaTypeUint64 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint64, data)
+			return ParseUint64(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint64, internal.KafkaTypeUint, fieldType)
 	case internal.CHTypeFloat32, internal.CHTypeLCFloat32:
 		if fieldType == internal.KafkaTypeFloat32 || fieldType == internal.KafkaTypeFloat {
-			return ExtractEventValue(internal.KafkaTypeFloat32, data)
+			return ParseFloat32(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeFloat32, internal.KafkaTypeFloat, fieldType)
 	case internal.CHTypeFloat64, internal.CHTypeLCFloat64:
 		if fieldType == internal.KafkaTypeFloat64 || fieldType == internal.KafkaTypeFloat {
-			return ExtractEventValue(internal.KafkaTypeFloat64, data)
+			return ParseFloat64(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeFloat64, internal.KafkaTypeFloat, fieldType)
 	case internal.CHTypeEnum8, internal.CHTypeEnum16, internal.CHTypeUUID, internal.CHTypeFString, internal.CHTypeLCString, internal.CHTypeLCFString:
 		if fieldType != internal.KafkaTypeString {
 			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeString, fieldType)
 		}
-		return ExtractEventValue(internal.KafkaTypeString, data)
+		return ParseString(data)
 	case internal.CHTypeString:
 		if fieldType == internal.KafkaTypeString || fieldType == internal.KafkaTypeBytes {
-			return ExtractEventValue(internal.KafkaTypeString, data)
+			if fieldType == internal.KafkaTypeBytes {
+				return ParseBytes(data)
+			}
+			return ParseString(data)
 		}
 		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeString, internal.KafkaTypeBytes, fieldType)
-	case internal.CHTypeDateTime, internal.CHTypeDateTime64, internal.CHTypeLCDateTime:
-		switch fieldType {
-		case internal.KafkaTypeInt, internal.KafkaTypeInt32, internal.KafkaTypeInt64:
-			return ParseDateTimeFromInt64(data)
-		case internal.KafkaTypeFloat, internal.KafkaTypeFloat32, internal.KafkaTypeFloat64:
-			return ParseDateTimeFromFloat64(data)
-		case internal.KafkaTypeString:
-			return ParseDateTimeFromString(data)
-		default:
-			return zero, fmt.Errorf("mismatched types: expected int, float or string type for DateTime, got %s", fieldType)
-		}
 	default:
-		// Handle DateTime64 with parameters (e.g., "DateTime64(6, 'UTC')")
-		if strings.HasPrefix(string(columnType), "DateTime") {
-			switch fieldType {
-			case internal.KafkaTypeInt, internal.KafkaTypeInt32, internal.KafkaTypeInt64:
-				return ParseDateTimeFromInt64(data)
-			case internal.KafkaTypeFloat, internal.KafkaTypeFloat32, internal.KafkaTypeFloat64:
-				return ParseDateTimeFromFloat64(data)
-			case internal.KafkaTypeString:
-				return ParseDateTimeFromString(data)
-			default:
-				return zero, fmt.Errorf("mismatched types: expected int, float or string type for DateTime64, got %s", fieldType)
-			}
-		}
-		// Handle any ClickHouse Map type
-		if strings.HasPrefix(string(columnType), "Map(") {
-			if fieldType == internal.KafkaTypeMap {
-				// Convert map[string]any to map[string]string for ClickHouse compatibility
-				return convertMapToStringMap(data)
-			}
-			if mapData, ok := data.(map[string]any); ok {
-				// Convert map[string]any to map[string]string for ClickHouse compatibility
-				return convertMapToStringMap(mapData)
-			}
-			return zero, fmt.Errorf("expected map data for Map type, got %T", data)
-		}
-		// Handle any ClickHouse Array type
-		if strings.HasPrefix(string(columnType), "Array(") {
-			// Handle Array(Map(...)) case first
-			if strings.Contains(string(columnType), "Map(") {
-				if mapArrayData, ok := data.([]any); ok {
-					// Convert array of maps to array of map[string]string for ClickHouse compatibility
-					return convertMapArrayToStringMapArray(mapArrayData)
-				}
-				return zero, fmt.Errorf("expected array of maps for Array(Map) type, got %T", data)
-			}
-			// Handle other Array types
-			if fieldType == internal.KafkaTypeArray {
-				return data, nil
-			}
-			if arrayData, ok := data.([]any); ok {
-				jsonBytes, err := json.Marshal(arrayData)
-				if err != nil {
-					return zero, fmt.Errorf("failed to marshal array to JSON: %w", err)
-				}
-				return string(jsonBytes), nil
-			}
-			return zero, fmt.Errorf("expected array data for Array type, got %T", data)
-		}
 		return zero, fmt.Errorf("unsupported ClickHouse data type: %s", columnType)
 	}
+}
+
+// convertDateTimeValue handles DateTime conversion (optimized path)
+func convertDateTimeValue(fieldType KafkaDataType, data any) (any, error) {
+	switch fieldType {
+	case internal.KafkaTypeInt, internal.KafkaTypeInt32, internal.KafkaTypeInt64:
+		return ParseDateTimeFromInt64(data)
+	case internal.KafkaTypeFloat, internal.KafkaTypeFloat32, internal.KafkaTypeFloat64:
+		return ParseDateTimeFromFloat64(data)
+	case internal.KafkaTypeString:
+		return ParseDateTimeFromString(data)
+	default:
+		return nil, fmt.Errorf("mismatched types: expected int, float or string type for DateTime, got %s", fieldType)
+	}
+}
+
+// convertArrayValue handles Array conversion (optimized path)
+func convertArrayValue(parsedType *ParsedColumnType, fieldType KafkaDataType, data any) (any, error) {
+	if parsedType.IsArrayOfMap {
+		if mapArrayData, ok := data.([]any); ok {
+			return convertMapArrayToStringMapArray(mapArrayData)
+		}
+		return nil, fmt.Errorf("expected array of maps for Array(Map) type, got %T", data)
+	}
+	if fieldType == internal.KafkaTypeArray {
+		return data, nil
+	}
+	if arrayData, ok := data.([]any); ok {
+		jsonBytes, err := json.Marshal(arrayData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal array to JSON: %w", err)
+		}
+		return string(jsonBytes), nil
+	}
+	return nil, fmt.Errorf("expected array data for Array type, got %T", data)
+}
+
+// convertMapValue handles Map conversion (optimized path)
+func convertMapValue(fieldType KafkaDataType, data any) (any, error) {
+	if fieldType == internal.KafkaTypeMap {
+		return convertMapToStringMap(data)
+	}
+	if mapData, ok := data.(map[string]any); ok {
+		return convertMapToStringMap(mapData)
+	}
+	return nil, fmt.Errorf("expected map data for Map type, got %T", data)
+}
+
+// ConvertValue is kept for backward compatibility but delegates to optimized version
+func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data any) (zero any, _ error) {
+	parsedType := parseColumnType(columnType)
+	return ConvertValueWithParsedType(parsedType, columnType, fieldType, data)
 }
 
 func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
