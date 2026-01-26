@@ -348,6 +348,11 @@ func (ch *ClickHouseSink) createColumnarBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (clickhouse.Batch, error) {
+	// Performance tracking
+	prepStart := time.Now()
+	var schemaFetchDuration, batchCreationDuration, metadataTotalDuration, appendTotalDuration time.Duration
+	skippedCount := 0
+
 	// Get column names and types
 	var columnNames []string
 	var columnTypes []string
@@ -359,22 +364,14 @@ func (ch *ClickHouseSink) createColumnarBatch(
 		return nil, fmt.Errorf("mapper is not JsonToClickHouseMapper, cannot get column types")
 	}
 
-	// Log current mapper state for debugging
-	ch.log.DebugContext(ctx, "Creating columnar batch",
-		"stream_count", len(jsonMapper.Streams),
-		"streamSourceID", ch.streamSourceID,
-		"streamName_input", streamName)
-
 	// If streamName is empty, determine it from the mapper (should be single stream)
 	if streamName == "" {
 		streamCount := len(jsonMapper.Streams)
-		ch.log.DebugContext(ctx, "Auto-detecting stream name", "available_streams", streamCount)
-		
+
 		// For single stream scenarios, get the stream name from mapper
 		if streamCount == 1 {
 			for name := range jsonMapper.Streams {
 				streamName = name
-				ch.log.DebugContext(ctx, "Auto-detected stream", "stream_name", streamName)
 				break
 			}
 		} else if streamCount > 1 {
@@ -383,13 +380,8 @@ func (ch *ClickHouseSink) createColumnarBatch(
 			for name := range jsonMapper.Streams {
 				streamNames = append(streamNames, name)
 			}
-			ch.log.ErrorContext(ctx, "Multiple streams detected",
-				"stream_names", streamNames,
-				"stream_count", streamCount)
 			return nil, fmt.Errorf("multiple streams found %v (count: %d) but streamSourceID is empty, cannot determine which stream to use", streamNames, streamCount)
 		} else {
-			// No streams at all
-			ch.log.ErrorContext(ctx, "No streams defined in mapper")
 			return nil, fmt.Errorf("no streams defined in mapper")
 		}
 	}
@@ -404,10 +396,12 @@ func (ch *ClickHouseSink) createColumnarBatch(
 
 	// Query actual table schema to get real column types
 	// This matches the old clickhouse-go behavior where the driver used the table's actual types
+	schemaFetchStart := time.Now()
 	tableSchema, err := ch.client.GetTableSchema(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get table schema: %w", err)
 	}
+	schemaFetchDuration = time.Since(schemaFetchStart)
 
 	// Build map of actual column types from table schema
 	actualColumnTypes := make(map[string]string)
@@ -433,7 +427,7 @@ func (ch *ClickHouseSink) createColumnarBatch(
 		copy(names, columnNames)
 		copy(types, columnTypes)
 
-		ch.batchPool.New = func() interface{} {
+		ch.batchPool.New = func() any {
 			b, err := clickhouse.NewColumnarBatch(ch.client, names, types)
 			if err != nil {
 				// If batch creation fails, return nil and handle in caller
@@ -444,6 +438,7 @@ func (ch *ClickHouseSink) createColumnarBatch(
 	}
 
 	// Get or create batch from pool
+	batchCreationStart := time.Now()
 	var batch *clickhouse.ColumnarBatch
 	pooled := ch.batchPool.Get()
 	if pooled != nil {
@@ -461,28 +456,54 @@ func (ch *ClickHouseSink) createColumnarBatch(
 			return nil, fmt.Errorf("failed to create columnar batch: %w", err)
 		}
 	}
+	batchCreationDuration = time.Since(batchCreationStart)
 
 	// Append messages to batch
 	for _, msg := range messages {
+		metadataStart := time.Now()
 		metadata, err := msg.Metadata()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get message metadata: %w", err)
 		}
+		metadataTotalDuration += time.Since(metadataStart)
 
 		// Check for duplicates
 		if batch.HasID(metadata.Sequence.Stream) {
+			skippedCount++
 			continue
 		}
 		batch.AddID(metadata.Sequence.Stream)
 
 		// Append directly to columns - no []any allocation
 		// Use the same streamName we used to get columns
+		appendStart := time.Now()
 		if err := ch.columnarMapper.AppendToColumns(streamName, msg.Data(), batch); err != nil {
 			// Return batch to pool on error
 			ch.batchPool.Put(batch)
 			return nil, fmt.Errorf("failed to append to columns: %w", err)
 		}
+		appendTotalDuration += time.Since(appendStart)
 	}
+
+	// Log performance metrics
+	totalPrepDuration := time.Since(prepStart)
+	messageCount := len(messages)
+	avgPerMessageUs := int64(0)
+	if messageCount > 0 {
+		avgPerMessageUs = totalPrepDuration.Microseconds() / int64(messageCount)
+	}
+
+	ch.log.InfoContext(ctx, "Batch preparation completed",
+		"message_count", messageCount,
+		"skipped_count", skippedCount,
+		"total_prep_duration_ms", totalPrepDuration.Milliseconds(),
+		"schema_fetch_ms", schemaFetchDuration.Milliseconds(),
+		"batch_creation_ms", batchCreationDuration.Milliseconds(),
+		"metadata_total_ms", metadataTotalDuration.Milliseconds(),
+		"append_total_ms", appendTotalDuration.Milliseconds(),
+		"avg_per_message_us", avgPerMessageUs,
+		"status", "preparation_completed",
+	)
 
 	return batch, nil
 }
