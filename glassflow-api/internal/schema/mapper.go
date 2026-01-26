@@ -9,6 +9,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/tidwall/gjson"
 )
 
 type Mapper interface {
@@ -19,6 +20,7 @@ type Mapper interface {
 	GetOrderedColumns() []string
 	GetOrderedColumnsStream(streamSchemaName string) []string
 	PrepareValues(data []byte) ([]any, error)
+	PrepareValuesV2(data []byte) ([]any, error)
 	PrepareValuesStream(streamSchemaName string, data []byte) ([]any, error)
 	GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error)
 	JoinData(leftStreamName string, leftData []byte, rightStreamName string, rightData []byte) ([]byte, error)
@@ -61,13 +63,21 @@ func NewSinkMapping(columnName, streamName, fieldName, columnType string) *SinkM
 	}
 }
 
+// columnLookupInfo holds pre-computed column information for fast lookup
+type columnLookupInfo struct {
+	index     int
+	column    *SinkMapping
+	fieldType KafkaDataType
+}
+
 type JsonToClickHouseMapper struct {
 	Streams map[string]Stream
 	Columns []*SinkMapping
 
-	fieldColumnMap map[string]*SinkMapping
-	orderedColumns []string
-	columnOrderMap map[string]int
+	fieldColumnMap   map[string]*SinkMapping
+	orderedColumns   []string
+	columnOrderMap   map[string]int
+	columnLookUpInfo map[string]columnLookupInfo // pre-computed for GjsonForEach
 
 	leftStream  string
 	rightStream string
@@ -127,10 +137,11 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 	}
 
 	m := &JsonToClickHouseMapper{ //nolint:exhaustruct //missed fields will be added
-		Streams:        make(map[string]Stream),
-		Columns:        columnMappings,
-		fieldColumnMap: make(map[string]*SinkMapping),
-		columnOrderMap: make(map[string]int),
+		Streams:          make(map[string]Stream),
+		Columns:          columnMappings,
+		fieldColumnMap:   make(map[string]*SinkMapping),
+		columnOrderMap:   make(map[string]int),
+		columnLookUpInfo: make(map[string]columnLookupInfo, len(columnMappings)),
 	}
 
 	m.Streams = convertStreams(streamsConfig)
@@ -153,8 +164,28 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 	}
 
 	m.buildColumnOrder()
+	m.buildGjsonFieldLookup()
 
 	return m, nil
+}
+
+// buildGjsonFieldLookup pre-computes the field lookup map for PrepareValuesGjsonForEach
+func (m *JsonToClickHouseMapper) buildGjsonFieldLookup() {
+	multiStream := len(m.Streams) > 1
+
+	for i, column := range m.Columns {
+		var fieldName string
+		if multiStream {
+			fieldName = column.StreamName + "." + column.FieldName
+		} else {
+			fieldName = column.FieldName
+		}
+		m.columnLookUpInfo[fieldName] = columnLookupInfo{
+			index:     i,
+			column:    column,
+			fieldType: m.Streams[column.StreamName].Fields[column.FieldName],
+		}
+	}
 }
 
 func (m *JsonToClickHouseMapper) validate() error {
@@ -360,6 +391,36 @@ func (m *JsonToClickHouseMapper) PrepareValues(data []byte) ([]any, error) {
 	}
 
 	values := m.getMappedValues(mappedData)
+
+	return values, nil
+}
+
+// PrepareValuesGjsonForEach uses gjson.ForEach to iterate through JSON once,
+// collecting all needed values in a single pass - true O(N) complexity.
+func (m *JsonToClickHouseMapper) PrepareValuesV2(data []byte) ([]any, error) {
+	values := make([]any, len(m.Columns))
+
+	// Single pass through JSON using pre-computed lookup
+	var conversionErr error
+	gjson.ParseBytes(data).ForEach(func(key, value gjson.Result) bool {
+		info, exists := m.columnLookUpInfo[key.String()]
+		if !exists {
+			return true // continue iteration
+		}
+
+		convertedValue, err := ConvertValueFromGjson(info.column.ColumnType, info.fieldType, value)
+		if err != nil {
+			conversionErr = fmt.Errorf("failed to convert field %s: %w", info.column.FieldName, err)
+			return false // stop iteration
+		}
+
+		values[info.index] = convertedValue
+		return true // continue iteration
+	})
+
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 
 	return values, nil
 }
