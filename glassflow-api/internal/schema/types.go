@@ -1,10 +1,14 @@
 package schema
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
+	"time"
+
+	json "github.com/goccy/go-json"
+	"github.com/valyala/fastjson"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
@@ -210,6 +214,236 @@ func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
 	}
 
 	return zeroValue, nil
+}
+
+// ConvertFastjsonValue converts a fastjson.Value directly to the target ClickHouse type,
+// avoiding intermediate Go type allocations.
+func ConvertFastjsonValue(columnType ClickHouseDataType, fieldType KafkaDataType, v *fastjson.Value) (any, error) {
+	if v == nil || v.Type() == fastjson.TypeNull {
+		return nil, nil
+	}
+
+	switch columnType {
+	case internal.CHTypeBool:
+		return v.GetBool(), nil
+
+	case internal.CHTypeInt8, internal.CHTypeLCInt8:
+		i, err := v.Int64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse int8: %w", err)
+		}
+		if i < math.MinInt8 || i > math.MaxInt8 {
+			return nil, fmt.Errorf("value out of range for int8: %d", i)
+		}
+		return int8(i), nil
+
+	case internal.CHTypeInt16, internal.CHTypeLCInt16:
+		i, err := v.Int64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse int16: %w", err)
+		}
+		if i < math.MinInt16 || i > math.MaxInt16 {
+			return nil, fmt.Errorf("value out of range for int16: %d", i)
+		}
+		return int16(i), nil
+
+	case internal.CHTypeInt32, internal.CHTypeLCInt32:
+		i, err := v.Int64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse int32: %w", err)
+		}
+		if i < math.MinInt32 || i > math.MaxInt32 {
+			return nil, fmt.Errorf("value out of range for int32: %d", i)
+		}
+		return int32(i), nil
+
+	case internal.CHTypeInt64, internal.CHTypeLCInt64:
+		i, err := v.Int64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse int64: %w", err)
+		}
+		return i, nil
+
+	case internal.CHTypeUInt8, internal.CHTypeLCUInt8:
+		u, err := v.Uint64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse uint8: %w", err)
+		}
+		if u > math.MaxUint8 {
+			return nil, fmt.Errorf("value out of range for uint8: %d", u)
+		}
+		return uint8(u), nil
+
+	case internal.CHTypeUInt16, internal.CHTypeLCUInt16:
+		u, err := v.Uint64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse uint16: %w", err)
+		}
+		if u > math.MaxUint16 {
+			return nil, fmt.Errorf("value out of range for uint16: %d", u)
+		}
+		return uint16(u), nil
+
+	case internal.CHTypeUInt32, internal.CHTypeLCUInt32:
+		u, err := v.Uint64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse uint32: %w", err)
+		}
+		if u > math.MaxUint32 {
+			return nil, fmt.Errorf("value out of range for uint32: %d", u)
+		}
+		return uint32(u), nil
+
+	case internal.CHTypeUInt64, internal.CHTypeLCUInt64:
+		u, err := v.Uint64()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse uint64: %w", err)
+		}
+		return u, nil
+
+	case internal.CHTypeFloat32, internal.CHTypeLCFloat32:
+		f := v.GetFloat64()
+		if f < -math.MaxFloat32 || f > math.MaxFloat32 {
+			return nil, fmt.Errorf("value out of range for float32: %f", f)
+		}
+		return float32(f), nil
+
+	case internal.CHTypeFloat64, internal.CHTypeLCFloat64:
+		return v.GetFloat64(), nil
+
+	case internal.CHTypeString, internal.CHTypeEnum8, internal.CHTypeEnum16, internal.CHTypeUUID,
+		internal.CHTypeFString, internal.CHTypeLCString, internal.CHTypeLCFString:
+		// GetStringBytes returns the underlying bytes without allocation
+		// We need to copy to string for safety (fastjson reuses buffer)
+		return string(v.GetStringBytes()), nil
+
+	case internal.CHTypeDateTime, internal.CHTypeDateTime64, internal.CHTypeLCDateTime:
+		return parseFastjsonDateTime(v, fieldType)
+
+	default:
+		// Handle DateTime64 with parameters
+		if strings.HasPrefix(string(columnType), "DateTime") {
+			return parseFastjsonDateTime(v, fieldType)
+		}
+		// Handle Array types
+		if strings.HasPrefix(string(columnType), "Array(") {
+			return parseFastjsonArray(v, columnType)
+		}
+		// Handle Map types
+		if strings.HasPrefix(string(columnType), "Map(") {
+			return parseFastjsonMap(v)
+		}
+		return nil, fmt.Errorf("unsupported ClickHouse type: %s", columnType)
+	}
+}
+
+// parseFastjsonDateTime parses a datetime value from fastjson
+func parseFastjsonDateTime(v *fastjson.Value, fieldType KafkaDataType) (time.Time, error) {
+	switch v.Type() {
+	case fastjson.TypeNumber:
+		// Try as integer timestamp first
+		if i, err := v.Int64(); err == nil {
+			return time.Unix(i, 0), nil
+		}
+		// Try as float timestamp
+		f := v.GetFloat64()
+		sec, frac := math.Modf(f)
+		return time.Unix(int64(sec), int64(frac*1e9)), nil
+
+	case fastjson.TypeString:
+		s := string(v.GetStringBytes())
+		return parseDateTime(s)
+
+	default:
+		return time.Time{}, fmt.Errorf("cannot parse datetime from %s", v.Type())
+	}
+}
+
+// parseDateTime tries common datetime formats (optimized order)
+func parseDateTime(s string) (time.Time, error) {
+	// Try most common formats first
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05.999999",
+		"2006-01-02 15:04:05.999",
+		"2006-01-02",
+	}
+
+	for _, layout := range formats {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", s)
+}
+
+// parseFastjsonArray converts a fastjson array to []any
+func parseFastjsonArray(v *fastjson.Value, columnType ClickHouseDataType) ([]any, error) {
+	arr := v.GetArray()
+	if arr == nil {
+		return nil, nil
+	}
+
+	result := make([]any, len(arr))
+	for i, item := range arr {
+		result[i] = fastjsonToGoValue(item)
+	}
+	return result, nil
+}
+
+// parseFastjsonMap converts a fastjson object to map[string]string
+func parseFastjsonMap(v *fastjson.Value) (map[string]string, error) {
+	obj, err := v.Object()
+	if err != nil {
+		return nil, fmt.Errorf("expected object for Map type: %w", err)
+	}
+
+	result := make(map[string]string)
+	obj.Visit(func(key []byte, val *fastjson.Value) {
+		switch val.Type() {
+		case fastjson.TypeString:
+			result[string(key)] = string(val.GetStringBytes())
+		case fastjson.TypeNumber:
+			result[string(key)] = val.String()
+		case fastjson.TypeTrue:
+			result[string(key)] = "true"
+		case fastjson.TypeFalse:
+			result[string(key)] = "false"
+		case fastjson.TypeNull:
+			result[string(key)] = ""
+		default:
+			result[string(key)] = val.String()
+		}
+	})
+	return result, nil
+}
+
+// fastjsonToGoValue converts fastjson.Value to Go value (minimal version for arrays)
+func fastjsonToGoValue(v *fastjson.Value) any {
+	if v == nil {
+		return nil
+	}
+	switch v.Type() {
+	case fastjson.TypeNull:
+		return nil
+	case fastjson.TypeString:
+		return string(v.GetStringBytes())
+	case fastjson.TypeNumber:
+		if i, err := v.Int64(); err == nil {
+			return i
+		}
+		return v.GetFloat64()
+	case fastjson.TypeTrue:
+		return true
+	case fastjson.TypeFalse:
+		return false
+	default:
+		return v.String()
+	}
 }
 
 // convertMapToStringMap converts map[string]any to map[string]string for ClickHouse compatibility

@@ -232,10 +232,16 @@ func (s *SinkTestSuite) aBatchConfigWithMaxSizeAndDelay(maxSize int, duration st
 }
 
 func (s *SinkTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	err := s.getMappingConfig(cfg, &s.schemaConfig)
+	// Reset schemaConfig to avoid test contamination
+	// json.Unmarshal merges into existing maps, so we unmarshal into a fresh variable
+	var freshConfig models.MapperConfig
+	err := s.getMappingConfig(cfg, &freshConfig)
 	if err != nil {
 		return fmt.Errorf("unmarshal schema config: %w", err)
 	}
+	
+	// Assign the fresh config to avoid any map contamination
+	s.schemaConfig = freshConfig
 
 	return nil
 }
@@ -273,9 +279,24 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		return fmt.Errorf("create stream consumer: %w", err)
 	}
 
+	// Validate streams before creating mapper to catch test contamination
+	streamNames := make([]string, 0, len(s.schemaConfig.Streams))
+	for name := range s.schemaConfig.Streams {
+		streamNames = append(streamNames, name)
+	}
+	
 	schemaMapper, err := schema.NewJSONToClickHouseMapper(s.schemaConfig.Streams, s.schemaConfig.SinkMapping)
 	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
+		return fmt.Errorf("create schema mapper: %w (input streams: %v)", err, streamNames)
+	}
+	
+	// Double-check mapper was created with correct streams
+	mapperStreams := make([]string, 0, len(schemaMapper.Streams))
+	for name := range schemaMapper.Streams {
+		mapperStreams = append(mapperStreams, name)
+	}
+	if len(streamNames) != len(mapperStreams) {
+		return fmt.Errorf("mapper contamination detected: expected streams %v, got %v", streamNames, mapperStreams)
 	}
 
 	logger := testutils.NewTestLogger()
@@ -287,6 +308,16 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		},
 	)
 
+	// Determine stream source ID from schema config
+	// For single-stream configs, use the stream name explicitly
+	streamSourceID := ""
+	if len(s.schemaConfig.Streams) == 1 {
+		for streamName := range s.schemaConfig.Streams {
+			streamSourceID = streamName
+			break
+		}
+	}
+
 	sink, err := component.NewSinkComponent(
 		s.sinkConfig,
 		streamConsumer,
@@ -295,7 +326,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		logger,
 		nil, // nil meter for e2e tests
 		dlqStreamPublisher,
-		"",
+		streamSourceID,
 	)
 	if err != nil {
 		return fmt.Errorf("create ClickHouse sink: %w", err)
@@ -396,6 +427,9 @@ func (s *SinkTestSuite) fastCleanUp() error {
 			errs = append(errs, fmt.Errorf("close NATS client: %w", err))
 		}
 	}
+
+	// Reset schemaConfig to prevent test contamination
+	s.schemaConfig = models.MapperConfig{}
 
 	err := testutils.CombineErrors(errs)
 	if err != nil {

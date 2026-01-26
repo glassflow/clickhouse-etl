@@ -176,6 +176,9 @@ func (c *ClickHouseContainer) GetConnection() (zero clickhouse.Conn, _ error) {
 				Username: c.container.User,
 				Password: c.container.Password,
 			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
 		},
 	)
 	if err != nil {

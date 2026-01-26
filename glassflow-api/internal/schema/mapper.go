@@ -7,9 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/valyala/fastjson"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
+
+// parserPool is used to reuse fastjson parsers across calls
+var parserPool fastjson.ParserPool
 
 type Mapper interface {
 	GetLeftStreamTTL() (time.Duration, error)
@@ -37,6 +42,7 @@ type SinkMapping struct {
 	StreamName string
 	FieldName  string
 	ColumnType ClickHouseDataType
+	pathParts  []string // pre-split path for nested field access
 }
 
 func NewMapper(cfg models.MapperConfig) (Mapper, error) {
@@ -58,6 +64,7 @@ func NewSinkMapping(columnName, streamName, fieldName, columnType string) *SinkM
 		StreamName: streamName,
 		FieldName:  fieldName,
 		ColumnType: ClickHouseDataType(columnType),
+		pathParts:  strings.Split(fieldName, "."),
 	}
 }
 
@@ -65,16 +72,18 @@ type JsonToClickHouseMapper struct {
 	Streams map[string]Stream
 	Columns []*SinkMapping
 
-	fieldColumnMap map[string]*SinkMapping
-	orderedColumns []string
-	columnOrderMap map[string]int
+	fieldColumnMap  map[string]*SinkMapping
+	orderedColumns  []string
+	columnOrderMap  map[string]int
+	streamColumnCnt map[string]int   // cached column count per stream
+	streamColumnIdx map[string][]int // stream name -> []columnIndex in batch.columns order
 
 	leftStream  string
 	rightStream string
 }
 
 func (m *JsonToClickHouseMapper) GetOrderedColumnsStream(streamSchemaName string) []string {
-	var columns []string
+	columns := make([]string, 0, m.streamColumnCnt[streamSchemaName])
 	for _, column := range m.Columns {
 		if column.StreamName == streamSchemaName {
 			columns = append(columns, column.ColumnName)
@@ -84,16 +93,34 @@ func (m *JsonToClickHouseMapper) GetOrderedColumnsStream(streamSchemaName string
 }
 
 func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, data []byte) ([]any, error) {
-	mappedData, err := m.prepareForClickHouseStream(streamSchemaName, data)
+	p := parserPool.Get()
+	defer parserPool.Put(p)
+
+	v, err := p.ParseBytes(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
+		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
-	var values []any
+	values := make([]any, 0, m.streamColumnCnt[streamSchemaName])
+
 	for _, column := range m.Columns {
-		if column.StreamName == streamSchemaName {
-			values = append(values, mappedData[column.ColumnName])
+		if column.StreamName != streamSchemaName {
+			continue
 		}
+
+		fv := getNestedFastjsonValue(v, column.FieldName, column.pathParts)
+		if fv == nil {
+			values = append(values, nil)
+			continue
+		}
+
+		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
+		convertedValue, err := ConvertFastjsonValue(column.ColumnType, fieldType, fv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
+		}
+
+		values = append(values, convertedValue)
 	}
 
 	return values, nil
@@ -127,10 +154,12 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 	}
 
 	m := &JsonToClickHouseMapper{ //nolint:exhaustruct //missed fields will be added
-		Streams:        make(map[string]Stream),
-		Columns:        columnMappings,
-		fieldColumnMap: make(map[string]*SinkMapping),
-		columnOrderMap: make(map[string]int),
+		Streams:         make(map[string]Stream),
+		Columns:         columnMappings,
+		fieldColumnMap:  make(map[string]*SinkMapping),
+		columnOrderMap:  make(map[string]int),
+		streamColumnCnt: make(map[string]int),
+		streamColumnIdx: make(map[string][]int),
 	}
 
 	m.Streams = convertStreams(streamsConfig)
@@ -150,9 +179,11 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 
 	for _, column := range m.Columns {
 		m.fieldColumnMap[column.FieldName] = column
+		m.streamColumnCnt[column.StreamName]++
 	}
 
 	m.buildColumnOrder()
+	m.buildStreamColumnIndex()
 
 	return m, nil
 }
@@ -187,6 +218,12 @@ func (m *JsonToClickHouseMapper) validate() error {
 		if _, ok := streamSchema.Fields[column.FieldName]; !ok {
 			return fmt.Errorf("field '%s' not found in stream '%s'", column.FieldName, column.StreamName)
 		}
+
+		// Reject Nullable columns - they require proper null bitmap handling in columnar mode
+		colTypeStr := string(column.ColumnType)
+		if strings.HasPrefix(colTypeStr, "Nullable(") {
+			return fmt.Errorf("nullable columns are not supported in columnar mode for column '%s' - use non-nullable columns or handle nulls at application level", column.ColumnName)
+		}
 	}
 
 	return nil
@@ -198,6 +235,33 @@ func (m *JsonToClickHouseMapper) buildColumnOrder() {
 	for i, column := range m.Columns {
 		m.orderedColumns[i] = column.ColumnName
 		m.columnOrderMap[column.ColumnName] = i
+	}
+}
+
+// buildStreamColumnIndex builds the mapping from stream name to column indices in batch order.
+// This ensures AppendToColumns uses the correct column indices that match GetOrderedColumnsStream().
+func (m *JsonToClickHouseMapper) buildStreamColumnIndex() {
+	// Build column name to index map for each stream (in GetOrderedColumnsStream order)
+	for streamName := range m.Streams {
+		orderedColNames := m.GetOrderedColumnsStream(streamName)
+		indices := make([]int, 0, len(orderedColNames))
+
+		// Map column names to their indices in m.Columns
+		colNameToIdx := make(map[string]int)
+		for i, col := range m.Columns {
+			if col.StreamName == streamName {
+				colNameToIdx[col.ColumnName] = i
+			}
+		}
+
+		// Build indices in the order of GetOrderedColumnsStream
+		for _, colName := range orderedColNames {
+			if idx, ok := colNameToIdx[colName]; ok {
+				indices = append(indices, idx)
+			}
+		}
+
+		m.streamColumnIdx[streamName] = indices
 	}
 }
 
@@ -224,25 +288,43 @@ func (m *JsonToClickHouseMapper) GetRightStream() string {
 }
 
 func (m *JsonToClickHouseMapper) getKey(streamSchemaName, keyName string, data []byte) (any, error) {
-	var jsonData map[string]any
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	p := parserPool.Get()
+	defer parserPool.Put(p)
+
+	v, err := p.ParseBytes(data)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
-	// Use getNestedValue to support nested JSON fields with dot notation
-	value, exists := getNestedValue(jsonData, keyName)
-	if !exists {
+	pathParts := strings.Split(keyName, ".")
+	fv := getNestedFastjsonValue(v, keyName, pathParts)
+	if fv == nil {
 		return nil, fmt.Errorf("key %s not found in data", keyName)
 	}
 
-	fieldType := m.Streams[streamSchemaName].Fields[keyName]
+	// Extract value directly from fastjson based on type
+	return extractFastjsonKeyValue(fv)
+}
 
-	convertedValue, err := ExtractEventValue(fieldType, value)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert key value: %w", err)
+// extractFastjsonKeyValue extracts a key value from fastjson with minimal allocation
+func extractFastjsonKeyValue(v *fastjson.Value) (any, error) {
+	switch v.Type() {
+	case fastjson.TypeString:
+		return string(v.GetStringBytes()), nil
+	case fastjson.TypeNumber:
+		if i, err := v.Int64(); err == nil {
+			return i, nil
+		}
+		return v.GetFloat64(), nil
+	case fastjson.TypeTrue:
+		return true, nil
+	case fastjson.TypeFalse:
+		return false, nil
+	case fastjson.TypeNull:
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("unsupported key type: %s", v.Type())
 	}
-
-	return convertedValue, nil
 }
 
 func (m *JsonToClickHouseMapper) GetJoinKey(streamSchemaName string, data []byte) (any, error) {
@@ -270,111 +352,55 @@ func (m *JsonToClickHouseMapper) GetKey(streamSchemaName, keyName string, data [
 	return m.getKey(streamSchemaName, keyName, data)
 }
 
-// prepareForClickHouseStream prepares data for a specific stream without stream name prefixing.
-// This is used for single-stream data like transformation output: {"event_id": "123", "name": "John"}
-func (m *JsonToClickHouseMapper) prepareForClickHouseStream(streamSchemaName string, data []byte) (map[string]any, error) {
-	var jsonData map[string]any
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
-	}
-
-	result := make(map[string]any)
-
-	for _, column := range m.Columns {
-		if column.StreamName != streamSchemaName {
-			continue
-		}
-
-		// Look for field without stream name prefix (single-stream data)
-		fieldName := column.FieldName
-		value, exists := getNestedValue(jsonData, fieldName)
-		if !exists {
-			continue
-		}
-
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
-
-		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
-		}
-
-		result[column.ColumnName] = convertedValue
-	}
-
-	return result, nil
-}
-
-func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]any, error) {
-	var jsonData map[string]any
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
-	}
-
-	result := make(map[string]any)
-
-	for _, column := range m.Columns {
-		fieldName := column.FieldName
-		if len(m.Streams) > 1 {
-			fieldName = column.StreamName + "." + fieldName
-		}
-
-		value, exists := getNestedValue(jsonData, fieldName)
-		if !exists {
-			continue
-		}
-
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
-
-		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
-		}
-
-		result[column.ColumnName] = convertedValue
-	}
-
-	return result, nil
-}
-
-func (m *JsonToClickHouseMapper) getMappedValues(data map[string]any) []any {
-	values := make([]any, len(m.orderedColumns))
-
-	for colName, value := range data {
-		if idx, ok := m.columnOrderMap[colName]; ok {
-			values[idx] = value
-		}
-	}
-
-	return values
-}
-
 func (m *JsonToClickHouseMapper) GetOrderedColumns() []string {
 	return m.orderedColumns
 }
 
 func (m *JsonToClickHouseMapper) PrepareValues(data []byte) ([]any, error) {
-	mappedData, err := m.prepareForClickHouse(data)
+	p := parserPool.Get()
+	defer parserPool.Put(p)
+
+	v, err := p.ParseBytes(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
+		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
-	values := m.getMappedValues(mappedData)
+	values := make([]any, len(m.orderedColumns))
+
+	for i, column := range m.Columns {
+		fv := getNestedFastjsonValue(v, column.FieldName, column.pathParts)
+
+		if fv == nil {
+			continue
+		}
+
+		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
+		convertedValue, err := ConvertFastjsonValue(column.ColumnType, fieldType, fv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
+		}
+
+		values[i] = convertedValue
+	}
 
 	return values, nil
 }
 
 func (m *JsonToClickHouseMapper) GetFieldsMap(streamSchemaName string, data []byte) (map[string]any, error) {
-	var jsonData map[string]any
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	p := parserPool.Get()
+	defer parserPool.Put(p)
+
+	v, err := p.ParseBytes(data)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
-	resultedMap := make(map[string]any)
+	resultedMap := make(map[string]any, len(m.Streams[streamSchemaName].Fields))
 
 	for fieldName := range m.Streams[streamSchemaName].Fields {
-		if value, exists := getNestedValue(jsonData, fieldName); exists {
-			resultedMap[fieldName] = value
+		pathParts := strings.Split(fieldName, ".")
+		if fv := getNestedFastjsonValue(v, fieldName, pathParts); fv != nil {
+			resultedMap[fieldName] = fastjsonToGo(fv)
 		}
 	}
 
@@ -386,8 +412,11 @@ func (m *JsonToClickHouseMapper) ValidateSchema(streamSchemaName string, data []
 		return fmt.Errorf("stream '%s' not found in configuration", streamSchemaName)
 	}
 
-	var jsonData map[string]any
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	p := parserPool.Get()
+	defer parserPool.Put(p)
+
+	v, err := p.ParseBytes(data)
+	if err != nil {
 		return fmt.Errorf("failed to parse JSON data: %w", err)
 	}
 
@@ -400,7 +429,8 @@ func (m *JsonToClickHouseMapper) ValidateSchema(streamSchemaName string, data []
 
 	// Check fields in sorted order
 	for _, key := range fieldNames {
-		if _, exists := getNestedValue(jsonData, key); !exists {
+		pathParts := strings.Split(key, ".")
+		if fv := getNestedFastjsonValue(v, key, pathParts); fv == nil {
 			return fmt.Errorf("field '%s' not found in data for stream '%s'", key, streamSchemaName)
 		}
 	}
@@ -444,35 +474,66 @@ func (m *JsonToClickHouseMapper) JoinData(leftStreamName string, leftData []byte
 	return resultData, nil
 }
 
-// getNestedValue extracts a value from a nested JSON object using dot notation
-// Only supports direct field access, not array indexing.
-func getNestedValue(data map[string]any, path string) (any, bool) {
-	if data == nil || path == "" {
-		return nil, false
+// getNestedFastjsonValue extracts a value from a fastjson.Value using pre-split path parts.
+// First tries the path as a flat key (for join operators with . separator), then traverses nested structure.
+func getNestedFastjsonValue(v *fastjson.Value, path string, pathParts []string) *fastjson.Value {
+	if v == nil || path == "" {
+		return nil
 	}
 
 	// First, try to find the path as a flat key (for join operators with . separator)
-	if value, exists := data[path]; exists {
-		return value, true
+	if fv := v.Get(path); fv != nil {
+		return fv
 	}
 
-	parts := strings.Split(path, ".")
-	current := any(data)
-
-	for _, part := range parts {
+	// Traverse nested structure using pre-split path parts
+	current := v
+	for _, part := range pathParts {
+		current = current.Get(part)
 		if current == nil {
-			return nil, false
-		}
-
-		mapValue, ok := current.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		current, ok = mapValue[part]
-		if !ok {
-			return nil, false
+			return nil
 		}
 	}
 
-	return current, true
+	return current
+}
+
+// fastjsonToGo converts a fastjson.Value to a Go native type.
+func fastjsonToGo(v *fastjson.Value) any {
+	if v == nil {
+		return nil
+	}
+
+	switch v.Type() {
+	case fastjson.TypeNull:
+		return nil
+	case fastjson.TypeString:
+		return string(v.GetStringBytes())
+	case fastjson.TypeNumber:
+		// Try int first, fall back to float
+		if i, err := v.Int64(); err == nil {
+			return i
+		}
+		return v.GetFloat64()
+	case fastjson.TypeTrue:
+		return true
+	case fastjson.TypeFalse:
+		return false
+	case fastjson.TypeArray:
+		arr := v.GetArray()
+		result := make([]any, len(arr))
+		for i, item := range arr {
+			result[i] = fastjsonToGo(item)
+		}
+		return result
+	case fastjson.TypeObject:
+		obj, _ := v.Object()
+		result := make(map[string]any)
+		obj.Visit(func(key []byte, val *fastjson.Value) {
+			result[string(key)] = fastjsonToGo(val)
+		})
+		return result
+	default:
+		return nil
+	}
 }

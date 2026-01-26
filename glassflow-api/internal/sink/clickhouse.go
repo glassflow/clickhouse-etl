@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
-
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
@@ -23,9 +22,10 @@ import (
 )
 
 type ClickHouseSink struct {
-	client                *client.ClickHouseClient
+	client                *client.ChGoClient
 	streamConsumer        jetstream.Consumer
 	schemaMapper          schema.Mapper
+	columnarMapper        schema.ColumnarMapper // Columnar mapper for optimized path
 	cancel                context.CancelFunc
 	shutdownOnce          sync.Once
 	sinkConfig            models.SinkComponentConfig
@@ -34,6 +34,7 @@ type ClickHouseSink struct {
 	log                   *slog.Logger
 	meter                 *observability.Meter
 	dlqPublisher          stream.Publisher
+	batchPool             *sync.Pool // Pool for reusing ColumnarBatch instances
 }
 
 func NewClickHouseSink(
@@ -46,7 +47,7 @@ func NewClickHouseSink(
 	clickhouseQueryConfig models.ClickhouseQueryConfig,
 	streamSourceID string,
 ) (*ClickHouseSink, error) {
-	clickhouseClient, err := client.NewClickHouseClient(context.Background(), sinkConfig.ClickHouseConnectionParams)
+	clickhouseClient, err := client.NewChGoClient(context.Background(), sinkConfig.ClickHouseConnectionParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create clickhouse client: %w", err)
 	}
@@ -55,16 +56,36 @@ func NewClickHouseSink(
 		return nil, fmt.Errorf("invalid max batch size, should be > 0: %d", sinkConfig.Batch.MaxBatchSize)
 	}
 
+	// Check if mapper implements ColumnarMapper interface
+	// JsonToClickHouseMapper implements ColumnarMapper
+	var columnarMapper schema.ColumnarMapper
+	jsonMapper, isJsonMapper := schemaMapper.(*schema.JsonToClickHouseMapper)
+	if isJsonMapper {
+		columnarMapper = jsonMapper
+		// Log mapper state for debugging
+		log.Debug("Mapper initialized", "stream_count", len(jsonMapper.Streams), "streamSourceID", streamSourceID)
+	}
+
+	// Create batch pool for reusing ColumnarBatch instances
+	// We'll initialize it lazily in createColumnarBatch when we have column info
+	var batchPool *sync.Pool
+	if isJsonMapper {
+		// We'll set up the pool in createColumnarBatch on first use
+		batchPool = &sync.Pool{}
+	}
+
 	return &ClickHouseSink{
 		client:                clickhouseClient,
 		streamConsumer:        streamConsumer,
 		schemaMapper:          schemaMapper,
+		columnarMapper:        columnarMapper,
 		sinkConfig:            sinkConfig,
 		log:                   log,
 		meter:                 meter,
 		dlqPublisher:          dlqPublisher,
 		clickhouseQueryConfig: clickhouseQueryConfig,
 		streamSourceID:        streamSourceID,
+		batchPool:             batchPool,
 	}, nil
 }
 
@@ -253,6 +274,11 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		return fmt.Errorf("create CH batch: %w", err)
 	}
 
+	// Return columnar batch to pool after use
+	if columnarBatch, ok := chBatch.(*clickhouse.ColumnarBatch); ok {
+		defer ch.batchPool.Put(columnarBatch)
+	}
+
 	size := chBatch.Size()
 	start := time.Now()
 
@@ -308,6 +334,164 @@ func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (clickhouse.Batch, error) {
+	// Use columnar approach if ColumnarMapper is available
+	if ch.columnarMapper != nil {
+		return ch.createColumnarBatch(ctx, messages)
+	}
+
+	// Fallback to old row-oriented approach (should not happen in normal operation)
+	return ch.createRowOrientedBatch(ctx, messages)
+}
+
+// createColumnarBatch creates a batch using the columnar approach for optimal performance.
+func (ch *ClickHouseSink) createColumnarBatch(
+	ctx context.Context,
+	messages []jetstream.Msg,
+) (clickhouse.Batch, error) {
+	// Get column names and types
+	var columnNames []string
+	var columnTypes []string
+	streamName := ch.streamSourceID
+
+	// Get column types from mapper
+	jsonMapper, ok := ch.schemaMapper.(*schema.JsonToClickHouseMapper)
+	if !ok {
+		return nil, fmt.Errorf("mapper is not JsonToClickHouseMapper, cannot get column types")
+	}
+
+	// Log current mapper state for debugging
+	ch.log.DebugContext(ctx, "Creating columnar batch",
+		"stream_count", len(jsonMapper.Streams),
+		"streamSourceID", ch.streamSourceID,
+		"streamName_input", streamName)
+
+	// If streamName is empty, determine it from the mapper (should be single stream)
+	if streamName == "" {
+		streamCount := len(jsonMapper.Streams)
+		ch.log.DebugContext(ctx, "Auto-detecting stream name", "available_streams", streamCount)
+		
+		// For single stream scenarios, get the stream name from mapper
+		if streamCount == 1 {
+			for name := range jsonMapper.Streams {
+				streamName = name
+				ch.log.DebugContext(ctx, "Auto-detected stream", "stream_name", streamName)
+				break
+			}
+		} else if streamCount > 1 {
+			// List all stream names for debugging
+			streamNames := make([]string, 0, len(jsonMapper.Streams))
+			for name := range jsonMapper.Streams {
+				streamNames = append(streamNames, name)
+			}
+			ch.log.ErrorContext(ctx, "Multiple streams detected",
+				"stream_names", streamNames,
+				"stream_count", streamCount)
+			return nil, fmt.Errorf("multiple streams found %v (count: %d) but streamSourceID is empty, cannot determine which stream to use", streamNames, streamCount)
+		} else {
+			// No streams at all
+			ch.log.ErrorContext(ctx, "No streams defined in mapper")
+			return nil, fmt.Errorf("no streams defined in mapper")
+		}
+	}
+
+	// Get column names for the determined stream
+	if streamName != "" {
+		columnNames = ch.schemaMapper.GetOrderedColumnsStream(streamName)
+	} else {
+		// Fallback: get all columns (should not happen in normal operation)
+		columnNames = ch.schemaMapper.GetOrderedColumns()
+	}
+
+	// Query actual table schema to get real column types
+	// This matches the old clickhouse-go behavior where the driver used the table's actual types
+	tableSchema, err := ch.client.GetTableSchema(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get table schema: %w", err)
+	}
+
+	// Build map of actual column types from table schema
+	actualColumnTypes := make(map[string]string)
+	for _, col := range tableSchema {
+		actualColumnTypes[col.Name] = col.Type
+	}
+
+	// Build columnTypes using actual table types (not mapper types)
+	columnTypes = make([]string, 0, len(columnNames))
+	for _, colName := range columnNames {
+		if colType, ok := actualColumnTypes[colName]; ok {
+			columnTypes = append(columnTypes, colType)
+		} else {
+			return nil, fmt.Errorf("column %s not found in table schema", colName)
+		}
+	}
+
+	// Initialize batch pool on first use with the correct schema
+	if ch.batchPool.New == nil {
+		// Capture columnNames and columnTypes for pool
+		names := make([]string, len(columnNames))
+		types := make([]string, len(columnTypes))
+		copy(names, columnNames)
+		copy(types, columnTypes)
+
+		ch.batchPool.New = func() interface{} {
+			b, err := clickhouse.NewColumnarBatch(ch.client, names, types)
+			if err != nil {
+				// If batch creation fails, return nil and handle in caller
+				return nil
+			}
+			return b
+		}
+	}
+
+	// Get or create batch from pool
+	var batch *clickhouse.ColumnarBatch
+	pooled := ch.batchPool.Get()
+	if pooled != nil {
+		if cb, ok := pooled.(*clickhouse.ColumnarBatch); ok && cb != nil {
+			batch = cb
+			batch.Reset()
+		}
+	}
+
+	// Create new batch if pool didn't return one (shouldn't happen after first init)
+	if batch == nil {
+		var err error
+		batch, err = clickhouse.NewColumnarBatch(ch.client, columnNames, columnTypes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create columnar batch: %w", err)
+		}
+	}
+
+	// Append messages to batch
+	for _, msg := range messages {
+		metadata, err := msg.Metadata()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get message metadata: %w", err)
+		}
+
+		// Check for duplicates
+		if batch.HasID(metadata.Sequence.Stream) {
+			continue
+		}
+		batch.AddID(metadata.Sequence.Stream)
+
+		// Append directly to columns - no []any allocation
+		// Use the same streamName we used to get columns
+		if err := ch.columnarMapper.AppendToColumns(streamName, msg.Data(), batch); err != nil {
+			// Return batch to pool on error
+			ch.batchPool.Put(batch)
+			return nil, fmt.Errorf("failed to append to columns: %w", err)
+		}
+	}
+
+	return batch, nil
+}
+
+// createRowOrientedBatch creates a batch using the old row-oriented approach (fallback).
+func (ch *ClickHouseSink) createRowOrientedBatch(
+	ctx context.Context,
+	messages []jetstream.Msg,
+) (clickhouse.Batch, error) {
 	var query string
 	if ch.streamSourceID != "" {
 		query = fmt.Sprintf(
@@ -327,38 +511,9 @@ func (ch *ClickHouseSink) createCHBatch(
 
 	ch.log.Debug("Insert query", "query", query)
 
-	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
-	}
-
-	for _, msg := range messages {
-		var metadata *jetstream.MsgMetadata
-		metadata, err = msg.Metadata()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get message metadata: %w", err)
-		}
-
-		var values []any
-		if ch.streamSourceID != "" {
-			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
-		} else {
-			values, err = ch.schemaMapper.PrepareValues(msg.Data())
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
-		}
-
-		err = resultBatch.Append(metadata.Sequence.Stream, values...)
-		if err != nil {
-			if errors.Is(err, clickhouse.ErrAlreadyExists) {
-				continue
-			}
-			return nil, fmt.Errorf("failed to append values to batch: %w", err)
-		}
-	}
-
-	return resultBatch, nil
+	// For row-oriented batch, we'd need the old client interface
+	// This is a fallback that shouldn't normally be used
+	return nil, fmt.Errorf("row-oriented batch creation not supported with ChGoClient, use ColumnarMapper")
 }
 
 func (ch *ClickHouseSink) clearConn() {

@@ -35,6 +35,11 @@ func ParseInt8(data any) (zero int8, _ error) {
 			return zero, fmt.Errorf("value out of range of int8: %d", value)
 		}
 		return int8(value), nil
+	case int64:
+		if value < math.MinInt8 || value > math.MaxInt8 {
+			return zero, fmt.Errorf("value out of range of int8: %d", value)
+		}
+		return int8(value), nil
 	case float64:
 		if value < float64(math.MinInt8) || value > float64(math.MaxInt8) {
 			return zero, fmt.Errorf("value out of range of int8: %f", value)
@@ -54,6 +59,11 @@ func ParseInt16(data any) (zero int16, _ error) {
 			return zero, fmt.Errorf("value out of range of int16: %d", value)
 		}
 		return int16(value), nil
+	case int64:
+		if value < math.MinInt16 || value > math.MaxInt16 {
+			return zero, fmt.Errorf("value out of range of int16: %d", value)
+		}
+		return int16(value), nil
 	case float64:
 		if value < float64(math.MinInt16) || value > float64(math.MaxInt16) {
 			return zero, fmt.Errorf("value out of range of int16: %f", value)
@@ -69,6 +79,11 @@ func ParseInt32(data any) (zero int32, _ error) {
 	case int32:
 		return value, nil
 	case int:
+		if value < math.MinInt32 || value > math.MaxInt32 {
+			return zero, fmt.Errorf("value out of range of int32: %d", value)
+		}
+		return int32(value), nil
+	case int64:
 		if value < math.MinInt32 || value > math.MaxInt32 {
 			return zero, fmt.Errorf("value out of range of int32: %d", value)
 		}

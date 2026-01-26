@@ -16,7 +16,6 @@ import (
 type DatabaseClient interface {
 	Reconnect(ctx context.Context) error
 	PrepareBatch(ctx context.Context, query string) (driver.Batch, error)
-	AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 	GetDatabase() string
 	GetTableName() string
 	Close() error
@@ -97,6 +96,9 @@ func (c *ClickHouseClient) connect(ctx context.Context) error {
 			Username: c.username,
 			Password: string(pswd),
 		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to open clickhouse connection: %w", err)
@@ -142,13 +144,4 @@ func (c *ClickHouseClient) GetDatabase() string {
 
 func (c *ClickHouseClient) GetTableName() string {
 	return c.tableName
-}
-
-func (c *ClickHouseClient) AsyncInsert(
-	ctx context.Context,
-	query string,
-	wait bool,
-	args ...any,
-) error {
-	return c.conn.AsyncInsert(ctx, query, wait, args...)
 }
