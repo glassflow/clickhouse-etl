@@ -4,6 +4,9 @@ import {
   TransformationField,
   FunctionArg,
   FunctionArgNestedFunction,
+  FunctionArgWaterfallArray,
+  FunctionArgConcatArray,
+  PostProcessFunction,
   TransformArithmeticExpression,
   ExpressionMode,
 } from '../transformation.store'
@@ -459,6 +462,10 @@ function parseHydratedArgs(args: any[]): FunctionArg[] {
       }
     } else if (arg.type === 'nested_function') {
       return parseHydratedNestedFunction(arg)
+    } else if (arg.type === 'waterfall_array') {
+      return parseHydratedWaterfallArray(arg)
+    } else if (arg.type === 'concat_array') {
+      return parseHydratedConcatArray(arg)
     }
     // Default to literal
     return {
@@ -467,6 +474,52 @@ function parseHydratedArgs(args: any[]): FunctionArg[] {
       literalType: 'string',
     }
   })
+}
+
+/**
+ * Parse a hydrated waterfall array argument
+ */
+function parseHydratedWaterfallArray(arg: any): FunctionArgWaterfallArray {
+  return {
+    type: 'waterfall_array' as const,
+    slots: (arg.slots || []).map((slot: any) => ({
+      id: slot.id || uuidv4(),
+      slotType: slot.slotType || 'field',
+      fieldName: slot.fieldName,
+      fieldType: slot.fieldType,
+      functionName: slot.functionName,
+      functionArgs: slot.functionArgs ? parseHydratedArgs(slot.functionArgs) : undefined,
+      literalValue: slot.literalValue,
+      literalType: slot.literalType,
+    })),
+  }
+}
+
+/**
+ * Parse a hydrated concat array argument
+ */
+function parseHydratedConcatArray(arg: any): FunctionArgConcatArray {
+  const result: FunctionArgConcatArray = {
+    type: 'concat_array' as const,
+    slots: (arg.slots || []).map((slot: any) => ({
+      id: slot.id || uuidv4(),
+      slotType: slot.slotType || 'field',
+      fieldName: slot.fieldName,
+      fieldType: slot.fieldType,
+      literalValue: slot.literalValue,
+    })),
+  }
+
+  // Parse post-process chain if present
+  if (arg.postProcessChain && arg.postProcessChain.length > 0) {
+    result.postProcessChain = arg.postProcessChain.map((func: any): PostProcessFunction => ({
+      id: func.id || uuidv4(),
+      functionName: func.functionName || '',
+      additionalArgs: func.additionalArgs ? parseHydratedArgs(func.additionalArgs) : [],
+    }))
+  }
+
+  return result
 }
 
 /**
@@ -513,6 +566,42 @@ function exportFunctionArg(arg: FunctionArg): any {
       functionName: arg.functionName,
       functionArgs: arg.functionArgs.map(exportFunctionArg),
     }
+  } else if (arg.type === 'waterfall_array') {
+    return {
+      type: 'waterfall_array',
+      slots: arg.slots.map((slot) => ({
+        id: slot.id,
+        slotType: slot.slotType,
+        fieldName: slot.fieldName,
+        fieldType: slot.fieldType,
+        functionName: slot.functionName,
+        functionArgs: slot.functionArgs ? slot.functionArgs.map(exportFunctionArg) : undefined,
+        literalValue: slot.literalValue,
+        literalType: slot.literalType,
+      })),
+    }
+  } else if (arg.type === 'concat_array') {
+    const result: any = {
+      type: 'concat_array',
+      slots: arg.slots.map((slot) => ({
+        id: slot.id,
+        slotType: slot.slotType,
+        fieldName: slot.fieldName,
+        fieldType: slot.fieldType,
+        literalValue: slot.literalValue,
+      })),
+    }
+
+    // Export post-process chain if present
+    if (arg.postProcessChain && arg.postProcessChain.length > 0) {
+      result.postProcessChain = arg.postProcessChain.map((func) => ({
+        id: func.id,
+        functionName: func.functionName,
+        additionalArgs: func.additionalArgs.map(exportFunctionArg),
+      }))
+    }
+
+    return result
   }
   return arg
 }

@@ -14,7 +14,10 @@ import {
   FunctionArgArray,
   FunctionArgNestedFunction,
   FunctionArgWaterfallArray,
+  FunctionArgConcatArray,
   WaterfallSlot,
+  ConcatSlot,
+  PostProcessFunction,
   TransformArithmeticExpression,
   isFieldComplete,
   isNestedFunctionArg,
@@ -93,6 +96,57 @@ export const isWaterfallArrayArg = (arg: FunctionArg): arg is FunctionArgWaterfa
 }
 
 /**
+ * Check if a function argument is a concat array
+ */
+export const isConcatArrayArg = (arg: FunctionArg): arg is FunctionArgConcatArray => {
+  return arg.type === 'concat_array'
+}
+
+/**
+ * Convert a concat slot to its expression string
+ */
+export const concatSlotToExpr = (slot: ConcatSlot): string => {
+  switch (slot.slotType) {
+    case 'field':
+      return slot.fieldName || ''
+    case 'literal':
+      // String literal - escape quotes
+      const escaped = (slot.literalValue || '').replace(/"/g, '\\"')
+      return `"${escaped}"`
+    default:
+      return ''
+  }
+}
+
+/**
+ * Convert a concat array argument to its expression string (comma-separated values)
+ * If postProcessChain is present, wraps the concat with the chain of functions
+ * e.g., toUpper(trim(concat(field1, " ", field2)))
+ */
+export const concatArrayToExpr = (arg: FunctionArgConcatArray): string => {
+  const slotExprs = arg.slots.map(concatSlotToExpr).filter(Boolean)
+  const innerExpr = slotExprs.join(', ')
+
+  // If no post-process chain, return just the inner arguments (caller wraps with concat())
+  if (!arg.postProcessChain || arg.postProcessChain.length === 0) {
+    return innerExpr
+  }
+
+  // Apply post-process chain - wrap concat result with each function in order
+  // Chain is stored as [innermost, ..., outermost], so we build from inside out
+  let expr = `concat(${innerExpr})`
+
+  for (const func of arg.postProcessChain) {
+    if (!func.functionName) continue
+
+    const additionalArgsStr = func.additionalArgs.map(formatArgForExpr).join(', ')
+    expr = `${func.functionName}(${expr}${additionalArgsStr ? ', ' + additionalArgsStr : ''})`
+  }
+
+  return expr
+}
+
+/**
  * Format a function argument for the expression (supports nested functions)
  */
 export const formatArgForExpr = (arg: FunctionArg): string => {
@@ -132,6 +186,11 @@ export const formatArgForExpr = (arg: FunctionArg): string => {
   if (isWaterfallArrayArg(arg)) {
     // Waterfall array - convert slots to expressions
     return waterfallArrayToExpr(arg)
+  }
+
+  if (isConcatArrayArg(arg)) {
+    // Concat array - convert slots to comma-separated expressions
+    return concatArrayToExpr(arg)
   }
 
   return ''
@@ -220,6 +279,21 @@ export const computedFieldToExpr = (field: TransformationField): string => {
     return ''
   }
 
+  // Special handling for concat with post-process chain
+  // When concat has a post-process chain, concatArrayToExpr returns the full wrapped expression
+  if (field.functionName === 'concat' && field.functionArgs.length === 1) {
+    const firstArg = field.functionArgs[0]
+    if (isConcatArrayArg(firstArg) && firstArg.postProcessChain && firstArg.postProcessChain.length > 0) {
+      // concatArrayToExpr already returns the full expression with wrapping functions
+      let expr = concatArrayToExpr(firstArg)
+      // Apply arithmetic expression if present
+      if (field.arithmeticExpression) {
+        expr = expr + formatArithmeticExpr(field.arithmeticExpression)
+      }
+      return expr
+    }
+  }
+
   // Generate the function call expression (handles nested functions via formatArgForExpr)
   const args = field.functionArgs.map(formatArgForExpr)
   let expr = `${field.functionName}(${args.join(', ')})`
@@ -240,8 +314,14 @@ export const passthroughFieldToExpr = (field: TransformationField): string => {
     return ''
   }
 
-  // For passthrough, just reference the field directly
-  return field.sourceField
+  let expr = field.sourceField
+
+  // Apply arithmetic expression if present
+  if (field.arithmeticExpression) {
+    expr = expr + formatArithmeticExpr(field.arithmeticExpression)
+  }
+
+  return expr
 }
 
 /**
@@ -390,6 +470,111 @@ export const validateWaterfallArrayArg = (arg: FunctionArgWaterfallArray): { isV
 }
 
 /**
+ * Validate a single concat slot
+ */
+export const validateConcatSlot = (slot: ConcatSlot, index: number): { isValid: boolean; error?: string } => {
+  switch (slot.slotType) {
+    case 'field':
+      if (!slot.fieldName) {
+        return { isValid: false, error: `Value ${index + 1}: Field selection required` }
+      }
+      break
+    case 'literal':
+      // Allow empty strings for concat (e.g., space separator)
+      if (slot.literalValue === undefined) {
+        return { isValid: false, error: `Value ${index + 1}: Text value required` }
+      }
+      break
+  }
+  return { isValid: true }
+}
+
+/**
+ * Validate a single post-process function in a concat chain
+ */
+export const validatePostProcessFunction = (
+  func: PostProcessFunction,
+  index: number,
+): { isValid: boolean; error?: string } => {
+  if (!func.functionName) {
+    return { isValid: false, error: `Post-process function ${index + 1}: Function selection required` }
+  }
+
+  const funcDef = getFunctionByName(func.functionName)
+  if (!funcDef) {
+    return { isValid: false, error: `Post-process function ${index + 1}: Unknown function: ${func.functionName}` }
+  }
+
+  // Validate additional arguments (skip first arg which is the piped concat result)
+  const additionalArgDefs = funcDef.args.slice(1)
+  const requiredAdditionalArgs = additionalArgDefs.filter((a) => a.required !== false)
+
+  if (func.additionalArgs.length < requiredAdditionalArgs.length) {
+    return {
+      isValid: false,
+      error: `Post-process function ${index + 1}: ${func.functionName} requires ${requiredAdditionalArgs.length} additional argument(s)`,
+    }
+  }
+
+  // Validate each additional argument
+  for (let i = 0; i < requiredAdditionalArgs.length; i++) {
+    const argDef = requiredAdditionalArgs[i]
+    const argValue = func.additionalArgs[i]
+
+    if (!argValue) {
+      return {
+        isValid: false,
+        error: `Post-process function ${index + 1}: Argument "${argDef.name}" is required`,
+      }
+    }
+
+    if (argDef.type === 'field' && isFieldArg(argValue) && !argValue.fieldName) {
+      return {
+        isValid: false,
+        error: `Post-process function ${index + 1}: Field selection required for "${argDef.name}"`,
+      }
+    }
+
+    if (argDef.type === 'literal' && isLiteralArg(argValue) && (argValue.value === undefined || argValue.value === '')) {
+      return {
+        isValid: false,
+        error: `Post-process function ${index + 1}: Value required for "${argDef.name}"`,
+      }
+    }
+  }
+
+  return { isValid: true }
+}
+
+/**
+ * Validate a concat array argument
+ */
+export const validateConcatArrayArg = (arg: FunctionArgConcatArray): { isValid: boolean; error?: string } => {
+  if (!arg.slots || arg.slots.length < 1) {
+    return { isValid: false, error: 'Concat requires at least 1 value' }
+  }
+
+  for (let i = 0; i < arg.slots.length; i++) {
+    const slotValidation = validateConcatSlot(arg.slots[i], i)
+    if (!slotValidation.isValid) {
+      return slotValidation
+    }
+  }
+
+  // Validate post-process chain if present
+  if (arg.postProcessChain && arg.postProcessChain.length > 0) {
+    for (let i = 0; i < arg.postProcessChain.length; i++) {
+      const funcValidation = validatePostProcessFunction(arg.postProcessChain[i], i)
+      if (!funcValidation.isValid) {
+        return funcValidation
+      }
+    }
+  }
+
+  return { isValid: true }
+}
+
+/**
  * Validate a single transformation field
  */
 export const validateFieldLocally = (field: TransformationField): FieldValidation => {
@@ -455,6 +640,14 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
                   break
                 }
               }
+              // Validate concat array arguments
+              else if (isConcatArrayArg(argValue)) {
+                const concatValidation = validateConcatArrayArg(argValue)
+                if (!concatValidation.isValid) {
+                  errors.functionArgs = concatValidation.error
+                  break
+                }
+              }
               // Validate nested function arguments recursively
               else if (isNestedFunctionArgUtil(argValue)) {
                 const nestedValidation = validateNestedFunctionArg(argValue)
@@ -489,6 +682,12 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
     // Validate passthrough field
     if (!field.sourceField) {
       errors.sourceField = 'Source field is required for passthrough fields'
+    }
+    // Validate arithmetic expression if present
+    if (field.arithmeticExpression) {
+      if (isNaN(field.arithmeticExpression.operand)) {
+        errors.arithmeticExpression = 'Arithmetic operand must be a valid number'
+      }
     }
     // Note: sourceFieldType is optional - if not provided, we'll infer it
   }

@@ -19,6 +19,7 @@ import TypeToggle from './TypeToggle'
 import SourceFieldSelect from './SourceFieldSelect'
 import TransformFunctionSelect from './TransformFunctionSelect'
 import { ExpressionModeToggle } from './ExpressionModeToggle'
+import { ArithmeticModifier } from './ArithmeticModifier'
 
 interface TransformationFieldRowProps {
   field: TransformationField
@@ -348,6 +349,19 @@ export function TransformationFieldRow({
     [updateLocalField],
   )
 
+  // Handle arithmetic enabled/disabled change
+  const handleArithmeticEnabledChange = useCallback(
+    (enabled: boolean) => {
+      if (!enabled) {
+        updateLocalField({ arithmeticExpression: undefined })
+      } else if (!localField.arithmeticExpression) {
+        // Initialize with default multiplication
+        updateLocalField({ arithmeticExpression: { operator: '*', operand: 1 } })
+      }
+    },
+    [updateLocalField, localField.arithmeticExpression],
+  )
+
   // Handle output type override
   const handleOutputTypeChange = useCallback(
     (type: string) => {
@@ -409,12 +423,25 @@ export function TransformationFieldRow({
     if (field.type === 'computed') {
       return 'Computed'
     }
-    return field.sourceField || 'Not set'
+    let indicator = field.sourceField || 'Not set'
+    if (field.arithmeticExpression) {
+      indicator += ` ${field.arithmeticExpression.operator} ${field.arithmeticExpression.operand}`
+    }
+    return indicator
   }
 
   // Check if computed field has a function configured
   const isComputedField = field.type === 'computed'
   const functionExpression = isComputedField ? formatFunctionExpression(field) : ''
+
+  // Format passthrough expression with arithmetic if present
+  const passthroughExpression =
+    field.type === 'passthrough' && field.sourceField
+      ? field.arithmeticExpression
+        ? `${field.sourceField} ${field.arithmeticExpression.operator} ${field.arithmeticExpression.operand}`
+        : field.sourceField
+      : ''
+  const hasPassthroughArithmetic = field.type === 'passthrough' && !!field.arithmeticExpression && !!field.sourceField
 
   return (
     <div
@@ -515,6 +542,18 @@ export function TransformationFieldRow({
         </div>
       )}
 
+      {/* Second Row - Passthrough Expression with Arithmetic (for passthrough fields with arithmetic, when collapsed) */}
+      {hasPassthroughArithmetic && !isExpanded && (
+        <div className="px-3 pb-3 pt-0 border-t border-[var(--surface-border-subtle)]">
+          <div className="flex items-center gap-2 pt-3">
+            <span className="text-xs text-[var(--text-disabled)] font-medium pl-2">Transformation Expression:</span>
+            <code className="text-xs font-mono px-2 py-1 rounded-[var(--radius-small)] text-[var(--text-accent)] bg-[var(--color-bg-accent-muted)]">
+              {passthroughExpression}
+            </code>
+          </div>
+        </div>
+      )}
+
       {/* Expanded Section */}
       {isExpanded && (
         <div className="border-t border-[var(--surface-border)] p-4 space-y-4 bg-[var(--surface-bg-sunken)] animate-[fadeIn_0.2s_ease-in-out]">
@@ -594,14 +633,24 @@ export function TransformationFieldRow({
           {/* Source Field or Function Configuration */}
           <div className="space-y-2">
             {localField.type === 'passthrough' ? (
-              <SourceFieldSelect
-                field={{ ...field, ...localField } as TransformationField}
-                handleSourceFieldChange={handleSourceFieldChange}
-                readOnly={readOnly}
-                errors={errors}
-                availableFields={availableFields}
-                className="w-full"
-              />
+              <>
+                <SourceFieldSelect
+                  field={{ ...field, ...localField } as TransformationField}
+                  handleSourceFieldChange={handleSourceFieldChange}
+                  readOnly={readOnly}
+                  errors={errors}
+                  availableFields={availableFields}
+                  className="w-full"
+                />
+                <ArithmeticModifier
+                  enabled={!!localField.arithmeticExpression}
+                  expression={localField.arithmeticExpression}
+                  onEnabledChange={handleArithmeticEnabledChange}
+                  onExpressionChange={handleArithmeticChange}
+                  disabled={readOnly}
+                  error={errors?.arithmeticExpression}
+                />
+              </>
             ) : (
               <TransformFunctionSelect
                 field={{ ...field, ...localField } as TransformationField}
