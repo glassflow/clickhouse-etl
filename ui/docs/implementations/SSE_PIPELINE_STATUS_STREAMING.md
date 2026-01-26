@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the Server-Sent Events (SSE) implementation for real-time pipeline status updates. SSE replaces client-side polling with server-side polling and streaming, significantly reducing network overhead and improving scalability.
+This document describes the Server-Sent Events (SSE) implementation for real-time pipeline status updates. SSE is the default and only method for fetching pipeline status updates, replacing the previous client-side polling approach. This significantly reduces network overhead and improves scalability.
 
 ## Architecture
 
@@ -60,25 +60,11 @@ src/
 │   └── pipeline-sse-manager.ts          # Client-side EventSource manager
 └── hooks/
     ├── usePipelineStateSSE.ts           # SSE-based React hooks
-    ├── usePipelineStateAdapter.ts       # Adapter for SSE/polling switching
-    └── usePipelineState.ts              # Original polling hooks (preserved)
+    ├── usePipelineStateAdapter.ts       # Adapter that exports SSE hooks
+    └── usePipelineState.ts              # Polling hooks (kept for optimistic updates)
 ```
 
 ## Configuration
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NEXT_PUBLIC_USE_SSE_STATUS` | `false` | Enable SSE for pipeline status updates |
-
-The environment variable is configured through the standard variable propagation system:
-
-1. **Local development**: Set in `.env.local` or `.env`, processed by `generate-env.mjs`
-2. **Docker runtime**: Set via container environment, processed by `startup.sh`
-3. **Build-time**: Exposed via `next.config.ts` for SSR
-
-The variable is accessed through the centralized `isSSEStatusEnabled()` function from `src/config/feature-flags.ts`.
 
 ### SSE Manager Configuration
 
@@ -137,12 +123,11 @@ interface SSEHeartbeatEvent {
 
 ## Usage
 
-### Basic Usage (Automatic)
+### Basic Usage
 
-The adapter hook automatically routes to SSE or polling based on the feature flag:
+Import the hooks from the adapter module:
 
 ```typescript
-// In your component - no changes needed!
 import { 
   useMultiplePipelineState, 
   usePipelineMonitoring 
@@ -151,7 +136,7 @@ import {
 function PipelinesList({ pipelines }) {
   const pipelineIds = pipelines.map(p => p.pipeline_id)
   
-  // Automatically uses SSE if enabled, falls back to polling
+  // Uses SSE for real-time status updates
   const statuses = useMultiplePipelineState(pipelineIds)
   usePipelineMonitoring(pipelineIds)
   
@@ -254,13 +239,6 @@ If SSE fails repeatedly, the system automatically falls back to the original pol
 
 ## Testing
 
-### Enable SSE Locally
-
-```bash
-# In .env.local
-NEXT_PUBLIC_USE_SSE_STATUS=true
-```
-
 ### Verify SSE Connection
 
 1. Open browser DevTools → Network tab
@@ -277,22 +255,6 @@ The SSE manager logs connection events to the console:
 [SSE Manager] Batch update: 5 pipelines
 [SSE Manager] Status update: pipeline-123 active -> paused
 ```
-
-## Migration Guide
-
-### From Polling to SSE
-
-1. Set `NEXT_PUBLIC_USE_SSE_STATUS=true` in environment
-2. Deploy and monitor for errors
-3. Check browser console for SSE connection logs
-4. Monitor server logs for polling activity
-
-### Rollback to Polling
-
-1. Set `NEXT_PUBLIC_USE_SSE_STATUS=false` (or remove)
-2. Redeploy - polling is immediately restored
-
-No code changes required for either direction.
 
 ## Troubleshooting
 
@@ -311,15 +273,15 @@ No code changes required for either direction.
 ### Status Updates Not Appearing
 
 **Possible causes:**
-- SSE not enabled
-- Fallback to polling triggered
+- SSE connection not established
+- Fallback to polling triggered (after repeated connection failures)
 - Backend health endpoint issues
 
 **Debug steps:**
-1. Check `NEXT_PUBLIC_USE_SSE_STATUS` is `true`
-2. Check browser console for SSE logs
-3. Verify `/ui-api/pipeline/status/stream` returns `text/event-stream`
-4. Check backend `/pipeline/{id}/health` is responding
+1. Check browser console for SSE logs
+2. Verify `/ui-api/pipeline/status/stream` returns `text/event-stream`
+3. Check backend `/pipeline/{id}/health` is responding
+4. Check if fallback has been triggered using `useTransportInfo()` hook
 
 ### High Server CPU
 

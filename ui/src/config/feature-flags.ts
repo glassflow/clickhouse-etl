@@ -93,14 +93,3 @@ export const isTransformationsEnabled = (): boolean => {
 export const isNotificationsEnabled = (): boolean => {
   return getFeatureFlag('NEXT_PUBLIC_NOTIFICATIONS_ENABLED')
 }
-
-/**
- * Check if SSE (Server-Sent Events) is enabled for pipeline status updates.
- * When enabled, the UI uses SSE streaming instead of polling for real-time
- * pipeline status updates. This reduces network overhead and improves scalability.
- *
- * @env NEXT_PUBLIC_USE_SSE_STATUS - Set to 'true' to enable SSE for status updates
- */
-export const isSSEStatusEnabled = (): boolean => {
-  return getFeatureFlag('NEXT_PUBLIC_USE_SSE_STATUS')
-}
