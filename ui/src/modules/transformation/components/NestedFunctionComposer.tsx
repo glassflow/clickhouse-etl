@@ -12,10 +12,14 @@ import {
   FunctionArgLiteral,
   FunctionArgNestedFunction,
   FunctionArgWaterfallArray,
+  FunctionArgConcatArray,
   WaterfallSlot,
+  ConcatSlot,
+  PostProcessFunction,
 } from '@/src/store/transformation.store'
 import { FunctionSelector } from './FunctionSelector'
 import { WaterfallExpressionBuilder } from './WaterfallExpressionBuilder'
+import { ConcatExpressionBuilder } from './ConcatExpressionBuilder'
 import { getFunctionByName } from '../functions'
 import { formatArgForExpr } from '../utils'
 
@@ -50,6 +54,7 @@ const generateId = () => `chain-func-${++idCounter}`
  * Extracts the function chain from the nested structure.
  * e.g., toDate(parseISO8601(field)) becomes:
  * [{ functionName: 'parseISO8601', additionalArgs: [] }, { functionName: 'toDate', additionalArgs: [] }]
+ * Also handles "field-only" mode (no function, just source field for arithmetic operations).
  */
 function extractFunctionChain(
   functionName: string,
@@ -58,6 +63,11 @@ function extractFunctionChain(
   const chain: ChainedFunction[] = []
 
   if (!functionName) {
+    // Handle "field-only" mode - no function but has a source field
+    // This supports field + arithmetic without a wrapping function
+    if (functionArgs && functionArgs.length > 0 && functionArgs[0].type === 'field') {
+      return { chain: [], sourceArg: functionArgs[0] }
+    }
     return { chain: [], sourceArg: null }
   }
 
@@ -98,6 +108,8 @@ function extractFunctionChain(
 /**
  * Builds the nested function structure from a chain.
  * Only includes functions with valid names.
+ * If no functions are in the chain but sourceArg has a field, returns just the source field
+ * (to support field + arithmetic without function).
  */
 function buildNestedStructure(
   chain: ChainedFunction[],
@@ -107,6 +119,11 @@ function buildNestedStructure(
   const validChain = chain.filter((f) => f.functionName)
 
   if (validChain.length === 0) {
+    // No functions, but if we have a valid source field, pass it through
+    // This enables "field + arithmetic" mode without a wrapping function
+    if (sourceArg.type === 'field' && (sourceArg as FunctionArgField).fieldName) {
+      return { functionName: '', functionArgs: [sourceArg] }
+    }
     return { functionName: '', functionArgs: [] }
   }
 
@@ -154,8 +171,9 @@ export function NestedFunctionComposer({
   error,
   hidePreview = false,
 }: NestedFunctionComposerProps) {
-  // Check if we're in waterfall mode
+  // Check if we're in waterfall mode or concat mode
   const isWaterfallMode = functionName === 'waterfall'
+  const isConcatMode = functionName === 'concat'
 
   // Local state for the chain - allows for placeholder functions
   const [chain, setChain] = useState<ChainedFunction[]>([])
@@ -168,6 +186,12 @@ export function NestedFunctionComposer({
   // State for waterfall slots
   const [waterfallSlots, setWaterfallSlots] = useState<WaterfallSlot[]>([])
 
+  // State for concat slots
+  const [concatSlots, setConcatSlots] = useState<ConcatSlot[]>([])
+
+  // State for concat post-process chain
+  const [concatPostProcessChain, setConcatPostProcessChain] = useState<PostProcessFunction[]>([])
+
   // Initialize from props on mount and when props change significantly
   useEffect(() => {
     if (isWaterfallMode) {
@@ -175,6 +199,14 @@ export function NestedFunctionComposer({
       const waterfallArg = functionArgs?.[0]
       if (waterfallArg && waterfallArg.type === 'waterfall_array') {
         setWaterfallSlots((waterfallArg as FunctionArgWaterfallArray).slots)
+      }
+    } else if (isConcatMode) {
+      // Extract concat slots and post-process chain from functionArgs
+      const concatArg = functionArgs?.[0]
+      if (concatArg && concatArg.type === 'concat_array') {
+        const typedArg = concatArg as FunctionArgConcatArray
+        setConcatSlots(typedArg.slots)
+        setConcatPostProcessChain(typedArg.postProcessChain || [])
       }
     } else {
       const extracted = extractFunctionChain(functionName, functionArgs)
@@ -254,6 +286,23 @@ export function NestedFunctionComposer({
         return
       }
 
+      // Special case: if concat is selected, switch to concat mode
+      if (newFunctionName === 'concat') {
+        // Initialize with empty concat slots and notify parent
+        onFunctionChange('concat')
+        const initialSlots: ConcatSlot[] = [
+          { id: `slot-${Date.now()}-1`, slotType: 'field', fieldName: '', fieldType: '' },
+          { id: `slot-${Date.now()}-2`, slotType: 'field', fieldName: '', fieldType: '' },
+        ]
+        setConcatSlots(initialSlots)
+        const concatArg: FunctionArgConcatArray = {
+          type: 'concat_array',
+          slots: initialSlots,
+        }
+        onArgsChange([concatArg])
+        return
+      }
+
       const funcDef = getFunctionByName(newFunctionName)
       // Initialize additional args based on function definition (skip first arg which is piped)
       const additionalArgDefs = funcDef?.args.slice(1) || []
@@ -307,11 +356,16 @@ export function NestedFunctionComposer({
   // Generate preview expression
   const previewExpr = useMemo(() => {
     const validChain = chain.filter((f) => f.functionName)
-    if (validChain.length === 0) return ''
 
     // Build expression string manually for preview
     let expr =
-      sourceArg.type === 'field' ? (sourceArg as FunctionArgField).fieldName || '?' : formatArgForExpr(sourceArg)
+      sourceArg.type === 'field' ? (sourceArg as FunctionArgField).fieldName || '' : formatArgForExpr(sourceArg)
+
+    // If no functions but we have a source field, return just the field name
+    // (parent component will add arithmetic expression if present)
+    if (validChain.length === 0) {
+      return expr
+    }
 
     for (const func of validChain) {
       const additionalArgsStr = func.additionalArgs.map(formatArgForExpr).join(', ')
@@ -352,17 +406,76 @@ export function NestedFunctionComposer({
     [onExpressionChange],
   )
 
-  // Handle switching from waterfall back to regular mode
+  // Handle concat slots change
+  const handleConcatSlotsChange = useCallback(
+    (newSlots: ConcatSlot[]) => {
+      setConcatSlots(newSlots)
+      // Sync to parent via functionArgs, preserving post-process chain
+      const concatArg: FunctionArgConcatArray = {
+        type: 'concat_array',
+        slots: newSlots,
+        postProcessChain: concatPostProcessChain.length > 0 ? concatPostProcessChain : undefined,
+      }
+      onArgsChange([concatArg])
+    },
+    [onArgsChange, concatPostProcessChain],
+  )
+
+  // Handle concat post-process chain change
+  const handleConcatPostProcessChainChange = useCallback(
+    (newChain: PostProcessFunction[]) => {
+      setConcatPostProcessChain(newChain)
+      // Sync to parent via functionArgs
+      const concatArg: FunctionArgConcatArray = {
+        type: 'concat_array',
+        slots: concatSlots,
+        postProcessChain: newChain.length > 0 ? newChain : undefined,
+      }
+      onArgsChange([concatArg])
+    },
+    [onArgsChange, concatSlots],
+  )
+
+  // Handle concat expression change
+  const handleConcatExpressionChange = useCallback(
+    (expr: string) => {
+      if (onExpressionChange) {
+        onExpressionChange(expr)
+      }
+    },
+    [onExpressionChange],
+  )
+
+  // Handle switching from waterfall/concat back to regular mode
   const handleSwitchToRegularMode = useCallback(() => {
     // Reset to empty state
     setChain([])
     setSourceArg({ type: 'field', fieldName: '', fieldType: '' } as FunctionArgField)
     setWaterfallSlots([])
+    setConcatSlots([])
+    setConcatPostProcessChain([])
     onFunctionChange('')
     onArgsChange([])
   }, [onFunctionChange, onArgsChange])
 
   const maxChainLength = 5
+
+  // Render concat mode
+  if (isConcatMode) {
+    return (
+      <ConcatExpressionBuilder
+        slots={concatSlots}
+        availableFields={availableFields}
+        onSlotsChange={handleConcatSlotsChange}
+        postProcessChain={concatPostProcessChain}
+        onPostProcessChainChange={handleConcatPostProcessChainChange}
+        onExpressionChange={handleConcatExpressionChange}
+        onSwitchToRegularMode={handleSwitchToRegularMode}
+        disabled={disabled}
+        error={error}
+      />
+    )
+  }
 
   // Render waterfall mode
   if (isWaterfallMode) {

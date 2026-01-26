@@ -50,6 +50,36 @@ export interface FunctionArgWaterfallArray {
   slots: WaterfallSlot[]
 }
 
+// Concat expression slot - each element in a concat array (simpler than waterfall)
+export type ConcatSlotType = 'field' | 'literal'
+
+export interface ConcatSlot {
+  id: string
+  slotType: ConcatSlotType
+  // For field type
+  fieldName?: string
+  fieldType?: string
+  // For literal type
+  literalValue?: string
+}
+
+// Post-process function for concat - applies to the concat result
+export interface PostProcessFunction {
+  id: string
+  functionName: string
+  // Additional arguments beyond the piped input (the concat result)
+  additionalArgs: FunctionArg[]
+}
+
+// Concat-specific array argument
+export interface FunctionArgConcatArray {
+  type: 'concat_array'
+  slots: ConcatSlot[]
+  // Optional chain of functions to apply to concat result
+  // e.g., toUpper(trim(concat(...))) would have [trim, toUpper] in the chain
+  postProcessChain?: PostProcessFunction[]
+}
+
 // New: A function argument can itself be a nested function call
 export interface FunctionArgNestedFunction {
   type: 'nested_function'
@@ -63,6 +93,7 @@ export type FunctionArg =
   | FunctionArgArray
   | FunctionArgNestedFunction
   | FunctionArgWaterfallArray
+  | FunctionArgConcatArray
 
 // Expression mode for computed fields
 export type ExpressionMode = 'simple' | 'nested' | 'raw'
@@ -210,13 +241,20 @@ export const isFieldComplete = (field: TransformationField): boolean => {
   if (!field.outputFieldName) return false
 
   if (field.type === 'passthrough') {
-    return !!field.sourceField && !!field.sourceFieldType
+    // sourceFieldType can default to 'string' if not explicitly set
+    return !!field.sourceField
   }
 
   if (field.type === 'computed') {
     // Raw expression mode - just needs the expression
     if (field.expressionMode === 'raw') {
       return !!field.rawExpression && field.rawExpression.trim().length > 0
+    }
+    // Allow field + arithmetic without function (e.g., timestamp * 1000000)
+    const hasSourceField =
+      field.functionArgs?.[0]?.type === 'field' && (field.functionArgs[0] as FunctionArgField).fieldName
+    if (hasSourceField && field.arithmeticExpression) {
+      return true
     }
     // Simple or nested mode - needs function name and args
     return !!field.functionName && (field.functionArgs?.length ?? 0) > 0
