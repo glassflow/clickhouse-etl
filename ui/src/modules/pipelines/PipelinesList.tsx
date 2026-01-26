@@ -38,7 +38,7 @@ import {
 } from '@/src/api/pipeline-api'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
-import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineState'
+import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineStateAdapter'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
 import { formatNumber, formatCreatedAt } from '@/src/utils/common.client'
 import Loader from '@/src/images/loader-small.svg'
