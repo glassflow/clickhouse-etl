@@ -239,7 +239,7 @@ func (s *SinkTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
 	if err != nil {
 		return fmt.Errorf("unmarshal schema config: %w", err)
 	}
-	
+
 	// Assign the fresh config to avoid any map contamination
 	s.schemaConfig = freshConfig
 
@@ -284,12 +284,12 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 	for name := range s.schemaConfig.Streams {
 		streamNames = append(streamNames, name)
 	}
-	
+
 	schemaMapper, err := schema.NewJSONToClickHouseMapper(s.schemaConfig.Streams, s.schemaConfig.SinkMapping)
 	if err != nil {
 		return fmt.Errorf("create schema mapper: %w (input streams: %v)", err, streamNames)
 	}
-	
+
 	// Double-check mapper was created with correct streams
 	mapperStreams := make([]string, 0, len(schemaMapper.Streams))
 	for name := range schemaMapper.Streams {
