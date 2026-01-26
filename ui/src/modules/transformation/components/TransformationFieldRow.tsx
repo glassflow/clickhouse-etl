@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState, useRef, useEffect } from 'react'
+import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
@@ -9,6 +9,7 @@ import { TrashIcon, PencilIcon, ChevronUpIcon, CheckIcon, XMarkIcon } from '@her
 import {
   TransformationField,
   FunctionArg,
+  FunctionArgField,
   ExpressionMode,
   TransformArithmeticExpression,
 } from '@/src/store/transformation.store'
@@ -141,6 +142,15 @@ function formatFunctionExpression(field: TransformationField): string {
     return expression
   }
 
+  // Field + arithmetic only mode (no function)
+  // Handle case where there's a source field with arithmetic but no wrapping function
+  if (field.functionArgs && field.functionArgs.length > 0) {
+    const firstArg = field.functionArgs[0]
+    if (firstArg.type === 'field' && firstArg.fieldName && field.arithmeticExpression) {
+      return `${firstArg.fieldName} ${field.arithmeticExpression.operator} ${field.arithmeticExpression.operand}`
+    }
+  }
+
   return 'Not configured'
 }
 
@@ -184,6 +194,45 @@ export function TransformationFieldRow({
     rawExpression: field.rawExpression,
     arithmeticExpression: field.arithmeticExpression,
   })
+
+  // Check if the field can be saved (minimum requirements met)
+  const canSaveField = useMemo(() => {
+    // Output field name is always required
+    if (!localField.outputFieldName || localField.outputFieldName.trim() === '') {
+      return false
+    }
+
+    if (localField.type === 'passthrough') {
+      // Passthrough needs a source field
+      return !!localField.sourceField
+    }
+
+    if (localField.type === 'computed') {
+      // Raw expression mode - just needs non-empty expression
+      if (localField.expressionMode === 'raw') {
+        return !!localField.rawExpression && localField.rawExpression.trim().length > 0
+      }
+
+      // Check if there's at least a source field selected (first arg)
+      const firstArg = localField.functionArgs?.[0]
+      if (firstArg?.type === 'field') {
+        const hasFieldName = !!(firstArg as FunctionArgField).fieldName
+        // Field + arithmetic is valid without function
+        if (hasFieldName && localField.arithmeticExpression) {
+          return true
+        }
+        // Field + function is valid
+        if (hasFieldName && localField.functionName) {
+          return true
+        }
+      }
+
+      // No valid configuration
+      return false
+    }
+
+    return false
+  }, [localField])
 
   // Get function definition if computed field
   const functionDef =
@@ -274,14 +323,14 @@ export function TransformationFieldRow({
       // Initialize function arguments based on function definition
       const initialArgs: FunctionArg[] = funcDef
         ? funcDef.args.map((argDef) => {
-            if (argDef.type === 'field') {
-              return createFieldArg('', '')
-            } else if (argDef.type === 'literal') {
-              return createLiteralArg('', argDef.literalType || 'string')
-            } else {
-              return { type: 'array' as const, values: [], elementType: 'string' as const }
-            }
-          })
+          if (argDef.type === 'field') {
+            return createFieldArg('', '')
+          } else if (argDef.type === 'literal') {
+            return createLiteralArg('', argDef.literalType || 'string')
+          } else {
+            return { type: 'array' as const, values: [], elementType: 'string' as const }
+          }
+        })
         : []
 
       updateLocalField({
@@ -680,11 +729,23 @@ export function TransformationFieldRow({
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2">
+            {/* Validation hint when save is disabled */}
+            {!canSaveField && !readOnly && (
+              <span className="text-xs text-[var(--text-disabled)] mr-2">
+                {!localField.outputFieldName?.trim()
+                  ? 'Enter an output field name'
+                  : localField.type === 'passthrough'
+                    ? 'Select a source field'
+                    : localField.expressionMode === 'raw'
+                      ? 'Enter a raw expression'
+                      : 'Select an input field and function or arithmetic'}
+              </span>
+            )}
             <Button variant="outline" size="sm" className="btn-tertiary" onClick={handleCancel}>
               <XMarkIcon className="h-4 w-4 mr-1" />
               Cancel
             </Button>
-            <Button size="sm" className="btn-primary" onClick={handleSave} disabled={readOnly}>
+            <Button size="sm" className="btn-primary" onClick={handleSave} disabled={readOnly || !canSaveField}>
               <CheckIcon className="h-4 w-4 mr-1" />
               Save
             </Button>

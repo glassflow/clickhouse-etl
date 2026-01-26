@@ -250,6 +250,12 @@ export const isFieldComplete = (field: TransformationField): boolean => {
     if (field.expressionMode === 'raw') {
       return !!field.rawExpression && field.rawExpression.trim().length > 0
     }
+    // Allow field + arithmetic without function (e.g., timestamp * 1000000)
+    const hasSourceField =
+      field.functionArgs?.[0]?.type === 'field' && (field.functionArgs[0] as FunctionArgField).fieldName
+    if (hasSourceField && field.arithmeticExpression) {
+      return true
+    }
     // Simple or nested mode - needs function name and args
     return !!field.functionName && (field.functionArgs?.length ?? 0) > 0
   }

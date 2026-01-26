@@ -54,6 +54,7 @@ const generateId = () => `chain-func-${++idCounter}`
  * Extracts the function chain from the nested structure.
  * e.g., toDate(parseISO8601(field)) becomes:
  * [{ functionName: 'parseISO8601', additionalArgs: [] }, { functionName: 'toDate', additionalArgs: [] }]
+ * Also handles "field-only" mode (no function, just source field for arithmetic operations).
  */
 function extractFunctionChain(
   functionName: string,
@@ -62,6 +63,11 @@ function extractFunctionChain(
   const chain: ChainedFunction[] = []
 
   if (!functionName) {
+    // Handle "field-only" mode - no function but has a source field
+    // This supports field + arithmetic without a wrapping function
+    if (functionArgs && functionArgs.length > 0 && functionArgs[0].type === 'field') {
+      return { chain: [], sourceArg: functionArgs[0] }
+    }
     return { chain: [], sourceArg: null }
   }
 
@@ -102,6 +108,8 @@ function extractFunctionChain(
 /**
  * Builds the nested function structure from a chain.
  * Only includes functions with valid names.
+ * If no functions are in the chain but sourceArg has a field, returns just the source field
+ * (to support field + arithmetic without function).
  */
 function buildNestedStructure(
   chain: ChainedFunction[],
@@ -111,6 +119,11 @@ function buildNestedStructure(
   const validChain = chain.filter((f) => f.functionName)
 
   if (validChain.length === 0) {
+    // No functions, but if we have a valid source field, pass it through
+    // This enables "field + arithmetic" mode without a wrapping function
+    if (sourceArg.type === 'field' && (sourceArg as FunctionArgField).fieldName) {
+      return { functionName: '', functionArgs: [sourceArg] }
+    }
     return { functionName: '', functionArgs: [] }
   }
 
@@ -343,11 +356,16 @@ export function NestedFunctionComposer({
   // Generate preview expression
   const previewExpr = useMemo(() => {
     const validChain = chain.filter((f) => f.functionName)
-    if (validChain.length === 0) return ''
 
     // Build expression string manually for preview
     let expr =
-      sourceArg.type === 'field' ? (sourceArg as FunctionArgField).fieldName || '?' : formatArgForExpr(sourceArg)
+      sourceArg.type === 'field' ? (sourceArg as FunctionArgField).fieldName || '' : formatArgForExpr(sourceArg)
+
+    // If no functions but we have a source field, return just the field name
+    // (parent component will add arithmetic expression if present)
+    if (validChain.length === 0) {
+      return expr
+    }
 
     for (const func of validChain) {
       const additionalArgsStr = func.additionalArgs.map(formatArgForExpr).join(', ')

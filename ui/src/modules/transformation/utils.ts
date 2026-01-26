@@ -274,6 +274,16 @@ export const computedFieldToExpr = (field: TransformationField): string => {
     return ''
   }
 
+  // Handle field + arithmetic only (no function)
+  // This allows expressions like "timestamp * 1000000" without a wrapping function
+  if (!field.functionName && field.functionArgs && field.functionArgs.length > 0) {
+    const firstArg = field.functionArgs[0]
+    if (isFieldArg(firstArg) && firstArg.fieldName && field.arithmeticExpression) {
+      return firstArg.fieldName + formatArithmeticExpr(field.arithmeticExpression)
+    }
+    return ''
+  }
+
   // Need function name and args for simple/nested modes
   if (!field.functionName || !field.functionArgs) {
     return ''
@@ -535,7 +545,11 @@ export const validatePostProcessFunction = (
       }
     }
 
-    if (argDef.type === 'literal' && isLiteralArg(argValue) && (argValue.value === undefined || argValue.value === '')) {
+    if (
+      argDef.type === 'literal' &&
+      isLiteralArg(argValue) &&
+      (argValue.value === undefined || argValue.value === '')
+    ) {
       return {
         isValid: false,
         error: `Post-process function ${index + 1}: Value required for "${argDef.name}"`,
@@ -610,8 +624,18 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
     }
     // Handle simple and nested modes
     else {
-      if (!field.functionName) {
-        errors.functionName = 'Function is required for computed fields'
+      // Check if this is a "field + arithmetic only" case (no function needed)
+      const hasSourceFieldArg =
+        field.functionArgs?.[0]?.type === 'field' &&
+        isFieldArg(field.functionArgs[0]) &&
+        field.functionArgs[0].fieldName
+      const hasValidArithmetic = field.arithmeticExpression && !isNaN(field.arithmeticExpression.operand)
+
+      if (hasSourceFieldArg && hasValidArithmetic) {
+        // Valid: field + arithmetic without function - no function error needed
+        // Still validate the arithmetic operand below
+      } else if (!field.functionName) {
+        errors.functionName = 'Function is required for computed fields (or select a source field with arithmetic)'
       } else {
         const funcDef = getFunctionByName(field.functionName)
         if (!funcDef) {
