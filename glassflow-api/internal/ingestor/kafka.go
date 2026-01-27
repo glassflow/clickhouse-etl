@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kafka"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
@@ -60,10 +59,6 @@ func NewKafkaIngestor(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
-	filterComponent, err := filterJSON.New(config.Filter.Expression, config.Filter.Enabled)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create filter compoment: %w", err)
-	}
 
 	msgProcessor := NewKafkaMsgProcessor(
 		natsPub,
@@ -72,7 +67,6 @@ func NewKafkaIngestor(
 		topic,
 		log,
 		meter,
-		filterComponent,
 	)
 
 	return &KafkaIngestor{
