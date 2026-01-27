@@ -1,32 +1,53 @@
-# Multi-stage Dockerfile for Next.js UI
-# Uses kafka-gateway for Kerberos authentication, no native dependencies needed
-# Alpine-based for minimal image size (~70MB smaller than Debian)
+# Multi-stage Dockerfile for Next.js UI with Standalone Output
+# Optimized for minimal image size and faster builds
+# syntax=docker/dockerfile:1.4
 
-# Stage 1: Build stage
-FROM node:20-alpine AS builder
-
+# ============================================
+# Stage 1: Dependencies
+# Only install dependencies (cached separately from source code)
+# ============================================
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install pnpm and compatibility layer for Next.js
-RUN apk add --no-cache libc6-compat && \
-    npm install -g pnpm@latest
+# Install libc6-compat for native module compatibility
+RUN apk add --no-cache libc6-compat
 
-# Copy package files
+# Install pnpm with pinned version for reproducibility and caching
+RUN npm install -g pnpm@10.28.2
+
+# Copy only dependency files for optimal layer caching
+# This layer is cached unless package.json or pnpm-lock.yaml changes
 COPY package.json pnpm-lock.yaml* ./
 
-# Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile
+# Install all dependencies (needed for build)
+# Use BuildKit cache mounts to cache pnpm store and metadata
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    --mount=type=cache,id=pnpm-metadata,target=/root/.cache/pnpm \
+    pnpm install --frozen-lockfile
 
-# Copy source code
+# ============================================
+# Stage 2: Builder
+# Build the Next.js application
+# ============================================
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Install libc6-compat for native modules during build
+RUN apk add --no-cache libc6-compat
+
+# Install pnpm (pinned version)
+RUN npm install -g pnpm@10.28.2
+
+# Copy node_modules from deps stage (avoid reinstalling)
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy all source code
 COPY . .
 
 # Set build-time environment variables
 # IMPORTANT: NEXT_PUBLIC_API_URL is NOT set here - it must be provided at runtime
 # via environment variables. The startup.sh script and config.ts getters handle
 # runtime configuration. Setting it here would bake it into the build.
-#
-# For Auth0 and other build-time flags, provide via --build-arg if needed:
-#   docker build --build-arg NEXT_PUBLIC_AUTH0_ENABLED=true ...
 ARG NEXT_PUBLIC_PROFILE_ROUTE=/api/auth/me
 ARG NEXT_PUBLIC_AUTH0_ENABLED=true
 ARG NEXT_PUBLIC_FILTERS_ENABLED=false
@@ -34,45 +55,48 @@ ENV NEXT_PUBLIC_PROFILE_ROUTE=${NEXT_PUBLIC_PROFILE_ROUTE}
 ENV NEXT_PUBLIC_AUTH0_ENABLED=${NEXT_PUBLIC_AUTH0_ENABLED}
 ENV NEXT_PUBLIC_FILTERS_ENABLED=${NEXT_PUBLIC_FILTERS_ENABLED}
 
-# Build the Next.js application
-RUN pnpm run build
+# Build Next.js application with standalone output
+# This creates:
+# - .next/standalone/ (minimal server with only traced runtime dependencies)
+# - .next/static/ (static assets - must be copied separately)
+# - public/ (public assets)
+# Add cache mount for Next.js incremental cache
+RUN --mount=type=cache,id=nextjs,target=/app/.next/cache \
+    pnpm run build
 
-# Stage 2: Production stage
-FROM node:20-alpine
-
+# ============================================
+# Stage 3: Production Runtime
+# Minimal production image with only runtime dependencies
+# ============================================
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install only ca-certificates for HTTPS support (already included in alpine)
-RUN apk add --no-cache ca-certificates
-
-ENV NODE_ENV=production
-
-# Install pnpm in production stage
-RUN npm install -g pnpm@latest
-
-# Copy package files for reference
-COPY package.json pnpm-lock.yaml* ./
-
-# Copy node_modules from builder
-COPY --from=builder /app/node_modules ./node_modules
-
-# Copy built application from builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/server.js ./
-
-# Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV NEXT_PUBLIC_IN_DOCKER=true
 
-# Expose the port
-EXPOSE 8080
+# Create non-root user for security best practices
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Copy and make startup script executable
-COPY startup.sh /app/startup.sh
+# Copy standalone output (includes minimal traced dependencies)
+# This is ~100-200MB instead of ~800MB-1GB with full node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+
+# Copy static files separately (required for standalone mode)
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy public folder (static assets)
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Copy startup script for runtime environment variable injection
+COPY --chown=nextjs:nodejs startup.sh /app/startup.sh
 RUN chmod +x /app/startup.sh
 
-# Use startup script to handle environment variables and start the server
+# Switch to non-root user
+USER nextjs
+
+EXPOSE 8080
+
+# Use startup script to handle environment variables and start server
 CMD ["/app/startup.sh"]
