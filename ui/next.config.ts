@@ -2,6 +2,7 @@ import { NextConfig } from 'next'
 
 const config: NextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   images: {
     domains: ['localhost'],
   },
