@@ -43,6 +43,13 @@ type processedMessage struct {
 	msg      jetstream.Msg
 }
 
+// appendRequest represents a request to append data to the batch
+type appendRequest struct {
+	id     uint64
+	values []any
+	errCh  chan error
+}
+
 // ClickHouseSink uses Consume() callback pattern optimized for high throughput
 // This implementation follows the NATS CLI benchmark pattern for efficient message consumption
 type ClickHouseSink struct {
@@ -335,7 +342,7 @@ func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.
 		"nats_read_duration_ms", natsReadDuration.Milliseconds(),
 		"status", "messages_read")
 
-	err := ch.sendBatch(ctx, messages)
+	err := ch.sendBatch(ctx, messages, natsReadDuration)
 	if err == nil {
 		return nil
 	}
@@ -377,12 +384,12 @@ func (ch *ClickHouseSink) flushFailedBatch(
 	return nil
 }
 
-func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Msg) error {
+func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Msg, natsReadDuration time.Duration) error {
 	if len(messages) == 0 {
 		return nil
 	}
 
-	chBatch, err := ch.createCHBatch(ctx, messages)
+	chBatch, err := ch.createCHBatch(ctx, messages, natsReadDuration)
 	if err != nil {
 		return fmt.Errorf("create CH batch: %w", err)
 	}
@@ -438,11 +445,11 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
+	natsReadDuration time.Duration,
 ) (clickhouse.Batch, error) {
 	prepStartTime := time.Now()
 
-	// Step 1: Query creation
-	queryStartTime := time.Now()
+	// Query creation
 	var query string
 	if ch.streamSourceID != "" {
 		query = fmt.Sprintf(
@@ -459,17 +466,14 @@ func (ch *ClickHouseSink) createCHBatch(
 			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
 		)
 	}
-	queryDuration := time.Since(queryStartTime)
 
 	ch.log.Debug("Insert query", "query", query)
 
-	// Step 2: Batch creation
-	batchCreateStartTime := time.Now()
+	// Batch creation
 	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
-	batchCreateDuration := time.Since(batchCreateStartTime)
 
 	// Step 3: Process messages using worker pool (metadata + schema mapping + append)
 	schemaMappingStartTime := time.Now()
@@ -533,46 +537,90 @@ func (ch *ClickHouseSink) createCHBatch(
 
 	schemaMappingTotalTime := time.Since(schemaMappingStartTime)
 
-	// Process results in order and append to batch
-	for jobID := 0; jobID < numJobs; jobID++ {
-		result := results[jobID]
-		for i, procMsg := range result.processed {
-			// Append to batch
-			appendStartTime := time.Now()
-			err = resultBatch.Append(procMsg.metadata.Sequence.Stream, procMsg.values...)
-			if err != nil {
-				if errors.Is(err, clickhouse.ErrAlreadyExists) {
-					skippedCount++
-					continue
-				}
-				return nil, fmt.Errorf("failed to append values to batch: %w", err)
-			}
-			appendTotalTime += time.Since(appendStartTime)
+	// Parallel append: Use a channel-based approach to parallelize append requests
+	// Multiple goroutines send append requests in parallel, a dedicated goroutine serializes them
+	appendStartTime := time.Now()
+	appendChan := make(chan appendRequest, len(messages))
+	var appendErr error
+	var appendErrMu sync.Mutex
+	var skippedCountMu sync.Mutex
+	var senderWg sync.WaitGroup
 
-			// Log progress for every 10k messages to track if there are slowdowns
-			totalProcessed := jobID*chunkSize + i + 1
-			if totalProcessed%10000 == 0 {
-				ch.log.DebugContext(ctx, "Preparation progress",
-					"processed_messages", totalProcessed,
-					"total_messages", len(messages),
-					"elapsed_ms", time.Since(prepStartTime).Milliseconds())
+	// Start append goroutine that serializes all appends (ClickHouse batch is not thread-safe)
+	appendDone := make(chan struct{})
+	go func() {
+		defer close(appendDone)
+		for req := range appendChan {
+			reqErr := resultBatch.Append(req.id, req.values...)
+			req.errCh <- reqErr
+			if reqErr != nil {
+				if errors.Is(reqErr, clickhouse.ErrAlreadyExists) {
+					skippedCountMu.Lock()
+					skippedCount++
+					skippedCountMu.Unlock()
+				} else {
+					appendErrMu.Lock()
+					if appendErr == nil {
+						appendErr = reqErr
+					}
+					appendErrMu.Unlock()
+				}
 			}
 		}
+	}()
+
+	// Send append requests in parallel from all worker results
+	// Each job result sends its append requests concurrently
+	for jobID := 0; jobID < numJobs; jobID++ {
+		result := results[jobID]
+		senderWg.Add(1)
+		go func(procMsgs []processedMessage) {
+			defer senderWg.Done()
+			for _, procMsg := range procMsgs {
+				errCh := make(chan error, 1)
+				select {
+				case <-ctx.Done():
+					return
+				case appendChan <- appendRequest{
+					id:     procMsg.metadata.Sequence.Stream,
+					values: procMsg.values,
+					errCh:  errCh,
+				}:
+					// Wait for append to complete (serialized by append goroutine)
+					<-errCh // Error handling done in append goroutine
+				}
+			}
+		}(result.processed)
+	}
+
+	// Wait for all senders to finish, then close channel to signal append goroutine to finish
+	senderWg.Wait()
+	close(appendChan)
+	<-appendDone // Wait for append goroutine to finish processing all requests
+	appendTotalTime = time.Since(appendStartTime)
+
+	if appendErr != nil {
+		return nil, fmt.Errorf("failed to append values to batch: %w", appendErr)
 	}
 
 	totalPrepDuration := time.Since(prepStartTime)
 
+	// First log: Simple preparation complete message
 	ch.log.InfoContext(ctx, "Preparation inside sink code completed, batch ready for ClickHouse",
 		"message_count", len(messages),
+		"status", "preparation_completed")
+
+	// Second log: Detailed timing breakdown
+	ch.log.InfoContext(ctx, "Batch preparation timing breakdown",
+		"message_count", len(messages),
 		"skipped_count", skippedCount,
+		"nats_read_duration_ms", natsReadDuration.Milliseconds(),
 		"total_prep_duration_ms", totalPrepDuration.Milliseconds(),
-		"query_creation_ms", queryDuration.Milliseconds(),
-		"batch_creation_ms", batchCreateDuration.Milliseconds(),
 		"schema_mapping_total_ms", schemaMappingTotalTime.Milliseconds(),
 		"append_total_ms", appendTotalTime.Milliseconds(),
 		"avg_per_message_us", totalPrepDuration.Microseconds()/int64(len(messages)),
 		"worker_pool_size", ch.workerPoolSize,
-		"status", "preparation_completed")
+		"status", "timing_breakdown")
 
 	return resultBatch, nil
 }
