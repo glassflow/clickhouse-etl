@@ -183,7 +183,7 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest  # x86_64 native
           - arch: arm64
-            runner: ubuntu-24.04-arm64
+            runner: ubuntu-24.04-arm
 
             # runner: ubuntu-latest
     steps:
