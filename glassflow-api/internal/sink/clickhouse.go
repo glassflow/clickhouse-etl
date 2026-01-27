@@ -22,6 +22,27 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
+// workerJob represents a chunk of messages to be processed by a worker
+type workerJob struct {
+	messages     []jetstream.Msg
+	jobID        int
+	streamSourceID string
+}
+
+// workerResult contains the processed results from a worker
+type workerResult struct {
+	jobID        int
+	processed    []processedMessage
+	err          error
+}
+
+// processedMessage contains the metadata and values for a processed message
+type processedMessage struct {
+	metadata *jetstream.MsgMetadata
+	values   []any
+	msg      jetstream.Msg
+}
+
 // ClickHouseSink uses Consume() callback pattern optimized for high throughput
 // This implementation follows the NATS CLI benchmark pattern for efficient message consumption
 type ClickHouseSink struct {
@@ -45,6 +66,14 @@ type ClickHouseSink struct {
 	maxDelayTime       time.Duration
 	consumeContext     jetstream.ConsumeContext
 	lastBatchStartTime time.Time
+
+	// Worker pool for parallel PrepareValuesV2 processing
+	workerPoolSize     int
+	workerJobChan      chan workerJob
+	workerResultChan   chan workerResult
+	workerWg           sync.WaitGroup
+	workerCtx          context.Context
+	workerCancel       context.CancelFunc
 }
 
 func NewClickHouseSink(
@@ -71,6 +100,10 @@ func NewClickHouseSink(
 		maxDelayTime = sinkConfig.Batch.MaxDelayTime.Duration()
 	}
 
+	// Default worker pool size is 4
+	workerPoolSize := 4
+	// TODO: Make this configurable via sinkConfig if needed in the future
+
 	return &ClickHouseSink{
 		client:                clickhouseClient,
 		streamConsumer:        streamConsumer,
@@ -84,6 +117,7 @@ func NewClickHouseSink(
 		maxBatchSize:          sinkConfig.Batch.MaxBatchSize,
 		maxDelayTime:          maxDelayTime,
 		messageBuffer:         make([]jetstream.Msg, 0, sinkConfig.Batch.MaxBatchSize),
+		workerPoolSize:        workerPoolSize,
 	}, nil
 }
 
@@ -91,6 +125,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	ch.log.InfoContext(ctx, "ClickHouse sink started with callback-based consumption",
 		"max_batch_size", ch.maxBatchSize,
 		"max_delay_time", ch.maxDelayTime,
+		"worker_pool_size", ch.workerPoolSize,
 		"mode", "callback_consume_pattern")
 
 	defer ch.log.InfoContext(ctx, "ClickHouse sink stopped")
@@ -99,6 +134,13 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	ch.cancel = cancel
 	defer cancel()
+
+	// Initialize and start worker pool
+	ch.workerCtx, ch.workerCancel = context.WithCancel(ctx)
+	ch.workerJobChan = make(chan workerJob, ch.workerPoolSize)
+	ch.workerResultChan = make(chan workerResult, ch.workerPoolSize)
+	ch.startWorkerPool()
+	defer ch.stopWorkerPool()
 
 	// Create ticker for time-based flushing
 	ch.bufferFlushTicker = time.NewTicker(ch.maxDelayTime)
@@ -197,6 +239,84 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 	ch.flushBuffer(ctx)
 
 	return nil
+}
+
+// startWorkerPool starts N worker goroutines to process PrepareValuesV2 in parallel
+func (ch *ClickHouseSink) startWorkerPool() {
+	ch.log.Info("Starting worker pool", "worker_count", ch.workerPoolSize)
+	for i := 0; i < ch.workerPoolSize; i++ {
+		ch.workerWg.Add(1)
+		go ch.worker(i)
+	}
+}
+
+// stopWorkerPool gracefully shuts down the worker pool
+func (ch *ClickHouseSink) stopWorkerPool() {
+	if ch.workerCancel == nil {
+		return
+	}
+	ch.workerCancel()
+	if ch.workerJobChan != nil {
+		close(ch.workerJobChan)
+	}
+	ch.workerWg.Wait()
+	if ch.workerResultChan != nil {
+		close(ch.workerResultChan)
+	}
+	ch.log.Info("Worker pool stopped")
+}
+
+// worker processes messages in parallel by calling PrepareValuesV2
+func (ch *ClickHouseSink) worker(workerID int) {
+	defer ch.workerWg.Done()
+	
+	for {
+		select {
+		case <-ch.workerCtx.Done():
+			return
+		case job, ok := <-ch.workerJobChan:
+			if !ok {
+				return
+			}
+			
+			processed := make([]processedMessage, 0, len(job.messages))
+			var jobErr error
+			
+			for _, msg := range job.messages {
+				// Get metadata
+				metadata, err := msg.Metadata()
+				if err != nil {
+					jobErr = fmt.Errorf("failed to get message metadata: %w", err)
+					break
+				}
+				
+				// Schema mapping - this is the parallelized part
+				var values []any
+				if job.streamSourceID != "" {
+					values, err = ch.schemaMapper.PrepareValuesStream(job.streamSourceID, msg.Data())
+				} else {
+					values, err = ch.schemaMapper.PrepareValuesV2(msg.Data())
+				}
+				if err != nil {
+					jobErr = fmt.Errorf("failed to prepare values for message: %w", err)
+					break
+				}
+				
+				processed = append(processed, processedMessage{
+					metadata: metadata,
+					values:   values,
+					msg:      msg,
+				})
+			}
+			
+			// Send result back to main thread
+			ch.workerResultChan <- workerResult{
+				jobID:     job.jobID,
+				processed: processed,
+				err:       jobErr,
+			}
+		}
+	}
 }
 
 func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.Msg) error {
@@ -350,53 +470,83 @@ func (ch *ClickHouseSink) createCHBatch(
 	}
 	batchCreateDuration := time.Since(batchCreateStartTime)
 
-	// Step 3: Process messages (metadata + schema mapping + append)
-	metadataTotalTime := time.Duration(0)
-	schemaMappingTotalTime := time.Duration(0)
+	// Step 3: Process messages using worker pool (metadata + schema mapping + append)
+	schemaMappingStartTime := time.Now()
 	appendTotalTime := time.Duration(0)
 	skippedCount := 0
 
-	for i, msg := range messages {
-		// Get metadata
-		metadataStartTime := time.Now()
-		var metadata *jetstream.MsgMetadata
-		metadata, err = msg.Metadata()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get message metadata: %w", err)
-		}
-		metadataTotalTime += time.Since(metadataStartTime)
+	if len(messages) == 0 {
+		return resultBatch, nil
+	}
 
-		// Schema mapping
-		schemaStartTime := time.Now()
-		var values []any
-		if ch.streamSourceID != "" {
-			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
-		} else {
-			values, err = ch.schemaMapper.PrepareValuesV2(msg.Data())
+	// Split messages into chunks for parallel processing
+	chunkSize := len(messages) / ch.workerPoolSize
+	if chunkSize == 0 {
+		chunkSize = 1
+	}
+	
+	// Send jobs to workers
+	numJobs := 0
+	for i := 0; i < len(messages); i += chunkSize {
+		end := i + chunkSize
+		if end > len(messages) {
+			end = len(messages)
 		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
+		
+		job := workerJob{
+			messages:       messages[i:end],
+			jobID:          numJobs,
+			streamSourceID: ch.streamSourceID,
 		}
-		schemaMappingTotalTime += time.Since(schemaStartTime)
-
-		// Append to batch
-		appendStartTime := time.Now()
-		err = resultBatch.Append(metadata.Sequence.Stream, values...)
-		if err != nil {
-			if errors.Is(err, clickhouse.ErrAlreadyExists) {
-				skippedCount++
-				continue
+		
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case ch.workerJobChan <- job:
+			numJobs++
+		}
+	}
+	
+	// Collect results from workers
+	results := make(map[int]workerResult, numJobs)
+	for i := 0; i < numJobs; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case result := <-ch.workerResultChan:
+			if result.err != nil {
+				return nil, fmt.Errorf("worker job %d failed: %w", result.jobID, result.err)
 			}
-			return nil, fmt.Errorf("failed to append values to batch: %w", err)
+			results[result.jobID] = result
 		}
-		appendTotalTime += time.Since(appendStartTime)
+	}
+	
+	schemaMappingTotalTime := time.Since(schemaMappingStartTime)
+	
+	// Process results in order and append to batch
+	for jobID := 0; jobID < numJobs; jobID++ {
+		result := results[jobID]
+		for i, procMsg := range result.processed {
+			// Append to batch
+			appendStartTime := time.Now()
+			err = resultBatch.Append(procMsg.metadata.Sequence.Stream, procMsg.values...)
+			if err != nil {
+				if errors.Is(err, clickhouse.ErrAlreadyExists) {
+					skippedCount++
+					continue
+				}
+				return nil, fmt.Errorf("failed to append values to batch: %w", err)
+			}
+			appendTotalTime += time.Since(appendStartTime)
 
-		// Log progress for every 10k messages to track if there are slowdowns
-		if (i+1)%10000 == 0 {
-			ch.log.DebugContext(ctx, "Preparation progress",
-				"processed_messages", i+1,
-				"total_messages", len(messages),
-				"elapsed_ms", time.Since(prepStartTime).Milliseconds())
+			// Log progress for every 10k messages to track if there are slowdowns
+			totalProcessed := jobID*chunkSize + i + 1
+			if totalProcessed%10000 == 0 {
+				ch.log.DebugContext(ctx, "Preparation progress",
+					"processed_messages", totalProcessed,
+					"total_messages", len(messages),
+					"elapsed_ms", time.Since(prepStartTime).Milliseconds())
+			}
 		}
 	}
 
@@ -408,10 +558,10 @@ func (ch *ClickHouseSink) createCHBatch(
 		"total_prep_duration_ms", totalPrepDuration.Milliseconds(),
 		"query_creation_ms", queryDuration.Milliseconds(),
 		"batch_creation_ms", batchCreateDuration.Milliseconds(),
-		"metadata_total_ms", metadataTotalTime.Milliseconds(),
 		"schema_mapping_total_ms", schemaMappingTotalTime.Milliseconds(),
 		"append_total_ms", appendTotalTime.Milliseconds(),
 		"avg_per_message_us", totalPrepDuration.Microseconds()/int64(len(messages)),
+		"worker_pool_size", ch.workerPoolSize,
 		"status", "preparation_completed")
 
 	return resultBatch, nil
