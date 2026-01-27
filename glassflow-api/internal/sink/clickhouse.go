@@ -24,16 +24,16 @@ import (
 
 // workerJob represents a chunk of messages to be processed by a worker
 type workerJob struct {
-	messages     []jetstream.Msg
-	jobID        int
+	messages       []jetstream.Msg
+	jobID          int
 	streamSourceID string
 }
 
 // workerResult contains the processed results from a worker
 type workerResult struct {
-	jobID        int
-	processed    []processedMessage
-	err          error
+	jobID     int
+	processed []processedMessage
+	err       error
 }
 
 // processedMessage contains the metadata and values for a processed message
@@ -68,12 +68,12 @@ type ClickHouseSink struct {
 	lastBatchStartTime time.Time
 
 	// Worker pool for parallel PrepareValuesV2 processing
-	workerPoolSize     int
-	workerJobChan      chan workerJob
-	workerResultChan   chan workerResult
-	workerWg           sync.WaitGroup
-	workerCtx          context.Context
-	workerCancel       context.CancelFunc
+	workerPoolSize   int
+	workerJobChan    chan workerJob
+	workerResultChan chan workerResult
+	workerWg         sync.WaitGroup
+	workerCtx        context.Context
+	workerCancel     context.CancelFunc
 }
 
 func NewClickHouseSink(
@@ -136,7 +136,8 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	defer cancel()
 
 	// Initialize and start worker pool
-	ch.workerCtx, ch.workerCancel = context.WithCancel(ctx)
+	// Use Background context so workers stay alive during shutdown processing
+	ch.workerCtx, ch.workerCancel = context.WithCancel(context.Background())
 	ch.workerJobChan = make(chan workerJob, ch.workerPoolSize)
 	ch.workerResultChan = make(chan workerResult, ch.workerPoolSize)
 	ch.startWorkerPool()
@@ -269,7 +270,7 @@ func (ch *ClickHouseSink) stopWorkerPool() {
 // worker processes messages in parallel by calling PrepareValuesV2
 func (ch *ClickHouseSink) worker(workerID int) {
 	defer ch.workerWg.Done()
-	
+
 	for {
 		select {
 		case <-ch.workerCtx.Done():
@@ -278,10 +279,10 @@ func (ch *ClickHouseSink) worker(workerID int) {
 			if !ok {
 				return
 			}
-			
+
 			processed := make([]processedMessage, 0, len(job.messages))
 			var jobErr error
-			
+
 			for _, msg := range job.messages {
 				// Get metadata
 				metadata, err := msg.Metadata()
@@ -289,7 +290,7 @@ func (ch *ClickHouseSink) worker(workerID int) {
 					jobErr = fmt.Errorf("failed to get message metadata: %w", err)
 					break
 				}
-				
+
 				// Schema mapping - this is the parallelized part
 				var values []any
 				if job.streamSourceID != "" {
@@ -301,14 +302,14 @@ func (ch *ClickHouseSink) worker(workerID int) {
 					jobErr = fmt.Errorf("failed to prepare values for message: %w", err)
 					break
 				}
-				
+
 				processed = append(processed, processedMessage{
 					metadata: metadata,
 					values:   values,
 					msg:      msg,
 				})
 			}
-			
+
 			// Send result back to main thread
 			ch.workerResultChan <- workerResult{
 				jobID:     job.jobID,
@@ -484,7 +485,7 @@ func (ch *ClickHouseSink) createCHBatch(
 	if chunkSize == 0 {
 		chunkSize = 1
 	}
-	
+
 	// Send jobs to workers
 	numJobs := 0
 	for i := 0; i < len(messages); i += chunkSize {
@@ -492,13 +493,13 @@ func (ch *ClickHouseSink) createCHBatch(
 		if end > len(messages) {
 			end = len(messages)
 		}
-		
+
 		job := workerJob{
 			messages:       messages[i:end],
 			jobID:          numJobs,
 			streamSourceID: ch.streamSourceID,
 		}
-		
+
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -506,13 +507,22 @@ func (ch *ClickHouseSink) createCHBatch(
 			numJobs++
 		}
 	}
-	
+
 	// Collect results from workers
+	// Use a timeout to ensure we don't wait forever, but allow enough time for processing
+	collectCtx := ctx
+	if _, ok := ctx.Deadline(); !ok {
+		// If no deadline, set a reasonable timeout for result collection
+		var cancel context.CancelFunc
+		collectCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+	}
+
 	results := make(map[int]workerResult, numJobs)
 	for i := 0; i < numJobs; i++ {
 		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		case <-collectCtx.Done():
+			return nil, fmt.Errorf("timeout waiting for worker results: %w", collectCtx.Err())
 		case result := <-ch.workerResultChan:
 			if result.err != nil {
 				return nil, fmt.Errorf("worker job %d failed: %w", result.jobID, result.err)
@@ -520,9 +530,9 @@ func (ch *ClickHouseSink) createCHBatch(
 			results[result.jobID] = result
 		}
 	}
-	
+
 	schemaMappingTotalTime := time.Since(schemaMappingStartTime)
-	
+
 	// Process results in order and append to batch
 	for jobID := 0; jobID < numJobs; jobID++ {
 		result := results[jobID]
