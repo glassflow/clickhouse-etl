@@ -20,8 +20,9 @@ RUN npm install -g pnpm@10.28.2
 COPY package.json pnpm-lock.yaml* ./
 
 # Install all dependencies (needed for build)
-# Use BuildKit cache mounts to cache pnpm store and node_modules
+# Use BuildKit cache mounts to cache pnpm store and metadata
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    --mount=type=cache,id=pnpm-metadata,target=/root/.cache/pnpm \
     pnpm install --frozen-lockfile
 
 # ============================================
@@ -59,7 +60,9 @@ ENV NEXT_PUBLIC_FILTERS_ENABLED=${NEXT_PUBLIC_FILTERS_ENABLED}
 # - .next/standalone/ (minimal server with only traced runtime dependencies)
 # - .next/static/ (static assets - must be copied separately)
 # - public/ (public assets)
-RUN pnpm run build
+# Add cache mount for Next.js incremental cache
+RUN --mount=type=cache,id=nextjs,target=/app/.next/cache \
+    pnpm run build
 
 # ============================================
 # Stage 3: Production Runtime
