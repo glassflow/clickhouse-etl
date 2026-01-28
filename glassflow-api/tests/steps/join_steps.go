@@ -77,6 +77,7 @@ func (j *JoinTestSuite) aStreamConsumerConfig(position string, data *godog.DocSt
 		Durable:       cfg.ConsumerName,
 		FilterSubject: cfg.SubjectName,
 		AckWait:       streamConsumerAckWaitDuration,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 	}
 
 	// Store ack wait and expire timeout for later use
