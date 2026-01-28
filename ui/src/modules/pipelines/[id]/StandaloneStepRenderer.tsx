@@ -21,7 +21,7 @@ import { StepDataPreloader } from '@/src/components/StepDataPreloader'
 import { useEditConfirmationModal } from '../hooks'
 import EditConfirmationModal from '../components/EditConfirmationModal'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
-import { usePipelineState } from '@/src/hooks/usePipelineState'
+import { usePipelineState } from '@/src/hooks/usePipelineStateAdapter'
 import { PipelineStatus } from '@/src/types/pipeline'
 import { PipelineTransitionOverlay } from '@/src/components/common/PipelineTransitionOverlay'
 import { isDemoMode, isFiltersEnabled } from '@/src/config/feature-flags'
@@ -351,20 +351,20 @@ function StandaloneStepRenderer({
   // Additional props for topic selector components
   const extendedProps = isTopicSelectorStep
     ? {
-        ...baseProps,
-        currentStep: stepKey,
-        enableDeduplication: isTopicDeduplicationStep,
-      }
+      ...baseProps,
+      currentStep: stepKey,
+      enableDeduplication: isTopicDeduplicationStep,
+    }
     : isDeduplicationConfiguratorStep
       ? {
-          ...baseProps,
-          index: topicIndex, // Pass topic index for multi-topic deduplication
-        }
+        ...baseProps,
+        index: topicIndex, // Pass topic index for multi-topic deduplication
+      }
       : isKafkaTypeVerificationStep
         ? {
-            ...baseProps,
-            index: topicIndex, // Pass topic index for type verification
-          }
+          ...baseProps,
+          index: topicIndex, // Pass topic index for type verification
+        }
         : baseProps
 
   return (

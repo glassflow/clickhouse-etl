@@ -25,10 +25,6 @@ var (
 	ErrFilterData      = errors.New("failed to filter data")
 )
 
-type Filter interface {
-	Matches([]byte) (bool, error)
-}
-
 type KafkaMsgProcessor struct {
 	publisher    stream.Publisher
 	dlqPublisher stream.Publisher
@@ -36,8 +32,6 @@ type KafkaMsgProcessor struct {
 	topic        models.KafkaTopicsConfig
 	log          *slog.Logger
 	meter        *observability.Meter
-
-	filter Filter
 
 	pendingPublishesLimit int
 }
@@ -48,7 +42,6 @@ func NewKafkaMsgProcessor(
 	topic models.KafkaTopicsConfig,
 	log *slog.Logger,
 	meter *observability.Meter,
-	filter Filter,
 ) *KafkaMsgProcessor {
 	if topic.Replicas < 1 {
 		topic.Replicas = 1
@@ -63,7 +56,6 @@ func NewKafkaMsgProcessor(
 		pendingPublishesLimit: pendingPublishesLimit,
 		log:                   log,
 		meter:                 meter,
-		filter:                filter,
 	}
 }
 
@@ -161,22 +153,6 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			}
 			return nil, nil
 		}
-	}
-
-	filterMatched, err := k.filter.Matches(msg.Value)
-	if err != nil {
-		k.log.Error("Failed to filter", slog.Any("error", err), slog.String("topic", k.topic.Name))
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrFilterData); dlqErr != nil {
-			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
-		}
-		return nil, nil
-	}
-	if filterMatched {
-		k.log.Debug("Message filtered out", slog.String("topic", k.topic.Name))
-		if k.meter != nil {
-			k.meter.RecordFilteredMessage(ctx, 1)
-		}
-		return nil, nil
 	}
 
 	return nMsg, nil

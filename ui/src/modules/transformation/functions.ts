@@ -12,7 +12,7 @@ export type FunctionCategory = 'url' | 'string' | 'type' | 'datetime' | 'boolean
 export interface FunctionArgDef {
   name: string
   description: string
-  type: 'field' | 'literal' | 'array' | 'waterfall_array'
+  type: 'field' | 'literal' | 'array' | 'waterfall_array' | 'concat_array'
   literalType?: 'string' | 'number' | 'boolean' // For literal arguments
   fieldTypes?: string[] // Compatible input field types (if type is 'field')
   required?: boolean
@@ -274,6 +274,24 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
     example: {
       input: 'join(["a", "b", "c"], ",")',
       output: '"a,b,c"',
+    },
+  },
+  {
+    name: 'concat',
+    category: 'string',
+    description: 'Concatenate multiple strings or fields together',
+    args: [
+      {
+        name: 'values',
+        description: 'Values to concatenate (fields or string literals)',
+        type: 'concat_array',
+        required: true,
+      },
+    ],
+    returnType: 'string',
+    example: {
+      input: 'name="John", lastname="Doe"',
+      output: 'concat(name, " ", lastname) → "John Doe"',
     },
   },
   {

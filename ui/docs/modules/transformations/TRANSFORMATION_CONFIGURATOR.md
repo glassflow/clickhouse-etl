@@ -9,11 +9,17 @@ The Transformation Configurator module provides a comprehensive interface for de
 ### Component Hierarchy
 
 ```
-TransformationConfigurator (Main Container)
-├── Schema Modification Notice
+TransformationConfigurator (Main Orchestrator ~250 lines)
+├── Custom Hooks
+│   ├── useAvailableFields (field derivation logic)
+│   ├── useTransformationValidation (validation state management)
+│   └── useTransformationActions (action handlers)
+│
+├── SchemaModificationNotice (schema change banner)
 ├── Header with Description
 ├── Skip Transformation Button
-├── Transformation Fields Section
+├── NoTransformationView (empty state)
+├── TransformationFieldList
 │   ├── Field List Header
 │   │   ├── Field Count Indicator
 │   │   ├── Clear All Button
@@ -40,17 +46,51 @@ TransformationConfigurator (Main Container)
 │   │
 │   └── Add Field Button
 │
-├── Intermediary Schema Preview
+├── IntermediarySchemaPreview
 │   ├── Schema Table
 │   │   ├── Field Name Column
 │   │   ├── Type Column
 │   │   └── Source Column
-│   └── Validation Status Indicator
+│   ├── Validation Status Indicator
+│   └── Expandable Validation Error Details
 │
 └── Form Actions
     ├── Save Transformation Button
     ├── Discard Changes Button
     └── Edit Mode Toggle (standalone mode)
+```
+
+### File Structure
+
+```
+src/modules/transformation/
+├── TransformationConfigurator.tsx    # Main orchestrator component (~250 lines)
+├── functions.ts                      # Transformation function definitions
+├── utils.ts                          # Expression generation & validation utilities
+│
+├── hooks/
+│   ├── useAvailableFields.ts         # Field derivation from multiple sources
+│   ├── useTransformationValidation.ts # Validation state management
+│   └── useTransformationActions.ts   # All action handlers
+│
+└── components/
+    ├── SchemaModificationNotice.tsx  # Schema change notification banner
+    ├── NoTransformationView.tsx      # Empty state view
+    ├── TransformationFieldList.tsx   # Field list with controls
+    ├── IntermediarySchemaPreview.tsx # Schema preview with validation
+    ├── TransformationFieldRow.tsx    # Individual field row (expandable)
+    ├── TypeToggle.tsx                # Passthrough/Computed toggle
+    ├── SourceFieldSelect.tsx         # Source field selector
+    ├── TransformFunctionSelect.tsx   # Function selector with args
+    ├── ExpressionModeToggle.tsx      # Simple/Nested/Raw mode toggle
+    ├── NestedFunctionComposer.tsx    # Nested function builder
+    ├── ConcatExpressionBuilder.tsx   # Concat builder with post-processing
+    ├── WaterfallExpressionBuilder.tsx # Waterfall array builder
+    ├── RawExpressionEditor.tsx       # Raw expression input
+    ├── ArithmeticModifier.tsx        # Arithmetic operations
+    ├── FunctionArgumentInput.tsx     # Function argument input
+    ├── FunctionSelector.tsx          # Function dropdown
+    └── OutputField.tsx               # Output field configuration
 ```
 
 ## Core Components
@@ -59,23 +99,19 @@ TransformationConfigurator (Main Container)
 
 **Location:** `src/modules/transformation/TransformationConfigurator.tsx`
 
-**Purpose:** The main container component that orchestrates the transformation configuration flow. It manages field definitions, validation, expression generation, and coordinates with the transformation store.
+**Purpose:** The main orchestrator component that coordinates the transformation configuration flow. It delegates business logic to custom hooks and renders sub-components.
 
 **Key Responsibilities:**
 
-- Manages transformation configuration state from the global store
+- Coordinates data flow between hooks and components
 - Handles auto-population of fields from Kafka schema
-- Validates transformation configuration
-- Generates transformation expressions
-- Coordinates field management (add, update, remove)
-- Supports both standalone (edit mode) and integrated (pipeline creation) flows
-- Displays intermediary schema preview
-- Handles schema modifications from type verification step
+- Manages component-level state (save success, auto-populated flag)
+- Renders the overall layout and conditional sections
 
 **Props:**
 
 ```typescript
-{
+interface TransformationConfiguratorProps {
   onCompleteStep: (stepName: string) => void
   readOnly?: boolean
   standalone?: boolean
@@ -85,80 +121,149 @@ TransformationConfigurator (Main Container)
 }
 ```
 
-**Key State Management:**
+### 2. Custom Hooks
 
-- Reads from `transformationStore` for current configuration
-- Reads from `topicsStore` for available fields from Kafka events
-- Reads from `coreStore` for dirty state tracking
-- Updates `transformationStore` with field changes
-- Uses `validationEngine` for step validation
+#### useAvailableFields
 
-**Available Fields Resolution:**
-The component uses a priority-based approach to determine available fields:
+**Location:** `src/modules/transformation/hooks/useAvailableFields.ts`
 
-1. **Schema Fields (Highest Priority):** Fields from KafkaTypeVerification step
-   - Respects added/removed fields from type verification
-   - Uses `userType` or `type` from schema fields
-   - Filters out removed fields (`isRemoved === false`)
+**Purpose:** Derives available fields from multiple sources with priority-based resolution.
 
-2. **Effective Event Data (Second Priority):** Fields extracted from event data
-   - Uses `buildEffectiveEvent` to reflect schema modifications
-   - Infers types using `inferJsonType` utility
-   - Extracts nested field paths
+**Priority Order:**
+1. Schema fields from KafkaTypeVerification (respects added/removed fields)
+2. Fields extracted from effective event data
+3. Fields from existing transformation configurations (fallback for edit mode)
 
-3. **Existing Transformations (Fallback):** Fields from existing transformation config
-   - Extracts source fields from passthrough transformations
-   - Extracts field references from computed field arguments
-   - Used when event data isn't loaded yet (editing mode)
+```typescript
+function useAvailableFields(
+  schemaFields: SchemaField[] | undefined,
+  effectiveEventData: any,
+  transformationFields: TransformationField[]
+): Array<{ name: string; type: string }>
+```
 
-**Auto-Population Logic:**
-When entering the transformation step for the first time:
+#### useTransformationValidation
 
-- Automatically populates all available fields as passthrough transformations
-- Only runs if:
-  - Not already auto-populated in this session
-  - Not in read-only mode
-  - Not in standalone mode
-  - Available fields exist
-  - No existing transformation fields configured
-  - Transformation not already enabled
+**Location:** `src/modules/transformation/hooks/useTransformationValidation.ts`
 
-**Validation Flow:**
+**Purpose:** Manages validation state and computed validation values.
 
-1. **Local Validation:** Performed on every configuration change
-   - Validates field completeness
-   - Checks for duplicate output field names
-   - Validates function arguments
-   - Validates nested functions recursively
-   - Validates waterfall arrays
-   - Validates raw expressions
+**Returns:**
+- `localValidation` - Current validation state
+- `saveAttempted` / `setSaveAttempted` - Track if save was attempted
+- `validationErrorDetails` - Structured error details for display
+- `totalErrorCount` - Total count of all errors
+- `isValidationExpanded` / `setIsValidationExpanded` - Expansion state
 
-2. **Error Display:** Errors shown only after save attempt
-   - Prevents showing errors while user is still editing
-   - Shows field-level errors inline
-   - Shows global errors at the bottom
+```typescript
+function useTransformationValidation(
+  transformationConfig: TransformationConfig,
+  transformationStore?: { setExpressionString: (expr: string) => void }
+): UseTransformationValidationReturn
+```
 
-3. **Expression Generation:** Automatically generates expression string
-   - Updates on every valid configuration change
-   - Used for backend submission
-   - Format: `{"fieldName": expression, ...}`
+#### useTransformationActions
 
-**Schema Modification Notice:**
-Displays when fields have been added or removed in the type verification step:
+**Location:** `src/modules/transformation/hooks/useTransformationActions.ts`
 
-- Shows count of added fields (highlighted in primary color)
-- Shows count of removed fields (highlighted in negative color)
-- Helps users understand schema changes from previous step
+**Purpose:** Consolidates all action handlers for field management and form actions.
 
-**Intermediary Schema Preview:**
-Shows a table preview of the resulting schema:
+**Returns:**
+- `handleAddPassthroughField` - Add passthrough field
+- `handleAddComputedField` - Add computed field
+- `handleUpdateField` - Update existing field
+- `handleRemoveField` - Remove field
+- `handleClearAllFields` - Clear all fields
+- `handleRestoreSourceFields` - Restore from source
+- `handleSkip` - Skip transformation step
+- `handleSave` - Save and continue
+- `handleDiscardChanges` - Discard all changes
 
-- Field Name: Output field name in intermediary schema
-- Type: Output field type
-- Source: Source information (field reference, function name, or raw expression)
-- Only displayed when fields are complete and valid
+```typescript
+function useTransformationActions(
+  stores: TransformationActionsStores,
+  transformationConfig: TransformationConfig,
+  availableFields: AvailableField[],
+  options: TransformationActionsOptions,
+  validation: TransformationActionsValidation,
+  setIsSaveSuccess: (value: boolean) => void,
+  setHasAutoPopulated: (value: boolean) => void
+): UseTransformationActionsReturn
+```
 
-### 2. TransformationFieldRow
+### 3. Sub-Components
+
+#### SchemaModificationNotice
+
+**Location:** `src/modules/transformation/components/SchemaModificationNotice.tsx`
+
+**Purpose:** Displays a notification when schema has been modified in the type verification step.
+
+```typescript
+interface SchemaModificationNoticeProps {
+  schemaModifications: {
+    hasAddedFields: boolean
+    hasRemovedFields: boolean
+    addedCount: number
+    removedCount: number
+  }
+}
+```
+
+#### NoTransformationView
+
+**Location:** `src/modules/transformation/components/NoTransformationView.tsx`
+
+**Purpose:** Displays empty state when no transformations are configured.
+
+```typescript
+interface NoTransformationViewProps {
+  readOnly: boolean
+  hasAvailableFields: boolean
+}
+```
+
+#### TransformationFieldList
+
+**Location:** `src/modules/transformation/components/TransformationFieldList.tsx`
+
+**Purpose:** Renders the list of transformation fields with header controls and action buttons.
+
+```typescript
+interface TransformationFieldListProps {
+  fields: TransformationField[]
+  availableFields: Array<{ name: string; type: string }>
+  fieldErrors: Record<string, FieldValidation['errors']>
+  readOnly: boolean
+  completeFieldCount: number
+  totalFieldCount: number
+  onUpdate: (fieldId: string, updates: Partial<TransformationField>) => void
+  onRemove: (fieldId: string) => void
+  onClearAll: () => void
+  onRestoreSourceFields: () => void
+  onAddField: () => void
+}
+```
+
+#### IntermediarySchemaPreview
+
+**Location:** `src/modules/transformation/components/IntermediarySchemaPreview.tsx`
+
+**Purpose:** Shows a preview of the intermediary schema with validation status and expandable error details.
+
+```typescript
+interface IntermediarySchemaPreviewProps {
+  config: TransformationConfig
+  validation: TransformationConfigValidation
+  saveAttempted: boolean
+  validationErrorDetails: Array<{ fieldName: string; errors: string[] }>
+  totalErrorCount: number
+  isValidationExpanded: boolean
+  onToggleValidationExpanded: () => void
+}
+```
+
+### 4. TransformationFieldRow
 
 **Location:** `src/modules/transformation/components/TransformationFieldRow.tsx`
 
@@ -190,39 +295,10 @@ Shows a table preview of the resulting schema:
    - Support for arithmetic modifiers (e.g., `* 1000000`)
    - Output type can be overridden
 
-**Expression Modes:**
-
-1. **Simple Mode:**
-   - Single function with field/literal arguments
-   - Example: `toInt(field_name)`
-
-2. **Nested Mode:**
-   - Nested function calls
-   - Complex argument types (arrays, nested functions, waterfall arrays)
-   - Example: `parseQuery(getQueryParam(url, "params"))`
-
-3. **Raw Mode:**
-   - Custom expression string
-   - For complex expressions not supported by function composer
-   - Example: `field1 > 0 ? field1 : field2`
-
-**Component States:**
-
-1. **Collapsed State:**
-   - Shows field index, output name, type, and source indicator
-   - For computed fields, shows function expression below header
-   - Quick edit button to expand
-
-2. **Expanded State:**
-   - Full editing interface
-   - All configuration options visible
-   - Save/Cancel buttons
-   - Auto-focuses output field name input
-
 **Props:**
 
 ```typescript
-{
+interface TransformationFieldRowProps {
   field: TransformationField
   availableFields: Array<{ name: string; type: string }>
   onUpdate: (fieldId: string, updates: Partial<TransformationField>) => void
@@ -233,7 +309,101 @@ Shows a table preview of the resulting schema:
 }
 ```
 
-### 3. Transformation Store
+### 5. ConcatExpressionBuilder
+
+**Location:** `src/modules/transformation/components/ConcatExpressionBuilder.tsx`
+
+**Purpose:** Provides a visual builder for the `concat()` function with support for post-processing function chains. This allows users to concatenate multiple fields and literal values, then optionally apply additional transformations to the result.
+
+**Key Features:**
+
+- **Slot-Based Interface:** Add up to 10 slots for fields or literal text values
+- **Post-Processing Chain:** Apply additional functions to the concat result (e.g., `toUpper`, `trim`)
+- **Expression Preview:** Real-time preview of the generated expression
+- **Collapsible UI:** Post-processing section is collapsible to reduce visual clutter
+
+**Props:**
+
+```typescript
+interface ConcatExpressionBuilderProps {
+  slots: ConcatSlot[]
+  availableFields: Array<{ name: string; type: string }>
+  onSlotsChange: (slots: ConcatSlot[]) => void
+  postProcessChain?: PostProcessFunction[]
+  onPostProcessChainChange?: (chain: PostProcessFunction[]) => void
+  onExpressionChange?: (expression: string) => void
+  onSwitchToRegularMode?: () => void
+  disabled?: boolean
+  error?: string
+}
+```
+
+**Post-Processing Example:**
+
+Without post-processing:
+```
+concat(firstName, " ", lastName)
+```
+
+With post-processing (toUpper applied):
+```
+toUpper(concat(firstName, " ", lastName))
+```
+
+With multiple post-processing functions:
+```
+trim(toUpper(concat(firstName, " ", lastName)))
+```
+
+**Data Structure:**
+
+```typescript
+interface ConcatSlot {
+  id: string
+  slotType: 'field' | 'literal'
+  fieldName?: string      // For field type
+  fieldType?: string      // For field type
+  literalValue?: string   // For literal type
+}
+
+interface PostProcessFunction {
+  id: string
+  functionName: string
+  additionalArgs: FunctionArg[]  // Arguments beyond the piped concat result
+}
+
+interface FunctionArgConcatArray {
+  type: 'concat_array'
+  slots: ConcatSlot[]
+  postProcessChain?: PostProcessFunction[]  // Optional chain of wrapping functions
+}
+```
+
+**UI Layout:**
+
+```
+┌─────────────────────────────────────────────────┐
+│ Concat Function                        [concat()]│
+│ Concatenate multiple values into a single string│
+├─────────────────────────────────────────────────┤
+│ [1] Field    [firstName        ▼]          [×] │
+│ [2] Text     [" "                 ]        [×] │
+│ [3] Field    [lastName         ▼]          [×] │
+│ [+ Add Value (3/10)]                            │
+├─────────────────────────────────────────────────┤
+│ ▼ Post-Processing (optional)              [1]  │
+│   Apply functions to transform the concat result│
+│                                                 │
+│   ↓ concat result pipes into                    │
+│   [1] [toUpper               ▼]           [×]  │
+│   [+ Add Function]                              │
+├─────────────────────────────────────────────────┤
+│ Expression Preview                              │
+│ toUpper(concat(firstName, " ", lastName))      │
+└─────────────────────────────────────────────────┘
+```
+
+### 6. Transformation Store
 
 **Location:** `src/store/transformation.store.ts`
 
@@ -275,15 +445,10 @@ Shows a table preview of the resulting schema:
    - `skipTransformation()`: Skip transformation (disable and clear fields)
    - `resetTransformationStore()`: Reset to initial state
 
-3. **Computed Getters:**
-   - `getIntermediarySchema()`: Get intermediary schema from fields
-   - `hasFields()`: Check if any fields exist
-   - `getFieldCount()`: Get number of fields
-
 **TransformationField Interface:**
 
 ```typescript
-{
+interface TransformationField {
   id: string
   type: 'computed' | 'passthrough'
   outputFieldName: string
@@ -302,13 +467,31 @@ Shows a table preview of the resulting schema:
 
 **FunctionArg Types:**
 
-- `FunctionArgField`: Reference to source field
-- `FunctionArgLiteral`: Literal value (string, number, boolean)
-- `FunctionArgArray`: Array of values (can contain nested functions)
-- `FunctionArgNestedFunction`: Nested function call
-- `FunctionArgWaterfallArray`: Waterfall array (try first, fallback to next)
+```typescript
+type FunctionArg =
+  | FunctionArgField           // Field reference
+  | FunctionArgLiteral         // Literal value (string, number, boolean)
+  | FunctionArgArray           // Array of values
+  | FunctionArgNestedFunction  // Nested function call
+  | FunctionArgWaterfallArray  // Waterfall slots
+  | FunctionArgConcatArray     // Concat slots with optional post-processing
 
-### 4. Transformation Utilities
+// Post-process function for concat - applies to the concat result
+interface PostProcessFunction {
+  id: string
+  functionName: string
+  additionalArgs: FunctionArg[]  // Arguments beyond the piped input
+}
+
+// Concat-specific array argument
+interface FunctionArgConcatArray {
+  type: 'concat_array'
+  slots: ConcatSlot[]
+  postProcessChain?: PostProcessFunction[]  // Optional wrapping functions
+}
+```
+
+### 7. Transformation Utilities
 
 **Location:** `src/modules/transformation/utils.ts`
 
@@ -321,41 +504,17 @@ Shows a table preview of the resulting schema:
    - `fieldToExpr(field)`: Generate expression for single field
    - `computedFieldToExpr(field)`: Generate expression for computed field
    - `passthroughFieldToExpr(field)`: Generate expression for passthrough field
-   - `formatArgForExpr(arg)`: Format function argument for expression
-   - `nestedFunctionToExpr(arg)`: Generate nested function expression
-   - `waterfallArrayToExpr(arg)`: Generate waterfall array expression
 
 2. **Validation:**
    - `validateTransformationConfig(config)`: Validate entire configuration
    - `validateFieldLocally(field)`: Validate single field
    - `validateNestedFunctionArg(arg)`: Validate nested function recursively
-   - `validateWaterfallArrayArg(arg)`: Validate waterfall array
 
 3. **Schema Computation:**
    - `getIntermediarySchema(config)`: Get intermediary schema from config
    - `inferOutputType(functionName)`: Infer output type from function
 
-4. **Helper Functions:**
-   - `isFieldArg(arg)`: Check if argument is field reference
-   - `isLiteralArg(arg)`: Check if argument is literal
-   - `isArrayArg(arg)`: Check if argument is array
-   - `isNestedFunctionArg(arg)`: Check if argument is nested function
-   - `createFieldArg(name, type)`: Create field argument
-   - `createLiteralArg(value, type)`: Create literal argument
-
-**Expression Format:**
-The generated expression follows this format:
-
-```json
-{
-  "outputField1": "sourceField1",
-  "outputField2": "toInt(sourceField2)",
-  "outputField3": "parseQuery(getQueryParam(url, \"params\"))",
-  "outputField4": "field1 * 1000000"
-}
-```
-
-### 5. Transformation Functions
+### 8. Transformation Functions
 
 **Location:** `src/modules/transformation/functions.ts`
 
@@ -371,73 +530,6 @@ The generated expression follows this format:
 - **Array:** `arrayLength`, `arrayGet`, `arrayContains`, `arrayJoin`
 - **Utility:** `coalesce`, `if`, `waterfall`, `jsonPath`
 
-**Function Definition Structure:**
-
-```typescript
-{
-  name: string
-  category: FunctionCategory
-  description: string
-  args: FunctionArgDef[]
-  returnType: string
-  example: {
-    input: string
-    output: string
-  }
-}
-```
-
-**Argument Types:**
-
-- `field`: Reference to source field (with optional type constraints)
-- `literal`: Literal value (string, number, boolean)
-- `array`: Array of values
-- `waterfall_array`: Waterfall array (try first, fallback to next)
-
-### 6. Supporting Components
-
-**TypeToggle:**
-
-- Toggles between passthrough and computed field types
-- Located in `components/TypeToggle.tsx`
-
-**SourceFieldSelect:**
-
-- Selects source field for passthrough fields
-- Located in `components/SourceFieldSelect.tsx`
-
-**TransformFunctionSelect:**
-
-- Selects transformation function for computed fields
-- Handles function argument configuration
-- Supports nested functions and waterfall arrays
-- Located in `components/TransformFunctionSelect.tsx`
-
-**ExpressionModeToggle:**
-
-- Toggles between simple, nested, and raw expression modes
-- Located in `components/ExpressionModeToggle.tsx`
-
-**NestedFunctionComposer:**
-
-- Composes nested function calls
-- Located in `components/NestedFunctionComposer.tsx`
-
-**WaterfallExpressionBuilder:**
-
-- Builds waterfall array expressions
-- Located in `components/WaterfallExpressionBuilder.tsx`
-
-**RawExpressionEditor:**
-
-- Edits raw expression strings
-- Located in `components/RawExpressionEditor.tsx`
-
-**ArithmeticModifier:**
-
-- Adds arithmetic operations to function results
-- Located in `components/ArithmeticModifier.tsx`
-
 ## Data Flow
 
 ### Pipeline Creation Flow
@@ -447,18 +539,18 @@ The generated expression follows this format:
    - Schema modifications (add/remove fields) are tracked
 
 2. **User enters transformation step**
-   - `TransformationConfigurator` reads available fields from `topicsStore`
+   - `useAvailableFields` hook resolves available fields from multiple sources
    - Auto-populates all fields as passthrough (if first time)
    - Displays transformation fields
 
 3. **User configures transformations**
-   - Adds/removes/modifies fields
+   - Adds/removes/modifies fields via `useTransformationActions`
    - Each change updates `transformationStore`
-   - Validation runs on each change
+   - `useTransformationValidation` validates on each change
    - Expression string is generated automatically
 
 4. **User saves transformation**
-   - Validation runs again
+   - `handleSave` runs validation
    - Expression string is finalized
    - `validationEngine` marks step as configured
    - Step completion callback is triggered
@@ -481,59 +573,20 @@ The generated expression follows this format:
    - `coreStore` is marked as dirty
    - Changes are saved to backend on pipeline save
 
-### Hydration Process
-
-**Location:** `src/store/hydration/transformation.ts`
-
-**Purpose:** Restores transformation state when loading existing pipeline.
-
-**Supported Formats:**
-
-1. **Stateless Transformation (V2 API):**
-   - Format: `stateless_transformation.transforms[]`
-   - Each transform has: `output_name`, `output_type`, `expression`
-   - Parses expressions to reconstruct fields
-   - Handles function calls, nested functions, raw expressions
-
-2. **Internal Transformation (Legacy):**
-   - Format: `transformation.fields[]`
-   - Direct field definitions
-   - Backward compatibility
-
-**Hydration Steps:**
-
-1. Check for transformation config in pipeline
-2. Parse expression strings to reconstruct fields
-3. Handle function calls and nested functions
-4. Reconstruct function arguments
-5. Set transformation config in store
-6. Mark as valid
-
-**Expression Parsing:**
-
-- Parses function calls: `functionName(args)`
-- Handles nested functions recursively
-- Extracts field references and literals
-- Handles arithmetic modifiers
-- Falls back to raw expression if parsing fails
-
 ## Validation
 
 ### Field-Level Validation
 
 **Passthrough Fields:**
-
 - Output field name: Required, valid identifier format
 - Source field: Required
 
 **Computed Fields:**
-
 - Output field name: Required, valid identifier format
 - Function name: Required (unless raw mode)
 - Function arguments: Required based on function definition
 - Raw expression: Required if in raw mode
 - Nested functions: Validated recursively
-- Waterfall arrays: At least 2 slots, all slots valid
 
 ### Configuration-Level Validation
 
@@ -541,24 +594,15 @@ The generated expression follows this format:
 - No duplicate output field names
 - All fields must be complete
 
-### Validation States
-
-1. **Idle:** No validation attempted yet
-2. **Validating:** Backend validation in progress
-3. **Valid:** Configuration is valid
-4. **Invalid:** Configuration has errors
-
-**Error Display:**
+### Error Display
 
 - Field errors shown inline in field row
-- Global errors shown at bottom of form
+- Global errors shown in expandable section
 - Errors only shown after save attempt (prevents premature error display)
 
 ## Expression Generation
 
 ### Passthrough Field Expression
-
-Simple field reference:
 
 ```
 sourceFieldName
@@ -567,32 +611,31 @@ sourceFieldName
 ### Computed Field Expression
 
 **Simple Function:**
-
 ```
 functionName(fieldArg, "literalArg")
 ```
 
 **Nested Function:**
-
 ```
 outerFunction(innerFunction(fieldArg, "literal"), anotherField)
 ```
 
-**Raw Expression:**
-
-```
-field1 > 0 ? field1 : field2
-```
-
 **With Arithmetic Modifier:**
-
 ```
 toInt(fieldName) * 1000000
 ```
 
-### Full Transformation Expression
+**Concat Function:**
+```
+concat(firstName, " ", lastName)
+```
 
-JSON object format:
+**Concat with Post-Processing:**
+```
+toUpper(trim(concat(firstName, " ", lastName)))
+```
+
+### Full Transformation Expression
 
 ```json
 {
@@ -602,50 +645,24 @@ JSON object format:
 }
 ```
 
-## Intermediary Schema
-
-The intermediary schema is the output of the transformation step and serves as input to the ClickHouse mapping step.
-
-**Schema Structure:**
-
-```typescript
-{
-  name: string        // Output field name
-  type: string        // Output field type
-  sourceField?: string        // For passthrough fields
-  functionName?: string       // For computed fields (function mode)
-  rawExpression?: string      // For computed fields (raw mode)
-}
-```
-
-**Schema Generation:**
-
-- Only includes complete fields
-- Preserves source information for mapping
-- Used by ClickHouse mapping step to show available fields
-
 ## Integration Points
 
 ### With Kafka Type Verification
-
 - Reads schema fields from type verification step
 - Respects added/removed fields
 - Shows schema modification notice
 
 ### With ClickHouse Mapping
-
 - Provides intermediary schema as input
 - Field names and types used for mapping
 - Schema preview helps users understand transformation output
 
 ### With Validation Engine
-
 - Marks step as configured on save
 - Integrates with overall pipeline validation
 - Prevents progression if invalid
 
 ### With Pipeline Actions
-
 - Supports standalone edit mode
 - Marks pipeline as dirty on changes
 - Handles save/discard actions
@@ -653,112 +670,45 @@ The intermediary schema is the output of the transformation step and serves as i
 ## User Experience Features
 
 ### Auto-Population
-
 - Automatically adds all available fields as passthrough
 - Saves time for common use case
 - Only runs once per session
 
 ### Restore Source Fields
-
 - Button to restore all source fields as passthrough
 - Useful when fields are cleared or modified
 - Replaces existing fields
 
 ### Skip Transformation
-
 - Option to skip transformation entirely
 - All fields pass through unchanged
 - Useful for simple pipelines
 
 ### Field Count Indicator
-
 - Shows complete/total field count
 - Helps users track progress
 - Updates in real-time
 
 ### Intermediary Schema Preview
-
 - Visual preview of transformation output
 - Shows field names, types, and sources
-- Helps users understand result before mapping
+- Expandable validation error details
 
 ### Compact Field Display
-
 - Collapsed view shows essential information
 - Expandable for detailed editing
 - Reduces visual clutter
-
-### Expression Preview
-
-- Shows function expression for computed fields
-- Helps users understand transformation
-- Truncated for long expressions
-
-## Error Handling
-
-### Validation Errors
-
-- Field-level errors shown inline
-- Global errors shown at bottom
-- Errors persist until fixed
-
-### Backend Validation
-
-- Expression sent to backend for validation
-- Backend errors displayed to user
-- Prevents invalid configurations from being saved
-
-### Expression Parsing Errors
-
-- Falls back to raw expression if parsing fails
-- Preserves user's original expression
-- Allows manual editing
-
-## Performance Considerations
-
-### Expression Generation
-
-- Generated on every configuration change
-- Cached in store
-- Only regenerated when fields change
-
-### Validation
-
-- Runs on every configuration change
-- Errors only displayed after save attempt
-- Prevents unnecessary error flashing
-
-### Field Rendering
-
-- Uses React memoization where possible
-- Collapsed view reduces DOM nodes
-- Expanded view only when editing
 
 ## Future Enhancements
 
 Potential areas for improvement:
 
-1. **Function Library Expansion:**
-   - More transformation functions
-   - Custom function definitions
-   - Function composition templates
+1. **TransformationFieldRow Decomposition:** Apply similar refactoring pattern to reduce the 706-line component
 
-2. **Expression Builder:**
-   - Visual expression builder
-   - Drag-and-drop function composition
-   - Expression templates
+2. **Function Library Expansion:** More transformation functions and custom function definitions
 
-3. **Field Preview:**
-   - Live preview of transformation results
-   - Sample data transformation
-   - Error detection before save
+3. **Expression Builder:** Visual drag-and-drop expression builder
 
-4. **Bulk Operations:**
-   - Bulk field operations
-   - Field templates
-   - Import/export field configurations
+4. **Field Preview:** Live preview of transformation results with sample data
 
-5. **Advanced Features:**
-   - Conditional transformations
-   - Field grouping
-   - Transformation versioning
+5. **Bulk Operations:** Bulk field operations, templates, import/export

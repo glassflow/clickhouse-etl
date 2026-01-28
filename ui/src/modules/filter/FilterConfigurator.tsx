@@ -198,7 +198,7 @@ export function FilterConfigurator({
         clearTimeout(validationTimeoutRef.current)
       }
     }
-  }, [filterConfigKey, touchedConditions, saveAttempted]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filterConfigKey, touchedConditions, saveAttempted])
 
   // Mark a condition as touched
   const handleTouched = useCallback((id: string) => {
@@ -473,7 +473,7 @@ export function FilterConfigurator({
         {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
         {!standalone && (
           <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
-            Skip Transformation
+            Skip Filter
           </Button>
         )}
 
