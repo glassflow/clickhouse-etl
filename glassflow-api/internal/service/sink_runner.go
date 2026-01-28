@@ -59,7 +59,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 			Name:          s.pipelineCfg.Sink.NATSConsumerName,
 			Durable:       s.pipelineCfg.Sink.NATSConsumerName,
 			FilterSubject: models.GetWildcardNATSSubjectName(s.pipelineCfg.Sink.StreamID),
-			AckPolicy:     jetstream.AckAllPolicy,
+			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,
 		},
