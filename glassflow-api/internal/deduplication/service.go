@@ -259,10 +259,11 @@ func (ds *DedupService) ackMessages(_ context.Context, messages []jetstream.Msg)
 		return nil
 	}
 
-	// Ack the last message which acks all previous messages in the batch (AckAll policy)
-	lastMsg := messages[len(messages)-1]
-	if err := lastMsg.Ack(); err != nil {
-		return fmt.Errorf("failed to ack batch: %w", err)
+	// With explicit ack policy, we need to ack each message individually
+	for _, msg := range messages {
+		if err := msg.Ack(); err != nil {
+			return fmt.Errorf("failed to ack message: %w", err)
+		}
 	}
 
 	return nil

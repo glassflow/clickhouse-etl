@@ -50,22 +50,23 @@ func (r *BatchReader) ReadBatchNoWait(ctx context.Context, options ...models.Fet
 }
 
 // Ack acknowledges messages
+// With explicit ack policy, we need to ack each message individually
 func (r *BatchReader) Ack(_ context.Context, messages []models.Message) error {
 	if len(messages) == 0 {
 		return nil
 	}
 
-	// Ack the last message which acks all previous messages in the batch (only with AckAll policy)
-	lastMsg := messages[len(messages)-1]
-	if lastMsg.Type != models.MessageTypeJetstreamMsg {
-		return fmt.Errorf("cannot ack non-NATS jetstream message: type=%s", lastMsg.Type)
-	}
-	if lastMsg.JetstreamMsgOriginal == nil {
-		return fmt.Errorf("missing jestream NATS original message")
-	}
+	for _, msg := range messages {
+		if msg.Type != models.MessageTypeJetstreamMsg {
+			return fmt.Errorf("cannot ack non-NATS jetstream message: type=%s", msg.Type)
+		}
+		if msg.JetstreamMsgOriginal == nil {
+			return fmt.Errorf("missing jestream NATS original message")
+		}
 
-	if err := lastMsg.JetstreamMsgOriginal.Ack(); err != nil {
-		return fmt.Errorf("failed to ack batch: %w", err)
+		if err := msg.JetstreamMsgOriginal.Ack(); err != nil {
+			return fmt.Errorf("failed to ack message: %w", err)
+		}
 	}
 
 	return nil

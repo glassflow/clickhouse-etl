@@ -86,7 +86,7 @@ func (s *SinkTestSuite) aStreamConsumerConfig(data *godog.DocString) error {
 		Durable:       cfg.ConsumerName,
 		FilterSubject: cfg.SubjectName,
 		AckWait:       internal.NatsDefaultAckWait,
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 	}
 
 	return nil

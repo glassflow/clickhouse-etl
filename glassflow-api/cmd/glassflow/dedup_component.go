@@ -87,7 +87,7 @@ func mainDeduplicatorV2(
 			Name:          consumerName,
 			Durable:       consumerName,
 			FilterSubject: models.GetWildcardNATSSubjectName(inputStreamID),
-			AckPolicy:     jetstream.AckAllPolicy,
+			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,
 		},
