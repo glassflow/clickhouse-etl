@@ -82,6 +82,7 @@ func (s *SchemaStore) SaveSchemaVersion(ctx context.Context, latestSchemaVersion
 	}
 
 	s.versions[newSchemaVersionID] = s.versions[latestSchemaVersionID]
+	s.versions[newSchemaVersionID].VersionID = newSchemaVersionID
 	s.latestVersion = newSchemaVersionID
 
 	return nil

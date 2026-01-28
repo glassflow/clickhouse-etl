@@ -51,13 +51,13 @@ func validateJSONToSchema(msg []byte, schema []models.Field) error {
 		fieldValue := parsedMsg.Get(field.Name)
 
 		if !fieldValue.Exists() {
-			return fmt.Errorf("field %s is missing in the message", field.Name)
+			return fmt.Errorf("field '%s' is missing in the message", field.Name)
 		}
 
 		// Basic type checking
 		err := validateFieldType(field, fieldValue)
 		if err != nil {
-			return fmt.Errorf("field %s type validation failed: %w", field.Name, err)
+			return fmt.Errorf("field '%s' type validation failed: %w", field.Name, err)
 		}
 	}
 
