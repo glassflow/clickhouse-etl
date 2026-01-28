@@ -349,31 +349,49 @@ func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.
 	return nil
 }
 
-// write failed batch to dlq
+// ackWithRetry acks a message with up to 3 retries. Returns nil on success.
+func (ch *ClickHouseSink) ackWithRetry(msg jetstream.Msg) error {
+	return retry.Do(
+		func() error {
+			return msg.Ack()
+		},
+		retry.Attempts(3),
+		retry.Delay(50*time.Millisecond),
+		retry.DelayType(retry.FixedDelay),
+	)
+}
+
+// write failed batch to dlq and ack all messages (best-effort: try every message, then return combined error)
 func (ch *ClickHouseSink) flushFailedBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 	batchErr error,
 ) error {
+	var firstErr error
+	dlqFailCount, ackFailCount := 0, 0
+
 	for _, msg := range messages {
-		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr)
-		if err != nil {
-			return fmt.Errorf("push message to DLQ: %w", err)
+		if err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr); err != nil {
+			dlqFailCount++
+			if firstErr == nil {
+				firstErr = err
+			}
+			ch.log.ErrorContext(ctx, "failed to push message to DLQ", "error", err, "subject", msg.Subject())
+			// Continue: still try to ack so NATS does not redeliver
 		}
 
-		err = retry.Do(
-			func() error {
-				err = msg.Ack()
-				return err
-			},
-			retry.Attempts(3),
-			retry.DelayType(retry.FixedDelay),
-		)
-		if err != nil {
-			return fmt.Errorf("acknowledge message: %w", err)
+		if err := ch.ackWithRetry(msg); err != nil {
+			ackFailCount++
+			if firstErr == nil {
+				firstErr = err
+			}
+			ch.log.ErrorContext(ctx, "failed to ack message after retries", "error", err, "subject", msg.Subject())
 		}
 	}
 
+	if firstErr != nil {
+		return fmt.Errorf("flushFailedBatch: dlq_fail=%d ack_fail=%d: %w", dlqFailCount, ackFailCount, firstErr)
+	}
 	return nil
 }
 
@@ -412,19 +430,24 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		}
 	}
 
-	// Ack ALL messages individually (like NATS CLI bench)
-	// This provides better flow control and throughput
+	// Ack ALL messages individually (like NATS CLI bench).
+	// Attempt ack for every message so we never leave messages unacked after a successful write.
+	var ackErr error
+	ackFailCount := 0
 	for _, msg := range messages {
-		err = retry.Do(
-			func() error {
-				return msg.Ack()
-			},
-			retry.Attempts(3),
-			retry.DelayType(retry.FixedDelay),
-		)
-		if err != nil {
-			return fmt.Errorf("acknowledge message: %w", err)
+		if err := ch.ackWithRetry(msg); err != nil {
+			ackFailCount++
+			if ackErr == nil {
+				ackErr = err
+			}
+			ch.log.ErrorContext(ctx, "failed to ack message after retries",
+				"error", err,
+				"subject", msg.Subject(),
+				"ack_fail_count", ackFailCount)
 		}
+	}
+	if ackErr != nil {
+		return fmt.Errorf("acknowledge %d message(s): %w", ackFailCount, ackErr)
 	}
 
 	ch.log.InfoContext(ctx, "Batch processing completed successfully",
