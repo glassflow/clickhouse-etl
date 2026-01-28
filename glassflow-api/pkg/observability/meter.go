@@ -164,6 +164,15 @@ func (m *Meter) RecordProcessingDuration(ctx context.Context, duration float64) 
 	))
 }
 
+// RecordProcessingDurationWithStage records processing duration with a stage label
+func (m *Meter) RecordProcessingDurationWithStage(ctx context.Context, duration float64, stage string) {
+	m.ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
+		attribute.String("component", m.component),
+		attribute.String("pipeline_id", m.pipelineID),
+		attribute.String("stage", stage),
+	))
+}
+
 // Helper functions to create metrics with error handling
 
 func mustCreateCounter(meter metric.Meter, name, description string) metric.Int64Counter {
