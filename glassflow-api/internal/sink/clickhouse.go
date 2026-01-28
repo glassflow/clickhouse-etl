@@ -102,7 +102,10 @@ func NewClickHouseSink(
 	}
 
 	// Set worker pool size to GOMAXPROCS
-	workerPoolSize := runtime.GOMAXPROCS(0)
+	workerPoolSize := runtime.GOMAXPROCS(0) - 2
+	if workerPoolSize < 1 {
+		workerPoolSize = 1
+	}
 
 	return &ClickHouseSink{
 		client:                clickhouseClient,
