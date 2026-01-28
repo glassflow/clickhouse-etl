@@ -16,8 +16,9 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
@@ -38,16 +39,16 @@ type IngestorTestSuite struct {
 	consumerCfg jetstream.ConsumerConfig
 	streamCfg   jetstream.StreamConfig
 
-	dlqStreamCfg   jetstream.StreamConfig
-	dlqConsumerCfg jetstream.ConsumerConfig
+	dlqStreamCfg      jetstream.StreamConfig
+	dlqConsumerCfg    jetstream.ConsumerConfig
+	signalStreamCfg   jetstream.StreamConfig
+	signalConsumerCfg jetstream.ConsumerConfig
 
-	schemaConfig models.MapperConfig
-
-	schemaMapper schema.Mapper
+	schemaVersion models.SchemaVersion
+	mockDBClient  *testutils.MockDBClient
+	mockSRClient  *testutils.MockSchemaRegistryClient
 
 	ingestorCfg models.IngestorComponentConfig
-
-	filterCfg models.FilterComponentConfig
 
 	ingestor component.Component
 
@@ -61,11 +62,14 @@ type IngestorTestSuite struct {
 func NewIngestorTestSuite() *IngestorTestSuite {
 	return &IngestorTestSuite{
 		BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // optional config
-			wg:             sync.WaitGroup{},
-			kafkaContainer: nil,
-			natsContainer:  nil,
+			wg:                sync.WaitGroup{},
+			kafkaContainer:    nil,
+			natsContainer:     nil,
+			postgresContainer: nil,
 		},
-		logger: testutils.NewTestLogger(),
+		mockDBClient: testutils.NewMockDBClient(),
+		mockSRClient: nil,
+		logger:       testutils.NewTestLogger(),
 	}
 }
 
@@ -139,6 +143,22 @@ func (s *IngestorTestSuite) runNatsStreams(deduplicationWindow time.Duration) er
 		return fmt.Errorf("create nats DLQ stream: %w", err)
 	}
 
+	s.signalStreamCfg = jetstream.StreamConfig{
+		Name:     models.ComponentSignalsStream,
+		Subjects: []string{models.GetComponentSignalsSubject()},
+	}
+
+	s.signalConsumerCfg = jetstream.ConsumerConfig{
+		Name:          "component-signals-consumer",
+		Durable:       "component-signals-consumer",
+		FilterSubject: models.GetComponentSignalsSubject(),
+	}
+
+	err = s.createStream(s.signalStreamCfg, deduplicationWindow)
+	if err != nil {
+		return fmt.Errorf("create component signals nats stream: %w", err)
+	}
+
 	return nil
 }
 
@@ -166,16 +186,40 @@ func (s *IngestorTestSuite) aKafkaTopicWithPartitions(topicName string, partitio
 	return nil
 }
 
-func (s *IngestorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	err := s.getMappingConfig(cfg, &s.schemaConfig)
+func (s *IngestorTestSuite) aSchemaRegistryContainsSchemaWithIDAndFields(schemaID int, fields *godog.Table) error {
+	var schemaFields []models.Field
+
+	s.mockSRClient = testutils.NewMockSchemaRegistryClient(s.logger)
+	for _, row := range fields.Rows[1:] {
+		if len(row.Cells) < 2 {
+			return fmt.Errorf("each field row must have at least 2 columns (name, type)")
+		}
+		schemaFields = append(schemaFields, models.Field{
+			Name: row.Cells[0].Value,
+			Type: row.Cells[1].Value,
+		})
+	}
+	// Add schema to the mock registry client
+	s.mockSRClient.AddSchema(schemaID, schemaFields)
+	return nil
+}
+
+func (s *IngestorTestSuite) aSchemaVersionFromJSON(cfg *godog.DocString) error {
+	var sv models.SchemaVersion
+	err := json.Unmarshal([]byte(cfg.Content), &sv)
 	if err != nil {
-		return fmt.Errorf("unmarshal schema config: %w", err)
+		return fmt.Errorf("unmarshal schema version: %w", err)
 	}
 
-	s.schemaMapper, err = schema.NewMapper(s.schemaConfig)
+	err = s.mockDBClient.SetLogger(s.logger)
 	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
+		return fmt.Errorf("set logger for mock DB client: %w", err)
 	}
+
+	s.schemaVersion = sv
+
+	// Add schema version to mock client
+	s.mockDBClient.AddSchemaVersion("test-pipeline", sv)
 
 	return nil
 }
@@ -197,18 +241,6 @@ func (s *IngestorTestSuite) anIngestorComponentConfig(config string) error {
 	return nil
 }
 
-func (s *IngestorTestSuite) aFilterComponentConfig(config string) error {
-	var filterCfg models.FilterComponentConfig
-	err := json.Unmarshal([]byte(config), &filterCfg)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal filter component config: %w", err)
-	}
-
-	s.filterCfg = filterCfg
-
-	return nil
-}
-
 func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	var duration time.Duration
 
@@ -216,8 +248,8 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		return fmt.Errorf("nats container is not initialized")
 	}
 
-	if s.schemaMapper == nil {
-		return fmt.Errorf("schema mapper is not initialized")
+	if s.schemaVersion.SourceID == "" {
+		return fmt.Errorf("schema version is not initialized")
 	}
 
 	if s.ingestorCfg.KafkaTopics != nil || len(s.ingestorCfg.KafkaTopics) == 1 {
@@ -249,15 +281,37 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 			Subject: s.dlqStreamCfg.Subjects[0],
 		},
 	)
+
+	signalPublisher, err := componentsignals.NewPublisher(nc)
+	if err != nil {
+		return fmt.Errorf("create component signal publisher: %w", err)
+	}
+
+	var srClient schemav2.SchemaRegistryClient
+	if s.mockSRClient != nil {
+		srClient = s.mockSRClient
+	}
+
+	schema, err := schemav2.NewSchema(
+		"test-pipeline",
+		s.topicName,
+		s.mockDBClient,
+		srClient,
+	)
+	if err != nil {
+		return fmt.Errorf("create schema: %w", err)
+	}
+
 	ingestor, err := component.NewIngestorComponent(
 		models.PipelineConfig{
+			ID:       "test-pipeline",
 			Ingestor: s.ingestorCfg,
-			Filter:   s.filterCfg,
 		},
 		s.topicName,
 		streamConsumer,
 		dlqStreamPublisher,
-		s.schemaMapper,
+		schema,
+		signalPublisher,
 		make(chan struct{}),
 		s.logger,
 		nil, // nil meter for e2e tests
@@ -333,6 +387,10 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(
 
 		for j, cell := range row.Cells {
 			if j < len(headers) {
+				if strings.HasPrefix(headers[j], "NATS-") {
+					sign = append(sign, cell.Value)
+					continue
+				}
 				event[headers[j]] = cell.Value
 				sign = append(sign, cell.Value)
 			}
@@ -367,16 +425,20 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(
 		sign := make([]string, 0)
 
 		for _, header := range headers {
+			if strings.HasPrefix(header, "NATS-") {
+				sign = append(sign, msg.Headers().Get(header[5:]))
+				continue
+			}
 			sign = append(sign, fmt.Sprint(actual[header]))
 		}
 
 		expected, exists := expectedEvents[strings.Join(sign, "")]
 		if !exists {
-			return fmt.Errorf("not expected event %v", actual)
+			return fmt.Errorf("not expected event %v with key %s", actual, strings.Join(sign, ""))
 		}
 
 		if len(expected) != len(actual) {
-			return fmt.Errorf("events have differenet numer of keys: %v and actual: %v", expected, actual)
+			return fmt.Errorf("events have different number of keys: %v and actual: %v", expected, actual)
 		}
 
 		for k, v := range expected {
@@ -401,8 +463,8 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(
 	return nil
 }
 
-func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
-	err := s.waitForEventsProcessed()
+func (s *IngestorTestSuite) checkResultsStream(expectedLag int, dataTable *godog.Table) error {
+	err := s.waitForEventsProcessed(expectedLag)
 	if err != nil {
 		return fmt.Errorf("wait for events processed: %w", err)
 	}
@@ -424,7 +486,16 @@ func (s *IngestorTestSuite) checkDLQStream(dataTable *godog.Table) error {
 	return nil
 }
 
-func (s *IngestorTestSuite) waitForEventsProcessed() error {
+func (s *IngestorTestSuite) checkSignalStream(dataTable *godog.Table) error {
+	err := s.checkResultsFromNatsStream(s.signalStreamCfg, s.signalConsumerCfg, dataTable)
+	if err != nil {
+		return fmt.Errorf("check DLQ stream: %w", err)
+	}
+
+	return nil
+}
+
+func (s *IngestorTestSuite) waitForEventsProcessed(expectedLag int) error {
 	s.logger.Info("waiting for kafka consumer to process events",
 		"topic", s.topicName,
 		"consumerGroup", s.cGroupName)
@@ -440,6 +511,13 @@ func (s *IngestorTestSuite) waitForEventsProcessed() error {
 			}
 
 			if lag > 0 {
+				if expectedLag > 0 && lag == int64(expectedLag) {
+					s.logger.Info("kafka consumer reached expected lag",
+						"topic", s.topicName,
+						"consumerGroup", s.cGroupName,
+						"lag", lag)
+					return nil
+				}
 				return fmt.Errorf("consumer lag not zero: %d messages pending", lag)
 			}
 
@@ -532,16 +610,17 @@ func (s *IngestorTestSuite) CleanupResources() error {
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	logElapsedTime(sc)
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
-	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
+	sc.Step(`^a schema version with config:$`, s.aSchemaVersionFromJSON)
+	sc.Step(`^a schema registry contains schema with id (\d+) and fields:$`, s.aSchemaRegistryContainsSchemaWithIDAndFields)
 	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)
-	sc.Step(`^an filter component config:$`, s.aFilterComponentConfig)
 	sc.Step(`a Kafka topic "([^"]*)" with (\d+) partition`, s.aKafkaTopicWithPartitions)
 
 	sc.Step(`^I run the ingestor component$`, s.iRunningIngestorComponent)
 	sc.Step(`^I stop the ingestor component$`, s.stopIngestor)
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, s.publishEventsToKafka)
-	sc.Step(`^I check results stream with content$`, s.checkResultsStream)
+	sc.Step(`^I check results stream with lag (\d+) and content$`, s.checkResultsStream)
 	sc.Step(`^I check DLQ stream with content$`, s.checkDLQStream)
+	sc.Step(`^I check signal stream with content$`, s.checkSignalStream)
 	sc.Step(`^I flush all NATS streams$`, s.cleanNatsStreams)
 	sc.Step(`^I wait for (\d+) second`, s.iWaitForSeconds)
 

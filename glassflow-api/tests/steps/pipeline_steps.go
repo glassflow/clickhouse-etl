@@ -366,12 +366,10 @@ func (p *PipelineSteps) setupPipelineService() error {
 
 	// Setup Postgres container if not already set up
 	if p.postgresContainer == nil {
-		postgresContainer, err := testutils.StartPostgresContainer(context.Background())
+		err := p.setupPostgres()
 		if err != nil {
-			return fmt.Errorf("start postgres container: %w", err)
+			return fmt.Errorf("setup postgres container: %w", err)
 		}
-		p.postgresContainer = postgresContainer
-		// Migrations are automatically run in StartPostgresContainer()
 	}
 
 	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil)
@@ -379,7 +377,7 @@ func (p *PipelineSteps) setupPipelineService() error {
 		return fmt.Errorf("create postgres pipeline storage: %w", err)
 	}
 
-	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
+	orch := orchestrator.NewLocalOrchestrator(natsClient, db, p.log)
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
 	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log, db)

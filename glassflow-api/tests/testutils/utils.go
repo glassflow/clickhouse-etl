@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -41,6 +42,7 @@ type KafkaEvent struct {
 	Key       string
 	Value     []byte
 	Partition string
+	SchemaID  string
 }
 
 type KafkaWriter struct {
@@ -148,10 +150,23 @@ func (kw *KafkaWriter) WriteJSONEvents(topic string, events []KafkaEvent) error 
 	records := make([]*kgo.Record, 0, len(events))
 
 	for _, event := range events {
+		value := event.Value
+		if event.SchemaID != "" {
+			schemaID, err := strconv.Atoi(event.SchemaID)
+			if err != nil {
+				return fmt.Errorf("invalid schema id %s: %w", event.SchemaID, err)
+			}
+			buf := make([]byte, 5+len(value))
+			buf[0] = 0x00 // magic byte
+			binary.BigEndian.PutUint32(buf[1:5], uint32(schemaID))
+			copy(buf[5:], value)
+			value = buf
+		}
+
 		record := &kgo.Record{
 			Topic: topic,
 			Key:   []byte(event.Key),
-			Value: event.Value,
+			Value: value,
 		}
 
 		// Set partition if specified
