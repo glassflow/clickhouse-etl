@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime"
 
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -52,6 +53,20 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	s.doneCh = make(chan struct{})
 	s.c = make(chan error, 1)
 
+	// Calculate MaxAckPending based on batch size and worker pool capacity
+	maxBatchSize := s.pipelineCfg.Sink.Batch.MaxBatchSize
+	workerPoolSize := runtime.GOMAXPROCS(0)
+	maxAckPending := maxBatchSize * (workerPoolSize + 2)
+	if maxAckPending < maxBatchSize*2 {
+		// Ensure minimum of 2x batch size
+		maxAckPending = maxBatchSize * 2
+	}
+
+	s.log.InfoContext(ctx, "Setting MaxAckPending limit",
+		"max_ack_pending", maxAckPending,
+		"max_batch_size", maxBatchSize,
+		"worker_pool_size", workerPoolSize)
+
 	consumer, err := stream.NewNATSConsumer(
 		ctx,
 		s.nc.JetStream(),
@@ -61,7 +76,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 			FilterSubject: models.GetWildcardNATSSubjectName(s.pipelineCfg.Sink.StreamID),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
-			MaxAckPending: -1,
+			MaxAckPending: maxAckPending,
 		},
 		s.pipelineCfg.Sink.StreamID,
 	)
