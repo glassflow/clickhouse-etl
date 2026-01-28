@@ -88,12 +88,10 @@ func (p *PlatformSteps) aRunningGlassflowAPIServerWithK8sOrchestrator() error {
 func (p *PlatformSteps) setupServices() error {
 	// Setup Postgres container if not already set up
 	if p.postgresContainer == nil {
-		postgresContainer, err := testutils.StartPostgresContainer(context.Background())
+		err := p.setupPostgres()
 		if err != nil {
-			return fmt.Errorf("start postgres container: %w", err)
+			return fmt.Errorf("setup postgres container: %w", err)
 		}
-		p.postgresContainer = postgresContainer
-		// Migrations are automatically run in StartPostgresContainer()
 	}
 
 	// Create storage
@@ -104,7 +102,7 @@ func (p *PlatformSteps) setupServices() error {
 
 	// Create orchestrator based on type
 	if p.orchestratorType == "local" {
-		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, p.log)
+		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, db, p.log)
 	} else {
 		// For k8s orchestrator, we'll create a mock one for testing
 		p.orchestrator = &MockK8sOrchestrator{log: p.log}

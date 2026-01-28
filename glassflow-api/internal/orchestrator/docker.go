@@ -19,6 +19,7 @@ import (
 
 type LocalOrchestrator struct {
 	nc  *client.NATSClient
+	db  service.PipelineStore
 	log *slog.Logger
 
 	ingestorRunners []service.Runner
@@ -51,11 +52,13 @@ func (d *LocalOrchestrator) DeletePipeline(ctx context.Context, pid string) erro
 
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
+	db service.PipelineStore,
 	log *slog.Logger,
 ) service.Orchestrator {
 	//nolint: exhaustruct // runners will be created on setup
 	return &LocalOrchestrator{
 		nc:  nc,
+		db:  db,
 		log: log,
 	}
 }
@@ -182,8 +185,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 				d.nc,
 				t.Name,
 				*pi,
+				d.db,
 				runtimeCfg,
-				schemaMapper,
 				nil, // nil meter for docker orchestrator
 			)
 

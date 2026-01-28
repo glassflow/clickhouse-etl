@@ -114,6 +114,21 @@ func (m *MockPipelineStore) UpsertPipelineResources(ctx context.Context, pid str
 	return args.Get(0).(*models.PipelineResourcesRow), args.Error(1)
 }
 
+func (m *MockPipelineStore) GetSchemaVersion(ctx context.Context, pipelineID, sourceID, versionID string) (*models.SchemaVersion, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetLatestSchemaVersion(ctx context.Context, pipelineID, sourceID string) (*models.SchemaVersion, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) SaveNewSchemaVersion(ctx context.Context, pipelineID, sourceID, oldVersionID, newVersionID string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func TestEditPipeline_Success(t *testing.T) {
 	// Setup
 	mockOrchestrator := new(MockOrchestrator)

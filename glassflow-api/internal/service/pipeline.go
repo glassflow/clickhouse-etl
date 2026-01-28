@@ -32,6 +32,9 @@ type PipelineStore interface {
 	UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error
 	GetPipelineResources(ctx context.Context, pipelineID string) (*models.PipelineResourcesRow, error)
 	UpsertPipelineResources(ctx context.Context, pipelineID string, resources models.PipelineResources) (*models.PipelineResourcesRow, error)
+	GetSchemaVersion(ctx context.Context, pipelineID, sourceID, versionID string) (*models.SchemaVersion, error)
+	GetLatestSchemaVersion(ctx context.Context, pipelineID, sourceID string) (*models.SchemaVersion, error)
+	SaveNewSchemaVersion(ctx context.Context, pipelineID, sourceID, oldVersionID, newVersionID string) error
 }
 
 type PipelineService struct {

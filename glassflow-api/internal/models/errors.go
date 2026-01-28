@@ -37,3 +37,7 @@ func IsSchemaVersionNotFoundErr(err error) bool { return errors.Is(err, ErrSchem
 var ErrConfigNotFound = errors.New("config not found")
 
 func IsConfigNotFoundErr(err error) bool { return errors.Is(err, ErrConfigNotFound) }
+
+var ErrIncompatibleSchema = errors.New("incompatible schema")
+
+func IsIncompatibleSchemaErr(err error) bool { return errors.Is(err, ErrIncompatibleSchema) }

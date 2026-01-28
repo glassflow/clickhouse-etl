@@ -13,41 +13,25 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor with deduplication
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
+        And a schema version with config:
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "test_topic": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
-                            {
-                                "field_name": "name",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
+                "source_id": "test_topic",
+                "version_id": "1",
+                "data_type": "json",
+                "fields": [
                     {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "test_topic",
-                        "column_type": "string"
+                        "name": "id",
+                        "type": "string"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "test_topic",
-                        "column_type": "String"
+                        "name": "name",
+                        "type": "string"
                     }
                 ]
             }
             """
-        Given an ingestor component config:
+        And an ingestor component config:
             """json
             {
                 "type": "kafka",
@@ -85,7 +69,7 @@ Feature: Kafka Ingestor
 
         And I run the ingestor component
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name        |
             | 123 | John Doe    |
             | 456 | Jane Smith  |
@@ -93,36 +77,20 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor without deduplication
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
+        And a schema version with config:
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "test_topic": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
-                            {
-                                "field_name": "name",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
+                "source_id": "test_topic",
+                "version_id": "1",
+                "data_type": "json",
+                "fields": [
                     {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "test_topic",
-                        "column_type": "string"
+                        "name": "id",
+                        "type": "string"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "test_topic",
-                        "column_type": "String"
+                        "name": "name",
+                        "type": "string"
                     }
                 ]
             }
@@ -162,7 +130,7 @@ Feature: Kafka Ingestor
 
         And I run the ingestor component
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name           |
             | 123 | Sir Paul       |
             | 456 | Judy Smith     |
@@ -171,36 +139,20 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor with deduplication and multiple partitions
         Given a Kafka topic "test_topic" with 3 partitions
-        And a schema mapper with config:
+        And a schema version with config:
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "test_topic": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
-                            {
-                                "field_name": "name",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
+                "source_id": "test_topic",
+                "version_id": "1",
+                "data_type": "json",
+                "fields": [
                     {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "test_topic",
-                        "column_type": "string"
+                        "name": "id",
+                        "type": "string"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "test_topic",
-                        "column_type": "String"
+                        "name": "name",
+                        "type": "string"
                     }
                 ]
             }
@@ -243,7 +195,7 @@ Feature: Kafka Ingestor
 
         And I run the ingestor component
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name         |
             | 123 | Max Wilson   |
             | 456 | Pete Roller  |
@@ -251,36 +203,20 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor with validation
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
+        And a schema version with config:
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "test_topic": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
-                            {
-                                "field_name": "name",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
+                "source_id": "test_topic",
+                "version_id": "1",
+                "data_type": "json",
+                "fields": [
                     {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "test_topic",
-                        "column_type": "string"
+                        "name": "id",
+                        "type": "string"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "test_topic",
-                        "column_type": "String"
+                        "name": "name",
+                        "type": "string"
                     }
                 ]
             }
@@ -318,47 +254,31 @@ Feature: Kafka Ingestor
 
         And I run the ingestor component
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name  |
             | 123 | Alice |
             | 456 | Bob   |
 
         And I check DLQ stream with content
-            | component | error                                                                         | original_message |
-            | ingestor  | failed to validate data: field 'id' not found in data for stream 'test_topic' | {"key": "value"} |
+            | component | error                                                                                            | original_message |
+            | ingestor  | failed to validate data: validate json data against fields: field 'id' is missing in the message | {"key": "value"} |
 
     Scenario: Run 2 ingestor from 2 separate pipelines for the one kafka topic
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
+        And a schema version with config:
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "test_topic": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
-                            {
-                                "field_name": "name",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
+                "source_id": "test_topic",
+                "version_id": "1",
+                "data_type": "json",
+                "fields": [
                     {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "test_topic",
-                        "column_type": "string"
+                        "name": "id",
+                        "type": "string"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "test_topic",
-                        "column_type": "String"
+                        "name": "name",
+                        "type": "string"
                     }
                 ]
             }
@@ -397,7 +317,7 @@ Feature: Kafka Ingestor
 
         And I run the ingestor component
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name          |
             | 123 | John Doe      |
             | 456 | Jane Smith    |
@@ -436,7 +356,7 @@ Feature: Kafka Ingestor
 
         And I run the ingestor component
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name          |
             | 123 | John Doe      |
             | 456 | Jane Smith    |
@@ -445,36 +365,20 @@ Feature: Kafka Ingestor
 
     Scenario: Check deduplication within 2 batches
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
+        And a schema version with config:
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "test_topic": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
-                            {
-                                "field_name": "name",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
+                "source_id": "test_topic",
+                "version_id": "1",
+                "data_type": "json",
+                "fields": [
                     {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "test_topic",
-                        "column_type": "string"
+                        "name": "id",
+                        "type": "string"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "test_topic",
-                        "column_type": "String"
+                        "name": "name",
+                        "type": "string"
                     }
                 ]
             }
@@ -517,7 +421,7 @@ Feature: Kafka Ingestor
             | 5   | {"id": "456",  "name": "Janet Smith"} |
 
         And I run the ingestor component
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name        |
             | 123 | John Doe    |
             | 456 | Jane Smith  |
@@ -529,43 +433,27 @@ Feature: Kafka Ingestor
             | 7   | {"id": "111", "name": "Alice Brown"}    |
             | 8   | {"id": "101", "name": "Johnny Doe"}     |
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name           |
             | 111 | Alice Brown    |
             | 101 | Robert Johnson |
 
     Scenario: Check kafka partitions read
         Given a Kafka topic "test_topic" with 3 partitions
-        And a schema mapper with config:
+        And a schema version with config:
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "test_topic": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
-                            {
-                                "field_name": "name",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
+                "source_id": "test_topic",
+                "version_id": "1",
+                "data_type": "json",
+                "fields": [
                     {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "test_topic",
-                        "column_type": "string"
+                        "name": "id",
+                        "type": "string"
                     },
                     {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "test_topic",
-                        "column_type": "String"
+                        "name": "name",
+                        "type": "string"
                     }
                 ]
             }
@@ -615,7 +503,7 @@ Feature: Kafka Ingestor
 
         And I run the ingestor component
 
-        Then I check results stream with content
+        Then I check results stream with lag 0 and content
             | id  | name         |
             | 123 | Max Wilson   |
             | 130 | Pete Roller  |
