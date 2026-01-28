@@ -7,8 +7,10 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	sr "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_registry"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -17,25 +19,25 @@ type IngestorRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	topicName    string
-	pipelineCfg  models.PipelineConfig
-	schemaMapper schema.Mapper
-	meter        *observability.Meter
+	topicName   string
+	pipelineCfg models.PipelineConfig
+	db          PipelineStore
+	meter       *observability.Meter
 
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper, meter *observability.Meter) *IngestorRunner {
+func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, db PipelineStore, meter *observability.Meter) *IngestorRunner {
 	return &IngestorRunner{
 		nc:  nc,
 		log: log,
 
-		topicName:    topicName,
-		pipelineCfg:  pipelineCfg,
-		schemaMapper: schemaMapper,
-		meter:        meter,
+		topicName:   topicName,
+		pipelineCfg: pipelineCfg,
+		db:          db,
+		meter:       meter,
 
 		component: nil,
 	}
@@ -50,10 +52,19 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
+	var srClient *sr.SchemaRegistryClient
 	var outputStreamID string
 	for _, topic := range i.pipelineCfg.Ingestor.KafkaTopics {
 		if topic.Name == i.topicName {
 			outputStreamID = topic.OutputStreamID
+			if topic.SchemaRegistryConfig.URL != "" {
+				var err error
+				srClient, err = sr.NewSchemaRegistryClient(topic.SchemaRegistryConfig)
+				if err != nil {
+					i.log.ErrorContext(ctx, "failed to create schema registry client", "error", err)
+					return fmt.Errorf("create schema registry client: %w", err)
+				}
+			}
 		}
 	}
 
@@ -78,12 +89,28 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		},
 	)
 
+	signalPublisher, err := componentsignals.NewPublisher(i.nc)
+	if err != nil {
+		return fmt.Errorf("create component signal publisher: %w", err)
+	}
+
+	schema, err := schemav2.NewSchema(
+		i.pipelineCfg.Status.PipelineID,
+		i.topicName,
+		i.db,
+		srClient,
+	)
+	if err != nil {
+		return fmt.Errorf("create schema for ingestor: %w", err)
+	}
+
 	component, err := component.NewIngestorComponent(
 		i.pipelineCfg,
 		i.topicName,
 		streamPublisher,
 		dlqStreamPublisher,
-		i.schemaMapper,
+		schema,
+		signalPublisher,
 		i.doneCh,
 		i.log,
 		i.meter,

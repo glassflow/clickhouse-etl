@@ -44,7 +44,7 @@ func TestValidateJSONToSchema(t *testing.T) {
 				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			wantError: true,
-			errorMsg:  "field name is missing in the message",
+			errorMsg:  "field 'name' is missing in the message",
 		},
 		{
 			name: "type mismatch - expected string got number",
@@ -54,7 +54,7 @@ func TestValidateJSONToSchema(t *testing.T) {
 				{Name: "name", Type: internal.KafkaTypeString},
 			},
 			wantError: true,
-			errorMsg:  "field name type validation failed",
+			errorMsg:  "field 'name' type validation failed",
 		},
 		{
 			name: "type mismatch - expected number got string",
@@ -63,7 +63,7 @@ func TestValidateJSONToSchema(t *testing.T) {
 				{Name: "id", Type: internal.KafkaTypeInt},
 			},
 			wantError: true,
-			errorMsg:  "field id type validation failed",
+			errorMsg:  "field 'id' type validation failed",
 		},
 		{
 			name: "valid complex types",

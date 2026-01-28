@@ -141,6 +141,18 @@ func (m *mockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string
 	return nil
 }
 
+func (m *mockPipelineStore) GetSchemaVersion(ctx context.Context, pipelineID, sourceID, versionID string) (*models.SchemaVersion, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) GetLatestSchemaVersion(ctx context.Context, pipelineID, sourceID string) (*models.SchemaVersion, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) SaveNewSchemaVersion(ctx context.Context, pipelineID, sourceID, oldVersionID, newVersionID string) error {
+	return nil
+}
+
 func TestPipelineService_ResumePipeline(t *testing.T) {
 	tests := []struct {
 		name           string

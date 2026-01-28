@@ -212,7 +212,7 @@ func TestSchema_ValidateExternalSchema(t *testing.T) {
 		versionID, err := schema.Validate(ctx, data)
 
 		assert.Error(t, err)
-		assert.Empty(t, versionID)
+		assert.Equal(t, "100", versionID)
 		assert.True(t, errors.Is(err, models.ErrSchemaNotFound))
 	})
 
@@ -233,7 +233,7 @@ func TestSchema_ValidateExternalSchema(t *testing.T) {
 		versionID, err := schema.Validate(ctx, data)
 
 		assert.Error(t, err)
-		assert.Empty(t, versionID)
+		assert.Equal(t, "100", versionID)
 		assert.Contains(t, err.Error(), "has no fields")
 	})
 

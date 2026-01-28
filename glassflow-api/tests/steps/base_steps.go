@@ -105,6 +105,16 @@ func (b *BaseTestSuite) cleanupCH() error {
 	return nil
 }
 
+func (b *BaseTestSuite) setupPostgres() error {
+	pgContainer, err := testutils.StartPostgresContainer(context.Background())
+	if err != nil {
+		return fmt.Errorf("start postgres container: %w", err)
+	}
+	b.postgresContainer = pgContainer
+
+	return nil
+}
+
 func (b *BaseTestSuite) cleanupPostgres() error {
 	if b.postgresContainer != nil {
 		err := b.postgresContainer.Stop(context.Background())
@@ -400,6 +410,8 @@ func (b *BaseTestSuite) publishEventsToKafka(topicName string, table *godog.Tabl
 					event.Key = cell.Value
 				case "value":
 					event.Value = []byte(cell.Value)
+				case "schema_id":
+					event.SchemaID = cell.Value
 				default:
 					return fmt.Errorf("unknown field %s", headers[i])
 				}
