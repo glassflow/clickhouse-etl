@@ -101,8 +101,8 @@ func NewClickHouseSink(
 		maxDelayTime = sinkConfig.Batch.MaxDelayTime.Duration()
 	}
 
-	// Set worker pool size to available CPUs
-	workerPoolSize := runtime.NumCPU()
+	// Set worker pool size to GOMAXPROCS
+	workerPoolSize := runtime.GOMAXPROCS(0)
 
 	return &ClickHouseSink{
 		client:                clickhouseClient,
