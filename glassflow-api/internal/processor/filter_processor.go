@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
@@ -32,6 +33,8 @@ func (fp *FilterProcessor) ProcessBatch(
 	ctx context.Context,
 	batch ProcessorBatch,
 ) ProcessorBatch {
+	start := time.Now()
+
 	messages := make([]models.Message, 0, len(batch.Messages))
 	failedMessages := make([]models.FailedMessage, 0)
 
@@ -53,10 +56,22 @@ func (fp *FilterProcessor) ProcessBatch(
 		messages = append(messages, msg)
 	}
 
+	duration := time.Since(start).Seconds()
 	if fp.meter != nil {
-		filteredCount := len(batch.Messages) - len(messages) - len(failedMessages)
+		fp.meter.RecordProcessorDuration(ctx, "filter", duration)
+
+		successCount := int64(len(messages))
+		if successCount > 0 {
+			fp.meter.RecordProcessorMessages(ctx, "filter", "success", successCount)
+		}
+
+		filteredCount := int64(len(batch.Messages) - len(messages) - len(failedMessages))
 		if filteredCount > 0 {
-			fp.meter.RecordFilteredMessage(ctx, int64(filteredCount))
+			fp.meter.RecordProcessorMessages(ctx, "filter", "filtered", filteredCount)
+		}
+
+		if len(failedMessages) > 0 {
+			fp.meter.RecordProcessorMessages(ctx, "filter", "error", int64(len(failedMessages)))
 		}
 	}
 

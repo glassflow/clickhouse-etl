@@ -142,15 +142,15 @@ func NewDedupComponent(
 	pipelineConfig models.PipelineConfig,
 	cfg *config,
 	meter *observability.Meter,
-) (*processor.Component, error) {
+) (*processor.StreamingComponent, error) {
 	role := internal.RoleDeduplicator
 
-	dedupProcessor, err := dedupProcessorFromConfig(pipelineConfig, cfg)
+	dedupProcessor, err := dedupProcessorFromConfig(pipelineConfig, cfg, meter)
 	if err != nil {
 		return nil, fmt.Errorf("dedupProcessorFromConfig: %w", err)
 	}
 
-	statelessTransformerProcessorBase, err := statelessProcessorFromConfig(pipelineConfig)
+	statelessTransformerProcessorBase, err := statelessProcessorFromConfig(pipelineConfig, meter)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func NewDedupComponent(
 		filterProcessorBase,
 	)
 
-	return processor.NewComponent(
+	return processor.NewStreamingComponent(
 		reader,
 		writer,
 		dlqWriter,
@@ -184,7 +184,7 @@ func NewDedupComponent(
 	), nil
 }
 
-func statelessProcessorFromConfig(config models.PipelineConfig) (processor.Processor, error) {
+func statelessProcessorFromConfig(config models.PipelineConfig, meter *observability.Meter) (processor.Processor, error) {
 	if !config.StatelessTransformation.Enabled {
 		return &processor.NoopProcessor{}, nil
 	}
@@ -194,7 +194,7 @@ func statelessProcessorFromConfig(config models.PipelineConfig) (processor.Proce
 		return nil, fmt.Errorf("create stateless transformer: %w", err)
 	}
 
-	statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
+	statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, meter)
 
 	return statelessTransformerProcessorBase, nil
 }
@@ -219,6 +219,7 @@ func filterProcessorFromConfig(
 func dedupProcessorFromConfig(
 	config models.PipelineConfig,
 	cfg *config,
+	meter *observability.Meter,
 ) (processor.Processor, error) {
 	var topicConfig *models.KafkaTopicsConfig
 	for i, topic := range config.Ingestor.KafkaTopics {
@@ -246,5 +247,5 @@ func dedupProcessorFromConfig(
 	ttl := topicConfig.Deduplication.Window.Duration()
 	badgerDedup := badgerDeduplication.NewDeduplicator(db, ttl)
 
-	return processor.NewDedupProcessor(badgerDedup), nil
+	return processor.NewDedupProcessor(badgerDedup, meter), nil
 }
