@@ -181,3 +181,56 @@ func TestBatchReader_Nak(t *testing.T) {
 	require.NoError(t, err, "messages should be available for redelivery after nak")
 	require.Len(t, messages, 3)
 }
+
+func TestBatchReader_Consume_BasicConsumption(t *testing.T) {
+	natsServer, nc, js := setupNATSServer(t)
+	defer natsServer.Shutdown()
+	defer nc.Close()
+
+	ctx := context.Background()
+	consumer := createStreamAndConsumer(t, js, ctx, "test.consume.basic")
+
+	for i := 0; i < 5; i++ {
+		_, err := js.Publish(ctx, "test.consume.basic", []byte(fmt.Sprintf(`{"id": %d}`, i)))
+		require.NoError(t, err)
+	}
+
+	reader := natsBatch.NewBatchReader(consumer)
+
+	receivedCount := 0
+	receivedMsgs := make([]models.Message, 0)
+	done := make(chan struct{})
+
+	handler := func(msg models.Message) {
+		receivedMsgs = append(receivedMsgs, msg)
+		receivedCount++
+		if receivedCount == 5 {
+			close(done)
+		}
+	}
+
+	handle, err := reader.Consume(ctx, handler)
+	require.NoError(t, err)
+	require.NotNil(t, handle)
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for messages to be consumed")
+	}
+
+	handle.Stop()
+
+	select {
+	case <-handle.Done():
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for Done channel")
+	}
+
+	require.Equal(t, 5, receivedCount)
+	require.Len(t, receivedMsgs, 5)
+
+	for _, msg := range receivedMsgs {
+		require.NotNil(t, msg.JetstreamMsgOriginal)
+	}
+}

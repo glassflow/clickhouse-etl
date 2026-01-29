@@ -179,7 +179,7 @@ func createComponent(
 	if dedupConfig != nil && dedupConfig.Enabled {
 		ttl := dedupConfig.Window.Duration()
 		badgerDedup := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), ttl)
-		dedupProcessor = processor.NewDedupProcessor(badgerDedup)
+		dedupProcessor = processor.NewDedupProcessor(badgerDedup, nil)
 	} else {
 		dedupProcessor = &processor.NoopProcessor{}
 	}
@@ -189,7 +189,7 @@ func createComponent(
 	if statelessTransform != nil && statelessTransform.Enabled {
 		transformer, err := jsonTransformer.NewTransformer(statelessTransform.Config.Transform)
 		require.NoError(t, err)
-		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
+		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, nil)
 		statelessTransformerProcessor = processor.ChainProcessors(
 			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
 			statelessTransformerProcessorBase,
