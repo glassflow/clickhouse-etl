@@ -129,6 +129,7 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 		"max_batch_size", ch.maxBatchSize,
 		"max_delay_time", ch.maxDelayTime,
 		"worker_pool_size", ch.workerPoolSize,
+		"ack_worker_pool_size", ch.workerPoolSize,
 		"mode", "callback_consume_pattern")
 
 	defer ch.log.InfoContext(ctx, "ClickHouse sink stopped")
@@ -349,7 +350,50 @@ func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.
 	return nil
 }
 
-// write failed batch to dlq
+func (ch *ClickHouseSink) ackMessagesParallel(ctx context.Context, messages []jetstream.Msg) error {
+	if len(messages) == 0 {
+		return nil
+	}
+	workers := ch.workerPoolSize
+	if workers > len(messages) {
+		workers = len(messages)
+	}
+	chunkSize := (len(messages) + workers - 1) / workers
+	var firstErr error
+	var once sync.Once
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		start := i * chunkSize
+		if start >= len(messages) {
+			break
+		}
+		end := start + chunkSize
+		if end > len(messages) {
+			end = len(messages)
+		}
+		chunk := messages[start:end]
+		wg.Add(1)
+		go func(msgs []jetstream.Msg) {
+			defer wg.Done()
+			for _, msg := range msgs {
+				err := retry.Do(
+					func() error { return msg.Ack() },
+					retry.Attempts(3),
+					retry.DelayType(retry.FixedDelay),
+				)
+				if err != nil {
+					once.Do(func() { firstErr = err })
+				}
+			}
+		}(chunk)
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return fmt.Errorf("acknowledge message: %w", firstErr)
+	}
+	return nil
+}
+
 func (ch *ClickHouseSink) flushFailedBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
@@ -360,21 +404,8 @@ func (ch *ClickHouseSink) flushFailedBatch(
 		if err != nil {
 			return fmt.Errorf("push message to DLQ: %w", err)
 		}
-
-		err = retry.Do(
-			func() error {
-				err = msg.Ack()
-				return err
-			},
-			retry.Attempts(3),
-			retry.DelayType(retry.FixedDelay),
-		)
-		if err != nil {
-			return fmt.Errorf("acknowledge message: %w", err)
-		}
 	}
-
-	return nil
+	return ch.ackMessagesParallel(ctx, messages)
 }
 
 func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Msg) error {
@@ -410,19 +441,8 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		}
 	}
 
-	// Ack ALL messages individually (like NATS CLI bench)
-	// This provides better flow control and throughput
-	for _, msg := range messages {
-		err = retry.Do(
-			func() error {
-				return msg.Ack()
-			},
-			retry.Attempts(3),
-			retry.DelayType(retry.FixedDelay),
-		)
-		if err != nil {
-			return fmt.Errorf("acknowledge message: %w", err)
-		}
+	if err = ch.ackMessagesParallel(ctx, messages); err != nil {
+		return err
 	}
 
 	ch.log.InfoContext(ctx, "Batch processing completed successfully",
