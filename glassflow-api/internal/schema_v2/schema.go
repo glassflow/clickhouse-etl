@@ -18,6 +18,7 @@ type SchemaRegistryClient interface {
 type SchemaInterface interface {
 	Get(ctx context.Context, versionID, key string, data []byte) (any, error)
 	Validate(ctx context.Context, versionID string, data []byte) error
+	IsExternal() bool
 }
 
 type Schema struct {
@@ -67,10 +68,14 @@ func (s *Schema) validateExternalSchema(ctx context.Context, data []byte) (zero 
 	schemaVersion, err := s.store.GetSchemaVersion(ctx, fmt.Sprintf("%d", version))
 	if err != nil {
 		if errors.Is(err, models.ErrSchemaVerionNotFound) {
-			return s.validateAndSaveNewSchemaVersion(ctx, version)
+			newVersion, err := s.validateAndSaveNewSchemaVersion(ctx, version)
+			if err != nil {
+				return fmt.Sprintf("%d", version), err
+			}
+			return newVersion, nil
 		}
 
-		return zero, fmt.Errorf("failed to get schema version %d for source %s: %w", version, s.sourceID, err)
+		return fmt.Sprintf("%d", version), fmt.Errorf("failed to get schema version %d for source %s: %w", version, s.sourceID, err)
 	}
 
 	return schemaVersion.VersionID, nil
@@ -96,7 +101,7 @@ func (s *Schema) validateAndSaveNewSchemaVersion(ctx context.Context, version in
 
 	err = validateSchemaToSchema(schemaFields, latestSchemaVersion.Fields)
 	if err != nil {
-		return zero, fmt.Errorf("new schema version %d validation against latest version %s for source %s failed: %w", version, latestSchemaVersion.VersionID, s.sourceID, err)
+		return zero, models.ErrIncompatibleSchema
 	}
 
 	newVersion := fmt.Sprintf("%d", version)
@@ -153,6 +158,10 @@ func (s *Schema) Get(ctx context.Context, versionID, key string, data []byte) (a
 	}
 
 	return result.Value(), nil
+}
+
+func (s *Schema) IsExternal() bool {
+	return s.external
 }
 
 func extractSchemaVersion(data []byte) (int, error) {
