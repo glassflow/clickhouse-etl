@@ -44,6 +44,12 @@ type processedMessage struct {
 	msg      jetstream.Msg
 }
 
+// sendItem is a prepared batch and its messages, queued for the writer goroutine to send.
+type sendItem struct {
+	batch    clickhouse.Batch
+	messages []jetstream.Msg
+}
+
 // ClickHouseSink uses Consume() callback pattern optimized for high throughput
 // This implementation follows the NATS CLI benchmark pattern for efficient message consumption
 type ClickHouseSink struct {
@@ -75,6 +81,13 @@ type ClickHouseSink struct {
 	workerWg         sync.WaitGroup
 	workerCtx        context.Context
 	workerCancel     context.CancelFunc
+
+	// Pipelining: writer goroutine sends batches so the handler can return immediately
+	sendChan chan sendItem
+	writerWg sync.WaitGroup
+
+	// createCHBatchMu serializes createCHBatch so worker pool results are not mixed across concurrent batches
+	createCHBatchMu sync.Mutex
 }
 
 func NewClickHouseSink(
@@ -145,6 +158,13 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	ch.workerResultChan = make(chan workerResult, ch.workerPoolSize)
 	ch.startWorkerPool()
 	defer ch.stopWorkerPool()
+
+	// Pipelining: bounded channel so handler returns after prepare; writer sends in background
+	const sendQueueCap = 2
+	ch.sendChan = make(chan sendItem, sendQueueCap)
+	ch.writerWg.Add(1)
+	go ch.writeLoop()
+	defer ch.stopWriter()
 
 	// Create ticker for time-based flushing
 	ch.bufferFlushTicker = time.NewTicker(ch.maxDelayTime)
@@ -268,6 +288,82 @@ func (ch *ClickHouseSink) stopWorkerPool() {
 	ch.log.Info("Worker pool stopped")
 }
 
+// writeWorkerID identifies the single writer goroutine (0). Used in logs to trace which worker writes each batch.
+const writeWorkerID = 0
+
+// writeLoop runs in a dedicated goroutine; receives prepared batches and sends them to ClickHouse.
+// This allows the message handler to return immediately after prepare (pipelining).
+func (ch *ClickHouseSink) writeLoop() {
+	defer ch.writerWg.Done()
+	ctx := context.Background()
+	for item := range ch.sendChan {
+		ch.log.Debug("writer received batch from queue",
+			"write_worker_id", writeWorkerID,
+			"batch_size", item.batch.Size())
+		ch.executeSend(ctx, item)
+	}
+	ch.log.Debug("Write loop exited", "write_worker_id", writeWorkerID)
+}
+
+// stopWriter closes the send channel and waits for the writer to drain and exit.
+func (ch *ClickHouseSink) stopWriter() {
+	if ch.sendChan == nil {
+		return
+	}
+	close(ch.sendChan)
+	ch.writerWg.Wait()
+	ch.sendChan = nil
+	ch.log.Info("Writer stopped")
+}
+
+// executeSend sends one batch to ClickHouse, then acks messages or pushes to DLQ on failure.
+func (ch *ClickHouseSink) executeSend(ctx context.Context, item sendItem) {
+	size := item.batch.Size()
+	start := time.Now()
+
+	ch.log.InfoContext(ctx, "writer sending batch to ClickHouse",
+		"write_worker_id", writeWorkerID,
+		"batch_size", size)
+
+	err := item.batch.Send(ctx)
+	if err != nil {
+		ch.log.Error("writer failed to send batch to ClickHouse, writing to DLQ",
+			"write_worker_id", writeWorkerID,
+			"batch_size", size,
+			"error", err)
+		err = ch.flushFailedBatch(ctx, item.messages, err)
+		if err != nil {
+			ch.log.Error("failed to flush batch to DLQ", "error", err)
+		}
+		return
+	}
+
+	ch.log.InfoContext(ctx, "writer completed batch write to ClickHouse",
+		"write_worker_id", writeWorkerID,
+		"message_count", size,
+		"duration_ms", time.Since(start).Milliseconds())
+
+	if ch.meter != nil {
+		ch.meter.RecordClickHouseWrite(ctx, int64(size))
+		duration := time.Since(start).Seconds()
+		if duration > 0 {
+			ch.meter.RecordSinkRate(ctx, float64(size)/duration)
+		}
+	}
+
+	for _, msg := range item.messages {
+		err = retry.Do(
+			func() error { return msg.Ack() },
+			retry.Attempts(3),
+			retry.DelayType(retry.FixedDelay),
+		)
+		if err != nil {
+			ch.log.Error("acknowledge message failed", "error", err)
+			return
+		}
+	}
+}
+
 // worker processes messages in parallel by calling PrepareValues
 func (ch *ClickHouseSink) worker(workerID int) {
 	defer ch.workerWg.Done()
@@ -377,6 +473,8 @@ func (ch *ClickHouseSink) flushFailedBatch(
 	return nil
 }
 
+// sendBatch prepares the batch and enqueues it for the writer goroutine (pipelining).
+// It returns immediately after enqueue so the handler can keep consuming; Send and ack happen in writeLoop.
 func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Msg) error {
 	if len(messages) == 0 {
 		return nil
@@ -387,49 +485,15 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		return fmt.Errorf("create CH batch: %w", err)
 	}
 
-	size := chBatch.Size()
-	start := time.Now()
-
-	// Send batch to ClickHouse
-	err = chBatch.Send(ctx)
-	if err != nil {
-		return fmt.Errorf("send the batch: %w", err)
+	// Enqueue for writer; backpressure when channel is full (cap 2)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ch.sendChan <- sendItem{batch: chBatch, messages: messages}:
+		ch.log.Debug("enqueued batch for writer",
+			"batch_size", chBatch.Size(),
+			"queue_cap", cap(ch.sendChan))
 	}
-	ch.log.InfoContext(ctx, "Data sent successfully to ClickHouse",
-		"message_count", size)
-
-	// Record ClickHouse write metrics
-	if ch.meter != nil {
-		ch.meter.RecordClickHouseWrite(ctx, int64(size))
-
-		// Calculate and record write rate
-		duration := time.Since(start).Seconds()
-		if duration > 0 {
-			rate := float64(size) / duration
-			ch.meter.RecordSinkRate(ctx, rate)
-		}
-	}
-
-	// Ack ALL messages individually (like NATS CLI bench)
-	// This provides better flow control and throughput
-	for _, msg := range messages {
-		err = retry.Do(
-			func() error {
-				return msg.Ack()
-			},
-			retry.Attempts(3),
-			retry.DelayType(retry.FixedDelay),
-		)
-		if err != nil {
-			return fmt.Errorf("acknowledge message: %w", err)
-		}
-	}
-
-	ch.log.InfoContext(ctx, "Batch processing completed successfully",
-		"status", "success",
-		"sent_messages", size,
-	)
-
 	return nil
 }
 
@@ -437,6 +501,9 @@ func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (clickhouse.Batch, error) {
+	ch.createCHBatchMu.Lock()
+	defer ch.createCHBatchMu.Unlock()
+
 	prepStartTime := time.Now()
 
 	// Step 1: Query creation
