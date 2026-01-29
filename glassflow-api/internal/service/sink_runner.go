@@ -55,11 +55,14 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 
 	// Calculate MaxAckPending based on batch size and worker pool capacity
 	maxBatchSize := s.pipelineCfg.Sink.Batch.MaxBatchSize
-	workerPoolSize := runtime.GOMAXPROCS(0) - 2
+
+	workerPoolSize := runtime.GOMAXPROCS(0) - 2 // Leaving 2 threads for GC, IO and other system tasks
 	if workerPoolSize < 1 {
 		workerPoolSize = 1
 	}
-	maxAckPending := maxBatchSize * (workerPoolSize + 2)
+
+	// Max os threads
+	maxAckPending := maxBatchSize * (workerPoolSize * 2)
 	if maxAckPending < maxBatchSize*2 {
 		// Ensure minimum of 2x batch size
 		maxAckPending = maxBatchSize * 2
