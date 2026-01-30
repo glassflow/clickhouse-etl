@@ -13,13 +13,20 @@ import { OperationKeys } from '@/src/config/constants'
 import type { SidebarStep } from './WizardSidebar'
 import { isPreviewModeEnabled, isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 
+/** Unique step occurrence in the wizard journey; used for instance-based navigation. */
+export interface StepInstance {
+  id: string
+  key: StepKeys
+  topicIndex?: number
+}
+
 // Re-export step icons for external use
 export { getStepIcon, stepIcons, type StepIconComponent } from './wizard-step-icons'
 
 // Sidebar step configuration for display in the wizard sidebar
 // Maps step keys to display titles and hierarchy information
 // Icons are defined separately in wizard-step-icons.tsx
-const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'key'>> = {
+const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>> = {
   [StepKeys.KAFKA_CONNECTION]: {
     title: 'Kafka Connection',
     parent: null,
@@ -201,6 +208,140 @@ export const getTwoTopicJourney = (): StepKeys[] => {
   return steps
 }
 
+/** Build a stable unique id for a step occurrence (key + topicIndex or journey index). */
+function stepInstanceId(key: StepKeys, topicIndex?: number, journeyIndex?: number): string {
+  if (topicIndex !== undefined) {
+    return `${key}-${topicIndex}`
+  }
+  return `${key}-${journeyIndex ?? 0}`
+}
+
+/** Single-topic journey as step instances with unique ids and topicIndex where needed. */
+export function getSingleTopicJourneyInstances(): StepInstance[] {
+  const keys = getSingleTopicJourney()
+  const instances: StepInstance[] = []
+  const topicIndex = 0
+  keys.forEach((key, index) => {
+    const needsTopicIndex =
+      key === StepKeys.DEDUPLICATION_CONFIGURATOR || key === StepKeys.KAFKA_TYPE_VERIFICATION
+    instances.push({
+      id: stepInstanceId(key, needsTopicIndex ? topicIndex : undefined, index),
+      key,
+      ...(needsTopicIndex && { topicIndex: 0 }),
+    })
+  })
+  return instances
+}
+
+/** Two-topic journey as step instances with unique ids and topicIndex where needed. */
+export function getTwoTopicJourneyInstances(): StepInstance[] {
+  const keys = getTwoTopicJourney()
+  const instances: StepInstance[] = []
+  keys.forEach((key, index) => {
+    let topicIndex: number | undefined
+    if (key === StepKeys.TOPIC_SELECTION_1 || key === StepKeys.DEDUPLICATION_CONFIGURATOR || key === StepKeys.KAFKA_TYPE_VERIFICATION) {
+      // Determine topic from position: before TOPIC_SELECTION_2 -> 0, after -> 1
+      const hasSeenTopic2 = keys.slice(0, index).includes(StepKeys.TOPIC_SELECTION_2)
+      topicIndex = hasSeenTopic2 ? 1 : 0
+    } else if (key === StepKeys.TOPIC_SELECTION_2) {
+      topicIndex = 1
+    }
+    const needsTopicIndex =
+      key === StepKeys.DEDUPLICATION_CONFIGURATOR || key === StepKeys.KAFKA_TYPE_VERIFICATION
+    instances.push({
+      id: stepInstanceId(key, needsTopicIndex ? topicIndex : undefined, index),
+      key,
+      ...(needsTopicIndex && topicIndex !== undefined && { topicIndex }),
+    })
+  })
+  return instances
+}
+
+/** Get journey as step instances for the given topic count. */
+export function getWizardJourneyInstances(topicCount: number | undefined): StepInstance[] {
+  if (!topicCount || topicCount < 1 || topicCount > 2) {
+    return []
+  }
+  return topicCount === 1 ? getSingleTopicJourneyInstances() : getTwoTopicJourneyInstances()
+}
+
+/** Build sidebar steps (with instance id) from a step-instance journey. One row per instance. */
+export function getSidebarStepsFromInstances(
+  journey: StepInstance[],
+  topicCount: number,
+): SidebarStep[] {
+  const mainSteps: SidebarStep[] = []
+  const substeps: SidebarStep[] = []
+
+  journey.forEach((instance, index) => {
+    const stepKey = instance.key
+    const config = sidebarStepConfig[stepKey]
+    if (!config) return
+
+    let title = config.title
+    if (stepKey === StepKeys.TOPIC_SELECTION_1 && topicCount === 2) {
+      title = 'Select Left Topic'
+    }
+
+    if (stepKey === StepKeys.KAFKA_TYPE_VERIFICATION && topicCount === 2) {
+      const topicIndex = instance.topicIndex ?? 0
+      title = topicIndex === 1 ? 'Verify Right Topic Types' : 'Verify Left Topic Types'
+      const parentStep = topicIndex === 1 ? StepKeys.TOPIC_SELECTION_2 : StepKeys.TOPIC_SELECTION_1
+      substeps.push({ id: instance.id, key: stepKey, title, parent: parentStep })
+      return
+    }
+
+    if (
+      stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR ||
+      stepKey === StepKeys.FILTER_CONFIGURATOR ||
+      stepKey === StepKeys.TRANSFORMATION_CONFIGURATOR
+    ) {
+      let parentStep: StepKeys | null = null
+      for (let i = index - 1; i >= 0; i--) {
+        const prevStep = journey[i].key
+        if (topicCount === 2) {
+          if (
+            prevStep === StepKeys.TOPIC_SELECTION_1 ||
+            prevStep === StepKeys.TOPIC_SELECTION_2 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+          ) {
+            parentStep = prevStep
+            break
+          }
+        } else {
+          if (
+            prevStep === StepKeys.KAFKA_TYPE_VERIFICATION ||
+            prevStep === StepKeys.TOPIC_SELECTION_1 ||
+            prevStep === StepKeys.TOPIC_SELECTION_2 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
+            prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
+          ) {
+            parentStep = prevStep
+            break
+          }
+        }
+      }
+      if (parentStep) {
+        substeps.push({ id: instance.id, key: stepKey, title: config.title, parent: parentStep })
+        return
+      }
+    }
+
+    if (config.parent !== null && config.parent !== undefined) {
+      const parentIndex = journey.findIndex((inst) => inst.key === config.parent)
+      if (parentIndex !== -1 && parentIndex < index) {
+        substeps.push({ id: instance.id, key: stepKey, ...config, title })
+        return
+      }
+    }
+
+    mainSteps.push({ id: instance.id, key: stepKey, ...config, title })
+  })
+
+  return [...mainSteps, ...substeps]
+}
+
 // Convert a journey array to sidebar steps with hierarchy
 // This function includes all steps from the journey plus any substeps that belong to those steps
 // Steps that have a parent are excluded from the main journey steps (they're substeps, not main steps)
@@ -240,6 +381,7 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
       // In multi-topic journeys, type verification is a substep of topic selection
       const parentStep = isSecondTopic ? StepKeys.TOPIC_SELECTION_2 : StepKeys.TOPIC_SELECTION_1
       substeps.push({
+        id: `${stepKey}-${index}`,
         key: stepKey,
         title,
         parent: parentStep,
@@ -289,6 +431,7 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
       if (parentStep) {
         // This is a substep of the parent step
         substeps.push({
+          id: `${stepKey}-${index}`,
           key: stepKey,
           title: config.title,
           parent: parentStep,
@@ -304,6 +447,7 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
       if (parentIndex !== -1 && parentIndex < index) {
         // This is a substep - use the parent from config
         substeps.push({
+          id: `${stepKey}-${index}`,
           key: stepKey,
           ...config,
           title, // Use potentially modified title
@@ -314,6 +458,7 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
 
     // Otherwise, it's a main step
     mainSteps.push({
+      id: `${stepKey}-${index}`,
       key: stepKey,
       ...config,
       title, // Use potentially modified title

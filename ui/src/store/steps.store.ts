@@ -1,17 +1,16 @@
 import { StateCreator } from 'zustand'
 
 export interface StepsStoreProps {
-  activeStep: string
-  completedSteps: string[]
-  editingStep: string
+  activeStepId: string | null
+  completedStepIds: string[]
 }
 export interface StepsStore extends StepsStoreProps {
   // actions
-  setActiveStep: (step: string) => void
-  setCompletedSteps: (steps: string[]) => void
-  addCompletedStep: (step: string) => void
-  removeCompletedStepsAfter: (step: string) => void
-  setEditingStep: (step: string) => void
+  setActiveStepId: (id: string | null) => void
+  setCompletedStepIds: (ids: string[]) => void
+  addCompletedStepId: (id: string) => void
+  /** Remove from completedStepIds all ids that appear after the given instanceId in the journey order. */
+  removeCompletedStepsAfterId: (instanceId: string, journeyInstanceIds: string[]) => void
 
   // reset steps store
   resetStepsStore: () => void
@@ -22,9 +21,8 @@ export interface StepsSlice {
 }
 
 export const initialStepsStore: StepsStoreProps = {
-  activeStep: '',
-  completedSteps: [],
-  editingStep: '',
+  activeStepId: null,
+  completedStepIds: [],
 }
 
 export const createStepsSlice: StateCreator<StepsSlice> = (set) => ({
@@ -32,26 +30,22 @@ export const createStepsSlice: StateCreator<StepsSlice> = (set) => ({
     ...initialStepsStore,
 
     // actions
-    setActiveStep: (step: string) =>
+    setActiveStepId: (id: string | null) =>
       set((state) => ({
-        stepsStore: { ...state.stepsStore, activeStep: step },
+        stepsStore: { ...state.stepsStore, activeStepId: id },
       })),
-    setCompletedSteps: (steps: string[]) => {
+    setCompletedStepIds: (ids: string[]) =>
       set((state) => ({
-        stepsStore: {
-          ...state.stepsStore,
-          completedSteps: steps,
-        },
-      }))
-    },
+        stepsStore: { ...state.stepsStore, completedStepIds: ids },
+      })),
 
-    addCompletedStep: (step: string) => {
+    addCompletedStepId: (id: string) => {
       set((state) => {
-        if (!state.stepsStore.completedSteps.includes(step)) {
+        if (!state.stepsStore.completedStepIds.includes(id)) {
           return {
             stepsStore: {
               ...state.stepsStore,
-              completedSteps: [...state.stepsStore.completedSteps, step],
+              completedStepIds: [...state.stepsStore.completedStepIds, id],
             },
           }
         }
@@ -59,23 +53,19 @@ export const createStepsSlice: StateCreator<StepsSlice> = (set) => ({
       })
     },
 
-    removeCompletedStepsAfter: (step: string) => {
+    removeCompletedStepsAfterId: (instanceId: string, journeyInstanceIds: string[]) => {
       set((state) => {
-        const stepIndex = state.stepsStore.completedSteps.indexOf(step)
-        if (stepIndex !== -1) {
-          // Keep all steps up to and including the given step
-          return {
-            stepsStore: {
-              ...state.stepsStore,
-              completedSteps: state.stepsStore.completedSteps.slice(0, stepIndex + 1),
-            },
-          }
+        const idx = journeyInstanceIds.indexOf(instanceId)
+        if (idx === -1) return state
+        const idsToKeep = state.stepsStore.completedStepIds.filter((id) => {
+          const journeyIdx = journeyInstanceIds.indexOf(id)
+          return journeyIdx !== -1 && journeyIdx <= idx
+        })
+        return {
+          stepsStore: { ...state.stepsStore, completedStepIds: idsToKeep },
         }
-        return state
       })
     },
-
-    setEditingStep: (step: string) => set((state) => ({ stepsStore: { ...state.stepsStore, editingStep: step } })),
 
     // reset steps store
     resetStepsStore: () => set((state) => ({ stepsStore: { ...state.stepsStore, ...initialStepsStore } })),
