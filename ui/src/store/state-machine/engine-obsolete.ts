@@ -1,5 +1,4 @@
 import { DependencyGraph, OperationType, StepType } from './types'
-import { OperationKeys } from '@/src/config/constants'
 
 class ResetEngine {
   private graph: DependencyGraph
@@ -72,10 +71,10 @@ class ResetEngine {
     this.store.setOutboundEventPreview({ events: [] })
     this.store.markAsClean()
 
-    // Reset steps to appropriate state based on operation
-    const initialStep = this.getInitialStepForOperation(operation)
-    this.store.stepsStore.setActiveStep(initialStep)
-    this.store.stepsStore.setCompletedSteps([initialStep])
+    // Reset steps to appropriate state based on operation (instance-based: first step id)
+    const initialStepId = this.getInitialStepIdForOperation(operation)
+    this.store.stepsStore.setActiveStepId(initialStepId)
+    this.store.stepsStore.setCompletedStepIds(initialStepId ? [initialStepId] : [])
   }
 
   private getDependencyDepth(nodeId: string): number {
@@ -85,15 +84,8 @@ class ResetEngine {
     return Math.max(...node.dependencies.map((dep) => this.getDependencyDepth(dep))) + 1
   }
 
-  private getInitialStepForOperation(operation: OperationType): string {
-    switch (operation) {
-      case OperationKeys.DEDUPLICATION:
-      case OperationKeys.JOINING:
-      case OperationKeys.DEDUPLICATION_JOINING:
-      case OperationKeys.INGEST_ONLY:
-        return 'kafka-connection'
-      default:
-        return 'kafka-connection'
-    }
+  private getInitialStepIdForOperation(_operation: OperationType): string {
+    // First step in any journey is kafka-connection with index 0
+    return 'kafka-connection-0'
   }
 }

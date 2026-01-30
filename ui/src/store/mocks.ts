@@ -414,30 +414,27 @@ const mockOutboundEventPreview = {
   events: {},
 }
 
-// Mock data for wizard state
+// Mock data for wizard state (instance-based)
 const mockWizardState = {
-  activeStep: 'review-configuration',
-  completedSteps: [
-    'kafka-connection',
-    'topic-selection',
-    'deduplication-configurator',
-    'clickhouse-connection',
-    'clickhouse-mapper',
+  activeStepId: 'review-configuration-0',
+  completedStepIds: [
+    'kafka-connection-0',
+    'topic-selection-1-0',
+    'deduplication-configurator-0',
+    'clickhouse-connection-0',
+    'clickhouse-mapper-0',
   ],
-  editingStep: '',
 }
 
 // Mock data for steps store
 const mockStepsStore = {
-  activeStep: mockWizardState.activeStep,
-  completedSteps: mockWizardState.completedSteps,
-  editingStep: mockWizardState.editingStep,
+  activeStepId: mockWizardState.activeStepId,
+  completedStepIds: mockWizardState.completedStepIds,
   // Mock actions
-  setActiveStep: () => {},
-  setCompletedSteps: () => {},
-  addCompletedStep: () => {},
-  removeCompletedStepsAfter: () => {},
-  setEditingStep: () => {},
+  setActiveStepId: () => {},
+  setCompletedStepIds: () => {},
+  addCompletedStepId: () => {},
+  removeCompletedStepsAfterId: () => {},
   resetStepsStore: () => {},
 }
 
