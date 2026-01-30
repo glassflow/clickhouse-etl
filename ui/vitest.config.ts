@@ -14,11 +14,6 @@ export default defineConfig({
     setupFiles: ['test/setupTests.ts'],
     include: ['test/**/*.{test,spec}.{ts,tsx}', 'modules/create/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', '.next'],
-    resolve: {
-      alias: {
-        '@': projectRoot,
-      },
-    },
   },
   resolve: {
     alias: {
