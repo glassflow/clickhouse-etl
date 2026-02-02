@@ -15,6 +15,7 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { Button } from '@/src/components/ui/button'
+import { isDeduplicationConfigComplete } from '@/src/modules/deduplication/utils/deduplicationValidation'
 
 export function DeduplicationConfigurator({
   onCompleteStep,
@@ -30,7 +31,7 @@ export function DeduplicationConfigurator({
   readOnly?: boolean
   standalone?: boolean
   toggleEditMode?: () => void
-  pipelineActionState?: any
+  pipelineActionState?: unknown
   onCompleteStandaloneEditing?: () => void
 }) {
   const analytics = useJourneyAnalytics()
@@ -53,7 +54,7 @@ export function DeduplicationConfigurator({
   const eventData = selectedEvent?.event || null
 
   // Get schema fields from KafkaTypeVerification step (if configured)
-  const schemaFields = (topic as any)?.schema?.fields as SchemaField[] | undefined
+  const schemaFields = topic?.schema?.fields as SchemaField[] | undefined
 
   // Build effective event that reflects schema modifications (added/removed fields)
   const effectiveEventData = useMemo(() => {
@@ -89,12 +90,7 @@ export function DeduplicationConfigurator({
     keyType: 'string',
   }
 
-  // Determine if we can continue based directly on the store data
-  const canContinue = !!(
-    currentDeduplicationConfig.key &&
-    currentDeduplicationConfig.window &&
-    currentDeduplicationConfig.unit
-  )
+  const canContinue = isDeduplicationConfigComplete(currentDeduplicationConfig)
 
   // Update the deduplication config in the new store
   const handleDeduplicationConfigChange = useCallback(
@@ -218,9 +214,9 @@ export function DeduplicationConfigurator({
       {/* Topic Configuration */}
       <div className="flex gap-4 w-full">
         <div className="flex flex-col gap-12 flex-[2] min-w-0">
-          {/* Force remounting of this component when the topic name changes */}
+          {/* Force remounting when topic changes (index or name) */}
           <SelectDeduplicateKeys
-            key={`dedup-keys-${topic.name}-${Date.now()}`}
+            key={`dedup-keys-${index}-${topic.name}`}
             index={index}
             onChange={handleDeduplicationConfigChange}
             disabled={!topic?.name}
@@ -236,7 +232,7 @@ export function DeduplicationConfigurator({
             isLoadingEvent={false}
             eventError={''}
             isEmptyTopic={false}
-            onManualEventChange={() => {}}
+            onManualEventChange={() => { }}
             isEditingEnabled={false}
             readOnly={readOnly}
           />
