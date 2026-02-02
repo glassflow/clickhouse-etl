@@ -12,7 +12,12 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['test/setupTests.ts'],
-    include: ['test/**/*.{test,spec}.{ts,tsx}', 'modules/create/**/*.{test,spec}.{ts,tsx}'],
+    include: [
+      'test/**/*.{test,spec}.{ts,tsx}',
+      'modules/create/**/*.{test,spec}.{ts,tsx}',
+      'modules/kafka/**/*.{test,spec}.{ts,tsx}',
+      'utils/**/*.{test,spec}.{ts,tsx}',
+    ],
     exclude: ['node_modules', '.next'],
   },
   resolve: {
