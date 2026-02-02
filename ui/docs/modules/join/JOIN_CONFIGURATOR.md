@@ -19,6 +19,8 @@ The Join Configurator module handles all aspects of configuring temporal joins b
 ```text
 src/modules/join/
 ├── JoinConfigurator.tsx              # Main container component
+├── utils/
+│   └── joinValidation.ts             # isJoinConfigComplete, validateJoinForm (Zod)
 └── components/
     ├── StreamConfiguratorList.tsx     # List of two stream configurators
     └── StreamConfigurator.tsx         # Individual stream configuration
@@ -112,7 +114,7 @@ Handles form submission. Different behavior for edit mode vs creation mode.
 const handleSubmit = () => {
   setShowValidation(true)
 
-  if (!validateForm()) {
+  if (!runValidation()) {
     notify(dataProcessingMessages.joinConfigurationError('Please fix the errors in the form'))
     return
   }
@@ -148,7 +150,7 @@ const handleSubmit = () => {
 
 **Key Points:**
 
-- Validates form before submission
+- Validates form before submission using `validateJoinForm` (see Validation)
 - Updates store with stream configuration including orientation and topic names
 - Marks section as configured in validation engine
 - In edit mode: marks pipeline as dirty and closes edit form
@@ -209,41 +211,26 @@ const handleDiscardChanges = () => {
 - Restores original configuration from pipeline data
 - Only available in edit mode
 
-#### `validateForm()`
+#### Validation (schema-based)
 
-Validates the join configuration form.
+Form validation uses **JoinConfigSchema** (Zod) as the single source of truth. The component calls `validateJoinForm(formData)` from `src/modules/join/utils/joinValidation.ts`, which runs `JoinConfigSchema.safeParse(data)` and flattens Zod errors to the form error shape. The step-level validator `validators.validateJoinConfig` in `src/scheme/validators.ts` uses the same schema via `validateStep(StepKeys.JOIN_CONFIGURATOR, data)`.
 
 ```typescript
-const validateForm = () => {
-  const newErrors: { [key: string]: string } = {}
-  let isValid = true
-
-  formData.streams.forEach((stream, index) => {
-    if (!stream.joinKey) {
-      newErrors[`streams.${index}.joinKey`] = 'Join key is required'
-      isValid = false
-    }
-    if (!stream.joinTimeWindowValue || stream.joinTimeWindowValue < 1) {
-      newErrors[`streams.${index}.joinTimeWindowValue`] = 'Time window value must be at least 1'
-      isValid = false
-    }
-    if (!stream.joinTimeWindowUnit) {
-      newErrors[`streams.${index}.joinTimeWindowUnit`] = 'Time window unit is required'
-      isValid = false
-    }
-  })
-
-  setErrors(newErrors)
-  setFormIsValid(isValid)
-  return isValid
+const runValidation = () => {
+  const { success, errors: validationErrors } = validateJoinForm(formData)
+  setErrors(validationErrors)
+  setFormIsValid(success)
+  return success
 }
 ```
 
+**Error key shape:** Errors are keyed by path, e.g. `streams.0.joinKey`, `streams.0.joinTimeWindowValue`, `streams.0.joinTimeWindowUnit`, `streams.1.joinKey`, etc. These keys are passed to `StreamConfiguratorList` and then to each `StreamConfigurator` for inline display.
+
 **Key Points:**
 
-- Validates both streams independently
-- Requires join key, time window value (>= 1), and time window unit for each stream
-- Returns validation result and updates errors state
+- Single source of truth: `JoinConfigSchema` in `src/scheme/join.scheme.ts`
+- `isJoinConfigComplete(formData)` from `joinValidation.ts` is used for `canContinue` and for "returning to form" completeness checks
+- Both streams are validated (join key, time window value >= 1, time window unit required)
 
 **Stream ID Generation:**
 
@@ -273,14 +260,12 @@ useEffect(() => {
 
 **Returning to Completed Form:**
 
-The component handles returning to a previously completed step:
+The component handles returning to a previously completed step using `isJoinConfigComplete({ streams })` from `joinValidation.ts`:
 
 ```typescript
 useEffect(() => {
   if (isReturningToForm && streams?.length === 2 && !userInteracted) {
-    const hasCompleteData = streams.every(
-      (stream) => stream?.streamId && stream?.joinKey && stream?.joinTimeWindowValue && stream?.joinTimeWindowUnit,
-    )
+    const hasCompleteData = isJoinConfigComplete({ streams })
 
     if (hasCompleteData) {
       setFormData({
@@ -313,7 +298,6 @@ useEffect(() => {
 
 - Displays two stream configurations in a responsive layout
 - Shows event previews for both streams
-- Tracks analytics for join key selections
 - Handles read-only mode
 
 **Props:**
@@ -347,31 +331,10 @@ useEffect(() => {
 - **Stream 2**: Configuration form (left) + Event preview (right)
 - Responsive: Stacks vertically on small screens, side-by-side on large screens
 
-**Analytics Tracking:**
-
-```typescript
-useEffect(() => {
-  if (streams[0].joinKey) {
-    analytics.key.leftJoinKey({
-      key: streams[0].joinKey,
-    })
-  }
-}, [streams[0].joinKey])
-
-useEffect(() => {
-  if (streams[1].joinKey) {
-    analytics.key.rightJoinKey({
-      key: streams[1].joinKey,
-    })
-  }
-}, [streams[1].joinKey])
-```
-
 **Key Points:**
 
-- Tracks join key selection for both streams separately
-- Uses different analytics events for left and right streams
-- Only tracks when join key is set
+- Passes errors (including `streams.0.joinTimeWindowUnit` and `streams.1.joinTimeWindowUnit`) down to each `StreamConfigurator` for inline display.
+- Join-key analytics are **not** tracked here; they are fired only from **JoinConfigurator** in `handleFieldChange` to avoid duplicate events.
 
 ### 3. StreamConfigurator
 
@@ -382,8 +345,8 @@ useEffect(() => {
 **Key Features:**
 
 - Join key selection from available event fields
-- Time window configuration with validation
-- Error display for validation failures
+- Time window configuration via shared **TimeWindowConfigurator** (from deduplication module), which owns max 7-day validation and inline value/unit handling
+- Error display for validation failures: `joinKey`, `joinTimeWindowValue`, and `joinTimeWindowUnit` errors are all displayed when passed in
 - Read-only mode support
 
 **Props:**
@@ -401,6 +364,7 @@ useEffect(() => {
   errors?: {
     joinKey?: string
     joinTimeWindowValue?: string
+    joinTimeWindowUnit?: string
   }
   readOnly?: boolean
 }
@@ -408,25 +372,7 @@ useEffect(() => {
 
 **Time Window Validation:**
 
-The component uses the shared `TimeWindowConfigurator` component from the deduplication module, which validates against a maximum of 7 days:
-
-```typescript
-const MAX_DAYS = 7
-const HOURS_IN_DAY = 24
-const MINUTES_IN_HOUR = 60
-const SECONDS_IN_MINUTE = 60
-
-const MAX_HOURS = MAX_DAYS * HOURS_IN_DAY
-const MAX_MINUTES = MAX_HOURS * MINUTES_IN_HOUR
-const MAX_SECONDS = MAX_MINUTES * SECONDS_IN_MINUTE
-```
-
-**Key Points:**
-
-- Reuses `TimeWindowConfigurator` from deduplication module
-- Maximum time window is 7 days (same as deduplication)
-- Validates time window values based on selected unit
-- Displays errors inline
+The component uses the shared **TimeWindowConfigurator** from the deduplication module (`src/modules/deduplication/components/TimeWindowConfigurator.tsx`), which owns all max 7-day and unit-based validation. `StreamConfigurator` does not duplicate MAX\_\* constants or clamping; it only passes `window`, `windowUnit`, and `setWindow`/`setWindowUnit` through. Inline errors for `joinTimeWindowValue` and `joinTimeWindowUnit` (from schema validation) are displayed below the time window section.
 
 ## State Management
 
@@ -737,6 +683,8 @@ const dynamicOptions = {
 
 ## Analytics Integration
 
+Join-key analytics (`leftJoinKey`, `rightJoinKey`) are fired **only from JoinConfigurator** in `handleFieldChange` when the user selects a join key. They are not tracked in `StreamConfiguratorList` to avoid duplicate events.
+
 The component tracks analytics events via `useJourneyAnalytics`:
 
 **Page View:**
@@ -871,31 +819,14 @@ const event2 = topic2?.events?.[0]?.event || topic2?.selectedEvent?.event
 
 ### Form Validation Errors
 
-```typescript
-const validateForm = () => {
-  const newErrors: { [key: string]: string } = {}
-  let isValid = true
-
-  formData.streams.forEach((stream, index) => {
-    if (!stream.joinKey) {
-      newErrors[`streams.${index}.joinKey`] = 'Join key is required'
-      isValid = false
-    }
-    // ... more validation
-  })
-
-  setErrors(newErrors)
-  setFormIsValid(isValid)
-  return isValid
-}
-```
+Validation uses `validateJoinForm(formData)` from `joinValidation.ts`, which runs `JoinConfigSchema.safeParse` and flattens errors to keys like `streams.0.joinKey`, `streams.0.joinTimeWindowValue`, `streams.0.joinTimeWindowUnit`, etc. See the **Validation (schema-based)** section under JoinConfigurator.
 
 **Key Points:**
 
-- Validates both streams independently
-- Displays errors inline with form fields
+- Single source of truth: `JoinConfigSchema` (Zod)
+- Displays errors inline with form fields via StreamConfiguratorList/StreamConfigurator
 - Prevents submission if validation fails
-- Shows notification for critical errors
+- Shows notification for critical errors when user attempts to submit invalid form
 
 ### Time Window Validation Errors
 
@@ -1015,6 +946,17 @@ Potential areas for enhancement:
    - Integrate with schema modifications from KafkaTypeVerification
    - Respect schema changes when selecting join keys
    - Display schema modification notices
+
+## Testing
+
+The join module includes unit and component tests:
+
+- **`src/modules/join/utils/joinValidation.test.ts`** – Tests for `isJoinConfigComplete` and `validateJoinForm` (valid/invalid data, missing fields, wrong number of streams).
+- **`src/modules/join/JoinConfigurator.test.tsx`** – Tests for the main container: render with topics, disabled Continue when form incomplete, submit with pre-filled store, standalone mode (markAsDirty, onCompleteStandaloneEditing), discard (discardSection('join')).
+- **`src/modules/join/components/StreamConfigurator.test.tsx`** – Tests for a single stream: render with stream data and options, TimeWindowConfigurator props, display of `joinKey`, `joinTimeWindowValue`, and `joinTimeWindowUnit` errors.
+- **`src/modules/join/components/StreamConfiguratorList.test.tsx`** – Tests for the list: two StreamConfigurators and two event previews, passing errors (including `joinTimeWindowUnit`) to each configurator.
+
+Run join tests: `npm test -- modules/join` (from the UI package).
 
 ## Related Documentation
 

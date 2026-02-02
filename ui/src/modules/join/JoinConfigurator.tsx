@@ -1,20 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
-import { JSON_DATA_TYPES_DEDUPLICATION_JOIN } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { v4 as uuidv4 } from 'uuid'
 import { StreamConfiguratorList } from './components/StreamConfiguratorList'
 import { JoinConfigType } from '@/src/scheme/join.scheme'
 import { extractEventFields } from '@/src/utils/common.client'
+import { isJoinConfigComplete, validateJoinForm } from './utils/joinValidation'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { notify } from '@/src/notifications'
-import { validationMessages, dataProcessingMessages } from '@/src/notifications/messages'
+import { dataProcessingMessages } from '@/src/notifications/messages'
 
 export type JoinConfiguratorProps = {
   steps: any
@@ -135,9 +134,7 @@ export function JoinConfigurator({
   // Handle returning to a completed step
   useEffect(() => {
     if (isReturningToForm && streams?.length === 2 && !userInteracted) {
-      const hasCompleteData = streams.every(
-        (stream) => stream?.streamId && stream?.joinKey && stream?.joinTimeWindowValue && stream?.joinTimeWindowUnit,
-      )
+      const hasCompleteData = isJoinConfigComplete({ streams })
 
       if (hasCompleteData) {
         setFormData({
@@ -153,36 +150,19 @@ export function JoinConfigurator({
     }
   }, [isReturningToForm, streams, userInteracted])
 
-  // Validation logic
-  const validateForm = () => {
-    const newErrors: { [key: string]: string } = {}
-    let isValid = true
-
-    formData.streams.forEach((stream, index) => {
-      if (!stream.joinKey) {
-        newErrors[`streams.${index}.joinKey`] = 'Join key is required'
-        isValid = false
-      }
-      if (!stream.joinTimeWindowValue || stream.joinTimeWindowValue < 1) {
-        newErrors[`streams.${index}.joinTimeWindowValue`] = 'Time window value must be at least 1'
-        isValid = false
-      }
-      if (!stream.joinTimeWindowUnit) {
-        newErrors[`streams.${index}.joinTimeWindowUnit`] = 'Time window unit is required'
-        isValid = false
-      }
-    })
-
-    setErrors(newErrors)
-    setFormIsValid(isValid)
-    return isValid
+  // Validation using JoinConfigSchema (single source of truth)
+  const runValidation = () => {
+    const { success, errors: validationErrors } = validateJoinForm(formData)
+    setErrors(validationErrors)
+    setFormIsValid(success)
+    return success
   }
 
   // Handle form submission
   const handleSubmit = () => {
     setShowValidation(true)
 
-    if (!validateForm()) {
+    if (!runValidation()) {
       // Show notification for critical validation errors
       // Note: errors state is updated by validateForm(), but we need to check it after state update
       // For now, show a generic message since errors are displayed inline
@@ -286,10 +266,7 @@ export function JoinConfigurator({
 
   // Check if form can continue
   const canContinue =
-    (userInteracted || (isReturningToForm && formIsValid)) &&
-    formData.streams.every(
-      (stream) => stream.streamId && stream.joinKey && stream.joinTimeWindowValue && stream.joinTimeWindowUnit,
-    )
+    (userInteracted || (isReturningToForm && formIsValid)) && isJoinConfigComplete(formData)
 
   // Handle discard changes for join configuration
   const handleDiscardChanges = () => {
