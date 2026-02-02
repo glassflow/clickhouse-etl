@@ -10,9 +10,23 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-config'
+import { connectionFormToRequestBody } from '@/src/modules/kafka/utils/connectionToRequestBody'
+import type { Pipeline } from '@/src/types/pipeline'
+import type { PipelineActionState } from '@/src/hooks/usePipelineActions'
+
+export interface KafkaConnectionContainerProps {
+  steps?: Record<string, { key?: string; title?: string; description?: string }>
+  onCompleteStep?: (step: StepKeys) => void
+  validate: () => Promise<boolean>
+  standalone?: boolean
+  readOnly?: boolean
+  toggleEditMode?: (apiConfig?: unknown) => void
+  onCompleteStandaloneEditing?: () => void
+  pipelineActionState?: PipelineActionState
+  pipeline?: Pipeline
+}
 
 export function KafkaConnectionContainer({
-  steps,
   onCompleteStep,
   validate,
   readOnly = false,
@@ -21,17 +35,7 @@ export function KafkaConnectionContainer({
   onCompleteStandaloneEditing,
   pipelineActionState,
   pipeline,
-}: {
-  steps: any
-  onCompleteStep?: (step: StepKeys) => void
-  validate: () => Promise<boolean>
-  standalone?: boolean
-  readOnly?: boolean
-  toggleEditMode?: (apiConfig?: any) => void
-  onCompleteStandaloneEditing?: () => void
-  pipelineActionState?: any
-  pipeline?: any
-}) {
+}: KafkaConnectionContainerProps) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const { kafkaStore, topicsStore, coreStore } = useStore()
   const { topicCount } = coreStore
@@ -75,8 +79,10 @@ export function KafkaConnectionContainer({
     isConnecting: isConnectingFromHook,
   } = useKafkaConnection()
 
-  // Use the centralized pipeline actions hook
-  const { executeAction } = usePipelineActions(pipeline)
+  // Use the centralized pipeline actions hook (pipeline is undefined in create-wizard flow)
+  const { executeAction } = usePipelineActions(
+    pipeline ?? ({ pipeline_id: '', status: 'stopped' } as Pipeline),
+  )
 
   // Prepare initial values by merging defaults with store values
   const initialValues = {
@@ -161,7 +167,7 @@ export function KafkaConnectionContainer({
       }
     }
 
-    // FIXME: this is not the right place to set the connection - check does it have negative side effects
+    // Set full connection in store after successful test so UI and API clients use latest values.
     setKafkaConnection({
       ...values,
       bootstrapServers: values.bootstrapServers,
@@ -172,64 +178,36 @@ export function KafkaConnectionContainer({
     setKafkaSecurityProtocol(securityProtocol)
     setKafkaBootstrapServers(bootstrapServers)
 
-    if (authMethod === AUTH_OPTIONS['NO_AUTH'].name) {
-      // setKafkaSkipAuth(true)
-      setKafkaNoAuth({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.noAuth,
-      })
-    } else {
-      // setKafkaSkipAuth(false)
+    if (values.authMethod === AUTH_OPTIONS['NO_AUTH'].name && 'noAuth' in values && values.noAuth) {
+      setKafkaNoAuth(values.noAuth)
     }
 
-    // Set the appropriate auth form based on auth method
-    if (values.authMethod === AUTH_OPTIONS['SASL/PLAIN'].name) {
-      setKafkaSaslPlain({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.saslPlain,
-      })
+    if (values.authMethod === AUTH_OPTIONS['SASL/PLAIN'].name && 'saslPlain' in values && values.saslPlain) {
+      setKafkaSaslPlain(values.saslPlain)
     }
 
-    if (values.authMethod === AUTH_OPTIONS['SASL/JAAS'].name) {
-      setKafkaSaslJaas({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.saslJaas,
-      })
+    if (values.authMethod === AUTH_OPTIONS['SASL/JAAS'].name && 'saslJaas' in values && values.saslJaas) {
+      setKafkaSaslJaas(values.saslJaas)
     }
 
-    if (values.authMethod === AUTH_OPTIONS['SASL/GSSAPI'].name) {
-      setKafkaSaslGssapi({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.saslGssapi,
-      })
+    if (values.authMethod === AUTH_OPTIONS['SASL/GSSAPI'].name && 'saslGssapi' in values && values.saslGssapi) {
+      setKafkaSaslGssapi(values.saslGssapi)
     }
 
-    if (values.authMethod === AUTH_OPTIONS['SASL/OAUTHBEARER'].name) {
-      setKafkaSaslOauthbearer({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.saslOauthbearer,
-      })
+    if (values.authMethod === AUTH_OPTIONS['SASL/OAUTHBEARER'].name && 'saslOauthbearer' in values && values.saslOauthbearer) {
+      setKafkaSaslOauthbearer(values.saslOauthbearer)
     }
 
-    if (values.authMethod === AUTH_OPTIONS['SASL/SCRAM-256'].name) {
-      setKafkaSaslScram256({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.saslScram256,
-      })
+    if (values.authMethod === AUTH_OPTIONS['SASL/SCRAM-256'].name && 'saslScram256' in values && values.saslScram256) {
+      setKafkaSaslScram256(values.saslScram256)
     }
 
-    if (values.authMethod === AUTH_OPTIONS['SASL/SCRAM-512'].name) {
-      setKafkaSaslScram512({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.saslScram512,
-      })
+    if (values.authMethod === AUTH_OPTIONS['SASL/SCRAM-512'].name && 'saslScram512' in values && values.saslScram512) {
+      setKafkaSaslScram512(values.saslScram512)
     }
 
-    if (values.authMethod === AUTH_OPTIONS['Delegation tokens'].name) {
-      setKafkaDelegationTokens({
-        // @ts-expect-error - FIXME: fix this later
-        ...values.delegationTokens,
-      })
+    if (values.authMethod === AUTH_OPTIONS['Delegation tokens'].name && 'delegationTokens' in values && values.delegationTokens) {
+      setKafkaDelegationTokens(values.delegationTokens)
     }
 
     // If in standalone mode (editing existing pipeline), mark configuration as dirty
@@ -258,103 +236,8 @@ export function KafkaConnectionContainer({
 
   // Helper function to fetch topics from a Kafka connection
   const fetchTopicsForConnection = async (connectionValues: KafkaConnectionFormType): Promise<string[]> => {
-    // Build request body similar to how it's done in useKafkaConnection
-    const requestBody: any = {
-      servers: connectionValues.bootstrapServers,
-      securityProtocol: connectionValues.securityProtocol,
-      authMethod: connectionValues.authMethod,
-    }
+    const requestBody = connectionFormToRequestBody(connectionValues)
 
-    // Add authentication details based on the auth method
-    switch (connectionValues.authMethod) {
-      case 'NO_AUTH':
-        if (connectionValues.noAuth.truststore?.certificates) {
-          requestBody.certificate = connectionValues.noAuth.truststore.certificates
-        }
-        if (connectionValues.noAuth.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-
-      case 'SASL/PLAIN':
-        requestBody.username = connectionValues.saslPlain.username
-        requestBody.password = connectionValues.saslPlain.password
-        requestBody.consumerGroup = connectionValues.saslPlain.consumerGroup
-        if (connectionValues.saslPlain.truststore?.certificates) {
-          requestBody.certificate = connectionValues.saslPlain.truststore.certificates
-        }
-        if (connectionValues.saslPlain.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-
-      case 'SASL/JAAS':
-        requestBody.jaasConfig = connectionValues.saslJaas.jaasConfig
-        break
-
-      case 'SASL/GSSAPI':
-        requestBody.kerberosPrincipal = connectionValues.saslGssapi.kerberosPrincipal
-        requestBody.kerberosKeytab = connectionValues.saslGssapi.kerberosKeytab
-        requestBody.kerberosRealm = connectionValues.saslGssapi.kerberosRealm
-        requestBody.kdc = connectionValues.saslGssapi.kdc
-        requestBody.serviceName = connectionValues.saslGssapi.serviceName
-        requestBody.krb5Config = connectionValues.saslGssapi.krb5Config
-        if (connectionValues.saslGssapi.truststore?.certificates) {
-          requestBody.certificate = connectionValues.saslGssapi.truststore.certificates
-        }
-        if (connectionValues.saslGssapi.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-
-      case 'SASL/OAUTHBEARER':
-        requestBody.oauthBearerToken = connectionValues.saslOauthbearer.oauthBearerToken
-        break
-
-      case 'SASL/SCRAM-256':
-      case 'SASL/SCRAM-512':
-        const scramValues =
-          connectionValues.authMethod === 'SASL/SCRAM-256'
-            ? connectionValues.saslScram256
-            : connectionValues.saslScram512
-        requestBody.username = scramValues.username
-        requestBody.password = scramValues.password
-        requestBody.consumerGroup = scramValues.consumerGroup
-        if (scramValues.truststore?.certificates) {
-          requestBody.certificate = scramValues.truststore.certificates
-        }
-        if (scramValues.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-
-      case 'AWS_MSK_IAM':
-        requestBody.awsAccessKey = connectionValues.awsIam.awsAccessKey
-        requestBody.awsAccessKeySecret = connectionValues.awsIam.awsAccessKeySecret
-        requestBody.awsRegion = connectionValues.awsIam.awsRegion
-        break
-
-      case 'Delegation tokens':
-        requestBody.delegationToken = connectionValues.delegationTokens.delegationToken
-        break
-
-      case 'SASL/LDAP':
-        requestBody.ldapServerUrl = connectionValues.ldap.ldapServerUrl
-        requestBody.ldapServerPort = connectionValues.ldap.ldapServerPort
-        requestBody.ldapBindDn = connectionValues.ldap.ldapBindDn
-        requestBody.ldapBindPassword = connectionValues.ldap.ldapBindPassword
-        requestBody.ldapUserSearchFilter = connectionValues.ldap.ldapUserSearchFilter
-        requestBody.ldapBaseDn = connectionValues.ldap.ldapBaseDn
-        break
-
-      case 'mTLS':
-        requestBody.clientCert = connectionValues.mtls.clientCert
-        requestBody.clientKey = connectionValues.mtls.clientKey
-        requestBody.password = connectionValues.mtls.password
-        break
-    }
-
-    // Fetch topics from the Kafka connection
     const response = await fetch('/ui-api/kafka/topics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
