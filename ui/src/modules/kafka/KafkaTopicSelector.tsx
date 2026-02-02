@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '@/src/store'
 import { StepKeys } from '@/src/config/constants'
-import { useFetchTopics } from '@/src/hooks/useFetchKafkaTopics'
+import { getTopicStepKeyForValidation, isTopicDeduplicationStep } from '@/src/modules/kafka/utils/topicStepKeys'
 import { TopicSelectWithEventPreview } from '@/src/modules/kafka/components/TopicSelectWithEventPreview'
 import FormActions from '@/src/components/shared/FormActions'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
@@ -11,6 +11,7 @@ import { useValidationEngine } from '@/src/store/state-machine/validation-engine
 import { TopicSelectorProps } from '@/src/modules/kafka/types'
 import useGetIndex from '@/src/modules/kafka/useGetIndex'
 import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
+import { useTopicSelectorTopics } from '@/src/modules/kafka/hooks/useTopicSelectorTopics'
 import TopicChangeConfirmationModal from '@/src/modules/kafka/components/TopicChangeConfirmationModal'
 
 export function KafkaTopicSelector({
@@ -27,34 +28,20 @@ export function KafkaTopicSelector({
   pipelineActionState,
   onCompleteStandaloneEditing,
 }: TopicSelectorProps) {
-  const { topicsStore, kafkaStore, coreStore } = useStore()
+  const { topicsStore, coreStore } = useStore()
   const validationEngine = useValidationEngine()
-  const {
-    topics: topicsFromKafka,
-    topicDetails,
-    isLoadingTopics,
-    topicsError,
-    fetchTopics,
-    getPartitionCount,
-  } = useFetchTopics({ kafka: kafkaStore })
   const getIndex = useGetIndex(currentStep || '')
-
-  const {
-    availableTopics,
-    setAvailableTopics,
-    topics: topicsFromStore,
-    topicCount: topicCountFromStore,
-    updateTopic,
-    invalidateTopicDependentState,
-  } = topicsStore
-
   const index = getIndex()
-
-  // Get existing topic data if available
+  const { topics: topicsFromStore } = topicsStore
   const storedTopic = topicsFromStore[index]
 
-  const [topicFetchAttempts, setTopicFetchAttempts] = useState(0)
-  const [isInitialRender, setIsInitialRender] = useState(true)
+  const topicSelectorState = useKafkaTopicSelectorState({
+    index,
+    enableDeduplication,
+    onDeduplicationChange,
+    initialDeduplicationConfig,
+    currentStep,
+  })
 
   const {
     topicName,
@@ -87,55 +74,15 @@ export function KafkaTopicSelector({
     fetchNextEvent,
     fetchPreviousEvent,
     refreshEvent,
-  } = useKafkaTopicSelectorState({
-    index,
-    enableDeduplication,
-    onDeduplicationChange,
-    initialDeduplicationConfig,
-    currentStep,
+  } = topicSelectorState
+
+  const { availableTopics, fetchTopics, getPartitionCount } = useTopicSelectorTopics({
+    topicName,
+    partitionCount,
+    replicas,
+    updatePartitionCount,
+    selectReplicaCount,
   })
-
-  // Fetch topics on component mount
-  useEffect(() => {
-    if (availableTopics.length === 0 && !isLoadingTopics && topicFetchAttempts < 3) {
-      setTopicFetchAttempts((prev) => prev + 1)
-      fetchTopics()
-    }
-
-    // Mark that we're no longer on initial render after the first effect run
-    if (isInitialRender) {
-      setIsInitialRender(false)
-    }
-  }, [availableTopics.length, fetchTopics, isLoadingTopics, isInitialRender, topicFetchAttempts])
-
-  // Fetch topic details (including partition counts) when topics are available but details aren't
-  // This is especially important in edit mode where topics are hydrated but partition counts are missing
-  useEffect(() => {
-    if (availableTopics.length > 0 && topicDetails.length === 0 && !isLoadingTopics) {
-      fetchTopics()
-    }
-  }, [availableTopics.length, topicDetails.length, fetchTopics, isLoadingTopics])
-
-  // Update partition count and replica count when topic details are fetched
-  useEffect(() => {
-    if (topicName && topicDetails.length > 0) {
-      const fetchedPartitionCount = getPartitionCount(topicName)
-      if (fetchedPartitionCount > 0 && fetchedPartitionCount !== partitionCount) {
-        updatePartitionCount(fetchedPartitionCount)
-        // Also update replica count to match partition count if it's not set
-        if (replicas === 1 && fetchedPartitionCount > 1) {
-          selectReplicaCount(fetchedPartitionCount)
-        }
-      }
-    }
-  }, [topicName, topicDetails, getPartitionCount, partitionCount, updatePartitionCount, replicas, selectReplicaCount])
-
-  // Update available topics when topics are fetched
-  useEffect(() => {
-    if (topicsFromKafka.length > 0) {
-      setAvailableTopics(topicsFromKafka)
-    }
-  }, [topicsFromKafka, setAvailableTopics])
 
   // State for tracking save success in edit mode
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
@@ -151,45 +98,43 @@ export function KafkaTopicSelector({
     }
   }, [readOnly, isSaveSuccess])
 
+  // Apply partition count to replica when topic changes (single place for this rule)
+  const applyPartitionCountToReplica = useCallback(
+    (newTopicName: string) => {
+      const count = getPartitionCount(newTopicName)
+      if (count > 0) {
+        selectReplicaCount(count)
+      }
+    },
+    [getPartitionCount, selectReplicaCount],
+  )
+
   // Handle topic change using the hook
   const handleTopicChange = useCallback(
     (newTopicName: string, event: any) => {
-      // Check if we're in edit mode (standalone) and topic is actually changing
       const isEditMode = standalone && !readOnly
       const isTopicChanging = storedTopic?.name && newTopicName !== storedTopic.name
 
       if (isEditMode && isTopicChanging) {
-        // Show confirmation modal before changing topic
         setPendingTopicChange(newTopicName)
         setIsTopicChangeModalVisible(true)
       } else {
-        // Not in edit mode OR topic not changing - proceed directly
         selectTopic(newTopicName)
-        // Set replica count to partition count when topic changes
-        const partitionCount = getPartitionCount(newTopicName)
-        if (partitionCount > 0) {
-          selectReplicaCount(partitionCount)
-        }
+        applyPartitionCountToReplica(newTopicName)
       }
     },
-    [selectTopic, selectReplicaCount, getPartitionCount, standalone, readOnly, storedTopic?.name],
+    [selectTopic, applyPartitionCountToReplica, standalone, readOnly, storedTopic?.name],
   )
 
   // Handle confirmation of topic change
   const handleConfirmTopicChange = useCallback(() => {
     if (pendingTopicChange) {
-      // User confirmed - proceed with topic change
       selectTopic(pendingTopicChange)
-      // Set replica count to partition count when topic changes
-      const partitionCount = getPartitionCount(pendingTopicChange)
-      if (partitionCount > 0) {
-        selectReplicaCount(partitionCount)
-      }
+      applyPartitionCountToReplica(pendingTopicChange)
     }
-    // Close modal and clear pending change
     setIsTopicChangeModalVisible(false)
     setPendingTopicChange(null)
-  }, [pendingTopicChange, selectTopic, selectReplicaCount, getPartitionCount])
+  }, [pendingTopicChange, selectTopic, applyPartitionCountToReplica])
 
   // Handle cancellation of topic change
   const handleCancelTopicChange = useCallback(() => {
@@ -209,60 +154,21 @@ export function KafkaTopicSelector({
 
   // Enhanced form submission handler using the hook
   const handleSubmit = useCallback(() => {
-    // Use the hook's submit function to persist changes
     submit()
 
-    // Check if we're in edit mode (standalone with toggleEditMode)
+    const stepKey = getTopicStepKeyForValidation(currentStep ?? '')
     const isEditMode = standalone && toggleEditMode
 
     if (isEditMode) {
-      // In edit mode, mark section as valid WITHOUT invalidating dependents
-      // The smart invalidation logic in useKafkaTopicSelectorState.handleSubmit
-      // already handles invalidation based on schema comparison
-
-      // We use markSectionAsValid instead of onSectionConfigured because:
-      // - onSectionConfigured would ALWAYS invalidate ALL dependents (bypassing smart logic)
-      // - markSectionAsValid only marks this section as valid
-      // - Dependent sections are invalidated ONLY if schema changed (handled by submit())
-
-      if (currentStep === StepKeys.TOPIC_SELECTION_1) {
-        validationEngine.markSectionAsValid(StepKeys.TOPIC_SELECTION_1)
-      } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
-        validationEngine.markSectionAsValid(StepKeys.TOPIC_SELECTION_2)
-      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-        validationEngine.markSectionAsValid(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
-      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-        validationEngine.markSectionAsValid(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
-      } else if (currentStep) {
-        validationEngine.markSectionAsValid(currentStep as StepKeys)
+      if (stepKey) {
+        validationEngine.markSectionAsValid(stepKey)
       }
-
-      // Mark configuration as dirty when saving changes in edit mode
-      // This ensures the download warning appears for unsaved changes
       coreStore.markAsDirty()
-
       onCompleteStandaloneEditing?.()
     } else {
-      // In creation mode, just move to next step
-      if (currentStep === StepKeys.TOPIC_SELECTION_1) {
-        // validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_1)
-        onCompleteStep(StepKeys.TOPIC_SELECTION_1)
-      } else if (currentStep === StepKeys.TOPIC_SELECTION_2) {
-        // validationEngine.onSectionConfigured(StepKeys.TOPIC_SELECTION_2)
-        onCompleteStep(StepKeys.TOPIC_SELECTION_2)
-      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-        // validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
-        onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1)
-      } else if (currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-        // validationEngine.onSectionConfigured(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
-        onCompleteStep(StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2)
-      } else {
-        // Fallback for any other topic selection step
-        // validationEngine.onSectionConfigured((currentStep as StepKeys) || StepKeys.TOPIC_SELECTION_1)
-        onCompleteStep(currentStep || StepKeys.TOPIC_SELECTION_1)
-      }
+      onCompleteStep(stepKey ?? currentStep ?? StepKeys.TOPIC_SELECTION_1)
     }
-  }, [submit, currentStep, validationEngine, onCompleteStep, standalone, toggleEditMode])
+  }, [submit, currentStep, validationEngine, onCompleteStep, onCompleteStandaloneEditing, standalone, toggleEditMode, coreStore])
 
   // Enhanced form submission handler with success state
   const handleSubmitWithSuccess = useCallback(() => {
@@ -283,18 +189,9 @@ export function KafkaTopicSelector({
 
   // Handle discard changes for this section
   const handleDiscardChanges = useCallback(() => {
-    // Determine which sections to discard based on the current step
-    let sectionsToDiscard: string[] = ['topics']
-
-    if (
-      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
-      currentStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-    ) {
-      // For deduplication configurator steps, discard both topics and deduplication
-      sectionsToDiscard = ['topics', 'deduplication']
-    }
-
-    // Discard all sections at once
+    const sectionsToDiscard = isTopicDeduplicationStep(currentStep ?? '')
+      ? ['topics', 'deduplication']
+      : ['topics']
     coreStore.discardSections(sectionsToDiscard)
   }, [coreStore, currentStep])
 
@@ -374,7 +271,7 @@ export function KafkaTopicSelector({
         />
 
         {/* NEW: Optional debug indicator for deduplication status */}
-        {enableDeduplication && topicName && event && !deduplicationConfigured && (
+        {Boolean(enableDeduplication && topicName && event && !deduplicationConfigured) && (
           <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
         )}
       </div>

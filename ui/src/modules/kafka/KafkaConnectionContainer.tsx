@@ -1,18 +1,17 @@
 'use client'
 
 import { KafkaConnectionFormManager } from '@/src/modules/kafka/components/KafkaConnectionFormManager'
-import { use, useEffect, useState, useRef } from 'react'
-import { StepKeys, AUTH_OPTIONS } from '@/src/config/constants'
+import { useEffect, useState, useRef } from 'react'
+import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
 import { useKafkaConnection } from '@/src/hooks/useKafkaConnection'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
-import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-config'
-import { connectionFormToRequestBody } from '@/src/modules/kafka/utils/connectionToRequestBody'
 import type { Pipeline } from '@/src/types/pipeline'
 import type { PipelineActionState } from '@/src/hooks/usePipelineActions'
+import { useKafkaConnectionSave } from '@/src/modules/kafka/hooks/useKafkaConnectionSave'
 
 export interface KafkaConnectionContainerProps {
   steps?: Record<string, { key?: string; title?: string; description?: string }>
@@ -40,31 +39,14 @@ export function KafkaConnectionContainer({
   const { kafkaStore, topicsStore, coreStore } = useStore()
   const { topicCount } = coreStore
   const {
-    setKafkaAuthMethod,
-    setKafkaSecurityProtocol,
-    setKafkaBootstrapServers,
-    setKafkaNoAuth,
-    setKafkaSaslPlain,
-    setKafkaSaslJaas,
-    setKafkaSaslGssapi,
-    setKafkaSaslOauthbearer,
-    setKafkaSaslScram256,
-    setKafkaSaslScram512,
-    setKafkaDelegationTokens,
-    setKafkaConnection,
-    // setKafkaSkipAuth,
-    isConnected,
     authMethod,
     securityProtocol,
     bootstrapServers,
     saslPlain,
-    saslJaas,
     saslGssapi,
-    saslOauthbearer,
+    noAuth,
     saslScram256,
     saslScram512,
-    delegationTokens,
-    noAuth,
   } = kafkaStore
   const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
@@ -80,9 +62,14 @@ export function KafkaConnectionContainer({
   } = useKafkaConnection()
 
   // Use the centralized pipeline actions hook (pipeline is undefined in create-wizard flow)
-  const { executeAction } = usePipelineActions(
-    pipeline ?? ({ pipeline_id: '', status: 'stopped' } as Pipeline),
-  )
+  usePipelineActions(pipeline ?? ({ pipeline_id: '', status: 'stopped' } as Pipeline))
+
+  const { saveConnectionData } = useKafkaConnectionSave({
+    standalone,
+    toggleEditMode,
+    onCompleteStep,
+    onCompleteStandaloneEditing,
+  })
 
   // Prepare initial values by merging defaults with store values
   const initialValues = {
@@ -136,122 +123,6 @@ export function KafkaConnectionContainer({
       }
     }
   }, [connectionResult, connectionFormValues, isConnectingFromHook, analytics.kafka])
-
-  const saveConnectionData = async (values: KafkaConnectionFormType) => {
-    const { authMethod, securityProtocol, bootstrapServers } = values
-
-    // If in standalone mode (editing existing pipeline), check if topics have changed
-    let shouldInvalidateDependents = false
-
-    if (standalone && toggleEditMode) {
-      // Phase 2: Smart invalidation - check if available topics have changed
-      const { topicsStore: currentTopicsStore } = useStore.getState()
-      const oldTopics = currentTopicsStore.availableTopics || []
-
-      try {
-        // Fetch topics from new connection
-        const newTopics = await fetchTopicsForConnection(values)
-
-        // Compare topic lists (sorted for accurate comparison)
-        const oldTopicsSorted = [...oldTopics].sort()
-        const newTopicsSorted = [...newTopics].sort()
-
-        const topicsChanged = JSON.stringify(oldTopicsSorted) !== JSON.stringify(newTopicsSorted)
-
-        if (topicsChanged) {
-          shouldInvalidateDependents = true
-        }
-      } catch (error) {
-        // If we can't fetch topics (connection issue), be conservative and invalidate
-        shouldInvalidateDependents = true
-      }
-    }
-
-    // Set full connection in store after successful test so UI and API clients use latest values.
-    setKafkaConnection({
-      ...values,
-      bootstrapServers: values.bootstrapServers,
-      isConnected: true,
-    })
-
-    setKafkaAuthMethod(authMethod)
-    setKafkaSecurityProtocol(securityProtocol)
-    setKafkaBootstrapServers(bootstrapServers)
-
-    if (values.authMethod === AUTH_OPTIONS['NO_AUTH'].name && 'noAuth' in values && values.noAuth) {
-      setKafkaNoAuth(values.noAuth)
-    }
-
-    if (values.authMethod === AUTH_OPTIONS['SASL/PLAIN'].name && 'saslPlain' in values && values.saslPlain) {
-      setKafkaSaslPlain(values.saslPlain)
-    }
-
-    if (values.authMethod === AUTH_OPTIONS['SASL/JAAS'].name && 'saslJaas' in values && values.saslJaas) {
-      setKafkaSaslJaas(values.saslJaas)
-    }
-
-    if (values.authMethod === AUTH_OPTIONS['SASL/GSSAPI'].name && 'saslGssapi' in values && values.saslGssapi) {
-      setKafkaSaslGssapi(values.saslGssapi)
-    }
-
-    if (values.authMethod === AUTH_OPTIONS['SASL/OAUTHBEARER'].name && 'saslOauthbearer' in values && values.saslOauthbearer) {
-      setKafkaSaslOauthbearer(values.saslOauthbearer)
-    }
-
-    if (values.authMethod === AUTH_OPTIONS['SASL/SCRAM-256'].name && 'saslScram256' in values && values.saslScram256) {
-      setKafkaSaslScram256(values.saslScram256)
-    }
-
-    if (values.authMethod === AUTH_OPTIONS['SASL/SCRAM-512'].name && 'saslScram512' in values && values.saslScram512) {
-      setKafkaSaslScram512(values.saslScram512)
-    }
-
-    if (values.authMethod === AUTH_OPTIONS['Delegation tokens'].name && 'delegationTokens' in values && values.delegationTokens) {
-      setKafkaDelegationTokens(values.delegationTokens)
-    }
-
-    // If in standalone mode (editing existing pipeline), mark configuration as dirty
-    // This indicates changes need to be sent to backend when user clicks Resume
-    if (standalone && toggleEditMode) {
-      coreStore.markAsDirty()
-
-      // Invalidate dependent sections only if topics have changed (Phase 2: Smart Invalidation)
-      if (shouldInvalidateDependents) {
-        const { topicsStore, joinStore, deduplicationStore, clickhouseDestinationStore } = useStore.getState()
-
-        topicsStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
-        joinStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
-        deduplicationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
-        clickhouseDestinationStore.markAsInvalidated(StepKeys.KAFKA_CONNECTION)
-      }
-    }
-
-    // Proceed to next step or close standalone component
-    if (!standalone && onCompleteStep) {
-      onCompleteStep(StepKeys.KAFKA_CONNECTION as StepKeys)
-    } else if (standalone && onCompleteStandaloneEditing) {
-      onCompleteStandaloneEditing()
-    }
-  }
-
-  // Helper function to fetch topics from a Kafka connection
-  const fetchTopicsForConnection = async (connectionValues: KafkaConnectionFormType): Promise<string[]> => {
-    const requestBody = connectionFormToRequestBody(connectionValues)
-
-    const response = await fetch('/ui-api/kafka/topics', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    })
-
-    const data = await response.json()
-
-    if (data.success && data.topics) {
-      return data.topics
-    } else {
-      throw new Error(data.error || 'Failed to fetch topics')
-    }
-  }
 
   const handleTestConnection = async (values: KafkaConnectionFormType) => {
     // Track attempt to test connection

@@ -19,8 +19,7 @@ import {
   MtlsForm,
   DelegationTokensForm,
   LdapForm,
-  TruststoreForm,
-} from './form-variants'
+} from './forms'
 
 // Base form - mandatory fields - always present in the form
 const KafkaBaseForm = ({
@@ -44,9 +43,8 @@ const KafkaBaseForm = ({
 
   return (
     <FormGroup
-      className={`space-y-4 transition-all duration-700 ease-out ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
-      }`}
+      className={`space-y-4 transition-all duration-700 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+        }`}
     >
       <div className="flex flex-col lg:flex-row gap-4">
         <div className="space-y-2 w-full lg:w-1/2">
@@ -154,19 +152,17 @@ export const KafkaConnectionFormRenderer = ({
     }
   }
 
-  const renderTruststoreForm = ({ readOnly }: { readOnly?: boolean }) => {
-    return <TruststoreForm errors={errors} readOnly={readOnly} />
-  }
+  // TruststoreForm is rendered inside auth-specific forms (NoAuthForm, SaslPlainForm,
+  // SaslGssapiForm, SaslScram256Form, SaslScram512Form) when SSL or SASL_SSL is selected.
+  // See KAFKA_CONNECTION.md for the form hierarchy.
 
   return (
     <div
-      className={`space-y-4 md:space-y-6 transition-all duration-700 ease-out ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
-      }`}
+      className={`space-y-4 md:space-y-6 transition-all duration-700 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+        }`}
     >
       <div>{renderBaseForm({ authMethod, readOnly })}</div>
       <div>{renderAuthForm({ readOnly: readOnly })}</div>
-      {/* <div>{renderTruststoreForm({ readOnly: readOnly })}</div> */}
     </div>
   )
 }
