@@ -4,12 +4,16 @@
 
 The Kafka Connection module handles all aspects of establishing and managing connections to Kafka clusters within the application. It provides a comprehensive form-based interface for configuring various authentication methods, security protocols, and connection parameters.
 
+**Recent updates (refactor):** Request-body building is centralized in `connectionFormToRequestBody`; save and topic-invalidation logic live in `useKafkaConnectionSave`; auth-specific form components are split into `components/forms/` with a barrel export.
+
 ## Architecture
 
 ### Component Hierarchy
 
 ```
 KafkaConnectionContainer (Container Component)
+├── useKafkaConnectionSave (Save & Invalidation)
+│   └── fetchTopicsForConnection (utils) → connectionFormToRequestBody (utils)
 ├── KafkaConnectionFormManager (Form Management)
 │   ├── KafkaConnectionFormRenderer (Form Rendering)
 │   │   ├── KafkaBaseForm (Base Fields - Always Visible)
@@ -17,7 +21,7 @@ KafkaConnectionContainer (Container Component)
 │   │   │   ├── Security Protocol Selector
 │   │   │   └── Bootstrap Servers Input
 │   │   │
-│   │   └── Auth-Specific Forms (Conditional Rendering)
+│   │   └── Auth-Specific Forms (from components/forms/)
 │   │       ├── NoAuthForm
 │   │       ├── SaslPlainForm
 │   │       ├── SaslJaasForm
@@ -34,10 +38,12 @@ KafkaConnectionContainer (Container Component)
 │   └── FormActions (Submit, Discard, etc.)
 │
 └── Hooks & Utilities
-    ├── useKafkaConnection (Connection Testing)
+    ├── useKafkaConnection (Connection Testing; uses connectionFormToRequestBody)
+    ├── useKafkaConnectionSave (Save to store, topic diff, dependent invalidation)
     ├── useStore (State Management)
     ├── useJourneyAnalytics (Analytics Tracking)
-    └── usePipelineActions (Pipeline Operations)
+    ├── usePipelineActions (Pipeline Operations)
+    └── Utils: connectionFormToRequestBody, fetchTopicsForConnection
 ```
 
 ## Core Components
@@ -46,49 +52,42 @@ KafkaConnectionContainer (Container Component)
 
 **Location:** `src/modules/kafka/KafkaConnectionContainer.tsx`
 
-**Purpose:** The main container component that orchestrates the Kafka connection flow. It manages state, handles connection testing, saves connection data, and coordinates with the store.
+**Purpose:** The main container component that orchestrates the Kafka connection flow. It composes hooks for connection testing and saving, manages initial values and bootstrap change detection, and coordinates analytics.
 
 **Key Responsibilities:**
-- Manages connection state from the global store (`kafkaStore`)
+
+- Reads connection state from `kafkaStore` for initial values
 - Handles connection testing via `useKafkaConnection` hook
-- Saves connection data to the store after successful connection
-- Monitors bootstrap server changes and resets dependent stores
+- Saves connection data via `useKafkaConnectionSave` hook (which performs store sync, topic diff, and dependent invalidation)
+- Monitors bootstrap server changes and resets `topicsStore`
 - Tracks analytics events for connection attempts
-- Handles smart invalidation of dependent sections when topics change
 - Supports both standalone (edit mode) and integrated (pipeline creation) flows
 
 **Key Functions:**
 
-#### `saveConnectionData(values: KafkaConnectionFormType)`
-Saves the connection configuration to the store. In standalone mode, it also:
-- Fetches topics from the new connection
-- Compares with existing topics
-- Invalidates dependent sections (topics, join, deduplication, clickhouse destination) if topics have changed
-
-#### `fetchTopicsForConnection(connectionValues: KafkaConnectionFormType)`
-Helper function that builds a request body based on the authentication method and fetches available topics from the Kafka cluster via `/ui-api/kafka/topics` endpoint.
-
 #### `handleTestConnection(values: KafkaConnectionFormType)`
-Initiates connection testing, tracks analytics, and saves data on success.
+
+Initiates connection testing, tracks analytics, and on success calls `saveConnectionData(values)` from `useKafkaConnectionSave`.
 
 **State Management:**
-- Reads from `kafkaStore` for current connection state
-- Updates `kafkaStore` with new connection data
-- Resets `topicsStore` when bootstrap servers change
-- Marks `coreStore` as dirty in standalone mode
 
-**Props:**
+- Reads from `kafkaStore` for initial form values and bootstrap change detection
+- Resets `topicsStore` when bootstrap servers change (via `previousBootstrapServers` ref)
+- All store updates and dependent invalidation are performed inside `useKafkaConnectionSave.saveConnectionData`
+
+**Props:** Typed via `KafkaConnectionContainerProps`:
+
 ```typescript
 {
-  steps: any
+  steps?: Record<string, { key?: string; title?: string; description?: string }>
   onCompleteStep?: (step: StepKeys) => void
   validate: () => Promise<boolean>
   standalone?: boolean
   readOnly?: boolean
-  toggleEditMode?: (apiConfig?: any) => void
+  toggleEditMode?: (apiConfig?: unknown) => void
   onCompleteStandaloneEditing?: () => void
-  pipelineActionState?: any
-  pipeline?: any
+  pipelineActionState?: PipelineActionState  // from usePipelineActions
+  pipeline?: Pipeline                      // from @/src/types/pipeline
 }
 ```
 
@@ -99,6 +98,7 @@ Initiates connection testing, tracks analytics, and saves data on success.
 **Purpose:** Manages the form state using React Hook Form, handles form validation, and coordinates form submission.
 
 **Key Features:**
+
 - Uses `react-hook-form` with Zod validation (`KafkaConnectionFormSchema`)
 - Auto-selects security protocol based on auth method selection
 - Tracks user interaction to control when validation errors are shown
@@ -106,12 +106,14 @@ Initiates connection testing, tracks analytics, and saves data on success.
 - Manages discard functionality to reset form to original values
 
 **Form Configuration:**
+
 - **Mode:** `onBlur` - validates fields when they lose focus
 - **Criteria Mode:** `firstError` - shows first error per field
 - **Focus Error:** `false` - doesn't auto-focus on errors
 
 **Auto-Selection Logic:**
 When a user changes the auth method, the security protocol is automatically set:
+
 - `SASL/SCRAM-256` or `SASL/SCRAM-512` → `SASL_SSL`
 - `SASL/PLAIN` → `SASL_PLAINTEXT`
 - `NO_AUTH` → `PLAINTEXT`
@@ -120,10 +122,12 @@ When a user changes the auth method, the security protocol is automatically set:
 
 **Validation Display:**
 Validation errors are only shown when:
+
 - User has interacted with the form (`userInteracted` state), OR
 - Returning to a previously filled form with touched fields
 
 **Submission Flow:**
+
 1. User clicks "Continue" or submits form
 2. Form validation is triggered manually
 3. If validation passes:
@@ -137,6 +141,7 @@ Validation errors are only shown when:
 **Purpose:** Renders the appropriate form fields based on the selected authentication method and security protocol.
 
 **Rendering Logic:**
+
 1. **Base Form:** Always rendered with:
    - Auth Method selector
    - Security Protocol selector (options filtered based on auth method)
@@ -144,64 +149,83 @@ Validation errors are only shown when:
 
 2. **Auth-Specific Form:** Conditionally rendered based on `authMethod`:
    - Uses a switch statement to render the appropriate form component
-   - Each auth method has its own form component in `form-variants.tsx`
+   - Each auth method has its own form component in `components/forms/` (see Form Variants below)
 
 3. **Truststore Form:** Conditionally rendered when:
    - Security protocol is `SASL_SSL` or `SSL`
    - And the auth method supports truststore (SASL/PLAIN, SASL/GSSAPI, SASL/SCRAM-256, SASL/SCRAM-512, NO_AUTH)
 
 **Security Protocol Options:**
+
 - For SCRAM auth methods: Only SASL protocols are available
 - For other auth methods: All security protocols are available
 
-### 4. Form Variants (form-variants.tsx)
+### 4. Form Variants (components/forms/)
 
-**Location:** `src/modules/kafka/components/form-variants.tsx`
+**Location:** `src/modules/kafka/components/forms/`
 
-**Purpose:** Contains all authentication method-specific form components.
+**Purpose:** Auth method-specific form components, split into one file per form with a barrel export. The renderer imports from `./forms` (see `forms/index.ts`).
+
+**Structure:**
+
+- `formUtils.ts` – `getFieldError(errors, path)` for nested field errors
+- `TruststoreForm.tsx` – Shared truststore UI (certificates, skip TLS); used by NoAuth, SaslPlain, SaslGssapi, SaslScram256, SaslScram512
+- One file per auth form: `SaslPlainForm.tsx`, `NoAuthForm.tsx`, `SaslJaasForm.tsx`, `SaslGssapiForm.tsx`, `SaslOauthbearerForm.tsx`, `SaslScram256Form.tsx`, `SaslScram512Form.tsx`, `AwsIamForm.tsx`, `MtlsForm.tsx`, `DelegationTokensForm.tsx`, `LdapForm.tsx`
+- `index.ts` – Re-exports all form components
 
 **Available Forms:**
 
 #### NoAuthForm
+
 - Renders truststore fields when SSL/SASL_SSL is selected
 - No additional authentication fields
 
 #### SaslPlainForm
+
 - Username and password fields
 - Consumer group field
 - Truststore fields (conditional on SSL/SASL_SSL)
 
 #### SaslJaasForm
+
 - JAAS configuration textarea
 
 #### SaslGssapiForm
+
 - Kerberos principal, realm, KDC, service name
 - File upload for Kerberos keytab (base64 encoded)
 - File upload for krb5.conf configuration
 - Truststore fields (conditional on SSL/SASL_SSL)
 
 #### SaslOauthbearerForm
+
 - OAuth bearer token field
 
 #### SaslScram256Form / SaslScram512Form
+
 - Username and password fields
 - Consumer group field
 - Truststore fields (conditional on SSL/SASL_SSL)
 
 #### AwsIamForm
+
 - AWS access key, secret key, and region fields
 
 #### MtlsForm
+
 - Client certificate, client key, and password fields
 
 #### DelegationTokensForm
+
 - Delegation token field
 
 #### LdapForm
+
 - LDAP server URL, port, bind DN, bind password
 - User search filter and base DN
 
 #### TruststoreForm
+
 - Certificate file upload (with textarea fallback)
 - Skip TLS verification checkbox
 - Supports different auth method prefixes for nested form paths
@@ -212,9 +236,10 @@ Validation errors are only shown when:
 
 **Location:** `src/hooks/useKafkaConnection.ts`
 
-**Purpose:** Provides connection testing functionality.
+**Purpose:** Provides connection testing functionality. Uses the shared `connectionFormToRequestBody` utility to build the request body (single source of truth for API payload).
 
 **API:**
+
 ```typescript
 {
   testConnection: (values: KafkaConnectionFormType) => Promise<{success: boolean, message: string}>
@@ -225,33 +250,54 @@ Validation errors are only shown when:
 ```
 
 **Connection Testing Flow:**
-1. Sets `isConnecting` to `true`
-2. Builds request body based on auth method:
-   - Extracts common fields (servers, securityProtocol, authMethod)
-   - Adds auth-specific fields based on auth method
-   - Includes truststore certificates and skipTlsVerification when applicable
-3. Sends POST request to `/ui-api/kafka/`
-4. On success:
-   - Returns success result
-   - Updates local state with connection info
-   - Shows success notification
-5. On failure:
-   - Returns error result
-   - Shows error notification via `notify()`
-   - Updates local state with failed connection
 
-**Request Body Construction:**
-The hook constructs different request bodies based on the authentication method. Each auth method includes its specific fields:
-- **NO_AUTH:** certificate (from truststore)
-- **SASL/PLAIN:** username, password, consumerGroup, certificate
-- **SASL/JAAS:** jaasConfig
-- **SASL/GSSAPI:** kerberosPrincipal, kerberosKeytab, kerberosRealm, kdc, serviceName, krb5Config, certificate
-- **SASL/OAUTHBEARER:** oauthBearerToken
-- **SASL/SCRAM-256/512:** username, password, consumerGroup, certificate
-- **AWS_MSK_IAM:** awsAccessKey, awsAccessKeySecret, awsRegion
-- **Delegation tokens:** delegationToken
-- **SASL/LDAP:** ldapServerUrl, ldapServerPort, ldapBindDn, ldapBindPassword, ldapUserSearchFilter, ldapBaseDn
-- **mTLS:** clientCert, clientKey, password
+1. Sets `isConnecting` to `true`
+2. Builds request body via `connectionFormToRequestBody(values)` (see Utils below)
+3. Sends POST request to `/ui-api/kafka/`
+4. On success: returns success result, updates local state, shows success notification
+5. On failure: returns error result, shows notification via `notify()`, updates local state
+
+### useKafkaConnectionSave
+
+**Location:** `src/modules/kafka/hooks/useKafkaConnectionSave.ts`
+
+**Purpose:** Encapsulates save-to-store logic, topic diff in standalone mode, and dependent section invalidation. Used by `KafkaConnectionContainer` after a successful connection test.
+
+**API:**
+
+```typescript
+useKafkaConnectionSave({
+  standalone?: boolean
+  toggleEditMode?: (apiConfig?: unknown) => void
+  onCompleteStep?: (step: StepKeys) => void
+  onCompleteStandaloneEditing?: () => void
+}) => { saveConnectionData: (values: KafkaConnectionFormType) => Promise<void> }
+```
+
+**saveConnectionData behavior:**
+
+- In standalone mode: calls `fetchTopicsForConnection(values)`, compares with current `availableTopics`; if topics changed, sets `shouldInvalidateDependents`
+- Writes to store: `setKafkaConnection`, `setKafkaAuthMethod`, `setKafkaSecurityProtocol`, `setKafkaBootstrapServers`, and the appropriate auth-specific setter (e.g. `setKafkaNoAuth`, `setKafkaSaslPlain`) using type-safe `'in'` narrowing on the discriminated union
+- In standalone mode: `coreStore.markAsDirty()`; if `shouldInvalidateDependents`, invalidates `topicsStore`, `joinStore`, `deduplicationStore`, `clickhouseDestinationStore` for `StepKeys.KAFKA_CONNECTION`
+- Calls `onCompleteStep(StepKeys.KAFKA_CONNECTION)` or `onCompleteStandaloneEditing()` as appropriate
+
+## Utils (Request Body & Fetch Topics)
+
+### connectionFormToRequestBody
+
+**Location:** `src/modules/kafka/utils/connectionToRequestBody.ts`
+
+**Purpose:** Single source of truth for mapping `KafkaConnectionFormType` to the request payload for `POST /ui-api/kafka/` and `POST /ui-api/kafka/topics`. Used by `useKafkaConnection.testConnection` and by `fetchTopicsForConnection`.
+
+**API:** `connectionFormToRequestBody(values: KafkaConnectionFormType): KafkaConnectionRequestBody`
+
+**Request body shape:** Includes `servers`, `securityProtocol`, `authMethod`, `skipTlsVerification` (when applicable), plus auth-specific fields per method (e.g. NO_AUTH: certificate; SASL/PLAIN: username, password, consumerGroup, certificate; etc.). Adding or changing an auth method requires updating this utility and the schema/config only.
+
+### fetchTopicsForConnection
+
+**Location:** `src/modules/kafka/utils/fetchTopicsForConnection.ts`
+
+**Purpose:** Fetches available topics from the Kafka cluster using connection form values. Uses `connectionFormToRequestBody` and `POST /ui-api/kafka/topics`. Used by `useKafkaConnectionSave` when in standalone mode to compare topics before/after connection change.
 
 ## State Management
 
@@ -262,16 +308,17 @@ The hook constructs different request bodies based on the authentication method.
 **Purpose:** Manages all Kafka connection-related state using Zustand.
 
 **State Structure:**
+
 ```typescript
 {
   // Status
   isConnected: boolean
-  
+
   // Base connection values
   authMethod: string
   securityProtocol: string
   bootstrapServers: string
-  
+
   // Auth method-specific data
   saslPlain: SaslPlainFormType
   saslJaas: SaslJaasFormType
@@ -284,13 +331,14 @@ The hook constructs different request bodies based on the authentication method.
   delegationTokens: DelegationTokensFormType
   ldap: LdapFormType
   mtls: MtlsFormType
-  
+
   // Validation state
   validation: ValidationState
 }
 ```
 
 **Actions:**
+
 - `setKafkaAuthMethod(authMethod: string)`
 - `setKafkaSecurityProtocol(securityProtocol: string)`
 - `setKafkaBootstrapServers(bootstrapServers: string)`
@@ -319,11 +367,13 @@ The hook constructs different request bodies based on the authentication method.
 **Purpose:** Defines the Zod schema for form validation using a discriminated union pattern.
 
 **Structure:**
+
 - **Base Schema:** Contains common fields (authMethod, securityProtocol, bootstrapServers)
 - **Discriminated Union:** Each auth method extends the base schema with its specific fields
 - **Super Refine:** Additional validation for certificate requirements based on security protocol
 
 **Validation Rules:**
+
 1. Base fields are always required
 2. Auth-specific fields are required based on selected auth method
 3. Truststore certificates are required when:
@@ -343,12 +393,14 @@ The discriminated union ensures TypeScript knows which fields are available base
 **Purpose:** Defines form field configurations for all auth methods.
 
 **Structure:**
+
 - `KafkaBaseFormConfig`: Base form fields (authMethod, securityProtocol, bootstrapServers)
 - `KafkaFormConfig`: Auth-specific form configurations
 - `KafkaFormDefaultValues`: Default values for all form fields
 
 **Field Configuration:**
 Each field includes:
+
 - `name`: Form field name (with nested path for auth-specific fields)
 - `label`: Display label
 - `placeholder`: Input placeholder text
@@ -385,10 +437,8 @@ Each field includes:
 
 5. **Save & Proceed:**
    - On successful connection:
-     - Connection data is saved to store via `saveConnectionData`
-     - All auth method-specific data is saved
-     - Store is marked as valid
-     - Step is completed via `onCompleteStep`
+     - Connection data is saved to store via `saveConnectionData` from `useKafkaConnectionSave`
+     - All auth method-specific data is saved; step is completed via `onCompleteStep`
    - On failed connection:
      - Error is displayed
      - User can fix and retry
@@ -449,6 +499,7 @@ The module tracks analytics events via `useJourneyAnalytics`:
 - **Connection Failed:** `analytics.kafka.failed()` - When connection test fails
 
 Analytics events include:
+
 - Auth method used
 - Security protocol used
 - Connection time (for successful connections)
@@ -457,8 +508,9 @@ Analytics events include:
 ## API Endpoints
 
 ### Test Connection
+
 - **Endpoint:** `POST /ui-api/kafka/`
-- **Request Body:** Varies by auth method (see `useKafkaConnection` hook)
+- **Request Body:** Built by `connectionFormToRequestBody(values)` (see Utils above). Same shape for all auth methods; fields vary by auth method.
 - **Response:**
   ```typescript
   {
@@ -468,8 +520,9 @@ Analytics events include:
   ```
 
 ### Fetch Topics
+
 - **Endpoint:** `POST /ui-api/kafka/topics`
-- **Request Body:** Similar to test connection request
+- **Request Body:** Same as test connection; built by `connectionFormToRequestBody` (used inside `fetchTopicsForConnection`).
 - **Response:**
   ```typescript
   {
@@ -499,11 +552,13 @@ Analytics events include:
 ## File Uploads
 
 The module supports file uploads for:
+
 - **Kerberos Keytab:** Base64 encoded, for SASL/GSSAPI
 - **krb5.conf:** Text file, for SASL/GSSAPI
 - **Certificates:** Text/PEM format, for truststore
 
 File uploads use the `InputFile` and `CertificateFileUpload` components, which:
+
 - Read file content
 - Store content in form state
 - Store filename separately
@@ -512,14 +567,18 @@ File uploads use the `InputFile` and `CertificateFileUpload` components, which:
 ## Dependencies
 
 ### Internal Dependencies
+
 - `@/src/store` - Global state management
 - `@/src/scheme` - Form schemas and types
 - `@/src/config` - Form configurations and constants
 - `@/src/hooks` - Custom hooks (useKafkaConnection, useJourneyAnalytics, usePipelineActions)
+- `@/src/modules/kafka/hooks` - useKafkaConnectionSave
+- `@/src/modules/kafka/utils` - connectionFormToRequestBody, fetchTopicsForConnection
 - `@/src/components/ui` - UI components (FormGroup, form rendering utilities)
 - `@/src/components/common` - Common components (InputFile, CertificateFileUpload)
 
 ### External Dependencies
+
 - `react-hook-form` - Form state management
 - `@hookform/resolvers/zod` - Zod schema validation
 - `zustand` - State management
@@ -552,6 +611,14 @@ File uploads use the `InputFile` and `CertificateFileUpload` components, which:
    - Include relevant context (auth method, protocol)
    - Track both success and failure cases
 
+## Recent Refactors (Done)
+
+- **Centralized request body:** All API payloads for connection test and fetch topics are built by `connectionFormToRequestBody` (single place to add/change auth methods).
+- **Save logic in hook:** `useKafkaConnectionSave` holds save-to-store, topic diff, and dependent invalidation; container stays thin.
+- **Typed container props:** `KafkaConnectionContainerProps` with `Pipeline`, `PipelineActionState`; no `any` for steps/validate/pipeline.
+- **Form variants split:** Auth-specific forms live in `components/forms/` (one file per form + TruststoreForm + formUtils + barrel). Lazy loading of form chunks is a possible follow-up.
+- **TruststoreForm in renderer (Phase 4):** The standalone TruststoreForm block was removed from `KafkaConnectionFormRenderer`; truststore is only rendered inside auth-specific forms (NoAuthForm, SaslPlainForm, SaslGssapiForm, SaslScram256Form, SaslScram512Form) when SSL or SASL_SSL is selected. Documented in a comment in the renderer.
+
 ## Future Improvements
 
 1. **Connection Caching:**
@@ -570,4 +637,4 @@ File uploads use the `InputFile` and `CertificateFileUpload` components, which:
 4. **Performance:**
    - Debounce connection tests
    - Optimize re-renders
-   - Lazy load form variants
+   - Lazy load auth form components (e.g. React.lazy + Suspense per auth method)
