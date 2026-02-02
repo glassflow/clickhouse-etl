@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
-import { JSONDateTypesSelector } from '@/src/components/shared/JSONDateTypesSelector'
 import { useStore } from '@/src/store'
 import { extractEventFields, getEffectiveFieldNames, type SchemaField } from '@/src/utils/common.client'
 import { TimeWindowConfigurator } from './TimeWindowConfigurator'
@@ -96,16 +95,7 @@ function SelectDeduplicateKeys({
       setSelectedKeyType('string')
       onChange({ key: key || '', keyType: key ? 'string' : '' }, { window: localWindow, unit: localWindowUnit })
     },
-    [selectedKeyType, localWindow, localWindowUnit, onChange],
-  )
-
-  // Simplified key type selection handler
-  const handleKeyTypeSelect = useCallback(
-    (keyType: string) => {
-      setSelectedKeyType(keyType)
-      onChange({ key: selectedKey, keyType }, { window: localWindow, unit: localWindowUnit })
-    },
-    [selectedKey, localWindow, localWindowUnit, onChange],
+    [localWindow, localWindowUnit, onChange],
   )
 
   // Window change handler
@@ -158,14 +148,7 @@ function SelectDeduplicateKeys({
               </div>
             )}
           </div>
-          <div className="w-[30%]">
-            {/* <JSONDateTypesSelector
-              value={selectedKeyType}
-              onChange={handleKeyTypeSelect}
-              isDeduplicationJoin={true}
-              readOnly={readOnly}
-            /> */}
-          </div>
+          <div className="w-[30%]" />
         </div>
       </div>
 
