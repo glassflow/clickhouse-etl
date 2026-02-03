@@ -160,18 +160,13 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return err
 	}
 
-	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, p.ID, p)
-	if err != nil {
-		return err
-	}
-
-	// Insert transformations
+	// Insert transformations (without schema versions yet)
 	transformationIDs, err := s.insertTransformationsFromPipeline(ctx, tx, p)
 	if err != nil {
 		return err
 	}
 
-	// Insert ClickHouse connection and sink
+	// Insert ClickHouse connection and sink (without schema versions yet)
 	sinkID, err := s.insertClickHouseSink(ctx, tx, p)
 	if err != nil {
 		return err
@@ -183,13 +178,48 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return err
 	}
 
-	// Insert pipeline
+	// Insert pipeline record FIRST (required for foreign key constraints)
 	_, err = tx.Exec(ctx, `
 		INSERT INTO pipelines (id, name, status, source_id, sink_id, transformation_ids, metadata, version, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, insertData.metadataJSON, "v2", insertData.createdAt, insertData.updatedAt)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
+	}
+
+	// Now insert schema versions (after pipeline exists)
+	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, p.ID, p)
+	if err != nil {
+		return err
+	}
+
+	// Insert stateless transformation schema and config (after pipeline exists)
+	if p.StatelessTransformation.Enabled {
+		err = s.insertStatelessTransformationSchemaAndConfig(ctx, tx, p)
+		if err != nil {
+			return fmt.Errorf("insert stateless transformation schema and config: %w", err)
+		}
+	}
+
+	// Upsert join transformation schema and configs (after pipeline exists)
+	if p.Join.Enabled {
+		err = s.insertJoinSchemaAndConfig(ctx, tx, p)
+		if err != nil {
+			return fmt.Errorf("insert join schema and config: %w", err)
+		}
+	}
+
+	// Insert sink config (after pipeline and schemas exist)
+	if p.SchemaVersions != nil {
+		sourceSchemaVersion, found := p.SchemaVersions[p.Sink.SourceID]
+		if !found {
+			return fmt.Errorf("schema version for sink source ID '%s' not found", p.Sink.SourceID)
+		}
+
+		err = s.insertSinkConfig(ctx, tx, p.ID, p.Sink.SourceID, sourceSchemaVersion.VersionID, p.Sink.Config)
+		if err != nil {
+			return fmt.Errorf("insert sink config: %w", err)
+		}
 	}
 
 	// Build and insert schema
@@ -731,18 +761,6 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p
 	chConnID, err := s.insertConnectionWithConfig(ctx, tx, "clickhouse", connBytes)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert clickhouse connection: %w", err)
-	}
-
-	if p.SchemaVersions != nil {
-		sourceSchemaVersion, found := p.SchemaVersions[p.Sink.SourceID]
-		if !found {
-			return uuid.Nil, fmt.Errorf("schema version for source ID '%s' not found", p.Sink.SourceID)
-		}
-
-		err = s.insertSinkConfig(ctx, tx, p.ID, p.Sink.SourceID, sourceSchemaVersion.VersionID, p.Sink.Config)
-		if err != nil {
-			return uuid.Nil, fmt.Errorf("insert sink config: %w", err)
-		}
 	}
 
 	sinkID, err := s.insertSink(ctx, tx, "clickhouse", chConnID, p.Mapper.SinkMapping)

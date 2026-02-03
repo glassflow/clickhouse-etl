@@ -768,3 +768,24 @@ type SinkConfig struct {
 	SourceSchemaVersionID string
 	Config                []Mapping
 }
+
+type JoinAuxConfig struct {
+	OutputSchemaVersionID string
+	SourceJoinRules       map[string]map[string]string
+}
+
+func NewJoinAuxConfig(configs []JoinConfig) *JoinAuxConfig {
+	rules := make(map[string]map[string]string)
+	for _, cfg := range configs {
+		rules[cfg.SourceID] = make(map[string]string)
+		for _, rule := range cfg.Config {
+			if rule.SourceID == cfg.SourceID {
+				rules[cfg.SourceID][rule.SourceName] = rule.OutputName
+			}
+		}
+	}
+	return &JoinAuxConfig{
+		OutputSchemaVersionID: configs[0].OutputSchemaVersionID,
+		SourceJoinRules:       rules,
+	}
+}

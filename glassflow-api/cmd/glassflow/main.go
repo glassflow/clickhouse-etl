@@ -199,7 +199,7 @@ func mainErr(cfg *config, role models.Role) error {
 	case internal.RoleSink:
 		return mainSink(ctx, nc, cfg, log, meter)
 	case internal.RoleJoin:
-		return mainJoin(ctx, nc, cfg, log, meter)
+		return mainJoin(ctx, nc, cfg, db, log, meter)
 	case internal.RoleIngestor:
 		return mainIngestor(ctx, nc, cfg, db, log, meter)
 	case internal.RoleETL:
@@ -357,7 +357,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	)
 }
 
-func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, _ *observability.Meter) error {
+func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, _ *observability.Meter) error {
 	if cfg.JoinType == "" {
 		return fmt.Errorf("join type must be specified")
 	}
@@ -371,33 +371,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("join is not enabled in pipeline config")
 	}
 
-	if len(pipelineCfg.Join.Sources) != 2 {
-		return fmt.Errorf("join must have exactly 2 sources")
-	}
-
-	// Determine left and right streams based on orientation
-	var leftStream, rightStream string
-	if pipelineCfg.Join.Sources[0].Orientation == "left" {
-		leftStream = pipelineCfg.Join.Sources[0].StreamID
-		rightStream = pipelineCfg.Join.Sources[1].StreamID
-	} else {
-		leftStream = pipelineCfg.Join.Sources[1].StreamID
-		rightStream = pipelineCfg.Join.Sources[0].StreamID
-	}
-
-	if leftStream == "" || rightStream == "" {
-		return fmt.Errorf("both left and right streams must be specified in join sources")
-	}
-
-	// Generate output stream name for joined data
-	outputStream := pipelineCfg.Join.OutputStreamID
-
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
-	}
-
-	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
+	joinRunner := service.NewJoinRunner(log, nc, pipelineCfg, db)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 

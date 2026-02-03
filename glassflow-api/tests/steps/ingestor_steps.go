@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -368,99 +367,12 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(
 		return fmt.Errorf("create nats consumer: %w", err)
 	}
 
-	expectedCount := len(dataTable.Rows) - 1
-	if expectedCount < 1 {
-		return fmt.Errorf("no expected events in data table")
-	}
-
-	// Get headers from first row
-	headers := make([]string, len(dataTable.Rows[0].Cells))
-	for i, cell := range dataTable.Rows[0].Cells {
-		headers[i] = cell.Value
-	}
-
-	expectedEvents := make(map[string]map[string]any)
-	for i := 1; i < len(dataTable.Rows); i++ {
-		row := dataTable.Rows[i]
-		event := make(map[string]any)
-		sign := make([]string, 0, len(row.Cells))
-
-		for j, cell := range row.Cells {
-			if j < len(headers) {
-				if strings.HasPrefix(headers[j], "NATS-") {
-					sign = append(sign, cell.Value)
-					continue
-				}
-				event[headers[j]] = cell.Value
-				sign = append(sign, cell.Value)
-			}
-		}
-
-		expectedEvents[strings.Join(sign, "")] = event
-	}
-
-	msgs, err := consumer.Fetch(2*expectedCount, jetstream.FetchMaxWait(fetchTimeout))
-	if err != nil {
-		return fmt.Errorf("fetch messages: %w", err)
-	}
-
-	receivedCount := 0
-
-	for msg := range msgs.Messages() {
-		if msg == nil {
-			break
-		}
-
-		if receivedCount > len(expectedEvents) {
-			return fmt.Errorf("too much events: actual %d, expected %d", receivedCount, len(expectedEvents))
-		}
-
-		var actual map[string]any
-
-		err := json.Unmarshal(msg.Data(), &actual)
-		if err != nil {
-			return fmt.Errorf("failed unmarshal message data: %w", err)
-		}
-
-		sign := make([]string, 0)
-
-		for _, header := range headers {
-			if strings.HasPrefix(header, "NATS-") {
-				sign = append(sign, msg.Headers().Get(header[5:]))
-				continue
-			}
-			sign = append(sign, fmt.Sprint(actual[header]))
-		}
-
-		expected, exists := expectedEvents[strings.Join(sign, "")]
-		if !exists {
-			return fmt.Errorf("not expected event %v with key %s", actual, strings.Join(sign, ""))
-		}
-
-		if len(expected) != len(actual) {
-			return fmt.Errorf("events have different number of keys: %v and actual: %v", expected, actual)
-		}
-
-		for k, v := range expected {
-			if v != actual[k] {
-				return fmt.Errorf("events are different: %v and actual: %v", expected, actual)
-			}
-		}
-
-		receivedCount++
-	}
-
-	if receivedCount != expectedCount {
-		return fmt.Errorf(
-			"not equal number of events: expected %d, got %d from stream %s, subject %s",
-			expectedCount,
-			receivedCount,
-			streamConfig.Name,
-			streamConfig.Subjects[0],
-		)
-	}
-
-	return nil
+	return s.ValidateEventsFromStream(
+		consumer,
+		dataTable,
+		streamConfig.Name,
+		streamConfig.Subjects[0],
+	)
 }
 
 func (s *IngestorTestSuite) checkResultsStream(expectedLag int, dataTable *godog.Table) error {
