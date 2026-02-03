@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
-import { MoreVertical, Tag } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { getActionConfig, shouldShowAction } from '@/src/utils/pipeline-actions'
 import { PipelineStatus, PipelineAction } from '@/src/types/pipeline'
 import PlayIcon from '@/src/images/play-white.svg'
 import RenameIcon from '@/src/images/rename.svg'
+import EditIcon from '@/src/images/edit.svg'
 import DeleteIcon from '@/src/images/trash.svg'
 import DownloadIcon from '@/src/images/download-white.svg'
 import CloseIcon from '@/src/images/close.svg'
@@ -57,9 +58,11 @@ export const TableContextMenu = ({
   // Use centralized shouldShowAction for visibility
   const showStop = canShowAction('stop')
   const showResume = canShowAction('resume')
+  const showEdit = canShowAction('edit')
   const showTerminate = canShowAction('terminate')
   const showRename = canShowAction('rename')
   const showDelete = canShowAction('delete')
+  const editConfig = getConfig('edit')
 
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -149,8 +152,8 @@ export const TableContextMenu = ({
               </Button>
             )}
 
-            {/* Edit Button */}
-            {/* {onEdit && (
+            {/* Edit Button - for active pipeline shows "must stop first" dialog; for stopped/paused navigates to details */}
+            {showEdit && onEdit && (
               <Button
                 variant="ghost"
                 className={cn(
@@ -159,14 +162,23 @@ export const TableContextMenu = ({
                     ? 'text-muted-foreground cursor-not-allowed opacity-50'
                     : 'text-foreground hover:bg-[var(--color-background-neutral-faded)]',
                 )}
-                onClick={(e) => handleMenuClick(e, onEdit, editConfig.isDisabled || isLoading)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleMenuClick(e, onEdit, editConfig.isDisabled || isLoading)
+                }}
                 disabled={editConfig.isDisabled || isLoading}
                 title={editConfig.disabledReason}
               >
-                <Edit className="h-4 w-4 mr-2 flex-shrink-0" />
+                <Image
+                  src={EditIcon}
+                  alt="Edit"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-0"
+                />
                 <span className="truncate">Edit</span>
               </Button>
-            )} */}
+            )}
 
             {/* Rename Button */}
             {showRename && onRename && (

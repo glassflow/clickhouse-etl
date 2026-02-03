@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import Image from 'next/image'
 import { cn } from '@/src/utils/common.client'
-import { TableContextMenu } from './TableContextMenu'
 import { ListPipelineConfig } from '@/src/types/pipeline'
 import SortIcon from '@/src/images/sort.svg'
 import SortAscIcon from '@/src/images/sort-up.svg'
@@ -37,10 +36,6 @@ export interface PipelinesTableProps {
   className?: string
   onRowClick?: (item: ListPipelineConfig) => void
   isLoading?: boolean
-  onPause?: (pipeline: ListPipelineConfig) => void
-  onEdit?: (pipeline: ListPipelineConfig) => void
-  onRename?: (pipeline: ListPipelineConfig) => void
-  onDelete?: (pipeline: ListPipelineConfig) => void
 }
 
 export function PipelinesTable({
@@ -50,10 +45,6 @@ export function PipelinesTable({
   className,
   onRowClick,
   isLoading = false,
-  onPause,
-  onEdit,
-  onRename,
-  onDelete,
 }: PipelinesTableProps) {
   const gridTemplateColumns = columns.map((col) => col.width || '1fr').join(' ')
   const [sortColumn, setSortColumn] = useState<string | null>(null)
@@ -223,9 +214,9 @@ export function PipelinesTable({
 
       {/* Table Body */}
       <div className="table-body">
-        {sortedData.map((item, index) => (
+        {sortedData.map((item) => (
           <div
-            key={index}
+            key={item.pipeline_id}
             className={cn('table-row', onRowClick && 'cursor-pointer')}
             onClick={() => onRowClick?.(item)}
             style={{ gridTemplateColumns }}
