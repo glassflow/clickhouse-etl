@@ -56,7 +56,6 @@ PipelinesList (Main Component)
 │
 └── Modals
     ├── StopPipelineModal
-    ├── ResumePipelineModal (immediate action)
     ├── EditPipelineModal
     ├── RenamePipelineModal
     ├── TerminatePipelineModal
@@ -64,24 +63,33 @@ PipelinesList (Main Component)
     └── InfoModal (Pipeline Limit)
 ```
 
+**Note:** Resume and Delete from the context menu are immediate actions (no modal). Column definitions come from `getPipelineListColumns`; table and mobile both use effective status from centralized state.
+
+### Module Structure (Post-Refactor)
+
+- **PipelinesList.tsx** – Composes hooks and column config; wires modals to confirm handlers; owns filter chips, table, mobile list, and modals.
+- **utils/filterUrl.ts** – Filter state type, parse/serialize/equality, and `useFiltersFromUrl()` hook for URL sync.
+- **columns/pipelineListColumns.tsx** – `getPipelineListColumns(config)` and `TagsCell`; column definitions for the desktop table.
+- **usePipelineListOperations.ts** – All list operation handlers and modal confirm logic (stop, resume, edit, rename, terminate, delete, download, tags); loading state.
+- **utils/pipeline-status-display.ts** (app-level) – Single source for status label, badge variant, and accessibility text.
+
 ## Core Components
 
 ### 1. PipelinesList
 
 **Location:** `src/modules/pipelines/PipelinesList.tsx`
 
-**Purpose:** The main container component that orchestrates the entire pipelines list functionality. It manages state, handles pipeline operations, coordinates filtering, and provides responsive rendering.
+**Purpose:** The main container component that orchestrates the pipelines list UI. It composes the filter hook, operations hook, and column config; wires modals to confirm handlers; and provides responsive rendering (desktop table vs mobile cards). Pipeline operations, loading state, and filter–URL sync are delegated to dedicated hooks and modules.
 
 **Key Responsibilities:**
 
-- Manages pipeline list state and operations
-- Handles filtering by status, health, and tags
-- Coordinates pipeline operations (stop, resume, edit, rename, terminate, delete)
-- Manages pipeline status polling through centralized state management
+- Composes `useFiltersFromUrl()` for filter state and URL sync
+- Composes `usePipelineListOperations()` for all list actions and modal confirm logic (stop, resume, edit, rename, terminate, delete, download, tags)
+- Composes `getPipelineListColumns(config)` for desktop table columns
+- Uses `useMultiplePipelineState` and `usePipelineMonitoring` for centralized pipeline status
+- Maintains local state only for: modal visibility (via modal hooks), tags modal (selected pipeline, saving state), pipeline limit modal
+- Computes `filteredPipelines` and pipeline limit (blocking creation count) using effective status
 - Provides responsive rendering (desktop table vs mobile cards)
-- Handles URL-based filter persistence
-- Tracks analytics events for all operations
-- Manages loading states for individual pipeline operations
 
 **Props:**
 
@@ -96,31 +104,19 @@ PipelinesList (Main Component)
 }
 ```
 
-**Key State Management:**
+**Key State and Hooks:**
 
-- Uses `useMultiplePipelineState` hook to get centralized pipeline statuses
-- Uses `usePipelineOperations` hook to report operations to central system
-- Uses `usePipelineMonitoring` hook to start/stop monitoring pipelines
-- Maintains local state for:
-  - Filter state (status, health, tags)
-  - Modal visibility states
-  - Individual pipeline operation loading states
-  - Tags modal state
-
-**Filter State Management:**
-Filters are synchronized with URL search parameters:
-
-- Status filters: `?status=active,paused`
-- Health filters: `?health=stable,unstable`
-- Tag filters: `?tags=tag1,tag2`
-- Filters are parsed from URL on mount and updated when changed
-- URL is updated when filters change (using `router.replace` with `scroll: false`)
+- **Centralized status:** `useMultiplePipelineState(pipelineIds)`, `usePipelineOperations()`, `usePipelineMonitoring(pipelineIds)` (via `usePipelineStateAdapter`)
+- **Filters:** `useFiltersFromUrl()` returns `[filters, setFilters]` and keeps filters in sync with URL (see Filter State Management and `filterUrl` module)
+- **Operations and loading:** `usePipelineListOperations(props)` returns handlers and loading helpers (`setPipelineLoading`, `clearPipelineLoading`, `isPipelineLoading`, `getPipelineOperation`); modal confirm logic lives in `handleStopConfirm`, `handleRenameConfirm`, `handleEditConfirm`, `handleTerminateConfirm`
+- **Columns:** `getPipelineListColumns(config)` from `src/modules/pipelines/columns/pipelineListColumns.tsx`; PipelinesList passes a config and receives column definitions for the table
+- **Local state:** Modal visibility (stop, rename, edit, terminate) via `hooks.ts`; tags modal pipeline and saving state; pipeline limit modal visibility
 
 ### 2. PipelinesTable
 
 **Location:** `src/modules/pipelines/PipelinesTable.tsx`
 
-**Purpose:** Renders pipelines in a sortable table format for desktop and tablet views.
+**Purpose:** Renders pipelines in a sortable table format for desktop and tablet views. It receives a `columns` array and `data`; it does not define column content. Column definitions are produced by `getPipelineListColumns` (see Column Config below).
 
 **Key Features:**
 
@@ -132,18 +128,9 @@ Filters are synchronized with URL search parameters:
 - Empty state message
 - Loading state display
 
-**Column Configuration:**
-Each column is defined with:
+**Props:** `data`, `columns`, `emptyMessage`, `onRowClick`, `isLoading`. Row key is `item.pipeline_id`.
 
-- `key`: Unique identifier
-- `header`: Display name
-- `width`: CSS grid width (e.g., '2fr', '1fr')
-- `align`: Text alignment ('left', 'center', 'right')
-- `sortable`: Whether column can be sorted
-- `sortKey`: Optional key for sorting (defaults to `key`)
-- `render`: Custom render function for cell content
-
-**Status Priority Order:**
+**Status Priority Order:** (defined in PipelinesTable for sorting)
 
 ```typescript
 {
@@ -165,31 +152,34 @@ Each column is defined with:
 - String columns use locale-aware comparison
 - Null values are sorted to the end
 
+### 2b. Column Config (getPipelineListColumns)
+
+**Location:** `src/modules/pipelines/columns/pipelineListColumns.tsx`
+
+**Purpose:** Single place for desktop table column definitions. Returns an array of `TableColumn<ListPipelineConfig>` given a config object. Used by PipelinesList to build the `columns` prop for PipelinesTable.
+
+**Config (`PipelineListColumnsConfig`):**
+
+- `isPipelineLoading`, `getPipelineOperation`, `getEffectiveStatus`
+- Action handlers: `onStop`, `onResume`, `onEdit`, `onRename`, `onTerminate`, `onDelete`, `onDownload`, `onManageTags`
+
+**Columns produced:** Name (with loading indicator), Transformation, Tags (TagsCell), Health, Events in DLQ, Status (using `getPipelineStatusLabel` / `getPipelineStatusVariant` from status-display util), Created, Actions (TableContextMenu). Status labels and badge variants come from `@/src/utils/pipeline-status-display`.
+
 ### 3. MobilePipelinesList
 
 **Location:** `src/modules/pipelines/MobilePipelinesList.tsx`
 
-**Purpose:** Renders pipelines as cards for mobile devices.
+**Purpose:** Renders pipelines as cards for mobile devices. Behavior and data are aligned with desktop: it uses **effective status** from centralized state for the status badge and for the context menu, and uses the same status display util as the table.
 
 **Key Features:**
 
+- Receives `pipelineStatuses: Record<string, PipelineStatus | null>` (centralized status map)
+- Uses `getEffectiveStatus(pipeline) = pipelineStatuses[pipeline_id] ?? pipeline.status ?? 'active'` for badge and for `TableContextMenu` `pipelineStatus`
+- Status label and variant from `getPipelineStatusLabel` / `getPipelineStatusVariant` (`@/src/utils/pipeline-status-display`)
 - Card-based layout optimized for mobile screens
-- Displays key pipeline information in compact format
-- Shows loading indicators for operations
-- Includes context menu for actions
+- Loading indicators and context menu (same actions as desktop)
 - Clickable cards for navigation
-- Empty state message
-
-**Card Information Display:**
-Each card shows:
-
-- Pipeline name with loading indicator
-- Transformation type
-- Status badge
-- Tags (up to 3 visible, with "+N more" indicator)
-- Events in DLQ count
-- Health status (stable/unstable)
-- Created date
+- Empty state message aligned with desktop: "No pipelines found. Adjust your filters or create a new pipeline to get started."
 
 ### 4. TableContextMenu
 
@@ -207,12 +197,12 @@ Each card shows:
 
 **Available Actions:**
 
-- **Stop:** Gracefully pause pipeline (available when active)
-- **Resume:** Resume paused pipeline (available when paused/stopped)
-- **Edit:** Navigate to edit pipeline (available when stopped/paused)
-- **Rename:** Change pipeline name (available for all statuses)
-- **Terminate:** Immediately stop pipeline (available for most statuses)
-- **Delete:** Remove pipeline (available when terminated/stopped)
+- **Stop:** Gracefully pause pipeline (available when active); opens StopPipelineModal, on confirm runs stop then clears loading
+- **Resume:** Resume paused pipeline (available when paused/stopped); immediate action (no modal)
+- **Edit:** Edit pipeline. **Active:** opens EditPipelineModal ("must stop first"); on confirm, stop pipeline then navigate to details. **Stopped/paused/terminated/failed:** navigate directly to `/pipelines/:id`
+- **Rename:** Change pipeline name (available when not pausing/stopping); opens RenamePipelineModal
+- **Terminate:** Immediately stop pipeline (available for most statuses); opens TerminatePipelineModal
+- **Delete:** Remove pipeline (available when terminated/stopped); immediate action (no modal)
 - **Download:** Download pipeline configuration (always available)
 - **Manage Tags:** Edit pipeline tags (disabled in demo mode)
 
@@ -269,7 +259,7 @@ The module uses a centralized pipeline state management system:
 
 #### useMultiplePipelineState
 
-**Location:** `src/hooks/usePipelineState.ts`
+**Location:** `src/hooks/usePipelineStateAdapter.ts` (re-exports from SSE/polling implementation)
 
 **Purpose:** Gets status for multiple pipelines from centralized state.
 
@@ -289,9 +279,9 @@ const pipelineStatuses = useMultiplePipelineState(pipelineIds)
 
 #### usePipelineOperations
 
-**Location:** `src/hooks/usePipelineState.ts`
+**Location:** `src/hooks/usePipelineStateAdapter.ts` (re-exports from polling implementation)
 
-**Purpose:** Provides interface to report pipeline operations to central system.
+**Purpose:** Provides interface to report pipeline operations to central system (optimistic updates).
 
 **Methods:**
 
@@ -303,7 +293,7 @@ const pipelineStatuses = useMultiplePipelineState(pipelineIds)
 
 #### usePipelineMonitoring
 
-**Location:** `src/hooks/usePipelineState.ts`
+**Location:** `src/hooks/usePipelineStateAdapter.ts`
 
 **Purpose:** Manages pipeline monitoring lifecycle.
 
@@ -319,14 +309,42 @@ usePipelineMonitoring(pipelineIds)
 - Stops monitoring when component unmounts
 - Automatically handles cleanup
 
+#### useFiltersFromUrl
+
+**Location:** `src/modules/pipelines/utils/filterUrl.ts`
+
+**Purpose:** Keeps pipeline list filters in sync with URL search params. Returns `[filters, setFilters]`.
+
+**Behavior:**
+
+- Initial state from `parseFiltersFromParams(searchParams)`
+- Syncs from URL when `searchParams` change (e.g. browser back/forward)
+- Syncs to URL when filters change (`router.replace` with `scroll: false`)
+- Filter type: `FilterState` (`status`, `health`, `tags`) exported from same module
+
+**Filter URL module:** `filterUrl.ts` also exports `parseFiltersFromParams`, `serializeFilters`, `areFiltersEqual`, and filter constants. PipelinesList uses only the hook; filter parsing/serialization is encapsulated here for testability.
+
+#### usePipelineListOperations
+
+**Location:** `src/modules/pipelines/usePipelineListOperations.ts`
+
+**Purpose:** Encapsulates all list operation logic: loading state, handlers (stop, resume, edit, rename, terminate, delete, download, manage tags), and modal confirm handlers used by Stop/Rename/Edit/Terminate modals.
+
+**Props:** `operations`, `analytics`, `router`, `getEffectiveStatus`, `onUpdatePipelineStatus`, `onUpdatePipelineName`, `onRemovePipeline`, `onRefresh`, modal openers (`openStopModal`, etc.), `onOpenTagsModal`.
+
+**Returns:** `setPipelineLoading`, `clearPipelineLoading`, `isPipelineLoading`, `getPipelineOperation`, plus `handleStop`, `handleResume`, `handleEdit`, `handleRename`, `handleTerminate`, `handleDelete`, `handleDownload`, `handleManageTags`, and `handleStopConfirm`, `handleRenameConfirm`, `handleEditConfirm`, `handleTerminateConfirm`. Modal `onOk` callbacks in PipelinesList close the modal and call the corresponding confirm handler.
+
 ### Local State
 
-The component maintains local state for:
+PipelinesList maintains local state only for:
 
-- **Filter state:** Current active filters (status, health, tags)
-- **Modal visibility:** Which modals are currently open
-- **Pipeline operations:** Loading state for each pipeline operation
+- **Modal visibility and selected pipeline:** Via `hooks.ts` (useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal, useTerminatePipelineModal)
 - **Tags modal:** Selected pipeline and saving state
+- **Pipeline limit modal:** Visibility for "only one active pipeline" (Docker/Local)
+
+Filter state and pipeline operation loading state are owned by `useFiltersFromUrl` and `usePipelineListOperations` respectively.
+
+**Pipeline limit (blocking creation):** The count of pipelines that block new pipeline creation uses **effective status** (`pipelineStatuses[id] ?? pipeline.status`), not just list payload status, so the limit modal is correct after stop/resume/terminate without a refetch.
 
 ## Pipeline Operations
 
@@ -376,21 +394,16 @@ The component maintains local state for:
 
 **Flow:**
 
-1. User clicks "Edit" in context menu
-2. If pipeline is active, it must be stopped first
-3. Loading state is set
-4. If active: Stop pipeline first (`stopPipeline`)
-5. Status updated to `stopping` then `stopped`
-6. Navigate to pipeline details page (`/pipelines/${pipelineId}`)
-7. Analytics events tracked
-8. Loading state cleared
+1. User clicks "Edit" in context menu (Edit is shown when not pausing/stopping; disabled during those states).
+2. **If effective status is active:** `EditPipelineModal` is shown ("To edit the pipeline, it must be paused..."). On confirm, modal closes, then: loading set, `operations.reportStop`, `stopPipeline`, `onUpdatePipelineStatus` to stopped, analytics, then `router.push(/pipelines/:id)`.
+3. **If effective status is stopped/paused/terminated/failed:** Navigate directly to `/pipelines/${pipelineId}` (no modal).
 
 **Characteristics:**
 
-- Requires pipeline to be stopped before editing
-- Automatically stops active pipelines
-- Navigates to edit page after stopping
-- Status transitions: `active` → `stopping` → `stopped` → navigate
+- Edit is available in the context menu (desktop and mobile).
+- Active pipeline: user must confirm "must stop first" dialog; then stop then navigate.
+- Non-active: direct navigation to details page.
+- On edit confirm error: revert optimistic update and restore previous status.
 
 ### Rename
 
@@ -522,31 +535,23 @@ usePipelineMonitoring(pipelineIds)
 ### Status Display
 
 **Effective Status:**
-The component uses `getEffectiveStatus` to determine displayed status:
+Effective status is computed as `pipelineStatuses[pipelineId] ?? pipeline.status ?? 'active'`. PipelinesList passes `getEffectiveStatus` (and `pipelineStatuses` to mobile) so both table and mobile use centralized status for badges and context menu.
 
-1. First checks centralized state (`pipelineStatuses[pipelineId]`)
-2. Falls back to pipeline data status
-3. Defaults to 'active' if no status available
+**Single source of truth:** `src/utils/pipeline-status-display.ts`
 
-**Status Badges:**
+- `getPipelineStatusLabel(status)`: Display label (e.g. "Active", "Stopping...")
+- `getPipelineStatusVariant(status)`: Badge variant (`'success' | 'warning' | 'secondary' | 'error' | 'default'`)
+- `getPipelineStatusAccessibilityText(status)`: Short description for title/tooltip
 
-- **Active:** Green badge
-- **Pausing/Resuming/Stopping:** Yellow badge (warning)
-- **Paused:** Yellow badge (warning)
-- **Stopped/Terminated:** Gray badge (secondary)
-- **Failed:** Red badge (error)
+PipelinesList (via column config) and MobilePipelinesList use these functions; they do not define their own status labels or variants.
 
-**Status Labels:**
+**Status Badges (via variant):**
 
-- `active` → "Active"
-- `pausing` → "Pausing..."
-- `paused` → "Paused"
-- `resuming` → "Resuming..."
-- `stopping` → "Stopping..."
-- `stopped` → "Stopped"
-- `terminating` → "Terminating..."
-- `terminated` → "Terminated"
-- `failed` → "Failed"
+- **Active:** success (green)
+- **Pausing/Resuming/Stopping/Terminating:** warning (yellow)
+- **Paused:** warning (yellow)
+- **Stopped/Terminated:** secondary (gray)
+- **Failed:** error (red)
 
 ## Filtering
 
@@ -575,26 +580,28 @@ The component uses `getEffectiveStatus` to determine displayed status:
 
 **URL Synchronization:**
 
-- Filters are stored in URL search parameters
-- Format: `?status=active,paused&health=stable&tags=tag1,tag2`
-- Filters parsed from URL on component mount
-- URL updated when filters change (using `router.replace` with `scroll: false`)
-- Prevents page scroll on filter changes
+- PipelinesList uses `useFiltersFromUrl()` from `src/modules/pipelines/utils/filterUrl.ts`.
+- The hook returns `[filters, setFilters]` and keeps filters in sync with the URL (read from `useSearchParams`, write via `router.replace` with `scroll: false`).
+- URL format: `?status=active,paused&health=stable&tags=tag1,tag2`
+- Filter type `FilterState` and helpers live in `filterUrl.ts`: `parseFiltersFromParams`, `serializeFilters`, `areFiltersEqual`, and filter constants. PipelineFilterMenu imports `FilterState` from this module.
 
-**Filter Parsing:**
+**Filter Parsing (in filterUrl.ts):**
 
 ```typescript
 // Parse from URL
 parseFiltersFromParams(searchParams)
-// Returns: { status: PipelineStatus[], health: ('stable'|'unstable')[], tags: string[] }
+// Returns: FilterState { status: PipelineStatus[], health: ('stable'|'unstable')[], tags: string[] }
 
 // Serialize to URL
 serializeFilters(filters)
-// Returns: URLSearchParams string
+// Returns: string (URLSearchParams.toString())
+
+// Compare (used to avoid unnecessary state updates when URL changes)
+areFiltersEqual(a, b)
 ```
 
 **Filter Application:**
-Filters are applied in `filteredPipelines` memo:
+Filters are applied in `filteredPipelines` memo in PipelinesList:
 
 1. Status filter: Checks effective status against filter
 2. Health filter: Checks `health_status` property
@@ -801,21 +808,24 @@ The module tracks analytics events for all operations:
 
 ### Internal Dependencies
 
-- `@/src/store` - Global state management
-- `@/src/hooks/usePipelineState` - Pipeline state hooks
-- `@/src/services/pipeline-state-manager` - Centralized state management
-- `@/src/services/pipeline-status-manager` - Status polling
-- `@/src/api/pipeline-api` - Pipeline API functions
-- `@/src/components/ui` - UI components (Badge, Button)
-- `@/src/components/common` - Common components (Modals)
-- `@/src/notifications` - Notification system
-- `@/src/utils` - Utility functions
+- `@/src/hooks/usePipelineStateAdapter` - useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring
+- `@/src/modules/pipelines/utils/filterUrl` - useFiltersFromUrl, FilterState, parseFiltersFromParams, serializeFilters, areFiltersEqual
+- `@/src/modules/pipelines/usePipelineListOperations` - List operations and modal confirm handlers
+- `@/src/modules/pipelines/columns/pipelineListColumns` - getPipelineListColumns, PipelineListColumnsConfig
+- `@/src/utils/pipeline-status-display` - getPipelineStatusLabel, getPipelineStatusVariant, getPipelineStatusAccessibilityText
+- `@/src/modules/pipelines/hooks` - useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal, useTerminatePipelineModal (selected pipeline typed as ListPipelineConfig | null)
+- `@/src/services/pipeline-state-manager` - Centralized state (used by adapter)
+- `@/src/services/pipeline-status-manager` - Status polling (used by adapter)
+- `@/src/api/pipeline-api` - Pipeline API functions (used by usePipelineListOperations and PipelinesList for tags)
+- `@/src/components/ui` - Badge, Button
+- `@/src/components/common` - Modals (InfoModal, etc.)
+- `@/src/notifications` - notify, handleApiError
+- `@/src/utils/common.client` - formatNumber, formatCreatedAt (used in column config)
 
 ### External Dependencies
 
 - `react` - React hooks and components
-- `next/navigation` - Next.js navigation (useRouter, useSearchParams)
-- `next/image` - Next.js image optimization
+- `next/navigation` - useRouter (useSearchParams/pathname used inside useFiltersFromUrl)
 
 ## Best Practices
 
@@ -826,10 +836,9 @@ The module tracks analytics events for all operations:
    - Never directly mutate pipeline status
 
 2. **Filter Management:**
-   - Keep filters synchronized with URL
+   - Use `useFiltersFromUrl()` for filter state and URL sync; parse/serialize logic lives in `filterUrl.ts`
    - Use memoization for filtered pipelines
-   - Parse filters from URL on mount
-   - Update URL when filters change
+   - Filter constants and equality check are in the same module for testability
 
 3. **Operation Handling:**
    - Always set loading state before operations
