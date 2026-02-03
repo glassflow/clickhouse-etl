@@ -214,7 +214,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	nMsg := nats.NewMsg(subject)
 	nMsg.Data = msg.Value
 
-	nMsg.Header.Set("Schema-Version-Id", version) // Set schema version header
+	nMsg.Header.Set(internal.SchemaVersionIDHeader, version) // Set schema version header
 	if k.schema.IsExternal() {
 		nMsg.Data = msg.Value[5:] // Remove magic byte and schema version bytes for external schemas
 	} else {

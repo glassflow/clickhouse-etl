@@ -39,7 +39,7 @@ CREATE TABLE join_configs (
     config JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(pipeline_id, source_id, schema_version_id)
+    UNIQUE(pipeline_id, source_id, schema_version_id, join_id, output_schema_version_id)
 );
 
 -- Create new sink_configs table

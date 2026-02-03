@@ -275,6 +275,54 @@ func (s *PostgresStorage) GetJoinConfig(ctx context.Context, pipelineID, sourceI
 	return config, nil
 }
 
+func (s *PostgresStorage) GetJoinConfigs(ctx context.Context, pipelineID string, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID string) ([]models.JoinConfig, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.ReadCommitted,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Find intersection of (join_id, output_schema_version_id) pairs for both sources
+	rows, err := tx.Query(ctx, `
+		SELECT jc1.join_id, jc1.output_schema_version_id
+		FROM join_configs jc1
+		INNER JOIN join_configs jc2
+			ON jc1.pipeline_id = jc2.pipeline_id
+			AND jc1.join_id = jc2.join_id
+			AND jc1.output_schema_version_id = jc2.output_schema_version_id
+		WHERE jc1.pipeline_id = $1
+			AND jc1.source_id = $2 AND jc1.schema_version_id = $3
+			AND jc2.source_id = $4 AND jc2.schema_version_id = $5
+	`, pipelineID, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID)
+	if err != nil {
+		return nil, fmt.Errorf("query join config intersection: %w", err)
+	}
+	defer rows.Close()
+
+	var joinID, outputSchemaVersionID string
+	if !rows.Next() {
+		return nil, models.ErrRecordNotFound
+	}
+	if err := rows.Scan(&joinID, &outputSchemaVersionID); err != nil {
+		return nil, fmt.Errorf("scan join config intersection: %w", err)
+	}
+	rows.Close()
+
+	// Get all join_configs for this join_id and output_schema_version_id
+	configs, err := s.getJoinConfigsByOutputVersion(ctx, tx, pipelineID, joinID, outputSchemaVersionID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return configs, nil
+}
+
 func (s *PostgresStorage) GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel: pgx.ReadCommitted,

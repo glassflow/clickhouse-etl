@@ -9,10 +9,11 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/join"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
@@ -34,9 +35,10 @@ func NewJoinComponent(
 	cfg models.JoinComponentConfig,
 	leftStreamConsumer, rightStreamConsumer jetstream.Consumer,
 	resultsPublisher stream.Publisher,
-	schema schema.Mapper,
+	leftSchema, rightSchema *schemav2.Schema,
+	cfgStore configs.ConfigStoreInterface,
 	leftKVStore, rightKVStore kv.KeyValueStore,
-	leftStreamName, rightStreamName string,
+	leftSourceName, rightSourceName, leftKey, rightKey string,
 	doneCh chan struct{},
 	log *slog.Logger,
 ) (Component, error) {
@@ -50,9 +52,10 @@ func NewJoinComponent(
 
 	executor := join.NewTemporalJoinExecutor(
 		resultsPublisher,
-		schema,
+		leftSchema, rightSchema,
+		cfgStore,
 		leftKVStore, rightKVStore,
-		leftStreamName, rightStreamName,
+		leftSourceName, rightSourceName, leftKey, rightKey,
 		log,
 	)
 	return &JoinComponent{

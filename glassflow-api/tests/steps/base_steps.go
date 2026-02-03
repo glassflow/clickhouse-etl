@@ -523,6 +523,113 @@ func (b *BaseTestSuite) theResponseStatusShouldBe(ctx context.Context, expectedS
 	return nil
 }
 
+// ValidateEventsFromStream fetches and validates events from a NATS stream against expected data from a Gherkin table.
+// It uses a signature-based matching approach that's order-independent and handles NATS headers.
+func (b *BaseTestSuite) ValidateEventsFromStream(
+	consumer jetstream.Consumer,
+	dataTable *godog.Table,
+	streamName, subject string,
+) error {
+	expectedCount := len(dataTable.Rows) - 1
+	if expectedCount < 1 {
+		return fmt.Errorf("no expected events in data table")
+	}
+
+	// Get headers from first row
+	headers := make([]string, len(dataTable.Rows[0].Cells))
+	for i, cell := range dataTable.Rows[0].Cells {
+		headers[i] = cell.Value
+	}
+
+	// Build expected events map with signature as key
+	expectedEvents := make(map[string]map[string]any)
+	for i := 1; i < len(dataTable.Rows); i++ {
+		row := dataTable.Rows[i]
+		event := make(map[string]any)
+		sign := make([]string, 0, len(row.Cells))
+
+		for j, cell := range row.Cells {
+			if j < len(headers) {
+				if strings.HasPrefix(headers[j], "NATS-") {
+					sign = append(sign, cell.Value)
+					continue
+				}
+				event[headers[j]] = cell.Value
+				sign = append(sign, cell.Value)
+			}
+		}
+
+		expectedEvents[strings.Join(sign, "")] = event
+	}
+
+	// Fetch messages with timeout
+	msgs, err := consumer.Fetch(2*expectedCount, jetstream.FetchMaxWait(fetchTimeout))
+	if err != nil {
+		return fmt.Errorf("fetch messages: %w", err)
+	}
+
+	receivedCount := 0
+
+	for msg := range msgs.Messages() {
+		if msg == nil {
+			break
+		}
+
+		if receivedCount > len(expectedEvents) {
+			return fmt.Errorf("too many events: actual %d, expected %d", receivedCount, len(expectedEvents))
+		}
+
+		var actual map[string]any
+		err := json.Unmarshal(msg.Data(), &actual)
+		if err != nil {
+			return fmt.Errorf("unmarshal message data: %w", err)
+		}
+
+		// Build signature from actual event data
+		sign := make([]string, 0)
+		for _, header := range headers {
+			if strings.HasPrefix(header, "NATS-") {
+				sign = append(sign, msg.Headers().Get(header[5:]))
+				continue
+			}
+			sign = append(sign, fmt.Sprint(actual[header]))
+		}
+
+		// Find matching expected event
+		expected, exists := expectedEvents[strings.Join(sign, "")]
+		if !exists {
+			return fmt.Errorf("unexpected event %v with key %s", actual, strings.Join(sign, ""))
+		}
+
+		// Validate field count
+		if len(expected) != len(actual) {
+			return fmt.Errorf("events have different number of keys: expected %v, actual %v", expected, actual)
+		}
+
+		// Validate field values
+		for k, v := range expected {
+			if v != actual[k] {
+				return fmt.Errorf("events differ: expected %v, actual %v", expected, actual)
+			}
+		}
+
+		receivedCount++
+	}
+
+	// Validate total count
+	if receivedCount != expectedCount {
+		return fmt.Errorf(
+			"event count mismatch: expected %d, got %d from stream %s, subject %s",
+			expectedCount,
+			receivedCount,
+			streamName,
+			subject,
+		)
+	}
+
+	return nil
+}
+
 func logElapsedTime(sc *godog.ScenarioContext) {
 	type stepTimingKey struct{}
 

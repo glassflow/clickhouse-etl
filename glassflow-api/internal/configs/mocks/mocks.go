@@ -8,7 +8,7 @@ import (
 
 type MockDBClient struct {
 	GetStatelessTransformationConfigFunc func(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error)
-	GetJoinConfigFunc                    func(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.JoinConfig, error)
+	GetJoinConfigsFunc                   func(ctx context.Context, pipelineID, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2 string) ([]models.JoinConfig, error)
 	GetSinkConfigFunc                    func(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error)
 }
 
@@ -23,9 +23,9 @@ func (m *MockDBClient) GetStatelessTransformationConfig(ctx context.Context, pip
 	return nil, nil
 }
 
-func (m *MockDBClient) GetJoinConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.JoinConfig, error) {
-	if m.GetJoinConfigFunc != nil {
-		return m.GetJoinConfigFunc(ctx, pipelineID, sourceID, sourceSchemaVersion)
+func (m *MockDBClient) GetJoinConfigs(ctx context.Context, pipelineID, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2 string) ([]models.JoinConfig, error) {
+	if m.GetJoinConfigsFunc != nil {
+		return m.GetJoinConfigsFunc(ctx, pipelineID, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2)
 	}
 	return nil, nil
 }

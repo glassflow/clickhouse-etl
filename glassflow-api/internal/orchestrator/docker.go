@@ -228,7 +228,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		os.Setenv("NATS_RIGHT_INPUT_STREAM_PREFIX", rightInputStreamName)
 		os.Setenv("NATS_SUBJECT_PREFIX", sinkInputStreamPrefix)
 		os.Setenv("GLASSFLOW_POD_INDEX", localSingleReplicaPodIndex)
-		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, *pi, schemaMapper)
+		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, *pi, d.db)
 		err = d.joinRunner.Start(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to start join runner", "left_stream", leftInputStreamName, "right_stream", rightInputStreamName, "error", err)
