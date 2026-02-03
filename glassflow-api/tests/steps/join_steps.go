@@ -2,20 +2,23 @@ package steps
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
@@ -36,12 +39,16 @@ type JoinTestSuite struct {
 	resultsConsumerConfig jetstream.ConsumerConfig
 	streamConsumerAckWait time.Duration
 	streamConsumerExpire  time.Duration
-	schemaConfig          *models.MapperConfig
+	pipelineConfig        *models.PipelineConfig
+	pipelineStore         service.PipelineStore
 	JoinComponent         component.Component
+	logger                *slog.Logger
 }
 
 func NewJoinTestSuite() *JoinTestSuite {
-	return &JoinTestSuite{} //nolint:exhaustruct // basic struct
+	return &JoinTestSuite{
+		logger: testutils.NewTestLogger(),
+	}
 }
 
 func (j *JoinTestSuite) SetupResources() error {
@@ -51,6 +58,25 @@ func (j *JoinTestSuite) SetupResources() error {
 			return fmt.Errorf("setup nats: %w", err)
 		}
 	}
+
+	// Setup Postgres for storing pipeline configs and schema versions
+	if j.postgresContainer == nil {
+		err := j.setupPostgres()
+		if err != nil {
+			return fmt.Errorf("setup postgres: %w", err)
+		}
+	}
+
+	// Create pipeline store
+	if j.pipelineStore == nil {
+		j.logger.Debug("Pipeline store DSN", slog.String("dsn", j.postgresContainer.GetDSN()))
+		db, err := storage.NewPipelineStore(context.Background(), j.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil)
+		if err != nil {
+			return fmt.Errorf("create pipeline store: %w", err)
+		}
+		j.pipelineStore = db
+	}
+
 	return nil
 }
 
@@ -119,13 +145,22 @@ func (j *JoinTestSuite) aRunningStream(stream string) error {
 	}
 }
 
-func (j *JoinTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	schemaCfg, err := j.getMappingConfig(cfg)
+func (j *JoinTestSuite) aPipelineConfig(cfg *godog.DocString) error {
+	var pc models.PipelineConfig
+
+	err := json.Unmarshal([]byte(cfg.Content), &pc)
 	if err != nil {
-		return fmt.Errorf("unmarshal schema config: %w", err)
+		return fmt.Errorf("unmarshal pipeline config: %w", err)
 	}
 
-	j.schemaConfig = &schemaCfg
+	// Store pipeline config in database to create schema versions and component configs
+	err = j.pipelineStore.InsertPipeline(context.Background(), pc)
+	if err != nil {
+		return fmt.Errorf("insert pipeline to database: %w", err)
+	}
+
+	j.pipelineConfig = &pc
+
 	return nil
 }
 
@@ -138,8 +173,8 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		return fmt.Errorf("stream consumer configs are not set")
 	}
 
-	if j.schemaConfig == nil {
-		return fmt.Errorf("schema config is not set")
+	if j.pipelineConfig == nil {
+		return fmt.Errorf("pipeline config is not set")
 	}
 
 	lTTL, err := time.ParseDuration(leftTTL)
@@ -191,25 +226,45 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		},
 	)
 
-	schemaMapper, err := schema.NewJSONToClickHouseMapper(j.schemaConfig.Streams, j.schemaConfig.SinkMapping)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
-	}
-
 	logger := testutils.NewTestLogger()
 
+	// Create schema_v2 instances for left and right sources using DB
+	var leftSource, rightSource models.JoinSourceConfig
+	for _, src := range j.pipelineConfig.Join.Sources {
+		if src.Orientation == "left" {
+			leftSource = src
+		} else {
+			rightSource = src
+		}
+	}
+
+	leftSchema, err := schemav2.NewSchema(j.pipelineConfig.ID, leftSource.SourceID, j.pipelineStore, nil)
+	if err != nil {
+		return fmt.Errorf("create left schema: %w", err)
+	}
+
+	rightSchema, err := schemav2.NewSchema(j.pipelineConfig.ID, rightSource.SourceID, j.pipelineStore, nil)
+	if err != nil {
+		return fmt.Errorf("create right schema: %w", err)
+	}
+
+	// Create config store for accessing join configs from DB
+	configStore := configs.NewConfigStore(j.pipelineStore, j.pipelineConfig.ID, "")
+
 	joinComponent, err := component.NewJoinComponent(
-		models.JoinComponentConfig{
-			Type: internal.TemporalJoinType,
-		},
+		j.pipelineConfig.Join,
 		leftStreamConsumer,
 		rightStreamConsumer,
 		resultsPublisher,
-		schemaMapper,
+		leftSchema,
+		rightSchema,
+		configStore,
 		leftKVStore,
 		rightKVStore,
-		j.leftStreamConfig.Name,
-		j.rightStreamConfig.Name,
+		leftSource.SourceID,
+		rightSource.SourceID,
+		leftSource.JoinKey,
+		rightSource.JoinKey,
 		make(chan struct{}),
 		logger,
 	)
@@ -275,9 +330,17 @@ func (j *JoinTestSuite) publishEvents(count int, dataTable *godog.Table, subject
 	for i := 1; i <= count; i++ {
 		row := dataTable.Rows[i]
 		event := make(map[string]any)
-		for j, cell := range row.Cells {
-			if j < len(headers) {
-				event[headers[j].Value] = cell.Value
+		natsHeaders := make(map[string]string)
+
+		for l, cell := range row.Cells {
+			if l < len(headers) {
+				headerName := headers[l].Value
+				// Check if header starts with "NATS-" - these are message headers, not data
+				if strings.HasPrefix(headerName, "NATS-") {
+					natsHeaders[headerName[5:]] = cell.Value
+				} else {
+					event[headerName] = cell.Value
+				}
 			}
 		}
 
@@ -286,7 +349,14 @@ func (j *JoinTestSuite) publishEvents(count int, dataTable *godog.Table, subject
 			return fmt.Errorf("marshal event for row %d: %w", i, err)
 		}
 
-		_, err = js.Publish(context.Background(), subject, eventBytes)
+		// Create NATS message with headers
+		msg := nats.NewMsg(subject)
+		msg.Data = eventBytes
+		for key, value := range natsHeaders {
+			msg.Header.Set(key, value)
+		}
+
+		_, err = js.PublishMsg(context.Background(), msg)
 		if err != nil {
 			return fmt.Errorf("publish event for row %d to subject %s: %w", i, subject, err)
 		}
@@ -311,15 +381,14 @@ func (j *JoinTestSuite) createResultsConsumer() (zero jetstream.Consumer, _ erro
 }
 
 func (j *JoinTestSuite) iCheckResults(count int) error {
-	var resultsCount, toFetch int
-
 	consumer, err := j.createResultsConsumer()
 	if err != nil {
 		return fmt.Errorf("create results consumer: %w", err)
 	}
 
 	// consumer all messages
-	toFetch = max(count*2, 1)
+	toFetch := max(count*2, 1)
+	resultsCount := 0
 	msgs, err := consumer.Fetch(toFetch, jetstream.FetchMaxWait(fetchTimeout))
 	if err != nil {
 		return fmt.Errorf("fetch messages: %w", err)
@@ -351,86 +420,12 @@ func (j *JoinTestSuite) iCheckResultsWithContent(dataTable *godog.Table) error {
 		return fmt.Errorf("create results consumer: %w", err)
 	}
 
-	// Expected number of events is (rows - 1) because first row is headers
-	expectedCount := len(dataTable.Rows) - 1
-	if expectedCount < 1 {
-		return fmt.Errorf("no expected events in data table")
-	}
-
-	// Get headers from first row
-	headers := make([]string, len(dataTable.Rows[0].Cells))
-	for i, cell := range dataTable.Rows[0].Cells {
-		headers[i] = cell.Value
-	}
-
-	expectedEventsMap := make(map[[sha256.Size]byte]string)
-
-	for i := 1; i < len(dataTable.Rows); i++ {
-		row := dataTable.Rows[i]
-		event := make(map[string]any)
-
-		rowStr := make([]string, 0, len(row.Cells))
-
-		for j, cell := range row.Cells {
-			if j < len(headers) {
-				event[headers[j]] = cell.Value
-				rowStr = append(rowStr, cell.Value)
-			}
-		}
-
-		eventBytes, err := json.Marshal(event)
-		if err != nil {
-			return fmt.Errorf("marshal event %s: %w", event, err)
-		}
-
-		// Calculate SHA-256 hash of the event
-		hash := sha256.Sum256(eventBytes)
-		expectedEventsMap[hash] = strings.Join(rowStr, " | ")
-	}
-
-	// Fetch messages with a timeout
-	msgs, err := consumer.Fetch(2*expectedCount, jetstream.FetchMaxWait(fetchTimeout))
-	if err != nil {
-		return fmt.Errorf("fetch messages: %w", err)
-	}
-
-	receivedCount := 0
-
-	for msg := range msgs.Messages() {
-		if msg == nil {
-			break
-		}
-
-		var event map[string]any
-		if err := json.Unmarshal(msg.Data(), &event); err != nil {
-			return fmt.Errorf("unmarshal message data: %w", err)
-		}
-
-		// Calculate SHA-256 hash of the event
-		hash := sha256.Sum256(msg.Data())
-
-		if _, exists := expectedEventsMap[hash]; !exists {
-			return fmt.Errorf("unexpected event: %v", event)
-		}
-
-		delete(expectedEventsMap, hash)
-
-		receivedCount++
-
-		if err := msg.Ack(); err != nil {
-			return fmt.Errorf("ack message: %w", err)
-		}
-	}
-
-	if receivedCount < expectedCount {
-		events := "\n"
-		for k := range expectedEventsMap {
-			events += expectedEventsMap[k] + "\n"
-		}
-		return fmt.Errorf("expected %d events, but received only %d, missed events: %s", expectedCount, receivedCount, events)
-	}
-
-	return nil
+	return j.ValidateEventsFromStream(
+		consumer,
+		dataTable,
+		j.resultsStreamConfig.Name,
+		j.resultsConsumerConfig.FilterSubject,
+	)
 }
 
 func (j *JoinTestSuite) fastJoinCleanUp() error {
@@ -454,6 +449,15 @@ func (j *JoinTestSuite) fastJoinCleanUp() error {
 		}
 	}
 
+	// Clean up pipeline from database
+	if j.pipelineConfig != nil {
+		err := j.pipelineStore.DeletePipeline(context.Background(), j.pipelineConfig.ID)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("delete pipeline from database: %w", err))
+		}
+		j.pipelineConfig = nil
+	}
+
 	err := testutils.CombineErrors(errs)
 	if err != nil {
 		return fmt.Errorf("cleanup errors: %w", err)
@@ -468,7 +472,19 @@ func (j *JoinTestSuite) CleanupResources() error {
 		j.JoinComponent = nil
 	}
 
-	return j.cleanupNATS()
+	var errs []error
+
+	err := j.cleanupNATS()
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	err = j.cleanupPostgres()
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	return testutils.CombineErrors(errs)
 }
 
 func (j *JoinTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
@@ -476,7 +492,7 @@ func (j *JoinTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`a "([^"]*)" stream consumer with config$`, j.aStreamConsumerConfig)
 
 	sc.Step(`^a running "([^"]*)" stream$`, j.aRunningStream)
-	sc.Step(`^an component schema config with mapping$`, j.aSchemaConfigWithMapping)
+	sc.Step(`^a join pipeline with configuration$`, j.aPipelineConfig)
 	sc.Step(`^I run join component with left TTL "([^"]*)" right TTL "([^"]*)"$`, j.iRunJoinComponent)
 	sc.Step(`^I gracefully stop join component after "([^"]*)"$`, j.iStopJoinComponentGracefullyAfterDelay)
 	sc.Step(`^I stop join component after "([^"]*)"$`, j.iStopJoinComponentNoWait)

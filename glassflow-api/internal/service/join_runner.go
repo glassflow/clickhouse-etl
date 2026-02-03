@@ -8,9 +8,10 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -18,80 +19,75 @@ import (
 type JoinRunner struct {
 	log *slog.Logger
 	nc  *client.NATSClient
-
-	leftInputStreamName  string
-	rightInputStreamName string
-	outputStream         string
-	joinCfg              models.JoinComponentConfig
-	schemaMapper         schema.Mapper
+	cfg models.PipelineConfig
+	db  PipelineStore
 
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
 }
 
-func NewJoinRunner(log *slog.Logger, nc *client.NATSClient, leftInputStreamName, rightInputStreamName string, outputStream string, joinCfg models.JoinComponentConfig, schemaMapper schema.Mapper) *JoinRunner {
+func NewJoinRunner(log *slog.Logger, nc *client.NATSClient, pipelineCfg models.PipelineConfig, db PipelineStore) *JoinRunner {
 	return &JoinRunner{
 		nc:  nc,
 		log: log,
-
-		leftInputStreamName:  leftInputStreamName,
-		rightInputStreamName: rightInputStreamName,
-		outputStream:         outputStream,
-		joinCfg:              joinCfg,
-		schemaMapper:         schemaMapper,
+		cfg: pipelineCfg,
+		db:  db,
 
 		component: nil,
 	}
 }
 
 func (j *JoinRunner) Start(ctx context.Context) error {
-	var mapper schema.JsonToClickHouseMapper
-
 	j.doneCh = make(chan struct{})
 	j.c = make(chan error, 1)
 
-	switch sm := j.schemaMapper.(type) {
-	case *schema.JsonToClickHouseMapper:
-		mapper = *sm
-	default:
-		j.log.ErrorContext(ctx, "unsupported schema mapper")
-		return fmt.Errorf("unsupported schema mapper")
-	}
-
-	if len(mapper.Streams) == 0 {
-		j.log.ErrorContext(ctx, "setup joiner: length of streams must not be 0")
-		return fmt.Errorf("setup joiner: length of streams must not be 0")
-	}
-
 	var (
-		leftConsumer    jetstream.Consumer
-		rightConsumer   jetstream.Consumer
-		leftBuffer      kv.KeyValueStore
-		rightBuffer     kv.KeyValueStore
-		leftStreamName  string
-		rightStreamName string
-		err             error
+		leftSource  models.JoinSourceConfig
+		rightSource models.JoinSourceConfig
+
+		leftConsumer  jetstream.Consumer
+		rightConsumer jetstream.Consumer
+		leftBuffer    kv.KeyValueStore
+		rightBuffer   kv.KeyValueStore
+		err           error
 	)
 
-	leftStreamName = mapper.GetLeftStream()
-	rightStreamName = mapper.GetRightStream()
+	if len(j.cfg.Join.Sources) != 2 {
+		return fmt.Errorf("join must have exactly 2 sources")
+	}
+
+	// Determine left and right streams based on orientation
+	if j.cfg.Join.Sources[0].Orientation == "left" {
+		leftSource = j.cfg.Join.Sources[0]
+		rightSource = j.cfg.Join.Sources[1]
+	} else {
+		leftSource = j.cfg.Join.Sources[1]
+		rightSource = j.cfg.Join.Sources[0]
+	}
+
+	if leftSource.StreamID == "" || rightSource.StreamID == "" {
+		return fmt.Errorf("both left and right streams must be specified in join sources")
+	}
+
+	// Generate output stream name for joined data
+	outputStream := j.cfg.Join.OutputStreamID
 
 	leftConsumer, err = stream.NewNATSConsumer(
 		ctx,
 		j.nc.JetStream(),
 		jetstream.ConsumerConfig{
-			Name:          j.joinCfg.NATSLeftConsumerName,
-			Durable:       j.joinCfg.NATSLeftConsumerName,
-			FilterSubject: models.GetWildcardNATSSubjectName(j.leftInputStreamName),
+			Name:          j.cfg.Join.NATSLeftConsumerName,
+			Durable:       j.cfg.Join.NATSLeftConsumerName,
+			FilterSubject: models.GetWildcardNATSSubjectName(leftSource.StreamID),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,
 		},
-		j.leftInputStreamName,
+		leftSource.SourceID,
 	)
 	if err != nil {
-		j.log.ErrorContext(ctx, "failed to create left consumer", "left_stream", j.leftInputStreamName, "error", err)
+		j.log.ErrorContext(ctx, "failed to create left consumer", "left_stream", leftSource.SourceID, "error", err)
 		return fmt.Errorf("create left consumer: %w", err)
 	}
 
@@ -99,28 +95,28 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		ctx,
 		j.nc.JetStream(),
 		jetstream.ConsumerConfig{
-			Name:          j.joinCfg.NATSRightConsumerName,
-			Durable:       j.joinCfg.NATSRightConsumerName,
-			FilterSubject: models.GetWildcardNATSSubjectName(j.rightInputStreamName),
+			Name:          j.cfg.Join.NATSRightConsumerName,
+			Durable:       j.cfg.Join.NATSRightConsumerName,
+			FilterSubject: models.GetWildcardNATSSubjectName(rightSource.StreamID),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,
 		},
-		j.rightInputStreamName,
+		rightSource.SourceID,
 	)
 	if err != nil {
-		j.log.ErrorContext(ctx, "failed to create right consumer", "right_stream", j.rightInputStreamName, "error", err)
+		j.log.ErrorContext(ctx, "failed to create right consumer", "right_stream", rightSource.SourceID, "error", err)
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 
 	// Get existing KV stores (created by orchestrator)
-	leftKVStore, err := j.nc.GetKeyValueStore(ctx, j.leftInputStreamName)
+	leftKVStore, err := j.nc.GetKeyValueStore(ctx, leftSource.SourceID)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to get left stream buffer: ", "error", err)
 		return fmt.Errorf("get left buffer: %w", err)
 	}
 
-	rightKVStore, err := j.nc.GetKeyValueStore(ctx, j.rightInputStreamName)
+	rightKVStore, err := j.nc.GetKeyValueStore(ctx, rightSource.SourceID)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to get right stream buffer: ", "error", err)
 		return fmt.Errorf("get right buffer: %w", err)
@@ -130,20 +126,36 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	leftBuffer = &kv.NATSKeyValueStore{KVstore: leftKVStore}
 	rightBuffer = &kv.NATSKeyValueStore{KVstore: rightKVStore}
 
+	leftSchema, err := schemav2.NewSchema(j.cfg.ID, leftSource.SourceID, j.db, nil)
+	if err != nil {
+		j.log.ErrorContext(ctx, "failed to create left schema mapper: ", "error", err)
+		return fmt.Errorf("create left schema mapper: %w", err)
+	}
+
+	rightSchema, err := schemav2.NewSchema(j.cfg.ID, rightSource.SourceID, j.db, nil)
+	if err != nil {
+		j.log.ErrorContext(ctx, "failed to create right schema mapper: ", "error", err)
+		return fmt.Errorf("create right schema mapper: %w", err)
+	}
+
 	resultsPublisher := stream.NewNATSPublisher(j.nc.JetStream(), stream.PublisherConfig{
-		Subject: models.GetNATSSubjectNameDefault(j.outputStream),
+		Subject: models.GetNATSSubjectNameDefault(outputStream),
 	})
 
 	component, err := component.NewJoinComponent(
-		j.joinCfg,
+		j.cfg.Join,
 		leftConsumer,
 		rightConsumer,
 		resultsPublisher,
-		j.schemaMapper,
+		leftSchema,
+		rightSchema,
+		configs.NewConfigStore(j.db, j.cfg.ID, ""),
 		leftBuffer,
 		rightBuffer,
-		leftStreamName,
-		rightStreamName,
+		leftSource.StreamID,
+		rightSource.StreamID,
+		leftSource.JoinKey,
+		rightSource.JoinKey,
 		j.doneCh,
 		j.log,
 	)

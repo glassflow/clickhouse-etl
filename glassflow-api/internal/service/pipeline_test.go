@@ -161,6 +161,18 @@ func (m *mockPipelineStore) SaveNewSchemaVersion(ctx context.Context, pipelineID
 	return nil
 }
 
+func (m *mockPipelineStore) GetStatelessTransformationConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) GetJoinConfigs(ctx context.Context, pipelineID, sourceID1, sourceSchemaVersion1, sourceID2, sourceSchemaVersion2 string) ([]models.JoinConfig, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
+	return nil, nil
+}
+
 func TestPipelineService_ResumePipeline(t *testing.T) {
 	tests := []struct {
 		name           string

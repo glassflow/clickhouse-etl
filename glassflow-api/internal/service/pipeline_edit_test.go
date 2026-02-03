@@ -124,6 +124,21 @@ func (m *MockPipelineStore) SaveNewSchemaVersion(ctx context.Context, pipelineID
 	panic("implement me")
 }
 
+func (m *MockPipelineStore) GetStatelessTransformationConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetJoinConfigs(ctx context.Context, pipelineID, sourceID1, sourceSchemaVersion1, sourceID2, sourceSchemaVersion2 string) ([]models.JoinConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func TestEditPipeline_Success(t *testing.T) {
 	// Setup
 	mockOrchestrator := new(MockOrchestrator)

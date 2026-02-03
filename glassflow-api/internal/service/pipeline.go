@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
@@ -22,6 +23,7 @@ type Orchestrator interface {
 }
 
 type PipelineStore interface {
+	configs.DBClient
 	InsertPipeline(ctx context.Context, pi models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (*models.PipelineConfig, error)
