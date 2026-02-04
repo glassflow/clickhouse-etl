@@ -18,6 +18,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
@@ -43,9 +45,9 @@ type IngestorTestSuite struct {
 	signalStreamCfg   jetstream.StreamConfig
 	signalConsumerCfg jetstream.ConsumerConfig
 
-	schemaVersion models.SchemaVersion
-	mockDBClient  *testutils.MockDBClient
-	mockSRClient  *testutils.MockSchemaRegistryClient
+	pipelineConfig *models.PipelineConfig
+	pipelineStore  service.PipelineStore
+	mockSRClient   *testutils.MockSchemaRegistryClient
 
 	ingestorCfg models.IngestorComponentConfig
 
@@ -66,7 +68,6 @@ func NewIngestorTestSuite() *IngestorTestSuite {
 			natsContainer:     nil,
 			postgresContainer: nil,
 		},
-		mockDBClient: testutils.NewMockDBClient(),
 		mockSRClient: nil,
 		logger:       testutils.NewTestLogger(),
 	}
@@ -87,6 +88,24 @@ func (s *IngestorTestSuite) SetupResources() error {
 		if err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	// Setup Postgres for storing pipeline configs and schema versions
+	if s.postgresContainer == nil {
+		err := s.setupPostgres()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("setup postgres: %w", err))
+		}
+	}
+
+	// Create pipeline store
+	if s.pipelineStore == nil {
+		s.logger.Debug("Pipeline store DSN", slog.String("dsn", s.postgresContainer.GetDSN()))
+		db, err := storage.NewPipelineStore(context.Background(), s.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("create pipeline store: %w", err))
+		}
+		s.pipelineStore = db
 	}
 
 	err := testutils.CombineErrors(errs)
@@ -203,39 +222,40 @@ func (s *IngestorTestSuite) aSchemaRegistryContainsSchemaWithIDAndFields(schemaI
 	return nil
 }
 
-func (s *IngestorTestSuite) aSchemaVersionFromJSON(cfg *godog.DocString) error {
-	var sv models.SchemaVersion
-	err := json.Unmarshal([]byte(cfg.Content), &sv)
+func (s *IngestorTestSuite) aPipelineConfig(cfg *godog.DocString) error {
+	var pc models.PipelineConfig
+
+	err := json.Unmarshal([]byte(cfg.Content), &pc)
 	if err != nil {
-		return fmt.Errorf("unmarshal schema version: %w", err)
+		return fmt.Errorf("unmarshal pipeline config: %w", err)
 	}
 
-	err = s.mockDBClient.SetLogger(s.logger)
-	if err != nil {
-		return fmt.Errorf("set logger for mock DB client: %w", err)
+	// Extract ingestor config from pipeline config and set Kafka broker
+	if len(pc.Ingestor.KafkaTopics) > 0 {
+		pc.Ingestor.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
+		s.topicName = pc.Ingestor.KafkaTopics[0].Name
 	}
 
-	s.schemaVersion = sv
-
-	// Add schema version to mock client
-	s.mockDBClient.AddSchemaVersion("test-pipeline", sv)
-
-	return nil
-}
-
-func (s *IngestorTestSuite) anIngestorComponentConfig(config string) error {
-	var ingCgf models.IngestorComponentConfig
-	err := json.Unmarshal([]byte(config), &ingCgf)
+	// Validate ingestor config to set defaults (like consumer_group_initial_offset)
+	validatedCfg, err := models.NewIngestorComponentConfig(
+		pc.Ingestor.Provider,
+		pc.Ingestor.KafkaConnectionParams,
+		pc.Ingestor.KafkaTopics,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal ingestor component config: %w", err)
+		return fmt.Errorf("validate ingestor config: %w", err)
+	}
+	pc.Ingestor = validatedCfg
+
+	// Store pipeline config in database to create schema versions and component configs
+	err = s.pipelineStore.InsertPipeline(context.Background(), pc)
+	if err != nil {
+		return fmt.Errorf("insert pipeline: %w", err)
 	}
 
-	ingCgf.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
-
-	s.ingestorCfg, err = models.NewIngestorComponentConfig(ingCgf.Provider, ingCgf.KafkaConnectionParams, ingCgf.KafkaTopics)
-	if err != nil {
-		return fmt.Errorf("create ingestor component config: %w", err)
-	}
+	// Set ingestor config and pipeline config AFTER insertion (which may modify them)
+	s.ingestorCfg = pc.Ingestor
+	s.pipelineConfig = &pc
 
 	return nil
 }
@@ -247,11 +267,11 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		return fmt.Errorf("nats container is not initialized")
 	}
 
-	if s.schemaVersion.SourceID == "" {
-		return fmt.Errorf("schema version is not initialized")
+	if s.pipelineConfig == nil {
+		return fmt.Errorf("pipeline config not set")
 	}
 
-	if s.ingestorCfg.KafkaTopics != nil || len(s.ingestorCfg.KafkaTopics) == 1 {
+	if len(s.ingestorCfg.KafkaTopics) == 1 {
 		if s.ingestorCfg.KafkaTopics[0].Deduplication.Enabled {
 			duration = s.ingestorCfg.KafkaTopics[0].Deduplication.Window.Duration()
 		}
@@ -289,12 +309,13 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	var srClient schemav2.SchemaRegistryClient
 	if s.mockSRClient != nil {
 		srClient = s.mockSRClient
+		s.logger.Debug("using mock schema registry client for ingestor")
 	}
 
 	schema, err := schemav2.NewSchema(
-		"test-pipeline",
+		s.pipelineConfig.ID,
 		s.topicName,
-		s.mockDBClient,
+		s.pipelineStore,
 		srClient,
 	)
 	if err != nil {
@@ -302,10 +323,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	}
 
 	ingestor, err := component.NewIngestorComponent(
-		models.PipelineConfig{
-			ID:       "test-pipeline",
-			Ingestor: s.ingestorCfg,
-		},
+		*s.pipelineConfig,
 		s.topicName,
 		streamConsumer,
 		dlqStreamPublisher,
@@ -481,6 +499,14 @@ func (s *IngestorTestSuite) fastCleanUp() error {
 		errs = append(errs, fmt.Errorf("clean nats streams: %w", err))
 	}
 
+	// Clean up pipeline from database
+	if s.pipelineConfig != nil {
+		err = s.pipelineStore.DeletePipeline(context.Background(), s.pipelineConfig.ID)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("delete pipeline: %w", err))
+		}
+	}
+
 	err = testutils.CombineErrors(errs)
 	if err != nil {
 		return fmt.Errorf("cleanup resources: %w", err)
@@ -511,8 +537,11 @@ func (s *IngestorTestSuite) CleanupResources() error {
 		}
 	}
 
-	err := testutils.CombineErrors(errs)
-	if err != nil {
+	if err := s.cleanupPostgres(); err != nil {
+		errs = append(errs, fmt.Errorf("cleanup postgres: %w", err))
+	}
+
+	if err := testutils.CombineErrors(errs); err != nil {
 		return fmt.Errorf("cleanup resources: %w", err)
 	}
 
@@ -522,9 +551,8 @@ func (s *IngestorTestSuite) CleanupResources() error {
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	logElapsedTime(sc)
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
-	sc.Step(`^a schema version with config:$`, s.aSchemaVersionFromJSON)
+	sc.Step(`^pipeline config with configuration$`, s.aPipelineConfig)
 	sc.Step(`^a schema registry contains schema with id (\d+) and fields:$`, s.aSchemaRegistryContainsSchemaWithIDAndFields)
-	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)
 	sc.Step(`a Kafka topic "([^"]*)" with (\d+) partition`, s.aKafkaTopicWithPartitions)
 
 	sc.Step(`^I run the ingestor component$`, s.iRunningIngestorComponent)

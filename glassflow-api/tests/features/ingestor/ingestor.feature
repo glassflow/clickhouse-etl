@@ -13,50 +13,59 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor with deduplication
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema version with config:
+        And pipeline config with configuration
             """json
             {
-                "source_id": "test_topic",
-                "version_id": "1",
-                "data_type": "json",
-                "fields": [
-                    {
-                        "name": "id",
-                        "type": "string"
+                "pipeline_id": "test-pipeline-1",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
                     },
-                    {
-                        "name": "name",
-                        "type": "string"
-                    }
-                ]
-            }
-            """
-        And an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": true,
-                            "id_field": "id",
-                            "id_field_type": "string",
-                            "time_window": "1h"
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "test_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": true,
+                                "id_field": "id",
+                                "id_field_type": "string",
+                                "time_window": "1h"
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
 
@@ -77,47 +86,56 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor without deduplication
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema version with config:
+        And pipeline config with configuration
             """json
             {
-                "source_id": "test_topic",
-                "version_id": "1",
-                "data_type": "json",
-                "fields": [
-                    {
-                        "name": "id",
-                        "type": "string"
+                "pipeline_id": "test-pipeline-1",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
                     },
-                    {
-                        "name": "name",
-                        "type": "string"
-                    }
-                ]
-            }
-            """
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": false
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": false
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
 
@@ -139,50 +157,59 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor with deduplication and multiple partitions
         Given a Kafka topic "test_topic" with 3 partitions
-        And a schema version with config:
+        And pipeline config with configuration
             """json
             {
-                "source_id": "test_topic",
-                "version_id": "1",
-                "data_type": "json",
-                "fields": [
-                    {
-                        "name": "id",
-                        "type": "string"
+                "pipeline_id": "test-pipeline-1",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
                     },
-                    {
-                        "name": "name",
-                        "type": "string"
-                    }
-                ]
-            }
-            """
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": true,
-                            "id_field": "id",
-                            "id_field_type": "string",
-                            "time_window": "1h"
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": true,
+                                "id_field": "id",
+                                "id_field_type": "string",
+                                "time_window": "1h"
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
 
@@ -203,47 +230,56 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor with validation
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema version with config:
+        And pipeline config with configuration
             """json
             {
-                "source_id": "test_topic",
-                "version_id": "1",
-                "data_type": "json",
-                "fields": [
-                    {
-                        "name": "id",
-                        "type": "string"
+                "pipeline_id": "test-pipeline-1",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
                     },
-                    {
-                        "name": "name",
-                        "type": "string"
-                    }
-                ]
-            }
-            """
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": false
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": false
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
         When I write these events to Kafka topic "test_topic":
@@ -265,47 +301,56 @@ Feature: Kafka Ingestor
 
     Scenario: Run 2 ingestor from 2 separate pipelines for the one kafka topic
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema version with config:
+        And pipeline config with configuration
             """json
             {
-                "source_id": "test_topic",
-                "version_id": "1",
-                "data_type": "json",
-                "fields": [
-                    {
-                        "name": "id",
-                        "type": "string"
+                "pipeline_id": "test-pipeline-1",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
                     },
-                    {
-                        "name": "name",
-                        "type": "string"
-                    }
-                ]
-            }
-            """
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": false
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": false
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
         When I write these events to Kafka topic "test_topic":
@@ -328,29 +373,56 @@ Feature: Kafka Ingestor
 
         Then I flush all NATS streams
 
-        When an ingestor component config:
+        And pipeline config with configuration
             """json
             {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-124",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": false
+                "pipeline_id": "test-pipeline-2",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
+                    },
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-456",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": false
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
 
@@ -365,50 +437,59 @@ Feature: Kafka Ingestor
 
     Scenario: Check deduplication within 2 batches
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema version with config:
+        And pipeline config with configuration
             """json
             {
-                "source_id": "test_topic",
-                "version_id": "1",
-                "data_type": "json",
-                "fields": [
-                    {
-                        "name": "id",
-                        "type": "string"
+                "pipeline_id": "test-pipeline-3",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
                     },
-                    {
-                        "name": "name",
-                        "type": "string"
-                    }
-                ]
-            }
-            """
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": true,
-                            "id_field": "id",
-                            "id_field_type": "string",
-                            "time_window": "1h"
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": true,
+                                "id_field": "id",
+                                "id_field_type": "string",
+                                "time_window": "1h"
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
 
@@ -440,50 +521,59 @@ Feature: Kafka Ingestor
 
     Scenario: Check kafka partitions read
         Given a Kafka topic "test_topic" with 3 partitions
-        And a schema version with config:
+        And pipeline config with configuration
             """json
             {
-                "source_id": "test_topic",
-                "version_id": "1",
-                "data_type": "json",
-                "fields": [
-                    {
-                        "name": "id",
-                        "type": "string"
+                "pipeline_id": "test-pipeline-4",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
                     },
-                    {
-                        "name": "name",
-                        "type": "string"
-                    }
-                ]
-            }
-            """
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 3,
-                        "deduplication": {
-                            "enabled": true,
-                            "id_field": "id",
-                            "id_field_type": "string",
-                            "time_window": "1h"
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": true,
+                                "id_field": "id",
+                                "id_field_type": "string",
+                                "time_window": "1h"
+                            }
                         }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
+                    "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
                     }
-                ]
+                }
             }
             """
 
@@ -499,7 +589,6 @@ Feature: Kafka Ingestor
             | 0         | 8   | {"id": "128", "name":"Jim Black"}    |
             | 0         | 9   | {"id": "129", "name":"Tim Blue"}     |
             | 0         | 10  | {"id": "130", "name":"Pete Roller"}  |
-
 
         And I run the ingestor component
 
