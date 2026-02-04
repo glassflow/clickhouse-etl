@@ -1,24 +1,8 @@
 'use client'
 
 import { Label } from '@/src/components/ui/label'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/src/components/ui/tooltip'
-import Image from 'next/image'
-import InfoIcon from '@/src/images/info.svg'
-import { TIME_WINDOW_UNIT_OPTIONS } from '@/src/config/constants'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { Input } from '@/src/components/ui/input'
 import { TimeWindowConfigurator } from '@/src/modules/deduplication/components/TimeWindowConfigurator'
-import { JSON_DATA_TYPES_DEDUPLICATION_JOIN } from '@/src/config/constants'
-
-// Constants for time conversion
-const MAX_DAYS = 7
-const HOURS_IN_DAY = 24
-const MINUTES_IN_HOUR = 60
-const SECONDS_IN_MINUTE = 60
-
-const MAX_HOURS = MAX_DAYS * HOURS_IN_DAY
-const MAX_MINUTES = MAX_HOURS * MINUTES_IN_HOUR
-const MAX_SECONDS = MAX_MINUTES * SECONDS_IN_MINUTE
 
 interface StreamConfiguratorProps {
   streamIndex: number
@@ -32,6 +16,7 @@ interface StreamConfiguratorProps {
   errors?: {
     joinKey?: string
     joinTimeWindowValue?: string
+    joinTimeWindowUnit?: string
   }
   readOnly?: boolean
 }
@@ -44,28 +29,6 @@ export function StreamConfigurator({
   errors = {},
   readOnly,
 }: StreamConfiguratorProps) {
-  const getMaxValueForUnit = (unit: string) => {
-    switch (unit) {
-      case TIME_WINDOW_UNIT_OPTIONS.DAYS.value:
-        return MAX_DAYS
-      case TIME_WINDOW_UNIT_OPTIONS.HOURS.value:
-        return MAX_HOURS
-      case TIME_WINDOW_UNIT_OPTIONS.MINUTES.value:
-        return MAX_MINUTES
-      case TIME_WINDOW_UNIT_OPTIONS.SECONDS.value:
-        return MAX_SECONDS
-      default:
-        return MAX_DAYS
-    }
-  }
-
-  const handleTimeWindowChange = (value: string) => {
-    const numValue = parseInt(value)
-    const maxValue = getMaxValueForUnit(stream.joinTimeWindowUnit)
-    const clampedValue = Math.min(numValue, maxValue)
-    onChange(streamIndex, 'joinTimeWindowValue', clampedValue)
-  }
-
   return (
     <div className="space-y-4">
       <h4 className="font-medium">Stream {streamIndex + 1}</h4>
@@ -84,9 +47,8 @@ export function StreamConfigurator({
               >
                 <SelectTrigger
                   id={`join-key-${streamIndex}`}
-                  className={`w-full input-regular input-border-regular text-content ${
-                    errors.joinKey ? 'border-red-500' : ''
-                  }`}
+                  className={`w-full input-regular input-border-regular text-content ${errors.joinKey ? 'border-red-500' : ''
+                    }`}
                 >
                   <SelectValue placeholder="Select join key" />
                 </SelectTrigger>
@@ -117,6 +79,7 @@ export function StreamConfigurator({
             />
           </div>
           {errors.joinTimeWindowValue && <p className="text-sm text-red-500">{errors.joinTimeWindowValue}</p>}
+          {errors.joinTimeWindowUnit && <p className="text-sm text-red-500">{errors.joinTimeWindowUnit}</p>}
         </div>
       </div>
     </div>

@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
 import { StreamConfigurator } from './StreamConfigurator'
-import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { EventEditor } from '@/src/components/shared/EventEditor'
 import { parseForCodeEditor } from '@/src/utils/common.client'
 
@@ -40,24 +38,6 @@ export function StreamConfiguratorList({
   topic2,
   readOnly,
 }: StreamConfiguratorListProps) {
-  const analytics = useJourneyAnalytics()
-
-  useEffect(() => {
-    if (streams[0].joinKey) {
-      analytics.key.leftJoinKey({
-        key: streams[0].joinKey,
-      })
-    }
-  }, [streams[0].joinKey])
-
-  useEffect(() => {
-    if (streams[1].joinKey) {
-      analytics.key.rightJoinKey({
-        key: streams[1].joinKey,
-      })
-    }
-  }, [streams[1].joinKey])
-
   return (
     <div className="flex flex-col gap-8">
       {/* First stream configuration */}
@@ -72,6 +52,7 @@ export function StreamConfiguratorList({
             errors={{
               joinKey: errors['streams.0.joinKey'],
               joinTimeWindowValue: errors['streams.0.joinTimeWindowValue'],
+              joinTimeWindowUnit: errors['streams.0.joinTimeWindowUnit'],
             }}
             readOnly={readOnly}
           />
@@ -91,7 +72,7 @@ export function StreamConfiguratorList({
                 isLoadingEvent={false}
                 eventError={''}
                 isEmptyTopic={false}
-                onManualEventChange={() => {}}
+                onManualEventChange={() => { }}
                 isEditingEnabled={false}
                 readOnly={readOnly}
               />
@@ -112,6 +93,7 @@ export function StreamConfiguratorList({
             errors={{
               joinKey: errors['streams.1.joinKey'],
               joinTimeWindowValue: errors['streams.1.joinTimeWindowValue'],
+              joinTimeWindowUnit: errors['streams.1.joinTimeWindowUnit'],
             }}
             readOnly={readOnly}
           />
@@ -131,7 +113,7 @@ export function StreamConfiguratorList({
                 isLoadingEvent={false}
                 eventError={''}
                 isEmptyTopic={false}
-                onManualEventChange={() => {}}
+                onManualEventChange={() => { }}
                 isEditingEnabled={false}
                 readOnly={readOnly}
               />
