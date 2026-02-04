@@ -113,56 +113,84 @@ func TestConfigStore_GetStatelessTransformationConfig(t *testing.T) {
 func TestConfigStore_GetJoinConfig(t *testing.T) {
 	ctx := context.Background()
 	pipelineID := "test-pipeline"
-	sourceID := "test-source"
-	sourceSchemaVersion := "1"
+	sourceID1 := "users-1"
+	schemaVersionID1 := "1101"
+	sourceID2 := "events-1"
+	schemaVersionID2 := "2001"
 
-	joinConfig := &models.JoinConfig{
-		SourceID:              sourceID,
-		SourceSchemaVersionID: sourceSchemaVersion,
-		JoinID:                "join-1",
+	joinConfigs := []models.JoinConfig{
+		{
+			SourceID:              sourceID1,
+			SourceSchemaVersionID: schemaVersionID1,
+			JoinID:                "join-1",
+			OutputSchemaVersionID: "1",
+			Config: []models.JoinRule{
+				{SourceID: sourceID1, SourceName: "name", OutputName: "name"},
+				{SourceID: sourceID1, SourceName: "user_id", OutputName: "user_id"},
+			},
+		},
+		{
+			SourceID:              sourceID2,
+			SourceSchemaVersionID: schemaVersionID2,
+			JoinID:                "join-1",
+			OutputSchemaVersionID: "1",
+			Config: []models.JoinRule{
+				{SourceID: sourceID2, SourceName: "name", OutputName: "event"},
+			},
+		},
+	}
+
+	expectedAuxConfig := &models.JoinAuxConfig{
 		OutputSchemaVersionID: "1",
-		Config: []models.JoinRule{
-			{SourceName: "name", OutputName: "name"},
+		SourceJoinRules: map[string]map[string]string{
+			sourceID1: {
+				"name":    "name",
+				"user_id": "user_id",
+			},
+			sourceID2: {
+				"name": "event",
+			},
 		},
 	}
 
 	t.Run("returns cached config", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
-		store := NewConfigStore(mockDB, pipelineID, sourceID).(*ConfigStore)
+		store := NewConfigStore(mockDB, pipelineID, sourceID1).(*ConfigStore)
 
 		// Pre-populate cache
-		store.joinConfigs[sourceSchemaVersion] = joinConfig
+		cacheKey := sourceID1 + schemaVersionID1 + sourceID2 + schemaVersionID2
+		store.joinConfigs[cacheKey] = expectedAuxConfig
 
-		result, err := store.GetJoinConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetJoinConfig(ctx, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2)
 
 		assert.NoError(t, err)
-		assert.Equal(t, joinConfig, result)
+		assert.Equal(t, expectedAuxConfig, result)
 	})
 
 	t.Run("fetches from database when not cached", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
-		mockDB.GetJoinConfigFunc = func(ctx context.Context, pipelineIDArg, sourceIDArg, sourceSchemaVersionArg string) (*models.JoinConfig, error) {
-			return joinConfig, nil
+		mockDB.GetJoinConfigsFunc = func(ctx context.Context, pipelineIDArg, sourceID1Arg, schemaVersionID1Arg, sourceID2Arg, schemaVersionID2Arg string) ([]models.JoinConfig, error) {
+			return joinConfigs, nil
 		}
 
-		store := NewConfigStore(mockDB, pipelineID, sourceID)
+		store := NewConfigStore(mockDB, pipelineID, sourceID1)
 
-		result, err := store.GetJoinConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetJoinConfig(ctx, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2)
 
 		assert.NoError(t, err)
-		assert.Equal(t, joinConfig, result)
+		assert.Equal(t, expectedAuxConfig, result)
 	})
 
 	t.Run("returns error on database failure", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
 		dbErr := errors.New("database error")
-		mockDB.GetJoinConfigFunc = func(ctx context.Context, pipelineIDArg, sourceIDArg, sourceSchemaVersionArg string) (*models.JoinConfig, error) {
+		mockDB.GetJoinConfigsFunc = func(ctx context.Context, pipelineIDArg, sourceID1Arg, schemaVersionID1Arg, sourceID2Arg, schemaVersionID2Arg string) ([]models.JoinConfig, error) {
 			return nil, dbErr
 		}
 
-		store := NewConfigStore(mockDB, pipelineID, sourceID)
+		store := NewConfigStore(mockDB, pipelineID, sourceID1)
 
-		result, err := store.GetJoinConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetJoinConfig(ctx, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -172,13 +200,13 @@ func TestConfigStore_GetJoinConfig(t *testing.T) {
 	t.Run("returns ErrRecordNotFound", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
 		dbErr := models.ErrRecordNotFound
-		mockDB.GetJoinConfigFunc = func(ctx context.Context, pipelineIDArg, sourceIDArg, sourceSchemaVersionArg string) (*models.JoinConfig, error) {
+		mockDB.GetJoinConfigsFunc = func(ctx context.Context, pipelineIDArg, sourceID1Arg, schemaVersionID1Arg, sourceID2Arg, schemaVersionID2Arg string) ([]models.JoinConfig, error) {
 			return nil, dbErr
 		}
 
-		store := NewConfigStore(mockDB, pipelineID, sourceID)
+		store := NewConfigStore(mockDB, pipelineID, sourceID1)
 
-		result, err := store.GetJoinConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetJoinConfig(ctx, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, models.ErrConfigNotFound))
@@ -188,22 +216,22 @@ func TestConfigStore_GetJoinConfig(t *testing.T) {
 	t.Run("caches fetched config", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
 		callCount := 0
-		mockDB.GetJoinConfigFunc = func(ctx context.Context, pipelineIDArg, sourceIDArg, sourceSchemaVersionArg string) (*models.JoinConfig, error) {
+		mockDB.GetJoinConfigsFunc = func(ctx context.Context, pipelineIDArg, sourceID1Arg, schemaVersionID1Arg, sourceID2Arg, schemaVersionID2Arg string) ([]models.JoinConfig, error) {
 			callCount++
-			return joinConfig, nil
+			return joinConfigs, nil
 		}
 
-		store := NewConfigStore(mockDB, pipelineID, sourceID)
+		store := NewConfigStore(mockDB, pipelineID, sourceID1)
 
 		// First call - fetches from DB
-		result1, err := store.GetJoinConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result1, err := store.GetJoinConfig(ctx, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2)
 		assert.NoError(t, err)
-		assert.Equal(t, joinConfig, result1)
+		assert.Equal(t, expectedAuxConfig, result1)
 
 		// Second call - should use cache (no additional DB call expected)
-		result2, err := store.GetJoinConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result2, err := store.GetJoinConfig(ctx, sourceID1, schemaVersionID1, sourceID2, schemaVersionID2)
 		assert.NoError(t, err)
-		assert.Equal(t, joinConfig, result2)
+		assert.Equal(t, expectedAuxConfig, result2)
 
 		// Verify DB was only called once
 		assert.Equal(t, 1, callCount)

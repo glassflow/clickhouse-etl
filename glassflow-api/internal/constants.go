@@ -237,4 +237,7 @@ const (
 
 	// Encryption constants
 	AESKeySize = 32
+
+	// Schema version id NATS header
+	SchemaVersionIDHeader = "Schema-Version-Id"
 )

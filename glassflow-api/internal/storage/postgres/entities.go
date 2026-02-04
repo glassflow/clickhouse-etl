@@ -711,10 +711,6 @@ func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context,
 			return nil, fmt.Errorf("insert stateless transformation: %w", err)
 		}
 		transformationIDs = append(transformationIDs, statelessID)
-		err = s.insertStatelessTransformationSchemaAndConfig(ctx, tx, p)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	// Join transformation
@@ -728,12 +724,6 @@ func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context,
 		}
 
 		transformationIDs = append(transformationIDs, joinID)
-
-		err = s.insertJoinSchemaAndConfig(ctx, tx, p)
-		if err != nil {
-			return nil, err
-		}
-
 	}
 
 	return transformationIDs, nil
@@ -827,12 +817,29 @@ func (s *PostgresStorage) insertJoinSchemaAndConfig(
 			return fmt.Errorf("schema version for source ID '%s' not found", src.SourceID)
 		}
 
+		// Insert source schema version if it doesn't exist
+		sourceSchemaVersionID, err := s.upsertSchemaVersion(
+			ctx,
+			tx,
+			p.ID,
+			src.SourceID,
+			sourceSchemaVersion.VersionID,
+			sourceSchemaVersion.Fields,
+		)
+		if err != nil {
+			return fmt.Errorf("upsert source schema version for '%s': %w", src.SourceID, err)
+		}
+
+		// Update the schema version ID in the config
+		sourceSchemaVersion.VersionID = sourceSchemaVersionID
+		p.SchemaVersions[src.SourceID] = sourceSchemaVersion
+
 		err = s.insertJoinConfig(
 			ctx,
 			tx,
 			p.ID,
 			sourceSchemaVersion.SourceID,
-			sourceSchemaVersion.VersionID,
+			sourceSchemaVersionID,
 			p.Join.ID,
 			outputSchemaVersionID,
 			p.Join.Config,
