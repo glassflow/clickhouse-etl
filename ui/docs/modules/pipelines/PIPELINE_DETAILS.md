@@ -11,24 +11,22 @@ The Pipeline Details module provides a comprehensive interface for viewing and m
 ```
 PipelineDetailsModule (Main Container)
 ├── PipelineDetailsHeader
-│   ├── Pipeline Name & Status
-│   ├── Action Buttons (Stop, Resume, Edit, Rename, Delete, Download)
-│   ├── Tags Display & Management
+│   ├── Pipeline Name & Status (usePipelineDisplayStatus)
+│   ├── Action Buttons (Stop, Resume, Edit, Rename, Delete)
+│   ├── PipelineActionsMenu (Radix DropdownMenu)
+│   │   ├── Secondary Actions
+│   │   ├── Manage Tags
+│   │   ├── Download Config
+│   │   ├── Flush DLQ
+│   │   └── Grafana Dashboard (if available)
+│   ├── Tags Display
 │   ├── Pipeline ID Copy
-│   ├── Health Status Indicator
-│   └── Context Menu (Additional Actions)
+│   └── Health Status Indicator
 │
-├── PipelineDetailsSidebar
-│   ├── Monitor Section
-│   ├── Kafka Connection
-│   ├── Topic Selection (Single/Multi)
-│   ├── Type Verification
-│   ├── Deduplication
-│   ├── Filter (if enabled)
-│   ├── Transformation (if applicable, only in single topic journey)
-│   ├── Join Configuration (if multi-topic)
-│   ├── ClickHouse Connection
-│   └── Destination Mapping
+├── PipelineDetailsSidebar (sidebar/sidebarItemBuilders)
+│   ├── getSourceItems() - Kafka, Topics, Type Verification, Dedup
+│   ├── getTransformationItems() - Join, Filter, Transformations
+│   └── getSinkItems() - ClickHouse Connection, Destination
 │
 ├── PipelineStatusOverviewSection
 │   ├── DeadLetterQueueCard
@@ -36,21 +34,77 @@ PipelineDetailsModule (Main Container)
 │
 ├── Configuration Overview (Monitor View)
 │   ├── KafkaConnectionSection (Source)
-│   ├── TransformationSection
-│   │   ├── Topic Cards (Single/Multi)
-│   │   ├── Deduplication Cards
-│   │   ├── Join Cards (if enabled)
-│   │   ├── Filter Card (if enabled)
-│   │   ├── Transformation Card
-│   │   └── Destination Card
+│   ├── TransformationSection (transformation/)
+│   │   ├── Cards: FilterCard, TypeVerificationCard, TransformationCard, DeduplicationKeyCard
+│   │   └── Cases: DeduplicationCase, JoinCase, JoinDeduplicationCase, FallbackCase
 │   └── ClickhouseConnectionSection (Sink)
 │
-└── StandaloneStepRenderer (When Step Active)
-    ├── StepRendererPageComponent
-    ├── Step Component (KafkaConnection, TopicSelector, etc.)
-    ├── Edit Mode Toggle
-    ├── Edit Confirmation Modal
-    └── Pipeline Transition Overlay
+└── StandaloneStepRenderer (step-renderer/)
+    ├── STEP_RENDERER_CONFIG (stepRendererConfig.ts)
+    ├── getStepProps (stepProps.ts)
+    ├── useSafeEnterEditMode hook
+    ├── Step Component
+    ├── EditConfirmationModal
+    └── PipelineTransitionOverlay
+```
+
+### Module Structure
+
+```
+modules/pipelines/[id]/
+├── PipelineDetailsModule.tsx       # Main orchestrator
+├── PipelineDetailsHeader.tsx       # Header with status and actions
+├── PipelineDetailsClientWrapper.tsx # Client-side data fetching
+├── PipelineDetailsSidebar.tsx      # Navigation sidebar
+├── PipelineStatusOverviewSection.tsx
+├── StandaloneStepRenderer.tsx      # Step rendering (refactored)
+│
+├── config/
+│   └── pipeline-details.constants.ts  # Step sets, view state constants
+│
+├── hooks/
+│   └── useActiveViewState.ts       # Active step/section/topicIndex state
+│
+├── header/
+│   ├── index.ts
+│   └── PipelineActionsMenu.tsx     # Radix-based dropdown menu
+│
+├── sidebar/
+│   ├── index.ts
+│   ├── sidebarItemBuilders.ts      # getSourceItems, getTransformationItems, getSinkItems
+│   └── sidebarItemBuilders.test.ts # Unit tests
+│
+├── step-renderer/
+│   ├── index.ts
+│   ├── stepRendererConfig.ts       # STEP_RENDERER_CONFIG map
+│   ├── stepProps.ts                # getStepProps, isTopicSelectorStep, etc.
+│   └── useSafeEnterEditMode.ts     # Safe edit mode hook
+│
+├── sections/
+│   ├── KafkaConnectionSection.tsx
+│   ├── ClickhouseConnectionSection.tsx
+│   ├── TransformationSection.tsx   # Refactored orchestrator
+│   └── transformation/
+│       ├── index.ts
+│       ├── types.ts                # TransformationValidation, props interfaces
+│       ├── utils.ts                # isDeduplicationEnabled, getTransformationTypeLabel
+│       ├── cards/
+│       │   ├── FilterCard.tsx
+│       │   ├── TypeVerificationCard.tsx
+│       │   ├── TransformationCard.tsx
+│       │   └── DeduplicationKeyCard.tsx
+│       └── cases/
+│           ├── DeduplicationCase.tsx
+│           ├── JoinCase.tsx
+│           ├── JoinDeduplicationCase.tsx
+│           └── FallbackCase.tsx
+│
+└── [Card Components]
+    ├── SingleColumnCard.tsx
+    ├── DoubleColumnCard.tsx
+    ├── TitleCardWithIcon.tsx
+    ├── DeadLetterQueueCard.tsx
+    └── ClickHouseTableMetricsCard.tsx
 ```
 
 ## Core Components
@@ -59,68 +113,29 @@ PipelineDetailsModule (Main Container)
 
 **Location:** `src/modules/pipelines/[id]/PipelineDetailsModule.tsx`
 
-**Purpose:** The main container component that orchestrates the entire pipeline details view. It manages state, coordinates navigation, handles pipeline hydration, and provides the overall layout.
+**Purpose:** The main container component that orchestrates the entire pipeline details view.
 
 **Key Responsibilities:**
 - Manages pipeline data state
-- Handles pipeline hydration from API to store
-- Coordinates sidebar navigation and step rendering
+- Handles pipeline hydration via `usePipelineHydration` hook
+- Coordinates sidebar navigation and step rendering via `useActiveViewState` hook
 - Manages edit mode and read-only mode
 - Handles pipeline operations via centralized actions
 - Provides sequential animations for UI elements
 - Manages tags modal
-- Handles pipeline status updates
 
-**Props:**
+**State Management:**
+Uses the `useActiveViewState` hook to manage:
 ```typescript
-{
-  pipeline: Pipeline // Initial pipeline data from API
+interface ActiveViewState {
+  activeSection: SidebarSection | null
+  activeStep: StepKeys | null
+  activeTopicIndex: number
 }
 ```
 
-**Key State Management:**
-- **Local Pipeline State:** Maintains a local copy of pipeline data for display
-- **Active Step:** Tracks which configuration step is currently being viewed/edited
-- **Active Section:** Tracks which sidebar section is highlighted
-- **Active Topic Index:** For multi-topic pipelines, tracks which topic (0 = left, 1 = right)
-- **Edit Mode:** Tracks whether pipeline is in edit mode
-- **Animation States:** Controls sequential appearance of UI sections
-- **Tags Modal:** Manages tags modal visibility and saving state
-
 **Pipeline Hydration:**
-The module handles hydration of pipeline data from API format to internal store format:
-
-1. **Hydration Trigger:** Runs when:
-   - Pipeline data is available
-   - Pipeline has source and sink configured
-   - Not in edit mode
-   - No unsaved changes (`isDirty` is false)
-   - Action is not loading
-
-2. **Hydration Process:**
-   - Creates cache key from pipeline ID, name, status, topics, and version
-   - Checks sessionStorage for previous hydration
-   - Verifies store actually has data (handles page reloads)
-   - Gets appropriate pipeline adapter based on version
-   - Converts API config to internal config via adapter
-   - Calls `enterViewMode` to hydrate all stores
-   - Caches hydration key in sessionStorage
-
-3. **Hydration Cache:**
-   - Prevents re-hydration on every render
-   - Detects actual configuration changes (topics, version, etc.)
-   - Cleared when pipeline is resumed (ensures fresh data)
-
-**Sequential Animations:**
-UI elements appear sequentially for better UX:
-- Header: Immediate
-- Status Overview: 500ms delay
-- Configuration Section: 1000ms delay
-
-**Action Completion Handling:**
-When pipeline actions complete:
-- Stop/Resume/Terminate: Reported to centralized system for status tracking
-- Other actions: Refresh pipeline data after 500ms delay
+Delegated to `usePipelineHydration` hook (see Hooks section).
 
 ### 2. PipelineDetailsHeader
 
@@ -129,81 +144,57 @@ When pipeline actions complete:
 **Purpose:** Displays pipeline header with name, status, actions, tags, and health information.
 
 **Key Features:**
-- Pipeline name and status badge
-- Action buttons (Stop, Resume, Edit, Rename, Delete, Download)
+- Pipeline name and status badge (via `usePipelineDisplayStatus`)
+- Primary action buttons (Stop, Resume, Edit, Rename, Delete)
+- Actions menu via `PipelineActionsMenu` component
 - Tags display and management
 - Pipeline ID copy functionality
 - Health status indicator
-- Context menu for additional actions (Terminate, Flush DLQ)
-- Unsaved changes warning for download
-
-**Action Buttons:**
-- **Stop:** Gracefully pause pipeline (shows confirmation modal)
-- **Resume:** Resume paused pipeline (immediate action)
-- **Edit:** Navigate to edit mode (disabled in demo mode)
-- **Rename:** Change pipeline name (shows modal)
-- **Delete:** Remove pipeline (shows confirmation modal)
-- **Download:** Download pipeline configuration (shows warning if unsaved changes)
+- Resume with pending edit flow (via `useResumeWithPendingEdit`)
 
 **Status Display:**
-- Uses centralized pipeline status (`usePipelineState`)
-- Falls back to pipeline prop status
-- Shows health status from health monitoring
-- Displays loading indicators during operations
+Uses `usePipelineDisplayStatus` hook which returns:
+```typescript
+{
+  variant: 'success' | 'warning' | 'error' | 'default'
+  label: string
+  effectiveStatus: PipelineStatus
+}
+```
 
-**Health Monitoring:**
-- Uses `usePipelineHealth` hook for health polling
-- Disabled during transitional states (pausing, stopping, resuming)
-- Polls every 5 seconds
-- Stops on stable states (Running, Terminated, Failed)
+### 3. PipelineActionsMenu
 
-**Context Menu:**
-Additional actions available via menu button:
-- Terminate (immediate stop)
-- Flush DLQ (clear dead letter queue)
-- Download (with unsaved changes warning)
+**Location:** `src/modules/pipelines/[id]/header/PipelineActionsMenu.tsx`
 
-**Unsaved Changes Handling:**
-- Checks `coreStore.isDirty` before download
-- Shows warning modal if unsaved changes exist
-- Allows user to proceed or cancel
+**Purpose:** Dropdown menu for secondary pipeline actions using Radix DropdownMenu.
 
-### 3. PipelineDetailsSidebar
+**Features:**
+- Uses Radix UI DropdownMenu for accessibility and positioning
+- No manual portal/position calculations needed
+- Actions: secondary pipeline actions, manage tags, download, flush DLQ, Grafana
+- Supports demo mode disabling
+- Shows unsaved changes warning badge on download
+
+### 4. PipelineDetailsSidebar
 
 **Location:** `src/modules/pipelines/[id]/PipelineDetailsSidebar.tsx`
 
 **Purpose:** Provides navigation sidebar for pipeline configuration sections.
 
-**Key Features:**
-- Dynamic sidebar items based on pipeline configuration
-- Highlights active section
-- Clickable sections (disabled when editing is disabled)
-- Supports single and multi-topic pipelines
-- Handles topic indices for multi-topic deduplication
+**Architecture:**
+Uses modular item builders from `sidebar/sidebarItemBuilders.ts`:
 
-**Sidebar Sections:**
-Generated dynamically based on pipeline config:
+```typescript
+// Split into focused functions
+getSourceItems(pipeline)        // Kafka, topics, type verification, dedup
+getTransformationItems(pipeline) // Join, filter, transformations
+getSinkItems()                   // ClickHouse connection, destination
 
-1. **Monitor:** Always available, shows status overview
-2. **Kafka Connection:** Always available
-3. **Topic Selection:**
-   - Single topic: "Topic"
-   - Multi-topic: "Left Topic" and "Right Topic"
-   - Combined with deduplication if enabled
-4. **Type Verification:**
-   - Single topic: "Verify Field Types"
-   - Multi-topic: "Left Topic Types" and "Right Topic Types"
-5. **Deduplication:**
-   - Single topic: "Deduplicate" (if enabled)
-   - Multi-topic: Combined with topic selection
-6. **Filter:** Only if filters feature is enabled
-7. **Transformation:** Only if transformations are enabled and have fields
-8. **Join Configuration:** Only for multi-topic pipelines with join enabled
-9. **ClickHouse Connection:** Always available
-10. **Destination:** Always available (ClickHouse Mapping)
+// Combined
+getSidebarItems(pipeline)        // Monitor + all sections
+```
 
 **Dynamic Item Generation:**
-The `getSidebarItems` function:
 - Analyzes pipeline configuration
 - Determines topic count (single vs multi)
 - Checks for deduplication on each topic
@@ -211,211 +202,228 @@ The `getSidebarItems` function:
 - Checks for transformations
 - Returns appropriate sidebar items with step keys and topic indices
 
-**Section Click Handling:**
-- Sets active section
-- Sets active step (if section has step key)
-- Sets topic index (for multi-topic sections)
-- Prevents clicks when editing is disabled (except monitor)
-
-### 4. PipelineStatusOverviewSection
-
-**Location:** `src/modules/pipelines/[id]/PipelineStatusOverviewSection.tsx`
-
-**Purpose:** Displays pipeline status overview cards with metrics.
-
-**Key Features:**
-- Dead Letter Queue (DLQ) metrics card
-- ClickHouse table metrics card
-- Sequential animation support
-- Real-time metric updates
-
-**Components:**
-- **DeadLetterQueueCard:** Shows DLQ statistics (unconsumed messages, total messages)
-- **ClickHouseTableMetricsCard:** Shows ClickHouse table metrics (rows, size, etc.)
-
 ### 5. TransformationSection
 
 **Location:** `src/modules/pipelines/[id]/sections/TransformationSection.tsx`
 
 **Purpose:** Displays visual representation of pipeline transformation configuration.
 
-**Key Features:**
-- Dynamic layout based on pipeline configuration
-- Multiple layout cases:
-  - Single topic (no join, no deduplication)
-  - Single topic with deduplication
-  - Multi-topic with join
-  - Multi-topic with join and deduplication
-- Clickable cards for navigation
-- Validation state indicators
-- Transformation type label
+**Architecture:**
+Refactored into modular structure:
 
-**Layout Cases:**
+```
+sections/transformation/
+├── types.ts        # TransformationValidation, base props interfaces
+├── utils.ts        # isDeduplicationEnabled(), getTransformationTypeLabel()
+├── cards/          # Individual card components
+│   ├── FilterCard.tsx
+│   ├── TypeVerificationCard.tsx
+│   ├── TransformationCard.tsx
+│   └── DeduplicationKeyCard.tsx
+└── cases/          # Layout case components
+    ├── DeduplicationCase.tsx      # Single topic
+    ├── JoinCase.tsx               # Multi-topic with join
+    ├── JoinDeduplicationCase.tsx  # Join + full dedup
+    └── FallbackCase.tsx           # Edge cases
+```
 
-1. **Single Topic (No Deduplication):**
-   - Topic card
-   - Type verification card
-   - Filter card (if enabled)
-   - Transformation card (if enabled)
-   - Destination card
+**Reactivity Fix:**
+All components now use proper `useStore` selectors instead of `getState()`:
+```typescript
+// Before (no reactivity)
+const dedup = useStore.getState().deduplicationStore.getDeduplication(0)
 
-2. **Single Topic with Deduplication:**
-   - Topic card
-   - Type verification card
-   - Deduplication card
-   - Filter card (if enabled)
-   - Transformation card (if enabled)
-   - Destination card
-
-3. **Multi-Topic with Join:**
-   - Left topic card
-   - Right topic card
-   - Left type verification card
-   - Right type verification card
-   - Join keys cards (left and right)
-   - Transformation card (if enabled - not in this case)
-   - Destination card
-
-4. **Multi-Topic with Join and Deduplication:**
-   - Left topic + deduplication card
-   - Right topic + deduplication card
-   - Left type verification card
-   - Right type verification card
-   - Join keys cards (left and right)
-   - Transformation card (if enabled - not in this case)
-   - Destination card
-
-**Card Types:**
-- **SingleCard:** Single column card
-- **DoubleColumnCard:** Two columns (e.g., Destination Table and Schema Mapping)
-- **SingleColumnCard:** Single column with orientation (left/right/center)
-- **TitleCardWithIcon:** Icon-based card (for source/sink)
-
-**Transformation Type Display:**
-Shows transformation type label:
-- "Ingest Only" (no transformations)
-- "Deduplication" (deduplication only)
-- "Join" (join enabled)
-- "Join & Deduplication" (both enabled)
+// After (proper reactivity)
+const dedup = useStore((state) => state.deduplicationStore.getDeduplication(0))
+```
 
 ### 6. StandaloneStepRenderer
 
 **Location:** `src/modules/pipelines/[id]/StandaloneStepRenderer.tsx`
 
-**Purpose:** Renders individual configuration steps in standalone mode for viewing and editing.
+**Purpose:** Renders individual configuration steps in standalone mode.
 
-**Key Features:**
-- Renders step components in full-page mode
-- Manages edit mode toggle
-- Handles edit confirmation for active pipelines
-- Pre-loads step data
-- Shows loading states during operations
-- Displays transition overlay during pipeline stopping
+**Architecture:**
+Uses configuration-driven approach from `step-renderer/`:
 
-**Step Components:**
-Supports all pipeline configuration steps:
-- `KAFKA_CONNECTION`: KafkaConnectionContainer
-- `TOPIC_SELECTION_1/2`: KafkaTopicSelector
-- `TOPIC_DEDUPLICATION_CONFIGURATOR_1/2`: KafkaTopicSelector (with deduplication)
-- `DEDUPLICATION_CONFIGURATOR`: DeduplicationConfigurator
-- `KAFKA_TYPE_VERIFICATION`: KafkaTypeVerification
-- `FILTER_CONFIGURATOR`: FilterConfigurator
-- `TRANSFORMATION_CONFIGURATOR`: TransformationConfigurator
-- `JOIN_CONFIGURATOR`: JoinConfigurator
-- `CLICKHOUSE_CONNECTION`: ClickhouseConnectionContainer
-- `CLICKHOUSE_MAPPER`: ClickhouseMapper
+```typescript
+// stepRendererConfig.ts - Configuration map
+const STEP_RENDERER_CONFIG: Record<StepKeys, StepConfig | undefined> = {
+  [StepKeys.KAFKA_CONNECTION]: {
+    component: KafkaConnectionContainer,
+    title: 'Kafka Connection',
+    description: 'Configure your Kafka connection settings',
+  },
+  // ... other steps
+}
 
-**Edit Mode Management:**
-- Starts in read-only mode
-- User must click "Edit" to enable editing
-- For stopped/terminated pipelines: Edit enabled immediately
-- For active/paused pipelines: Shows confirmation modal, stops pipeline, then enables edit
-- Prevents editing during transitional states
+// stepProps.ts - Props utilities
+getStepProps(stepKey, baseProps, topicIndex) // Returns extended props based on step type
+isTopicSelectorStep(stepKey)                  // Checks if step needs currentStep prop
+isTopicDeduplicationStep(stepKey)             // Checks if step is topic+dedup combined
+needsIndexProp(stepKey)                       // Checks if step needs index prop
 
-**Edit Confirmation Flow:**
-1. User clicks "Edit" on active pipeline
-2. Edit confirmation modal shown
-3. User confirms
-4. Pipeline stopped via centralized actions
-5. Transition overlay shown
-6. Edit mode enabled when status changes to 'stopped'
+// useSafeEnterEditMode.ts - Edit mode hook
+const { safeEnterEditMode, isInEditMode } = useSafeEnterEditMode()
+```
 
-**Data Preloading:**
-- Uses `useStepDataPreloader` hook
-- Pre-loads required data for step
-- Shows loading indicator during preload
-- Shows error state if preload fails
-- Retry functionality for failed preloads
+**Benefits:**
+- Adding a new step is a single entry in `STEP_RENDERER_CONFIG`
+- No long if/else chains
+- No nested ternaries for props
+- Consistent edit mode handling
 
-**Props Passed to Step Components:**
-- `steps`: Step configuration
-- `onCompleteStep`: Step completion handler
-- `validate`: Validation function
-- `standalone`: Always `true`
-- `onCompleteStandaloneEditing`: Close handler
-- `readOnly`: Based on edit mode
-- `toggleEditMode`: Edit mode toggle handler
-- `pipelineActionState`: Loading state for operations
-- `pipeline`: Pipeline data
-- `currentStep`: For topic selector steps
-- `enableDeduplication`: For topic+dedup steps
-- `index`: Topic index for multi-topic steps
+## Hooks
 
-### 7. KafkaConnectionSection
+### usePipelineDetailsData
 
-**Location:** `src/modules/pipelines/[id]/sections/KafkaConnectionSection.tsx`
+**Location:** `src/hooks/usePipelineDetailsData.ts`
 
-**Purpose:** Displays source (Kafka) connection section in configuration overview.
+**Purpose:** Centralized pipeline data fetching with loading/error/notFound states.
 
-**Key Features:**
-- Shows "Source" label
-- Kafka icon card
-- Clickable to navigate to Kafka connection step
-- Validation state indicator
-- Selection highlight when active
+```typescript
+const {
+  pipeline,
+  loading,
+  error,
+  isNotFound,
+  refetch,
+  setPipeline,
+} = usePipelineDetailsData(pipelineId, { skipInitialFetch })
+```
 
-### 8. ClickhouseConnectionSection
+### usePipelineHydration
 
-**Location:** `src/modules/pipelines/[id]/sections/ClickhouseConnectionSection.tsx`
+**Location:** `src/hooks/usePipelineHydration.ts`
 
-**Purpose:** Displays sink (ClickHouse) connection section in configuration overview.
+**Purpose:** Handles pipeline hydration from API to stores.
 
-**Key Features:**
-- Shows "Sink" label
-- ClickHouse icon card
-- Clickable to navigate to ClickHouse connection step
-- Validation state indicator
-- Selection highlight when active
+**Features:**
+- Creates cache key from pipeline ID, name, status, topics, version
+- Checks sessionStorage for previous hydration
+- Verifies store has data (handles page reloads)
+- Gets appropriate pipeline adapter based on version
+- Converts API config to internal config via adapter
+- Calls `enterViewMode` to hydrate stores
+
+### usePipelineDisplayStatus
+
+**Location:** `src/hooks/usePipelineDisplayStatus.ts`
+
+**Purpose:** Derives display status (variant, label) from pipeline state.
+
+```typescript
+const { variant, label, effectiveStatus } = usePipelineDisplayStatus(
+  pipeline,
+  health,
+  actionState
+)
+```
+
+### useResumeWithPendingEdit
+
+**Location:** `src/hooks/useResumeWithPendingEdit.ts`
+
+**Purpose:** Handles resume action when there are unsaved edits.
+
+**Flow:**
+1. Checks `isDirty` flag
+2. Builds API config from stores
+3. Calls edit action
+4. Resets stores
+5. Clears hydration cache
+6. Fetches updated pipeline
+
+### useActiveViewState
+
+**Location:** `src/modules/pipelines/[id]/hooks/useActiveViewState.ts`
+
+**Purpose:** Manages active view state (section, step, topic index).
+
+```typescript
+const {
+  activeSection,
+  activeStep,
+  activeTopicIndex,
+  setActiveView,
+  clearActiveStep,
+} = useActiveViewState()
+```
+
+### useSafeEnterEditMode
+
+**Location:** `src/modules/pipelines/[id]/step-renderer/useSafeEnterEditMode.ts`
+
+**Purpose:** Safely enters edit mode without overwriting unsaved changes.
+
+```typescript
+const { safeEnterEditMode, isInEditMode, globalMode } = useSafeEnterEditMode()
+
+// Only enters if not already in edit mode
+safeEnterEditMode(pipeline)
+```
+
+## Type System
+
+### Type Hierarchy
+
+```typescript
+// Raw API response (any version)
+type PipelineApiResponse = any
+
+// Normalized pipeline structure
+interface Pipeline {
+  pipeline_id: string
+  name: string
+  version?: string
+  status?: PipelineStatus
+  source: { ... }
+  sink: { ... }
+  // ...
+}
+
+// Extended with UI-specific fields
+type InternalPipelineConfig = Pipeline & {
+  transformation?: {
+    enabled?: boolean
+    expression?: string
+    fields?: any[]
+  }
+}
+```
+
+### Hydration Flow
+
+```
+1. API returns PipelineApiResponse
+2. getPipelineAdapter(version) returns appropriate adapter
+3. adapter.hydrate(apiResponse) → InternalPipelineConfig
+4. enterViewMode(internalConfig) → populates stores
+```
+
+### Pipeline Adapter Interface
+
+```typescript
+interface PipelineAdapter {
+  version: string
+  hydrate(apiConfig: PipelineApiResponse): InternalPipelineConfig
+  generate(internalConfig: InternalPipelineConfig): PipelineApiResponse
+}
+```
 
 ## State Management
 
-### Pipeline State
-
-**Local State:**
-- Maintains local copy of pipeline data
-- Updated when pipeline is refreshed or modified
-- Used for display and status checks
-
-**Centralized State:**
-- Uses `usePipelineState` for status
-- Uses `usePipelineOperations` for operations
-- Uses `usePipelineMonitoring` for status polling
-- Status updates propagate automatically
-
 ### Store Hydration
 
-**Hydration Process:**
-1. Pipeline adapter converts API config to internal format
-2. `enterViewMode` sets core store to view mode
-3. `hydrateFromConfig` hydrates all stores:
-   - Kafka store
-   - Topics store
-   - Deduplication store
-   - Join store
-   - Filter store
-   - Transformation store
-   - ClickHouse connection store
-   - ClickHouse destination store
+**Hydrated Stores:**
+- Kafka Store - Connection configuration
+- Topics Store - Topic selection and event data
+- Deduplication Store - Deduplication configuration
+- Join Store - Join configuration
+- Filter Store - Filter configuration
+- Transformation Store - Transformation configuration
+- ClickHouse Connection Store - Connection configuration
+- ClickHouse Destination Store - Table mapping
 
 **Hydration Cache:**
 - Stored in sessionStorage as `lastHydratedPipeline`
@@ -423,447 +431,92 @@ Supports all pipeline configuration steps:
 - Prevents unnecessary re-hydration
 - Cleared on resume to ensure fresh data
 
-**Hydration Guards:**
-- Skips if `isDirty` (unsaved changes)
-- Skips if in edit mode
-- Skips if action is loading
-- Verifies store has data (handles page reloads)
-
 ### Edit Mode
 
 **View Mode:**
 - Default mode when viewing pipeline
 - Read-only access to configuration
 - Can navigate and view all sections
-- Can perform operations (stop, resume, etc.)
 
 **Edit Mode:**
 - Enabled when user clicks "Edit" on a step
 - Requires pipeline to be stopped
-- Allows modification of configuration
 - Tracks unsaved changes (`isDirty`)
 - Prevents hydration to avoid overwriting changes
 
-**Mode Transitions:**
-- View → Edit: User clicks "Edit", pipeline stopped if needed
-- Edit → View: User saves or cancels changes
-
 ## Pipeline Operations
 
-### Stop (Pause)
-
-**Flow:**
-1. User clicks "Stop" button
-2. Confirmation modal shown
-3. User confirms
-4. Operation reported to centralized system
-5. API call: `stopPipeline(pipelineId)` (graceful)
-6. Status updates via centralized tracking
-7. Pipeline data refreshed
-
-**Characteristics:**
-- Graceful stop (processes remaining messages)
-- Requires confirmation
-- Status: `active` → `stopping` → `paused`
-
-### Resume
-
-**Flow:**
-1. User clicks "Resume" button
-2. Operation reported to centralized system
-3. API call: `resumePipeline(pipelineId)`
-4. Status updates via centralized tracking
-5. Hydration cache cleared (ensures fresh data)
-
-**Characteristics:**
-- Immediate action (no confirmation)
-- Status: `paused` → `resuming` → `active`
-- Clears hydration cache
-
-### Edit
-
-**Flow:**
-1. User clicks "Edit" button or "Edit" on a step
-2. If pipeline is active: Confirmation modal shown
-3. If confirmed: Pipeline stopped
-4. Edit mode enabled
-5. User can modify configuration
-6. Changes saved to store
-7. `isDirty` flag set
-
-**Characteristics:**
-- Requires pipeline to be stopped
-- Automatically stops active pipelines
-- Enables edit mode for specific step
-- Tracks unsaved changes
-
-### Rename
-
-**Flow:**
-1. User clicks "Rename" button
-2. Rename modal shown with current name
-3. User enters new name and confirms
-4. Operation reported to centralized system
-5. API call: `renamePipeline(pipelineId, newName)`
-6. Local pipeline state updated
-7. Optimistic update in UI
-
-**Characteristics:**
-- Immediate optimistic update
-- No refresh needed
-- Reverts on error
-
-### Delete
-
-**Flow:**
-1. User clicks "Delete" button
-2. Confirmation modal shown
-3. User confirms
-4. Operation reported to centralized system
-5. API call: `deletePipeline(pipelineId)`
-6. Redirects to pipelines list
-
-**Characteristics:**
-- Requires confirmation
-- Permanent action
-- Redirects after deletion
-
-### Terminate
-
-**Flow:**
-1. User clicks "Terminate" in context menu
-2. Confirmation modal shown
-3. User confirms
-4. Operation reported to centralized system
-5. API call: `terminatePipeline(pipelineId)` (ungraceful)
-6. Status updates via centralized tracking
-
-**Characteristics:**
-- Immediate termination (ungraceful)
-- Requires confirmation
-- Status: `*` → `terminating` → `terminated`
-
-### Download
-
-**Flow:**
-1. User clicks "Download" button
-2. If unsaved changes: Warning modal shown
-3. User confirms or cancels
-4. Pipeline configuration downloaded as JSON
-
-**Characteristics:**
-- Downloads current configuration
-- Warns if unsaved changes exist
-- Downloads from store (includes unsaved changes if in edit mode)
-
-### Flush DLQ
-
-**Flow:**
-1. User clicks "Flush DLQ" in context menu
-2. Confirmation modal shown
-3. User confirms
-4. API call: `purgePipelineDLQ(pipelineId)`
-5. Success notification shown
-
-**Characteristics:**
-- Clears dead letter queue
-- Requires confirmation
-- Permanent action
-
-## Navigation Flow
-
-### Section Navigation
-
-**Sidebar Click:**
-1. User clicks sidebar section
-2. `handleSectionClick` called
-3. Active section set
-4. Active step set (if section has step key)
-5. Topic index set (for multi-topic sections)
-6. StandaloneStepRenderer renders step component
-
-**Step Card Click:**
-1. User clicks configuration card
-2. `handleStepClick` called with step key
-3. Active step set
-4. Active section updated to match
-5. StandaloneStepRenderer renders step component
-
-**Close Step:**
-1. User clicks close/back
-2. `handleCloseStep` called
-3. Active step cleared
-4. Active section set to 'monitor'
-5. Returns to status overview
-
-### Edit Mode Navigation
-
-**Entering Edit Mode:**
-1. User clicks "Edit" on a step
-2. If pipeline active: Confirmation shown
-3. Pipeline stopped if needed
-4. Edit mode enabled
-5. Step component receives `readOnly: false`
-
-**Exiting Edit Mode:**
-1. User saves changes or cancels
-2. Edit mode disabled
-3. Returns to view mode
-4. Pipeline data refreshed if saved
-
-## Pipeline Hydration
-
-### Adapter Pattern
-
-**Purpose:**
-Converts between API format and internal UI format, supporting multiple pipeline versions.
-
-**Pipeline Adapters:**
-- **V1 Adapter:** Handles V1 pipeline format
-- **V2 Adapter:** Handles V2 pipeline format (with root-level schema)
-
-**Adapter Interface:**
-```typescript
-interface PipelineAdapter {
-  version: string
-  hydrate(apiConfig: any): InternalPipelineConfig
-  generate(internalConfig: InternalPipelineConfig): any
-}
-```
-
-**Hydration Process:**
-1. Get adapter based on pipeline version
-2. Call `adapter.hydrate(apiConfig)` to convert to internal format
-3. Pass internal config to `enterViewMode`
-4. Stores hydrate from internal config
-
-**V2 Specific Handling:**
-- Converts `stateless_transformation` to `transformation` format
-- Handles root-level schema
-- Maintains backward compatibility
-
-### Store Hydration
-
-**Hydrated Stores:**
-- **Kafka Store:** Connection configuration
-- **Topics Store:** Topic selection and event data
-- **Deduplication Store:** Deduplication configuration
-- **Join Store:** Join configuration
-- **Filter Store:** Filter configuration
-- **Transformation Store:** Transformation configuration
-- **ClickHouse Connection Store:** Connection configuration
-- **ClickHouse Destination Store:** Table mapping
-
-**Hydration Functions:**
-Each store has a hydration function that:
-- Extracts relevant data from pipeline config
-- Converts API format to store format
-- Sets store state
-- Handles missing or invalid data
-
-## Status Polling
-
-### Health Monitoring
-
-**Purpose:**
-Monitor pipeline health and status in real-time.
-
-**Implementation:**
-- Uses `usePipelineHealth` hook
-- Polls health endpoint every 5 seconds
-- Disabled during transitional states
-- Stops on stable states
-
-**Health Data:**
-- Overall status (Running, Paused, Terminated, Failed)
-- Component health
-- Error information
-
-### Centralized Status Tracking
-
-**Purpose:**
-Track pipeline status changes across the application.
-
-**Implementation:**
-- Uses `usePipelineState` hook
-- Subscribes to centralized state manager
-- Updates automatically when status changes
-- Handles optimistic updates
-
-**Status Updates:**
-- Operations report to centralized system
-- System tracks status transitions
-- Components subscribe to updates
-- UI updates automatically
-
-## Error Handling
-
-### API Errors
-
-**Centralized Error Handler:**
-- Uses `handleApiError` utility
-- Shows user-friendly notifications
-- Provides retry functionality
-- Tracks error analytics
-
-**Operation Errors:**
-- Optimistic updates reverted on error
-- Error state shown in UI
-- User can retry operation
-- Error notifications displayed
-
-### Hydration Errors
-
-**Error Handling:**
-- Errors logged to console
-- Store validation states handle errors
-- UI shows error states
-- User can retry hydration
-
-### Edit Mode Errors
-
-**Validation Errors:**
-- Shown inline in form fields
-- Prevent saving invalid configuration
-- Clear error messages
-
-**Save Errors:**
-- Error notification shown
-- Changes remain in store
-- User can fix and retry
-
-## UI/UX Features
-
-### Sequential Animations
-
-**Purpose:**
-Improve perceived performance and guide user attention.
-
-**Animation Sequence:**
-1. Header: Immediate
-2. Status Overview: 500ms delay
-3. Configuration Section: 1000ms delay
-
-**Implementation:**
-- Uses CSS transitions
-- Opacity and translate transforms
-- Smooth easing functions
-
-### Loading States
-
-**Operation Loading:**
-- Loading indicators during operations
-- Disabled buttons during operations
-- Loading text for context
-
-**Data Loading:**
-- Preloader for step data
-- Progress indicators
-- Error states with retry
-
-### Transition Overlays
-
-**Purpose:**
-Show progress during pipeline state transitions.
-
-**Implementation:**
-- Shown during pipeline stopping for edit
-- Displays transition message
-- Prevents user interaction
-- Auto-dismisses when complete
-
-### Validation Indicators
-
-**Purpose:**
-Show configuration validation state.
-
-**Implementation:**
-- Color-coded validation states
-- Error indicators on invalid sections
-- Success indicators on valid sections
-- Warning indicators on incomplete sections
+| Operation | Confirmation | Status Transition | Notes |
+|-----------|--------------|-------------------|-------|
+| Stop | Yes | active → stopping → paused | Graceful stop |
+| Resume | No | paused → resuming → active | Clears hydration cache |
+| Edit | Yes (if active) | Stops pipeline first | Uses useSafeEnterEditMode |
+| Rename | Yes | N/A | Optimistic update |
+| Delete | Yes | N/A | Redirects to list |
+| Terminate | Yes | * → terminating → terminated | Ungraceful |
+| Download | Yes (if dirty) | N/A | Warning for unsaved changes |
+| Flush DLQ | Yes | N/A | Clears dead letter queue |
+
+## Testing
+
+### Sidebar Tests
+
+**Location:** `src/modules/pipelines/[id]/sidebar/sidebarItemBuilders.test.ts`
+
+**Coverage:**
+- Single-topic configurations
+- Multi-topic configurations
+- Deduplication scenarios
+- Join scenarios
+- Filter feature flag behavior
+- Transformation detection
+- Correct ordering of items
 
 ## Dependencies
 
 ### Internal Dependencies
 - `@/src/store` - Global state management
-- `@/src/hooks/usePipelineState` - Pipeline state hooks
-- `@/src/hooks/usePipelineActions` - Pipeline actions hook
-- `@/src/hooks/usePipelineHealth` - Health monitoring hook
+- `@/src/hooks/usePipelineDetailsData` - Pipeline fetching
+- `@/src/hooks/usePipelineHydration` - Pipeline hydration
+- `@/src/hooks/usePipelineDisplayStatus` - Status display
+- `@/src/hooks/useResumeWithPendingEdit` - Resume with edit flow
+- `@/src/hooks/usePipelineActions` - Pipeline actions
+- `@/src/hooks/usePipelineHealth` - Health monitoring
 - `@/src/hooks/useStepDataPreloader` - Step data preloading
-- `@/src/services/pipeline-state-manager` - Centralized state management
-- `@/src/api/pipeline-api` - Pipeline API functions
-- `@/src/modules/pipeline-adapters` - Pipeline version adapters
-- `@/src/components/ui` - UI components
-- `@/src/components/common` - Common components
-- `@/src/modules` - Pipeline configuration modules
+- `@/src/services/pipeline-state-manager` - Centralized state
+- `@/src/api/pipeline-api` - API functions
+- `@/src/modules/pipeline-adapters` - Version adapters
+- `@/src/components/ui` - UI components (including DropdownMenu)
 
 ### External Dependencies
 - `react` - React hooks and components
 - `next/navigation` - Next.js navigation
 - `next/image` - Next.js image optimization
+- `@radix-ui/react-dropdown-menu` - Dropdown menu primitive
 
 ## Best Practices
 
 1. **State Management:**
-   - Always use centralized state hooks
-   - Report operations via `usePipelineOperations`
-   - Start monitoring with `usePipelineMonitoring`
-   - Never directly mutate pipeline status
+   - Use centralized hooks (usePipelineDetailsData, usePipelineHydration)
+   - Use proper useStore selectors for reactivity
+   - Never use `getState()` in render
 
-2. **Hydration:**
-   - Check for unsaved changes before hydrating
-   - Use hydration cache to prevent loops
-   - Clear cache when pipeline is resumed
-   - Verify store has data after page reload
+2. **Adding New Steps:**
+   - Add entry to `STEP_RENDERER_CONFIG` in `stepRendererConfig.ts`
+   - Add props override in `stepProps.ts` if needed
+   - Update sidebar builders if step should appear in sidebar
 
 3. **Edit Mode:**
-   - Always start in read-only mode
-   - Require explicit "Edit" click
-   - Stop pipeline before editing if needed
-   - Track unsaved changes
+   - Always use `useSafeEnterEditMode` hook
+   - Never call `enterEditMode` directly
+   - Track unsaved changes via `isDirty`
 
-4. **Error Handling:**
-   - Use centralized error handler
-   - Revert optimistic updates on error
-   - Show user-friendly error messages
-   - Provide retry functionality
-
-5. **Navigation:**
-   - Update both active section and active step
-   - Handle topic indices for multi-topic pipelines
-   - Prevent navigation when editing disabled
+4. **Navigation:**
+   - Use `useActiveViewState` hook for view state
+   - Update section, step, and topic index together
    - Always allow monitor section access
 
-6. **Performance:**
-   - Use memoization for expensive computations
-   - Pre-load step data
-   - Lazy load step components
-   - Debounce rapid state changes
-
-## Future Improvements
-
-1. **Enhanced Metrics:**
-   - Real-time metrics dashboard
-   - Historical metrics charts
-   - Performance analytics
-
-2. **Advanced Editing:**
-   - Multi-step editing
-   - Undo/redo functionality
-   - Change history
-
-3. **Better Navigation:**
-   - Breadcrumb navigation
-   - Keyboard shortcuts
-   - Quick navigation menu
-
-4. **Status Polling:**
-   - WebSocket support for real-time updates
-   - Configurable polling intervals
-   - Smart polling (only poll active pipelines)
-
-5. **UI Enhancements:**
-   - Dark mode support
-   - Responsive design improvements
-   - Accessibility enhancements
+5. **Performance:**
+   - Use configuration maps instead of if/else chains
+   - Pre-load step data with `useStepDataPreloader`
+   - Memoize expensive computations
