@@ -1,5 +1,5 @@
 // Export all message factories
-export { pipelineMessages } from './pipeline'
+export { pipelineMessages, getActionErrorNotification } from './pipeline'
 export { kafkaMessages } from './kafka'
 export { clickhouseMessages } from './clickhouse'
 export { dlqMessages } from './dlq'
