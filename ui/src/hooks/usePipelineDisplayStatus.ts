@@ -119,17 +119,8 @@ const RECENT_ACTION_THRESHOLD_MS = 5000
  * )
  * ```
  */
-export function usePipelineDisplayStatus(
-  options: UsePipelineDisplayStatusOptions
-): PipelineDisplayStatus {
-  const {
-    pipelineStatus,
-    centralizedStatus,
-    health,
-    healthLoading,
-    isActionLoading,
-    lastAction,
-  } = options
+export function usePipelineDisplayStatus(options: UsePipelineDisplayStatusOptions): PipelineDisplayStatus {
+  const { pipelineStatus, centralizedStatus, health, healthLoading, isActionLoading, lastAction } = options
 
   // Track recent actions for health monitoring coordination
   const recentActionRef = useRef<{ action: string; timestamp: number } | null>(null)
@@ -186,7 +177,7 @@ export function getPipelineDisplayStatus(
   pipelineStatus: PipelineStatus | string | undefined,
   centralizedStatus: PipelineStatus | null,
   health: PipelineHealth | null,
-  isActionLoading: boolean
+  isActionLoading: boolean,
 ): { displayStatus: PipelineStatus; variant: StatusVariant; label: string } {
   let displayStatus: PipelineStatus = centralizedStatus || (pipelineStatus as PipelineStatus) || 'active'
 
