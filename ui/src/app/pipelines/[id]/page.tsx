@@ -30,8 +30,14 @@ async function PipelinePage({
   const finalSearchParams = await searchParams
   const { id } = finalParams
 
-  // Use client-side wrapper if deployment parameter is present or in mock mode
-  // This ensures search parameters are handled properly
+  /*
+  * Use client-side wrapper if deployment parameter is present or in mock mode
+  * This ensures search parameters are handled properly
+  * Deployment mode is active after mapping is complete and pipeline is being deployed
+  * While deploying, the user is shown a progress indicator
+  * and the pipeline details are not shown nor the pipeline is fetched from the API
+  * until the deployment is complete
+  */
   if (isMockMode() || finalSearchParams?.deployment === 'progress') {
     return <PipelineDetailsClientWrapper pipelineId={id} />
   }
