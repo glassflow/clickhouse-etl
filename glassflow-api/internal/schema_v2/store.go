@@ -44,7 +44,7 @@ func (s *SchemaStore) GetSchemaVersion(ctx context.Context, version string) (*mo
 
 	schemaVersion, err := s.dbClient.GetSchemaVersion(ctx, s.pipelineID, s.sourceID, version)
 	if err != nil {
-		if errors.Is(err, models.ErrSchemaVerionNotFound) {
+		if errors.Is(err, models.ErrRecordNotFound) {
 			return nil, models.ErrSchemaVerionNotFound
 		}
 		return nil, fmt.Errorf("get schema version: %w", err)
