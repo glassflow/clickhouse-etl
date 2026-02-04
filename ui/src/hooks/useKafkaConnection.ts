@@ -2,6 +2,7 @@ import { KafkaConnectionFormType } from '@/src/scheme'
 import { useState } from 'react'
 import { notify } from '@/src/notifications'
 import { kafkaMessages } from '@/src/notifications/messages'
+import { connectionFormToRequestBody } from '@/src/modules/kafka/utils/connectionToRequestBody'
 
 export const useKafkaConnection = () => {
   const [isConnecting, setIsConnecting] = useState(false)
@@ -13,119 +14,7 @@ export const useKafkaConnection = () => {
       setIsConnecting(true)
       setConnectionResult(null)
 
-      await new Promise((resolve) => setTimeout(resolve, 5000))
-
-      // Extract skipTlsVerification from the appropriate truststore
-      let skipTlsVerification = false
-      switch (values.authMethod) {
-        case 'SASL/PLAIN':
-          skipTlsVerification = values.saslPlain?.truststore?.skipTlsVerification ?? false
-          break
-        case 'SASL/SCRAM-256':
-          skipTlsVerification = values.saslScram256?.truststore?.skipTlsVerification ?? false
-          break
-        case 'SASL/SCRAM-512':
-          skipTlsVerification = values.saslScram512?.truststore?.skipTlsVerification ?? false
-          break
-        case 'SASL/GSSAPI':
-          skipTlsVerification = values.saslGssapi?.truststore?.skipTlsVerification ?? false
-          break
-        case 'NO_AUTH':
-          skipTlsVerification = values.noAuth?.truststore?.skipTlsVerification ?? false
-          break
-      }
-
-      // Base request body with common properties
-      const requestBody: any = {
-        servers: values.bootstrapServers,
-        securityProtocol: values.securityProtocol,
-        authMethod: values.authMethod,
-        skipTlsVerification: skipTlsVerification,
-      }
-
-      // Add authentication details based on the auth method
-      switch (values.authMethod) {
-        case 'NO_AUTH':
-          // Certificate is now in truststore.certificates
-          if (values.noAuth.truststore?.certificates) {
-            requestBody.certificate = values.noAuth.truststore.certificates
-          }
-          break
-
-        case 'SASL/PLAIN':
-          requestBody.username = values.saslPlain.username
-          requestBody.password = values.saslPlain.password
-          requestBody.consumerGroup = values.saslPlain.consumerGroup
-          // Certificate is now in truststore.certificates
-          if (values.saslPlain.truststore?.certificates) {
-            requestBody.certificate = values.saslPlain.truststore.certificates
-          }
-          break
-
-        case 'SASL/JAAS':
-          requestBody.jaasConfig = values.saslJaas.jaasConfig
-          break
-
-        case 'SASL/GSSAPI':
-          requestBody.kerberosPrincipal = values.saslGssapi.kerberosPrincipal
-          requestBody.kerberosKeytab = values.saslGssapi.kerberosKeytab
-          requestBody.kerberosRealm = values.saslGssapi.kerberosRealm
-          requestBody.kdc = values.saslGssapi.kdc
-          requestBody.serviceName = values.saslGssapi.serviceName
-          requestBody.krb5Config = values.saslGssapi.krb5Config
-          // requestBody.useTicketCache = values.saslGssapi.useTicketCache
-          // requestBody.ticketCachePath = values.saslGssapi.ticketCachePath
-          // Certificate is now in truststore.certificates
-          if (values.saslGssapi.truststore?.certificates) {
-            requestBody.certificate = values.saslGssapi.truststore.certificates
-          }
-          break
-
-        case 'SASL/OAUTHBEARER':
-          requestBody.oauthBearerToken = values.saslOauthbearer.oauthBearerToken
-          break
-
-        case 'SASL/SCRAM-256':
-        case 'SASL/SCRAM-512':
-          const scramValues = values.authMethod === 'SASL/SCRAM-256' ? values.saslScram256 : values.saslScram512
-          requestBody.username = scramValues.username
-          requestBody.password = scramValues.password
-          requestBody.consumerGroup = scramValues.consumerGroup
-          // Certificate is now in truststore.certificates
-          if (scramValues.truststore?.certificates) {
-            requestBody.certificate = scramValues.truststore.certificates
-          }
-          break
-
-        case 'AWS_MSK_IAM':
-          requestBody.awsAccessKey = values.awsIam.awsAccessKey
-          requestBody.awsAccessKeySecret = values.awsIam.awsAccessKeySecret
-          requestBody.awsRegion = values.awsIam.awsRegion
-          // requestBody.awsIAMRoleArn = values.awsIam.awsIAMRoleArn // FIXME: optional - we can remove it or use default value
-          break
-
-        case 'Delegation tokens':
-          requestBody.delegationToken = values.delegationTokens.delegationToken
-          break
-
-        case 'SASL/LDAP':
-          requestBody.ldapServerUrl = values.ldap.ldapServerUrl
-          requestBody.ldapServerPort = values.ldap.ldapServerPort
-          requestBody.ldapBindDn = values.ldap.ldapBindDn
-          requestBody.ldapBindPassword = values.ldap.ldapBindPassword
-          requestBody.ldapUserSearchFilter = values.ldap.ldapUserSearchFilter
-          requestBody.ldapBaseDn = values.ldap.ldapBaseDn
-          break
-
-        case 'mTLS':
-          requestBody.clientCert = values.mtls.clientCert
-          requestBody.clientKey = values.mtls.clientKey
-          requestBody.password = values.mtls.password
-          break
-      }
-
-      // Note: Truststore is now embedded within individual auth methods
-      // No need to add it separately here
+      const requestBody = connectionFormToRequestBody(values)
 
       const response = await fetch('/ui-api/kafka/', {
         method: 'POST',
