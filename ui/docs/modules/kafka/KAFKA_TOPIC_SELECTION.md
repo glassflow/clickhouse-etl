@@ -398,6 +398,15 @@ When `invalidateTopicDependentState` is called:
 - Handles timeout scenarios gracefully
 - Falls back to mock data when appropriate
 
+### Event fetch on revisit
+
+When the user returns to the topic step (wizard or edit mode) and a stored event already exists for the selected topic (`effectiveEvent` from store), the form **does not** auto-fetch the event again. The stored event is shown immediately. This reduces unnecessary API calls and improves UX when navigating back to the step.
+
+- **First visit (no stored event):** The form auto-fetches an event based on the selected offset (earliest or latest).
+- **Revisit or edit mode (stored event present):** No auto-fetch. The user can refresh on demand via **Fetch newest event** or **Refresh current event** in the EventManager (e.g. when offset is latest and they want the actual latest message).
+
+Implemented in `useTopicEventState`: the fetch effect skips when `effectiveEvent` is truthy; the effect that applies `effectiveEvent` also sets `isAtEarliest` / `isAtLatest` so navigation buttons reflect the correct state.
+
 ### KafkaApiClient
 
 **Location:** `src/services/kafka-api-client.ts`

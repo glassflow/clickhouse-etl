@@ -103,9 +103,7 @@ export interface UseWizardSmartNavigationResult {
  * }
  * ```
  */
-export function useWizardSmartNavigation(
-  options: UseWizardSmartNavigationOptions,
-): UseWizardSmartNavigationResult {
+export function useWizardSmartNavigation(options: UseWizardSmartNavigationOptions): UseWizardSmartNavigationResult {
   const {
     journey,
     activeStepId,
@@ -124,9 +122,7 @@ export function useWizardSmartNavigation(
   const findBlockingStep = useCallback(
     (fromIndex: number, toIndex: number): StepInstance | null => {
       const stepsToCheck = journey.slice(fromIndex + 1, toIndex + 1)
-      const blockingIdx = stepsToCheck.findIndex(
-        (inst) => getValidationStatusForStep(inst.key) !== 'valid',
-      )
+      const blockingIdx = stepsToCheck.findIndex((inst) => getValidationStatusForStep(inst.key) !== 'valid')
 
       if (blockingIdx === -1) {
         return null
@@ -169,9 +165,7 @@ export function useWizardSmartNavigation(
 
     // Smart continue: if user navigated back to edit an earlier step,
     // resume to the last step they were editing unless something downstream got invalidated.
-    const resumeIdx = resumeStepId
-      ? journey.findIndex((inst) => inst.id === resumeStepId)
-      : -1
+    const resumeIdx = resumeStepId ? journey.findIndex((inst) => inst.id === resumeStepId) : -1
 
     if (resumeStepId && resumeIdx > index) {
       const blockingInstance = findBlockingStep(index, resumeIdx)
@@ -250,14 +244,7 @@ export function useWizardSmartNavigation(
 
       setActiveStepId(targetStepId)
     },
-    [
-      activeStepId,
-      journey,
-      resumeStepId,
-      setActiveStepId,
-      setResumeStepId,
-      clearResumeStepId,
-    ],
+    [activeStepId, journey, resumeStepId, setActiveStepId, setResumeStepId, clearResumeStepId],
   )
 
   return {

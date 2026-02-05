@@ -44,9 +44,14 @@ export function useTopicEventState({ index, topicName, offset, kafkaStore, effec
 
   useEffect(() => {
     if (effectiveEvent && !state.event) {
-      setState((prev) => ({ ...prev, event: effectiveEvent }))
+      setState((prev) => ({
+        ...prev,
+        event: effectiveEvent,
+        isAtEarliest: offset === 'earliest',
+        isAtLatest: offset === 'latest',
+      }))
     }
-  }, [effectiveEvent, state.event])
+  }, [effectiveEvent, state.event, offset])
 
   useEffect(() => {
     if (manualEvent) {
@@ -218,7 +223,17 @@ export function useTopicEventState({ index, topicName, offset, kafkaStore, effec
     [fetchEvent, analytics.topic],
   )
 
+  // Only auto-fetch when there is no stored event (first visit). On revisit we show
+  // the stored event and let the user refresh manually (Fetch newest / Refresh) for better UX.
   useEffect(() => {
+    if (!topicName || !offset) return
+
+    if (effectiveEvent) {
+      // Revisit or edit mode: we have a stored event. Do not auto-fetch; user can
+      // use "Fetch newest event" or "Refresh current event" to refresh on demand.
+      return
+    }
+
     const currentFetch = { topic: topicName, offset }
     if (
       lastFetchRef.current &&
@@ -227,16 +242,15 @@ export function useTopicEventState({ index, topicName, offset, kafkaStore, effec
     ) {
       return
     }
-    if (topicName && offset) {
-      lastFetchRef.current = currentFetch
-      resetEventState()
-      if (offset === 'latest') {
-        fetchNewestEvent(topicName)
-      } else if (offset === 'earliest') {
-        fetchOldestEvent(topicName)
-      }
+
+    lastFetchRef.current = currentFetch
+    resetEventState()
+    if (offset === 'latest') {
+      fetchNewestEvent(topicName)
+    } else if (offset === 'earliest') {
+      fetchOldestEvent(topicName)
     }
-  }, [topicName, offset, resetEventState, fetchNewestEvent, fetchOldestEvent])
+  }, [topicName, offset, effectiveEvent, resetEventState, fetchNewestEvent, fetchOldestEvent])
 
   const handleManualEventChange = useCallback((eventStr: string) => {
     setManualEvent(eventStr)

@@ -8,15 +8,15 @@ This document describes the wizard UI, step model, navigation state, and **resum
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `src/modules/create/PipelineWizard.tsx` | Main wizard container: journey, sidebar, current step content, handleNext, handleSidebarStepClick. |
-| `src/modules/create/WizardSidebar.tsx` | Sidebar: step list (main + substeps), completed/active/pending state, click to navigate to completed steps only. |
-| `src/modules/create/utils.ts` | Journey builders (`getWizardJourneyInstances`, `getSingleTopicJourney`, `getTwoTopicJourney`), sidebar from instances (`getSidebarStepsFromInstances`), step–component map (`getWizardJourneySteps`). |
-| `src/modules/create/hooks/useStepValidationStatus.ts` | Hook to get validation status for any step from corresponding store. Maps step keys to store validation states. |
-| `src/modules/create/hooks/useWizardSmartNavigation.ts` | Hook for smart continue and sidebar navigation logic. Handles resume-to-last-editing, blocking step detection, and completed step pruning. |
-| `src/store/steps.store.ts` | Wizard navigation state: `activeStepId`, `completedStepIds`, `resumeStepId`; actions to set/clear resume and prune completed steps. |
-| `src/config/constants.ts` | `StepKeys`, `stepsMetadata` (titles, descriptions). |
+| File                                                   | Purpose                                                                                                                                                                                               |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/modules/create/PipelineWizard.tsx`                | Main wizard container: journey, sidebar, current step content, handleNext, handleSidebarStepClick.                                                                                                    |
+| `src/modules/create/WizardSidebar.tsx`                 | Sidebar: step list (main + substeps), completed/active/pending state, click to navigate to completed steps only.                                                                                      |
+| `src/modules/create/utils.ts`                          | Journey builders (`getWizardJourneyInstances`, `getSingleTopicJourney`, `getTwoTopicJourney`), sidebar from instances (`getSidebarStepsFromInstances`), step–component map (`getWizardJourneySteps`). |
+| `src/modules/create/hooks/useStepValidationStatus.ts`  | Hook to get validation status for any step from corresponding store. Maps step keys to store validation states.                                                                                       |
+| `src/modules/create/hooks/useWizardSmartNavigation.ts` | Hook for smart continue and sidebar navigation logic. Handles resume-to-last-editing, blocking step detection, and completed step pruning.                                                            |
+| `src/store/steps.store.ts`                             | Wizard navigation state: `activeStepId`, `completedStepIds`, `resumeStepId`; actions to set/clear resume and prune completed steps.                                                                   |
+| `src/config/constants.ts`                              | `StepKeys`, `stepsMetadata` (titles, descriptions).                                                                                                                                                   |
 
 ## Step Model
 
@@ -32,11 +32,11 @@ Step components are mapped in `utils.ts` (`componentsMap` / `getWizardJourneySte
 
 ## Navigation State (`stepsStore`)
 
-| State | Type | Meaning |
-|-------|------|---------|
-| `activeStepId` | `string \| null` | Step instance id currently shown in the main content. |
-| `completedStepIds` | `string[]` | Step instance ids the user has completed (clicked Continue). Used for sidebar state (completed vs active vs pending) and for allowing sidebar clicks only to completed steps. |
-| `resumeStepId` | `string \| null` | When the user navigates **backwards** to a completed step, this stores the step they left (the "last editing step"). Used by **Smart Continue** to decide where to go when they press Continue. |
+| State              | Type             | Meaning                                                                                                                                                                                         |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activeStepId`     | `string \| null` | Step instance id currently shown in the main content.                                                                                                                                           |
+| `completedStepIds` | `string[]`       | Step instance ids the user has completed (clicked Continue). Used for sidebar state (completed vs active vs pending) and for allowing sidebar clicks only to completed steps.                   |
+| `resumeStepId`     | `string \| null` | When the user navigates **backwards** to a completed step, this stores the step they left (the "last editing step"). Used by **Smart Continue** to decide where to go when they press Continue. |
 
 ### Actions
 
@@ -91,16 +91,19 @@ const { handleSmartContinue, handleSidebarNavigation, findBlockingStep } = useWi
 ```
 
 **`handleSmartContinue()`** - Returns `{ nextStepId, shouldRouteAway?, currentStepKey? }`:
+
 - Determines whether to navigate to next step, blocking step, or resume target
 - Handles Review step routing (returns `shouldRouteAway: true`)
 - Prunes completed steps when a blocking step is found
 
 **`handleSidebarNavigation(targetStepId)`** - Manages resume target:
+
 - Sets `resumeStepId` when navigating backwards (if not already set)
 - Clears `resumeStepId` when navigating forwards
 - Sets the active step
 
 **`findBlockingStep(fromIndex, toIndex)`** - Returns the first blocking step instance or null:
+
 - Searches steps between fromIndex (exclusive) and toIndex (inclusive)
 - A step is blocking if validation status is not `'valid'`
 

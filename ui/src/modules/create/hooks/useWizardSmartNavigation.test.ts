@@ -152,9 +152,7 @@ describe('useWizardSmartNavigation', () => {
     })
 
     it('returns null nextStepId when at the end of journey', () => {
-      const shortJourney: StepInstance[] = [
-        { id: 'only-step', key: StepKeys.KAFKA_CONNECTION },
-      ]
+      const shortJourney: StepInstance[] = [{ id: 'only-step', key: StepKeys.KAFKA_CONNECTION }]
       const options = createMockOptions({
         journey: shortJourney,
         activeStepId: 'only-step',
@@ -251,10 +249,7 @@ describe('useWizardSmartNavigation', () => {
 
     it('returns the earliest blocking step when multiple exist', () => {
       const mockGetValidation = vi.fn((stepKey: StepKeys): ValidationStatus => {
-        if (
-          stepKey === StepKeys.KAFKA_TYPE_VERIFICATION ||
-          stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR
-        ) {
+        if (stepKey === StepKeys.KAFKA_TYPE_VERIFICATION || stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR) {
           return 'invalidated'
         }
         return 'valid'

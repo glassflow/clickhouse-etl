@@ -33,7 +33,8 @@ function PipelineWizard() {
   // Journey as step instances (unique id per occurrence)
   const currentJourney = React.useMemo(() => getWizardJourneyInstances(topicCount), [topicCount])
   const sidebarSteps = React.useMemo(
-    () => (topicCount && topicCount >= 1 && topicCount <= 2 ? getSidebarStepsFromInstances(currentJourney, topicCount) : []),
+    () =>
+      topicCount && topicCount >= 1 && topicCount <= 2 ? getSidebarStepsFromInstances(currentJourney, topicCount) : [],
     [currentJourney, topicCount],
   )
   const stepComponents = getWizardJourneySteps(topicCount)
@@ -165,13 +166,7 @@ function PipelineWizard() {
       return <StepComponent onCompleteStep={onNext} index={topicIndex} />
     }
 
-    return (
-      <StepComponent
-        steps={stepsMeta}
-        onCompleteStep={onNext}
-        validate={validateStepFn}
-      />
-    )
+    return <StepComponent steps={stepsMeta} onCompleteStep={onNext} validate={validateStepFn} />
   }
 
   return (
@@ -201,13 +196,7 @@ function PipelineWizard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {renderStepComponent(
-                  currentActiveInstance,
-                  stepComponents,
-                  stepsMetadata,
-                  handleNext,
-                  validateStep,
-                )}
+                {renderStepComponent(currentActiveInstance, stepComponents, stepsMetadata, handleNext, validateStep)}
               </CardContent>
             </Card>
           )}
