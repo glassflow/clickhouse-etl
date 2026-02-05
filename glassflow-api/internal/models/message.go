@@ -73,6 +73,14 @@ func ApplyFetchOptions(options ...FetchOption) FetchOpts {
 	return opts
 }
 
+func NewNatsMessage(payload []byte, headers map[string][]string) Message {
+	return Message{
+		Type:    MessageTypeNatsMsg,
+		payload: payload,
+		headers: headers,
+	}
+}
+
 // Payload returns the message payload
 func (m *Message) Payload() []byte {
 	// If payload was set (mutated), return it
@@ -149,6 +157,13 @@ func (m *Message) AddHeader(key string, value string) {
 	}
 
 	m.headers[key] = append(m.headers[key], value)
+}
+
+// DeleteHeader removes all values for a given key
+func (m *Message) DeleteHeader(key string) {
+	if m.headers != nil {
+		delete(m.headers, key)
+	}
 }
 
 // Headers returns all headers, merging original headers with any internal mutations.

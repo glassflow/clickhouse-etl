@@ -12,12 +12,14 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	batchNats "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	badgerDeduplication "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication/badger"
 	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/versioned"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
@@ -110,7 +112,14 @@ func mainDeduplicatorV2(
 		models.GetDLQStreamSubjectName(pipelineCfg.ID),
 	)
 
+	componentSignal, err := componentsignals.NewPublisher(nc)
+	if err != nil {
+		log.ErrorContext(ctx, "failed to create component signal", "error", err)
+		return fmt.Errorf("create component signal: %w", err)
+	}
+
 	component, err := NewDedupComponent(
+		ctx,
 		batchReader,
 		batchWriter,
 		dlqWriter,
@@ -118,6 +127,7 @@ func mainDeduplicatorV2(
 		pipelineCfg,
 		cfg,
 		meter,
+		componentSignal,
 	)
 	if err != nil {
 		return fmt.Errorf("create dedup component: %w", err)
@@ -135,6 +145,7 @@ func mainDeduplicatorV2(
 }
 
 func NewDedupComponent(
+	ctx context.Context,
 	reader batch.BatchReader,
 	writer batch.BatchWriter,
 	dlqWriter batch.BatchWriter,
@@ -142,6 +153,7 @@ func NewDedupComponent(
 	pipelineConfig models.PipelineConfig,
 	cfg *config,
 	meter *observability.Meter,
+	componentSignalPublisher *componentsignals.ComponentSignalPublisher,
 ) (*processor.Component, error) {
 	role := internal.RoleDeduplicator
 
@@ -150,7 +162,13 @@ func NewDedupComponent(
 		return nil, fmt.Errorf("dedupProcessorFromConfig: %w", err)
 	}
 
-	statelessTransformerProcessorBase, err := statelessProcessorFromConfig(pipelineConfig)
+	statelessTransformerProcessorBase, err := statelessTransformerProcessorFromConfig(
+		ctx,
+		pipelineConfig,
+		cfg,
+		componentSignalPublisher,
+		log,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -184,15 +202,32 @@ func NewDedupComponent(
 	), nil
 }
 
-func statelessProcessorFromConfig(config models.PipelineConfig) (processor.Processor, error) {
+func statelessTransformerProcessorFromConfig(
+	ctx context.Context,
+	config models.PipelineConfig,
+	cfg *config,
+	componentSignalPublisher *componentsignals.ComponentSignalPublisher,
+	log *slog.Logger,
+) (processor.Processor, error) {
 	if !config.StatelessTransformation.Enabled {
 		return &processor.NoopProcessor{}, nil
 	}
 
-	transformer, err := json.NewTransformer(config.StatelessTransformation.Config.Transform)
+	encryptionKey, err := loadEncryptionKey(cfg, log)
 	if err != nil {
-		return nil, fmt.Errorf("create stateless transformer: %w", err)
+		return nil, fmt.Errorf("load encryption key: %w", err)
 	}
+
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("create postgres store for pipelines: %w", err)
+	}
+	transformer := versioned.New(
+		db,
+		componentSignalPublisher,
+		config.ID,
+		config.StatelessTransformation.SourceID,
+	)
 
 	statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
 
