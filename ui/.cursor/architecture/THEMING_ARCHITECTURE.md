@@ -15,6 +15,8 @@
 
 ## Tokens
 
+Canonical token definitions and usage: [docs/architecture/DESIGN_SYSTEM.md](../../docs/architecture/DESIGN_SYSTEM.md). This file is summary only.
+
 - Semantic color tokens defined in dark theme; light aliases removed.
 - Prefer semantic variables over raw hex in components.
 - Keep consistency across components; avoid inline colors.
@@ -44,4 +46,5 @@
 
 ## Related Docs
 
+- Design system (full tokens, card variants, usage): [docs/architecture/DESIGN_SYSTEM.md](../../docs/architecture/DESIGN_SYSTEM.md)
 - Architecture Overview: ./ARCHITECTURE_OVERVIEW.md
