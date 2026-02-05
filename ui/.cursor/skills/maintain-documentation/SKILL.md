@@ -14,13 +14,13 @@ Apply this skill when implementing a new feature or changing behavior so that bo
 
 ## Quick reference
 
-| Layer | Canonical (add here first) | .cursor (summaries + links only) |
-|-------|----------------------------|----------------------------------|
-| Full architecture | `docs/architecture/ARCHITECTURE_OVERVIEW.md` | `.cursor/architecture/ARCHITECTURE_OVERVIEW.md` (modules/slices/critical flows lists + link to docs) |
-| Design system / tokens | `docs/architecture/DESIGN_SYSTEM.md` | `.cursor/styling.mdc`, `.cursor/architecture/THEMING_ARCHITECTURE.md` (point to docs) |
-| Module behavior | `docs/modules/<module>/` (e.g. one or more `.md` per feature) | `.cursor/architecture/MODULE_ARCHITECTURE.md` (one-line entry), CONTEXT_MAP row |
-| Implementations (SSE, auth, store mode, etc.) | `docs/implementations/<name>.md` | `.cursor/architecture/IMPLEMENTATIONS_INDEX.md` (row + constraint/risk + link) |
-| State / store | Reflected in `docs/architecture/ARCHITECTURE_OVERVIEW.md` (store section) | `.cursor/architecture/STATE_MANAGEMENT.md`, `.cursor/state-management.mdc` (slice names), ARCHITECTURE_OVERVIEW store list |
+| Layer                                         | Canonical (add here first)                                                | .cursor (summaries + links only)                                                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Full architecture                             | `docs/architecture/ARCHITECTURE_OVERVIEW.md`                              | `.cursor/architecture/ARCHITECTURE_OVERVIEW.md` (modules/slices/critical flows lists + link to docs)                       |
+| Design system / tokens                        | `docs/architecture/DESIGN_SYSTEM.md`                                      | `.cursor/styling.mdc`, `.cursor/architecture/THEMING_ARCHITECTURE.md` (point to docs)                                      |
+| Module behavior                               | `docs/modules/<module>/` (e.g. one or more `.md` per feature)             | `.cursor/architecture/MODULE_ARCHITECTURE.md` (one-line entry), CONTEXT_MAP row                                            |
+| Implementations (SSE, auth, store mode, etc.) | `docs/implementations/<name>.md`                                          | `.cursor/architecture/IMPLEMENTATIONS_INDEX.md` (row + constraint/risk + link)                                             |
+| State / store                                 | Reflected in `docs/architecture/ARCHITECTURE_OVERVIEW.md` (store section) | `.cursor/architecture/STATE_MANAGEMENT.md`, `.cursor/state-management.mdc` (slice names), ARCHITECTURE_OVERVIEW store list |
 
 ## Workflow by change type
 
