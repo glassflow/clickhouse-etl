@@ -29,6 +29,7 @@ Apply this skill when implementing a new feature or changing behavior so that bo
 1. **Canonical:** Add or update `docs/modules/<module-name>/` with at least one doc (e.g. `MODULE_NAME.md`): component hierarchy, key files, state/API, types. Follow existing module docs (e.g. `docs/modules/kafka/`, `docs/modules/notifications/`) for structure.
 2. **.cursor:** Add one line to `.cursor/architecture/MODULE_ARCHITECTURE.md` under "Notable modules". Add the module to the "Modules" list in `.cursor/architecture/ARCHITECTURE_OVERVIEW.md`. Add a row to `.cursor/CONTEXT_MAP.md` ("When you work on…" → "Load first"). Add the module to the "Modules" table in `docs/README.md` if not already there.
 3. **Vocabulary:** If the feature involves "notifications", use **notification center** for the product feature (panel, store, channels) and **in-app notifications** for the `notify()` toast/banner/modal system; see `.cursor/architecture/NOTIFICATION_CENTER.md` vs `IN_APP_NOTIFICATIONS.md`.
+4. **Design/UX alignment:** Apply design principles; see the apply-design-principles skill and `docs/design/DESIGN_PRINCIPLES.md`.
 
 ### New store slice
 
