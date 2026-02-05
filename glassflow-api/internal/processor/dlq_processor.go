@@ -31,6 +31,10 @@ func (d *dlqMiddleware) Close(ctx context.Context) error {
 func (d *dlqMiddleware) ProcessBatch(ctx context.Context, batch ProcessorBatch) ProcessorBatch {
 	result := d.next.ProcessBatch(ctx, batch)
 
+	if batch.FatalError != nil {
+		return batch
+	}
+
 	if len(result.FailedMessages) > 0 {
 		dlqMessages := make([]models.Message, len(result.FailedMessages))
 		for i, failedMsg := range result.FailedMessages {

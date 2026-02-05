@@ -23,7 +23,6 @@ import (
 var (
 	ErrValidateSchema  = errors.New("failed to validate data")
 	ErrDeduplicateData = errors.New("failed to deduplicate data")
-	ErrFilterData      = errors.New("failed to filter data")
 )
 
 type KafkaMsgProcessor struct {

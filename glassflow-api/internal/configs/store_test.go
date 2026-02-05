@@ -5,9 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs/mocks"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestConfigStore_GetStatelessTransformationConfig(t *testing.T) {
@@ -19,7 +20,7 @@ func TestConfigStore_GetStatelessTransformationConfig(t *testing.T) {
 	transformConfig := &models.TransformationConfig{
 		SourceID:              sourceID,
 		SourceSchemaVersionID: sourceSchemaVersion,
-		TransfromationID:      "transform-1",
+		TransformationID:      "transform-1",
 		OutputSchemaVersionID: "1",
 		Config: []models.Transform{
 			{Expression: "user_id", OutputName: "user_id", OutputType: "string"},

@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 func (s *PostgresStorage) insertStatelessTransformationConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID, transformationID, outputSchemaVersionID string, config []models.Transform) error {
@@ -58,7 +59,7 @@ func (s *PostgresStorage) getStatelessTransformationConfig(ctx context.Context, 
 	`, pipelineID, sourceID, sourceSchemaVersion).Scan(
 		&result.SourceID,
 		&result.SourceSchemaVersionID,
-		&result.TransfromationID,
+		&result.TransformationID,
 		&result.OutputSchemaVersionID,
 		&configJSON,
 	)
