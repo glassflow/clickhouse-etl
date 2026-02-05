@@ -37,7 +37,7 @@ type EvaluateTransformResponse struct {
 }
 
 func (h *handler) evaluateTransform(
-	_ context.Context,
+	ctx context.Context,
 	input *EvaluateTransformInput,
 ) (*EvaluateTransformResponse, error) {
 	// Validate transformation type
@@ -53,7 +53,7 @@ func (h *handler) evaluateTransform(
 	}
 
 	// Evaluate transformations using transformer package
-	resultJSON, err := transformer.Evaluate(input.Body.Config.Transform, input.Body.Sample)
+	resultJSON, err := transformer.Evaluate(ctx, input.Body.Config.Transform, input.Body.Sample)
 	if err != nil {
 		return nil, &ErrorDetail{
 			Status:  http.StatusBadRequest,

@@ -737,7 +737,7 @@ type Mapping struct {
 type TransformationConfig struct {
 	SourceID              string
 	SourceSchemaVersionID string
-	TransfromationID      string
+	TransformationID      string
 	OutputSchemaVersionID string
 	Config                []Transform
 }

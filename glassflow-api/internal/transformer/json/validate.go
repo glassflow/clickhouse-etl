@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/expr-lang/expr"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 // ValidateTransformationAgainstSchema validates that all transformation expressions against given schema fields
-// It doesn't take affect on transformation business logic
+// It doesn't take effect on transformation business logic
 func ValidateTransformationAgainstSchema(
 	transformations []models.Transform,
 	fields []models.Field,
@@ -41,7 +42,7 @@ func ValidateTransformationAgainstSchema(
 
 	var options []expr.Option
 	options = append(options, expr.Env(env))
-	options = append(options, predefinedTransfromations...)
+	options = append(options, predefinedTransformations...)
 
 	for i, transformation := range transformations {
 		_, err := expr.Compile(
