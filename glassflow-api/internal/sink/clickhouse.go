@@ -22,6 +22,29 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
+// workerJob represents a chunk of messages to be processed by a worker
+type workerJob struct {
+	messages       []jetstream.Msg
+	jobID          int
+	streamSourceID string
+}
+
+// workerResult contains the processed results from a worker
+type workerResult struct {
+	jobID     int
+	processed []processedMessage
+	err       error
+}
+
+// processedMessage contains the metadata and values for a processed message
+type processedMessage struct {
+	metadata *jetstream.MsgMetadata
+	values   []any
+	msg      jetstream.Msg
+}
+
+// ClickHouseSink uses Consume() callback pattern optimized for high throughput
+// This implementation follows the NATS CLI benchmark pattern for efficient message consumption
 type ClickHouseSink struct {
 	client                *client.ClickHouseClient
 	streamConsumer        jetstream.Consumer
@@ -34,6 +57,23 @@ type ClickHouseSink struct {
 	log                   *slog.Logger
 	meter                 *observability.Meter
 	dlqPublisher          stream.Publisher
+
+	// Batch accumulation
+	messageBuffer      []jetstream.Msg
+	bufferMu           sync.Mutex
+	bufferFlushTicker  *time.Ticker
+	maxBatchSize       int
+	maxDelayTime       time.Duration
+	consumeContext     jetstream.ConsumeContext
+	lastBatchStartTime time.Time
+
+	// Worker pool for parallel PrepareValuesV2 processing
+	workerPoolSize   int
+	workerJobChan    chan workerJob
+	workerResultChan chan workerResult
+	workerWg         sync.WaitGroup
+	workerCtx        context.Context
+	workerCancel     context.CancelFunc
 }
 
 func NewClickHouseSink(
@@ -55,6 +95,15 @@ func NewClickHouseSink(
 		return nil, fmt.Errorf("invalid max batch size, should be > 0: %d", sinkConfig.Batch.MaxBatchSize)
 	}
 
+	maxDelayTime := internal.SinkDefaultBatchMaxDelayTime
+	if sinkConfig.Batch.MaxDelayTime.Duration() != 0 {
+		maxDelayTime = sinkConfig.Batch.MaxDelayTime.Duration()
+	}
+
+	// Default worker pool size is 4
+	workerPoolSize := 4
+	// TODO: Make this configurable via sinkConfig if needed in the future
+
 	return &ClickHouseSink{
 		client:                clickhouseClient,
 		streamConsumer:        streamConsumer,
@@ -65,142 +114,227 @@ func NewClickHouseSink(
 		dlqPublisher:          dlqPublisher,
 		clickhouseQueryConfig: clickhouseQueryConfig,
 		streamSourceID:        streamSourceID,
+		maxBatchSize:          sinkConfig.Batch.MaxBatchSize,
+		maxDelayTime:          maxDelayTime,
+		messageBuffer:         make([]jetstream.Msg, 0, sinkConfig.Batch.MaxBatchSize),
+		workerPoolSize:        workerPoolSize,
 	}, nil
 }
 
 func (ch *ClickHouseSink) Start(ctx context.Context) error {
-	maxDelayTime := internal.SinkDefaultBatchMaxDelayTime
-	if ch.sinkConfig.Batch.MaxDelayTime.Duration() != 0 {
-		maxDelayTime = ch.sinkConfig.Batch.MaxDelayTime.Duration()
-	}
-	maxBatchSize := ch.sinkConfig.Batch.MaxBatchSize
-
-	ch.log.InfoContext(ctx, "ClickHouse sink started with batch processing",
-		"max_batch_size", maxBatchSize,
-		"clickhouse_timer_interval", ch.sinkConfig.Batch.MaxDelayTime.Duration(),
-		"mode", "batched_nats_reading",
-		"note", "NATS and ClickHouse use same batch size and timeout values")
+	ch.log.InfoContext(ctx, "ClickHouse sink started with callback-based consumption",
+		"max_batch_size", ch.maxBatchSize,
+		"max_delay_time", ch.maxDelayTime,
+		"worker_pool_size", ch.workerPoolSize,
+		"mode", "callback_consume_pattern")
 
 	defer ch.log.InfoContext(ctx, "ClickHouse sink stopped")
 	defer ch.clearConn()
-
-	ticker := time.NewTicker(maxDelayTime)
-	defer ticker.Stop()
 
 	ctx, cancel := context.WithCancel(ctx)
 	ch.cancel = cancel
 	defer cancel()
 
+	// Initialize and start worker pool
+	// Use Background context so workers stay alive during shutdown processing
+	ch.workerCtx, ch.workerCancel = context.WithCancel(context.Background())
+	ch.workerJobChan = make(chan workerJob, ch.workerPoolSize)
+	ch.workerResultChan = make(chan workerResult, ch.workerPoolSize)
+	ch.startWorkerPool()
+	defer ch.stopWorkerPool()
+
+	// Create ticker for time-based flushing
+	ch.bufferFlushTicker = time.NewTicker(ch.maxDelayTime)
+	defer ch.bufferFlushTicker.Stop()
+
+	// Start background goroutine for time-based flushing
+	go ch.flushTickerLoop(ctx)
+
+	// Message handler - called by Consume() as messages arrive
+	messageHandler := func(msg jetstream.Msg) {
+		ch.bufferMu.Lock()
+		wasEmpty := len(ch.messageBuffer) == 0
+		ch.messageBuffer = append(ch.messageBuffer, msg)
+		bufferSize := len(ch.messageBuffer)
+		shouldFlush := bufferSize >= ch.maxBatchSize
+		ch.bufferMu.Unlock()
+
+		// Log when starting to accumulate a new batch (buffer was empty, first message arrived)
+		if wasEmpty {
+			ch.bufferMu.Lock()
+			ch.lastBatchStartTime = time.Now()
+			ch.bufferMu.Unlock()
+			ch.log.InfoContext(ctx, "Starting to accumulate new batch from NATS",
+				"status", "nats_read_started")
+		}
+
+		// Flush immediately if batch size reached
+		if shouldFlush {
+			ch.flushBuffer(ctx)
+		}
+	}
+
+	// Start consuming using callback pattern (like NATS CLI bench)
+	// This is event-driven and much more efficient than polling
+	cc, err := ch.streamConsumer.Consume(
+		messageHandler,
+		jetstream.PullMaxMessages(ch.maxBatchSize), // Pull in batches
+	)
+	if err != nil {
+		return fmt.Errorf("failed to start consuming: %w", err)
+	}
+	ch.consumeContext = cc
+	defer cc.Stop()
+
+	// Wait for shutdown
+	<-ctx.Done()
+
+	// Handle graceful shutdown
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), internal.SinkDefaultShutdownTimeout)
+	defer shutdownCancel()
+	return ch.handleShutdown(shutdownCtx)
+}
+
+// flushTickerLoop handles time-based flushing
+func (ch *ClickHouseSink) flushTickerLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), internal.SinkDefaultShutdownTimeout)
-			defer shutdownCancel()
-			return ch.handleShutdown(shutdownCtx)
-		case <-ticker.C:
-			err := ch.fetchAndFlush(ctx)
-			if err != nil {
-				if errors.Is(err, models.ErrNoNewMessages) {
-					continue
-				}
-				ch.log.ErrorContext(ctx, "failed to fetch and flush", "error", err)
-			}
-		default:
-			hasEnoughEvents, err := ch.hasBatchSizeReached(ctx, ch.sinkConfig.Batch.MaxBatchSize)
-			if err != nil {
-				ch.log.ErrorContext(ctx, "hasEnoughEvents", "error", err)
-				time.Sleep(internal.FetchRetryDelay)
-				continue
-			}
-
-			if !hasEnoughEvents {
-				time.Sleep(internal.FetchRetryDelay)
-				continue
-			}
-
-			err = ch.fetchAndFlush(ctx)
-			if err != nil {
-				ch.log.ErrorContext(ctx, "fetchAndFlush", "error", err)
-				continue
-			}
-			ticker.Reset(maxDelayTime)
+			return
+		case <-ch.bufferFlushTicker.C:
+			ch.flushBuffer(ctx)
 		}
 	}
 }
 
-// hasBatchSizeReached returns true if the consumer has at least batchSize pending messages.
-func (ch *ClickHouseSink) hasBatchSizeReached(ctx context.Context, batchSize int) (bool, error) {
-	consumerInfo, err := ch.streamConsumer.Info(ctx)
-	if err != nil {
-		return false, fmt.Errorf("get consumer info: %w", err)
-	}
-	if consumerInfo.NumPending >= uint64(batchSize) {
-		return true, nil
+// flushBuffer atomically extracts and processes buffered messages
+func (ch *ClickHouseSink) flushBuffer(ctx context.Context) {
+	ch.bufferMu.Lock()
+	if len(ch.messageBuffer) == 0 {
+		ch.bufferMu.Unlock()
+		return
 	}
 
-	return false, nil
+	// Extract messages atomically
+	messages := make([]jetstream.Msg, len(ch.messageBuffer))
+	copy(messages, ch.messageBuffer)
+	ch.messageBuffer = ch.messageBuffer[:0] // Clear buffer
+	ch.bufferMu.Unlock()
+
+	// Process batch
+	err := ch.flushEvents(ctx, messages)
+	if err != nil {
+		ch.log.ErrorContext(ctx, "failed to flush buffer", "error", err, "batch_size", len(messages))
+	}
 }
 
-func (ch *ClickHouseSink) fetchAndFlush(ctx context.Context) error {
-	messages, err := ch.fetchMessages(ctx)
-	if err != nil {
-		return fmt.Errorf("fetch messages: %w", err)
-	}
-
-	err = ch.flushEvents(ctx, messages)
-	if err != nil {
-		return fmt.Errorf("flush events: %w", err)
-	}
-
-	return nil
-}
-
-// shutdown handles the shutdown logic
 func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 	ch.log.InfoContext(ctx, "ClickHouse sink shutting down")
 
-	err := ch.fetchAndFlush(ctx)
-	if err != nil && !errors.Is(err, models.ErrNoNewMessages) {
-		return fmt.Errorf("flush pending messages: %w", err)
+	// Stop consuming new messages
+	if ch.consumeContext != nil {
+		ch.consumeContext.Stop()
 	}
+
+	// Flush any remaining messages
+	ch.flushBuffer(ctx)
 
 	return nil
 }
 
-func (ch *ClickHouseSink) fetchMessages(ctx context.Context) ([]jetstream.Msg, error) {
-	msgBatch, err := ch.streamConsumer.FetchNoWait(ch.sinkConfig.Batch.MaxBatchSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch messages: %w", err)
+// startWorkerPool starts N worker goroutines to process PrepareValuesV2 in parallel
+func (ch *ClickHouseSink) startWorkerPool() {
+	ch.log.Info("Starting worker pool", "worker_count", ch.workerPoolSize)
+	for i := 0; i < ch.workerPoolSize; i++ {
+		ch.workerWg.Add(1)
+		go ch.worker(i)
 	}
+}
 
-	messages := make([]jetstream.Msg, 0, ch.sinkConfig.Batch.MaxBatchSize)
-	for msg := range msgBatch.Messages() {
-		if msg == nil {
-			break
+// stopWorkerPool gracefully shuts down the worker pool
+func (ch *ClickHouseSink) stopWorkerPool() {
+	if ch.workerCancel == nil {
+		return
+	}
+	ch.workerCancel()
+	if ch.workerJobChan != nil {
+		close(ch.workerJobChan)
+	}
+	ch.workerWg.Wait()
+	if ch.workerResultChan != nil {
+		close(ch.workerResultChan)
+	}
+	ch.log.Info("Worker pool stopped")
+}
+
+// worker processes messages in parallel by calling PrepareValuesV2
+func (ch *ClickHouseSink) worker(workerID int) {
+	defer ch.workerWg.Done()
+
+	for {
+		select {
+		case <-ch.workerCtx.Done():
+			return
+		case job, ok := <-ch.workerJobChan:
+			if !ok {
+				return
+			}
+
+			processed := make([]processedMessage, 0, len(job.messages))
+			var jobErr error
+
+			for _, msg := range job.messages {
+				// Get metadata
+				metadata, err := msg.Metadata()
+				if err != nil {
+					jobErr = fmt.Errorf("failed to get message metadata: %w", err)
+					break
+				}
+
+				// Schema mapping - this is the parallelized part
+				var values []any
+				if job.streamSourceID != "" {
+					values, err = ch.schemaMapper.PrepareValuesStream(job.streamSourceID, msg.Data())
+				} else {
+					values, err = ch.schemaMapper.PrepareValuesV2(msg.Data())
+				}
+				if err != nil {
+					jobErr = fmt.Errorf("failed to prepare values for message: %w", err)
+					break
+				}
+
+				processed = append(processed, processedMessage{
+					metadata: metadata,
+					values:   values,
+					msg:      msg,
+				})
+			}
+
+			// Send result back to main thread
+			ch.workerResultChan <- workerResult{
+				jobID:     job.jobID,
+				processed: processed,
+				err:       jobErr,
+			}
 		}
-
-		messages = append(messages, msg)
 	}
-
-	if len(messages) == 0 {
-		return nil, models.ErrNoNewMessages
-	}
-
-	if msgBatch.Error() != nil {
-		return nil, fmt.Errorf("failed to fetch messages: %w", msgBatch.Error())
-	}
-
-	// Only log success if we actually got messages
-	if len(messages) > 0 {
-		ch.log.DebugContext(ctx, "Successfully fetched batch from NATS",
-			"message_count", len(messages),
-			"max_batch_size", ch.sinkConfig.Batch.MaxBatchSize)
-	}
-
-	return messages, nil
 }
 
 func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.Msg) error {
+	// Calculate NATS read time if we tracked the start time
+	var natsReadDuration time.Duration
+	ch.bufferMu.Lock()
+	if !ch.lastBatchStartTime.IsZero() {
+		natsReadDuration = time.Since(ch.lastBatchStartTime)
+		ch.lastBatchStartTime = time.Time{} // Reset
+	}
+	ch.bufferMu.Unlock()
+
+	ch.log.InfoContext(ctx, "All messages read from NATS, starting batch processing",
+		"message_count", len(messages),
+		"nats_read_duration_ms", natsReadDuration.Milliseconds(),
+		"status", "messages_read")
+
 	err := ch.sendBatch(ctx, messages)
 	if err == nil {
 		return nil
@@ -215,31 +349,49 @@ func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.
 	return nil
 }
 
-// write failed batch to dlq
+// ackWithRetry acks a message with up to 3 retries. Returns nil on success.
+func (ch *ClickHouseSink) ackWithRetry(msg jetstream.Msg) error {
+	return retry.Do(
+		func() error {
+			return msg.Ack()
+		},
+		retry.Attempts(3),
+		retry.Delay(50*time.Millisecond),
+		retry.DelayType(retry.FixedDelay),
+	)
+}
+
+// write failed batch to dlq and ack all messages (best-effort: try every message, then return combined error)
 func (ch *ClickHouseSink) flushFailedBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 	batchErr error,
 ) error {
+	var firstErr error
+	dlqFailCount, ackFailCount := 0, 0
+
 	for _, msg := range messages {
-		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr)
-		if err != nil {
-			return fmt.Errorf("push message to DLQ: %w", err)
+		if err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr); err != nil {
+			dlqFailCount++
+			if firstErr == nil {
+				firstErr = err
+			}
+			ch.log.ErrorContext(ctx, "failed to push message to DLQ", "error", err, "subject", msg.Subject())
+			// Continue: still try to ack so NATS does not redeliver
 		}
 
-		err = retry.Do(
-			func() error {
-				err = msg.Ack()
-				return err
-			},
-			retry.Attempts(3),
-			retry.DelayType(retry.FixedDelay),
-		)
-		if err != nil {
-			return fmt.Errorf("acknowledge message: %w", err)
+		if err := ch.ackWithRetry(msg); err != nil {
+			ackFailCount++
+			if firstErr == nil {
+				firstErr = err
+			}
+			ch.log.ErrorContext(ctx, "failed to ack message after retries", "error", err, "subject", msg.Subject())
 		}
 	}
 
+	if firstErr != nil {
+		return fmt.Errorf("flushFailedBatch: dlq_fail=%d ack_fail=%d: %w", dlqFailCount, ackFailCount, firstErr)
+	}
 	return nil
 }
 
@@ -261,6 +413,9 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 	if err != nil {
 		return fmt.Errorf("send the batch: %w", err)
 	}
+	ch.log.InfoContext(ctx, "Data sent successfully to ClickHouse",
+		"message_count", size,
+		"status", "clickhouse_write_success")
 	ch.log.DebugContext(ctx, "Batch sent to clickhouse", "message_count", size)
 
 	// Record ClickHouse write metrics
@@ -275,25 +430,24 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		}
 	}
 
-	// Acknowledge all using last message from the batch
-	lastMsg := messages[len(messages)-1]
-	err = retry.Do(
-		func() error {
-			err = lastMsg.Ack()
-			return err
-		},
-		retry.Attempts(3),
-		retry.DelayType(retry.FixedDelay),
-	)
-	if err != nil {
-		return fmt.Errorf("acknowledge messages: %w", err)
+	// Ack ALL messages individually (like NATS CLI bench).
+	// Attempt ack for every message so we never leave messages unacked after a successful write.
+	var ackErr error
+	ackFailCount := 0
+	for _, msg := range messages {
+		if err := ch.ackWithRetry(msg); err != nil {
+			ackFailCount++
+			if ackErr == nil {
+				ackErr = err
+			}
+			ch.log.ErrorContext(ctx, "failed to ack message after retries",
+				"error", err,
+				"subject", msg.Subject(),
+				"ack_fail_count", ackFailCount)
+		}
 	}
-
-	mdata, err := lastMsg.Metadata()
-	if err != nil {
-		ch.log.ErrorContext(ctx, "failed to get message metadata", "error", err)
-	} else {
-		ch.log.DebugContext(ctx, "Message acked by JetStream", "stream", mdata.Sequence.Stream)
+	if ackErr != nil {
+		return fmt.Errorf("acknowledge %d message(s): %w", ackFailCount, ackErr)
 	}
 
 	ch.log.InfoContext(ctx, "Batch processing completed successfully",
@@ -308,6 +462,10 @@ func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (clickhouse.Batch, error) {
+	prepStartTime := time.Now()
+
+	// Step 1: Query creation
+	queryStartTime := time.Now()
 	var query string
 	if ch.streamSourceID != "" {
 		query = fmt.Sprintf(
@@ -324,39 +482,120 @@ func (ch *ClickHouseSink) createCHBatch(
 			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
 		)
 	}
+	queryDuration := time.Since(queryStartTime)
 
 	ch.log.Debug("Insert query", "query", query)
 
+	// Step 2: Batch creation
+	batchCreateStartTime := time.Now()
 	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
 	}
+	batchCreateDuration := time.Since(batchCreateStartTime)
 
-	for _, msg := range messages {
-		var metadata *jetstream.MsgMetadata
-		metadata, err = msg.Metadata()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get message metadata: %w", err)
+	// Step 3: Process messages using worker pool (metadata + schema mapping + append)
+	schemaMappingStartTime := time.Now()
+	appendTotalTime := time.Duration(0)
+	skippedCount := 0
+
+	if len(messages) == 0 {
+		return resultBatch, nil
+	}
+
+	// Split messages into chunks for parallel processing
+	chunkSize := len(messages) / ch.workerPoolSize
+	if chunkSize == 0 {
+		chunkSize = 1
+	}
+
+	// Send jobs to workers
+	numJobs := 0
+	for i := 0; i < len(messages); i += chunkSize {
+		end := i + chunkSize
+		if end > len(messages) {
+			end = len(messages)
 		}
 
-		var values []any
-		if ch.streamSourceID != "" {
-			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
-		} else {
-			values, err = ch.schemaMapper.PrepareValues(msg.Data())
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
+		job := workerJob{
+			messages:       messages[i:end],
+			jobID:          numJobs,
+			streamSourceID: ch.streamSourceID,
 		}
 
-		err = resultBatch.Append(metadata.Sequence.Stream, values...)
-		if err != nil {
-			if errors.Is(err, clickhouse.ErrAlreadyExists) {
-				continue
-			}
-			return nil, fmt.Errorf("failed to append values to batch: %w", err)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case ch.workerJobChan <- job:
+			numJobs++
 		}
 	}
+
+	// Collect results from workers
+	// Use a timeout to ensure we don't wait forever, but allow enough time for processing
+	collectCtx := ctx
+	if _, ok := ctx.Deadline(); !ok {
+		// If no deadline, set a reasonable timeout for result collection
+		var cancel context.CancelFunc
+		collectCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+	}
+
+	results := make(map[int]workerResult, numJobs)
+	for i := 0; i < numJobs; i++ {
+		select {
+		case <-collectCtx.Done():
+			return nil, fmt.Errorf("timeout waiting for worker results: %w", collectCtx.Err())
+		case result := <-ch.workerResultChan:
+			if result.err != nil {
+				return nil, fmt.Errorf("worker job %d failed: %w", result.jobID, result.err)
+			}
+			results[result.jobID] = result
+		}
+	}
+
+	schemaMappingTotalTime := time.Since(schemaMappingStartTime)
+
+	// Process results in order and append to batch
+	for jobID := 0; jobID < numJobs; jobID++ {
+		result := results[jobID]
+		for i, procMsg := range result.processed {
+			// Append to batch
+			appendStartTime := time.Now()
+			err = resultBatch.Append(procMsg.metadata.Sequence.Stream, procMsg.values...)
+			if err != nil {
+				if errors.Is(err, clickhouse.ErrAlreadyExists) {
+					skippedCount++
+					continue
+				}
+				return nil, fmt.Errorf("failed to append values to batch: %w", err)
+			}
+			appendTotalTime += time.Since(appendStartTime)
+
+			// Log progress for every 10k messages to track if there are slowdowns
+			totalProcessed := jobID*chunkSize + i + 1
+			if totalProcessed%10000 == 0 {
+				ch.log.DebugContext(ctx, "Preparation progress",
+					"processed_messages", totalProcessed,
+					"total_messages", len(messages),
+					"elapsed_ms", time.Since(prepStartTime).Milliseconds())
+			}
+		}
+	}
+
+	totalPrepDuration := time.Since(prepStartTime)
+
+	ch.log.InfoContext(ctx, "Preparation inside sink code completed, batch ready for ClickHouse",
+		"message_count", len(messages),
+		"skipped_count", skippedCount,
+		"total_prep_duration_ms", totalPrepDuration.Milliseconds(),
+		"query_creation_ms", queryDuration.Milliseconds(),
+		"batch_creation_ms", batchCreateDuration.Milliseconds(),
+		"schema_mapping_total_ms", schemaMappingTotalTime.Milliseconds(),
+		"append_total_ms", appendTotalTime.Milliseconds(),
+		"avg_per_message_us", totalPrepDuration.Microseconds()/int64(len(messages)),
+		"worker_pool_size", ch.workerPoolSize,
+		"status", "preparation_completed")
 
 	return resultBatch, nil
 }
