@@ -2,7 +2,11 @@
 
 - **Theme**: Dark-only. Do not add light theme variants unless explicitly required.
 
-- **Tokens**: Use semantic tokens from theme CSS; avoid hardcoded colors. If a new color is needed, add a semantic token rather than inline hex.
+- **Token and design system**: Token truth lives in `docs/architecture/DESIGN_SYSTEM.md`. Do not add or assume tokens that are not defined there. Prefer semantic tokens; no hardcoded colors; card variants must follow the design system.
+  - Do: use `var(--surface-bg)`, `var(--control-border)`, and other semantic tokens from the design system.
+  - Don't: use raw hex or Tailwind color classes (e.g. `bg-gray-800`) for brand or semantic colors.
+
+- **Tokens**: Use semantic tokens from theme CSS; avoid hardcoded colors. If a new color is needed, add it in the design system and reference from theme; do not invent tokens in components.
 
 - **Tailwind**: Use Tailwind for layout, spacing, typography. Keep class lists concise; avoid deeply nested utility chains.
 
@@ -19,3 +23,4 @@
 ## References
 
 - Theming Architecture: `.cursor/architecture/THEMING_ARCHITECTURE.md`
+- Design system (full token system, card variants, usage): `docs/architecture/DESIGN_SYSTEM.md`

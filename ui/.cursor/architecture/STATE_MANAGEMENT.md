@@ -6,7 +6,7 @@ Zustand with slice-based composition. Each domain slice owns its state/actions; 
 
 ## Store Composition (`src/store/index.ts`)
 
-- Composed slices: kafka, clickhouse-connection, clickhouse-destination, topics, deduplication, join, filter, steps, core.
+- Composed slices: kafka, clickhouse-connection, clickhouse-destination, topics, deduplication, join, filter, transformation, steps, core, notifications.
 - Global helpers: `resetAllPipelineState`, `resetForNewPipeline`, `resetFormValidationStates`, `clearAllUserData`.
 
 ## Core Slice (`src/store/core.ts`)
@@ -27,14 +27,17 @@ Zustand with slice-based composition. Each domain slice owns its state/actions; 
 - `deduplication.store.ts`: dedup configs keyed by topic index.
 - `join.store.ts`: join configuration state.
 - `filter.store.ts`: filter expression tree state.
+- `transformation.store.ts`: transformation config (passthrough, computed).
 - `steps.store.ts`: wizard step management.
+- `notifications.store.ts`: notification center data (list, filters, panel state); not part of pipeline hydration.
 
 ## Hydration (`src/store/hydration/*`)
 
 Section-based hydration enabling partial discards:
 
-- `kafka-connection.ts`, `topics.ts`, `clickhouse-connection.ts`, `clickhouse-destination.ts`, `join-configuration.ts`, `filter.ts`, `pipeline-config.ts`.
-- Use `coreStore.hydrateSection('kafka' | 'topics' | 'deduplication' | 'join' | 'filter' | 'clickhouse-connection' | 'clickhouse-destination' | 'all', config)`.
+- `kafka-connection.ts`, `topics.ts`, `clickhouse-connection.ts`, `clickhouse-destination.ts`, `join-configuration.ts`, `filter.ts`, `transformation.ts`, `pipeline-config.ts`.
+- Use `coreStore.hydrateSection('kafka' | 'topics' | 'deduplication' | 'join' | 'filter' | 'transformation' | 'clickhouse-connection' | 'clickhouse-destination' | 'all', config)`.
+- Notification center state is loaded via its own API/store actions, not pipeline hydration.
 
 ## Mode Semantics
 

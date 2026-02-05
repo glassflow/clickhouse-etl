@@ -1,8 +1,10 @@
-# Notifications Architecture
+# In-App Notifications (notify system)
+
+**This doc:** Toast, banner, modal, and inline feedback via `notify()`. For the **notification center** (panel, full page, channels, severity mappings, `notificationsStore`), see [./NOTIFICATION_CENTER.md](./NOTIFICATION_CENTER.md).
 
 ## Overview
 
-Centralized notification system with multiple channels (toast, banner, modal, inline) and typed messages. Entry point is `notify(options)` with per-channel providers.
+Centralized in-app feedback system with multiple channels (toast, banner, modal, inline) and typed messages. Entry point is `notify(options)` with per-channel providers.
 
 ## Key Files
 
@@ -43,5 +45,6 @@ Centralized notification system with multiple channels (toast, banner, modal, in
 
 ## Related Docs
 
+- Notification center (panel, store, channels): ./NOTIFICATION_CENTER.md
 - Component rules: `.cursor/components.mdc`
 - API rules (for error handling): `.cursor/api.mdc`
