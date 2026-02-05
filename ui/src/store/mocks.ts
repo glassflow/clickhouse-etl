@@ -424,16 +424,20 @@ const mockWizardState = {
     'clickhouse-connection-0',
     'clickhouse-mapper-0',
   ],
+  resumeStepId: null,
 }
 
 // Mock data for steps store
 const mockStepsStore = {
   activeStepId: mockWizardState.activeStepId,
   completedStepIds: mockWizardState.completedStepIds,
+  resumeStepId: mockWizardState.resumeStepId,
   // Mock actions
   setActiveStepId: () => {},
   setCompletedStepIds: () => {},
   addCompletedStepId: () => {},
+  setResumeStepId: () => {},
+  clearResumeStepId: () => {},
   removeCompletedStepsAfterId: () => {},
   resetStepsStore: () => {},
 }

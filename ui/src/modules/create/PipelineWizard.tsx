@@ -15,9 +15,10 @@ import {
   type StepInstance,
 } from './utils'
 import { WizardSidebar } from './WizardSidebar'
+import { useStepValidationStatus, useWizardSmartNavigation } from './hooks'
 
 function PipelineWizard() {
-  const { coreStore } = useStore()
+  const { coreStore, stepsStore, topicsStore } = useStore()
   const { topicCount } = coreStore
   const router = useRouter()
 
@@ -36,8 +37,17 @@ function PipelineWizard() {
     [currentJourney, topicCount],
   )
   const stepComponents = getWizardJourneySteps(topicCount)
-  const { stepsStore } = useStore()
-  const { completedStepIds, activeStepId, setActiveStepId, addCompletedStepId } = stepsStore
+  const {
+    completedStepIds,
+    activeStepId,
+    resumeStepId,
+    setActiveStepId,
+    addCompletedStepId,
+    setCompletedStepIds,
+    setResumeStepId,
+    clearResumeStepId,
+    removeCompletedStepsAfterId,
+  } = stepsStore
   const firstStepId = currentJourney[0]?.id ?? null
 
   // Initialize activeStepId to the first step if not set or not in current journey
@@ -50,32 +60,39 @@ function PipelineWizard() {
     }
   }, [activeStepId, currentJourney, firstStepId, setActiveStepId])
 
+  // Use extracted hooks for validation status and smart navigation
+  const { getValidationStatus } = useStepValidationStatus()
+  const { handleSmartContinue, handleSidebarNavigation } = useWizardSmartNavigation({
+    journey: currentJourney,
+    activeStepId,
+    resumeStepId,
+    completedStepIds,
+    getValidationStatusForStep: getValidationStatus,
+    setActiveStepId,
+    addCompletedStepId,
+    setCompletedStepIds,
+    setResumeStepId,
+    clearResumeStepId,
+    removeCompletedStepsAfterId,
+  })
+
   const handleNext = () => {
     const currentId = activeStepId
     if (!currentId) return
-    const index = currentJourney.findIndex((inst) => inst.id === currentId)
-    if (index === -1) return
 
     addCompletedStepId(currentId)
-    const currentInstance = currentJourney[index]
 
-    if (currentInstance.key === StepKeys.REVIEW_CONFIGURATION) {
-      const nextInstance = currentJourney[index + 1]
-      if (nextInstance) setActiveStepId(nextInstance.id)
+    const result = handleSmartContinue()
+
+    // Handle special case: Review step routes away from wizard
+    if (result.shouldRouteAway) {
       router.push('/pipelines/')
-      return
-    }
-
-    const nextInstance = currentJourney[index + 1]
-    if (nextInstance) {
-      setActiveStepId(nextInstance.id)
     }
   }
 
   const handleSidebarStepClick = (stepInstanceId: string) => {
-    if (completedStepIds.includes(stepInstanceId)) {
-      setActiveStepId(stepInstanceId)
-    }
+    if (!completedStepIds.includes(stepInstanceId)) return
+    handleSidebarNavigation(stepInstanceId)
   }
 
   const currentActiveInstance: StepInstance | undefined = currentJourney.find((inst) => inst.id === activeStepId)
@@ -84,19 +101,19 @@ function PipelineWizard() {
   const getStepTitle = (instance: StepInstance) => {
     const stepKey = instance.key
     const step = stepsMetadata[stepKey]
-    const topicsStore = useStore.getState().topicsStore || { topics: [] }
+    const topics = topicsStore?.topics || {}
 
     if (stepKey === StepKeys.TOPIC_SELECTION_1 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
       if (topicCount === 2) {
-        const topic = topicsStore.topics?.[0]
+        const topic = topics?.[0]
         return `Select Left Topic: ${topic?.name || ''}`
       }
-      const topic = topicsStore.topics?.[0]
+      const topic = topics?.[0]
       return `Select Topic: ${topic?.name || ''}`
     }
 
     if (stepKey === StepKeys.TOPIC_SELECTION_2 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-      const topic = topicsStore.topics?.[1]
+      const topic = topics?.[1]
       return `Select Right Topic: ${topic?.name || ''}`
     }
 

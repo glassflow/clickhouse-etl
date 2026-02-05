@@ -40,6 +40,7 @@ This folder is the **deep reference** for the ClickHouse ETL UI. For development
 | Deduplication | [modules/deduplication/](modules/deduplication/) | DEDUPLICATION_CONFIGURATOR. |
 | Transformations | [modules/transformations/](modules/transformations/) | TRANSFORMATION_CONFIGURATOR. |
 | Pipelines | [modules/pipelines/](modules/pipelines/) | PIPELINE_DETAILS, PIPELINES_LIST. |
+| Create (wizard) | [modules/create/](modules/create/) | Pipeline creation wizard: step journey, navigation, resume-to-last-editing, destructive invalidation. |
 | Notifications | [modules/notifications/](modules/notifications/) | NOTIFICATIONS (notification center: panel, settings, channels). |
 
 ## How to use with agents/skills

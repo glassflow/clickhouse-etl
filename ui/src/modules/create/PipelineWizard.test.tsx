@@ -38,6 +38,18 @@ describe('PipelineWizard', () => {
     useStore.getState().resetForNewPipeline(1)
   })
 
+  const markAllWizardSlicesValid = () => {
+    const state: any = useStore.getState()
+    state.kafkaStore?.markAsValid?.()
+    state.topicsStore?.markAsValid?.()
+    state.deduplicationStore?.markAsValid?.()
+    state.filterStore?.markAsValid?.()
+    state.transformationStore?.markAsValid?.()
+    state.joinStore?.markAsValid?.()
+    state.clickhouseConnectionStore?.markAsValid?.()
+    state.clickhouseDestinationStore?.markAsValid?.()
+  }
+
   it('redirects to home when topicCount is invalid', async () => {
     useStore.getState().coreStore.setTopicCount(0)
     await act(async () => {
@@ -119,5 +131,82 @@ describe('PipelineWizard', () => {
     })
 
     expect(useStore.getState().stepsStore.activeStepId).toBe(firstId)
+  })
+
+  it('resumes to the last editing step when returning to a previous completed step (non-destructive)', async () => {
+    useStore.getState().coreStore.setTopicCount(1)
+    markAllWizardSlicesValid()
+
+    const journey = getWizardJourneyInstances(1)
+    const firstId = journey[0].id
+    const resumeIdx = Math.min(3, Math.max(1, journey.length - 1))
+    const resumeId = journey[resumeIdx].id
+
+    useStore.getState().stepsStore.setActiveStepId(resumeId)
+    useStore.getState().stepsStore.setCompletedStepIds(journey.slice(0, resumeIdx).map((i) => i.id))
+
+    await act(async () => {
+      render(<PipelineWizard />)
+    })
+
+    const sidebarStep1 = screen.getByRole('button', { name: /Kafka Connection/i })
+    await act(async () => {
+      fireEvent.click(sidebarStep1)
+    })
+    expect(useStore.getState().stepsStore.activeStepId).toBe(firstId)
+
+    const nextButton = screen.getByTestId('wizard-step-next')
+    await act(async () => {
+      fireEvent.click(nextButton)
+    })
+
+    // Should jump back to where user left off, not step-by-step forward.
+    expect(useStore.getState().stepsStore.activeStepId).toBe(resumeId)
+    expect(useStore.getState().stepsStore.resumeStepId).toBe(null)
+  })
+
+  it('routes to earliest invalidated downstream step and prunes completed steps (destructive change)', async () => {
+    useStore.getState().coreStore.setTopicCount(1)
+    markAllWizardSlicesValid()
+
+    const journey = getWizardJourneyInstances(1)
+    const firstId = journey[0].id
+
+    const resumeIdx = journey.findIndex((i) => i.key === StepKeys.CLICKHOUSE_CONNECTION)
+    if (resumeIdx === -1) return
+    const resumeId = journey[resumeIdx].id
+
+    // Simulate user having progressed to a later step.
+    useStore.getState().stepsStore.setActiveStepId(resumeId)
+    useStore.getState().stepsStore.setCompletedStepIds(journey.slice(0, resumeIdx).map((i) => i.id))
+
+    await act(async () => {
+      render(<PipelineWizard />)
+    })
+
+    // Go back to Kafka Connection via sidebar (sets resumeStepId internally).
+    const sidebarStep1 = screen.getByRole('button', { name: /Kafka Connection/i })
+    await act(async () => {
+      fireEvent.click(sidebarStep1)
+    })
+    expect(useStore.getState().stepsStore.activeStepId).toBe(firstId)
+
+    // Destructive change: invalidate deduplication (a downstream step).
+    await act(async () => {
+      useStore.getState().deduplicationStore.markAsInvalidated('topic-changed')
+    })
+
+    const expectedBlockingIdx = journey.findIndex((i) => i.key === StepKeys.DEDUPLICATION_CONFIGURATOR)
+    if (expectedBlockingIdx === -1) return
+    const expectedBlockingId = journey[expectedBlockingIdx].id
+
+    const nextButton = screen.getByTestId('wizard-step-next')
+    await act(async () => {
+      fireEvent.click(nextButton)
+    })
+
+    // Should jump directly to the earliest invalidated step, not resume target.
+    expect(useStore.getState().stepsStore.activeStepId).toBe(expectedBlockingId)
+    expect(useStore.getState().stepsStore.completedStepIds).not.toContain(resumeId)
   })
 })

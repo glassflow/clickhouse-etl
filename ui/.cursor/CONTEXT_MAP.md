@@ -5,6 +5,7 @@ Use this map to choose which rules and docs to load for a given task; skills can
 | When you work on… | Load first |
 |-------------------|------------|
 | Designing a new feature / UX or product design | `docs/design/DESIGN_PRINCIPLES.md` (+ `docs/architecture/DESIGN_SYSTEM.md` and `.cursor/styling.mdc` if UI/styling involved) |
+| Pipeline creation wizard / wizard step navigation | `docs/modules/create/PIPELINE_WIZARD.md` (+ `.cursor/architecture/STATE_MANAGEMENT.md` for steps slice) |
 | Kafka module | `.cursor/modules.mdc` + `docs/modules/kafka/*` |
 | Transformation module | `.cursor/architecture/STATE_MANAGEMENT.md` + `docs/modules/transformations/*` |
 | Notification center (panel, settings, channels) | `.cursor/architecture/NOTIFICATION_CENTER.md` + `docs/modules/notifications/NOTIFICATIONS.md` |

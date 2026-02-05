@@ -66,6 +66,7 @@ User edits → RHF + Zod → store updated (dirty tracked) → client API → ro
 | Pipeline status (real-time) | [./IMPLEMENTATIONS_INDEX.md](./IMPLEMENTATIONS_INDEX.md) → SSE doc |
 | Auth (Auth0 toggle, env) | [./AUTH0_ENV.md](./AUTH0_ENV.md) |
 | Config output / pipeline create-edit | [docs/architecture/ARCHITECTURE_OVERVIEW.md](../../docs/architecture/ARCHITECTURE_OVERVIEW.md) (data flow, review) |
+| Wizard step navigation (resume, invalidation) | [docs/modules/create/PIPELINE_WIZARD.md](../../docs/modules/create/PIPELINE_WIZARD.md) |
 | Notification center vs in-app notify | [./NOTIFICATION_CENTER.md](./NOTIFICATION_CENTER.md) vs [./IN_APP_NOTIFICATIONS.md](./IN_APP_NOTIFICATIONS.md) |
 
 ## Related docs

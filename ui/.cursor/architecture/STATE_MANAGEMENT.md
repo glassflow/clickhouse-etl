@@ -28,7 +28,7 @@ Zustand with slice-based composition. Each domain slice owns its state/actions; 
 - `join.store.ts`: join configuration state.
 - `filter.store.ts`: filter expression tree state.
 - `transformation.store.ts`: transformation config (passthrough, computed).
-- `steps.store.ts`: wizard step management.
+- `steps.store.ts`: wizard step management (`activeStepId`, `completedStepIds`, `resumeStepId`; resume target and pruning). See [docs/modules/create/PIPELINE_WIZARD.md](../../docs/modules/create/PIPELINE_WIZARD.md).
 - `notifications.store.ts`: notification center data (list, filters, panel state); not part of pipeline hydration.
 
 ## Hydration (`src/store/hydration/*`)
