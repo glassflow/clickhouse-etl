@@ -2,14 +2,13 @@ package processor
 
 import (
 	"context"
-
-	"github.com/nats-io/nats.go"
+	"errors"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type statelessTransformer interface {
-	Transform(inputBytes []byte) ([]byte, error)
+	Transform(ctx context.Context, inputMessage models.Message) (models.Message, error)
 }
 
 type StatelessTransformerProcessor struct {
@@ -21,13 +20,19 @@ func NewStatelessTransformerProcessor(transformer statelessTransformer) *Statele
 }
 
 func (stp *StatelessTransformerProcessor) ProcessBatch(
-	_ context.Context,
+	ctx context.Context,
 	batch ProcessorBatch,
 ) ProcessorBatch {
 	result := ProcessorBatch{}
 	for _, message := range batch.Messages {
-		transformedBytes, err := stp.transformer.Transform(message.Payload())
+		transformedMessage, err := stp.transformer.Transform(ctx, message)
 		if err != nil {
+			if errors.Is(err, models.ErrSignalSent) {
+				return ProcessorBatch{
+					FatalError: models.ErrSignalSent,
+				}
+			}
+
 			result.FailedMessages = append(
 				result.FailedMessages,
 				models.FailedMessage{
@@ -35,18 +40,13 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 					Error:   err,
 				},
 			)
+
 			continue
 		}
 
 		result.Messages = append(
 			result.Messages,
-			models.Message{
-				Type: models.MessageTypeNatsMsg,
-				NatsMsgOriginal: &nats.Msg{
-					Data:   transformedBytes,
-					Header: message.Headers(),
-				},
-			},
+			transformedMessage,
 		)
 	}
 
