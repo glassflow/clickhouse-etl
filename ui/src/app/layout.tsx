@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import ThemeProvider from '@/src/components/shared/ThemeProvider'
 import { Inter, Archivo } from 'next/font/google'
@@ -53,7 +54,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <NotificationProvider>
                     <AuthProvider>
                       <HeaderWrapper>
-                        <Header />
+                        <Suspense fallback={<header className="w-full shrink-0 h-14 bg-[var(--elevated-background)]" aria-hidden />}>
+                          <Header />
+                        </Suspense>
                       </HeaderWrapper>
                       <main className="flex flex-col w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-8 overflow-x-hidden overflow-y-auto">
                         <div className="grow container mx-auto px-4 sm:px-0">{children}</div>

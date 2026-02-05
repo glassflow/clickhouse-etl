@@ -46,7 +46,7 @@ The ClickHouse ETL UI is a modern Next.js 16 application that provides a compreh
 ┌─────────────────────────────────────────────────────────┐
 │                    Next.js App Router                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │   Pages      │  │   API Routes │  │  Middleware  │   │
+│  │   Pages      │  │   API Routes │  │    Proxy      │   │
 │  └──────────────┘  └──────────────┘  └──────────────┘   │
 └─────────────────────────────────────────────────────────┘
                            │
@@ -71,10 +71,19 @@ The ClickHouse ETL UI is a modern Next.js 16 application that provides a compreh
 
 ```
 src/
+├── proxy.ts                   # Next.js 16 request proxy (auth/matcher)
 ├── app/                       # Next.js App Router pages
+│   ├── error.tsx              # Segment error boundary
+│   ├── global-error.tsx       # Root layout error boundary
+│   ├── not-found.tsx          # App 404
+│   ├── loading.tsx            # Root loading UI
 │   ├── home/                  # Home page
 │   ├── pipelines/             # Pipeline management pages
+│   │   ├── loading.tsx        # Pipelines segment loading
 │   │   ├── [id]/              # Pipeline details page
+│   │   │   ├── error.tsx      # Pipeline segment error
+│   │   │   ├── not-found.tsx  # Pipeline 404
+│   │   │   └── loading.tsx   # Pipeline details loading
 │   │   ├── create/            # Pipeline creation page
 │   │   └── logs/              # Pipeline logs page
 │   └── ui-api/                # API routes (Next.js API)
@@ -517,8 +526,9 @@ The application uses a **dependency graph** to manage state dependencies:
 
 ### Error Handling
 
-- **Structured Errors**: Consistent error format across API
-- **Error Boundaries**: React error boundaries for UI errors
+- **Route-level boundaries**: `app/error.tsx` (segment errors), `app/global-error.tsx` (root layout failures), `app/not-found.tsx` (404). Pipeline segment uses `app/pipelines/[id]/error.tsx` and `app/pipelines/[id]/not-found.tsx`; pipeline detail page calls `notFound()` on 404 for correct HTTP status.
+- **Loading UI**: `app/loading.tsx`, `app/pipelines/loading.tsx`, and `app/pipelines/[id]/loading.tsx` provide segment loading states during navigation.
+- **Structured Errors**: Consistent error format across API; route handlers use typed `catch (error: unknown)` and `axios.isAxiosError()` where applicable.
 - **Notification System**: User-friendly error messages via notification channels
 - **Retry Logic**: Automatic retries for transient failures
 - **API Error Handler**: Centralized error handling in `notifications/api-error-handler.ts`
@@ -640,7 +650,7 @@ The frontend communicates with the **glassflow-api** backend service (Go-based):
 
 - **Auth0 Integration**: Optional authentication via Auth0
 - **Environment-based**: Can be disabled via environment variable
-- **Middleware**: Route protection via Next.js middleware
+- **Proxy**: Request interception via Next.js 16 proxy (`src/proxy.ts`); route protection and auth checks remain in pages and API routes.
 
 ### Data Security
 
@@ -820,11 +830,12 @@ The frontend communicates with the **glassflow-api** backend service (Go-based):
 
 ## Future Architecture Considerations
 
-1. **Server Components**: Leverage Next.js server components for better performance
-2. **Streaming**: Consider streaming for large data sets
-3. **Real-time Updates**: WebSocket support for live pipeline status
-4. **Offline Support**: Service worker for offline functionality
-5. **Micro-frontends**: Consider if application grows significantly
-6. **Enhanced Analytics**: More detailed user behavior tracking
-7. **Performance Monitoring**: Real-time performance metrics
-8. **A/B Testing**: Framework for feature experimentation
+1. **Server Components**: Continue leveraging server components where possible; error/not-found boundaries, loading.tsx, and Suspense for navigation hooks are in place.
+2. **Server Actions**: Mutations currently use Route Handlers; Server Actions may be adopted for selected forms (e.g. pipeline create/edit) for progressive enhancement and simpler wiring.
+3. **Streaming**: Consider streaming for large data sets
+4. **Real-time Updates**: WebSocket support for live pipeline status (SSE used for pipeline status streaming)
+5. **Offline Support**: Service worker for offline functionality
+6. **Micro-frontends**: Consider if application grows significantly
+7. **Enhanced Analytics**: More detailed user behavior tracking
+8. **Performance Monitoring**: Real-time performance metrics
+9. **A/B Testing**: Framework for feature experimentation

@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isAuthEnabled } from './utils/auth-config.server'
 
-// Conditional middleware: only apply auth if enabled
-export default async function middleware(request: NextRequest) {
+// Conditional proxy: only apply auth if enabled (Next.js 16+ proxy convention)
+export default async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Always allow /ui-api routes to pass through - they handle their own authentication if needed
@@ -24,15 +24,14 @@ export default async function middleware(request: NextRequest) {
   // Auth checking is done in:
   // 1. API routes: /api/auth/[auth0]/route.ts handles Auth0 flows
   // 2. Page components: use getSession() server-side or useUser() client-side
-  // 3. This avoids middleware cookie parsing issues with Auth0 SDK
+  // 3. This avoids proxy cookie parsing issues with Auth0 SDK
   return NextResponse.next()
 }
 
-// Configure which routes the middleware runs on
+// Configure which routes the proxy runs on (Next.js 16+)
 export const config = {
-  runtime: 'nodejs', // Use Node.js runtime instead of Edge Runtime (Next.js 15.2+)
   matcher: [
-    // Run middleware on Auth0 routes
+    // Run proxy on Auth0 routes
     '/api/auth/:path*',
     // Protected page routes
     '/',

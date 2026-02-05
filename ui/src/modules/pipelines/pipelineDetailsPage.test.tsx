@@ -23,12 +23,19 @@ vi.mock('@/src/utils/mock-api', () => ({
   isMockMode: vi.fn(() => false),
 }))
 
+const mockNotFound = vi.fn(() => {
+  const err = new Error('NEXT_NOT_FOUND')
+  ;(err as unknown as { digest: string }).digest = 'not-found'
+  throw err
+})
+
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => {
     const err = new Error('NEXT_REDIRECT')
     ;(err as unknown as { digest: string }).digest = `redirect:${url}`
     throw err
   },
+  notFound: (...args: unknown[]) => mockNotFound(...args),
 }))
 
 vi.mock('@/src/modules/pipelines/[id]/PipelineDetailsModule', () => ({
@@ -47,13 +54,6 @@ vi.mock('@/src/modules/pipelines/[id]/PipelineDetailsClientWrapper', () => ({
   ),
 }))
 
-vi.mock('@/src/modules/pipelines/PipelineNotFound', () => ({
-  PipelineNotFound: ({ pipelineId }: { pipelineId: string }) => (
-    <div data-testid="pipeline-not-found-ssr">
-      <span data-testid="not-found-ssr-id">{pipelineId}</span>
-    </div>
-  ),
-}))
 
 describe('PipelinePage (app/pipelines/[id]/page)', () => {
   const pipelineId = 'test-id-123'
@@ -100,17 +100,13 @@ describe('PipelinePage (app/pipelines/[id]/page)', () => {
     expect(screen.getByTestId('client-wrapper-id')).toHaveTextContent(pipelineId)
   })
 
-  it('renders PipelineNotFound when getPipeline returns 404', async () => {
+  it('calls notFound() when getPipeline returns 404', async () => {
     const err = new Error('Not found') as Error & { code?: number }
     err.code = 404
     vi.mocked(getPipeline).mockRejectedValue(err)
 
-    const Page = await PipelinePage({ params, searchParams })
-
-    render(Page)
-
-    expect(screen.getByTestId('pipeline-not-found-ssr')).toBeInTheDocument()
-    expect(screen.getByTestId('not-found-ssr-id')).toHaveTextContent(pipelineId)
+    await expect(PipelinePage({ params, searchParams })).rejects.toThrow('NEXT_NOT_FOUND')
+    expect(mockNotFound).toHaveBeenCalled()
   })
 
   it('renders PipelineDetailsClientWrapper when getPipeline throws non-404 error', async () => {

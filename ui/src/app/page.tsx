@@ -33,29 +33,17 @@ export default async function Home() {
   // If auth is disabled, check for pipelines and redirect accordingly
   if (!authEnabled) {
     const hasPipelines = await checkPipelines()
-
-    if (hasPipelines) {
-      redirect('/pipelines')
-    } else {
-      redirect('/home')
-    }
+    if (hasPipelines) redirect('/pipelines')
+    redirect('/home')
   }
 
-  // Server-side: Get session using getSessionSafely() which handles decryption errors gracefully
-  const session = await getSessionSafely()
+  // When auth is enabled, fetch session and pipeline list in parallel for redirect decision
+  const [session, hasPipelines] = await Promise.all([getSessionSafely(), checkPipelines()])
   const user = session?.user
 
-  // If user is authenticated, check for pipelines and redirect accordingly
   if (user) {
-    const hasPipelines = await checkPipelines()
-
-    console.log('hasPipelines - home page: ', hasPipelines)
-
-    if (hasPipelines) {
-      redirect('/pipelines')
-    } else {
-      redirect('/home')
-    }
+    if (hasPipelines) redirect('/pipelines')
+    redirect('/home')
   }
 
   // Show landing page for unauthenticated users
