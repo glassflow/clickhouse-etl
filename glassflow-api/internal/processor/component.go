@@ -102,6 +102,10 @@ func (c *Component) Start(ctx context.Context) error {
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					continue // let the select handle it
 				}
+				if errors.Is(err, models.ErrSignalSent) {
+					c.log.ErrorContext(ctx, "signal to stop component is sent, exiting")
+					return nil
+				}
 				c.log.ErrorContext(ctx, "batch processing failed", "error", err)
 			}
 		}
