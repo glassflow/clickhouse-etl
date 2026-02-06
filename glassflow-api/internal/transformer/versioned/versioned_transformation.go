@@ -93,6 +93,8 @@ func (t *Transformer) transformMessage(ctx context.Context, inputMessage models.
 	if err != nil {
 		return models.Message{}, fmt.Errorf("versioned transform: %w", err)
 	}
+
+	transformedMessage.DeleteHeader(internal.SchemaVersionIDHeader)
 	transformedMessage.AddHeader(internal.SchemaVersionIDHeader, versionedTransformer.config.OutputSchemaVersionID)
 
 	return transformedMessage, nil

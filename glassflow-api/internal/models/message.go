@@ -159,6 +159,13 @@ func (m *Message) AddHeader(key string, value string) {
 	m.headers[key] = append(m.headers[key], value)
 }
 
+// DeleteHeader removes all values for a given key
+func (m *Message) DeleteHeader(key string) {
+	if m.headers != nil {
+		delete(m.headers, key)
+	}
+}
+
 // Headers returns all headers, merging original headers with any internal mutations.
 // Internal headers take precedence over original headers.
 func (m *Message) Headers() map[string][]string {
