@@ -78,7 +78,7 @@ func (t *Transformer) Transform(ctx context.Context, inputMessage models.Message
 			if signalErr != nil {
 				return models.Message{}, fmt.Errorf("send signal: %w", signalErr)
 			}
-			return models.Message{}, fmt.Errorf("%w: %w", models.ErrSignalSent, err)
+			return models.Message{}, models.ErrSignalSent
 		}
 
 		return models.Message{}, fmt.Errorf("get new transformer version: %w", err)
