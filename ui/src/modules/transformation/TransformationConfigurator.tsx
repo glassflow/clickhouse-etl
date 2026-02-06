@@ -62,11 +62,7 @@ export function TransformationConfigurator({
   }, [schemaFields])
 
   // Custom hook for available fields derivation
-  const availableFields = useAvailableFields(
-    schemaFields,
-    effectiveEventData,
-    transformationConfig.fields
-  )
+  const availableFields = useAvailableFields(schemaFields, effectiveEventData, transformationConfig.fields)
 
   // Custom hook for validation state management
   const validation = useTransformationValidation(transformationConfig, transformationStore)
@@ -85,7 +81,7 @@ export function TransformationConfigurator({
     { readOnly, standalone, onCompleteStep, onCompleteStandaloneEditing },
     { setSaveAttempted: validation.setSaveAttempted, setLocalValidation: (v) => {} }, // setLocalValidation handled by hook
     setIsSaveSuccess,
-    setHasAutoPopulated
+    setHasAutoPopulated,
   )
 
   // Auto-populate fields from Kafka schema if not already configured
@@ -151,7 +147,7 @@ export function TransformationConfigurator({
 
       {/* Header with Description */}
       <div className="flex items-start justify-between gap-4">
-        <div className="text-sm text-content flex-1">
+        <div className="text-sm text-content-faded flex-1">
           {availableFields.length > 0
             ? transformationConfig.fields.length > 0
               ? "All fields from your Kafka event have been added as pass-through fields. Remove fields you don't need, convert them to computed transformations, or add new fields."
@@ -167,15 +163,16 @@ export function TransformationConfigurator({
 
       {/* Skip button - prominently placed at top */}
       {!standalone && !readOnly && availableFields.length > 0 && (
-        <div className="flex justify-start">
+        <div className="flex justify-start items-center">
           <Button
             variant="outline"
             onClick={actions.handleSkip}
             className="flex-shrink-0 border-dashed hover:border-solid btn-tertiary text-primary hover:text-primary-faded"
           >
             Skip Transformation
-            <span className="ml-2 text-xs text-primary">(pass all fields unchanged)</span>
           </Button>
+
+          <span className="ml-2 text-xs text-primary">(pass all fields unchanged)</span>
         </div>
       )}
 
@@ -244,6 +241,19 @@ export function TransformationConfigurator({
           pipelineActionState={pipelineActionState}
           onClose={onCompleteStandaloneEditing}
         />
+
+        {/* Skip button - prominently placed at top */}
+        {!standalone && !readOnly && availableFields.length > 0 && (
+          <div className="flex justify-start items-center">
+            <Button
+              variant="outline"
+              onClick={actions.handleSkip}
+              className="flex-shrink-0 border-dashed hover:border-solid btn-tertiary text-primary hover:text-primary-faded"
+            >
+              Skip Transformation
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

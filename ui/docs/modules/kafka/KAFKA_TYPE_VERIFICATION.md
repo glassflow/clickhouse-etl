@@ -4,73 +4,75 @@
 
 The Kafka Type Verification module allows users to review, verify, and customize the schema of Kafka events. It automatically infers data types from event data, allows users to override inferred types, add custom fields, and remove unwanted fields. The verified schema is stored in the topic's schema and used by downstream steps (transformations, field mapping) to ensure type safety and correct data handling.
 
+**Related:** Kafka connection and topic selection were refactored. This module was refactored to use `useTypeVerificationState`, `FieldTypesTable`, and shared `getNestedValue` from clickhouse/utils. See [KAFKA_CONNECTION.md](./KAFKA_CONNECTION.md) and [KAFKA_TOPIC_SELECTION.md](./KAFKA_TOPIC_SELECTION.md) for up-to-date structure.
+
 ## Architecture
 
 ### Component Hierarchy
 
 ```
-KafkaTypeVerification (Main Component)
-├── Field Types Table
-│   ├── Inferred Fields (from event data)
-│   ├── Manually Added Fields (user-created)
-│   └── Removed Fields (marked for removal)
+KafkaTypeVerification (Orchestration + FormActions)
+├── useTypeVerificationState (Hook - field/schema state)
+│   ├── extractEventFields (common.client)
+│   ├── inferJsonType, getNestedValue (clickhouse/utils)
+│   └── field CRUD: handleTypeChange, handleAddField, handleRemoveField, handleRestoreField
 │
-├── Field Management
-│   ├── Type Selection (dropdown per field)
-│   ├── Add Field (input + type selector)
-│   ├── Remove Field (trash icon)
-│   └── Restore Field (for removed fields)
+├── FieldTypesTable (Presentation - table + add-field row + status messages)
+│   └── No store access; receives fieldTypes and handlers via props
 │
-├── State Management
-│   ├── TopicsStore (schema storage)
-│   └── ValidationEngine (section validation)
-│
+├── TopicsStore (schema storage via updateTopic)
+├── ValidationEngine (onSectionConfigured)
 └── FormActions (Save/Discard)
 ```
 
-## Core Component
+## Core Components
 
 ### KafkaTypeVerification
 
 **Location:** `src/modules/kafka/KafkaTypeVerification.tsx`
 
-**Purpose:** Main component that provides a table-based interface for reviewing and customizing event field types.
+**Purpose:** Orchestration component that gets topic/eventData from store, uses `useTypeVerificationState` for field state and handlers, renders `FieldTypesTable`, and handles save/discard and FormActions.
 
 **Key Responsibilities:**
-- Extracts fields from event data (including nested fields)
-- Infers data types for each field
-- Allows users to override inferred types
-- Supports adding custom fields
-- Supports removing fields (with restore capability)
-- Persists schema to topic store
-- Integrates with validation engine
 
-**Props:**
-```typescript
-{
-  onCompleteStep: (stepName: string) => void
-  index?: number  // Topic index (0 or 1 for join operations)
-  readOnly?: boolean
-  standalone?: boolean
-  toggleEditMode?: () => void
-  pipelineActionState?: any
-  onCompleteStandaloneEditing?: () => void
-}
-```
+- Gets topic and eventData from topicsStore
+- Uses useTypeVerificationState for fieldTypes, new-field form state, and CRUD handlers
+- Renders FieldTypesTable (presentational) with fieldTypes and handlers
+- Persists schema to topic store on save; integrates with validation engine
+
+**Props:** `KafkaTypeVerificationProps`: `onCompleteStep`, `index?`, `readOnly?`, `standalone?`, `toggleEditMode?`, `pipelineActionState?: PipelineActionState`, `onCompleteStandaloneEditing?`.
+
+### useTypeVerificationState
+
+**Location:** `src/modules/kafka/hooks/useTypeVerificationState.ts`
+
+**Purpose:** Encapsulates field/schema state: builds fieldTypes from eventData + existing schema (extractEventFields, inferJsonType, getNestedValue from clickhouse/utils), and handlers for type change, add field, remove field, restore field. Exposes `canContinue` (activeFieldCount > 0).
+
+**Inputs:** `eventData`, `topic` (with optional schema).
+
+**Outputs:** `fieldTypes`, `newFieldName`, `newFieldType`, `newFieldError`, setters, `handleTypeChange`, `handleAddField`, `handleRemoveField`, `handleRestoreField`, `canContinue`.
+
+### FieldTypesTable
+
+**Location:** `src/modules/kafka/components/FieldTypesTable.tsx`
+
+**Purpose:** Presentational component that renders the field types table (header, body, add-field row, status messages). No store or topic access; receives all data and handlers via props.
 
 ## Field Type Management
 
 ### FieldTypeInfo Interface
 
+**Location:** `src/modules/kafka/types.ts`
+
 Each field in the table is represented by a `FieldTypeInfo` object:
 
 ```typescript
 interface FieldTypeInfo {
-  name: string              // Field name (supports dot notation for nested fields)
-  inferredType: string      // Automatically inferred type from event data
-  userType: string          // User-selected type (or inferred if not changed)
-  isManuallyAdded: boolean  // true for user-added fields
-  isRemoved: boolean        // true for fields marked for removal
+  name: string // Field name (supports dot notation for nested fields)
+  inferredType: string
+  userType: string // User-selected type (or inferred if not changed)
+  isManuallyAdded: boolean
+  isRemoved: boolean
 }
 ```
 
@@ -102,6 +104,7 @@ interface FieldTypeInfo {
 **Purpose:** Recursively extracts all fields from event data, including nested objects.
 
 **Algorithm:**
+
 1. Iterates through all keys in the object
 2. Skips keys starting with `_metadata`
 3. For nested objects: Recursively extracts with dot notation prefix
@@ -109,6 +112,7 @@ interface FieldTypeInfo {
 5. For primitives: Adds the field path
 
 **Example:**
+
 ```javascript
 // Input event:
 {
@@ -132,6 +136,7 @@ interface FieldTypeInfo {
 ```
 
 **Features:**
+
 - Supports unlimited nesting levels
 - Uses dot notation for nested paths
 - Handles arrays as single fields
@@ -148,6 +153,7 @@ interface FieldTypeInfo {
 **Type Inference Rules:**
 
 #### Numbers
+
 - **Integers:**
   - Unsigned: `uint8`, `uint16`, `uint32`, `uint64` (based on value range)
   - Signed: `int8`, `int16`, `int32`, `int64` (based on value range)
@@ -157,6 +163,7 @@ interface FieldTypeInfo {
   - `float64` for values outside float32 range
 
 #### Other Types
+
 - **Boolean:** `bool`
 - **String:** `string` (with pattern detection for UUIDs and dates)
 - **Array:** `array`
@@ -164,6 +171,7 @@ interface FieldTypeInfo {
 - **Null/Undefined:** `null` / `undefined`
 
 **Type Ranges:**
+
 ```typescript
 // Unsigned integers
 uint8:  0 to 255
@@ -185,19 +193,31 @@ int64: Number.MIN_SAFE_INTEGER to Number.MAX_SAFE_INTEGER
 **Location:** `src/config/constants.ts`
 
 **Available Types:**
+
 ```typescript
-[
+;[
   'string',
   'bool',
-  'uint', 'uint8', 'uint16', 'uint32', 'uint64',
-  'int', 'int8', 'int16', 'int32', 'int64',
-  'float', 'float32', 'float64',
+  'uint',
+  'uint8',
+  'uint16',
+  'uint32',
+  'uint64',
+  'int',
+  'int8',
+  'int16',
+  'int32',
+  'int64',
+  'float',
+  'float32',
+  'float64',
   'bytes',
-  'array'
+  'array',
 ]
 ```
 
 **Usage:**
+
 - All types are available in the type selector dropdown
 - Users can override inferred types with any of these types
 - Types are used for downstream processing (transformations, mapping)
@@ -238,6 +258,7 @@ int64: Number.MIN_SAFE_INTEGER to Number.MAX_SAFE_INTEGER
 **Function:** `handleTypeChange(fieldName: string, newType: string)`
 
 **Behavior:**
+
 - Updates `userType` for the specified field
 - Visual indicator shows when type differs from inferred type (border highlight)
 - Change is stored in local state until save
@@ -247,6 +268,7 @@ int64: Number.MIN_SAFE_INTEGER to Number.MAX_SAFE_INTEGER
 **Function:** `handleAddField()`
 
 **Validation:**
+
 - Field name cannot be empty
 - Field name must be unique (case-sensitive, among non-removed fields)
 - Field name must match pattern: `^[a-zA-Z_][a-zA-Z0-9_.]*$`
@@ -255,6 +277,7 @@ int64: Number.MIN_SAFE_INTEGER to Number.MAX_SAFE_INTEGER
   - Supports dot notation for nested paths
 
 **Behavior:**
+
 - Creates new `FieldTypeInfo` with:
   - `isManuallyAdded: true`
   - `inferredType: '-'`
@@ -268,6 +291,7 @@ int64: Number.MIN_SAFE_INTEGER to Number.MAX_SAFE_INTEGER
 **Function:** `handleRemoveField(fieldName: string)`
 
 **Behavior:**
+
 - **Manually Added Fields:** Completely removed from array
 - **Inferred Fields:** Marked as `isRemoved: true` (preserved in schema)
 - Field is visually indicated (strikethrough, reduced opacity)
@@ -278,6 +302,7 @@ int64: Number.MIN_SAFE_INTEGER to Number.MAX_SAFE_INTEGER
 **Function:** `handleRestoreField(fieldName: string)`
 
 **Behavior:**
+
 - Sets `isRemoved: false` for the field
 - Field becomes active again
 - Visual indicators are removed
@@ -310,6 +335,7 @@ The schema is stored in the topic object:
 **Function:** `handleSave()`
 
 **Process:**
+
 1. Validates that topic exists
 2. Creates schema object with all fields (including removed ones)
 3. Updates topic in `topicsStore` with schema
@@ -322,6 +348,7 @@ The schema is stored in the topic object:
    - Proceeds to next step
 
 **Important:**
+
 - **All fields are saved**, including removed ones
 - This preserves removal state when user navigates back
 - Downstream steps filter out removed fields
@@ -334,6 +361,7 @@ The schema is stored in the topic object:
 The module fully supports nested fields using dot notation:
 
 **Example Event:**
+
 ```json
 {
   "id": 1,
@@ -347,27 +375,18 @@ The module fully supports nested fields using dot notation:
 ```
 
 **Extracted Fields:**
+
 - `id`
 - `user.profile.name`
 - `user.profile.age`
 
 ### getNestedValue Function
 
-**Location:** `src/modules/kafka/KafkaTypeVerification.tsx`
+**Location:** `src/modules/clickhouse/utils.ts` (shared; used by useTypeVerificationState and other modules)
 
-**Purpose:** Retrieves values from nested objects using dot notation paths.
+**Purpose:** Retrieves values from nested objects using dot notation paths. Single source of truth; Kafka type verification no longer defines a local copy.
 
-**Implementation:**
-```typescript
-const getNestedValue = (obj: any, path: string): any => {
-  return path.split('.').reduce((current, key) => current?.[key], obj)
-}
-```
-
-**Usage:**
-- Used to get actual values for type inference
-- Handles missing nested properties gracefully
-- Returns `undefined` if path doesn't exist
+**Usage:** Used in `useTypeVerificationState` to get actual values for type inference. Handles missing nested properties gracefully; returns `undefined` if path doesn't exist.
 
 ## Visual Indicators
 
@@ -393,6 +412,7 @@ const getNestedValue = (obj: any, path: string): any => {
 ### Status Messages
 
 Component shows summary messages:
+
 - "Some types have been modified from their inferred values"
 - "X custom field(s) added"
 - "X field(s) marked for removal"
@@ -410,12 +430,14 @@ Component shows summary messages:
 ### Field Name Validation
 
 **Rules:**
+
 1. Cannot be empty
 2. Must be unique (case-sensitive)
 3. Must match pattern: `^[a-zA-Z_][a-zA-Z0-9_.]*$`
 4. Can use dot notation for nested paths
 
 **Error Messages:**
+
 - "Field name cannot be empty"
 - "A field with this name already exists"
 - "Field name must start with a letter or underscore and contain only letters, numbers, underscores, or dots"
@@ -425,6 +447,7 @@ Component shows summary messages:
 ### Transformation Step
 
 **Usage:**
+
 - Uses schema fields as available fields
 - Filters out removed fields (`!f.isRemoved`)
 - Uses `userType` or `type` for field type information
@@ -433,6 +456,7 @@ Component shows summary messages:
 ### Field Mapping Step
 
 **Usage:**
+
 - Uses verified types from schema for type compatibility checks
 - Provides type information for ClickHouse column mapping
 - Ensures type safety in mappings
@@ -448,6 +472,7 @@ Component shows summary messages:
 ### TopicsStore Integration
 
 **Schema Storage:**
+
 - Schema is stored in `topic.schema`
 - Updated via `topicsStore.updateTopic()`
 - Persisted across navigation
@@ -456,6 +481,7 @@ Component shows summary messages:
 ### Validation Engine
 
 **Section Validation:**
+
 - Uses `validationEngine.onSectionConfigured(StepKeys.KAFKA_TYPE_VERIFICATION)`
 - Marks section as valid when saved
 - Integrates with overall pipeline validation
@@ -463,6 +489,7 @@ Component shows summary messages:
 ### Core Store
 
 **Dirty Tracking:**
+
 - In standalone mode, calls `coreStore.markAsDirty()`
 - Indicates unsaved changes
 - Triggers download warning
@@ -560,6 +587,7 @@ Component shows summary messages:
 ## Dependencies
 
 ### Internal Dependencies
+
 - `@/src/store` - State management (topicsStore, coreStore)
 - `@/src/utils` - Utilities (extractEventFields, getNestedValue)
 - `@/src/modules/clickhouse/utils` - Type inference (inferJsonType)
@@ -568,8 +596,17 @@ Component shows summary messages:
 - `@/src/components/shared` - Shared components (FormActions)
 
 ### External Dependencies
+
 - `react` - React hooks and components
 - `@heroicons/react` - Icons (TrashIcon, PlusIcon)
+
+## Technical Debt Addressed (Topic/Type Refactor)
+
+- **getNestedValue:** Removed local reimplementation; `useTypeVerificationState` imports from `@/src/modules/clickhouse/utils` (single source of truth).
+- **useTypeVerificationState:** Field/schema state, schema init from eventData + existing schema, and CRUD handlers moved into a dedicated hook. KafkaTypeVerification orchestrates and renders only.
+- **FieldTypesTable:** Table UI (header, body, add-field row, status messages) extracted into a presentational component. No store or topic access.
+- **FieldTypeInfo:** Moved to `src/modules/kafka/types.ts` and shared.
+- **KafkaTypeVerificationProps:** `pipelineActionState` typed as `PipelineActionState` (aligned with TopicSelectorProps).
 
 ## Future Improvements
 

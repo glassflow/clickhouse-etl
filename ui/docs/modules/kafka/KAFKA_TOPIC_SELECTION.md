@@ -4,33 +4,34 @@
 
 The Kafka Topic Selection module handles fetching, selecting, and managing Kafka topics within the application. It provides functionality for browsing available topics, selecting topics with offset configuration, previewing events, managing partition/replica counts, and handling deduplication configuration. The module supports both single-topic (ingest) and dual-topic (join) operations.
 
+**Related:** When editing the Kafka connection (standalone), topic fetch for comparison uses `src/modules/kafka/utils/fetchTopicsForConnection.ts`, which relies on the shared `connectionFormToRequestBody` from the connection module. See [KAFKA_CONNECTION.md](./KAFKA_CONNECTION.md) for connection flow, request-body utils, and form structure.
+
 ## Architecture
 
 ### Component Hierarchy
 
 ```
-KafkaTopicSelector (Main Container)
-├── useFetchTopics (Hook - Topic Fetching)
-│   └── KafkaApiClient (Service - API Communication)
-│       ├── fetchTopics() → /ui-api/kafka/topics
-│       └── fetchTopicDetails() → /ui-api/kafka/topic-details
+KafkaTopicSelector (Thin Container)
+├── useTopicSelectorTopics (Hook - Topic Fetching & Sync)
+│   └── useFetchTopics (Hook - API)
+│       └── KafkaApiClient (Service)
+│           ├── fetchTopics() → /ui-api/kafka/topics
+│           └── fetchTopicDetails() → /ui-api/kafka/topic-details
 │
-├── useKafkaTopicSelectorState (Hook - State Management)
-│   ├── useFetchEvent (Hook - Event Fetching)
-│   │   └── KafkaApiClient.fetchEvent() → /ui-api/kafka/events
-│   ├── TopicsStore (State Management)
-│   ├── DeduplicationStore (State Management)
-│   ├── JoinStore (State Management)
-│   └── ClickhouseDestinationStore (State Management)
+├── useKafkaTopicSelectorState (Orchestrator - composes sub-hooks)
+│   ├── useTopicOffsetReplicaState (Topic/offset/replica + store sync, originalTopicRef)
+│   ├── useTopicEventState (Event fetch, manual event, navigation)
+│   ├── useTopicDeduplicationState (Deduplication config)
+│   └── executeTopicSubmitAndInvalidation (utils - submit + smart invalidation)
+│       └── topicStepKeys (getSectionsToInvalidateForTopicStep)
 │
-├── TopicSelectWithEventPreview (Presentation Component)
-│   ├── TopicOffsetSelect (Topic & Offset Selection)
-│   ├── ReplicaCount (Replica Count Selection)
-│   ├── EventManager (Event Preview & Navigation)
-│   └── SelectDeduplicateKeys (Deduplication Configuration)
+├── topicStepKeys (utils - getTopicStepKeyForValidation, isTopicDeduplicationStep)
+│
+├── TopicSelectWithEventPreview (Presentation)
+│   ├── TopicOffsetSelect, ReplicaCount, EventManager, SelectDeduplicateKeys
 │
 ├── TopicChangeConfirmationModal (Confirmation Dialog)
-└── FormActions (Submit/Discard Actions)
+└── FormActions (Submit/Discard)
 ```
 
 ## Core Components
@@ -39,59 +40,52 @@ KafkaTopicSelector (Main Container)
 
 **Location:** `src/modules/kafka/KafkaTopicSelector.tsx`
 
-**Purpose:** The main container component that orchestrates the topic selection flow. It coordinates topic fetching, state management, event preview, and form submission.
+**Purpose:** Thin container that composes `useTopicSelectorTopics`, `useKafkaTopicSelectorState`, topic-change confirmation state, and step-key helpers. Renders TopicSelectWithEventPreview, FormActions, and TopicChangeConfirmationModal.
 
 **Key Responsibilities:**
-- Manages topic fetching with retry logic
+
+- Composes topic fetching via `useTopicSelectorTopics` (fetch, sync to store, partition/replica sync)
 - Coordinates topic selection state via `useKafkaTopicSelectorState`
-- Handles topic change confirmation in edit mode
-- Manages form submission and validation
-- Integrates with validation engine for dependent section invalidation
+- Handles topic change confirmation in edit mode (modal state, applyPartitionCountToReplica helper)
+- Uses `getTopicStepKeyForValidation` and `isTopicDeduplicationStep` from `utils/topicStepKeys` for submit and discard
 - Supports both creation and edit (standalone) modes
 
-**Key Features:**
+**Props:** Typed via `TopicSelectorProps` (see [types.ts](../../../src/modules/kafka/types.ts)): `steps?: TopicSelectorSteps`, `onCompleteStep`, `validate: (stepName: StepKeys | string, data?: unknown) => boolean`, `currentStep`, `readOnly`, `standalone`, `toggleEditMode`, `enableDeduplication`, `onDeduplicationChange`, `initialDeduplicationConfig`, `pipelineActionState?: PipelineActionState`, `onCompleteStandaloneEditing`.
 
-#### Topic Fetching Logic
-- Automatically fetches topics on mount if `availableTopics` is empty
-- Retries up to 3 times if fetch fails
-- Fetches topic details (partition counts) when topics are available but details aren't
-- Updates partition count and replica count when topic details are fetched
+### 2. useTopicSelectorTopics
 
-#### Topic Change Handling
-- In edit mode, shows confirmation modal before changing topic
-- Warns user about dependent sections that will be invalidated
-- Updates replica count to match partition count when topic changes
+**Location:** `src/modules/kafka/hooks/useTopicSelectorTopics.ts`
 
-#### Form Submission
-- In creation mode: Moves to next step after submission
-- In edit mode: Marks section as valid, marks config as dirty, closes modal
-- Uses smart invalidation logic to only invalidate dependents when schema changes
+**Purpose:** Encapsulates topic fetching, syncing available topics to store, and partition/replica sync when topic details are loaded. Keeps KafkaTopicSelector thin.
 
-**Props:**
-```typescript
-{
-  steps: any
-  onCompleteStep: (stepName: string) => void
-  validate: (stepName: string, data: any) => boolean
-  currentStep?: string
-  readOnly?: boolean
-  standalone?: boolean
-  toggleEditMode?: () => void
-  enableDeduplication?: boolean
-  onDeduplicationChange?: (config: DeduplicationConfig) => void
-  initialDeduplicationConfig?: Partial<DeduplicationConfig>
-  pipelineActionState?: any
-  onCompleteStandaloneEditing?: () => void
-}
-```
+**Inputs:** `topicName`, `partitionCount`, `replicas`, `updatePartitionCount`, `selectReplicaCount` (from useKafkaTopicSelectorState).
 
-### 2. useFetchTopics Hook
+**Outputs:** `availableTopics`, `fetchTopics`, `getPartitionCount`, `isLoadingTopics`, `topicsError`.
+
+**Behavior:** Fetches topics on mount when `availableTopics` is empty (retry cap 3); fetches topic details when topics exist but details don't; syncs fetched topics to store; when topic name and topic details exist, updates partition count and replica count via the provided callbacks.
+
+### 3. Topic step-key utils
+
+**Location:** `src/modules/kafka/utils/topicStepKeys.ts`
+
+**Purpose:** Single source of truth for topic-selector step keys and validation/invalidation mapping.
+
+**Exports:**
+
+- `TOPIC_SELECTOR_STEP_KEYS` – array of the four topic-selector StepKeys
+- `isTopicSelectorStep(step)` – true when step is one of the four
+- `getTopicStepKeyForValidation(step)` – returns StepKeys for markSectionAsValid/onCompleteStep, or null
+- `getSectionsToInvalidateForTopicStep(currentStep)` – returns StepKeys[] to invalidate (used by executeTopicSubmitAndInvalidation)
+- `isTopicDeduplicationStep(step)` – true for deduplication configurator steps (used for discard sections)
+
+### 4. useFetchTopics Hook
 
 **Location:** `src/hooks/useFetchKafkaTopics.ts`
 
 **Purpose:** Provides functionality to fetch available topics and topic details (partition counts) from Kafka.
 
 **API:**
+
 ```typescript
 {
   topics: string[]
@@ -104,6 +98,7 @@ KafkaTopicSelector (Main Container)
 ```
 
 **Fetching Flow:**
+
 1. Validates Kafka connection details are present
 2. Sets loading state to `true`
 3. Fetches topics and topic details in sequence (not parallel currently)
@@ -112,17 +107,24 @@ KafkaTopicSelector (Main Container)
 6. Shows notifications on failure with retry option
 
 **Topic Details:**
+
 - Fetches partition count for each topic
 - Used to auto-set replica count when topic is selected
 - Important for edit mode where topics are hydrated but partition counts may be missing
 
-### 3. useKafkaTopicSelectorState Hook
+### 5. useKafkaTopicSelectorState Hook
 
 **Location:** `src/modules/kafka/hooks/useKafkaTopicSelectorState.ts`
 
-**Purpose:** Centralized state management hook for topic selection. Manages topic selection, offset selection, event fetching, deduplication configuration, and submission logic.
+**Purpose:** Thin orchestrator that composes sub-hooks and exposes the same API for topic selection. It delegates to:
+
+- **useTopicOffsetReplicaState** (`hooks/useTopicOffsetReplicaState.ts`) – Topic name, offset, replicas, store sync, `originalTopicRef`, `selectTopic`, `handleOffsetChange`, `handleReplicaCountChange`, `updatePartitionCount`.
+- **useTopicEventState** (`hooks/useTopicEventState.ts`) – Event state, manual event, fetch navigation (fetchNewestEvent, fetchOldestEvent, fetchNextEvent, fetchPreviousEvent, refreshEvent), `handleManualEventChange`. Uses `useFetchEvent` internally.
+- **useTopicDeduplicationState** (`hooks/useTopicDeduplicationState.ts`) – Deduplication config state and `configureDeduplication`.
+- **executeTopicSubmitAndInvalidation** (`utils/topicSubmitAndInvalidation.ts`) – Submit handler: builds topic/dedup data, schema comparison, smart invalidation (join, dedup, clickhouse mapping, validation engine).
 
 **State Managed:**
+
 - Topic name and selection
 - Offset (earliest/latest)
 - Event data and navigation
@@ -135,6 +137,7 @@ KafkaTopicSelector (Main Container)
 **Key Functions:**
 
 #### `selectTopic(newTopicName: string)`
+
 - Updates topic name in local state and store
 - Clears events when topic changes (new topic = different events)
 - Preserves other properties (offset, replicas) from current topic
@@ -142,22 +145,27 @@ KafkaTopicSelector (Main Container)
 - Tracks analytics event
 
 #### `selectOffset(newOffset: 'earliest' | 'latest')`
+
 - Updates offset in local state and store
 - Clears events when offset changes (different offset = different events)
 - Preserves other properties from current topic
 
 #### `selectReplicaCount(newReplicaCount: number)`
+
 - Updates replica count in local state and store
 - Preserves ALL existing topic data (including events)
 - Only updates the replica count field
 
 #### `updatePartitionCount(newPartitionCount: number)`
+
 - Updates partition count in store
 - Preserves ALL existing topic data
 - Used when topic details are fetched
 
 #### `submit()`
+
 The most complex function, handles:
+
 1. **Event Resolution:**
    - Uses manual event if provided and valid
    - Falls back to fetched event from state
@@ -186,6 +194,7 @@ The most complex function, handles:
    - Marks configuration as dirty in edit mode
 
 **Event Navigation:**
+
 - `fetchNewestEvent(topicName)` - Fetches latest event
 - `fetchOldestEvent(topicName)` - Fetches earliest event
 - `fetchNextEvent(topicName, currentOffset)` - Fetches next event
@@ -193,17 +202,19 @@ The most complex function, handles:
 - `refreshEvent(topicName, fetchNext?)` - Refreshes current event
 
 **Deduplication Configuration:**
+
 - `configureDeduplication(keyConfig, windowConfig)` - Updates deduplication config
 - Validates that both key and window are configured
 - Updates `deduplicationStore` and tracks analytics
 
-### 4. TopicSelectWithEventPreview
+### 6. TopicSelectWithEventPreview
 
 **Location:** `src/modules/kafka/components/TopicSelectWithEventPreview.tsx`
 
 **Purpose:** Presentation component that displays topic selection form and event preview side-by-side.
 
 **Layout:**
+
 - **Left Side (2/5 width):** Form fields
   - Topic selector dropdown
   - Offset selector (earliest/latest)
@@ -213,19 +224,21 @@ The most complex function, handles:
   - EventManager component for viewing/navigating events
 
 **Features:**
+
 - Supports both hook-provided data and local state fallback
 - Handles topic change, offset change, and manual event input
 - Displays loading states during event fetching
 - Shows error messages when event fetch fails
 - Disables topic change in read-only mode (configurable via `disableTopicChange` prop)
 
-### 5. TopicChangeConfirmationModal
+### 7. TopicChangeConfirmationModal
 
 **Location:** `src/modules/kafka/components/TopicChangeConfirmationModal.tsx`
 
 **Purpose:** Confirmation dialog shown when user attempts to change topic in edit mode.
 
 **Features:**
+
 - Lists sections that will be invalidated based on operation type:
   - **ingest:** Field Mapping
   - **deduplication:** Deduplication Configuration, Field Mapping
@@ -234,18 +247,20 @@ The most complex function, handles:
 - Warns user that sections will show red borders
 - Requires explicit confirmation before proceeding
 
-### 6. useGetIndex Hook
+### 8. useGetIndex Hook
 
 **Location:** `src/modules/kafka/useGetIndex.ts`
 
 **Purpose:** Determines the topic index (0 or 1) based on the current step name.
 
 **Logic:**
+
 - `TOPIC_SELECTION_1` or `TOPIC_DEDUPLICATION_CONFIGURATOR_1` → index 0
 - `TOPIC_SELECTION_2` or `TOPIC_DEDUPLICATION_CONFIGURATOR_2` → index 1
 - Default → index 0
 
 **Why:**
+
 - More reliable than using `operationsSelected` during editing
 - Step names are consistent across create and edit modes
 - Supports dual-topic operations (join)
@@ -259,6 +274,7 @@ The most complex function, handles:
 **Purpose:** Manages all topic-related state using Zustand.
 
 **State Structure:**
+
 ```typescript
 {
   // Available topics from Kafka
@@ -296,6 +312,7 @@ The most complex function, handles:
 ```
 
 **Actions:**
+
 - `setAvailableTopics(topics: string[])` - Sets available topics list
 - `setTopicCount(count: number)` - Sets number of topics
 - `updateTopic(topic: KafkaTopicType)` - Updates topic data (auto-marks as valid)
@@ -305,12 +322,14 @@ The most complex function, handles:
 - `resetTopicsStore()` - Resets all topic state
 
 **Topic Update Behavior:**
+
 - When `updateTopic` is called, validation is automatically set to valid
 - Topic data is stored by index, allowing multiple topics (for join operations)
 - Events are stored as an array, with `selectedEvent` pointing to the current event
 
 **Dependent State Invalidation:**
 When `invalidateTopicDependentState` is called:
+
 1. Clears join store (disables join, clears type and streams)
 2. Invalidates deduplication for the topic index
 3. Cleans topic data, keeping only:
@@ -329,6 +348,7 @@ When `invalidateTopicDependentState` is called:
 **Purpose:** Provides functionality to fetch individual events from Kafka topics.
 
 **API:**
+
 ```typescript
 {
   fetchEvent: (topic: string, getNext: boolean, options?: FetchOptions) => Promise<void>
@@ -343,6 +363,7 @@ When `invalidateTopicDependentState` is called:
 ```
 
 **Fetch Options:**
+
 ```typescript
 {
   direction?: 'next' | 'previous'
@@ -351,6 +372,7 @@ When `invalidateTopicDependentState` is called:
 ```
 
 **Fetching Flow:**
+
 1. Validates topic is provided
 2. Checks edge cases (already at first/last event)
 3. Sets loading state and clears errors
@@ -363,16 +385,27 @@ When `invalidateTopicDependentState` is called:
    - Timeout errors with retry option
 
 **Navigation State:**
+
 - `hasMoreEvents` - True if there are newer events
 - `hasOlderEvents` - True if there are older events
 - `currentOffset` - Current Kafka offset of displayed event
 - Set based on position (earliest/latest) and API response
 
 **Error Handling:**
+
 - Shows notifications for errors
 - Provides retry callbacks in notifications
 - Handles timeout scenarios gracefully
 - Falls back to mock data when appropriate
+
+### Event fetch on revisit
+
+When the user returns to the topic step (wizard or edit mode) and a stored event already exists for the selected topic (`effectiveEvent` from store), the form **does not** auto-fetch the event again. The stored event is shown immediately. This reduces unnecessary API calls and improves UX when navigating back to the step.
+
+- **First visit (no stored event):** The form auto-fetches an event based on the selected offset (earliest or latest).
+- **Revisit or edit mode (stored event present):** No auto-fetch. The user can refresh on demand via **Fetch newest event** or **Refresh current event** in the EventManager (e.g. when offset is latest and they want the actual latest message).
+
+Implemented in `useTopicEventState`: the fetch effect skips when `effectiveEvent` is truthy; the effect that applies `effectiveEvent` also sets `isAtEarliest` / `isAtLatest` so navigation buttons reflect the correct state.
 
 ### KafkaApiClient
 
@@ -383,21 +416,25 @@ When `invalidateTopicDependentState` is called:
 **Methods:**
 
 #### `fetchTopics(kafka: KafkaStore)`
+
 - Builds request body with auth headers
 - POSTs to `/ui-api/kafka/topics`
 - Returns list of topic names
 
 #### `fetchTopicDetails(kafka: KafkaStore)`
+
 - Builds request body with auth headers
 - POSTs to `/ui-api/kafka/topic-details`
 - Returns array of `{ name: string, partitionCount: number }`
 
 #### `fetchEvent(kafka: KafkaStore, options: FetchEventRequest)`
+
 - Builds request body with auth headers and event options
 - POSTs to `/ui-api/kafka/events`
 - Returns event data, offset, and metadata
 
 **Auth Header Building:**
+
 - Extracts connection details from `kafkaStore`
 - Adds auth-specific fields based on auth method
 - Includes certificates and skipTlsVerification for SSL protocols
@@ -498,6 +535,7 @@ The module uses intelligent invalidation to avoid unnecessary reconfiguration:
 ### Schema Comparison
 
 Uses `compareEventSchemas(previousEvent, finalEvent)` utility:
+
 - Compares field names and types
 - Ignores field values
 - Returns `true` if schemas match, `false` otherwise
@@ -505,6 +543,7 @@ Uses `compareEventSchemas(previousEvent, finalEvent)` utility:
 ### Dependent Sections
 
 When invalidation occurs:
+
 - **Join Store:** Cleared (disabled, type cleared, streams cleared)
 - **Deduplication Store:** Cleared or invalidated based on context
 - **Clickhouse Destination:** Field mappings cleared
@@ -524,6 +563,7 @@ The `useGetIndex` hook determines the index based on step name, which is more re
 ## API Endpoints
 
 ### Fetch Topics
+
 - **Endpoint:** `POST /ui-api/kafka/topics`
 - **Request Body:** Kafka connection details (same as connection test)
 - **Response:**
@@ -536,6 +576,7 @@ The `useGetIndex` hook determines the index based on step name, which is more re
   ```
 
 ### Fetch Topic Details
+
 - **Endpoint:** `POST /ui-api/kafka/topic-details`
 - **Request Body:** Kafka connection details
 - **Response:**
@@ -548,8 +589,10 @@ The `useGetIndex` hook determines the index based on step name, which is more re
   ```
 
 ### Fetch Event
+
 - **Endpoint:** `POST /ui-api/kafka/events`
 - **Request Body:**
+
   ```typescript
   {
     // Kafka connection details
@@ -557,7 +600,7 @@ The `useGetIndex` hook determines the index based on step name, which is more re
     securityProtocol: string
     authMethod: string
     // ... auth-specific fields
-  
+
     // Event fetch options
     topic: string
     format?: string
@@ -568,6 +611,7 @@ The `useGetIndex` hook determines the index based on step name, which is more re
     runConsumerFirst?: boolean
   }
   ```
+
 - **Response:**
   ```typescript
   {
@@ -628,6 +672,7 @@ The module tracks analytics events via `useJourneyAnalytics`:
 ## Dependencies
 
 ### Internal Dependencies
+
 - `@/src/store` - Global state management (topicsStore, deduplicationStore, joinStore, etc.)
 - `@/src/hooks` - Custom hooks (useFetchTopics, useFetchEvent, useJourneyAnalytics)
 - `@/src/services` - API clients (kafkaApiClient)
@@ -635,6 +680,7 @@ The module tracks analytics events via `useJourneyAnalytics`:
 - `@/src/utils` - Utilities (compareEventSchemas)
 
 ### External Dependencies
+
 - `react` - React hooks and components
 - `zustand` - State management
 - `next/image` - Image optimization
@@ -665,6 +711,15 @@ The module tracks analytics events via `useJourneyAnalytics`:
    - Provide clear, actionable error messages
    - Offer retry options where appropriate
    - Fall back gracefully when possible
+
+## Technical Debt Addressed (Phase 3 & 4 and Topic/Type Refactor)
+
+- **useKafkaTopicSelectorState split:** The 900+ line hook was split into smaller hooks and a submit helper: `useTopicOffsetReplicaState`, `useTopicEventState`, `useTopicDeduplicationState`, and `executeTopicSubmitAndInvalidation`. The main hook composes them and exposes the same API.
+- **KafkaTopicSelectorLegacy removed:** The legacy component was not referenced anywhere and was removed (Phase 4).
+- **Topic step-key utility:** Centralized step-key logic in `utils/topicStepKeys.ts` (`TOPIC_SELECTOR_STEP_KEYS`, `isTopicSelectorStep`, `getTopicStepKeyForValidation`, `getSectionsToInvalidateForTopicStep`, `isTopicDeduplicationStep`). KafkaTopicSelector and `executeTopicSubmitAndInvalidation` use these helpers instead of repeated if/else chains; invalidation uses StepKeys only.
+- **useTopicSelectorTopics:** Topic fetching, sync to store, and partition/replica sync moved into `useTopicSelectorTopics`. KafkaTopicSelector is a thin container that composes this hook and `useKafkaTopicSelectorState`.
+- **applyPartitionCountToReplica:** Single helper used in both topic-change and confirm-topic-change paths.
+- **TopicSelectorProps types:** `steps`, `validate`, and `pipelineActionState` are now properly typed (`TopicSelectorSteps`, `PipelineActionState`).
 
 ## Future Improvements
 

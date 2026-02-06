@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import type { ListPipelineConfig } from '@/src/types/pipeline'
 
 export function useStopPipelineModal() {
   const [isStopModalVisible, setIsStopModalVisible] = useState(false)
-  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+  const [selectedPipeline, setSelectedPipeline] = useState<ListPipelineConfig | null>(null)
 
-  const openStopModal = (pipeline?: any) => {
-    setSelectedPipeline(pipeline)
+  const openStopModal = (pipeline?: ListPipelineConfig | null) => {
+    setSelectedPipeline(pipeline ?? null)
     setIsStopModalVisible(true)
   }
 
@@ -26,10 +27,10 @@ export function useStopPipelineModal() {
 
 export function useRenamePipelineModal() {
   const [isRenameModalVisible, setIsRenameModalVisible] = useState(false)
-  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+  const [selectedPipeline, setSelectedPipeline] = useState<ListPipelineConfig | null>(null)
 
-  const openRenameModal = (pipeline?: any) => {
-    setSelectedPipeline(pipeline)
+  const openRenameModal = (pipeline?: ListPipelineConfig | null) => {
+    setSelectedPipeline(pipeline ?? null)
     setIsRenameModalVisible(true)
   }
 
@@ -50,10 +51,10 @@ export function useRenamePipelineModal() {
 
 export function useEditPipelineModal() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
-  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+  const [selectedPipeline, setSelectedPipeline] = useState<ListPipelineConfig | null>(null)
 
-  const openEditModal = (pipeline?: any) => {
-    setSelectedPipeline(pipeline)
+  const openEditModal = (pipeline?: ListPipelineConfig | null) => {
+    setSelectedPipeline(pipeline ?? null)
     setIsEditModalVisible(true)
   }
 
@@ -74,12 +75,12 @@ export function useEditPipelineModal() {
 
 export function useEditConfirmationModal() {
   const [isEditConfirmationModalVisible, setIsEditConfirmationModalVisible] = useState(false)
-  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
-  const [selectedStep, setSelectedStep] = useState<any>(null)
+  const [selectedPipeline, setSelectedPipeline] = useState<ListPipelineConfig | null>(null)
+  const [selectedStep, setSelectedStep] = useState<{ title?: string } | null>(null)
 
-  const openEditConfirmationModal = (pipeline?: any, step?: any) => {
-    setSelectedPipeline(pipeline)
-    setSelectedStep(step)
+  const openEditConfirmationModal = (pipeline?: ListPipelineConfig | null, step?: { title?: string } | null) => {
+    setSelectedPipeline(pipeline ?? null)
+    setSelectedStep(step ?? null)
     setIsEditConfirmationModalVisible(true)
   }
 
@@ -102,10 +103,10 @@ export function useEditConfirmationModal() {
 
 export function useTerminatePipelineModal() {
   const [isTerminateModalVisible, setIsTerminateModalVisible] = useState(false)
-  const [selectedPipeline, setSelectedPipeline] = useState<any>(null)
+  const [selectedPipeline, setSelectedPipeline] = useState<ListPipelineConfig | null>(null)
 
-  const openTerminateModal = (pipeline?: any) => {
-    setSelectedPipeline(pipeline)
+  const openTerminateModal = (pipeline?: ListPipelineConfig | null) => {
+    setSelectedPipeline(pipeline ?? null)
     setIsTerminateModalVisible(true)
   }
 

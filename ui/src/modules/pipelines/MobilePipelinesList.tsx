@@ -1,18 +1,18 @@
 import React from 'react'
-import { ListPipelineConfig, parsePipelineStatus, PipelineStatus } from '@/src/types/pipeline'
+import { ListPipelineConfig, PipelineStatus } from '@/src/types/pipeline'
 import { Badge } from '@/src/components/ui/badge'
 import { TableContextMenu } from './TableContextMenu'
 import { cn } from '@/src/utils/common.client'
-import { PIPELINE_STATUS_MAP } from '@/src/config/constants'
-import { Pipeline } from '@/src/types/pipeline'
+import {
+  getPipelineStatusLabel,
+  getPipelineStatusVariant,
+} from '@/src/utils/pipeline-status-display'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
-// TEMPORARILY DISABLED: Health monitoring imports
-// import { PipelineHealth, getHealthStatusDisplayText } from '@/src/api/pipeline-health'
 
 interface MobilePipelinesListProps {
   pipelines: ListPipelineConfig[]
-  healthMap: Record<string, any> // Temporarily any since we're not using health data
+  pipelineStatuses: Record<string, PipelineStatus | null>
   onStop?: (pipeline: ListPipelineConfig) => void
   onResume?: (pipeline: ListPipelineConfig) => void
   onEdit?: (pipeline: ListPipelineConfig) => void
@@ -27,7 +27,7 @@ interface MobilePipelinesListProps {
 
 export function MobilePipelinesList({
   pipelines,
-  healthMap,
+  pipelineStatuses,
   onStop,
   onResume,
   onEdit,
@@ -39,46 +39,15 @@ export function MobilePipelinesList({
   isPipelineLoading,
   getPipelineOperation,
 }: MobilePipelinesListProps) {
-  const getStatusVariant = (status: string, pipelineId?: string) => {
-    // TEMPORARILY DISABLED: Health monitoring - use static status only
-    // const healthData = pipelineId ? healthMap[pipelineId] : null
-    // const effectiveStatus = healthData?.overall_status || status
-
-    switch (status) {
-      case PIPELINE_STATUS_MAP.active:
-        return 'success'
-      case PIPELINE_STATUS_MAP.paused:
-        return 'warning'
-      case PIPELINE_STATUS_MAP.pausing:
-        return 'warning'
-      case PIPELINE_STATUS_MAP.stopping:
-        return 'warning'
-      case PIPELINE_STATUS_MAP.stopped:
-        return 'secondary'
-      case PIPELINE_STATUS_MAP.failed:
-        return 'error'
-      default:
-        return 'default'
-    }
-  }
-
-  const getStatusLabel = (status: string, pipelineId?: string) => {
-    // TEMPORARILY DISABLED: Health monitoring - use static status only
-    // const healthData = pipelineId ? healthMap[pipelineId] : null
-    // if (healthData) {
-    //   return getHealthStatusDisplayText(healthData.overall_status)
-    // }
-
-    // Use static status from initial pipeline data
-    return status || 'No Configuration'
-  }
+  const getEffectiveStatus = (pipeline: ListPipelineConfig): PipelineStatus =>
+    pipelineStatuses[pipeline.pipeline_id] ?? (pipeline.status as PipelineStatus) ?? 'active'
 
   if (pipelines.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
         <div className="text-center">
           <p className="text-muted-foreground text-lg">
-            No pipelines found. Create your first pipeline to get started.
+            No pipelines found. Adjust your filters or create a new pipeline to get started.
           </p>
         </div>
       </div>
@@ -108,11 +77,11 @@ export function MobilePipelinesList({
                     <div className="flex items-center gap-1">
                       <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
                       <span className="text-xs text-blue-600">
-                        {operation === 'pause' && 'Pausing...'}
+                        {operation === 'stop' && 'Stopping...'}
                         {operation === 'resume' && 'Resuming...'}
                         {operation === 'delete' && 'Deleting...'}
                         {operation === 'rename' && 'Renaming...'}
-                        {operation === 'edit' && 'Pausing...'}
+                        {operation === 'edit' && 'Stopping...'}
                       </span>
                     </div>
                   )}
@@ -121,7 +90,7 @@ export function MobilePipelinesList({
               </div>
               <div className="ml-3 flex-shrink-0">
                 <TableContextMenu
-                  pipelineStatus={(pipeline.status as PipelineStatus) || 'no_configuration'}
+                  pipelineStatus={getEffectiveStatus(pipeline)}
                   isLoading={isLoading}
                   onStop={onStop ? () => onStop(pipeline) : undefined}
                   onResume={onResume ? () => onResume(pipeline) : undefined}
@@ -142,13 +111,8 @@ export function MobilePipelinesList({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <Badge
-                  variant={getStatusVariant(
-                    (pipeline.status as PipelineStatus) || 'no_configuration',
-                    pipeline.pipeline_id,
-                  )}
-                >
-                  {getStatusLabel((pipeline.status as PipelineStatus) || 'no_configuration', pipeline.pipeline_id)}
+                <Badge variant={getPipelineStatusVariant(getEffectiveStatus(pipeline))}>
+                  {getPipelineStatusLabel(getEffectiveStatus(pipeline))}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">

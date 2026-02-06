@@ -3,12 +3,9 @@
 import React, { useRef, useEffect } from 'react'
 import { cn } from '@/src/utils/common.client'
 import { PipelineStatus } from '@/src/types/pipeline'
+import type { FilterState } from './utils/filterUrl'
 
-export interface FilterState {
-  status: PipelineStatus[]
-  health: ('stable' | 'unstable')[]
-  tags: string[]
-}
+export type { FilterState } from './utils/filterUrl'
 
 interface PipelineFilterMenuProps {
   isOpen: boolean

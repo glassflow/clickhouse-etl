@@ -98,6 +98,36 @@ export const isDemoMode = (): boolean => {
   }
 }
 
+/**
+ * Get the Grafana/metrics dashboard URL from environment variables.
+ * Handles both server-side and client-side rendering, including Docker runtime environments.
+ *
+ * @returns The dashboard URL or null if not configured
+ */
+export const getDashboardUrl = (): string | null => {
+  const isServer = typeof window === 'undefined'
+
+  if (isServer) {
+    return process.env.NEXT_PUBLIC_DASHBOARD || null
+  } else {
+    const runtimeEnv = getRuntimeEnv() as any
+    return runtimeEnv.NEXT_PUBLIC_DASHBOARD || process.env.NEXT_PUBLIC_DASHBOARD || null
+  }
+}
+
+/**
+ * Check if the Grafana/metrics dashboard is available.
+ * The dashboard is considered available when:
+ * - The NEXT_PUBLIC_DASHBOARD environment variable is set
+ * - The application is running in demo mode
+ *
+ * @returns true if the dashboard is available and should be shown
+ */
+export const isDashboardAvailable = (): boolean => {
+  const dashboardUrl = getDashboardUrl()
+  return !!(dashboardUrl && isDemoMode())
+}
+
 // Helper function to extract fields from event data with support for nested objects and arrays
 export const extractEventFields = (data: any, prefix = ''): string[] => {
   if (!data || typeof data !== 'object') {

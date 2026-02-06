@@ -1,4 +1,16 @@
-// Shared pipeline types used across the application
+/**
+ * Shared pipeline types used across the application
+ *
+ * Type Hierarchy:
+ * - PipelineApiResponse: Raw response from the backend API (may have different structure per version)
+ * - Pipeline: Normalized pipeline structure used throughout the UI
+ * - InternalPipelineConfig: Extended Pipeline with UI-specific fields (e.g., transformation)
+ *
+ * Hydration Flow:
+ * 1. API returns PipelineApiResponse
+ * 2. Adapter.hydrate(apiResponse) converts to InternalPipelineConfig
+ * 3. InternalPipelineConfig is used to populate stores and render UI
+ */
 
 import { PIPELINE_STATUS_MAP } from '../config/constants'
 
@@ -107,12 +119,30 @@ export interface DLQState {
   unconsumed_messages: number
 }
 
-// Defines the internal structure of a pipeline configuration used by the UI
-// This should remain stable even if the backend API format changes
+/**
+ * Type alias for raw API response from the backend.
+ *
+ * Use this type at the hydration boundary (e.g., getPipeline response)
+ * to make it explicit that the data comes from the API and needs
+ * to be transformed via adapter.hydrate() before use.
+ *
+ * The actual structure may vary by API version, so we use `any` here.
+ * The adapter is responsible for normalizing it to InternalPipelineConfig.
+ */
+export type PipelineApiResponse = any
+
+/**
+ * Defines the internal structure of a pipeline configuration used by the UI.
+ * This should remain stable even if the backend API format changes.
+ *
+ * @see PipelineApiResponse for the raw API type
+ * @see PipelineAdapter.hydrate() for the conversion process
+ */
 export type InternalPipelineConfig = Pipeline & {
   /**
    * Legacy / internal transformation config used by the UI.
    * Newer API versions may use `stateless_transformation` instead.
+   * The adapter normalizes both formats to this structure.
    */
   transformation?: {
     enabled?: boolean
@@ -121,12 +151,17 @@ export type InternalPipelineConfig = Pipeline & {
   }
 }
 
+/**
+ * Normalized pipeline structure used throughout the UI.
+ *
+ * This represents the canonical pipeline shape after hydration.
+ * All UI components should work with this type (or InternalPipelineConfig).
+ */
 export interface Pipeline {
   pipeline_id: string
   name: string
-  version?: string // Pipeline configuration version
-  // state: string // Pipeline status from backend State field
-  status?: PipelineStatus // UI status field (converted from state)
+  version?: string // Pipeline configuration version (e.g., "2.0")
+  status?: PipelineStatus // UI status field (converted from backend state)
   created_at?: string // Creation timestamp
   source: {
     type: string

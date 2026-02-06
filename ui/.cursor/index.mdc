@@ -1,5 +1,11 @@
 alwaysApply: true
 
+## Ownership
+
+- **docs/** owns: canonical truth (full architecture, design system, module behavior, implementations).
+- **.cursor/** owns: operational guidance (rules, concise summaries, pointers to docs).
+- **Rule:** `.cursor/architecture/*` must not contain unique facts that do not exist in `docs/`; only summaries and links.
+
 ## General Development Rules
 
 - Prefer server components; add `'use client'` only when hooks/DOM APIs are needed.
@@ -10,6 +16,10 @@ alwaysApply: true
 - State changes go through Zustand slice actions; respect mode (create/edit/view) and read-only states.
 - API interactions go through client API helpers → Next.js `/ui-api` routes → backend; keep routes thin.
 - Styling: use Tailwind + theme tokens; dark theme only; avoid hardcoded colors.
+
+## Context map
+
+- What to load per area: `.cursor/CONTEXT_MAP.md`
 
 ## Rule Files
 
@@ -25,7 +35,8 @@ alwaysApply: true
 - Environment: `.cursor/architecture/ENVIRONMENT.md`
 - Auth0 env behavior: `.cursor/architecture/AUTH0_ENV.md`
 - Observability: `.cursor/architecture/OBSERVABILITY.md`
-- Notifications: `.cursor/architecture/NOTIFICATIONS.md`
+- In-app notifications (notify): `.cursor/architecture/IN_APP_NOTIFICATIONS.md`
+- Notification center (panel/store): `.cursor/architecture/NOTIFICATION_CENTER.md`
 - Overview: `.cursor/architecture/ARCHITECTURE_OVERVIEW.md`
 - Components: `.cursor/architecture/COMPONENT_ARCHITECTURE.md`
 - State: `.cursor/architecture/STATE_MANAGEMENT.md`

@@ -472,13 +472,6 @@ export function FilterConfigurator({
 
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
-        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
-        {!standalone && (
-          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
-            Skip Filter
-          </Button>
-        )}
-
         <FormActions
           standalone={standalone}
           onSubmit={handleSave}
@@ -496,6 +489,13 @@ export function FilterConfigurator({
           pipelineActionState={pipelineActionState}
           onClose={onCompleteStandaloneEditing}
         />
+
+        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
+        {!standalone && (
+          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
+            Skip Filter
+          </Button>
+        )}
       </div>
     </div>
   )

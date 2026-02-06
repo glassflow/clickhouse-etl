@@ -7,6 +7,7 @@ import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { PlusIcon, TrashIcon, ChevronDownIcon, ChevronRightIcon, ArrowDownIcon } from '@heroicons/react/24/outline'
+import { FieldSelectCombobox } from './FieldSelectCombobox'
 import {
   ConcatSlot,
   ConcatSlotType,
@@ -316,23 +317,14 @@ export function ConcatExpressionBuilder({
 
                 {/* Slot-type specific inputs */}
                 {slot.slotType === 'field' && (
-                  <Select
+                  <FieldSelectCombobox
                     value={slot.fieldName || ''}
                     onValueChange={(v) => handleFieldChange(index, v)}
+                    availableFields={availableFields}
+                    placeholder="Select field"
                     disabled={disabled}
-                  >
-                    <SelectTrigger className="input-regular input-border-regular flex-1 h-8 text-sm">
-                      <SelectValue placeholder="Select field" />
-                    </SelectTrigger>
-                    <SelectContent className="select-content-custom">
-                      {availableFields.map((f) => (
-                        <SelectItem key={f.name} value={f.name} className="select-item-custom text-sm">
-                          <span>{f.name}</span>
-                          <span className="ml-2 text-[var(--text-secondary)]">({f.type})</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    triggerClassName="flex-1 h-8 text-sm"
+                  />
                 )}
 
                 {slot.slotType === 'literal' && (
@@ -458,7 +450,7 @@ export function ConcatExpressionBuilder({
                                         {argDef.required !== false && ' *'}
                                       </Label>
                                       {argDef.type === 'field' ? (
-                                        <Select
+                                        <FieldSelectCombobox
                                           value={
                                             func.additionalArgs[argIndex]?.type === 'field'
                                               ? (func.additionalArgs[argIndex] as FunctionArgField).fieldName
@@ -467,23 +459,12 @@ export function ConcatExpressionBuilder({
                                           onValueChange={(v) =>
                                             handlePostProcessArgChange(index, argIndex, v, 'field')
                                           }
+                                          availableFields={availableFields}
+                                          placeholder="Select field"
                                           disabled={disabled}
-                                        >
-                                          <SelectTrigger className="input-regular input-border-regular h-8 text-sm">
-                                            <SelectValue placeholder="Select field" />
-                                          </SelectTrigger>
-                                          <SelectContent className="select-content-custom">
-                                            {availableFields.map((f) => (
-                                              <SelectItem
-                                                key={f.name}
-                                                value={f.name}
-                                                className="select-item-custom text-sm"
-                                              >
-                                                {f.name}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
+                                          filterTypes={argDef.fieldTypes}
+                                          triggerClassName="h-8 text-sm"
+                                        />
                                       ) : (
                                         <Input
                                           value={

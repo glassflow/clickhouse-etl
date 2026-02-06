@@ -179,7 +179,7 @@
   --button-tertiary-hover: var(--color-background-neutral-faded);
   --button-tertiary-active: var(--color-background-neutral-faded);
   --button-tertiary-border: none;
-  --button-tertiary-shadow: 0px 0px 4px 0px var(--color-black), 0px 4px 8px 0px var(--color-black);
+  --button-tertiary-shadow: var(--shadow-pressed);
   --button-tertiary-padding-x: var(--unit-x2);
   --button-tertiary-padding-y: var(--unit-x3);
   --button-tertiary-font-family: var(--font-family-body-3);

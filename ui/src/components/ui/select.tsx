@@ -5,6 +5,7 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 
 import { cn } from '@/src/utils/common.client'
+import { DROPDOWN_COLLISION_PADDING } from './constants'
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />
@@ -53,11 +54,13 @@ function SelectContent({
   className,
   children,
   position = 'popper',
+  collisionPadding = DROPDOWN_COLLISION_PADDING,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
     // Always portal to document.body (container=undefined) to avoid overflow issues in modals
     // Use high z-index to appear above modal overlays
+    // collisionPadding reserves space so content does not hide behind fixed header when opening above
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
@@ -68,6 +71,7 @@ function SelectContent({
           className,
         )}
         position={position}
+        collisionPadding={collisionPadding}
         {...props}
       >
         <SelectScrollUpButton />

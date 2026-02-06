@@ -4,7 +4,10 @@ const config: NextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      { protocol: 'http', hostname: 'localhost', pathname: '/**' },
+      { protocol: 'https', hostname: 'localhost', pathname: '/**' },
+    ],
   },
   env: {
     NEXT_PUBLIC_USE_MOCK_API: process.env.NEXT_PUBLIC_USE_MOCK_API,
@@ -31,7 +34,7 @@ const config: NextConfig = {
     NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS: process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS,
     NEXT_PUBLIC_LOG_LEVEL: process.env.NEXT_PUBLIC_LOG_LEVEL,
   },
-  // Redirects are now handled by middleware.ts to support optional auth
+  // Redirects are now handled by proxy.ts to support optional auth
 }
 
 export default config

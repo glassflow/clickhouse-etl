@@ -18,11 +18,14 @@ The Deduplication Configurator module handles all aspects of configuring event d
 ```text
 src/modules/deduplication/
 ├── DeduplicationConfigurator.tsx       # Main container component
+├── utils/
+│   └── deduplicationValidation.ts      # isDeduplicationConfigComplete helper
 └── components/
     ├── SelectDeduplicateKeys.tsx       # Key selection and time window configuration
-    ├── TimeWindowConfigurator.tsx       # Time window input component
-    └── TopicSelectorForm.tsx           # Topic selection (shared component)
+    └── TimeWindowConfigurator.tsx       # Time window input component
 ```
+
+Note: `TopicSelectorForm` (topic/offset form) lives in `src/modules/kafka/components/TopicSelectorForm.tsx` and is used by the Kafka topic selection flow, not by the deduplication module.
 
 ### Quick Reference
 
@@ -1071,6 +1074,18 @@ useEffect(() => {
    - Review existing configuration before making changes
    - Use discard functionality to revert changes
    - Save changes explicitly (don't rely on auto-save)
+
+## Testing
+
+Unit tests use Vitest and React Testing Library. Tests live next to source under `modules/deduplication/` and `store/`.
+
+- **Store:** `store/deduplication.store.test.ts` — `updateDeduplication`, `skipDeduplication`, `getDeduplication`, `invalidateDeduplication`, `resetDeduplicationStore`.
+- **TimeWindowConfigurator:** `modules/deduplication/components/TimeWindowConfigurator.test.tsx` — label/inputs, valid/invalid window and unit, readOnly.
+- **SelectDeduplicateKeys:** `modules/deduplication/components/SelectDeduplicateKeys.test.tsx` — key derivation from eventData/schemaFields, initial state from store, `onChange` with key and window config.
+- **DeduplicationConfigurator:** `modules/deduplication/DeduplicationConfigurator.test.tsx` — no topic/event messages, main UI, Continue/Skip/Discard behavior, standalone vs creation mode, schema modification notice.
+- **Validation util:** `modules/deduplication/utils/deduplicationValidation.test.ts` — `isDeduplicationConfigComplete`.
+
+Run all deduplication and store tests: `npm run test -- store/deduplication.store.test.ts modules/deduplication` (or rely on Vitest’s `include` for `store/**/*.{test,spec}.{ts,tsx}` and `modules/deduplication/**/*.{test,spec}.{ts,tsx}`).
 
 ## Future Improvements
 

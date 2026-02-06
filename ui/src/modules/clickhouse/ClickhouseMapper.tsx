@@ -97,7 +97,8 @@ export function ClickhouseMapper({
   const validationEngine = useValidationEngine()
   const { clickhouseConnection, getDatabases, getTables, getTableSchema, updateDatabases, getConnectionId } =
     clickhouseConnectionStore
-  const { clickhouseDestination, setClickhouseDestination } = clickhouseDestinationStore
+  const { clickhouseDestination, setClickhouseDestination, updateClickhouseDestinationDraft } =
+    clickhouseDestinationStore
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
@@ -359,6 +360,15 @@ export function ClickhouseMapper({
       setTableSchema({ columns: [] })
       setMappedColumns([])
 
+      // Persist draft to store for restoration when navigating back to this step
+      // Note: This does NOT mark the step as valid - only "Continue" does that
+      updateClickhouseDestinationDraft({
+        database,
+        table: '',
+        destinationColumns: [],
+        mapping: [],
+      })
+
       // Track database selection if it's the first time
       if (!hasTrackedDatabaseSelection || clickhouseDestination?.database !== database) {
         analytics.destination.databaseSelected({
@@ -379,6 +389,7 @@ export function ClickhouseMapper({
       mode,
       primaryTopic?.name,
       secondaryTopic?.name,
+      updateClickhouseDestinationDraft,
     ],
   )
 
@@ -393,6 +404,14 @@ export function ClickhouseMapper({
       setSelectedTable(table)
       setTableSchema({ columns: [] })
       setMappedColumns([])
+
+      // Persist draft to store for restoration when navigating back to this step
+      // Note: This does NOT mark the step as valid - only "Continue" does that
+      updateClickhouseDestinationDraft({
+        table,
+        destinationColumns: [],
+        mapping: [],
+      })
 
       // Track table selection if it's the first time or a change
       if (!hasTrackedTableSelection || clickhouseDestination?.table !== table) {
@@ -416,6 +435,7 @@ export function ClickhouseMapper({
       mode,
       primaryTopic?.name,
       secondaryTopic?.name,
+      updateClickhouseDestinationDraft,
     ],
   )
 
@@ -481,8 +501,15 @@ export function ClickhouseMapper({
 
       setTableSchema({ columns: filteredSchema })
       setMappedColumns(newMapping)
+
+      // Persist draft to store so the full form can be restored when navigating back
+      // Note: This does NOT mark the step as valid - only "Continue" does that
+      updateClickhouseDestinationDraft({
+        destinationColumns: filteredSchema,
+        mapping: newMapping,
+      })
     }
-  }, [storeSchema, tableSchema.columns, mappedColumns])
+  }, [storeSchema, tableSchema.columns, mappedColumns, updateClickhouseDestinationDraft])
 
   // Sync local state with store when hydration completes (run only once)
   useEffect(() => {
@@ -1673,8 +1700,12 @@ export function ClickhouseMapper({
 
         {/* Batch Size / Delay Time / Column Mapping */}
         {(() => {
-          const shouldShow =
-            selectedTable && (tableSchema.columns.length > 0 || storeSchema?.length > 0) && !schemaLoading
+          // Show the full form when:
+          // 1. A table is selected, AND
+          // 2. We have columns (from tableSchema or storeSchema), AND
+          // 3. Either not loading OR we already have stored columns (to avoid flash when revisiting the step)
+          const hasColumns = tableSchema.columns.length > 0 || storeSchema?.length > 0
+          const shouldShow = selectedTable && hasColumns && (!schemaLoading || tableSchema.columns.length > 0)
           return shouldShow
         })() && (
           <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">

@@ -6,6 +6,7 @@ import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
 import TransformationSection from './sections/TransformationSection'
 import StandaloneStepRenderer from '@/src/modules/pipelines/[id]/StandaloneStepRenderer'
 import { StepKeys } from '@/src/config/constants'
+import { isSourceStep, isSinkStep, ANIMATION_DELAYS } from './config/pipeline-details.constants'
 import { Pipeline } from '@/src/types/pipeline'
 import { useRouter } from 'next/navigation'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
@@ -19,8 +20,9 @@ import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSect
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
-import { PipelineDetailsSidebar, SidebarSection, getSidebarItems } from './PipelineDetailsSidebar'
-import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
+import { PipelineDetailsSidebar, SidebarSection } from './PipelineDetailsSidebar'
+import { usePipelineHydration } from '@/src/hooks/usePipelineHydration'
+import { useActiveViewState } from './hooks/useActiveViewState'
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -28,14 +30,16 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // local copy of the pipeline data - this is used to display the pipeline data in the UI along with its status
   const [pipeline, setPipeline] = useState<Pipeline>(initialPipeline)
 
-  // active step - determines which step is currently being rendered in the standalone step renderer
-  const [activeStep, setActiveStep] = useState<StepKeys | null>(null)
-
-  // Active topic index - for multi-topic deduplication (0 = left, 1 = right)
-  const [activeTopicIndex, setActiveTopicIndex] = useState<number>(0)
-
-  // Active sidebar section - determines which section is highlighted in the sidebar
-  const [activeSection, setActiveSection] = useState<SidebarSection | null>('monitor')
+  // Active view state - groups activeStep, activeSection, activeTopicIndex
+  // Provides coordinated setters that keep sidebar and step renderer in sync
+  const {
+    activeStep,
+    activeSection,
+    activeTopicIndex,
+    setViewBySection,
+    setViewByStep,
+    closeStep,
+  } = useActiveViewState()
 
   // Animation states for sequential appearance
   const [showHeader, setShowHeader] = useState(false)
@@ -57,7 +61,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const deduplicationValidation = useStore((state) => state.deduplicationStore.validation)
 
   const { coreStore } = useStore()
-  const { enterViewMode, mode } = coreStore
+  const { mode } = coreStore
 
   // Determine if pipeline editing operations should be disabled
   // Consider pipeline status, loading state, AND demo mode
@@ -80,80 +84,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }, [pipeline.pipeline_id, pipeline.status])
 
-  // Hydrate the pipeline data when the pipeline configuration is loaded
-  useEffect(() => {
-    const hydrateData = async () => {
-      // CRITICAL: Don't hydrate if there are unsaved changes or if we're in edit mode
-      // This prevents overwriting user changes with stale backend data
-      // We check the current state directly instead of using it as a dependency
-      const { coreStore: currentCoreStore } = useStore.getState()
-
-      if (currentCoreStore.isDirty) {
-        console.log('[PipelineDetailsModule] Skipping hydration - dirty config present')
-        return
-      }
-
-      if (pipeline && pipeline?.source && pipeline?.sink && actionState.isLoading === false && mode !== 'edit') {
-        // Create a cache key that includes the pipeline configuration to detect changes
-        // This ensures re-hydration when the pipeline is edited or status changes
-        const topicNames = pipeline.source?.topics?.map((t: any) => t.name).join(',') || ''
-        const currentPipelineKey = `${pipeline.pipeline_id}-${pipeline.name}-${pipeline.status}-${topicNames}-${pipeline.version || 'v1'}`
-        const lastHydratedKey = sessionStorage.getItem('lastHydratedPipeline')
-
-        // CRITICAL: Check if cache says we're hydrated, but also verify stores actually have data
-        // After a page reload, sessionStorage persists but Zustand stores are empty
-        if (lastHydratedKey === currentPipelineKey) {
-          // Verify that stores actually have data before skipping hydration
-          const { topicsStore } = useStore.getState()
-          const hasTopics = topicsStore.topics && Object.keys(topicsStore.topics).length > 0
-
-          if (hasTopics) {
-            // ENHANCED VALIDATION: Also verify that topics have event data
-            // Without event data, ClickHouse mapping won't have fields to display
-            const topicsHaveEventData = Object.values(topicsStore.topics).every(
-              (topic: any) => topic?.selectedEvent?.event !== undefined,
-            )
-
-            if (topicsHaveEventData) {
-              return
-            } else {
-              sessionStorage.removeItem('lastHydratedPipeline')
-              // Continue with hydration
-            }
-          } else {
-            // Clear the stale cache and proceed with hydration
-            sessionStorage.removeItem('lastHydratedPipeline')
-          }
-        }
-
-        try {
-          // 1. Detect version and get appropriate adapter
-          // Use pipeline.version if available, or fallback to V1 (handled by factory) but added here for safety
-          const adapter = getPipelineAdapter(pipeline?.version || 'v1')
-
-          // 2. Hydrate raw API config into InternalPipelineConfig
-          // pipeline is currently typed as Pipeline which acts as our InternalPipelineConfig
-          // but at this boundary it's actually an API response that might differ in structure
-          const internalConfig = adapter.hydrate(pipeline)
-
-          // 3. Pass internal config to store
-          // pipeline hydration is handled by the enterViewMode function from the core store
-          await enterViewMode(internalConfig)
-
-          // Mark as hydrated to prevent re-hydration - this is used to prevent infinite loop
-          sessionStorage.setItem('lastHydratedPipeline', currentPipelineKey)
-        } catch (error) {
-          console.error('Failed to hydrate pipeline data:', error) // The error will be handled by the stores' validation states
-        }
-      }
-    }
-
-    hydrateData()
-    // NOTE: We intentionally don't include actionState.lastAction in dependencies
-    // to prevent re-hydration on every action completion (stop, resume, etc.)
-    // The sessionStorage cache and topicNames in the key handle detecting real config changes
-    // We check isDirty directly in the function rather than as a dependency to avoid loops
-  }, [pipeline, enterViewMode, mode, actionState.isLoading])
+  // Hydrate the pipeline data into stores when the pipeline configuration is loaded
+  // This is extracted into a separate hook for testability and clarity
+  usePipelineHydration(pipeline, {
+    isActionLoading: actionState.isLoading,
+  })
 
   // Sequential animation effect - show sections one by one
   useEffect(() => {
@@ -162,11 +97,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
     const statusTimer = setTimeout(() => {
       setShowStatusOverview(true)
-    }, 500) // 300ms delay for status overview
+    }, ANIMATION_DELAYS.STATUS_OVERVIEW)
 
     const configTimer = setTimeout(() => {
       setShowConfigurationSection(true)
-    }, 1000) // 600ms delay for configuration section
+    }, ANIMATION_DELAYS.CONFIGURATION)
 
     return () => {
       clearTimeout(statusTimer)
@@ -195,62 +130,32 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id, refreshPipelineData, operations])
 
-  // Handle sidebar section click - sets both the active section and the active step
-  const handleSectionClick = (section: SidebarSection) => {
-    // Prevent section clicks when editing is disabled (but allow in demo mode for viewing)
-    if (isEditingDisabled && !demoMode && section !== 'monitor') {
-      return
-    }
-
-    setActiveSection(section)
-
-    // Get the sidebar items to find the step key for this section
-    const items = getSidebarItems(pipeline)
-    const item = items.find((i) => i.key === section)
-
-    if (item?.stepKey) {
-      setActiveStep(item.stepKey)
-      // Set the topic index for multi-topic deduplication
-      if (item.topicIndex !== undefined) {
-        setActiveTopicIndex(item.topicIndex)
+  // Handle sidebar section click - uses the coordinated view state setter
+  const handleSectionClick = useCallback(
+    (section: SidebarSection) => {
+      // Prevent section clicks when editing is disabled (but allow in demo mode for viewing)
+      if (isEditingDisabled && !demoMode && section !== 'monitor') {
+        return
       }
-    } else {
-      // For sections without a step key (like 'monitor' or 'filter'), close any open step
-      setActiveStep(null)
-    }
-  }
+      setViewBySection(section, pipeline)
+    },
+    [isEditingDisabled, demoMode, setViewBySection, pipeline]
+  )
 
   // Set active step directly (used by the transformation section cards)
-  const handleStepClick = (step: StepKeys, topicIndex?: number) => {
-    // Prevent step clicks when editing is disabled (but allow in demo mode for viewing)
-    if (isEditingDisabled && !demoMode) {
-      return
-    }
-
-    setActiveStep(step)
-
-    // Set the topic index if provided
-    if (topicIndex !== undefined) {
-      setActiveTopicIndex(topicIndex)
-    }
-
-    // Also update the sidebar section to match the clicked step
-    const items = getSidebarItems(pipeline)
-    const item = items.find((i) => i.stepKey === step && (topicIndex === undefined || i.topicIndex === topicIndex))
-    if (item) {
-      setActiveSection(item.key)
-      if (item.topicIndex !== undefined) {
-        setActiveTopicIndex(item.topicIndex)
+  const handleStepClick = useCallback(
+    (step: StepKeys, topicIndex?: number) => {
+      // Prevent step clicks when editing is disabled (but allow in demo mode for viewing)
+      if (isEditingDisabled && !demoMode) {
+        return
       }
-    }
-  }
+      setViewByStep(step, pipeline, topicIndex)
+    },
+    [isEditingDisabled, demoMode, setViewByStep, pipeline]
+  )
 
-  // close the standalone step renderer
-  const handleCloseStep = useCallback(() => {
-    setActiveStep(null)
-    // When closing a step, go back to monitor view
-    setActiveSection('monitor')
-  }, [])
+  // Close the standalone step renderer - delegates to the view state hook
+  const handleCloseStep = closeStep
 
   // redirect to pipelines list after deletion
   const handlePipelineDeleted = () => {
@@ -306,22 +211,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   }
 
   // Section selection highlighting - determine which overview card should be highlighted
-  const SOURCE_STEPS = new Set<StepKeys>([StepKeys.KAFKA_CONNECTION])
-  const TRANSFORMATION_STEPS = new Set<StepKeys>([
-    StepKeys.TOPIC_SELECTION_1,
-    StepKeys.TOPIC_SELECTION_2,
-    StepKeys.DEDUPLICATION_CONFIGURATOR,
-    StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1,
-    StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2,
-    StepKeys.FILTER_CONFIGURATOR,
-    StepKeys.TRANSFORMATION_CONFIGURATOR,
-    StepKeys.JOIN_CONFIGURATOR,
-    StepKeys.CLICKHOUSE_MAPPER,
-  ])
-  const SINK_STEPS = new Set<StepKeys>([StepKeys.CLICKHOUSE_CONNECTION])
-
-  const isSourceSelected = activeStep ? SOURCE_STEPS.has(activeStep) : false
-  const isSinkSelected = activeStep ? SINK_STEPS.has(activeStep) : false
+  const isSourceSelected = isSourceStep(activeStep)
+  const isSinkSelected = isSinkStep(activeStep)
 
   return (
     <div className="container mx-auto px-4 sm:px-0">
