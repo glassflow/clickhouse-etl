@@ -87,6 +87,9 @@ export function KafkaTopicSelector({
   // State for tracking save success in edit mode
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
+  // State for tracking submit attempt (for validation)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+
   // State for topic change confirmation modal
   const [isTopicChangeModalVisible, setIsTopicChangeModalVisible] = useState(false)
   const [pendingTopicChange, setPendingTopicChange] = useState<string | null>(null)
@@ -97,6 +100,16 @@ export function KafkaTopicSelector({
       setIsSaveSuccess(false)
     }
   }, [readOnly, isSaveSuccess])
+
+  // Reset submitAttempted when topic is selected (clear validation error)
+  useEffect(() => {
+    if (topicName && submitAttempted) {
+      setSubmitAttempted(false)
+    }
+  }, [topicName, submitAttempted])
+
+  // Compute validation error for topic field
+  const topicValidationError = submitAttempted && !topicName ? 'Please select a topic' : null
 
   // Apply partition count to replica when topic changes (single place for this rule)
   const applyPartitionCountToReplica = useCallback(
@@ -179,8 +192,17 @@ export function KafkaTopicSelector({
     coreStore,
   ])
 
-  // Enhanced form submission handler with success state
+  // Enhanced form submission handler with success state and validation
   const handleSubmitWithSuccess = useCallback(() => {
+    // Mark that user attempted to submit (for validation display)
+    setSubmitAttempted(true)
+
+    // Validate before proceeding
+    if (!canContinue) {
+      // Don't proceed if validation fails - errors will be shown via topicValidationError
+      return
+    }
+
     handleSubmit()
 
     // Set success state for edit mode to trigger UI feedback and form closure
@@ -189,7 +211,7 @@ export function KafkaTopicSelector({
       // Don't reset success state - let it stay true to keep the form closed
       // The success state will be reset when the user starts editing again
     }
-  }, [handleSubmit, standalone, toggleEditMode])
+  }, [handleSubmit, standalone, toggleEditMode, canContinue])
 
   // Handle refresh topics
   const handleRefreshTopics = useCallback(async () => {
@@ -242,6 +264,7 @@ export function KafkaTopicSelector({
             event={event}
             isLoading={isLoading}
             error={error}
+            validationError={topicValidationError}
             currentOffset={currentOffset}
             earliestOffset={earliestOffset}
             latestOffset={latestOffset}
@@ -265,7 +288,7 @@ export function KafkaTopicSelector({
           onDiscard={handleDiscardChanges}
           isLoading={false}
           isSuccess={isSaveSuccess}
-          disabled={!canContinue}
+          disabled={isLoading}
           successText="Continue"
           loadingText="Loading..."
           regularText="Continue"

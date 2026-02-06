@@ -30,6 +30,7 @@ export type TopicSelectWithEventPreviewProps = {
   event?: any
   isLoading?: boolean
   error?: string | null
+  validationError?: string | null // Validation error for topic field (e.g. "Please select a topic")
   currentOffset?: number | null
   earliestOffset?: number | null
   latestOffset?: number | null
@@ -63,6 +64,7 @@ export function TopicSelectWithEventPreview({
   event: hookEvent,
   isLoading: hookIsLoading,
   error: hookError,
+  validationError,
   currentOffset: hookCurrentOffset,
   earliestOffset: hookEarliestOffset,
   latestOffset: hookLatestOffset,
@@ -84,6 +86,9 @@ export function TopicSelectWithEventPreview({
   const event = hookEvent || existingTopic?.selectedEvent?.event || null
   const isLoading = hookIsLoading || false
   const error = hookError || null
+
+  // Combine fetch error and validation error (validation error takes priority)
+  const topicError = validationError || error || ''
 
   // Handle topic change
   const handleTopicChange = useCallback(
@@ -151,7 +156,7 @@ export function TopicSelectWithEventPreview({
             onOffsetChange={handleOffsetChange}
             onBlur={() => {}}
             onOpenChange={() => {}}
-            topicError={error || ''}
+            topicError={topicError}
             offsetError={''}
             topicPlaceholder="Select a topic"
             offsetPlaceholder="Select initial offset"

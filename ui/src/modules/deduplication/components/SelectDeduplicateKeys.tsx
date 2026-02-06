@@ -14,6 +14,8 @@ interface SelectDeduplicateKeysProps {
   readOnly?: boolean
   /** Optional schema fields from KafkaTypeVerification - if provided, will use these for field names */
   schemaFields?: SchemaField[]
+  /** Validation error message to display for the deduplication key field */
+  validationError?: string | null
 }
 
 function SelectDeduplicateKeys({
@@ -23,6 +25,7 @@ function SelectDeduplicateKeys({
   eventData,
   readOnly,
   schemaFields,
+  validationError,
 }: SelectDeduplicateKeysProps) {
   const [selectedKey, setSelectedKey] = useState('')
   const [selectedKeyType, setSelectedKeyType] = useState('string')
@@ -141,6 +144,7 @@ function SelectDeduplicateKeys({
                 placeholder="Enter de-duplicate key"
                 clearable={true}
                 readOnly={readOnly}
+                error={validationError || undefined}
               />
             ) : (
               <div className="text-sm text-gray-500 p-2 border rounded">
