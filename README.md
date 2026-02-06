@@ -1,7 +1,3 @@
-<a href="https://glassflow.dev">
-  <img alt="GlassFlow Logo" src="docs/public/assets/glassfow-banner.jpg">
-</a>
-
 <p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
@@ -25,14 +21,16 @@
   </a>
 </div>
 
-# GlassFlow for ClickHouse Streaming ETL
+# Run any transformation on Kafka data at TB scale for ClickHouse
 
-GlassFlow is an open-source ETL tool that enables real-time data processing from Kafka to ClickHouse. GlassFlow pipelines can perform the following operations:
+GlassFlow is an open-source stream processing engine designed for high-volume data ingestion and transformation from Kafka to ClickHouse. GlassFlow comes with the following core functionalities:
 
-- **Deduplicate**: Remove duplicate records based on configurable keys and time windows - use when you need to ensure data uniqueness
-- **Join**: Perform temporal joins between multiple Kafka topics - use when combining related data streams with time-based matching
-- **Deduplicate & Join**: Combine both deduplication and joining in a single pipeline
-- **Ingest only**: Direct data transfer from Kafka to ClickHouse without transformations
+- **Stateless transformations**: Powered by the expr expression engine, enabling flexible data transformations using helper functions and standard operators (e.g., removing null values or replacing missing timestamps).
+- **Stateful transformations**: A built-in state store allows deduplication logic and temporal joins over configurable time windows.
+- **Filtering**: Drop events you don’t want to ingest into ClickHouse before they reach your tables.
+- **Ingest only**: Direct data transfer from Kafka to ClickHouse without transformations.
+- **Metrics & OTEL**: Built-in pipeline metrics with OpenTelemetry support.
+- **Dead-Letter-Queue**: Keep pipelines running when faulty events occur. Inspect failed events and reprocess them later.
 
 ## ⚡️ Quick Start
 
@@ -77,17 +75,6 @@ For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.de
 Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's coming next in GlassFlow. We're actively working on new features and improvements based on community feedback.
 
 **Want to suggest a feature?** We'd love to hear from you! Please use our [GitHub Discussions](https://github.com/orgs/glassflow/discussions/categories/ideas) to share your ideas and help shape the future of GlassFlow.
-
-
-## 	✨ Features
-
-- Streaming deduplication and joins for up to 7d through an inbuilt state store
-- ClickHouse sink with a native protocol for high performance
-- Built-in Kafka connector with SASL, SSL, etc. for nearly all Kafka providers
-- Dead-Letter Queue for handling failed events
-- Field mapping of your Kafka table to ClickHouse
-- Prometheus metrics and OpenTelemetry logs for comprehensive observability
-
 
 ## 🆘 Support
 

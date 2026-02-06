@@ -32,6 +32,10 @@ type Meter struct {
 	HTTPRequestCount    metric.Int64Counter
 	HTTPRequestDuration metric.Float64Histogram
 
+	// Unified processor metrics
+	ProcessorDuration metric.Float64Histogram
+	ProcessorMessages metric.Int64Counter
+
 	// Component and pipeline info for labeling
 	component  string
 	pipelineID string
@@ -103,6 +107,10 @@ func NewMeter(component, pipelineID string) *Meter {
 			"Total number of HTTP requests"),
 		HTTPRequestDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"http_server_request_duration_seconds",
 			"Duration of HTTP requests"),
+		ProcessorDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"processor_duration_seconds",
+			"Duration of processor operations in seconds"),
+		ProcessorMessages: mustCreateCounter(meter, GfMetricPrefix+"_"+"processor_messages_total",
+			"Total number of messages processed by processor"),
 		component:  component,
 		pipelineID: pipelineID,
 	}
@@ -164,12 +172,25 @@ func (m *Meter) RecordProcessingDuration(ctx context.Context, duration float64) 
 	))
 }
 
-// RecordProcessingDurationWithStage records processing duration with a stage label
-func (m *Meter) RecordProcessingDurationWithStage(ctx context.Context, duration float64, stage string) {
-	m.ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
+// RecordProcessorDuration records the duration of a processor operation
+// processor: filter, transform, dedup_lookup, dedup_write
+func (m *Meter) RecordProcessorDuration(ctx context.Context, processor string, duration float64) {
+	m.ProcessorDuration.Record(ctx, duration, metric.WithAttributes(
 		attribute.String("component", m.component),
 		attribute.String("pipeline_id", m.pipelineID),
-		attribute.String("stage", stage),
+		attribute.String("processor", processor),
+	))
+}
+
+// RecordProcessorMessages records the number of messages processed with a given status
+// processor: filter, transform, dedup
+// status: success, error, filtered, duplicate
+func (m *Meter) RecordProcessorMessages(ctx context.Context, processor, status string, count int64) {
+	m.ProcessorMessages.Add(ctx, count, metric.WithAttributes(
+		attribute.String("component", m.component),
+		attribute.String("pipeline_id", m.pipelineID),
+		attribute.String("processor", processor),
+		attribute.String("status", status),
 	))
 }
 

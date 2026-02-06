@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -134,4 +135,70 @@ func (r *BatchReader) fetchMessagesFromBatch(
 	}
 
 	return messages, nil
+}
+
+// consumeHandle wraps jetstream.ConsumeContext to implement batch.ConsumeContext
+type consumeHandle struct {
+	consumeCtx jetstream.ConsumeContext
+	doneCh     chan struct{}
+	stopOnce   sync.Once
+}
+
+func (h *consumeHandle) Stop() {
+	h.stopOnce.Do(func() {
+		if h.consumeCtx != nil {
+			h.consumeCtx.Stop()
+		}
+	})
+}
+
+func (h *consumeHandle) Done() <-chan struct{} {
+	return h.doneCh
+}
+
+// Consume starts continuous message consumption using a callback handler
+func (r *BatchReader) Consume(
+	ctx context.Context,
+	handler batch.MessageHandler,
+	opts ...models.FetchOption,
+) (batch.ConsumeContext, error) {
+	fetchOpts := models.ApplyFetchOptions(opts...)
+
+	var natsOpts []jetstream.PullConsumeOpt
+	if fetchOpts.BatchSize > 0 {
+		natsOpts = append(natsOpts, jetstream.PullMaxMessages(fetchOpts.BatchSize))
+	}
+	if fetchOpts.Timeout > 0 {
+		natsOpts = append(natsOpts, jetstream.PullExpiry(fetchOpts.Timeout))
+	}
+
+	natsHandler := func(msg jetstream.Msg) {
+		modelMsg := models.Message{
+			Type:                 models.MessageTypeJetstreamMsg,
+			JetstreamMsgOriginal: msg,
+		}
+		handler(modelMsg)
+	}
+
+	consumeCtx, err := r.consumer.Consume(natsHandler, natsOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("consume: %w", err)
+	}
+
+	handle := &consumeHandle{
+		consumeCtx: consumeCtx,
+		doneCh:     make(chan struct{}),
+	}
+
+	go func() {
+		defer close(handle.doneCh)
+		select {
+		case <-ctx.Done():
+			consumeCtx.Stop()
+		case <-consumeCtx.Closed():
+			// ConsumeContext closed externally
+		}
+	}()
+
+	return handle, nil
 }
