@@ -69,6 +69,12 @@ func mainDeduplicatorV2(
 	// Calculate pending publishes limit
 	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs)
 
+	// MaxAckPending for dedup consumer: 4x sink batch size (avoids NATS default 100 when using -1)
+	maxAckPending := pipelineCfg.Sink.Batch.MaxBatchSize * 4
+	if maxAckPending < 1 {
+		maxAckPending = 1
+	}
+
 	log.InfoContext(ctx, "Starting deduplicator",
 		slog.String("topic", cfg.DedupTopic),
 		slog.String("pipeline_id", pipelineCfg.ID),
@@ -77,7 +83,8 @@ func mainDeduplicatorV2(
 		slog.Duration("ttl", topicConfig.Deduplication.Window.Duration()),
 		slog.Int("batch_size", batchSize),
 		slog.Duration("max_wait", maxWait),
-		slog.Int("pending_publishes_limit", pendingPublishesLimit))
+		slog.Int("pending_publishes_limit", pendingPublishesLimit),
+		slog.Int("max_ack_pending", maxAckPending))
 
 	consumerName := models.GetNATSDedupConsumerName(pipelineCfg.ID)
 	consumer, err := stream.NewNATSConsumer(
@@ -89,7 +96,7 @@ func mainDeduplicatorV2(
 			FilterSubject: models.GetWildcardNATSSubjectName(inputStreamID),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
-			MaxAckPending: -1,
+			MaxAckPending: maxAckPending,
 		},
 		inputStreamID,
 	)
