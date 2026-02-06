@@ -90,7 +90,7 @@ func TestBatchWriter_WriteBatch(t *testing.T) {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-stream", jetstream.ConsumerConfig{
 		Name:          "test-consumer",
 		FilterSubject: subject,
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 	})
 	require.NoError(t, err)
 
@@ -136,7 +136,7 @@ func TestBatchWriter_WriteBatchWithHeaders(t *testing.T) {
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-stream", jetstream.ConsumerConfig{
 		Name:          "test-consumer-headers",
 		FilterSubject: subject,
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 	})
 	require.NoError(t, err)
 
@@ -199,7 +199,7 @@ func TestBatchWriter_WriteBatchWithJetStreamMsg(t *testing.T) {
 	sourceConsumer, err := js.CreateOrUpdateConsumer(ctx, "source-stream", jetstream.ConsumerConfig{
 		Name:          "source-consumer",
 		FilterSubject: sourceSubject,
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 	})
 	require.NoError(t, err)
 
@@ -231,7 +231,7 @@ func TestBatchWriter_WriteBatchWithJetStreamMsg(t *testing.T) {
 	destConsumer, err := js.CreateOrUpdateConsumer(ctx, "dest-stream", jetstream.ConsumerConfig{
 		Name:          "dest-consumer",
 		FilterSubject: destSubject,
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 	})
 	require.NoError(t, err)
 

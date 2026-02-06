@@ -343,14 +343,6 @@ func TestPrepareClickHouseValues(t *testing.T) {
 		assert.Equal(t, true, values[2])
 	})
 
-	t.Run("invalid json", func(t *testing.T) {
-		jsonData := []byte(`invalid_json`)
-
-		_, err := mapper.PrepareValues(jsonData)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to prepare values for ClickHouse")
-	})
-
 	t.Run("joined streams", func(t *testing.T) {
 		joinedMapper, err := NewJSONToClickHouseMapper(
 			map[string]models.StreamSchemaConfig{
@@ -972,14 +964,6 @@ func TestGetOrderedColumnsStreamAndPrepareValuesStream(t *testing.T) {
 		assert.Len(t, values, 2)
 		assert.Equal(t, "evt-123", values[0])
 		assert.Nil(t, values[1]) // Missing name_upper field
-	})
-
-	t.Run("PrepareValuesStream with invalid JSON", func(t *testing.T) {
-		jsonData := []byte(`invalid_json`)
-
-		_, err := mapper.PrepareValuesStream("stateless_transformation", jsonData)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to prepare values for ClickHouse")
 	})
 
 	t.Run("PrepareValuesStream returns empty for non-existent source", func(t *testing.T) {

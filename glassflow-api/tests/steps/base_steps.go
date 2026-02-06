@@ -431,6 +431,7 @@ func (b *BaseTestSuite) createNatsConsumer(streamName, subject, consumerName str
 			Name:          consumerName,
 			Durable:       consumerName,
 			FilterSubject: subject,
+			AckPolicy:     jetstream.AckExplicitPolicy,
 		},
 	)
 	if err != nil {

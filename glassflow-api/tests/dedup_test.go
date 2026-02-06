@@ -158,7 +158,7 @@ func createComponent(
 		Name:          "test-consumer",
 		Durable:       "test-consumer",
 		FilterSubject: inputSubject,
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 		AckWait:       internal.NatsDefaultAckWait,
 		MaxAckPending: -1,
 	})

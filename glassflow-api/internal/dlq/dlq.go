@@ -30,7 +30,7 @@ func (c *Client) getDurableConsumerConfig(stream string) jetstream.ConsumerConfi
 	return jetstream.ConsumerConfig{
 		Name:          stream + "-consumer",
 		Durable:       stream + "-consumer",
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: stream + ".failed",
 	}
 }
@@ -65,8 +65,8 @@ func (c *Client) FetchDLQMessages(ctx context.Context, streamName string, batchS
 	}
 
 	var (
-		lastMsg jetstream.Msg
-		dlqMsgs = make([]models.DLQMessage, 0, batchSize)
+		messages = make([]jetstream.Msg, 0, batchSize)
+		dlqMsgs  = make([]models.DLQMessage, 0, batchSize)
 	)
 
 	for msg := range batch.Messages() {
@@ -78,7 +78,7 @@ func (c *Client) FetchDLQMessages(ctx context.Context, streamName string, batchS
 		}
 
 		dlqMsgs = append(dlqMsgs, dlqMsg)
-		lastMsg = msg
+		messages = append(messages, msg)
 	}
 
 	if batch.Error() != nil {
@@ -86,10 +86,10 @@ func (c *Client) FetchDLQMessages(ctx context.Context, streamName string, batchS
 	}
 
 	// WARNING: potential data loss in case of http failure or pod destruction.
-	if lastMsg != nil {
-		err := lastMsg.Ack()
-		if err != nil {
-			return nil, fmt.Errorf("acknowledge all consumed dlq messages: %w", err)
+	// With explicit ack policy, we need to ack each message individually
+	for _, msg := range messages {
+		if err := msg.Ack(); err != nil {
+			return nil, fmt.Errorf("acknowledge dlq message: %w", err)
 		}
 	}
 

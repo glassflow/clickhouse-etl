@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
@@ -97,6 +98,8 @@ func main() {
 }
 
 func run() error {
+	// automaxprocs is used to set the number of CPU cores to use for the application.
+
 	var cfg config
 
 	roleStr := flag.String("role", "", "Role to run: sink, join, ingester or empty for pipeline manager")
