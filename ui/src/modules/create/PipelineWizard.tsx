@@ -191,7 +191,7 @@ function PipelineWizard() {
                     <ChevronDownIcon className="w-5 h-5" />
                   </div>
                 </CardTitle>
-                <CardDescription className="subtitle-2">
+                <CardDescription className="subtitle-3">
                   {stepsMetadata[currentActiveInstance.key]?.description || ''}
                 </CardDescription>
               </CardHeader>
