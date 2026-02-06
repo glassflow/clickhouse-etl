@@ -572,12 +572,32 @@ interface OperandInputProps {
 }
 
 function OperandInput({ operand, availableFields, onChange, disabled = false, label }: OperandInputProps) {
+  // Local state to track the input string while typing (allows intermediate states like "3." or "-")
+  const [inputValue, setInputValue] = useState<string>(() => {
+    if (!isArithmeticExpressionNode(operand) && operand.type === 'literal') {
+      return String(operand.value)
+    }
+    return '0'
+  })
+
+  // Sync input value when operand changes externally
+  useEffect(() => {
+    if (!isArithmeticExpressionNode(operand) && operand.type === 'literal') {
+      // Only update if the numeric value actually changed (not just formatting)
+      const currentNum = parseFloat(inputValue)
+      if (isNaN(currentNum) || currentNum !== operand.value) {
+        setInputValue(String(operand.value))
+      }
+    }
+  }, [operand, inputValue])
+
   // Handle type toggle
   const handleTypeChange = useCallback(
     (newType: 'field' | 'literal') => {
       if (newType === 'field') {
         onChange({ type: 'field', field: '', fieldType: '' })
       } else {
+        setInputValue('0')
         onChange({ type: 'literal', value: 0 })
       }
     },
@@ -596,11 +616,16 @@ function OperandInput({ operand, availableFields, onChange, disabled = false, la
     [availableFields, onChange],
   )
 
-  // Handle literal value change
+  // Handle literal value change - preserve string while typing to support floats
   const handleValueChange = useCallback(
     (value: string) => {
-      const numValue = parseFloat(value) || 0
-      onChange({ type: 'literal', value: numValue })
+      // Allow empty string, decimal points in progress (e.g., "3.", ".5"), and negative signs
+      if (value === '' || value === '-' || value === '.' || value === '-.' || /^-?\d*\.?\d*$/.test(value)) {
+        setInputValue(value)
+        // Parse and store the numeric value (0 for incomplete inputs)
+        const numValue = parseFloat(value)
+        onChange({ type: 'literal', value: isNaN(numValue) ? 0 : numValue })
+      }
     },
     [onChange],
   )
@@ -609,6 +634,20 @@ function OperandInput({ operand, availableFields, onChange, disabled = false, la
   // This shouldn't normally happen in our controlled flow, but handle it gracefully
   if (isArithmeticExpressionNode(operand)) {
     return <ExpressionPreview expression={operand} label={label} />
+  }
+
+  // If the operand is a function call, show it as read-only
+  // Function calls can only be created in manual mode
+  if (operand.type === 'function') {
+    const funcDisplay = `${operand.functionName}(${operand.arguments.map((arg) => (arg.type === 'field' ? arg.field : arg.type === 'literal' ? String(arg.value) : '...')).join(', ')})`
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-xs text-[var(--text-secondary)]">{label}</Label>
+        <div className="h-10 flex items-center px-3 bg-[var(--surface-bg-sunken)] rounded-md border border-[var(--surface-border)] text-sm font-mono text-[var(--text-secondary)]">
+          {funcDisplay}
+        </div>
+      </div>
+    )
   }
 
   const isField = operand.type === 'field'
@@ -629,7 +668,7 @@ function OperandInput({ operand, availableFields, onChange, disabled = false, la
         />
       ) : (
         <Input
-          value={operand.value}
+          value={inputValue}
           onChange={(e) => handleValueChange(e.target.value)}
           placeholder="0"
           disabled={disabled}

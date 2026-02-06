@@ -117,6 +117,8 @@ export function FilterConfigurator({
           operator: child.operator,
           value: child.value,
           not: child.not,
+          useArithmeticExpression: child.useArithmeticExpression,
+          arithmeticExpression: child.arithmeticExpression,
         }
       } else {
         return serializeGroup(child)
