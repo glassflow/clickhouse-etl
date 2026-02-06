@@ -226,7 +226,7 @@ func (s *PostgresStorage) SaveNewSchemaVersion(ctx context.Context, pipelineID, 
 		tCfg, err := s.getStatelessTransformationConfig(ctx, tx, pipelineID, item.sourceID, item.oldVersionID)
 		if err == nil {
 			// Get the output component's source_id (transformation_id)
-			componentSourceID := tCfg.TransfromationID
+			componentSourceID := tCfg.TransformationID
 
 			// Get the component's current schema to copy fields
 			compSchema, err := s.getSchemaVersion(ctx, tx, pipelineID, componentSourceID, tCfg.OutputSchemaVersionID)

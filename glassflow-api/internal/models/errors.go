@@ -41,3 +41,6 @@ func IsConfigNotFoundErr(err error) bool { return errors.Is(err, ErrConfigNotFou
 var ErrIncompatibleSchema = errors.New("incompatible schema")
 
 func IsIncompatibleSchemaErr(err error) bool { return errors.Is(err, ErrIncompatibleSchema) }
+
+var ErrCompileTransformation = errors.New("failed to compile transformation")
+var ErrSignalSent = errors.New("signal to stop component is sent")

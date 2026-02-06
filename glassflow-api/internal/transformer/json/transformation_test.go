@@ -1,6 +1,7 @@
 package json
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -179,7 +180,7 @@ func TestTransformer_Transform(t *testing.T) {
 				t.Fatalf("NewTransformer() error = %v", err)
 			}
 
-			outputBytes, err := transformer.Transform([]byte(tt.input))
+			outputMessage, err := transformer.Transform(context.TODO(), models.NewNatsMessage([]byte(tt.input), nil))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Transform() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -190,7 +191,7 @@ func TestTransformer_Transform(t *testing.T) {
 			}
 
 			var actual map[string]interface{}
-			if err := json.Unmarshal(outputBytes, &actual); err != nil {
+			if err := json.Unmarshal(outputMessage.Payload(), &actual); err != nil {
 				t.Fatalf("Failed to unmarshal actual output: %v", err)
 			}
 
@@ -646,13 +647,13 @@ func TestCustomFunctions(t *testing.T) {
 				t.Fatalf("NewTransformer() error = %v", err)
 			}
 
-			outputBytes, err := transformer.Transform([]byte(tt.input))
+			outputMessage, err := transformer.Transform(context.TODO(), models.NewNatsMessage([]byte(tt.input), nil))
 			if err != nil {
 				t.Errorf("Transform() error = %v", err)
 				return
 			}
 
-			output := string(outputBytes)
+			output := string(outputMessage.Payload())
 			diff := cmp.Diff(output, tt.expected)
 			if diff != "" {
 				t.Errorf("Transform() %s", diff)
