@@ -232,7 +232,7 @@ export function DeduplicationConfigurator({
             isLoadingEvent={false}
             eventError={''}
             isEmptyTopic={false}
-            onManualEventChange={() => { }}
+            onManualEventChange={() => {}}
             isEditingEnabled={false}
             readOnly={readOnly}
           />
@@ -241,17 +241,6 @@ export function DeduplicationConfigurator({
 
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
-        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
-        {!standalone && (
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
-          >
-            Skip Deduplication
-          </Button>
-        )}
-
         <FormActions
           standalone={standalone}
           onSubmit={handleSave}
@@ -269,6 +258,17 @@ export function DeduplicationConfigurator({
           pipelineActionState={pipelineActionState}
           onClose={onCompleteStandaloneEditing}
         />
+
+        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
+        {!standalone && (
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)] btn-tertiary"
+          >
+            Skip Deduplication
+          </Button>
+        )}
       </div>
     </div>
   )

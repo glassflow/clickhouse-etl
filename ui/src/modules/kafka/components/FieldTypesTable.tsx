@@ -59,10 +59,11 @@ export function FieldTypesTable({
             {fieldTypes.map((field) => (
               <TableRow
                 key={field.name}
-                className={`border-0 ${field.isRemoved ? 'opacity-50' : ''} ${field.isManuallyAdded && !field.isRemoved
+                className={`border-0 ${field.isRemoved ? 'opacity-50' : ''} ${
+                  field.isManuallyAdded && !field.isRemoved
                     ? 'bg-[var(--color-background-primary-faded)]'
                     : 'bg-[var(--surface-bg-sunken)]'
-                  } ${!readOnly && !field.isRemoved ? 'hover:bg-[var(--color-background-neutral-faded)]' : ''}`}
+                } ${!readOnly && !field.isRemoved ? 'hover:bg-[var(--color-background-neutral-faded)]' : ''}`}
                 style={{ transition: 'background-color 0.2s ease-in-out, opacity 0.2s ease-in-out' }}
               >
                 <TableCell
@@ -89,10 +90,11 @@ export function FieldTypesTable({
                     disabled={readOnly || field.isRemoved}
                   >
                     <SelectTrigger
-                      className={`w-full input-regular input-border-regular ${field.userType !== field.inferredType && field.inferredType !== '-'
+                      className={`w-full input-regular input-border-regular ${
+                        field.userType !== field.inferredType && field.inferredType !== '-'
                           ? 'border-[var(--color-border-primary)]'
                           : ''
-                        } ${readOnly || field.isRemoved ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${readOnly || field.isRemoved ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -143,8 +145,9 @@ export function FieldTypesTable({
                       onNewFieldErrorClear()
                     }}
                     placeholder="Enter field name..."
-                    className={`input-regular input-border-regular font-mono text-sm ${newFieldError ? 'border-[var(--color-border-negative)]' : ''
-                      }`}
+                    className={`input-regular input-border-regular font-mono text-sm ${
+                      newFieldError ? 'border-[var(--color-border-negative)]' : ''
+                    }`}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && newFieldName.trim()) {
                         onAddField()

@@ -168,7 +168,16 @@ export function KafkaTopicSelector({
     } else {
       onCompleteStep(stepKey ?? currentStep ?? StepKeys.TOPIC_SELECTION_1)
     }
-  }, [submit, currentStep, validationEngine, onCompleteStep, onCompleteStandaloneEditing, standalone, toggleEditMode, coreStore])
+  }, [
+    submit,
+    currentStep,
+    validationEngine,
+    onCompleteStep,
+    onCompleteStandaloneEditing,
+    standalone,
+    toggleEditMode,
+    coreStore,
+  ])
 
   // Enhanced form submission handler with success state
   const handleSubmitWithSuccess = useCallback(() => {
@@ -189,9 +198,7 @@ export function KafkaTopicSelector({
 
   // Handle discard changes for this section
   const handleDiscardChanges = useCallback(() => {
-    const sectionsToDiscard = isTopicDeduplicationStep(currentStep ?? '')
-      ? ['topics', 'deduplication']
-      : ['topics']
+    const sectionsToDiscard = isTopicDeduplicationStep(currentStep ?? '') ? ['topics', 'deduplication'] : ['topics']
     coreStore.discardSections(sectionsToDiscard)
   }, [coreStore, currentStep])
 
@@ -217,7 +224,7 @@ export function KafkaTopicSelector({
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex flex-col gap-6 pb-6 bg-background-neutral-faded rounded-md p-0">
+      <div className="flex flex-col gap-6 bg-background-neutral-faded rounded-md p-0">
         <div className="grid grid-cols-1 gap-6">
           <TopicSelectWithEventPreview
             index={index}
