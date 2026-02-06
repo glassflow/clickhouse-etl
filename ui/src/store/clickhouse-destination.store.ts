@@ -57,16 +57,18 @@ export interface ClickhouseDestinationStore extends ClickhouseDestinationProps, 
    * The step will only be marked as valid when the user clicks "Continue" and
    * setClickhouseDestination is called.
    */
-  updateClickhouseDestinationDraft: (partial: Partial<{
-    scheme: string
-    database: string
-    table: string
-    mapping: any[]
-    destinationColumns: any[]
-    maxBatchSize: number
-    maxDelayTime: number
-    maxDelayTimeUnit: string
-  }>) => void
+  updateClickhouseDestinationDraft: (
+    partial: Partial<{
+      scheme: string
+      database: string
+      table: string
+      mapping: any[]
+      destinationColumns: any[]
+      maxBatchSize: number
+      maxDelayTime: number
+      maxDelayTimeUnit: string
+    }>,
+  ) => void
   resetDestinationState: () => void
   getIsDestinationMappingDirty: () => boolean
   resetDestinationStore: () => void
