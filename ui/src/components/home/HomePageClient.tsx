@@ -296,10 +296,10 @@ export default function HomePageClient() {
           </div>
         </section>
 
-        <OrSeparator />
+        {/* <OrSeparator /> */}
 
         {/* Section 3: Configure with AI assistant (placeholder for future) */}
-        <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-ai-heading">
+        {/* <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-ai-heading">
           <h2 id="section-ai-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
             Configure with AI assistant
           </h2>
@@ -317,7 +317,7 @@ export default function HomePageClient() {
               <span className="text-sm sm:text-lg font-medium text-muted-foreground">Coming soon</span>
             </div>
           </div>
-        </section>
+        </section> */}
       </div>
 
       <InfoModal
