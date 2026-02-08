@@ -308,8 +308,10 @@ export function SearchableSelect({
               />
             </div>
           </div>
-          {/* Reserve space for error message to prevent layout shift */}
-          {/* <div className="h-5 mt-0.5">{error && <p className="input-description-error text-sm">{error}</p>}</div> */}
+          {/* Error message display - always reserve space to prevent layout shift */}
+          <p className={cn('text-sm mt-1 h-5', error ? 'input-description-error' : 'invisible')}>
+            {error || 'Placeholder'}
+          </p>
         </div>
       </div>
 

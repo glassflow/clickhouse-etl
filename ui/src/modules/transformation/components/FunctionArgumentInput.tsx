@@ -5,6 +5,7 @@ import { Label } from '@/src/components/ui/label'
 import { Input } from '@/src/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { Button } from '@/src/components/ui/button'
+import { FieldSelectCombobox } from './FieldSelectCombobox'
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import {
   FunctionArg,
@@ -133,24 +134,15 @@ export function FunctionArgumentInput({
     switch (argument.type) {
       case 'field':
         return (
-          <Select value={argument.fieldName || ''} onValueChange={handleFieldChange} disabled={disabled}>
-            <SelectTrigger
-              className={cn(
-                'input-regular input-border-regular flex-1',
-                error && 'border-[var(--color-border-critical)]',
-              )}
-            >
-              <SelectValue placeholder="Select field" />
-            </SelectTrigger>
-            <SelectContent className="select-content-custom">
-              {availableFields.map((f) => (
-                <SelectItem key={f.name} value={f.name} className="select-item-custom">
-                  <span>{f.name}</span>
-                  <span className="ml-2 text-[var(--text-secondary)]">({f.type})</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <FieldSelectCombobox
+            value={argument.fieldName || ''}
+            onValueChange={handleFieldChange}
+            availableFields={availableFields}
+            placeholder="Select field"
+            disabled={disabled}
+            error={Boolean(error)}
+            className="flex-1"
+          />
         )
 
       case 'literal':

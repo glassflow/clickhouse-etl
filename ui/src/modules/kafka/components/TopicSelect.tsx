@@ -71,7 +71,7 @@ export function TopicSelect({
   }
 
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-start justify-between gap-2">
       <div className="relative w-full">
         <SearchableSelect
           availableOptions={searchableOptions}
@@ -83,13 +83,14 @@ export function TopicSelect({
           open={isOpen}
           onOpenChange={handleOpenChange}
           readOnly={readOnly}
-          className={cn('w-full', error && '[&_input]:border-red-500 [&_input]:border-2')}
+          className="w-full"
           label={label}
+          error={error}
         />
       </div>
 
       {onRefresh && (
-        <div className="flex-shrink-0 mb-1.5">
+        <div className="flex-shrink-0 mt-3.5">
           <CacheRefreshButton
             disabled={readOnly}
             type="topics"

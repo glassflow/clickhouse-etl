@@ -11,8 +11,11 @@ Notable modules:
 - `filter/` – Filter expression builder
 - `join/` – Join configuration
 - `deduplication/` – Deduplication config
+- `transformation/` – Transformation config (passthrough, computed fields)
+- `pipeline-adapters/` – Pipeline config version adapters (V1/V2)
 - `pipelines/` – Pipeline list/details UI
-- `create/` – Pipeline wizard
+- `notifications/` – Notification center (panel, settings, channels)
+- `create/` – Pipeline wizard ([docs/modules/create/PIPELINE_WIZARD.md](../../docs/modules/create/PIPELINE_WIZARD.md))
 - `review/` – Configuration review
 
 ## Structure (typical)

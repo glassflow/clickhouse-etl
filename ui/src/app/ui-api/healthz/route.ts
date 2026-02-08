@@ -43,20 +43,19 @@ export async function GET() {
         { status: response.status },
       )
     }
-  } catch (error: any) {
-    if (error.response) {
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
       return NextResponse.json(
         {
           success: false,
           status: 'unhealthy',
           timestamp: new Date().toISOString(),
-          message: data?.message || `Backend health check failed with status ${status}`,
+          message: (data as { message?: string })?.message || `Backend health check failed with status ${status}`,
         },
         { status },
       )
     }
-
     // Handle network errors (no response)
     return NextResponse.json(
       {

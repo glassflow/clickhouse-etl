@@ -15,6 +15,7 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { Button } from '@/src/components/ui/button'
+import { isDeduplicationConfigComplete } from '@/src/modules/deduplication/utils/deduplicationValidation'
 
 export function DeduplicationConfigurator({
   onCompleteStep,
@@ -30,7 +31,7 @@ export function DeduplicationConfigurator({
   readOnly?: boolean
   standalone?: boolean
   toggleEditMode?: () => void
-  pipelineActionState?: any
+  pipelineActionState?: unknown
   onCompleteStandaloneEditing?: () => void
 }) {
   const analytics = useJourneyAnalytics()
@@ -53,7 +54,7 @@ export function DeduplicationConfigurator({
   const eventData = selectedEvent?.event || null
 
   // Get schema fields from KafkaTypeVerification step (if configured)
-  const schemaFields = (topic as any)?.schema?.fields as SchemaField[] | undefined
+  const schemaFields = topic?.schema?.fields as SchemaField[] | undefined
 
   // Build effective event that reflects schema modifications (added/removed fields)
   const effectiveEventData = useMemo(() => {
@@ -73,12 +74,22 @@ export function DeduplicationConfigurator({
   // State for tracking save success in edit mode
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
+  // State for tracking submit attempt (for validation)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+
   // Reset success state when user starts editing again
   useEffect(() => {
     if (!readOnly && isSaveSuccess) {
       setIsSaveSuccess(false)
     }
   }, [readOnly, isSaveSuccess])
+
+  // Reset submitAttempted when deduplication key is selected (clear validation error)
+  useEffect(() => {
+    if (deduplicationConfig?.key && submitAttempted) {
+      setSubmitAttempted(false)
+    }
+  }, [deduplicationConfig?.key, submitAttempted])
 
   // Use deduplication config from the new store, with fallback
   const currentDeduplicationConfig = deduplicationConfig || {
@@ -89,12 +100,10 @@ export function DeduplicationConfigurator({
     keyType: 'string',
   }
 
-  // Determine if we can continue based directly on the store data
-  const canContinue = !!(
-    currentDeduplicationConfig.key &&
-    currentDeduplicationConfig.window &&
-    currentDeduplicationConfig.unit
-  )
+  const canContinue = isDeduplicationConfigComplete(currentDeduplicationConfig)
+
+  // Compute validation error for deduplication key field
+  const keyValidationError = submitAttempted && !currentDeduplicationConfig.key ? 'Please select a deduplication key' : null
 
   // Update the deduplication config in the new store
   const handleDeduplicationConfigChange = useCallback(
@@ -128,6 +137,15 @@ export function DeduplicationConfigurator({
   const handleSave = useCallback(() => {
     if (!topic?.name) return
 
+    // Mark that user attempted to submit (for validation display)
+    setSubmitAttempted(true)
+
+    // Validate before proceeding
+    if (!canContinue) {
+      // Don't proceed if validation fails - errors will be shown via keyValidationError
+      return
+    }
+
     // Trigger validation engine to mark this section as valid and invalidate dependents
     validationEngine.onSectionConfigured(StepKeys.DEDUPLICATION_CONFIGURATOR)
 
@@ -149,7 +167,7 @@ export function DeduplicationConfigurator({
       // In creation mode, move to next step
       onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
     }
-  }, [topic, onCompleteStep, validationEngine, standalone, toggleEditMode])
+  }, [topic, onCompleteStep, validationEngine, standalone, toggleEditMode, canContinue])
 
   // Handle discard changes for deduplication configuration
   const handleDiscardChanges = useCallback(() => {
@@ -218,15 +236,16 @@ export function DeduplicationConfigurator({
       {/* Topic Configuration */}
       <div className="flex gap-4 w-full">
         <div className="flex flex-col gap-12 flex-[2] min-w-0">
-          {/* Force remounting of this component when the topic name changes */}
+          {/* Force remounting when topic changes (index or name) */}
           <SelectDeduplicateKeys
-            key={`dedup-keys-${topic.name}-${Date.now()}`}
+            key={`dedup-keys-${index}-${topic.name}`}
             index={index}
             onChange={handleDeduplicationConfigChange}
             disabled={!topic?.name}
             eventData={effectiveEventData}
             readOnly={readOnly}
             schemaFields={schemaFields}
+            validationError={keyValidationError}
           />
         </div>
         <div className="flex-[3] min-w-0 min-h-[400px]">
@@ -245,24 +264,13 @@ export function DeduplicationConfigurator({
 
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
-        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
-        {!standalone && (
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
-          >
-            Skip Deduplication
-          </Button>
-        )}
-
         <FormActions
           standalone={standalone}
           onSubmit={handleSave}
           onDiscard={handleDiscardChanges}
           isLoading={false}
           isSuccess={isSaveSuccess}
-          disabled={!canContinue}
+          disabled={false}
           successText="Continue"
           loadingText="Loading..."
           regularText="Continue"
@@ -273,6 +281,17 @@ export function DeduplicationConfigurator({
           pipelineActionState={pipelineActionState}
           onClose={onCompleteStandaloneEditing}
         />
+
+        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
+        {!standalone && (
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)] btn-tertiary"
+          >
+            Skip Deduplication
+          </Button>
+        )}
       </div>
     </div>
   )

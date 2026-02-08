@@ -143,4 +143,49 @@ export const pipelineMessages = {
     reportLink: undefined,
     channel: 'toast',
   }),
+
+  /**
+   * Generic action failed
+   * Fallback for actions that don't have specific messages
+   */
+  actionFailed: (errorMessage: string): NotificationOptions => ({
+    variant: 'error',
+    title: 'Action failed.',
+    description: errorMessage,
+    reportLink: DEFAULT_REPORT_LINK,
+    channel: 'toast',
+  }),
+}
+
+/**
+ * Get the appropriate error notification for a pipeline action.
+ * Centralizes the action-to-notification mapping that was previously
+ * duplicated in PipelineDetailsHeader.
+ *
+ * @param action - The action that failed
+ * @param pipelineName - The name of the pipeline (optional for some messages)
+ * @param errorMessage - The error message (for generic fallback)
+ * @returns The notification options to display
+ */
+export function getActionErrorNotification(
+  action: string,
+  pipelineName: string,
+  errorMessage?: string
+): NotificationOptions {
+  switch (action) {
+    case 'resume':
+      return pipelineMessages.resumeFailed(pipelineName)
+    case 'stop':
+      return pipelineMessages.stopFailed(pipelineName)
+    case 'terminate':
+      return pipelineMessages.terminateFailed(pipelineName)
+    case 'delete':
+      return pipelineMessages.deleteFailed(pipelineName)
+    case 'rename':
+      return pipelineMessages.renameFailed()
+    case 'edit':
+      return pipelineMessages.fetchFailed()
+    default:
+      return pipelineMessages.actionFailed(errorMessage || 'An unknown error occurred.')
+  }
 }

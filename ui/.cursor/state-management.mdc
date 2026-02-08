@@ -1,6 +1,6 @@
 ## State Management Rules
 
-- **Slices**: Keep domain logic in its own slice (kafka, topics, clickhouse-connection, destination, deduplication, join, filter, steps, core).
+- **Slices**: Keep domain logic in its own slice (kafka, topics, clickhouse-connection, destination, deduplication, join, filter, transformation, steps, core, notifications).
 
 - **Actions only**: Mutate state through slice actions; avoid direct state mutation.
 

@@ -4,8 +4,8 @@ import React, { useCallback, useMemo, useState, useEffect } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { PlusIcon, TrashIcon, ArrowDownIcon } from '@heroicons/react/24/outline'
+import { FieldSelectCombobox } from './FieldSelectCombobox'
 import {
   FunctionArg,
   FunctionArgField,
@@ -497,23 +497,14 @@ export function NestedFunctionComposer({
       {/* Source field selection */}
       <div className="space-y-1 w-1/2">
         <Label className="text-xs text-[var(--text-secondary)] block">Source Field</Label>
-        <Select
+        <FieldSelectCombobox
           value={sourceArg.type === 'field' ? (sourceArg as FunctionArgField).fieldName : ''}
           onValueChange={handleSourceChange}
+          availableFields={availableFields}
+          placeholder="Select source field"
           disabled={disabled}
-        >
-          <SelectTrigger className="input-regular input-border-regular w-full">
-            <SelectValue placeholder="Select source field" />
-          </SelectTrigger>
-          <SelectContent className="select-content-custom">
-            {availableFields.map((f) => (
-              <SelectItem key={f.name} value={f.name} className="select-item-custom">
-                <span>{f.name}</span>
-                <span className="ml-2 text-[var(--text-secondary)]">({f.type})</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          className="w-full"
+        />
       </div>
 
       {/* Function chain */}
@@ -568,26 +559,19 @@ export function NestedFunctionComposer({
                                   {argDef.required !== false && ' *'}
                                 </Label>
                                 {argDef.type === 'field' ? (
-                                  <Select
+                                  <FieldSelectCombobox
                                     value={
                                       func.additionalArgs[argIndex]?.type === 'field'
                                         ? (func.additionalArgs[argIndex] as FunctionArgField).fieldName
                                         : ''
                                     }
                                     onValueChange={(v) => handleAdditionalArgChange(index, argIndex, v, 'field')}
+                                    availableFields={availableFields}
+                                    placeholder="Select field"
                                     disabled={disabled}
-                                  >
-                                    <SelectTrigger className="input-regular input-border-regular h-8 text-sm">
-                                      <SelectValue placeholder="Select field" />
-                                    </SelectTrigger>
-                                    <SelectContent className="select-content-custom">
-                                      {availableFields.map((f) => (
-                                        <SelectItem key={f.name} value={f.name} className="select-item-custom text-sm">
-                                          {f.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                    filterTypes={argDef.fieldTypes}
+                                    triggerClassName="h-8 text-sm"
+                                  />
                                 ) : (
                                   <Input
                                     value={
