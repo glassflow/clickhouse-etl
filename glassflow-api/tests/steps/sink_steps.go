@@ -12,10 +12,12 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
@@ -31,9 +33,13 @@ type SinkTestSuite struct {
 	streamConfig   jetstream.StreamConfig
 	consumerConfig jetstream.ConsumerConfig
 
-	schemaConfig models.MapperConfig
-	sinkConfig   models.SinkComponentConfig
-	CHSink       component.Component
+	pipelineConfig *models.PipelineConfig
+	pipelineStore  service.PipelineStore
+	configStore    configs.ConfigStoreInterface
+
+	clickhouseConn models.ClickHouseConnectionParamsConfig
+
+	chSink component.Component
 }
 
 func NewSinkTestSuite() *SinkTestSuite {
@@ -53,6 +59,23 @@ func (s *SinkTestSuite) SetupResources() error {
 	err = s.setupCH()
 	if err != nil {
 		errs = append(errs, fmt.Errorf("setup ClickHouse container: %w", err))
+	}
+
+	// Setup Postgres for storing pipeline configs
+	if s.postgresContainer == nil {
+		err := s.setupPostgres()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("setup postgres: %w", err))
+		}
+	}
+
+	// Create pipeline store
+	if s.pipelineStore == nil {
+		db, err := storage.NewPipelineStore(context.Background(), s.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("create pipeline store: %w", err))
+		}
+		s.pipelineStore = db
 	}
 
 	err = testutils.CombineErrors(errs)
@@ -129,7 +152,7 @@ func (s *SinkTestSuite) aClickHouseClientWithConfig(dbName, tableName string) er
 
 	s.tablename = dbName + "." + tableName
 
-	s.sinkConfig.ClickHouseConnectionParams = models.ClickHouseConnectionParamsConfig{
+	s.clickhouseConn = models.ClickHouseConnectionParamsConfig{
 		Host:     "localhost",
 		Port:     chPort,
 		Username: "default",
@@ -138,8 +161,6 @@ func (s *SinkTestSuite) aClickHouseClientWithConfig(dbName, tableName string) er
 		Table:    tableName,
 		Secure:   false,
 	}
-
-	s.sinkConfig.Type = internal.ClickHouseSinkType
 
 	return nil
 }
@@ -209,73 +230,38 @@ func (s *SinkTestSuite) theClickHouseTableAlreadyExistsWithSchema(tableName stri
 	return nil
 }
 
-func (s *SinkTestSuite) aBatchConfigWithMaxSize(maxSize int) error {
-	batchCfg := models.BatchConfig{
-		MaxBatchSize: maxSize,
-	}
-	s.sinkConfig.Batch = batchCfg
-	return nil
-}
+func (s *SinkTestSuite) aPipelineConfig(cfg *godog.DocString) error {
+	var pc models.PipelineConfig
 
-func (s *SinkTestSuite) aBatchConfigWithMaxSizeAndDelay(maxSize int, duration string) error {
-	maxDelayTime, err := time.ParseDuration(duration)
+	err := json.Unmarshal([]byte(cfg.Content), &pc)
 	if err != nil {
-		return fmt.Errorf("parse duration: %w", err)
+		return fmt.Errorf("unmarshal pipeline config: %w", err)
 	}
 
-	batchCfg := models.BatchConfig{
-		MaxBatchSize: maxSize,
-		MaxDelayTime: *models.NewJSONDuration(maxDelayTime),
-	}
-	s.sinkConfig.Batch = batchCfg
-	return nil
-}
-
-func (s *SinkTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	err := s.getMappingConfig(cfg, &s.schemaConfig)
+	// Store pipeline config in database to create schema versions and sink configs
+	err = s.pipelineStore.InsertPipeline(context.Background(), pc)
 	if err != nil {
-		return fmt.Errorf("unmarshal schema config: %w", err)
+		return fmt.Errorf("insert pipeline: %w", err)
 	}
+
+	// Set sink config from pipeline
+	s.pipelineConfig = &pc
+	s.pipelineConfig.Sink.ClickHouseConnectionParams = s.clickhouseConn
+
+	// Create config store for retrieving sink configs by schema version
+	s.configStore = configs.NewConfigStore(s.pipelineStore, pc.ID, pc.Sink.SourceID)
 
 	return nil
 }
 
-func (s *SinkTestSuite) iPublishEventsToTheStream(count int, data *godog.DocString) error {
-	js := s.natsClient.JetStream()
-
-	var events []map[string]any
-	if err := json.Unmarshal([]byte(data.Content), &events); err != nil {
-		return fmt.Errorf("unmarshal JSON events: %w", err)
-	}
-
-	if len(events) != count {
-		return fmt.Errorf("wrong number of events in JSON data: expected %d, got %d", count, len(events))
-	}
-
-	for i := range count {
-		eventBytes, err := json.Marshal(events[i])
-		if err != nil {
-			return fmt.Errorf("marshal event: %w", err)
-		}
-
-		_, err = js.Publish(context.Background(), s.streamConfig.Subjects[0], eventBytes)
-		if err != nil {
-			return fmt.Errorf("publish event: %w", err)
-		}
-	}
-
-	return nil
+func (s *SinkTestSuite) iPublishEventsToTheStream(count int, data *godog.Table) error {
+	return s.publishEvents(count, data, s.streamConfig.Subjects[0])
 }
 
 func (s *SinkTestSuite) iRunClickHouseSink() error {
 	streamConsumer, err := stream.NewNATSConsumer(context.Background(), s.natsClient.JetStream(), s.consumerConfig, s.streamConfig.Name)
 	if err != nil {
 		return fmt.Errorf("create stream consumer: %w", err)
-	}
-
-	schemaMapper, err := schema.NewJSONToClickHouseMapper(s.schemaConfig.Streams, s.schemaConfig.SinkMapping)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
 	logger := testutils.NewTestLogger()
@@ -287,10 +273,13 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		},
 	)
 
+	kafkaMapper := mapper.NewKafkaToClickHouseMapper(s.pipelineConfig.Sink.Config)
+	cfgStore := s.configStore.(*configs.ConfigStore)
 	sink, err := component.NewSinkComponent(
-		s.sinkConfig,
+		s.pipelineConfig.Sink,
 		streamConsumer,
-		schemaMapper,
+		kafkaMapper,
+		cfgStore,
 		make(chan struct{}),
 		logger,
 		nil, // nil meter for e2e tests
@@ -300,21 +289,21 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 	if err != nil {
 		return fmt.Errorf("create ClickHouse sink: %w", err)
 	}
-	s.CHSink = sink
+	s.chSink = sink
 
 	s.errCh = make(chan error, 1)
 
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		s.CHSink.Start(context.Background(), s.errCh)
+		s.chSink.Start(context.Background(), s.errCh)
 	}()
 
 	return nil
 }
 
 func (s *SinkTestSuite) iStopClickHouseSinkGracefully() error {
-	s.stopComponent(s.CHSink.Stop, true)
+	s.stopComponent(s.chSink.Stop, true)
 	err := s.checkComponentErrors()
 	if err != nil {
 		return fmt.Errorf("error from sink: %w", err)
@@ -329,14 +318,14 @@ func (s *SinkTestSuite) iStopClickHouseSinkAfterDelay(delay string) error {
 		return fmt.Errorf("parse duration: %w", err)
 	}
 
-	s.stopComponent(s.CHSink.Stop, false, dur)
+	s.stopComponent(s.chSink.Stop, false, dur)
 
 	err = s.checkComponentErrors()
 	if err != nil {
 		return fmt.Errorf("error from sink: %w", err)
 	}
 
-	s.CHSink = nil
+	s.chSink = nil
 
 	return nil
 }
@@ -379,8 +368,8 @@ func (s *SinkTestSuite) cleanClickHouseTable() error {
 func (s *SinkTestSuite) fastCleanUp() error {
 	var errs []error
 
-	if s.CHSink != nil {
-		s.CHSink.Stop(component.WithNoWait(true))
+	if s.chSink != nil {
+		s.chSink.Stop(component.WithNoWait(true))
 	}
 
 	if s.chContainer != nil && s.tablename != "" {
@@ -397,6 +386,14 @@ func (s *SinkTestSuite) fastCleanUp() error {
 		}
 	}
 
+	// Clean up pipeline from database
+	if s.pipelineConfig != nil {
+		err := s.pipelineStore.DeletePipeline(context.Background(), s.pipelineConfig.ID)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("delete pipeline: %w", err))
+		}
+	}
+
 	err := testutils.CombineErrors(errs)
 	if err != nil {
 		return fmt.Errorf("cleanup errors: %w", err)
@@ -408,14 +405,14 @@ func (s *SinkTestSuite) CleanupResources() error {
 	var errs []error
 
 	// Close ClickHouse sink
-	if s.CHSink != nil {
-		s.stopComponent(s.CHSink.Stop, false)
+	if s.chSink != nil {
+		s.stopComponent(s.chSink.Stop, false)
 		err := s.checkComponentErrors()
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error from sink: %w", err))
 		}
 
-		s.CHSink = nil
+		s.chSink = nil
 	}
 
 	// Stop ClickHouse container
@@ -428,6 +425,11 @@ func (s *SinkTestSuite) CleanupResources() error {
 	err = s.cleanupNATS()
 	if err != nil {
 		errs = append(errs, fmt.Errorf("cleanup NATS: %w", err))
+	}
+
+	// Cleanup Postgres
+	if err := s.cleanupPostgres(); err != nil {
+		errs = append(errs, fmt.Errorf("cleanup postgres: %w", err))
 	}
 
 	err = testutils.CombineErrors(errs)
@@ -481,14 +483,12 @@ func (s *SinkTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^a stream consumer with config$`, s.aStreamConsumerConfig)
 	sc.Step(`^a ClickHouse client with db "([^"]*)" and table "([^"]*)"$`, s.aClickHouseClientWithConfig)
 	sc.Step(`^the ClickHouse table "([^"]*)" already exists with schema$`, s.theClickHouseTableAlreadyExistsWithSchema)
-	sc.Step(`^a batch config with max size (\d+)$`, s.aBatchConfigWithMaxSize)
-	sc.Step(`^a schema config with mapping$`, s.aSchemaConfigWithMapping)
-	sc.Step(`^I publish (\d+) events to the stream with data$`, s.iPublishEventsToTheStream)
+	sc.Step(`^a pipeline with configuration$`, s.aPipelineConfig)
+	sc.Step(`^I publish (\d+) events to the stream$`, s.iPublishEventsToTheStream)
 	sc.Step(`^I run ClickHouse sink`, s.iRunClickHouseSink)
 	sc.Step(`^I stop ClickHouse sink after "([^"]*)"$`, s.iStopClickHouseSinkAfterDelay)
 	sc.Step(`^I gracefully stop ClickHouse sink$`, s.iStopClickHouseSinkGracefully)
 	sc.Step(`^the ClickHouse table "([^"]*)" should contain (\d+) rows$`, s.theClickHouseTableShouldContainRows)
-	sc.Step(`^a batch config with max size (\d+) and delay "([^"]*)"$`, s.aBatchConfigWithMaxSizeAndDelay)
 	sc.Step(`^dlq should contain (\d+) events$`, s.dlqHasNEvents)
 	sc.Step(`^Wait until all messages are processed`, s.allMessagesAreProcessed)
 	sc.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {

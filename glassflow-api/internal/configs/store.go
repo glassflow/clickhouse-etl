@@ -17,7 +17,7 @@ type DBClient interface {
 type ConfigStoreInterface interface {
 	GetStatelessTransformationConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error)
 	GetJoinConfig(ctx context.Context, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID string) (*models.JoinAuxConfig, error)
-	GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error)
+	GetSinkConfig(ctx context.Context, sourceSchemaVersion string) (map[string]models.Mapping, error)
 }
 
 type ConfigStore struct {
@@ -26,17 +26,17 @@ type ConfigStore struct {
 	sourceID                      string
 	statelessTransfromationConigs map[string]*models.TransformationConfig
 	joinConfigs                   map[string]*models.JoinAuxConfig
-	sinkConfigs                   map[string]*models.SinkConfig
+	sinkConfigs                   map[string]map[string]models.Mapping
 }
 
-func NewConfigStore(dbClient DBClient, pipelineID, sourceID string) ConfigStoreInterface {
+func NewConfigStore(dbClient DBClient, pipelineID, sourceID string) *ConfigStore {
 	return &ConfigStore{
 		dbClient:                      dbClient,
 		pipelineID:                    pipelineID,
 		sourceID:                      sourceID,
 		statelessTransfromationConigs: make(map[string]*models.TransformationConfig),
 		joinConfigs:                   make(map[string]*models.JoinAuxConfig),
-		sinkConfigs:                   make(map[string]*models.SinkConfig),
+		sinkConfigs:                   make(map[string]map[string]models.Mapping),
 	}
 }
 
@@ -79,12 +79,12 @@ func (s *ConfigStore) GetJoinConfig(ctx context.Context, leftSourceID, leftSchem
 	return joinAuxCfg, nil
 }
 
-func (s *ConfigStore) GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
+func (s *ConfigStore) GetSinkConfig(ctx context.Context, sourceSchemaVersion string) (zero map[string]models.Mapping, _ error) {
 	if config, ok := s.sinkConfigs[sourceSchemaVersion]; ok {
 		return config, nil
 	}
 
-	config, err := s.dbClient.GetSinkConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+	config, err := s.dbClient.GetSinkConfig(ctx, s.pipelineID, s.sourceID, sourceSchemaVersion)
 	if err != nil {
 		if errors.Is(err, models.ErrRecordNotFound) {
 			return nil, models.ErrConfigNotFound
@@ -92,7 +92,12 @@ func (s *ConfigStore) GetSinkConfig(ctx context.Context, pipelineID, sourceID, s
 		return nil, fmt.Errorf("get sink config: %w", err)
 	}
 
-	s.sinkConfigs[sourceSchemaVersion] = config
+	m := make(map[string]models.Mapping)
+	for _, mapping := range config.Config {
+		m[mapping.DestinationField] = mapping
+	}
 
-	return config, nil
+	s.sinkConfigs[sourceSchemaVersion] = m
+
+	return m, nil
 }

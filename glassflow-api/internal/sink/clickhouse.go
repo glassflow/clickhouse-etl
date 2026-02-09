@@ -17,15 +17,24 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/clickhouse"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
+type FieldMapper interface {
+	Map(data []byte, config map[string]models.Mapping) ([]any, error)
+	GetColumnNames() []string
+}
+
+type ConfigStore interface {
+	GetSinkConfig(ctx context.Context, sourceSchemaVersion string) (map[string]models.Mapping, error)
+}
+
 type ClickHouseSink struct {
 	client                *client.ClickHouseClient
 	streamConsumer        jetstream.Consumer
-	schemaMapper          schema.Mapper
+	mapper                FieldMapper
+	cfgStore              ConfigStore
 	cancel                context.CancelFunc
 	shutdownOnce          sync.Once
 	sinkConfig            models.SinkComponentConfig
@@ -39,7 +48,8 @@ type ClickHouseSink struct {
 func NewClickHouseSink(
 	sinkConfig models.SinkComponentConfig,
 	streamConsumer jetstream.Consumer,
-	schemaMapper schema.Mapper,
+	mapper FieldMapper,
+	cfgStore ConfigStore,
 	log *slog.Logger,
 	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
@@ -58,7 +68,8 @@ func NewClickHouseSink(
 	return &ClickHouseSink{
 		client:                clickhouseClient,
 		streamConsumer:        streamConsumer,
-		schemaMapper:          schemaMapper,
+		mapper:                mapper,
+		cfgStore:              cfgStore,
 		sinkConfig:            sinkConfig,
 		log:                   log,
 		meter:                 meter,
@@ -308,22 +319,12 @@ func (ch *ClickHouseSink) createCHBatch(
 	ctx context.Context,
 	messages []jetstream.Msg,
 ) (clickhouse.Batch, error) {
-	var query string
-	if ch.streamSourceID != "" {
-		query = fmt.Sprintf(
-			"INSERT INTO %s.%s (%s)",
-			ch.client.GetDatabase(),
-			ch.client.GetTableName(),
-			strings.Join(ch.schemaMapper.GetOrderedColumnsStream(ch.streamSourceID), ", "),
-		)
-	} else {
-		query = fmt.Sprintf(
-			"INSERT INTO %s.%s (%s)",
-			ch.client.GetDatabase(),
-			ch.client.GetTableName(),
-			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
-		)
-	}
+	query := fmt.Sprintf(
+		"INSERT INTO %s.%s (%s)",
+		ch.client.GetDatabase(),
+		ch.client.GetTableName(),
+		strings.Join(ch.mapper.GetColumnNames(), ","),
+	)
 
 	ch.log.Debug("Insert query", "query", query)
 
@@ -340,11 +341,18 @@ func (ch *ClickHouseSink) createCHBatch(
 		}
 
 		var values []any
-		if ch.streamSourceID != "" {
-			values, err = ch.schemaMapper.PrepareValuesStream(ch.streamSourceID, msg.Data())
-		} else {
-			values, err = ch.schemaMapper.PrepareValues(msg.Data())
+
+		schemaVerionID := msg.Headers().Get(internal.SchemaVersionIDHeader)
+		if schemaVerionID == "" {
+			return nil, fmt.Errorf("message is missing schema version header: %s", internal.SchemaVersionIDHeader)
 		}
+
+		mappingConfig, err := ch.cfgStore.GetSinkConfig(ctx, schemaVerionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVerionID, err)
+		}
+
+		values, err = ch.mapper.Map(msg.Data(), mappingConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare values for message: %w", err)
 		}

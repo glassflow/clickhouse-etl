@@ -10,8 +10,9 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -20,9 +21,9 @@ type SinkRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	pipelineCfg  models.PipelineConfig
-	schemaMapper schema.Mapper
-	meter        *observability.Meter
+	pipelineCfg models.PipelineConfig
+	db          PipelineStore
+	meter       *observability.Meter
 
 	component component.Component
 	c         chan error
@@ -33,16 +34,16 @@ func NewSinkRunner(
 	log *slog.Logger,
 	nc *client.NATSClient,
 	pipelineCfg models.PipelineConfig,
-	schemaMapper schema.Mapper,
+	db PipelineStore,
 	meter *observability.Meter,
 ) *SinkRunner {
 	return &SinkRunner{
 		nc:  nc,
 		log: log,
 
-		pipelineCfg:  pipelineCfg,
-		schemaMapper: schemaMapper,
-		meter:        meter,
+		pipelineCfg: pipelineCfg,
+		db:          db,
+		meter:       meter,
 
 		component: nil,
 	}
@@ -85,7 +86,8 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	sinkComponent, err := component.NewSinkComponent(
 		s.pipelineCfg.Sink,
 		consumer,
-		s.schemaMapper,
+		mapper.NewKafkaToClickHouseMapper(s.pipelineCfg.Sink.Config),
+		configs.NewConfigStore(s.db, s.pipelineCfg.ID, s.pipelineCfg.Sink.SourceID),
 		s.doneCh,
 		s.log,
 		s.meter,
