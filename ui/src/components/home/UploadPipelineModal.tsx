@@ -13,7 +13,7 @@ import {
 import { Button } from '@/src/components/ui/button'
 import { ModalResult } from '@/src/components/common/InfoModal'
 import { PipelineUpload } from './PipelineUpload'
-import { ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { ExclamationTriangleIcon, CheckCircleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import type { ImportValidationResult } from '@/src/utils/pipeline-import'
 import type { Pipeline } from '@/src/types/pipeline'
 
@@ -21,9 +21,19 @@ export interface UploadPipelineModalProps {
   visible: boolean
   onComplete: (result: string, config?: Pipeline, rawJson?: string) => void
   isNavigating?: boolean
+  /** Error message when import/hydration failed (e.g. after clicking Import & Continue) */
+  importError?: string | null
+  /** Called when user should dismiss or retry so the error can be cleared */
+  onClearImportError?: () => void
 }
 
-export function UploadPipelineModal({ visible, onComplete, isNavigating = false }: UploadPipelineModalProps) {
+export function UploadPipelineModal({
+  visible,
+  onComplete,
+  isNavigating = false,
+  importError = null,
+  onClearImportError,
+}: UploadPipelineModalProps) {
   const [validationResult, setValidationResult] = useState<ImportValidationResult | null>(null)
   const [rawJson, setRawJson] = useState<string>('')
   const [errors, setErrors] = useState<string[]>([])
@@ -34,20 +44,30 @@ export function UploadPipelineModal({ visible, onComplete, isNavigating = false 
       setValidationResult(null)
       setRawJson('')
       setErrors([])
+      onClearImportError?.()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when visibility changes
   }, [visible])
 
-  const handleValidConfig = useCallback((result: ImportValidationResult, json: string) => {
-    setValidationResult(result)
-    setRawJson(json)
-    setErrors([])
-  }, [])
+  const handleValidConfig = useCallback(
+    (result: ImportValidationResult, json: string) => {
+      setValidationResult(result)
+      setRawJson(json)
+      setErrors([])
+      onClearImportError?.()
+    },
+    [onClearImportError],
+  )
 
-  const handleError = useCallback((errs: string[]) => {
-    setErrors(errs)
-    setValidationResult(null)
-    setRawJson('')
-  }, [])
+  const handleError = useCallback(
+    (errs: string[]) => {
+      setErrors(errs)
+      setValidationResult(null)
+      setRawJson('')
+      onClearImportError?.()
+    },
+    [onClearImportError],
+  )
 
   const handleCancel = useCallback(() => {
     onComplete(ModalResult.CANCEL)
@@ -79,6 +99,31 @@ export function UploadPipelineModal({ visible, onComplete, isNavigating = false 
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Import/hydration error (e.g. failed when clicking Import & Continue) */}
+          {importError && (
+            <div
+              className="p-4 rounded-lg bg-[var(--color-background-critical-faded)] border border-[var(--color-border-critical)] flex items-start gap-3"
+              role="alert"
+            >
+              <ExclamationTriangleIcon className="w-5 h-5 text-[var(--color-foreground-critical)] flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-medium text-[var(--color-foreground-critical)] mb-1">Import failed</h4>
+                <p className="text-sm text-[var(--text-secondary)]">{importError}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-2">
+                  Fix the configuration or try a different file, then try again.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClearImportError}
+                className="p-1 rounded hover:bg-[var(--color-background-critical)] text-[var(--color-foreground-critical)]"
+                aria-label="Dismiss error"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <PipelineUpload onValidConfig={handleValidConfig} onError={handleError} disabled={isNavigating} />
 
           {/* Success state with config summary */}

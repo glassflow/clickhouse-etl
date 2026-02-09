@@ -54,6 +54,7 @@ export default function HomePageClient() {
   const [pendingTopicCount, setPendingTopicCount] = useState<number | null>(null)
   const [isCreatePipelineModalVisible, setIsCreatePipelineModalVisible] = useState(false)
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [isNavigating, setIsNavigating] = useState(false)
   const [activePipelinesCount, setActivePipelinesCount] = useState(0)
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
@@ -194,11 +195,13 @@ export default function HomePageClient() {
 
   const handleUploadModalComplete = async (result: string, config?: Pipeline) => {
     if (result !== ModalResult.YES || !config) {
+      setUploadError(null)
       setIsUploadModalVisible(false)
       setIsNavigating(false)
       return
     }
 
+    setUploadError(null)
     setIsNavigating(true)
 
     try {
@@ -227,9 +230,11 @@ export default function HomePageClient() {
         router.push('/pipelines/create')
       }, 0)
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to import pipeline configuration'
       console.error('Failed to import pipeline configuration:', error)
+      setUploadError(message)
       setIsNavigating(false)
-      setIsUploadModalVisible(false)
+      // Keep modal open so the user can fix the configuration or try again
     }
   }
 
@@ -348,6 +353,8 @@ export default function HomePageClient() {
         visible={isUploadModalVisible}
         onComplete={handleUploadModalComplete}
         isNavigating={isNavigating}
+        importError={uploadError}
+        onClearImportError={() => setUploadError(null)}
       />
     </div>
   )
