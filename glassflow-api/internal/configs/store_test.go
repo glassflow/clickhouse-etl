@@ -29,7 +29,7 @@ func TestConfigStore_GetStatelessTransformationConfig(t *testing.T) {
 
 	t.Run("returns cached config", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
-		store := NewConfigStore(mockDB, pipelineID, sourceID).(*ConfigStore)
+		store := NewConfigStore(mockDB, pipelineID, sourceID)
 
 		// Pre-populate cache
 		store.statelessTransfromationConigs[sourceSchemaVersion] = transformConfig
@@ -156,7 +156,7 @@ func TestConfigStore_GetJoinConfig(t *testing.T) {
 
 	t.Run("returns cached config", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
-		store := NewConfigStore(mockDB, pipelineID, sourceID1).(*ConfigStore)
+		store := NewConfigStore(mockDB, pipelineID, sourceID1)
 
 		// Pre-populate cache
 		cacheKey := sourceID1 + schemaVersionID1 + sourceID2 + schemaVersionID2
@@ -258,17 +258,26 @@ func TestConfigStore_GetSinkConfig(t *testing.T) {
 		},
 	}
 
+	sinkMappings := map[string]models.Mapping{
+		"user_id": {
+			SourceField:      "user_id",
+			SourceType:       "string",
+			DestinationField: "user_id",
+			DestinationType:  "UUID",
+		},
+	}
+
 	t.Run("returns cached config", func(t *testing.T) {
 		mockDB := mocks.NewMockDBClient()
-		store := NewConfigStore(mockDB, pipelineID, sourceID).(*ConfigStore)
+		store := NewConfigStore(mockDB, pipelineID, sourceID)
 
 		// Pre-populate cache
-		store.sinkConfigs[sourceSchemaVersion] = sinkConfig
+		store.sinkConfigs[sourceSchemaVersion] = sinkMappings
 
-		result, err := store.GetSinkConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetSinkConfig(ctx, sourceSchemaVersion)
 
 		assert.NoError(t, err)
-		assert.Equal(t, sinkConfig, result)
+		assert.Equal(t, sinkMappings, result)
 	})
 
 	t.Run("fetches from database when not cached", func(t *testing.T) {
@@ -279,10 +288,10 @@ func TestConfigStore_GetSinkConfig(t *testing.T) {
 
 		store := NewConfigStore(mockDB, pipelineID, sourceID)
 
-		result, err := store.GetSinkConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetSinkConfig(ctx, sourceSchemaVersion)
 
 		assert.NoError(t, err)
-		assert.Equal(t, sinkConfig, result)
+		assert.Equal(t, sinkMappings, result)
 	})
 
 	t.Run("returns error on database failure", func(t *testing.T) {
@@ -294,7 +303,7 @@ func TestConfigStore_GetSinkConfig(t *testing.T) {
 
 		store := NewConfigStore(mockDB, pipelineID, sourceID)
 
-		result, err := store.GetSinkConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetSinkConfig(ctx, sourceSchemaVersion)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -310,7 +319,7 @@ func TestConfigStore_GetSinkConfig(t *testing.T) {
 
 		store := NewConfigStore(mockDB, pipelineID, sourceID)
 
-		result, err := store.GetSinkConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result, err := store.GetSinkConfig(ctx, sourceSchemaVersion)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, models.ErrConfigNotFound))
@@ -328,14 +337,14 @@ func TestConfigStore_GetSinkConfig(t *testing.T) {
 		store := NewConfigStore(mockDB, pipelineID, sourceID)
 
 		// First call - fetches from DB
-		result1, err := store.GetSinkConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result1, err := store.GetSinkConfig(ctx, sourceSchemaVersion)
 		assert.NoError(t, err)
-		assert.Equal(t, sinkConfig, result1)
+		assert.Equal(t, sinkMappings, result1)
 
 		// Second call - should use cache (no additional DB call expected)
-		result2, err := store.GetSinkConfig(ctx, pipelineID, sourceID, sourceSchemaVersion)
+		result2, err := store.GetSinkConfig(ctx, sourceSchemaVersion)
 		assert.NoError(t, err)
-		assert.Equal(t, sinkConfig, result2)
+		assert.Equal(t, sinkMappings, result2)
 
 		// Verify DB was only called once
 		assert.Equal(t, 1, callCount)

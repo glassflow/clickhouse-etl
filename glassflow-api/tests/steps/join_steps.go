@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
@@ -313,55 +311,6 @@ func (j *JoinTestSuite) iPublishEventsToTheLeftStream(count int, dataTable *godo
 
 func (j *JoinTestSuite) iPublishEventsToTheRightStream(count int, dataTable *godog.Table) error {
 	return j.publishEvents(count, dataTable, j.rightConsumerConfig.FilterSubject)
-}
-
-// Generic helper function for publishing events
-func (j *JoinTestSuite) publishEvents(count int, dataTable *godog.Table, subject string) error {
-	js := j.natsClient.JetStream()
-
-	if len(dataTable.Rows) <= count {
-		return fmt.Errorf("not enough rows in the table: got %d, need %d+1 (including headers)",
-			len(dataTable.Rows), count)
-	}
-
-	headers := dataTable.Rows[0].Cells
-
-	for i := 1; i <= count; i++ {
-		row := dataTable.Rows[i]
-		event := make(map[string]any)
-		natsHeaders := make(map[string]string)
-
-		for l, cell := range row.Cells {
-			if l < len(headers) {
-				headerName := headers[l].Value
-				// Check if header starts with "NATS-" - these are message headers, not data
-				if strings.HasPrefix(headerName, "NATS-") {
-					natsHeaders[headerName[5:]] = cell.Value
-				} else {
-					event[headerName] = cell.Value
-				}
-			}
-		}
-
-		eventBytes, err := json.Marshal(event)
-		if err != nil {
-			return fmt.Errorf("marshal event for row %d: %w", i, err)
-		}
-
-		// Create NATS message with headers
-		msg := nats.NewMsg(subject)
-		msg.Data = eventBytes
-		for key, value := range natsHeaders {
-			msg.Header.Set(key, value)
-		}
-
-		_, err = js.PublishMsg(context.Background(), msg)
-		if err != nil {
-			return fmt.Errorf("publish event for row %d to subject %s: %w", i, subject, err)
-		}
-	}
-
-	return nil
 }
 
 func (j *JoinTestSuite) createResultsConsumer() (zero jetstream.Consumer, _ error) {
