@@ -214,6 +214,7 @@ export function FieldColumnMapper({
                         onOpenChange={(isOpen) => handleSelectOpen(index, isOpen)}
                         disabled={readOnly}
                         readOnly={readOnly}
+                        reserveErrorSpace={false}
                       />
                     )}
                     {/* Show error/warning text or transparent placeholder to maintain alignment */}
