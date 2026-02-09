@@ -24,7 +24,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
@@ -200,7 +199,7 @@ func mainErr(cfg *config, role models.Role) error {
 
 	switch role {
 	case internal.RoleSink:
-		return mainSink(ctx, nc, cfg, log, meter)
+		return mainSink(ctx, nc, cfg, db, log, meter)
 	case internal.RoleJoin:
 		return mainJoin(ctx, nc, cfg, db, log, meter)
 	case internal.RoleIngestor:
@@ -326,15 +325,10 @@ func mainEtl(
 	return nil
 }
 
-func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, meter *observability.Meter) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
-	}
-
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
 	if pipelineCfg.Sink.StreamID == "" {
@@ -345,7 +339,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		log,
 		nc,
 		pipelineCfg,
-		schemaMapper,
+		db,
 		meter,
 	)
 
