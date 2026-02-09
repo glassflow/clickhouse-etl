@@ -59,15 +59,16 @@ export function ArithmeticComposer({
   const [manualInput, setManualInput] = useState('')
   const [parseError, setParseError] = useState<string | null>(null)
 
-  // Filter to only show numeric fields
+  // Filter to only show numeric fields (for builder dropdowns)
   const numericFields = useMemo(() => {
     return availableFields.filter((f) => isNumericType(f.type))
   }, [availableFields])
 
-  // Get field names for validation
-  const fieldNames = useMemo(() => {
-    return numericFields.map((f) => f.name)
-  }, [numericFields])
+  // All field names: for manual expression parsing so e.g. int(event_id) % 2 is allowed
+  const allFieldNames = useMemo(() => availableFields.map((f) => f.name), [availableFields])
+
+  // Numeric field names only: for builder mode field dropdown
+  const fieldNames = useMemo(() => numericFields.map((f) => f.name), [numericFields])
 
   // Initialize expression if not set
   const currentExpression = useMemo((): ArithmeticExpressionNode => {
@@ -107,7 +108,7 @@ export function ArithmeticComposer({
           return
         }
 
-        const result = parseArithmeticExpression(manualInput.trim(), fieldNames)
+        const result = parseArithmeticExpression(manualInput.trim(), allFieldNames)
         if (result.success && result.expression) {
           onChange(result.expression)
           setParseError(null)
@@ -118,7 +119,7 @@ export function ArithmeticComposer({
         }
       }
     },
-    [mode, currentExpression, manualInput, fieldNames, onChange],
+    [mode, currentExpression, manualInput, allFieldNames, onChange],
   )
 
   // Handle manual input change
@@ -134,14 +135,14 @@ export function ArithmeticComposer({
       return
     }
 
-    const result = parseArithmeticExpression(manualInput.trim(), fieldNames)
+    const result = parseArithmeticExpression(manualInput.trim(), allFieldNames)
     if (result.success && result.expression) {
       onChange(result.expression)
       setParseError(null)
     } else {
       setParseError(result.error || 'Failed to parse expression')
     }
-  }, [manualInput, fieldNames, onChange])
+  }, [manualInput, allFieldNames, onChange])
 
   // Update left operand (only used in initial mode)
   const handleLeftChange = useCallback(

@@ -140,6 +140,24 @@ export const buildInternalPipelineConfig = ({
     // Get deduplication config from the new separated store
     const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex) || null
 
+    // Prefer topic.schema.fields (from Kafka Type Verification) when present, so user type overrides persist
+    const schemaFields =
+      topic.schema?.fields?.length > 0
+        ? topic.schema.fields
+            .filter((f: any) => !f.isRemoved)
+            .map((f: any) => ({
+              name: f.name,
+              type: f.userType || f.type || 'string',
+            }))
+        : extractEventFields(eventData).map((fieldPath) => {
+            const mappingType = getMappingType(fieldPath, mapping)
+            const inferredType = getFieldType(eventData, fieldPath)
+            return {
+              name: fieldPath,
+              type: mappingType || inferredType,
+            }
+          })
+
     return {
       consumer_group_initial_offset: topic.initialOffset,
       name: topic.name,
@@ -147,15 +165,7 @@ export const buildInternalPipelineConfig = ({
       replicas: topic.replicas,
       schema: {
         type: 'json',
-        fields: extractEventFields(eventData).map((fieldPath) => {
-          const mappingType = getMappingType(fieldPath, mapping)
-          const inferredType = getFieldType(eventData, fieldPath)
-
-          return {
-            name: fieldPath,
-            type: mappingType || inferredType,
-          }
-        }),
+        fields: schemaFields,
       },
       deduplication:
         // Enable deduplication if:
