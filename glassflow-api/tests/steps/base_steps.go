@@ -15,11 +15,11 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -207,16 +207,6 @@ func (b *BaseTestSuite) cleanupKafka() error {
 	}
 
 	return nil
-}
-
-func (b *BaseTestSuite) getMappingConfig(cfg *godog.DocString) (zero models.MapperConfig, _ error) {
-	var mapperCfg models.MapperConfig
-	err := json.Unmarshal([]byte(cfg.Content), &mapperCfg)
-	if err != nil {
-		return zero, fmt.Errorf("unmarshal schema config: %w", err)
-	}
-
-	return mapperCfg, nil
 }
 
 func (b *BaseTestSuite) createStream(
@@ -518,6 +508,55 @@ func (b *BaseTestSuite) theResponseStatusShouldBe(ctx context.Context, expectedS
 
 	if w.Code != expectedStatus {
 		return fmt.Errorf("expected status %d, got %d. Response body: %s", expectedStatus, w.Code, w.Body.String())
+	}
+
+	return nil
+}
+
+// Generic helper function for publishing events
+func (b *BaseTestSuite) publishEvents(count int, dataTable *godog.Table, subject string) error {
+	js := b.natsClient.JetStream()
+
+	if len(dataTable.Rows) <= count {
+		return fmt.Errorf("not enough rows in the table: got %d, need %d+1 (including headers)",
+			len(dataTable.Rows), count)
+	}
+
+	headers := dataTable.Rows[0].Cells
+
+	for i := 1; i <= count; i++ {
+		row := dataTable.Rows[i]
+		event := make(map[string]any)
+		natsHeaders := make(map[string]string)
+
+		for l, cell := range row.Cells {
+			if l < len(headers) {
+				headerName := headers[l].Value
+				// Check if header starts with "NATS-" - these are message headers, not data
+				if strings.HasPrefix(headerName, "NATS-") {
+					natsHeaders[headerName[5:]] = cell.Value
+				} else {
+					event[headerName] = cell.Value
+				}
+			}
+		}
+
+		eventBytes, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshal event for row %d: %w", i, err)
+		}
+
+		// Create NATS message with headers
+		msg := nats.NewMsg(subject)
+		msg.Data = eventBytes
+		for key, value := range natsHeaders {
+			msg.Header.Set(key, value)
+		}
+
+		_, err = js.PublishMsg(context.Background(), msg)
+		if err != nil {
+			return fmt.Errorf("publish event for row %d to subject %s: %w", i, subject, err)
+		}
 	}
 
 	return nil

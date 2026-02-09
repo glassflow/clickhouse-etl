@@ -13,7 +13,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
@@ -105,13 +104,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.clearComponentEnvVars(ctx)
 
 	var sinkInputStreamPrefix string
-
-	// TODO: transfer all schema mapper validations in models.NewPipeline
-	// so validation errors are handled the same way with correct HTTPStatus
-	schemaMapper, err := schema.NewMapper(pi.Mapper)
-	if err != nil {
-		return models.PipelineConfigError{Msg: fmt.Sprintf("new schema mapper: %s", err)}
-	}
 
 	d.id = pi.ID
 
@@ -244,7 +236,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		d.log.With("component", "clickhouse_sink"),
 		d.nc,
 		*pi,
-		schemaMapper,
+		d.db,
 		nil, // nil meter for docker orchestrator
 	)
 

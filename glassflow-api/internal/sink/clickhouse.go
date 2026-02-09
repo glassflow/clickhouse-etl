@@ -17,7 +17,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/clickhouse"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -44,10 +43,20 @@ type processedMessage struct {
 }
 
 // ClickHouseSink uses Consume() callback pattern
+type FieldMapper interface {
+	Map(data []byte, config map[string]models.Mapping) ([]any, error)
+	GetColumnNames() []string
+}
+
+type ConfigStore interface {
+	GetSinkConfig(ctx context.Context, sourceSchemaVersion string) (map[string]models.Mapping, error)
+}
+
 type ClickHouseSink struct {
 	client                *client.ClickHouseClient
 	streamConsumer        jetstream.Consumer
-	schemaMapper          schema.Mapper
+	mapper                FieldMapper
+	cfgStore              ConfigStore
 	cancel                context.CancelFunc
 	shutdownOnce          sync.Once
 	sinkConfig            models.SinkComponentConfig
@@ -78,7 +87,8 @@ type ClickHouseSink struct {
 func NewClickHouseSink(
 	sinkConfig models.SinkComponentConfig,
 	streamConsumer jetstream.Consumer,
-	schemaMapper schema.Mapper,
+	mapper FieldMapper,
+	cfgStore ConfigStore,
 	log *slog.Logger,
 	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
@@ -108,7 +118,8 @@ func NewClickHouseSink(
 	return &ClickHouseSink{
 		client:                clickhouseClient,
 		streamConsumer:        streamConsumer,
-		schemaMapper:          schemaMapper,
+		mapper:                mapper,
+		cfgStore:              cfgStore,
 		sinkConfig:            sinkConfig,
 		log:                   log,
 		meter:                 meter,
@@ -274,6 +285,9 @@ func (ch *ClickHouseSink) worker() {
 				return
 			}
 
+			ctx, cancel := context.WithCancel(ch.workerCtx)
+			defer cancel()
+
 			processed := make([]processedMessage, 0, len(job.messages))
 			var jobErr error
 
@@ -287,11 +301,19 @@ func (ch *ClickHouseSink) worker() {
 
 				// Schema mapping
 				var values []any
-				if job.streamSourceID != "" {
-					values, err = ch.schemaMapper.PrepareValuesStream(job.streamSourceID, msg.Data())
-				} else {
-					values, err = ch.schemaMapper.PrepareValues(msg.Data())
+				schemaVerionID := msg.Headers().Get(internal.SchemaVersionIDHeader)
+				if schemaVerionID == "" {
+					jobErr = fmt.Errorf("message is missing schema version header: %s", internal.SchemaVersionIDHeader)
+					break
 				}
+
+				mappingConfig, err := ch.cfgStore.GetSinkConfig(ctx, schemaVerionID)
+				if err != nil {
+					jobErr = fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVerionID, err)
+					break
+				}
+
+				values, err = ch.mapper.Map(msg.Data(), mappingConfig)
 				if err != nil {
 					jobErr = fmt.Errorf("failed to prepare values for message: %w", err)
 					break
@@ -442,22 +464,12 @@ func (ch *ClickHouseSink) createCHBatch(
 	prepStartTime := time.Now()
 
 	// Step 1: Query creation
-	var query string
-	if ch.streamSourceID != "" {
-		query = fmt.Sprintf(
-			"INSERT INTO %s.%s (%s)",
-			quoteIdentifier(ch.client.GetDatabase()),
-			quoteIdentifier(ch.client.GetTableName()),
-			quoteIdentifiers(ch.schemaMapper.GetOrderedColumnsStream(ch.streamSourceID)),
-		)
-	} else {
-		query = fmt.Sprintf(
-			"INSERT INTO %s.%s (%s)",
-			quoteIdentifier(ch.client.GetDatabase()),
-			quoteIdentifier(ch.client.GetTableName()),
-			quoteIdentifiers(ch.schemaMapper.GetOrderedColumns()),
-		)
-	}
+	query := fmt.Sprintf(
+		"INSERT INTO %s.%s (%s)",
+		quoteIdentifier(ch.client.GetDatabase()),
+		quoteIdentifier(ch.client.GetTableName()),
+		quoteIdentifiers(ch.mapper.GetColumnNames()),
+	)
 
 	// Step 2: Batch creation
 	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
