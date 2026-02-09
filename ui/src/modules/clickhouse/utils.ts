@@ -527,6 +527,11 @@ export const buildInternalPipelineConfig = ({
                 type: field.type,
                 outputFieldName: field.outputFieldName,
                 outputFieldType: field.outputFieldType,
+                ...(field.expressionMode !== undefined && { expressionMode: field.expressionMode }),
+                ...(field.rawExpression !== undefined && { rawExpression: field.rawExpression }),
+                ...(field.arithmeticExpression !== undefined && {
+                  arithmeticExpression: field.arithmeticExpression,
+                }),
                 ...(field.type === 'passthrough'
                   ? {
                       sourceField: field.sourceField,

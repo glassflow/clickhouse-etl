@@ -284,12 +284,15 @@ export class V2PipelineAdapter implements PipelineAdapter {
 
       // Convert transformation fields to stateless_transformation format
       const transformArray = transformation.fields.map((field: any) => {
-        // Create a TransformationField-like object for fieldToExpr
+        // Create a TransformationField-like object for fieldToExpr (must include all props used by fieldToExpr)
         const fieldObj: TransformationField = {
           id: field.id || '',
           type: field.type || 'passthrough',
           outputFieldName: field.outputFieldName || '',
           outputFieldType: field.outputFieldType || 'string',
+          ...(field.expressionMode !== undefined && { expressionMode: field.expressionMode }),
+          ...(field.rawExpression !== undefined && { rawExpression: field.rawExpression }),
+          ...(field.arithmeticExpression !== undefined && { arithmeticExpression: field.arithmeticExpression }),
           ...(field.type === 'passthrough'
             ? {
                 sourceField: field.sourceField || '',
