@@ -1,0 +1,9 @@
+# Generated at runtime and by generate-env.mjs (uses double quotes for JS).
+# Prettier would rewrite to single quotes (singleQuote: true), causing constant churn.
+public/env.js
+
+# Env files: quoting style is intentional; avoid formatter flipping single/double quotes.
+.env
+.env.local
+.env.*
+!.env.example

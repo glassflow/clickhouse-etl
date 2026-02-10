@@ -146,7 +146,7 @@ export function QueryGroup({
       <div className="space-y-3">
         {group.children.length === 0 ? (
           <div className="text-sm text-[var(--text-secondary)] text-center py-4 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
-            No rules yet. Click "Add Rule" to create one.
+            No rules yet. Click &quot;Add Rule&quot; to create one.
           </div>
         ) : (
           group.children.map((child, index) => {

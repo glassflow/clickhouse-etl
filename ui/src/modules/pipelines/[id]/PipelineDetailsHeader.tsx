@@ -14,7 +14,6 @@ import FlushDLQModal from '@/src/modules/pipelines/components/FlushDLQModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
-import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
 import { useStore } from '@/src/store'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
@@ -26,14 +25,16 @@ import CloseIcon from '@/src/images/close.svg'
 import DownloadIcon from '@/src/images/download-white.svg'
 import StopWhiteIcon from '@/src/images/stop-white.svg'
 import MenuWhiteIcon from '@/src/images/menu-white.svg'
-import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
+import { PipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineStateAdapter'
 import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
-import { isDemoMode, getRuntimeEnv } from '@/src/utils/common.client'
+import { isDemoMode, getDashboardUrl, isDashboardAvailable } from '@/src/utils/common.client'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
 import { notify } from '@/src/notifications'
-import { pipelineMessages, metricsMessages, dlqMessages } from '@/src/notifications/messages'
+import { dlqMessages, getActionErrorNotification } from '@/src/notifications/messages'
+import { useResumeWithPendingEdit } from '@/src/hooks/useResumeWithPendingEdit'
+import { usePipelineDisplayStatus } from '@/src/hooks/usePipelineDisplayStatus'
 
 interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
@@ -76,29 +77,6 @@ function PipelineDetailsHeader({
   // Use centralized status if available, otherwise fall back to pipeline prop
   const effectiveStatus = centralizedStatus || (pipeline.status as PipelineStatus) || 'active'
 
-  // Disable health monitoring during transitional states to avoid conflicts with centralized tracking
-  const isInTransitionalState =
-    effectiveStatus === 'pausing' || effectiveStatus === 'stopping' || effectiveStatus === 'resuming'
-
-  // Use simplified pipeline health monitoring
-  const {
-    health,
-    isLoading: healthLoading,
-    error: healthError,
-  } = usePipelineHealth({
-    pipelineId: pipeline.pipeline_id,
-    enabled: !isInTransitionalState, // Disable during transitional states
-    pollingInterval: 5000, // 5 seconds - conservative interval
-    stopOnStatuses: ['Running', 'Terminated', 'Failed'], // Stop on stable states
-    maxRetries: 2,
-    onStatusChange: (newStatus, previousStatus) => {
-      // console.log(`Pipeline ${pipeline.pipeline_id} health status changed: ${previousStatus} → ${newStatus}`)
-    },
-    onError: (error) => {
-      console.error(`Pipeline ${pipeline.pipeline_id} health check error:`, error)
-    },
-  })
-
   // Create a pipeline object with effective status for action configuration
   const pipelineWithEffectiveStatus = {
     ...pipeline,
@@ -122,6 +100,24 @@ function PipelineDetailsHeader({
     getAvailableActionsForPipeline,
   } = usePipelineActions(pipelineWithEffectiveStatus, { demoMode })
 
+  // Hook for handling resume with unsaved changes
+  const { hasPendingEdits, resumeWithPendingEdit } = useResumeWithPendingEdit({
+    pipeline,
+    executeEditAction: (apiConfig) => executeAction('edit', apiConfig),
+    onPipelineUpdate,
+  })
+
+  // Hook for computing display status (variant, label)
+  // Note: health polling removed - SSE provides status updates via centralizedStatus
+  const { variant: statusVariant, label: statusLabel, isHealthLoading } = usePipelineDisplayStatus({
+    pipelineStatus: pipeline.status,
+    centralizedStatus,
+    health: null,
+    healthLoading: false,
+    isActionLoading: actionState.isLoading,
+    lastAction: actionState.lastAction,
+  })
+
   const handleActionClick = async (action: PipelineAction) => {
     const config = getActionConfiguration(action)
 
@@ -137,63 +133,21 @@ function PipelineDetailsHeader({
         // Track if we performed an edit before resume
         let didEditBeforeResume = false
 
-        // NEW: Report operations to centralized system for status tracking
+        // Report operations to centralized system for status tracking
         if (action === 'stop') {
           operations.reportStop(pipeline.pipeline_id)
         } else if (action === 'resume') {
           // Check if there are unsaved changes before resuming
-          const { coreStore } = useStore.getState()
-          if (coreStore.isDirty) {
-            // Generate and send updated configuration before resuming
-            const { generateApiConfig } = await import('@/src/modules/clickhouse/utils')
-            const {
-              kafkaStore,
-              topicsStore,
-              clickhouseConnectionStore,
-              clickhouseDestinationStore,
-              joinStore,
-              deduplicationStore,
-              filterStore,
-              transformationStore,
-            } = useStore.getState()
-            // Log all deduplication configs
-            // const topicIndices = Object.keys(topicsStore.topics || {})
-
-            const apiConfig = generateApiConfig({
-              pipelineId: coreStore.pipelineId,
-              pipelineName: coreStore.pipelineName,
-              setPipelineId: coreStore.setPipelineId,
-              clickhouseConnection: clickhouseConnectionStore.clickhouseConnection,
-              clickhouseDestination: clickhouseDestinationStore.clickhouseDestination,
-              selectedTopics: Object.values(topicsStore.topics || {}),
-              getMappingType: (eventField: string, mapping: any) => {
-                const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
-                if (mappingEntry) {
-                  return mappingEntry.jsonType
-                }
-                return 'string'
-              },
-              joinStore,
-              kafkaStore,
-              deduplicationStore,
-              filterStore,
-              transformationStore,
-              version: coreStore.pipelineVersion, // Respect the original pipeline version
-            })
-
-            // Send edit request to backend (backend will automatically resume after edit)
-            const editResult = await executeAction('edit', apiConfig)
-
-            // Mark as clean after successful edit
-            coreStore.markAsClean()
-
-            // Set flag to indicate we edited before resume
+          if (hasPendingEdits()) {
+            // Use the dedicated hook for resume-with-pending-edit flow
+            operations.reportResume(pipeline.pipeline_id)
+            await resumeWithPendingEdit()
             didEditBeforeResume = true
+          } else {
+            // CRITICAL: For resume action, report optimistic update BEFORE executing
+            // This ensures UI updates immediately
+            operations.reportResume(pipeline.pipeline_id)
           }
-
-          // CRITICAL: For resume action, report optimistic update BEFORE executing
-          // This ensures UI updates immediately
-          operations.reportResume(pipeline.pipeline_id)
         } else if (action === 'terminate') {
           operations.reportTerminate(pipeline.pipeline_id)
         } else if (action === 'delete') {
@@ -206,52 +160,15 @@ function PipelineDetailsHeader({
         // IMPORTANT: Skip resume action if we already did edit (backend auto-resumes after edit)
         const result = !didEditBeforeResume ? await executeAction(action) : undefined
 
-        // CRITICAL: If we just edited and resumed, we need to:
-        // 1. Fetch the fresh pipeline config from backend
-        // 2. Reset stores to clear old data
-        // 3. Update pipeline prop to trigger re-hydration
-        if (action === 'resume' && didEditBeforeResume) {
-          // Fetch the updated pipeline configuration from the backend
-          const { getPipeline } = await import('@/src/api/pipeline-api')
-          const updatedPipeline = await getPipeline(pipeline.pipeline_id)
-
-          // Clear the hydration cache so the pipeline re-hydrates with fresh data
-          sessionStorage.removeItem('lastHydratedPipeline')
-
-          // Reset all relevant stores to force complete re-hydration
-
-          const {
-            topicsStore: currentTopicsStore,
-            deduplicationStore: currentDeduplicationStore,
-            joinStore: currentJoinStore,
-            coreStore: currentCoreStore,
-          } = useStore.getState()
-
-          // Reset all stores that depend on pipeline configuration
-          currentTopicsStore.resetTopicsStore()
-          currentDeduplicationStore.resetDeduplicationStore()
-          currentJoinStore.resetJoinStore()
-
-          // CRITICAL: Reset mode to 'view' to allow re-hydration on next edit
-          // Without this, the mode stays 'edit' and blocks hydration in PipelineDetailsModule
-          currentCoreStore.setMode('view')
-
-          // Update the local pipeline state with the fresh configuration
-          // This will trigger re-hydration in PipelineDetailsModule
-          if (onPipelineUpdate) {
-            onPipelineUpdate(updatedPipeline)
-          }
-        } else {
-          // For all other cases (normal resume, stop, terminate, delete), just update normally
-          if (result && onPipelineUpdate) {
-            onPipelineUpdate(result as Pipeline)
-          }
+        // For normal cases (without pending edits), just update the pipeline
+        if (!didEditBeforeResume && result && onPipelineUpdate) {
+          onPipelineUpdate(result as Pipeline)
         }
 
         // Mark recent action for health monitoring coordination
         recentActionRef.current = { action, timestamp: Date.now() }
       } catch (error) {
-        // NEW: Revert optimistic updates using centralized system
+        // Revert optimistic updates using centralized system
         if (action === 'stop') {
           operations.revertOptimisticUpdate(pipeline.pipeline_id, 'active')
         } else if (action === 'resume') {
@@ -298,31 +215,6 @@ function PipelineDetailsHeader({
 
   const handleFlushDLQCancel = () => {
     setShowFlushDLQModal(false)
-  }
-
-  // Helper function to check if Grafana dashboard is available
-  const isDashboardAvailable = (): boolean => {
-    const isServer = typeof window === 'undefined'
-
-    if (isServer) {
-      return !!(process.env.NEXT_PUBLIC_DASHBOARD && isDemoMode())
-    } else {
-      const runtimeEnv = getRuntimeEnv() as any
-      const dashboardUrl = runtimeEnv.NEXT_PUBLIC_DASHBOARD || process.env.NEXT_PUBLIC_DASHBOARD
-      return !!(dashboardUrl && isDemoMode())
-    }
-  }
-
-  // Helper function to get dashboard URL
-  const getDashboardUrl = (): string | null => {
-    const isServer = typeof window === 'undefined'
-
-    if (isServer) {
-      return process.env.NEXT_PUBLIC_DASHBOARD || null
-    } else {
-      const runtimeEnv = getRuntimeEnv() as any
-      return runtimeEnv.NEXT_PUBLIC_DASHBOARD || process.env.NEXT_PUBLIC_DASHBOARD || null
-    }
   }
 
   const handleGrafanaClick = () => {
@@ -436,48 +328,10 @@ function PipelineDetailsHeader({
     return () => window.removeEventListener('resize', handleResize)
   }, [isMenuOpen])
 
-  // Show notification when health error occurs
-  useEffect(() => {
-    if (healthError) {
-      notify(metricsMessages.fetchHealthFailed())
-    }
-  }, [healthError])
-
   // Show notification when action error occurs
   useEffect(() => {
     if (actionState.error && actionState.lastAction) {
-      const action = actionState.lastAction
-      const pipelineName = pipeline.name
-
-      switch (action) {
-        case 'resume':
-          notify(pipelineMessages.resumeFailed(pipelineName))
-          break
-        case 'stop':
-          notify(pipelineMessages.stopFailed(pipelineName))
-          break
-        case 'terminate':
-          notify(pipelineMessages.terminateFailed(pipelineName))
-          break
-        case 'delete':
-          notify(pipelineMessages.deleteFailed(pipelineName))
-          break
-        case 'rename':
-          notify(pipelineMessages.renameFailed())
-          break
-        case 'edit':
-          notify(pipelineMessages.fetchFailed())
-          break
-        default:
-          notify({
-            variant: 'error',
-            title: 'Action failed.',
-            description: actionState.error,
-            reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
-            channel: 'toast',
-          })
-      }
-      // Clear error after showing notification
+      notify(getActionErrorNotification(actionState.lastAction, pipeline.name, actionState.error))
       clearError()
     }
   }, [actionState.error, actionState.lastAction, pipeline.name, clearError])
@@ -502,98 +356,6 @@ function PipelineDetailsHeader({
         console.error('Fallback copy failed:', fallbackErr)
       }
       document.body.removeChild(textArea)
-    }
-  }
-
-  const getStatusVariant = (status: string) => {
-    // NEW: Use centralized status as primary source, with health data as fallback
-    let displayStatus = effectiveStatus
-
-    // Only use health data if centralized status is not available and pipeline status is generic
-    const recentAction = recentActionRef.current
-    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 5000 // 5 seconds
-
-    if (
-      !centralizedStatus && // No centralized status available
-      health?.overall_status &&
-      !actionState.isLoading &&
-      !isRecentAction &&
-      (status === 'active' || !status || status === 'no_configuration')
-    ) {
-      // Parse backend health status to UI status using the mapping function
-      const healthStatus = parsePipelineStatus(health.overall_status)
-      if (healthStatus !== 'active' || status === 'no_configuration') {
-        displayStatus = healthStatus
-      }
-    }
-
-    switch (displayStatus) {
-      case 'active':
-        return 'success'
-      case 'paused':
-        return 'warning'
-      case 'pausing':
-        return 'warning'
-      case 'resuming':
-        return 'warning'
-      case 'stopping':
-        return 'warning'
-      case 'stopped':
-        return 'secondary'
-      case 'terminating':
-        return 'warning'
-      case 'terminated':
-        return 'secondary'
-      case 'failed':
-        return 'error'
-      default:
-        return 'default'
-    }
-  }
-
-  const getBadgeLabel = (status: PipelineStatus | string) => {
-    // NEW: Use centralized status as primary source, with health data as fallback
-    let displayStatus = effectiveStatus
-
-    // Only use health data if centralized status is not available and pipeline status is generic
-    const recentAction = recentActionRef.current
-    const isRecentAction = recentAction && Date.now() - recentAction.timestamp < 5000 // 5 seconds
-
-    if (
-      !centralizedStatus && // No centralized status available
-      health?.overall_status &&
-      !actionState.isLoading &&
-      !isRecentAction &&
-      (status === 'active' || !status || status === 'no_configuration')
-    ) {
-      // Parse backend health status to UI status using the mapping function
-      const healthStatus = parsePipelineStatus(health.overall_status)
-      if (healthStatus !== 'active' || status === 'no_configuration') {
-        displayStatus = healthStatus
-      }
-    }
-
-    switch (displayStatus) {
-      case 'active':
-        return 'Active'
-      case 'pausing':
-        return 'Pausing...'
-      case 'paused':
-        return 'Paused'
-      case 'resuming':
-        return 'Resuming...'
-      case 'stopping':
-        return 'Stopping...'
-      case 'stopped':
-        return 'Stopped'
-      case 'terminating':
-        return 'Terminating...'
-      case 'terminated':
-        return 'Terminated'
-      case 'failed':
-        return 'Failed'
-      default:
-        return 'Unknown status'
     }
   }
 
@@ -940,8 +702,8 @@ function PipelineDetailsHeader({
               <h2 className="text-2xl font-bold truncate min-w-0" title={pipeline.name}>
                 {pipeline.name}
               </h2>
-              <Badge variant={getStatusVariant(effectiveStatus)} className="rounded-xl my-2 mx-4 flex-shrink-0">
-                {healthLoading && !centralizedStatus ? 'Checking...' : getBadgeLabel(effectiveStatus)}
+              <Badge variant={statusVariant} className="rounded-xl my-2 mx-4 flex-shrink-0">
+                {isHealthLoading && !centralizedStatus ? 'Checking...' : statusLabel}
               </Badge>
               {/* Debug info */}
               {/* <div className="text-xs text-gray-500">

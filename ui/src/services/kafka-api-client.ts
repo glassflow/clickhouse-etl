@@ -273,9 +273,21 @@ export class KafkaApiClient {
 
       if (!response.ok) {
         const errorText = await response.text()
+        let errorMessage: string
+        try {
+          const parsed = JSON.parse(errorText) as { error?: string }
+          errorMessage =
+            typeof parsed?.error === 'string' && parsed.error.trim().length > 0
+              ? parsed.error
+              : errorText.length > 200
+                ? `${errorText.slice(0, 200)}…`
+                : errorText || 'Request failed'
+        } catch {
+          errorMessage = errorText.length > 200 ? `${errorText.slice(0, 200)}…` : errorText || 'Request failed'
+        }
         return {
           success: false,
-          error: `HTTP ${response.status}: ${errorText}`,
+          error: errorMessage,
         }
       }
 

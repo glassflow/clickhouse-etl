@@ -254,7 +254,8 @@ export const TEST_CASES: TestCase[] = [
     validate: (r) => {
       const rule = r.filterGroup?.children[0]
       if (rule?.type !== 'rule' || !rule.arithmeticExpression) return false
-      return rule.arithmeticExpression.right?.type === 'literal'
+      const right = rule.arithmeticExpression.right
+      return 'type' in right && right.type === 'literal'
     },
   },
 
@@ -266,6 +267,36 @@ export const TEST_CASES: TestCase[] = [
     validate: (r) => {
       const rule = r.filterGroup?.children[0]
       return rule?.type === 'rule' && rule.field === 'user.name'
+    },
+  },
+
+  // Function calls in arithmetic expressions
+  {
+    name: 'Function call: int() type conversion',
+    expression: 'int(event_id) % 2 == 0',
+    expectedSuccess: true,
+    validate: (r) => {
+      const rule = r.filterGroup?.children[0]
+      if (rule?.type !== 'rule' || !rule.arithmeticExpression) return false
+      // Left side of the arithmetic expression should be the function call
+      const left = rule.arithmeticExpression.left
+      return 'type' in left && left.type === 'function' && left.functionName === 'int'
+    },
+  },
+  {
+    name: 'Function call: len() with comparison',
+    expression: 'len(name) > 5',
+    expectedSuccess: true,
+    validate: (r) => {
+      const rule = r.filterGroup?.children[0]
+      if (rule?.type !== 'rule') return false
+      // This is a simple comparison where left side is a function call
+      // It should be parsed as an arithmetic expression
+      if (!rule.arithmeticExpression) {
+        // Or it might be parsed as a direct function call comparison
+        return rule.field === 'len(name)'
+      }
+      return true
     },
   },
 

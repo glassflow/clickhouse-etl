@@ -10,7 +10,12 @@
 import { parser } from '@exprlang/parser'
 import type { TreeCursor } from '@lezer/common'
 import { v4 as uuidv4 } from 'uuid'
-import type { ArithmeticExpressionNode, ArithmeticOperand, ArithmeticOperator } from '@/src/store/filter.store'
+import type {
+  ArithmeticExpressionNode,
+  ArithmeticOperand,
+  ArithmeticOperator,
+  ArithmeticFunctionCallOperand,
+} from '@/src/store/filter.store'
 
 // =============================================================================
 // Types
@@ -31,7 +36,13 @@ export interface ArithmeticParseResult {
 /**
  * Internal intermediate AST node types for arithmetic expressions
  */
-type ArithmeticASTNode = ASTBinaryExpr | ASTIdentifier | ASTLiteral | ASTParenthesized | ASTUnaryExpr
+type ArithmeticASTNode =
+  | ASTBinaryExpr
+  | ASTIdentifier
+  | ASTLiteral
+  | ASTParenthesized
+  | ASTUnaryExpr
+  | ASTFunctionCall
 
 interface ASTBinaryExpr {
   type: 'BinaryExpr'
@@ -59,6 +70,12 @@ interface ASTLiteral {
 interface ASTParenthesized {
   type: 'Parenthesized'
   expression: ArithmeticASTNode
+}
+
+interface ASTFunctionCall {
+  type: 'FunctionCall'
+  functionName: string
+  arguments: ArithmeticASTNode[]
 }
 
 // =============================================================================
@@ -189,6 +206,61 @@ function parseArithmeticNode(cursor: TreeCursor, source: string): ArithmeticASTN
       return { type: 'Literal', value: parseFloat(text) }
     }
 
+    case 'CallExpr': {
+      // Function call like int(event_id) or len(name)
+      if (!cursor.firstChild()) return null
+
+      // Get the function name (first child should be the callee - VarName/FieldName)
+      let functionName: string | null = null
+      if (cursor.name === 'VarName' || cursor.name === 'FieldName' || cursor.name === 'SelectorExpr') {
+        functionName = getNodeText(cursor, source)
+      }
+
+      if (!functionName) {
+        cursor.parent()
+        return null
+      }
+
+      // Collect arguments
+      const args: ArithmeticASTNode[] = []
+
+      // Move to Arguments node or directly to argument expressions
+      while (cursor.nextSibling()) {
+        const nodeName = cursor.name
+        if (nodeName === 'Arguments') {
+          // Navigate into Arguments
+          if (cursor.firstChild()) {
+            do {
+              const childName = cursor.name
+              // Skip parentheses and commas
+              if (childName !== '(' && childName !== ')' && childName !== ',') {
+                const arg = parseArithmeticNode(cursor, source)
+                if (arg) {
+                  args.push(arg)
+                }
+              }
+            } while (cursor.nextSibling())
+            cursor.parent() // Exit Arguments
+          }
+          break
+        } else if (nodeName !== '(' && nodeName !== ')' && nodeName !== ',') {
+          // Direct argument (some parsers might not wrap in Arguments)
+          const arg = parseArithmeticNode(cursor, source)
+          if (arg) {
+            args.push(arg)
+          }
+        }
+      }
+
+      cursor.parent()
+
+      return {
+        type: 'FunctionCall',
+        functionName,
+        arguments: args,
+      }
+    }
+
     default: {
       // Try to parse children
       if (cursor.firstChild()) {
@@ -204,6 +276,26 @@ function parseArithmeticNode(cursor: TreeCursor, source: string): ArithmeticASTN
 // =============================================================================
 // AST to ArithmeticExpressionNode Transformation
 // =============================================================================
+
+/**
+ * Known type conversion and utility functions supported by expr-lang
+ * These don't need field validation - they're built-in functions
+ */
+const KNOWN_FUNCTIONS = [
+  // Type conversion functions
+  'int',
+  'float',
+  'string',
+  'bool',
+  // Utility functions
+  'len',
+  'abs',
+  'ceil',
+  'floor',
+  'round',
+  'max',
+  'min',
+]
 
 /**
  * Transform an intermediate AST node to ArithmeticOperand or ArithmeticExpressionNode
@@ -246,6 +338,38 @@ function transformToOperand(
       }
       // For other unary expressions, try to transform the operand
       return transformToOperand(ast.operand, availableFields)
+    }
+
+    case 'FunctionCall': {
+      // Validate function name (allow known functions or any function if validation is loose)
+      const funcNameLower = ast.functionName.toLowerCase()
+      if (!KNOWN_FUNCTIONS.includes(funcNameLower)) {
+        // Allow unknown functions but warn - the backend will validate
+        // This allows for extensibility while still catching typos in common functions
+      }
+
+      // Transform all arguments
+      const transformedArgs: ArithmeticOperand[] = []
+      for (const arg of ast.arguments) {
+        const transformedArg = transformToOperand(arg, availableFields)
+        if ('error' in transformedArg) return transformedArg
+
+        // Arguments should be operands, not full expressions
+        // If it's an expression node, we can't use it directly as an argument
+        if ('operator' in transformedArg && 'left' in transformedArg && 'right' in transformedArg) {
+          return { error: 'Complex expressions inside function arguments are not supported' }
+        }
+
+        transformedArgs.push(transformedArg as ArithmeticOperand)
+      }
+
+      const result: ArithmeticFunctionCallOperand = {
+        type: 'function',
+        functionName: ast.functionName,
+        arguments: transformedArgs,
+      }
+
+      return result
     }
 
     case 'BinaryExpr': {

@@ -12,8 +12,8 @@ import { Label } from '@/src/components/ui/label'
 import { Button } from '@/src/components/ui/button'
 import { FunctionSelector } from './FunctionSelector'
 import { Input } from '@/src/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { TransformationFunctionDef } from '../functions'
+import { FieldSelectCombobox } from './FieldSelectCombobox'
 import { ExpressionModeToggle } from './ExpressionModeToggle'
 import { NestedFunctionComposer } from './NestedFunctionComposer'
 import { RawExpressionEditor } from './RawExpressionEditor'
@@ -169,24 +169,15 @@ function TransformFunctionSelect({
             <div key={argIndex} className="flex-1 gap-2 items-center">
               {argDef.type === 'field' ? (
                 <div className="flex-1">
-                  <Select
+                  <FieldSelectCombobox
                     value={getArgValue(argIndex)}
                     onValueChange={(v) => handleArgChange(argIndex, v, 'field')}
+                    availableFields={availableFields}
+                    placeholder="Select field"
                     disabled={readOnly}
-                  >
-                    <SelectTrigger className="flex-1 input-regular input-border-regular h-8 text-sm w-full">
-                      <SelectValue placeholder="Select field" />
-                    </SelectTrigger>
-                    <SelectContent className="select-content-custom">
-                      {availableFields
-                        .filter((f) => !argDef.fieldTypes || argDef.fieldTypes.includes(f.type))
-                        .map((f) => (
-                          <SelectItem key={f.name} value={f.name} className="select-item-custom text-sm">
-                            {f.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                    filterTypes={argDef.fieldTypes}
+                    triggerClassName="h-8 text-sm w-full"
+                  />
                 </div>
               ) : (
                 <div className="flex-1">

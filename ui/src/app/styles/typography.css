@@ -132,6 +132,16 @@
 }
 
 .subtitle-2 {
+  color: var(--text-primary);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-title-5);
+  font-style: normal;
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-featured-4);
+  letter-spacing: var(--letter-spacing-title-5);
+}
+
+.subtitle-3 {
   color: var(--text-secondary);
   font-family: var(--font-family-body);
   font-size: var(--font-size-title-6);

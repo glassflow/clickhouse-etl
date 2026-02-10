@@ -19,6 +19,7 @@ import type {
   ArithmeticExpressionNode,
   ArithmeticOperand,
   ArithmeticOperator,
+  ArithmeticFunctionCallOperand,
 } from '@/src/store/filter.store'
 
 // =============================================================================
@@ -42,7 +43,7 @@ export interface ParseResult {
 /**
  * Internal intermediate AST node types
  */
-type ASTNode = ASTBinaryExpr | ASTUnaryExpr | ASTIdentifier | ASTLiteral | ASTArray | ASTParenthesized
+type ASTNode = ASTBinaryExpr | ASTUnaryExpr | ASTIdentifier | ASTLiteral | ASTArray | ASTParenthesized | ASTFunctionCall
 
 interface ASTBinaryExpr {
   type: 'BinaryExpr'
@@ -76,6 +77,12 @@ interface ASTArray {
 interface ASTParenthesized {
   type: 'Parenthesized'
   expression: ASTNode
+}
+
+interface ASTFunctionCall {
+  type: 'FunctionCall'
+  functionName: string
+  arguments: ASTNode[]
 }
 
 // =============================================================================
@@ -272,6 +279,61 @@ function parseNode(cursor: TreeCursor, source: string): ASTNode | null {
       return { type: 'Array', elements }
     }
 
+    case 'CallExpr': {
+      // Function call like int(event_id) or len(name)
+      if (!cursor.firstChild()) return null
+
+      // Get the function name (first child should be the callee - VarName/FieldName)
+      let functionName: string | null = null
+      if (cursor.name === 'VarName' || cursor.name === 'FieldName' || cursor.name === 'SelectorExpr') {
+        functionName = getNodeText(cursor.node, source)
+      }
+
+      if (!functionName) {
+        cursor.parent()
+        return null
+      }
+
+      // Collect arguments
+      const args: ASTNode[] = []
+
+      // Move to Arguments node or directly to argument expressions
+      while (cursor.nextSibling()) {
+        const nodeName = cursor.name
+        if (nodeName === 'Arguments') {
+          // Navigate into Arguments
+          if (cursor.firstChild()) {
+            do {
+              const childName = cursor.name
+              // Skip parentheses and commas
+              if (childName !== '(' && childName !== ')' && childName !== ',') {
+                const arg = parseNode(cursor, source)
+                if (arg) {
+                  args.push(arg)
+                }
+              }
+            } while (cursor.nextSibling())
+            cursor.parent() // Exit Arguments
+          }
+          break
+        } else if (nodeName !== '(' && nodeName !== ')' && nodeName !== ',') {
+          // Direct argument (some parsers might not wrap in Arguments)
+          const arg = parseNode(cursor, source)
+          if (arg) {
+            args.push(arg)
+          }
+        }
+      }
+
+      cursor.parent()
+
+      return {
+        type: 'FunctionCall',
+        functionName,
+        arguments: args,
+      }
+    }
+
     default: {
       // Try to parse children for unknown node types
       if (cursor.firstChild()) {
@@ -314,6 +376,7 @@ function inferFieldType(value: ASTLiteral['value'], literalType: ASTLiteral['lit
 
 /**
  * Check if an AST node represents an arithmetic expression
+ * (binary arithmetic operation or function call used in arithmetic context)
  */
 function isArithmeticExpression(node: ASTNode): boolean {
   if (node.type === 'BinaryExpr') {
@@ -321,6 +384,10 @@ function isArithmeticExpression(node: ASTNode): boolean {
   }
   if (node.type === 'Parenthesized') {
     return isArithmeticExpression(node.expression)
+  }
+  // Function calls like int(x) can be part of arithmetic expressions
+  if (node.type === 'FunctionCall') {
+    return true
   }
   return false
 }
@@ -349,6 +416,28 @@ function toArithmeticOperand(
 
   if (node.type === 'Parenthesized') {
     return toArithmeticOperand(node.expression, ctx)
+  }
+
+  if (node.type === 'FunctionCall') {
+    // Convert function call arguments to arithmetic operands
+    const args: ArithmeticOperand[] = []
+    for (const arg of node.arguments) {
+      const operand = toArithmeticOperand(arg, ctx)
+      if (!operand) return null
+      // Function arguments should be simple operands, not full expressions
+      if ('operator' in operand && 'left' in operand && 'right' in operand) {
+        ctx.unsupportedFeatures.push('Complex expressions inside function arguments')
+        return null
+      }
+      args.push(operand as ArithmeticOperand)
+    }
+
+    const result: ArithmeticFunctionCallOperand = {
+      type: 'function',
+      functionName: node.functionName,
+      arguments: args,
+    }
+    return result
   }
 
   if (node.type === 'BinaryExpr' && ARITHMETIC_OPERATORS.includes(node.operator)) {

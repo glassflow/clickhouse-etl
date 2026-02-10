@@ -48,13 +48,15 @@ export function FilterConfigurator({
   // Get schema from the topic's selectedEvent or from the topic itself
   const eventSchema = (topic as any)?.schema?.fields || []
 
-  // Extract available fields from schema or event
+  // Extract available fields from schema or event (use effective type: userType || type for overrides)
   const availableFields = useMemo((): Array<{ name: string; type: string }> => {
     if (eventSchema && eventSchema.length > 0) {
-      return eventSchema.map((f: any) => ({
-        name: f.name,
-        type: f.type,
-      }))
+      return eventSchema
+        .filter((f: any) => !f.isRemoved)
+        .map((f: any) => ({
+          name: f.name,
+          type: f.userType || f.type || 'string',
+        }))
     }
 
     // Fallback: extract from selected event if available
@@ -117,6 +119,8 @@ export function FilterConfigurator({
           operator: child.operator,
           value: child.value,
           not: child.not,
+          useArithmeticExpression: child.useArithmeticExpression,
+          arithmeticExpression: child.arithmeticExpression,
         }
       } else {
         return serializeGroup(child)
@@ -470,13 +474,6 @@ export function FilterConfigurator({
 
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
-        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
-        {!standalone && (
-          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
-            Skip Filter
-          </Button>
-        )}
-
         <FormActions
           standalone={standalone}
           onSubmit={handleSave}
@@ -494,6 +491,13 @@ export function FilterConfigurator({
           pipelineActionState={pipelineActionState}
           onClose={onCompleteStandaloneEditing}
         />
+
+        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
+        {!standalone && (
+          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
+            Skip Filter
+          </Button>
+        )}
       </div>
     </div>
   )

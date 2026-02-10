@@ -71,5 +71,5 @@ Notes:
 
 - Environment: `.cursor/architecture/ENVIRONMENT.md`
 - Auth0 env: `.cursor/architecture/AUTH0_ENV.md`
-- Notifications: `.cursor/architecture/NOTIFICATIONS.md`
+- In-app notifications: `.cursor/architecture/IN_APP_NOTIFICATIONS.md`
 - API rules (error handling): `.cursor/api.mdc`

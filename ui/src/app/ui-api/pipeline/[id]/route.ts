@@ -20,23 +20,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       success: true,
       pipeline: response.data,
     })
-  } catch (error: any) {
-    if (error.response) {
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
       return NextResponse.json(
         {
           success: false,
-          error: data.message || `Failed to fetch pipeline ${id}`,
+          error: (data as { message?: string })?.message || `Failed to fetch pipeline ${id}`,
         },
         { status },
       )
     }
-
     return NextResponse.json(
-      {
-        success: false,
-        error: `Failed to fetch pipeline ${id}`,
-      },
+      { success: false, error: `Failed to fetch pipeline ${id}` },
       { status: 500 },
     )
   }
@@ -57,23 +53,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       success: true,
       pipeline: response.data,
     })
-  } catch (error: any) {
-    if (error.response) {
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
       return NextResponse.json(
         {
           success: false,
-          error: data.message || `Failed to update pipeline ${id}`,
+          error: (data as { message?: string })?.message || `Failed to update pipeline ${id}`,
         },
         { status },
       )
     }
-
     return NextResponse.json(
-      {
-        success: false,
-        error: `Failed to update pipeline ${id}`,
-      },
+      { success: false, error: `Failed to update pipeline ${id}` },
       { status: 500 },
     )
   }
@@ -93,23 +85,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       success: true,
       message: `Pipeline ${id} deleted successfully`,
     })
-  } catch (error: any) {
-    if (error.response) {
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
       return NextResponse.json(
         {
           success: false,
-          error: data.message || `Failed to delete pipeline ${id}`,
+          error: (data as { message?: string })?.message || `Failed to delete pipeline ${id}`,
         },
         { status },
       )
     }
-
     return NextResponse.json(
-      {
-        success: false,
-        error: `Failed to delete pipeline ${id}`,
-      },
+      { success: false, error: `Failed to delete pipeline ${id}` },
       { status: 500 },
     )
   }

@@ -124,11 +124,17 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
           setEventError(null)
         }
       } else {
-        // Handle specific error cases
-        if (response.error && (response.error.includes('end of topic') || response.error.includes('no more events'))) {
+        // Handle specific error cases — use notification only, no long inline error
+        const err = response.error || ''
+        const isNoEvents =
+          err.includes('end of topic') ||
+          err.includes('no more events') ||
+          err.toLowerCase().includes('no events found') ||
+          (err.toLowerCase().includes('no events') && err.length < 80)
+        if (response.error && isNoEvents) {
           setHasMoreEvents(false)
-          setEventError('No more events available')
-          notify(kafkaMessages.endOfTopicReached())
+          setEventError(null)
+          notify(kafkaMessages.emptyTopicBanner(topic))
         } else if (response.error && response.error.includes('Timeout waiting for message')) {
           // Handle timeout errors specifically
           if (getNext) {
@@ -153,11 +159,18 @@ export const useFetchEvent = (kafka: KafkaStore, selectedFormat: string) => {
     } catch (error) {
       clearTimeout(fetchTimeout)
 
-      // Handle specific error messages
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const isNoEvents =
+        errorMessage.includes('end of topic') ||
+        errorMessage.includes('no more events') ||
+        errorMessage.toLowerCase().includes('no events found') ||
+        (errorMessage.toLowerCase().includes('no events') && errorMessage.length < 120)
 
-      if (errorMessage.includes('Timeout waiting for message')) {
-        // Handle timeout errors specifically
+      if (isNoEvents) {
+        setHasMoreEvents(false)
+        setEventError(null)
+        notify(kafkaMessages.emptyTopicBanner(topic))
+      } else if (errorMessage.includes('Timeout waiting for message')) {
         if (getNext) {
           setHasMoreEvents(false)
           setEventError('No more events available')

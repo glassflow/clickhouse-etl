@@ -204,6 +204,12 @@ export const arithmeticOperandToExpr = (operand: ArithmeticOperand | ArithmeticE
     return operand.field
   }
 
+  if (operand.type === 'function') {
+    // Function call: functionName(arg1, arg2, ...)
+    const args = operand.arguments.map((arg) => arithmeticOperandToExpr(arg)).join(', ')
+    return `${operand.functionName}(${args})`
+  }
+
   // Literal value
   return String(operand.value)
 }
@@ -267,6 +273,12 @@ const arithmeticOperandToDisplayString = (
 
   if (operand.type === 'field') {
     return operand.field
+  }
+
+  if (operand.type === 'function') {
+    // Function call: functionName(arg1, arg2, ...)
+    const args = operand.arguments.map((arg) => arithmeticOperandToDisplayString(arg)).join(', ')
+    return `${operand.functionName}(${args})`
   }
 
   // Literal value
@@ -343,20 +355,41 @@ export const arithmeticExpressionToDisplayString = (
 }
 
 /**
+ * Check if an arithmetic operand is complete
+ */
+const isArithmeticOperandComplete = (operand: ArithmeticOperand | ArithmeticExpressionNode): boolean => {
+  if (isArithmeticExpressionNode(operand)) {
+    return isArithmeticExpressionComplete(operand)
+  }
+
+  if (operand.type === 'literal') {
+    return true
+  }
+
+  if (operand.type === 'field') {
+    return operand.field !== ''
+  }
+
+  if (operand.type === 'function') {
+    // Function is complete if it has a name and all arguments are complete
+    if (!operand.functionName) return false
+    return operand.arguments.every((arg) => isArithmeticOperandComplete(arg))
+  }
+
+  return false
+}
+
+/**
  * Check if an arithmetic expression is complete (has all required fields)
  */
 export const isArithmeticExpressionComplete = (expr: ArithmeticExpressionNode | undefined): boolean => {
   if (!expr) return false
 
   // Check left operand
-  const leftComplete = isArithmeticExpressionNode(expr.left)
-    ? isArithmeticExpressionComplete(expr.left)
-    : expr.left.type === 'literal' || (expr.left.type === 'field' && expr.left.field !== '')
+  const leftComplete = isArithmeticOperandComplete(expr.left)
 
   // Check right operand
-  const rightComplete = isArithmeticExpressionNode(expr.right)
-    ? isArithmeticExpressionComplete(expr.right)
-    : expr.right.type === 'literal' || (expr.right.type === 'field' && expr.right.field !== '')
+  const rightComplete = isArithmeticOperandComplete(expr.right)
 
   return leftComplete && rightComplete && !!expr.operator
 }
@@ -592,6 +625,50 @@ export interface ArithmeticExpressionValidation {
 }
 
 /**
+ * Validate an arithmetic operand
+ */
+const validateArithmeticOperand = (
+  operand: ArithmeticOperand | ArithmeticExpressionNode,
+  location: 'left' | 'right',
+  isChained: boolean,
+  isCurrentLevelChained: boolean,
+): ArithmeticExpressionValidation | null => {
+  if (isArithmeticExpressionNode(operand)) {
+    const validation = validateArithmeticExpression(operand, true)
+    if (!validation.isValid) {
+      return validation
+    }
+  } else if (operand.type === 'field' && !operand.field) {
+    const errorMessages = {
+      left: isChained ? 'Select a field for the current expression' : 'Select a field for the left operand',
+      right: isCurrentLevelChained ? 'Select a field for the next operand' : 'Select a field for the right operand',
+    }
+    return {
+      isValid: false,
+      error: errorMessages[location],
+      errorLocation: location,
+    }
+  } else if (operand.type === 'function') {
+    // Validate function call
+    if (!operand.functionName) {
+      return {
+        isValid: false,
+        error: 'Function name is required',
+        errorLocation: location,
+      }
+    }
+    // Validate function arguments
+    for (const arg of operand.arguments) {
+      const argValidation = validateArithmeticOperand(arg, location, isChained, isCurrentLevelChained)
+      if (argValidation && !argValidation.isValid) {
+        return argValidation
+      }
+    }
+  }
+  return null // No error
+}
+
+/**
  * Validate an arithmetic expression with context-aware error messages
  * @param expr - The expression to validate
  * @param isChained - Whether this is a chained expression (affects error message wording)
@@ -611,32 +688,12 @@ export const validateArithmeticExpression = (
   const isCurrentLevelChained = isArithmeticExpressionNode(expr.left)
 
   // Validate left operand
-  if (isArithmeticExpressionNode(expr.left)) {
-    const leftValidation = validateArithmeticExpression(expr.left, true)
-    if (!leftValidation.isValid) {
-      return leftValidation
-    }
-  } else if (expr.left.type === 'field' && !expr.left.field) {
-    return {
-      isValid: false,
-      error: isChained ? 'Select a field for the current expression' : 'Select a field for the left operand',
-      errorLocation: 'left',
-    }
-  }
+  const leftError = validateArithmeticOperand(expr.left, 'left', isChained, isCurrentLevelChained)
+  if (leftError) return leftError
 
   // Validate right operand
-  if (isArithmeticExpressionNode(expr.right)) {
-    const rightValidation = validateArithmeticExpression(expr.right, true)
-    if (!rightValidation.isValid) {
-      return rightValidation
-    }
-  } else if (expr.right.type === 'field' && !expr.right.field) {
-    return {
-      isValid: false,
-      error: isCurrentLevelChained ? 'Select a field for the next operand' : 'Select a field for the right operand',
-      errorLocation: 'right',
-    }
-  }
+  const rightError = validateArithmeticOperand(expr.right, 'right', isChained, isCurrentLevelChained)
+  if (rightError) return rightError
 
   // Validate operator
   if (!expr.operator) {
@@ -712,8 +769,10 @@ export const validateRuleLocally = (rule: FilterRule): RuleValidation => {
     } else {
       // Standard single-value validation
       if (isNumericType(effectiveFieldType)) {
-        const numValue = Number(rule.value)
-        if (isNaN(numValue)) {
+        // Normalize string values to handle different locale formats
+        const valueToCheck =
+          typeof rule.value === 'string' ? Number(normalizeNumericInput(rule.value)) : Number(rule.value)
+        if (isNaN(valueToCheck)) {
           errors.value = 'Value must be a number'
         }
       }
@@ -796,8 +855,12 @@ export const validateConditionLocally = (condition: FilterCondition): ConditionV
     } else {
       // Standard single-value validation
       if (isNumericType(condition.fieldType)) {
-        const numValue = Number(condition.value)
-        if (isNaN(numValue)) {
+        // Normalize string values to handle different locale formats
+        const valueToCheck =
+          typeof condition.value === 'string'
+            ? Number(normalizeNumericInput(condition.value))
+            : Number(condition.value)
+        if (isNaN(valueToCheck)) {
           errors.value = 'Value must be a number'
         }
       }
@@ -921,6 +984,40 @@ export const validateFilterConfigLocally = (config: FilterConfig): FilterConfigV
 }
 
 /**
+ * Normalize numeric input to handle different locale formats
+ * - Replaces comma with dot for decimal separator (e.g., "2,5" -> "2.5")
+ * - Removes thousand separators if present (e.g., "1,000" -> "1000", "1.000,5" -> "1000.5")
+ */
+const normalizeNumericInput = (input: string): string => {
+  const trimmed = input.trim()
+
+  // If input contains both dot and comma, determine which is decimal separator
+  // Common patterns:
+  // - "1,234.56" (English) -> comma is thousand separator, dot is decimal
+  // - "1.234,56" (European) -> dot is thousand separator, comma is decimal
+  if (trimmed.includes('.') && trimmed.includes(',')) {
+    const lastDot = trimmed.lastIndexOf('.')
+    const lastComma = trimmed.lastIndexOf(',')
+
+    if (lastComma > lastDot) {
+      // European format: "1.234,56" -> remove dots, replace comma with dot
+      return trimmed.replace(/\./g, '').replace(',', '.')
+    } else {
+      // English format: "1,234.56" -> just remove commas
+      return trimmed.replace(/,/g, '')
+    }
+  }
+
+  // If only comma present, treat as decimal separator (e.g., "2,5" -> "2.5")
+  if (trimmed.includes(',')) {
+    return trimmed.replace(',', '.')
+  }
+
+  // Otherwise return as-is (already valid or just has dots)
+  return trimmed
+}
+
+/**
  * Parse a value from string input based on field type
  */
 export const parseValueForType = (inputValue: string, fieldType: string): string | number | boolean => {
@@ -928,7 +1025,13 @@ export const parseValueForType = (inputValue: string, fieldType: string): string
     return inputValue.toLowerCase() === 'true'
   }
   if (isNumericType(fieldType)) {
-    const num = Number(inputValue)
+    // Allow empty string to be preserved (for clearing the field)
+    if (inputValue === '' || inputValue.trim() === '') {
+      return ''
+    }
+    // Normalize the input to handle different locale formats
+    const normalizedInput = normalizeNumericInput(inputValue)
+    const num = Number(normalizedInput)
     return isNaN(num) ? inputValue : num
   }
   return inputValue
