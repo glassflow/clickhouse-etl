@@ -39,7 +39,7 @@ Feature: Join component
                 "name": "join-test-basic",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "join": {
                     "enabled": true,
@@ -158,7 +158,7 @@ Feature: Join component
                 "name": "join-test-multiple",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "join": {
                     "enabled": true,
@@ -278,7 +278,7 @@ Feature: Join component
                 "name": "join-test-nomatch",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "join": {
                     "enabled": true,
@@ -394,7 +394,7 @@ Feature: Join component
                 "name": "join-test-graceful",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "join": {
                     "enabled": true,

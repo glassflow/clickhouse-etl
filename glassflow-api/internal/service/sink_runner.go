@@ -105,8 +105,8 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		inputStreamName,
 	)
 	if err != nil {
-		s.log.ErrorContext(ctx, "failed to create clickhouse consumer", "error", err)
-		return fmt.Errorf("create clickhouse consumer: %w", err)
+		s.log.ErrorContext(ctx, "failed to create NATS sink consumer", "error", err)
+		return fmt.Errorf("create NATS sink consumer: %w", err)
 	}
 
 	dlqStreamPublisher := stream.NewNATSPublisher(

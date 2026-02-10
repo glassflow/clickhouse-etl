@@ -101,7 +101,7 @@ func (s *Schema) validateAndSaveNewSchemaVersion(ctx context.Context, version in
 
 	err = validateSchemaToSchema(schemaFields, latestSchemaVersion.Fields)
 	if err != nil {
-		return zero, models.ErrIncompatibleSchema
+		return zero, models.NewIncompatibleSchemaError(version, err.Error())
 	}
 
 	newVersion := fmt.Sprintf("%d", version)

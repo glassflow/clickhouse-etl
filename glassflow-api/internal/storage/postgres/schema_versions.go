@@ -13,6 +13,7 @@ import (
 )
 
 func (s *PostgresStorage) upsertSchemaVersion(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, version string, fields []models.Field) (string, error) {
+	s.logger.DebugContext(ctx, "upsert schema version", "pipeline_id", pipelineID, "source_id", sourceID, "version", version)
 	// If version is empty, auto-increment from the latest version
 	if version == "" {
 		var latestVersion string
@@ -200,6 +201,10 @@ func (s *PostgresStorage) SaveNewSchemaVersion(ctx context.Context, pipelineID, 
 			return fmt.Errorf("schema version not found for source %s version %s", sourceID, oldVersionID)
 		}
 		return fmt.Errorf("lock schema version: %w", err)
+	}
+
+	if err := json.Unmarshal(fieldsJSON, &sv.Fields); err != nil {
+		return fmt.Errorf("unmarshal fields: %w", err)
 	}
 
 	// Create new schema version for initial source
