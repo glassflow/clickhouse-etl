@@ -292,7 +292,7 @@ func getSinkStreamID(p pipelineJSON) (string, error) {
 		if len(p.Source.Topics) > 0 {
 			firstTopic := p.Source.Topics[0]
 			// If deduplication is enabled for this topic, use the dedup output stream
-			if firstTopic.Deduplication.Enabled || p.StatelessTransformation.Enabled {
+			if firstTopic.Deduplication.Enabled || p.StatelessTransformation.Enabled || p.Filter.Enabled {
 				sinkStreamID = models.GetDedupOutputStreamName(p.PipelineID, firstTopic.Topic)
 			} else {
 				sinkStreamID = models.GetIngestorStreamName(p.PipelineID, firstTopic.Topic)
