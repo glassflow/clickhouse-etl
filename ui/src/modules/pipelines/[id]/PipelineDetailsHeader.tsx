@@ -14,7 +14,6 @@ import FlushDLQModal from '@/src/modules/pipelines/components/FlushDLQModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { PipelineAction } from '@/src/types/pipeline'
-import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
 import { useStore } from '@/src/store'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
@@ -33,7 +32,7 @@ import { isDemoMode, getDashboardUrl, isDashboardAvailable } from '@/src/utils/c
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
 import { notify } from '@/src/notifications'
-import { metricsMessages, dlqMessages, getActionErrorNotification } from '@/src/notifications/messages'
+import { dlqMessages, getActionErrorNotification } from '@/src/notifications/messages'
 import { useResumeWithPendingEdit } from '@/src/hooks/useResumeWithPendingEdit'
 import { usePipelineDisplayStatus } from '@/src/hooks/usePipelineDisplayStatus'
 
@@ -78,29 +77,6 @@ function PipelineDetailsHeader({
   // Use centralized status if available, otherwise fall back to pipeline prop
   const effectiveStatus = centralizedStatus || (pipeline.status as PipelineStatus) || 'active'
 
-  // Disable health monitoring during transitional states to avoid conflicts with centralized tracking
-  const isInTransitionalState =
-    effectiveStatus === 'pausing' || effectiveStatus === 'stopping' || effectiveStatus === 'resuming'
-
-  // Use simplified pipeline health monitoring
-  const {
-    health,
-    isLoading: healthLoading,
-    error: healthError,
-  } = usePipelineHealth({
-    pipelineId: pipeline.pipeline_id,
-    enabled: !isInTransitionalState, // Disable during transitional states
-    pollingInterval: 5000, // 5 seconds - conservative interval
-    stopOnStatuses: ['Running', 'Terminated', 'Failed'], // Stop on stable states
-    maxRetries: 2,
-    onStatusChange: (newStatus, previousStatus) => {
-      // console.log(`Pipeline ${pipeline.pipeline_id} health status changed: ${previousStatus} → ${newStatus}`)
-    },
-    onError: (error) => {
-      console.error(`Pipeline ${pipeline.pipeline_id} health check error:`, error)
-    },
-  })
-
   // Create a pipeline object with effective status for action configuration
   const pipelineWithEffectiveStatus = {
     ...pipeline,
@@ -132,11 +108,12 @@ function PipelineDetailsHeader({
   })
 
   // Hook for computing display status (variant, label)
+  // Note: health polling removed - SSE provides status updates via centralizedStatus
   const { variant: statusVariant, label: statusLabel, isHealthLoading } = usePipelineDisplayStatus({
     pipelineStatus: pipeline.status,
     centralizedStatus,
-    health,
-    healthLoading,
+    health: null,
+    healthLoading: false,
     isActionLoading: actionState.isLoading,
     lastAction: actionState.lastAction,
   })
@@ -350,13 +327,6 @@ function PipelineDetailsHeader({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [isMenuOpen])
-
-  // Show notification when health error occurs
-  useEffect(() => {
-    if (healthError) {
-      notify(metricsMessages.fetchHealthFailed())
-    }
-  }, [healthError])
 
   // Show notification when action error occurs
   useEffect(() => {
