@@ -76,7 +76,7 @@ type JsonToClickHouseMapper struct {
 	fieldColumnMap         map[string]*SinkMapping
 	orderedColumns         []string
 	columnOrderMap         map[string]int
-	columnLookUpInfo       map[string]columnLookupInfo            // pre-computed for GjsonForEach
+	columnLookUpInfo       map[string]columnLookupInfo
 	columnLookUpInfoStream map[string]map[string]columnLookupInfo // streamName -> fieldName -> info
 
 	leftStream  string
@@ -95,8 +95,8 @@ func (m *JsonToClickHouseMapper) GetOrderedColumnsStream(streamSchemaName string
 
 func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, data []byte) ([]any, error) {
 	// Get stream-specific lookup map
-	streamLookup, exists := m.columnLookUpInfoStream[streamSchemaName]
-	if !exists {
+	streamLookup, streamExists := m.columnLookUpInfoStream[streamSchemaName]
+	if !streamExists {
 		// Return empty slice if stream not found
 		return []any{}, nil
 	}
@@ -135,7 +135,7 @@ func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, da
 	// Then, for any remaining fields not found as top-level keys, try nested path lookup
 	for fieldName, info := range streamLookup {
 		if values[info.index] != nil {
-			continue // Already found via top-level iteration
+			continue
 		}
 
 		value := parsed.Get(fieldName)
@@ -380,7 +380,7 @@ func (m *JsonToClickHouseMapper) PrepareValues(data []byte) ([]any, error) {
 
 	values := make([]any, len(m.Columns))
 
-	// First, iterate through top-level keys to handle flat keys (including those with dots like "stream1.id")
+	// First, iterate through top-level keys to handle flat keys
 	var conversionErr error
 	parsed.ForEach(func(key, value gjson.Result) bool {
 		info, exists := m.columnLookUpInfo[key.String()]
@@ -399,11 +399,10 @@ func (m *JsonToClickHouseMapper) PrepareValues(data []byte) ([]any, error) {
 		return nil, conversionErr
 	}
 
-	// Then, for any remaining fields not found as top-level keys, try nested path lookup
-	// This handles nested fields like "user.name" that aren't top-level keys
+	// for any remaining fields not found as top-level keys, try nested path lookup
 	for fieldPath, info := range m.columnLookUpInfo {
 		if values[info.index] != nil {
-			continue // Already found via top-level iteration
+			continue
 		}
 
 		value := parsed.Get(fieldPath)

@@ -44,8 +44,7 @@ type processedMessage struct {
 	msg      jetstream.Msg
 }
 
-// ClickHouseSink uses Consume() callback pattern optimized for high throughput
-// This implementation follows the NATS CLI benchmark pattern for efficient message consumption
+// ClickHouseSink uses Consume() callback pattern
 type ClickHouseSink struct {
 	client                *client.ClickHouseClient
 	streamConsumer        jetstream.Consumer
@@ -102,7 +101,7 @@ func NewClickHouseSink(
 	}
 
 	// Set worker pool size to GOMAXPROCS
-	workerPoolSize := runtime.GOMAXPROCS(0) - 2
+	workerPoolSize := runtime.GOMAXPROCS(0) - 2 // leave 2 for the main thread, IO, etc
 	if workerPoolSize < 1 {
 		workerPoolSize = 1
 	}
@@ -125,11 +124,10 @@ func NewClickHouseSink(
 }
 
 func (ch *ClickHouseSink) Start(ctx context.Context) error {
-	ch.log.InfoContext(ctx, "ClickHouse sink started with callback-based consumption",
+	ch.log.InfoContext(ctx, "ClickHouse sink started",
 		"max_batch_size", ch.maxBatchSize,
 		"max_delay_time", ch.maxDelayTime,
-		"worker_pool_size", ch.workerPoolSize,
-		"mode", "callback_consume_pattern")
+		"worker_pool_size", ch.workerPoolSize)
 
 	defer ch.log.InfoContext(ctx, "ClickHouse sink stopped")
 	defer ch.clearConn()
@@ -138,22 +136,19 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 	ch.cancel = cancel
 	defer cancel()
 
-	// Initialize and start worker pool
-	// Use Background context so workers stay alive during shutdown processing
+	// Initialize and start a worker pool
 	ch.workerCtx, ch.workerCancel = context.WithCancel(context.Background())
 	ch.workerJobChan = make(chan workerJob, ch.workerPoolSize)
 	ch.workerResultChan = make(chan workerResult, ch.workerPoolSize)
 	ch.startWorkerPool()
 	defer ch.stopWorkerPool()
 
-	// Create ticker for time-based flushing
+	// Create a ticker for time-based flushing
 	ch.bufferFlushTicker = time.NewTicker(ch.maxDelayTime)
 	defer ch.bufferFlushTicker.Stop()
-
-	// Start background goroutine for time-based flushing
 	go ch.flushTickerLoop(ctx)
 
-	// Message handler - called by Consume() as messages arrive
+	// Message handler
 	messageHandler := func(msg jetstream.Msg) {
 		ch.bufferMu.Lock()
 		wasEmpty := len(ch.messageBuffer) == 0
@@ -175,11 +170,10 @@ func (ch *ClickHouseSink) Start(ctx context.Context) error {
 		}
 	}
 
-	// Start consuming using callback pattern (like NATS CLI bench)
-	// This is event-driven and much more efficient than polling
+	// Durable pull consumer
 	cc, err := ch.streamConsumer.Consume(
 		messageHandler,
-		jetstream.PullMaxMessages(ch.maxBatchSize), // Pull in batches
+		jetstream.PullMaxMessages(ch.maxBatchSize*ch.workerPoolSize), // Pull in batches
 	)
 	if err != nil {
 		return fmt.Errorf("failed to start consuming: %w", err)
@@ -246,9 +240,9 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 // startWorkerPool starts N worker goroutines to process PrepareValues in parallel
 func (ch *ClickHouseSink) startWorkerPool() {
 	ch.log.Info("Starting worker pool", "worker_count", ch.workerPoolSize)
-	for i := 0; i < ch.workerPoolSize; i++ {
+	for range ch.workerPoolSize {
 		ch.workerWg.Add(1)
-		go ch.worker(i)
+		go ch.worker()
 	}
 }
 
@@ -269,7 +263,7 @@ func (ch *ClickHouseSink) stopWorkerPool() {
 }
 
 // worker processes messages in parallel by calling PrepareValues
-func (ch *ClickHouseSink) worker(workerID int) {
+func (ch *ClickHouseSink) worker() {
 	defer ch.workerWg.Done()
 
 	for {
@@ -292,7 +286,7 @@ func (ch *ClickHouseSink) worker(workerID int) {
 					break
 				}
 
-				// Schema mapping - this is the parallelized part
+				// Schema mapping
 				var values []any
 				if job.streamSourceID != "" {
 					values, err = ch.schemaMapper.PrepareValuesStream(job.streamSourceID, msg.Data())
@@ -311,7 +305,7 @@ func (ch *ClickHouseSink) worker(workerID int) {
 				})
 			}
 
-			// Send result back to main thread
+			// Send a result back to the parent routine
 			ch.workerResultChan <- workerResult{
 				jobID:     job.jobID,
 				processed: processed,
@@ -410,8 +404,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		}
 	}
 
-	// Ack ALL messages individually (like NATS CLI bench)
-	// This provides better flow control and throughput
+	// Ack ALL messages individually with retry
 	for _, msg := range messages {
 		err = retry.Do(
 			func() error {
@@ -456,6 +449,7 @@ func (ch *ClickHouseSink) createCHBatch(
 			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
 		)
 	}
+
 	// Step 2: Batch creation
 	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
 	if err != nil {
@@ -500,10 +494,8 @@ func (ch *ClickHouseSink) createCHBatch(
 	}
 
 	// Collect results from workers
-	// Use a timeout to ensure we don't wait forever, but allow enough time for processing
 	collectCtx := ctx
 	if _, ok := ctx.Deadline(); !ok {
-		// If no deadline, set a reasonable timeout for result collection
 		var cancel context.CancelFunc
 		collectCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()

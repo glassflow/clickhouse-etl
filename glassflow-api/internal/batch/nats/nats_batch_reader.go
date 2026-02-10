@@ -51,12 +51,12 @@ func (r *BatchReader) ReadBatchNoWait(ctx context.Context, options ...models.Fet
 }
 
 // Ack acknowledges messages
-// With explicit ack policy, we need to ack each message individually
 func (r *BatchReader) Ack(_ context.Context, messages []models.Message) error {
 	if len(messages) == 0 {
 		return nil
 	}
 
+	// Acknowledge each message individually, since the retention policy is WorkQueue
 	for _, msg := range messages {
 		if msg.Type != models.MessageTypeJetstreamMsg {
 			return fmt.Errorf("cannot ack non-NATS jetstream message: type=%s", msg.Type)

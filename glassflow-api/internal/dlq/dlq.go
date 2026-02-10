@@ -86,7 +86,6 @@ func (c *Client) FetchDLQMessages(ctx context.Context, streamName string, batchS
 	}
 
 	// WARNING: potential data loss in case of http failure or pod destruction.
-	// With explicit ack policy, we need to ack each message individually
 	for _, msg := range messages {
 		if err := msg.Ack(); err != nil {
 			return nil, fmt.Errorf("acknowledge dlq message: %w", err)
