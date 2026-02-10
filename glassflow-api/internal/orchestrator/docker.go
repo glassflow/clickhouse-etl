@@ -119,6 +119,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.log.DebugContext(ctx, "created ingestion streams successfully")
 
 	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
+	if err != nil {
+		d.log.ErrorContext(ctx, "failed to create DLQ stream", "stream_name", models.GetDLQStreamName(d.id), "subject_name", models.GetDLQStreamSubjectName(d.id), "error", err)
+		return fmt.Errorf("setup DLQ stream for pipeline: %w", err)
+	}
 
 	for _, t := range pi.Ingestor.KafkaTopics {
 		for i := range t.Replicas {

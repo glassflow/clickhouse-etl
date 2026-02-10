@@ -84,10 +84,13 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,
 		},
-		leftSource.SourceID,
+		leftSource.StreamID,
 	)
 	if err != nil {
-		j.log.ErrorContext(ctx, "failed to create left consumer", "left_stream", leftSource.SourceID, "error", err)
+		j.log.ErrorContext(ctx, "failed to create left consumer",
+			"left_stream", leftSource.StreamID,
+			"left_consumer_name", j.cfg.Join.NATSLeftConsumerName,
+			"error", err)
 		return fmt.Errorf("create left consumer: %w", err)
 	}
 
@@ -102,21 +105,21 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,
 		},
-		rightSource.SourceID,
+		rightSource.StreamID,
 	)
 	if err != nil {
-		j.log.ErrorContext(ctx, "failed to create right consumer", "right_stream", rightSource.SourceID, "error", err)
+		j.log.ErrorContext(ctx, "failed to create right consumer", "right_stream", rightSource.StreamID, "error", err)
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 
 	// Get existing KV stores (created by orchestrator)
-	leftKVStore, err := j.nc.GetKeyValueStore(ctx, leftSource.SourceID)
+	leftKVStore, err := j.nc.GetKeyValueStore(ctx, leftSource.StreamID)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to get left stream buffer: ", "error", err)
 		return fmt.Errorf("get left buffer: %w", err)
 	}
 
-	rightKVStore, err := j.nc.GetKeyValueStore(ctx, rightSource.SourceID)
+	rightKVStore, err := j.nc.GetKeyValueStore(ctx, rightSource.StreamID)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to get right stream buffer: ", "error", err)
 		return fmt.Errorf("get right buffer: %w", err)
@@ -152,8 +155,8 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		configs.NewConfigStore(j.db, j.cfg.ID, ""),
 		leftBuffer,
 		rightBuffer,
-		leftSource.StreamID,
-		rightSource.StreamID,
+		leftSource.SourceID,
+		rightSource.SourceID,
 		leftSource.JoinKey,
 		rightSource.JoinKey,
 		j.doneCh,

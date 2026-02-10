@@ -124,7 +124,6 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 
 	k.log.Debug("Preparing message",
 		slog.String("topic", k.topic.Name),
-		slog.Any("data", nMsg.Data),
 		slog.String("subject", nMsg.Subject))
 
 	version, err := k.schema.Validate(ctx, msg.Value)
@@ -134,13 +133,13 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 		slog.Any("error", err))
 
 	if err != nil {
-		if models.IsIncompatibleSchemaErr(err) || errors.Is(err, models.ErrSchemaNotFound) {
-			k.log.Error("Incompatible schema detected for message",
+		if models.IsIncompatibleSchemaError(err) || errors.Is(err, models.ErrSchemaNotFound) {
+			k.log.Error("Schema validation error has been detected for message",
 				slog.String("topic", k.topic.Name),
 				slog.Int64("offset", msg.Offset),
 				slog.String("partition", strconv.Itoa(int(msg.Partition))),
 				slog.String("schemaID", version),
-				slog.Any("error", err))
+				slog.String("error", err.Error()))
 
 			sigErr := k.signalPublisher.SendSignal(ctx, models.ComponentSignal{
 				Component:  internal.RoleIngestor,
@@ -176,7 +175,6 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 		k.log.Debug("Setting up deduplication header for message",
 			slog.String("topic", k.topic.Name),
 			slog.String("dedupKey", k.topic.Deduplication.ID),
-			slog.String("subject", string(msg.Value)),
 		)
 
 		if err := k.setupDeduplicationHeader(ctx, nMsg.Header, msg.Value, version, k.topic.Deduplication.ID); err != nil {
@@ -184,7 +182,6 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 				slog.Any("error", err),
 				slog.String("topic", k.topic.Name),
 				slog.String("dedupKey", k.topic.Deduplication.ID),
-				slog.String("subject", string(msg.Value)),
 			)
 
 			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrDeduplicateData, err)); dlqErr != nil {

@@ -768,6 +768,7 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
 		StreamID:                   p.Sink.StreamID,
+		SourceID:                   p.Sink.SourceID,
 		Type:                       p.Sink.Type,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 	}
