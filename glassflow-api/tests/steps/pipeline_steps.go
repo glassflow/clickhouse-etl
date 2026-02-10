@@ -37,6 +37,7 @@ type PipelineSteps struct {
 
 	pipelineService   *service.PipelineService
 	orchestrator      *orchestrator.LocalOrchestrator
+	pipelineStore     service.PipelineStore
 	currentPipelineID string
 }
 
@@ -330,16 +331,42 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
 	}
 
+	// Update Kafka broker with test container
 	pc.Ingestor.KafkaConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
-	pc.Ingestor, err = models.NewIngestorComponentConfig(
-		pc.Ingestor.Provider,
-		pc.Ingestor.KafkaConnectionParams,
-		pc.Ingestor.KafkaTopics,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create ingestor component config: %w", err)
+	pc.Ingestor.KafkaConnectionParams.SASLMechanism = "NO_AUTH"
+	pc.Ingestor.KafkaConnectionParams.SASLProtocol = "SASL_PLAINTEXT"
+
+	// Generate consumer group names for kafka topics if not provided
+	for i := range pc.Ingestor.KafkaTopics {
+		if pc.Ingestor.KafkaTopics[i].ConsumerGroupName == "" {
+			pc.Ingestor.KafkaTopics[i].ConsumerGroupName = models.GetKafkaConsumerGroupName(pc.ID)
+		}
 	}
 
+	// Set sink's stream ID to the ingestor's output stream (where messages are published)
+	if len(pc.Ingestor.KafkaTopics) == 1 {
+		pc.Sink.StreamID = pc.Ingestor.KafkaTopics[0].OutputStreamID
+	}
+
+	// Set NATS consumer name for sink if not provided
+	if pc.Sink.NATSConsumerName == "" {
+		pc.Sink.NATSConsumerName = models.GetNATSSinkConsumerName(pc.ID)
+	}
+
+	if pc.Join.Enabled {
+		// Set NATS consumer name for join if not provided
+		if pc.Join.NATSLeftConsumerName == "" {
+			pc.Join.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(pc.ID)
+		}
+		if pc.Join.NATSRightConsumerName == "" {
+			pc.Join.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(pc.ID)
+		}
+		joinOutputStream := models.GetJoinedStreamName(pc.ID)
+		pc.Join.OutputStreamID = joinOutputStream
+		pc.Sink.StreamID = joinOutputStream
+	}
+
+	// Update ClickHouse connection params with test container
 	pc.Sink.ClickHouseConnectionParams.Host = "localhost"
 	pc.Sink.ClickHouseConnectionParams.Port, err = p.chContainer.GetPort()
 	if err != nil {
@@ -376,6 +403,7 @@ func (p *PipelineSteps) setupPipelineService() error {
 	if err != nil {
 		return fmt.Errorf("create postgres pipeline storage: %w", err)
 	}
+	p.pipelineStore = db
 
 	orch := orchestrator.NewLocalOrchestrator(natsClient, db, p.log)
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/expr-lang/expr"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/tidwall/sjson"
 )
 
@@ -17,7 +17,7 @@ func ValidateFilterExpression(expression string, fields []models.StreamDataField
 
 	jsonInput := ""
 	for _, field := range fields {
-		defaultTypeValue, err := schema.GetDefaultValueForKafkaType(schema.KafkaDataType(field.FieldType))
+		defaultTypeValue, err := mapper.GetDefaultValueForKafkaType(mapper.KafkaDataType(field.FieldType))
 		if err != nil {
 			return fmt.Errorf("get default value for field %s: %w", field.FieldType, err)
 		}
@@ -58,7 +58,7 @@ func ValidateFilterExpressionV2(expression string, fields []models.Field) error 
 
 	jsonInput := ""
 	for _, field := range fields {
-		defaultTypeValue, err := schema.GetDefaultValueForKafkaType(schema.KafkaDataType(field.Type))
+		defaultTypeValue, err := mapper.GetDefaultValueForKafkaType(mapper.KafkaDataType(field.Type))
 		if err != nil {
 			return fmt.Errorf("get default value for field %s: %w", field.Type, err)
 		}

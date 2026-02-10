@@ -28,7 +28,7 @@ Feature: Clickhouse ETL sink dlq
                 "name": "test-pipeline-dlq-1",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",

@@ -49,8 +49,6 @@ type IngestorTestSuite struct {
 	pipelineStore  service.PipelineStore
 	mockSRClient   *testutils.MockSchemaRegistryClient
 
-	ingestorCfg models.IngestorComponentConfig
-
 	ingestor component.Component
 
 	topicName string
@@ -254,7 +252,6 @@ func (s *IngestorTestSuite) aPipelineConfig(cfg *godog.DocString) error {
 	}
 
 	// Set ingestor config and pipeline config AFTER insertion (which may modify them)
-	s.ingestorCfg = pc.Ingestor
 	s.pipelineConfig = &pc
 
 	return nil
@@ -271,9 +268,9 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		return fmt.Errorf("pipeline config not set")
 	}
 
-	if len(s.ingestorCfg.KafkaTopics) == 1 {
-		if s.ingestorCfg.KafkaTopics[0].Deduplication.Enabled {
-			duration = s.ingestorCfg.KafkaTopics[0].Deduplication.Window.Duration()
+	if len(s.pipelineConfig.Ingestor.KafkaTopics) == 1 {
+		if s.pipelineConfig.Ingestor.KafkaTopics[0].Deduplication.Enabled {
+			duration = s.pipelineConfig.Ingestor.KafkaTopics[0].Deduplication.Window.Duration()
 		}
 	}
 
@@ -337,7 +334,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		return fmt.Errorf("create ingestor component: %w", err)
 	}
 
-	for _, cfgTopic := range s.ingestorCfg.KafkaTopics {
+	for _, cfgTopic := range s.pipelineConfig.Ingestor.KafkaTopics {
 		if cfgTopic.Name == s.topicName {
 			s.cGroupName = cfgTopic.ConsumerGroupName
 			break

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -20,7 +21,11 @@ func NewSchemaRegistryClient(config models.SchemaRegistryConfig) (*SchemaRegistr
 	opts := []sr.ClientOpt{sr.URLs(config.URL)}
 
 	if config.APIKey != "" && config.APISecret != "" {
-		opts = append(opts, sr.BasicAuth(config.APIKey, config.APISecret))
+		secret, err := base64.StdEncoding.DecodeString(config.APISecret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode api secret: %w", err)
+		}
+		opts = append(opts, sr.BasicAuth(config.APIKey, string(secret)))
 	}
 
 	client, err := sr.NewClient(opts...)
@@ -127,7 +132,7 @@ func resolveJSONSchemaType(property gjson.Result) (string, error) {
 	case internal.JSONTypeInteger:
 		return internal.KafkaTypeInt, nil
 	case internal.JSONTypeNumber:
-		return internal.KafkaTypeFloat64, nil
+		return internal.KafkaTypeFloat, nil
 	case internal.JSONTypeBoolean:
 		return internal.KafkaTypeBool, nil
 	default:

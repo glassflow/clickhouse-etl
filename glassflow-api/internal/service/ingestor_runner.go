@@ -52,7 +52,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
-	var srClient *sr.SchemaRegistryClient
+	var srClient schemav2.SchemaRegistryClient
 	var outputStreamID string
 	for _, topic := range i.pipelineCfg.Ingestor.KafkaTopics {
 		if topic.Name == i.topicName {

@@ -36,7 +36,7 @@ func TestParseJSONSchema(t *testing.T) {
 				{Name: "user_id", Type: internal.KafkaTypeString},
 				{Name: "username", Type: internal.KafkaTypeString},
 				{Name: "age", Type: internal.KafkaTypeInt},
-				{Name: "score", Type: internal.KafkaTypeFloat64},
+				{Name: "score", Type: internal.KafkaTypeFloat},
 				{Name: "is_active", Type: internal.KafkaTypeBool},
 			},
 			expectError: false,
@@ -110,7 +110,7 @@ func TestParseJSONSchema(t *testing.T) {
 			expected: []models.Field{
 				{Name: "string_field", Type: internal.KafkaTypeString},
 				{Name: "int_field", Type: internal.KafkaTypeInt},
-				{Name: "number_field", Type: internal.KafkaTypeFloat64},
+				{Name: "number_field", Type: internal.KafkaTypeFloat},
 				{Name: "bool_field", Type: internal.KafkaTypeBool},
 				{Name: "array_field", Type: internal.KafkaTypeArray},
 			},
@@ -146,7 +146,7 @@ func TestParseJSONSchema(t *testing.T) {
 			expected: []models.Field{
 				{Name: "order_id", Type: internal.KafkaTypeString},
 				{Name: "customer_id", Type: internal.KafkaTypeString},
-				{Name: "total_amount", Type: internal.KafkaTypeFloat64},
+				{Name: "total_amount", Type: internal.KafkaTypeFloat},
 				{Name: "items", Type: internal.KafkaTypeArray},
 				{Name: "is_paid", Type: internal.KafkaTypeBool},
 			},
@@ -242,7 +242,7 @@ func TestResolveJSONSchemaType(t *testing.T) {
 		{
 			name:        "number type",
 			property:    `{"type": "number"}`,
-			expected:    internal.KafkaTypeFloat64,
+			expected:    internal.KafkaTypeFloat,
 			expectError: false,
 		},
 		{
