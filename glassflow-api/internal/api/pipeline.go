@@ -71,7 +71,7 @@ type pipelineJSON struct {
 	Filter                  pipelineFilter                 `json:"filter,omitempty"`
 	StatelessTransformation models.StatelessTransformation `json:"stateless_transformation,omitempty"`
 	Sink                    clickhouseSink                 `json:"sink"`
-	Schema                  schema                         `json:"schema"`
+	Schema                  schema                         `json:"schema,omitempty"`
 	Metadata                models.PipelineMetadata        `json:"metadata,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)

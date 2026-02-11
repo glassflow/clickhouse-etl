@@ -31,7 +31,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipline-1",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -137,7 +137,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-2",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -247,7 +247,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-3",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -330,7 +330,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-4",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -396,7 +396,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-5",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -474,7 +474,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-6",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -554,7 +554,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-7",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -629,7 +629,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-8",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -702,7 +702,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-9",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -775,7 +775,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-10",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -848,7 +848,7 @@ Feature: Clickhouse ETL sink
                 "name": "test-pipeline-10",
                 "source": {
                     "type": "kafka",
-                    "topics": []
+                    "kafka_topics": []
                 },
                 "sink": {
                     "type": "clickhouse",

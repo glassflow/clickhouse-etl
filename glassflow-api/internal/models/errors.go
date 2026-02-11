@@ -1,6 +1,9 @@
 package models
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var ErrNoNewMessages = errors.New("no new messages")
 
@@ -38,9 +41,28 @@ var ErrConfigNotFound = errors.New("config not found")
 
 func IsConfigNotFoundErr(err error) bool { return errors.Is(err, ErrConfigNotFound) }
 
-var ErrIncompatibleSchema = errors.New("incompatible schema")
+type IncompatibleSchemaError struct {
+	schemaID int
+	errText  string
+}
 
-func IsIncompatibleSchemaErr(err error) bool { return errors.Is(err, ErrIncompatibleSchema) }
+func (e *IncompatibleSchemaError) Error() string {
+	return fmt.Sprintf("schema %d is incompatible: %s", e.schemaID, e.errText)
+}
+
+// NewIncompatibleSchemaError creates a new IncompatibleSchemaError
+func NewIncompatibleSchemaError(schemaID int, errText string) *IncompatibleSchemaError {
+	return &IncompatibleSchemaError{
+		schemaID: schemaID,
+		errText:  errText,
+	}
+}
+
+// AsIncompatibleSchemaError attempts to extract IncompatibleSchemaError from an error
+func IsIncompatibleSchemaError(err error) bool {
+	var incompatibleErr *IncompatibleSchemaError
+	return errors.As(err, &incompatibleErr)
+}
 
 var ErrCompileTransformation = errors.New("failed to compile transformation")
 var ErrSignalSent = errors.New("signal to stop component is sent")
