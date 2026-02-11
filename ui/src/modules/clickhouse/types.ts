@@ -61,3 +61,52 @@ export interface KafkaConnectionParams {
   useTicketCache?: boolean
   ticketCachePath?: string
 }
+
+// ============================================================================
+// ClickhouseMapper Types
+// ============================================================================
+
+/**
+ * Operation mode for the ClickhouseMapper component.
+ * - 'single': Single topic to ClickHouse mapping
+ * - 'join': Two topics joined before mapping to ClickHouse
+ * - 'dedup': Deduplication mode (currently treated same as join)
+ */
+export type MappingMode = 'single' | 'join' | 'dedup'
+
+/**
+ * Validation severity level for mapping validation results.
+ */
+export type ValidationType = 'error' | 'warning' | 'info'
+
+/**
+ * Result of mapping validation check.
+ * Used to determine if save/deploy can proceed and what modal to show.
+ */
+export interface ValidationResult {
+  type: ValidationType
+  canProceed: boolean
+  message: string
+  title: string
+  okButtonText: string
+  cancelButtonText: string
+}
+
+/**
+ * Tracks various validation issues in the mapping configuration.
+ * Used for real-time validation feedback in the UI.
+ */
+export interface ValidationIssues {
+  /** Columns that are nullable and not mapped (warning) */
+  unmappedNullableColumns: string[]
+  /** Columns that are NOT NULL and not mapped (error) */
+  unmappedNonNullableColumns: string[]
+  /** Columns with DEFAULT expressions that are not mapped (warning) */
+  unmappedDefaultColumns: string[]
+  /** Event fields that have no corresponding column mapping */
+  extraEventFields: string[]
+  /** Mappings where source type is incompatible with destination type */
+  incompatibleTypeMappings: TableColumn[]
+  /** Mappings where the source type could not be determined */
+  missingTypeMappings: TableColumn[]
+}

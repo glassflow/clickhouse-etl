@@ -9,6 +9,27 @@ const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
 }
 
+// ============================================================================
+// Type Inference Helpers
+// ============================================================================
+
+/**
+ * Gets the verified type for a field from the topic's schema (set during KafkaTypeVerification step).
+ * Falls back to undefined if no verified type is available.
+ * @param topic - The topic object (from topicsStore)
+ * @param fieldName - The field name to look up
+ * @returns The verified type string or undefined if not found
+ */
+export const getVerifiedTypeFromTopic = (topic: any, fieldName: string): string | undefined => {
+  if (!topic?.schema?.fields || !Array.isArray(topic.schema.fields)) {
+    return undefined
+  }
+  // Filter out removed fields and find the matching field
+  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName && !f.isRemoved)
+  // Prefer userType (explicitly set by user) over type
+  return schemaField?.userType || schemaField?.type
+}
+
 /**
  * Recursively extracts all field names used in a filter tree
  * Handles both simple field references and arithmetic expressions
