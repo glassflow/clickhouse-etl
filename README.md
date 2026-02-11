@@ -1,4 +1,7 @@
 <p align="center">
+  <img src="docs/public/assets/Readme Banner.png" alt="GlassFlow Banner" />
+</p>
+<p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
       <a href="https://glassflow.dev/roadmap"><strong>Roadmap</strong></a> ·
