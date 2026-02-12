@@ -1,66 +1,9 @@
 import { Kafka, Consumer, Admin, logLevel, KafkaMessage } from 'kafkajs'
 import { createAwsIamMechanism } from '../utils/common.server'
+import { KafkaConfig } from './kafka-client-interface'
 
-export interface KafkaConfig {
-  brokers: string[]
-  securityProtocol?: string
-  authMethod?: string
-  clientId?: string
-  groupId?: string
-
-  // SASL/PLAIN
-  username?: string
-  password?: string
-
-  // SASL/JAAS
-  jaasConfig?: string
-
-  // SASL/GSSAPI (Kerberos)
-  kerberosPrincipal?: string
-  kerberosKeytab?: string
-  kerberosRealm?: string
-  kdc?: string
-  serviceName?: string
-  krb5Config?: string
-  useTicketCache?: boolean
-  ticketCachePath?: string
-
-  // SASL/OAUTHBEARER
-  oauthBearerToken?: string
-
-  // AWS IAM
-  awsRegion?: string
-  awsIAMRoleArn?: string
-  awsAccessKey?: string
-  awsAccessKeySecret?: string
-
-  // Delegation tokens
-  delegationToken?: string
-
-  // LDAP
-  ldapServerUrl?: string
-  ldapServerPort?: string
-  ldapBindDn?: string
-  ldapBindPassword?: string
-  ldapUserSearchFilter?: string
-  ldapBaseDn?: string
-
-  // mTLS
-  clientCert?: string
-  clientKey?: string
-
-  // SSL/TLS
-  truststore?: {
-    location?: string
-    password?: string
-    type?: string
-    algorithm?: string
-    certificates?: string[]
-  }
-
-  certificate?: string
-  skipTlsVerification?: boolean
-}
+// Re-export KafkaConfig for backwards compatibility
+export type { KafkaConfig } from './kafka-client-interface'
 
 export interface KafkaEvent {
   topic: string
@@ -208,7 +151,7 @@ export interface RetryOptions {
   retryableErrors?: string[]  // Error message patterns that should trigger retry
 }
 
-const DEFAULT_RETRY_OPTIONS: RetryOptions = {
+export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   maxRetries: 3,
   initialDelayMs: 1000,
   maxDelayMs: 10000,
@@ -229,7 +172,7 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 /**
  * Check if an error is retryable based on its message
  */
-function isRetryableError(error: Error, retryablePatterns: string[]): boolean {
+export function isRetryableError(error: Error, retryablePatterns: string[]): boolean {
   const errorMessage = error.message || ''
   const errorName = error.name || ''
   
@@ -241,14 +184,14 @@ function isRetryableError(error: Error, retryablePatterns: string[]): boolean {
 /**
  * Sleep for a given duration
  */
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 /**
  * Execute a function with retry logic and exponential backoff
  */
-async function withRetry<T>(
+export async function withRetry<T>(
   fn: () => Promise<T>,
   options: Partial<RetryOptions> = {},
   abortSignal?: AbortSignal,
@@ -296,7 +239,7 @@ async function withRetry<T>(
 // Consumer Tracker for Orphaned Consumer Cleanup
 // ============================================================================
 
-interface TrackedConsumer {
+export interface TrackedConsumer {
   consumer: Consumer
   groupId: string
   createdAt: number
@@ -304,7 +247,7 @@ interface TrackedConsumer {
   disconnectPromise?: Promise<void>
 }
 
-class ConsumerTracker {
+export class ConsumerTracker {
   private consumers: Map<string, TrackedConsumer> = new Map()
   private readonly maxAge: number = 60000 // 60 seconds max age for orphaned consumers
   private cleanupInterval: NodeJS.Timeout | null = null

@@ -63,6 +63,7 @@ export interface KafkaConfig {
   }
 
   certificate?: string
+  skipTlsVerification?: boolean
 }
 
 export interface KafkaMessage {

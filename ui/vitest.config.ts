@@ -16,6 +16,8 @@ export default defineConfig({
       'test/**/*.{test,spec}.{ts,tsx}',
       'app/**/*.{test,spec}.{ts,tsx}',
       'hooks/**/*.{test,spec}.{ts,tsx}',
+      'lib/__tests__/**/*.{test,spec}.{ts,tsx}',
+      'services/__tests__/**/*.{test,spec}.{ts,tsx}',
       'modules/create/**/*.{test,spec}.{ts,tsx}',
       'modules/kafka/**/*.{test,spec}.{ts,tsx}',
       'modules/deduplication/**/*.{test,spec}.{ts,tsx}',
