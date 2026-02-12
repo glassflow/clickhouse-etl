@@ -1,4 +1,4 @@
-import { Kafka, Consumer, logLevel, KafkaMessage } from 'kafkajs'
+import { Kafka, Consumer, Admin, logLevel, KafkaMessage } from 'kafkajs'
 import { createAwsIamMechanism } from '../utils/common.server'
 
 export interface KafkaConfig {
@@ -75,17 +75,33 @@ export interface KafkaEvent {
 export class KafkaClient {
   private kafka: Kafka
   private consumer: Consumer | null = null
+  private adminClient: Admin | null = null
+  private adminClientConnected: boolean = false
   private config: KafkaConfig
   private consumerPositions: Map<string, { offset: string; partition: number }> = new Map()
 
   constructor(config: KafkaConfig) {
     this.config = config
 
+    // Determine log level from environment variable
+    // Supported values: NOTHING, ERROR, WARN, INFO, DEBUG (default: ERROR for production)
+    const kafkaLogLevelStr = process.env.KAFKA_LOG_LEVEL?.toUpperCase() || 'ERROR'
+    const kafkaLogLevel = (() => {
+      switch (kafkaLogLevelStr) {
+        case 'NOTHING': return logLevel.NOTHING
+        case 'ERROR': return logLevel.ERROR
+        case 'WARN': return logLevel.WARN
+        case 'INFO': return logLevel.INFO
+        case 'DEBUG': return logLevel.DEBUG
+        default: return logLevel.ERROR // Default to ERROR for performance in production
+      }
+    })()
+
     // Base Kafka configuration
     const kafkaConfig: any = {
       clientId: config.clientId || 'kafka-client',
       brokers: config.brokers,
-      logLevel: logLevel.DEBUG,
+      logLevel: kafkaLogLevel,
     }
 
     // Configure SSL
@@ -215,50 +231,79 @@ export class KafkaClient {
     this.kafka = kafkaInstance
   }
 
+  /**
+   * Get a pooled admin client instance. Creates and connects on first call,
+   * reuses the connection on subsequent calls. This avoids the overhead of
+   * creating a new admin client and TCP/SASL handshake for every operation.
+   */
+  private async getAdminClient(): Promise<Admin> {
+    if (!this.adminClient) {
+      this.adminClient = this.kafka.admin()
+    }
+    
+    if (!this.adminClientConnected) {
+      await this.adminClient.connect()
+      this.adminClientConnected = true
+    }
+    
+    return this.adminClient
+  }
+
+  /**
+   * Disconnect the pooled admin client. Call this when done with admin operations
+   * or when the KafkaClient is being disposed.
+   */
+  private async disconnectAdminClient(): Promise<void> {
+    if (this.adminClient && this.adminClientConnected) {
+      try {
+        await this.adminClient.disconnect()
+      } catch (error) {
+        console.error('Error disconnecting admin client:', error)
+      }
+      this.adminClientConnected = false
+    }
+  }
+
   async testConnection(): Promise<boolean> {
     try {
-      const admin = this.kafka.admin()
-      await admin.connect()
+      const admin = await this.getAdminClient()
       await admin.listTopics()
-      await admin.disconnect()
       return true
     } catch (error) {
       console.error('Failed to connect to Kafka:', error)
+      // Reset connection state on failure so next attempt will reconnect
+      this.adminClientConnected = false
       return false
     }
   }
 
   async listTopics(): Promise<string[]> {
     try {
-      const admin = this.kafka.admin()
-      await admin.connect()
-
+      const admin = await this.getAdminClient()
       const metadata = await admin.fetchTopicMetadata()
       const topics = metadata.topics.map((topic) => topic.name)
-
-      await admin.disconnect()
       return topics
     } catch (error) {
       console.error('Error listing Kafka topics:', error)
+      // Reset connection state on failure
+      this.adminClientConnected = false
       throw error
     }
   }
 
   async getTopicDetails(): Promise<Array<{ name: string; partitionCount: number }>> {
     try {
-      const admin = this.kafka.admin()
-      await admin.connect()
-
+      const admin = await this.getAdminClient()
       const metadata = await admin.fetchTopicMetadata()
       const topicDetails = metadata.topics.map((topic) => ({
         name: topic.name,
         partitionCount: topic.partitions.length,
       }))
-
-      await admin.disconnect()
       return topicDetails
     } catch (error) {
       console.error('Error fetching topic details:', error)
+      // Reset connection state on failure
+      this.adminClientConnected = false
       throw error
     }
   }
@@ -308,6 +353,10 @@ export class KafkaClient {
   }
 
   async disconnect(): Promise<void> {
+    // Disconnect the pooled admin client
+    await this.disconnectAdminClient()
+    
+    // Disconnect the consumer if it exists
     if (this.consumer) {
       await this.consumer.disconnect()
       this.consumer = null
@@ -329,89 +378,80 @@ export class KafkaClient {
     try {
       const startTime = Date.now()
 
-      // Test connection first
-      const isConnected = await this.testConnection()
-      if (!isConnected) {
-        console.error('KafkaClient: Failed to connect to Kafka')
-        throw new Error('Failed to connect to Kafka')
-      }
-
-      // Check if topic exists and get partition information
-      const admin = this.kafka.admin()
-      await admin.connect()
+      // Use pooled admin client for metadata operations (avoids connection overhead)
+      const admin = await this.getAdminClient()
 
       let targetPartition = options?.partition !== undefined ? options.partition : 0
       let targetOffset: string | null = null
 
-      try {
-        // Get topic metadata
-        const metadata = await admin.fetchTopicMetadata({ topics: [topic] })
-        if (!metadata.topics.length || metadata.topics[0].name !== topic) {
-          console.error(`KafkaClient: Topic ${topic} does not exist`)
-          throw new Error(`Topic ${topic} does not exist`)
+      // Get topic metadata
+      const metadata = await admin.fetchTopicMetadata({ topics: [topic] })
+      if (!metadata.topics.length || metadata.topics[0].name !== topic) {
+        console.error(`KafkaClient: Topic ${topic} does not exist`)
+        throw new Error(`Topic ${topic} does not exist`)
+      }
+
+      // Check if topic has partitions
+      const topicInfo = metadata.topics[0]
+      if (!topicInfo.partitions.length) {
+        console.error(`KafkaClient: Topic ${topic} has no partitions`)
+        throw new Error(`Topic ${topic} has no partitions`)
+      }
+
+      // Try to get offsets for the topic
+      const offsets = await admin.fetchTopicOffsets(topic)
+
+      // Check if topic has any messages
+      const hasMessages = offsets.some((partition) => parseInt(partition.high, 10) > parseInt(partition.low, 10))
+
+      if (!hasMessages) {
+        console.error(`KafkaClient: Topic ${topic} exists but has no messages`)
+        throw new Error(`Topic ${topic} exists but has no messages`)
+      }
+
+      // Find the partition with messages if not specified
+      if (options?.partition === undefined) {
+        const partitionWithMessages = offsets.find(
+          (partition) => parseInt(partition.high, 10) > parseInt(partition.low, 10),
+        )
+
+        if (partitionWithMessages) {
+          targetPartition = partitionWithMessages.partition
         }
+      }
 
-        // Check if topic has partitions
-        const topicInfo = metadata.topics[0]
-        if (!topicInfo.partitions.length) {
-          console.error(`KafkaClient: Topic ${topic} has no partitions`)
-          throw new Error(`Topic ${topic} has no partitions`)
-        }
-
-        // Try to get offsets for the topic
-        const offsets = await admin.fetchTopicOffsets(topic)
-
-        // Check if topic has any messages
-        const hasMessages = offsets.some((partition) => parseInt(partition.high, 10) > parseInt(partition.low, 10))
-
-        if (!hasMessages) {
-          console.error(`KafkaClient: Topic ${topic} exists but has no messages`)
-          throw new Error(`Topic ${topic} exists but has no messages`)
-        }
-
-        // Find the partition with messages if not specified
-        if (options?.partition === undefined) {
-          const partitionWithMessages = offsets.find(
-            (partition) => parseInt(partition.high, 10) > parseInt(partition.low, 10),
-          )
-
-          if (partitionWithMessages) {
-            targetPartition = partitionWithMessages.partition
+      // Determine the target offset based on options
+      if (options?.position === 'latest') {
+        // For latest, find the highest offset and subtract 1 to get the last message
+        const partitionInfo = offsets.find((p) => p.partition === targetPartition)
+        if (partitionInfo) {
+          const highOffset = parseInt(partitionInfo.high, 10)
+          const lowOffset = parseInt(partitionInfo.low, 10)
+          console.log(`KafkaClient: Partition ${targetPartition} offsets - low: ${lowOffset}, high: ${highOffset}`)
+          if (highOffset > 0) {
+            targetOffset = (highOffset - 1).toString()
+          } else {
+            targetOffset = '0'
           }
+          console.log(`KafkaClient: Set targetOffset for 'latest': ${targetOffset}`)
         }
-
-        // Determine the target offset based on options
-        if (options?.position === 'latest') {
-          // For latest, find the highest offset and subtract 1 to get the last message
-          const partitionInfo = offsets.find((p) => p.partition === targetPartition)
-          if (partitionInfo) {
-            const highOffset = parseInt(partitionInfo.high, 10)
-            if (highOffset > 0) {
-              targetOffset = (highOffset - 1).toString()
-            } else {
-              targetOffset = '0'
-            }
-          }
-        } else if (options?.position === 'earliest') {
-          // For earliest, use the low offset
-          const partitionInfo = offsets.find((p) => p.partition === targetPartition)
-          if (partitionInfo) {
-            targetOffset = partitionInfo.low
-          }
-        } else if (getNext && currentOffset !== null) {
-          // For next, use current offset + 1
-          targetOffset = (BigInt(currentOffset) + BigInt(1)).toString()
-        } else if (options?.direction === 'previous' && currentOffset !== null) {
-          // For previous, use current offset - 1, but ensure it's not less than the low offset
-          const partitionInfo = offsets.find((p) => p.partition === targetPartition)
-          if (partitionInfo) {
-            const lowOffset = BigInt(partitionInfo.low)
-            const prevOffset = BigInt(currentOffset) - BigInt(1)
-            targetOffset = prevOffset < lowOffset ? lowOffset.toString() : prevOffset.toString()
-          }
+      } else if (options?.position === 'earliest') {
+        // For earliest, use the low offset
+        const partitionInfo = offsets.find((p) => p.partition === targetPartition)
+        if (partitionInfo) {
+          targetOffset = partitionInfo.low
         }
-      } finally {
-        await admin.disconnect()
+      } else if (getNext && currentOffset !== null) {
+        // For next, use current offset + 1
+        targetOffset = (BigInt(currentOffset) + BigInt(1)).toString()
+      } else if (options?.direction === 'previous' && currentOffset !== null) {
+        // For previous, use current offset - 1, but ensure it's not less than the low offset
+        const partitionInfo = offsets.find((p) => p.partition === targetPartition)
+        if (partitionInfo) {
+          const lowOffset = BigInt(partitionInfo.low)
+          const prevOffset = BigInt(currentOffset) - BigInt(1)
+          targetOffset = prevOffset < lowOffset ? lowOffset.toString() : prevOffset.toString()
+        }
       }
 
       // Use a consistent consumer group ID for the topic to maintain position
@@ -419,15 +459,25 @@ export class KafkaClient {
       const baseGroupId = `${this.config.groupId || 'sample'}-${topic.replace(/[^a-zA-Z0-9]/g, '-')}`
       const uniqueGroupId = `${baseGroupId}-${Math.random().toString(36).substring(2, 10)}`
 
+      // Configure consumer with optimized settings for sample fetching
+      // - Increased session timeout (45s) for Kubernetes/slow network environments
+      // - heartbeatInterval must be less than sessionTimeout/3
+      const connectTimeoutMs = parseInt(process.env.KAFKA_CONNECT_TIMEOUT_MS ?? '', 10) || 10000
+      const sessionTimeoutMs = parseInt(process.env.KAFKA_SESSION_TIMEOUT_MS ?? '', 10) || 45000
+      
       consumer = this.kafka.consumer({
         groupId: uniqueGroupId,
-        sessionTimeout: 30000,
+        sessionTimeout: sessionTimeoutMs,
+        heartbeatInterval: Math.floor(sessionTimeoutMs / 4), // 11.25s by default
+        // Optimize for single message fetch
+        maxWaitTimeInMs: 5000,
+        maxBytes: 1048576, // 1MB - enough for a single message
       })
 
-      // Set a timeout for the connect operation
+      // Set a timeout for the connect operation (increased from 5s to 10s for slow networks)
       const connectPromise = Promise.race([
         consumer.connect(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout connecting to Kafka')), 5000)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout connecting to Kafka')), connectTimeoutMs)),
       ])
 
       await connectPromise
@@ -435,7 +485,7 @@ export class KafkaClient {
       // Set a timeout for the subscribe operation
       const subscribePromise = Promise.race([
         consumer.subscribe({ topic, fromBeginning: true }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout subscribing to topic')), 5000)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout subscribing to topic')), 10000)),
       ])
 
       await subscribePromise
@@ -448,8 +498,11 @@ export class KafkaClient {
         const messageHandler = async ({ topic, partition, message }: any) => {
           const messageTime = Date.now()
 
+          console.log(`KafkaClient: Received message - topic: ${topic}, partition: ${partition}, offset: ${message.offset}, targetPartition: ${targetPartition}, targetOffset: ${targetOffset}`)
+
           // Only process messages from the target partition
           if (partition !== targetPartition) {
+            console.log(`KafkaClient: Skipping message - wrong partition (${partition} !== ${targetPartition})`)
             return
           }
 
@@ -458,18 +511,24 @@ export class KafkaClient {
             const messageOffset = BigInt(message.offset)
             const targetOffsetBig = BigInt(targetOffset)
 
+            console.log(`KafkaClient: Checking offset - messageOffset: ${messageOffset}, targetOffset: ${targetOffsetBig}, position: ${options?.position}`)
+
             // For earliest position, accept any message from the earliest offset onwards
             if (options?.position === 'earliest') {
               if (messageOffset < targetOffsetBig) {
+                console.log(`KafkaClient: Skipping message - offset too low for earliest`)
                 return
               }
             } else {
               // For other positions, require exact offset match
               if (messageOffset !== targetOffsetBig) {
+                console.log(`KafkaClient: Skipping message - offset mismatch (${messageOffset} !== ${targetOffsetBig})`)
                 return
               }
             }
           }
+
+          console.log(`KafkaClient: ACCEPTING message at offset ${message.offset}`)
 
           messageReceived = true
 
@@ -564,37 +623,69 @@ export class KafkaClient {
             reject(error)
           })
 
-        // If we have a target offset, seek to it after the consumer is running
-        if (targetOffset !== null) {
-          // Small delay to ensure consumer is fully initialized
-          setTimeout(async () => {
-            try {
-              await consumer?.seek({
-                topic,
-                partition: targetPartition,
-                offset: targetOffset,
-              })
-            } catch (seekError) {
-              console.error(`KafkaClient: Error seeking to offset:`, seekError)
-              reject(seekError)
-            }
-          }, 500) // Give the consumer 500ms to initialize
-        }
+        // If we have a target offset, we need to seek to it.
+        // Critical: We must wait for partition assignment before seeking, otherwise
+        // the seek is silently ignored (KafkaJS offsetManager returns early if partition not assigned).
+        // Use GROUP_JOIN event to ensure we seek AFTER assignment but BEFORE first fetch.
+        if (targetOffset !== null && consumer) {
+          console.log(`KafkaClient: Setting up GROUP_JOIN listener to seek after partition assignment`)
+          
+          const groupJoinListener = consumer.on(
+            consumer.events.GROUP_JOIN,
+            ({ payload }: any) => {
+              console.log(`KafkaClient: GROUP_JOIN event received, memberAssignment:`, JSON.stringify(payload.memberAssignment))
+              
+              // Seek immediately after group join (partition assignment complete)
+              try {
+                console.log(`KafkaClient: Executing seek to topic: ${topic}, partition: ${targetPartition}, offset: ${targetOffset}`)
+                consumer?.seek({
+                  topic,
+                  partition: targetPartition,
+                  offset: targetOffset,
+                })
+                console.log(`KafkaClient: Seek completed successfully`)
+              } catch (seekError) {
+                console.error(`KafkaClient: Error seeking to offset:`, seekError)
+                reject(seekError)
+              }
 
-        // Set a timeout to reject if no message is received
-        // Use a longer timeout for earliest position
-        const timeoutDuration = options?.position === 'earliest' ? 30000 : 15000
-        timeoutId = setTimeout(() => {
-          if (!messageReceived) {
-            reject(new Error(`Timeout waiting for message from topic: ${topic}`))
-          }
-        }, timeoutDuration)
+              // NOW start the timeout - only after consumer has joined and we've sought
+              // This way the timeout only covers the actual message fetching, not the group join
+              const defaultTimeout = options?.position === 'earliest' ? 30000 : 15000
+              const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
+              const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
+              
+              console.log(`KafkaClient: Starting message fetch timeout: ${timeoutDuration}ms`)
+              timeoutId = setTimeout(() => {
+                if (!messageReceived) {
+                  reject(new Error(`Timeout waiting for message from topic: ${topic}`))
+                }
+              }, timeoutDuration)
+            }
+          )
+        } else {
+          // No target offset specified - start timeout immediately
+          // The consumer will fetch from the beginning as specified in subscribe()
+          const defaultTimeout = options?.position === 'earliest' ? 30000 : 15000
+          const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
+          const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
+          
+          console.log(`KafkaClient: No target offset, starting timeout immediately: ${timeoutDuration}ms`)
+          timeoutId = setTimeout(() => {
+            if (!messageReceived) {
+              reject(new Error(`Timeout waiting for message from topic: ${topic}`))
+            }
+          }, timeoutDuration)
+        }
       })
 
       const result = await messagePromise
       return result
     } catch (error) {
       console.error(`KafkaClient: Error in fetchSampleEvent:`, error)
+      // Reset admin client connection state on error to force reconnect on next call
+      // This handles cases where the connection became stale
+      this.adminClientConnected = false
       throw error
     } finally {
       // Attempt to disconnect the consumer in a non-blocking way
