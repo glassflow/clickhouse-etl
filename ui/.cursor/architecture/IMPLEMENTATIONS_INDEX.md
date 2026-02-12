@@ -8,9 +8,10 @@ Implementation notes and PRDs live in `docs/implementations/`. This index points
 |-------|-------------|-------------------|-----|
 | **SSE pipeline status streaming** | Real-time pipeline status via Server-Sent Events; replaces client polling. Route `/ui-api/pipeline/status/stream`, client `pipelineSSEManager`. | Replacing with client polling will regress scalability and increase server load. | [docs/implementations/SSE_PIPELINE_STATUS_STREAMING.md](../../docs/implementations/SSE_PIPELINE_STATUS_STREAMING.md) |
 | **Kerberos** | Kafka Kerberos auth and Go-based gateway integration. | Uses gateway; not plain KafkaJS. Changing auth path can break Kerberos flows. | [docs/implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md](../../docs/implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md) |
+| **Kafka operations layer** | Service/factory/clients (KafkaService, KafkaClientFactory, KafkaClient, KafkaGatewayClient), circuit breaker, gateway retry, AbortSignal. | Changing client selection or gateway contract can break Kerberos and timeouts. | [docs/implementations/KAFKA_OPERATIONS_LAYER.md](../../docs/implementations/KAFKA_OPERATIONS_LAYER.md) |
 | **Store mode support** | PRD for store mode behavior and support. | Behavior and feature flags are specified in the PRD. | [docs/implementations/STORE_MODE_SUPPORT_PRD.md](../../docs/implementations/STORE_MODE_SUPPORT_PRD.md) |
 
-When changing pipeline list/details status behavior, Kafka auth, or store-mode-related features, consult the corresponding implementation doc.
+When changing pipeline list/details status behavior, Kafka auth, Kafka client/service layer, or store-mode-related features, consult the corresponding implementation doc.
 
 ## Related
 
