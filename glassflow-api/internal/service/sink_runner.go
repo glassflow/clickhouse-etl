@@ -52,6 +52,13 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	s.doneCh = make(chan struct{})
 	s.c = make(chan error, 1)
 
+	maxBatchSize := s.pipelineCfg.Sink.Batch.MaxBatchSize
+	maxAckPending := maxBatchSize * 4
+
+	s.log.InfoContext(ctx, "Setting MaxAckPending limit",
+		"max_ack_pending", maxAckPending,
+		"max_batch_size", maxBatchSize)
+
 	consumer, err := stream.NewNATSConsumer(
 		ctx,
 		s.nc.JetStream(),
@@ -59,9 +66,9 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 			Name:          s.pipelineCfg.Sink.NATSConsumerName,
 			Durable:       s.pipelineCfg.Sink.NATSConsumerName,
 			FilterSubject: models.GetWildcardNATSSubjectName(s.pipelineCfg.Sink.StreamID),
-			AckPolicy:     jetstream.AckAllPolicy,
+			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
-			MaxAckPending: -1,
+			MaxAckPending: maxAckPending,
 		},
 		s.pipelineCfg.Sink.StreamID,
 	)

@@ -172,6 +172,14 @@ func (m *Meter) RecordProcessingDuration(ctx context.Context, duration float64) 
 	))
 }
 
+func (m *Meter) RecordProcessingDurationWithStage(ctx context.Context, duration float64, stage string) {
+	m.ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
+		attribute.String("component", m.component),
+		attribute.String("pipeline_id", m.pipelineID),
+		attribute.String("stage", stage),
+	))
+}
+
 // RecordProcessorDuration records the duration of a processor operation
 // processor: filter, transform, dedup_lookup, dedup_write
 func (m *Meter) RecordProcessorDuration(ctx context.Context, processor string, duration float64) {

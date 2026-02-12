@@ -9,6 +9,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/tidwall/gjson"
 )
 
 type Mapper interface {
@@ -61,13 +62,22 @@ func NewSinkMapping(columnName, streamName, fieldName, columnType string) *SinkM
 	}
 }
 
+// columnLookupInfo holds pre-computed column information for fast lookup
+type columnLookupInfo struct {
+	index     int
+	column    *SinkMapping
+	fieldType KafkaDataType
+}
+
 type JsonToClickHouseMapper struct {
 	Streams map[string]Stream
 	Columns []*SinkMapping
 
-	fieldColumnMap map[string]*SinkMapping
-	orderedColumns []string
-	columnOrderMap map[string]int
+	fieldColumnMap         map[string]*SinkMapping
+	orderedColumns         []string
+	columnOrderMap         map[string]int
+	columnLookUpInfo       map[string]columnLookupInfo
+	columnLookUpInfoStream map[string]map[string]columnLookupInfo // streamName -> fieldName -> info
 
 	leftStream  string
 	rightStream string
@@ -84,15 +94,57 @@ func (m *JsonToClickHouseMapper) GetOrderedColumnsStream(streamSchemaName string
 }
 
 func (m *JsonToClickHouseMapper) PrepareValuesStream(streamSchemaName string, data []byte) ([]any, error) {
-	mappedData, err := m.prepareForClickHouseStream(streamSchemaName, data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
+	// Get stream-specific lookup map
+	streamLookup, streamExists := m.columnLookUpInfoStream[streamSchemaName]
+	if !streamExists {
+		// Return empty slice if stream not found
+		return []any{}, nil
 	}
 
-	var values []any
+	parsed := gjson.ParseBytes(data)
+
+	// Count columns for this stream to size the values slice
+	columnCount := 0
 	for _, column := range m.Columns {
 		if column.StreamName == streamSchemaName {
-			values = append(values, mappedData[column.ColumnName])
+			columnCount++
+		}
+	}
+
+	values := make([]any, columnCount)
+
+	// First, iterate through top-level keys to handle flat keys (including those with dots)
+	var conversionErr error
+	parsed.ForEach(func(key, value gjson.Result) bool {
+		info, exists := streamLookup[key.String()]
+		if exists {
+			convertedValue, err := ConvertValueFromGjson(info.column.ColumnType, info.fieldType, value)
+			if err != nil {
+				conversionErr = fmt.Errorf("failed to convert field %s: %w", info.column.FieldName, err)
+				return false // stop iteration on error
+			}
+			values[info.index] = convertedValue
+		}
+		return true // continue iteration
+	})
+
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+
+	// Then, for any remaining fields not found as top-level keys, try nested path lookup
+	for fieldName, info := range streamLookup {
+		if values[info.index] != nil {
+			continue
+		}
+
+		value := parsed.Get(fieldName)
+		if value.Exists() {
+			convertedValue, err := ConvertValueFromGjson(info.column.ColumnType, info.fieldType, value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert field %s: %w", info.column.FieldName, err)
+			}
+			values[info.index] = convertedValue
 		}
 	}
 
@@ -127,10 +179,12 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 	}
 
 	m := &JsonToClickHouseMapper{ //nolint:exhaustruct //missed fields will be added
-		Streams:        make(map[string]Stream),
-		Columns:        columnMappings,
-		fieldColumnMap: make(map[string]*SinkMapping),
-		columnOrderMap: make(map[string]int),
+		Streams:                make(map[string]Stream),
+		Columns:                columnMappings,
+		fieldColumnMap:         make(map[string]*SinkMapping),
+		columnOrderMap:         make(map[string]int),
+		columnLookUpInfo:       make(map[string]columnLookupInfo, len(columnMappings)),
+		columnLookUpInfoStream: make(map[string]map[string]columnLookupInfo),
 	}
 
 	m.Streams = convertStreams(streamsConfig)
@@ -153,8 +207,54 @@ func NewJSONToClickHouseMapper(streamsConfig map[string]models.StreamSchemaConfi
 	}
 
 	m.buildColumnOrder()
+	m.buildGjsonFieldLookup()
+	m.buildGjsonFieldLookupStream()
 
 	return m, nil
+}
+
+// buildGjsonFieldLookup pre-computes the field lookup map for PrepareValuesGjsonForEach
+func (m *JsonToClickHouseMapper) buildGjsonFieldLookup() {
+	multiStream := len(m.Streams) > 1
+
+	for i, column := range m.Columns {
+		var fieldName string
+		if multiStream {
+			fieldName = column.StreamName + "." + column.FieldName
+		} else {
+			fieldName = column.FieldName
+		}
+		m.columnLookUpInfo[fieldName] = columnLookupInfo{
+			index:     i,
+			column:    column,
+			fieldType: m.Streams[column.StreamName].Fields[column.FieldName],
+		}
+	}
+}
+
+// buildGjsonFieldLookupStream pre-computes stream-specific field lookup maps for PrepareValuesStream
+func (m *JsonToClickHouseMapper) buildGjsonFieldLookupStream() {
+	// Build lookup map for each stream
+	for streamName := range m.Streams {
+		streamLookup := make(map[string]columnLookupInfo)
+
+		// Find the index of the first column for this stream to calculate relative indices
+		streamColumnIndex := 0
+		for _, column := range m.Columns {
+			if column.StreamName == streamName {
+				streamLookup[column.FieldName] = columnLookupInfo{
+					index:     streamColumnIndex,
+					column:    column,
+					fieldType: m.Streams[column.StreamName].Fields[column.FieldName],
+				}
+				streamColumnIndex++
+			}
+		}
+
+		if len(streamLookup) > 0 {
+			m.columnLookUpInfoStream[streamName] = streamLookup
+		}
+	}
 }
 
 func (m *JsonToClickHouseMapper) validate() error {
@@ -270,96 +370,50 @@ func (m *JsonToClickHouseMapper) GetKey(streamSchemaName, keyName string, data [
 	return m.getKey(streamSchemaName, keyName, data)
 }
 
-// prepareForClickHouseStream prepares data for a specific stream without stream name prefixing.
-// This is used for single-stream data like transformation output: {"event_id": "123", "name": "John"}
-func (m *JsonToClickHouseMapper) prepareForClickHouseStream(streamSchemaName string, data []byte) (map[string]any, error) {
-	var jsonData map[string]any
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
-	}
-
-	result := make(map[string]any)
-
-	for _, column := range m.Columns {
-		if column.StreamName != streamSchemaName {
-			continue
-		}
-
-		// Look for field without stream name prefix (single-stream data)
-		fieldName := column.FieldName
-		value, exists := getNestedValue(jsonData, fieldName)
-		if !exists {
-			continue
-		}
-
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
-
-		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
-		}
-
-		result[column.ColumnName] = convertedValue
-	}
-
-	return result, nil
-}
-
-func (m *JsonToClickHouseMapper) prepareForClickHouse(data []byte) (map[string]any, error) {
-	var jsonData map[string]any
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON data: %w", err)
-	}
-
-	result := make(map[string]any)
-
-	for _, column := range m.Columns {
-		fieldName := column.FieldName
-		if len(m.Streams) > 1 {
-			fieldName = column.StreamName + "." + fieldName
-		}
-
-		value, exists := getNestedValue(jsonData, fieldName)
-		if !exists {
-			continue
-		}
-
-		fieldType := m.Streams[column.StreamName].Fields[column.FieldName]
-
-		convertedValue, err := ConvertValue(column.ColumnType, fieldType, value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert field %s: %w", column.FieldName, err)
-		}
-
-		result[column.ColumnName] = convertedValue
-	}
-
-	return result, nil
-}
-
-func (m *JsonToClickHouseMapper) getMappedValues(data map[string]any) []any {
-	values := make([]any, len(m.orderedColumns))
-
-	for colName, value := range data {
-		if idx, ok := m.columnOrderMap[colName]; ok {
-			values[idx] = value
-		}
-	}
-
-	return values
-}
-
 func (m *JsonToClickHouseMapper) GetOrderedColumns() []string {
 	return m.orderedColumns
 }
 
+// PrepareValues uses gjson to extract values, supporting both flat keys (including those with dots) and nested paths.
 func (m *JsonToClickHouseMapper) PrepareValues(data []byte) ([]any, error) {
-	mappedData, err := m.prepareForClickHouse(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare values for ClickHouse: %w", err)
+	parsed := gjson.ParseBytes(data)
+
+	values := make([]any, len(m.Columns))
+
+	// First, iterate through top-level keys to handle flat keys
+	var conversionErr error
+	parsed.ForEach(func(key, value gjson.Result) bool {
+		info, exists := m.columnLookUpInfo[key.String()]
+		if exists {
+			convertedValue, err := ConvertValueFromGjson(info.column.ColumnType, info.fieldType, value)
+			if err != nil {
+				conversionErr = fmt.Errorf("failed to convert field %s: %w", info.column.FieldName, err)
+				return false // stop iteration on error
+			}
+			values[info.index] = convertedValue
+		}
+		return true // continue iteration
+	})
+
+	if conversionErr != nil {
+		return nil, conversionErr
 	}
 
-	values := m.getMappedValues(mappedData)
+	// for any remaining fields not found as top-level keys, try nested path lookup
+	for fieldPath, info := range m.columnLookUpInfo {
+		if values[info.index] != nil {
+			continue
+		}
+
+		value := parsed.Get(fieldPath)
+		if value.Exists() {
+			convertedValue, err := ConvertValueFromGjson(info.column.ColumnType, info.fieldType, value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert field %s: %w", info.column.FieldName, err)
+			}
+			values[info.index] = convertedValue
+		}
+	}
 
 	return values, nil
 }

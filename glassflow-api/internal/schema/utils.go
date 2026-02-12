@@ -73,6 +73,11 @@ func ParseInt32(data any) (zero int32, _ error) {
 			return zero, fmt.Errorf("value out of range of int32: %d", value)
 		}
 		return int32(value), nil
+	case int64:
+		if value < math.MinInt32 || value > math.MaxInt32 {
+			return zero, fmt.Errorf("value out of range of int32: %d", value)
+		}
+		return int32(value), nil
 	case float64:
 		if value < float64(math.MinInt32) || value > float64(math.MaxInt32) {
 			return zero, fmt.Errorf("value out of range of int32: %f", value)

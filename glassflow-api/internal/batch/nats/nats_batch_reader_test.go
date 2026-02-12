@@ -51,7 +51,7 @@ func createStreamAndConsumer(t *testing.T, js jetstream.JetStream, ctx context.C
 	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-stream", jetstream.ConsumerConfig{
 		Name:          "test-consumer",
 		FilterSubject: subject,
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 	})
 	require.NoError(t, err)
 
