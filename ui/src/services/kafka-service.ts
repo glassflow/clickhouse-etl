@@ -1,8 +1,8 @@
 import { KafkaConfig } from '@/src/lib/kafka-client-interface'
 import { createKafkaClient } from '@/src/lib/kafka-client-factory'
 
-const API_TIMEOUT = 30000 // 30 seconds
-const CONNECTION_TIMEOUT = 15000 // 15 seconds for connection tests
+const API_TIMEOUT = 60000 // 60 seconds - unified timeout for all Kafka operations
+const CONNECTION_TIMEOUT = 60000 // 60 seconds for connection tests
 
 export class KafkaService {
   /**

@@ -70,13 +70,12 @@ describe('KafkaService', () => {
     })
 
     it('returns false on timeout', async () => {
-      // Simulate what happens when abort signal triggers
+      // Simulate what happens when abort signal triggers (client would resolve after 65s, service aborts at 60s)
       mockClient.testConnection = vi.fn().mockImplementation((abortSignal?: AbortSignal) => {
         return new Promise((resolve, reject) => {
-          // Simulate the service's internal timeout triggering abort
           const timeoutId = setTimeout(() => {
             resolve(true)
-          }, 20000)
+          }, 65000)
 
           if (abortSignal) {
             abortSignal.addEventListener('abort', () => {
@@ -126,7 +125,7 @@ describe('KafkaService', () => {
     it('throws timeout error when operation times out', async () => {
       mockClient.listTopics = vi.fn().mockImplementation((abortSignal?: AbortSignal) => {
         return new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(() => resolve(['topic1']), 35000)
+          const timeoutId = setTimeout(() => resolve(['topic1']), 65000)
 
           if (abortSignal) {
             abortSignal.addEventListener('abort', () => {
@@ -142,7 +141,7 @@ describe('KafkaService', () => {
       // Run all timers which will trigger the service's internal timeout
       await vi.runAllTimersAsync()
 
-      await expect(topicsPromise).rejects.toThrow('Operation timed out after 30 seconds')
+      await expect(topicsPromise).rejects.toThrow('Operation timed out after 60 seconds')
     })
 
     it('passes abort signal to client', async () => {
@@ -183,7 +182,7 @@ describe('KafkaService', () => {
     it('throws timeout error when operation times out', async () => {
       mockClient.getTopicDetails = vi.fn().mockImplementation((abortSignal?: AbortSignal) => {
         return new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(() => resolve([]), 35000)
+          const timeoutId = setTimeout(() => resolve([]), 65000)
 
           if (abortSignal) {
             abortSignal.addEventListener('abort', () => {
@@ -198,7 +197,7 @@ describe('KafkaService', () => {
 
       await vi.runAllTimersAsync()
 
-      await expect(detailsPromise).rejects.toThrow('Operation timed out after 30 seconds')
+      await expect(detailsPromise).rejects.toThrow('Operation timed out after 60 seconds')
     })
 
     it('always disconnects the client', async () => {
@@ -235,7 +234,7 @@ describe('KafkaService', () => {
       mockClient.fetchSampleEvent = vi.fn().mockImplementation(
         (topic: string, format?: string, getNext?: boolean, currentOffset?: string | null, options?: any) => {
           return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => resolve({}), 35000)
+            const timeoutId = setTimeout(() => resolve({}), 65000)
 
             if (options?.abortSignal) {
               options.abortSignal.addEventListener('abort', () => {
@@ -393,7 +392,7 @@ describe('KafkaService', () => {
       mockClient.fetchSampleEvent = vi.fn().mockImplementation(
         (topic: string, format?: string, getNext?: boolean, currentOffset?: string | null, options?: any) => {
           return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => resolve({}), 35000)
+            const timeoutId = setTimeout(() => resolve({}), 65000)
 
             if (options?.abortSignal) {
               options.abortSignal.addEventListener('abort', () => {

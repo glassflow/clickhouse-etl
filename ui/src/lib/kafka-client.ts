@@ -1217,8 +1217,8 @@ export class KafkaClient {
                 return
               }
 
-              // Start timeout after group join
-              const defaultTimeout = options?.position === 'earliest' ? 30000 : 15000
+              // Start timeout after group join (60s - aligned with service timeout)
+              const defaultTimeout = 60000
               const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
               const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
               
@@ -1231,8 +1231,8 @@ export class KafkaClient {
             }
           )
         } else {
-          // No target offset - start timeout immediately
-          const defaultTimeout = options?.position === 'earliest' ? 30000 : 15000
+          // No target offset - start timeout immediately (60s - aligned with service timeout)
+          const defaultTimeout = 60000
           const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
           const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
           
