@@ -228,13 +228,21 @@ export class KafkaGatewayClient implements IKafkaClient {
 
   /**
    * Test connection to Kafka cluster via gateway
+   * @param abortSignal - Optional AbortSignal for cancellation
    */
-  async testConnection(): Promise<boolean> {
+  async testConnection(abortSignal?: AbortSignal): Promise<boolean> {
     try {
+      if (abortSignal?.aborted) {
+        throw new Error('Operation aborted')
+      }
       const requestBody = this.buildGatewayRequest()
       await this.callGateway<GatewayResponse>('/kafka/test-connection', requestBody)
       return true
     } catch (error) {
+      if (error instanceof Error && error.message.includes('aborted')) {
+        console.error('[KafkaGateway] Connection test aborted')
+        return false
+      }
       console.error('[KafkaGateway] Connection test failed:', error)
       return false
     }
@@ -281,8 +289,12 @@ export class KafkaGatewayClient implements IKafkaClient {
 
   /**
    * List all Kafka topics via gateway
+   * @param abortSignal - Optional AbortSignal for cancellation
    */
-  async listTopics(): Promise<string[]> {
+  async listTopics(abortSignal?: AbortSignal): Promise<string[]> {
+    if (abortSignal?.aborted) {
+      throw new Error('Operation aborted')
+    }
     const requestBody = this.buildGatewayRequest()
     const response = await this.callGateway<TopicsResponse>('/kafka/topics', requestBody)
 
@@ -295,8 +307,12 @@ export class KafkaGatewayClient implements IKafkaClient {
 
   /**
    * Get details for all topics via gateway
+   * @param abortSignal - Optional AbortSignal for cancellation
    */
-  async getTopicDetails(): Promise<Array<{ name: string; partitionCount: number }>> {
+  async getTopicDetails(abortSignal?: AbortSignal): Promise<Array<{ name: string; partitionCount: number }>> {
+    if (abortSignal?.aborted) {
+      throw new Error('Operation aborted')
+    }
     const requestBody = this.buildGatewayRequest()
     const response = await this.callGateway<TopicDetailsResponse>('/kafka/topic-details', requestBody)
 

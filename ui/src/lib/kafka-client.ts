@@ -72,16 +72,406 @@ export interface KafkaEvent {
   headers?: Record<string, string>
 }
 
+// ============================================================================
+// Circuit Breaker Implementation
+// ============================================================================
+
+export enum CircuitState {
+  CLOSED = 'CLOSED',     // Normal operation, requests flow through
+  OPEN = 'OPEN',         // Circuit is open, requests fail fast
+  HALF_OPEN = 'HALF_OPEN' // Testing if service recovered
+}
+
+export interface CircuitBreakerOptions {
+  failureThreshold: number      // Number of failures before opening circuit
+  resetTimeoutMs: number        // Time to wait before trying again (half-open)
+  halfOpenMaxAttempts: number   // Max attempts in half-open state
+}
+
+export class CircuitBreaker {
+  private state: CircuitState = CircuitState.CLOSED
+  private failureCount: number = 0
+  private lastFailureTime: number = 0
+  private halfOpenAttempts: number = 0
+  private readonly options: CircuitBreakerOptions
+
+  constructor(options?: Partial<CircuitBreakerOptions>) {
+    this.options = {
+      failureThreshold: options?.failureThreshold ?? 5,
+      resetTimeoutMs: options?.resetTimeoutMs ?? 30000, // 30 seconds
+      halfOpenMaxAttempts: options?.halfOpenMaxAttempts ?? 2,
+    }
+  }
+
+  get currentState(): CircuitState {
+    return this.state
+  }
+
+  get failures(): number {
+    return this.failureCount
+  }
+
+  /**
+   * Check if request should be allowed through
+   */
+  canExecute(): boolean {
+    if (this.state === CircuitState.CLOSED) {
+      return true
+    }
+
+    if (this.state === CircuitState.OPEN) {
+      // Check if enough time has passed to try again
+      const now = Date.now()
+      if (now - this.lastFailureTime >= this.options.resetTimeoutMs) {
+        this.state = CircuitState.HALF_OPEN
+        this.halfOpenAttempts = 0
+        console.log('[CircuitBreaker] Transitioning to HALF_OPEN state')
+        return true
+      }
+      return false
+    }
+
+    // HALF_OPEN state - allow limited attempts
+    return this.halfOpenAttempts < this.options.halfOpenMaxAttempts
+  }
+
+  /**
+   * Record a successful operation
+   */
+  recordSuccess(): void {
+    if (this.state === CircuitState.HALF_OPEN) {
+      // Service recovered, close the circuit
+      console.log('[CircuitBreaker] Success in HALF_OPEN state, closing circuit')
+      this.state = CircuitState.CLOSED
+      this.failureCount = 0
+      this.halfOpenAttempts = 0
+    } else if (this.state === CircuitState.CLOSED) {
+      // Reset failure count on success
+      this.failureCount = 0
+    }
+  }
+
+  /**
+   * Record a failed operation
+   */
+  recordFailure(): void {
+    this.lastFailureTime = Date.now()
+
+    if (this.state === CircuitState.HALF_OPEN) {
+      this.halfOpenAttempts++
+      if (this.halfOpenAttempts >= this.options.halfOpenMaxAttempts) {
+        // Still failing, reopen circuit
+        console.log('[CircuitBreaker] Failed in HALF_OPEN state, reopening circuit')
+        this.state = CircuitState.OPEN
+      }
+    } else if (this.state === CircuitState.CLOSED) {
+      this.failureCount++
+      if (this.failureCount >= this.options.failureThreshold) {
+        console.log(`[CircuitBreaker] Failure threshold (${this.options.failureThreshold}) reached, opening circuit`)
+        this.state = CircuitState.OPEN
+      }
+    }
+  }
+
+  /**
+   * Reset the circuit breaker to initial state
+   */
+  reset(): void {
+    this.state = CircuitState.CLOSED
+    this.failureCount = 0
+    this.halfOpenAttempts = 0
+    this.lastFailureTime = 0
+  }
+
+  /**
+   * Get time remaining until circuit breaker allows retry (in ms)
+   * Returns 0 if circuit is not open
+   */
+  getTimeUntilRetry(): number {
+    if (this.state !== CircuitState.OPEN) {
+      return 0
+    }
+    const elapsed = Date.now() - this.lastFailureTime
+    return Math.max(0, this.options.resetTimeoutMs - elapsed)
+  }
+}
+
+// ============================================================================
+// Retry Logic with Exponential Backoff
+// ============================================================================
+
+export interface RetryOptions {
+  maxRetries: number
+  initialDelayMs: number
+  maxDelayMs: number
+  backoffMultiplier: number
+  retryableErrors?: string[]  // Error message patterns that should trigger retry
+}
+
+const DEFAULT_RETRY_OPTIONS: RetryOptions = {
+  maxRetries: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 10000,
+  backoffMultiplier: 2,
+  retryableErrors: [
+    'ECONNREFUSED',
+    'ENOTFOUND',
+    'ETIMEDOUT',
+    'ECONNRESET',
+    'Request timed out',
+    'Connection error',
+    'The coordinator is not aware of this member',
+    'Broker not available',
+    'Leader not available',
+  ],
+}
+
+/**
+ * Check if an error is retryable based on its message
+ */
+function isRetryableError(error: Error, retryablePatterns: string[]): boolean {
+  const errorMessage = error.message || ''
+  const errorName = error.name || ''
+  
+  return retryablePatterns.some(pattern => 
+    errorMessage.includes(pattern) || errorName.includes(pattern)
+  )
+}
+
+/**
+ * Sleep for a given duration
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Execute a function with retry logic and exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: Partial<RetryOptions> = {},
+  abortSignal?: AbortSignal,
+): Promise<T> {
+  const opts = { ...DEFAULT_RETRY_OPTIONS, ...options }
+  let lastError: Error | null = null
+  let delay = opts.initialDelayMs
+
+  for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
+    // Check if operation was aborted
+    if (abortSignal?.aborted) {
+      throw new Error('Operation aborted')
+    }
+
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      // Don't retry if this isn't a retryable error
+      if (!isRetryableError(lastError, opts.retryableErrors || [])) {
+        throw lastError
+      }
+
+      // Don't retry if we've exhausted attempts
+      if (attempt === opts.maxRetries) {
+        console.error(`[Retry] All ${opts.maxRetries} retries exhausted`)
+        throw lastError
+      }
+
+      console.log(`[Retry] Attempt ${attempt + 1} failed: ${lastError.message}. Retrying in ${delay}ms...`)
+
+      // Wait before retrying
+      await sleep(delay)
+
+      // Calculate next delay with exponential backoff
+      delay = Math.min(delay * opts.backoffMultiplier, opts.maxDelayMs)
+    }
+  }
+
+  throw lastError || new Error('Retry failed with unknown error')
+}
+
+// ============================================================================
+// Consumer Tracker for Orphaned Consumer Cleanup
+// ============================================================================
+
+interface TrackedConsumer {
+  consumer: Consumer
+  groupId: string
+  createdAt: number
+  topic: string
+  disconnectPromise?: Promise<void>
+}
+
+class ConsumerTracker {
+  private consumers: Map<string, TrackedConsumer> = new Map()
+  private readonly maxAge: number = 60000 // 60 seconds max age for orphaned consumers
+  private cleanupInterval: NodeJS.Timeout | null = null
+
+  constructor() {
+    // Start periodic cleanup
+    this.startPeriodicCleanup()
+  }
+
+  /**
+   * Track a new consumer
+   */
+  track(id: string, consumer: Consumer, groupId: string, topic: string): void {
+    this.consumers.set(id, {
+      consumer,
+      groupId,
+      createdAt: Date.now(),
+      topic,
+    })
+    console.log(`[ConsumerTracker] Tracking consumer ${id} for topic ${topic}`)
+  }
+
+  /**
+   * Mark a consumer as disconnecting (started disconnect process)
+   */
+  markDisconnecting(id: string, disconnectPromise: Promise<void>): void {
+    const tracked = this.consumers.get(id)
+    if (tracked) {
+      tracked.disconnectPromise = disconnectPromise
+    }
+  }
+
+  /**
+   * Remove a consumer from tracking (successfully disconnected)
+   */
+  untrack(id: string): void {
+    this.consumers.delete(id)
+    console.log(`[ConsumerTracker] Untracked consumer ${id}`)
+  }
+
+  /**
+   * Get count of tracked consumers
+   */
+  get count(): number {
+    return this.consumers.size
+  }
+
+  /**
+   * Start periodic cleanup of orphaned consumers
+   */
+  private startPeriodicCleanup(): void {
+    if (this.cleanupInterval) return
+
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupOrphanedConsumers()
+    }, 30000) // Run cleanup every 30 seconds
+
+    // Ensure cleanup doesn't prevent process exit
+    if (this.cleanupInterval.unref) {
+      this.cleanupInterval.unref()
+    }
+  }
+
+  /**
+   * Clean up consumers that have been around too long
+   */
+  async cleanupOrphanedConsumers(): Promise<void> {
+    const now = Date.now()
+    const orphaned: string[] = []
+
+    for (const [id, tracked] of this.consumers.entries()) {
+      if (now - tracked.createdAt > this.maxAge) {
+        orphaned.push(id)
+      }
+    }
+
+    if (orphaned.length > 0) {
+      console.log(`[ConsumerTracker] Cleaning up ${orphaned.length} orphaned consumers`)
+    }
+
+    for (const id of orphaned) {
+      await this.forceDisconnect(id)
+    }
+  }
+
+  /**
+   * Force disconnect a consumer
+   */
+  async forceDisconnect(id: string): Promise<void> {
+    const tracked = this.consumers.get(id)
+    if (!tracked) return
+
+    console.log(`[ConsumerTracker] Force disconnecting consumer ${id}`)
+
+    try {
+      // If already disconnecting, wait for that
+      if (tracked.disconnectPromise) {
+        await Promise.race([
+          tracked.disconnectPromise,
+          sleep(2000), // Max 2 seconds wait
+        ])
+      } else {
+        // Try to disconnect with a short timeout
+        await Promise.race([
+          tracked.consumer.disconnect(),
+          sleep(2000),
+        ])
+      }
+    } catch (error) {
+      console.error(`[ConsumerTracker] Error force disconnecting consumer ${id}:`, error)
+    } finally {
+      this.consumers.delete(id)
+    }
+  }
+
+  /**
+   * Clean up all tracked consumers (for shutdown)
+   */
+  async cleanupAll(): Promise<void> {
+    console.log(`[ConsumerTracker] Cleaning up all ${this.consumers.size} tracked consumers`)
+
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+    }
+
+    const disconnectPromises = Array.from(this.consumers.keys()).map(id => 
+      this.forceDisconnect(id)
+    )
+
+    await Promise.allSettled(disconnectPromises)
+  }
+
+  /**
+   * Stop the tracker (for cleanup)
+   */
+  stop(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+    }
+  }
+}
+
+// Global consumer tracker instance
+const globalConsumerTracker = new ConsumerTracker()
+
 export class KafkaClient {
   private kafka: Kafka
   private consumer: Consumer | null = null
   private adminClient: Admin | null = null
   private adminClientConnected: boolean = false
   private config: KafkaConfig
-  private consumerPositions: Map<string, { offset: string; partition: number }> = new Map()
+  
+  // Circuit breaker for connection failures
+  private circuitBreaker: CircuitBreaker
+  
+  // Retry options (can be customized per instance)
+  private retryOptions: Partial<RetryOptions>
 
-  constructor(config: KafkaConfig) {
+  constructor(config: KafkaConfig, options?: { 
+    circuitBreakerOptions?: Partial<CircuitBreakerOptions>
+    retryOptions?: Partial<RetryOptions>
+  }) {
     this.config = config
+    this.circuitBreaker = new CircuitBreaker(options?.circuitBreakerOptions)
+    this.retryOptions = options?.retryOptions || {}
 
     // Determine log level from environment variable
     // Supported values: NOTHING, ERROR, WARN, INFO, DEBUG (default: ERROR for production)
@@ -232,18 +622,51 @@ export class KafkaClient {
   }
 
   /**
+   * Check circuit breaker and throw if open
+   */
+  private checkCircuitBreaker(): void {
+    if (!this.circuitBreaker.canExecute()) {
+      const retryIn = this.circuitBreaker.getTimeUntilRetry()
+      throw new Error(
+        `Circuit breaker is open due to repeated failures. Retry in ${Math.ceil(retryIn / 1000)} seconds.`
+      )
+    }
+  }
+
+  /**
    * Get a pooled admin client instance. Creates and connects on first call,
    * reuses the connection on subsequent calls. This avoids the overhead of
    * creating a new admin client and TCP/SASL handshake for every operation.
+   * 
+   * Uses circuit breaker to prevent repeated connection attempts to a failing broker.
+   * Uses retry logic with exponential backoff for transient failures.
    */
-  private async getAdminClient(): Promise<Admin> {
+  private async getAdminClient(abortSignal?: AbortSignal): Promise<Admin> {
+    // Check circuit breaker first
+    this.checkCircuitBreaker()
+
     if (!this.adminClient) {
       this.adminClient = this.kafka.admin()
     }
     
     if (!this.adminClientConnected) {
-      await this.adminClient.connect()
-      this.adminClientConnected = true
+      try {
+        await withRetry(
+          async () => {
+            if (abortSignal?.aborted) {
+              throw new Error('Operation aborted')
+            }
+            await this.adminClient!.connect()
+          },
+          this.retryOptions,
+          abortSignal,
+        )
+        this.adminClientConnected = true
+        this.circuitBreaker.recordSuccess()
+      } catch (error) {
+        this.circuitBreaker.recordFailure()
+        throw error
+      }
     }
     
     return this.adminClient
@@ -256,7 +679,10 @@ export class KafkaClient {
   private async disconnectAdminClient(): Promise<void> {
     if (this.adminClient && this.adminClientConnected) {
       try {
-        await this.adminClient.disconnect()
+        await Promise.race([
+          this.adminClient.disconnect(),
+          sleep(5000), // Max 5 seconds for disconnect
+        ])
       } catch (error) {
         console.error('Error disconnecting admin client:', error)
       }
@@ -264,48 +690,96 @@ export class KafkaClient {
     }
   }
 
-  async testConnection(): Promise<boolean> {
+  /**
+   * Test connection to Kafka broker.
+   * Uses circuit breaker and retry logic for robustness.
+   */
+  async testConnection(abortSignal?: AbortSignal): Promise<boolean> {
     try {
-      const admin = await this.getAdminClient()
-      await admin.listTopics()
+      const admin = await this.getAdminClient(abortSignal)
+      await withRetry(
+        () => admin.listTopics(),
+        this.retryOptions,
+        abortSignal,
+      )
+      this.circuitBreaker.recordSuccess()
       return true
     } catch (error) {
       console.error('Failed to connect to Kafka:', error)
       // Reset connection state on failure so next attempt will reconnect
       this.adminClientConnected = false
+      this.circuitBreaker.recordFailure()
       return false
     }
   }
 
-  async listTopics(): Promise<string[]> {
+  /**
+   * List all topics from Kafka.
+   * Uses circuit breaker and retry logic for robustness.
+   */
+  async listTopics(abortSignal?: AbortSignal): Promise<string[]> {
     try {
-      const admin = await this.getAdminClient()
-      const metadata = await admin.fetchTopicMetadata()
+      const admin = await this.getAdminClient(abortSignal)
+      const metadata = await withRetry(
+        () => admin.fetchTopicMetadata(),
+        this.retryOptions,
+        abortSignal,
+      )
       const topics = metadata.topics.map((topic) => topic.name)
+      this.circuitBreaker.recordSuccess()
       return topics
     } catch (error) {
       console.error('Error listing Kafka topics:', error)
       // Reset connection state on failure
       this.adminClientConnected = false
+      this.circuitBreaker.recordFailure()
       throw error
     }
   }
 
-  async getTopicDetails(): Promise<Array<{ name: string; partitionCount: number }>> {
+  /**
+   * Get details for all topics including partition count.
+   * Uses circuit breaker and retry logic for robustness.
+   */
+  async getTopicDetails(abortSignal?: AbortSignal): Promise<Array<{ name: string; partitionCount: number }>> {
     try {
-      const admin = await this.getAdminClient()
-      const metadata = await admin.fetchTopicMetadata()
+      const admin = await this.getAdminClient(abortSignal)
+      const metadata = await withRetry(
+        () => admin.fetchTopicMetadata(),
+        this.retryOptions,
+        abortSignal,
+      )
       const topicDetails = metadata.topics.map((topic) => ({
         name: topic.name,
         partitionCount: topic.partitions.length,
       }))
+      this.circuitBreaker.recordSuccess()
       return topicDetails
     } catch (error) {
       console.error('Error fetching topic details:', error)
       // Reset connection state on failure
       this.adminClientConnected = false
+      this.circuitBreaker.recordFailure()
       throw error
     }
+  }
+
+  /**
+   * Get current circuit breaker state (for monitoring/debugging)
+   */
+  getCircuitBreakerState(): { state: CircuitState; failures: number; timeUntilRetry: number } {
+    return {
+      state: this.circuitBreaker.currentState,
+      failures: this.circuitBreaker.failures,
+      timeUntilRetry: this.circuitBreaker.getTimeUntilRetry(),
+    }
+  }
+
+  /**
+   * Reset circuit breaker (use carefully, mainly for testing)
+   */
+  resetCircuitBreaker(): void {
+    this.circuitBreaker.reset()
   }
 
   async initializeConsumer(): Promise<void> {
@@ -358,11 +832,49 @@ export class KafkaClient {
     
     // Disconnect the consumer if it exists
     if (this.consumer) {
-      await this.consumer.disconnect()
+      try {
+        await Promise.race([
+          this.consumer.disconnect(),
+          sleep(5000), // Max 5 seconds
+        ])
+      } catch (error) {
+        console.error('Error disconnecting consumer:', error)
+      }
       this.consumer = null
     }
   }
 
+  /**
+   * Get count of tracked consumers across all KafkaClient instances
+   */
+  static getTrackedConsumerCount(): number {
+    return globalConsumerTracker.count
+  }
+
+  /**
+   * Force cleanup of all orphaned consumers (useful for graceful shutdown)
+   */
+  static async cleanupAllConsumers(): Promise<void> {
+    await globalConsumerTracker.cleanupAll()
+  }
+
+  /**
+   * Stop the consumer tracker (call on application shutdown)
+   */
+  static stopConsumerTracker(): void {
+    globalConsumerTracker.stop()
+  }
+
+  /**
+   * Fetch a sample event from a Kafka topic.
+   * 
+   * Features:
+   * - Circuit breaker to prevent repeated failures
+   * - Retry logic with exponential backoff for transient errors
+   * - AbortController support for cascading cancellation
+   * - Proper event listener cleanup to prevent memory leaks
+   * - Consumer tracking for orphaned consumer cleanup
+   */
   async fetchSampleEvent(
     topic: string,
     format: string = 'JSON',
@@ -372,20 +884,83 @@ export class KafkaClient {
       position?: 'earliest' | 'latest'
       direction?: 'next' | 'previous'
       partition?: number
+      abortSignal?: AbortSignal
     },
   ): Promise<any> {
-    let consumer: Consumer | null = null
-    try {
-      const startTime = Date.now()
+    // Check circuit breaker first
+    this.checkCircuitBreaker()
 
+    let consumer: Consumer | null = null
+    let consumerId: string | null = null
+    let groupJoinUnsubscribe: (() => void) | null = null
+    let timeoutId: NodeJS.Timeout | null = null
+    
+    // Create internal abort controller that can be triggered by external signal or timeout
+    const internalAbortController = new AbortController()
+    const abortSignal = options?.abortSignal
+
+    // Link external abort signal to internal one
+    if (abortSignal) {
+      if (abortSignal.aborted) {
+        throw new Error('Operation aborted before starting')
+      }
+      abortSignal.addEventListener('abort', () => {
+        internalAbortController.abort()
+      })
+    }
+
+    // Cleanup function to ensure all resources are released
+    const cleanup = async () => {
+      // Clear timeout first
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+
+      // Unsubscribe from GROUP_JOIN event
+      if (groupJoinUnsubscribe) {
+        try {
+          groupJoinUnsubscribe()
+        } catch (e) {
+          // Ignore errors from unsubscribe
+        }
+        groupJoinUnsubscribe = null
+      }
+
+      // Disconnect consumer with tracking
+      if (consumer && consumerId) {
+        const disconnectPromise = (async () => {
+          try {
+            await Promise.race([
+              consumer!.disconnect(),
+              sleep(3000), // Max 3 seconds for disconnect
+            ])
+            globalConsumerTracker.untrack(consumerId!)
+          } catch (disconnectError) {
+            console.error(`KafkaClient: Error during consumer disconnect:`, disconnectError)
+            // Consumer will be cleaned up by tracker eventually
+          }
+        })()
+
+        globalConsumerTracker.markDisconnecting(consumerId, disconnectPromise)
+        await disconnectPromise
+      }
+    }
+
+    try {
       // Use pooled admin client for metadata operations (avoids connection overhead)
-      const admin = await this.getAdminClient()
+      const admin = await this.getAdminClient(internalAbortController.signal)
 
       let targetPartition = options?.partition !== undefined ? options.partition : 0
       let targetOffset: string | null = null
 
-      // Get topic metadata
-      const metadata = await admin.fetchTopicMetadata({ topics: [topic] })
+      // Get topic metadata with retry
+      const metadata = await withRetry(
+        () => admin.fetchTopicMetadata({ topics: [topic] }),
+        this.retryOptions,
+        internalAbortController.signal,
+      )
+
       if (!metadata.topics.length || metadata.topics[0].name !== topic) {
         console.error(`KafkaClient: Topic ${topic} does not exist`)
         throw new Error(`Topic ${topic} does not exist`)
@@ -398,8 +973,12 @@ export class KafkaClient {
         throw new Error(`Topic ${topic} has no partitions`)
       }
 
-      // Try to get offsets for the topic
-      const offsets = await admin.fetchTopicOffsets(topic)
+      // Try to get offsets for the topic with retry
+      const offsets = await withRetry(
+        () => admin.fetchTopicOffsets(topic),
+        this.retryOptions,
+        internalAbortController.signal,
+      )
 
       // Check if topic has any messages
       const hasMessages = offsets.some((partition) => parseInt(partition.high, 10) > parseInt(partition.low, 10))
@@ -454,51 +1033,74 @@ export class KafkaClient {
         }
       }
 
-      // Use a consistent consumer group ID for the topic to maintain position
-      // But add a unique suffix to avoid conflicts with other consumers
+      // Generate unique consumer group ID
       const baseGroupId = `${this.config.groupId || 'sample'}-${topic.replace(/[^a-zA-Z0-9]/g, '-')}`
-      const uniqueGroupId = `${baseGroupId}-${Math.random().toString(36).substring(2, 10)}`
+      consumerId = `${baseGroupId}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`
 
       // Configure consumer with optimized settings for sample fetching
-      // - Increased session timeout (45s) for Kubernetes/slow network environments
-      // - heartbeatInterval must be less than sessionTimeout/3
       const connectTimeoutMs = parseInt(process.env.KAFKA_CONNECT_TIMEOUT_MS ?? '', 10) || 10000
       const sessionTimeoutMs = parseInt(process.env.KAFKA_SESSION_TIMEOUT_MS ?? '', 10) || 45000
       
       consumer = this.kafka.consumer({
-        groupId: uniqueGroupId,
+        groupId: consumerId,
         sessionTimeout: sessionTimeoutMs,
-        heartbeatInterval: Math.floor(sessionTimeoutMs / 4), // 11.25s by default
-        // Optimize for single message fetch
+        heartbeatInterval: Math.floor(sessionTimeoutMs / 4),
         maxWaitTimeInMs: 5000,
-        maxBytes: 1048576, // 1MB - enough for a single message
+        maxBytes: 1048576,
       })
 
-      // Set a timeout for the connect operation (increased from 5s to 10s for slow networks)
-      const connectPromise = Promise.race([
-        consumer.connect(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout connecting to Kafka')), connectTimeoutMs)),
-      ])
+      // Track this consumer for cleanup
+      globalConsumerTracker.track(consumerId, consumer, consumerId, topic)
 
-      await connectPromise
+      // Check abort before connect
+      if (internalAbortController.signal.aborted) {
+        throw new Error('Operation aborted')
+      }
 
-      // Set a timeout for the subscribe operation
-      const subscribePromise = Promise.race([
+      // Connect with retry and timeout
+      await withRetry(
+        async () => {
+          if (internalAbortController.signal.aborted) {
+            throw new Error('Operation aborted')
+          }
+          await Promise.race([
+            consumer!.connect(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout connecting to Kafka')), connectTimeoutMs)
+            ),
+          ])
+        },
+        { ...this.retryOptions, maxRetries: 2 },
+        internalAbortController.signal,
+      )
+
+      // Check abort before subscribe
+      if (internalAbortController.signal.aborted) {
+        throw new Error('Operation aborted')
+      }
+
+      // Subscribe with timeout
+      await Promise.race([
         consumer.subscribe({ topic, fromBeginning: true }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout subscribing to topic')), 10000)),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout subscribing to topic')), 10000)
+        ),
       ])
-
-      await subscribePromise
 
       // Create a promise that will resolve with the first message or reject after timeout
       const messagePromise = new Promise((resolve, reject) => {
-        let timeoutId: NodeJS.Timeout | null = null
         let messageReceived = false
 
-        const messageHandler = async ({ topic, partition, message }: any) => {
-          const messageTime = Date.now()
+        // Handle abort signal
+        const abortHandler = () => {
+          if (!messageReceived) {
+            reject(new Error('Operation aborted'))
+          }
+        }
+        internalAbortController.signal.addEventListener('abort', abortHandler)
 
-          console.log(`KafkaClient: Received message - topic: ${topic}, partition: ${partition}, offset: ${message.offset}, targetPartition: ${targetPartition}, targetOffset: ${targetOffset}`)
+        const messageHandler = async ({ topic: msgTopic, partition, message }: any) => {
+          console.log(`KafkaClient: Received message - topic: ${msgTopic}, partition: ${partition}, offset: ${message.offset}, targetPartition: ${targetPartition}, targetOffset: ${targetOffset}`)
 
           // Only process messages from the target partition
           if (partition !== targetPartition) {
@@ -513,14 +1115,12 @@ export class KafkaClient {
 
             console.log(`KafkaClient: Checking offset - messageOffset: ${messageOffset}, targetOffset: ${targetOffsetBig}, position: ${options?.position}`)
 
-            // For earliest position, accept any message from the earliest offset onwards
             if (options?.position === 'earliest') {
               if (messageOffset < targetOffsetBig) {
                 console.log(`KafkaClient: Skipping message - offset too low for earliest`)
                 return
               }
             } else {
-              // For other positions, require exact offset match
               if (messageOffset !== targetOffsetBig) {
                 console.log(`KafkaClient: Skipping message - offset mismatch (${messageOffset} !== ${targetOffsetBig})`)
                 return
@@ -532,22 +1132,17 @@ export class KafkaClient {
 
           messageReceived = true
 
-          // Store the current position for next time
-          if (this.consumerPositions) {
-            this.consumerPositions.set(topic, {
-              offset: message.offset,
-              partition: partition,
-            })
-          }
-
+          // Clear timeout since we got a message
           if (timeoutId) {
             clearTimeout(timeoutId)
+            timeoutId = null
           }
+
+          // Remove abort handler
+          internalAbortController.signal.removeEventListener('abort', abortHandler)
 
           try {
             const messageValue = message.value.toString()
-
-            // Parse the message based on format
             let parsedMessage
 
             if (format === 'JSON' || format === 'json') {
@@ -555,10 +1150,7 @@ export class KafkaClient {
                 parsedMessage = JSON.parse(messageValue)
               } catch (parseError) {
                 console.error(`KafkaClient: Error parsing JSON:`, parseError)
-
-                // Try to fix common JSON issues and parse again
                 try {
-                  // Fix unquoted property names (convert property: value to "property": value)
                   const fixedJson = messageValue.replace(/(\s*)(\w+)(\s*):(\s*)/g, '$1"$2"$3:$4')
                   parsedMessage = JSON.parse(fixedJson)
                 } catch (fixError) {
@@ -574,15 +1166,13 @@ export class KafkaClient {
               parsedMessage = { _raw: messageValue }
             }
 
-            // Add metadata about the message
             parsedMessage._metadata = {
-              topic,
+              topic: msgTopic,
               partition,
               offset: message.offset,
               timestamp: message.timestamp,
             }
 
-            // Remove the key if it exists - it's related to partitions and not to the event
             if (message.key) {
               try {
                 delete parsedMessage.key
@@ -592,7 +1182,6 @@ export class KafkaClient {
               }
             }
 
-            // Resolve the promise immediately with the parsed message
             resolve(parsedMessage)
           } catch (error) {
             console.error(`KafkaClient: Error processing message:`, error)
@@ -601,7 +1190,7 @@ export class KafkaClient {
               _error: 'Failed to process message',
               _errorDetails: error instanceof Error ? error.message : String(error),
               _metadata: {
-                topic,
+                topic: msgTopic,
                 partition,
                 offset: message.offset,
                 timestamp: message.timestamp,
@@ -610,47 +1199,41 @@ export class KafkaClient {
           }
         }
 
-        // Start the consumer first
+        // Start the consumer
         consumer
           ?.run({
             eachMessage: messageHandler,
-          })
-          .then(() => {
-            // console.log(`KafkaClient: Consumer run promise resolved`)
           })
           .catch((error) => {
             console.error(`KafkaClient: Error running consumer:`, error)
             reject(error)
           })
 
-        // If we have a target offset, we need to seek to it.
-        // Critical: We must wait for partition assignment before seeking, otherwise
-        // the seek is silently ignored (KafkaJS offsetManager returns early if partition not assigned).
-        // Use GROUP_JOIN event to ensure we seek AFTER assignment but BEFORE first fetch.
+        // Setup GROUP_JOIN listener if we need to seek
         if (targetOffset !== null && consumer) {
           console.log(`KafkaClient: Setting up GROUP_JOIN listener to seek after partition assignment`)
           
-          const groupJoinListener = consumer.on(
+          // Store unsubscribe function for cleanup
+          groupJoinUnsubscribe = consumer.on(
             consumer.events.GROUP_JOIN,
             ({ payload }: any) => {
               console.log(`KafkaClient: GROUP_JOIN event received, memberAssignment:`, JSON.stringify(payload.memberAssignment))
               
-              // Seek immediately after group join (partition assignment complete)
               try {
                 console.log(`KafkaClient: Executing seek to topic: ${topic}, partition: ${targetPartition}, offset: ${targetOffset}`)
                 consumer?.seek({
                   topic,
                   partition: targetPartition,
-                  offset: targetOffset,
+                  offset: targetOffset!,
                 })
                 console.log(`KafkaClient: Seek completed successfully`)
               } catch (seekError) {
                 console.error(`KafkaClient: Error seeking to offset:`, seekError)
                 reject(seekError)
+                return
               }
 
-              // NOW start the timeout - only after consumer has joined and we've sought
-              // This way the timeout only covers the actual message fetching, not the group join
+              // Start timeout after group join
               const defaultTimeout = options?.position === 'earliest' ? 30000 : 15000
               const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
               const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
@@ -664,8 +1247,7 @@ export class KafkaClient {
             }
           )
         } else {
-          // No target offset specified - start timeout immediately
-          // The consumer will fetch from the beginning as specified in subscribe()
+          // No target offset - start timeout immediately
           const defaultTimeout = options?.position === 'earliest' ? 30000 : 15000
           const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
           const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
@@ -680,28 +1262,15 @@ export class KafkaClient {
       })
 
       const result = await messagePromise
+      this.circuitBreaker.recordSuccess()
       return result
     } catch (error) {
       console.error(`KafkaClient: Error in fetchSampleEvent:`, error)
-      // Reset admin client connection state on error to force reconnect on next call
-      // This handles cases where the connection became stale
       this.adminClientConnected = false
+      this.circuitBreaker.recordFailure()
       throw error
     } finally {
-      // Attempt to disconnect the consumer in a non-blocking way
-      if (consumer) {
-        // Use a timeout to prevent hanging on disconnect
-        try {
-          const disconnectPromise = Promise.race([
-            consumer.disconnect(),
-            new Promise((resolve) => setTimeout(resolve, 3000)), // Just resolve after 3 seconds
-          ])
-
-          await disconnectPromise
-        } catch (disconnectError) {
-          console.error(`KafkaClient: Error during consumer disconnect (continuing anyway):`, disconnectError)
-        }
-      }
+      await cleanup()
     }
   }
 

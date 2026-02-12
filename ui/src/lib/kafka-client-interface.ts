@@ -123,8 +123,9 @@ export interface IKafkaClient {
 
   /**
    * List all topics
+   * @param abortSignal - Optional AbortSignal for cancellation
    */
-  listTopics(): Promise<string[]>
+  listTopics(abortSignal?: AbortSignal): Promise<string[]>
 
   /**
    * Get metadata for a specific topic
@@ -133,18 +134,29 @@ export interface IKafkaClient {
 
   /**
    * Get details for all topics (name and partition count)
+   * @param abortSignal - Optional AbortSignal for cancellation
    */
-  getTopicDetails?(): Promise<Array<{ name: string; partitionCount: number }>>
+  getTopicDetails?(abortSignal?: AbortSignal): Promise<Array<{ name: string; partitionCount: number }>>
 
   /**
    * Fetch a sample event from a topic
+   * @param topic - Topic name
+   * @param format - Message format (JSON, AVRO, etc.)
+   * @param getNext - Whether to get the next message
+   * @param currentOffset - Current offset for navigation
+   * @param options - Additional options including abortSignal for cancellation
    */
   fetchSampleEvent?(
     topic: string,
     format?: string,
     getNext?: boolean,
     currentOffset?: string | null,
-    options?: any,
+    options?: {
+      position?: 'earliest' | 'latest'
+      direction?: 'next' | 'previous'
+      partition?: number
+      abortSignal?: AbortSignal
+    },
   ): Promise<any>
 
   /**
@@ -154,8 +166,9 @@ export interface IKafkaClient {
 
   /**
    * Test connection to Kafka
+   * @param abortSignal - Optional AbortSignal for cancellation
    */
-  testConnection(): Promise<boolean>
+  testConnection(abortSignal?: AbortSignal): Promise<boolean>
 }
 
 /**
