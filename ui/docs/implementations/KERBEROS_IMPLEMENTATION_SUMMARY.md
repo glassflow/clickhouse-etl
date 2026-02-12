@@ -9,8 +9,8 @@ Implement Kerberos authentication (SASL/GSSAPI) with SSL support for Kafka conne
 ### 1. **Dual Kafka Client Architecture**
 
 - **KafkaJS Client**: Handles most authentication methods (PLAIN, SCRAM, AWS IAM, mTLS, SSL)
-- **RdKafka Client**: Handles Kerberos (SASL/GSSAPI) using `node-rdkafka` native library
-- **Factory Pattern**: Automatically selects appropriate client based on `authMethod`
+- **Kafka Gateway Client**: Handles Kerberos (SASL/GSSAPI) via a **Go-based Kafka Gateway** service (HTTP sidecar). The UI calls the gateway; the gateway performs GSSAPI/Kerberos and talks to Kafka. No native Kerberos libraries in the UI.
+- **Factory Pattern**: Automatically selects appropriate client based on `authMethod` (SASL/GSSAPI → Gateway; all others → KafkaJS).
 
 ### 2. **Kerberos Configuration Support**
 
@@ -25,15 +25,14 @@ Implement Kerberos authentication (SASL/GSSAPI) with SSL support for Kafka conne
 - **Conditional Rendering**: Truststore fields shown only for SSL/SASL_SSL protocols
 - **File Upload Components**: Specialized components for certificate and keytab files
 
-### 4. **Docker Environment**
+### 4. **Gateway Client Resilience**
 
-- **Multi-stage Build**: Debian-based image with `node-rdkafka` and Kerberos dependencies
-- **Network Independence**: No dependency on specific Docker networks - connects to external Kafka clusters
-- **Dependency Management**: Proper handling of native addons in Docker
+- **Retry with backoff**: The gateway client uses configurable retry for transient HTTP failures (e.g. ECONNREFUSED, ETIMEDOUT) with exponential backoff.
+- **AbortSignal**: Request cancellation is supported; the gateway client accepts an optional `AbortSignal` and combines it with an internal timeout so that long-running or cancelled operations are aborted cleanly.
 
 ### 5. **Authentication Flow**
 
-- **Connection Test**: Safe `kinit` command execution for Kerberos validation
+- **Connection Test**: Gateway (or KafkaJS) validates connection; for Kerberos the gateway performs the GSSAPI handshake.
 - **SSL Handshake**: Proper CA certificate handling for encrypted connections
 - **Error Handling**: Comprehensive error handling for authentication failures
 
@@ -43,17 +42,22 @@ Implement Kerberos authentication (SASL/GSSAPI) with SSL support for Kafka conne
 
 ```
 src/lib/
-├── kafka-client-interface.ts     # Unified interface for both clients
-├── kafka-client-factory.ts       # Factory pattern implementation
-├── kafka-rdkafka-client.ts       # Kerberos client (node-rdkafka)
-└── kafka-client.ts              # Standard client (kafkajs)
+├── kafka-client-interface.ts     # Unified interface (IKafkaClient, KafkaConfig)
+├── kafka-client-factory.ts       # Factory: SASL/GSSAPI → Gateway, else KafkaJS
+├── kafka-gateway-client.ts       # Kerberos client (HTTP calls to Go gateway)
+└── kafka-client.ts               # Standard client (KafkaJS)
+
+src/services/
+└── kafka-service.ts              # Timeouts, AbortController, cleanup; uses factory
 
 src/scheme/
-└── kafka.scheme.ts              # Zod schemas with truststore subform
+└── kafka.scheme.ts               # Zod schemas with truststore subform
 
 src/modules/kafka/components/
-└── form-variants.tsx            # Form components with conditional rendering
+└── forms/                        # Auth-specific form components (see KAFKA_CONNECTION.md)
 ```
+
+For the full Kafka operations layer (API client, service, factory, clients, resilience, tests), see [KAFKA_OPERATIONS_LAYER.md](./KAFKA_OPERATIONS_LAYER.md).
 
 ### Configuration Example
 
@@ -71,91 +75,55 @@ src/modules/kafka/components/
 }
 ```
 
-## ⚠️ Current Challenges
-
-### 1. **Segmentation Faults**
-
-- **Issue**: `node-rdkafka` occasionally causes segfaults during producer operations
-- **Impact**: Unreliable for production topic operations
-- **Workaround**: Safe `testConnection()` using `kinit` command only
-
-### 2. **Limited Functionality**
-
-- **Topic Operations**: `listTopics()` and `getTopicDetails()` may fail due to segfaults
-- **Producer Operations**: Full producer functionality not guaranteed
-- **Consumer Operations**: Consumer functionality not implemented
-
-### 3. **Native Library Dependencies**
-
-- **Docker Complexity**: Requires Debian-based image with native dependencies
-- **Build Issues**: Complex build process with `node-rdkafka` compilation
-- **Platform Compatibility**: May not work on all platforms
-
 ## 🚀 Current Status
 
 ### ✅ Working
 
-- Kerberos authentication test (`kinit` command)
+- Kerberos authentication via Go Kafka Gateway (connection test, topic list, topic details, sample event fetch)
 - SSL handshake with CA certificates
 - Form validation and file uploads
-- Connection test (moves to next screen)
-- Basic configuration management
+- Gateway retry with exponential backoff and request cancellation (AbortSignal)
+- Connection test, topic listing, topic details, and event fetching for Kerberos connections
 
-### ⚠️ Limited
+### Architecture Note
 
-- Topic listing (may return empty due to segfaults)
-- Topic details (may return empty due to segfaults)
-- Full producer/consumer operations
-
-### ❌ Not Working
-
-- Reliable topic operations
-- Production-ready producer/consumer functionality
+The UI does **not** use `node-rdkafka` for Kerberos. A previous approach used `node-rdkafka` (RdKafka client) and encountered segmentation faults and limited reliability. The current production approach is the **Go-based Kafka Gateway** (sidecar or separate service), which handles GSSAPI/Kerberos and all Kafka operations for SASL/GSSAPI; the UI only talks HTTP to the gateway.
 
 ## 🔮 Future Improvements
 
-### 1. **Segfault Mitigation**
+### 1. **Enhanced Error Handling**
 
-- Implement fallback to KafkaJS for topic operations
-- Add retry mechanisms with exponential backoff
-- Consider alternative Kerberos libraries
+- Even clearer error messages for Kerberos/gateway failures
+- Comprehensive logging for debugging gateway connectivity
 
-### 2. **Enhanced Error Handling**
+### 2. **Production Readiness**
 
-- Better error messages for Kerberos failures
-- Graceful degradation when native library fails
-- Comprehensive logging for debugging
-
-### 3. **Production Readiness**
-
-- Implement connection pooling
-- Add health checks for Kerberos authentication
-- Optimize Docker image size and build time
+- Health checks for gateway availability
+- Optional connection pooling or gateway affinity if needed at scale
 
 ## 📝 Usage Notes
 
 ### For Development
 
 - Use the Kerberos test setup in `kafka-configs/kafka/kerberos-sasl-ssl/` (optional for testing)
-- UI can connect to external Kafka clusters without network dependencies
-- Monitor logs for authentication success/failure
+- Ensure the Kafka Gateway is running (e.g. sidecar on localhost:8082 or `KAFKA_GATEWAY_URL`)
+- UI connects to Kafka via the gateway for SASL/GSSAPI; no native Kerberos deps in the UI container
 
 ### For Production
 
+- Deploy the Kafka Gateway (e.g. sidecar per UI pod); see deployment docs (e.g. KAFKA_GATEWAY_SIDECAR in glassflow-etl-ui-documentation).
 - Test thoroughly with actual Kerberos infrastructure
-- Consider implementing fallback mechanisms
-- Monitor for segfaults and implement recovery strategies
 
 ## 🏗️ Architecture Decision
 
-**Why Dual Client Architecture?**
+**Why Gateway for Kerberos?**
 
-- KafkaJS doesn't support Kerberos authentication
-- `node-rdkafka` provides native Kerberos support
-- Factory pattern allows seamless switching based on auth method
-- Maintains compatibility with existing authentication methods
+- KafkaJS does not support Kerberos (GSSAPI) in the browser/Node environment used by the UI.
+- A Go-based gateway runs in an environment where Kerberos libraries and keytabs can be used safely; the UI sends connection config (keytab, krb5.conf, etc.) and the gateway performs the GSSAPI handshake and all Kafka operations.
+- This avoids native addons (e.g. node-rdkafka) in the UI and provides a stable, production-ready path for Kerberos.
+- Factory pattern in the UI selects the gateway client for SASL/GSSAPI and KafkaJS for all other auth methods.
 
 ---
 
-_Last Updated: October 10, 2025_
-_Status: Kerberos authentication working, topic operations limited due to segfaults_
+_Last Updated: February 2026_
+_Status: Kerberos implemented via Go Kafka Gateway (KafkaGatewayClient); retry and AbortSignal supported._

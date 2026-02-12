@@ -245,6 +245,7 @@ export interface TrackedConsumer {
   createdAt: number
   topic: string
   disconnectPromise?: Promise<void>
+  adminClient?: Admin  // Reference to admin client for consumer group deletion
 }
 
 export class ConsumerTracker {
@@ -259,13 +260,19 @@ export class ConsumerTracker {
 
   /**
    * Track a new consumer
+   * @param id - Unique identifier for this consumer
+   * @param consumer - The Kafka consumer instance
+   * @param groupId - The consumer group ID (used for cleanup)
+   * @param topic - The topic being consumed
+   * @param adminClient - Optional admin client for consumer group deletion
    */
-  track(id: string, consumer: Consumer, groupId: string, topic: string): void {
+  track(id: string, consumer: Consumer, groupId: string, topic: string, adminClient?: Admin): void {
     this.consumers.set(id, {
       consumer,
       groupId,
       createdAt: Date.now(),
       topic,
+      adminClient,
     })
     console.log(`[ConsumerTracker] Tracking consumer ${id} for topic ${topic}`)
   }
@@ -334,7 +341,7 @@ export class ConsumerTracker {
   }
 
   /**
-   * Force disconnect a consumer
+   * Force disconnect a consumer and delete its consumer group
    */
   async forceDisconnect(id: string): Promise<void> {
     const tracked = this.consumers.get(id)
@@ -358,9 +365,24 @@ export class ConsumerTracker {
       }
     } catch (error) {
       console.error(`[ConsumerTracker] Error force disconnecting consumer ${id}:`, error)
-    } finally {
-      this.consumers.delete(id)
     }
+
+    // Delete the consumer group from the broker to prevent orphaned groups
+    if (tracked.adminClient && tracked.groupId) {
+      try {
+        await Promise.race([
+          tracked.adminClient.deleteGroups([tracked.groupId]),
+          sleep(3000), // Max 3 seconds for group deletion
+        ])
+        console.log(`[ConsumerTracker] Deleted consumer group: ${tracked.groupId}`)
+      } catch (deleteError) {
+        // Log but don't throw - group might already be gone or deletion might fail
+        console.warn(`[ConsumerTracker] Failed to delete consumer group ${tracked.groupId}:`, deleteError)
+      }
+    }
+
+    // Always remove from tracking
+    this.consumers.delete(id)
   }
 
   /**
@@ -870,6 +892,9 @@ export class KafkaClient {
         groupJoinUnsubscribe = null
       }
 
+      // Store consumerId for group deletion after disconnect
+      const groupIdToDelete = consumerId
+
       // Disconnect consumer with tracking
       if (consumer && consumerId) {
         const disconnectPromise = (async () => {
@@ -887,6 +912,22 @@ export class KafkaClient {
 
         globalConsumerTracker.markDisconnecting(consumerId, disconnectPromise)
         await disconnectPromise
+      }
+
+      // Delete the consumer group from the broker to prevent orphaned groups
+      // This must happen AFTER the consumer disconnects to avoid errors
+      if (groupIdToDelete && this.adminClient && this.adminClientConnected) {
+        try {
+          await Promise.race([
+            this.adminClient.deleteGroups([groupIdToDelete]),
+            sleep(5000), // Max 5 seconds for group deletion
+          ])
+          console.log(`[KafkaClient] Deleted consumer group: ${groupIdToDelete}`)
+        } catch (deleteError) {
+          // Log but don't throw - group might already be gone or deletion might fail
+          // This is expected in some cases (e.g., group already deleted, broker doesn't support deletion)
+          console.warn(`[KafkaClient] Failed to delete consumer group ${groupIdToDelete}:`, deleteError)
+        }
       }
     }
 
@@ -992,8 +1033,8 @@ export class KafkaClient {
         maxBytes: 1048576,
       })
 
-      // Track this consumer for cleanup
-      globalConsumerTracker.track(consumerId, consumer, consumerId, topic)
+      // Track this consumer for cleanup (pass admin client for group deletion on orphan cleanup)
+      globalConsumerTracker.track(consumerId, consumer, consumerId, topic, this.adminClient || undefined)
 
       // Check abort before connect
       if (internalAbortController.signal.aborted) {

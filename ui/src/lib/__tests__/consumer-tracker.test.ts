@@ -6,12 +6,31 @@ interface MockConsumer {
   disconnect: () => Promise<void>
 }
 
+// Mock Admin interface matching KafkaJS
+interface MockAdmin {
+  deleteGroups: (groupIds: string[]) => Promise<void>
+}
+
 function createMockConsumer(disconnectDelay = 0): MockConsumer {
   return {
     disconnect: vi.fn().mockImplementation(() => {
-      return new Promise((resolve) => {
+      return new Promise<void>((resolve) => {
         if (disconnectDelay > 0) {
           setTimeout(resolve, disconnectDelay)
+        } else {
+          resolve()
+        }
+      })
+    }),
+  }
+}
+
+function createMockAdmin(deleteDelay = 0): MockAdmin {
+  return {
+    deleteGroups: vi.fn().mockImplementation(() => {
+      return new Promise<void>((resolve) => {
+        if (deleteDelay > 0) {
+          setTimeout(resolve, deleteDelay)
         } else {
           resolve()
         }
@@ -59,6 +78,13 @@ describe('ConsumerTracker', () => {
       tracker.track('consumer-1', consumer1 as any, 'group-1', 'topic-1')
       tracker.track('consumer-1', consumer2 as any, 'group-2', 'topic-2')
 
+      expect(tracker.count).toBe(1)
+    })
+
+    it('tracks a consumer with admin client for group deletion', () => {
+      const consumer = createMockConsumer()
+      const admin = createMockAdmin()
+      tracker.track('consumer-1', consumer as any, 'group-1', 'topic-1', admin as any)
       expect(tracker.count).toBe(1)
     })
   })
@@ -164,6 +190,58 @@ describe('ConsumerTracker', () => {
       await tracker.forceDisconnect('consumer-1')
       expect(tracker.count).toBe(0)
     })
+
+    it('deletes consumer group when admin client is provided', async () => {
+      const consumer = createMockConsumer()
+      const admin = createMockAdmin()
+      tracker.track('consumer-1', consumer as any, 'group-1', 'topic-1', admin as any)
+
+      await tracker.forceDisconnect('consumer-1')
+
+      expect(consumer.disconnect).toHaveBeenCalled()
+      expect(admin.deleteGroups).toHaveBeenCalledWith(['group-1'])
+      expect(tracker.count).toBe(0)
+    })
+
+    it('does not call deleteGroups when admin client is not provided', async () => {
+      const consumer = createMockConsumer()
+      tracker.track('consumer-1', consumer as any, 'group-1', 'topic-1')
+
+      await tracker.forceDisconnect('consumer-1')
+
+      expect(consumer.disconnect).toHaveBeenCalled()
+      expect(tracker.count).toBe(0)
+    })
+
+    it('handles deleteGroups errors gracefully', async () => {
+      const consumer = createMockConsumer()
+      const admin = createMockAdmin()
+      ;(admin.deleteGroups as any).mockRejectedValue(new Error('Delete group failed'))
+
+      tracker.track('consumer-1', consumer as any, 'group-1', 'topic-1', admin as any)
+
+      // Should not throw
+      await tracker.forceDisconnect('consumer-1')
+      expect(consumer.disconnect).toHaveBeenCalled()
+      expect(admin.deleteGroups).toHaveBeenCalledWith(['group-1'])
+      expect(tracker.count).toBe(0)
+    })
+
+    it('times out if deleteGroups takes too long', async () => {
+      const consumer = createMockConsumer()
+      const admin = createMockAdmin(5000) // 5 second delay for deleteGroups
+      tracker.track('consumer-1', consumer as any, 'group-1', 'topic-1', admin as any)
+
+      const forceDisconnectPromise = tracker.forceDisconnect('consumer-1')
+
+      // Advance past the 3 second timeout for deleteGroups
+      await vi.advanceTimersByTimeAsync(3000)
+      await forceDisconnectPromise
+
+      // Consumer should be removed even if deleteGroups didn't complete
+      expect(consumer.disconnect).toHaveBeenCalled()
+      expect(tracker.count).toBe(0)
+    })
   })
 
   describe('cleanupOrphanedConsumers', () => {
@@ -217,6 +295,27 @@ describe('ConsumerTracker', () => {
       expect(consumer1.disconnect).toHaveBeenCalled()
       expect(consumer2.disconnect).toHaveBeenCalled()
       expect(consumer3.disconnect).toHaveBeenCalled()
+      expect(tracker.count).toBe(0)
+    })
+
+    it('cleans up orphaned consumers and deletes their consumer groups', async () => {
+      const consumer1 = createMockConsumer()
+      const admin1 = createMockAdmin()
+      const consumer2 = createMockConsumer()
+      const admin2 = createMockAdmin()
+
+      tracker.track('consumer-1', consumer1 as any, 'group-1', 'topic-1', admin1 as any)
+      tracker.track('consumer-2', consumer2 as any, 'group-2', 'topic-2', admin2 as any)
+
+      // Advance time past maxAge
+      vi.advanceTimersByTime(70000)
+
+      await tracker.cleanupOrphanedConsumers()
+
+      expect(consumer1.disconnect).toHaveBeenCalled()
+      expect(admin1.deleteGroups).toHaveBeenCalledWith(['group-1'])
+      expect(consumer2.disconnect).toHaveBeenCalled()
+      expect(admin2.deleteGroups).toHaveBeenCalledWith(['group-2'])
       expect(tracker.count).toBe(0)
     })
   })

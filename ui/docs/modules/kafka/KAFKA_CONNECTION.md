@@ -532,6 +532,10 @@ Analytics events include:
   }
   ```
 
+## Data flow (operations layer)
+
+Under the hood, API routes use **KafkaApiClient** to build the request from store (or form values), then **KafkaService** for timeouts and cleanup. KafkaService calls **KafkaClientFactory**, which returns either **KafkaClient** (KafkaJS) for most auth methods or **KafkaGatewayClient** (Go gateway) for SASL/GSSAPI (Kerberos). For full roles, resilience (circuit breaker, retry, AbortSignal), and tests, see [KAFKA_OPERATIONS_LAYER.md](../../implementations/KAFKA_OPERATIONS_LAYER.md).
+
 ## Error Handling
 
 1. **Form Validation Errors:**

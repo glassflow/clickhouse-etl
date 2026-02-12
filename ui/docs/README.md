@@ -27,6 +27,7 @@ This folder is the **deep reference** for the ClickHouse ETL UI. For development
 |-----|-------------|
 | [implementations/SSE_PIPELINE_STATUS_STREAMING.md](implementations/SSE_PIPELINE_STATUS_STREAMING.md) | SSE-based real-time pipeline status; replaces client polling. |
 | [implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md](implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md) | Kafka Kerberos auth and gateway. |
+| [implementations/KAFKA_OPERATIONS_LAYER.md](implementations/KAFKA_OPERATIONS_LAYER.md) | Kafka operations layer: service, factory, clients, resilience, tests. |
 | [implementations/STORE_MODE_SUPPORT_PRD.md](implementations/STORE_MODE_SUPPORT_PRD.md) | Store mode support PRD. |
 
 ## Modules (per-feature guides)
