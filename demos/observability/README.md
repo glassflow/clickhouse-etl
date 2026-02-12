@@ -1,4 +1,4 @@
-# OpenTelemetry Demo
+# OpenTelemetry Demo with GlassFlow and ClickStack
 
 Kubernetes-based telemetry pipeline: Kafka → OpenTelemetry Collector → Glassflow → ClickHouse → HyperDX
 
