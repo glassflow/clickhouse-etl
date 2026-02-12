@@ -9,6 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	streampkg "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -46,16 +47,11 @@ func (c *Client) FetchDLQMessages(ctx context.Context, streamName string, batchS
 		return nil, models.ErrDLQMaxBatchSize
 	}
 
-	stream, err := c.jetstreamClient.Stream(ctx, streamName)
+	consumer, err := streampkg.NewNATSConsumer(ctx, c.jetstreamClient, c.getDurableConsumerConfig(streamName), streamName)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return nil, internal.ErrDLQNotExists
 		}
-		return nil, fmt.Errorf("get dlq stream: %w", err)
-	}
-
-	consumer, err := stream.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(streamName))
-	if err != nil {
 		return nil, fmt.Errorf("get message queue consumer: %w", err)
 	}
 
@@ -118,8 +114,11 @@ func (c *Client) GetDLQState(ctx context.Context, streamName string) (zero model
 		return zero, fmt.Errorf("get dlq stream info: %w", err)
 	}
 
-	consumer, err := stream.CreateOrUpdateConsumer(ctx, c.getDurableConsumerConfig(streamName))
+	consumer, err := streampkg.NewNATSConsumer(ctx, c.jetstreamClient, c.getDurableConsumerConfig(streamName), streamName)
 	if err != nil {
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			return zero, internal.ErrDLQNotExists
+		}
 		return zero, fmt.Errorf("get dlq durable consumer: %w", err)
 	}
 
