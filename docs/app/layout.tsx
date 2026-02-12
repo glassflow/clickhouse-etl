@@ -7,6 +7,7 @@ import 'nextra-theme-docs/style.css'
 import { FathomAnalytics } from './fathom'
 import { ReoAnalytics } from './reodotdev'
 import { Logo } from './Logo'
+import { SearchWithTracking } from './SearchWithTracking'
 
 export const metadata = {
   // ... your metadata API
@@ -51,6 +52,7 @@ export default async function RootLayout({ children }) {
         <Layout
           // banner={banner}
           navbar={navbar}
+          search={<SearchWithTracking />}
           pageMap={await getPageMap()}
           docsRepositoryBase="https://github.com/glassflow/clickhouse-etl/tree/main/docs"
           editLink="Edit this page on GitHub"
