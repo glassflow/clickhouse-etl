@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 )
+
+// (e.g. "ack policy can not be updated" on existing consumers).
+const JSErrCodeConsumerCreate jetstream.ErrorCode = 10012
 
 type ConsumerConfig struct {
 	NatsStream    string
@@ -70,6 +74,21 @@ func NewNATSConsumer(
 
 	consumer, err := stream.CreateOrUpdateConsumer(ctx, cfg)
 	if err != nil {
+		var apiErr *jetstream.APIError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode == JSErrCodeConsumerCreate &&
+			strings.Contains(apiErr.Description, "ack policy") {
+			consumerName := cfg.Name
+			if consumerName == "" {
+				consumerName = cfg.Durable
+			}
+			if consumerName != "" {
+				existing, getErr := stream.Consumer(ctx, consumerName)
+				if getErr == nil {
+					log.Printf("using existing consumer %s: ack policy cannot be updated on old consumers, skipping config change", consumerName)
+					return existing, nil
+				}
+			}
+		}
 		return nil, fmt.Errorf("get or create consumer: %w", err)
 	}
 
