@@ -47,6 +47,15 @@ func (c *Client) FetchDLQMessages(ctx context.Context, streamName string, batchS
 		return nil, models.ErrDLQMaxBatchSize
 	}
 
+	// Check stream exists first - return immediately if not (avoids NewNATSConsumer retry loop)
+	_, err := c.jetstreamClient.Stream(ctx, streamName)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			return nil, internal.ErrDLQNotExists
+		}
+		return nil, fmt.Errorf("get dlq stream: %w", err)
+	}
+
 	consumer, err := streampkg.NewNATSConsumer(ctx, c.jetstreamClient, c.getDurableConsumerConfig(streamName), streamName)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
