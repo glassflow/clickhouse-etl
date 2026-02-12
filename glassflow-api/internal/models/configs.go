@@ -406,7 +406,7 @@ type FilterComponentConfig struct {
 type StatelessTransformation struct {
 	ID      string                         `json:"id,omitempty"`
 	Type    string                         `json:"type,omitempty"`
-	Enabled bool                           `json:"enabled,omitempty"`
+	Enabled bool                           `json:"enabled"`
 	Config  StatelessTransformationsConfig `json:"config,omitempty"`
 }
 
