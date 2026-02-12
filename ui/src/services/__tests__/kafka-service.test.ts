@@ -231,20 +231,22 @@ describe('KafkaService', () => {
     })
 
     it('handles timeout errors', async () => {
-      mockClient.fetchSampleEvent = vi.fn().mockImplementation(
-        (topic: string, format?: string, getNext?: boolean, currentOffset?: string | null, options?: any) => {
-          return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => resolve({}), 65000)
+      mockClient.fetchSampleEvent = vi
+        .fn()
+        .mockImplementation(
+          (topic: string, format?: string, getNext?: boolean, currentOffset?: string | null, options?: any) => {
+            return new Promise((resolve, reject) => {
+              const timeoutId = setTimeout(() => resolve({}), 65000)
 
-            if (options?.abortSignal) {
-              options.abortSignal.addEventListener('abort', () => {
-                clearTimeout(timeoutId)
-                reject(new Error('Operation aborted'))
-              })
-            }
-          })
-        },
-      )
+              if (options?.abortSignal) {
+                options.abortSignal.addEventListener('abort', () => {
+                  clearTimeout(timeoutId)
+                  reject(new Error('Operation aborted'))
+                })
+              }
+            })
+          },
+        )
 
       const resultPromise = service.fetchEvent({
         kafkaConfig: baseConfig,
@@ -389,20 +391,22 @@ describe('KafkaService', () => {
     })
 
     it('always disconnects the client on timeout', async () => {
-      mockClient.fetchSampleEvent = vi.fn().mockImplementation(
-        (topic: string, format?: string, getNext?: boolean, currentOffset?: string | null, options?: any) => {
-          return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => resolve({}), 65000)
+      mockClient.fetchSampleEvent = vi
+        .fn()
+        .mockImplementation(
+          (topic: string, format?: string, getNext?: boolean, currentOffset?: string | null, options?: any) => {
+            return new Promise((resolve, reject) => {
+              const timeoutId = setTimeout(() => resolve({}), 65000)
 
-            if (options?.abortSignal) {
-              options.abortSignal.addEventListener('abort', () => {
-                clearTimeout(timeoutId)
-                reject(new Error('Operation aborted'))
-              })
-            }
-          })
-        },
-      )
+              if (options?.abortSignal) {
+                options.abortSignal.addEventListener('abort', () => {
+                  clearTimeout(timeoutId)
+                  reject(new Error('Operation aborted'))
+                })
+              }
+            })
+          },
+        )
 
       const resultPromise = service.fetchEvent({
         kafkaConfig: baseConfig,

@@ -62,14 +62,14 @@ KafkaClient (KafkaJS)          KafkaGatewayClient (Go gateway over HTTP)
 
 ## Resilience
 
-| Layer        | Pattern              | Behavior |
-|-------------|----------------------|-----------|
-| KafkaService| Timeout + cleanup     | AbortController per operation; disconnect in `finally` so no leaked connections. |
-| KafkaClient (KafkaJS) | Circuit breaker | Reduces repeated failures when broker is down; state machine CLOSED → OPEN → HALF_OPEN. |
-| KafkaClient (KafkaJS) | Retry with backoff | Configurable retries for transient errors before failing. |
-| KafkaClient (KafkaJS) | Consumer tracker | Cleans up orphaned consumers; periodic GC. |
-| KafkaGatewayClient   | Retry with backoff | Transient HTTP errors retried with configurable max retries and backoff. |
-| KafkaGatewayClient   | AbortSignal        | External cancellation and internal timeout combined; long or cancelled requests abort cleanly. |
+| Layer                 | Pattern            | Behavior                                                                                       |
+| --------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| KafkaService          | Timeout + cleanup  | AbortController per operation; disconnect in `finally` so no leaked connections.               |
+| KafkaClient (KafkaJS) | Circuit breaker    | Reduces repeated failures when broker is down; state machine CLOSED → OPEN → HALF_OPEN.        |
+| KafkaClient (KafkaJS) | Retry with backoff | Configurable retries for transient errors before failing.                                      |
+| KafkaClient (KafkaJS) | Consumer tracker   | Cleans up orphaned consumers; periodic GC.                                                     |
+| KafkaGatewayClient    | Retry with backoff | Transient HTTP errors retried with configurable max retries and backoff.                       |
+| KafkaGatewayClient    | AbortSignal        | External cancellation and internal timeout combined; long or cancelled requests abort cleanly. |
 
 Changing client selection (factory) or the gateway contract (request/response shape, timeouts) can break Kerberos flows and timeout behavior. When touching this layer, run the tests in `lib/__tests__/` and `services/__tests__/`.
 
@@ -99,14 +99,14 @@ src/services/
 
 Tests live under `src/lib/__tests__/` and `src/services/__tests__/`. They are the source of truth for behavior when changing this layer.
 
-| Test file                   | What it covers |
-|----------------------------|----------------|
-| `circuit-breaker.test.ts`  | Circuit breaker state transitions (CLOSED, OPEN, HALF_OPEN) and behavior. |
-| `retry-logic.test.ts`      | Retry with backoff and abort handling. |
-| `consumer-tracker.test.ts` | Consumer registration and cleanup (no orphaned consumers). |
-| `kafka-client-factory.test.ts` | Client selection: SASL/GSSAPI → Gateway, others → KafkaJS; supported auth methods. |
-| `kafka-gateway-client.test.ts`  | Gateway request building, error handling, retry and abort behavior. |
-| `kafka-service.test.ts`    | Service timeout, cleanup (disconnect in finally), and fetchEvent response shapes (abort, circuit breaker, topic boundaries). |
+| Test file                      | What it covers                                                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `circuit-breaker.test.ts`      | Circuit breaker state transitions (CLOSED, OPEN, HALF_OPEN) and behavior.                                                    |
+| `retry-logic.test.ts`          | Retry with backoff and abort handling.                                                                                       |
+| `consumer-tracker.test.ts`     | Consumer registration and cleanup (no orphaned consumers).                                                                   |
+| `kafka-client-factory.test.ts` | Client selection: SASL/GSSAPI → Gateway, others → KafkaJS; supported auth methods.                                           |
+| `kafka-gateway-client.test.ts` | Gateway request building, error handling, retry and abort behavior.                                                          |
+| `kafka-service.test.ts`        | Service timeout, cleanup (disconnect in finally), and fetchEvent response shapes (abort, circuit breaker, topic boundaries). |
 
 Run the full Kafka-related test suite (e.g. `npm test` or vitest for these paths) before and after changes to the operations layer.
 

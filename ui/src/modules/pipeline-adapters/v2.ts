@@ -338,8 +338,8 @@ export class V2PipelineAdapter implements PipelineAdapter {
     // Internal: sink.table_mapping + source.topics[].schema
     // V2: root schema.fields
     // Schema should include:
-    // - Transformed fields (if transformation exists) with source_id = transformation id
-    // - Source topic fields with source_id = topic name
+    // - Only derived (non-pass-through) transformation outputs with source_id = transformation id
+    // - All source topic fields with source_id = topic name (with column only when mapped from topic)
     // - Only mapped fields should have column_name and column_type
 
     const v2Fields: any[] = []
@@ -347,13 +347,26 @@ export class V2PipelineAdapter implements PipelineAdapter {
     const tableMapping = internalConfig.sink?.table_mapping || []
     const topics = internalConfig.source?.topics || []
 
-    // First, add transformed fields to schema (if transformation exists)
+    const derivedOutputNames = new Set(
+      (transformation?.fields || [])
+        .filter((f: any) => f.type !== 'passthrough')
+        .map((f: any) => f.outputFieldName),
+    )
+
+    // First, add only derived (computed) transformation outputs to schema — not pass-through.
+    // Pass-through outputs are represented by the topic field entry and must not be duplicated.
     if (transformationId && transformation?.enabled && transformation?.fields) {
       transformation.fields.forEach((field: any) => {
-        // Find if this field is mapped to a ClickHouse column
-        const mapping = tableMapping.find(
-          (m: any) => m.source_id === transformationId && m.field_name === field.outputFieldName,
-        )
+        if (field.type === 'passthrough') return
+
+        const mapping =
+          tableMapping.find(
+            (m: any) => m.source_id === transformationId && m.field_name === field.outputFieldName,
+          ) ||
+          tableMapping.find(
+            (m: any) =>
+              topics.some((t: any) => t.name === m.source_id) && m.field_name === field.outputFieldName,
+          )
 
         v2Fields.push({
           source_id: transformationId,
@@ -383,13 +396,16 @@ export class V2PipelineAdapter implements PipelineAdapter {
       }
     })
 
-    // Add all source topic fields to schema (excluding removed fields)
+    // Add all source topic fields to schema (excluding removed fields).
+    // Do not attach column_name/column_type when the field is a derived transform output (same name):
+    // the column belongs to the transform entry, not the topic.
     topics.forEach((topic: any) => {
       const topicFields = (topic.schema?.fields || []).filter((f: any) => !f.isRemoved)
       const mappedFields = mappedFieldNamesByTopic[topic.name] || new Set()
 
       topicFields.forEach((field: any) => {
-        const isMapped = mappedFields.has(field.name)
+        const isDerivedOutput = derivedOutputNames.has(field.name)
+        const isMapped = !isDerivedOutput && mappedFields.has(field.name)
         const mapping = tableMapping.find((m: any) => m.source_id === topic.name && m.field_name === field.name)
 
         v2Fields.push({
@@ -406,26 +422,29 @@ export class V2PipelineAdapter implements PipelineAdapter {
       })
     })
 
-    // Also include any table mappings that reference transformation but aren't in transformed fields
-    // (This handles edge cases where mappings exist but transformation fields don't)
+    // Include table mappings that reference transformation but weren't added above (e.g. derived field
+    // missing from transformation.fields). Do not add transform pass-through fields — they are
+    // already represented by the topic field entry.
     tableMapping.forEach((mapping: any) => {
-      // Skip if already added (either as transformed field or topic field)
       const alreadyAdded = v2Fields.some((f: any) => f.source_id === mapping.source_id && f.name === mapping.field_name)
+      if (alreadyAdded) return
 
-      if (!alreadyAdded) {
-        // This is a mapping that doesn't correspond to a known field
-        // Try to find type from topic schema (excluding removed fields)
-        const topic = topics.find((t: any) => t.name === mapping.source_id)
-        const topicField = topic?.schema?.fields?.find((f: any) => f.name === mapping.field_name && !f.isRemoved)
-
-        v2Fields.push({
-          source_id: mapping.source_id,
-          name: mapping.field_name,
-          type: topicField?.type || 'string',
-          column_name: mapping.column_name,
-          column_type: mapping.column_type,
-        })
+      const isTransformMapping = mapping.source_id === transformationId
+      if (isTransformMapping && transformation?.fields) {
+        const transformField = transformation.fields.find((f: any) => f.outputFieldName === mapping.field_name)
+        if (transformField?.type === 'passthrough') return
       }
+
+      const topic = topics.find((t: any) => t.name === mapping.source_id)
+      const topicField = topic?.schema?.fields?.find((f: any) => f.name === mapping.field_name && !f.isRemoved)
+
+      v2Fields.push({
+        source_id: mapping.source_id,
+        name: mapping.field_name,
+        type: topicField?.type || 'string',
+        column_name: mapping.column_name,
+        column_type: mapping.column_type,
+      })
     })
 
     // 4. Construct V2 Root Schema

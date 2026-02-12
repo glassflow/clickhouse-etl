@@ -126,7 +126,7 @@ export class KafkaService {
     }
 
     const kafkaClient = await createKafkaClient(kafkaConfig)
-    
+
     // Create AbortController for cascading cancellation
     const abortController = new AbortController()
     const timeoutId = setTimeout(() => {
@@ -169,9 +169,10 @@ export class KafkaService {
       }
     } catch (fetchError: any) {
       // Handle abort/timeout errors
-      const isAborted = fetchError instanceof Error && 
+      const isAborted =
+        fetchError instanceof Error &&
         (fetchError.message.includes('aborted') || fetchError.message.includes('Operation aborted'))
-      
+
       if (isAborted) {
         return {
           success: false,
@@ -185,9 +186,8 @@ export class KafkaService {
       }
 
       // Handle circuit breaker errors
-      const isCircuitOpen = fetchError instanceof Error && 
-        fetchError.message.includes('Circuit breaker is open')
-      
+      const isCircuitOpen = fetchError instanceof Error && fetchError.message.includes('Circuit breaker is open')
+
       if (isCircuitOpen) {
         return {
           success: false,
@@ -253,7 +253,7 @@ export class KafkaService {
     } finally {
       // Clear the timeout to prevent it from triggering after we're done
       clearTimeout(timeoutId)
-      
+
       // Always disconnect to clean up resources and event listeners
       try {
         await kafkaClient.disconnect()
