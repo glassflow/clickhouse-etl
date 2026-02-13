@@ -595,11 +595,12 @@ export const validateFieldLocally = (field: TransformationField): FieldValidatio
   const errors: FieldValidation['errors'] = {}
 
   // Check output field name
+  // Allow standard identifiers (start with letter/underscore) OR fields starting with @ (e.g., @timestamp from Elasticsearch)
   if (!field.outputFieldName || field.outputFieldName.trim() === '') {
     errors.outputFieldName = 'Output field name is required'
-  } else if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(field.outputFieldName)) {
+  } else if (!/^(@?[a-zA-Z_][a-zA-Z0-9_]*|@[a-zA-Z0-9_]+)$/.test(field.outputFieldName)) {
     errors.outputFieldName =
-      'Field name must start with a letter or underscore and contain only alphanumeric characters and underscores'
+      'Field name must start with a letter, underscore, or @ and contain only alphanumeric characters and underscores'
   }
 
   if (field.type === 'computed') {
