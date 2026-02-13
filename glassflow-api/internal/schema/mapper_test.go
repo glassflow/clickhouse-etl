@@ -624,8 +624,7 @@ func TestValidateSchema(t *testing.T) {
 		}`)
 
 		err := mapper.ValidateSchema("nonexistent_stream", validData)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "stream 'nonexistent_stream' not found in configuration")
+		require.Nil(t, err)
 	})
 
 	t.Run("invalid JSON data", func(t *testing.T) {

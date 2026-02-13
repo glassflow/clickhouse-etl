@@ -120,11 +120,12 @@ func (j *JoinTestSuite) aRunningStream(stream string) error {
 }
 
 func (j *JoinTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	err := j.getMappingConfig(cfg, &j.schemaConfig)
+	schemaCfg, err := j.getMappingConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("unmarshal schema config: %w", err)
 	}
 
+	j.schemaConfig = &schemaCfg
 	return nil
 }
 

@@ -227,11 +227,12 @@ func (s *SinkTestSuite) aBatchConfigWithMaxSizeAndDelay(maxSize int, duration st
 }
 
 func (s *SinkTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	err := s.getMappingConfig(cfg, &s.schemaConfig)
+	schemaCfg, err := s.getMappingConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("unmarshal schema config: %w", err)
 	}
 
+	s.schemaConfig = schemaCfg
 	return nil
 }
 

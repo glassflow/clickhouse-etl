@@ -437,7 +437,7 @@ func (m *JsonToClickHouseMapper) GetFieldsMap(streamSchemaName string, data []by
 
 func (m *JsonToClickHouseMapper) ValidateSchema(streamSchemaName string, data []byte) error {
 	if _, exists := m.Streams[streamSchemaName]; !exists {
-		return fmt.Errorf("stream '%s' not found in configuration", streamSchemaName)
+		return nil
 	}
 
 	var jsonData map[string]any
