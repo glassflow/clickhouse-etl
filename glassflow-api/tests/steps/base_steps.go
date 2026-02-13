@@ -19,6 +19,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -198,13 +199,14 @@ func (b *BaseTestSuite) cleanupKafka() error {
 	return nil
 }
 
-func (b *BaseTestSuite) getMappingConfig(cfg *godog.DocString, target any) error {
-	err := json.Unmarshal([]byte(cfg.Content), target)
+func (b *BaseTestSuite) getMappingConfig(cfg *godog.DocString) (zero models.MapperConfig, _ error) {
+	var mapperCfg models.MapperConfig
+	err := json.Unmarshal([]byte(cfg.Content), &mapperCfg)
 	if err != nil {
-		return fmt.Errorf("unmarshal schema config: %w", err)
+		return zero, fmt.Errorf("unmarshal schema config: %w", err)
 	}
 
-	return nil
+	return mapperCfg, nil
 }
 
 func (b *BaseTestSuite) createStream(

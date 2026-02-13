@@ -148,7 +148,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 				slog.String("subject", string(msg.Value)),
 			)
 
-			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, ErrDeduplicateData); dlqErr != nil {
+			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrDeduplicateData, err)); dlqErr != nil {
 				return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 			}
 			return nil, nil

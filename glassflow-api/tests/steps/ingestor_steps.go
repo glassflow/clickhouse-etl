@@ -167,10 +167,12 @@ func (s *IngestorTestSuite) aKafkaTopicWithPartitions(topicName string, partitio
 }
 
 func (s *IngestorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	err := s.getMappingConfig(cfg, &s.schemaConfig)
+	schemaCfg, err := s.getMappingConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("unmarshal schema config: %w", err)
 	}
+
+	s.schemaConfig = schemaCfg
 
 	s.schemaMapper, err = schema.NewMapper(s.schemaConfig)
 	if err != nil {
