@@ -79,7 +79,7 @@ export function TransformationConfigurator({
     transformationConfig,
     availableFields,
     { readOnly, standalone, onCompleteStep, onCompleteStandaloneEditing },
-    { setSaveAttempted: validation.setSaveAttempted, setLocalValidation: (v) => {} }, // setLocalValidation handled by hook
+    { setSaveAttempted: validation.setSaveAttempted, setLocalValidation: validation.setLocalValidation },
     setIsSaveSuccess,
     setHasAutoPopulated,
   )
