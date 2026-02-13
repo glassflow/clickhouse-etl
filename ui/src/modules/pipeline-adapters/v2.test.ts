@@ -79,7 +79,7 @@ describe('V2PipelineAdapter', () => {
       expect(amountEntry.output_type).toBe('int')
     })
 
-    it('schema has topic fields with source_id=topic and only derived transform outputs with source_id=transform (no duplication)', () => {
+    it('when transform enabled and dedup enabled, schema has transform outputs plus minimal topic field (dedup key) for ingestor', () => {
       const internalConfig: InternalPipelineConfig = {
         pipeline_id: 'test-pqgggcdm',
         name: 'test',
@@ -141,19 +141,20 @@ describe('V2PipelineAdapter', () => {
       const byKey = (f: { source_id: string; name: string }) => `${f.source_id}:${f.name}`
       expect(fields.map(byKey)).toHaveLength(new Set(fields.map(byKey)).size)
 
-      const topicFields = fields.filter((f: any) => f.source_id === 'test')
-      expect(topicFields.map((f: any) => f.name).sort()).toEqual(['amount', 'created_at', 'event_id', 'name'])
-      expect(topicFields.find((f: any) => f.name === 'event_id')).toMatchObject({ column_name: 'event_id', column_type: 'String' })
-      expect(topicFields.find((f: any) => f.name === 'name')).toMatchObject({ column_name: 'fullname', column_type: 'String' })
-      expect(topicFields.find((f: any) => f.name === 'amount')).not.toHaveProperty('column_name')
-      expect(topicFields.find((f: any) => f.name === 'created_at')).not.toHaveProperty('column_name')
-
+      // Effective schema = all transform outputs (source_id = test-transform)
       const transformFields = fields.filter((f: any) => f.source_id === 'test-transform')
-      expect(transformFields.map((f: any) => f.name)).toEqual(['filter'])
-      expect(transformFields[0]).toMatchObject({ name: 'filter', type: 'int', column_name: 'amount', column_type: 'Int64' })
+      expect(transformFields.map((f: any) => f.name)).toEqual(['event_id', 'name', 'amount', 'created_at', 'filter'])
+      expect(transformFields.find((f: any) => f.name === 'event_id')).toMatchObject({ column_name: 'event_id', column_type: 'String' })
+      expect(transformFields.find((f: any) => f.name === 'name')).toMatchObject({ column_name: 'fullname', column_type: 'String' })
+      expect(transformFields.find((f: any) => f.name === 'filter')).toMatchObject({ column_name: 'amount', column_type: 'Int64' })
+
+      // Dedup enabled: minimal topic field (dedup key) so ingestor can validate
+      const topicFields = fields.filter((f: any) => f.source_id === 'test')
+      expect(topicFields.map((f: any) => f.name)).toEqual(['event_id'])
+      expect(topicFields[0]).toMatchObject({ name: 'event_id', type: 'string', column_name: 'event_id', column_type: 'String' })
     })
 
-    it('derived transform output with same name as topic field gets column from topic mapping fallback; topic field has no column', () => {
+    it('when transform enabled and no dedup/filter/join, schema has only transform outputs (no topic fields)', () => {
       const internalConfig: InternalPipelineConfig = {
         pipeline_id: 'test-zbvjebbw',
         name: 'test',
@@ -205,13 +206,14 @@ describe('V2PipelineAdapter', () => {
       const result = adapter.generate(internalConfig)
       const fields = result.schema?.fields ?? []
 
-      const topicAmount = fields.find((f: any) => f.source_id === 'transactions' && f.name === 'transaction_amount')
-      expect(topicAmount).toBeDefined()
-      expect(topicAmount).not.toHaveProperty('column_name')
-      expect(topicAmount).not.toHaveProperty('column_type')
+      // No topic in schema when no dedup/filter/join
+      const topicFields = fields.filter((f: any) => f.source_id === 'transactions')
+      expect(topicFields).toHaveLength(0)
 
-      const transformAmount = fields.find((f: any) => f.source_id === 'test-transform' && f.name === 'transaction_amount')
-      expect(transformAmount).toBeDefined()
+      // Only transform outputs; transaction_amount has column mapping (from table_mapping by topic fallback)
+      const transformFields = fields.filter((f: any) => f.source_id === 'test-transform')
+      expect(transformFields.map((f: any) => f.name)).toEqual(['transaction_id', 'transaction_amount'])
+      const transformAmount = transformFields.find((f: any) => f.name === 'transaction_amount')
       expect(transformAmount).toMatchObject({ column_name: 'amount', column_type: 'Int64' })
     })
   })
