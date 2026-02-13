@@ -124,6 +124,26 @@ func ParseUint8(data any) (zero uint8, _ error) {
 			return zero, fmt.Errorf("value out of range of uint8: %d", value)
 		}
 		return uint8(value), nil
+	case uint64:
+		if value > math.MaxUint8 {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
+	case int:
+		if value < 0 || value > int(math.MaxUint8) {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
+	case int32:
+		if value < 0 || value > int32(math.MaxUint8) {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
+	case int64:
+		if value < 0 || value > int64(math.MaxUint8) {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
 	case float64:
 		if value > float64(math.MaxUint8) {
 			return zero, fmt.Errorf("value out of range of uint8: %f", value)
@@ -152,6 +172,26 @@ func ParseUint16(data any) (zero uint16, _ error) {
 			return zero, fmt.Errorf("value out of range of uint16: %d", value)
 		}
 		return uint16(value), nil
+	case uint64:
+		if value > math.MaxUint16 {
+			return zero, fmt.Errorf("value out of range of uint16: %d", value)
+		}
+		return uint16(value), nil
+	case int:
+		if value < 0 || value > int(math.MaxUint16) {
+			return zero, fmt.Errorf("value out of range of uint16: %d", value)
+		}
+		return uint16(value), nil
+	case int32:
+		if value < 0 || value > int32(math.MaxUint16) {
+			return zero, fmt.Errorf("value out of range of uint16: %d", value)
+		}
+		return uint16(value), nil
+	case int64:
+		if value < 0 || value > int64(math.MaxUint16) {
+			return zero, fmt.Errorf("value out of range of uint16: %d", value)
+		}
+		return uint16(value), nil
 	case float64:
 		if value > float64(math.MaxUint16) {
 			return zero, fmt.Errorf("value out of range of uint16: %f", value)
@@ -177,6 +217,26 @@ func ParseUint32(data any) (zero uint32, _ error) {
 		return value, nil
 	case uint:
 		if value > math.MaxUint32 {
+			return zero, fmt.Errorf("value out of range of uint32: %d", value)
+		}
+		return uint32(value), nil
+	case uint64:
+		if value > math.MaxUint32 {
+			return zero, fmt.Errorf("value out of range of uint32: %d", value)
+		}
+		return uint32(value), nil
+	case int:
+		if value < 0 || int64(value) > int64(math.MaxUint32) {
+			return zero, fmt.Errorf("value out of range of uint32: %d", value)
+		}
+		return uint32(value), nil
+	case int32:
+		if value < 0 {
+			return zero, fmt.Errorf("value out of range of uint32: %d", value)
+		}
+		return uint32(value), nil
+	case int64:
+		if value < 0 || value > int64(math.MaxUint32) {
 			return zero, fmt.Errorf("value out of range of uint32: %d", value)
 		}
 		return uint32(value), nil

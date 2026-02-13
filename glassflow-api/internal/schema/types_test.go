@@ -296,6 +296,14 @@ func TestConvertValue(t *testing.T) {
 			wantErr:    false,
 		},
 		{
+			name:       "uint to UInt8 (uint64 from gjson)",
+			columnType: internal.CHTypeUInt8,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(200),
+			want:       uint8(200),
+			wantErr:    false,
+		},
+		{
 			name:       "uint16 to UInt16",
 			columnType: internal.CHTypeUInt16,
 			fieldType:  internal.KafkaTypeUint16,
@@ -304,11 +312,27 @@ func TestConvertValue(t *testing.T) {
 			wantErr:    false,
 		},
 		{
+			name:       "uint to UInt16 (uint64 from gjson)",
+			columnType: internal.CHTypeUInt16,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(200),
+			want:       uint16(200),
+			wantErr:    false,
+		},
+		{
 			name:       "uint32 to UInt32",
 			columnType: internal.CHTypeUInt32,
 			fieldType:  internal.KafkaTypeUint32,
 			input:      uint32(32),
 			want:       uint32(32),
+			wantErr:    false,
+		},
+		{
+			name:       "uint to UInt32 (uint64 from gjson)",
+			columnType: internal.CHTypeUInt32,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(100000),
+			want:       uint32(100000),
 			wantErr:    false,
 		},
 		{

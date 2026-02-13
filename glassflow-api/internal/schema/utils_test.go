@@ -37,6 +37,17 @@ func TestParseUint8(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "Valid uint64 within range (from gjson)",
+			input:       uint64(200),
+			expected:    200,
+			expectError: false,
+		},
+		{
+			name:        "Uint64 too large for uint8",
+			input:       uint64(math.MaxUint8 + 1),
+			expectError: true,
+		},
+		{
 			name:        "Uint too large",
 			input:       uint(math.MaxUint8 + 1),
 			expectError: true,
