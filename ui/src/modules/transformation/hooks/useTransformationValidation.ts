@@ -12,6 +12,8 @@ export interface ValidationErrorDetail {
 export interface UseTransformationValidationReturn {
   /** Current validation state */
   localValidation: TransformationConfigValidation
+  /** Set validation state (e.g. after Save click so UI updates immediately) */
+  setLocalValidation: (validation: TransformationConfigValidation) => void
   /** Whether a save has been attempted (used to show/hide errors) */
   saveAttempted: boolean
   /** Set save attempted state */
@@ -56,20 +58,11 @@ export function useTransformationValidation(
   // Track if validation details are expanded
   const [isValidationExpanded, setIsValidationExpanded] = useState(false)
 
-  // Validate configuration when it changes
+  // Validate configuration when it changes — always store full validation so the user
+  // sees why "Save Transformation" is disabled when the config is invalid (no need to click first).
   useEffect(() => {
     const validation = validateTransformationConfig(transformationConfig)
-
-    // Only show errors if save was attempted
-    if (saveAttempted) {
-      setLocalValidation(validation)
-    } else {
-      setLocalValidation({
-        isValid: validation.isValid,
-        fieldErrors: {},
-        globalErrors: [],
-      })
-    }
+    setLocalValidation(validation)
 
     // Generate expression string
     if (transformationConfig.enabled && transformationConfig.fields.length > 0 && transformationStore) {
@@ -77,7 +70,7 @@ export function useTransformationValidation(
       transformationStore.setExpressionString(expression)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transformationConfig, saveAttempted])
+  }, [transformationConfig])
 
   // Get validation error details for the expandable section
   const validationErrorDetails = useMemo((): ValidationErrorDetail[] => {
@@ -106,6 +99,7 @@ export function useTransformationValidation(
 
   return {
     localValidation,
+    setLocalValidation,
     saveAttempted,
     setSaveAttempted,
     validationErrorDetails,

@@ -27,8 +27,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
     case 'pausing':
       statusClass = 'chip-neutral'
       break
+    case PIPELINE_STATUS_MAP.starting:
     case PIPELINE_STATUS_MAP.stopped:
     case PIPELINE_STATUS_MAP.stopping:
+    case PIPELINE_STATUS_MAP.resuming:
       statusClass = 'chip-neutral-faded'
       break
     case PIPELINE_STATUS_MAP.failed:

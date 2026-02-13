@@ -44,6 +44,7 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
             showModal: true,
             requiresConfirmation: false,
           }
+        case PIPELINE_STATUS_MAP.starting:
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.stopping:
           return {
@@ -75,6 +76,7 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
             showModal: true,
             requiresConfirmation: false,
           }
+        case PIPELINE_STATUS_MAP.starting:
         case PIPELINE_STATUS_MAP.pausing:
         case PIPELINE_STATUS_MAP.stopping:
           return {
@@ -109,6 +111,7 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
             disabledReason: 'Pipeline is already terminated',
           }
         // All other states - terminate is available as a kill switch
+        case PIPELINE_STATUS_MAP.starting:
         case PIPELINE_STATUS_MAP.active:
         case PIPELINE_STATUS_MAP.paused:
         case PIPELINE_STATUS_MAP.pausing:
@@ -139,6 +142,7 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
             showModal: false,
             requiresConfirmation: false,
           }
+        case PIPELINE_STATUS_MAP.starting:
         case PIPELINE_STATUS_MAP.active:
         case PIPELINE_STATUS_MAP.paused:
         case PIPELINE_STATUS_MAP.pausing:
@@ -173,6 +177,12 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
             isDisabled: true,
             disabledReason: 'Pipeline is already being stopped',
           }
+        case PIPELINE_STATUS_MAP.starting:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Cannot stop a pipeline while it is starting. Please wait for it to become active.',
+          }
         case PIPELINE_STATUS_MAP.resuming:
         case PIPELINE_STATUS_MAP.terminating:
         case PIPELINE_STATUS_MAP.terminated:
@@ -201,6 +211,12 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
             ...baseConfig,
             isDisabled: true,
             disabledReason: 'Pipeline is already active',
+          }
+        case PIPELINE_STATUS_MAP.starting:
+          return {
+            ...baseConfig,
+            isDisabled: true,
+            disabledReason: 'Pipeline is already starting',
           }
         case PIPELINE_STATUS_MAP.resuming:
           return {
@@ -315,6 +331,7 @@ export const shouldDisablePipelineOperation = (pipelineStatus: Pipeline['status'
   // or is in a transitional state that prevents interaction
   // Note: Stopped pipelines SHOULD allow editing - that's when configuration changes are made!
   return (
+    pipelineStatus === PIPELINE_STATUS_MAP.starting || // Pipeline is still deploying
     pipelineStatus === PIPELINE_STATUS_MAP.terminating ||
     pipelineStatus === PIPELINE_STATUS_MAP.terminated ||
     pipelineStatus === PIPELINE_STATUS_MAP.stopping // Temporary state, wait for it to finish
@@ -329,6 +346,7 @@ export const shouldDisablePipelineOperation = (pipelineStatus: Pipeline['status'
 export const countPipelinesBlockingCreation = (pipelines: Array<{ status?: string }>): number => {
   return pipelines.filter(
     (pipeline) =>
+      pipeline.status === PIPELINE_STATUS_MAP.starting ||
       pipeline.status === PIPELINE_STATUS_MAP.active ||
       pipeline.status === PIPELINE_STATUS_MAP.paused ||
       pipeline.status === PIPELINE_STATUS_MAP.pausing ||

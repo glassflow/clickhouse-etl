@@ -111,6 +111,7 @@ export const CLICKHOUSE_DATA_TYPES = [
 ]
 
 export const PIPELINE_STATUS_MAP = {
+  starting: 'starting',
   active: 'active',
   pausing: 'pausing',
   paused: 'paused',
@@ -123,6 +124,11 @@ export const PIPELINE_STATUS_MAP = {
 }
 
 export const PIPELINE_STATUS_CONFIG = {
+  starting: {
+    label: 'Starting...',
+    className: 'chip-neutral-faded',
+    key: PIPELINE_STATUS_MAP.starting,
+  },
   active: {
     label: 'Active',
     className: 'chip-positive',

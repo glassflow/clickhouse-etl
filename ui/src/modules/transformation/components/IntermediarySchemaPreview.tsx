@@ -16,8 +16,8 @@ export interface IntermediarySchemaPreviewProps {
   config: TransformationConfig
   /** Validation state */
   validation: TransformationConfigValidation
-  /** Whether a save has been attempted */
-  saveAttempted: boolean
+  /** Whether a save has been attempted (kept for compatibility, no longer used for error display) */
+  saveAttempted?: boolean
   /** Structured error details */
   validationErrorDetails: ValidationErrorDetail[]
   /** Total error count */
@@ -35,7 +35,6 @@ export interface IntermediarySchemaPreviewProps {
 export function IntermediarySchemaPreview({
   config,
   validation,
-  saveAttempted,
   validationErrorDetails,
   totalErrorCount,
   isValidationExpanded,
@@ -55,7 +54,7 @@ export function IntermediarySchemaPreview({
             <CheckCircleIcon className="w-4 h-4" />
             Valid configuration
           </div>
-        ) : saveAttempted && totalErrorCount > 0 ? (
+        ) : totalErrorCount > 0 ? (
           <div className="flex flex-col items-end gap-1">
             <button
               type="button"
@@ -110,7 +109,7 @@ export function IntermediarySchemaPreview({
       </div>
 
       {/* Expandable validation error details */}
-      {!validation.isValid && isValidationExpanded && saveAttempted && totalErrorCount > 0 && (
+      {!validation.isValid && isValidationExpanded && totalErrorCount > 0 && (
         <div className="mt-3 p-3 bg-[var(--color-background-critical-subtle)] border border-[var(--color-border-critical)] rounded-[var(--radius-medium)] animate-in slide-in-from-top-2 duration-200">
           <div className="space-y-3">
             {/* Global errors */}

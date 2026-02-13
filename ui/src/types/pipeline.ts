@@ -35,6 +35,9 @@ export const parsePipelineStatus = (status: string): PipelineStatus => {
     case 'running':
     case 'active':
       return 'active'
+    case 'created':
+    case 'deploying':
+      return 'starting' // Pipeline is being deployed/started - transitional state
     case 'paused':
       return 'paused'
     case 'pausing':
@@ -55,7 +58,6 @@ export const parsePipelineStatus = (status: string): PipelineStatus => {
     case 'deploy_failed':
     case 'delete_failed':
       return 'failed'
-    case 'deploying':
     case 'no_configuration':
       return 'active' // Treat as active to allow configuration
     default:

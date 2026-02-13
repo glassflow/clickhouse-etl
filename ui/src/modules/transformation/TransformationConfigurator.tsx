@@ -79,7 +79,7 @@ export function TransformationConfigurator({
     transformationConfig,
     availableFields,
     { readOnly, standalone, onCompleteStep, onCompleteStandaloneEditing },
-    { setSaveAttempted: validation.setSaveAttempted, setLocalValidation: (v) => {} }, // setLocalValidation handled by hook
+    { setSaveAttempted: validation.setSaveAttempted, setLocalValidation: validation.setLocalValidation },
     setIsSaveSuccess,
     setHasAutoPopulated,
   )
@@ -121,13 +121,17 @@ export function TransformationConfigurator({
   const completeFieldCount = transformationConfig.fields.filter(isFieldComplete).length
   const totalFieldCount = transformationConfig.fields.length
 
-  // Check if we can continue
+  // Check if we can continue - button should ALWAYS be clickable so users can see validation errors
+  // The handleSave function will validate and prevent saving if invalid
   const canContinue = useMemo(() => {
+    // Only disable the button when there are no fields to save (empty state)
+    // When there ARE fields, allow clicking to trigger validation and show errors
     if (!transformationConfig.enabled || transformationConfig.fields.length === 0) {
-      return true // Can skip transformation
+      return true // Can skip transformation (will pass all fields unchanged)
     }
-    return validation.localValidation.isValid
-  }, [transformationConfig, validation.localValidation])
+    // Always allow clicking when there are fields - validation happens on click
+    return true
+  }, [transformationConfig])
 
   // Check if transformation is configured (has fields)
   const hasNoTransformation = !transformationConfig.enabled && transformationConfig.fields.length === 0
