@@ -335,89 +335,150 @@ export class V2PipelineAdapter implements PipelineAdapter {
     }
 
     // 3. Extract mappings and schemas to build root "schema"
-    // Internal: sink.table_mapping + source.topics[].schema
-    // V2: root schema.fields
-    // Schema should include:
-    // - Transformed fields (if transformation exists) with source_id = transformation id
-    // - Source topic fields with source_id = topic name
-    // - Only mapped fields should have column_name and column_type
+    // When transformation is enabled: effective schema = transform outputs only (+ topic fields only when
+    // dedup/filter/join require the ingestor to validate the topic).
+    // When transformation is disabled: schema = topic schema with mapping.
 
     const v2Fields: any[] = []
-
     const tableMapping = internalConfig.sink?.table_mapping || []
     const topics = internalConfig.source?.topics || []
 
-    // First, add transformed fields to schema (if transformation exists)
-    if (transformationId && transformation?.enabled && transformation?.fields) {
-      transformation.fields.forEach((field: any) => {
-        // Find if this field is mapped to a ClickHouse column
-        const mapping = tableMapping.find(
-          (m: any) => m.source_id === transformationId && m.field_name === field.outputFieldName,
-        )
+    const hasTransform =
+      Boolean(transformationId && transformation?.enabled && transformation?.fields?.length) ?? false
 
+    if (hasTransform) {
+      // Effective schema = all transform outputs (passthrough + computed), source_id = transformation id
+      transformation!.fields!.forEach((field: any) => {
+        const mapping =
+          tableMapping.find(
+            (m: any) => m.source_id === transformationId && m.field_name === field.outputFieldName,
+          ) ||
+          tableMapping.find(
+            (m: any) =>
+              topics.some((t: any) => t.name === m.source_id) && m.field_name === field.outputFieldName,
+          )
         v2Fields.push({
-          source_id: transformationId,
+          source_id: transformationId!,
           name: field.outputFieldName,
           type: field.outputFieldType || 'string',
           ...(mapping
-            ? {
-                column_name: mapping.column_name,
-                column_type: mapping.column_type,
-              }
+            ? { column_name: mapping.column_name, column_type: mapping.column_type }
             : {}),
         })
       })
-    }
 
-    // Then, add source topic fields to schema
-    // Group table mappings by source_id (topic name) to identify which fields are mapped
-    const mappedFieldNamesByTopic: Record<string, Set<string>> = {}
-    tableMapping.forEach((mapping: any) => {
-      // Only include mappings that reference topic names (not transformation IDs)
-      const topic = topics.find((t: any) => t.name === mapping.source_id)
-      if (topic) {
-        if (!mappedFieldNamesByTopic[mapping.source_id]) {
-          mappedFieldNamesByTopic[mapping.source_id] = new Set()
-        }
-        mappedFieldNamesByTopic[mapping.source_id].add(mapping.field_name)
-      }
-    })
-
-    // Add all source topic fields to schema (excluding removed fields)
-    topics.forEach((topic: any) => {
-      const topicFields = (topic.schema?.fields || []).filter((f: any) => !f.isRemoved)
-      const mappedFields = mappedFieldNamesByTopic[topic.name] || new Set()
-
-      topicFields.forEach((field: any) => {
-        const isMapped = mappedFields.has(field.name)
-        const mapping = tableMapping.find((m: any) => m.source_id === topic.name && m.field_name === field.name)
-
+      // Include any table_mapping entry for transform that wasn't in transformation.fields (e.g. legacy)
+      tableMapping.forEach((mapping: any) => {
+        if (mapping.source_id !== transformationId) return
+        if (v2Fields.some((f: any) => f.source_id === mapping.source_id && f.name === mapping.field_name)) return
         v2Fields.push({
-          source_id: topic.name,
-          name: field.name,
-          type: field.type || 'string',
-          ...(isMapped && mapping
-            ? {
-                column_name: mapping.column_name,
-                column_type: mapping.column_type,
-              }
-            : {}),
+          source_id: mapping.source_id,
+          name: mapping.field_name,
+          type: 'string',
+          column_name: mapping.column_name,
+          column_type: mapping.column_type,
         })
       })
-    })
 
-    // Also include any table mappings that reference transformation but aren't in transformed fields
-    // (This handles edge cases where mappings exist but transformation fields don't)
-    tableMapping.forEach((mapping: any) => {
-      // Skip if already added (either as transformed field or topic field)
-      const alreadyAdded = v2Fields.some((f: any) => f.source_id === mapping.source_id && f.name === mapping.field_name)
+      // When dedup/filter/join need topic in schema, add minimal topic fields so the ingestor can validate
+      const needsTopicInSchema =
+        topics.some((t: any) => t.deduplication?.enabled && t.deduplication?.id_field) ||
+        Boolean(internalConfig.filter?.enabled) ||
+        (internalConfig.join?.enabled &&
+          Array.isArray(internalConfig.join?.sources) &&
+          internalConfig.join.sources.length > 0)
 
-      if (!alreadyAdded) {
-        // This is a mapping that doesn't correspond to a known field
-        // Try to find type from topic schema (excluding removed fields)
+      if (needsTopicInSchema) {
+        // Dedup keys: at least the id_field per topic that has dedup enabled
+        topics.forEach((topic: any) => {
+          if (!topic.deduplication?.enabled || !topic.deduplication?.id_field) return
+          const keyName = topic.deduplication.id_field
+          const topicField = topic.schema?.fields?.find((f: any) => f.name === keyName && !f.isRemoved)
+          const mapping = tableMapping.find((m: any) => m.source_id === topic.name && m.field_name === keyName)
+          v2Fields.push({
+            source_id: topic.name,
+            name: keyName,
+            type: topicField?.type ?? 'string',
+            ...(mapping ? { column_name: mapping.column_name, column_type: mapping.column_type } : {}),
+          })
+        })
+        // Join keys: each join source's join_key
+        if (internalConfig.join?.enabled && Array.isArray(internalConfig.join?.sources)) {
+          internalConfig.join.sources.forEach((js: any) => {
+            if (!js.join_key) return
+            const topic = topics.find((t: any) => t.name === js.source_id)
+            const topicField = topic?.schema?.fields?.find(
+              (f: any) => f.name === js.join_key && !f.isRemoved,
+            )
+            const mapping = tableMapping.find(
+              (m: any) => m.source_id === js.source_id && m.field_name === js.join_key,
+            )
+            if (!v2Fields.some((f: any) => f.source_id === js.source_id && f.name === js.join_key)) {
+              v2Fields.push({
+                source_id: js.source_id,
+                name: js.join_key,
+                type: topicField?.type ?? 'string',
+                ...(mapping ? { column_name: mapping.column_name, column_type: mapping.column_type } : {}),
+              })
+            }
+          })
+        }
+        // Filter: include all topic fields so ingestor can validate the filter expression
+        if (internalConfig.filter?.enabled) {
+          topics.forEach((topic: any) => {
+            const topicFields = (topic.schema?.fields || []).filter((f: any) => !f.isRemoved)
+            topicFields.forEach((field: any) => {
+              if (!v2Fields.some((f: any) => f.source_id === topic.name && f.name === field.name)) {
+                const mapping = tableMapping.find(
+                  (m: any) => m.source_id === topic.name && m.field_name === field.name,
+                )
+                v2Fields.push({
+                  source_id: topic.name,
+                  name: field.name,
+                  type: field.type || 'string',
+                  ...(mapping ? { column_name: mapping.column_name, column_type: mapping.column_type } : {}),
+                })
+              }
+            })
+          })
+        }
+      }
+    } else {
+      // No transformation: schema = topic schema with mapping
+      const mappedFieldNamesByTopic: Record<string, Set<string>> = {}
+      tableMapping.forEach((mapping: any) => {
         const topic = topics.find((t: any) => t.name === mapping.source_id)
-        const topicField = topic?.schema?.fields?.find((f: any) => f.name === mapping.field_name && !f.isRemoved)
-
+        if (topic) {
+          if (!mappedFieldNamesByTopic[mapping.source_id]) {
+            mappedFieldNamesByTopic[mapping.source_id] = new Set()
+          }
+          mappedFieldNamesByTopic[mapping.source_id].add(mapping.field_name)
+        }
+      })
+      topics.forEach((topic: any) => {
+        const topicFields = (topic.schema?.fields || []).filter((f: any) => !f.isRemoved)
+        topicFields.forEach((field: any) => {
+          const isMapped = mappedFieldNamesByTopic[topic.name]?.has(field.name)
+          const mapping = tableMapping.find(
+            (m: any) => m.source_id === topic.name && m.field_name === field.name,
+          )
+          v2Fields.push({
+            source_id: topic.name,
+            name: field.name,
+            type: field.type || 'string',
+            ...(isMapped && mapping
+              ? { column_name: mapping.column_name, column_type: mapping.column_type }
+              : {}),
+          })
+        })
+      })
+      tableMapping.forEach((mapping: any) => {
+        if (v2Fields.some((f: any) => f.source_id === mapping.source_id && f.name === mapping.field_name))
+          return
+        const topic = topics.find((t: any) => t.name === mapping.source_id)
+        const topicField = topic?.schema?.fields?.find(
+          (f: any) => f.name === mapping.field_name && !f.isRemoved,
+        )
         v2Fields.push({
           source_id: mapping.source_id,
           name: mapping.field_name,
@@ -425,8 +486,8 @@ export class V2PipelineAdapter implements PipelineAdapter {
           column_name: mapping.column_name,
           column_type: mapping.column_type,
         })
-      }
-    })
+      })
+    }
 
     // 4. Construct V2 Root Schema
     apiConfig.schema = {

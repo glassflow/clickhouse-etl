@@ -10,39 +10,39 @@ This folder is the **deep reference** for the ClickHouse ETL UI. For development
 
 ## Architecture
 
-| Doc | Description |
-|-----|-------------|
+| Doc                                                                            | Description                                                                                                |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | [architecture/ARCHITECTURE_OVERVIEW.md](architecture/ARCHITECTURE_OVERVIEW.md) | Full architecture: tech stack, directory tree, data flows, store structure, API, invariants, testing note. |
-| [architecture/DESIGN_SYSTEM.md](architecture/DESIGN_SYSTEM.md) | Design system: base/theme/semantic layers, tokens, card variants, usage, migration. |
+| [architecture/DESIGN_SYSTEM.md](architecture/DESIGN_SYSTEM.md)                 | Design system: base/theme/semantic layers, tokens, card variants, usage, migration.                        |
 
 ## Design
 
-| Doc | Description |
-|-----|-------------|
+| Doc                                                        | Description                                                                   |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | [design/DESIGN_PRINCIPLES.md](design/DESIGN_PRINCIPLES.md) | Product and UX design principles, design process, brand and visual direction. |
 
 ## Implementations
 
-| Doc | Description |
-|-----|-------------|
-| [implementations/SSE_PIPELINE_STATUS_STREAMING.md](implementations/SSE_PIPELINE_STATUS_STREAMING.md) | SSE-based real-time pipeline status; replaces client polling. |
-| [implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md](implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md) | Kafka Kerberos auth and gateway. |
-| [implementations/KAFKA_OPERATIONS_LAYER.md](implementations/KAFKA_OPERATIONS_LAYER.md) | Kafka operations layer: service, factory, clients, resilience, tests. |
-| [implementations/STORE_MODE_SUPPORT_PRD.md](implementations/STORE_MODE_SUPPORT_PRD.md) | Store mode support PRD. |
+| Doc                                                                                                      | Description                                                           |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [implementations/SSE_PIPELINE_STATUS_STREAMING.md](implementations/SSE_PIPELINE_STATUS_STREAMING.md)     | SSE-based real-time pipeline status; replaces client polling.         |
+| [implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md](implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md) | Kafka Kerberos auth and gateway.                                      |
+| [implementations/KAFKA_OPERATIONS_LAYER.md](implementations/KAFKA_OPERATIONS_LAYER.md)                   | Kafka operations layer: service, factory, clients, resilience, tests. |
+| [implementations/STORE_MODE_SUPPORT_PRD.md](implementations/STORE_MODE_SUPPORT_PRD.md)                   | Store mode support PRD.                                               |
 
 ## Modules (per-feature guides)
 
-| Module | Docs | Description |
-|--------|------|-------------|
-| Kafka | [modules/kafka/](modules/kafka/) | KAFKA_CONNECTION, KAFKA_TOPIC_SELECTION, KAFKA_TYPE_VERIFICATION. |
-| ClickHouse | [modules/clickhouse/](modules/clickhouse/) | CLICKHOUSE_CONNECTION, CLICKHOUSE_MAPPING. |
-| Filter | [modules/filter/](modules/filter/) | FILTER_CONFIGURATOR. |
-| Join | [modules/join/](modules/join/) | JOIN_CONFIGURATOR. |
-| Deduplication | [modules/deduplication/](modules/deduplication/) | DEDUPLICATION_CONFIGURATOR. |
-| Transformations | [modules/transformations/](modules/transformations/) | TRANSFORMATION_CONFIGURATOR. |
-| Pipelines | [modules/pipelines/](modules/pipelines/) | PIPELINE_DETAILS, PIPELINES_LIST. |
-| Create (wizard) | [modules/create/](modules/create/) | Pipeline creation wizard: step journey, navigation, resume-to-last-editing, destructive invalidation. |
-| Notifications | [modules/notifications/](modules/notifications/) | NOTIFICATIONS (notification center: panel, settings, channels). |
+| Module          | Docs                                                 | Description                                                                                           |
+| --------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Kafka           | [modules/kafka/](modules/kafka/)                     | KAFKA_CONNECTION, KAFKA_TOPIC_SELECTION, KAFKA_TYPE_VERIFICATION.                                     |
+| ClickHouse      | [modules/clickhouse/](modules/clickhouse/)           | CLICKHOUSE_CONNECTION, CLICKHOUSE_MAPPING.                                                            |
+| Filter          | [modules/filter/](modules/filter/)                   | FILTER_CONFIGURATOR.                                                                                  |
+| Join            | [modules/join/](modules/join/)                       | JOIN_CONFIGURATOR.                                                                                    |
+| Deduplication   | [modules/deduplication/](modules/deduplication/)     | DEDUPLICATION_CONFIGURATOR.                                                                           |
+| Transformations | [modules/transformations/](modules/transformations/) | TRANSFORMATION_CONFIGURATOR.                                                                          |
+| Pipelines       | [modules/pipelines/](modules/pipelines/)             | PIPELINE_DETAILS, PIPELINES_LIST.                                                                     |
+| Create (wizard) | [modules/create/](modules/create/)                   | Pipeline creation wizard: step journey, navigation, resume-to-last-editing, destructive invalidation. |
+| Notifications   | [modules/notifications/](modules/notifications/)     | NOTIFICATIONS (notification center: panel, settings, channels).                                       |
 
 ## How to use with agents/skills
 

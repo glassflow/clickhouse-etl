@@ -37,19 +37,35 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
-      return NextResponse.json(
-        {
-          success: false,
-          error: (data as { message?: string })?.message || 'Failed to create pipeline',
-        },
-        { status },
+      const message = getBackendErrorMessage(data, 'Failed to create pipeline')
+      console.error(
+        `[ui-api/pipeline POST] Backend ${API_URL}/pipeline returned ${status}:`,
+        typeof data === 'object' && data !== null ? JSON.stringify(data) : data,
       )
+      return NextResponse.json({ success: false, error: message }, { status })
     }
+    // Network/connection error (e.g. ECONNREFUSED when backend not running or wrong API_URL)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[ui-api/pipeline POST] Backend request failed (${API_URL}/pipeline):`, error)
     return NextResponse.json(
-      { success: false, error: 'Failed to create pipeline' },
+      { success: false, error: `Backend unreachable: ${message}. Check API_URL and that the pipeline API is running.` },
       { status: 500 },
     )
   }
+}
+
+function getBackendErrorMessage(data: unknown, fallback: string): string {
+  if (data === null || data === undefined) return fallback
+  if (typeof data === 'string') return data || fallback
+  if (typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    if (typeof obj.message === 'string') return obj.message
+    if (typeof obj.error === 'string') return obj.error
+    if (typeof obj.detail === 'string') return obj.detail
+    if (obj.detail && typeof obj.detail === 'object' && typeof (obj.detail as { msg?: string }).msg === 'string')
+      return (obj.detail as { msg: string }).msg
+  }
+  return fallback
 }
 
 export async function GET() {
@@ -63,19 +79,14 @@ export async function GET() {
   } catch (error: unknown) {
     if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
-      return NextResponse.json(
-        {
-          success: false,
-          error: (data as { message?: string })?.message || 'Failed to get pipelines',
-        },
-        { status },
-      )
+      const message = getBackendErrorMessage(data, 'Failed to get pipelines')
+      console.error(`[ui-api/pipeline GET] Backend ${API_URL}/pipeline returned ${status}:`, data)
+      return NextResponse.json({ success: false, error: message }, { status })
     }
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[ui-api/pipeline GET] Backend request failed (${API_URL}/pipeline):`, error)
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to get pipelines',
-      },
+      { success: false, error: `Backend unreachable: ${message}. Check API_URL and that the pipeline API is running.` },
       { status: 500 },
     )
   }

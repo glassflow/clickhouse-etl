@@ -20,15 +20,15 @@ export interface KafkaEvent {
 // ============================================================================
 
 export enum CircuitState {
-  CLOSED = 'CLOSED',     // Normal operation, requests flow through
-  OPEN = 'OPEN',         // Circuit is open, requests fail fast
-  HALF_OPEN = 'HALF_OPEN' // Testing if service recovered
+  CLOSED = 'CLOSED', // Normal operation, requests flow through
+  OPEN = 'OPEN', // Circuit is open, requests fail fast
+  HALF_OPEN = 'HALF_OPEN', // Testing if service recovered
 }
 
 export interface CircuitBreakerOptions {
-  failureThreshold: number      // Number of failures before opening circuit
-  resetTimeoutMs: number        // Time to wait before trying again (half-open)
-  halfOpenMaxAttempts: number   // Max attempts in half-open state
+  failureThreshold: number // Number of failures before opening circuit
+  resetTimeoutMs: number // Time to wait before trying again (half-open)
+  halfOpenMaxAttempts: number // Max attempts in half-open state
 }
 
 export class CircuitBreaker {
@@ -148,7 +148,7 @@ export interface RetryOptions {
   initialDelayMs: number
   maxDelayMs: number
   backoffMultiplier: number
-  retryableErrors?: string[]  // Error message patterns that should trigger retry
+  retryableErrors?: string[] // Error message patterns that should trigger retry
 }
 
 export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
@@ -175,17 +175,15 @@ export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 export function isRetryableError(error: Error, retryablePatterns: string[]): boolean {
   const errorMessage = error.message || ''
   const errorName = error.name || ''
-  
-  return retryablePatterns.some(pattern => 
-    errorMessage.includes(pattern) || errorName.includes(pattern)
-  )
+
+  return retryablePatterns.some((pattern) => errorMessage.includes(pattern) || errorName.includes(pattern))
 }
 
 /**
  * Sleep for a given duration
  */
 export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -245,7 +243,7 @@ export interface TrackedConsumer {
   createdAt: number
   topic: string
   disconnectPromise?: Promise<void>
-  adminClient?: Admin  // Reference to admin client for consumer group deletion
+  adminClient?: Admin // Reference to admin client for consumer group deletion
 }
 
 export class ConsumerTracker {
@@ -358,16 +356,13 @@ export class ConsumerTracker {
         ])
       } else {
         // Try to disconnect with a short timeout
-        await Promise.race([
-          tracked.consumer.disconnect(),
-          sleep(2000),
-        ])
+        await Promise.race([tracked.consumer.disconnect(), sleep(2000)])
       }
     } catch (error) {
       console.error(`[ConsumerTracker] Error force disconnecting consumer ${id}:`, error)
     }
 
-    // Delete the consumer group from the broker to prevent orphaned groups
+    // Delete the consumer group (best-effort); many brokers don't support or allow DeleteGroups.
     if (tracked.adminClient && tracked.groupId) {
       try {
         await Promise.race([
@@ -375,9 +370,18 @@ export class ConsumerTracker {
           sleep(3000), // Max 3 seconds for group deletion
         ])
         console.log(`[ConsumerTracker] Deleted consumer group: ${tracked.groupId}`)
-      } catch (deleteError) {
-        // Log but don't throw - group might already be gone or deletion might fail
-        console.warn(`[ConsumerTracker] Failed to delete consumer group ${tracked.groupId}:`, deleteError)
+      } catch (deleteError: unknown) {
+        const isDeleteGroupsError =
+          deleteError &&
+          typeof deleteError === 'object' &&
+          (deleteError as { name?: string }).name === 'KafkaJSDeleteGroupsError'
+        if (isDeleteGroupsError) {
+          console.info(
+            `[ConsumerTracker] Consumer group ${tracked.groupId} could not be deleted (broker may not support or allow it).`,
+          )
+        } else {
+          console.warn(`[ConsumerTracker] Failed to delete consumer group ${tracked.groupId}:`, deleteError)
+        }
       }
     }
 
@@ -396,9 +400,7 @@ export class ConsumerTracker {
       this.cleanupInterval = null
     }
 
-    const disconnectPromises = Array.from(this.consumers.keys()).map(id => 
-      this.forceDisconnect(id)
-    )
+    const disconnectPromises = Array.from(this.consumers.keys()).map((id) => this.forceDisconnect(id))
 
     await Promise.allSettled(disconnectPromises)
   }
@@ -423,17 +425,20 @@ export class KafkaClient {
   private adminClient: Admin | null = null
   private adminClientConnected: boolean = false
   private config: KafkaConfig
-  
+
   // Circuit breaker for connection failures
   private circuitBreaker: CircuitBreaker
-  
+
   // Retry options (can be customized per instance)
   private retryOptions: Partial<RetryOptions>
 
-  constructor(config: KafkaConfig, options?: { 
-    circuitBreakerOptions?: Partial<CircuitBreakerOptions>
-    retryOptions?: Partial<RetryOptions>
-  }) {
+  constructor(
+    config: KafkaConfig,
+    options?: {
+      circuitBreakerOptions?: Partial<CircuitBreakerOptions>
+      retryOptions?: Partial<RetryOptions>
+    },
+  ) {
     this.config = config
     this.circuitBreaker = new CircuitBreaker(options?.circuitBreakerOptions)
     this.retryOptions = options?.retryOptions || {}
@@ -443,12 +448,18 @@ export class KafkaClient {
     const kafkaLogLevelStr = process.env.KAFKA_LOG_LEVEL?.toUpperCase() || 'ERROR'
     const kafkaLogLevel = (() => {
       switch (kafkaLogLevelStr) {
-        case 'NOTHING': return logLevel.NOTHING
-        case 'ERROR': return logLevel.ERROR
-        case 'WARN': return logLevel.WARN
-        case 'INFO': return logLevel.INFO
-        case 'DEBUG': return logLevel.DEBUG
-        default: return logLevel.ERROR // Default to ERROR for performance in production
+        case 'NOTHING':
+          return logLevel.NOTHING
+        case 'ERROR':
+          return logLevel.ERROR
+        case 'WARN':
+          return logLevel.WARN
+        case 'INFO':
+          return logLevel.INFO
+        case 'DEBUG':
+          return logLevel.DEBUG
+        default:
+          return logLevel.ERROR // Default to ERROR for performance in production
       }
     })()
 
@@ -593,7 +604,7 @@ export class KafkaClient {
     if (!this.circuitBreaker.canExecute()) {
       const retryIn = this.circuitBreaker.getTimeUntilRetry()
       throw new Error(
-        `Circuit breaker is open due to repeated failures. Retry in ${Math.ceil(retryIn / 1000)} seconds.`
+        `Circuit breaker is open due to repeated failures. Retry in ${Math.ceil(retryIn / 1000)} seconds.`,
       )
     }
   }
@@ -602,7 +613,7 @@ export class KafkaClient {
    * Get a pooled admin client instance. Creates and connects on first call,
    * reuses the connection on subsequent calls. This avoids the overhead of
    * creating a new admin client and TCP/SASL handshake for every operation.
-   * 
+   *
    * Uses circuit breaker to prevent repeated connection attempts to a failing broker.
    * Uses retry logic with exponential backoff for transient failures.
    */
@@ -613,7 +624,7 @@ export class KafkaClient {
     if (!this.adminClient) {
       this.adminClient = this.kafka.admin()
     }
-    
+
     if (!this.adminClientConnected) {
       try {
         await withRetry(
@@ -633,7 +644,7 @@ export class KafkaClient {
         throw error
       }
     }
-    
+
     return this.adminClient
   }
 
@@ -662,11 +673,7 @@ export class KafkaClient {
   async testConnection(abortSignal?: AbortSignal): Promise<boolean> {
     try {
       const admin = await this.getAdminClient(abortSignal)
-      await withRetry(
-        () => admin.listTopics(),
-        this.retryOptions,
-        abortSignal,
-      )
+      await withRetry(() => admin.listTopics(), this.retryOptions, abortSignal)
       this.circuitBreaker.recordSuccess()
       return true
     } catch (error) {
@@ -685,11 +692,7 @@ export class KafkaClient {
   async listTopics(abortSignal?: AbortSignal): Promise<string[]> {
     try {
       const admin = await this.getAdminClient(abortSignal)
-      const metadata = await withRetry(
-        () => admin.fetchTopicMetadata(),
-        this.retryOptions,
-        abortSignal,
-      )
+      const metadata = await withRetry(() => admin.fetchTopicMetadata(), this.retryOptions, abortSignal)
       const topics = metadata.topics.map((topic) => topic.name)
       this.circuitBreaker.recordSuccess()
       return topics
@@ -709,11 +712,7 @@ export class KafkaClient {
   async getTopicDetails(abortSignal?: AbortSignal): Promise<Array<{ name: string; partitionCount: number }>> {
     try {
       const admin = await this.getAdminClient(abortSignal)
-      const metadata = await withRetry(
-        () => admin.fetchTopicMetadata(),
-        this.retryOptions,
-        abortSignal,
-      )
+      const metadata = await withRetry(() => admin.fetchTopicMetadata(), this.retryOptions, abortSignal)
       const topicDetails = metadata.topics.map((topic) => ({
         name: topic.name,
         partitionCount: topic.partitions.length,
@@ -794,7 +793,7 @@ export class KafkaClient {
   async disconnect(): Promise<void> {
     // Disconnect the pooled admin client
     await this.disconnectAdminClient()
-    
+
     // Disconnect the consumer if it exists
     if (this.consumer) {
       try {
@@ -832,7 +831,7 @@ export class KafkaClient {
 
   /**
    * Fetch a sample event from a Kafka topic.
-   * 
+   *
    * Features:
    * - Circuit breaker to prevent repeated failures
    * - Retry logic with exponential backoff for transient errors
@@ -859,7 +858,7 @@ export class KafkaClient {
     let consumerId: string | null = null
     let groupJoinUnsubscribe: (() => void) | null = null
     let timeoutId: NodeJS.Timeout | null = null
-    
+
     // Create internal abort controller that can be triggered by external signal or timeout
     const internalAbortController = new AbortController()
     const abortSignal = options?.abortSignal
@@ -914,8 +913,9 @@ export class KafkaClient {
         await disconnectPromise
       }
 
-      // Delete the consumer group from the broker to prevent orphaned groups
-      // This must happen AFTER the consumer disconnects to avoid errors
+      // Delete the consumer group from the broker to prevent orphaned groups (best-effort only).
+      // This must happen AFTER the consumer disconnects. Many brokers don't support DeleteGroups
+      // or deny it via ACLs; the sample fetch has already succeeded, so we never throw here.
       if (groupIdToDelete && this.adminClient && this.adminClientConnected) {
         try {
           await Promise.race([
@@ -923,10 +923,19 @@ export class KafkaClient {
             sleep(5000), // Max 5 seconds for group deletion
           ])
           console.log(`[KafkaClient] Deleted consumer group: ${groupIdToDelete}`)
-        } catch (deleteError) {
-          // Log but don't throw - group might already be gone or deletion might fail
-          // This is expected in some cases (e.g., group already deleted, broker doesn't support deletion)
-          console.warn(`[KafkaClient] Failed to delete consumer group ${groupIdToDelete}:`, deleteError)
+        } catch (deleteError: unknown) {
+          const isDeleteGroupsError =
+            deleteError &&
+            typeof deleteError === 'object' &&
+            (deleteError as { name?: string }).name === 'KafkaJSDeleteGroupsError'
+          if (isDeleteGroupsError) {
+            // Expected when broker doesn't support DeleteGroups or ACLs deny it; sample fetch succeeded.
+            console.info(
+              `[KafkaClient] Consumer group ${groupIdToDelete} could not be deleted (broker may not support or allow it); sample fetch succeeded.`,
+            )
+          } else {
+            console.warn(`[KafkaClient] Failed to delete consumer group ${groupIdToDelete}:`, deleteError)
+          }
         }
       }
     }
@@ -1024,7 +1033,7 @@ export class KafkaClient {
       // Configure consumer with optimized settings for sample fetching
       const connectTimeoutMs = parseInt(process.env.KAFKA_CONNECT_TIMEOUT_MS ?? '', 10) || 10000
       const sessionTimeoutMs = parseInt(process.env.KAFKA_SESSION_TIMEOUT_MS ?? '', 10) || 45000
-      
+
       consumer = this.kafka.consumer({
         groupId: consumerId,
         sessionTimeout: sessionTimeoutMs,
@@ -1049,8 +1058,8 @@ export class KafkaClient {
           }
           await Promise.race([
             consumer!.connect(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout connecting to Kafka')), connectTimeoutMs)
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Timeout connecting to Kafka')), connectTimeoutMs),
             ),
           ])
         },
@@ -1066,9 +1075,7 @@ export class KafkaClient {
       // Subscribe with timeout
       await Promise.race([
         consumer.subscribe({ topic, fromBeginning: true }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout subscribing to topic')), 10000)
-        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout subscribing to topic')), 10000)),
       ])
 
       // Create a promise that will resolve with the first message or reject after timeout
@@ -1084,7 +1091,9 @@ export class KafkaClient {
         internalAbortController.signal.addEventListener('abort', abortHandler)
 
         const messageHandler = async ({ topic: msgTopic, partition, message }: any) => {
-          console.log(`KafkaClient: Received message - topic: ${msgTopic}, partition: ${partition}, offset: ${message.offset}, targetPartition: ${targetPartition}, targetOffset: ${targetOffset}`)
+          console.log(
+            `KafkaClient: Received message - topic: ${msgTopic}, partition: ${partition}, offset: ${message.offset}, targetPartition: ${targetPartition}, targetOffset: ${targetOffset}`,
+          )
 
           // Only process messages from the target partition
           if (partition !== targetPartition) {
@@ -1097,7 +1106,9 @@ export class KafkaClient {
             const messageOffset = BigInt(message.offset)
             const targetOffsetBig = BigInt(targetOffset)
 
-            console.log(`KafkaClient: Checking offset - messageOffset: ${messageOffset}, targetOffset: ${targetOffsetBig}, position: ${options?.position}`)
+            console.log(
+              `KafkaClient: Checking offset - messageOffset: ${messageOffset}, targetOffset: ${targetOffsetBig}, position: ${options?.position}`,
+            )
 
             if (options?.position === 'earliest') {
               if (messageOffset < targetOffsetBig) {
@@ -1196,46 +1207,48 @@ export class KafkaClient {
         // Setup GROUP_JOIN listener if we need to seek
         if (targetOffset !== null && consumer) {
           console.log(`KafkaClient: Setting up GROUP_JOIN listener to seek after partition assignment`)
-          
-          // Store unsubscribe function for cleanup
-          groupJoinUnsubscribe = consumer.on(
-            consumer.events.GROUP_JOIN,
-            ({ payload }: any) => {
-              console.log(`KafkaClient: GROUP_JOIN event received, memberAssignment:`, JSON.stringify(payload.memberAssignment))
-              
-              try {
-                console.log(`KafkaClient: Executing seek to topic: ${topic}, partition: ${targetPartition}, offset: ${targetOffset}`)
-                consumer?.seek({
-                  topic,
-                  partition: targetPartition,
-                  offset: targetOffset!,
-                })
-                console.log(`KafkaClient: Seek completed successfully`)
-              } catch (seekError) {
-                console.error(`KafkaClient: Error seeking to offset:`, seekError)
-                reject(seekError)
-                return
-              }
 
-              // Start timeout after group join (60s - aligned with service timeout)
-              const defaultTimeout = 60000
-              const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
-              const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
-              
-              console.log(`KafkaClient: Starting message fetch timeout: ${timeoutDuration}ms`)
-              timeoutId = setTimeout(() => {
-                if (!messageReceived) {
-                  reject(new Error(`Timeout waiting for message from topic: ${topic}`))
-                }
-              }, timeoutDuration)
+          // Store unsubscribe function for cleanup
+          groupJoinUnsubscribe = consumer.on(consumer.events.GROUP_JOIN, ({ payload }: any) => {
+            console.log(
+              `KafkaClient: GROUP_JOIN event received, memberAssignment:`,
+              JSON.stringify(payload.memberAssignment),
+            )
+
+            try {
+              console.log(
+                `KafkaClient: Executing seek to topic: ${topic}, partition: ${targetPartition}, offset: ${targetOffset}`,
+              )
+              consumer?.seek({
+                topic,
+                partition: targetPartition,
+                offset: targetOffset!,
+              })
+              console.log(`KafkaClient: Seek completed successfully`)
+            } catch (seekError) {
+              console.error(`KafkaClient: Error seeking to offset:`, seekError)
+              reject(seekError)
+              return
             }
-          )
+
+            // Start timeout after group join (60s - aligned with service timeout)
+            const defaultTimeout = 60000
+            const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
+            const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
+
+            console.log(`KafkaClient: Starting message fetch timeout: ${timeoutDuration}ms`)
+            timeoutId = setTimeout(() => {
+              if (!messageReceived) {
+                reject(new Error(`Timeout waiting for message from topic: ${topic}`))
+              }
+            }, timeoutDuration)
+          })
         } else {
           // No target offset - start timeout immediately (60s - aligned with service timeout)
           const defaultTimeout = 60000
           const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
           const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
-          
+
           console.log(`KafkaClient: No target offset, starting timeout immediately: ${timeoutDuration}ms`)
           timeoutId = setTimeout(() => {
             if (!messageReceived) {

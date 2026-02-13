@@ -3,7 +3,7 @@
  *
  * Client for interacting with the Go-based Kafka Kerberos Gateway service.
  * This service handles all Kafka operations that require Kerberos (GSSAPI) authentication.
- * 
+ *
  * Consumer Group Management:
  * The Go gateway service uses a single static consumer group ID ("kafka-gateway-consumer")
  * and uses direct partition assignment (Assign) instead of dynamic group coordination (Subscribe).
@@ -11,7 +11,7 @@
  * 1. Only one consumer group is created across all requests (not one per request)
  * 2. The consumer group is not actively coordinated by the broker
  * 3. Consumer cleanup is handled by the Go gateway (defer consumer.Close())
- * 
+ *
  * Unlike the KafkaJS client which creates unique consumer groups per fetchSampleEvent call,
  * the gateway approach avoids consumer group proliferation.
  */

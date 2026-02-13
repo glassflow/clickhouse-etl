@@ -72,19 +72,19 @@ export async function GET(request: NextRequest) {
   const pipelineIdsParam = searchParams.get('pipelineIds')
 
   if (!pipelineIdsParam) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Missing pipelineIds parameter' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ success: false, error: 'Missing pipelineIds parameter' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const pipelineIds = pipelineIdsParam.split(',').filter((id) => id.trim().length > 0)
 
   if (pipelineIds.length === 0) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'No valid pipeline IDs provided' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ success: false, error: 'No valid pipeline IDs provided' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   // Create a readable stream for SSE
@@ -97,14 +97,21 @@ export async function GET(request: NextRequest) {
     async start(controller) {
       console.log(`[SSE] New connection for pipelines: ${pipelineIds.join(', ')}`)
 
-      // Helper to send events
+      // Helper to send events. Never enqueue after stream is closed to avoid
+      // Next.js/Node stream errors (e.g. controller[kState].transformAlgorithm).
       const sendEvent = (eventType: string, data: object) => {
         if (!isStreamActive) return
         try {
           controller.enqueue(encoder.encode(formatSSEEvent(eventType, data)))
-        } catch (error) {
-          console.error('[SSE] Error sending event:', error)
+        } catch (error: unknown) {
           isStreamActive = false
+          // Expected when client disconnects: stream is closed and enqueue throws.
+          // Don't log as error to avoid noise; Next.js may also surface transformAlgorithm errors.
+          const msg = error instanceof Error ? error.message : String(error)
+          if (/closed|invalid state|transformAlgorithm|already closed/i.test(msg)) {
+            return
+          }
+          console.error('[SSE] Error sending event:', error)
         }
       }
 
@@ -179,10 +186,18 @@ export async function GET(request: NextRequest) {
     },
 
     cancel() {
-      console.log('[SSE] Connection closed by client')
+      // Expected when client disconnects (navigation, tab close, EventSource close).
+      // Clear intervals first so no callback runs after this and tries to enqueue.
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId)
+        pollIntervalId = null
+      }
+      if (heartbeatIntervalId) {
+        clearInterval(heartbeatIntervalId)
+        heartbeatIntervalId = null
+      }
       isStreamActive = false
-      if (pollIntervalId) clearInterval(pollIntervalId)
-      if (heartbeatIntervalId) clearInterval(heartbeatIntervalId)
+      console.log('[SSE] Connection closed by client')
     },
   })
 
@@ -191,7 +206,7 @@ export async function GET(request: NextRequest) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no', // Disable nginx buffering
     },
   })
