@@ -158,7 +158,7 @@ func convertStreams(streams map[string]models.StreamSchemaConfig) map[string]Str
 		fields := make(map[string]KafkaDataType)
 
 		for _, field := range streamConfig.Fields {
-			fields[field.FieldName] = KafkaDataType(field.FieldType)
+			fields[field.FieldName] = KafkaDataType(internal.NormalizeToBasicKafkaType(field.FieldType))
 		}
 
 		mappedStreams[streamName] = Stream{

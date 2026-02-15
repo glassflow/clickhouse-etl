@@ -64,25 +64,14 @@ const (
 	JSONTypeArray   = "array"
 	JSONTypeObject  = "object"
 
-	// Kafka data type constants
-	KafkaTypeString  = "string"
-	KafkaTypeBool    = "bool"
-	KafkaTypeInt     = "int"
-	KafkaTypeInt8    = "int8"
-	KafkaTypeInt16   = "int16"
-	KafkaTypeInt32   = "int32"
-	KafkaTypeInt64   = "int64"
-	KafkaTypeUint    = "uint"
-	KafkaTypeUint8   = "uint8"
-	KafkaTypeUint16  = "uint16"
-	KafkaTypeUint32  = "uint32"
-	KafkaTypeUint64  = "uint64"
-	KafkaTypeFloat   = "float"
-	KafkaTypeFloat32 = "float32"
-	KafkaTypeFloat64 = "float64"
-	KafkaTypeBytes   = "bytes"
-	KafkaTypeArray   = "array"
-	KafkaTypeMap     = "map"
+	// Kafka data type constants (basic types only; precision types are normalized at API/DB boundary)
+	KafkaTypeString = "string"
+	KafkaTypeBool   = "bool"
+	KafkaTypeInt    = "int"
+	KafkaTypeUint   = "uint"
+	KafkaTypeFloat  = "float"
+	KafkaTypeArray  = "array"
+	KafkaTypeMap    = "map"
 
 	// ClickHouse data type constants
 	CHTypeString     = "String"

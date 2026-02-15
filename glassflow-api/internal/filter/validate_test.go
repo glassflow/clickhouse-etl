@@ -72,7 +72,7 @@ func TestValidateFilter(t *testing.T) {
 			args: args{
 				expression: "price >= 100.5",
 				fields: []models.StreamDataField{
-					{FieldName: "price", FieldType: "float64"},
+					{FieldName: "price", FieldType: "float"},
 				},
 			},
 			wantErr: false,
@@ -113,17 +113,17 @@ func TestValidateFilter(t *testing.T) {
 			args: args{
 				expression: "count > 0",
 				fields: []models.StreamDataField{
-					{FieldName: "count", FieldType: "uint64"},
+					{FieldName: "count", FieldType: "uint"},
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name: "valid expression with int8 field",
+			name: "valid expression with int field",
 			args: args{
 				expression: "level >= 1",
 				fields: []models.StreamDataField{
-					{FieldName: "level", FieldType: "int8"},
+					{FieldName: "level", FieldType: "int"},
 				},
 			},
 			wantErr: false,

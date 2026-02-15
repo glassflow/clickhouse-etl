@@ -23,35 +23,13 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 	switch dataType {
 	case internal.KafkaTypeString:
 		return ParseString(data)
-	case internal.KafkaTypeBytes:
-		return ParseBytes(data)
 	case internal.KafkaTypeBool:
 		return ParseBool(data)
 	case internal.KafkaTypeInt:
 		return ParseInt64(data)
-	case internal.KafkaTypeInt8:
-		return ParseInt8(data)
-	case internal.KafkaTypeInt16:
-		return ParseInt16(data)
-	case internal.KafkaTypeInt32:
-		return ParseInt32(data)
-	case internal.KafkaTypeInt64:
-		return ParseInt64(data)
 	case internal.KafkaTypeUint:
 		return ParseUint64(data)
-	case internal.KafkaTypeUint8:
-		return ParseUint8(data)
-	case internal.KafkaTypeUint16:
-		return ParseUint16(data)
-	case internal.KafkaTypeUint32:
-		return ParseUint32(data)
-	case internal.KafkaTypeUint64:
-		return ParseUint64(data)
 	case internal.KafkaTypeFloat:
-		return ParseFloat64(data)
-	case internal.KafkaTypeFloat32:
-		return ParseFloat32(data)
-	case internal.KafkaTypeFloat64:
 		return ParseFloat64(data)
 	case internal.KafkaTypeArray:
 		// For arrays, we return the array as-is since it's already in the correct format
@@ -80,70 +58,70 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		}
 		return ExtractEventValue(internal.KafkaTypeBool, data)
 	case internal.CHTypeInt8, internal.CHTypeLCInt8:
-		if fieldType == internal.KafkaTypeInt8 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt8, data)
+		if fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt8, internal.KafkaTypeInt, fieldType)
+		return ParseInt8(data)
 	case internal.CHTypeInt16, internal.CHTypeLCInt16:
-		if fieldType == internal.KafkaTypeInt16 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt16, data)
+		if fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt16, internal.KafkaTypeInt, fieldType)
+		return ParseInt16(data)
 	case internal.CHTypeInt32, internal.CHTypeLCInt32:
-		if fieldType == internal.KafkaTypeInt32 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt32, data)
+		if fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt32, internal.KafkaTypeInt, fieldType)
+		return ParseInt32(data)
 	case internal.CHTypeInt64, internal.CHTypeLCInt64:
-		if fieldType == internal.KafkaTypeInt64 || fieldType == internal.KafkaTypeInt {
-			return ExtractEventValue(internal.KafkaTypeInt64, data)
+		if fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt64, internal.KafkaTypeInt, fieldType)
+		return ParseInt64(data)
 	case internal.CHTypeUInt8, internal.CHTypeLCUInt8:
-		if fieldType == internal.KafkaTypeUint8 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint8, data)
+		if fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint8, internal.KafkaTypeUint, fieldType)
+		return ParseUint8(data)
 	case internal.CHTypeUInt16, internal.CHTypeLCUInt16:
-		if fieldType == internal.KafkaTypeUint16 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint16, data)
+		if fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint16, internal.KafkaTypeUint, fieldType)
+		return ParseUint16(data)
 	case internal.CHTypeUInt32, internal.CHTypeLCUInt32:
-		if fieldType == internal.KafkaTypeUint32 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint32, data)
+		if fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint32, internal.KafkaTypeUint, fieldType)
+		return ParseUint32(data)
 	case internal.CHTypeUInt64, internal.CHTypeLCUInt64:
-		if fieldType == internal.KafkaTypeUint64 || fieldType == internal.KafkaTypeUint {
-			return ExtractEventValue(internal.KafkaTypeUint64, data)
+		if fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint64, internal.KafkaTypeUint, fieldType)
+		return ParseUint64(data)
 	case internal.CHTypeFloat32, internal.CHTypeLCFloat32:
-		if fieldType == internal.KafkaTypeFloat32 || fieldType == internal.KafkaTypeFloat {
-			return ExtractEventValue(internal.KafkaTypeFloat32, data)
+		if fieldType != internal.KafkaTypeFloat {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeFloat, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeFloat32, internal.KafkaTypeFloat, fieldType)
+		return ParseFloat32(data)
 	case internal.CHTypeFloat64, internal.CHTypeLCFloat64:
-		if fieldType == internal.KafkaTypeFloat64 || fieldType == internal.KafkaTypeFloat {
-			return ExtractEventValue(internal.KafkaTypeFloat64, data)
+		if fieldType != internal.KafkaTypeFloat {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeFloat, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeFloat64, internal.KafkaTypeFloat, fieldType)
+		return ParseFloat64(data)
 	case internal.CHTypeEnum8, internal.CHTypeEnum16, internal.CHTypeUUID, internal.CHTypeFString, internal.CHTypeLCString, internal.CHTypeLCFString:
 		if fieldType != internal.KafkaTypeString {
 			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeString, fieldType)
 		}
 		return ExtractEventValue(internal.KafkaTypeString, data)
 	case internal.CHTypeString:
-		if fieldType == internal.KafkaTypeString || fieldType == internal.KafkaTypeBytes {
-			return ExtractEventValue(internal.KafkaTypeString, data)
+		if fieldType != internal.KafkaTypeString {
+			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeString, fieldType)
 		}
-		return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeString, internal.KafkaTypeBytes, fieldType)
+		return ExtractEventValue(internal.KafkaTypeString, data)
 	case internal.CHTypeDateTime, internal.CHTypeDateTime64, internal.CHTypeLCDateTime:
 		switch fieldType {
-		case internal.KafkaTypeInt, internal.KafkaTypeInt32, internal.KafkaTypeInt64:
+		case internal.KafkaTypeInt:
 			return ParseDateTimeFromInt64(data)
-		case internal.KafkaTypeFloat, internal.KafkaTypeFloat32, internal.KafkaTypeFloat64:
+		case internal.KafkaTypeFloat:
 			return ParseDateTimeFromFloat64(data)
 		case internal.KafkaTypeString:
 			return ParseDateTimeFromString(data)
@@ -154,9 +132,9 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		// Handle DateTime64 with parameters (e.g., "DateTime64(6, 'UTC')")
 		if strings.HasPrefix(string(columnType), "DateTime") {
 			switch fieldType {
-			case internal.KafkaTypeInt, internal.KafkaTypeInt32, internal.KafkaTypeInt64:
+			case internal.KafkaTypeInt:
 				return ParseDateTimeFromInt64(data)
-			case internal.KafkaTypeFloat, internal.KafkaTypeFloat32, internal.KafkaTypeFloat64:
+			case internal.KafkaTypeFloat:
 				return ParseDateTimeFromFloat64(data)
 			case internal.KafkaTypeString:
 				return ParseDateTimeFromString(data)
@@ -220,40 +198,22 @@ func ConvertValueFromGjson(columnType ClickHouseDataType, fieldType KafkaDataTyp
 		return nil, nil
 	}
 
-	// Extract value based on field type, directly from gjson.Result
+	// Extract value based on field type (basic types only), directly from gjson.Result
 	var value any
 	switch fieldType {
 	case internal.KafkaTypeString:
 		value = result.String()
-	case internal.KafkaTypeBytes:
-		value = result.String()
 	case internal.KafkaTypeBool:
 		value = result.Bool()
-	case internal.KafkaTypeInt, internal.KafkaTypeInt64:
+	case internal.KafkaTypeInt:
 		value = result.Int()
-	case internal.KafkaTypeInt8:
-		value = int8(result.Int())
-	case internal.KafkaTypeInt16:
-		value = int16(result.Int())
-	case internal.KafkaTypeInt32:
-		value = int32(result.Int())
-	case internal.KafkaTypeUint, internal.KafkaTypeUint64:
+	case internal.KafkaTypeUint:
 		value = result.Uint()
-	case internal.KafkaTypeUint8:
-		value = uint8(result.Uint())
-	case internal.KafkaTypeUint16:
-		value = uint16(result.Uint())
-	case internal.KafkaTypeUint32:
-		value = uint32(result.Uint())
-	case internal.KafkaTypeFloat, internal.KafkaTypeFloat64:
+	case internal.KafkaTypeFloat:
 		value = result.Float()
-	case internal.KafkaTypeFloat32:
-		value = float32(result.Float())
 	case internal.KafkaTypeArray, internal.KafkaTypeMap:
-		// For complex types, fall back to Value() which returns any
 		value = result.Value()
 	default:
-		// Fallback for unknown types
 		value = result.Value()
 	}
 

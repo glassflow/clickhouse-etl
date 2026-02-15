@@ -47,7 +47,7 @@ func validateSchemaToFieldMapping(sourceID string, schema models.SchemaFields, m
 			return fmt.Errorf("field %s is absent in the source schema", field.SourceField)
 		}
 
-		if fieldType != field.SourceType {
+		if internal.NormalizeToBasicKafkaType(fieldType) != internal.NormalizeToBasicKafkaType(field.SourceType) {
 			return fmt.Errorf("field %s type mismatch: schema has %s, mapping has %s", field.SourceField, fieldType, field.SourceType)
 		}
 	}
@@ -82,16 +82,13 @@ func validateJSONToSchema(msg []byte, schema models.SchemaFields) error {
 
 // validateFieldType checks if the gjson.Result matches the expected type
 func validateFieldType(expected models.Field, value gjson.Result) error {
-	switch expected.Type {
-	case internal.KafkaTypeString, internal.KafkaTypeBytes:
+	normalized := internal.NormalizeToBasicKafkaType(expected.Type)
+	switch normalized {
+	case internal.KafkaTypeString:
 		if value.Type != gjson.String {
 			return fmt.Errorf("expected string, got %s", value.Type.String())
 		}
-	case internal.KafkaTypeInt, internal.KafkaTypeInt8, internal.KafkaTypeInt16,
-		internal.KafkaTypeInt32, internal.KafkaTypeInt64, internal.KafkaTypeUint,
-		internal.KafkaTypeUint8, internal.KafkaTypeUint16, internal.KafkaTypeUint32,
-		internal.KafkaTypeUint64, internal.KafkaTypeFloat, internal.KafkaTypeFloat32,
-		internal.KafkaTypeFloat64:
+	case internal.KafkaTypeInt, internal.KafkaTypeUint, internal.KafkaTypeFloat:
 		if value.Type != gjson.Number {
 			return fmt.Errorf("expected number, got %s", value.Type.String())
 		}

@@ -20,23 +20,16 @@ func ValidateTransformationAgainstSchema(
 
 	env := make(map[string]any)
 	for _, field := range schema.Fields {
-		// Create sample values based on type
-		switch field.Type {
+		normalized := internal.NormalizeToBasicKafkaType(field.Type)
+		switch normalized {
 		case internal.KafkaTypeString:
 			env[field.Name] = ""
-		case internal.KafkaTypeInt, internal.KafkaTypeInt8, internal.KafkaTypeInt16,
-			internal.KafkaTypeInt32, internal.KafkaTypeInt64,
-			internal.KafkaTypeUint, internal.KafkaTypeUint8,
-			internal.KafkaTypeUint16, internal.KafkaTypeUint32,
-			internal.KafkaTypeUint64:
+		case internal.KafkaTypeInt, internal.KafkaTypeUint:
 			env[field.Name] = 0
-		case internal.KafkaTypeFloat, internal.KafkaTypeFloat32,
-			internal.KafkaTypeFloat64:
+		case internal.KafkaTypeFloat:
 			env[field.Name] = 0.0
 		case internal.KafkaTypeBool:
 			env[field.Name] = false
-		case internal.KafkaTypeBytes:
-			env[field.Name] = []byte{}
 		case internal.KafkaTypeArray:
 			env[field.Name] = []any{}
 		case internal.KafkaTypeMap:
