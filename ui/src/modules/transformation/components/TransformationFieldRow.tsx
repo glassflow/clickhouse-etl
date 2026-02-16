@@ -13,6 +13,7 @@ import {
   ExpressionMode,
   TransformArithmeticExpression,
 } from '@/src/store/transformation.store'
+import { JSON_DATA_TYPES } from '@/src/config/constants'
 import { FieldValidation, inferOutputType, createFieldArg, createLiteralArg } from '../utils'
 import { getFunctionByName } from '../functions'
 import { cn } from '@/src/utils/common.client'
@@ -419,19 +420,10 @@ export function TransformationFieldRow({
     [updateLocalField],
   )
 
-  // Available output types for type override dropdown
-  const OUTPUT_TYPE_OPTIONS = [
-    { value: 'string', label: 'String' },
-    { value: 'int', label: 'Int32' },
-    { value: 'int64', label: 'Int64' },
-    { value: 'float64', label: 'Float64' },
-    { value: 'bool', label: 'Boolean' },
-    { value: 'time.Time', label: 'DateTime' },
-    { value: '[]string', label: 'Array (String)' },
-    { value: 'object', label: 'Object/Map' },
-  ]
+  // Use same types as Kafka type verification for consistency (includes UInt*, int*, float*, etc.)
+  const OUTPUT_TYPE_OPTIONS = JSON_DATA_TYPES.map((type) => ({ value: type, label: type }))
 
-  // Get the inferred type based on function or source field
+  // Get the inferred type based on function or source field (always a JSON_DATA_TYPES value)
   const getInferredType = (): string => {
     if (localField.type === 'passthrough') {
       return localField.sourceFieldType || 'string'
@@ -636,7 +628,12 @@ export function TransformationFieldRow({
                   <span className="ml-1 text-[var(--text-disabled)]">(inferred: {getInferredType()})</span>
                 </Label>
                 <Select
-                  value={localField.outputFieldType || getInferredType()}
+                  value={
+                    localField.outputFieldType &&
+                    JSON_DATA_TYPES.includes(localField.outputFieldType)
+                      ? localField.outputFieldType
+                      : getInferredType()
+                  }
                   onValueChange={handleOutputTypeChange}
                   disabled={readOnly}
                 >
