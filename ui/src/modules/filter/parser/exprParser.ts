@@ -580,15 +580,28 @@ function transformComparison(ast: ASTBinaryExpr, ctx: TransformContext, not: boo
     }
   }
 
-  // Check if left side is an arithmetic expression
+  // Check if left side is an arithmetic expression (or single operand e.g. concat(a,b))
   if (isArithmeticExpression(left)) {
-    const arithmeticExpr = toArithmeticOperand(left, ctx) as ArithmeticExpressionNode | null
+    const result = toArithmeticOperand(left, ctx)
     const literal = extractLiteral(right)
 
-    if (!arithmeticExpr || !literal) {
+    if (!result || !literal) {
       ctx.unsupportedFeatures.push('Complex arithmetic comparison')
       return null
     }
+
+    // If result is a full expression node (binary arithmetic), use as-is.
+    // If it's a single operand (field or function call), wrap in synthetic node so
+    // serialization and UI match what manual mode produces.
+    const arithmeticExpr: ArithmeticExpressionNode =
+      'operator' in result && 'left' in result && 'right' in result
+        ? (result as ArithmeticExpressionNode)
+        : {
+            id: uuidv4(),
+            left: result as ArithmeticOperand,
+            operator: '+' as ArithmeticOperator,
+            right: { type: 'literal', value: 0 },
+          }
 
     return {
       id: uuidv4(),

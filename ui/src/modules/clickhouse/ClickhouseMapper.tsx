@@ -467,37 +467,37 @@ export function ClickhouseMapper({
       // Create new mapping - preserve existing mappings where possible
       const newMapping = shouldKeepExistingMapping
         ? filteredSchema.map((col, index) => {
-            // Try to find existing mapping for this column
-            const existingCol = mappedColumns.find((mc) => mc.name === col.name)
+          // Try to find existing mapping for this column
+          const existingCol = mappedColumns.find((mc) => mc.name === col.name)
 
-            if (existingCol) {
-              // Preserve existing mapping data
-              return {
-                ...col,
-                jsonType: existingCol.jsonType || '',
-                isNullable: existingCol.isNullable || false,
-                isKey: existingCol.isKey || false,
-                eventField: existingCol.eventField || '',
-                ...(existingCol.sourceTopic && { sourceTopic: existingCol.sourceTopic }),
-              }
-            } else {
-              // New column, initialize empty
-              return {
-                ...col,
-                jsonType: '',
-                isNullable: false,
-                isKey: false,
-                eventField: '',
-              }
+          if (existingCol) {
+            // Preserve existing mapping data
+            return {
+              ...col,
+              jsonType: existingCol.jsonType || '',
+              isNullable: existingCol.isNullable || false,
+              isKey: existingCol.isKey || false,
+              eventField: existingCol.eventField || '',
+              ...(existingCol.sourceTopic && { sourceTopic: existingCol.sourceTopic }),
             }
-          })
+          } else {
+            // New column, initialize empty
+            return {
+              ...col,
+              jsonType: '',
+              isNullable: false,
+              isKey: false,
+              eventField: '',
+            }
+          }
+        })
         : filteredSchema.map((col) => ({
-            ...col,
-            jsonType: '',
-            isNullable: false,
-            isKey: false,
-            eventField: '',
-          }))
+          ...col,
+          jsonType: '',
+          isNullable: false,
+          isKey: false,
+          eventField: '',
+        }))
 
       setTableSchema({ columns: filteredSchema })
       setMappedColumns(newMapping)
@@ -568,7 +568,7 @@ export function ClickhouseMapper({
         fetchTableSchema()
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [
     selectedDatabase,
     selectedTable,
@@ -595,8 +595,8 @@ export function ClickhouseMapper({
         // Create a map of field names to types for quick lookup
         const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
 
-        // Try to auto-map fields if we have mapping data
-        if (clickhouseDestination?.mapping?.length > 0) {
+        // Try to auto-map fields if we have mapping data (skip only when at least one field is already mapped)
+        if (clickhouseDestination?.mapping?.some((m) => m.eventField)) {
           // Mapping already exists, keep it
           return
         } else if (mappedColumns.length > 0 && transformedFields.length > 0) {
@@ -643,8 +643,8 @@ export function ClickhouseMapper({
         const fields = extractEventFields(eventData)
         setEventFields(fields)
 
-        // Try to auto-map fields if we have mapping data
-        if (clickhouseDestination?.mapping?.length > 0) {
+        // Try to auto-map fields if we have mapping data (skip only when at least one field is already mapped)
+        if (clickhouseDestination?.mapping?.some((m) => m.eventField)) {
           // Mapping already exists, keep it
           return
         } else if (mappedColumns.length > 0 && fields.length > 0) {
@@ -713,8 +713,8 @@ export function ClickhouseMapper({
       return
     }
 
-    // Skip if mapping already exists
-    if (clickhouseDestination?.mapping?.length > 0) {
+    // Skip only when at least one field is already mapped (don't skip freshly initialized empty rows)
+    if (clickhouseDestination?.mapping?.some((m) => m.eventField)) {
       return
     }
 
@@ -867,7 +867,7 @@ export function ClickhouseMapper({
     if (connectionStatus === 'success' || hasConnectionDetails) {
       fetchDatabases()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [
     connectionStatus,
     // NOTE: fetchDatabases is intentionally excluded to prevent infinite loops
@@ -887,7 +887,7 @@ export function ClickhouseMapper({
     }
 
     fetchTables()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [
     selectedDatabase,
     // NOTE: fetchTables is intentionally excluded to prevent infinite loops
@@ -1425,7 +1425,7 @@ export function ClickhouseMapper({
       // Direct mode: Deploy pipeline immediately and then navigate to pipelines page
       deployPipelineAndNavigate(apiConfig)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [
     clickhouseDestination,
     selectedDatabase,
@@ -1708,59 +1708,59 @@ export function ClickhouseMapper({
           const shouldShow = selectedTable && hasColumns && (!schemaLoading || tableSchema.columns.length > 0)
           return shouldShow
         })() && (
-          <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-            <BatchDelaySelector
-              maxBatchSize={maxBatchSize}
-              maxDelayTime={maxDelayTime}
-              maxDelayTimeUnit={maxDelayTimeUnit}
-              onMaxBatchSizeChange={setMaxBatchSize}
-              onMaxDelayTimeChange={setMaxDelayTime}
-              onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
-              readOnly={readOnly}
-            />
-            <FieldColumnMapper
-              eventFields={mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]}
-              // @ts-expect-error - mappedColumns is not typed correctly
-              mappedColumns={mappedColumns}
-              updateColumnMapping={updateColumnMapping}
-              mapEventFieldToColumn={mapEventFieldToColumn}
-              primaryEventFields={mode !== 'single' ? primaryEventFields : undefined}
-              secondaryEventFields={mode !== 'single' ? secondaryEventFields : undefined}
-              primaryTopicName={mode !== 'single' ? primaryTopic?.name : undefined}
-              secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
-              isJoinMapping={mode !== 'single'}
-              readOnly={readOnly}
-              typesReadOnly={true} // Types are verified in the earlier type verification step
-              unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
-              unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
-              onRefreshTableSchema={handleRefreshTableSchema}
-              onAutoMap={performAutoMapping}
-              selectedDatabase={selectedDatabase}
-              selectedTable={selectedTable}
-            />
-            {/* TypeCompatibilityInfo is temporarily hidden */}
-            {/* <TypeCompatibilityInfo /> */}
-            <div className="flex gap-2 mt-4">
-              <FormActions
-                standalone={standalone}
-                onSubmit={saveDestinationConfig}
-                onDiscard={handleDiscardChanges}
-                isLoading={isLoading}
-                isSuccess={!!success}
-                disabled={isLoading}
-                successText="Continue"
-                actionType="primary"
-                showLoadingIcon={false}
-                regularText="Continue"
-                loadingText="Saving..."
+            <div className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+              <BatchDelaySelector
+                maxBatchSize={maxBatchSize}
+                maxDelayTime={maxDelayTime}
+                maxDelayTimeUnit={maxDelayTimeUnit}
+                onMaxBatchSizeChange={setMaxBatchSize}
+                onMaxDelayTimeChange={setMaxDelayTime}
+                onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
                 readOnly={readOnly}
-                toggleEditMode={toggleEditMode}
-                pipelineActionState={pipelineActionState}
-                onClose={onCompleteStandaloneEditing}
               />
+              <FieldColumnMapper
+                eventFields={mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]}
+                // @ts-expect-error - mappedColumns is not typed correctly
+                mappedColumns={mappedColumns}
+                updateColumnMapping={updateColumnMapping}
+                mapEventFieldToColumn={mapEventFieldToColumn}
+                primaryEventFields={mode !== 'single' ? primaryEventFields : undefined}
+                secondaryEventFields={mode !== 'single' ? secondaryEventFields : undefined}
+                primaryTopicName={mode !== 'single' ? primaryTopic?.name : undefined}
+                secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
+                isJoinMapping={mode !== 'single'}
+                readOnly={readOnly}
+                typesReadOnly={true} // Types are verified in the earlier type verification step
+                unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
+                unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
+                onRefreshTableSchema={handleRefreshTableSchema}
+                onAutoMap={performAutoMapping}
+                selectedDatabase={selectedDatabase}
+                selectedTable={selectedTable}
+              />
+              {/* TypeCompatibilityInfo is temporarily hidden */}
+              {/* <TypeCompatibilityInfo /> */}
+              <div className="flex gap-2 mt-4">
+                <FormActions
+                  standalone={standalone}
+                  onSubmit={saveDestinationConfig}
+                  onDiscard={handleDiscardChanges}
+                  isLoading={isLoading}
+                  isSuccess={!!success}
+                  disabled={isLoading}
+                  successText="Continue"
+                  actionType="primary"
+                  showLoadingIcon={false}
+                  regularText="Continue"
+                  loadingText="Saving..."
+                  readOnly={readOnly}
+                  toggleEditMode={toggleEditMode}
+                  pipelineActionState={pipelineActionState}
+                  onClose={onCompleteStandaloneEditing}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Success/Error Messages */}
         {/* {success && (

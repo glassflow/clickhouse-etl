@@ -22,6 +22,7 @@ import {
   isFieldComplete,
   isNestedFunctionArg,
 } from '@/src/store/transformation.store'
+import { JSON_DATA_TYPES } from '@/src/config/constants'
 import { getFunctionByName, TransformationFunctionDef } from './functions'
 
 /**
@@ -790,12 +791,29 @@ export const getIntermediarySchema = (config: TransformationConfig): Intermediar
 }
 
 /**
- * Infer the output type for a computed field based on its function
+ * Normalize a function return type (or any type) to a value in JSON_DATA_TYPES,
+ * so transformation output types stay consistent with Kafka type verification.
+ */
+export const normalizeOutputTypeToJsonDataType = (returnType: string): string => {
+  if (JSON_DATA_TYPES.includes(returnType)) {
+    return returnType
+  }
+  // Map transformation/backend-specific return types to JSON_DATA_TYPES
+  const mapping: Record<string, string> = {
+    'time.Time': 'string',
+    '[]string': 'array',
+  }
+  return mapping[returnType] ?? 'string'
+}
+
+/**
+ * Infer the output type for a computed field based on its function.
+ * Returns a type from JSON_DATA_TYPES for consistency with type verification step.
  */
 export const inferOutputType = (functionName: string): string => {
   const funcDef = getFunctionByName(functionName)
   if (funcDef) {
-    return funcDef.returnType
+    return normalizeOutputTypeToJsonDataType(funcDef.returnType)
   }
   return 'string' // Default to string if unknown
 }

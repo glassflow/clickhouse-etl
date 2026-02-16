@@ -416,9 +416,14 @@ function transformToExpression(
     return result as ArithmeticExpressionNode
   }
 
-  // It's a simple operand - this is not a valid arithmetic expression
-  // An arithmetic expression needs at least one operator
-  return { error: 'Expression must contain at least one arithmetic operation (e.g., a + b)' }
+  // Simple operand (e.g. single field or concat(a,b)): wrap in synthetic node so we can
+  // store and emit it; arithmeticExpressionToExpr will emit only the left side.
+  return {
+    id: uuidv4(),
+    left: result as ArithmeticOperand,
+    operator: '+',
+    right: { type: 'literal', value: 0 },
+  }
 }
 
 // =============================================================================

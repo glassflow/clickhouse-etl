@@ -240,7 +240,7 @@ export function FieldColumnMapper({
                       <div
                         className={`w-full h-10 px-3 flex items-center rounded-md bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)] text-content ${hasTypeError ? 'border-red-500 border-2' : ''}`}
                       >
-                        {column.jsonType || 'auto'}
+                        {column.jsonType ?? ''}
                       </div>
                     ) : (
                       // Editable dropdown when types can be changed
