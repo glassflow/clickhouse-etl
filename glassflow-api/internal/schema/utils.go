@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"strconv"
 	"time"
 )
 
@@ -28,9 +27,12 @@ func ParseBool(data any) (zero bool, _ error) {
 
 func ParseInt8(data any) (zero int8, _ error) {
 	switch value := data.(type) {
-	case int8:
-		return value, nil
 	case int:
+		if value < math.MinInt8 || value > math.MaxInt8 {
+			return zero, fmt.Errorf("value out of range of int8: %d", value)
+		}
+		return int8(value), nil
+	case int64:
 		if value < math.MinInt8 || value > math.MaxInt8 {
 			return zero, fmt.Errorf("value out of range of int8: %d", value)
 		}
@@ -47,9 +49,12 @@ func ParseInt8(data any) (zero int8, _ error) {
 
 func ParseInt16(data any) (zero int16, _ error) {
 	switch value := data.(type) {
-	case int16:
-		return value, nil
 	case int:
+		if value < math.MinInt16 || value > math.MaxInt16 {
+			return zero, fmt.Errorf("value out of range of int16: %d", value)
+		}
+		return int16(value), nil
+	case int64:
 		if value < math.MinInt16 || value > math.MaxInt16 {
 			return zero, fmt.Errorf("value out of range of int16: %d", value)
 		}
@@ -66,8 +71,6 @@ func ParseInt16(data any) (zero int16, _ error) {
 
 func ParseInt32(data any) (zero int32, _ error) {
 	switch value := data.(type) {
-	case int32:
-		return value, nil
 	case int:
 		if value < math.MinInt32 || value > math.MaxInt32 {
 			return zero, fmt.Errorf("value out of range of int32: %d", value)
@@ -90,12 +93,10 @@ func ParseInt32(data any) (zero int32, _ error) {
 
 func ParseInt64(data any) (zero int64, _ error) {
 	switch value := data.(type) {
-	case int64:
-		return value, nil
 	case int:
 		return int64(value), nil
-	case int32:
-		return int64(value), nil
+	case int64:
+		return value, nil
 	case float64:
 		if value < float64(math.MinInt64) || value > float64(math.MaxInt64) {
 			return zero, fmt.Errorf("value out of range of int64: %f", value)
@@ -108,18 +109,12 @@ func ParseInt64(data any) (zero int64, _ error) {
 
 func ParseUint8(data any) (zero uint8, _ error) {
 	switch value := data.(type) {
-	case string:
-		u, err := strconv.ParseUint(value, 10, 8)
-		if err != nil {
-			return zero, fmt.Errorf("failed to parse uint8: %w", err)
-		}
-		if u > math.MaxUint8 {
-			return zero, fmt.Errorf("value out of range of uint8: %d", u)
-		}
-		return uint8(u), nil
-	case uint8:
-		return value, nil
 	case uint:
+		if value > math.MaxUint8 {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
+	case uint64:
 		if value > math.MaxUint8 {
 			return zero, fmt.Errorf("value out of range of uint8: %d", value)
 		}
@@ -136,18 +131,12 @@ func ParseUint8(data any) (zero uint8, _ error) {
 
 func ParseUint16(data any) (zero uint16, _ error) {
 	switch value := data.(type) {
-	case string:
-		u, err := strconv.ParseUint(value, 10, 16)
-		if err != nil {
-			return zero, fmt.Errorf("failed to parse uint16: %w", err)
-		}
-		if u > math.MaxUint16 {
-			return zero, fmt.Errorf("value out of range of uint16: %d", u)
-		}
-		return uint16(u), nil
-	case uint16:
-		return value, nil
 	case uint:
+		if value > math.MaxUint16 {
+			return zero, fmt.Errorf("value out of range of uint16: %d", value)
+		}
+		return uint16(value), nil
+	case uint64:
 		if value > math.MaxUint16 {
 			return zero, fmt.Errorf("value out of range of uint16: %d", value)
 		}
@@ -164,18 +153,12 @@ func ParseUint16(data any) (zero uint16, _ error) {
 
 func ParseUint32(data any) (zero uint32, _ error) {
 	switch value := data.(type) {
-	case string:
-		u, err := strconv.ParseUint(value, 10, 32)
-		if err != nil {
-			return zero, fmt.Errorf("failed to parse uint32: %w", err)
-		}
-		if u > math.MaxUint32 {
-			return zero, fmt.Errorf("value out of range of uint32: %d", u)
-		}
-		return uint32(u), nil
-	case uint32:
-		return value, nil
 	case uint:
+		if value > math.MaxUint32 {
+			return zero, fmt.Errorf("value out of range of uint32: %d", value)
+		}
+		return uint32(value), nil
+	case uint64:
 		if value > math.MaxUint32 {
 			return zero, fmt.Errorf("value out of range of uint32: %d", value)
 		}
@@ -192,16 +175,10 @@ func ParseUint32(data any) (zero uint32, _ error) {
 
 func ParseUint64(data any) (zero uint64, _ error) {
 	switch value := data.(type) {
-	case string:
-		u, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return zero, fmt.Errorf("failed to parse uint64: %w", err)
-		}
-		return u, nil
-	case uint64:
-		return value, nil
 	case uint:
 		return uint64(value), nil
+	case uint64:
+		return value, nil
 	case float64:
 		if value > float64(math.MaxUint64) {
 			return zero, fmt.Errorf("value out of range of uint64: %f", value)
@@ -219,8 +196,6 @@ func ParseFloat32(data any) (zero float32, _ error) {
 			return zero, fmt.Errorf("float32 out of range: %f", value)
 		}
 		return float32(value), nil
-	case float32:
-		return value, nil
 	default:
 		return zero, fmt.Errorf("failed to parse float32: %v, type is: %v", data, reflect.TypeOf(data))
 	}
@@ -228,19 +203,8 @@ func ParseFloat32(data any) (zero float32, _ error) {
 
 func ParseFloat64(data any) (zero float64, _ error) {
 	switch value := data.(type) {
-	case []byte:
-		f, err := strconv.ParseFloat(string(value), 64)
-		if err != nil {
-			return zero, fmt.Errorf("failed to parse float64: %w", err)
-		}
-		if f < -math.MaxFloat64 || f > math.MaxFloat64 {
-			return zero, fmt.Errorf("float64 out of range: %f", f)
-		}
-		return f, nil
 	case float64:
 		return value, nil
-	case float32:
-		return float64(value), nil
 	default:
 		return zero, fmt.Errorf("failed to parse float64: %v, type is: %v", data, reflect.TypeOf(data))
 	}
