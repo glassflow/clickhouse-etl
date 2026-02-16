@@ -14,7 +14,7 @@ import {
   TransformArithmeticExpression,
 } from '@/src/store/transformation.store'
 import { JSON_DATA_TYPES } from '@/src/config/constants'
-import { FieldValidation, inferOutputType, createFieldArg, createLiteralArg } from '../utils'
+import { FieldValidation, inferOutputType, normalizeToJsonDataType, createFieldArg, createLiteralArg } from '../utils'
 import { getFunctionByName } from '../functions'
 import { cn } from '@/src/utils/common.client'
 import TypeToggle from './TypeToggle'
@@ -420,13 +420,20 @@ export function TransformationFieldRow({
     [updateLocalField],
   )
 
-  // Use same types as Kafka type verification for consistency (includes UInt*, int*, float*, etc.)
-  const OUTPUT_TYPE_OPTIONS = JSON_DATA_TYPES.map((type) => ({ value: type, label: type }))
+  // Available output types: same simplified list as Kafka type verification (single source of truth)
+  const OUTPUT_TYPE_OPTIONS = useMemo(
+    () =>
+      JSON_DATA_TYPES.map((value) => ({
+        value,
+        label: value.charAt(0).toUpperCase() + value.slice(1),
+      })),
+    [],
+  )
 
-  // Get the inferred type based on function or source field (always a JSON_DATA_TYPES value)
+  // Get the inferred type (normalized to simplified set) based on function or source field
   const getInferredType = (): string => {
     if (localField.type === 'passthrough') {
-      return localField.sourceFieldType || 'string'
+      return normalizeToJsonDataType(localField.sourceFieldType || 'string')
     }
     if (localField.type === 'computed' && localField.functionName) {
       return inferOutputType(localField.functionName)
@@ -513,9 +520,9 @@ export function TransformationFieldRow({
           />
         </div>
 
-        {/* Output Type Badge - 15% width */}
+        {/* Output Type Badge - 15% width (normalized to simplified type set) */}
         <div className="w-[15%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-small)] bg-[var(--surface-bg-sunken)] text-xs text-[var(--text-secondary)] font-medium truncate text-start">
-          {field.outputFieldType ?? ''}
+          {field.outputFieldType ? normalizeToJsonDataType(field.outputFieldType) : ''}
         </div>
 
         {/* Source Indicator - 20% width */}
@@ -628,12 +635,7 @@ export function TransformationFieldRow({
                   <span className="ml-1 text-[var(--text-disabled)]">(inferred: {getInferredType()})</span>
                 </Label>
                 <Select
-                  value={
-                    localField.outputFieldType &&
-                    JSON_DATA_TYPES.includes(localField.outputFieldType)
-                      ? localField.outputFieldType
-                      : getInferredType()
-                  }
+                  value={normalizeToJsonDataType(localField.outputFieldType || getInferredType())}
                   onValueChange={handleOutputTypeChange}
                   disabled={readOnly}
                 >
