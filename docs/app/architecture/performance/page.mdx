@@ -1,6 +1,6 @@
 ---
 title: 'Performance'
-description: 'Understanding the performance of the GlassFlow system'
+description: 'Understanding GlassFlow pipeline performance, throughput, and horizontal scaling'
 ---
 
 # Performance
@@ -71,15 +71,13 @@ With this test, we want to give new users an understanding of how GlassFlow scal
 
 ## Results
 
-For the test, we ran a simple stateless transformation:
+A single GlassFlow pipeline was tested with a simple stateless transformation. Throughput and latency:
 
-| Avg throughput | Max throughput | Avg bandwidth | Data / day / per pipelines | p95 latency |
+| Avg throughput | Max throughput | Avg bandwidth | Data / day / pipeline | p95 latency |
 | --- | --- | --- | --- | --- |
 | 51k events/sec | 56k events/sec | 77 MB/sec | ~6.6 TB | 700 ms |
 
-Each GlassFlow pipeline can ingest approximately:
-
-~6.6 TB per day on a single **c4d-highcpu-16** machine.
+Each pipeline ingests approximately **~6.6 TB per day** on a single **c4d-highcpu-16** machine.
 
 ### Resource usage
 
@@ -92,7 +90,7 @@ Each GlassFlow pipeline can ingest approximately:
 
 ### Costs
 
-The test machine was a GCP [c4d-standard-16](https://cloud.google.com/products/calculator?dl=CjhDaVE0TW1ZM1lXVTVOeTFsTldNeUxUUmhaVEl0T0RBd1pTMWxNelkzWXpjNVlqWmhZMkVRQVE9PRAIGiQ4REFDRjkyMy1CODFBLTQ5RDYtQUE2OS1EMDA3N0UwNDg5MTg) (follow link for machine details)**,** which was sufficient to cover all required resources (CPU and RAM).
+The test machine was a GCP [c4d-standard-16](https://cloud.google.com/products/calculator?dl=CjhDaVE0TW1ZM1lXVTVOeTFsTldNeUxUUmhaVEl0T0RBd1pTMWxNelkzWXpjNVlqWmhZMkVRQVE9PRAIGiQ4REFDRjkyMy1CODFBLTQ5RDYtQUE2OS1EMDA3N0UwNDg5MTg) (see link for machine details), which was sufficient to cover all required resources (CPU and RAM).
 
 The average monthly price for the machine is ~$552.65.
 
@@ -104,7 +102,7 @@ Because GlassFlow pipelines operate independently, throughput scales horizontall
 
 ![Horizontal scaling](/assets/architecture_horizontal_scaling.png)
 
-Kafka events distributed across multiple pipelines through filter logic.
+Kafka events are distributed across multiple pipelines through filter logic.
 
 ### Example scaling scenarios
 
@@ -117,9 +115,7 @@ Kafka events distributed across multiple pipelines through filter logic.
 
 ![Scaling of daily ingestion throughput by adding pipelines.](/assets/architecture_performance_scaling_throughput.png)
 
-Scaling of daily ingestion throughput by adding pipelines.
-
-If a user needs to ingest **100 TB per day**, they can:
+To ingest **100 TB per day**:
 
 - Create ~15–20 pipelines
 - Distribute Kafka load across pipelines through filtering logic
@@ -135,10 +131,7 @@ In GlassFlow, each pipeline runs independently. Therefore, per-pipeline throughp
 
 ### Workload model
 
-We use synthetic data that simulates a common real-world use case:
-**Logging user activity events in an application.**
-
-Each record represents a single user-triggered event similar to those used in analytics, observability, or activity tracking systems.
+The test uses synthetic data that mimics **application telemetry logs**—single-event records of the kind typically ingested for analytics, observability, or activity tracking.
 
 ### Event characteristics
 
@@ -148,12 +141,12 @@ Each record represents a single user-triggered event similar to those used in an
 
 ### Sample event
 
-The synthetic events resemble structured application logs commonly ingested into ClickHouse for observability and analytics.
+The synthetic events resemble structured application logs commonly ingested into ClickHouse for observability.
 
 ```json
 {
-   "@timestamp":"2026-02-16T17:57:04.572864Z",
-   "@version":1356,
+   "timestamp":"2026-02-16T17:57:04.572864Z",
+   "version":1356,
    "account_id":156122057376641,
    "app_name":"ccc",
    "app_version":"staging",
@@ -203,48 +196,35 @@ The synthetic events resemble structured application logs commonly ingested into
 
 ### Test infrastructure and machine setup
 
-The test ran on Google Cloud Platform (GCP) using dedicated machines.
-
-Kafka and ClickHouse were kept identical across tests.
+The test ran on Google Cloud Platform (GCP) using dedicated machines. Kafka and ClickHouse were kept identical across runs.
 
 ## Infrastructure
 
-For the testing, we are using the architecture below:
+The test used the following architecture:
 
 ![Test Architecture Setup](/assets/architecture_performance_test_setup.png)
 
 ### Components
 
-All components were running as self-hosted version:
+All components ran in a self-hosted environment:
 
-- **Locust**
-    
-    Generates a controlled and sustained event load.
-    
-- **Apache Kafka**
-    
-    Acts as the ingestion buffer and decoupling layer.
-    
-- **GlassFlow**
-    
-    Transforms the events
-    
-- **ClickHouse**
-    
-    Same sink target for all tests.
+- **Locust** — Generates a controlled, sustained event load.
+- **Apache Kafka** — Ingestion buffer and decoupling layer.
+- **GlassFlow** — Transforms events and writes to ClickHouse.
+- **ClickHouse** — Sink for all tests.
     
 
 ### GlassFlow deployment
 
-GlassFlow was deployed using a distributed, production-like setup, separating ingestion, buffering, and sink responsibilities.
+GlassFlow was deployed in a distributed, production-like setup with separate ingestion, buffering, and sink components.
 
 | Component | Purpose |
 | --- | --- |
-| Ingestor | The Ingestor component consumes messages from Kafka topics and publishes them to NATS JetStream streams. |
-| NATS | NATS JetStream acts as an internal message broker between pipeline components. It provides persistent storage and reliable message delivery. |
-| Sink | The Sink component consumes messages from NATS JetStream and writes them to ClickHouse in batches. |
+| Ingestor | Consumes messages from Kafka topics and publishes them to NATS JetStream streams. |
+| NATS | NATS JetStream acts as an internal message broker between pipeline components, with persistent storage and reliable delivery. |
+| Sink | Consumes messages from NATS JetStream and writes them to ClickHouse in batches. |
 
-The input rate was increased until CPU saturation was reached with the selected machine.
+The input rate was increased until CPU saturation was reached on the selected machine.
 
 ## Summary
 
@@ -255,6 +235,6 @@ This test demonstrates that:
 - Resource usage is predictable
 - Horizontal scaling is linear and operationally simple
 
-If your workload requires 10 TB, 50 TB, or 100 TB per day, GlassFlow scales by adding pipelines without introducing architectural complexity.
+For workloads of 10 TB, 50 TB, or 100 TB per day, GlassFlow scales by adding pipelines without introducing architectural complexity.
 
 **We hope you enjoyed reading our test. If you want us to run a test for your specific setup, feel free to contact us [here](https://www.glassflow.dev/contact#:~:text=by%20developers%20from-,Send%20us%20a%20message,-Do%20you%20have).**
