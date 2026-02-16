@@ -40,7 +40,7 @@ function OutputField({
         <div className="w-32">
           <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Output Type</Label>
           <div className="input-regular input-border-regular text-sm h-10 flex items-center px-3 text-[var(--text-secondary)] bg-[var(--surface-bg-sunken)]">
-            {field.outputFieldType || 'auto'}
+            {field.outputFieldType ?? ''}
           </div>
         </div>
       </div>

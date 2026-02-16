@@ -523,7 +523,7 @@ export function TransformationFieldRow({
 
         {/* Output Type Badge - 15% width */}
         <div className="w-[15%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-small)] bg-[var(--surface-bg-sunken)] text-xs text-[var(--text-secondary)] font-medium truncate text-start">
-          {field.outputFieldType || 'auto'}
+          {field.outputFieldType ?? ''}
         </div>
 
         {/* Source Indicator - 20% width */}
