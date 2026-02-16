@@ -5,69 +5,25 @@ description: 'Understanding GlassFlow pipeline performance, throughput, and hori
 
 # Performance
 
-We tested GlassFlow transformation and are sharing the results:
+This document summarizes benchmark results for a GlassFlow pipeline under sustained load and explains why the test is relevant for teams running Kafka-to-ClickHouse ingestion at scale.
 
-- One GlassFlow pipeline ingests **~6.6 TB per day**
-- Sustained throughput: **~51k events/sec**
-- End-to-end latency: **~700 ms**
-- Per-pipeline CPU usage: **~11.6 cores**
-- Running 1 pipeline costs ~**$552.65/month ($2.80/TB)** via a single GCP c4d-standard-16
-- GlassFlow scales horizontally by adding pipelines
-    - One pipeline = ~6.6 TB/day
-    - 20 pipelines = ~132 TB/day
+## Why this benchmark
 
-## What is GlassFlow?
+[ClickHouse](https://clickhouse.com/) is a high-performance analytical database used by many companies to ingest terabytes of data per day for observability and real-time analytics. Introducing a new stream processing component into an existing pipeline is a significant decision. Teams need confidence that the system can:
 
-GlassFlow is an open-source stream processing engine designed for high-volume data ingestion and transformation from Kafka to ClickHouse.
+- Handle high sustained ingestion rates
+- Scale predictably per pipeline
+- Maintain low and stable latency
+- Fit into an existing Kafka + ClickHouse setup
 
-It supports both simple ingestion pipelines and more advanced streaming use cases through the following core capabilities:
+This benchmark provides concrete numbers for how GlassFlow performs and scales under those conditions.
 
-- **Ingest-only pipelines**
+## Summary at a glance
 
-    Direct data transfer from Kafka to ClickHouse without transformations.
-    
-- **Stateless transformations**
-    
-    Powered by the `expr` expression engine, enabling flexible event-level transformations such as normalization, filtering, and enrichment.
-    
-- **Stateful transformations**
-    
-    A built-in state store enabling:
-    
-    - deduplication
-    - temporal joins
-    - windowed logic over configurable time windows
-- **Filtering**
-    
-    Drop events before they reach ClickHouse to reduce storage and query costs.
-    
-- **Metrics & OpenTelemetry**
-    
-    Built-in pipeline metrics with OTEL export support.
-    
-- **Dead Letter Queue (DLQ)**
-    
-    Faulty events are isolated without stopping the pipeline.
-    
-
-GlassFlow has a unique positioning: it is open source and specifically designed to run any transformation (stateless or stateful) on TB of streaming data from Kafka to ClickHouse pipelines.
-
-A full feature comparison is available [here](https://www.glassflow.dev/#:~:text=See%20Live%20Preview-,What%20Sets%20It%20Apart,-Dedupe).
-
-[ClickHouse](https://clickhouse.com/) is a high-performance analytical database used by thousands of companies worldwide.
-
-At larger companies ClickHouse is often responsible for ingesting terabytes of data per day, enabling use cases like observability and real-time analytics.
-
-Many of these companies are also GlassFlow users. We are very close to our users and understand that introducing a new stream processing component into an existing data pipeline is not a trivial decision. 
-
-Engineering teams need to be confident that a system can:
-
-- handle high sustained ingestion rates
-- scale predictably per pipeline
-- maintain low and stable latency
-- fit into an existing Kafka + ClickHouse setup
-
-With this test, we want to give new users an understanding of how GlassFlow scales with TBs of ingestion workloads.
+- One GlassFlow pipeline: **~6.6 TB/day** on a single GCP c4d-standard-16
+- Sustained throughput: **~51k events/sec** · p95 latency: **~700 ms**
+- Per-pipeline CPU: **~11.6 cores** · Cost: **~$552.65/month** (~$2.80/TB)
+- Horizontal scaling: add pipelines for more throughput (e.g. 1 pipeline ≈ 6.6 TB/day, 20 pipelines ≈ 132 TB/day)
 
 ## Results
 
