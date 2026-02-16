@@ -4,7 +4,7 @@
 # Set to 'true' to enable mock mode for frontend development
 NEXT_PUBLIC_USE_MOCK_API=false
 NEXT_PUBLIC_ANALYTICS_ENABLED=true
-NEXT_PUBLIC_FILTERS_ENABLED=false
+NEXT_PUBLIC_FILTERS_ENABLED=true
 NEXT_PUBLIC_NOTIFICATIONS_ENABLED=false
 
 # Real API Configuration (used when mock mode is disabled)
