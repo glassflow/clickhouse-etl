@@ -595,8 +595,8 @@ export function ClickhouseMapper({
         // Create a map of field names to types for quick lookup
         const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
 
-        // Try to auto-map fields if we have mapping data
-        if (clickhouseDestination?.mapping?.length > 0) {
+        // Try to auto-map fields if we have mapping data (skip only when at least one field is already mapped)
+        if (clickhouseDestination?.mapping?.some((m) => m.eventField)) {
           // Mapping already exists, keep it
           return
         } else if (mappedColumns.length > 0 && transformedFields.length > 0) {
@@ -643,8 +643,8 @@ export function ClickhouseMapper({
         const fields = extractEventFields(eventData)
         setEventFields(fields)
 
-        // Try to auto-map fields if we have mapping data
-        if (clickhouseDestination?.mapping?.length > 0) {
+        // Try to auto-map fields if we have mapping data (skip only when at least one field is already mapped)
+        if (clickhouseDestination?.mapping?.some((m) => m.eventField)) {
           // Mapping already exists, keep it
           return
         } else if (mappedColumns.length > 0 && fields.length > 0) {
@@ -713,8 +713,8 @@ export function ClickhouseMapper({
       return
     }
 
-    // Skip if mapping already exists
-    if (clickhouseDestination?.mapping?.length > 0) {
+    // Skip only when at least one field is already mapped (don't skip freshly initialized empty rows)
+    if (clickhouseDestination?.mapping?.some((m) => m.eventField)) {
       return
     }
 
