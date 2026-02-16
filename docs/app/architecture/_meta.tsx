@@ -1,4 +1,5 @@
 export default {
     'kubernetes-components': '',
-    'data-flow': ''
+    'data-flow': '',
+    'performance': ''
 }

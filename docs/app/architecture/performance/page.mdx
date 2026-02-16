@@ -1,0 +1,260 @@
+---
+title: 'Performance'
+description: 'Understanding the performance of the GlassFlow system'
+---
+
+# Performance
+
+We tested GlassFlow transformation and are sharing the results:
+
+- One GlassFlow pipeline ingests **~6.6 TB per day**
+- Sustained throughput: **~51k events/sec**
+- End-to-end latency: **~700 ms**
+- Per-pipeline CPU usage: **~11.6 cores**
+- Running 1 pipeline costs ~**$552.65/month ($2.80/TB)** via a single GCP c4d-standard-16
+- GlassFlow scales horizontally by adding pipelines
+    - One pipeline = ~6.6 TB/day
+    - 20 pipelines = ~132 TB/day
+
+## What is GlassFlow?
+
+GlassFlow is an open-source stream processing engine designed for high-volume data ingestion and transformation from Kafka to ClickHouse.
+
+It supports both simple ingestion pipelines and more advanced streaming use cases through the following core capabilities:
+
+- **Ingest-only pipelines**
+
+    Direct data transfer from Kafka to ClickHouse without transformations.
+    
+- **Stateless transformations**
+    
+    Powered by the `expr` expression engine, enabling flexible event-level transformations such as normalization, filtering, and enrichment.
+    
+- **Stateful transformations**
+    
+    A built-in state store enabling:
+    
+    - deduplication
+    - temporal joins
+    - windowed logic over configurable time windows
+- **Filtering**
+    
+    Drop events before they reach ClickHouse to reduce storage and query costs.
+    
+- **Metrics & OpenTelemetry**
+    
+    Built-in pipeline metrics with OTEL export support.
+    
+- **Dead Letter Queue (DLQ)**
+    
+    Faulty events are isolated without stopping the pipeline.
+    
+
+GlassFlow has a unique positioning: it is open source and specifically designed to run any transformation (stateless or stateful) on TB of streaming data from Kafka to ClickHouse pipelines.
+
+A full feature comparison is available [here](https://www.glassflow.dev/#:~:text=See%20Live%20Preview-,What%20Sets%20It%20Apart,-Dedupe).
+
+[ClickHouse](https://clickhouse.com/) is a high-performance analytical database used by thousands of companies worldwide.
+
+At larger companies ClickHouse is often responsible for ingesting terabytes of data per day, enabling use cases like observability and real-time analytics.
+
+Many of these companies are also GlassFlow users. We are very close to our users and understand that introducing a new stream processing component into an existing data pipeline is not a trivial decision. 
+
+Engineering teams need to be confident that a system can:
+
+- handle high sustained ingestion rates
+- scale predictably per node
+- maintain low and stable latency
+- fit into an existing Kafka + ClickHouse setup
+
+With this test, we want to give new users an understanding of how GlassFlow scales with TBs of ingestion workloads.
+
+## Results
+
+For the test, we ran a simple stateless transformation:
+
+| Avg throughput | Max throughput | Avg bandwidth | Data / day / per pipelines | p95 latency |
+| --- | --- | --- | --- | --- |
+| 51k events/sec | 56k events/sec | 77 MB/sec | ~6.6 TB | 700 ms |
+
+Each GlassFlow pipeline can ingest approximately:
+
+~6.6 TB per day on a single **c4d-highcpu-16** machine.
+
+### Resource usage
+
+| Component | CPU | RAM |
+| --- | --- | --- |
+| Ingestors | ~5.2 cores | ~350 MB |
+| Sink | ~2.3 cores | ~2.0 GB |
+| NATS | ~4.1 cores | ~2.5 GB |
+| **Total** | **~11.6 cores** | **~5 GB** |
+
+### Costs
+
+The test machine was a GCP [c4d-standard-16](https://cloud.google.com/products/calculator?dl=CjhDaVE0TW1ZM1lXVTVOeTFsTldNeUxUUmhaVEl0T0RBd1pTMWxNelkzWXpjNVlqWmhZMkVRQVE9PRAIGiQ4REFDRjkyMy1CODFBLTQ5RDYtQUE2OS1EMDA3N0UwNDg5MTg) (follow link for machine details)**,** which was sufficient to cover all required resources (CPU and RAM).
+
+The average monthly price for the machine is ~$552.65.
+
+- ~$2.79 per TB ingested (based on 6.6 TB/day)
+
+## Horizontal scaling
+
+Because GlassFlow pipelines operate independently, throughput scales horizontally by adding pipelines.
+
+![Horizontal scaling](/assets/architecture_horizontal_scaling.png)
+
+Kafka events distributed across multiple pipelines through filter logic.
+
+### Example scaling scenarios
+
+| Pipelines | Daily Throughput |
+| --- | --- |
+| 1 pipeline | ~6.6 TB/day |
+| 5 pipelines | ~33 TB/day |
+| 10 pipelines | ~66 TB/day |
+| 20 pipelines | ~132 TB/day |
+
+![Scaling of daily ingestion throughput by adding pipelines.](/assets/architecture_performance_scaling_throughput.png)
+
+Scaling of daily ingestion throughput by adding pipelines.
+
+If a user needs to ingest **100 TB per day**, they can:
+
+- Create ~15–20 pipelines
+- Distribute Kafka load across pipelines through filtering logic
+- Select machine sizes per pipeline depending on workload complexity
+
+There is no shared global bottleneck between pipelines. Scaling is linear as long as Kafka and ClickHouse are provisioned accordingly.
+
+## How it was tested
+
+This test focuses on per-pipeline scalability and efficiency under sustained load.
+
+In GlassFlow, each pipeline runs independently. Therefore, per-pipeline throughput directly translates into horizontal scaling capacity.
+
+### Workload model
+
+We use synthetic data that simulates a common real-world use case:
+**Logging user activity events in an application.**
+
+Each record represents a single user-triggered event similar to those used in analytics, observability, or activity tracking systems.
+
+### Event characteristics
+
+- **Format:** JSON
+- **Average event size:** 1.5 KB
+- **Data model:** flat JSON with identifiers, timestamps, status fields, and metadata
+
+### Sample event
+
+The synthetic events resemble structured application logs commonly ingested into ClickHouse for observability and analytics.
+
+```json
+{
+   "@timestamp":"2026-02-16T17:57:04.572864Z",
+   "@version":1356,
+   "account_id":156122057376641,
+   "app_name":"ccc",
+   "app_version":"staging",
+   "client_ip":"174.197.181.120",
+   "cluster_name":"dns.name.here.com",
+   "component":"",
+   "component_type":"scheduler",
+   "container.image.name":"dns.name.here:443/aa/aaa:asd-0000-asd-10d1d81a",
+   "env_name":"test",
+   "extension_id":"9a08b6a1-03cc-4ee8-8250-d3d8dcc28da5",
+   "host":"ams02-c01-aaa01.int.rclabenv.com",
+   "hostname":"aaa-lkiwhri182-189723i",
+   "kubernetes.container.id":"9c7234b3-c23c-4727-90ae-34f50585a7c8",
+   "kubernetes.container.name":"app",
+   "kubernetes.namespace":"development",
+   "kubernetes.pod.name":"aaa-lkiwhri182-189723i",
+   "location":"nyc01",
+   "log_agent":"logstash",
+   "log_format":"json",
+   "log_level":"ERROR",
+   "log_type":"main",
+   "logger_name":"com.baomidou.dynamic.datasource.DynamicRoutingDataSource",
+   "logger_type":"appender",
+   "logstash_producer":"ams02-c01-lss01",
+   "message":"v=2&cid=413782121.8225781093808&sid=5824311429&sct=6&seg=1&_et=21998&en=purchase&ep.event_id=6520276208363.1&dt=Checkout&ul=es-es&ur=US-TX",
+   "modified_timestamp":false,
+   "port":41524,
+   "producer_time":"2026-02-16T17:57:04.573471",
+   "request_id":"5fce7dc6-c255-4800-89b4-0daf385ac1da",
+   "request_method":"POST",
+   "request_uri":"/api/v1/products",
+   "request_user_agent":"PostmanRuntime/7.28.0",
+   "request_x_user_agent":"",
+   "status_code":"404",
+   "tags":[
+      "audit",
+      "system",
+      "application",
+      "unified",
+      "security"
+   ],
+   "thread":"health-checker-readOnlyDatabase",
+   "timestamp":"2026-02-16T17:57:04.573500",
+   "type":"access"
+}
+```
+
+### Test infrastructure and machine setup
+
+The test ran on Google Cloud Platform (GCP) using dedicated machines.
+
+Kafka and ClickHouse were kept identical across tests.
+
+## Infrastructure
+
+For the testing, we are using the architecture below:
+
+![Test Architecture Setup](/assets/architecture_performance_test_setup.png)
+
+### Components
+
+All components were running as self-hosted version:
+
+- **Locust**
+    
+    Generates a controlled and sustained event load.
+    
+- **Apache Kafka**
+    
+    Acts as the ingestion buffer and decoupling layer.
+    
+- **GlassFlow**
+    
+    Transforms the events
+    
+- **ClickHouse**
+    
+    Same sink target for all tests.
+    
+
+### GlassFlow deployment
+
+GlassFlow was deployed using a distributed, production-like setup, separating ingestion, buffering, and sink responsibilities.
+
+| Component | Purpose |
+| --- | --- |
+| Ingestor | The Ingestor component consumes messages from Kafka topics and publishes them to NATS JetStream streams. |
+| NATS | NATS JetStream acts as an internal message broker between pipeline components. It provides persistent storage and reliable message delivery. |
+| Sink | The Sink component consumes messages from NATS JetStream and writes them to ClickHouse in batches. |
+
+The input rate was increased until CPU saturation was reached with the selected machine.
+
+## Summary
+
+This test demonstrates that:
+
+- A single GlassFlow pipeline can ingest ~6.6 TB per day
+- Latency remains sub-second under sustained load
+- Resource usage is predictable
+- Horizontal scaling is linear and operationally simple
+
+If your workload requires 10 TB, 50 TB, or 100 TB per day, GlassFlow scales by adding pipelines without introducing architectural complexity.
+
+**We hope you enjoyed reading our test. If you want us to run a test for your specific setup, feel free to contact us [here](https://www.glassflow.dev/contact#:~:text=by%20developers%20from-,Send%20us%20a%20message,-Do%20you%20have).**
