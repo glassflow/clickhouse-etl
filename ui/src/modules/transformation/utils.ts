@@ -25,17 +25,17 @@ import {
 import { JSON_DATA_TYPES } from '@/src/config/constants'
 import { getFunctionByName, TransformationFunctionDef } from './functions'
 
-/** Maps legacy or precision-specific types to the simplified JSON_DATA_TYPES set used across Kafka verification and transformation */
+/** Maps legacy or precision-specific types to the simplified JSON_DATA_TYPES set (string, bool, int, uint, float, bytes, array) used across Kafka verification and transformation */
 const LEGACY_TYPE_TO_JSON: Record<string, string> = {
   int8: 'int',
   int16: 'int',
   int32: 'int',
   int64: 'int',
-  uint: 'int',
-  uint8: 'int',
-  uint16: 'int',
-  uint32: 'int',
-  uint64: 'int',
+  uint: 'uint',
+  uint8: 'uint',
+  uint16: 'uint',
+  uint32: 'uint',
+  uint64: 'uint',
   number: 'int',
   float32: 'float',
   float64: 'float',
@@ -46,7 +46,7 @@ const LEGACY_TYPE_TO_JSON: Record<string, string> = {
 }
 
 /**
- * Normalize a type string to the simplified JSON data type set (string, bool, int, float, bytes, array).
+ * Normalize a type string to the simplified JSON data type set (string, bool, int, uint, float, bytes, array).
  * Used to unify type usage across Kafka type verification and transformation steps.
  */
 export function normalizeToJsonDataType(type: string): string {

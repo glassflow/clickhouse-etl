@@ -49,9 +49,9 @@ export const MAX_DELAY_TIME_UNITS = Object.entries(TIME_UNITS).filter(
   ([key]) => key !== 'MILLISECONDS' && key !== 'DAYS' && key !== 'MONTHS' && key !== 'YEARS',
 )
 
-export const JSON_DATA_TYPES = ['string', 'bool', 'int', 'float', 'bytes', 'array']
+export const JSON_DATA_TYPES = ['string', 'bool', 'int', 'uint', 'float', 'bytes', 'array']
 
-export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int']
+export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int', 'uint']
 
 // ClickHouse data types
 export const CLICKHOUSE_DATA_TYPES = [

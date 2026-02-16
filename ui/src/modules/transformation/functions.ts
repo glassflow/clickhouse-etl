@@ -33,7 +33,7 @@ export interface TransformationFunctionDef {
 }
 
 // All numeric types for convenience (simplified to basic types)
-const NUMERIC_TYPES = ['int', 'float']
+const NUMERIC_TYPES = ['int', 'uint', 'float']
 const STRING_TYPES = ['string']
 const ALL_TYPES = [...STRING_TYPES, ...NUMERIC_TYPES, 'bool', 'bytes', 'array']
 

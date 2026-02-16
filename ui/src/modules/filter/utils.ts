@@ -19,9 +19,9 @@ export interface OperatorDefinition {
 }
 
 // All supported field types for operators (simplified to basic types)
-const ALL_TYPES = ['string', 'int', 'float', 'bool']
+const ALL_TYPES = ['string', 'int', 'uint', 'float', 'bool']
 
-const NUMERIC_TYPES = ['int', 'float']
+const NUMERIC_TYPES = ['int', 'uint', 'float']
 
 export const FILTER_OPERATORS: OperatorDefinition[] = [
   {
