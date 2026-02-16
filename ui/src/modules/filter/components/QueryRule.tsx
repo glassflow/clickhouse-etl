@@ -154,11 +154,6 @@ export function QueryRule({
     }))
   }, [availableOperators])
 
-  // Check if there are numeric fields available (for arithmetic mode)
-  const hasNumericFields = useMemo(() => {
-    return availableFields.some((f) => isNumericType(f.type))
-  }, [availableFields])
-
   // Handle NOT toggle
   const handleNotToggle = useCallback(
     (checked: boolean) => {
@@ -450,25 +445,23 @@ export function QueryRule({
               </Label>
             </div>
 
-            {/* Expression mode toggle - only show if there are numeric fields */}
-            {hasNumericFields && (
-              <div className="flex items-center gap-2">
-                <Switch
-                  id={`rule-expr-${rule.id}`}
-                  checked={isExpressionMode}
-                  onCheckedChange={handleExpressionModeToggle}
-                  disabled={readOnly}
-                  className="data-[state=checked]:bg-[var(--color-background-primary)]"
-                />
-                <Label
-                  htmlFor={`rule-expr-${rule.id}`}
-                  className="text-xs text-[var(--text-secondary)] cursor-pointer flex items-center gap-1"
-                >
-                  <CalculatorIcon className="h-3.5 w-3.5" />
-                  Expression
-                </Label>
-              </div>
-            )}
+            {/* Expression mode toggle - always show so user can use manual expression (e.g. concat) even without numeric fields */}
+            <div className="flex items-center gap-2">
+              <Switch
+                id={`rule-expr-${rule.id}`}
+                checked={isExpressionMode}
+                onCheckedChange={handleExpressionModeToggle}
+                disabled={readOnly}
+                className="data-[state=checked]:bg-[var(--color-background-primary)]"
+              />
+              <Label
+                htmlFor={`rule-expr-${rule.id}`}
+                className="text-xs text-[var(--text-secondary)] cursor-pointer flex items-center gap-1"
+              >
+                <CalculatorIcon className="h-3.5 w-3.5" />
+                Expression
+              </Label>
+            </div>
           </div>
           <Button
             variant="ghost"

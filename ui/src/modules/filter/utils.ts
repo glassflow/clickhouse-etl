@@ -215,10 +215,26 @@ export const arithmeticOperandToExpr = (operand: ArithmeticOperand | ArithmeticE
 }
 
 /**
+ * Check if expression is a synthetic "single operand" node (left + 0) used for
+ * single field/function-call left side (e.g. concat(a,b)); emit only the left.
+ */
+function isSyntheticSingleOperandExpression(expr: ArithmeticExpressionNode): boolean {
+  return (
+    expr.operator === '+' &&
+    !isArithmeticExpressionNode(expr.right) &&
+    expr.right.type === 'literal' &&
+    expr.right.value === 0
+  )
+}
+
+/**
  * Convert an arithmetic expression to expr string
- * Always wraps in parentheses for backend safety
+ * Always wraps in parentheses for backend safety (except synthetic single-operand: emit left only)
  */
 export const arithmeticExpressionToExpr = (expr: ArithmeticExpressionNode): string => {
+  if (isSyntheticSingleOperandExpression(expr)) {
+    return arithmeticOperandToExpr(expr.left)
+  }
   const left = arithmeticOperandToExpr(expr.left)
   const right = arithmeticOperandToExpr(expr.right)
 
@@ -307,6 +323,11 @@ export const arithmeticExpressionToDisplayString = (
   parentOperator?: ArithmeticOperator,
   isRightOperand?: boolean,
 ): string => {
+  // Synthetic single-operand (e.g. concat(a,b)): show only the left, not "+ 0"
+  if (isSyntheticSingleOperandExpression(expr)) {
+    return arithmeticOperandToDisplayString(expr.left, expr.operator, false)
+  }
+
   const currentOp = expr.operator
   const currentPrecedence = OPERATOR_PRECEDENCE[currentOp]
 
