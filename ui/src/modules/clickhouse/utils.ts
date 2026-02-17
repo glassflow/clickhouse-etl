@@ -631,7 +631,7 @@ export const generateApiConfig = ({
   }
 }
 
-// Helper function to infer JSON type
+// Helper function to infer JSON type (simplified to basic types)
 export function inferJsonType(value: any): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
@@ -639,54 +639,26 @@ export function inferJsonType(value: any): string {
   const type = typeof value
 
   if (type === 'number') {
-    // Check if it's an integer
+    // All integers (positive or negative) → 'int'
+    // All floating point numbers → 'float'
     if (Number.isInteger(value)) {
-      // Determine the integer type based on value range
-      if (value >= 0) {
-        // Unsigned integers
-        if (value <= 255) return 'uint8'
-        if (value <= 65535) return 'uint16'
-        if (value <= 4294967295) return 'uint32'
-        if (value <= Number.MAX_SAFE_INTEGER) return 'uint64'
-        return 'string' // For numbers larger than MAX_SAFE_INTEGER, use string
-      } else {
-        // Signed integers
-        if (value >= -128 && value <= 127) return 'int8'
-        if (value >= -32768 && value <= 32767) return 'int16'
-        if (value >= -2147483648 && value <= 2147483647) return 'int32'
-        if (value >= Number.MIN_SAFE_INTEGER && value <= Number.MAX_SAFE_INTEGER) return 'int64'
-        return 'string' // For numbers smaller than MIN_SAFE_INTEGER, use string
+      // For numbers outside safe integer range, use string
+      if (value > Number.MAX_SAFE_INTEGER || value < Number.MIN_SAFE_INTEGER) {
+        return 'string'
       }
-    } else {
-      // It's a floating point number
-      // Use a heuristic to determine if it needs float64 precision
-      const absValue = Math.abs(value)
-      if (absValue < 3.4e38 && absValue > 1.2e-38) return 'float32'
-      return 'float64'
+      return 'int'
     }
+    return 'float'
   }
 
   if (type === 'boolean') return 'bool'
 
-  if (type === 'string') {
-    // Try to infer if this string might represent a specific type
-    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
-      return 'string' // UUID pattern
-    }
-
-    // ISO date pattern
-    if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/.test(value)) {
-      return 'string' // Date or DateTime pattern
-    }
-
-    return 'string'
-  }
+  if (type === 'string') return 'string'
 
   if (Array.isArray(value)) return 'array'
 
-  // For objects, return object type
-  return 'object'
+  // For objects, return bytes (will be serialized to JSON string)
+  return 'bytes'
 }
 
 // Helper function to find best matching field
@@ -746,9 +718,10 @@ export const getFieldType = (data: any, fieldPath: string): string => {
 
 /**
  * Maps JSON/Kafka types to compatible ClickHouse types
+ * Simplified to use basic types: string, bool, int, float, bytes, array
  */
 export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
-  // Kafka types
+  // Primary simplified types
   string: [
     'String',
     'FixedString',
@@ -767,45 +740,31 @@ export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
     'Date',
     'Date32',
   ],
-  int8: ['Int8'],
-  int16: ['Int16'],
-  int32: ['Int32'],
-  int64: ['Int64', 'DateTime', 'DateTime64'],
-  float32: ['Float32'],
-  float64: ['Float64', 'DateTime', 'DateTime64'],
   bool: ['Bool'],
+  int: ['Int8', 'Int16', 'Int32', 'Int64', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'DateTime', 'DateTime64'],
+  float: ['Float32', 'Float64', 'Decimal', 'DateTime', 'DateTime64'],
   bytes: ['String'],
+  array: ['Array', 'String'],
 
-  // Additional JSON types
-  int: ['Int8', 'Int16', 'Int32', 'Int64'],
-  float: ['Float32', 'Float64'],
-  uint8: ['UInt8'],
-  uint16: ['UInt16'],
-  uint32: ['UInt32'],
-  uint64: ['UInt64'],
+  // Backward compatibility: legacy precision types map to same ClickHouse types
+  int8: ['Int8', 'Int16', 'Int32', 'Int64'],
+  int16: ['Int16', 'Int32', 'Int64'],
+  int32: ['Int32', 'Int64'],
+  int64: ['Int64', 'DateTime', 'DateTime64'],
   uint: ['UInt8', 'UInt16', 'UInt32', 'UInt64'],
+  uint8: ['UInt8', 'UInt16', 'UInt32', 'UInt64'],
+  uint16: ['UInt16', 'UInt32', 'UInt64'],
+  uint32: ['UInt32', 'UInt64'],
+  uint64: ['UInt64'],
+  float32: ['Float32', 'Float64'],
+  float64: ['Float64'],
 
-  // JavaScript types that might come from inferJsonType
-  number: [
-    'Int8',
-    'Int16',
-    'Int32',
-    'Int64',
-    'UInt8',
-    'UInt16',
-    'UInt32',
-    'UInt64',
-    'Float32',
-    'Float64',
-    'Decimal',
-    'DateTime',
-    'DateTime64',
-  ],
+  // JavaScript types for edge cases
+  number: ['Int8', 'Int16', 'Int32', 'Int64', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'Float32', 'Float64', 'Decimal'],
   boolean: ['Bool'],
-  object: ['String'], // Objects will be serialized to JSON strings
-  array: ['Array', 'String'], // Arrays might be handled specially or serialized to strings
-  null: ['Nullable'], // Special case
-  undefined: ['Nullable'], // Special case
+  object: ['String'],
+  null: ['Nullable'],
+  undefined: ['Nullable'],
 }
 
 /**

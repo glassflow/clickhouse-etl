@@ -223,6 +223,8 @@ const getPlaceholderForType = (type: string): any => {
       return '<added_field>'
     case 'number':
     case 'integer':
+    case 'int':
+    case 'uint':
     case 'float':
     case 'double':
       return 0

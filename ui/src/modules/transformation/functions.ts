@@ -32,22 +32,8 @@ export interface TransformationFunctionDef {
   }
 }
 
-// All numeric types for convenience
-const NUMERIC_TYPES = [
-  'int',
-  'int8',
-  'int16',
-  'int32',
-  'int64',
-  'uint',
-  'uint8',
-  'uint16',
-  'uint32',
-  'uint64',
-  'float',
-  'float32',
-  'float64',
-]
+// All numeric types for convenience (simplified to basic types)
+const NUMERIC_TYPES = ['int', 'uint', 'float']
 const STRING_TYPES = ['string']
 const ALL_TYPES = [...STRING_TYPES, ...NUMERIC_TYPES, 'bool', 'bytes', 'array']
 
@@ -69,7 +55,7 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
         required: true,
       },
     ],
-    returnType: 'object',
+    returnType: 'string', // parsed query as string representation; normalized from object for unified type set
     example: {
       input: 'parseQuery("cid=123&sid=456")',
       output: '{"cid": "123", "sid": "456"}',
@@ -244,7 +230,7 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
         required: true,
       },
     ],
-    returnType: '[]string',
+    returnType: 'array',
     example: {
       input: 'split("a,b,c", ",")',
       output: '["a", "b", "c"]',
@@ -380,7 +366,7 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
         required: true,
       },
     ],
-    returnType: 'float64',
+    returnType: 'float',
     example: {
       input: 'toFloat("123.45")',
       output: '123.45',
@@ -401,7 +387,7 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
         required: true,
       },
     ],
-    returnType: 'time.Time',
+    returnType: 'string', // datetime normalized to string for unified type set
     example: {
       input: 'parseISO8601("2025-10-20 08:25:44.068833")',
       output: 'time.Time object',
@@ -513,9 +499,9 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
     args: [
       {
         name: 'queryObject',
-        description: 'The parsed query object',
+        description: 'The parsed query object (string in unified type set)',
         type: 'field',
-        fieldTypes: ['object'],
+        fieldTypes: ['string'],
         required: true,
       },
       {
@@ -538,9 +524,9 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
     args: [
       {
         name: 'queryObject',
-        description: 'The parsed query object',
+        description: 'The parsed query object (string in unified type set)',
         type: 'field',
-        fieldTypes: ['object'],
+        fieldTypes: ['string'],
         required: true,
       },
       {
@@ -565,13 +551,13 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
     args: [
       {
         name: 'queryObject',
-        description: 'The parsed query object',
+        description: 'The parsed query object (string in unified type set)',
         type: 'field',
-        fieldTypes: ['object'],
+        fieldTypes: ['string'],
         required: true,
       },
     ],
-    returnType: '[]string',
+    returnType: 'array',
     example: {
       input: 'keys(parseQuery("a=1&b=2&c=3"))',
       output: '["a", "b", "c"]',
@@ -586,7 +572,7 @@ export const TRANSFORMATION_FUNCTIONS: TransformationFunctionDef[] = [
         name: 'value',
         description: 'The value to measure',
         type: 'field',
-        fieldTypes: ['string', 'array', 'object'],
+        fieldTypes: ['string', 'array'],
         required: true,
       },
     ],

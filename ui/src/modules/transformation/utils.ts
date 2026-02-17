@@ -25,6 +25,38 @@ import {
 import { JSON_DATA_TYPES } from '@/src/config/constants'
 import { getFunctionByName, TransformationFunctionDef } from './functions'
 
+/** Maps legacy or precision-specific types to the simplified JSON_DATA_TYPES set (string, bool, int, uint, float, bytes, array) used across Kafka verification and transformation */
+const LEGACY_TYPE_TO_JSON: Record<string, string> = {
+  int8: 'int',
+  int16: 'int',
+  int32: 'int',
+  int64: 'int',
+  uint: 'uint',
+  uint8: 'uint',
+  uint16: 'uint',
+  uint32: 'uint',
+  uint64: 'uint',
+  number: 'int',
+  float32: 'float',
+  float64: 'float',
+  '[]string': 'array',
+  'time.Time': 'string',
+  object: 'string',
+  boolean: 'bool',
+}
+
+/**
+ * Normalize a type string to the simplified JSON data type set (string, bool, int, uint, float, bytes, array).
+ * Used to unify type usage across Kafka type verification and transformation steps.
+ */
+export function normalizeToJsonDataType(type: string): string {
+  if (!type) return 'string'
+  const lower = type.toLowerCase().trim()
+  const mapped = LEGACY_TYPE_TO_JSON[lower] ?? LEGACY_TYPE_TO_JSON[type] ?? null
+  if (mapped) return mapped
+  return JSON_DATA_TYPES.includes(lower) ? lower : 'string'
+}
+
 /**
  * Validation result for a transformation field
  */
@@ -791,29 +823,13 @@ export const getIntermediarySchema = (config: TransformationConfig): Intermediar
 }
 
 /**
- * Normalize a function return type (or any type) to a value in JSON_DATA_TYPES,
- * so transformation output types stay consistent with Kafka type verification.
- */
-export const normalizeOutputTypeToJsonDataType = (returnType: string): string => {
-  if (JSON_DATA_TYPES.includes(returnType)) {
-    return returnType
-  }
-  // Map transformation/backend-specific return types to JSON_DATA_TYPES
-  const mapping: Record<string, string> = {
-    'time.Time': 'string',
-    '[]string': 'array',
-  }
-  return mapping[returnType] ?? 'string'
-}
-
-/**
  * Infer the output type for a computed field based on its function.
- * Returns a type from JSON_DATA_TYPES for consistency with type verification step.
+ * Returns a normalized type from the simplified JSON_DATA_TYPES set for consistency with Kafka type verification.
  */
 export const inferOutputType = (functionName: string): string => {
   const funcDef = getFunctionByName(functionName)
   if (funcDef) {
-    return normalizeOutputTypeToJsonDataType(funcDef.returnType)
+    return normalizeToJsonDataType(funcDef.returnType)
   }
   return 'string' // Default to string if unknown
 }

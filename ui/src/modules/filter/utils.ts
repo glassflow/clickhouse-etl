@@ -18,40 +18,10 @@ export interface OperatorDefinition {
   supportedTypes: string[] // Field types that support this operator
 }
 
-// All supported field types for operators
-const ALL_TYPES = [
-  'string',
-  'int',
-  'int8',
-  'int16',
-  'int32',
-  'int64',
-  'uint',
-  'uint8',
-  'uint16',
-  'uint32',
-  'uint64',
-  'float',
-  'float32',
-  'float64',
-  'bool',
-]
+// All supported field types for operators (simplified to basic types)
+const ALL_TYPES = ['string', 'int', 'uint', 'float', 'bool']
 
-const NUMERIC_TYPES = [
-  'int',
-  'int8',
-  'int16',
-  'int32',
-  'int64',
-  'uint',
-  'uint8',
-  'uint16',
-  'uint32',
-  'uint64',
-  'float',
-  'float32',
-  'float64',
-]
+const NUMERIC_TYPES = ['int', 'uint', 'float']
 
 export const FILTER_OPERATORS: OperatorDefinition[] = [
   {
