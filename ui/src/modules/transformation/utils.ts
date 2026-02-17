@@ -403,6 +403,34 @@ export const toTransformationExpr = (config: TransformationConfig): string => {
 }
 
 /**
+ * Build API-shaped transform array from transformation config.
+ * Used for the evaluate endpoint and for pipeline payload (e.g. v2 adapter).
+ */
+export interface TransformArrayItem {
+  expression: string
+  output_name: string
+  output_type: string
+}
+
+export const toTransformArray = (config: TransformationConfig): TransformArrayItem[] => {
+  if (!config.enabled || config.fields.length === 0) {
+    return []
+  }
+
+  return config.fields
+    .filter(isFieldComplete)
+    .map((field) => {
+      const expression = fieldToExpr(field)
+      return {
+        expression: expression || '',
+        output_name: field.outputFieldName,
+        output_type: field.outputFieldType || 'string',
+      }
+    })
+    .filter((item) => item.expression !== '')
+}
+
+/**
  * Validate a nested function argument recursively
  */
 export const validateNestedFunctionArg = (arg: FunctionArgNestedFunction): { isValid: boolean; error?: string } => {

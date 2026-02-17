@@ -786,3 +786,43 @@ export const validateFilterExpression = async (
     return { valid: false, error: error.message || 'Failed to validate filter expression' }
   }
 }
+
+// Transformation expression evaluate API
+export interface TransformExpressionItem {
+  expression: string
+  output_name: string
+  output_type: string
+}
+
+export interface TransformationValidationResult {
+  valid: boolean
+  error?: string
+}
+
+export const validateTransformationExpression = async (
+  transform: TransformExpressionItem[],
+  sample: Record<string, unknown>,
+): Promise<TransformationValidationResult> => {
+  try {
+    const url = getApiUrl('transform/expression/evaluate')
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'expr_lang_transform',
+        config: { transform },
+        sample,
+      }),
+    })
+
+    if (response.ok) {
+      return { valid: true }
+    }
+
+    const data = await response.json()
+    const errorMessage = data?.details?.error || data?.message || 'Failed to evaluate transformation'
+    return { valid: false, error: errorMessage }
+  } catch (error: any) {
+    return { valid: false, error: error.message || 'Failed to validate transformation expression' }
+  }
+}

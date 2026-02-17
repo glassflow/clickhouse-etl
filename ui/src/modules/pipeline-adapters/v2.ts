@@ -1,8 +1,7 @@
 import { PipelineAdapter } from './types'
 import { InternalPipelineConfig, Pipeline } from '@/src/types/pipeline'
 import { PipelineVersion } from '@/src/config/pipeline-versions'
-import { fieldToExpr } from '@/src/modules/transformation/utils'
-import { TransformationField } from '@/src/store/transformation.store'
+import { toTransformArray } from '@/src/modules/transformation/utils'
 
 export class V2PipelineAdapter implements PipelineAdapter {
   version = PipelineVersion.V2
@@ -282,35 +281,10 @@ export class V2PipelineAdapter implements PipelineAdapter {
         .replace(/-transform$/, '')
       transformationId = `${cleanName}-transform`
 
-      // Convert transformation fields to stateless_transformation format
-      const transformArray = transformation.fields.map((field: any) => {
-        // Create a TransformationField-like object for fieldToExpr (must include all props used by fieldToExpr)
-        const fieldObj: TransformationField = {
-          id: field.id || '',
-          type: field.type || 'passthrough',
-          outputFieldName: field.outputFieldName || '',
-          outputFieldType: field.outputFieldType || 'string',
-          ...(field.expressionMode !== undefined && { expressionMode: field.expressionMode }),
-          ...(field.rawExpression !== undefined && { rawExpression: field.rawExpression }),
-          ...(field.arithmeticExpression !== undefined && { arithmeticExpression: field.arithmeticExpression }),
-          ...(field.type === 'passthrough'
-            ? {
-                sourceField: field.sourceField || '',
-                sourceFieldType: field.sourceFieldType || 'string',
-              }
-            : {
-                functionName: field.functionName || '',
-                functionArgs: field.functionArgs || [],
-              }),
-        }
-
-        const expression = fieldToExpr(fieldObj)
-
-        return {
-          expression,
-          output_name: field.outputFieldName,
-          output_type: field.outputFieldType,
-        }
+      // Convert transformation fields to stateless_transformation format (same as evaluate API)
+      const transformArray = toTransformArray({
+        enabled: true,
+        fields: transformation.fields,
       })
 
       apiConfig.stateless_transformation = {

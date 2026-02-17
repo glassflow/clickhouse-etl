@@ -1,12 +1,14 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import FormActions from '@/src/components/shared/FormActions'
 import { isFieldComplete } from '@/src/store/transformation.store'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { buildEffectiveEvent, getSchemaModifications, type SchemaField } from '@/src/utils/common.client'
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import type { ApiValidationStatus } from './hooks/useTransformationActions'
 
 // Hooks
 import { useAvailableFields } from './hooks/useAvailableFields'
@@ -73,6 +75,27 @@ export function TransformationConfigurator({
   // Track if auto-population has been attempted (to prevent re-triggering)
   const [hasAutoPopulated, setHasAutoPopulated] = useState(false)
 
+  // API validation state (evaluate endpoint)
+  const [apiValidation, setApiValidationState] = useState<{
+    status: ApiValidationStatus
+    error?: string
+  }>({ status: 'idle' })
+  const setApiValidation = useCallback((state: { status: ApiValidationStatus; error?: string }) => {
+    setApiValidationState(state)
+  }, [])
+
+  // Sample for API validation: effective event from first topic (must be loaded in Kafka step)
+  const sampleForValidation = useMemo(() => {
+    if (effectiveEventData == null || typeof effectiveEventData !== 'object') return null
+    if (Object.keys(effectiveEventData).length === 0) return null
+    return effectiveEventData as Record<string, unknown>
+  }, [effectiveEventData])
+
+  const apiValidationOption = useMemo(
+    () => ({ sample: sampleForValidation, setApiValidation }),
+    [sampleForValidation, setApiValidation],
+  )
+
   // Custom hook for action handlers
   const actions = useTransformationActions(
     { transformationStore, validationEngine, coreStore },
@@ -82,6 +105,7 @@ export function TransformationConfigurator({
     { setSaveAttempted: validation.setSaveAttempted, setLocalValidation: validation.setLocalValidation },
     setIsSaveSuccess,
     setHasAutoPopulated,
+    apiValidationOption,
   )
 
   // Auto-populate fields from Kafka schema if not already configured
@@ -143,6 +167,13 @@ export function TransformationConfigurator({
 
   // Determine if we should show the schema preview
   const showSchemaPreview = transformationConfig.fields.length > 0 && completeFieldCount > 0
+
+  // Show API validation status when transformation is enabled and has fields
+  const showApiValidation =
+    !readOnly &&
+    transformationConfig.enabled &&
+    transformationConfig.fields.length > 0 &&
+    completeFieldCount > 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -219,6 +250,41 @@ export function TransformationConfigurator({
         </div>
       )}
 
+      {/* API validation status (evaluate endpoint) */}
+      {showApiValidation && (
+        <div className="flex flex-col gap-1">
+          {apiValidation.status === 'validating' && (
+            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <div className="w-4 h-4 border-2 border-[var(--text-secondary)] border-t-transparent rounded-full animate-spin" />
+              Validating expression...
+            </div>
+          )}
+          {apiValidation.status === 'valid' && (
+            <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
+              <CheckCircleIcon className="w-4 h-4" />
+              Valid expression
+            </div>
+          )}
+          {apiValidation.status === 'invalid' && apiValidation.error && (
+            <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-critical)]">
+              <XCircleIcon className="w-4 h-4 flex-shrink-0" />
+              <span>{apiValidation.error}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* No sample event message */}
+      {!readOnly &&
+        transformationConfig.enabled &&
+        transformationConfig.fields.length > 0 &&
+        completeFieldCount > 0 &&
+        sampleForValidation == null && (
+          <div className="text-sm text-[var(--text-secondary)]">
+            Load a sample event in the previous step to validate expressions.
+          </div>
+        )}
+
       {/* No fields available message */}
       {!readOnly && availableFields.length === 0 && hasNoTransformation && (
         <div className="p-4 card-outline rounded-[var(--radius-large)] text-center text-[var(--text-secondary)]">
@@ -232,7 +298,7 @@ export function TransformationConfigurator({
           standalone={standalone}
           onSubmit={actions.handleSave}
           onDiscard={actions.handleDiscardChanges}
-          isLoading={false}
+          isLoading={apiValidation.status === 'validating'}
           isSuccess={isSaveSuccess}
           disabled={!canContinue}
           successText="Save Transformation"

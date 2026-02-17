@@ -6,8 +6,10 @@ import { StepKeys } from '@/src/config/constants'
 import {
   validateTransformationConfig,
   toTransformationExpr,
+  toTransformArray,
   TransformationConfigValidation,
 } from '../utils'
+import { validateTransformationExpression } from '@/src/api/pipeline-api'
 
 export interface AvailableField {
   name: string
@@ -46,6 +48,12 @@ export interface TransformationActionsValidation {
   setLocalValidation: (validation: TransformationConfigValidation) => void
 }
 
+export type ApiValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid'
+
+export interface TransformationActionsApiValidation {
+  setApiValidation: (state: { status: ApiValidationStatus; error?: string }) => void
+}
+
 export interface UseTransformationActionsReturn {
   /** Add a new passthrough field */
   handleAddPassthroughField: () => void
@@ -82,6 +90,7 @@ export interface UseTransformationActionsReturn {
  * @param validation - Validation state setters
  * @param setIsSaveSuccess - Callback to set save success state
  * @param setHasAutoPopulated - Callback to set auto-populated state
+ * @param apiValidation - Optional API validation (sample + setApiValidation) for evaluate endpoint
  * @returns Object containing all action handlers
  */
 export function useTransformationActions(
@@ -91,7 +100,11 @@ export function useTransformationActions(
   options: TransformationActionsOptions,
   validation: TransformationActionsValidation,
   setIsSaveSuccess: (value: boolean) => void,
-  setHasAutoPopulated: (value: boolean) => void
+  setHasAutoPopulated: (value: boolean) => void,
+  apiValidation?: {
+    sample: Record<string, unknown> | null | undefined
+    setApiValidation: (state: { status: ApiValidationStatus; error?: string }) => void
+  }
 ): UseTransformationActionsReturn {
   const { transformationStore, validationEngine, coreStore } = stores
   const { readOnly, standalone, onCompleteStep, onCompleteStandaloneEditing } = options
@@ -147,15 +160,50 @@ export function useTransformationActions(
   }, [transformationStore, validationEngine, onCompleteStep])
 
   // Save and continue
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     setSaveAttempted(true)
+    apiValidation?.setApiValidation({ status: 'idle' })
 
-    // Validate
+    // Local validation
     const validationResult = validateTransformationConfig(transformationConfig)
     setLocalValidation(validationResult)
 
     if (!validationResult.isValid) {
       return
+    }
+
+    const hasTransformFields =
+      transformationConfig.enabled && transformationConfig.fields.length > 0
+
+    if (hasTransformFields) {
+      const sample = apiValidation?.sample
+      if (sample == null || Object.keys(sample).length === 0) {
+        apiValidation?.setApiValidation({
+          status: 'invalid',
+          error: 'Load a sample event in the previous step to validate expressions.',
+        })
+        return
+      }
+
+      const transformArray = toTransformArray(transformationConfig)
+      if (transformArray.length === 0) {
+        apiValidation?.setApiValidation({
+          status: 'invalid',
+          error: 'No valid transformation fields to evaluate.',
+        })
+        return
+      }
+
+      apiValidation?.setApiValidation({ status: 'validating' })
+      const result = await validateTransformationExpression(transformArray, sample)
+      apiValidation?.setApiValidation(
+        result.valid
+          ? { status: 'valid' }
+          : { status: 'invalid', error: result.error }
+      )
+      if (!result.valid) {
+        return
+      }
     }
 
     // Generate final expression
@@ -186,6 +234,7 @@ export function useTransformationActions(
     setSaveAttempted,
     setLocalValidation,
     setIsSaveSuccess,
+    apiValidation,
   ])
 
   // Discard changes
