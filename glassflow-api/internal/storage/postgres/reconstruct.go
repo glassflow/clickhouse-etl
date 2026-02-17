@@ -96,6 +96,13 @@ func reconstructMapperConfig(sourceConfigJSON, sinkConfigJSON json.RawMessage) (
 		return models.MapperConfig{}, fmt.Errorf("unmarshal sink config: %w", err)
 	}
 
+	// Normalize field types to basic types (e.g. int32 -> int) for existing configs
+	for _, streamCfg := range sourceWrapper.Streams {
+		for i := range streamCfg.Fields {
+			streamCfg.Fields[i].FieldType = internal.NormalizeToBasicKafkaType(streamCfg.Fields[i].FieldType)
+		}
+	}
+
 	return models.MapperConfig{
 		Type:        internal.SchemaMapperJSONToCHType,
 		Streams:     sourceWrapper.Streams,

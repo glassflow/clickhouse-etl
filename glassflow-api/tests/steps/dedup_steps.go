@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/nats-io/nats-server/v2/server"
-	natsTest "github.com/nats-io/nats-server/v2/test"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
@@ -28,6 +28,28 @@ func NewDedupTestSuite() *DedupTestSuite {
 	}
 }
 
+// runNATSServerWithTimeout starts a NATS server in a goroutine and waits for it to be ready.
+// Uses a configurable timeout (longer than the default 10s in nats-server/test) for slow or busy environments.
+func runNATSServerWithTimeout(opts *server.Options, timeout time.Duration) *server.Server {
+	if opts == nil {
+		opts = &server.Options{
+			Host:   "127.0.0.1",
+			Port:   -1,
+			NoLog:  true,
+			NoSigs: true,
+		}
+	}
+	s, err := server.NewServer(opts)
+	if err != nil || s == nil {
+		panic(fmt.Sprintf("NewServer: %v", err))
+	}
+	go s.Start()
+	if !s.ReadyForConnections(timeout) {
+		panic("NATS server did not become ready within " + timeout.String())
+	}
+	return s
+}
+
 func (s *DedupTestSuite) SetupResources() error {
 	opts := &server.Options{
 		Host:      "127.0.0.1",
@@ -36,7 +58,7 @@ func (s *DedupTestSuite) SetupResources() error {
 		NoSigs:    true,
 		JetStream: true,
 	}
-	s.natsServer = natsTest.RunServer(opts)
+	s.natsServer = runNATSServerWithTimeout(opts, 30*time.Second)
 
 	natsClient, err := client.NewNATSClient(context.Background(), s.natsServer.ClientURL())
 	if err != nil {

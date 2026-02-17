@@ -127,7 +127,7 @@ func resolveJSONSchemaType(property gjson.Result) (string, error) {
 	case internal.JSONTypeInteger:
 		return internal.KafkaTypeInt, nil
 	case internal.JSONTypeNumber:
-		return internal.KafkaTypeFloat64, nil
+		return internal.KafkaTypeFloat, nil
 	case internal.JSONTypeBoolean:
 		return internal.KafkaTypeBool, nil
 	default:

@@ -188,7 +188,7 @@ func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentCo
 			Deduplication: models.DeduplicationConfig{
 				Enabled: t.Deduplication.Enabled,
 				ID:      t.Deduplication.ID,
-				Type:    t.Deduplication.Type,
+				Type:    internal.NormalizeToBasicKafkaType(t.Deduplication.Type),
 				Window:  t.Deduplication.Window,
 			},
 			OutputStreamID:      models.GetIngestorStreamName(p.PipelineID, t.Topic),
@@ -384,7 +384,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 	for _, field := range pipeline.Schema.Fields {
 		fieldsBySource[field.SourceID] = append(fieldsBySource[field.SourceID], models.StreamDataField{
 			FieldName: field.Name,
-			FieldType: field.Type,
+			FieldType: internal.NormalizeToBasicKafkaType(field.Type),
 		})
 	}
 
@@ -453,7 +453,7 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 		if field.SourceID == topicName {
 			fields = append(fields, models.StreamDataField{
 				FieldName: field.Name,
-				FieldType: field.Type,
+				FieldType: internal.NormalizeToBasicKafkaType(field.Type),
 			})
 		}
 	}
@@ -571,7 +571,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 				schemaFields = append(schemaFields, schemaField{
 					SourceID:   streamName,
 					Name:       field.FieldName,
-					Type:       field.FieldType,
+					Type:       internal.NormalizeToBasicKafkaType(field.FieldType),
 					ColumnName: columnName,
 					ColumnType: columnType,
 				})
