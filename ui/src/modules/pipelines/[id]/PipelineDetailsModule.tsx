@@ -47,6 +47,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const [showConfigurationSection, setShowConfigurationSection] = useState(false)
   const [isTagsModalVisible, setIsTagsModalVisible] = useState(false)
   const [isSavingTags, setIsSavingTags] = useState(false)
+  const [refreshDLQTrigger, setRefreshDLQTrigger] = useState(0)
 
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
@@ -157,6 +158,10 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Close the standalone step renderer - delegates to the view state hook
   const handleCloseStep = closeStep
 
+  const handleDLQFlushed = useCallback(() => {
+    setRefreshDLQTrigger((k) => k + 1)
+  }, [])
+
   // redirect to pipelines list after deletion
   const handlePipelineDeleted = () => {
     // Redirect to pipelines list after deletion
@@ -238,6 +243,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             pipeline={pipeline}
             onPipelineUpdate={handlePipelineUpdate}
             onPipelineDeleted={handlePipelineDeleted}
+            onDLQFlushed={handleDLQFlushed}
             showHeader={showHeader}
             onManageTags={openTagsModal}
             tags={pipeline.metadata?.tags}
@@ -248,7 +254,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             {/* Show Status Overview when 'monitor' is selected and no step is active */}
             {activeSection === 'monitor' && !activeStep && (
               <>
-                <PipelineStatusOverviewSection pipeline={pipeline} showStatusOverview={showStatusOverview} />
+                <PipelineStatusOverviewSection
+                  pipeline={pipeline}
+                  showStatusOverview={showStatusOverview}
+                  refreshDLQTrigger={refreshDLQTrigger}
+                />
 
                 {/* Pipeline Configuration Overview - shows the visual representation of the pipeline */}
                 <div

@@ -109,7 +109,7 @@ const renderExpandedView = ({ totalDlq, lastEventReceived, unconsumedEvents, las
   )
 }
 
-function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
+function DeadLetterQueueCard({ pipelineId, refreshTrigger }: { pipelineId: string; refreshTrigger?: number }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [metrics, setMetrics] = useState<DLQMetrics>(defaultMetrics)
   const [loading, setLoading] = useState(true)
@@ -140,7 +140,7 @@ function DeadLetterQueueCard({ pipelineId }: { pipelineId: string }) {
     if (pipelineId) {
       fetchDLQState()
     }
-  }, [pipelineId])
+  }, [pipelineId, refreshTrigger])
 
   // Calculate height when content changes - use requestAnimationFrame to ensure DOM has updated
   useEffect(() => {

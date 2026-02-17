@@ -7,9 +7,11 @@ import { cn } from '@/src/utils/common.client'
 function PipelineStatusOverviewSection({
   pipeline,
   showStatusOverview,
+  refreshDLQTrigger,
 }: {
   pipeline: Pipeline
   showStatusOverview: boolean
+  refreshDLQTrigger?: number
 }) {
   return (
     <div
@@ -21,7 +23,7 @@ function PipelineStatusOverviewSection({
       {/* <Card className="py-0 px-0 mb-4 border-none"> */}
       <div className="flex flex-row gap-4 items-start">
         {/* <PipelineHealthCard status="stable" /> */}
-        <DeadLetterQueueCard pipelineId={pipeline.pipeline_id} />
+        <DeadLetterQueueCard pipelineId={pipeline.pipeline_id} refreshTrigger={refreshDLQTrigger} />
         <ClickHouseTableMetricsCard pipeline={pipeline} />
       </div>
       {/* </Card> */}

@@ -40,6 +40,7 @@ interface PipelineDetailsHeaderProps {
   pipeline: Pipeline
   onPipelineUpdate?: (updatedPipeline: Pipeline) => void
   onPipelineDeleted?: () => void
+  onDLQFlushed?: () => void
   actions?: React.ReactNode
   showHeader?: boolean
   onManageTags?: () => void
@@ -50,6 +51,7 @@ function PipelineDetailsHeader({
   pipeline,
   onPipelineUpdate,
   onPipelineDeleted,
+  onDLQFlushed,
   actions,
   showHeader = true,
   onManageTags,
@@ -207,6 +209,7 @@ function PipelineDetailsHeader({
       await purgePipelineDLQ(pipeline.pipeline_id)
       // Show success notification
       notify(dlqMessages.purgeSuccess())
+      onDLQFlushed?.()
     } catch (error) {
       // Show error notification
       notify(dlqMessages.purgeFailed(handleFlushDataClick))
