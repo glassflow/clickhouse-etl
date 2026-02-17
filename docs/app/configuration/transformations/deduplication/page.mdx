@@ -102,11 +102,13 @@ Here's a complete example of a pipeline with deduplication enabled:
   "source": {
     "type": "kafka",
     "connection_params": {
-      "brokers": ["kafka:9092"]
+      ...
     },
     "topics": [
       {
         "name": "user-events",
+        "consumer_group_initial_offset": "latest",
+        "replicas": 1
         "deduplication": {
           "enabled": true,
           "id_field": "event_id",
@@ -118,11 +120,7 @@ Here's a complete example of a pipeline with deduplication enabled:
   },
   "sink": {
     "type": "clickhouse",
-    "connection_params": {
-      "host": "clickhouse:9000",
-      "database": "analytics",
-      "table": "user_events"
-    }
+    ...
   }
 }
 ```
