@@ -141,7 +141,7 @@ export const isConcatArrayArg = (arg: FunctionArg): arg is FunctionArgConcatArra
 export const concatSlotToExpr = (slot: ConcatSlot): string => {
   switch (slot.slotType) {
     case 'field':
-      return slot.fieldName || ''
+      return fieldNameToExpr(slot.fieldName || '')
     case 'literal':
       // String literal - escape quotes
       const escaped = (slot.literalValue || '').replace(/"/g, '\\"')
@@ -184,8 +184,8 @@ export const concatArrayToExpr = (arg: FunctionArgConcatArray): string => {
  */
 export const formatArgForExpr = (arg: FunctionArg): string => {
   if (isFieldArg(arg)) {
-    // Field reference - use the field name directly
-    return arg.fieldName
+    // Field reference - use expr-safe reference ($env["x"] for non-identifiers like @timestamp)
+    return fieldNameToExpr(arg.fieldName || '')
   }
 
   if (isLiteralArg(arg)) {
@@ -235,7 +235,7 @@ export const formatArgForExpr = (arg: FunctionArg): string => {
 export const waterfallSlotToExpr = (slot: WaterfallSlot): string => {
   switch (slot.slotType) {
     case 'field':
-      return slot.fieldName || ''
+      return fieldNameToExpr(slot.fieldName || '')
     case 'literal':
       if (slot.literalType === 'number') {
         return slot.literalValue || '0'
@@ -312,7 +312,7 @@ export const computedFieldToExpr = (field: TransformationField): string => {
   if (!field.functionName && field.functionArgs && field.functionArgs.length > 0) {
     const firstArg = field.functionArgs[0]
     if (isFieldArg(firstArg) && firstArg.fieldName && field.arithmeticExpression) {
-      return firstArg.fieldName + formatArithmeticExpr(field.arithmeticExpression)
+      return fieldNameToExpr(firstArg.fieldName) + formatArithmeticExpr(field.arithmeticExpression)
     }
     return ''
   }
@@ -350,6 +350,52 @@ export const computedFieldToExpr = (field: TransformationField): string => {
 }
 
 /**
+ * Expr-lang identifiers must start with a letter or underscore and contain only
+ * letters, digits, and underscores. Field names like @timestamp are invalid.
+ * Use $env["key"] for non-identifier keys (see expr-lang docs).
+ */
+const EXPR_VALID_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+/**
+ * Convert a field name to an expr-lang expression that safely references it.
+ * Uses $env["fieldName"] when the name is not a valid identifier (e.g. @timestamp).
+ */
+export const fieldNameToExpr = (fieldName: string): string => {
+  if (!fieldName) return ''
+  if (EXPR_VALID_IDENTIFIER.test(fieldName)) {
+    return fieldName
+  }
+  const escaped = fieldName.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  return `$env["${escaped}"]`
+}
+
+/**
+ * Parse an expr-lang field reference back to the raw field name.
+ * Handles: bare identifier (e.g. "timestamp") and $env["key"] / $env['key'] (e.g. $env["@timestamp"]).
+ * Returns the field name if the expression is a simple field reference, otherwise null.
+ */
+export const exprToFieldName = (expression: string): string | null => {
+  const trimmed = expression.trim()
+  if (!trimmed) return null
+  if (EXPR_VALID_IDENTIFIER.test(trimmed)) {
+    return trimmed
+  }
+  // $env["key"] with optional escaping inside
+  const doubleMatch = trimmed.match(/^\$env\["((?:[^"\\]|\\.)*)"\]$/)
+  if (doubleMatch) {
+    const key = doubleMatch[1].replace(/\\\\/g, '\\').replace(/\\"/g, '"')
+    return key
+  }
+  // $env['key'] with optional escaping inside
+  const singleMatch = trimmed.match(/^\$env\['((?:[^'\\]|\\.)*)'\]$/)
+  if (singleMatch) {
+    const key = singleMatch[1].replace(/\\\\/g, '\\').replace(/\\'/g, "'")
+    return key
+  }
+  return null
+}
+
+/**
  * Generate expression for a passthrough field
  */
 export const passthroughFieldToExpr = (field: TransformationField): string => {
@@ -357,7 +403,7 @@ export const passthroughFieldToExpr = (field: TransformationField): string => {
     return ''
   }
 
-  let expr = field.sourceField
+  let expr = fieldNameToExpr(field.sourceField)
 
   // Apply arithmetic expression if present
   if (field.arithmeticExpression) {
