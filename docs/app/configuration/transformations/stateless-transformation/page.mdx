@@ -51,34 +51,277 @@ The expression engine is type-aware and supports arithmetic, string operations, 
 ## Helper Functions
 
 In addition to standard `expr` operators, GlassFlow provides helper functions useful for web / event data pipelines.
-Some of the most commonly used helpers are:
+Use them directly in expressions, e.g. `upper(status)`, `parseUserAgent(user_agent, "device")`.
 
-- **`parseQuery(queryString)`**:  
-  Parses a query string into a map of key/value pairs.
-- **`getQueryParam(queryString, key)` / `getNestedParam(queryString, key)`**:  
-  Returns the value of a specific query parameter.
-- **`urlDecode(value)`**:  
-  URL-decodes an encoded string.
-- **`parseISO8601(timestamp)`**:  
-  Parses common ISO-8601 timestamp formats and returns a Unix timestamp (seconds).
-- **`toDate(unixSeconds)`**:  
-  Converts a Unix timestamp (seconds) into a `YYYY-MM-DD` date string.
-- **`parseUserAgent(ua, field)`**:  
-  Extracts `device`, `browser`, or `os` from a user agent string.
-- **`containsStr(str, substr)`**, **`hasPrefix(str, prefix)`**, **`hasSuffix(str, suffix)`**:  
-  Basic string search/validation.
-- **`upper(str)`**, **`lower(str)`**, **`trim(str)`**:  
-  String normalization helpers.
-- **`split(str, sep)`**, **`join(values, sep)`**, **`replace(str, old, new)`**:  
-  Advanced string manipulation.
-- **`toInt(value)`**, **`toFloat(value)`**, **`toString(value)`**:  
-  Safe type conversion helpers.
-- **`keys(map)`**:  
-  Returns all keys in a JSON object, sorted.
-- **`waterfall(values...)`**:  
-  Returns the first non-empty value from a list (or array) of candidates.
+Each function is listed below with a short description and an example showing **expression** → **output**.
 
-> These helpers are available directly inside the expression, e.g. `upper(status)`, `parseUserAgent(user_agent, "device")`.
+---
+
+### parseQuery
+
+Parses a URL query string into a map of key/value pairs. Useful for deriving fields from `?key=value&foo=bar`-style strings.
+
+| Expression | Example output |
+|------------|----------------|
+| `parseQuery('a=1&b=2&c=hello')` | `{"a": "1", "b": "2", "c": "hello"}` |
+| `parseQuery(query_string)` (with `query_string` = `"utm_source=google"`) | `{"utm_source": "google"}` |
+
+---
+
+### getQueryParam / getNestedParam
+
+Return the value of a specific query parameter from a query string. Both functions behave the same; `getNestedParam` also works when the parsed value is not a simple string.
+
+| Expression | Example output |
+|------------|----------------|
+| `getQueryParam('a=1&b=2', 'b')` | `"2"` |
+| `getQueryParam(url_query, 'utm_campaign')` (with `url_query` = `"utm_campaign=winter"`) | `"winter"` |
+| `getQueryParam('a=1&b=2', 'missing')` | `""` |
+
+---
+
+### urlDecode
+
+URL-decodes an encoded string (e.g. `%20` → space, `%2B` → `+`).
+
+| Expression | Example output |
+|------------|----------------|
+| `urlDecode('hello%20world')` | `"hello world"` |
+| `urlDecode('a%3D1%26b%3D2')` | `"a=1&b=2"` |
+
+---
+
+### parseISO8601
+
+Parses common ISO-8601 timestamp strings and returns a Unix timestamp in **seconds**. Supports formats such as `2006-01-02T15:04:05Z` and `2006-01-02 15:04:05.000000`.
+
+| Expression | Example output |
+|------------|----------------|
+| `parseISO8601('2024-06-15T14:30:00Z')` | `1718461800` |
+| `parseISO8601(timestamp_field)` (with `timestamp_field` = `"2024-01-01T00:00:00Z"`) | `1704067200` |
+| `parseISO8601('')` or invalid input | `0` |
+
+---
+
+### toDate
+
+Converts a Unix timestamp (seconds) or a `time.Time` value into a `YYYY-MM-DD` date string.
+
+| Expression | Example output |
+|------------|----------------|
+| `toDate(1718458200)` | `"2024-06-15"` |
+| `toDate(parseISO8601('2024-06-15T14:30:00Z'))` | `"2024-06-15"` |
+
+---
+
+### parseUserAgent
+
+Extracts structured information from a user agent string. The second argument must be one of: `"device"`, `"browser"`, or `"os"`.
+
+Example `user_agent` value used below:  
+`Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36`
+
+| Expression | Example output |
+|------------|----------------|
+| `parseUserAgent(user_agent, "device")` | `"Mobile"` (or `"Desktop"` / `"Tablet"` for other UAs) |
+| `parseUserAgent(user_agent, "browser")` | `"Chrome"` |
+| `parseUserAgent(user_agent, "os")` | `"Android"` |
+
+---
+
+### containsStr
+
+Returns whether the first string contains the second string (substring check).
+
+| Expression | Example output |
+|------------|----------------|
+| `containsStr('hello world', 'world')` | `true` |
+| `containsStr('hello world', 'xyz')` | `false` |
+| `containsStr(path, '/api/')` (with `path` = `'/api/v1/users'`) | `true` |
+
+---
+
+### hasPrefix
+
+Returns whether the first string starts with the second string.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasPrefix('hello world', 'hello')` | `true` |
+| `hasPrefix('hello world', 'world')` | `false` |
+| `hasPrefix(path, '/g/')` (with `path` = `'/g/collect'`) | `true` |
+
+---
+
+### hasSuffix
+
+Returns whether the first string ends with the second string.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasSuffix('file.json', '.json')` | `true` |
+| `hasSuffix('file.json', '.txt')` | `false` |
+
+---
+
+### upper
+
+Converts a string to uppercase.
+
+| Expression | Example output |
+|------------|----------------|
+| `upper('hello')` | `"HELLO"` |
+| `upper(status)` (with `status` = `"pending"`) | `"PENDING"` |
+
+---
+
+### lower
+
+Converts a string to lowercase.
+
+| Expression | Example output |
+|------------|----------------|
+| `lower('HELLO')` | `"hello"` |
+| `lower(type)` (with `type` = `"EVENT"`) | `"event"` |
+
+---
+
+### trim
+
+Trims leading and trailing whitespace from a string.
+
+| Expression | Example output |
+|------------|----------------|
+| `trim('  hello  ')` | `"hello"` |
+| `trim(raw_input)` (with `raw_input` = `"\t value \n"`) | `"value"` |
+
+---
+
+### split
+
+Splits a string by a separator and returns an array of strings.
+
+| Expression | Example output |
+|------------|----------------|
+| `split('a,b,c', ',')` | `["a", "b", "c"]` |
+| `split('one-two-three', '-')` | `["one", "two", "three"]` |
+| `split(path, '/')` (with `path` = `"/api/v1"`) | `["", "api", "v1"]` |
+
+---
+
+### join
+
+Joins an array of values into a single string using the given separator. The first argument must be an array (e.g. the result of `split`).
+
+| Expression | Example output |
+|------------|----------------|
+| `join(['a', 'b', 'c'], '-')` | `"a-b-c"` |
+| `join(['x', 'y', 'z'], ' ')` | `"x y z"` |
+
+---
+
+### replace
+
+Replaces all occurrences of a substring with another string.
+
+| Expression | Example output |
+|------------|----------------|
+| `replace('hello world', 'world', 'there')` | `"hello there"` |
+| `replace(url, 'http://', 'https://')` (with `url` = `'http://example.com'`) | `"https://example.com"` |
+
+---
+
+### toInt
+
+Converts a value to an integer. Returns `0` for empty or invalid input.
+
+| Expression | Example output |
+|------------|----------------|
+| `toInt('42')` | `42` |
+| `toInt('3.14')` | `0` (invalid for int) |
+| `toInt('abc')` | `0` (invalid for int) |
+| `toInt(age_str)` (with `age_str` = `"25"`) | `25` |
+
+---
+
+### toFloat
+
+Converts a value to a float. Returns `0.0` for empty or invalid input.
+
+| Expression | Example output |
+|------------|----------------|
+| `toFloat('3.14')` | `3.14` |
+| `toFloat('42')` | `42` |
+| `toFloat(price_str)` (with `price_str` = `"19.99"`) | `19.99` |
+
+---
+
+### toString
+
+Converts a value to a string. Returns `""` for empty input.
+
+| Expression | Example output |
+|------------|----------------|
+| `toString(42)` | `"42"` |
+| `toString(3.14)` | `"3.14"` |
+| `toString(id)` (with `id` = `12345`) | `"12345"` |
+
+---
+
+### keys
+
+Returns all keys of a JSON object (map), sorted alphabetically.
+
+| Expression | Example output |
+|------------|----------------|
+| `keys(parseQuery('a=1&b=2'))` | `["a", "b"]` |
+| `keys(payload)` (with `payload` = `{"x": 1, "y": 2}`) | `["x", "y"]` |
+
+---
+
+### waterfall
+
+Returns the first non-empty value from a list of candidates. Accepts either multiple arguments or a single array. Useful for fallbacks (e.g. prefer `utm_source`, then `source`, then `"direct"`).
+
+| Expression | Example output |
+|------------|----------------|
+| `waterfall('', 'b', 'c')` | `"b"` |
+| `waterfall(utm_source, source, 'direct')` (with `utm_source` = `""`, `source` = `"newsletter"`) | `"newsletter"` |
+| `waterfall('', '', 'last')` | `"last"` |
+
+---
+
+### extractPathType
+
+Maps a known path to a request type. Recognized paths: `/g/collect` → `"collect"`, `/_/set_cookie` → `"set_cookie"`; any other path → `"unknown"`.
+
+| Expression | Example output |
+|------------|----------------|
+| `extractPathType('/g/collect')` | `"collect"` |
+| `extractPathType(path)` (with `path` = `"/_/set_cookie"`) | `"set_cookie"` |
+| `extractPathType('/other')` | `"unknown"` |
+
+---
+
+### hasKeyPrefix
+
+Returns whether any key in the given map starts with one of the given prefixes. First argument: map (object); second: array of prefix strings.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasKeyPrefix(payload, ['ga_', 'gclid_'])` (with `payload` = `{"ga_session_id": "123"}`) | `true` |
+| `hasKeyPrefix(payload, ['utm_'])` (with `payload` = `{"page": "/"}`) | `false` |
+
+---
+
+### hasAnyKey
+
+Returns whether the given map has at least one of the given keys. First argument: map; second: array of key names.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasAnyKey(payload, ['user_id', 'client_id'])` (with `payload` = `{"client_id": "abc"}`) | `true` |
+| `hasAnyKey(payload, ['user_id', 'client_id'])` (with `payload` = `{"page": "/"}`) | `false` |
 
 ## Configuration
 
