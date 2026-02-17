@@ -87,18 +87,6 @@ They are typically surfaced through the UI as *derived fields* or *expression-ba
 
 ### Configuration Structure
 
-In JSON terms, each transformation looks like:
-
-```json
-{
-  "expression": "upper(status)",
-  "output_name": "status_normalized",
-  "output_type": "string"
-}
-```
-
-In a full pipeline configuration, this is represented as an array of transformations under the transformation section for a source (or as part of the schema mapping UI, depending on your version).
-
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     In the pipeline wizard, open the **Transformation** step. By default, all input fields from your topic are listed as **passthrough**—they are forwarded to the output unchanged. You can edit a passthrough field to add a transformation, or click **Add Field** to define a new derived field.
@@ -119,6 +107,8 @@ In a full pipeline configuration, this is represented as an array of transformat
     <img alt="Transformation Raw Expression" src="/assets/ui_stateless_transformation_configuration_raw_expression.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    In the pipeline JSON, stateless transformations use the following structure. The `transform` array lists every field that appears in the output—both derived fields (with expressions) and passthrough fields (e.g. `expression: "user_id"` to pass `user_id` through unchanged).
+
     ```json
     {
       "stateless_transformation": {
@@ -131,10 +121,15 @@ In a full pipeline configuration, this is represented as an array of transformat
                     "expression": "upper(status)",
                     "output_name": "status_normalized",
                     "output_type": "string"
-                }
+                },
                 {
                     "expression": "parseUserAgent(user_agent, 'device')",
                     "output_name": "device_type",
+                    "output_type": "string"
+                },
+                {
+                    "expression": "user_id",
+                    "output_name": "user_id",
                     "output_type": "string"
                 }
             ]
@@ -142,7 +137,34 @@ In a full pipeline configuration, this is represented as an array of transformat
       }
     }
     ```
-    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#stateless-transformation-configuration) for more details.
+
+    In the `schema` section, use the transformation **`id`** as **`source_id`** for every field that comes from the transformation output (so the sink knows which stream to read from). The `source_id` in the example below matches the `id` above (`my-stateless-transformation`).
+
+    ```json
+    {
+      "schema": {
+        "fields": [
+          {
+            "source_id": "my-stateless-transformation",
+            "name": "user_id",
+            "type": "string"
+          },
+          {
+            "source_id": "my-stateless-transformation",
+            "name": "status_normalized",
+            "type": "string"
+          },
+          {
+            "source_id": "my-stateless-transformation",
+            "name": "device_type",
+            "type": "string"
+          }
+        ]
+      }
+    }
+    ```
+
+    For the full field reference, see the [Pipeline JSON Reference](/configuration/pipeline-json-reference#stateless-transformation-configuration).
   </Tabs.Tab>
 </Tabs>
 
