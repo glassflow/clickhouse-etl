@@ -1,6 +1,9 @@
 package internal
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type ProcessorMode string
 
@@ -227,3 +230,23 @@ const (
 	// Encryption constants
 	AESKeySize = 32
 )
+
+// IsFixedStringType reports whether t is a ClickHouse FixedString type (with or without length).
+// It matches FixedString, FixedString(N), LowCardinality(FixedString), and LowCardinality(FixedString(N)).
+// No validation of actual data length is performed; all are treated like FixedString.
+func IsFixedStringType(t string) bool {
+	t = strings.TrimSpace(t)
+	if t == CHTypeFString {
+		return true
+	}
+	if strings.HasPrefix(t, "FixedString(") && strings.Contains(t, ")") {
+		return true
+	}
+	if t == CHTypeLCFString {
+		return true
+	}
+	if strings.HasPrefix(t, "LowCardinality(FixedString(") && strings.Contains(t, ")") {
+		return true
+	}
+	return false
+}
