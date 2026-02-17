@@ -23,6 +23,13 @@ import { notify } from '@/src/notifications'
 import { PipelineDetailsSidebar, SidebarSection } from './PipelineDetailsSidebar'
 import { usePipelineHydration } from '@/src/hooks/usePipelineHydration'
 import { useActiveViewState } from './hooks/useActiveViewState'
+import { useIsTransformationSectionDirty } from '@/src/modules/transformation/hooks/useIsTransformationSectionDirty'
+import { ConfirmationModal, ModalResult } from '@/src/components/common/ConfirmationModal'
+
+type PendingNavigation =
+  | { type: 'section'; section: SidebarSection }
+  | { type: 'step'; step: StepKeys; topicIndex?: number }
+  | { type: 'close' }
 
 function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeline }) {
   const router = useRouter()
@@ -40,6 +47,10 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     setViewByStep,
     closeStep,
   } = useActiveViewState()
+
+  // Unsaved transformation guard: when user tries to navigate away with dirty transformation section
+  const isTransformationSectionDirty = useIsTransformationSectionDirty()
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null)
 
   // Animation states for sequential appearance
   const [showHeader, setShowHeader] = useState(false)
@@ -132,31 +143,91 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   }, [actionState.isLoading, actionState.lastAction, pipeline.pipeline_id, refreshPipelineData, operations])
 
   // Handle sidebar section click - uses the coordinated view state setter
+  // When on transformation step with unsaved changes, show confirmation before navigating
   const handleSectionClick = useCallback(
     (section: SidebarSection) => {
-      // Prevent section clicks when editing is disabled (but allow in demo mode for viewing)
       if (isEditingDisabled && !demoMode && section !== 'monitor') {
+        return
+      }
+      const onTransformationWithDirty =
+        activeStep === StepKeys.TRANSFORMATION_CONFIGURATOR &&
+        isTransformationSectionDirty &&
+        section !== activeSection
+      if (onTransformationWithDirty) {
+        setPendingNavigation({ type: 'section', section })
         return
       }
       setViewBySection(section, pipeline)
     },
-    [isEditingDisabled, demoMode, setViewBySection, pipeline]
+    [
+      isEditingDisabled,
+      demoMode,
+      activeStep,
+      activeSection,
+      isTransformationSectionDirty,
+      setViewBySection,
+      pipeline,
+    ]
   )
 
   // Set active step directly (used by the transformation section cards)
   const handleStepClick = useCallback(
     (step: StepKeys, topicIndex?: number) => {
-      // Prevent step clicks when editing is disabled (but allow in demo mode for viewing)
       if (isEditingDisabled && !demoMode) {
+        return
+      }
+      const onTransformationWithDirty =
+        activeStep === StepKeys.TRANSFORMATION_CONFIGURATOR &&
+        isTransformationSectionDirty &&
+        (step !== activeStep || topicIndex !== activeTopicIndex)
+      if (onTransformationWithDirty) {
+        setPendingNavigation({ type: 'step', step, topicIndex })
         return
       }
       setViewByStep(step, pipeline, topicIndex)
     },
-    [isEditingDisabled, demoMode, setViewByStep, pipeline]
+    [
+      isEditingDisabled,
+      demoMode,
+      activeStep,
+      activeTopicIndex,
+      isTransformationSectionDirty,
+      setViewByStep,
+      pipeline,
+    ]
   )
 
-  // Close the standalone step renderer - delegates to the view state hook
-  const handleCloseStep = closeStep
+  // Close the standalone step renderer - when on transformation with unsaved changes, show confirmation
+  const handleCloseStep = useCallback(() => {
+    const onTransformationWithDirty =
+      activeStep === StepKeys.TRANSFORMATION_CONFIGURATOR && isTransformationSectionDirty
+    if (onTransformationWithDirty) {
+      setPendingNavigation({ type: 'close' })
+      return
+    }
+    closeStep()
+  }, [activeStep, isTransformationSectionDirty, closeStep])
+
+  // Confirm "Navigate away" from unsaved transformation: discard section then perform pending navigation
+  const handleUnsavedNavigateConfirm = useCallback(async () => {
+    if (!pendingNavigation) return
+    try {
+      await coreStore.discardSection('transformation')
+    } finally {
+      if (pendingNavigation.type === 'section') {
+        setViewBySection(pendingNavigation.section, pipeline)
+      } else if (pendingNavigation.type === 'step') {
+        setViewByStep(pendingNavigation.step, pipeline, pendingNavigation.topicIndex)
+      } else {
+        closeStep()
+      }
+      setPendingNavigation(null)
+    }
+  }, [pendingNavigation, coreStore, setViewBySection, setViewByStep, closeStep, pipeline])
+
+  const handleUnsavedNavigateCancel = useCallback(() => {
+    setPendingNavigation(null)
+  }, [])
 
   const handleDLQFlushed = useCallback(() => {
     setRefreshDLQTrigger((k) => k + 1)
@@ -316,6 +387,21 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
         onSave={handleTagsSave}
         onCancel={closeTagsModal}
         isSaving={isSavingTags}
+      />
+
+      <ConfirmationModal
+        visible={pendingNavigation !== null}
+        title="Unsaved changes"
+        description="You have unsaved changes in Transformations. If you navigate away, these changes will be lost."
+        okButtonText="Navigate away"
+        cancelButtonText="Cancel"
+        onComplete={(result) => {
+          if (result === ModalResult.YES) {
+            handleUnsavedNavigateConfirm()
+          } else {
+            handleUnsavedNavigateCancel()
+          }
+        }}
       />
     </div>
   )
