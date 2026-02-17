@@ -72,7 +72,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const topicsValidation = useStore((state) => state.topicsStore.validation)
   const deduplicationValidation = useStore((state) => state.deduplicationStore.validation)
 
-  const { coreStore } = useStore()
+  const { coreStore, transformationStore } = useStore()
   const { mode } = coreStore
 
   // Determine if pipeline editing operations should be disabled
@@ -208,11 +208,16 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     closeStep()
   }, [activeStep, isTransformationSectionDirty, closeStep])
 
-  // Confirm "Navigate away" from unsaved transformation: discard section then perform pending navigation
+  // Confirm "Navigate away" from unsaved transformation: restore to section baseline (or discard from server config) then perform pending navigation
   const handleUnsavedNavigateConfirm = useCallback(async () => {
     if (!pendingNavigation) return
     try {
-      await coreStore.discardSection('transformation')
+      const snapshot = transformationStore.getLastSavedTransformationSnapshot()
+      if (snapshot) {
+        transformationStore.restoreFromLastSavedSnapshot()
+      } else {
+        await coreStore.discardSection('transformation')
+      }
     } finally {
       if (pendingNavigation.type === 'section') {
         setViewBySection(pendingNavigation.section, pipeline)
@@ -223,7 +228,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
       }
       setPendingNavigation(null)
     }
-  }, [pendingNavigation, coreStore, setViewBySection, setViewByStep, closeStep, pipeline])
+  }, [pendingNavigation, coreStore, transformationStore, setViewBySection, setViewByStep, closeStep, pipeline])
 
   const handleUnsavedNavigateCancel = useCallback(() => {
     setPendingNavigation(null)

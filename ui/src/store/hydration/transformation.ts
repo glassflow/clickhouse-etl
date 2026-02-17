@@ -141,6 +141,7 @@ export function hydrateTransformation(pipelineConfig: any) {
     }
 
     transformationStore.setTransformationConfig(config)
+    transformationStore.setLastSavedTransformationSnapshot(JSON.parse(JSON.stringify(config)))
     transformationStore.markAsValid()
     return
   }
@@ -179,15 +180,15 @@ export function hydrateTransformation(pipelineConfig: any) {
       }
 
       transformationStore.setTransformationConfig(config)
+      transformationStore.setLastSavedTransformationSnapshot(JSON.parse(JSON.stringify(config)))
       transformationStore.markAsValid()
     } else if (transformation.expression) {
       // We have an expression but no field definitions
       // This could happen if the pipeline was created with an older version
       // For now, just keep the expression string and mark as valid
-      transformationStore.setTransformationConfig({
-        enabled: true,
-        fields: [],
-      })
+      const emptyConfig: TransformationConfig = { enabled: true, fields: [] }
+      transformationStore.setTransformationConfig(emptyConfig)
+      transformationStore.setLastSavedTransformationSnapshot(JSON.parse(JSON.stringify(emptyConfig)))
       transformationStore.markAsValid()
     }
   }

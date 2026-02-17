@@ -80,20 +80,27 @@ function canonicalToKey(fields: CanonicalField[]): string {
 }
 
 /**
- * Returns true if the current transformation config differs from what is
- * stored in the last-saved pipeline config (i.e. there are unsaved changes).
- * Use when the user is on the Transformation step and might navigate away.
+ * Returns true if the current transformation config differs from the section
+ * baseline (i.e. there are uncommitted changes). When a section snapshot exists
+ * (e.g. after "Save Transformation"), compares to that; otherwise compares to
+ * the last-saved pipeline config.
  */
 export function isTransformationSectionDirty(
   currentConfig: TransformationConfig,
-  lastSavedPipeline: any
+  lastSavedPipeline: any,
+  sectionSnapshot: TransformationConfig | null = null
 ): boolean {
+  const current = getCanonicalTransformFromStore(currentConfig)
+
+  if (sectionSnapshot) {
+    const saved = getCanonicalTransformFromStore(sectionSnapshot)
+    return canonicalToKey(current) !== canonicalToKey(saved)
+  }
+
   if (!lastSavedPipeline) {
     return false
   }
 
   const saved = getCanonicalTransformFromPipeline(lastSavedPipeline)
-  const current = getCanonicalTransformFromStore(currentConfig)
-
   return canonicalToKey(current) !== canonicalToKey(saved)
 }

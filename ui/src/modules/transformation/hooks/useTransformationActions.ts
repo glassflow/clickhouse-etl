@@ -30,6 +30,7 @@ export interface TransformationActionsStores {
     addAllFieldsAsPassthrough: (fields: AvailableField[]) => void
     skipTransformation: () => void
     setExpressionString: (expression: string) => void
+    setLastSavedTransformationSnapshot: (config: TransformationConfig | null) => void
     resetTransformationStore: () => void
   }
   validationEngine: {
@@ -166,6 +167,9 @@ export function useTransformationActions(
 
     if (standalone && onCompleteStandaloneEditing) {
       coreStore.markAsDirty()
+      transformationStore.setLastSavedTransformationSnapshot(
+        JSON.parse(JSON.stringify(transformationConfig))
+      )
       setIsSaveSuccess(true)
       onCompleteStandaloneEditing()
     } else {

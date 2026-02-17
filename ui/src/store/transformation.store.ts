@@ -135,6 +135,8 @@ export interface TransformationConfig {
 
 export interface TransformationStoreProps {
   transformationConfig: TransformationConfig
+  /** Section baseline for navigate-away guard: updated on hydrate and on Save Transformation */
+  lastSavedTransformationSnapshot: TransformationConfig | null
   // Generated expression string (for display and backend)
   expressionString: string
   // Backend validation state
@@ -172,6 +174,9 @@ export interface TransformationStore extends TransformationStoreProps, Validatio
   setBackendValidation: (status: TransformationStoreProps['backendValidation']) => void
   getTransformationConfig: () => TransformationConfig
   setTransformationConfig: (config: TransformationConfig) => void
+  setLastSavedTransformationSnapshot: (config: TransformationConfig | null) => void
+  getLastSavedTransformationSnapshot: () => TransformationConfig | null
+  restoreFromLastSavedSnapshot: () => void
   skipTransformation: () => void
   resetTransformationStore: () => void
 
@@ -301,6 +306,7 @@ export const createTransformationSlice: StateCreator<TransformationSlice> = (set
   transformationStore: {
     // State
     transformationConfig: { ...initialTransformationConfig },
+    lastSavedTransformationSnapshot: null,
     expressionString: '',
     backendValidation: { ...initialBackendValidation },
     validation: createInitialValidation(),
@@ -508,6 +514,29 @@ export const createTransformationSlice: StateCreator<TransformationSlice> = (set
         },
       })),
 
+    setLastSavedTransformationSnapshot: (config: TransformationConfig | null) =>
+      set((state) => ({
+        transformationStore: {
+          ...state.transformationStore,
+          lastSavedTransformationSnapshot: config,
+        },
+      })),
+
+    getLastSavedTransformationSnapshot: () =>
+      get().transformationStore.lastSavedTransformationSnapshot,
+
+    restoreFromLastSavedSnapshot: () => {
+      const snapshot = get().transformationStore.lastSavedTransformationSnapshot
+      if (snapshot) {
+        set((state) => ({
+          transformationStore: {
+            ...state.transformationStore,
+            transformationConfig: JSON.parse(JSON.stringify(snapshot)),
+          },
+        }))
+      }
+    },
+
     skipTransformation: () =>
       set((state) => ({
         transformationStore: {
@@ -530,6 +559,7 @@ export const createTransformationSlice: StateCreator<TransformationSlice> = (set
             enabled: false,
             fields: [],
           },
+          lastSavedTransformationSnapshot: null,
           expressionString: '',
           backendValidation: { ...initialBackendValidation },
           validation: createInitialValidation(),
