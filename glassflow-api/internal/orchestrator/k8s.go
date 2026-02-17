@@ -262,6 +262,7 @@ func (k *K8sOrchestrator) TerminatePipeline(ctx context.Context, pipelineID stri
 		internal.PipelinePauseAnnotation,
 		internal.PipelineResumeAnnotation,
 		internal.PipelineStopAnnotation,
+		internal.PipelineEditAnnotation,
 	}
 
 	for _, annotation := range conflictingAnnotations {
