@@ -11,6 +11,7 @@ import { CreateIcon, FilterIcon } from '@/src/components/icons'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import StopPipelineModal from './components/StopPipelineModal'
 import TerminatePipelineModal from './components/TerminatePipelineModal'
+import DeletePipelineModal from './components/DeletePipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
 import PipelineTagsModal from './components/PipelineTagsModal'
@@ -79,6 +80,8 @@ export function PipelinesList({
   const [tagsModalPipeline, setTagsModalPipeline] = useState<ListPipelineConfig | null>(null)
   const [isTagsModalVisible, setIsTagsModalVisible] = useState(false)
   const [isSavingTags, setIsSavingTags] = useState(false)
+  const [deleteConfirmPipeline, setDeleteConfirmPipeline] = useState<ListPipelineConfig | null>(null)
+  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false)
 
   const router = useRouter()
   const pipelineIds = useMemo(() => pipelines.map((p) => p.pipeline_id), [pipelines])
@@ -131,6 +134,22 @@ export function PipelinesList({
     handleEditConfirm,
     handleTerminateConfirm,
   } = listOps
+
+  const openDeleteConfirmModal = useCallback((pipeline: ListPipelineConfig) => {
+    setDeleteConfirmPipeline(pipeline)
+    setIsDeleteConfirmVisible(true)
+  }, [])
+
+  const closeDeleteConfirmModal = useCallback(() => {
+    setDeleteConfirmPipeline(null)
+    setIsDeleteConfirmVisible(false)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteConfirmPipeline) return
+    closeDeleteConfirmModal()
+    await handleDelete(deleteConfirmPipeline)
+  }, [deleteConfirmPipeline, closeDeleteConfirmModal, handleDelete])
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>()
@@ -211,7 +230,7 @@ export function PipelinesList({
         onEdit: handleEdit,
         onRename: handleRename,
         onTerminate: handleTerminate,
-        onDelete: handleDelete,
+        onDelete: openDeleteConfirmModal,
         onDownload: handleDownload,
         onManageTags: handleManageTags,
       }),
@@ -224,7 +243,7 @@ export function PipelinesList({
       handleEdit,
       handleRename,
       handleTerminate,
-      handleDelete,
+      openDeleteConfirmModal,
       handleDownload,
       handleManageTags,
     ],
@@ -394,7 +413,7 @@ export function PipelinesList({
           onEdit={handleEdit}
           onRename={handleRename}
           onTerminate={handleTerminate}
-          onDelete={handleDelete}
+          onDelete={openDeleteConfirmModal}
           onManageTags={handleManageTags}
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
           isPipelineLoading={isPipelineLoading}
@@ -447,6 +466,13 @@ export function PipelinesList({
           await handleTerminateConfirm(deleteSelectedPipeline)
         }}
         onCancel={closeTerminateModal}
+      />
+
+      <DeletePipelineModal
+        visible={isDeleteConfirmVisible}
+        pipelineName={deleteConfirmPipeline?.name}
+        onOk={handleDeleteConfirm}
+        onCancel={closeDeleteConfirmModal}
       />
 
       <InfoModal

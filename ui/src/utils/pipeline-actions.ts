@@ -137,9 +137,10 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
       switch (pipelineStatus) {
         case PIPELINE_STATUS_MAP.stopped:
         case PIPELINE_STATUS_MAP.failed:
+        case PIPELINE_STATUS_MAP.terminated:
           return {
             ...baseConfig,
-            showModal: false,
+            showModal: true,
             requiresConfirmation: false,
           }
         case PIPELINE_STATUS_MAP.starting:

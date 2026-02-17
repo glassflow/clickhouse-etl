@@ -7,6 +7,7 @@ import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
 import { Copy, Check, Tag as TagIcon } from 'lucide-react'
 import TerminatePipelineModal from '@/src/modules/pipelines/components/TerminatePipelineModal'
+import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
 import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
@@ -757,6 +758,14 @@ function PipelineDetailsHeader({
         onOk={() => {
           handleModalConfirm('terminate', { graceful: false })
         }}
+        onCancel={handleModalCancel}
+      />
+
+      {/* Delete Pipeline Modal */}
+      <DeletePipelineModal
+        visible={activeModal === 'delete'}
+        pipelineName={pipeline.name}
+        onOk={() => handleModalConfirm('delete')}
         onCancel={handleModalCancel}
       />
 
