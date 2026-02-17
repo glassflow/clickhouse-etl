@@ -19,6 +19,8 @@ import type { StepBaseProps } from './step-renderer'
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
   onClose: () => void
+  /** When provided, used when step closes after save (bypasses navigate-away guard in parent) */
+  onCloseAfterSave?: () => void
   pipeline?: any
   onPipelineStatusUpdate?: (status: string) => void
   topicIndex?: number // Topic index for multi-topic deduplication (0 = left, 1 = right)
@@ -47,6 +49,7 @@ function getLoadingText(lastAction: string | null): string {
 function StandaloneStepRenderer({
   stepKey,
   onClose,
+  onCloseAfterSave,
   pipeline,
   onPipelineStatusUpdate,
   topicIndex = 0,
@@ -114,8 +117,9 @@ function StandaloneStepRenderer({
   }
 
   const handleComplete = (nextStep?: StepKeys, standalone?: boolean) => {
-    // In StandaloneStepRenderer, we're always in standalone mode, so always close
-    onClose()
+    // In StandaloneStepRenderer, we're always in standalone mode, so always close.
+    // Use onCloseAfterSave when provided (e.g. after Save) so parent can skip navigate-away guard.
+    ;(onCloseAfterSave ?? onClose)()
   }
 
   const handleBack = () => {

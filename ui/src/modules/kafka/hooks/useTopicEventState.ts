@@ -243,6 +243,13 @@ export function useTopicEventState({ index, topicName, offset, kafkaStore, effec
       return
     }
 
+    setState((prev) => ({
+      ...prev,
+      event: null,
+      error: null,
+      isEmptyTopic: false,
+      isLoading: true,
+    }))
     lastFetchRef.current = currentFetch
     resetEventState()
     if (offset === 'latest') {
