@@ -517,6 +517,7 @@ func (ch *ClickHouseSink) createCHBatch(
 	schemaMappingTotalTime := time.Since(schemaMappingStartTime)
 
 	// Process results in order and append to batch
+	appendedMessages := make([]*processedMessage, 0, len(messages))
 	for jobID := 0; jobID < numJobs; jobID++ {
 		result := results[jobID]
 		for _, procMsg := range result.processed {
@@ -524,12 +525,32 @@ func (ch *ClickHouseSink) createCHBatch(
 			appendStartTime := time.Now()
 			err = resultBatch.Append(procMsg.metadata.Sequence.Stream, procMsg.values...)
 			if err != nil {
-				if errors.Is(err, clickhouse.ErrAlreadyExists) {
-					skippedCount++
-					continue
+				if !errors.Is(err, clickhouse.ErrAlreadyExists) {
+					ch.log.Warn("Failed to append message to batch, pushing to DLQ",
+						slog.Any("error", err))
+
+					dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), err)
+					if dlqErr != nil {
+						return nil, fmt.Errorf("failed to push bad message to DLQ: %w", dlqErr)
+					}
+
+					// try to recreate the batch and replay appended messages to avoid losing the whole batch due to one bad message
+					resultBatch, err = clickhouse.NewClickHouseBatch(ctx, ch.client, query)
+					if err != nil {
+						return nil, fmt.Errorf("failed to recreate CH batch after append error: %w", err)
+					}
+
+					for _, appended := range appendedMessages {
+						err = resultBatch.Append(appended.metadata.Sequence.Stream, appended.values...)
+						if err != nil {
+							return nil, fmt.Errorf("failed to replay CH batch after append error: %w", err)
+						}
+					}
 				}
-				return nil, fmt.Errorf("failed to append values to batch: %w", err)
+				skippedCount++
+				continue
 			}
+			appendedMessages = append(appendedMessages, &procMsg)
 			appendTotalTime += time.Since(appendStartTime)
 		}
 	}

@@ -57,15 +57,22 @@ func (b *ClickHouseBatch) Size() int {
 	return len(b.cache)
 }
 
-func (b *ClickHouseBatch) Append(id uint64, data ...any) error {
+func (b *ClickHouseBatch) Append(id uint64, data ...any) (err error) {
 	if _, ok := b.cache[id]; ok {
 		return ErrAlreadyExists //nolint:wrapcheck //custom error usage
 	}
 
 	b.cache[id] = struct{}{}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			delete(b.cache, id)
+			err = fmt.Errorf("append failed: %v", recovered)
+		}
+	}()
 
-	err := b.currentBatch.Append(data...)
+	err = b.currentBatch.Append(data...)
 	if err != nil {
+		delete(b.cache, id)
 		return fmt.Errorf("append failed: %w", err)
 	}
 
