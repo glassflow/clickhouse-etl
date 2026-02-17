@@ -3,6 +3,8 @@ package json
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
@@ -105,7 +107,15 @@ func convertType(value any, targetType string) (any, error) {
 	case "int64":
 		return cast.ToInt64E(value)
 	case "float64":
-		return cast.ToFloat64E(value)
+		f, err := cast.ToFloat64E(value)
+		if err != nil {
+			return nil, err
+		}
+		s := strconv.FormatFloat(f, 'f', -1, 64)
+		if !strings.Contains(s, ".") {
+			s += ".0"
+		}
+		return json.Number(s), nil
 	case "bool":
 		return cast.ToBoolE(value)
 	case "[]string":
