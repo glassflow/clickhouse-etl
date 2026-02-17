@@ -101,7 +101,22 @@ In a full pipeline configuration, this is represented as an array of transformat
 
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
-    <img alt="Stateless Transformation Configuration" src="/assets/ui_stateless_transformation_configuration.png" />
+    In the pipeline wizard, open the **Transformation** step. By default, all input fields from your topic are listed as **passthrough**—they are forwarded to the output unchanged. You can edit a passthrough field to add a transformation, or click **Add Field** to define a new derived field.
+
+    <img alt="Stateless Transformation Configuration Passthrough" src="/assets/ui_stateless_transformation_configuration_passthrough.png" />
+
+    You can build each transformation in two ways:
+
+    - **Builder** (default): Use the visual builder to pick a function, arguments, and optional arithmetic. Best for common patterns like string normalization or parsing.
+    - **Raw Expression**: Type an expression directly (e.g. `upper(status)` or `parseUserAgent(user_agent, "device")`). Use this for complex logic or when the builder does not support what you need.
+
+    **Builder mode:**
+
+    <img alt="Transformation Builder" src="/assets/ui_stateless_transformation_configuration_builder.png" />
+
+    **Raw expression mode:**
+
+    <img alt="Transformation Raw Expression" src="/assets/ui_stateless_transformation_configuration_raw_expression.png" />
   </Tabs.Tab>
   <Tabs.Tab>
     ```json
