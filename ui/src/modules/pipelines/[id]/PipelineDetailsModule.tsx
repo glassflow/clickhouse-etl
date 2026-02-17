@@ -371,6 +371,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
               <StandaloneStepRenderer
                 stepKey={activeStep}
                 onClose={handleCloseStep}
+                onCloseAfterSave={closeStep}
                 pipeline={pipeline}
                 onPipelineStatusUpdate={handlePipelineStatusUpdate}
                 topicIndex={activeTopicIndex}
