@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	schemapkg "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 )
 
 //go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService
@@ -425,6 +426,16 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 	// Validate that at least one field has a column mapping
 	if len(sinkCfg) == 0 {
 		return zero, fmt.Errorf("at least one field must have column_name and column_type defined")
+	}
+
+	// Validate all ClickHouse column types are supported (fail at API layer, not at sink runtime)
+	for _, field := range pipeline.Schema.Fields {
+		if field.ColumnName == "" || field.ColumnType == "" {
+			continue
+		}
+		if err := schemapkg.ValidateClickHouseColumnType(field.ColumnType); err != nil {
+			return zero, fmt.Errorf("field %q (column %q): %w", field.Name, field.ColumnName, err)
+		}
 	}
 
 	mapperConfig := models.MapperConfig{

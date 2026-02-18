@@ -276,3 +276,101 @@ func TestEditPipeline_InvalidPipelineData(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
 	assert.Equal(t, "unprocessable_entity", errDetail.Code)
 }
+
+// validCreatePipelineBody returns a minimal valid pipeline JSON for create (used as base for validation tests).
+func validCreatePipelineBody() map[string]interface{} {
+	return map[string]interface{}{
+		"pipeline_id": "test-pipeline",
+		"name":        "Test Pipeline",
+		"source": map[string]interface{}{
+			"type":     "kafka",
+			"provider": "confluent",
+			"connection_params": map[string]interface{}{
+				"brokers":   []string{"localhost:9092"},
+				"mechanism": "NO_AUTH",
+				"protocol":  "SASL_PLAINTEXT",
+			},
+			"topics": []map[string]interface{}{
+				{"name": "test-topic", "id": "topic-1"},
+			},
+		},
+		"join": map[string]interface{}{
+			"type":    "temporal",
+			"enabled": false,
+		},
+		"sink": map[string]interface{}{
+			"type":           "clickhouse",
+			"host":           "localhost",
+			"port":           "9000",
+			"http_port":      "8123",
+			"database":       "test_db",
+			"table":          "test_table",
+			"username":       "default",
+			"password":       "x",
+			"secure":         false,
+			"max_batch_size": 1000,
+			"max_delay_time": "60s",
+		},
+		"schema": map[string]interface{}{
+			"fields": []map[string]interface{}{
+				{
+					"source_id":   "test-topic",
+					"name":        "id",
+					"type":        "string",
+					"column_name": "id",
+					"column_type": "String",
+				},
+			},
+		},
+	}
+}
+
+func TestCreatePipeline_UnsupportedClickHouseColumnType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	// CreatePipeline must NOT be called because validation fails in toModel()
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	// Override schema to use an unsupported ClickHouse column type
+	body["schema"] = map[string]interface{}{
+		"fields": []map[string]interface{}{
+			{
+				"source_id":   "test-topic",
+				"name":        "id",
+				"type":        "string",
+				"column_name": "id",
+				"column_type": "Unsupported",
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Equal(t, "unprocessable_entity", errDetail.Code)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	// Details should mention unsupported column type
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "unsupported ClickHouse column type")
+			assert.Contains(t, e, "Unsupported")
+		}
+	}
+}
