@@ -7,7 +7,7 @@ description: Release notes for the GlassFlow ClickHouse ETL v2.9.x series - Stat
 
 # Release Notes v2.9.x
 
-The 2.9.x series introduces **stateless transformations enabled by default** in the web UI and **revamped pipelines list and creation wizard**. This release focuses on improving the day-to-day experience of creating and managing pipelines, with clearer navigation and better validation.
+The 2.9.x series introduces **Web UI full support for stateless transformations** and **revamped pipelines list and creation wizard**. This release focuses on improving the day-to-day experience of creating and managing pipelines, with clearer navigation and better validation.
 
 ## Version History
 
@@ -17,12 +17,12 @@ The 2.9.x series introduces **stateless transformations enabled by default** in 
 
 ## What's New
 
-### 🔄 Stateless Transformations and Filters Enabled on the web UI
+### 🔄 Stateless Transformations and Filters full support on the web UI
 
-Stateless transformations and filters are now **enabled on the web UI** by default:
+Stateless transformations and filters are now **enabled on the web UI**:
 
-- **Filter step** — The filter step is now visible in the pipeline wizard
-- **Transformation step** — The transformation step is now visible in the pipeline wizard
+- **Remove feature flag for filters and transformations** — Filters and transformations are now enabled by default on the web UI
+- **Transformations** — Stateless transformations are now fully supported in the web UI
 
 ### 📋 Revamped Pipelines List
 
@@ -85,11 +85,11 @@ You can **upload a pipeline configuration** instead of building it step-by-step:
 ### For Existing Users
 
 - **No breaking changes** — This release is fully backward compatible
-- **Transformations on by default** — If you relied on transformations being hidden, set `NEXT_PUBLIC_TRANSFORMATIONS_ENABLED=false` in your UI configuration
 - **Filter-only pipelines** — Pipelines with only a filter (no deduplication) now correctly start the deduplication component; no config change needed
 
 ### Configuration Updates
 
+- **Filters** — Default for `NEXT_PUBLIC_FILTERS_ENABLED` is now `true` in the UI
 - **Transformations** — Default for `NEXT_PUBLIC_TRANSFORMATIONS_ENABLED` is now `true` in the UI
 - **Helm and build** — No new required Helm values; build and image options updated for multi-arch and standalone output
 
