@@ -46,7 +46,17 @@ func (h *handler) createPipeline(ctx context.Context, input *CreatePipelineInput
 	if err != nil {
 		var pErr models.PipelineConfigError
 		switch {
-		case errors.Is(err, service.ErrPipelineQuotaReached), errors.Is(err, service.ErrIDExists):
+		case errors.Is(err, service.ErrIDExists):
+			return nil, &ErrorDetail{
+				Status:  http.StatusConflict,
+				Code:    "conflict",
+				Message: "pipeline with this ID already exists",
+				Details: map[string]any{
+					"pipeline_id": pipeline.ID,
+					"error":       err.Error(),
+				},
+			}
+		case errors.Is(err, service.ErrPipelineQuotaReached):
 			return nil, &ErrorDetail{
 				Status:  http.StatusForbidden,
 				Code:    "forbidden",
