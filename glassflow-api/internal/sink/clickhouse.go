@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -437,16 +436,16 @@ func (ch *ClickHouseSink) createCHBatch(
 	if ch.streamSourceID != "" {
 		query = fmt.Sprintf(
 			"INSERT INTO %s.%s (%s)",
-			ch.client.GetDatabase(),
-			ch.client.GetTableName(),
-			strings.Join(ch.schemaMapper.GetOrderedColumnsStream(ch.streamSourceID), ", "),
+			quoteIdentifier(ch.client.GetDatabase()),
+			quoteIdentifier(ch.client.GetTableName()),
+			quoteIdentifiers(ch.schemaMapper.GetOrderedColumnsStream(ch.streamSourceID)),
 		)
 	} else {
 		query = fmt.Sprintf(
 			"INSERT INTO %s.%s (%s)",
-			ch.client.GetDatabase(),
-			ch.client.GetTableName(),
-			strings.Join(ch.schemaMapper.GetOrderedColumns(), ", "),
+			quoteIdentifier(ch.client.GetDatabase()),
+			quoteIdentifier(ch.client.GetTableName()),
+			quoteIdentifiers(ch.schemaMapper.GetOrderedColumns()),
 		)
 	}
 
