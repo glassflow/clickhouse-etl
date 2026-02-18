@@ -322,34 +322,55 @@ export class V2PipelineAdapter implements PipelineAdapter {
       Boolean(transformationId && transformation?.enabled && transformation?.fields?.length) ?? false
 
     if (hasTransform) {
-      // Effective schema = all transform outputs (passthrough + computed), source_id = transformation id
+      // Effective schema: one schema field per mapping row so one source field can map to multiple columns.
+      // Preserve transformation field order: for each transform field, emit all its mapping rows, then unmapped.
+      const getType = (fieldName: string) => {
+        const f = transformation!.fields!.find((x: any) => x.outputFieldName === fieldName)
+        return f?.outputFieldType || 'string'
+      }
+      const topicNames = new Set((topics || []).map((t: any) => t.name))
+      const isTransformMapping = (m: any) =>
+        (m.source_id === transformationId || topicNames.has(m.source_id)) &&
+        m.column_name &&
+        m.column_type
+      const transformMappings = tableMapping.filter(isTransformMapping)
       transformation!.fields!.forEach((field: any) => {
-        const mapping =
-          tableMapping.find(
-            (m: any) => m.source_id === transformationId && m.field_name === field.outputFieldName,
-          ) ||
-          tableMapping.find(
-            (m: any) =>
-              topics.some((t: any) => t.name === m.source_id) && m.field_name === field.outputFieldName,
+        const mappingsForField = transformMappings.filter(
+          (m: any) => m.field_name === field.outputFieldName,
+        )
+        if (mappingsForField.length > 0) {
+          mappingsForField.forEach((mapping: any) => {
+            v2Fields.push({
+              source_id: transformationId!,
+              name: mapping.field_name,
+              type: getType(mapping.field_name),
+              column_name: mapping.column_name,
+              column_type: mapping.column_type,
+            })
+          })
+        } else {
+          v2Fields.push({
+            source_id: transformationId!,
+            name: field.outputFieldName,
+            type: field.outputFieldType || 'string',
+          })
+        }
+      })
+      // Include any table_mapping row for transform that wasn't in transformation.fields (e.g. legacy)
+      transformMappings.forEach((mapping: any) => {
+        if (
+          v2Fields.some(
+            (f: any) =>
+              f.source_id === transformationId &&
+              f.name === mapping.field_name &&
+              f.column_name === mapping.column_name,
           )
+        )
+          return
         v2Fields.push({
           source_id: transformationId!,
-          name: field.outputFieldName,
-          type: field.outputFieldType || 'string',
-          ...(mapping
-            ? { column_name: mapping.column_name, column_type: mapping.column_type }
-            : {}),
-        })
-      })
-
-      // Include any table_mapping entry for transform that wasn't in transformation.fields (e.g. legacy)
-      tableMapping.forEach((mapping: any) => {
-        if (mapping.source_id !== transformationId) return
-        if (v2Fields.some((f: any) => f.source_id === mapping.source_id && f.name === mapping.field_name)) return
-        v2Fields.push({
-          source_id: mapping.source_id,
           name: mapping.field_name,
-          type: 'string',
+          type: getType(mapping.field_name),
           column_name: mapping.column_name,
           column_type: mapping.column_type,
         })
