@@ -47,13 +47,14 @@ Transformations and expression validation have been **reworked** for reliability
 
 ### ⚡ Sink and NATS Consumer Optimizations
 
-Sink and NATS-based components have been **optimized** for throughput and reliability:
+Sink and NATS-based components have been **optimized** for throughput and reliability. Pipeline streams in **NATS JetStream** now use the **Work Queue policy**, which improves performance and makes better use of NATS resources (storage and I/O).
 
+- **Work Queue policy for pipeline streams** — Pipeline streams in NATS JetStream use the Work Queue policy for consumers, enabling better performance and more efficient utilization of NATS storage and I/O
 - **Sink optimizations** — Cleanup of gjson parsing and concurrent batch processing; sink now uses `GOMAXPROCS` (max procs) rather than logical CPUs for worker scaling
-- **Ack policy and logic** — Explicit ack for work queue stream; ack policy and logic updated to ack each message in DLQ, dedup, and join; max ack pending set based on batch size and workers for better backpressure handling
+- **Ack policy and logic** — Explicit ack aligned with Work Queue; ack policy and logic updated to ack each message in DLQ, dedup, and join; max ack pending set based on batch size and workers for better backpressure handling
 - **NATS consumer** — Backwards-compatible consumer for existing pipelines with different ack policy; DLQ consumer refactored to use the same NATS client package
 - **DLQ stream check and stats refresh** — DLQ stream existence check fixed to avoid ~30 seconds of retry when the stream does not exist; DLQ stats refresh trigger added after flushing DLQ
-- **ClickHouse batch append** — Resolved panic on append to ClickHouse batch
+- **ClickHouse batch append** — In cases where a data mismatch caused the ClickHouse client to panic during batch append, the error is now handled gracefully: malformed data is sent to the DLQ and the pipeline continues processing other events
 - **Processing duration metrics** — The `processing_duration_seconds` metric is now recorded with a `stage` attribute (e.g. `schema_mapping`, `total_preparation`, `per_message` in the sink), so you can observe per-stage timing in your metrics backend
 
 ### 📋 Pipeline Management UX
