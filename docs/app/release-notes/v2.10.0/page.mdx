@@ -1,0 +1,108 @@
+---
+title: Release Notes v2.10.x
+sidebarTitle: v2.10.x
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.10.x series - Transformations validation, mapping fixes, and sink and NATS optimizations.
+---
+
+# Release Notes v2.10.x
+
+The 2.10.x series delivers **transformations validation and expression handling improvements**, **filter enabled by default**, **sink and NATS consumer optimizations**, **pipeline management UX** improvements, and **sink type simplification** with FixedString and numeric type support. Patch releases include mapping fixes.
+
+## Version History
+
+- **v2.10.1** — Patch release with mapping fix
+- **v2.10.0** — Transformations validation, filter and mapping improvements, sink and NATS optimizations
+
+## 🆕 What's New in v2.10.1
+
+### Bug Fixes and Improvements
+
+- **Mapping: same source field to multiple destinations** — Fixed mapping of the same source field to multiple destination fields so pipelines that map one Kafka field to several ClickHouse columns (e.g. different transformations or renames) work correctly
+
+## What's New in v2.10.0
+
+### 🔧 Transformations and Expression Validation
+
+Transformations and expression validation have been **reworked** for reliability and flexibility:
+
+- **Special characters in expressions** — Added special handling for characters that the expr library does not allow by default (e.g. `@`); local validation in the transformation step supports these where appropriate
+- **External expression validation** — Reimplemented external expression validation for transformations for more accurate feedback
+- **Validation feedback** — The transformation step in the wizard now shows proper validation feedback (e.g. expression errors) so you can fix invalid expressions before saving. Backend status transition validation ensures only allowed pipeline state changes (e.g. Created → Running) are accepted and returns clear errors for invalid ones (e.g. Resuming a pipeline still in Created state).
+- **Intermediary snapshots** — Intermediary snapshots while editing transformations so state is preserved during edits
+- **Type alignment** — Data types in transformations aligned with those used in Kafka type verification; type simplification in transformations; removed auto placeholder value in type selection in mapping and transformations
+- **Config generation** — Fixed config generation and scheme when transformations are present; updated config generation logic to align with the backend; added more logging for troubleshooting
+
+### 🔍 Filter Builder Improvements
+
+- **Manual expression for non-numeric fields** — Manual expression input in the filter builder is now available for non-numeric fields (not only numeric), so you can enter custom expressions for strings and other types
+- **Mapping and filter fixes** — Aligned behavior and fixes across mapping and filter components
+
+### 🗺️ Mapping and Sink Type Handling
+
+- **Auto mapping in ClickHouse mapper** — Auto mapping is now available in the ClickHouse mapper step so you can trigger automatic field mapping when needed
+- **Sink type simplification** — Sink simplified to use only basic data types; extended sink datetime parsing to handle precision returned by the JSON result; Kafka data types normalized and precision removed for Kafka datatypes (since conversion is based on ClickHouse target types and data is received as JSON)
+- **FixedString support** — Added support for parsing FixedString with length parameter
+- **Numeric types** — Added `uint` to the list of supported numeric types
+
+### ⚡ Sink and NATS Consumer Optimizations
+
+Sink and NATS-based components have been **optimized** for throughput and reliability. Pipeline streams in **NATS JetStream** now use the **Work Queue policy**, which improves performance and makes better use of NATS resources (storage and I/O).
+
+- **Work Queue policy for pipeline streams** — Pipeline streams in NATS JetStream use the Work Queue policy for consumers, enabling better performance and more efficient utilization of NATS storage and I/O
+- **Sink optimizations** — Cleanup of gjson parsing and concurrent batch processing; sink now uses `GOMAXPROCS` (max procs) rather than logical CPUs for worker scaling
+- **Ack policy and logic** — Explicit ack aligned with Work Queue; ack policy and logic updated to ack each message in DLQ, dedup, and join; max ack pending set based on batch size and workers for better backpressure handling
+- **NATS consumer** — Backwards-compatible consumer for existing pipelines with different ack policy; DLQ consumer refactored to use the same NATS client package
+- **DLQ stream check and stats refresh** — DLQ stream existence check fixed to avoid ~30 seconds of retry when the stream does not exist; DLQ stats refresh trigger added after flushing DLQ
+- **ClickHouse batch append** — In cases where a data mismatch caused the ClickHouse client to panic during batch append, the error is now handled gracefully: malformed data is sent to the DLQ and the pipeline continues processing other events
+- **Processing duration metrics** — The `processing_duration_seconds` metric is now recorded with a `stage` attribute (e.g. `schema_mapping`, `total_preparation`, `per_message` in the sink), so you can observe per-stage timing in your metrics backend
+
+### 📋 Pipeline Management UX
+
+- **Confirmation dialog for pipeline deletion** — Confirmation dialog added when deleting a pipeline from both the pipeline list and the pipeline details page
+- **Unsaved changes guard** — Unsaved changes guard added for edits in the transformation section; fixed triggering of the close guard on regular save so it does not block valid saves
+- **Terminate and edit** — Terminating a pipeline now overrides the edit operation so terminate can proceed when the pipeline is being edited
+
+### 📡 Kafka Operations in the UI (Pipeline Wizard)
+
+- **Topic fetching** — Fixed topic fetching loader behavior in the wizard after encountering an empty topic
+- **Kafka connection and consumer groups** — Unified Kafka connection and message fetching timers in the UI; improved Kafka operations with connection pooling; proper cleanup of consumer groups; tests and logic improvements for consumer group cleanup
+- **Kafka JS client** — Performance options, removal of dead connections, and prevention of memory leaks in the Kafka JS client used by the UI
+- **Search and navigation** — Search term added as a page view with path parameter for better deep-linking when selecting topics or browsing in the wizard
+
+### 🐛 Bug Fixes
+
+- **Ingestor with transforms** — Ingestor fails to parse data with transforms enabled; fixed via config generation and scheme updates
+
+## Migration Notes
+
+### For Existing Users
+
+- **No breaking changes** — This release is fully backward compatible
+- **Filter on by default** — Filter is now enabled by default; disable it in the pipeline config if you do not want filtering
+- **NATS ack policy** — Backwards-compatible consumer ensures existing pipelines with different ack policy continue to work
+- **Sink types** — Sink uses simplified basic data types; FixedString and uint are now supported
+
+### Configuration Updates
+
+- **No new required Helm values** — Existing deployments continue to work without changes
+
+## Try It Out
+
+To try the new features in v2.10.x:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes)
+2. **Use transformations with special characters** — Try expressions that use `@` or other special characters where supported
+3. **Use the filter builder** — Enable filter (default) and try manual expression for non-numeric fields
+4. **Use auto mapping** — Trigger auto mapping in the ClickHouse mapper step when creating or editing a pipeline
+5. **Delete a pipeline** — Confirm the new deletion confirmation dialog from the list and details page
+6. **Edit transformations** — Notice the unsaved changes guard and intermediary snapshots while editing
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in the v2.10.x series, see the GitHub releases:
+
+- [v2.10.1](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.10.1)
+- [v2.10.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.10.0)
+
+*GlassFlow v2.10.x continues our commitment to making streaming ETL more reliable and easier to configure for production use.*
