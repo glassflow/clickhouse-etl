@@ -28,25 +28,27 @@ function getCanonicalTransformFromPipeline(pipelineConfig: any): CanonicalField[
   }
 
   // Stateless (V2): transform array with expression, output_name, output_type
-  const statelessTransform = stateless?.config?.transform as Array<{
-    expression?: string
-    output_name?: string
-    output_type?: string
-  }> | undefined
+  const statelessTransform = stateless?.config?.transform as
+    | Array<{
+        expression?: string
+        output_name?: string
+        output_type?: string
+      }>
+    | undefined
   // Legacy: transformation.fields with outputFieldName, outputFieldType, sourceField/rawExpression
-  const legacyFields = legacy?.fields as Array<{
-    sourceField?: string
-    outputFieldName?: string
-    outputFieldType?: string
-    rawExpression?: string
-  }> | undefined
+  const legacyFields = legacy?.fields as
+    | Array<{
+        sourceField?: string
+        outputFieldName?: string
+        outputFieldType?: string
+        rawExpression?: string
+      }>
+    | undefined
 
   const transformArray = statelessTransform ?? legacyFields ?? []
 
   const rows: CanonicalField[] = transformArray.map((t: any) => {
-    const expression =
-      t.expression ??
-      (t.sourceField != null ? t.sourceField : t.rawExpression ?? '')
+    const expression = t.expression ?? (t.sourceField != null ? t.sourceField : (t.rawExpression ?? ''))
     const output_name = t.output_name ?? t.outputFieldName ?? ''
     const output_type = t.output_type ?? t.outputFieldType ?? 'string'
     return { output_name, output_type, expression: String(expression).trim() }
@@ -88,7 +90,7 @@ function canonicalToKey(fields: CanonicalField[]): string {
 export function isTransformationSectionDirty(
   currentConfig: TransformationConfig,
   lastSavedPipeline: any,
-  sectionSnapshot: TransformationConfig | null = null
+  sectionSnapshot: TransformationConfig | null = null,
 ): boolean {
   const current = getCanonicalTransformFromStore(currentConfig)
 

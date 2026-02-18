@@ -10,14 +10,8 @@ import { isTransformationSectionDirty } from '../isTransformationSectionDirty'
  */
 export function useIsTransformationSectionDirty(): boolean {
   const transformationConfig = useStore((state) => state.transformationStore.transformationConfig)
-  const sectionSnapshot = useStore(
-    (state) => state.transformationStore.lastSavedTransformationSnapshot
-  )
+  const sectionSnapshot = useStore((state) => state.transformationStore.lastSavedTransformationSnapshot)
   const lastSavedConfig = useStore((state) => state.coreStore.lastSavedConfig)
 
-  return isTransformationSectionDirty(
-    transformationConfig,
-    lastSavedConfig ?? undefined,
-    sectionSnapshot
-  )
+  return isTransformationSectionDirty(transformationConfig, lastSavedConfig ?? undefined, sectionSnapshot)
 }
