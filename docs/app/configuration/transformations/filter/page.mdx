@@ -35,7 +35,7 @@ GlassFlow uses the [expr](https://github.com/expr-lang/expr) expression language
 
 Filter is configured at the pipeline level. Here's the configuration structure:
 
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Filter Configuration" src="/assets/ui_filter_configuration.png" />
   </Tabs.Tab>
@@ -74,7 +74,7 @@ Filter expressions use field names from your event schema and support the follow
 #### Examples
 
 **String comparison:**
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
   </Tabs.Tab>
@@ -91,7 +91,7 @@ Filter expressions use field names from your event schema and support the follow
 </Tabs>
 
 **Numeric comparison:**
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
   </Tabs.Tab>
@@ -108,7 +108,7 @@ Filter expressions use field names from your event schema and support the follow
 </Tabs>
 
 **Boolean field:**
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
   </Tabs.Tab>
@@ -125,7 +125,7 @@ Filter expressions use field names from your event schema and support the follow
 </Tabs>
 
 **Multiple conditions with AND:**
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
   </Tabs.Tab>
@@ -142,7 +142,7 @@ Filter expressions use field names from your event schema and support the follow
 </Tabs>
 
 **Multiple conditions with OR:**
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
   </Tabs.Tab>
@@ -159,7 +159,7 @@ Filter expressions use field names from your event schema and support the follow
 </Tabs>
 
 **Complex expression with parentheses:**
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
   </Tabs.Tab>
@@ -176,7 +176,7 @@ Filter expressions use field names from your event schema and support the follow
 </Tabs>
 
 **Nested field access:**
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
   </Tabs.Tab>
@@ -225,11 +225,13 @@ Here's a complete example of a pipeline with filtering enabled:
   "source": {
     "type": "kafka",
     "connection_params": {
-      "brokers": ["kafka:9092"]
+      ...
     },
     "topics": [
       {
-        "name": "user-events"
+        "name": "user-events",
+        "consumer_group_initial_offset": "latest",
+        "replicas": 1
       }
     ]
   },
@@ -239,11 +241,7 @@ Here's a complete example of a pipeline with filtering enabled:
   },
   "sink": {
     "type": "clickhouse",
-    "connection_params": {
-      "host": "clickhouse:9000",
-      "database": "analytics",
-      "table": "active_users"
-    }
+    ...
   }
 }
 ```

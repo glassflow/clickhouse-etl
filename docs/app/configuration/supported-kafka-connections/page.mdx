@@ -52,7 +52,7 @@ Client certificate authentication (mTLS) is not supported.
 
 ### PLAINTEXT (no auth)
 
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="PLAINTEXT (no auth) example" src="/assets/ui_kafka_connection_plaintext_no_auth.png" />
   </Tabs.Tab>
@@ -69,7 +69,7 @@ Client certificate authentication (mTLS) is not supported.
 
 ### SASL/PLAIN over TLS
 
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="SASL/PLAIN over TLS example" src="/assets/ui_kafka_connection_sasl_plain_over_tls.png" />
   </Tabs.Tab>
@@ -89,7 +89,7 @@ Client certificate authentication (mTLS) is not supported.
 
 ### SASL/SCRAM-SHA-256
 
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="SASL/SCRAM-SHA-256 example" src="/assets/ui_kafka_connection_sasl_scram_256.png" />
   </Tabs.Tab>
@@ -121,7 +121,7 @@ GlassFlow supports Kerberos authentication (GSSAPI) for connecting to Kafka clus
 **Optional fields:**
   - `password`: Required only if using password-based authentication instead of keytab
 
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="SASL/GSSAPI (Kerberos) example" src="/assets/ui_kafka_connection_sasl_gssapi.png" />
   </Tabs.Tab>
@@ -148,7 +148,7 @@ The `kerberos_keytab` field should contain the base64-encoded content of your ke
 
 ### SSL (skip TLS verification)
 
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="SSL (skip TLS verification) example" src="/assets/ui_kafka_connection_ssl_skip_tls_verification.png" />
   </Tabs.Tab>

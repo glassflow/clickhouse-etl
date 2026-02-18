@@ -48,37 +48,301 @@ Inside an expression, you can reference any field from the input JSON by its nam
 
 The expression engine is type-aware and supports arithmetic, string operations, conditionals, and logical operators.
 
-## Helper Functions
+## Transformation Expressions
 
-In addition to standard `expr` operators, GlassFlow provides helper functions useful for web / event data pipelines.
-Some of the most commonly used helpers are:
+Stateless transformations are evaluated using the [expr](https://expr-lang.org/docs/language-definition) expression language. Expr is a simple, type-aware expression engine that supports literals, variables, operators, and a rich set of built-in functions. Your transformation expressions run on this engine, so you can use the full expr syntax—including arithmetic, comparison, logical and string operators, optional chaining, and predicates—in addition to the GlassFlow-specific helpers described below.
 
-- **`parseQuery(queryString)`**:  
-  Parses a query string into a map of key/value pairs.
-- **`getQueryParam(queryString, key)` / `getNestedParam(queryString, key)`**:  
-  Returns the value of a specific query parameter.
-- **`urlDecode(value)`**:  
-  URL-decodes an encoded string.
-- **`parseISO8601(timestamp)`**:  
-  Parses common ISO-8601 timestamp formats and returns a Unix timestamp (seconds).
-- **`toDate(unixSeconds)`**:  
-  Converts a Unix timestamp (seconds) into a `YYYY-MM-DD` date string.
-- **`parseUserAgent(ua, field)`**:  
-  Extracts `device`, `browser`, or `os` from a user agent string.
-- **`containsStr(str, substr)`**, **`hasPrefix(str, prefix)`**, **`hasSuffix(str, suffix)`**:  
-  Basic string search/validation.
-- **`upper(str)`**, **`lower(str)`**, **`trim(str)`**:  
-  String normalization helpers.
-- **`split(str, sep)`**, **`join(values, sep)`**, **`replace(str, old, new)`**:  
-  Advanced string manipulation.
-- **`toInt(value)`**, **`toFloat(value)`**, **`toString(value)`**:  
-  Safe type conversion helpers.
-- **`keys(map)`**:  
-  Returns all keys in a JSON object, sorted.
-- **`waterfall(values...)`**:  
-  Returns the first non-empty value from a list (or array) of candidates.
+### Expression Operators
 
-> These helpers are available directly inside the expression, e.g. `upper(status)`, `parseUserAgent(user_agent, "device")`.
+The following operators are available in expressions (from the [expr language definition](https://expr-lang.org/docs/language-definition#operators)):
+
+| Category    | Operators | Examples |
+| ----------- | --------- | -------- |
+| **Arithmetic** | `+`, `-`, `*`, `/`, `%`, `^` or `**` | `count * 2`, `3 ** 2` |
+| **Comparison** | `==`, `!=`, `<`, `>`, `<=`, `>=` | `status == "active"`, `age >= 18` |
+| **Logical** | `not` or `!`, `and` or `&&`, `or` or `\|\|` | `!disabled`, `a and b` |
+| **Conditional** | `?:`, `??`, `if` … `else` | `x ? 1 : 0`, `name ?? "Anonymous"` |
+| **Membership** | `[]`, `.`, `?.`, `in` | `payload.id`, `tags[0]`, `"x" in list` |
+| **String** | `+`, `contains`, `startsWith`, `endsWith` | `"Hi " + name` |
+| **Regex** | `matches` | `email matches ".*@.+\\.com"` |
+| **Range** | `..` | `1..3` → `[1, 2, 3]` |
+| **Slice** | `[:]` | `arr[1:4]`, `arr[-1]` |
+| **Pipe** | `\|` | `s \| lower() \| split(",")` |
+
+### Functions
+
+In addition to standard `expr` operators, GlassFlow provides helper functions useful for web / event data pipelines.  
+Use them directly in expressions, e.g. `upper(status)`, `parseUserAgent(user_agent, "device")`.
+
+Each function is listed below with a short description and an example showing **expression** → **output**.
+
+---
+
+#### parseQuery
+
+Parses a URL query string into a map of key/value pairs. Useful for deriving fields from `?key=value&foo=bar`-style strings.
+
+| Expression | Example output |
+|------------|----------------|
+| `parseQuery('a=1&b=2&c=hello')` | `{"a": "1", "b": "2", "c": "hello"}` |
+| `parseQuery(query_string)` (with `query_string` = `"utm_source=google"`) | `{"utm_source": "google"}` |
+
+---
+
+#### getQueryParam
+
+Return the value of a specific query parameter from a query string.
+
+| Expression | Example output |
+|------------|----------------|
+| `getQueryParam('a=1&b=2', 'b')` | `"2"` |
+| `getQueryParam(url_query, 'utm_campaign')` (with `url_query` = `"utm_campaign=winter"`) | `"winter"` |
+| `getQueryParam('a=1&b=2', 'missing')` | `""` |
+
+---
+
+#### urlDecode
+
+URL-decodes an encoded string (e.g. `%20` → space, `%2B` → `+`).
+
+| Expression | Example output |
+|------------|----------------|
+| `urlDecode('hello%20world')` | `"hello world"` |
+| `urlDecode('a%3D1%26b%3D2')` | `"a=1&b=2"` |
+
+---
+
+#### parseISO8601
+
+Parses common ISO-8601 timestamp strings and returns a Unix timestamp in **seconds**. Supports formats such as `2006-01-02T15:04:05Z` and `2006-01-02 15:04:05.000000`.
+
+| Expression | Example output |
+|------------|----------------|
+| `parseISO8601('2024-06-15T14:30:00Z')` | `1718461800` |
+| `parseISO8601(timestamp_field)` (with `timestamp_field` = `"2024-01-01T00:00:00Z"`) | `1704067200` |
+| `parseISO8601('')` or invalid input | `0` |
+
+---
+
+#### toDate
+
+Converts a Unix timestamp (seconds) or a `time.Time` value into a `YYYY-MM-DD` date string.
+
+| Expression | Example output |
+|------------|----------------|
+| `toDate(1718458200)` | `"2024-06-15"` |
+| `toDate(parseISO8601('2024-06-15T14:30:00Z'))` | `"2024-06-15"` |
+
+---
+
+#### parseUserAgent
+
+Extracts structured information from a user agent string. The second argument must be one of: `"device"`, `"browser"`, or `"os"`.
+
+Example `user_agent` value used below:  
+`Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36`
+
+| Expression | Example output |
+|------------|----------------|
+| `parseUserAgent(user_agent, "device")` | `"Mobile"` (or `"Desktop"` / `"Tablet"` for other UAs) |
+| `parseUserAgent(user_agent, "browser")` | `"Chrome"` |
+| `parseUserAgent(user_agent, "os")` | `"Android"` |
+
+---
+
+#### containsStr
+
+Returns whether the first string contains the second string (substring check).
+
+| Expression | Example output |
+|------------|----------------|
+| `containsStr('hello world', 'world')` | `true` |
+| `containsStr('hello world', 'xyz')` | `false` |
+| `containsStr(path, '/api/')` (with `path` = `'/api/v1/users'`) | `true` |
+
+---
+
+#### hasPrefix
+
+Returns whether the first string starts with the second string.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasPrefix('hello world', 'hello')` | `true` |
+| `hasPrefix('hello world', 'world')` | `false` |
+| `hasPrefix(path, '/g/')` (with `path` = `'/g/collect'`) | `true` |
+
+---
+
+#### hasSuffix
+
+Returns whether the first string ends with the second string.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasSuffix('file.json', '.json')` | `true` |
+| `hasSuffix('file.json', '.txt')` | `false` |
+
+---
+
+#### upper
+
+Converts a string to uppercase.
+
+| Expression | Example output |
+|------------|----------------|
+| `upper('hello')` | `"HELLO"` |
+| `upper(status)` (with `status` = `"pending"`) | `"PENDING"` |
+
+---
+
+#### lower
+
+Converts a string to lowercase.
+
+| Expression | Example output |
+|------------|----------------|
+| `lower('HELLO')` | `"hello"` |
+| `lower(type)` (with `type` = `"EVENT"`) | `"event"` |
+
+---
+
+#### trim
+
+Trims leading and trailing whitespace from a string.
+
+| Expression | Example output |
+|------------|----------------|
+| `trim('  hello  ')` | `"hello"` |
+| `trim(raw_input)` (with `raw_input` = `"\t value \n"`) | `"value"` |
+
+---
+
+#### split
+
+Splits a string by a separator and returns an array of strings.
+
+| Expression | Example output |
+|------------|----------------|
+| `split('a,b,c', ',')` | `["a", "b", "c"]` |
+| `split('one-two-three', '-')` | `["one", "two", "three"]` |
+| `split(path, '/')` (with `path` = `"/api/v1"`) | `["", "api", "v1"]` |
+
+---
+
+#### join
+
+Joins an array of values into a single string using the given separator. The first argument must be an array (e.g. the result of `split`).
+
+| Expression | Example output |
+|------------|----------------|
+| `join(['a', 'b', 'c'], '-')` | `"a-b-c"` |
+| `join(['x', 'y', 'z'], ' ')` | `"x y z"` |
+
+---
+
+#### replace
+
+Replaces all occurrences of a substring with another string.
+
+| Expression | Example output |
+|------------|----------------|
+| `replace('hello world', 'world', 'there')` | `"hello there"` |
+| `replace(url, 'http://', 'https://')` (with `url` = `'http://example.com'`) | `"https://example.com"` |
+
+---
+
+#### toInt
+
+Converts a value to an integer. Returns `0` for empty or invalid input.
+
+| Expression | Example output |
+|------------|----------------|
+| `toInt('42')` | `42` |
+| `toInt('3.14')` | `0` (invalid for int) |
+| `toInt('abc')` | `0` (invalid for int) |
+| `toInt(age_str)` (with `age_str` = `"25"`) | `25` |
+
+---
+
+#### toFloat
+
+Converts a value to a float. Returns `0.0` for empty or invalid input.
+
+| Expression | Example output |
+|------------|----------------|
+| `toFloat('3.14')` | `3.14` |
+| `toFloat('42')` | `42` |
+| `toFloat(price_str)` (with `price_str` = `"19.99"`) | `19.99` |
+
+---
+
+#### toString
+
+Converts a value to a string. Returns `""` for empty input.
+
+| Expression | Example output |
+|------------|----------------|
+| `toString(42)` | `"42"` |
+| `toString(3.14)` | `"3.14"` |
+| `toString(id)` (with `id` = `12345`) | `"12345"` |
+
+---
+
+#### keys
+
+Returns all keys of a JSON object (map), sorted alphabetically.
+
+| Expression | Example output |
+|------------|----------------|
+| `keys(parseQuery('a=1&b=2'))` | `["a", "b"]` |
+| `keys(payload)` (with `payload` = `{"x": 1, "y": 2}`) | `["x", "y"]` |
+
+---
+
+#### waterfall
+
+Returns the first non-empty value from a list of candidates. Accepts either multiple arguments or a single array. Useful for fallbacks (e.g. prefer `utm_source`, then `source`, then `"direct"`).
+
+| Expression | Example output |
+|------------|----------------|
+| `waterfall('', 'b', 'c')` | `"b"` |
+| `waterfall(utm_source, source, 'direct')` (with `utm_source` = `""`, `source` = `"newsletter"`) | `"newsletter"` |
+| `waterfall('', '', 'last')` | `"last"` |
+
+---
+
+#### extractPathType
+
+Maps a known path to a request type. Recognized paths: `/g/collect` → `"collect"`, `/_/set_cookie` → `"set_cookie"`; any other path → `"unknown"`.
+
+| Expression | Example output |
+|------------|----------------|
+| `extractPathType('/g/collect')` | `"collect"` |
+| `extractPathType(path)` (with `path` = `"/_/set_cookie"`) | `"set_cookie"` |
+| `extractPathType('/other')` | `"unknown"` |
+
+---
+
+#### hasKeyPrefix
+
+Returns whether any key in the given map starts with one of the given prefixes. First argument: map (object); second: array of prefix strings.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasKeyPrefix(payload, ['ga_', 'gclid_'])` (with `payload` = `{"ga_session_id": "123"}`) | `true` |
+| `hasKeyPrefix(payload, ['utm_'])` (with `payload` = `{"page": "/"}`) | `false` |
+
+---
+
+#### hasAnyKey
+
+Returns whether the given map has at least one of the given keys. First argument: map; second: array of key names.
+
+| Expression | Example output |
+|------------|----------------|
+| `hasAnyKey(payload, ['user_id', 'client_id'])` (with `payload` = `{"client_id": "abc"}`) | `true` |
+| `hasAnyKey(payload, ['user_id', 'client_id'])` (with `payload` = `{"page": "/"}`) | `false` |
 
 ## Configuration
 
@@ -87,23 +351,28 @@ They are typically surfaced through the UI as *derived fields* or *expression-ba
 
 ### Configuration Structure
 
-In JSON terms, each transformation looks like:
-
-```json
-{
-  "expression": "upper(status)",
-  "output_name": "status_normalized",
-  "output_type": "string"
-}
-```
-
-In a full pipeline configuration, this is represented as an array of transformations under the transformation section for a source (or as part of the schema mapping UI, depending on your version).
-
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
-    <img alt="Stateless Transformation Configuration" src="/assets/ui_stateless_transformation_configuration.png" />
+    In the pipeline wizard, open the **Transformation** step. By default, all input fields from your topic are listed as **passthrough**—they are forwarded to the output unchanged. You can edit a passthrough field to add a transformation, or click **Add Field** to define a new derived field.
+
+    <img alt="Stateless Transformation Configuration Passthrough" src="/assets/ui_stateless_transformation_configuration_passthrough.png" />
+
+    You can build each transformation in two ways:
+
+    - **Builder** (default): Use the visual builder to pick a function, arguments, and optional arithmetic. Best for common patterns like string normalization or parsing.
+    - **Raw Expression**: Type an expression directly (e.g. `upper(status)` or `parseUserAgent(user_agent, "device")`). Use this for complex logic or when the builder does not support what you need.
+
+    **Builder mode:**
+
+    <img alt="Transformation Builder" src="/assets/ui_stateless_transformation_configuration_builder.png" />
+
+    **Raw expression mode:**
+
+    <img alt="Transformation Raw Expression" src="/assets/ui_stateless_transformation_configuration_raw_expression.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    In the pipeline JSON, stateless transformations use the following structure. The `transform` array lists every field that appears in the output—both derived fields (with expressions) and passthrough fields (e.g. `expression: "user_id"` to pass `user_id` through unchanged).
+
     ```json
     {
       "stateless_transformation": {
@@ -116,10 +385,15 @@ In a full pipeline configuration, this is represented as an array of transformat
                     "expression": "upper(status)",
                     "output_name": "status_normalized",
                     "output_type": "string"
-                }
+                },
                 {
                     "expression": "parseUserAgent(user_agent, 'device')",
                     "output_name": "device_type",
+                    "output_type": "string"
+                },
+                {
+                    "expression": "user_id",
+                    "output_name": "user_id",
                     "output_type": "string"
                 }
             ]
@@ -127,51 +401,114 @@ In a full pipeline configuration, this is represented as an array of transformat
       }
     }
     ```
-    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#stateless-transformation-configuration) for more details.
+
+    In the `schema` section, use the transformation **`id`** as **`source_id`** for every field that comes from the transformation output (so the sink knows which stream to read from). The `source_id` in the example below matches the `id` above (`my-stateless-transformation`).
+
+    ```json
+    {
+      "schema": {
+        "fields": [
+          {
+            "source_id": "my-stateless-transformation",
+            "name": "user_id",
+            "type": "string"
+          },
+          {
+            "source_id": "my-stateless-transformation",
+            "name": "status_normalized",
+            "type": "string"
+          },
+          {
+            "source_id": "my-stateless-transformation",
+            "name": "device_type",
+            "type": "string"
+          }
+        ]
+      }
+    }
+    ```
+
+    For the full field reference, see the [Pipeline JSON Reference](/configuration/pipeline-json-reference#stateless-transformation-configuration).
   </Tabs.Tab>
 </Tabs>
 
 ## Examples
 
-### Example 1: Normalizing Status and Extracting Device
+Here's a complete example of a pipeline with stateless transformation enabled.
+
+**Scenario:** Web events with optional `timestamp`, `path`, and `request_time`. We derive an event date, a path-based category, and request time in microseconds.
 
 ```json
 {
-  "expression": "upper(status)",
-  "output_name": "status_normalized",
-  "output_type": "string"
+  "version": "v2",
+  "pipeline_id": "events-with-transform",
+  "name": "Web Events with Stateless Transformation",
+  "source": {
+    "type": "kafka",
+    "connection_params": {
+      ...
+    },
+    "topics": [
+      {
+        "name": "events",
+        "consumer_group_initial_offset": "latest",
+        "replicas": 1
+      }
+    ]
+  },
+  "stateless_transformation": {
+    "enabled": true,
+    "id": "transform",
+    "type": "expr_lang_transform",
+    "config": {
+      "transform": [
+        {
+          "expression": "toDate(parseISO8601(timestamp ?? ''))",
+          "output_name": "event_date",
+          "output_type": "string"
+        },
+        {
+          "expression": "extractPathType(path ?? '') == 'collect' ? 'event' : 'other'",
+          "output_name": "event_category",
+          "output_type": "string"
+        },
+        {
+          "expression": "toInt(toFloat(request_time ?? 0) * 1000000)",
+          "output_name": "request_time_usec",
+          "output_type": "uint"
+        }
+      ]
+    }
+  },
+  "schema": {
+    "fields": [
+      {
+        "source_id": "transform",
+        "name": "event_date",
+        "type": "string"
+      },
+      {
+        "source_id": "transform",
+        "name": "event_category",
+        "type": "string"
+      },
+      {
+        "source_id": "transform",
+        "name": "request_time_usec",
+        "type": "uint"
+      }
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    ...
+  }
 }
 ```
 
-```json
-{
-  "expression": "parseUserAgent(user_agent, 'device')",
-  "output_name": "device_type",
-  "output_type": "string"
-}
-```
-
-Used together, these transformations produce fields like `status_normalized = 'ACTIVE'` and `device_type = 'Mobile'` from the raw event.
-
-### Example 2: Parsing Timestamp and URL Parameters
-
-```json
-{
-  "expression": "parseISO8601(timestamp)",
-  "output_name": "event_ts",
-  "output_type": "int64"
-}
-```
-
-```json
-{
-  "expression": "getQueryParam(query_string, 'utm_source')",
-  "output_name": "utm_source",
-  "output_type": "string"
-}
-```
-
-These expressions convert a string timestamp into a numeric Unix timestamp and extract marketing parameters from a query string.
+- **event_date** — Custom helpers `parseISO8601` and `toDate` turn an ISO-8601 `timestamp` into a `YYYY-MM-DD` string; `timestamp ?? ''` avoids errors when the field is missing (expr [nil coalescing](https://expr-lang.org/docs/language-definition#nil-coalescing)).
+- **event_category** — `extractPathType` plus expr [ternary](https://expr-lang.org/docs/language-definition#operators): paths like `/g/collect` become `"event"`, everything else `"other"`.
+- **request_time_usec** — `toFloat` converts `request_time` to a float, then multiplies by 1,000,000 to get microseconds; `toInt` converts the result to an integer.
 
 ## Best Practices
 
