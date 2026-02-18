@@ -374,3 +374,94 @@ func TestCreatePipeline_UnsupportedClickHouseColumnType(t *testing.T) {
 		}
 	}
 }
+
+func TestCreatePipeline_InvalidStatelessTransformExpression(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	// Enable stateless transformation with an invalid expression (will not compile)
+	body["stateless_transformation"] = map[string]interface{}{
+		"id":      "test-transform",
+		"type":    "expr_lang_transform",
+		"enabled": true,
+		"config": map[string]interface{}{
+			"transform": []map[string]interface{}{
+				{
+					"expression": "invalid ??? syntax",
+					"output_name": "out",
+					"output_type": "string",
+				},
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Equal(t, "unprocessable_entity", errDetail.Code)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "stateless transformation")
+		}
+	}
+}
+
+func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	mockPipelineService.EXPECT().CreatePipeline(gomock.Any(), gomock.Any()).Return(nil)
+
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	body["stateless_transformation"] = map[string]interface{}{
+		"id":      "test-transform",
+		"type":    "expr_lang_transform",
+		"enabled": true,
+		"config": map[string]interface{}{
+			"transform": []map[string]interface{}{
+				{
+					"expression":  "lower(field_name)",
+					"output_name": "out",
+					"output_type": "string",
+				},
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+}

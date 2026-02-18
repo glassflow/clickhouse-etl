@@ -11,6 +11,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	schemapkg "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 )
 
 //go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService
@@ -483,9 +484,15 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 }
 
 func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTransformation, error) {
-	// Directly return the StatelessTransformation from the pipeline JSON
-	// since it's already the correct model type
-	return pipeline.StatelessTransformation, nil
+	cfg := pipeline.StatelessTransformation
+	// When transforms are enabled, validate that all expressions compile (fail at API layer, not at component start)
+	if cfg.Enabled && len(cfg.Config.Transform) > 0 {
+		_, err := jsonTransformer.NewTransformer(cfg.Config.Transform)
+		if err != nil {
+			return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", err)
+		}
+	}
+	return cfg, nil
 }
 
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
