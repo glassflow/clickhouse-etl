@@ -10,6 +10,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	schemapkg "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 )
 
 //go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService
@@ -427,6 +429,16 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 		return zero, fmt.Errorf("at least one field must have column_name and column_type defined")
 	}
 
+	// Validate all ClickHouse column types are supported (fail at API layer, not at sink runtime)
+	for _, field := range pipeline.Schema.Fields {
+		if field.ColumnName == "" || field.ColumnType == "" {
+			continue
+		}
+		if err := schemapkg.ValidateClickHouseColumnType(field.ColumnType); err != nil {
+			return zero, fmt.Errorf("field %q (column %q): %w", field.Name, field.ColumnName, err)
+		}
+	}
+
 	mapperConfig := models.MapperConfig{
 		Type:        internal.SchemaMapperJSONToCHType,
 		Streams:     streamsCfg,
@@ -472,14 +484,69 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 }
 
 func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTransformation, error) {
-	// Directly return the StatelessTransformation from the pipeline JSON
-	// since it's already the correct model type
-	return pipeline.StatelessTransformation, nil
+	cfg := pipeline.StatelessTransformation
+	if !cfg.Enabled || len(cfg.Config.Transform) == 0 {
+		return cfg, nil
+	}
+	// Compile expressions — catches syntax/parse errors (e.g. invalid tokens, unmatched parentheses).
+	// Does not catch undefined function names; those fail when we run Transform() below.
+	transformer, err := jsonTransformer.NewTransformer(cfg.Config.Transform)
+	if err != nil {
+		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
+	}
+	// With transforms enabled we do not know the input schema from pipeline.json (schema.fields
+	// only defines the sink mapping and uses the transform as source_id). Run with empty data
+	// so undefined functions still fail here.
+	_, err = transformer.Transform([]byte("{}"))
+	if err != nil {
+		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
+	}
+	return cfg, nil
 }
 
+// statelessTransformValidationError returns a human-readable error for transform validation failures.
+func statelessTransformValidationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "compile transformation") {
+		return fmt.Errorf("transformation expression has a syntax or parse error (e.g. invalid token, unmatched parentheses). Details: %w", err)
+	}
+	if strings.Contains(msg, "cannot call nil") {
+		return fmt.Errorf("transformation expression uses an undefined or misspelled function — check that the function name is in the supported list (e.g. lower, upper, replace, toInt, toFloat). Details: %w", err)
+	}
+	if strings.Contains(msg, "run transformation ") {
+		return fmt.Errorf("transformation validation failed: %w", err)
+	}
+	return err
+}
+
+const minPipelineIDLength = 5
+
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
-	if len(strings.TrimSpace(pipeline.PipelineID)) == 0 {
+	id := strings.TrimSpace(pipeline.PipelineID)
+	if len(id) == 0 {
 		return zero, fmt.Errorf("pipeline ID cannot be empty")
+	}
+	if len(id) < minPipelineIDLength {
+		return zero, fmt.Errorf("pipeline ID must be at least %d characters", minPipelineIDLength)
+	}
+
+	// Validations aligned with Pipeline CRD spec (sources.topics, topic_name, replicas, type)
+	if strings.ToLower(strings.TrimSpace(pipeline.Source.Kind)) != internal.KafkaIngestorType {
+		return zero, fmt.Errorf("source type must be %q", internal.KafkaIngestorType)
+	}
+	if len(pipeline.Source.Topics) < 1 {
+		return zero, fmt.Errorf("source must have at least one topic")
+	}
+	if len(pipeline.Source.Topics) > internal.MaxStreamsSupportedWithJoin {
+		return zero, fmt.Errorf("source must have at most %d topics", internal.MaxStreamsSupportedWithJoin)
+	}
+	for i, t := range pipeline.Source.Topics {
+		if len(strings.TrimSpace(t.Topic)) == 0 {
+			return zero, fmt.Errorf("topic name at index %d cannot be empty", i)
+		}
 	}
 
 	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)

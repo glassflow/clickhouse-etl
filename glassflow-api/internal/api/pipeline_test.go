@@ -276,3 +276,352 @@ func TestEditPipeline_InvalidPipelineData(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
 	assert.Equal(t, "unprocessable_entity", errDetail.Code)
 }
+
+func TestCreatePipeline_PipelineIDTooShort(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{log: slog.Default(), pipelineService: mockPipelineService}
+
+	body := validCreatePipelineBody()
+	body["pipeline_id"] = "test" // 4 characters
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	require.NoError(t, json.Unmarshal(jsonBytes, &pipelineBody))
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "pipeline ID must be at least 5 characters")
+		}
+	}
+}
+
+func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	tests := []struct {
+		name        string
+		modify      func(map[string]interface{})
+		wantContain string
+	}{
+		{
+			name: "no topics",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{}
+			},
+			wantContain: "at least one topic",
+		},
+		{
+			name: "more than two topics",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
+					{"name": "t1"},
+					{"name": "t2"},
+					{"name": "t3"},
+				}
+			},
+			wantContain: "at most 2 topics",
+		},
+		{
+			name: "empty topic name",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
+					{"name": ""},
+				}
+			},
+			wantContain: "topic name",
+			// error says "topic name at index 0 cannot be empty"
+		},
+		{
+			name: "source type not kafka",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["type"] = "rabbitmq"
+			},
+			wantContain: "source type must be \"kafka\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := validCreatePipelineBody()
+			tt.modify(body)
+			jsonBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+			var pipelineBody pipelineJSON
+			err = json.Unmarshal(jsonBytes, &pipelineBody)
+			require.NoError(t, err)
+
+			input := &CreatePipelineInput{Body: pipelineBody}
+			response, err := handler.createPipeline(context.Background(), input)
+
+			require.Error(t, err)
+			require.Nil(t, response)
+			var errDetail *ErrorDetail
+			require.ErrorAs(t, err, &errDetail)
+			assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+			if errDetail.Details != nil {
+				if e, ok := errDetail.Details["error"].(string); ok {
+					assert.Contains(t, e, tt.wantContain, "error message should contain %q", tt.wantContain)
+				}
+			}
+		})
+	}
+}
+
+// validCreatePipelineBody returns a minimal valid pipeline JSON for create (used as base for validation tests).
+func validCreatePipelineBody() map[string]interface{} {
+	return map[string]interface{}{
+		"pipeline_id": "test-pipeline",
+		"name":        "Test Pipeline",
+		"source": map[string]interface{}{
+			"type":     "kafka",
+			"provider": "confluent",
+			"connection_params": map[string]interface{}{
+				"brokers":   []string{"localhost:9092"},
+				"mechanism": "NO_AUTH",
+				"protocol":  "SASL_PLAINTEXT",
+			},
+			"topics": []map[string]interface{}{
+				{"name": "test-topic", "id": "topic-1"},
+			},
+		},
+		"join": map[string]interface{}{
+			"type":    "temporal",
+			"enabled": false,
+		},
+		"sink": map[string]interface{}{
+			"type":           "clickhouse",
+			"host":           "localhost",
+			"port":           "9000",
+			"http_port":      "8123",
+			"database":       "test_db",
+			"table":          "test_table",
+			"username":       "default",
+			"password":       "x",
+			"secure":         false,
+			"max_batch_size": 1000,
+			"max_delay_time": "60s",
+		},
+		"schema": map[string]interface{}{
+			"fields": []map[string]interface{}{
+				{
+					"source_id":   "test-topic",
+					"name":        "id",
+					"type":        "string",
+					"column_name": "id",
+					"column_type": "String",
+				},
+			},
+		},
+	}
+}
+
+func TestCreatePipeline_UnsupportedClickHouseColumnType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	// CreatePipeline must NOT be called because validation fails in toModel()
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	// Override schema to use an unsupported ClickHouse column type
+	body["schema"] = map[string]interface{}{
+		"fields": []map[string]interface{}{
+			{
+				"source_id":   "test-topic",
+				"name":        "id",
+				"type":        "string",
+				"column_name": "id",
+				"column_type": "Unsupported",
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Equal(t, "unprocessable_entity", errDetail.Code)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	// Details should mention unsupported column type
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "unsupported ClickHouse column type")
+			assert.Contains(t, e, "Unsupported")
+		}
+	}
+}
+
+func TestCreatePipeline_InvalidStatelessTransformExpression(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	// Enable stateless transformation with an invalid expression (will not compile)
+	body["stateless_transformation"] = map[string]interface{}{
+		"id":      "test-transform",
+		"type":    "expr_lang_transform",
+		"enabled": true,
+		"config": map[string]interface{}{
+			"transform": []map[string]interface{}{
+				{
+					"expression": "invalid ??? syntax",
+					"output_name": "out",
+					"output_type": "string",
+				},
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Equal(t, "unprocessable_entity", errDetail.Code)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "stateless transformation")
+		}
+	}
+}
+
+func TestCreatePipeline_UndefinedFunctionInStatelessTransform(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	// Expression compiles but uses undefined function - should fail when we run with sample
+	body["stateless_transformation"] = map[string]interface{}{
+		"id":      "test-transform",
+		"type":    "expr_lang_transform",
+		"enabled": true,
+		"config": map[string]interface{}{
+			"transform": []map[string]interface{}{
+				{
+					"expression":  "convert2Blah(id)",
+					"output_name": "out",
+					"output_type": "string",
+				},
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "stateless transformation")
+			// Runtime error from expr when calling undefined function
+			assert.Contains(t, e, "cannot call nil")
+		}
+	}
+}
+
+func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	mockPipelineService.EXPECT().CreatePipeline(gomock.Any(), gomock.Any()).Return(nil)
+
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	body["stateless_transformation"] = map[string]interface{}{
+		"id":      "test-transform",
+		"type":    "expr_lang_transform",
+		"enabled": true,
+		"config": map[string]interface{}{
+			"transform": []map[string]interface{}{
+				{
+					"expression":  "lower(id)",
+					"output_name": "out",
+					"output_type": "string",
+				},
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+}
