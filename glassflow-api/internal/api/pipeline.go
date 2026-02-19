@@ -485,14 +485,41 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 
 func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTransformation, error) {
 	cfg := pipeline.StatelessTransformation
-	// When transforms are enabled, validate that all expressions compile (fail at API layer, not at component start)
-	if cfg.Enabled && len(cfg.Config.Transform) > 0 {
-		_, err := jsonTransformer.NewTransformer(cfg.Config.Transform)
-		if err != nil {
-			return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", err)
-		}
+	if !cfg.Enabled || len(cfg.Config.Transform) == 0 {
+		return cfg, nil
+	}
+	// Compile expressions — catches syntax/parse errors (e.g. invalid tokens, unmatched parentheses).
+	// Does not catch undefined function names; those fail when we run Transform() below.
+	transformer, err := jsonTransformer.NewTransformer(cfg.Config.Transform)
+	if err != nil {
+		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
+	}
+	// With transforms enabled we do not know the input schema from pipeline.json (schema.fields
+	// only defines the sink mapping and uses the transform as source_id). Run with empty data
+	// so undefined functions still fail here.
+	_, err = transformer.Transform([]byte("{}"))
+	if err != nil {
+		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
 	}
 	return cfg, nil
+}
+
+// statelessTransformValidationError returns a human-readable error for transform validation failures.
+func statelessTransformValidationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "compile transformation") {
+		return fmt.Errorf("transformation expression has a syntax or parse error (e.g. invalid token, unmatched parentheses). Details: %w", err)
+	}
+	if strings.Contains(msg, "cannot call nil") {
+		return fmt.Errorf("transformation expression uses an undefined or misspelled function — check that the function name is in the supported list (e.g. lower, upper, replace, toInt, toFloat). Details: %w", err)
+	}
+	if strings.Contains(msg, "run transformation ") {
+		return fmt.Errorf("transformation validation failed: %w", err)
+	}
+	return err
 }
 
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {

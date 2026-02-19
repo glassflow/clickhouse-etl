@@ -425,6 +425,56 @@ func TestCreatePipeline_InvalidStatelessTransformExpression(t *testing.T) {
 	}
 }
 
+func TestCreatePipeline_UndefinedFunctionInStatelessTransform(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	// Expression compiles but uses undefined function - should fail when we run with sample
+	body["stateless_transformation"] = map[string]interface{}{
+		"id":      "test-transform",
+		"type":    "expr_lang_transform",
+		"enabled": true,
+		"config": map[string]interface{}{
+			"transform": []map[string]interface{}{
+				{
+					"expression":  "convert2Blah(id)",
+					"output_name": "out",
+					"output_type": "string",
+				},
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "stateless transformation")
+			// Runtime error from expr when calling undefined function
+			assert.Contains(t, e, "cannot call nil")
+		}
+	}
+}
+
 func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -445,7 +495,7 @@ func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
 		"config": map[string]interface{}{
 			"transform": []map[string]interface{}{
 				{
-					"expression":  "lower(field_name)",
+					"expression":  "lower(id)",
 					"output_name": "out",
 					"output_type": "string",
 				},
