@@ -30,6 +30,8 @@ type PipelineStore interface {
 	PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error
 	UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error
 	UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error
+	GetPipelineResources(ctx context.Context, pipelineID string) (*models.PipelineResourcesRow, error)
+	UpsertPipelineResources(ctx context.Context, pipelineID string, resources models.PipelineResources) (*models.PipelineResourcesRow, error)
 }
 
 type PipelineService struct {

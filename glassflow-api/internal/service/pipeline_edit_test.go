@@ -101,6 +101,14 @@ func (m *MockPipelineStore) UpdatePipeline(ctx context.Context, pid string, cfg 
 	return args.Error(0)
 }
 
+func (m *MockPipelineStore) GetPipelineResources(_ context.Context, _ string) (*models.PipelineResourcesRow, error) {
+	return nil, ErrPipelineNotExists
+}
+
+func (m *MockPipelineStore) UpsertPipelineResources(_ context.Context, _ string, _ models.PipelineResources) (*models.PipelineResourcesRow, error) {
+	return nil, ErrPipelineNotExists
+}
+
 func TestEditPipeline_Success(t *testing.T) {
 	// Setup
 	mockOrchestrator := new(MockOrchestrator)
