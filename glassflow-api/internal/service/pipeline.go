@@ -173,6 +173,15 @@ func (p *PipelineService) GetPipeline(ctx context.Context, pid string) (zero mod
 	return *pi, nil
 }
 
+func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) (*models.PipelineResourcesRow, error) {
+	row, err := p.db.GetPipelineResources(ctx, pid)
+	if err != nil {
+		return nil, fmt.Errorf("load pipeline resources: %w", err)
+	}
+
+	return row, nil
+}
+
 // GetPipelines implements PipelineService.
 func (p *PipelineService) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
 	pipelines, err := p.db.GetPipelines(ctx)

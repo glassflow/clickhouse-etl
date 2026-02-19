@@ -141,6 +141,21 @@ func (mr *MockPipelineServiceMockRecorder) GetPipelineHealth(ctx, pid any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipelineHealth", reflect.TypeOf((*MockPipelineService)(nil).GetPipelineHealth), ctx, pid)
 }
 
+// GetPipelineResources mocks base method.
+func (m *MockPipelineService) GetPipelineResources(ctx context.Context, pid string) (*models.PipelineResourcesRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPipelineResources", ctx, pid)
+	ret0, _ := ret[0].(*models.PipelineResourcesRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPipelineResources indicates an expected call of GetPipelineResources.
+func (mr *MockPipelineServiceMockRecorder) GetPipelineResources(ctx, pid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipelineResources", reflect.TypeOf((*MockPipelineService)(nil).GetPipelineResources), ctx, pid)
+}
+
 // GetPipelines mocks base method.
 func (m *MockPipelineService) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
 	m.ctrl.T.Helper()

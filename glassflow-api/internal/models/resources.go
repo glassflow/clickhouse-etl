@@ -13,10 +13,20 @@ type PipelineResourcesRow struct {
 
 // PipelineResources is the JSONB column content.
 type PipelineResources struct {
+	Nats     *NatsResources      `json:"nats,omitempty"`
 	Ingestor *IngestorResources  `json:"ingestor,omitempty"`
 	Join     *ComponentResources `json:"join,omitempty"`
 	Sink     *ComponentResources `json:"sink,omitempty"`
 	Dedup    *ComponentResources `json:"dedup,omitempty"`
+}
+
+type NatsResources struct {
+	Stream *NatsStreamResources `json:"stream,omitempty"`
+}
+
+type NatsStreamResources struct {
+	MaxAge   string `json:"maxAge,omitempty"`
+	MaxBytes string `json:"maxBytes,omitempty"`
 }
 
 type IngestorResources struct {
@@ -37,6 +47,7 @@ type ResourceRequirements struct {
 	Requests *ResourceList  `json:"requests,omitempty"`
 	Limits   *ResourceList  `json:"limits,omitempty"`
 	Storage  *StorageConfig `json:"storage,omitempty"`
+	Replicas *int64         `json:"replicas,omitempty"`
 }
 
 type ResourceList struct {
