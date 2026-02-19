@@ -277,6 +277,125 @@ func TestEditPipeline_InvalidPipelineData(t *testing.T) {
 	assert.Equal(t, "unprocessable_entity", errDetail.Code)
 }
 
+func TestCreatePipeline_PipelineIDTooShort(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{log: slog.Default(), pipelineService: mockPipelineService}
+
+	body := validCreatePipelineBody()
+	body["pipeline_id"] = "test" // 4 characters
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	require.NoError(t, json.Unmarshal(jsonBytes, &pipelineBody))
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "pipeline ID must be at least 5 characters")
+		}
+	}
+}
+
+func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	tests := []struct {
+		name        string
+		modify      func(map[string]interface{})
+		wantContain string
+	}{
+		{
+			name: "no topics",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{}
+			},
+			wantContain: "at least one topic",
+		},
+		{
+			name: "more than two topics",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
+					{"name": "t1"},
+					{"name": "t2"},
+					{"name": "t3"},
+				}
+			},
+			wantContain: "at most 2 topics",
+		},
+		{
+			name: "empty topic name",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
+					{"name": ""},
+				}
+			},
+			wantContain: "topic name",
+			// error says "topic name at index 0 cannot be empty"
+		},
+		{
+			name: "topic replicas less than one",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
+					{"name": "ok-topic", "replicas": 0},
+				}
+			},
+			wantContain: "replicas must be at least 1",
+		},
+		{
+			name: "source type not kafka",
+			modify: func(b map[string]interface{}) {
+				b["source"].(map[string]interface{})["type"] = "rabbitmq"
+			},
+			wantContain: "source type must be \"kafka\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := validCreatePipelineBody()
+			tt.modify(body)
+			jsonBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+			var pipelineBody pipelineJSON
+			err = json.Unmarshal(jsonBytes, &pipelineBody)
+			require.NoError(t, err)
+
+			input := &CreatePipelineInput{Body: pipelineBody}
+			response, err := handler.createPipeline(context.Background(), input)
+
+			require.Error(t, err)
+			require.Nil(t, response)
+			var errDetail *ErrorDetail
+			require.ErrorAs(t, err, &errDetail)
+			assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+			if errDetail.Details != nil {
+				if e, ok := errDetail.Details["error"].(string); ok {
+					assert.Contains(t, e, tt.wantContain, "error message should contain %q", tt.wantContain)
+				}
+			}
+		})
+	}
+}
+
 // validCreatePipelineBody returns a minimal valid pipeline JSON for create (used as base for validation tests).
 func validCreatePipelineBody() map[string]interface{} {
 	return map[string]interface{}{

@@ -522,9 +522,34 @@ func statelessTransformValidationError(err error) error {
 	return err
 }
 
+const minPipelineIDLength = 5
+
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
-	if len(strings.TrimSpace(pipeline.PipelineID)) == 0 {
+	id := strings.TrimSpace(pipeline.PipelineID)
+	if len(id) == 0 {
 		return zero, fmt.Errorf("pipeline ID cannot be empty")
+	}
+	if len(id) < minPipelineIDLength {
+		return zero, fmt.Errorf("pipeline ID must be at least %d characters", minPipelineIDLength)
+	}
+
+	// Validations aligned with Pipeline CRD spec (sources.topics, topic_name, replicas, type)
+	if strings.ToLower(strings.TrimSpace(pipeline.Source.Kind)) != internal.KafkaIngestorType {
+		return zero, fmt.Errorf("source type must be %q", internal.KafkaIngestorType)
+	}
+	if len(pipeline.Source.Topics) < 1 {
+		return zero, fmt.Errorf("source must have at least one topic")
+	}
+	if len(pipeline.Source.Topics) > internal.MaxStreamsSupportedWithJoin {
+		return zero, fmt.Errorf("source must have at most %d topics", internal.MaxStreamsSupportedWithJoin)
+	}
+	for i, t := range pipeline.Source.Topics {
+		if len(strings.TrimSpace(t.Topic)) == 0 {
+			return zero, fmt.Errorf("topic name at index %d cannot be empty", i)
+		}
+		if t.Replicas < 1 {
+			return zero, fmt.Errorf("topic %q: replicas must be at least 1", t.Topic)
+		}
 	}
 
 	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)
