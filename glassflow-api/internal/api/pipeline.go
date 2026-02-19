@@ -547,9 +547,6 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		if len(strings.TrimSpace(t.Topic)) == 0 {
 			return zero, fmt.Errorf("topic name at index %d cannot be empty", i)
 		}
-		if t.Replicas < 1 {
-			return zero, fmt.Errorf("topic %q: replicas must be at least 1", t.Topic)
-		}
 	}
 
 	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)

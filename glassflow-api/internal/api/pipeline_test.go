@@ -352,15 +352,6 @@ func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
 			// error says "topic name at index 0 cannot be empty"
 		},
 		{
-			name: "topic replicas less than one",
-			modify: func(b map[string]interface{}) {
-				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
-					{"name": "ok-topic", "replicas": 0},
-				}
-			},
-			wantContain: "replicas must be at least 1",
-		},
-		{
 			name: "source type not kafka",
 			modify: func(b map[string]interface{}) {
 				b["source"].(map[string]interface{})["type"] = "rabbitmq"
