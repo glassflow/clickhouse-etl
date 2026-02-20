@@ -104,16 +104,14 @@ func (k *KafkaMsgProcessor) setupDeduplicationHeader(headers nats.Header, msgDat
 	return nil
 }
 
-func (k *KafkaMsgProcessor) setSubject(partitionID int32) string {
-	if k.topic.Replicas > 1 {
-		return models.GetNATSSubjectName(k.topic.OutputStreamID, strconv.Itoa(int(partitionID)))
-	}
-
+// getSubject returns the fixed NATS subject for publishing (from publisher config).
+// All messages are published to the same subject, e.g. NATS_SUBJECT_PREFIX.POD_INDEX.
+func (k *KafkaMsgProcessor) getSubject() string {
 	return k.publisher.GetSubject()
 }
 
 func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record) (*nats.Msg, error) {
-	nMsg := nats.NewMsg(k.setSubject(msg.Partition))
+	nMsg := nats.NewMsg(k.getSubject())
 	nMsg.Data = msg.Value
 
 	k.log.Debug("Preparing message",

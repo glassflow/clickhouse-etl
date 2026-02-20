@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
@@ -25,6 +26,18 @@ type IngestorRunner struct {
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
+}
+
+// getIngestorOutputSubject returns the NATS subject the ingestor publishes to.
+// When POD_INDEX and NATS_SUBJECT_PREFIX are set, subject is "NATS_SUBJECT_PREFIX.POD_INDEX".
+// Otherwise it falls back to the default subject derived from outputStreamID.
+func getIngestorOutputSubject(outputStreamID string) string {
+	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
+	podIndex := os.Getenv("POD_INDEX")
+	if prefix != "" && podIndex != "" {
+		return fmt.Sprintf("%s.%s", prefix, podIndex)
+	}
+	return models.GetNATSSubjectNameDefault(outputStreamID)
 }
 
 func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper, meter *observability.Meter) *IngestorRunner {
@@ -64,10 +77,13 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("output stream name cannot be empty")
 	}
 
+	outputSubject := getIngestorOutputSubject(outputStreamID)
+	i.log.InfoContext(ctx, "Ingestor will write to NATS subject", "subject", outputSubject, "pipelineId", i.pipelineCfg.Status.PipelineID, "topic", i.topicName)
+
 	streamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: models.GetNATSSubjectNameDefault(outputStreamID),
+			Subject: outputSubject,
 		},
 	)
 
