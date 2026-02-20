@@ -550,9 +550,11 @@ func newFilterConfig(pipeline pipelineJSON, schemaVersions map[string]models.Sch
 		}
 	}
 
-	err := filter.ValidateFilterExpression(pipeline.Filter.Expression, fields)
-	if err != nil {
-		return models.FilterComponentConfig{}, fmt.Errorf("filter validation: %w", err)
+	if len(fields) > 0 {
+		err := filter.ValidateFilterExpression(pipeline.Filter.Expression, fields)
+		if err != nil {
+			return models.FilterComponentConfig{}, fmt.Errorf("filter validation: %w", err)
+		}
 	}
 
 	if len(schemaVersions) != 0 {
