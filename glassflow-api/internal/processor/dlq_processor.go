@@ -13,11 +13,11 @@ import (
 func DLQMiddleware(dlqWriter batch.BatchWriter, role string, componentName string, log *slog.Logger) func(Processor) Processor {
 	return func(next Processor) Processor {
 		return &dlqMiddleware{
-			next:           next,
-			dlqWriter:      dlqWriter,
-			role:           role,
-			componentName:  componentName,
-			log:            log,
+			next:          next,
+			dlqWriter:     dlqWriter,
+			role:          role,
+			componentName: componentName,
+			log:           log,
 		}
 	}
 }
