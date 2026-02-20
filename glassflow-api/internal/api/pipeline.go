@@ -488,16 +488,8 @@ func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTr
 	if !cfg.Enabled || len(cfg.Config.Transform) == 0 {
 		return cfg, nil
 	}
-	// Compile expressions — catches syntax/parse errors (e.g. invalid tokens, unmatched parentheses).
-	// Does not catch undefined function names; those fail when we run Transform() below.
-	transformer, err := jsonTransformer.NewTransformer(cfg.Config.Transform)
-	if err != nil {
-		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
-	}
-	// With transforms enabled we do not know the input schema from pipeline.json (schema.fields
-	// only defines the sink mapping and uses the transform as source_id). Run with empty data
-	// so undefined functions still fail here.
-	_, err = transformer.Transform([]byte("{}"))
+	// Compile expressions only. This catches syntax/parse errors and undefined function names.
+	_, err := jsonTransformer.NewTransformer(cfg.Config.Transform)
 	if err != nil {
 		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
 	}
