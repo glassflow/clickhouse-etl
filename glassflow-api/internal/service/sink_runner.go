@@ -31,11 +31,11 @@ type SinkRunner struct {
 }
 
 // getSinkInputStreamName returns the NATS stream name the sink consumes from.
-// When GLASSLFOW_POD_INDEX and NATS_INPUT_STREAM_PREFIX are set, stream name is "NATS_INPUT_STREAM_PREFIX_GLASSLFOW_POD_INDEX".
+// When GLASSFLOW_POD_INDEX and NATS_INPUT_STREAM_PREFIX are set, stream name is "NATS_INPUT_STREAM_PREFIX_GLASSFLOW_POD_INDEX".
 // Otherwise it falls back to the pipeline's sink stream ID.
 func getSinkInputStreamName(fallbackStreamID string) string {
 	prefix := os.Getenv("NATS_INPUT_STREAM_PREFIX")
-	podIndex := os.Getenv("GLASSLFOW_POD_INDEX")
+	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
 	if prefix != "" && podIndex != "" {
 		return fmt.Sprintf("%s_%s", prefix, podIndex)
 	}
