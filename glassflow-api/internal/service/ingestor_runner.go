@@ -79,6 +79,9 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 
 	outputSubject := getIngestorOutputSubject(outputStreamID)
 	i.log.InfoContext(ctx, "Ingestor will write to NATS subject", "subject", outputSubject, "pipelineId", i.pipelineCfg.Status.PipelineID, "topic", i.topicName)
+	if subjectCount := os.Getenv("NATS_SUBJECT_COUNT"); subjectCount != "" {
+		i.log.InfoContext(ctx, "Ingestor will route messages by dedup key to subjects", "prefix", os.Getenv("NATS_SUBJECT_PREFIX"), "subject_count", subjectCount)
+	}
 
 	streamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
