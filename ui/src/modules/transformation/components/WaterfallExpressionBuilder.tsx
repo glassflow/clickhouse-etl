@@ -297,7 +297,7 @@ export function WaterfallExpressionBuilder({
           return (
             <div
               key={slot.id}
-              className="card-outline rounded-[var(--radius-large)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+              className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
             >
               <div className="flex items-start gap-3">
                 {/* Slot number indicator */}
@@ -453,7 +453,7 @@ export function WaterfallExpressionBuilder({
       {/* Expression Preview */}
       <div className="space-y-1 pt-2 border-t border-[var(--surface-border)]">
         <Label className="text-xs text-[var(--text-secondary)] block">Expression Preview</Label>
-        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all">
+        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] break-all">
           {fullExpression}
         </code>
       </div>

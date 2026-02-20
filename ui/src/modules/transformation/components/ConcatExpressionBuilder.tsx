@@ -287,7 +287,7 @@ export function ConcatExpressionBuilder({
         {effectiveSlots.map((slot, index) => (
           <div
             key={slot.id}
-            className="card-outline rounded-[var(--radius-large)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+            className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
           >
             <div className="flex items-center gap-3">
               {/* Slot number indicator */}
@@ -398,7 +398,7 @@ export function ConcatExpressionBuilder({
           {isPostProcessExpanded && (
             <div className="mt-3 ml-6 space-y-3">
               {postProcessChain.length === 0 ? (
-                <div className="text-xs text-[var(--text-secondary)] italic p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)]">
+                <div className="text-xs text-[var(--text-secondary)] italic p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)]">
                   No post-processing functions added. Click &quot;Add Function&quot; to transform the concat result.
                 </div>
               ) : (
@@ -423,7 +423,7 @@ export function ConcatExpressionBuilder({
                           </div>
                         )}
 
-                        <div className="card-outline rounded-[var(--radius-large)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+                        <div className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
                           <div className="flex items-start gap-2">
                             {/* Function number */}
                             <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--color-bg-accent-muted)] flex items-center justify-center text-xs font-medium text-[var(--text-accent)]">
@@ -525,7 +525,7 @@ export function ConcatExpressionBuilder({
       {/* Expression Preview */}
       <div className="space-y-1 pt-2 border-t border-[var(--surface-border)]">
         <Label className="text-xs text-[var(--text-secondary)] block">Expression Preview</Label>
-        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all">
+        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] break-all">
           {fullExpression}
         </code>
       </div>

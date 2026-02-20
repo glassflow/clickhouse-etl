@@ -494,7 +494,7 @@ export function TransformationFieldRow({
   return (
     <div
       className={cn(
-        'card-outline rounded-[var(--radius-large)] overflow-hidden transition-all duration-200',
+        'card-outline rounded-[var(--radius-xl)] overflow-hidden transition-all duration-200',
         errors && Object.keys(errors).length > 0 && 'border-[var(--color-border-critical)]',
         isExpanded && 'ring-1 ring-[var(--color-border-accent)]',
       )}
@@ -521,14 +521,14 @@ export function TransformationFieldRow({
         </div>
 
         {/* Output Type Badge - 15% width (normalized to simplified type set) */}
-        <div className="w-[15%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-small)] bg-[var(--surface-bg-sunken)] text-xs text-[var(--text-secondary)] font-medium truncate text-start">
+        <div className="w-[15%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-bg-sunken)] text-xs text-[var(--text-secondary)] font-medium truncate text-start">
           {field.outputFieldType ? normalizeToJsonDataType(field.outputFieldType) : ''}
         </div>
 
         {/* Source Indicator - 20% width */}
         <div
           className={cn(
-            'w-[20%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-small)] text-xs font-medium truncate text-start',
+            'w-[20%] flex-shrink-0 min-w-0 px-6 py-1 rounded-[var(--radius-sm)] text-xs font-medium truncate text-start',
             field.type === 'computed'
               ? 'bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)]'
               : 'bg-[var(--surface-bg-sunken)] text-[var(--text-secondary)]',
@@ -578,7 +578,7 @@ export function TransformationFieldRow({
             <span className="text-xs text-[var(--text-disabled)] font-medium pl-2">Transformation Expression:</span>
             <code
               className={cn(
-                'text-xs font-mono px-2 py-1 rounded-[var(--radius-small)]',
+                'text-xs font-mono px-2 py-1 rounded-[var(--radius-sm)]',
                 functionExpression === 'Not configured'
                   ? 'text-[var(--text-disabled)] bg-[var(--surface-bg-sunken)]'
                   : 'text-[var(--text-accent)] bg-[var(--color-bg-accent-muted)]',
@@ -595,7 +595,7 @@ export function TransformationFieldRow({
         <div className="px-3 pb-3 pt-0 border-t border-[var(--surface-border-subtle)]">
           <div className="flex items-center gap-2 pt-3">
             <span className="text-xs text-[var(--text-disabled)] font-medium pl-2">Transformation Expression:</span>
-            <code className="text-xs font-mono px-2 py-1 rounded-[var(--radius-small)] text-[var(--text-accent)] bg-[var(--color-bg-accent-muted)]">
+            <code className="text-xs font-mono px-2 py-1 rounded-[var(--radius-sm)] text-[var(--text-accent)] bg-[var(--color-bg-accent-muted)]">
               {passthroughExpression}
             </code>
           </div>

@@ -254,7 +254,7 @@ export function FilterConditionRow({
   }
 
   return (
-    <div className="card-outline rounded-[var(--radius-medium)] p-3">
+    <div className="card-outline rounded-[var(--radius-md)] p-3">
       <div className="flex items-start gap-3">
         {/* Field Select */}
         <div className="flex-1 min-w-0">

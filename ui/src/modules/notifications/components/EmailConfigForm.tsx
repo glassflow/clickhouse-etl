@@ -150,7 +150,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-[var(--surface-border)]">
-        <div className="p-2 rounded-[var(--radius-medium)] bg-[var(--color-background-primary-faded)]">
+        <div className="p-2 rounded-[var(--radius-md)] bg-[var(--color-background-primary-faded)]">
           <Mail className="h-5 w-5 text-[var(--color-foreground-primary)]" />
         </div>
         <div>

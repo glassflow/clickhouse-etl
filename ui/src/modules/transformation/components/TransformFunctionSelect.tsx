@@ -291,7 +291,7 @@ function TransformFunctionSelect({
               )}
             </Button>
           </div>
-          <code className="block text-sm font-mono p-3 bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)] rounded-[var(--radius-medium)] border border-[var(--color-border-accent)] break-all">
+          <code className="block text-sm font-mono p-3 bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)] rounded-[var(--radius-md)] border border-[var(--color-border-accent)] break-all">
             {fullExpression}
           </code>
           {field.arithmeticExpression && (

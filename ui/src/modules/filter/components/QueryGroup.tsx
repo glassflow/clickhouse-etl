@@ -62,7 +62,7 @@ export function QueryGroup({
   return (
     <div
       className={cn(
-        'card-outline rounded-[var(--radius-large)] p-4',
+        'card-outline rounded-[var(--radius-xl)] p-4',
         group.not && 'border-[var(--color-border-primary)]',
         !isRoot && 'ml-4',
       )}
@@ -145,7 +145,7 @@ export function QueryGroup({
       {/* Group Children */}
       <div className="space-y-3">
         {group.children.length === 0 ? (
-          <div className="text-sm text-[var(--text-secondary)] text-center py-4 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
+          <div className="text-sm text-[var(--text-secondary)] text-center py-4 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-md)]">
             No rules yet. Click &quot;Add Rule&quot; to create one.
           </div>
         ) : (

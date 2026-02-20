@@ -43,7 +43,7 @@ export function FieldTypesTable({
     <div className="flex-[2] min-w-0">
       <Label className="text-lg font-medium text-content mb-4 block">Field Types</Label>
 
-      <div className="p-6 rounded-[var(--radius-large)] overflow-hidden">
+      <div className="p-6 rounded-[var(--radius-xl)] overflow-hidden">
         <Table className="w-full">
           <TableHeader>
             <TableRow className="border-0">

@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--unit-x9);
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-xl);
   border: 1px solid transparent;
   background: var(--card-bg-dark);
   background-clip: padding-box;
@@ -23,7 +23,7 @@
     position: absolute;
     inset: 0;
     padding: 1px;
-    border-radius: var(--radius-large);
+    border-radius: var(--radius-xl);
     background: linear-gradient(180deg, var(--card-border-gradient-start) 0%, var(--card-border-gradient-end) 100%);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
@@ -55,7 +55,7 @@
 .card-outline {
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--card-outline-border);
   background: var(--card-outline-bg);
   transition: all var(--duration-medium) var(--easing-standard);
@@ -77,7 +77,7 @@
 }
 
 .card {
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--card-border);
   background: var(--card-bg);
 }
@@ -98,7 +98,7 @@
     position: absolute;
     inset: 0;
     padding: 1px;
-    border-radius: var(--radius-large);
+    border-radius: var(--radius-xl);
     background: linear-gradient(180deg, var(--card-border-warm-start) 0%, var(--card-border-warm-end) 100%);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
@@ -129,7 +129,7 @@
     position: absolute;
     inset: 0;
     padding: 1px;
-    border-radius: var(--radius-large);
+    border-radius: var(--radius-xl);
     background: linear-gradient(180deg, var(--card-border-warm-start) 0%, var(--card-border-warm-end) 100%);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
@@ -168,7 +168,7 @@
     position: absolute;
     inset: 0;
     padding: 1px;
-    border-radius: var(--radius-large);
+    border-radius: var(--radius-xl);
     background: linear-gradient(180deg, var(--card-border-cool-start) 0%, var(--card-border-cool-end) 100%);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
@@ -218,7 +218,7 @@
 
 /* Configuration card style */
 .feedback-card {
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--card-feedback-border);
   background: var(--card-feedback-bg);
   box-shadow: var(--card-feedback-shadow);
@@ -233,7 +233,7 @@
 
 /* Content card style */
 .content-card {
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--card-content-border);
   background: var(--card-content-bg);
   box-shadow: var(--card-content-shadow);

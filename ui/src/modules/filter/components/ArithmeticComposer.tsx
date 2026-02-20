@@ -376,10 +376,10 @@ function ModeToggle({ mode, onChange, disabled = false, hasParseError = false }:
 
   return (
     <div className="flex items-center gap-2">
-      <div className="relative inline-flex rounded-[var(--radius-large)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)]">
+      <div className="relative inline-flex rounded-[var(--radius-xl)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)]">
         {/* Sliding background indicator */}
         <div
-          className="absolute top-0.5 bottom-0.5 rounded-[calc(var(--radius-medium)-2px)] bg-[var(--option-bg-selected)] shadow-sm transition-all duration-300 ease-in-out"
+          className="absolute top-0.5 bottom-0.5 rounded-[calc(var(--radius-md)-2px)] bg-[var(--option-bg-selected)] shadow-sm transition-all duration-300 ease-in-out"
           style={{
             left: isBuilder ? '0.125rem' : 'calc(50% + 0.0625rem)',
             right: isBuilder ? 'calc(50% + 0.0625rem)' : '0.125rem',
@@ -390,7 +390,7 @@ function ModeToggle({ mode, onChange, disabled = false, hasParseError = false }:
           onClick={() => !disabled && onChange('builder')}
           disabled={disabled}
           className={cn(
-            'relative z-10 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-[calc(var(--radius-medium)-2px)] transition-colors duration-300 whitespace-nowrap',
+            'relative z-10 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors duration-300 whitespace-nowrap',
             isBuilder ? 'text-[var(--text-accent)]' : 'text-[var(--text-disabled)] hover:text-[var(--text-secondary)]',
             disabled && 'cursor-not-allowed opacity-50',
             !isBuilder && hasParseError && 'text-[var(--color-foreground-critical)]',
@@ -405,7 +405,7 @@ function ModeToggle({ mode, onChange, disabled = false, hasParseError = false }:
           onClick={() => !disabled && onChange('manual')}
           disabled={disabled}
           className={cn(
-            'relative z-10 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-[calc(var(--radius-medium)-2px)] transition-colors duration-300 whitespace-nowrap',
+            'relative z-10 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors duration-300 whitespace-nowrap',
             !isBuilder ? 'text-[var(--text-accent)]' : 'text-[var(--text-disabled)] hover:text-[var(--text-secondary)]',
             disabled && 'cursor-not-allowed opacity-50',
           )}
@@ -534,7 +534,7 @@ function OperatorSelector({ value, onChange, disabled = false, label }: Operator
   return (
     <div className="flex flex-col gap-1.5">
       <Label className="text-xs text-[var(--text-secondary)]">{label}</Label>
-      <div className="relative inline-flex rounded-[var(--radius-large)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)] w-full h-10">
+      <div className="relative inline-flex rounded-[var(--radius-xl)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)] w-full h-10">
         <div className="flex-1 grid grid-cols-5 gap-0.5">
           {ARITHMETIC_OPERATORS.map((op) => (
             <button
@@ -543,7 +543,7 @@ function OperatorSelector({ value, onChange, disabled = false, label }: Operator
               onClick={() => !disabled && onChange(op.value)}
               disabled={disabled}
               className={cn(
-                'relative z-10 flex items-center justify-center px-1.5 py-1.5 text-sm font-medium rounded-[calc(var(--radius-medium)-2px)] transition-colors duration-200',
+                'relative z-10 flex items-center justify-center px-1.5 py-1.5 text-sm font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors duration-200',
                 value === op.value
                   ? 'bg-[var(--option-bg-selected)] text-[var(--text-accent)]'
                   : 'text-[var(--text-disabled)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-bg)]',

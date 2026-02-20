@@ -406,7 +406,7 @@
   border: none;
   box-shadow: var(--surface-shadow);
   padding: var(--unit-x5) var(--unit-x7);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-md);
   font-size: var(--font-size-body-3);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-body-3);

@@ -1,0 +1,31 @@
+---
+description: Figma ↔ code mapping and MCP workflow for design-library sync
+globs: src/components/**/*.tsx
+alwaysApply: false
+---
+
+# Figma ↔ Code Mapping
+
+When the **Figma MCP server** is connected in Cursor, use this mapping to analyze designs and create Code Connect mappings.
+
+## Convention
+
+| Figma layer | Code path |
+|-------------|-----------|
+| **Primitives** | `src/components/ui/` |
+| **Patterns** | `src/components/common/` and `src/components/shared/` |
+| **Screens** | `src/modules/` |
+
+## Design library reference
+
+- **File:** GlassFlow-Design-Library  
+- **fileKey:** `sQIwmZ7augm8itFG6UDddV`  
+- **Primitives frame:** `nodeId=65:1083` (Figma node-id: `65-1083`)
+
+## Workflow when Figma MCP is available
+
+1. **List primitives:** `get_metadata(fileKey="sQIwmZ7augm8itFG6UDddV", nodeId="65:1083")`
+2. **Compare with code (optional):** `get_design_context` for key primitives vs `src/components/ui/`
+3. **Get mapping suggestions:** `get_code_connect_suggestions(fileKey="sQIwmZ7augm8itFG6UDddV", nodeId="65:1083")`
+4. Map Figma primitives → `components/ui`, patterns → `components/common` / `components/shared`, screens → `modules`
+5. For **shared/pattern** components: use the Figma frame that contains those components, get its `nodeId`, then run `get_metadata` and `get_code_connect_suggestions` with that `nodeId`; map results to `components/shared` (and `components/common` where applicable).

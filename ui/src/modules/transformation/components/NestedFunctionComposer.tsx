@@ -514,7 +514,7 @@ export function NestedFunctionComposer({
         </Label>
 
         {chain.length === 0 ? (
-          <div className="text-xs text-[var(--text-secondary)] italic p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)]">
+          <div className="text-xs text-[var(--text-secondary)] italic p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)]">
             No functions added yet. Click &quot;Add Function&quot; to start building the chain.
           </div>
         ) : (
@@ -533,7 +533,7 @@ export function NestedFunctionComposer({
                     </div>
                   )}
 
-                  <div className="card-outline rounded-[var(--radius-large)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+                  <div className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
                     <div className="flex items-start gap-2">
                       {/* Function number */}
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--surface-bg-sunken)] flex items-center justify-center text-xs font-medium text-[var(--text-secondary)]">
@@ -625,7 +625,7 @@ export function NestedFunctionComposer({
       {!hidePreview && chain.some((f) => f.functionName) && previewExpr && (
         <div className="space-y-1">
           <Label className="text-xs text-[var(--text-secondary)] block">Expression Preview</Label>
-          <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all">
+          <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] break-all">
             {previewExpr}
           </code>
         </div>

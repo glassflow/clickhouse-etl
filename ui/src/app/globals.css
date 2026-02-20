@@ -52,13 +52,13 @@
     border-color: var(--color-border-critical);
   }
   .border-radius-small {
-    border-radius: var(--radius-small);
+    border-radius: var(--radius-sm);
   }
   .border-radius-medium {
-    border-radius: var(--radius-medium);
+    border-radius: var(--radius-md);
   }
   .border-radius-large {
-    border-radius: var(--radius-large);
+    border-radius: var(--radius-xl);
   }
 
   /* Interactive states */

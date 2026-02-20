@@ -3,7 +3,7 @@
 [data-slot='select-trigger'] {
   background-color: var(--control-bg);
   color: var(--control-fg);
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-sm);
   padding: var(--unit-x2) var(--unit-x3);
   height: 36px;
   font-family: var(--font-family-body-3);
@@ -51,7 +51,7 @@
 [data-slot='select-content'] {
   background-color: var(--surface-bg-overlay);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-sm);
   box-shadow: var(--surface-shadow-overlay);
   overflow: hidden;
   z-index: 40;
@@ -120,7 +120,7 @@
 .select-content-custom {
   background-color: var(--surface-bg-overlay);
   border: 1px solid var(--surface-border);
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   z-index: 40;
 }

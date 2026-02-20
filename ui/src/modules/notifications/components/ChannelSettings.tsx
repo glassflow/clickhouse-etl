@@ -69,7 +69,7 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
         <div className="flex items-start gap-3">
           <div
             className={cn(
-              'p-2.5 rounded-[var(--radius-medium)]',
+              'p-2.5 rounded-[var(--radius-md)]',
               'transition-all duration-200',
               isEnabled
                 ? 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]'
@@ -226,7 +226,7 @@ export function ChannelSettings() {
       {error && (
         <div
           className={cn(
-            'p-4 rounded-[var(--radius-large)]',
+            'p-4 rounded-[var(--radius-xl)]',
             'border border-[var(--color-border-critical-faded)]',
             'bg-[var(--color-background-critical-faded)]/20',
             'animate-slideDown'
