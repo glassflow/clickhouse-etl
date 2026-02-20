@@ -43,7 +43,7 @@ export function IntermediarySchemaPreview({
   const schemaFields = getIntermediarySchema(config)
 
   return (
-    <div className="mt-6 p-4 card-outline rounded-[var(--radius-large)] space-y-2">
+    <div className="mt-6 p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
       {/* Header with validation status */}
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium text-[var(--text-secondary)]">
@@ -74,7 +74,7 @@ export function IntermediarySchemaPreview({
       </div>
 
       {/* Schema Table */}
-      <div className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] overflow-x-auto">
+      <div className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr className="text-xs text-[var(--text-disabled)] border-b border-[var(--surface-border)]">
@@ -110,7 +110,7 @@ export function IntermediarySchemaPreview({
 
       {/* Expandable validation error details */}
       {!validation.isValid && isValidationExpanded && totalErrorCount > 0 && (
-        <div className="mt-3 p-3 bg-[var(--color-background-critical-subtle)] border border-[var(--color-border-critical)] rounded-[var(--radius-medium)] animate-in slide-in-from-top-2 duration-200">
+        <div className="mt-3 p-3 bg-[var(--color-background-critical-subtle)] border border-[var(--color-border-critical)] rounded-[var(--radius-md)] animate-in slide-in-from-top-2 duration-200">
           <div className="space-y-3">
             {/* Global errors */}
             {validation.globalErrors.length > 0 && (

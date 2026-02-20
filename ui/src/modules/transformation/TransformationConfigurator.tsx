@@ -287,7 +287,7 @@ export function TransformationConfigurator({
 
       {/* No fields available message */}
       {!readOnly && availableFields.length === 0 && hasNoTransformation && (
-        <div className="p-4 card-outline rounded-[var(--radius-large)] text-center text-[var(--text-secondary)]">
+        <div className="p-4 card-outline rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
           <p>Waiting for field type verification to configure transformations...</p>
         </div>
       )}

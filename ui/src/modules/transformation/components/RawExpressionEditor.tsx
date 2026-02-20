@@ -106,7 +106,7 @@ export function RawExpressionEditor({
       {expression && (
         <div className="space-y-1">
           <Label className="text-xs text-[var(--text-secondary)] block">Preview</Label>
-          <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all max-h-20 overflow-auto">
+          <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] break-all max-h-20 overflow-auto">
             {expression}
           </code>
         </div>
@@ -115,7 +115,7 @@ export function RawExpressionEditor({
       {/* Reference sections */}
       <div className="space-y-2">
         {/* Available fields reference */}
-        <div className="card-outline rounded-[var(--radius-medium)]">
+        <div className="card-outline rounded-[var(--radius-md)]">
           <button
             type="button"
             onClick={() => setShowFieldsRef(!showFieldsRef)}
@@ -150,7 +150,7 @@ export function RawExpressionEditor({
         </div>
 
         {/* Available functions reference */}
-        <div className="card-outline rounded-[var(--radius-medium)]">
+        <div className="card-outline rounded-[var(--radius-md)]">
           <button
             type="button"
             onClick={() => setShowFunctionsRef(!showFunctionsRef)}

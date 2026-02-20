@@ -170,8 +170,8 @@
   --table-gap: var(--unit-x4);
   --table-gap-sm: var(--unit-x3);
   --table-padding: var(--unit-x4);
-  --table-radius: var(--radius-large);
-  --table-row-radius: var(--radius-medium);
+  --table-radius: var(--radius-xl);
+  --table-row-radius: var(--radius-md);
 
   /* ================== Chip Tokens (semantic layer) ================== */
   /* Maps chip states to semantic colors */
@@ -363,8 +363,8 @@
   --table-gap: var(--unit-x4);
   --table-gap-sm: var(--unit-x3);
   --table-padding: var(--unit-x4);
-  --table-radius: var(--radius-large);
-  --table-row-radius: var(--radius-medium);
+  --table-radius: var(--radius-xl);
+  --table-row-radius: var(--radius-md);
 
   /* ================== Chip Tokens (semantic layer) ================== */
   /* Maps chip states to semantic colors */

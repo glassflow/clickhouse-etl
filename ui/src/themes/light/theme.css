@@ -131,7 +131,27 @@
   --input: var(--color-border-neutral-faded);
   --ring: var(--color-background-primary);
 
-  --radius: var(--radius-medium);
+  --radius: var(--radius-md);
+
+  /* Design kit parity: sidebar, chart, semantic (for Figma mode sync) */
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chart-1: var(--color-blue-500);
+  --chart-2: var(--color-orange-300);
+  --chart-3: var(--color-blue-400);
+  --chart-4: var(--color-orange-500);
+  --chart-5: var(--color-gray-light-600);
+  --semantic-background: var(--color-background-elevation-raised);
+  --semantic-border: var(--color-border-neutral-faded);
+  --semantic-foreground: var(--color-foreground-neutral);
+  /* Design kit mode.background-color (overlay alpha); use in step 2 for Figma sync */
+  --background-color: #0000004c;
 
   /* Component/Usage-Specific Semantic Tokens */
   /* These map semantic colors to specific use cases */
@@ -155,7 +175,7 @@
   --button-primary-font-weight: var(--font-weight-medium);
   --button-primary-line-height: var(--line-height-body-3);
   --button-primary-letter-spacing: var(--letter-spacing-body-3);
-  --button-primary-border-radius: var(--radius-medium);
+  --button-primary-border-radius: var(--radius-md);
 
   --button-secondary-bg: var(--color-gray-light-200);
   --button-secondary-bg-gradient-start: var(--color-gray-light-100);
@@ -172,7 +192,7 @@
   --button-secondary-font-weight: var(--font-weight-medium);
   --button-secondary-line-height: var(--line-height-body-3);
   --button-secondary-letter-spacing: var(--letter-spacing-body-3);
-  --button-secondary-border-radius: var(--radius-medium);
+  --button-secondary-border-radius: var(--radius-md);
 
   --button-tertiary-bg: var(--color-gray-light-100);
   --button-tertiary-text: var(--color-gray-light-600);
@@ -187,7 +207,7 @@
   --button-tertiary-font-weight: var(--font-weight-medium);
   --button-tertiary-line-height: var(--line-height-body-3);
   --button-tertiary-letter-spacing: var(--letter-spacing-body-3);
-  --button-tertiary-border-radius: var(--radius-medium);
+  --button-tertiary-border-radius: var(--radius-md);
 
   --button-ghost-bg: transparent;
   --button-ghost-text: var(--color-gray-light-600);
@@ -204,7 +224,7 @@
   --button-ghost-font-weight: var(--font-weight-medium);
   --button-ghost-line-height: var(--line-height-body-3);
   --button-ghost-letter-spacing: var(--letter-spacing-body-3);
-  --button-ghost-border-radius: var(--radius-medium);
+  --button-ghost-border-radius: var(--radius-md);
 
   --button-disabled-bg: var(--color-background-disabled);
   --button-disabled-text: var(--color-foreground-disabled);
@@ -223,7 +243,7 @@
   --button-card-font-weight: var(--font-weight-regular);
   --button-card-line-height: var(--line-height-title-6);
   --button-card-letter-spacing: var(--letter-spacing-title-6);
-  --button-card-border-radius: var(--radius-large);
+  --button-card-border-radius: var(--radius-xl);
   --button-card-height: 100px;
   --button-card-min-width: 255px;
 
@@ -241,7 +261,7 @@
   --button-card-secondary-font-weight: var(--font-weight-regular);
   --button-card-secondary-line-height: var(--line-height-title-6);
   --button-card-secondary-letter-spacing: var(--letter-spacing-title-6);
-  --button-card-secondary-border-radius: var(--radius-large);
+  --button-card-secondary-border-radius: var(--radius-xl);
   --button-card-secondary-height: 100px;
   --button-card-secondary-min-width: 255px;
 
@@ -330,7 +350,7 @@
   --interactive-focus-ring: var(--color-background-primary);
 
   /* Select Content Tokens */
-  --select-content-radius: var(--radius-small);
+  --select-content-radius: var(--radius-sm);
   --select-content-border: var(--color-border-neutral-faded);
   --select-content-shadow: 0px 4px 12px rgba(0, 0, 0, 0.08), 0px 2px 4px rgba(0, 0, 0, 0.04);
   --select-content-padding-vertical: var(--unit-x2);
@@ -364,7 +384,7 @@
 
 /* Surface gradient border utility class for light theme */
 [data-theme='light'] .surface-gradient-border {
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-xl);
   background-clip: padding-box;
 }
 

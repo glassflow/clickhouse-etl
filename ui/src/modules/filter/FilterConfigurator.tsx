@@ -350,7 +350,7 @@ export function FilterConfigurator({
   const renderHydratedExpressionView = () => (
     <div className="space-y-4">
       <Label className="text-lg font-medium text-content">Current Filter Expression</Label>
-      <div className="p-4 card-outline rounded-[var(--radius-large)] space-y-2">
+      <div className="p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium text-[var(--text-secondary)]">Filter Expression</Label>
           <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
@@ -361,7 +361,7 @@ export function FilterConfigurator({
         <Textarea
           readOnly
           value={filterStore.expressionString || ''}
-          className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+          className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
           rows={3}
           wrap="soft"
         />
@@ -377,7 +377,7 @@ export function FilterConfigurator({
   // Render the no filter view
   const renderNoFilterView = () => (
     <div className="space-y-4">
-      <div className="p-6 card-outline rounded-[var(--radius-large)] text-center">
+      <div className="p-6 card-outline rounded-[var(--radius-xl)] text-center">
         <div className="text-[var(--color-foreground-neutral-faded)] mb-2">
           <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -439,7 +439,7 @@ export function FilterConfigurator({
 
           {/* Generated expression preview */}
           {totalRules > 0 && (
-            <div className="mt-6 p-4 card-outline rounded-[var(--radius-large)] space-y-2">
+            <div className="mt-6 p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-[var(--text-secondary)]">Generated Expression</Label>
                 {renderValidationStatus()}
@@ -447,7 +447,7 @@ export function FilterConfigurator({
               <Textarea
                 readOnly
                 value={toExprString(filterConfig) || '(empty)'}
-                className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+                className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
                 rows={3}
                 wrap="soft"
               />
@@ -467,7 +467,7 @@ export function FilterConfigurator({
 
       {/* Show no filter message in edit mode when no fields available */}
       {!readOnly && availableFields.length === 0 && hasNoFilter && (
-        <div className="p-4 card-outline rounded-[var(--radius-large)] text-center text-[var(--text-secondary)]">
+        <div className="p-4 card-outline rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
           <p>Waiting for topic data to configure filtering...</p>
         </div>
       )}

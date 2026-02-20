@@ -87,6 +87,27 @@
   --font-family-caption-2: var(--font-family-body);
   --letter-spacing-caption-2: normal;
 
+  /*
+   * Design kit parity: tw-font aliases (for Figma mode / tw-font sync in step 2).
+   * Map our typography scale to design kit tw-font keys so export can drive Figma text styles.
+   */
+  --size-xs: var(--font-size-caption-1);   /* 12px → tw-font/size-xs */
+  --size-sm: var(--font-size-body-3);     /* 14px → tw-font/size-sm */
+  --size-base: var(--font-size-body-2);   /* 16px → tw-font/size-base */
+  --size-lg: var(--font-size-body-1);     /* 18px → tw-font/size-lg */
+  --size-xl: var(--font-size-title-4);   /* 20px → tw-font/size-xl */
+  --leading-3: 12px;
+  --leading-4: 16px;
+  --leading-5: 20px;
+  --leading-6: 24px;
+  --leading-7: 28px;
+  --leading-8: 32px;
+  --weight-normal: var(--font-weight-regular);
+  --weight-medium: var(--font-weight-medium);
+  --weight-semibold: var(--font-weight-semibold);
+  --weight-bold: var(--font-weight-bold);
+  --family-sans: var(--font-family-body);
+
   /* Spacing */
   --unit-base: 4px;
   --unit-x1: 4px;
@@ -99,17 +120,86 @@
   --unit-x8: 32px;
   --unit-x9: 36px;
   --unit-x10: 40px;
+  /* Design kit parity: Tailwind-style spacing (tw-padding / p-* scale) */
+  --p-1: var(--unit-x1);
+  --p-2: var(--unit-x2);
+  --p-3: var(--unit-x3);
+  --p-4: var(--unit-x4);
+  --p-5: var(--unit-x5);
+  --p-6: var(--unit-x6);
+  --p-7: var(--unit-x7);
+  --p-8: var(--unit-x8);
+  --p-9: var(--unit-x9);
+  --p-10: var(--unit-x10);
+  /* Design kit parity: tw-gap, tw-space, tw-margin (same 4px scale; one source for step 2 export) */
+  --gap-1: var(--p-1);
+  --gap-2: var(--p-2);
+  --gap-3: var(--p-3);
+  --gap-4: var(--p-4);
+  --gap-5: var(--p-5);
+  --gap-6: var(--p-6);
+  --gap-7: var(--p-7);
+  --gap-8: var(--p-8);
+  --gap-9: var(--p-9);
+  --gap-10: var(--p-10);
+  --space-1: var(--p-1);
+  --space-2: var(--p-2);
+  --space-3: var(--p-3);
+  --space-4: var(--p-4);
+  --space-5: var(--p-5);
+  --space-6: var(--p-6);
+  --space-7: var(--p-7);
+  --space-8: var(--p-8);
+  --space-9: var(--p-9);
+  --space-10: var(--p-10);
+  --m-1: var(--p-1);
+  --m-2: var(--p-2);
+  --m-3: var(--p-3);
+  --m-4: var(--p-4);
+  --m-5: var(--p-5);
+  --m-6: var(--p-6);
+  --m-7: var(--p-7);
+  --m-8: var(--p-8);
+  --m-9: var(--p-9);
+  --m-10: var(--p-10);
 
-  /* Border radius */
-  --radius-small: 4px;
-  --radius-medium: 8px;
-  --radius-large: 12px;
-  --radius-extra-large: 16px;
+  /* Border radius (design kit naming: radius-xs/sm/md/lg/xl/2xl, our values) */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 22px;
+  --radius-4xl: 26px;
   --radius-full: 9999px;
+  --radius-none: 0;
+  /* Legacy aliases for backward compatibility */
+  --radius-small: var(--radius-sm);
+  --radius-medium: var(--radius-md);
+  --radius-large: var(--radius-xl);
+  --radius-extra-large: var(--radius-2xl);
+  /* Design kit parity: tw-border-radius (rounded-* keys); same source as mode.radius-* for step 2 export */
+  --rounded-xs: var(--radius-xs);
+  --rounded-sm: var(--radius-sm);
+  --rounded-md: var(--radius-md);
+  --rounded-lg: var(--radius-lg);
+  --rounded-xl: var(--radius-xl);
+  --rounded-2xl: var(--radius-2xl);
+  --rounded-3xl: var(--radius-3xl);
+  --rounded-4xl: var(--radius-4xl);
+  --rounded-full: var(--radius-full);
+  --rounded-none: var(--radius-none);
 
   /* 🎨 Color Tokens - Base Values */
   /* These are the raw color values that get referenced in theme files */
   /* Source of truth: Figma colors (colors.css) */
+  /*
+   * Figma design kit mapping (for export/import):
+   * CSS var --color-{name} maps to Figma collection "tw-colors" (or "rdx-colors") key "{name}".
+   * Example: --color-orange-300 → tw-colors / orange-300
+   * Our values override the kit defaults when syncing to Figma (step 2).
+   */
 
   /* Primary Colors */
   --color-orange-100: #fff4e6; /* Keep existing - missing from Figma */
@@ -256,6 +346,10 @@
   --easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
   --easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
 
+  /* Design kit: stroke and border width (mode.stroke-width, mode.border-width) */
+  --stroke-width: 2px;
+  --border-width: 1px;
+
   /* Shadows */
   --shadow-raised: 0px 1px 5px -4px rgba(0, 0, 0, 0.5), 0px 4px 8px 0px rgba(0, 0, 0, 0.05);
   --shadow-overlay: 0px 5px 10px 0px rgba(0, 0, 0, 0.05), 0px 15px 25px 0px rgba(0, 0, 0, 0.07);
@@ -282,7 +376,7 @@
   --container-padding-x: var(--unit-x4);
   --container-padding-y: var(--unit-x4);
   --container-gap: var(--unit-x4);
-  --container-border-radius: var(--radius-large);
+  --container-border-radius: var(--radius-xl);
   --container-border: var(--color-border-neutral);
   --container-shadow: var(--shadow-raised);
   --container-background: var(--color-background-neutral);
@@ -295,7 +389,7 @@
   --page-padding-x: var(--unit-x4);
   --page-padding-y: var(--unit-x4);
   --page-gap: var(--unit-x4);
-  --page-border-radius: var(--radius-large);
+  --page-border-radius: var(--radius-xl);
   --page-border: var(--color-border-neutral);
   --page-shadow: var(--shadow-raised);
   --page-background: var(--color-background-regular);

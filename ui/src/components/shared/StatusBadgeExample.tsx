@@ -1,6 +1,6 @@
 import React from 'react'
 import { StatusBadge } from './StatusBadge'
-import { StatusType } from '../../config/constants'
+import { StatusType } from '@/src/config/constants'
 
 export const StatusBadgeExample: React.FC = () => {
   const statuses: StatusType[] = ['active', 'paused', 'pausing', 'stopping', 'stopped', 'failed']

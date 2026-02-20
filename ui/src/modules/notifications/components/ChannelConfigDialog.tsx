@@ -137,7 +137,7 @@ export function ChannelConfigDialog({
         {error && (
           <div
             className={cn(
-              'p-3 rounded-[var(--radius-medium)]',
+              'p-3 rounded-[var(--radius-md)]',
               'border border-[var(--color-border-critical-faded)]',
               'bg-[var(--color-background-critical-faded)]/20',
               'animate-slideDown'
