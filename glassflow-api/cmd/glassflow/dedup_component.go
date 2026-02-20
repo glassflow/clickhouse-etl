@@ -157,22 +157,22 @@ func NewDedupComponent(
 		return nil, fmt.Errorf("dedupProcessorFromConfig: %w", err)
 	}
 
-	statelessTransformerProcessorBase, err := statelessProcessorFromConfig(pipelineConfig, meter)
+	statelessTransformerProcessorBase, err := statelessProcessorFromConfig(pipelineConfig, meter, log)
 	if err != nil {
 		return nil, err
 	}
 
 	statelessTransformerProcessor := processor.ChainProcessors(
-		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, "transform", log)),
 		statelessTransformerProcessorBase,
 	)
 
-	filterProcessorBase, err := filterProcessorFromConfig(pipelineConfig, meter)
+	filterProcessorBase, err := filterProcessorFromConfig(pipelineConfig, meter, log)
 	if err != nil {
 		return nil, err
 	}
 	filterProcessor := processor.ChainProcessors(
-		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, "filter", log)),
 		filterProcessorBase,
 	)
 
@@ -191,7 +191,7 @@ func NewDedupComponent(
 	), nil
 }
 
-func statelessProcessorFromConfig(config models.PipelineConfig, meter *observability.Meter) (processor.Processor, error) {
+func statelessProcessorFromConfig(config models.PipelineConfig, meter *observability.Meter, log *slog.Logger) (processor.Processor, error) {
 	if !config.StatelessTransformation.Enabled {
 		return &processor.NoopProcessor{}, nil
 	}
@@ -201,7 +201,7 @@ func statelessProcessorFromConfig(config models.PipelineConfig, meter *observabi
 		return nil, fmt.Errorf("create stateless transformer: %w", err)
 	}
 
-	statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, meter)
+	statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, meter, log)
 
 	return statelessTransformerProcessorBase, nil
 }
@@ -209,6 +209,7 @@ func statelessProcessorFromConfig(config models.PipelineConfig, meter *observabi
 func filterProcessorFromConfig(
 	config models.PipelineConfig,
 	meter *observability.Meter,
+	log *slog.Logger,
 ) (processor.Processor, error) {
 	if !config.Filter.Enabled {
 		return &processor.NoopProcessor{}, nil
@@ -219,8 +220,7 @@ func filterProcessorFromConfig(
 		return nil, fmt.Errorf("failed to create filter component: %w", err)
 	}
 
-	return processor.NewFilterProcessor(filterJson, meter), nil
-
+	return processor.NewFilterProcessor(filterJson, meter, log), nil
 }
 
 func dedupProcessorFromConfig(
