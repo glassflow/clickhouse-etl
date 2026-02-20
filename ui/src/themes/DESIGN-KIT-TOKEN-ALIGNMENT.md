@@ -253,7 +253,7 @@ Scale is the same (4px base) across tw-padding, tw-gap, tw-space, tw-margin. In 
    - **tw-margin:** Set `m-N`, `mt-N`, `mb-N`, `ml-N`, `mr-N`, `mx-N`, `my-N` from our `--m-N` for N = 1…10 (see §2.2, §3.8).
    - **tw-font:** Set `size-xs`, `size-sm`, `size-base`, `size-lg`, `size-xl`, `leading-*`, `weight-*`, `family-sans` from our `--size-*`, `--leading-*`, `--weight-*`, `--family-sans` (see §2.5).
    - **tw-colors and rdx-colors:** Set both collections to the **same values** from our `--color-*` hex values (e.g. `orange-300`, `gray-dark-600`). Using the same palette for both removes ambiguity and keeps the design kit consistent.
-3. **Optional:** Automate step 2 with a script that reads `base.css` / theme CSS (or a generated tokens JSON) and updates Figma via the Figma API or a plugin.
+3. **Optional:** Use the **sync script** to automate step 2: from repo root run `npm run sync-tokens` (with `FIGMA_ACCESS_TOKEN` and `FIGMA_FILE_KEY` set). See **scripts/sync-tokens-to-figma/README.md** and **FIGMA-SYNC-INSTRUCTIONS.md**.
 
 ---
 

@@ -7,13 +7,29 @@ Use this when you need to **map app token values back into Figma variables** so 
 ## Prerequisites
 
 - A copy of the [Design Library](https://www.figma.com/design/n0LilXaAc6TuTn6g1qwOGz/Design-Library?node-id=0-1) (or your team’s fork) where you can edit variables.
-- Resolved token values from the app (see “Export from app” below). You can resolve by hand from `base.css` and theme files, or use a script that evaluates CSS variables for light and dark.
+- Resolved token values from the app (see “Export from app” below). You can use the **sync script** (recommended) or resolve by hand.
 
 ---
 
-## 1. Export from app
+## 0. Automated sync (recommended)
 
-Resolve CSS variables to final values (hex, px, number) for:
+From the repo root (`clickhouse-etl/ui`):
+
+```bash
+# Extract tokens to JSON only (no Figma API call)
+npm run sync-tokens -- --dry-run
+
+# Push to Figma (requires Enterprise plan, token with file_variables:read/write)
+FIGMA_ACCESS_TOKEN=figd_xxx FIGMA_FILE_KEY=<file_key> npm run sync-tokens
+```
+
+The script reads `src/themes/base.css`, `semantic-tokens.css`, and `dark/theme.css` / `light/theme.css`, resolves all `var()` references, and either writes the payload to `scripts/sync-tokens-to-figma/tokens-for-figma.json` or pushes variable values to Figma via the Variables REST API. See **scripts/sync-tokens-to-figma/README.md** for details and troubleshooting.
+
+---
+
+## 1. Export from app (manual alternative)
+
+If you are not using the script, resolve CSS variables to final values (hex, px, number) for:
 
 - **base.css** — radius (`--radius-*`, `--rounded-*`), spacing (`--p-*`, `--gap-*`, `--space-*`, `--m-*`), colors (`--color-*`), typography (`--size-*`, `--leading-*`, `--weight-*`, `--family-sans`), `--stroke-width`, `--border-width`.
 - **dark/theme.css** — all variables under `[data-theme='dark']` (e.g. `--background`, `--foreground`, `--radius`, `--sidebar`, `--chart-1` … `--chart-5`, `--semantic-*`, `--background-color`). Resolve to hex/px.
@@ -44,19 +60,14 @@ In Figma, open **Local variables** and update these collections with the exporte
 
 ---
 
-## 3. Optional: automate
+## 3. Optional: automate further
 
-You can automate step 2 with a script that:
-
-1. Reads `base.css`, `dark/theme.css`, `light/theme.css` (or an exported JSON).
-2. Resolves variables to final values.
-3. Calls the Figma API (or uses a plugin) to set variable values in the Design Library.
-
-The mapping rules above define the exact collection and variable names to update.
+The **sync script** (see §0) already automates export and Figma API push. To run it in CI or from another tool, invoke `node scripts/sync-tokens-to-figma/sync-tokens-to-figma.mjs` with the same env vars. The mapping rules in §2 define the exact collection and variable names the script uses.
 
 ---
 
 ## Reference
 
 - **Full mapping and rationale:** [DESIGN-KIT-TOKEN-ALIGNMENT.md](DESIGN-KIT-TOKEN-ALIGNMENT.md)
+- **Sync script details:** [scripts/sync-tokens-to-figma/README.md](../../scripts/sync-tokens-to-figma/README.md)
 - **Design kit structure (keys):** `tokens-external-design-kit.json` in this folder
