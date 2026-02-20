@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/nats-io/nats.go/jetstream"
@@ -20,6 +21,30 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
+
+// getOutputSubjectFromEnv returns the NATS subject to publish to.
+// When GLASSFLOW_POD_INDEX and NATS_SUBJECT_PREFIX are set, subject is "NATS_SUBJECT_PREFIX.GLASSFLOW_POD_INDEX".
+// Otherwise it falls back to the default subject derived from outputStreamID (same logic as ingestor).
+func getOutputSubjectFromEnv(outputStreamID string) string {
+	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
+	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
+	if prefix != "" && podIndex != "" {
+		return fmt.Sprintf("%s.%s", prefix, podIndex)
+	}
+	return models.GetNATSSubjectNameDefault(outputStreamID)
+}
+
+// getInputStreamNameFromEnv returns the NATS stream name to consume from.
+// When GLASSFLOW_POD_INDEX and NATS_INPUT_STREAM_PREFIX are set, stream name is "NATS_INPUT_STREAM_PREFIX_GLASSFLOW_POD_INDEX".
+// Otherwise it falls back to the pipeline-derived input stream ID (same logic as sink).
+func getInputStreamNameFromEnv(fallbackStreamID string) string {
+	prefix := os.Getenv("NATS_INPUT_STREAM_PREFIX")
+	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
+	if prefix != "" && podIndex != "" {
+		return fmt.Sprintf("%s_%s", prefix, podIndex)
+	}
+	return fallbackStreamID
+}
 
 func mainDeduplicatorV2(
 	ctx context.Context,
@@ -49,11 +74,13 @@ func mainDeduplicatorV2(
 		return fmt.Errorf("topic %s not found in pipeline config", cfg.DedupTopic)
 	}
 
-	// Input: read from ingestor's output stream
+	// Input: read from stream (env-based when NATS_INPUT_STREAM_PREFIX and GLASSFLOW_POD_INDEX are set)
 	inputStreamID := topicConfig.OutputStreamID
 	if inputStreamID == "" {
 		return fmt.Errorf("output stream ID not set for topic %s", cfg.DedupTopic)
 	}
+	inputStreamName := getInputStreamNameFromEnv(inputStreamID)
+	log.InfoContext(ctx, "Dedup/transform will read from NATS stream", "stream", inputStreamName, "pipeline_id", pipelineCfg.ID)
 
 	// Output: write to dedup-specific output stream
 	// This stream will be consumed by either sink or join
@@ -62,6 +89,10 @@ func mainDeduplicatorV2(
 	if outputStreamID == "" {
 		return fmt.Errorf("output stream ID could not be determined")
 	}
+
+	// Output subject: same as ingestor when NATS_SUBJECT_PREFIX and GLASSFLOW_POD_INDEX are set
+	outputSubject := getOutputSubjectFromEnv(outputStreamID)
+	log.InfoContext(ctx, "Dedup/transform will write to NATS subject", "subject", outputSubject, "pipeline_id", pipelineCfg.ID)
 
 	batchSize := internal.DefaultDedupComponentBatchSize
 	maxWait := internal.DefaultDedupMaxWaitTime
@@ -78,7 +109,7 @@ func mainDeduplicatorV2(
 	log.InfoContext(ctx, "Starting deduplicator",
 		slog.String("topic", cfg.DedupTopic),
 		slog.String("pipeline_id", pipelineCfg.ID),
-		slog.String("input_stream", inputStreamID),
+		slog.String("input_stream", inputStreamName),
 		slog.String("output_stream", outputStreamID),
 		slog.Duration("ttl", topicConfig.Deduplication.Window.Duration()),
 		slog.Int("batch_size", batchSize),
@@ -93,12 +124,11 @@ func mainDeduplicatorV2(
 		jetstream.ConsumerConfig{
 			Name:          consumerName,
 			Durable:       consumerName,
-			FilterSubject: models.GetWildcardNATSSubjectName(inputStreamID),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: maxAckPending,
 		},
-		inputStreamID,
+		inputStreamName,
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create deduplication consumer", "error", err)
@@ -109,7 +139,7 @@ func mainDeduplicatorV2(
 
 	batchWriter := batchNats.NewBatchWriter(
 		nc.JetStream(),
-		models.GetNATSSubjectNameDefault(outputStreamID),
+		outputSubject,
 	)
 
 	dlqWriter := batchNats.NewBatchWriter(
