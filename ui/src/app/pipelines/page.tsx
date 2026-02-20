@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { getSessionSafely } from '@/src/lib/auth0'
 import { redirect } from 'next/navigation'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
-import PipelinesPageClient from '@/src/components/pipelines/PipelinesPageClient'
+import PipelinesPageClient from '@/src/modules/pipelines/PipelinesPageClient'
 
 export default async function PipelinesPage() {
   // Check if Auth0 is enabled (reads from runtime environment)
