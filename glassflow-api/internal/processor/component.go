@@ -17,7 +17,7 @@ type ProcessorBatch struct {
 	Messages       []models.Message
 	FailedMessages []models.FailedMessage
 	FatalError     error
-	CommitFn       func() error // nil for stateless
+	CommitFn       []func() error // nil for stateless
 }
 
 type Processor interface {
@@ -239,7 +239,7 @@ func (c *Component) runProcessors(ctx context.Context, batch []models.Message) (
 		if result.FatalError != nil {
 			return nil, nil, result.FatalError
 		}
-		commits = append(commits, result.CommitFn)
+		commits = append(commits, result.CommitFn...)
 
 		current = result
 	}

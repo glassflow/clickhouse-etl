@@ -254,7 +254,7 @@ func (sc *StreamingComponent) runProcessors(ctx context.Context, batch []models.
 		if result.FatalError != nil {
 			return nil, nil, result.FatalError
 		}
-		commits = append(commits, result.CommitFn)
+		commits = append(commits, result.CommitFn...)
 
 		current = result
 	}
