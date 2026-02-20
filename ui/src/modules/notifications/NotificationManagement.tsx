@@ -28,7 +28,7 @@ export function NotificationManagement() {
       <div
         className={cn(
           'flex items-center justify-between',
-          'p-4 rounded-[var(--radius-large)]',
+          'p-4 rounded-[var(--radius-xl)]',
           'bg-[var(--surface-bg)] border border-[var(--surface-border)]',
           'shadow-[var(--card-shadow)]',
           'animate-fadeIn'

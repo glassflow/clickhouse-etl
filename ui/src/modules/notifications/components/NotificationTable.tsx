@@ -212,7 +212,7 @@ export function NotificationTable() {
         <div
           className={cn(
             'flex items-center justify-between p-4',
-            'rounded-[var(--radius-large)]',
+            'rounded-[var(--radius-xl)]',
             'bg-[var(--color-background-primary-faded)] border border-[var(--color-border-primary-faded)]',
             'animate-slideDown',
             'transition-all duration-200'
@@ -315,7 +315,7 @@ export function NotificationTable() {
         <div
           className={cn(
             'flex items-center justify-between',
-            'p-4 rounded-[var(--radius-large)]',
+            'p-4 rounded-[var(--radius-xl)]',
             'bg-[var(--surface-bg)] border border-[var(--surface-border)]',
             'transition-all duration-200'
           )}
@@ -329,7 +329,7 @@ export function NotificationTable() {
               <SelectTrigger
                 size="sm"
                 className={cn(
-                  'h-8 px-2 rounded-[var(--radius-medium)]',
+                  'h-8 px-2 rounded-[var(--radius-md)]',
                   'bg-[var(--control-bg)] border border-[var(--control-border)]',
                   'text-[var(--text-primary)]',
                   'hover:border-[var(--control-border-hover)]',

@@ -2,7 +2,7 @@
 .input-regular {
   background-color: var(--control-bg);
   color: var(--control-fg);
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-sm);
   padding: var(--unit-x2) var(--unit-x3);
   height: 36px;
   font-family: var(--font-family-body-3);

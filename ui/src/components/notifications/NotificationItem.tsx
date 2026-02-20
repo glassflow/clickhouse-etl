@@ -129,8 +129,8 @@ export function NotificationItem({
     <div
       className={cn(
         'group relative flex gap-3 p-4',
-        // 'border-l-1 rounded-[var(--radius-medium)]',
-        'border-0 rounded-[var(--radius-medium)]',
+        // 'border-l-1 rounded-[var(--radius-md)]',
+        'border-0 rounded-[var(--radius-md)]',
         'transition-all duration-200',
         'bg-[var(--surface-bg)]',
         'hover:bg-[var(--option-bg-hover)] hover:shadow-md',

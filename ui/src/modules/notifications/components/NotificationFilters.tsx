@@ -192,7 +192,7 @@ export function NotificationFilters() {
             >
               <SelectTrigger
                 className={cn(
-                  'h-9 w-full px-3 rounded-[var(--radius-medium)]',
+                  'h-9 w-full px-3 rounded-[var(--radius-md)]',
                   'bg-[var(--control-bg)] border border-[var(--control-border)]',
                   'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
                   'transition-all duration-200'
@@ -203,7 +203,7 @@ export function NotificationFilters() {
               <SelectContent
                 className={cn(
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
                 )}
               >
                 {SEVERITY_OPTIONS.map((option) => (
@@ -228,7 +228,7 @@ export function NotificationFilters() {
             >
               <SelectTrigger
                 className={cn(
-                  'h-9 w-full px-3 rounded-[var(--radius-medium)]',
+                  'h-9 w-full px-3 rounded-[var(--radius-md)]',
                   'bg-[var(--control-bg)] border border-[var(--control-border)]',
                   'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
                   'transition-all duration-200'
@@ -239,7 +239,7 @@ export function NotificationFilters() {
               <SelectContent
                 className={cn(
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
                 )}
               >
                 {READ_STATUS_OPTIONS.map((option) => (
@@ -280,7 +280,7 @@ export function NotificationFilters() {
                 className={cn(
                   'w-auto p-0',
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
                 )}
                 align="start"
               >
@@ -319,7 +319,7 @@ export function NotificationFilters() {
                 className={cn(
                   'w-auto p-0',
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-medium)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
                 )}
                 align="start"
               >

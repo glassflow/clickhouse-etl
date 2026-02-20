@@ -96,7 +96,7 @@ export function TransformationFieldList({
 
       {/* Field List */}
       {fields.length === 0 ? (
-        <div className="text-sm text-[var(--text-secondary)] text-center py-8 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
+        <div className="text-sm text-[var(--text-secondary)] text-center py-8 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-md)]">
           No fields configured. Add pass-through or computed fields using the buttons above.
         </div>
       ) : (

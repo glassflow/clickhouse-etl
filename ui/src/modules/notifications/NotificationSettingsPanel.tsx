@@ -51,7 +51,7 @@ export function NotificationSettingsPanel() {
           <div className="flex items-start gap-4">
             <div
               className={cn(
-                'p-3 rounded-[var(--radius-medium)]',
+                'p-3 rounded-[var(--radius-md)]',
                 'transition-all duration-200',
                 isMuted
                   ? 'bg-[var(--color-background-warning-faded)] text-[var(--color-foreground-warning)]'
@@ -122,7 +122,7 @@ export function NotificationSettingsPanel() {
       {isMuted && (
         <div
           className={cn(
-            'p-4 rounded-[var(--radius-large)]',
+            'p-4 rounded-[var(--radius-xl)]',
             'border border-[var(--color-border-warning)]',
             'bg-[var(--color-background-warning-faded)]/10',
             'animate-slideDown',
