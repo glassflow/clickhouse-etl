@@ -29,11 +29,11 @@ type IngestorRunner struct {
 }
 
 // getIngestorOutputSubject returns the NATS subject the ingestor publishes to.
-// When POD_INDEX and NATS_SUBJECT_PREFIX are set, subject is "NATS_SUBJECT_PREFIX.POD_INDEX".
+// When GLASSLFOW_POD_INDEX and NATS_SUBJECT_PREFIX are set, subject is "NATS_SUBJECT_PREFIX.GLASSLFOW_POD_INDEX".
 // Otherwise it falls back to the default subject derived from outputStreamID.
 func getIngestorOutputSubject(outputStreamID string) string {
 	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
-	podIndex := os.Getenv("POD_INDEX")
+	podIndex := os.Getenv("GLASSLFOW_POD_INDEX")
 	if prefix != "" && podIndex != "" {
 		return fmt.Sprintf("%s.%s", prefix, podIndex)
 	}

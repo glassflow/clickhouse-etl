@@ -105,7 +105,7 @@ func (k *KafkaMsgProcessor) setupDeduplicationHeader(headers nats.Header, msgDat
 }
 
 // getSubject returns the fixed NATS subject for publishing (from publisher config).
-// All messages are published to the same subject, e.g. NATS_SUBJECT_PREFIX.POD_INDEX.
+// All messages are published to the same subject, e.g. NATS_SUBJECT_PREFIX.GLASSLFOW_POD_INDEX.
 func (k *KafkaMsgProcessor) getSubject() string {
 	return k.publisher.GetSubject()
 }

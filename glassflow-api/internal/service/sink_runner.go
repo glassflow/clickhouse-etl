@@ -31,11 +31,11 @@ type SinkRunner struct {
 }
 
 // getSinkInputStreamName returns the NATS stream name the sink consumes from.
-// When POD_INDEX and NATS_INPUT_STREAM_PREFIX are set, stream name is "NATS_INPUT_STREAM_PREFIX_POD_INDEX".
+// When GLASSLFOW_POD_INDEX and NATS_INPUT_STREAM_PREFIX are set, stream name is "NATS_INPUT_STREAM_PREFIX_GLASSLFOW_POD_INDEX".
 // Otherwise it falls back to the pipeline's sink stream ID.
 func getSinkInputStreamName(fallbackStreamID string) string {
 	prefix := os.Getenv("NATS_INPUT_STREAM_PREFIX")
-	podIndex := os.Getenv("POD_INDEX")
+	podIndex := os.Getenv("GLASSLFOW_POD_INDEX")
 	if prefix != "" && podIndex != "" {
 		return fmt.Sprintf("%s_%s", prefix, podIndex)
 	}
@@ -81,7 +81,6 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		jetstream.ConsumerConfig{
 			Name:          s.pipelineCfg.Sink.NATSConsumerName,
 			Durable:       s.pipelineCfg.Sink.NATSConsumerName,
-			FilterSubject: models.GetWildcardNATSSubjectName(inputStreamName),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: maxAckPending,
