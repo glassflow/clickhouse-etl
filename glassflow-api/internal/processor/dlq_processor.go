@@ -2,26 +2,32 @@ package processor
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-// DLQMiddleware returns a middleware that wraps a processor and writes failed messages to DLQ
-func DLQMiddleware(dlqWriter batch.BatchWriter, role string) func(Processor) Processor {
+// DLQMiddleware returns a middleware that wraps a processor and writes failed messages to DLQ.
+// componentName is used in logs (e.g. "transform", "filter"). log may be nil to skip logging.
+func DLQMiddleware(dlqWriter batch.BatchWriter, role string, componentName string, log *slog.Logger) func(Processor) Processor {
 	return func(next Processor) Processor {
 		return &dlqMiddleware{
-			next:      next,
-			dlqWriter: dlqWriter,
-			role:      role,
+			next:           next,
+			dlqWriter:      dlqWriter,
+			role:           role,
+			componentName:  componentName,
+			log:            log,
 		}
 	}
 }
 
 type dlqMiddleware struct {
-	next      Processor
-	dlqWriter batch.BatchWriter
-	role      string
+	next          Processor
+	dlqWriter     batch.BatchWriter
+	role          string
+	componentName string
+	log           *slog.Logger
 }
 
 func (d *dlqMiddleware) Close(ctx context.Context) error {
@@ -32,6 +38,17 @@ func (d *dlqMiddleware) ProcessBatch(ctx context.Context, batch ProcessorBatch) 
 	result := d.next.ProcessBatch(ctx, batch)
 
 	if len(result.FailedMessages) > 0 {
+		result.DlqCount = len(result.FailedMessages)
+
+		if d.log != nil {
+			for _, failedMsg := range result.FailedMessages {
+				d.log.ErrorContext(ctx, "message sent to DLQ",
+					"component", d.componentName,
+					"error", failedMsg.Error,
+				)
+			}
+		}
+
 		dlqMessages := make([]models.Message, len(result.FailedMessages))
 		for i, failedMsg := range result.FailedMessages {
 			msg, err := models.FailedMessageToMessage(

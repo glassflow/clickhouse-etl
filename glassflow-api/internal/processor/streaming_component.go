@@ -200,7 +200,7 @@ func (sc *StreamingComponent) ProcessBatch(ctx context.Context, batch []models.M
 		}
 	}()
 
-	messages, commits, err := sc.runProcessors(ctx, batch)
+	messages, commits, totalDlqCount, err := sc.runProcessors(ctx, batch)
 	if err != nil {
 		return fmt.Errorf("process: %w", err)
 	}
@@ -234,15 +234,17 @@ func (sc *StreamingComponent) ProcessBatch(ctx context.Context, batch []models.M
 		ctx,
 		"Batch processed successfully",
 		slog.Int("batchSize", len(batch)),
+		slog.Int("dlq_count", totalDlqCount),
 		slog.Duration("duration", time.Duration(time.Since(start).Milliseconds())),
 	)
 
 	return nil
 }
 
-func (sc *StreamingComponent) runProcessors(ctx context.Context, batch []models.Message) ([]models.Message, []func() error, error) {
+func (sc *StreamingComponent) runProcessors(ctx context.Context, batch []models.Message) ([]models.Message, []func() error, int, error) {
 	current := ProcessorBatch{Messages: batch}
 	commits := make([]func() error, 0, len(sc.processors))
+	var totalDlqCount int
 
 	for _, proc := range sc.processors {
 		if len(current.Messages) == 0 {
@@ -252,12 +254,13 @@ func (sc *StreamingComponent) runProcessors(ctx context.Context, batch []models.
 		result := proc.ProcessBatch(ctx, current)
 
 		if result.FatalError != nil {
-			return nil, nil, result.FatalError
+			return nil, nil, 0, result.FatalError
 		}
+		totalDlqCount += result.DlqCount
 		commits = append(commits, result.CommitFn)
 
 		current = result
 	}
 
-	return current.Messages, commits, nil
+	return current.Messages, commits, totalDlqCount, nil
 }

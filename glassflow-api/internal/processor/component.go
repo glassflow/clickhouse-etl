@@ -18,6 +18,8 @@ type ProcessorBatch struct {
 	FailedMessages []models.FailedMessage
 	FatalError     error
 	CommitFn       func() error // nil for stateless
+	// DlqCount is set by DLQ middleware to the number of messages written to DLQ for this batch.
+	DlqCount int
 }
 
 type Processor interface {
@@ -197,7 +199,7 @@ func (c *Component) ProcessBatch(ctx context.Context, batch []models.Message) (e
 		}
 	}()
 
-	messages, commits, err := c.runProcessors(ctx, batch)
+	messages, commits, _, err := c.runProcessors(ctx, batch)
 	if err != nil {
 		return fmt.Errorf("process: %w", err)
 	}
@@ -225,9 +227,10 @@ func (c *Component) ProcessBatch(ctx context.Context, batch []models.Message) (e
 	return c.reader.Ack(ctx, batch)
 }
 
-func (c *Component) runProcessors(ctx context.Context, batch []models.Message) ([]models.Message, []func() error, error) {
+func (c *Component) runProcessors(ctx context.Context, batch []models.Message) ([]models.Message, []func() error, int, error) {
 	current := ProcessorBatch{Messages: batch}
 	commits := make([]func() error, 0, len(c.processors))
+	var totalDlqCount int
 
 	for _, proc := range c.processors {
 		if len(current.Messages) == 0 {
@@ -237,12 +240,13 @@ func (c *Component) runProcessors(ctx context.Context, batch []models.Message) (
 		result := proc.ProcessBatch(ctx, current)
 
 		if result.FatalError != nil {
-			return nil, nil, result.FatalError
+			return nil, nil, 0, result.FatalError
 		}
+		totalDlqCount += result.DlqCount
 		commits = append(commits, result.CommitFn)
 
 		current = result
 	}
 
-	return current.Messages, commits, nil
+	return current.Messages, commits, totalDlqCount, nil
 }
