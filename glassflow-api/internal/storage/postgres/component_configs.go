@@ -170,6 +170,26 @@ func (s *PostgresStorage) getJoinConfigsByOutputVersion(ctx context.Context, tx 
 	return configs, nil
 }
 
+func (s *PostgresStorage) getJoinIDAndOutputSchemaID(ctx context.Context, tx pgx.Tx, pipelineID, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID string) (string, string, error) {
+	var joinID, outputSchemaVersionID string
+	err := tx.QueryRow(ctx, `
+		SELECT jc1.join_id, jc1.output_schema_version_id
+		FROM join_configs jc1
+		INNER JOIN join_configs jc2
+			ON jc1.pipeline_id = jc2.pipeline_id
+			AND jc1.join_id = jc2.join_id
+			AND jc1.output_schema_version_id = jc2.output_schema_version_id
+		WHERE jc1.pipeline_id = $1
+			AND jc1.source_id = $2 AND jc1.schema_version_id = $3
+			AND jc2.source_id = $4 AND jc2.schema_version_id = $5
+	`, pipelineID, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID).Scan(&joinID, &outputSchemaVersionID)
+	if err != nil {
+		return "", "", fmt.Errorf("query join config intersection: %w", err)
+	}
+
+	return joinID, outputSchemaVersionID, err
+}
+
 func (s *PostgresStorage) insertSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.Mapping) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
@@ -276,7 +296,7 @@ func (s *PostgresStorage) GetJoinConfig(ctx context.Context, pipelineID, sourceI
 	return config, nil
 }
 
-func (s *PostgresStorage) GetJoinConfigs(ctx context.Context, pipelineID string, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID string) ([]models.JoinConfig, error) {
+func (s *PostgresStorage) GetJoinConfigs(ctx context.Context, pipelineID, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID string) ([]models.JoinConfig, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel: pgx.ReadCommitted,
 	})
@@ -286,30 +306,10 @@ func (s *PostgresStorage) GetJoinConfigs(ctx context.Context, pipelineID string,
 	defer tx.Rollback(ctx)
 
 	// Find intersection of (join_id, output_schema_version_id) pairs for both sources
-	rows, err := tx.Query(ctx, `
-		SELECT jc1.join_id, jc1.output_schema_version_id
-		FROM join_configs jc1
-		INNER JOIN join_configs jc2
-			ON jc1.pipeline_id = jc2.pipeline_id
-			AND jc1.join_id = jc2.join_id
-			AND jc1.output_schema_version_id = jc2.output_schema_version_id
-		WHERE jc1.pipeline_id = $1
-			AND jc1.source_id = $2 AND jc1.schema_version_id = $3
-			AND jc2.source_id = $4 AND jc2.schema_version_id = $5
-	`, pipelineID, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID)
+	joinID, outputSchemaVersionID, err := s.getJoinIDAndOutputSchemaID(ctx, tx, pipelineID, leftSourceID, leftSchemaVersionID, rightSourceID, rightSchemaVersionID)
 	if err != nil {
-		return nil, fmt.Errorf("query join config intersection: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-
-	var joinID, outputSchemaVersionID string
-	if !rows.Next() {
-		return nil, models.ErrRecordNotFound
-	}
-	if err := rows.Scan(&joinID, &outputSchemaVersionID); err != nil {
-		return nil, fmt.Errorf("scan join config intersection: %w", err)
-	}
-	rows.Close()
 
 	// Get all join_configs for this join_id and output_schema_version_id
 	configs, err := s.getJoinConfigsByOutputVersion(ctx, tx, pipelineID, joinID, outputSchemaVersionID)

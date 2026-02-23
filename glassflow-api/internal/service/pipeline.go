@@ -27,6 +27,7 @@ type PipelineStore interface {
 	InsertPipeline(ctx context.Context, pi models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (*models.PipelineConfig, error)
+	GetPipelineWithSchemaVersions(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (*models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.PipelineConfig, error)
 	PatchPipelineName(ctx context.Context, pid string, name string) error
 	PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error
@@ -52,11 +53,12 @@ func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger) *
 }
 
 var (
-	ErrIDExists             = errors.New("pipeline with this ID already exists")
-	ErrPipelineNotFound     = errors.New("no active pipeline found")
-	ErrNotImplemented       = errors.New("feature is not implemented")
-	ErrPipelineNotExists    = errors.New("no pipeline with given id exists")
-	ErrPipelineQuotaReached = errors.New("pipeline quota reached; shutdown active pipeline(s)")
+	ErrIDExists               = errors.New("pipeline with this ID already exists")
+	ErrPipelineNotFound       = errors.New("no active pipeline found")
+	ErrNotImplemented         = errors.New("feature is not implemented")
+	ErrPipelineNotExists      = errors.New("no pipeline with given id exists")
+	ErrPipelineQuotaReached   = errors.New("pipeline quota reached; shutdown active pipeline(s)")
+	ErrInvalidSchemaSelection = errors.New("invalid schema selection")
 )
 
 // CreatePipeline implements PipelineService.
@@ -172,10 +174,34 @@ func (p *PipelineService) TerminatePipeline(ctx context.Context, pid string) err
 }
 
 // GetPipeline implements PipelineService.
-func (p *PipelineService) GetPipeline(ctx context.Context, pid string) (zero models.PipelineConfig, _ error) {
-	pi, err := p.db.GetPipeline(ctx, pid)
+func (p *PipelineService) GetPipeline(
+	ctx context.Context,
+	pid string,
+	sourceSchemaVersions map[string]string,
+) (zero models.PipelineConfig, _ error) {
+	var pi *models.PipelineConfig
+	var err error
+	if len(sourceSchemaVersions) == 0 {
+		pi, err = p.db.GetPipeline(ctx, pid)
+	} else {
+		pi, err = p.db.GetPipelineWithSchemaVersions(ctx, pid, sourceSchemaVersions)
+	}
 	if err != nil {
-		p.log.ErrorContext(ctx, "failed to load pipeline from database", "pipeline_id", pid, "error", err)
+		p.log.ErrorContext(
+			ctx,
+			"failed to load pipeline from database",
+			"pipeline_id",
+			pid,
+			"source_schema_versions",
+			sourceSchemaVersions,
+			"error",
+			err,
+		)
+
+		if len(sourceSchemaVersions) > 0 && errors.Is(err, models.ErrRecordNotFound) {
+			return zero, fmt.Errorf("%w: %w", ErrInvalidSchemaSelection, err)
+		}
+
 		return zero, fmt.Errorf("load pipeline: %w", err)
 	}
 

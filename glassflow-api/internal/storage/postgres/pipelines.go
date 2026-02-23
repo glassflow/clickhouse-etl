@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/google/uuid"
@@ -67,6 +69,36 @@ func (s *PostgresStorage) GetPipeline(ctx context.Context, id string) (*models.P
 	}
 
 	err = s.loadConfigsAndSchemaVersions(ctx, pCfg)
+	if err != nil {
+		return nil, fmt.Errorf("load configs and schema versions: %w", err)
+	}
+
+	return pCfg, nil
+}
+
+// GetPipelineWithSchemaVersions retrieves a pipeline by ID and reconstructs PipelineConfig
+// using explicitly requested source schema versions where provided.
+func (s *PostgresStorage) GetPipelineWithSchemaVersions(
+	ctx context.Context,
+	id string,
+	sourceSchemaVersions map[string]string,
+) (*models.PipelineConfig, error) {
+	pipelineID, err := parsePipelineID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := s.loadPipelineData(ctx, pipelineID)
+	if err != nil {
+		return nil, err
+	}
+
+	pCfg, err := s.reconstructPipelineFromData(ctx, data)
+	if err != nil {
+		return nil, fmt.Errorf("reconstruct pipeline config: %w", err)
+	}
+
+	err = s.loadConfigsAndSchemaVersionsWithSelection(ctx, pCfg, sourceSchemaVersions)
 	if err != nil {
 		return nil, fmt.Errorf("load configs and schema versions: %w", err)
 	}
@@ -1024,6 +1056,14 @@ func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID strin
 
 // loadConfigsAndSchemaVersions loads pipeline configs and schema versions
 func (s *PostgresStorage) loadConfigsAndSchemaVersions(ctx context.Context, pipelineCfg *models.PipelineConfig) error {
+	return s.loadConfigsAndSchemaVersionsWithSelection(ctx, pipelineCfg, nil)
+}
+
+func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
+	ctx context.Context,
+	pipelineCfg *models.PipelineConfig,
+	sourceSchemaVersions map[string]string,
+) error {
 	if len(pipelineCfg.Mapper.Streams) != 0 {
 		// backward compatibility: if streams are defined in mapper, no need to load schema versions
 		return nil
@@ -1034,16 +1074,31 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersions(ctx context.Context, pipe
 	}
 	defer tx.Rollback(ctx)
 
+	notFoundSchemas := make(map[string]string)
+	maps.Copy(notFoundSchemas, sourceSchemaVersions)
+
 	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
-		schemaVersion, err := s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name)
+		var schemaVersion models.SchemaVersion
+
+		requestedVersionID, hasRequestedVersion := sourceSchemaVersions[topic.Name]
+		if hasRequestedVersion {
+			schemaVersion, err = s.getSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name, requestedVersionID)
+			delete(notFoundSchemas, topic.Name)
+		} else {
+			schemaVersion, err = s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name)
+		}
 		if err != nil {
-			return fmt.Errorf("get latest schema version for topic '%s': %w", topic.Name, err)
+			return fmt.Errorf("get schema version for topic '%s': %w", topic.Name, err)
 		}
 
 		if pipelineCfg.SchemaVersions == nil {
 			pipelineCfg.SchemaVersions = make(map[string]models.SchemaVersion)
 		}
 		pipelineCfg.SchemaVersions[topic.Name] = schemaVersion
+	}
+
+	if len(notFoundSchemas) > 0 {
+		return models.ErrRecordNotFound
 	}
 
 	if pipelineCfg.StatelessTransformation.Enabled {
@@ -1067,21 +1122,66 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersions(ctx context.Context, pipe
 	}
 
 	if pipelineCfg.Join.Enabled {
-		src := pipelineCfg.Join.Sources[0] //Join rules in config now are the same for both sources
+		if len(pipelineCfg.Join.Sources) < 2 {
+			return fmt.Errorf("join has not enought sources")
+		}
 
-		sourceSchema, found := pipelineCfg.SchemaVersions[src.SourceID]
+		var leftSource, rightSource string
+		if pipelineCfg.Join.Sources[0].Orientation == internal.JoinLeft {
+			leftSource = pipelineCfg.Join.Sources[0].SourceID
+			rightSource = pipelineCfg.Join.Sources[1].SourceID
+		} else {
+			leftSource = pipelineCfg.Join.Sources[1].SourceID
+			rightSource = pipelineCfg.Join.Sources[0].SourceID
+		}
+
+		leftSchemaVersionID, found := pipelineCfg.SchemaVersions[leftSource]
 		if !found {
-			return fmt.Errorf("schema version for source ID '%s' not found", src.SourceID)
+			return fmt.Errorf("not found schema version for left source '%s'", leftSource)
 		}
 
-		jCfg, err := s.getJoinConfig(ctx, tx, pipelineCfg.ID, sourceSchema.SourceID, sourceSchema.VersionID)
+		rightSchemaVersionID, found := pipelineCfg.SchemaVersions[rightSource]
+		if !found {
+			return fmt.Errorf("not found schema version for right source '%s'", rightSource)
+		}
+
+		joinID, joinSchemaVersionID, err := s.getJoinIDAndOutputSchemaID(
+			ctx,
+			tx,
+			pipelineCfg.ID,
+			leftSource,
+			leftSchemaVersionID.VersionID,
+			rightSource,
+			rightSchemaVersionID.VersionID)
 		if err != nil {
-			return fmt.Errorf("get join config: %w", err)
+			return fmt.Errorf("was not found common join id and join schema version for pipline ID %s %s:%s %s:%s",
+				pipelineCfg.ID, leftSource, leftSchemaVersionID, rightSource, rightSchemaVersionID)
+		}
+		if joinID != pipelineCfg.Join.ID {
+			return fmt.Errorf("join id is not matched with stored one")
 		}
 
-		pipelineCfg.Join.Config = jCfg.Config
+		jCfgs, err := s.getJoinConfigsByOutputVersion(ctx, tx, pipelineCfg.ID, pipelineCfg.Join.ID, joinSchemaVersionID)
+		if err != nil {
+			return fmt.Errorf("get join configs by output version: %w", err)
+		}
 
-		outputSchema, err := s.getSchemaVersion(ctx, tx, pipelineCfg.ID, pipelineCfg.Join.ID, jCfg.OutputSchemaVersionID)
+		joinRules := make(map[string]models.JoinRule)
+
+		for _, jCfg := range jCfgs {
+			for _, rule := range jCfg.Config {
+				_, exists := joinRules[rule.OutputName]
+				if !exists {
+					joinRules[rule.OutputName] = rule
+				}
+			}
+		}
+
+		for _, rule := range joinRules {
+			pipelineCfg.Join.Config = append(pipelineCfg.Join.Config, rule)
+		}
+
+		outputSchema, err := s.getSchemaVersion(ctx, tx, pipelineCfg.ID, pipelineCfg.Join.ID, joinSchemaVersionID)
 		if err != nil {
 			return fmt.Errorf("get output schema version for join: %w", err)
 		}

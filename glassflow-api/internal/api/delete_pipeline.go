@@ -32,7 +32,7 @@ type DeletePipelineResponse struct {
 
 func (h *handler) deletePipeline(ctx context.Context, input *DeletePipelineInput) (*DeletePipelineResponse, error) {
 	// Get the pipeline to check its status
-	pipeline, err := h.pipelineService.GetPipeline(ctx, input.ID)
+	pipeline, err := h.pipelineService.GetPipeline(ctx, input.ID, nil)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
