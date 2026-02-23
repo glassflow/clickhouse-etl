@@ -15,13 +15,11 @@ func baseResources() models.PipelineResources {
 				MaxBytes: "1GB",
 			},
 		},
-		Dedup: &models.ComponentResources{
-			Resources: &models.ResourceRequirements{
-				Storage: &models.StorageConfig{Size: "10Gi"},
-			},
+		Transform: &models.ComponentResources{
+			Storage: &models.StorageConfig{Size: "10Gi"},
 		},
 		Join: &models.ComponentResources{
-			Resources: &models.ResourceRequirements{Replicas: &replicas},
+			Replicas: &replicas,
 		},
 	}
 }
@@ -29,7 +27,7 @@ func baseResources() models.PipelineResources {
 func TestValidateResourceQuantities(t *testing.T) {
 	validList := &models.ResourceList{CPU: "500m", Memory: "256Mi"}
 	validStorage := &models.StorageConfig{Size: "10Gi"}
-	validReqs := &models.ResourceRequirements{
+	validReqs := &models.ComponentResources{
 		Requests: validList,
 		Limits:   &models.ResourceList{CPU: "2", Memory: "1Gi"},
 		Storage:  validStorage,
@@ -43,29 +41,29 @@ func TestValidateResourceQuantities(t *testing.T) {
 		{
 			name: "valid quantities",
 			r: models.PipelineResources{
-				Join:  &models.ComponentResources{Resources: validReqs},
-				Sink:  &models.ComponentResources{Resources: validReqs},
-				Dedup: &models.ComponentResources{Resources: validReqs},
+				Join:      validReqs,
+				Sink:      validReqs,
+				Transform: validReqs,
 			},
 		},
 		{
 			name:    "empty cpu is rejected",
-			r:       models.PipelineResources{Join: &models.ComponentResources{Resources: &models.ResourceRequirements{Requests: &models.ResourceList{CPU: "", Memory: "256Mi"}}}},
+			r:       models.PipelineResources{Join: &models.ComponentResources{Requests: &models.ResourceList{CPU: "", Memory: "256Mi"}}},
 			wantErr: true,
 		},
 		{
 			name:    "invalid cpu in requests",
-			r:       models.PipelineResources{Join: &models.ComponentResources{Resources: &models.ResourceRequirements{Requests: &models.ResourceList{CPU: "bad"}}}},
+			r:       models.PipelineResources{Join: &models.ComponentResources{Requests: &models.ResourceList{CPU: "bad"}}},
 			wantErr: true,
 		},
 		{
 			name:    "invalid memory in limits",
-			r:       models.PipelineResources{Sink: &models.ComponentResources{Resources: &models.ResourceRequirements{Limits: &models.ResourceList{Memory: "1GB"}}}},
+			r:       models.PipelineResources{Sink: &models.ComponentResources{Limits: &models.ResourceList{Memory: "1GB"}}},
 			wantErr: true,
 		},
 		{
 			name:    "invalid storage size",
-			r:       models.PipelineResources{Dedup: &models.ComponentResources{Resources: &models.ResourceRequirements{Storage: &models.StorageConfig{Size: "10gigs"}}}},
+			r:       models.PipelineResources{Transform: &models.ComponentResources{Storage: &models.StorageConfig{Size: "10gigs"}}},
 			wantErr: true,
 		},
 	}
@@ -94,14 +92,14 @@ func TestValidatePipelineResources_DetectsImmutableFieldChanges(t *testing.T) {
 			modifier: func(r *models.PipelineResources) { r.Nats.Stream.MaxBytes = "2GB" },
 		},
 		{
-			name:     "dedup/resources/storage/size",
-			modifier: func(r *models.PipelineResources) { r.Dedup.Resources.Storage.Size = "20Gi" },
+			name:     "transform/storage/size",
+			modifier: func(r *models.PipelineResources) { r.Transform.Storage.Size = "20Gi" },
 		},
 		{
-			name: "join/resources/replicas",
+			name: "join/replicas",
 			modifier: func(r *models.PipelineResources) {
 				n := int64(5)
-				r.Join.Resources.Replicas = &n
+				r.Join.Replicas = &n
 			},
 		},
 	}
@@ -111,7 +109,7 @@ func TestValidatePipelineResources_DetectsImmutableFieldChanges(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			newResources := baseResources()
 			tt.modifier(&newResources)
-			if err := ValidatePipelineResources(old, newResources); err == nil {
+			if err := ValidateImmutabilityPipelineResources(old, newResources); err == nil {
 				t.Errorf("expected error for changed immutable field %q, got nil", tt.name)
 			}
 		})

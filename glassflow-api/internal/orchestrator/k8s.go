@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -512,6 +514,11 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 		})
 	}
 
+	operatorResources, err := toOperatorResources(cfg.PipelineResources)
+	if err != nil {
+		return nil, fmt.Errorf("build operator resources: %w", err)
+	}
+
 	spec := operator.PipelineSpec{
 		ID:  cfg.ID,
 		DLQ: models.GetDLQStreamName(cfg.ID),
@@ -534,6 +541,7 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 			Replicas:         internal.DefaultReplicasCount,
 			NATSConsumerName: cfg.Sink.NATSConsumerName,
 		},
+		Resources: operatorResources,
 		// Config field is intentionally omitted - stored in secret instead
 	}
 
@@ -636,7 +644,85 @@ func (k *K8sOrchestrator) updatePipelineConfigSecret(ctx context.Context, cfg *m
 	return nil
 }
 
-// deletePipelineConfigSecret deletes the secret from the glassflow namespace
+func toOperatorResources(r models.PipelineResources) (*operator.PipelineResources, error) {
+	res := &operator.PipelineResources{}
+	if r.Ingestor != nil {
+		res.Ingestor = &operator.IngestorResources{
+			Base:  toOperatorComponentResources(r.Ingestor.Base),
+			Left:  toOperatorComponentResources(r.Ingestor.Left),
+			Right: toOperatorComponentResources(r.Ingestor.Right),
+		}
+	}
+	res.Join = toOperatorComponentResources(r.Join)
+	res.Sink = toOperatorComponentResources(r.Sink)
+	res.Dedup = toOperatorComponentResources(r.Transform)
+
+	nats, err := toOperatorNatsResources(r.Nats)
+	if err != nil {
+		return nil, err
+	}
+	res.Nats = nats
+
+	return res, nil
+}
+
+func toOperatorNatsResources(n *models.NatsResources) (*operator.NatsResources, error) {
+	if n == nil {
+		return nil, nil
+	}
+	res := &operator.NatsResources{}
+	if n.Stream != nil {
+		stream := &operator.NatsStreamResources{}
+		if n.Stream.MaxAge != "" {
+			d, err := time.ParseDuration(n.Stream.MaxAge)
+			if err != nil {
+				return nil, fmt.Errorf("invalid nats stream maxAge %q: %w", n.Stream.MaxAge, err)
+			}
+			stream.MaxAge = metav1.Duration{Duration: d}
+		}
+		if n.Stream.MaxBytes != "" {
+			stream.MaxBytes = resource.MustParse(n.Stream.MaxBytes)
+		}
+		res.Stream = stream
+	}
+	return res, nil
+}
+
+func toOperatorComponentResources(c *models.ComponentResources) *operator.ComponentResources {
+	if c == nil {
+		return nil
+	}
+	res := &operator.ComponentResources{}
+	if c.Requests != nil {
+		rq := &operator.ResourceQuantities{}
+		if c.Requests.CPU != "" {
+			rq.CPU = resource.MustParse(c.Requests.CPU)
+		}
+		if c.Requests.Memory != "" {
+			rq.Memory = resource.MustParse(c.Requests.Memory)
+		}
+		res.Requests = rq
+	}
+	if c.Limits != nil {
+		rq := &operator.ResourceQuantities{}
+		if c.Limits.CPU != "" {
+			rq.CPU = resource.MustParse(c.Limits.CPU)
+		}
+		if c.Limits.Memory != "" {
+			rq.Memory = resource.MustParse(c.Limits.Memory)
+		}
+		res.Limits = rq
+	}
+	if c.Storage != nil && c.Storage.Size != "" {
+		res.Storage = &operator.StorageSpec{Size: resource.MustParse(c.Storage.Size)}
+	}
+	if c.Replicas != nil {
+		r := int32(*c.Replicas)
+		res.Replicas = &r
+	}
+	return res
+}
+
 func (k *K8sOrchestrator) deletePipelineConfigSecret(ctx context.Context, pipelineID string) error {
 	secretName := k.getPipelineConfigSecretName(pipelineID)
 
