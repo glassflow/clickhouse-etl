@@ -81,6 +81,14 @@ func (m *MockPipelineStore) GetPipeline(ctx context.Context, pid string) (*model
 	return args.Get(0).(*models.PipelineConfig), args.Error(1)
 }
 
+func (m *MockPipelineStore) GetPipelineWithSchemaVersions(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (*models.PipelineConfig, error) {
+	args := m.Called(ctx, pid, sourceSchemaVersions)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PipelineConfig), args.Error(1)
+}
+
 func (m *MockPipelineStore) GetPipelines(ctx context.Context) ([]models.PipelineConfig, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]models.PipelineConfig), args.Error(1)

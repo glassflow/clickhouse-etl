@@ -57,13 +57,15 @@ func (m *mockOrchestrator) EditPipeline(ctx context.Context, pid string, newCfg 
 
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
-	mu               sync.RWMutex
-	pipelines        map[string]models.PipelineConfig
-	getError         error
-	updateError      error
-	deleteError      error
-	deleteCalled     bool
-	deletePipelineID string
+	mu                 sync.RWMutex
+	pipelines          map[string]models.PipelineConfig
+	pipelineWithSchema *models.PipelineConfig
+	getError           error
+	getWithSchemaError error
+	updateError        error
+	deleteError        error
+	deleteCalled       bool
+	deletePipelineID   string
 }
 
 func (m *mockPipelineStore) PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error {
@@ -103,6 +105,18 @@ func (m *mockPipelineStore) GetPipeline(ctx context.Context, pid string) (*model
 		return &pipeline, nil
 	}
 	return nil, ErrPipelineNotExists
+}
+
+func (m *mockPipelineStore) GetPipelineWithSchemaVersions(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (*models.PipelineConfig, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getWithSchemaError != nil {
+		return nil, m.getWithSchemaError
+	}
+	if m.pipelineWithSchema != nil {
+		return m.pipelineWithSchema, nil
+	}
+	return m.GetPipeline(ctx, pid)
 }
 
 func (m *mockPipelineStore) GetPipelines(ctx context.Context) ([]models.PipelineConfig, error) {
@@ -437,5 +451,37 @@ func TestPipelineService_DeletePipeline(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPipelineService_GetPipeline_WithSchemaVersions(t *testing.T) {
+	ctx := context.Background()
+	store := &mockPipelineStore{
+		pipelineWithSchema: &models.PipelineConfig{ID: "pipeline-1"},
+	}
+	svc := NewPipelineService(&mockOrchestrator{}, store, slog.Default())
+
+	cfg, err := svc.GetPipeline(ctx, "pipeline-1", map[string]string{"inputA": "12"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if cfg.ID != "pipeline-1" {
+		t.Fatalf("expected pipeline ID pipeline-1, got %s", cfg.ID)
+	}
+}
+
+func TestPipelineService_GetPipeline_InvalidSelection(t *testing.T) {
+	ctx := context.Background()
+	store := &mockPipelineStore{
+		getWithSchemaError: models.ErrRecordNotFound,
+	}
+	svc := NewPipelineService(&mockOrchestrator{}, store, slog.Default())
+
+	_, err := svc.GetPipeline(ctx, "pipeline-1", map[string]string{"inputA": "missing"})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !errors.Is(err, ErrInvalidSchemaSelection) {
+		t.Fatalf("expected ErrInvalidSchemaSelection, got %v", err)
 	}
 }
