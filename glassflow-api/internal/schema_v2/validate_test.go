@@ -121,7 +121,7 @@ func TestValidateFieldType(t *testing.T) {
 		},
 		{
 			name:      "valid float",
-			field:     models.Field{Name: "price", Type: internal.KafkaTypeFloat64},
+			field:     models.Field{Name: "price", Type: internal.KafkaTypeFloat},
 			jsonValue: `99.99`,
 			wantError: false,
 		},
@@ -179,7 +179,7 @@ func TestValidateFieldType(t *testing.T) {
 		},
 		{
 			name:      "valid bytes (string)",
-			field:     models.Field{Name: "data", Type: internal.KafkaTypeBytes},
+			field:     models.Field{Name: "data", Type: internal.KafkaTypeString},
 			jsonValue: `"base64data"`,
 			wantError: false,
 		},

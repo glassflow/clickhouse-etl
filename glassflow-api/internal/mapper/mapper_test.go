@@ -36,7 +36,7 @@ func TestNewKafkaToClickHouseMapper(t *testing.T) {
 			fields: []models.Mapping{
 				{
 					SourceField:      "id",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "id",
 					DestinationType:  "Int64",
 				},
@@ -120,7 +120,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				{
 					SourceField:      "age",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "age",
 					DestinationType:  "Int64",
 				},
@@ -134,7 +134,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				"age": {
 					SourceField:      "age",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "age",
 					DestinationType:  "Int64",
 				},
@@ -153,7 +153,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				{
 					SourceField:      "score",
-					SourceType:       string(internal.KafkaTypeFloat64),
+					SourceType:       string(internal.KafkaTypeFloat),
 					DestinationField: "score",
 					DestinationType:  "Float64",
 				},
@@ -167,7 +167,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				"score": {
 					SourceField:      "score",
-					SourceType:       string(internal.KafkaTypeFloat64),
+					SourceType:       string(internal.KafkaTypeFloat),
 					DestinationField: "score",
 					DestinationType:  "Float64",
 				},
@@ -209,7 +209,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				{
 					SourceField:      "user.profile.age",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "age",
 					DestinationType:  "Int64",
 				},
@@ -223,7 +223,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				"age": {
 					SourceField:      "user.profile.age",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "age",
 					DestinationType:  "Int64",
 				},
@@ -242,7 +242,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				{
 					SourceField:      "age",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "age",
 					DestinationType:  "Int64",
 				},
@@ -256,7 +256,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				"age": {
 					SourceField:      "age",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "age",
 					DestinationType:  "Int64",
 				},
@@ -323,7 +323,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 			fields: []models.Mapping{
 				{
 					SourceField:      "id",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "id",
 					DestinationType:  "Int64",
 				},
@@ -341,7 +341,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				{
 					SourceField:      "price",
-					SourceType:       string(internal.KafkaTypeFloat64),
+					SourceType:       string(internal.KafkaTypeFloat),
 					DestinationField: "price",
 					DestinationType:  "Float64",
 				},
@@ -349,7 +349,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 			config: map[string]models.Mapping{
 				"id": {
 					SourceField:      "id",
-					SourceType:       string(internal.KafkaTypeInt64),
+					SourceType:       string(internal.KafkaTypeInt),
 					DestinationField: "id",
 					DestinationType:  "Int64",
 				},
@@ -367,7 +367,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 				"price": {
 					SourceField:      "price",
-					SourceType:       string(internal.KafkaTypeFloat64),
+					SourceType:       string(internal.KafkaTypeFloat),
 					DestinationField: "price",
 					DestinationType:  "Float64",
 				},
@@ -421,7 +421,7 @@ func TestKafkaToClickHouseMapper_Map_ComplexScenarios(t *testing.T) {
 		fields := []models.Mapping{
 			{
 				SourceField:      "id",
-				SourceType:       string(internal.KafkaTypeInt64),
+				SourceType:       string(internal.KafkaTypeInt),
 				DestinationField: "id",
 				DestinationType:  "Int64",
 			},
@@ -430,7 +430,7 @@ func TestKafkaToClickHouseMapper_Map_ComplexScenarios(t *testing.T) {
 		config := map[string]models.Mapping{
 			"id": {
 				SourceField:      "id",
-				SourceType:       string(internal.KafkaTypeInt64),
+				SourceType:       string(internal.KafkaTypeInt),
 				DestinationField: "id",
 				DestinationType:  "Int64",
 			},
@@ -532,7 +532,7 @@ func TestKafkaToClickHouseMapper_Map_EdgeCases(t *testing.T) {
 		fields := []models.Mapping{
 			{
 				SourceField:      "count",
-				SourceType:       string(internal.KafkaTypeInt64),
+				SourceType:       string(internal.KafkaTypeInt),
 				DestinationField: "count",
 				DestinationType:  "Int64",
 			},
@@ -547,7 +547,7 @@ func TestKafkaToClickHouseMapper_Map_EdgeCases(t *testing.T) {
 		config := map[string]models.Mapping{
 			"count": {
 				SourceField:      "count",
-				SourceType:       string(internal.KafkaTypeInt64),
+				SourceType:       string(internal.KafkaTypeInt),
 				DestinationField: "count",
 				DestinationType:  "Int64",
 			},

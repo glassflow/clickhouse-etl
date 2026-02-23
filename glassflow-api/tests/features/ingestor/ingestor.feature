@@ -606,243 +606,100 @@ Feature: Kafka Ingestor
 
     Scenario: Kafka Ingestor with transfromation and deduplication
         Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
+        And pipeline config with configuration
             """json
             {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "transfromation_id": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
-                            },
+                "pipeline_id": "test-pipeline-11",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_connection_params": {
+                        "brokers": [],
+                        "mechanism": "NO_AUTH",
+                        "protocol": "SASL_PLAINTEXT",
+                        "username": "",
+                        "password": "",
+                        "root_ca": ""
+                    },
+                    "kafka_topics": [
+                        {
+                            "name": "test_topic",
+                            "id": "topic_topic",
+                            "consumer_group_name": "glassflow-consumer-group-pipeline-123",
+                            "partitions": 1,
+                            "deduplication": {
+                                "enabled": true,
+                                "id_field": "id",
+                                "id_field_type": "string",
+                                "time_window": "1h"
+                            }
+                        }
+                    ]
+                },
+                "stateless_transformation": {
+                    "id": "test-transform",
+                    "type": "expr_lang_transform",
+                    "enabled": true,
+                    "source_id": "test_topic",
+                    "config": {
+                        "transform": [
                             {
                                 "field_name": "name",
-                                "field_type": "string"
+                                "expression": "concat(name, '!!!')"
                             }
                         ]
-                    },
+                    }
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_topic"
+                },
+                "schema_versions": {
                     "test_topic": {
+                        "source_id": "test_topic",
+                        "version_id": "1",
+                        "data_type": "json",
                         "fields": [
                             {
-                                "field_name": "id",
-                                "field_type": "string"
-                            }
-                        ]
-                    }
-                },
-                "sink_mapping": [
-                    {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "transfromation_id",
-                        "column_type": "string"
-                    },
-                    {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "transfromation_id",
-                        "column_type": "String"
-                    }
-                ]
-            }
-            """
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": true,
-                            "id_field": "id",
-                            "id_field_type": "string",
-                            "time_window": "1h"
-                        }
-                    }
-                ]
-            }
-            """
-
-        When I write these events to Kafka topic "test_topic":
-            | key | value                                  |
-            | 1   | {"id": "123", "name": "John Doe"}      |
-            | 2   | {"id": "456", "name": "Jane Smith"}    |
-            | 3   | {"id": "789", "name": "Bob Johnson"}   |
-            | 4   | {"id": "789", "name": "Ulm Petterson"} |
-
-        And I run the ingestor component
-
-        Then I check results stream with content
-            | id  | name        |
-            | 123 | John Doe    |
-            | 456 | Jane Smith  |
-            | 789 | Bob Johnson |
-
-    Scenario: Kafka Ingestor with transfromation only
-        Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
-            """json
-            {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "transfromation_id": {
-                        "fields": [
-                            {
-                                "field_name": "id",
-                                "field_type": "string"
+                                "name": "id",
+                                "type": "string"
                             },
                             {
-                                "field_name": "name",
-                                "field_type": "string"
+                                "name": "name",
+                                "type": "string"
                             }
                         ]
-                    }
-                },
-                "sink_mapping": [
-                    {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "transfromation_id",
-                        "column_type": "string"
                     },
-                    {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "transfromation_id",
-                        "column_type": "String"
-                    }
-                ]
-            }
-            """
-
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": false
-                        }
-                    }
-                ]
-            }
-            """
-
-        When I write these events to Kafka topic "test_topic":
-            | key | value                                  |
-            | 1   | {"id": "123", "name": "John Doe"}      |
-            | 2   | {"id": "456", "name": "Jane Smith"}    |
-            | 3   | {"id": "789", "name": "Bob Johnson"}   |
-            | 4   | {"id": "789", "name": "Ulm Petterson"} |
-
-        And I run the ingestor component
-
-        Then I check results stream with content
-            | id  | name          |
-            | 123 | John Doe      |
-            | 456 | Jane Smith    |
-            | 789 | Bob Johnson   |
-            | 789 | Ulm Petterson |
-
-    Scenario: Kafka Ingestor with transfromation and deduplication fails
-        Given a Kafka topic "test_topic" with 1 partition
-        And a schema mapper with config:
-            """json
-            {
-                "type": "jsonToClickhouse",
-                "streams": {
-                    "transfromation_id": {
+                    "test-transform": {
+                        "source_id": "test-transform",
+                        "version_id": "1",
+                        "data_type": "json",
                         "fields": [
                             {
-                                "field_name": "id",
-                                "field_type": "string"
+                                "name": "id",
+                                "type": "string"
                             },
                             {
-                                "field_name": "name",
-                                "field_type": "string"
+                                "name": "name",
+                                "type": "string"
                             }
                         ]
                     }
-                },
-                "sink_mapping": [
-                    {
-                        "column_name": "id",
-                        "field_name": "id",
-                        "stream_name": "transfromation_id",
-                        "column_type": "string"
-                    },
-                    {
-                        "column_name": "name",
-                        "field_name": "name",
-                        "stream_name": "transfromation_id",
-                        "column_type": "String"
-                    }
-                ]
+                }
             }
             """
-
-        Given an ingestor component config:
-            """json
-            {
-                "type": "kafka",
-                "kafka_connection_params": {
-                    "brokers": [],
-                    "mechanism": "NO_AUTH",
-                    "protocol": "SASL_PLAINTEXT",
-                    "username": "",
-                    "password": "",
-                    "root_ca": ""
-                },
-                "kafka_topics": [
-                    {
-                        "name": "test_topic",
-                        "id": "topic_id",
-                        "consumer_group_name": "glassflow-consumer-group-pipeline-123",
-                        "partitions": 1,
-                        "deduplication": {
-                            "enabled": true,
-                            "id_field": "id",
-                            "id_field_type": "string",
-                            "time_window": "1h"
-                        }
-                    }
-                ]
-            }
-            """
-
         When I write these events to Kafka topic "test_topic":
-            | key | value                             |
-            | 1   | {"id": "123", "name": "John Doe"} |
+            | key | value                                |
+            | 1   | {"id": "123", "name": "John Doe"}    |
+            | 2   | {"id": "456", "name": "Jane Smith"}  |
+            | 3   | {"id": "789", "name": "Bob Johnson"} |
 
         And I run the ingestor component
 
-        And I check DLQ stream with content
-            | component | error                                                                                                       | original_message                  |
-            | ingestor  | failed to deduplicate data: failed to get deduplication key: stream 'test_topic' not found in configuration | {"id": "123", "name": "John Doe"} |
+        Then I check results stream with lag 0 and content
+            | id  | name        | NATS-Nats-Msg-Id |
+            | 123 | John Doe    | 123              |
+            | 456 | Jane Smith  | 456              |
+            | 789 | Bob Johnson | 789              |

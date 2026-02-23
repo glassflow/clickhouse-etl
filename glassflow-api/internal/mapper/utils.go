@@ -147,6 +147,16 @@ func ParseUint16(data any) (zero uint16, _ error) {
 		return uint16(u), nil
 	case uint16:
 		return value, nil
+	case uint32:
+		if value > math.MaxUint16 {
+			return zero, fmt.Errorf("value out of range of uint16: %d", value)
+		}
+		return uint16(value), nil
+	case uint64:
+		if value > math.MaxUint16 {
+			return zero, fmt.Errorf("value out of range of uint16: %d", value)
+		}
+		return uint16(value), nil
 	case uint:
 		if value > math.MaxUint16 {
 			return zero, fmt.Errorf("value out of range of uint16: %d", value)
@@ -175,6 +185,11 @@ func ParseUint32(data any) (zero uint32, _ error) {
 		return uint32(u), nil
 	case uint32:
 		return value, nil
+	case uint64:
+		if value > math.MaxUint32 {
+			return zero, fmt.Errorf("value out of range of uint32: %d", value)
+		}
+		return uint32(value), nil
 	case uint:
 		if value > math.MaxUint32 {
 			return zero, fmt.Errorf("value out of range of uint32: %d", value)

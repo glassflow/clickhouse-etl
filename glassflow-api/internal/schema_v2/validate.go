@@ -67,15 +67,11 @@ func validateJSONToSchema(msg []byte, schema []models.Field) error {
 // validateFieldType checks if the gjson.Result matches the expected type
 func validateFieldType(expected models.Field, value gjson.Result) error {
 	switch expected.Type {
-	case internal.KafkaTypeString, internal.KafkaTypeBytes:
+	case internal.KafkaTypeString:
 		if value.Type != gjson.String {
 			return fmt.Errorf("expected string, got %s", value.Type.String())
 		}
-	case internal.KafkaTypeInt, internal.KafkaTypeInt8, internal.KafkaTypeInt16,
-		internal.KafkaTypeInt32, internal.KafkaTypeInt64, internal.KafkaTypeUint,
-		internal.KafkaTypeUint8, internal.KafkaTypeUint16, internal.KafkaTypeUint32,
-		internal.KafkaTypeUint64, internal.KafkaTypeFloat, internal.KafkaTypeFloat32,
-		internal.KafkaTypeFloat64:
+	case internal.KafkaTypeInt, internal.KafkaTypeUint, internal.KafkaTypeFloat:
 		if value.Type != gjson.Number {
 			return fmt.Errorf("expected number, got %s", value.Type.String())
 		}
