@@ -306,7 +306,7 @@ func (p *PipelineSteps) thePipelineStatusShouldBe(expectedStatus string) error {
 	p.log.Info("Checking pipeline status", slog.String("expected_status", expectedStatus))
 
 	// Get the current pipeline status
-	pipeline, err := p.pipelineService.GetPipeline(context.Background(), p.currentPipelineID)
+	pipeline, err := p.pipelineService.GetPipeline(context.Background(), p.currentPipelineID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline: %w", err)
 	}

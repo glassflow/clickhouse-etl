@@ -22,7 +22,7 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	ResumePipeline(ctx context.Context, pid string) error
 	StopPipeline(ctx context.Context, pid string) error
 	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
-	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
+	GetPipeline(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
 	UpdatePipelineMetadata(ctx context.Context, id string, metadata models.PipelineMetadata) error
