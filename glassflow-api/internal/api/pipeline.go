@@ -9,8 +9,8 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	schemapkg "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 )
 
@@ -514,7 +514,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 		if field.ColumnName == "" || field.ColumnType == "" {
 			continue
 		}
-		if err := schemapkg.ValidateClickHouseColumnType(field.ColumnType); err != nil {
+		if err := mapper.ValidateClickHouseColumnType(field.ColumnType); err != nil {
 			return zero, fmt.Errorf("field %q (column %q): %w", field.Name, field.ColumnName, err)
 		}
 	}
@@ -579,17 +579,25 @@ func newFilterConfig(pipeline pipelineJSON, schemaVersions map[string]models.Sch
 }
 
 func newStatelessTransformationConfig(pipeline pipelineJSON, schemaVersions map[string]models.SchemaVersion) (models.StatelessTransformation, error) {
-	if pipeline.StatelessTransformation.Enabled {
-		// Validate transformation config
-		sourceSchemaVersion, found := schemaVersions[pipeline.StatelessTransformation.SourceID]
-		if !found {
-			return models.StatelessTransformation{}, fmt.Errorf("schema version for stateless transformation source_id '%s' not found", pipeline.StatelessTransformation.SourceID)
-		}
+	cfg := pipeline.StatelessTransformation
+	if !cfg.Enabled || len(cfg.Config.Transform) == 0 {
+		return cfg, nil
+	}
+	// Compile expressions only. This catches syntax/parse errors and undefined function names.
+	_, err := jsonTransformer.NewTransformer(cfg.Config.Transform)
+	if err != nil {
+		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
+	}
 
-		err := jsonTransformer.ValidateTransformationAgainstSchema(pipeline.StatelessTransformation.Config.Transform, sourceSchemaVersion.Fields)
-		if err != nil {
-			return models.StatelessTransformation{}, fmt.Errorf("validate stateless transformation: %w", err)
-		}
+	// Validate transformation config
+	sourceSchemaVersion, found := schemaVersions[pipeline.StatelessTransformation.SourceID]
+	if !found {
+		return models.StatelessTransformation{}, fmt.Errorf("schema version for stateless transformation source_id '%s' not found", pipeline.StatelessTransformation.SourceID)
+	}
+
+	err = jsonTransformer.ValidateTransformationAgainstSchema(pipeline.StatelessTransformation.Config.Transform, sourceSchemaVersion.Fields)
+	if err != nil {
+		return models.StatelessTransformation{}, fmt.Errorf("validate stateless transformation: %w", statelessTransformValidationError(err))
 	}
 
 	schemaFields := make([]models.Field, 0, len(pipeline.StatelessTransformation.Config.Transform))

@@ -960,7 +960,7 @@ Feature: Clickhouse ETL sink
                 }
             }
             """
-        When I publish 2 events to the stream
+        When I publish 4 events to the stream
             | id  | type   | NATS-Schema-Version-Id |
             | 150 | red    | 1                      |
             | 160 | blue   | 1                      |

@@ -652,7 +652,7 @@ func TestPipelineJSON_ToModel_ValidationErrors(t *testing.T) {
 
 	t.Run("missing sink source_id in schema", func(t *testing.T) {
 		pipelineJSON := pipelineJSON{
-			PipelineID: "test",
+			PipelineID: "test1",
 			Source: pipelineSource{
 				Kind:     internal.KafkaIngestorType,
 				Provider: "confluent",
@@ -700,7 +700,7 @@ func TestPipelineJSON_ToModel_ValidationErrors(t *testing.T) {
 
 	t.Run("mapping field not in schema", func(t *testing.T) {
 		pipelineJSON := pipelineJSON{
-			PipelineID: "test",
+			PipelineID: "test2",
 			Source: pipelineSource{
 				Kind:     internal.KafkaIngestorType,
 				Provider: "confluent",
