@@ -437,6 +437,7 @@ type PipelineConfig struct {
 	CreatedAt               time.Time               `json:"created_at"`
 	Metadata                PipelineMetadata        `json:"metadata"`
 	Status                  PipelineHealth          `json:"status,omitempty"`
+	PipelineResources       PipelineResources       `json:"pipeline_resources,omitempty"`
 }
 
 func (pc PipelineConfig) ToListPipeline() ListPipelineConfig {
