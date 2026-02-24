@@ -74,6 +74,7 @@ type pipelineJSON struct {
 	Sink                    clickhouseSink                 `json:"sink"`
 	Schema                  schema                         `json:"schema"`
 	Metadata                models.PipelineMetadata        `json:"metadata,omitempty"`
+	PipelineResources       models.PipelineResources       `json:"resources,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -594,6 +595,7 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		filterConfig,
 		statelessTransformationConfig,
 		pipeline.Metadata,
+		pipeline.PipelineResources,
 	), nil
 }
 

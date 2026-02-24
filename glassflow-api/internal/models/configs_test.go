@@ -40,8 +40,9 @@ func TestNewPipelineConfig(t *testing.T) {
 	filter := FilterComponentConfig{Enabled: false}
 	statelessTransformation := StatelessTransformation{Enabled: false}
 	metadata := PipelineMetadata{}
+	pipelineResources := PipelineResources{}
 
-	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter, statelessTransformation, metadata)
+	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter, statelessTransformation, metadata, pipelineResources)
 
 	if config.ID != id {
 		t.Errorf("Expected ID %s, got %s", id, config.ID)

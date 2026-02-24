@@ -510,7 +510,6 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 				Enabled:          s.Deduplication.Enabled || cfg.StatelessTransformation.Enabled || cfg.Filter.Enabled,
 				OutputStream:     models.GetDedupOutputStreamName(cfg.ID, s.Name),
 				NATSConsumerName: models.GetNATSDedupConsumerName(cfg.ID),
-				Replicas:         s.Deduplication.Replicas,
 			},
 		})
 	}
@@ -539,7 +538,6 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 		},
 		Sink: operator.Sink{
 			Type:             cfg.Sink.Type,
-			Replicas:         cfg.Sink.Replicas,
 			NATSConsumerName: cfg.Sink.NATSConsumerName,
 		},
 		Resources: operatorResources,
