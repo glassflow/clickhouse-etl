@@ -11,7 +11,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.8.0
 	github.com/docker/go-connections v0.6.0
 	github.com/expr-lang/expr v1.17.7
-	github.com/glassflow/glassflow-etl-k8s-operator v1.8.2-0.20260224212301-c5d947785401
+	github.com/glassflow/glassflow-etl-k8s-operator v1.8.2-0.20260224213920-51937cf5ab99
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
