@@ -95,6 +95,9 @@ type DeduplicationConfig struct {
 	Type    string `json:"id_field_type,omitempty"`
 
 	Window JSONDuration `json:"time_window,omitempty"`
+
+	// TODO - to be moved to pipeline resource section
+	Replicas int `json:"replicas" default:"1"`
 }
 
 type KafkaTopicsConfig struct {
@@ -322,6 +325,9 @@ type SinkComponentConfig struct {
 	NATSConsumerName string `json:"nats_consumer_name"`
 
 	ClickHouseConnectionParams ClickHouseConnectionParamsConfig `json:"clickhouse_connection_params"`
+
+	// TODO - to be moved to pipeline resource section
+	Replicas int `json:"replicas" default:"1"`
 }
 
 type ClickhouseSinkArgs struct {

@@ -125,6 +125,9 @@ type topicDedupConfig struct {
 	ID     string              `json:"id_field,omitempty"`
 	Type   string              `json:"id_field_type,omitempty"`
 	Window models.JSONDuration `json:"time_window,omitempty" format:"duration" example:"5m"`
+
+	// TODO - to be moved to pipeline resource section
+	Replicas int `json:"replicas" default:"1"`
 }
 
 type joinSource struct {
@@ -153,6 +156,9 @@ type clickhouseSink struct {
 	SkipCertificateVerification bool                `json:"skip_certificate_verification,omitempty" default:"false"`
 	// Old format: table_mapping in sink
 	TableMappingV1 []tableMappingEntryV1 `json:"table_mapping,omitempty"`
+
+	// TODO - to be moved to pipeline resource section
+	Replicas int `json:"replicas" default:"1"`
 }
 
 // Old format for migration

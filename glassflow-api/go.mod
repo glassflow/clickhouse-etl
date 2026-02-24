@@ -11,7 +11,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.8.0
 	github.com/docker/go-connections v0.6.0
 	github.com/expr-lang/expr v1.17.7
-	github.com/glassflow/glassflow-etl-k8s-operator v1.3.3-0.20251202085924-1261136896b4
+	github.com/glassflow/glassflow-etl-k8s-operator v1.8.2-0.20260224142328-c93777d5142e
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -21,7 +21,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lmittmann/tint v1.0.7
 	github.com/nats-io/nats-server/v2 v2.12.1
-	github.com/nats-io/nats.go v1.47.0
+	github.com/nats-io/nats.go v1.48.0
 	github.com/spf13/cast v1.10.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
