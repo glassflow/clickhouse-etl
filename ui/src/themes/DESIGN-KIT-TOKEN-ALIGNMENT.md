@@ -4,13 +4,21 @@ This document summarizes the alignment of the codebase theme tokens with the sha
 
 **Source of design kit structure:** `tokens-external-design-kit.json` in this folder.
 
-For **step-by-step instructions** to map app tokens and values back into Figma variables, see **[Sync app tokens to Figma](FIGMA-SYNC-INSTRUCTIONS.md)** in this folder.
+**How these documents relate:**
+
+| Document | Purpose | When to use it |
+|----------|---------|----------------|
+| **[FIGMA-SYNC-INSTRUCTIONS.md](FIGMA-SYNC-INSTRUCTIONS.md)** (this folder) | **Do the sync.** Short, actionable steps: plugin-based flow, API option, manual export/import by collection. | Whenever you run a sync (dry run → plugin, or API, or hand-edit variables in Figma). |
+| **[FIGMA_TOKEN_REFERENCE.md](../../docs/design/FIGMA_TOKEN_REFERENCE.md)** (docs/design) | **Look up tokens.** Semantic/component token tables (surfaces, controls, buttons, text, borders, etc.) with Figma variable name ↔ CSS token ↔ resolved hex. Plus “token by use case” overview. | When mapping a specific token to Figma or choosing which token to use in code/Figma. |
+| **DESIGN-KIT-TOKEN-ALIGNMENT.md** (this file) | **Understand alignment.** Why we have certain tokens, how app tokens map to the design kit (radius, spacing, colors, typography), what was changed in the codebase, and design kit structure. | When adding/changing tokens, debugging mismatches, or onboarding someone to the token ↔ Figma mapping. |
+
+For **step-by-step instructions** to perform the sync, use **FIGMA-SYNC-INSTRUCTIONS.md**.
 
 ---
 
 ## Operational approach (how we work with the design kit)
 
-- **Source of truth:** The **app codebase** is the source of truth for token values. Theme files (`base.css`, `dark/theme.css`, `light/theme.css`) and semantic tokens define what we use. The Figma design kit is updated to match (sync in step 2), not the other way around.
+- **Source of truth:** The **app codebase** is the source of truth for token values. Theme files (`base.css`, `theme.css`) define primitives and semantic/component tokens. The app is **dark-only**; `theme.css` uses `[data-theme='dark']`. The Figma design kit is updated to match (sync in step 2), not the other way around.
 - **Goal:** Minimise differences between the app and the design kit so that designs and implementation stay aligned. We do this by:
   - Using **design-kit-style token names** (or aliases) in the app where possible (`--radius-sm`, `--p-1`, `--rounded-sm`, `--gap-1`, etc.).
   - **Syncing values from app → Figma** for both **mode** (light-mode / dark-mode) and **primitive collections** (tw-colors, tw-border-radius, tw-gap, tw-space, tw-margin, tw-font). We do not leave primitives on kit defaults where we have an app equivalent.
@@ -43,8 +51,7 @@ For **step-by-step instructions** to map app tokens and values back into Figma v
     - `--radius-medium` → `var(--radius-md)`
     - `--radius-large` → `var(--radius-xl)`
     - `--radius-extra-large` → `var(--radius-2xl)`
-- **Theme files** (dark/theme.css, light/theme.css): `--radius` set to `var(--radius-md)`; all component radius tokens now reference `--radius-sm`, `--radius-md`, or `--radius-xl`.
-- **semantic-tokens.css**: `--table-radius` and `--table-row-radius` use `--radius-xl` and `--radius-md`.
+- **theme.css** (`[data-theme='dark']`): `--radius` set to `var(--radius-md)`; all component radius tokens now reference `--radius-sm`, `--radius-md`, or `--radius-xl`. Table radius tokens use `--radius-xl` and `--radius-md`.
 - **App-wide**: All references to `--radius-small`, `--radius-medium`, `--radius-large` in TSX and CSS were updated to `--radius-sm`, `--radius-md`, `--radius-xl` (themes, app/styles, modules: transformation, filter, notifications, kafka, components).
 - **base.css**: Added **tw-border-radius parity aliases** `--rounded-xs` … `--rounded-none` (alias to `--radius-*`) so step 2 can push the same values to both `mode.radius-*` and `tw-border-radius.rounded-*`, reducing diff when Figma components use `tw-border-radius`.
 
@@ -67,7 +74,7 @@ For **step-by-step instructions** to map app tokens and values back into Figma v
 ### Phase 4: Optional theme variables (for Figma mode sync)
 
 - **base.css**: Added `--stroke-width: 2px` and `--border-width: 1px` (design kit `mode.stroke-width`, `mode.border-width`).
-- **dark/theme.css** and **light/theme.css**: Added theme variables so the design kit’s `mode` (light-mode / dark-mode) can be populated from our theme:
+- **theme.css** (`[data-theme='dark']`): Added theme variables so the design kit’s `mode` (dark-mode) can be populated from our theme:
   - **Sidebar:** `--sidebar`, `--sidebar-foreground`, `--sidebar-primary`, `--sidebar-primary-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring` (all point at existing semantic tokens: card, primary, accent, border, ring).
   - **Charts:** `--chart-1` … `--chart-5` (point at blue/orange/gray palette tokens).
   - **Semantic:** `--semantic-background`, `--semantic-border`, `--semantic-foreground` (point at elevation and neutral tokens).
@@ -190,7 +197,7 @@ Scale is the same (4px base) across tw-padding, tw-gap, tw-space, tw-margin. In 
 
 ### 3.4 Theme variables for Figma mode (sidebar, chart, semantic)
 
-**Location:** `dark/theme.css`, `light/theme.css`
+**Location:** `theme.css` (`[data-theme='dark']`)
 
 - **Mapping:**
   - Sidebar tokens → existing card/primary/accent/border/ring.
@@ -237,23 +244,23 @@ Scale is the same (4px base) across tw-padding, tw-gap, tw-space, tw-margin. In 
 
 | Area | Files |
 |------|--------|
-| **Token definitions** | `base.css`, `dark/theme.css`, `light/theme.css`, `semantic-tokens.css` |
+| **Token definitions** | `base.css`, `theme.css` |
 | **Radius usage** | All TSX/CSS that referenced `--radius-small` / `--radius-medium` / `--radius-large` (e.g. `app/styles/components/modal.css`, `card.css`, `button.css`, `input.css`, `select.css`, `globals.css`, and modules under `modules/transformation`, `modules/filter`, `modules/notifications`, `modules/kafka`, `components/notifications`) |
 
 ---
 
-## 5. Next Steps (Step 2 — Not Yet Done)
+## 5. Performing Step 2 (sync to Figma)
 
-1. **Export** from the codebase: Resolve theme variables (for light and dark) and base colors to final hex/px values.
-2. **Import into Figma:** In your copy of the Design Library, set:
-   - **mode** (light-mode / dark-mode): Set `background`, `foreground`, `primary`, `radius-md`, etc., to the values from our theme; include `--radius-*` (all, including `radius-3xl`, `radius-4xl`, `radius-none`), `--sidebar*`, `--chart-*`, `--semantic-*`, and `--background-color` where the kit uses them.
-   - **tw-border-radius:** Set `rounded-xs`, `rounded-sm`, …, `rounded-none` from our `--rounded-*` (or `--radius-*`) so components using `tw-border-radius` match the app (see §2.1 and §3.7).
-   - **tw-gap:** Set `gap-1` … `gap-10` from our `--gap-*` (see §2.2, §3.8).
-   - **tw-space:** Set `space-x-N`, `space-y-N` from our `--space-N` for N = 1…10 (see §2.2, §3.8).
-   - **tw-margin:** Set `m-N`, `mt-N`, `mb-N`, `ml-N`, `mr-N`, `mx-N`, `my-N` from our `--m-N` for N = 1…10 (see §2.2, §3.8).
-   - **tw-font:** Set `size-xs`, `size-sm`, `size-base`, `size-lg`, `size-xl`, `leading-*`, `weight-*`, `family-sans` from our `--size-*`, `--leading-*`, `--weight-*`, `--family-sans` (see §2.5).
-   - **tw-colors and rdx-colors:** Set both collections to the **same values** from our `--color-*` hex values (e.g. `orange-300`, `gray-dark-600`). Using the same palette for both removes ambiguity and keeps the design kit consistent.
-3. **Optional:** Use the **sync script** to automate step 2: from repo root run `npm run sync-tokens` (with `FIGMA_ACCESS_TOKEN` and `FIGMA_FILE_KEY` set). See **scripts/sync-tokens-to-figma/README.md** and **FIGMA-SYNC-INSTRUCTIONS.md**.
+Step 2 is **how** you get the values from this document into Figma:
+
+1. **Export** from the codebase: Run `npm run sync-tokens -- --dry-run` to write `figma-sync/sync-tokens-to-figma-via-api/tokens-for-figma.json`, or resolve theme variables (dark) and base colors to final hex/px by hand.
+2. **Import into Figma** — either:
+   - **Plugin (canonical):** Open the token-sync plugin in Figma, load/paste the JSON, then Apply. See [FIGMA-SYNC-INSTRUCTIONS.md](FIGMA-SYNC-INSTRUCTIONS.md) §0.
+   - **API (optional):** Run `npm run sync-tokens` with `FIGMA_ACCESS_TOKEN` and `FIGMA_FILE_KEY`. See [FIGMA-SYNC-INSTRUCTIONS.md](FIGMA-SYNC-INSTRUCTIONS.md) §0b.
+   - **Manual:** In Local variables, set **mode** (dark-mode), **tw-border-radius**, **tw-gap**, **tw-space**, **tw-margin**, **tw-font**, **tw-colors**, **rdx-colors** from the exported values (see FIGMA-SYNC-INSTRUCTIONS §2 for the table).
+3. **Update design system:** In Figma, bind components (Button, Input, Card, etc.) to these variables so the kit follows the UI implementation.
+
+For the exact list of what to set per collection, see the bullet list in §2 and the table in [FIGMA-SYNC-INSTRUCTIONS.md](FIGMA-SYNC-INSTRUCTIONS.md) §2. Script/plugin details: [figma-sync/sync-tokens-to-figma-via-api/README.md](../../figma-sync/sync-tokens-to-figma-via-api/README.md).
 
 ---
 
@@ -262,7 +269,7 @@ Scale is the same (4px base) across tw-padding, tw-gap, tw-space, tw-margin. In 
 - **tw-colors:** Primitive palette (mode-1); keys like `orange-300`, `gray-500`. We sync tw-colors and rdx-colors from the same `--color-*` values in step 2.
 - **tw-padding, tw-space, tw-margin, tw-gap:** 4px-base spacing (mode-1). We sync all four from our scale in step 2 via `--p-*`, `--gap-*`, `--space-*`, `--m-*` (see §2.2, §3.2, §3.8).
 - **tw-border-radius:** `rounded-xs`, `rounded-sm`, …, `rounded-full`, `rounded-none` (mode-1). We sync this collection from our radius scale in step 2 via `--rounded-*` aliases so it matches the app (see §2.1, §3.7).
-- **mode:** Theme layer with **light-mode** and **dark-mode**; contains semantic colors, `radius-xs` … `radius-full`, `radius-none`, `radius-3xl`, `radius-4xl`, `background-color` (overlay), `stroke-width`, `border-width`.
+- **mode:** Theme layer; we use **dark-mode** only. Contains semantic colors, `radius-xs` … `radius-full`, `radius-none`, `radius-3xl`, `radius-4xl`, `background-color` (overlay), `stroke-width`, `border-width`.
 - **rdx-colors:** Same key structure as tw-colors; in step 2 we set rdx-colors to the same values as tw-colors (from our `--color-*`) so both use our brand palette.
 - **tw-font, tw-height, tw-max-width, tw-border-width, tw-opacity:** Other primitives (mode-1).
 

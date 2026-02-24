@@ -7,6 +7,57 @@ All tokens are **dark-mode only**. Apply values to the **dark mode** of your Fig
 
 ---
 
+## How to align app tokens with Figma manually
+
+**Preferred: plugin-based sync** — See [FIGMA-SYNC-INSTRUCTIONS.md](../../src/themes/FIGMA-SYNC-INSTRUCTIONS.md) §0 for the canonical flow: (1) run dry run, (2) open plugin and load/paste the JSON, (3) apply, (4) update design system components to use the variables.
+
+**Alternative: manual or API**
+
+1. **Get resolved values from the app**  
+   Either run the sync script (dry-run to export only) or resolve CSS variables by hand:
+   - From repo root: `npm run sync-tokens -- --dry-run` (writes `figma-sync/sync-tokens-to-figma-via-api/tokens-for-figma.json`).
+   - Manual: resolve `var()` in `src/themes/base.css` and `src/themes/theme.css` to hex/px. See [FIGMA-SYNC-INSTRUCTIONS.md](../../src/themes/FIGMA-SYNC-INSTRUCTIONS.md) §1.
+
+2. **Apply in Figma by collection**  
+   In Figma **Local variables**, update the **dark mode** of: `mode` (semantic theme), `tw-colors` / `rdx-colors` (primitives), `tw-border-radius`, `tw-gap`, `tw-space`, `tw-margin`, `tw-font`. Use the tables in this doc for **semantic/component** mapping; use [FIGMA-SYNC-INSTRUCTIONS.md](../../src/themes/FIGMA-SYNC-INSTRUCTIONS.md) §2 for collection names and app source.
+
+3. **Optional: push via API**  
+   With Enterprise and a token with variable write:  
+   `FIGMA_ACCESS_TOKEN=... FIGMA_FILE_KEY=... npm run sync-tokens`.  
+   See [FIGMA-SYNC-INSTRUCTIONS.md](../../src/themes/FIGMA-SYNC-INSTRUCTIONS.md) §0b and [DESIGN-KIT-TOKEN-ALIGNMENT.md](../../src/themes/DESIGN-KIT-TOKEN-ALIGNMENT.md) for full mapping and rationale.
+
+---
+
+## App token usage by use case and component type
+
+Use this as a quick reference for **which tokens to use** in code and **which to map in Figma** for each use case.
+
+| Use case | Component / context | Token(s) to use | Notes |
+|----------|--------------------|-----------------|--------|
+| **Page background** | App shell, main canvas | `--color-background-page`, `--color-background-elevation-base`, `--color-foreground-neutral` | Page & App Shell table below |
+| **Surface / container background** | Cards, panels, modals, containers | `--surface-bg`, `--surface-bg-overlay`, `--surface-bg-sunken`, `--card-bg` | Surfaces table; overlay for modals/dropdowns |
+| **Surface border** | Cards, panels, modals, dividers | `--surface-border`, `--surface-border-subtle`, `--card-border` | Prefer `--surface-border` for generic containers |
+| **Surface text** | Content on cards/panels | `--surface-fg`, `--surface-fg-muted`, `--card-text` | Primary and muted text on surfaces |
+| **Form control background** | Input, Select, Textarea, Checkbox | `--control-bg`, `--control-bg-hover`, `--control-bg-focus`, `--control-bg-disabled`, `--control-bg-error` | Form Controls table |
+| **Form control border** | Input, Select, Textarea, Checkbox | `--control-border`, `--control-border-hover`, `--control-border-focus`, `--control-border-disabled`, `--control-border-error` | Focus uses primary border |
+| **Form control text** | Input, Select, Textarea | `--control-fg`, `--control-fg-placeholder`, `--control-fg-disabled`, `--control-fg-error` | Placeholder and states |
+| **Button background** | Button (all variants) | `--button-{variant}-bg`, `--button-{variant}-hover`, `--button-primary-gradient-start/end`, `--button-disabled-bg` | variant: primary, secondary, tertiary, ghost |
+| **Button border** | Button (bordered variants) | `--button-primary-border`, `--button-primary-border-hover`, `--button-ghost-border` | Ghost and primary have borders |
+| **Button text** | Button | `--button-{variant}-text`, `--button-disabled-text` | On-background for primary |
+| **Generic borders** | Any (semantic meaning) | `--color-border-neutral`, `--color-border-neutral-faded`, `--color-border-primary`, `--color-border-critical`, `--color-border-disabled` | Borders table |
+| **Body/heading text** | Any text | `--text-primary`, `--text-secondary`, `--text-heading`, `--text-accent`, `--text-link`, `--text-disabled`, `--text-error`, `--text-success`, `--text-warning` | Text table |
+| **Icons** | Icon components | `--icon-color-default`, `--icon-color-active`, `--icon-color-disabled` | Icons table |
+| **Status / semantic** | Badges, alerts, feedback | `--color-background-positive`, `--color-foreground-positive`, `--color-border-positive` (and critical, warning, info) | Status table |
+| **Interactive states** | Hover/active/focus on lists, menus | `--interactive-hover-bg`, `--interactive-active-bg`, `--interactive-focus-ring`, `--option-bg-hover`, `--option-bg-selected` | Dropdowns, menu items |
+| **Table** | Table header/cells | `--table-header-bg`, `--table-row-bg`, `--table-row-bg-hover` | Data tables |
+| **Chip / Badge** | Chips, badges | `--chip-bg-*`, `--badge-success-bg`, `--badge-error-bg`, `--badge-warning-bg` | Status-specific backgrounds |
+| **Radius** | Any (corners) | `--radius-xs` … `--radius-full` (see Border Radius Scale) | From base.css; map to tw-border-radius in Figma |
+| **Spacing** | Layout, gaps, padding | `--unit-x1` … `--unit-x10`, `--p-*`, `--gap-*`, `--space-*`, `--m-*` | Spacing Scale; sync tw-gap, tw-space, tw-margin |
+
+**Design system reference:** Full token layers, naming conventions, and usage guidelines are in [DESIGN_SYSTEM.md](../architecture/DESIGN_SYSTEM.md). For sync steps and collection-level mapping, see [FIGMA-SYNC-INSTRUCTIONS.md](../../src/themes/FIGMA-SYNC-INSTRUCTIONS.md) and [DESIGN-KIT-TOKEN-ALIGNMENT.md](../../src/themes/DESIGN-KIT-TOKEN-ALIGNMENT.md).
+
+---
+
 ## Page & App Shell
 
 | Figma variable name | CSS Token | Resolved hex |

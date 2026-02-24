@@ -11,7 +11,25 @@ Use this when you need to **map app token values back into Figma variables** so 
 
 ---
 
-## 0. Automated sync (recommended)
+## 0. Plugin-based sync (canonical flow, no API required)
+
+Use this flow when you want to keep Figma variables in sync with the app without using the Figma Variables API (no Enterprise or token required).
+
+1. **Run dry run** — From repo root `clickhouse-etl/ui`:
+   ```bash
+   npm run sync-tokens -- --dry-run
+   ```
+   This writes the payload to `figma-sync/sync-tokens-to-figma-via-api/tokens-for-figma.json` (or the path given by `--output=...`).
+
+2. **Open the Figma plugin** — In Figma, run the token-sync plugin (e.g. **Figma Token Sync** or your team’s plugin that accepts the same JSON format).
+
+3. **Load and apply** — In the plugin UI, load `tokens-for-figma.json` (or paste its contents), then run **Apply** to update variable values in the current file. Ensure the Design Library has the expected collections and mode names (e.g. `mode` with `dark-mode`; primitives with the mode name the plugin uses, often `default`).
+
+4. **Update the design system** — In Figma, edit your design system so that components (Button, Input, Card, etc.) use these variables for fills, strokes, and text. That way Figma components follow the UI implementation.
+
+---
+
+## 0b. Automated sync via API (optional)
 
 From the repo root (`clickhouse-etl/ui`):
 
@@ -23,7 +41,7 @@ npm run sync-tokens -- --dry-run
 FIGMA_ACCESS_TOKEN=figd_xxx FIGMA_FILE_KEY=<file_key> npm run sync-tokens
 ```
 
-The script reads `src/themes/base.css` and `src/themes/theme.css` only, resolves all `var()` references, and either writes the payload to `scripts/sync-tokens-to-figma/tokens-for-figma.json` or pushes variable values to Figma via the Variables REST API. See **scripts/sync-tokens-to-figma/README.md** for details and troubleshooting.
+The script reads `src/themes/base.css` and `src/themes/theme.css` only, resolves all `var()` references, and either writes the payload to a JSON file or pushes variable values to Figma via the Variables REST API. See **figma-sync/sync-tokens-to-figma-via-api/README.md** for details and troubleshooting.
 
 ---
 
@@ -60,12 +78,12 @@ In Figma, open **Local variables** and update these collections with the exporte
 
 ## 3. Optional: automate further
 
-The **sync script** (see §0) already automates export and Figma API push. To run it in CI or from another tool, invoke `node scripts/sync-tokens-to-figma/sync-tokens-to-figma.mjs` with the same env vars. The mapping rules in §2 define the exact collection and variable names the script uses.
+The **sync script** (see §0b) already automates export and Figma API push. To run it in CI or from another tool, invoke `node figma-sync/sync-tokens-to-figma-via-api/sync-tokens-to-figma.mjs` from `clickhouse-etl/ui` with the same env vars. The mapping rules in §2 define the exact collection and variable names the script uses.
 
 ---
 
 ## Reference
 
 - **Full mapping and rationale:** [DESIGN-KIT-TOKEN-ALIGNMENT.md](DESIGN-KIT-TOKEN-ALIGNMENT.md)
-- **Sync script details:** [scripts/sync-tokens-to-figma/README.md](../../scripts/sync-tokens-to-figma/README.md)
+- **Sync script details:** [figma-sync/sync-tokens-to-figma-via-api/README.md](../../figma-sync/sync-tokens-to-figma-via-api/README.md)
 - **Design kit structure (keys):** `tokens-external-design-kit.json` in this folder
