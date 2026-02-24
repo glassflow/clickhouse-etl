@@ -2105,7 +2105,7 @@
         "a": 1
       },
       "card-content-bg": "linear-gradient(180deg, #1e1e1f 0%, #151517 100%)",
-      "card-content-bg-hover": "linear-gradient(180deg, #1a1a1b 0%, #121214 100%)",
+      "card-content-bg-hover": "linear-gradient(180deg, #1a1a1a 0%, #121214 100%)",
       "card-content-shadow": "0px 0px 4px 0px rgba(0, 0, 0, 0.04), 0px 8px 16px 0px rgba(0, 0, 0, 0.08)",
       "card-content-shadow-hover": "0px 0px 8px 0px rgba(0, 0, 0, 0.08), 0px 12px 24px 0px rgba(0, 0, 0, 0.12)",
       "card-active-glow": "linear-gradient(283deg, #ffa24b 21.34%, #a5b9e4 102.9%)",
