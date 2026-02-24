@@ -59,21 +59,7 @@ npm run sync-tokens -- --dry-run --output=./build/tokens.json
 
 Full mapping and rationale: see `src/themes/DESIGN-KIT-TOKEN-ALIGNMENT.md` and `src/themes/FIGMA-SYNC-INSTRUCTIONS.md`.
 
-## Button tokens (manual Figma sync)
-
-To get a JSON file with **all button-related tokens** (variants, sizes, colors, spacing) for manually applying them in Figma:
-
-```bash
-npm run extract-button-tokens
-```
-
-This writes `scripts/sync-tokens-to-figma/button-tokens-for-figma.json` with:
-
-- **dark-mode**: Resolved variables (e.g. `primary`, `button-primary-bg`, `button-primary-gradient-start`, `button-primary-gradient-end`, `button-primary-gradient-disabled-start`, `button-primary-gradient-disabled-end`, `radius-md`, `unit-x2`) with values in Figma-friendly form (colors as `{ r, g, b, a }`, sizes in px). Naming follows `--button-{variant}-{property}` (e.g. gradient uses `button-primary-gradient-start` / `button-primary-gradient-end`, not the old `color-button-gradient-from/to`).
-- **sizes**: Button size spec (sm: 32px height, default: 36px, lg: 40px, icon: 36px) and padding/gap for layout in Figma.
-- **variants** / **sizes**: List of app button variant and size names for reference.
-
-Use this file together with `docs/design/FIGMA_TOKEN_REFERENCE.md` to set Figma variables and component properties so the Design Library button matches the app.
+Button tokens (e.g. `button-primary-bg`, `button-primary-gradient-start/end`) are included in the full payload from `npm run sync-tokens -- --dry-run`. For the button token table and Figma variable names, see `docs/design/FIGMA_TOKEN_REFERENCE.md`.
 
 ## Troubleshooting
 
