@@ -61,7 +61,20 @@ func (s *PostgresStorage) GetPipeline(ctx context.Context, id string) (*models.P
 		return nil, err
 	}
 
-	return s.reconstructPipelineFromData(ctx, data)
+	cfg, err := s.reconstructPipelineFromData(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+
+	row, err := s.GetPipelineResources(ctx, id)
+	if err != nil && !errors.Is(err, service.ErrPipelineNotExists) {
+		return nil, fmt.Errorf("get pipeline resources: %w", err)
+	}
+	if row != nil {
+		cfg.PipelineResources = row.Resources
+	}
+
+	return cfg, nil
 }
 
 // GetPipelines retrieves all pipelines

@@ -13,11 +13,11 @@ type PipelineResourcesRow struct {
 
 // PipelineResources is the JSONB column content.
 type PipelineResources struct {
-	Nats     *NatsResources      `json:"nats,omitempty"`
-	Ingestor *IngestorResources  `json:"ingestor,omitempty"`
-	Join     *ComponentResources `json:"join,omitempty"`
-	Sink     *ComponentResources `json:"sink,omitempty"`
-	Dedup    *ComponentResources `json:"dedup,omitempty"`
+	Nats      *NatsResources      `json:"nats,omitempty"`
+	Ingestor  *IngestorResources  `json:"ingestor,omitempty"`
+	Join      *ComponentResources `json:"join,omitempty"`
+	Sink      *ComponentResources `json:"sink,omitempty"`
+	Transform *ComponentResources `json:"transform,omitempty"`
 }
 
 type NatsResources struct {
@@ -30,20 +30,12 @@ type NatsStreamResources struct {
 }
 
 type IngestorResources struct {
-	Base  *IngestorInstanceResources `json:"base,omitempty"`
-	Left  *IngestorInstanceResources `json:"left,omitempty"`
-	Right *IngestorInstanceResources `json:"right,omitempty"`
-}
-
-type IngestorInstanceResources struct {
-	Resources *ResourceRequirements `json:"resources,omitempty"`
+	Base  *ComponentResources `json:"base,omitempty"`
+	Left  *ComponentResources `json:"left,omitempty"`
+	Right *ComponentResources `json:"right,omitempty"`
 }
 
 type ComponentResources struct {
-	Resources *ResourceRequirements `json:"resources,omitempty"`
-}
-
-type ResourceRequirements struct {
 	Requests *ResourceList  `json:"requests,omitempty"`
 	Limits   *ResourceList  `json:"limits,omitempty"`
 	Storage  *StorageConfig `json:"storage,omitempty"`
