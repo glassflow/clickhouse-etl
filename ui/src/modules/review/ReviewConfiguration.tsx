@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/src/store'
 import { StepKeys } from '@/src/config/constants'
 import { Button } from '@/src/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
 import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
-import { generateApiConfig } from '../clickhouse/utils'
+import { generateApiConfig, getMappingType } from '../clickhouse/utils'
 import { ReviewConfigurationProps } from './types'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
@@ -16,6 +16,7 @@ import { EditorWrapper } from './EditorWrapper'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
+import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
@@ -26,8 +27,10 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     joinStore,
     coreStore,
     deduplicationStore,
+    filterStore,
+    transformationStore,
   } = useStore()
-  const { apiConfig, pipelineId, setPipelineId, operationsSelected } = coreStore
+  const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()
@@ -38,43 +41,75 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
   const [jsonContent, setJsonContent] = useState('')
   const [yamlContent, setYamlContent] = useState('')
   const [apiConfigContent, setApiConfigContent] = useState('')
+  const [deployError, setDeployError] = useState<string | null>(null)
 
-  const getMappingType = (eventField: string, mapping: any) => {
-    const mappingEntry = mapping.find((m: any) => m.eventField === eventField)
+  // Compute config from current stores so display and deploy always reflect latest state
+  const effectiveConfig = useMemo(() => {
+    const result = generateApiConfig({
+      pipelineId,
+      pipelineName: pipelineName || 'Pipeline',
+      setPipelineId,
+      clickhouseConnection,
+      clickhouseDestination,
+      selectedTopics,
+      getMappingType,
+      joinStore,
+      kafkaStore,
+      deduplicationStore,
+      filterStore,
+      transformationStore,
+      version: pipelineVersion,
+    })
+    return result
+  }, [
+    pipelineId,
+    pipelineName,
+    setPipelineId,
+    clickhouseConnection,
+    clickhouseDestination,
+    selectedTopics,
+    joinStore,
+    kafkaStore,
+    deduplicationStore,
+    filterStore,
+    transformationStore,
+    pipelineVersion,
+  ])
 
-    if (mappingEntry) {
-      return mappingEntry.jsonType
-    }
+  const configError = effectiveConfig && typeof effectiveConfig === 'object' && 'error' in effectiveConfig
 
-    // NOTE: default to string if no mapping entry is found - check this
-    return 'string'
-  }
-
-  // Update the content when relevant store data changes
+  // Derive JSON/YAML/API content from effective config (or fallback to store apiConfig on error)
   useEffect(() => {
-    setJsonContent(JSON.stringify(apiConfig, null, 2))
-    setYamlContent(yaml.dump(apiConfig, { indent: 2 }))
-    setApiConfigContent(JSON.stringify(apiConfig, null, 2))
-  }, [kafkaStore, clickhouseConnection, clickhouseDestination, selectedTopics])
+    const target = configError
+      ? typeof apiConfig === 'object' && apiConfig && !('error' in apiConfig)
+        ? apiConfig
+        : {}
+      : typeof effectiveConfig === 'object' && effectiveConfig && !('error' in effectiveConfig)
+        ? effectiveConfig
+        : {}
+    setJsonContent(JSON.stringify(target, null, 2))
+    setYamlContent(yaml.dump(target, { indent: 2 }))
+    setApiConfigContent(JSON.stringify(target, null, 2))
+  }, [effectiveConfig, configError, apiConfig])
 
   const handleContinueToPipelines = async () => {
     if (validate && !validate(StepKeys.REVIEW_CONFIGURATION, {})) {
       return
     }
-
+    setDeployError(null)
+    const payload = configError ? (apiConfig as Partial<Pipeline>) : (effectiveConfig as Partial<Pipeline>)
+    if (!payload || typeof payload !== 'object' || 'error' in payload) {
+      setDeployError('Configuration is invalid. Fix the pipeline steps and try again.')
+      return
+    }
     try {
-      // Deploy the pipeline immediately
-      const response = await createPipeline(apiConfig as Partial<Pipeline>)
-
-      // Set the pipeline ID from the response
-      const newPipelineId = apiConfig?.pipeline_id || ''
-      setPipelineId(newPipelineId)
-
-      // Navigate to pipelines page to show deployment status
+      const pipeline = await createPipeline(payload)
+      setPipelineId(pipeline.pipeline_id || (payload as any).pipeline_id || '')
       router.push('/pipelines')
     } catch (error: any) {
       console.error('Failed to deploy pipeline:', error)
-      // You might want to show an error message to the user here
+      const message = error?.message || error?.error || 'Failed to deploy pipeline. Please try again.'
+      setDeployError(message)
     }
   }
 
@@ -126,13 +161,13 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
   return (
     <div className="flex flex-col gap-4">
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-4 mb-4">
-          {/* <TabsTrigger
-            value="api"
+        <TabsList className="grid grid-cols-3 mb-4">
+          <TabsTrigger
+            value="overview"
             className="transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)]"
           >
-            API Config
-          </TabsTrigger> */}
+            Overview
+          </TabsTrigger>
           <TabsTrigger
             value="json"
             className="transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)]"
@@ -145,12 +180,6 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
           >
             YAML
           </TabsTrigger>
-          {/* <TabsTrigger
-            value="overview"
-            className="transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)]"
-          >
-            Overview
-          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -163,6 +192,36 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
             <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
             <ul className="list-disc list-inside">{renderTopics()}</ul>
           </div>
+
+          {isFiltersEnabled() && filterStore?.filterConfig?.enabled && (
+            <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-250">
+              <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Filter</h3>
+              <div className="text-sm text-content">
+                <span className="text-muted-foreground">Expression: </span>
+                <code className="bg-[var(--color-background-neutral)] px-1 rounded">
+                  {filterStore.expressionString || '—'}
+                </code>
+              </div>
+            </div>
+          )}
+
+          {isTransformationsEnabled() &&
+            transformationStore?.transformationConfig?.enabled &&
+            transformationStore.transformationConfig.fields?.length > 0 && (
+              <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-275">
+                <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Transformation</h3>
+                <div className="text-sm text-content">
+                  <div>
+                    <span className="text-muted-foreground">Enabled: </span>
+                    Yes
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Fields: </span>
+                    {transformationStore.transformationConfig.fields.length} configured
+                  </div>
+                </div>
+              </div>
+            )}
 
           <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-300">
             <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Clickhouse Connection</h3>
@@ -203,6 +262,14 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
         </TabsContent>
       </Tabs>
 
+      {deployError && (
+        <div
+          className="mt-4 p-3 rounded-md bg-red-500/10 border border-red-500/30 text-sm text-red-600 dark:text-red-400 animate-fade-in-up"
+          role="alert"
+        >
+          {deployError}
+        </div>
+      )}
       <div className="flex justify-start mt-4 animate-fade-in-up animate-delay-500">
         <Button
           className="btn-primary transition-all duration-200 hover:opacity-90"
@@ -210,6 +277,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
           variant="gradient"
           size="custom"
           onClick={handleContinueToPipelines}
+          disabled={!!configError}
         >
           Continue
         </Button>
