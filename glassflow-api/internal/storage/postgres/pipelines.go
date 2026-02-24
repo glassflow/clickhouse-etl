@@ -456,15 +456,34 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 	return nil
 }
 
-// insertPipelineHistoryEvent inserts a pipeline history event
+// insertPipelineHistoryEvent inserts a pipeline history event.
 func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx.Tx, pipelineID string, pipeline models.PipelineConfig, eventType string, errors []string) error {
 	// Default to "history" if not specified
 	if eventType == "" {
 		eventType = "history"
 	}
 
-	// Marshal entire pipeline to JSON
-	pipelineJSON, err := json.Marshal(pipeline)
+	pipelineForHistory := pipeline
+	if s.encryptionService != nil {
+		var copy models.PipelineConfig
+		raw, err := json.Marshal(pipeline)
+		if err != nil {
+			return fmt.Errorf("copy pipeline for history: %w", err)
+		}
+		if err := json.Unmarshal(raw, &copy); err != nil {
+			return fmt.Errorf("copy pipeline for history: %w", err)
+		}
+		if err := encryptKafkaFields(s.encryptionService, &copy.Ingestor); err != nil {
+			return fmt.Errorf("encrypt kafka fields for history: %w", err)
+		}
+		if err := encryptClickHouseFields(s.encryptionService, &copy.Sink); err != nil {
+			return fmt.Errorf("encrypt clickhouse fields for history: %w", err)
+		}
+		pipelineForHistory = copy
+	}
+
+	// Marshal pipeline to JSON for history (credentials already encrypted if encryption enabled)
+	pipelineJSON, err := json.Marshal(pipelineForHistory)
 	if err != nil {
 		return fmt.Errorf("marshal pipeline for history: %w", err)
 	}

@@ -29,6 +29,7 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	GetPipelineHealth(ctx context.Context, pid string) (models.PipelineHealth, error)
 	GetOrchestratorType() string
 	CleanUpPipelines(ctx context.Context) error
+	GetPipelineResources(ctx context.Context, pid string) (*models.PipelineResourcesRow, error)
 }
 
 type pipelineSource struct {
