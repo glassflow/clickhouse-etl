@@ -141,6 +141,14 @@ func (m *mockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string
 	return nil
 }
 
+func (m *mockPipelineStore) GetPipelineResources(_ context.Context, _ string) (*models.PipelineResourcesRow, error) {
+	return nil, ErrPipelineNotExists
+}
+
+func (m *mockPipelineStore) UpsertPipelineResources(_ context.Context, _ string, _ models.PipelineResources) (*models.PipelineResourcesRow, error) {
+	return nil, ErrPipelineNotExists
+}
+
 func TestPipelineService_ResumePipeline(t *testing.T) {
 	tests := []struct {
 		name           string

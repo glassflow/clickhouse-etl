@@ -30,6 +30,8 @@ type PipelineStore interface {
 	PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error
 	UpdatePipelineStatus(ctx context.Context, pid string, status models.PipelineHealth) error
 	UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error
+	GetPipelineResources(ctx context.Context, pipelineID string) (*models.PipelineResourcesRow, error)
+	UpsertPipelineResources(ctx context.Context, pipelineID string, resources models.PipelineResources) (*models.PipelineResourcesRow, error)
 }
 
 type PipelineService struct {
@@ -169,6 +171,15 @@ func (p *PipelineService) GetPipeline(ctx context.Context, pid string) (zero mod
 	}
 
 	return *pi, nil
+}
+
+func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) (*models.PipelineResourcesRow, error) {
+	row, err := p.db.GetPipelineResources(ctx, pid)
+	if err != nil {
+		return nil, fmt.Errorf("load pipeline resources: %w", err)
+	}
+
+	return row, nil
 }
 
 // GetPipelines implements PipelineService.
