@@ -12,9 +12,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <body
         style={{
           margin: 0,
-          fontFamily: 'system-ui, sans-serif',
-          background: '#1a1a1a',
-          color: '#e5e5e5',
+          fontFamily: 'var(--font-family-body, system-ui, sans-serif)',
+          background: 'var(--color-background-page, #1a1a1a)',
+          color: 'var(--color-foreground-neutral, #e5e5e5)',
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
@@ -34,10 +34,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               padding: '0.5rem 1rem',
               fontSize: '0.875rem',
               fontWeight: 500,
-              borderRadius: '0.375rem',
+              borderRadius: 'var(--radius-sm, 0.375rem)',
               border: 'none',
-              background: 'linear-gradient(180deg, #FFA959 0%, #E7872E 100%)',
-              color: '#000',
+              background: 'linear-gradient(180deg, var(--button-primary-gradient-start, #FFA959) 0%, var(--button-primary-gradient-end, #E7872E) 100%)',
+              color: 'var(--button-primary-text, #000)',
               cursor: 'pointer',
               boxShadow: '0px 0px 4px 0px rgba(0,0,0,0.20), 0px 4px 8px 0px rgba(0,0,0,0.30)',
             }}

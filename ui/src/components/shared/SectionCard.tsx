@@ -16,16 +16,16 @@ const SectionCard = ({ validation, title, children, onClick, disabled = false, c
   const cardStyles = cn(
     'relative p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer',
     {
-      // Gray: Not configured
-      'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100':
+      // Not configured: neutral
+      'border-[var(--color-border-neutral-faded)] bg-[var(--color-background-neutral-faded)] hover:border-[var(--color-border-neutral)] hover:bg-[var(--color-background-neutral)]':
         validation.status === 'not-configured' && !disabled,
 
-      // Green: Valid
-      'border-green-500 bg-green-50 hover:border-green-600 hover:bg-green-100':
+      // Valid: positive
+      'border-[var(--color-border-positive)] bg-[var(--color-background-positive-faded)] hover:border-[var(--color-border-positive)] hover:bg-[var(--color-background-positive)]':
         validation.status === 'valid' && !disabled,
 
-      // Red: Invalidated
-      'border-red-500 bg-red-50 hover:border-red-600 hover:bg-red-100':
+      // Invalidated: critical
+      'border-[var(--color-border-critical)] bg-[var(--color-background-critical-faded)] hover:border-[var(--color-border-critical)] hover:bg-[var(--color-background-critical)]':
         validation.status === 'invalidated' && !disabled,
 
       // Disabled state
@@ -45,13 +45,13 @@ const SectionCard = ({ validation, title, children, onClick, disabled = false, c
     <div className={cardStyles} onClick={handleClick}>
       {/* Status indicator and title */}
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+        <h3 className="text-lg font-medium text-[var(--color-foreground-neutral)]">{title}</h3>
         <ValidationIndicator status={validation.status} />
       </div>
 
       {/* Invalidation banner */}
       {validation.status === 'invalidated' && validation.invalidatedBy && (
-        <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-md text-sm text-red-700">
+        <div className="mb-3 p-2 bg-[var(--color-background-critical-faded)] border border-[var(--color-border-critical)] rounded-md text-sm text-[var(--color-foreground-critical)]">
           <div className="flex items-center">
             <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
             <span>
@@ -66,7 +66,7 @@ const SectionCard = ({ validation, title, children, onClick, disabled = false, c
 
       {/* Last modified indicator */}
       {validation.lastModified && (
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-[var(--color-foreground-neutral-faded)]">
           Last updated: {new Date(validation.lastModified).toLocaleString()}
         </div>
       )}
@@ -80,13 +80,28 @@ const SectionCard = ({ validation, title, children, onClick, disabled = false, c
 const ValidationIndicator = ({ status }: { status: ValidationState['status'] }) => {
   switch (status) {
     case 'not-configured':
-      return <div className="w-3 h-3 rounded-full bg-gray-400" title="Not configured" />
+      return (
+        <div
+          className="w-3 h-3 rounded-full bg-[var(--color-foreground-disabled)]"
+          title="Not configured"
+        />
+      )
 
     case 'valid':
-      return <CheckCircleIcon className="w-5 h-5 text-green-500" title="Valid configuration" />
+      return (
+        <CheckCircleIcon
+          className="w-5 h-5 text-[var(--color-foreground-positive)]"
+          title="Valid configuration"
+        />
+      )
 
     case 'invalidated':
-      return <ExclamationTriangleIcon className="w-5 h-5 text-red-500" title="Needs reconfiguration" />
+      return (
+        <ExclamationTriangleIcon
+          className="w-5 h-5 text-[var(--color-foreground-critical)]"
+          title="Needs reconfiguration"
+        />
+      )
 
     default:
       return null

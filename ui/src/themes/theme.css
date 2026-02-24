@@ -337,7 +337,7 @@
   --card-content-border: var(--color-slate-600);
   --card-content-border-hover: var(--color-slate-700);
   --card-content-bg: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
-  --card-content-bg-hover: linear-gradient(180deg, #1a1a1b 0%, var(--color-gray-dark-800) 100%);
+  --card-content-bg-hover: linear-gradient(180deg, var(--color-gray-700) 0%, var(--color-gray-dark-800) 100%);
   --card-content-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.04), 0px 8px 16px 0px rgba(0, 0, 0, 0.08);
   --card-content-shadow-hover: 0px 0px 8px 0px rgba(0, 0, 0, 0.08), 0px 12px 24px 0px rgba(0, 0, 0, 0.12);
 

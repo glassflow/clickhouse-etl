@@ -3,7 +3,7 @@ import { Badge } from '@/src/components/ui/badge'
 import Image from 'next/image'
 import HealthIcon from '@/src/images/health.svg'
 import { PipelineHealth, PipelineHealthStatus } from '@/src/api/pipeline-health'
-import { getHealthStatusDisplayText, getHealthStatusClasses } from '@/src/api/pipeline-health'
+import { getHealthStatusDisplayText } from '@/src/api/pipeline-health'
 
 interface PipelineHealthCardProps {
   health: PipelineHealth | null
@@ -14,12 +14,23 @@ interface PipelineHealthCardProps {
 function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProps) {
   // Determine status and styling based on health data
   const getStatusInfo = () => {
+    const infoClasses =
+      'text-[var(--color-foreground-info)] bg-[var(--color-background-info-faded)] border-[var(--color-border-info)]'
+    const stableClasses =
+      'text-[var(--color-foreground-positive)] bg-[var(--color-background-positive-faded)] border-[var(--color-border-positive)]'
+    const unstableClasses =
+      'text-[var(--color-foreground-warning)] bg-[var(--color-background-warning-faded)] border-[var(--color-border-warning)]'
+    const failedClasses =
+      'text-[var(--color-foreground-critical)] bg-[var(--color-background-critical-faded)] border-[var(--color-border-critical)]'
+    const neutralClasses =
+      'text-[var(--color-foreground-neutral-faded)] bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral-faded)]'
+
     if (isLoading) {
       return {
         status: 'info' as const,
         label: 'Checking...',
-        classes: 'text-blue-600 bg-blue-50 border-blue-200',
-        dot: <div className="w-3 h-3 rounded-full bg-blue-500 mt-2 animate-pulse" />,
+        classes: infoClasses,
+        dot: <div className="w-3 h-3 rounded-full bg-[var(--color-foreground-info)] mt-2 animate-pulse" />,
       }
     }
 
@@ -27,8 +38,8 @@ function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProp
       return {
         status: 'failed' as const,
         label: 'Error',
-        classes: 'text-red-600 bg-red-50 border-red-200',
-        dot: <div className="w-3 h-3 rounded-full bg-red-500 mt-2" />,
+        classes: failedClasses,
+        dot: <div className="w-3 h-3 rounded-full bg-[var(--color-foreground-critical)] mt-2" />,
       }
     }
 
@@ -36,8 +47,8 @@ function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProp
       return {
         status: 'info' as const,
         label: 'No Data',
-        classes: 'text-gray-600 bg-gray-50 border-gray-200',
-        dot: <div className="w-3 h-3 rounded-full bg-gray-500 mt-2" />,
+        classes: neutralClasses,
+        dot: <div className="w-3 h-3 rounded-full bg-[var(--color-foreground-disabled)] mt-2" />,
       }
     }
 
@@ -46,28 +57,32 @@ function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProp
       PipelineHealthStatus,
       { status: 'stable' | 'failed' | 'unstable' | 'info'; classes: string }
     > = {
-      Created: { status: 'info', classes: 'text-blue-600 bg-blue-50 border-blue-200' },
-      Running: { status: 'stable', classes: 'text-green-600 bg-green-50 border-green-200' },
-      Paused: { status: 'unstable', classes: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
-      Pausing: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
-      Resuming: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
-      Stopping: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
-      Stopped: { status: 'info', classes: 'text-gray-600 bg-gray-50 border-gray-200' },
-      Terminating: { status: 'unstable', classes: 'text-orange-600 bg-orange-50 border-orange-200' },
-      Terminated: { status: 'info', classes: 'text-gray-600 bg-gray-50 border-gray-200' },
-      Failed: { status: 'failed', classes: 'text-red-600 bg-red-50 border-red-200' },
+      Created: { status: 'info', classes: infoClasses },
+      Running: { status: 'stable', classes: stableClasses },
+      Paused: { status: 'unstable', classes: unstableClasses },
+      Pausing: { status: 'unstable', classes: unstableClasses },
+      Resuming: { status: 'unstable', classes: unstableClasses },
+      Stopping: { status: 'unstable', classes: unstableClasses },
+      Stopped: { status: 'info', classes: neutralClasses },
+      Terminating: { status: 'unstable', classes: unstableClasses },
+      Terminated: { status: 'info', classes: neutralClasses },
+      Failed: { status: 'failed', classes: failedClasses },
     }
 
     const mappedStatus = statusMapping[health.overall_status]
+    const dotClass =
+      mappedStatus.status === 'stable'
+        ? 'bg-[var(--color-foreground-positive)]'
+        : mappedStatus.status === 'failed'
+          ? 'bg-[var(--color-foreground-critical)]'
+          : mappedStatus.status === 'unstable'
+            ? 'bg-[var(--color-foreground-warning)]'
+            : 'bg-[var(--color-foreground-info)]'
     return {
       status: mappedStatus.status,
       label: getHealthStatusDisplayText(health.overall_status),
       classes: mappedStatus.classes,
-      dot: (
-        <div
-          className={`w-3 h-3 rounded-full mt-2 ${mappedStatus.status === 'stable' ? 'bg-green-500' : mappedStatus.status === 'failed' ? 'bg-red-500' : mappedStatus.status === 'unstable' ? 'bg-orange-500' : 'bg-blue-500'}`}
-        />
-      ),
+      dot: <div className={`w-3 h-3 rounded-full mt-2 ${dotClass}`} />,
     }
   }
 
@@ -86,12 +101,12 @@ function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProp
             <span className="text-md font-bold text-[var(--color-foreground-neutral-faded)]">{statusInfo.label}</span>
           </div>
           {health && (
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-[var(--color-foreground-neutral-faded)]">
               <div>Status: {health.overall_status}</div>
               <div>Updated: {new Date(health.updated_at).toLocaleString()}</div>
             </div>
           )}
-          {error && <div className="text-sm text-red-600">Error: {error}</div>}
+          {error && <div className="text-sm text-[var(--color-foreground-critical)]">Error: {error}</div>}
         </div>
       </div>
     </Card>

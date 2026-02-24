@@ -110,18 +110,18 @@ const PipelineDeploymentProgress = ({
   }
 
   return (
-    <div className={cn('min-h-screen bg-gray-50 transition-opacity duration-500', showTransition && 'opacity-0')}>
+    <div className={cn('min-h-screen bg-[var(--color-background-page)] transition-opacity duration-500', showTransition && 'opacity-0')}>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header Section */}
           <Card className="card-outline">
             <div className="flex flex-col items-center p-8 text-center">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">{pipelineName}</h1>
+              <h1 className="text-3xl font-bold text-[var(--color-foreground-neutral)] mb-4">{pipelineName}</h1>
               <Badge variant={getStatusVariant(deploymentPhase)} className="text-lg px-4 py-2 rounded-xl">
                 {getStatusLabel(deploymentPhase)}
               </Badge>
               {isPolling && (
-                <div className="mt-3 text-sm text-blue-600 animate-pulse">Monitoring deployment progress...</div>
+                <div className="mt-3 text-sm text-[var(--color-foreground-info)] animate-pulse">Monitoring deployment progress...</div>
               )}
             </div>
           </Card>
@@ -129,7 +129,7 @@ const PipelineDeploymentProgress = ({
           {/* Progress Section */}
           <Card className="card-outline">
             <div className="p-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Deployment Progress</h2>
+              <h2 className="text-xl font-semibold text-[var(--color-foreground-neutral)] mb-6">Deployment Progress</h2>
 
               <div className="space-y-4">
                 {/* Created Phase */}
@@ -168,19 +168,19 @@ const PipelineDeploymentProgress = ({
 
           {/* Error Handling */}
           {deploymentPhase === 'failed' && (
-            <Card className="border-red-200 bg-red-50 shadow-sm">
+            <Card className="border-[var(--color-border-critical)] bg-[var(--color-background-critical-faded)] shadow-sm">
               <div className="p-6">
                 <div className="flex items-start space-x-3">
-                  <XCircleIcon className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+                  <XCircleIcon className="w-6 h-6 text-[var(--color-foreground-critical)] flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-red-900 mb-2">Deployment Failed</h3>
-                    <p className="text-red-800 mb-4">
+                    <h3 className="text-lg font-semibold text-[var(--color-foreground-critical)] mb-2">Deployment Failed</h3>
+                    <p className="text-[var(--color-foreground-critical)] mb-4">
                       {error || 'An unexpected error occurred during pipeline deployment.'}
                     </p>
 
                     {timeoutReached && (
-                      <div className="bg-red-100 border border-red-200 rounded-md p-3 mb-4">
-                        <p className="text-sm text-red-700">
+                      <div className="bg-[var(--color-background-critical-faded)] border border-[var(--color-border-critical)] rounded-md p-3 mb-4">
+                        <p className="text-sm text-[var(--color-foreground-critical)]">
                           <strong>Timeout:</strong> The deployment process took longer than expected (5 minutes). This
                           could indicate a configuration issue or resource constraints.
                         </p>
@@ -205,9 +205,9 @@ const PipelineDeploymentProgress = ({
 
           {/* Success Message */}
           {deploymentPhase === 'deployed' && (
-            <Card className="border-green-200 bg-green-50 shadow-sm">
+            <Card className="border-[var(--color-border-positive)] bg-[var(--color-background-positive-faded)] shadow-sm">
               <div className="p-6 text-center">
-                <div className="text-green-600 mb-2">
+                <div className="text-[var(--color-foreground-positive)] mb-2">
                   <svg className="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
@@ -216,8 +216,8 @@ const PipelineDeploymentProgress = ({
                     />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-green-900 mb-2">Deployment Successful!</h3>
-                <p className="text-green-800">
+                <h3 className="text-lg font-semibold text-[var(--color-foreground-positive)] mb-2">Deployment Successful!</h3>
+                <p className="text-[var(--color-foreground-positive)]">
                   Your pipeline is now active and ready to process data. You&apos;ll be redirected to the pipeline
                   details shortly.
                 </p>
@@ -227,10 +227,10 @@ const PipelineDeploymentProgress = ({
 
           {/* Development Info */}
           {process.env.NODE_ENV === 'development' && (
-            <Card className="border-gray-200 bg-gray-50 shadow-sm">
+            <Card className="border-[var(--color-border-neutral-faded)] bg-[var(--color-background-neutral-faded)] shadow-sm">
               <div className="p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Debug Info</h4>
-                <div className="text-xs text-gray-600 space-y-1">
+                <h4 className="text-sm font-medium text-[var(--color-foreground-neutral-faded)] mb-2">Debug Info</h4>
+                <div className="text-xs text-[var(--color-foreground-neutral-faded)] space-y-1">
                   <div>Pipeline ID: {pipelineId}</div>
                   <div>Current Phase: {deploymentPhase}</div>
                   <div>Is Polling: {isPolling ? 'Yes' : 'No'}</div>

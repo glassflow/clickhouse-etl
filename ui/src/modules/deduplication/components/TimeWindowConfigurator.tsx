@@ -102,7 +102,7 @@ export function TimeWindowConfigurator({
           <TooltipContent
             side="right"
             align="start"
-            className="max-w-[300px] bg-gray-800 text-gray-100 border border-gray-700 rounded-lg p-3 shadow-lg"
+            className="max-w-[300px] bg-[var(--surface-bg)] text-[var(--surface-fg)] border border-[var(--surface-border)] rounded-lg p-3 shadow-lg"
           >
             <p className="text-sm leading-relaxed">{tooltip}</p>
           </TooltipContent>

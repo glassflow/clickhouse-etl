@@ -341,11 +341,11 @@ export function PipelinesList({
             className="p-2 hover:opacity-70 rounded-lg transition-opacity duration-200 relative"
             aria-label="Filter pipelines"
           >
-            <FilterIcon size={20} className="text-gray-600" />
+            <FilterIcon size={20} className="text-[var(--color-foreground-neutral-faded)]" />
             {(filters.status.length > 0 || filters.health.length > 0) && (
               <span
                 className="absolute top-1 right-1 w-2 h-2 rounded-full"
-                style={{ background: 'linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%)' }}
+                style={{ background: 'linear-gradient(134deg, var(--button-primary-gradient-start), var(--button-primary-gradient-end))' }}
               />
             )}
           </button>

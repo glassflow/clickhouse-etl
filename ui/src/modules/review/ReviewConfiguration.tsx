@@ -183,12 +183,12 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
+          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
             <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Kafka Connection</h3>
             <KafkaConnectionPreview kafkaStore={kafkaStore} />
           </div>
 
-          <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
+          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
             <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
             <ul className="list-disc list-inside">{renderTopics()}</ul>
           </div>
@@ -228,7 +228,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
             <ClickhouseConnectionPreview clickhouseConnection={clickhouseConnection} />
           </div>
 
-          <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-400">
+          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-400">
             <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Clickhouse Destination</h3>
             <ClickhouseDestinationPreview
               clickhouseDestination={clickhouseDestination}

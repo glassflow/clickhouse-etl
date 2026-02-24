@@ -117,7 +117,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
         <div className="flex items-center justify-center w-full gap-2 my-4">
           <button
             onClick={() => handleFeedbackSelect('angry')}
-            className={`p-2 transition-all ${selectedFeedback === 'angry' ? 'text-[var(--primary)]' : 'text-gray-400'}`}
+            className={`p-2 transition-all ${selectedFeedback === 'angry' ? 'text-[var(--primary)]' : 'text-[var(--color-foreground-neutral-faded)]'}`}
           >
             <Image
               src={selectedFeedback === 'angry' ? AngryIconSelected : AngryIcon}
@@ -129,7 +129,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
           </button>
           <button
             onClick={() => handleFeedbackSelect('frown')}
-            className={`p-2 transition-all ${selectedFeedback === 'frown' ? 'text-[var(--primary)]' : 'text-gray-400'}`}
+            className={`p-2 transition-all ${selectedFeedback === 'frown' ? 'text-[var(--primary)]' : 'text-[var(--color-foreground-neutral-faded)]'}`}
           >
             <Image
               src={selectedFeedback === 'frown' ? FrownIconSelected : FrownIcon}
@@ -141,7 +141,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
           </button>
           <button
             onClick={() => handleFeedbackSelect('meh')}
-            className={`p-2 transition-all ${selectedFeedback === 'meh' ? 'text-[var(--primary)]' : 'text-gray-400'}`}
+            className={`p-2 transition-all ${selectedFeedback === 'meh' ? 'text-[var(--primary)]' : 'text-[var(--color-foreground-neutral-faded)]'}`}
           >
             <Image
               src={selectedFeedback === 'meh' ? MehIconSelected : MehIcon}
@@ -153,7 +153,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
           </button>
           <button
             onClick={() => handleFeedbackSelect('smile')}
-            className={`p-2 transition-all ${selectedFeedback === 'smile' ? 'text-[var(--primary)]' : 'text-gray-400'}`}
+            className={`p-2 transition-all ${selectedFeedback === 'smile' ? 'text-[var(--primary)]' : 'text-[var(--color-foreground-neutral-faded)]'}`}
           >
             <Image
               src={selectedFeedback === 'smile' ? SmileIconSelected : SmileIcon}
@@ -165,7 +165,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
           </button>
           <button
             onClick={() => handleFeedbackSelect('laugh')}
-            className={`p-2 transition-all ${selectedFeedback === 'laugh' ? 'text-[var(--primary)]' : 'text-gray-400'}`}
+            className={`p-2 transition-all ${selectedFeedback === 'laugh' ? 'text-[var(--primary)]' : 'text-[var(--color-foreground-neutral-faded)]'}`}
           >
             <Image
               src={selectedFeedback === 'laugh' ? LaughIconSelected : LaughIcon}
@@ -186,7 +186,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
             maxLength={1000}
             className="w-full p-3 rounded-md border border-[var(--color-border-regular)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] min-h-[180px] resize-none bg-[var(--color-background)] text-[var(--color-content)]"
           />
-          <div className="text-sm text-gray-500 mt-1 text-left">{feedbackText.length}/1000 characters</div>
+          <div className="text-sm text-[var(--color-foreground-neutral-faded)] mt-1 text-left">{feedbackText.length}/1000 characters</div>
         </div>
         <div
           className={`flex items-center justify-end w-full mt-4 transition-all duration-300 ease-in-out ${isNegativeFeedback ? 'opacity-100' : 'opacity-0'}`}

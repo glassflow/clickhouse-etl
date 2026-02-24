@@ -23,7 +23,7 @@ npm run sync-tokens -- --dry-run
 FIGMA_ACCESS_TOKEN=figd_xxx FIGMA_FILE_KEY=<file_key> npm run sync-tokens
 ```
 
-The script reads `src/themes/base.css`, `semantic-tokens.css`, and `dark/theme.css` / `light/theme.css`, resolves all `var()` references, and either writes the payload to `scripts/sync-tokens-to-figma/tokens-for-figma.json` or pushes variable values to Figma via the Variables REST API. See **scripts/sync-tokens-to-figma/README.md** for details and troubleshooting.
+The script reads `src/themes/base.css` and `src/themes/theme.css` only, resolves all `var()` references, and either writes the payload to `scripts/sync-tokens-to-figma/tokens-for-figma.json` or pushes variable values to Figma via the Variables REST API. See **scripts/sync-tokens-to-figma/README.md** for details and troubleshooting.
 
 ---
 
@@ -32,8 +32,7 @@ The script reads `src/themes/base.css`, `semantic-tokens.css`, and `dark/theme.c
 If you are not using the script, resolve CSS variables to final values (hex, px, number) for:
 
 - **base.css** — radius (`--radius-*`, `--rounded-*`), spacing (`--p-*`, `--gap-*`, `--space-*`, `--m-*`), colors (`--color-*`), typography (`--size-*`, `--leading-*`, `--weight-*`, `--family-sans`), `--stroke-width`, `--border-width`.
-- **dark/theme.css** — all variables under `[data-theme='dark']` (e.g. `--background`, `--foreground`, `--radius`, `--sidebar`, `--chart-1` … `--chart-5`, `--semantic-*`, `--background-color`). Resolve to hex/px.
-- **light/theme.css** — same for `[data-theme='light']`.
+- **theme.css** — all variables under `[data-theme='dark']` (e.g. `--background`, `--foreground`, `--radius`, `--sidebar`, `--chart-1` … `--chart-5`, `--semantic-*`, `--background-color`). Resolve to hex/px. App is dark-only; no light theme.
 
 You can do this by loading the app with one theme active and reading computed values, or by parsing the CSS and resolving `var()` references.
 
@@ -45,8 +44,7 @@ In Figma, open **Local variables** and update these collections with the exporte
 
 | Figma collection | What to set | App source |
 |------------------|-------------|------------|
-| **mode** (light-mode) | `background`, `foreground`, `primary`, `primary-foreground`, `secondary`, `secondary-foreground`, `muted`, `muted-foreground`, `accent`, `accent-foreground`, `destructive`, `destructive-foreground`, `card`, `card-foreground`, `popover`, `popover-foreground`, `border`, `input`, `ring`, `radius`, `radius-xs` … `radius-4xl`, `radius-full`, `radius-none`, `sidebar`, `sidebar-foreground`, `sidebar-primary`, `sidebar-primary-foreground`, `sidebar-accent`, `sidebar-accent-foreground`, `sidebar-border`, `sidebar-ring`, `chart-1` … `chart-5`, `semantic-background`, `semantic-border`, `semantic-foreground`, `background-color`, `stroke-width`, `border-width` | light/theme.css (resolved) |
-| **mode** (dark-mode) | Same variable names as light-mode | dark/theme.css (resolved) |
+| **mode** (dark-mode) | `background`, `foreground`, `primary`, `primary-foreground`, `secondary`, `secondary-foreground`, `muted`, `muted-foreground`, `accent`, `accent-foreground`, `destructive`, `destructive-foreground`, `card`, `card-foreground`, `popover`, `popover-foreground`, `border`, `input`, `ring`, `radius`, `radius-xs` … `radius-4xl`, `radius-full`, `radius-none`, `sidebar`, `sidebar-foreground`, `sidebar-primary`, `sidebar-primary-foreground`, `sidebar-accent`, `sidebar-accent-foreground`, `sidebar-border`, `sidebar-ring`, `chart-1` … `chart-5`, `semantic-background`, `semantic-border`, `semantic-foreground`, `background-color`, `stroke-width`, `border-width` | theme.css under `[data-theme='dark']` (resolved) |
 | **tw-colors** | Keys: color name without `--color-` prefix (e.g. `orange-300`, `gray-dark-600`). Values: our hex. | base.css `--color-*` |
 | **rdx-colors** | Same keys and values as tw-colors (same palette). | Same as tw-colors |
 | **tw-border-radius** | `rounded-xs`, `rounded-sm`, `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`, `rounded-4xl`, `rounded-full`, `rounded-none` → resolved `--rounded-*` (or `--radius-*`) in px | base.css |

@@ -113,7 +113,7 @@ export function PipelineFilterMenu({
                     style={{
                       borderColor: filters.status.includes(status) ? 'transparent' : 'var(--color-border-regular)',
                       background: filters.status.includes(status)
-                        ? 'linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%)'
+                        ? 'linear-gradient(134deg, var(--button-primary-gradient-start), var(--button-primary-gradient-end))'
                         : 'transparent',
                     }}
                   >
@@ -164,7 +164,7 @@ export function PipelineFilterMenu({
                     style={{
                       borderColor: filters.health.includes(health) ? 'transparent' : 'var(--color-border-regular)',
                       background: filters.health.includes(health)
-                        ? 'linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%)'
+                        ? 'linear-gradient(134deg, var(--button-primary-gradient-start), var(--button-primary-gradient-end))'
                         : 'transparent',
                     }}
                   >
@@ -214,7 +214,7 @@ export function PipelineFilterMenu({
                   )}
                   style={{
                     background: isSelected
-                      ? 'linear-gradient(134deg, #ffa959 18.07%, #e7872e 76.51%)'
+                      ? 'linear-gradient(134deg, var(--button-primary-gradient-start), var(--button-primary-gradient-end))'
                       : 'var(--color-background-elevation-raised-faded)',
                   }}
                   onClick={() => handleTagToggle(tag)}

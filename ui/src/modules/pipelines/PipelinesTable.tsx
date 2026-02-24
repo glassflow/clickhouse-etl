@@ -135,7 +135,7 @@ export function PipelinesTable({
     const isActive = sortColumn === columnKey
 
     if (!isActive) {
-      return <Image src={SortIcon} alt="Sort" width={14} height={14} className="ml-1 text-gray-400" />
+      return <Image src={SortIcon} alt="Sort" width={14} height={14} className="ml-1 text-[var(--color-foreground-neutral-faded)]" />
     }
 
     if (sortDirection === 'asc') {

@@ -72,7 +72,7 @@ const MobileNavButton = ({
     <li className="text-sm font-medium">
       <Link
         href={href}
-        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-800 rounded-md"
+        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--interactive-hover-bg)] rounded-md"
         onClick={onClick}
       >
         <Image src={icon} alt={label} width={20} height={20} />
@@ -302,7 +302,7 @@ export function Header() {
             </div>
 
             {/* Desktop: Logo (Left) */}
-            <div className="hidden lg:flex items-center pr-12 border-r border-r-[#3A3A3A]">
+            <div className="hidden lg:flex items-center pr-12 border-r border-r-[var(--color-gray-350)]">
               <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
                 <Image
                   src={logoFullName}

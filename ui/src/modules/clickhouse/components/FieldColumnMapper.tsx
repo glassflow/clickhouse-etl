@@ -116,7 +116,7 @@ export function FieldColumnMapper({
       <div className="flex justify-between items-center mb-4 mt-8">
         <h3 className="text-lg font-medium text-content">
           Map incoming event fields to ClickHouse table columns.
-          {readOnly && <span className="text-sm text-gray-500 ml-2">(Read-only)</span>}
+          {readOnly && <span className="text-sm text-[var(--color-foreground-neutral-faded)] ml-2">(Read-only)</span>}
         </h3>
         <div className="flex gap-2">
           <Button
@@ -291,7 +291,7 @@ export function FieldColumnMapper({
                   )}
                 </TableCell>
                 <TableCell className="text-content w-[40%]">
-                  <div className="flex justify-between bg-[#212121] my-1 rounded-sm p-3">
+                  <div className="flex justify-between bg-[var(--color-background-elevation-raised-faded)] my-1 rounded-sm p-3">
                     <span>{column.name}</span>
                     <span className="text-xs text-content-secondary">{column.type || 'Unknown'}</span>
                   </div>

@@ -58,7 +58,7 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading pipeline details...</p>
+          <p className="text-[var(--color-foreground-neutral-faded)]">Loading pipeline details...</p>
         </div>
       </div>
     )
@@ -72,8 +72,8 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="text-gray-500 text-lg font-semibold mb-2">Error</div>
-          <p className="text-gray-600">{error}</p>
+          <div className="text-[var(--color-foreground-neutral-faded)] text-lg font-semibold mb-2">Error</div>
+          <p className="text-[var(--color-foreground-neutral-faded)]">{error}</p>
         </div>
       </div>
     )
@@ -111,8 +111,8 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="text-gray-500 text-lg font-semibold mb-2">Pipeline Not Found</div>
-          <p className="text-gray-600">Pipeline with ID &quot;{pipelineId}&quot; could not be found.</p>
+          <div className="text-[var(--color-foreground-neutral-faded)] text-lg font-semibold mb-2">Pipeline Not Found</div>
+          <p className="text-[var(--color-foreground-neutral-faded)]">Pipeline with ID &quot;{pipelineId}&quot; could not be found.</p>
         </div>
       </div>
     )
