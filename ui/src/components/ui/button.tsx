@@ -13,15 +13,19 @@ const buttonVariants = cva(
       variant: {
         default:
           'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none',
+        primary:
+          'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[0px_0px_4px_0px_rgba(0,0,0,0.20),0px_4px_8px_0px_rgba(0,0,0,0.30)] hover:shadow-[0px_0px_6px_0px_rgba(0,0,0,0.25),0px_6px_12px_0px_rgba(0,0,0,0.35)] hover:opacity-90 active:bg-[var(--button-primary-gradient-end)] active:shadow-[var(--shadow-raised)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[0px_0px_2px_0px_rgba(0,0,0,0.10),0px_2px_4px_0px_rgba(0,0,0,0.15)] disabled:pointer-events-none text-[var(--button-primary-text)]',
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 disabled:opacity-50 disabled:pointer-events-none',
         outline:
           'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:pointer-events-none',
         secondary:
-          'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80 disabled:opacity-50 disabled:pointer-events-none',
+          'bg-gradient-to-b from-[var(--button-secondary-bg-gradient-start)] to-[var(--button-secondary-bg-gradient-end)] text-[var(--button-secondary-text)] border-[var(--button-secondary-border)] shadow-[var(--button-secondary-shadow)] hover:opacity-90 active:bg-[var(--button-secondary-bg-gradient-end)] active:shadow-[var(--shadow-raised)] disabled:bg-gradient-to-b disabled:from-[var(--btn-bg-disabled)] disabled:to-[var(--btn-bg-disabled-faded)] disabled:text-[var(--btn-fg-disabled)] disabled:opacity-60',
         tertiary:
           'bg-[var(--button-tertiary-bg)] text-[var(--button-tertiary-text)] border border-transparent shadow-[var(--button-tertiary-shadow)] hover:bg-[var(--button-tertiary-hover)] active:bg-[var(--button-tertiary-active)] disabled:opacity-50 disabled:pointer-events-none',
         ghost: 'hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:pointer-events-none',
+        ghostOutline:
+          'bg-[var(--button-ghost-bg)] text-[var(--button-ghost-text)] border-[var(--button-ghost-border)] shadow-[var(--button-ghost-shadow)] hover:bg-[var(--button-ghost-hover)] hover:border-[var(--button-ghost-border-hover)] active:bg-[var(--button-ghost-active)] active:border-[var(--button-ghost-border-active)] disabled:opacity-50 disabled:pointer-events-none',
         link: 'text-primary underline-offset-4 hover:underline disabled:opacity-50 disabled:pointer-events-none',
         gradient:
           'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[0px_0px_4px_0px_rgba(0,0,0,0.20),0px_4px_8px_0px_rgba(0,0,0,0.30)] hover:shadow-[0px_0px_6px_0px_rgba(0,0,0,0.25),0px_6px_12px_0px_rgba(0,0,0,0.35)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[0px_0px_2px_0px_rgba(0,0,0,0.10),0px_2px_4px_0px_rgba(0,0,0,0.15)] disabled:pointer-events-none',

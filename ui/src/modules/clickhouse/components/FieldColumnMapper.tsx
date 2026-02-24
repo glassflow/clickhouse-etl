@@ -120,7 +120,7 @@ export function FieldColumnMapper({
         </h3>
         <div className="flex gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onAutoMap}
             disabled={readOnly}
@@ -130,7 +130,6 @@ export function FieldColumnMapper({
                 'opacity-50 cursor-not-allowed': readOnly,
                 'text-muted-foreground': readOnly,
               },
-              'btn-neutral',
             )}
             title="Auto-map event fields to columns by name"
           >

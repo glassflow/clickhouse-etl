@@ -339,21 +339,19 @@ export function SeverityMappings() {
         <div className="flex items-center gap-2">
           {hasChanges && (
             <Button
-              variant="outline"
               size="sm"
               onClick={handleReset}
               disabled={isSaving}
-              className="btn-neutral transition-all duration-200"
+              variant="secondary" className="transition-all duration-200"
             >
               Reset
             </Button>
           )}
           <Button
-            variant="outline"
             size="sm"
             onClick={fetchMappings}
             disabled={isLoading || isSaving}
-            className="gap-2 btn-neutral transition-all duration-200"
+            variant="secondary" className="gap-2 transition-all duration-200"
           >
             <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
             Refresh

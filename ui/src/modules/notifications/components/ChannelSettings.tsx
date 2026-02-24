@@ -103,11 +103,10 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
         <div className="flex items-center gap-2">
           {/* Configure/Edit button */}
           <Button
-            variant="outline"
             size="sm"
             onClick={onConfigure}
             disabled={isLoading}
-            className="gap-1.5 btn-neutral transition-all duration-200"
+            variant="secondary" className="gap-1.5 transition-all duration-200"
           >
             {isConfigured ? (
               <>
@@ -212,11 +211,10 @@ export function ChannelSettings() {
           </p>
         </div>
         <Button
-          variant="outline"
           size="sm"
           onClick={fetchChannels}
           disabled={isLoading}
-          className="gap-2 btn-neutral transition-all duration-200"
+          variant="secondary" className="gap-2 transition-all duration-200"
         >
           <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           Refresh
@@ -234,10 +232,9 @@ export function ChannelSettings() {
         >
           <p className="text-sm text-[var(--text-error)]">{error}</p>
           <Button
-            variant="outline"
             size="sm"
             onClick={fetchChannels}
-            className="mt-2 btn-neutral transition-all duration-200"
+            variant="secondary" className="mt-2 transition-all duration-200"
           >
             Try again
           </Button>

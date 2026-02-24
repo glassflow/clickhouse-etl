@@ -278,10 +278,9 @@ export function NotificationsPanel() {
               </div>
               <p className="mt-3 text-sm text-[var(--text-error)]">{error}</p>
               <Button
-                variant="outline"
                 size="sm"
                 onClick={handleRefresh}
-                className="mt-3 btn-neutral transition-all duration-200"
+                variant="secondary" className="mt-3 transition-all duration-200"
               >
                 Try again
               </Button>

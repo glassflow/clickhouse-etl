@@ -171,10 +171,10 @@ export function PipelineTagsModal({
         </div>
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" className="btn-tertiary" onClick={onCancel} disabled={isSaving}>
+          <Button variant="tertiary" onClick={onCancel} disabled={isSaving}>
             Cancel
           </Button>
-          <Button className="btn-primary" onClick={handleSave} disabled={isSaving || !canSave}>
+          <Button variant="primary" onClick={handleSave} disabled={isSaving || !canSave}>
             {isSaving ? 'Saving…' : 'Save tags'}
           </Button>
         </DialogFooter>

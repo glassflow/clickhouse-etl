@@ -103,11 +103,10 @@ export function QueryGroup({
         <div className="flex items-center gap-2">
           {/* Add Rule Button */}
           <Button
-            variant="outline"
             size="sm"
             onClick={() => onAddRule(group.id)}
             disabled={readOnly}
-            className="h-8 text-xs btn-tertiary"
+            variant="tertiary" className="h-8 text-xs"
           >
             <PlusIcon className="h-3 w-3 mr-1" />
             Add Rule
@@ -116,11 +115,10 @@ export function QueryGroup({
           {/* Add Group Button (only if not at max depth) */}
           {canAddNestedGroup && (
             <Button
-              variant="outline"
               size="sm"
               onClick={() => onAddGroup(group.id)}
               disabled={readOnly}
-              className="h-8 text-xs btn-tertiary"
+              variant="tertiary" className="h-8 text-xs"
             >
               <PlusIcon className="h-3 w-3 mr-1" />
               Add Group

@@ -110,7 +110,7 @@ export function FormModal({
             value={inputValue}
             onChange={handleInputChange}
             placeholder={inputPlaceholder}
-            className={error ? 'input-regular modal-input-error' : 'input-regular input-border-regular'}
+            error={!!error}
             disabled={isLoading}
           />
           {error && <p className="text-sm modal-error-text">{error}</p>}
@@ -118,11 +118,11 @@ export function FormModal({
         </div>
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" className="btn-tertiary" onClick={handleCancel} disabled={isSubmitDisabled}>
+          <Button variant="tertiary" onClick={handleCancel} disabled={isSubmitDisabled}>
             {cancelButtonText}
           </Button>
           <Button
-            className="btn-primary"
+            variant="primary"
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
             title={isSubmitDisabled ? 'Please wait for validation to complete' : undefined}

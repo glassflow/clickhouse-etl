@@ -192,9 +192,8 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
           className={`flex items-center justify-end w-full mt-4 transition-all duration-300 ease-in-out ${isNegativeFeedback ? 'opacity-100' : 'opacity-0'}`}
         >
           <Button
-            className="btn-primary btn-text"
+            variant="primary" className="btn-text"
             type="button"
-            variant="gradient"
             size="custom"
             onClick={handleFeedbackSubmit}
             disabled={!selectedFeedback || (isNegativeFeedback && !feedbackText.trim())}

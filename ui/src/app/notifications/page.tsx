@@ -58,7 +58,7 @@ export default function NotificationsPage() {
           </div>
         </div>
         <Link href="/notifications/settings">
-          <Button variant="outline" className="gap-2 btn-primary">
+          <Button variant="primary" className="gap-2">
             <Settings className="h-4 w-4" />
             Settings
           </Button>

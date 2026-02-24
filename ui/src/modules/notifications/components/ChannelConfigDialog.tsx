@@ -149,15 +149,14 @@ export function ChannelConfigDialog({
 
         <DialogFooter className="mt-6">
           <Button
-            variant="outline"
-            className="btn-tertiary"
+            variant="tertiary"
             onClick={handleCancel}
             disabled={isSaving}
           >
             Cancel
           </Button>
           <Button
-            className="btn-primary gap-2"
+            variant="primary" className="gap-2"
             onClick={handleSave}
             disabled={!isValid || isSaving}
           >

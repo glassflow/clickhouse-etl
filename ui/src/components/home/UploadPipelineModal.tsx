@@ -173,11 +173,11 @@ export function UploadPipelineModal({
         </div>
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" className="btn-tertiary" onClick={handleCancel} disabled={isNavigating}>
+          <Button variant="tertiary" onClick={handleCancel} disabled={isNavigating}>
             Cancel
           </Button>
           <Button
-            className="btn-primary"
+            variant="primary"
             onClick={handleImport}
             disabled={isImportDisabled}
             title={

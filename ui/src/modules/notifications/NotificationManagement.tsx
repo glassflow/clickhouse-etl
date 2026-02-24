@@ -50,11 +50,10 @@ export function NotificationManagement() {
           </div>
         </div>
         <Button
-          variant="outline"
           size="sm"
           onClick={handleRefresh}
           disabled={isLoading}
-          className="btn-neutral"
+          variant="secondary"
         >
           <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           Refresh

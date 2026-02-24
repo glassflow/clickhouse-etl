@@ -124,14 +124,13 @@ export function NotificationFilters() {
           >
             <label className="text-xs text-[var(--text-secondary)] invisible font-medium">Clear all</label>
             <Button
-              variant="ghost"
               size="sm"
+              variant="secondary"
               onClick={handleClearFilters}
               className={cn(
                 'px-2 text-xs',
                 'text-[var(--text-secondary)] hover:text-[var(--text-secondary-faded)]',
                 'transition-colors duration-200',
-                'btn-secondary',
                 'w-full'
               )}
             >
@@ -148,12 +147,12 @@ export function NotificationFilters() {
           >
             <label className="text-xs text-[var(--text-secondary)] invisible font-medium">Apply</label>
             <Button
+              variant="primary"
               onClick={handleApplyFilters}
               className={cn(
                 'px-2 text-xs',
                 'text-[var(--text-primary)] hover:text-[var(--text-primary-faded)]',
                 'transition-all duration-200',
-                'btn-primary',
                 'w-full'
               )}
             >

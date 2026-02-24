@@ -615,7 +615,7 @@ export function NestedFunctionComposer({
 
       {/* Add function button */}
       {!disabled && chain.length < maxChainLength && (
-        <Button variant="outline" size="sm" onClick={handleAddFunction} className="btn-tertiary text-xs">
+        <Button variant="tertiary" size="sm" onClick={handleAddFunction} className="text-xs">
           <PlusIcon className="h-3 w-3 mr-1" />
           {chain.length === 0 ? 'Add Function' : 'Add Outer Function (wraps result)'}
         </Button>

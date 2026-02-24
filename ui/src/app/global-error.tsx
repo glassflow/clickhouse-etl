@@ -30,7 +30,6 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           <button
             type="button"
             onClick={() => reset()}
-            className="btn-primary"
             style={{
               padding: '0.5rem 1rem',
               fontSize: '0.875rem',

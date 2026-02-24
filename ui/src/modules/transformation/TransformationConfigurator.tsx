@@ -200,9 +200,8 @@ export function TransformationConfigurator({
       {!standalone && !readOnly && availableFields.length > 0 && (
         <div className="flex justify-start items-center">
           <Button
-            variant="outline"
             onClick={actions.handleSkip}
-            className="flex-shrink-0 border-dashed hover:border-solid btn-tertiary text-primary hover:text-primary-faded"
+            variant="tertiary" className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
           >
             Skip Transformation
           </Button>
@@ -316,9 +315,8 @@ export function TransformationConfigurator({
         {!standalone && !readOnly && availableFields.length > 0 && (
           <div className="flex justify-start items-center">
             <Button
-              variant="outline"
               onClick={actions.handleSkip}
-              className="flex-shrink-0 border-dashed hover:border-solid btn-tertiary text-primary hover:text-primary-faded"
+              variant="tertiary" className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
             >
               Skip Transformation
             </Button>

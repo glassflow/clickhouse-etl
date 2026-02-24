@@ -740,11 +740,11 @@ export function TransformationFieldRow({
                       : 'Select an input field and function or arithmetic'}
               </span>
             )}
-            <Button variant="outline" size="sm" className="btn-tertiary" onClick={handleCancel}>
+            <Button variant="tertiary" size="sm" onClick={handleCancel}>
               <XMarkIcon className="h-4 w-4 mr-1" />
               Cancel
             </Button>
-            <Button size="sm" className="btn-primary" onClick={handleSave} disabled={readOnly || !canSaveField}>
+            <Button size="sm" variant="primary" onClick={handleSave} disabled={readOnly || !canSaveField}>
               <CheckIcon className="h-4 w-4 mr-1" />
               Save
             </Button>

@@ -114,17 +114,17 @@ export function InputModal({
                 setError(null)
               }}
               placeholder={inputPlaceholder}
-              className={error ? 'input-regular modal-input-error' : 'input-regular input-border-regular'}
+              error={!!error}
             />
             {error && <p className="text-sm modal-error-text">{error}</p>}
           </div>
         )}
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" className="btn-tertiary" onClick={handleCancel}>
+          <Button variant="tertiary" onClick={handleCancel}>
             {cancelButtonText}
           </Button>
-          <Button className="btn-primary" onClick={handleSubmit}>
+          <Button variant="primary" onClick={handleSubmit}>
             {submitButtonText}
           </Button>
         </DialogFooter>

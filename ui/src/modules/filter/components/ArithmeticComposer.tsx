@@ -265,11 +265,10 @@ export function ArithmeticComposer({
                   {/* Add/Remove buttons */}
                   <div className="flex gap-1 items-end pb-0.5">
                     <Button
-                      variant="outline"
                       size="icon"
                       onClick={handleAddOperand}
                       disabled={disabled}
-                      className="h-10 w-10 btn-tertiary"
+                      variant="tertiary" className="h-10 w-10"
                       title="Add another operand"
                     >
                       <PlusIcon className="h-4 w-4" />
@@ -328,11 +327,10 @@ export function ArithmeticComposer({
               {/* Add/Remove buttons */}
               <div className="flex gap-1 items-end pb-0.5 transition-opacity duration-300 ease-in-out">
                 <Button
-                  variant="outline"
                   size="icon"
                   onClick={handleAddOperand}
                   disabled={disabled}
-                  className="h-10 w-10 btn-tertiary"
+                  variant="tertiary" className="h-10 w-10"
                   title="Add another operand"
                 >
                   <PlusIcon className="h-4 w-4" />
@@ -462,10 +460,9 @@ function ManualModeUI({ value, onChange, onApply, disabled = false, error, place
             )}
           />
           <Button
-            variant="outline"
             onClick={onApply}
             disabled={disabled || !value.trim()}
-            className="h-auto self-stretch btn-tertiary"
+            variant="tertiary" className="h-auto self-stretch"
             title="Apply expression (Enter)"
           >
             Apply

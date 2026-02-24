@@ -444,7 +444,7 @@ export function WaterfallExpressionBuilder({
 
       {/* Add slot button */}
       {!disabled && effectiveSlots.length < MAX_SLOTS && (
-        <Button variant="outline" size="sm" onClick={handleAddSlot} className="btn-tertiary text-xs">
+        <Button variant="tertiary" size="sm" onClick={handleAddSlot} className="text-xs">
           <PlusIcon className="h-3 w-3 mr-1" />
           Add Expression ({effectiveSlots.length}/{MAX_SLOTS})
         </Button>

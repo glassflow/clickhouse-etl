@@ -494,7 +494,7 @@ export function FilterConfigurator({
 
         {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
         {!standalone && (
-          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
+          <Button variant="tertiary" onClick={handleSkip}>
             Skip Filter
           </Button>
         )}
