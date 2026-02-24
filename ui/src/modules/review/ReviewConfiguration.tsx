@@ -272,9 +272,8 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       )}
       <div className="flex justify-start mt-4 animate-fade-in-up animate-delay-500">
         <Button
-          variant="primary" className="transition-all duration-200 hover:opacity-90"
+          variant="primary" size="custom" className="transition-all duration-200 hover:opacity-90"
           type="button"
-          size="custom"
           onClick={handleContinueToPipelines}
           disabled={!!configError}
         >

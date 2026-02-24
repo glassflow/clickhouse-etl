@@ -9,6 +9,7 @@ import {
 } from '@/src/components/ui/dialog'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
+import { Label } from '@/src/components/ui/label'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import { useState, useEffect } from 'react'
 import { ModalResult } from '@/src/components/common/InfoModal'
@@ -104,17 +105,21 @@ export function FormModal({
           <DialogDescription className="modal-description mb-4">{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
-          <label className="modal-input-label">{inputLabel}</label>
-          <Input
-            value={inputValue}
-            onChange={handleInputChange}
-            placeholder={inputPlaceholder}
-            error={!!error}
-            disabled={isLoading}
-          />
-          {error && <p className="text-sm modal-error-text">{error}</p>}
-          <label className="modal-input-label">{secondaryLabel}</label>
+        <div className="space-y-4">
+          <div className="grid gap-2">
+            <Label className="text-sm text-[var(--color-foreground-neutral-faded)]">{inputLabel}</Label>
+            <Input
+              value={inputValue}
+              onChange={handleInputChange}
+              placeholder={inputPlaceholder}
+              error={!!error}
+              disabled={isLoading}
+            />
+            {error && <p className="text-sm input-description-error">{error}</p>}
+          </div>
+          <div className="grid gap-2">
+            <Label className="text-sm text-[var(--color-foreground-neutral-faded)]">{secondaryLabel}</Label>
+          </div>
         </div>
 
         <DialogFooter className="mt-6">
@@ -123,6 +128,7 @@ export function FormModal({
           </Button>
           <Button
             variant="primary"
+            size="custom"
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
             title={isSubmitDisabled ? 'Please wait for validation to complete' : undefined}

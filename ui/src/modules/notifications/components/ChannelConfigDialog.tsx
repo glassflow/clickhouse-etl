@@ -156,7 +156,7 @@ export function ChannelConfigDialog({
             Cancel
           </Button>
           <Button
-            variant="primary" className="gap-2"
+            variant="primary" size="custom" className="gap-2"
             onClick={handleSave}
             disabled={!isValid || isSaving}
           >

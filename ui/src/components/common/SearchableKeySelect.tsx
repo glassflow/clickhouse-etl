@@ -59,7 +59,7 @@ export function SearchableKeySelect({
           onChange={(e) => setSearch(e.target.value)}
           onClick={() => setOpen(true)}
           onFocus={() => setOpen(true)}
-          className="w-full pr-10 input-regular input-border-regular"
+          className="w-full pr-10"
         />
         <ChevronDownIcon
           className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50 cursor-pointer"

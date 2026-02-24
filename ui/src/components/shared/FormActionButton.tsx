@@ -34,11 +34,11 @@ function FormActionButton({
 }) {
   return (
     <Button
-      className={cn(className, 'btn-text', isLoading && 'opacity-50')}
+      size="custom"
+      className={cn(className, isLoading && 'opacity-50')}
       type="button"
       variant={actionType === 'destructive' ? 'destructive' : actionType}
-      size="custom"
-      onClick={onClick || (() => {})}
+      onClick={onClick || (() => { })}
       disabled={disabled}
     >
       {isLoading && showLoadingIcon && (

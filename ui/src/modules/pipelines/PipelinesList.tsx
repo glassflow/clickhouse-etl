@@ -377,7 +377,7 @@ export function PipelinesList({
           )}
         </div>
 
-        <Button variant="primary" className="btn-text" onClick={handleCreate}>
+        <Button variant="primary" size="custom" onClick={handleCreate}>
           <CreateIcon className="action-icon" size={16} />
           New Pipeline
         </Button>

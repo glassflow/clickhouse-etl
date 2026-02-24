@@ -670,7 +670,7 @@ function OperandInput({ operand, availableFields, onChange, disabled = false, la
           onChange={(e) => handleValueChange(e.target.value)}
           placeholder="0"
           disabled={disabled}
-          className="h-10 input-regular input-border-regular"
+          className="h-10"
         />
       )}
     </div>

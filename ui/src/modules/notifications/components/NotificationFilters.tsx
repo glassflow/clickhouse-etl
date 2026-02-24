@@ -148,6 +148,7 @@ export function NotificationFilters() {
             <label className="text-xs text-[var(--text-secondary)] invisible font-medium">Apply</label>
             <Button
               variant="primary"
+              size="custom"
               onClick={handleApplyFilters}
               className={cn(
                 'px-2 text-xs',

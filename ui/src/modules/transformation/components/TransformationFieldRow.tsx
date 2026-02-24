@@ -513,10 +513,8 @@ export function TransformationFieldRow({
             onChange={handleOutputNameChange}
             placeholder="Field name"
             disabled={readOnly || isExpanded}
-            className={cn(
-              'input-regular input-border-regular h-8 text-sm w-full truncate',
-              errors?.outputFieldName && 'border-[var(--color-border-critical)]',
-            )}
+            error={!!errors?.outputFieldName}
+            className="h-8 text-sm w-full truncate"
           />
         </div>
 
@@ -617,10 +615,8 @@ export function TransformationFieldRow({
                 onChange={handleLocalOutputNameChange}
                 placeholder="Enter output field name"
                 disabled={readOnly}
-                className={cn(
-                  'input-regular input-border-regular',
-                  errors?.outputFieldName && 'border-[var(--color-border-critical)]',
-                )}
+                error={!!errors?.outputFieldName}
+                className="w-full"
               />
               {errors?.outputFieldName && (
                 <p className="text-xs text-[var(--color-foreground-critical)]">{errors.outputFieldName}</p>
@@ -639,7 +635,7 @@ export function TransformationFieldRow({
                   onValueChange={handleOutputTypeChange}
                   disabled={readOnly}
                 >
-                  <SelectTrigger className="input-regular input-border-regular w-full">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent className="select-content-custom">
@@ -744,7 +740,7 @@ export function TransformationFieldRow({
               <XMarkIcon className="h-4 w-4 mr-1" />
               Cancel
             </Button>
-            <Button size="sm" variant="primary" onClick={handleSave} disabled={readOnly || !canSaveField}>
+            <Button variant="primary" size="sm" onClick={handleSave} disabled={readOnly || !canSaveField}>
               <CheckIcon className="h-4 w-4 mr-1" />
               Save
             </Button>

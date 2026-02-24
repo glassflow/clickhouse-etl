@@ -86,7 +86,7 @@ export function QueryGroup({
 
           {/* Combinator Select */}
           <Select value={group.combinator} onValueChange={handleCombinatorChange} disabled={readOnly}>
-            <SelectTrigger className="w-24 h-8 text-xs input-regular input-border-regular">
+            <SelectTrigger className="w-24 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="select-content-custom">

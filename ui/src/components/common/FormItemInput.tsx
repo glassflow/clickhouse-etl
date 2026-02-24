@@ -30,7 +30,7 @@ export function FormItemInput({
         />
       </FormControl>
       {description && <FormDescription className="input-description-error">{description}</FormDescription>}
-      <FormMessage className="text-red-500" />
+      <FormMessage className="input-description-error" />
     </FormItem>
   )
 }

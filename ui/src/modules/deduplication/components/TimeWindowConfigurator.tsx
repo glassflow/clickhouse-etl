@@ -117,13 +117,14 @@ export function TimeWindowConfigurator({
               value={window}
               onChange={(e) => handleWindowChange(e.target.value)}
               min="1"
-              className={`w-full input-regular input-border-regular text-content ${error ? 'border-red-500' : ''}`}
+              error={!!error}
+              className="w-full text-content"
               disabled={readOnly}
             />
           </div>
           <div className="w-[65%] max-w-[65%]">
             <Select value={windowUnit} onValueChange={handleUnitChange} disabled={readOnly}>
-              <SelectTrigger id="window-unit" className="w-full input-regular input-border-regular text-content">
+              <SelectTrigger id="window-unit" className="w-full text-content">
                 <SelectValue placeholder="Select unit" />
               </SelectTrigger>
               <SelectContent className="select-content-custom">
@@ -136,7 +137,7 @@ export function TimeWindowConfigurator({
             </Select>
           </div>
         </div>
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm input-description-error">{error}</p>}
       </div>
     </div>
   )

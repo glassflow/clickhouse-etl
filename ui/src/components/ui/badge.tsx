@@ -9,15 +9,18 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          'border-transparent bg-[var(--color-background-neutral)] text-[var(--color-on-background-positive)] [a&]:hover:bg-[var(--color-background-positive)]/90',
+          'border-transparent bg-[var(--color-background-neutral)] text-[var(--color-foreground-neutral)] [a&]:hover:bg-[var(--color-background-positive-faded)]',
         secondary:
-          'border-transparent bg-[var(--color-background-neutral)] text-[var(--color-on-background-positive)] [a&]:hover:bg-[var(--color-background-positive)]/90',
+          'border-transparent bg-[var(--surface-bg-sunken)] text-[var(--color-foreground-neutral-faded)] [a&]:hover:bg-[var(--interactive-hover-bg)]',
         destructive:
-          'border-transparent bg-[var(--color-background-critical)] text-white [a&]:hover:bg-[var(--color-background-critical)]/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
-        outline: 'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
-        success: 'border-transparent bg-[var(--color-background-neutral)] text-[var(--color-rgb-positive)]',
-        warning: 'border-transparent bg-[var(--color-background-neutral)] text-[var(--color-rgb-warning)]',
-        error: 'border-transparent bg-[var(--color-background-neutral)] text-[var(--color-rgb-negative)]',
+          'border-transparent bg-[var(--color-background-critical-faded)] text-[var(--color-foreground-critical)] [a&]:hover:bg-[var(--color-background-critical)]/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
+        outline: 'text-foreground border-border [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
+        success:
+          'border-transparent bg-[var(--color-background-positive-faded)] text-[var(--color-foreground-positive)]',
+        warning:
+          'border-transparent bg-[var(--color-background-warning-faded)] text-[var(--color-foreground-warning)]',
+        error:
+          'border-transparent bg-[var(--color-background-critical-faded)] text-[var(--color-foreground-critical)]',
       },
     },
     defaultVariants: {

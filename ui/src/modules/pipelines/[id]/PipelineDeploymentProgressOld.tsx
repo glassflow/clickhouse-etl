@@ -188,12 +188,12 @@ const PipelineDeploymentProgress = ({
                     )}
 
                     <div className="flex space-x-3">
-                      <Button onClick={handleRetry} variant="primary" disabled={isPolling}>
+                      <Button onClick={handleRetry} variant="primary" size="custom" disabled={isPolling}>
                         <ArrowPathIcon className="w-4 h-4 mr-2" />
                         Retry Deployment
                       </Button>
 
-                      <Button onClick={handleNavigateToList} variant="secondary">
+                      <Button onClick={handleNavigateToList} variant="secondary" size="custom">
                         Back to Pipelines
                       </Button>
                     </div>

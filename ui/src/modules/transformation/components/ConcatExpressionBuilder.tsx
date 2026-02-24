@@ -302,7 +302,7 @@ export function ConcatExpressionBuilder({
                   onValueChange={(v) => handleSlotTypeChange(index, v as ConcatSlotType)}
                   disabled={disabled}
                 >
-                  <SelectTrigger className="input-regular input-border-regular w-28 h-8 text-sm">
+                  <SelectTrigger className="w-28 h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="select-content-custom">
@@ -333,7 +333,7 @@ export function ConcatExpressionBuilder({
                     onChange={(e) => handleLiteralChange(index, e.target.value)}
                     placeholder='Enter text (e.g., " " for space)'
                     disabled={disabled}
-                    className="input-regular input-border-regular flex-1 h-8 text-sm"
+                    className="flex-1 h-8 text-sm"
                   />
                 )}
               </div>
@@ -477,7 +477,7 @@ export function ConcatExpressionBuilder({
                                           }
                                           placeholder={argDef.description}
                                           disabled={disabled}
-                                          className="input-regular input-border-regular h-8 text-sm"
+                                          className="h-8 text-sm"
                                         />
                                       )}
                                     </div>

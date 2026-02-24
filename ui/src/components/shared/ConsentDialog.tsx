@@ -32,8 +32,8 @@ export function ConsentDialog({ showConsent, onConsentClick }: ConsentDialogProp
         </Button>
         <Button
           variant="primary"
-          type="button"
           size="custom"
+          type="button"
           onClick={() => onConsentClick(true)}
         >
           Confirm

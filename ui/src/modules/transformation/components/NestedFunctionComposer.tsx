@@ -584,7 +584,7 @@ export function NestedFunctionComposer({
                                     }
                                     placeholder={argDef.description}
                                     disabled={disabled}
-                                    className="input-regular input-border-regular h-8 text-sm"
+                                    className="h-8 text-sm"
                                   />
                                 )}
                               </div>

@@ -13,10 +13,10 @@ export default function PipelineError({ error, reset }: { error: Error & { diges
       <h2 className="text-2xl font-semibold text-foreground">Pipeline error</h2>
       <p className="text-sm text-content text-center max-w-md">{error.message || 'Failed to load pipeline.'}</p>
       <div className="flex gap-3">
-        <Button onClick={() => reset()} variant="primary" className="flex items-center gap-2">
+        <Button onClick={() => reset()} variant="primary" size="custom" className="flex items-center gap-2">
           Try again
         </Button>
-        <Button asChild variant="primary" className="flex items-center gap-2">
+        <Button asChild variant="primary" size="custom" className="flex items-center gap-2">
           <a href="/pipelines">Back to Pipelines</a>
         </Button>
       </div>

@@ -186,7 +186,7 @@ function TransformFunctionSelect({
                     onChange={(e) => handleArgChange(argIndex, e.target.value, 'literal')}
                     placeholder={argDef.description}
                     disabled={readOnly}
-                    className="flex-1 input-regular input-border-regular h-8 text-sm"
+                    className="flex-1 h-8 text-sm"
                   />
                 </div>
               )}

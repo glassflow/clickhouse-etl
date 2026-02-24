@@ -121,7 +121,7 @@ export function FieldColumnMapper({
         <div className="flex gap-2">
           <Button
             variant="secondary"
-            size="sm"
+            size="custom"
             onClick={onAutoMap}
             disabled={readOnly}
             className={cn(
@@ -195,7 +195,8 @@ export function FieldColumnMapper({
                         selectedOption={column.eventField}
                         onSelect={(option, source) => mapEventFieldToColumn(index, option || '', source)}
                         placeholder="Select event field"
-                        className={`w-full ${isRequiredField ? '[&_input]:border-red-500 [&_input]:border-2' : hasDefaultWarning ? '[&_input]:border-orange-500 [&_input]:border-2' : ''}`}
+                        className="w-full"
+                        error={isRequiredField ? 'This field is not nullable, enter a value' : ''}
                         primaryLabel={primaryTopicName}
                         secondaryLabel={secondaryTopicName}
                         open={openSelectIndex === index}
@@ -208,7 +209,8 @@ export function FieldColumnMapper({
                         selectedOption={column.eventField}
                         onSelect={(option) => mapEventFieldToColumn(index, option || '')}
                         placeholder="Select event field"
-                        className={`w-full ${isRequiredField ? '[&_input]:border-red-500 [&_input]:border-2' : hasDefaultWarning ? '[&_input]:border-orange-500 [&_input]:border-2' : ''}`}
+                        className="w-full"
+                        error={isRequiredField ? 'This field is not nullable, enter a value' : ''}
                         open={openSelectIndex === index}
                         onOpenChange={(isOpen) => handleSelectOpen(index, isOpen)}
                         disabled={readOnly}
@@ -220,9 +222,9 @@ export function FieldColumnMapper({
                     {hasAnyIssue && (
                       <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
                         {isRequiredField ? (
-                          <span className="text-red-600">This field is not nullable, enter a value</span>
+                          <span className="input-description-error">This field is not nullable, enter a value</span>
                         ) : hasDefaultWarning ? (
-                          <span className="text-orange-500">
+                          <span className="text-[var(--color-foreground-warning)]">
                             Has default value - will be auto-populated if unmapped
                           </span>
                         ) : (
@@ -237,7 +239,10 @@ export function FieldColumnMapper({
                     {typesReadOnly ? (
                       // Read-only display when types are verified in earlier step
                       <div
-                        className={`w-full h-10 px-3 flex items-center rounded-md bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)] text-content ${hasTypeError ? 'border-red-500 border-2' : ''}`}
+                        className={cn(
+                          'w-full h-10 px-3 flex items-center rounded-md bg-[var(--surface-bg-sunken)] border text-content',
+                          hasTypeError ? 'border-2 border-[var(--control-border-error)]' : 'border-[var(--surface-border)]'
+                        )}
                       >
                         {column.jsonType ?? ''}
                       </div>
@@ -249,7 +254,8 @@ export function FieldColumnMapper({
                         disabled={readOnly}
                       >
                         <SelectTrigger
-                          className={`w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content ${readOnly ? 'opacity-50 cursor-not-allowed' : ''} ${hasTypeError ? 'border-red-500 border-2' : ''}`}
+                          error={!!hasTypeError}
+                          className="w-full transition-colors text-content"
                         >
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>

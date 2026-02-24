@@ -52,7 +52,7 @@ export const SelectEnhanced = ({
           </SelectTrigger>
           <SelectContent className="select-content-custom">
             {error ? (
-              <div className="p-2 text-red-500">{error}</div>
+              <div className="p-2 input-description-error">{error}</div>
             ) : isLoading ? (
               <div className="p-2">Loading options...</div>
             ) : !options || options.length === 0 ? (

@@ -94,10 +94,8 @@ export function RawExpressionEditor({
           placeholder='Enter expression (e.g., toInt(getQueryParam(field, "param")) != 0 ? value1 : value2)'
           disabled={disabled}
           rows={3}
-          className={cn(
-            'input-regular input-border-regular font-mono text-sm resize-y',
-            error && 'border-[var(--color-border-critical)]',
-          )}
+          error={!!error}
+          className="font-mono text-sm resize-y"
         />
         {error && <p className="text-xs text-[var(--color-foreground-critical)] mt-1">{error}</p>}
       </div>

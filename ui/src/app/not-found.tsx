@@ -8,7 +8,7 @@ export default function NotFound() {
       <p className="text-sm text-content text-center max-w-md">
         The page you are looking for does not exist or has been moved.
       </p>
-      <Button asChild variant="primary" className="flex items-center gap-2">
+      <Button asChild variant="primary" size="custom" className="flex items-center gap-2">
         <Link href="/">Go to home</Link>
       </Button>
     </div>

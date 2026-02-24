@@ -1,5 +1,7 @@
 ## Styling Rules
 
+- **Primitives own styling:** Components in `components/ui/*` own all visual states. Consumers pass semantic props only (`variant`, `error`, `disabled`, `readOnly`); use `className` for layout only. See `.cursor/architecture/UI_AND_STYLING.md`.
+
 - **Theme**: Dark-only. Do not add light theme variants unless explicitly required.
 
 - **Token and design system**: Token truth lives in `docs/architecture/DESIGN_SYSTEM.md`. Do not add or assume tokens that are not defined there. Prefer semantic tokens; no hardcoded colors; card variants must follow the design system.
@@ -22,5 +24,6 @@
 
 ## References
 
+- UI and styling architecture (primitives, semantic props, forms): `.cursor/architecture/UI_AND_STYLING.md`
 - Theming Architecture: `.cursor/architecture/THEMING_ARCHITECTURE.md`
 - Design system (full token system, card variants, usage): `docs/architecture/DESIGN_SYSTEM.md`

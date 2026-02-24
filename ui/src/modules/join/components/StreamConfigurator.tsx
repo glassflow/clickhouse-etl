@@ -47,8 +47,8 @@ export function StreamConfigurator({
               >
                 <SelectTrigger
                   id={`join-key-${streamIndex}`}
-                  className={`w-full input-regular input-border-regular text-content ${errors.joinKey ? 'border-red-500' : ''
-                    }`}
+                  error={!!errors.joinKey}
+                  className="w-full text-content"
                 >
                   <SelectValue placeholder="Select join key" />
                 </SelectTrigger>
@@ -60,7 +60,7 @@ export function StreamConfigurator({
                   ))}
                 </SelectContent>
               </Select>
-              {errors.joinKey && <p className="text-sm text-red-500">{errors.joinKey}</p>}
+              {errors.joinKey && <p className="text-sm input-description-error">{errors.joinKey}</p>}
             </div>
           </div>
         </div>
@@ -78,8 +78,8 @@ export function StreamConfigurator({
               readOnly={readOnly}
             />
           </div>
-          {errors.joinTimeWindowValue && <p className="text-sm text-red-500">{errors.joinTimeWindowValue}</p>}
-          {errors.joinTimeWindowUnit && <p className="text-sm text-red-500">{errors.joinTimeWindowUnit}</p>}
+          {errors.joinTimeWindowValue && <p className="text-sm input-description-error">{errors.joinTimeWindowValue}</p>}
+          {errors.joinTimeWindowUnit && <p className="text-sm input-description-error">{errors.joinTimeWindowUnit}</p>}
         </div>
       </div>
     </div>

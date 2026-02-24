@@ -313,7 +313,7 @@ export function WaterfallExpressionBuilder({
                       onValueChange={(v) => handleSlotTypeChange(index, v as WaterfallSlotType)}
                       disabled={disabled}
                     >
-                      <SelectTrigger className="input-regular input-border-regular w-32 h-8 text-sm">
+                      <SelectTrigger className="w-32 h-8 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="select-content-custom">
@@ -348,7 +348,7 @@ export function WaterfallExpressionBuilder({
                           onValueChange={(v) => handleLiteralTypeChange(index, v as 'string' | 'number')}
                           disabled={disabled}
                         >
-                          <SelectTrigger className="input-regular input-border-regular w-24 h-8 text-sm">
+                          <SelectTrigger className="w-24 h-8 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="select-content-custom">
@@ -365,7 +365,7 @@ export function WaterfallExpressionBuilder({
                           onChange={(e) => handleLiteralChange(index, e.target.value)}
                           placeholder={slot.literalType === 'number' ? 'Enter number' : 'Enter value'}
                           disabled={disabled}
-                          className="input-regular input-border-regular flex-1 h-8 text-sm"
+                          className="flex-1 h-8 text-sm"
                           type={slot.literalType === 'number' ? 'number' : 'text'}
                         />
                       </>
@@ -416,7 +416,7 @@ export function WaterfallExpressionBuilder({
                               onChange={(e) => handleFunctionArgChange(index, argIndex, e.target.value, 'literal')}
                               placeholder={argDef.description}
                               disabled={disabled}
-                              className="input-regular input-border-regular flex-1 h-8 text-sm"
+                              className="flex-1 h-8 text-sm"
                             />
                           )}
                         </div>

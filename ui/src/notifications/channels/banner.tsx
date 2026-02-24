@@ -90,11 +90,12 @@ export function Banner({ options, onDismiss }: BannerProps) {
                 onDismiss()
               }}
               variant="primary"
+              size="custom"
             >
               {action.label}
             </Button>
           )}
-          <Button onClick={onDismiss} variant="tertiary">
+          <Button onClick={onDismiss} variant="tertiary" size="custom">
             Close
           </Button>
         </div>
