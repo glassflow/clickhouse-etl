@@ -59,7 +59,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
   // Track if this is the initial mount
   const isInitialMount = useRef(true)
-  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Cleanup polling timer
   const clearPollingTimer = useCallback(() => {

@@ -35,7 +35,7 @@ interface PipelineTracker {
   options: PipelineTrackingOptions
   currentStatus: PipelineStatus | null
   elapsedTime: number
-  timeoutId: NodeJS.Timeout | null
+  timeoutId: ReturnType<typeof setTimeout> | null
   isActive: boolean
   errorCount: number
   lastErrorTime: number
@@ -57,7 +57,7 @@ export interface ManagerStats {
 export class PipelineStatusManager {
   private static instance: PipelineStatusManager | null = null
   private trackers = new Map<string, PipelineTracker>()
-  private backendSyncInterval: NodeJS.Timeout | null = null
+  private backendSyncInterval: ReturnType<typeof setInterval> | null = null
   private stats: ManagerStats = {
     activeTrackers: 0,
     totalPollingOperations: 0,

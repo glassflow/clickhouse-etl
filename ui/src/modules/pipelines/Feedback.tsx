@@ -40,7 +40,7 @@ export const Feedback = ({ pipelineStatus }: { pipelineStatus: string }) => {
 
   // Handle showing feedback with delay and status check
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     const shouldShowFeedback = () => {
       return (

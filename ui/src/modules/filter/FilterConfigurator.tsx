@@ -102,7 +102,7 @@ export function FilterConfigurator({
 
   // Track previous config key to avoid infinite loops
   const prevConfigKeyRef = useRef<string>('')
-  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Helper to serialize the filter tree for comparison
   const serializeGroup = (group: FilterGroup): any => ({
