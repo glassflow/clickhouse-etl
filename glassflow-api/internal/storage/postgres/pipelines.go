@@ -829,6 +829,7 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
 		StreamID:                   p.Sink.StreamID,
+		SourceID:                   p.Sink.SourceID,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 		Type:                       p.Sink.Type,
 	}
@@ -844,7 +845,7 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 			return fmt.Errorf("schema version for source ID '%s' not found", p.Sink.SourceID)
 		}
 
-		err = s.updateSinkConfig(ctx, tx, p.ID, p.Sink.SourceID, schema.VersionID, p.Sink.Config)
+		err = s.upsertSinkConfig(ctx, tx, p.ID, p.Sink.SourceID, schema.VersionID, p.Sink.Config)
 		if err != nil {
 			return fmt.Errorf("update sink config: %w", err)
 		}
@@ -1185,20 +1186,20 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
 			return fmt.Errorf("get join configs by output version: %w", err)
 		}
 
-		joinRules := make(map[string]models.JoinRule)
+		joinRules := make(map[string]struct{})
+		uniqueRules := make([]models.JoinRule, 0)
 
 		for _, jCfg := range jCfgs {
 			for _, rule := range jCfg.Config {
 				_, exists := joinRules[rule.OutputName]
 				if !exists {
-					joinRules[rule.OutputName] = rule
+					joinRules[rule.OutputName] = struct{}{}
+					uniqueRules = append(uniqueRules, rule)
 				}
 			}
 		}
 
-		for _, rule := range joinRules {
-			pipelineCfg.Join.Config = append(pipelineCfg.Join.Config, rule)
-		}
+		pipelineCfg.Join.Config = uniqueRules
 
 		outputSchema, err := s.getSchemaVersion(ctx, tx, pipelineCfg.ID, pipelineCfg.Join.ID, joinSchemaVersionID)
 		if err != nil {

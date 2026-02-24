@@ -94,19 +94,29 @@ func (s *PostgresStorage) insertJoinConfig(ctx context.Context, tx pgx.Tx, pipel
 	return nil
 }
 
-func (s *PostgresStorage) updateJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.JoinRule) error {
+func (s *PostgresStorage) upsertJoinConfig(
+	ctx context.Context,
+	tx pgx.Tx,
+	pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID string,
+	config []models.JoinRule,
+) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("marshal join config: %w", err)
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE join_configs
-		SET config = $1, updated_at = NOW()
-		WHERE pipeline_id = $2 AND source_id = $3 AND schema_version_id = $4
-	`, configJSON, pipelineID, sourceID, sourceSchemaVersionID)
+		INSERT INTO join_configs (
+			pipeline_id, source_id, schema_version_id, join_id, output_schema_version_id, config
+		)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (pipeline_id, source_id, schema_version_id, join_id, output_schema_version_id)
+		DO UPDATE
+		SET config = EXCLUDED.config,
+		    updated_at = NOW()
+	`, pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID, configJSON)
 	if err != nil {
-		return fmt.Errorf("update join config: %w", err)
+		return fmt.Errorf("upsert join config: %w", err)
 	}
 
 	return nil
@@ -207,19 +217,27 @@ func (s *PostgresStorage) insertSinkConfig(ctx context.Context, tx pgx.Tx, pipel
 	return nil
 }
 
-func (s *PostgresStorage) updateSinkConfig(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, sourceSchemaVersionID string, config []models.Mapping) error {
+func (s *PostgresStorage) upsertSinkConfig(
+	ctx context.Context,
+	tx pgx.Tx,
+	pipelineID, sourceID, sourceSchemaVersionID string,
+	config []models.Mapping,
+) error {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("marshal sink config: %w", err)
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE sink_configs
-		SET config = $1, updated_at = NOW()
-		WHERE pipeline_id = $2 AND source_id = $3 AND schema_version_id = $4
-	`, configJSON, pipelineID, sourceID, sourceSchemaVersionID)
+		INSERT INTO sink_configs (pipeline_id, source_id, schema_version_id, config)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (pipeline_id, source_id, schema_version_id)
+		DO UPDATE
+		SET config = EXCLUDED.config,
+		    updated_at = NOW()
+	`, pipelineID, sourceID, sourceSchemaVersionID, configJSON)
 	if err != nil {
-		return fmt.Errorf("update sink config: %w", err)
+		return fmt.Errorf("upsert sink config: %w", err)
 	}
 
 	return nil
