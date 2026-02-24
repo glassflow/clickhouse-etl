@@ -427,90 +427,40 @@ func (s *PostgresStorage) upsertJoinTransformationSchemaAndConfig(
 		return fmt.Errorf("find output schema version for join transformation")
 	}
 
-	var outputSchemaVersionID string
-	outputSchemaCreated := false
+	// Compute target join output schema version once for this edit.
+	outputSchemaVersionID, err := s.upsertSchemaVersion(
+		ctx,
+		tx,
+		p.ID,
+		p.Join.ID,
+		outputSchema.VersionID,
+		outputSchema.Fields,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert schema version for join transformation: %w", err)
+	}
 
+	outputSchema.VersionID = outputSchemaVersionID
+	p.SchemaVersions[p.Join.ID] = outputSchema
+
+	// Upsert config for every join source against the SAME output schema version.
 	for _, src := range p.Join.Sources {
 		sourceSchema, found := p.SchemaVersions[src.SourceID]
 		if !found {
-			return fmt.Errorf("schema version for join transformation source not found")
+			return fmt.Errorf("schema version for join transformation source '%s' not found", src.SourceID)
 		}
 
-		existingConfig, err := s.getJoinConfig(
+		if err := s.upsertJoinConfig(
 			ctx,
 			tx,
 			p.ID,
 			src.SourceID,
 			sourceSchema.VersionID,
-		)
-
-		if errors.Is(err, models.ErrRecordNotFound) {
-			// Config doesn't exist - INSERT
-			if !outputSchemaCreated {
-				outputSchemaVersionID, err = s.upsertSchemaVersion(
-					ctx,
-					tx,
-					p.ID,
-					p.Join.ID,
-					outputSchema.VersionID,
-					outputSchema.Fields,
-				)
-				if err != nil {
-					return fmt.Errorf("upsert schema version for join transformation: %w", err)
-				}
-				outputSchema.VersionID = outputSchemaVersionID
-				p.SchemaVersions[p.Join.ID] = outputSchema
-				outputSchemaCreated = true
-			}
-
-			err = s.insertJoinConfig(
-				ctx,
-				tx,
-				p.ID,
-				src.SourceID,
-				sourceSchema.VersionID,
-				p.Join.ID,
-				outputSchemaVersionID,
-				p.Join.Config,
-			)
-			if err != nil {
-				return fmt.Errorf("insert join config: %w", err)
-			}
-		} else if err != nil {
-			return fmt.Errorf("get join config: %w", err)
-		} else {
-			// Config exists - UPDATE using existing output schema version ID
-			outputSchemaVersionID = existingConfig.OutputSchemaVersionID
-
-			err = s.updateJoinConfig(
-				ctx,
-				tx,
-				p.ID,
-				src.SourceID,
-				sourceSchema.VersionID,
-				p.Join.Config,
-			)
-			if err != nil {
-				return fmt.Errorf("update join config: %w", err)
-			}
-
-			if !outputSchemaCreated {
-				outputSchemaVersionID, err = s.upsertSchemaVersion(
-					ctx,
-					tx,
-					p.ID,
-					p.Join.ID,
-					outputSchema.VersionID,
-					outputSchema.Fields,
-				)
-				if err != nil {
-					return fmt.Errorf("upsert schema version for join transformation: %w", err)
-				}
-
-				outputSchema.VersionID = outputSchemaVersionID
-				p.SchemaVersions[p.Join.ID] = outputSchema
-				outputSchemaCreated = true
-			}
+			p.Join.ID,
+			outputSchemaVersionID,
+			p.Join.Config,
+		); err != nil {
+			return err
 		}
 	}
 
