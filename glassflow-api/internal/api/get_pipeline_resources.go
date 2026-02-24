@@ -17,8 +17,8 @@ import (
 var PipelineResourcesImmutableFields = []string{
 	"nats/stream/maxAge",
 	"nats/stream/maxBytes",
-	"dedup/resources/storage/size",
-	"join/resources/replicas",
+	"transform/storage/size",
+	"join/replicas",
 }
 
 func GetPipelineResourcesDocs() huma.Operation {
