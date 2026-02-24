@@ -10,7 +10,8 @@
     "lint": "next lint",
     "test": "vitest",
     "test:run": "vitest run",
-    "sync-tokens": "node scripts/sync-tokens-to-figma/sync-tokens-to-figma.mjs"
+    "sync-tokens": "node scripts/sync-tokens-to-figma/sync-tokens-to-figma.mjs",
+    "extract-button-tokens": "node scripts/sync-tokens-to-figma/extract-button-tokens.mjs"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.12.0",

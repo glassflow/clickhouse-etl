@@ -60,7 +60,7 @@
 .modal-title {
   /* Typography - Featured 2/Bold from Figma */
   color: var(--color-foreground-neutral);
-  font-family: var(--font-family-featured-2);
+  font-family: var(--font-family-body);
   font-size: var(--font-size-featured-2);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-featured-2);
@@ -110,7 +110,7 @@
 
   /* Typography - Body 3/Regular from Figma */
   color: var(--color-foreground-neutral);
-  font-family: var(--font-family-body-3);
+  font-family: var(--font-family-body);
   font-size: var(--font-size-body-3);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-body-3);
@@ -141,7 +141,7 @@
 /* Modal error text */
 .modal-error-text {
   color: var(--control-fg-error);
-  font-family: var(--font-family-caption-1);
+  font-family: var(--font-family-body);
   font-size: var(--font-size-caption-1);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-caption-1);
@@ -150,7 +150,7 @@
 /* Input field label - Body 3/Medium from Figma */
 .modal-input-label {
   color: var(--color-foreground-neutral-faded);
-  font-family: var(--font-family-body-3);
+  font-family: var(--font-family-body);
   font-size: var(--font-size-body-3);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-body-3);
@@ -162,7 +162,7 @@
 /* Input field helper text - Caption 1/Medium from Figma */
 .modal-input-helper {
   color: var(--color-foreground-neutral-faded);
-  font-family: var(--font-family-caption-1);
+  font-family: var(--font-family-body);
   font-size: var(--font-size-caption-1);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-caption-1);
@@ -176,7 +176,7 @@
 /* Modal text content */
 .modal-text {
   color: var(--color-foreground-neutral-faded);
-  font-family: var(--font-family-body-3);
+  font-family: var(--font-family-body);
   font-size: var(--font-size-body-3);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-body-3);
@@ -205,7 +205,7 @@
 
 .modal-checkbox-label {
   color: var(--color-foreground-neutral-faded);
-  font-family: var(--font-family-body-3);
+  font-family: var(--font-family-body);
   font-size: var(--font-size-body-3);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-body-3);

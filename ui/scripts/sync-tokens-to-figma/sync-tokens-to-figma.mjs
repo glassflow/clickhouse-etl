@@ -2,7 +2,7 @@
 /**
  * Sync design tokens from the app theme CSS to Figma variables.
  *
- * 1. Extracts and resolves tokens from src/themes (base.css, semantic-tokens, dark/light theme).
+ * 1. Extracts and resolves tokens from src/themes (base.css, theme.css dark-only).
  * 2. Optionally pushes values to Figma via the Variables REST API.
  *
  * Usage:

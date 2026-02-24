@@ -119,7 +119,7 @@ export function RawExpressionEditor({
           <button
             type="button"
             onClick={() => setShowFieldsRef(!showFieldsRef)}
-            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-bg-hover)]"
+            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--interactive-hover-bg)]"
           >
             <span>Available Fields ({availableFields.length})</span>
             {showFieldsRef ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
@@ -154,7 +154,7 @@ export function RawExpressionEditor({
           <button
             type="button"
             onClick={() => setShowFunctionsRef(!showFunctionsRef)}
-            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-bg-hover)]"
+            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--interactive-hover-bg)]"
           >
             <span>Available Functions ({TRANSFORMATION_FUNCTIONS.length})</span>
             {showFunctionsRef ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
