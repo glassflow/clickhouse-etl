@@ -402,6 +402,10 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
 	}
 
+	if isDedupEnabled(*newCfg) && transformReplicas(currentPipeline.PipelineResources.Transform) != transformReplicas(newCfg.PipelineResources.Transform) {
+		return fmt.Errorf("transform replicas cannot be changed when deduplication is enabled")
+	}
+
 	// Preserve the original created_at timestamp
 	newCfg.CreatedAt = currentPipeline.CreatedAt
 
@@ -421,6 +425,22 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 
 	p.log.InfoContext(ctx, "pipeline edit initiated successfully", "pipeline_id", pid)
 	return nil
+}
+
+func transformReplicas(c *models.ComponentResources) int64 {
+	if c == nil || c.Replicas == nil {
+		return 1
+	}
+	return *c.Replicas
+}
+
+func isDedupEnabled(cfg models.PipelineConfig) bool {
+	for _, topic := range cfg.Ingestor.KafkaTopics {
+		if topic.Deduplication.Enabled {
+			return true
+		}
+	}
+	return false
 }
 
 // GetOrchestratorType implements PipelineService.
