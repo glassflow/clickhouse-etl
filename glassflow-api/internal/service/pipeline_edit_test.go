@@ -14,6 +14,8 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
 
+func int64ptr(v int64) *int64 { return &v }
+
 // MockOrchestrator is a mock implementation of Orchestrator
 type MockOrchestrator struct {
 	mock.Mock
@@ -228,6 +230,100 @@ func TestEditPipeline_PipelineNotStopped(t *testing.T) {
 
 	mockStore.AssertExpectations(t)
 	mockOrchestrator.AssertNotCalled(t, "EditPipeline")
+}
+
+func TestEditPipeline_TransformReplicasCannotChangeWhenDedupEnabled(t *testing.T) {
+	mockOrchestrator := new(MockOrchestrator)
+	mockStore := new(MockPipelineStore)
+	logger := slog.Default()
+
+	pipelineService := &PipelineService{
+		orchestrator: mockOrchestrator,
+		db:           mockStore,
+		log:          logger,
+	}
+
+	pipelineID := "test-pipeline-123"
+	currentPipeline := &models.PipelineConfig{
+		ID:   pipelineID,
+		Name: "Current Pipeline",
+		Status: models.PipelineHealth{
+			OverallStatus: internal.PipelineStatusStopped,
+		},
+		PipelineResources: models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: int64ptr(1)},
+		},
+	}
+
+	newConfig := &models.PipelineConfig{
+		ID:   pipelineID,
+		Name: "Updated Pipeline",
+		Ingestor: models.IngestorComponentConfig{
+			KafkaTopics: []models.KafkaTopicsConfig{
+				{Deduplication: models.DeduplicationConfig{Enabled: true}},
+			},
+		},
+		PipelineResources: models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: int64ptr(2)},
+		},
+	}
+
+	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
+
+	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "transform replicas cannot be changed when deduplication is enabled")
+	mockStore.AssertExpectations(t)
+	mockStore.AssertNotCalled(t, "UpdatePipeline")
+	mockOrchestrator.AssertNotCalled(t, "EditPipeline")
+}
+
+func TestEditPipeline_TransformReplicasCanChangeWhenDedupDisabled(t *testing.T) {
+	mockOrchestrator := new(MockOrchestrator)
+	mockStore := new(MockPipelineStore)
+	logger := slog.Default()
+
+	pipelineService := &PipelineService{
+		orchestrator: mockOrchestrator,
+		db:           mockStore,
+		log:          logger,
+	}
+
+	pipelineID := "test-pipeline-123"
+	currentPipeline := &models.PipelineConfig{
+		ID:   pipelineID,
+		Name: "Current Pipeline",
+		Status: models.PipelineHealth{
+			OverallStatus: internal.PipelineStatusStopped,
+		},
+		PipelineResources: models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: int64ptr(1)},
+		},
+	}
+
+	newConfig := &models.PipelineConfig{
+		ID:   pipelineID,
+		Name: "Updated Pipeline",
+		Ingestor: models.IngestorComponentConfig{
+			KafkaTopics: []models.KafkaTopicsConfig{
+				{Deduplication: models.DeduplicationConfig{Enabled: false}},
+			},
+		},
+		PipelineResources: models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: int64ptr(2)},
+		},
+	}
+
+	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
+	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(nil)
+	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(nil)
+
+	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
+
+	assert.NoError(t, err)
+	mockStore.AssertExpectations(t)
+	mockOrchestrator.AssertExpectations(t)
 }
 
 func TestEditPipeline_UpdatePipelineFails(t *testing.T) {

@@ -257,6 +257,14 @@ func (h *handler) updatePipelineResources(ctx context.Context, input *UpdatePipe
 		}
 	}
 
+	if err := validateTransformReplicasImmutability(old.Resources, newResources, isDedupEnabled(pipelineConfig)); err != nil {
+		return nil, &ErrorDetail{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "unprocessable_entity",
+			Message: err.Error(),
+		}
+	}
+
 	if err := h.pipelineService.UpdatePipelineResources(ctx, input.ID, newResources); err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -314,4 +322,25 @@ func ValidateImmutabilityPipelineResources(old, new models.PipelineResources) er
 		}
 	}
 	return nil
+}
+
+func validateTransformReplicasImmutability(old, new models.PipelineResources, dedupEnabled bool) error {
+	if !dedupEnabled {
+		return nil
+	}
+
+	if componentReplicas(old.Transform) != componentReplicas(new.Transform) {
+		return fmt.Errorf("transform replicas cannot be changed when deduplication is enabled")
+	}
+
+	return nil
+}
+
+func isDedupEnabled(cfg models.PipelineConfig) bool {
+	for _, topic := range cfg.Ingestor.KafkaTopics {
+		if topic.Deduplication.Enabled {
+			return true
+		}
+	}
+	return false
 }

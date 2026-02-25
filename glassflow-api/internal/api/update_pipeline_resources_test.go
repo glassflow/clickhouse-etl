@@ -196,3 +196,32 @@ func TestValidateResourceConfig_JoinReplicaRules(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateTransformReplicasImmutability(t *testing.T) {
+	t.Run("allows changes when dedup disabled", func(t *testing.T) {
+		old := models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: replicas(1)},
+		}
+		newResources := models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: replicas(3)},
+		}
+
+		if err := validateTransformReplicasImmutability(old, newResources, false); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("rejects changes when dedup enabled", func(t *testing.T) {
+		old := models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: replicas(1)},
+		}
+		newResources := models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: replicas(3)},
+		}
+
+		err := validateTransformReplicasImmutability(old, newResources, true)
+		if err == nil {
+			t.Fatal("expected validation error, got nil")
+		}
+	})
+}
