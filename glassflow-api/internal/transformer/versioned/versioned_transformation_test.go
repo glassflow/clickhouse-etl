@@ -24,7 +24,7 @@ func setupPostgres(t *testing.T) (*postgres.PostgresStorage, *pgxpool.Pool, *tes
 	container, err := testutils.StartPostgresContainer(ctx)
 	require.NoError(t, err)
 
-	storage, err := postgres.NewPostgres(ctx, container.GetDSN(), nil, nil)
+	storage, err := postgres.NewPostgres(ctx, container.GetDSN(), nil, nil, internal.RoleDeduplicator)
 	require.NoError(t, err)
 
 	testPool, err := pgxpool.New(ctx, container.GetDSN())

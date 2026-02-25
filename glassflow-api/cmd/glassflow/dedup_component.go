@@ -227,7 +227,7 @@ func statelessTransformerProcessorFromConfig(
 		return nil, fmt.Errorf("load encryption key: %w", err)
 	}
 
-	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey)
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey, internal.RoleDeduplicator)
 	if err != nil {
 		return nil, fmt.Errorf("create postgres store for pipelines: %w", err)
 	}
