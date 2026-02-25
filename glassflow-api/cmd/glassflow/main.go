@@ -192,7 +192,7 @@ func mainErr(cfg *config, role models.Role) error {
 		return fmt.Errorf("load encryption key: %w", err)
 	}
 
-	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey)
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey, role)
 	if err != nil {
 		return fmt.Errorf("create postgres store for pipelines: %w", err)
 	}
