@@ -6,6 +6,10 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
+func replicas(v int64) *int64 {
+	return &v
+}
+
 func baseResources() models.PipelineResources {
 	replicas := int64(2)
 	return models.PipelineResources{
@@ -114,4 +118,81 @@ func TestValidatePipelineResources_DetectsImmutableFieldChanges(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateResourceConfig_ReplicaHierarchy(t *testing.T) {
+	t.Run("ingestor replicas must be >= transform replicas", func(t *testing.T) {
+		r := models.PipelineResources{
+			Ingestor: &models.IngestorResources{
+				Base: &models.ComponentResources{Replicas: replicas(1)},
+			},
+			Transform: &models.ComponentResources{Replicas: replicas(2)},
+			Sink:      &models.ComponentResources{Replicas: replicas(1)},
+		}
+		err := ValidateResourceConfig(r, false)
+		if err == nil {
+			t.Fatal("expected validation error, got nil")
+		}
+	})
+
+	t.Run("transform replicas must be >= sink replicas", func(t *testing.T) {
+		r := models.PipelineResources{
+			Ingestor: &models.IngestorResources{
+				Base: &models.ComponentResources{Replicas: replicas(3)},
+			},
+			Transform: &models.ComponentResources{Replicas: replicas(1)},
+			Sink:      &models.ComponentResources{Replicas: replicas(2)},
+		}
+		err := ValidateResourceConfig(r, false)
+		if err == nil {
+			t.Fatal("expected validation error, got nil")
+		}
+	})
+
+	t.Run("valid hierarchy passes", func(t *testing.T) {
+		r := models.PipelineResources{
+			Ingestor: &models.IngestorResources{
+				Base: &models.ComponentResources{Replicas: replicas(3)},
+			},
+			Transform: &models.ComponentResources{Replicas: replicas(2)},
+			Sink:      &models.ComponentResources{Replicas: replicas(1)},
+		}
+		if err := ValidateResourceConfig(r, false); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+}
+
+func TestValidateResourceConfig_JoinReplicaRules(t *testing.T) {
+	t.Run("join replicas must be 1 when join enabled", func(t *testing.T) {
+		r := models.PipelineResources{
+			Join: &models.ComponentResources{Replicas: replicas(2)},
+			Sink: &models.ComponentResources{Replicas: replicas(2)},
+		}
+		err := ValidateResourceConfig(r, true)
+		if err == nil {
+			t.Fatal("expected validation error, got nil")
+		}
+	})
+
+	t.Run("sink replicas must match join replicas when join enabled", func(t *testing.T) {
+		r := models.PipelineResources{
+			Join: &models.ComponentResources{Replicas: replicas(1)},
+			Sink: &models.ComponentResources{Replicas: replicas(2)},
+		}
+		err := ValidateResourceConfig(r, true)
+		if err == nil {
+			t.Fatal("expected validation error, got nil")
+		}
+	})
+
+	t.Run("join enabled with matching replicas passes", func(t *testing.T) {
+		r := models.PipelineResources{
+			Join: &models.ComponentResources{Replicas: replicas(1)},
+			Sink: &models.ComponentResources{Replicas: replicas(1)},
+		}
+		if err := ValidateResourceConfig(r, true); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
 }

@@ -45,6 +45,75 @@ func ValidateResourceQuantities(r models.PipelineResources) error {
 	return nil
 }
 
+func ValidateResourceConfig(r models.PipelineResources, joinEnabled bool) error {
+	if err := ValidateResourceQuantities(r); err != nil {
+		return err
+	}
+
+	return validateReplicaConstraints(r, joinEnabled)
+}
+
+func validateReplicaConstraints(r models.PipelineResources, joinEnabled bool) error {
+	transformReplicas := componentReplicas(r.Transform)
+	sinkReplicas := componentReplicas(r.Sink)
+
+	if transformReplicas < sinkReplicas {
+		return fmt.Errorf("transform replicas (%d) must be greater than or equal to sink replicas (%d)", transformReplicas, sinkReplicas)
+	}
+
+	for _, ingestorComp := range ingestorComponents(r.Ingestor) {
+		if ingestorComp.replicas < transformReplicas {
+			return fmt.Errorf("%s replicas (%d) must be greater than or equal to transform replicas (%d)", ingestorComp.name, ingestorComp.replicas, transformReplicas)
+		}
+	}
+
+	if !joinEnabled {
+		return nil
+	}
+
+	joinReplicas := componentReplicas(r.Join)
+	if joinReplicas != 1 {
+		return fmt.Errorf("join replicas must be 1 when join is enabled")
+	}
+
+	if sinkReplicas != joinReplicas {
+		return fmt.Errorf("sink replicas (%d) must match join replicas (%d) when join is enabled", sinkReplicas, joinReplicas)
+	}
+
+	return nil
+}
+
+type namedReplicaCount struct {
+	name     string
+	replicas int64
+}
+
+func ingestorComponents(ingestor *models.IngestorResources) []namedReplicaCount {
+	if ingestor == nil {
+		return []namedReplicaCount{{name: "ingestor.base", replicas: 1}}
+	}
+
+	components := make([]namedReplicaCount, 0, 3)
+	if ingestor.Base != nil || (ingestor.Left == nil && ingestor.Right == nil) {
+		components = append(components, namedReplicaCount{name: "ingestor.base", replicas: componentReplicas(ingestor.Base)})
+	}
+	if ingestor.Left != nil {
+		components = append(components, namedReplicaCount{name: "ingestor.left", replicas: componentReplicas(ingestor.Left)})
+	}
+	if ingestor.Right != nil {
+		components = append(components, namedReplicaCount{name: "ingestor.right", replicas: componentReplicas(ingestor.Right)})
+	}
+
+	return components
+}
+
+func componentReplicas(component *models.ComponentResources) int64 {
+	if component == nil || component.Replicas == nil {
+		return 1
+	}
+	return *component.Replicas
+}
+
 func validateNatsResources(n *models.NatsResources) error {
 	if n == nil || n.Stream == nil {
 		return nil
@@ -132,14 +201,6 @@ type UpdatePipelineResourcesResponse struct {
 func (h *handler) updatePipelineResources(ctx context.Context, input *UpdatePipelineResourcesInput) (*UpdatePipelineResourcesResponse, error) {
 	newResources := input.Body.PipelineResources
 
-	if err := ValidateResourceQuantities(newResources); err != nil {
-		return nil, &ErrorDetail{
-			Status:  http.StatusUnprocessableEntity,
-			Code:    "unprocessable_entity",
-			Message: err.Error(),
-		}
-	}
-
 	old, err := h.pipelineService.GetPipelineResources(ctx, input.ID)
 	if err != nil {
 		switch {
@@ -157,6 +218,34 @@ func (h *handler) updatePipelineResources(ctx context.Context, input *UpdatePipe
 				Message: "unable to load pipeline resources",
 				Details: map[string]any{"pipeline_id": input.ID, "error": err.Error()},
 			}
+		}
+	}
+
+	pipelineConfig, err := h.pipelineService.GetPipeline(ctx, input.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrPipelineNotExists):
+			return nil, &ErrorDetail{
+				Status:  http.StatusNotFound,
+				Code:    "not_found",
+				Message: fmt.Sprintf("pipeline %q not found", input.ID),
+				Details: map[string]any{"pipeline_id": input.ID},
+			}
+		default:
+			return nil, &ErrorDetail{
+				Status:  http.StatusInternalServerError,
+				Code:    "internal_error",
+				Message: "unable to load pipeline",
+				Details: map[string]any{"pipeline_id": input.ID, "error": err.Error()},
+			}
+		}
+	}
+
+	if err := ValidateResourceConfig(newResources, pipelineConfig.Join.Enabled); err != nil {
+		return nil, &ErrorDetail{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "unprocessable_entity",
+			Message: err.Error(),
 		}
 	}
 

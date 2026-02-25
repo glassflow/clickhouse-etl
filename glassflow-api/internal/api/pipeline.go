@@ -544,6 +544,10 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		}
 	}
 
+	if err := ValidateResourceConfig(pipeline.PipelineResources, pipeline.Join.Enabled); err != nil {
+		return zero, fmt.Errorf("invalid pipeline resources: %w", err)
+	}
+
 	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)
 	if err != nil {
 		return zero, fmt.Errorf("create ingestor component config: %w", err)
