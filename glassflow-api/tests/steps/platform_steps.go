@@ -9,6 +9,7 @@ import (
 
 	"github.com/cucumber/godog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
@@ -95,7 +96,7 @@ func (p *PlatformSteps) setupServices() error {
 	}
 
 	// Create storage
-	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil)
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil, internal.RoleETL)
 	if err != nil {
 		return fmt.Errorf("create postgres storage: %w", err)
 	}

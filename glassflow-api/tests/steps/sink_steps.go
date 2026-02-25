@@ -72,7 +72,7 @@ func (s *SinkTestSuite) SetupResources() error {
 
 	// Create pipeline store
 	if s.pipelineStore == nil {
-		db, err := storage.NewPipelineStore(context.Background(), s.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil)
+		db, err := storage.NewPipelineStore(context.Background(), s.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil, internal.RoleSink)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("create pipeline store: %w", err))
 		}

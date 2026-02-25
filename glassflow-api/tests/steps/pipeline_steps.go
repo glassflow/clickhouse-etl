@@ -14,6 +14,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
@@ -399,7 +400,7 @@ func (p *PipelineSteps) setupPipelineService() error {
 		}
 	}
 
-	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil)
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil, internal.RoleETL)
 	if err != nil {
 		return fmt.Errorf("create postgres pipeline storage: %w", err)
 	}

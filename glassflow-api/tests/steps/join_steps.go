@@ -10,6 +10,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
@@ -68,7 +69,7 @@ func (j *JoinTestSuite) SetupResources() error {
 	// Create pipeline store
 	if j.pipelineStore == nil {
 		j.logger.Debug("Pipeline store DSN", slog.String("dsn", j.postgresContainer.GetDSN()))
-		db, err := storage.NewPipelineStore(context.Background(), j.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil)
+		db, err := storage.NewPipelineStore(context.Background(), j.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil, internal.RoleJoin)
 		if err != nil {
 			return fmt.Errorf("create pipeline store: %w", err)
 		}
