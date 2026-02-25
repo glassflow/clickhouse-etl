@@ -31,8 +31,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      pipeline_id: response.data.pipeline_id,
-      status: 'active',
+      pipeline: {
+        pipeline_id: response.data.pipeline_id,
+        status: 'active',
+        ...response.data,
+      },
     })
   } catch (error: unknown) {
     if (axios.isAxiosError(error) && error.response) {

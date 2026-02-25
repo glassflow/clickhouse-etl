@@ -419,12 +419,16 @@ export class V2PipelineAdapter implements PipelineAdapter {
             }
           })
         }
-        // Filter: include all topic fields so ingestor can validate the filter expression
+        // Filter: include topic fields so ingestor can validate the filter expression.
+        // Skip fields that are already in v2Fields (e.g. as transform outputs) to avoid duplicate schema entries.
         if (internalConfig.filter?.enabled) {
           topics.forEach((topic: any) => {
             const topicFields = (topic.schema?.fields || []).filter((f: any) => !f.isRemoved)
             topicFields.forEach((field: any) => {
-              if (!v2Fields.some((f: any) => f.source_id === topic.name && f.name === field.name)) {
+              const alreadyEmitted =
+                v2Fields.some((f: any) => f.source_id === topic.name && f.name === field.name) ||
+                v2Fields.some((f: any) => f.name === field.name)
+              if (!alreadyEmitted) {
                 const mapping = tableMapping.find(
                   (m: any) => m.source_id === topic.name && m.field_name === field.name,
                 )

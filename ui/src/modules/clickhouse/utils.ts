@@ -222,13 +222,15 @@ export const buildInternalPipelineConfig = ({
             }
           }
 
-          // If the mapped field is a derived transformation output, use transformation ID as source_id
-          // so the column is attributed to the transform in the pipeline schema (same logic as v2 adapter).
+          // If the mapped field is a transformation output (passthrough or computed), use the current
+          // transformation ID as source_id so the column is attributed to the transform in the pipeline
+          // schema. This ensures that when generating V2 config (e.g. after upload), table_mapping rows
+          // match the adapter's transformationId and schema.fields get column_name/column_type.
           if (transformationStore?.transformationConfig?.enabled && transformationStore.transformationConfig?.fields?.length > 0) {
-            const derivedField = transformationStore.transformationConfig.fields.find(
-              (f: any) => f.outputFieldName === mapping.eventField && f.type !== 'passthrough',
+            const transformOutputField = transformationStore.transformationConfig.fields.find(
+              (f: any) => f.outputFieldName === mapping.eventField,
             )
-            if (derivedField) {
+            if (transformOutputField) {
               const baseName = (pipelineName || 'transform').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-transform$/, '')
               sourceId = `${baseName}-transform`
             }

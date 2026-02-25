@@ -198,7 +198,11 @@ export const createPipeline = async (pipelineData: Partial<Pipeline>): Promise<P
     const data = await response.json()
 
     if (data.success) {
-      return data.pipeline
+      const pipeline = data.pipeline ?? {
+        pipeline_id: data.pipeline_id,
+        status: data.status || 'active',
+      }
+      return pipeline
     } else {
       throw { code: response.status, message: data.error || 'Failed to create pipeline' } as ApiError
     }
